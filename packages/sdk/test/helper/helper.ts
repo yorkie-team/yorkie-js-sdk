@@ -319,7 +319,7 @@ export function versionVectorHelper(
       return false;
     }
 
-    if (vvLamport === lamport) {
+    if (vvLamport !== lamport) {
       return false;
     }
   }

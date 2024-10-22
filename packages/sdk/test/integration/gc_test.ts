@@ -5,7 +5,6 @@ import {
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { MaxVersionVector, versionVectorHelper } from '../helper/helper';
-import Long from 'long';
 
 describe('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
@@ -82,15 +81,15 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -117,7 +116,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -128,8 +127,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -137,8 +136,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -148,8 +147,8 @@ describe('Garbage Collection', function () {
     }, 'removes 2');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -160,8 +159,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -171,8 +170,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -182,8 +181,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -193,8 +192,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -204,8 +203,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -236,15 +235,15 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -256,7 +255,7 @@ describe('Garbage Collection', function () {
     }, 'sets 1, 2, 3');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -267,8 +266,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -276,8 +275,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -287,8 +286,8 @@ describe('Garbage Collection', function () {
     }, 'removes 2');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -298,8 +297,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -309,8 +308,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -320,8 +319,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -332,8 +331,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -343,8 +342,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -373,15 +372,15 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -394,7 +393,7 @@ describe('Garbage Collection', function () {
     }, 'sets text');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -404,8 +403,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -413,8 +412,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -426,8 +425,8 @@ describe('Garbage Collection', function () {
     }, 'edit text type elements');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -437,8 +436,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -448,8 +447,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -459,8 +458,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -470,8 +469,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -481,8 +480,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -519,15 +518,15 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -543,7 +542,7 @@ describe('Garbage Collection', function () {
     }, 'sets 1, 2, 3, 4, 5');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -554,8 +553,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -563,8 +562,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -576,8 +575,8 @@ describe('Garbage Collection', function () {
     }, 'removes 2 and edit text type elements');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -587,8 +586,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -604,7 +603,7 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -629,7 +628,7 @@ describe('Garbage Collection', function () {
     await cli.attach(doc, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(1) },
+        { actor: cli.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -638,7 +637,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(2) },
+        { actor: cli.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -647,7 +646,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(3) },
+        { actor: cli.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -656,7 +655,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(4) },
+        { actor: cli.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -676,7 +675,7 @@ describe('Garbage Collection', function () {
     await cli.attach(doc, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(1) },
+        { actor: cli.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -686,7 +685,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(2) },
+        { actor: cli.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -696,7 +695,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(3) },
+        { actor: cli.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -706,7 +705,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc.getVersionVector(), [
-        { actor: cli.getID()!, lamport: Long.fromNumber(4) },
+        { actor: cli.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -733,21 +732,21 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     doc1.update((root) => (root.point = { x: 0, y: 0 }));
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
     doc1.update((root) => (root.point.x = 1));
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -756,7 +755,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -764,8 +763,8 @@ describe('Garbage Collection', function () {
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -773,8 +772,8 @@ describe('Garbage Collection', function () {
     doc2.update((root) => (root.point.x = 2));
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -783,7 +782,7 @@ describe('Garbage Collection', function () {
     doc1.update((root) => (root.point = { x: 3, y: 3 }));
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -791,8 +790,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -801,8 +800,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -811,8 +810,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -820,8 +819,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(6) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -867,15 +866,15 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -886,7 +885,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -895,7 +894,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -904,7 +903,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -913,23 +912,23 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(6) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -942,32 +941,32 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(8) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -980,16 +979,16 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -999,16 +998,16 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(9) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(9) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1036,15 +1035,15 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -1062,7 +1061,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -1074,7 +1073,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -1086,7 +1085,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1098,23 +1097,23 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(6) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1130,24 +1129,24 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(8) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
       ]),
       true,
     );
@@ -1159,16 +1158,16 @@ describe('Garbage Collection', function () {
     });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1178,16 +1177,16 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(9) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(9) },
       ]),
       true,
     );
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1197,8 +1196,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(9) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(9) },
       ]),
       true,
     );
@@ -1208,8 +1207,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1233,7 +1232,7 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1241,8 +1240,8 @@ describe('Garbage Collection', function () {
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -1255,7 +1254,7 @@ describe('Garbage Collection', function () {
     }, 'sets text');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -1263,8 +1262,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1272,8 +1271,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -1283,8 +1282,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1294,8 +1293,8 @@ describe('Garbage Collection', function () {
     }, 'delete bd');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1306,8 +1305,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1315,8 +1314,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -1329,8 +1328,8 @@ describe('Garbage Collection', function () {
     }, 'insert 1');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1338,8 +1337,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(4) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1350,8 +1349,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1378,7 +1377,7 @@ describe('Garbage Collection', function () {
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1386,8 +1385,8 @@ describe('Garbage Collection', function () {
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(1) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -1400,7 +1399,7 @@ describe('Garbage Collection', function () {
     }, 'insert ab');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
       ]),
       true,
     );
@@ -1408,8 +1407,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(3) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(1) },
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
       ]),
       true,
     );
@@ -1417,8 +1416,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(3) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
       ]),
       true,
     );
@@ -1429,8 +1428,8 @@ describe('Garbage Collection', function () {
     }, 'insert d');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1438,8 +1437,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1447,8 +1446,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(5) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1459,8 +1458,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -1471,8 +1470,8 @@ describe('Garbage Collection', function () {
     }, 'remove ac');
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(6) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(4) },
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1482,8 +1481,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -1491,8 +1490,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(7) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(5) },
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
       ]),
       true,
     );
@@ -1503,8 +1502,8 @@ describe('Garbage Collection', function () {
     }, 'insert 1 (pushonly)');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1512,8 +1511,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1521,8 +1520,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(8) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(6) },
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
       ]),
       true,
     );
@@ -1536,8 +1535,8 @@ describe('Garbage Collection', function () {
     }, 'insert 2 (pushonly)');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(7) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
       ]),
       true,
     );
@@ -1545,8 +1544,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(2) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(7) },
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
       ]),
       true,
     );
@@ -1555,8 +1554,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(6) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(8) },
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
       ]),
       true,
     );
@@ -1564,8 +1563,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(9) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(7) },
+        { actor: client1.getID()!, lamport: BigInt(9) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
       ]),
       true,
     );
@@ -1576,8 +1575,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(6) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(8) },
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
       ]),
       true,
     );
@@ -1588,8 +1587,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
-        { actor: client1.getID()!, lamport: Long.fromNumber(9) },
-        { actor: client2.getID()!, lamport: Long.fromNumber(7) },
+        { actor: client1.getID()!, lamport: BigInt(9) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
       ]),
       true,
     );
