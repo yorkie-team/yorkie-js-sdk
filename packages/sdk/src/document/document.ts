@@ -96,6 +96,23 @@ export interface BroadcastOptions {
 }
 
 /**
+ * `BroadcastOptions` are the options to create a new document.
+ *
+ * @public
+ */
+export interface BroadcastOptions {
+  /**
+   * `error` is called when an error occurs.
+   */
+  error?: ErrorFn;
+
+  /**
+   * `maxRetries` is the maximum number of retries.
+   */
+  maxRetries?: number;
+}
+
+/**
  * `DocumentOptions` are the options to create a new document.
  *
  * @public

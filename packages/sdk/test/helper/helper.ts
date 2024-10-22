@@ -40,7 +40,6 @@ import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
-import Long from 'long';
 
 export type Indexable = Record<string, any>;
 
@@ -122,10 +121,13 @@ export function deepSort(target: any): any {
   if (typeof target === 'object') {
     return Object.keys(target)
       .sort()
-      .reduce((result, key) => {
-        result[key] = deepSort(target[key]);
-        return result;
-      }, {} as Record<string, any>);
+      .reduce(
+        (result, key) => {
+          result[key] = deepSort(target[key]);
+          return result;
+        },
+        {} as Record<string, any>,
+      );
   }
   return target;
 }
@@ -293,7 +295,7 @@ export function MaxVersionVector(actors: Array<string>) {
     actors = [InitialActorID];
   }
 
-  const vector = new Map<string, Long>();
+  const vector = new Map<string, bigint>();
 
   actors.forEach((actor) => {
     vector.set(actor, MaxLamport);
@@ -304,7 +306,7 @@ export function MaxVersionVector(actors: Array<string>) {
 
 export function versionVectorHelper(
   versionVector: VersionVector,
-  actorData: Array<{ actor: string; lamport: Long }>,
+  actorData: Array<{ actor: string; lamport: bigint }>,
 ) {
   if (versionVector.size() !== actorData.length) {
     return false;
@@ -317,7 +319,7 @@ export function versionVectorHelper(
       return false;
     }
 
-    if (!vvLamport.equals(lamport)) {
+    if (vvLamport === lamport) {
       return false;
     }
   }
