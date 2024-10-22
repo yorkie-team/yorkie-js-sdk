@@ -14,6 +14,7 @@ import {
 import {
   EventCollector,
   assertThrowsAsync,
+  Indexable,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
@@ -1181,67 +1182,68 @@ describe('Document', function () {
     describe('With various types', () => {
       interface TestCase {
         name: string;
-        input: JSONElement;
+        input: JSONElement | Indexable;
         expectedJSON: string;
       }
 
       const testCases: Array<TestCase> = [
         {
-          name: 'json.Tree',
+          name: 'tree',
           input: new Tree({
             type: 'doc',
             children: [
               { type: 'p', children: [{ type: 'text', value: 'ab' }] },
             ],
           }),
-          expectedJSON: `{"k":{"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"ab"}]}]}}`,
+          expectedJSON: `{"tree":{"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"ab"}]}]}}`,
         },
         {
-          name: 'json.Text',
+          name: 'text',
           input: new Text(),
-          expectedJSON: `{"k":[]}`,
+          expectedJSON: `{"text":[]}`,
         },
         {
-          name: 'json.Counter',
+          name: 'counter',
           input: new Counter(CounterType.IntegerCnt, 1),
-          expectedJSON: `{"k":1}`,
+          expectedJSON: `{"counter":1}`,
         },
         {
           name: 'null',
           input: null,
-          expectedJSON: `{"k":null}`,
+          expectedJSON: `{"null":null}`,
         },
         {
           name: 'boolean',
           input: true,
-          expectedJSON: `{"k":true}`,
+          expectedJSON: `{"boolean":true}`,
         },
         {
           name: 'number',
           input: 1,
-          expectedJSON: `{"k":1}`,
+          expectedJSON: `{"number":1}`,
         },
         {
-          name: 'Long',
+          name: 'long',
           input: Long.MAX_VALUE,
-          expectedJSON: `{"k":9223372036854775807}`,
+          expectedJSON: `{"long":9223372036854775807}`,
         },
         {
-          name: 'Object',
+          name: 'object',
           input: { k: 'v' },
-          expectedJSON: `{"k":{"k":"v"}}`,
+          expectedJSON: `{"object":{"k":"v"}}`,
         },
         {
-          name: 'Array',
+          name: 'array',
           input: [1, 2],
-          expectedJSON: `{"k":[1,2]}`,
+          expectedJSON: `{"array":[1,2]}`,
         },
+        // TODO(hackerwins): We need to consider the case where the value is
+        // a byte array and a date.
         {
-          name: 'Bytes',
+          name: 'bytes',
           input: new Uint8Array([1, 2]),
-          expectedJSON: `{"k":1,2}`,
+          expectedJSON: `{"bytes":1,2}`,
         },
-        // TODO(hackerwins): Encode Date type to JSON
         // {
         //   name: 'Date',
         //   input: new Date(0),
@@ -1249,18 +1251,32 @@ describe('Document', function () {
         // },
       ];
 
-      for (const { name: caseName, input, expectedJSON } of testCases) {
-        it(`Can support various types: ${caseName}`, async function ({ task }) {
+      for (const { name: name, input, expectedJSON } of testCases) {
+        it(`Can support various types: ${name}`, async function ({ task }) {
           const c1 = new yorkie.Client(testRPCAddr);
           await c1.activate();
           const docKey = toDocKey(
-            `${task.name}-${caseName}-${new Date().getTime()}`,
+            `${task.name}-${name}-${new Date().getTime()}`,
           );
-          const doc = new yorkie.Document(docKey);
+
+          type docType = {
+            tree?: Tree;
+            text?: Text;
+            counter?: Counter;
+            null?: null;
+            boolean?: boolean;
+            number?: number;
+            long?: Long;
+            object?: Object;
+            array?: Array<JSONElement>;
+            bytes?: Uint8Array;
+            // date: Date;
+          };
+          const doc = new yorkie.Document<docType>(docKey);
 
           await c1.attach(doc, {
             initialRoot: {
-              k: input,
+              [name]: input,
             },
           });
           assert.equal(doc.toSortedJSON(), expectedJSON);

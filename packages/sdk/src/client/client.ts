@@ -372,8 +372,8 @@ export class Client {
             doc.update((root) => {
               for (const [k, v] of Object.entries(options.initialRoot!)) {
                 if (!crdtObject.get(k)) {
-                  // TODO(hackerwins): type cast
-                  (root as Record<string, unknown>)[k] = v;
+                  // TODO(raararaara): Need a way to accurately infer the type of `k` for indexing.
+                  root[k as keyof T] = v;
                 }
               }
             });
