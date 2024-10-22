@@ -4,7 +4,6 @@ import yorkie, {
   Text,
   JSONArray,
   SyncMode,
-  PrimitiveValue,
   Tree,
   JSONElement,
 } from '@yorkie-js-sdk/src/yorkie';
@@ -25,8 +24,7 @@ import {
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
-import {LeafElement} from "@yorkie-js-sdk/src/document/json/element";
-import Long from "long";
+import Long from 'long';
 
 describe('Document', function () {
   afterEach(() => {
