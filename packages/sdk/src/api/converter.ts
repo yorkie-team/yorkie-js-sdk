@@ -185,7 +185,7 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
 /**
  * `toVersionVector` converts the given model to Protobuf format.
  */
-function toVersionVector(vector: VersionVector): PbVersionVector | undefined {
+function toVersionVector(vector?: VersionVector): PbVersionVector | undefined {
   if (!vector) {
     return;
   }
@@ -799,7 +799,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     isRemoved: pack.getIsRemoved(),
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
-    versionVector: toVersionVector(pack.getVersionVector()!),
+    versionVector: toVersionVector(pack.getVersionVector()),
     minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
 }
