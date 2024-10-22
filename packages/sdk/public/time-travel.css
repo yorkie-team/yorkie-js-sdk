@@ -1,0 +1,28 @@
+#change-history-list {
+  display: flex;
+  flex-wrap: wrap;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+#change-history-list > span {
+  display: inline-block;
+  padding: 2px 5px;
+  margin: 0 2px;
+  border-radius: 3px;
+}
+
+#change-history-list > span.local {
+  background-color: yellow;
+  color: black;
+}
+
+#change-history-list > span.remote {
+  background-color: blue;
+  color: white;
+}
+
+#change-history-list > span.covered {
+  font-weight: bold;
+  border: 1px solid red;
+}

@@ -320,7 +320,7 @@ export interface SnapshotEvent extends BaseDocEvent {
    * enum {@link DocEventType}.Snapshot
    */
   type: DocEventType.Snapshot;
-  source: OpSource.Remote;
+  source: OpSource.Remote | OpSource.TimeTravel;
   value: { snapshot?: string; serverSeq: string };
 }
 
@@ -466,14 +466,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-  ? CounterOperationInfo
-  : TElement extends Tree
-  ? TreeOperationInfo
-  : TElement extends BaseArray<any>
-  ? ArrayOperationInfo
-  : TElement extends BaseObject<any>
-  ? ObjectOperationInfo
-  : OperationInfo;
+    ? CounterOperationInfo
+    : TElement extends Tree
+      ? TreeOperationInfo
+      : TElement extends BaseArray<any>
+        ? ArrayOperationInfo
+        : TElement extends BaseObject<any>
+          ? ObjectOperationInfo
+          : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -494,24 +494,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-  ? TFirst extends keyof TElement
-    ? TElement[TFirst] extends BaseArray<unknown>
-      ? OperationInfoOfInternal<
-          TElement[TFirst],
-          number,
-          DecreasedDepthOf<TDepth>
-        >
-      : OperationInfoOfInternal<
-          TElement[TFirst],
-          TRest,
-          DecreasedDepthOf<TDepth>
-        >
-    : OperationInfo
-  : TKeyOrPath extends keyof TElement
-  ? TElement[TKeyOrPath] extends BaseArray<unknown>
-    ? ArrayOperationInfo
-    : OperationInfoOfElement<TElement[TKeyOrPath]>
-  : OperationInfo;
+    ? TFirst extends keyof TElement
+      ? TElement[TFirst] extends BaseArray<unknown>
+        ? OperationInfoOfInternal<
+            TElement[TFirst],
+            number,
+            DecreasedDepthOf<TDepth>
+          >
+        : OperationInfoOfInternal<
+            TElement[TFirst],
+            TRest,
+            DecreasedDepthOf<TDepth>
+          >
+      : OperationInfo
+    : TKeyOrPath extends keyof TElement
+      ? TElement[TKeyOrPath] extends BaseArray<unknown>
+        ? ArrayOperationInfo
+        : OperationInfoOfElement<TElement[TKeyOrPath]>
+      : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -519,24 +519,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-  ? 8
-  : Depth extends 8
-  ? 7
-  : Depth extends 7
-  ? 6
-  : Depth extends 6
-  ? 5
-  : Depth extends 5
-  ? 4
-  : Depth extends 4
-  ? 3
-  : Depth extends 3
-  ? 2
-  : Depth extends 2
-  ? 1
-  : Depth extends 1
-  ? 0
-  : -1;
+    ? 8
+    : Depth extends 8
+      ? 7
+      : Depth extends 7
+        ? 6
+        : Depth extends 6
+          ? 5
+          : Depth extends 5
+            ? 4
+            : Depth extends 4
+              ? 3
+              : Depth extends 3
+                ? 2
+                : Depth extends 2
+                  ? 1
+                  : Depth extends 1
+                    ? 0
+                    : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -548,29 +548,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-  ? {
-      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-        ? `${Prefix}${TKey & string}`
-        : TElement[TKey] extends BaseArray<infer TArrayElement>
-        ?
-            | `${Prefix}${TKey & string}`
-            | `${Prefix}${TKey & string}.${number}`
-            | PathOfInternal<
-                TArrayElement,
-                `${Prefix}${TKey & string}.${number}.`,
-                DecreasedDepthOf<Depth>
-              >
-        :
-            | `${Prefix}${TKey & string}`
-            | PathOfInternal<
-                TElement[TKey],
-                `${Prefix}${TKey & string}.`,
-                DecreasedDepthOf<Depth>
-              >;
-    }[keyof TElement]
-  : Prefix extends `${infer TRest}.`
-  ? TRest
-  : Prefix;
+    ? {
+        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+          ? `${Prefix}${TKey & string}`
+          : TElement[TKey] extends BaseArray<infer TArrayElement>
+            ?
+                | `${Prefix}${TKey & string}`
+                | `${Prefix}${TKey & string}.${number}`
+                | PathOfInternal<
+                    TArrayElement,
+                    `${Prefix}${TKey & string}.${number}.`,
+                    DecreasedDepthOf<Depth>
+                  >
+            :
+                | `${Prefix}${TKey & string}`
+                | PathOfInternal<
+                    TElement[TKey],
+                    `${Prefix}${TKey & string}.`,
+                    DecreasedDepthOf<Depth>
+                  >;
+      }[keyof TElement]
+    : Prefix extends `${infer TRest}.`
+      ? TRest
+      : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -594,6 +594,117 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
 >;
 
 /**
+ * `DocumentVersion` represents the version information of a document.
+ *
+ * @public
+ */
+export class DocumentVersion {
+  private serverSeq: Long;
+  private clientSeq: number;
+  private actorID: ActorID;
+
+  constructor(serverSeq?: Long, clientSeq?: number, actorID?: ActorID) {
+    this.serverSeq = serverSeq || Long.MAX_VALUE;
+    this.clientSeq = clientSeq || InitialChangeID.getClientSeq();
+    this.actorID = actorID || InitialChangeID.getActorID();
+  }
+
+  /**
+   * `getServerSeq` returns the server sequence number of this version.
+   */
+  public getServerSeq(): Long {
+    return this.serverSeq;
+  }
+
+  /**
+   * `getClientSeq` returns the client sequence number of this version.
+   */
+  public getClientSeq(): number {
+    return this.clientSeq;
+  }
+
+  /**
+   * `forward` moves the version forward to the given change ID.
+   */
+  public forward(changeID: ChangeID) {
+    if (this.actorID === changeID.getActorID()) {
+      this.clientSeq = Math.max(this.clientSeq, changeID.getClientSeq());
+    } else {
+      if (
+        changeID.hasServerSeq() &&
+        changeID.getServerSeqAsLong().greaterThan(this.serverSeq)
+      ) {
+        this.serverSeq = changeID.getServerSeqAsLong();
+      }
+    }
+  }
+
+  /**
+   * `getActorID` returns the actor ID of this version.
+   */
+  public getActorID(): ActorID {
+    return this.actorID;
+  }
+
+  /**
+   * `setActorID` sets the actor ID of this version.
+   */
+  public setActorID(actorID: ActorID) {
+    this.actorID = actorID;
+  }
+
+  // public getStableID(): string {
+  //   return `${this.clientSeq}-${this.actorID}`;
+  // }
+
+  /**
+   * `coversChangeID` checks if the given change ID is covered by this version.
+   */
+  public coversChangeID(changeID: ChangeID): boolean {
+    // for local changes
+    if (this.actorID === changeID.getActorID()) {
+      return changeID.getClientSeq() <= this.clientSeq;
+    }
+
+    // for remote changes
+    return (
+      changeID.hasServerSeq() &&
+      changeID.getServerSeqAsLong().lessThanOrEqual(this.serverSeq)
+    );
+  }
+
+  /**
+   * `coverChanges` checks if the array of changes is covered by this document version.
+   * array is given as ascending order.
+   */
+  public coverChanges<P extends Indexable>(changes: Array<Change<P>>): boolean {
+    if (changes.length === 0) {
+      return true;
+    }
+    return this.coversChangeID(changes[changes.length - 1].getID());
+  }
+
+  /**
+   * `fromChangeID` creates a new DocumentVersion from the given change ID.
+   */
+  static fromChangeID(changeID: ChangeID): DocumentVersion {
+    // NOTE(junseo): if change is not pushed, its serverSeq is considered as infinite.
+    return new DocumentVersion(
+      changeID.hasServerSeq() ? changeID.getServerSeqAsLong() : Long.MAX_VALUE,
+      changeID.getClientSeq(),
+      changeID.getActorID(),
+    );
+  }
+
+  /**
+   * `toTestString` returns a string for test.
+   */
+  public toTestString(): string {
+    return `(${this.serverSeq.toString()}, ${this.clientSeq}@${this.actorID.slice(-4)})`;
+  }
+}
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  *
@@ -606,7 +717,13 @@ export class Document<T, P extends Indexable = Indexable> {
 
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
+
+  private version: DocumentVersion;
+  private localHistory: Array<Change<P>>;
+  private remoteHistory: Array<Change<P>>;
   private localChanges: Array<Change<P>>;
+
+  private snapshots: Map<string, CRDTRoot>;
 
   private root: CRDTRoot;
   private clone?: {
@@ -652,7 +769,14 @@ export class Document<T, P extends Indexable = Indexable> {
 
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
+
+    this.version = new DocumentVersion();
+
+    this.remoteHistory = [];
+    this.localHistory = [];
     this.localChanges = [];
+
+    this.snapshots = new Map();
 
     this.eventStream = createObservable<TransactionEvent<P>>((observer) => {
       this.eventStreamObserver = observer;
@@ -674,6 +798,173 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getVersion` returns the traveling version of this document.
+   */
+  public getVersion(): DocumentVersion {
+    return this.version;
+  }
+
+  /**
+   * `isLatestVersion` checks if current version of this document is latest.
+   * It's equivalent to `this.version.coverChanges(this.getChangeHistory())`.
+   */
+  public isLatestVersion(): boolean {
+    return (
+      this.version.coverChanges(this.localChanges) &&
+      this.version.coverChanges(this.localHistory) &&
+      this.version.coverChanges(this.remoteHistory)
+    );
+  }
+
+  // public getSnapshot(version: DocumentVersion) {
+  //   const versionID = version.getStableID();
+  //   if (!this.snapshots.has(versionID)) {
+  //     throw new YorkieError(
+  //       Code.ErrInvalidArgument,
+  //       `Snapshot not found: ${versionID}`,
+  //     );
+  //   }
+  //   return this.snapshots.get(versionID)!;
+  // }
+
+  // public createSnapshot(version: DocumentVersion) {
+  //   const versionID = version.getStableID();
+  //   if (this.snapshots.has(versionID)) {
+  //     return;
+  //   }
+  //   const snapshot = this.root.deepcopy();
+  //   this.snapshots.set(versionID, snapshot);
+  // }
+
+  // public gotoSnapshot(version: DocumentVersion) {
+  //   const snapshot = this.getSnapshot(version);
+  //   this.root = snapshot.deepcopy();
+  //   this.version = version;
+  // }
+
+  /**
+   * `timeTravel` moves the document state to the given version.
+   */
+  public timeTravel(version: DocumentVersion) {
+    // 01. get changes such that change <= version
+    const changes = this.getChangesCoveredBy(version);
+
+    // 02. clear state informations (change is already validated when they are applied)
+    // TODO(junseo): old root GC?
+    this.root = CRDTRoot.create();
+    // this.changeID = InitialChangeID;
+    // this.checkpoint = InitialCheckpoint;
+    this.presences = new Map();
+    this.clone = undefined;
+
+    // 03. apply changes to the empty root
+    for (const change of changes) {
+      // TOOD(junseo): filter change.presenceChange
+      // we only need to apply operations
+      this.applyChange(change, OpSource.TimeTravel);
+    }
+
+    // 04. change document metadata about time travel, version, isLatest
+    this.version = version;
+
+    // 05. publish time-travel set event for $.counter, $.todos, ...
+    this.publish([
+      {
+        type: DocEventType.Snapshot,
+        source: OpSource.TimeTravel,
+        value: {
+          serverSeq: this.version.getServerSeq().toString(),
+        },
+      },
+    ]);
+  }
+
+  /**
+   * `mergeChangeLists` merges listA and listB ordered by serverSeq.
+   */
+  public mergeChangeLists(
+    listA: Array<Change<P>>,
+    listB: Array<Change<P>>,
+  ): Array<Change<P>> {
+    const merged = [];
+
+    const iteratorA = listA.values();
+    const iteratorB = listB.values();
+    let changeA = iteratorA.next();
+    let changeB = iteratorB.next();
+
+    while (!changeA.done && !changeB.done) {
+      if (
+        changeA.value
+          .getID()
+          .getServerSeqAsLong()
+          .lessThan(changeB.value.getID().getServerSeqAsLong())
+      ) {
+        merged.push(changeA.value);
+        changeA = iteratorA.next();
+      } else {
+        merged.push(changeB.value);
+        changeB = iteratorB.next();
+      }
+    }
+    while (!changeA.done) {
+      merged.push(changeA.value);
+      changeA = iteratorA.next();
+    }
+    while (!changeB.done) {
+      merged.push(changeB.value);
+      changeB = iteratorB.next();
+    }
+
+    return merged;
+  }
+
+  /**
+   * `getChangeHistoryLen` returns the length of the change history.
+   */
+  public getChangeHistoryLen(): number {
+    return (
+      this.localHistory.length +
+      this.remoteHistory.length +
+      this.localChanges.length
+    );
+  }
+
+  /**
+   * `getVersionFromHistoryIndex` returns the version from the given history index.
+   */
+  public getVersionFromHistoryIndex(idx: number): DocumentVersion {
+    const changes = this.getChangeHistory();
+    if (idx < 0 || idx >= changes.length) {
+      throw new YorkieError(Code.ErrInvalidArgument, `Invalid index: ${idx}`);
+    }
+    return DocumentVersion.fromChangeID(changes[idx].getID());
+  }
+
+  /**
+   * `getChangeHistory` returns change history of this document ordred by serverSeq.
+   * Unpushed changes are considered to have infinite serverSeq.
+   * TODO(junseo): consider pushonly mode.
+   */
+  public getChangeHistory(): Array<Change<P>> {
+    const merged = this.mergeChangeLists(this.localHistory, this.remoteHistory);
+    for (const change of this.localChanges) {
+      merged.push(change);
+    }
+    return merged;
+  }
+
+  /**
+   * `getChangesCoveredBy` returns changes that are covered by the given version.
+   */
+  public getChangesCoveredBy(version: DocumentVersion) {
+    const changes = this.getChangeHistory();
+    return changes.filter((change) => {
+      return version.coversChangeID(change.getID());
+    });
+  }
+
+  /**
    * `update` executes the given updater to update this document.
    */
   public update(
@@ -682,6 +973,14 @@ export class Document<T, P extends Indexable = Indexable> {
   ): void {
     if (this.getStatus() === DocumentStatus.Removed) {
       throw new YorkieError(Code.ErrDocumentRemoved, `${this.key} is removed`);
+    }
+
+    // If the document is traveling version, do nothing.
+    if (!this.isLatestVersion()) {
+      throw new YorkieError(
+        Code.ErrNotReady,
+        'Only latest version can be updated',
+      );
     }
 
     // 01. Update the clone object and create a change.
@@ -741,6 +1040,7 @@ export class Document<T, P extends Indexable = Indexable> {
       }
 
       this.localChanges.push(change);
+      this.version.forward(change.getID());
       if (reverseOps.length > 0) {
         this.internalHistory.pushUndo(reverseOps);
       }
@@ -1154,6 +1454,32 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
+    // 01. Push local changes to local history.
+    // TODO(junseo): consider pushonly mode.
+    const initServerSeq = pack
+      .getCheckpoint()
+      .getServerSeq()
+      .subtract(Long.fromNumber(this.localChanges.length));
+    let counter = 0;
+    for (const change of this.localChanges) {
+      if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
+        break;
+      }
+      counter += 1;
+      const pushedID = ChangeID.of(
+        change.getID().getClientSeq(),
+        change.getID().getLamport(),
+        change.getID().getActorID(),
+        initServerSeq.add(Long.fromNumber(counter)),
+      );
+      const pushedChange = new Change<P>({
+        ...change,
+        id: pushedID,
+      });
+      this.localHistory.push(pushedChange);
+    }
+
+    // 02. Apply snapshot or changes.
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
@@ -1163,14 +1489,18 @@ export class Document<T, P extends Indexable = Indexable> {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
     }
 
-    // 02. Remove local changes applied to server.
-    while (this.localChanges.length) {
-      const change = this.localChanges[0];
-      if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
-        break;
-      }
-      this.localChanges.shift();
-    }
+    // 03. Remove local changes applied to server.
+    this.localChanges = this.localChanges.filter(
+      (change) =>
+        change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq(),
+    );
+    // while (this.localChanges.length) {
+    //   const change = this.localChanges[0];
+    //   if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
+    //     break;
+    //   }
+    //   this.localChanges.shift();
+    // }
 
     // NOTE(hackerwins): If the document has local changes, we need to apply
     // them after applying the snapshot. We need to treat the local changes
@@ -1180,13 +1510,13 @@ export class Document<T, P extends Indexable = Indexable> {
       this.applyChanges(this.localChanges, OpSource.Remote);
     }
 
-    // 03. Update the checkpoint.
+    // 04. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    // 04. Do Garbage collection.
+    // 05. Do Garbage collection.
     this.garbageCollect(pack.getMinSyncedTicket()!);
 
-    // 05. Update the status.
+    // 06. Update the status.
     if (pack.getIsRemoved()) {
       this.applyStatus(DocumentStatus.Removed);
     }
@@ -1260,6 +1590,7 @@ export class Document<T, P extends Indexable = Indexable> {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
+    this.version.setActorID(actorID);
 
     // TODO(hackerwins): If the given actorID is not IntialActorID, we need to
     // update InitialActor of the root and clone.
@@ -1427,6 +1758,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     for (const change of changes) {
+      this.remoteHistory.push(change);
       this.applyChange(change, source);
     }
 
@@ -1443,6 +1775,12 @@ export class Document<T, P extends Indexable = Indexable> {
    * `applyChange` applies the given change into this document.
    */
   public applyChange(change: Change<P>, source: OpSource) {
+    const isTravel = source === OpSource.TimeTravel;
+    const isLatest = this.isLatestVersion();
+    if (!isTravel && !isLatest) {
+      return;
+    }
+
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -1498,7 +1836,13 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
+
+    if (isTravel) {
+      return;
+    }
+    // NOTE(junseo): remote change when version is latest
     this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    this.version.forward(change.getID());
     if (opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       event.push(
