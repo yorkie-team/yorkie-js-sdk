@@ -373,7 +373,7 @@ export class Client {
               for (const [k, v] of Object.entries(options.initialRoot!)) {
                 if (!crdtObject.get(k)) {
                   // TODO(raararaara): Need a way to accurately infer the type of `k` for indexing.
-                  root[k as keyof T] = v;
+                  (root as Record<string, unknown>)[k] = v;
                 }
               }
             });
