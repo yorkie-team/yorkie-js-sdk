@@ -294,10 +294,10 @@ export class Client {
    * this client will synchronize the given document.
    */
   public attach<T, P extends Indexable>(
-    doc: Document<unknown, P>,
+    doc: Document<T, P>,
     options: {
       initialPresence?: P;
-      initialRoot?: P;
+      initialRoot?: T;
       syncMode?: SyncMode;
     } = {},
   ): Promise<Document<T, P>> {
@@ -370,8 +370,9 @@ export class Client {
           const crdtObject = doc.getRootObject();
           if (options.initialRoot) {
             doc.update((root) => {
-              for (const [k, v] of Object.entries(options.initialRoot || {})) {
-                if (crdtObject.get(k) === undefined) {
+              for (const [k, v] of Object.entries(options.initialRoot!)) {
+                if (!crdtObject.get(k)) {
+                  // TODO(hackerwins): type cast
                   (root as Record<string, unknown>)[k] = v;
                 }
               }
