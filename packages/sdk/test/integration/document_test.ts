@@ -1180,16 +1180,14 @@ describe('Document', function () {
 
     describe('With various types', () => {
       interface TestCase {
-        caseName: string;
+        name: string;
         input: JSONElement;
         expectedJSON: string;
       }
 
-      // TODO(raararaara): Need test cases for Double, Bytes, Date, Object, Array
       const testCases: Array<TestCase> = [
-        // Custom CRDT Types
         {
-          caseName: 'json.Tree',
+          name: 'json.Tree',
           input: new Tree({
             type: 'doc',
             children: [
@@ -1199,40 +1197,60 @@ describe('Document', function () {
           expectedJSON: `{"k":{"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"ab"}]}]}}`,
         },
         {
-          caseName: 'json.Text',
+          name: 'json.Text',
           input: new Text(),
           expectedJSON: `{"k":[]}`,
         },
         {
-          caseName: 'json.Counter',
+          name: 'json.Counter',
           input: new Counter(CounterType.IntegerCnt, 1),
           expectedJSON: `{"k":1}`,
         },
-        // Primitives
         {
-          caseName: 'null',
+          name: 'null',
           input: null,
           expectedJSON: `{"k":null}`,
         },
         {
-          caseName: 'boolean',
+          name: 'boolean',
           input: true,
           expectedJSON: `{"k":true}`,
         },
         {
-          caseName: 'number',
+          name: 'number',
           input: 1,
           expectedJSON: `{"k":1}`,
         },
         {
-          caseName: 'Long',
+          name: 'Long',
           input: Long.MAX_VALUE,
           expectedJSON: `{"k":9223372036854775807}`,
         },
+        {
+          name: 'Object',
+          input: { k: 'v' },
+          expectedJSON: `{"k":{"k":"v"}}`,
+        },
+        {
+          name: 'Array',
+          input: [1, 2],
+          expectedJSON: `{"k":[1,2]}`,
+        },
+        {
+          name: 'Bytes',
+          input: new Uint8Array([1, 2]),
+          expectedJSON: `{"k":1,2}`,
+        },
+        // TODO(hackerwins): Encode Date type to JSON
+        // {
+        //   name: 'Date',
+        //   input: new Date(0),
+        //   expectedJSON: `{"k":"1970-01-01T00:00:00.000Z"}`,
+        // },
       ];
 
-      it('Can support various types', async function ({ task }) {
-        for (const { caseName, input, expectedJSON } of testCases) {
+      for (const { name: caseName, input, expectedJSON } of testCases) {
+        it(`Can support various types: ${caseName}`, async function ({ task }) {
           const c1 = new yorkie.Client(testRPCAddr);
           await c1.activate();
           const docKey = toDocKey(
@@ -1248,8 +1266,8 @@ describe('Document', function () {
           assert.equal(doc.toSortedJSON(), expectedJSON);
 
           await c1.deactivate();
-        }
-      });
+        });
+      }
     });
   });
 });

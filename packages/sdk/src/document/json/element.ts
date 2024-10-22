@@ -166,11 +166,6 @@ export function buildCRDTElement(
     } else if (value instanceof Tree) {
       element = CRDTTree.create(value.buildRoot(context), createdAt);
       value.initialize(context, element as CRDTTree);
-    } else if (value instanceof Map) {
-      element = CRDTObject.create(
-        createdAt,
-        ObjectProxy.buildObjectMembersFromMap(context, value!),
-      );
     } else {
       element = CRDTObject.create(
         createdAt,
