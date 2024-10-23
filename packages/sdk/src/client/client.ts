@@ -178,6 +178,14 @@ const DefaultBroadcastOptions = {
 };
 
 /**
+ * `DefaultRequestMaxRetries` limits the maximum number of retry attempts for requests
+ * when a connectRPC error occurs and requires a retry.
+ */
+const DefaultRequestMaxRetries = 3;
+const DefaultRequestRetryDelay = 1000;
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
@@ -256,22 +264,35 @@ export class Client {
     );
 
     return this.enqueueTask(async () => {
-      return this.rpcClient!.activateClient(
-        { clientKey: this.key },
-        { headers: { 'x-shard-key': this.apiKey } },
-      )
-        .then((res) => {
-          this.id = res.clientId;
-          this.status = ClientStatus.Activated;
-          this.runSyncLoop();
+      const requestActivateClient = async (retryCount = 0): Promise<void> => {
+        return this.rpcClient!.activateClient(
+          { clientKey: this.key },
+          { headers: { 'x-shard-key': this.apiKey } },
+        )
+          .then((res) => {
+            this.id = res.clientId;
+            this.status = ClientStatus.Activated;
+            this.runSyncLoop();
+            logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}`);
+          })
+          .catch(async (err) => {
+            if (retryCount >= DefaultRequestMaxRetries) {
+              logger.error(
+                `[AC] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded`,
+              );
+              throw err;
+            }
 
-          logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
-        })
-        .catch((err) => {
-          logger.error(`[AC] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
-          throw err;
-        });
+            if (await this.handleConnectError(err)) {
+              await delay(DefaultRequestRetryDelay);
+              return requestActivateClient(retryCount + 1);
+            }
+
+            logger.error(`[AC] c:"${this.getKey()}" err :`, err);
+            throw err;
+          });
+      };
+      return requestActivateClient();
     });
   }
 
@@ -284,19 +305,35 @@ export class Client {
     }
 
     return this.enqueueTask(async () => {
-      return this.rpcClient!.deactivateClient(
-        { clientId: this.id! },
-        { headers: { 'x-shard-key': this.apiKey } },
-      )
-        .then(() => {
-          this.deactivateInternal();
-          logger.info(`[DC] c"${this.getKey()}" deactivated`);
-        })
-        .catch((err) => {
-          logger.error(`[DC] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
-          throw err;
-        });
+      const requestDeactivateClient = async (retryCount = 0): Promise<void> => {
+        return this.rpcClient!.deactivateClient(
+          { clientId: this.id! },
+          { headers: { 'x-shard-key': this.apiKey } },
+        )
+          .then(() => {
+            this.deactivateInternal();
+            logger.info(`[DC] c"${this.getKey()}" deactivated`);
+          })
+          .catch(async (err) => {
+            if (retryCount >= DefaultRequestMaxRetries) {
+              logger.error(
+                `[DC] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded, id:"${
+                  this.id
+                }`,
+              );
+              throw err;
+            }
+
+            if (await this.handleConnectError(err)) {
+              await delay(DefaultRequestRetryDelay);
+              return requestDeactivateClient(retryCount + 1);
+            }
+
+            logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+            throw err;
+          });
+      };
+      return requestDeactivateClient();
     });
   }
 
@@ -344,44 +381,64 @@ export class Client {
 
     const syncMode = options.syncMode ?? SyncMode.Realtime;
     return this.enqueueTask(async () => {
-      return this.rpcClient!.attachDocument(
-        {
-          clientId: this.id!,
-          changePack: converter.toChangePack(doc.createChangePack()),
-        },
-        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-      )
-        .then(async (res) => {
-          const pack = converter.fromChangePack<P>(res.changePack!);
-          doc.applyChangePack(pack);
-          if (doc.getStatus() === DocumentStatus.Removed) {
+      const requestAttachDocument = async (
+        retryCount = 0,
+      ): Promise<Document<T, P>> => {
+        return this.rpcClient!.attachDocument(
+          {
+            clientId: this.id!,
+            changePack: converter.toChangePack(doc.createChangePack()),
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        )
+          .then(async (res) => {
+            const pack = converter.fromChangePack<P>(res.changePack!);
+            doc.applyChangePack(pack);
+            if (doc.getStatus() === DocumentStatus.Removed) {
+              return doc;
+            }
+
+            doc.applyStatus(DocumentStatus.Attached);
+            this.attachmentMap.set(
+              doc.getKey(),
+              new Attachment(
+                this.reconnectStreamDelay,
+                doc,
+                res.documentId,
+                syncMode,
+                unsubscribeBroacastEvent,
+              ),
+            );
+
+            if (syncMode !== SyncMode.Manual) {
+              await this.runWatchLoop(doc.getKey());
+            }
+
+            logger.info(
+              `[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`,
+            );
             return doc;
-          }
+          })
+          .catch(async (err) => {
+            if (retryCount >= DefaultRequestMaxRetries) {
+              logger.error(
+                `[AD] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded, id:"${
+                  this.id
+                }`,
+              );
+              throw err;
+            }
 
-          doc.applyStatus(DocumentStatus.Attached);
-          this.attachmentMap.set(
-            doc.getKey(),
-            new Attachment(
-              this.reconnectStreamDelay,
-              doc,
-              res.documentId,
-              syncMode,
-              unsubscribeBroacastEvent,
-            ),
-          );
+            if (await this.handleConnectError(err)) {
+              await delay(DefaultRequestRetryDelay);
+              return requestAttachDocument(retryCount + 1);
+            }
 
-          if (syncMode !== SyncMode.Manual) {
-            await this.runWatchLoop(doc.getKey());
-          }
-
-          logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
-          return doc;
-        })
-        .catch((err) => {
-          logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
-          throw err;
-        });
+            logger.error(`[AD] c:"${this.getKey()}" err :`, err);
+            throw err;
+          });
+      };
+      return requestAttachDocument();
     });
   }
 
@@ -415,31 +472,51 @@ export class Client {
     doc.update((_, p) => p.clear());
 
     return this.enqueueTask(async () => {
-      return this.rpcClient!.detachDocument(
-        {
-          clientId: this.id!,
-          documentId: attachment.docID,
-          changePack: converter.toChangePack(doc.createChangePack()),
-          removeIfNotAttached: options.removeIfNotAttached ?? false,
-        },
-        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-      )
-        .then((res) => {
-          const pack = converter.fromChangePack<P>(res.changePack!);
-          doc.applyChangePack(pack);
-          if (doc.getStatus() !== DocumentStatus.Removed) {
-            doc.applyStatus(DocumentStatus.Detached);
-          }
-          this.detachInternal(doc.getKey());
+      const requestDetachDocument = async (
+        retryCount = 0,
+      ): Promise<Document<T, P>> => {
+        return this.rpcClient!.detachDocument(
+          {
+            clientId: this.id!,
+            documentId: attachment.docID,
+            changePack: converter.toChangePack(doc.createChangePack()),
+            removeIfNotAttached: options.removeIfNotAttached ?? false,
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        )
+          .then((res) => {
+            const pack = converter.fromChangePack<P>(res.changePack!);
+            doc.applyChangePack(pack);
+            if (doc.getStatus() !== DocumentStatus.Removed) {
+              doc.applyStatus(DocumentStatus.Detached);
+            }
+            this.detachInternal(doc.getKey());
 
-          logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
-          return doc;
-        })
-        .catch((err) => {
-          logger.error(`[DD] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
-          throw err;
-        });
+            logger.info(
+              `[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`,
+            );
+            return doc;
+          })
+          .catch(async (err) => {
+            if (retryCount >= DefaultRequestMaxRetries) {
+              logger.error(
+                `[DD] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded, id:"${
+                  this.id
+                }`,
+              );
+              throw err;
+            }
+
+            if (await this.handleConnectError(err)) {
+              await delay(DefaultRequestRetryDelay);
+              return requestDetachDocument(retryCount + 1);
+            }
+
+            logger.error(`[DD] c:"${this.getKey()}" err :`, err);
+            throw err;
+          });
+      };
+      return requestDetachDocument();
     });
   }
 
@@ -883,60 +960,83 @@ export class Client {
     const { doc, docID } = attachment;
 
     const reqPack = doc.createChangePack();
-    return this.rpcClient!.pushPullChanges(
-      {
-        clientId: this.id!,
-        documentId: docID,
-        changePack: converter.toChangePack(reqPack),
-        pushOnly: syncMode === SyncMode.RealtimePushOnly,
-      },
-      { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-    )
-      .then((res) => {
-        const respPack = converter.fromChangePack<P>(res.changePack!);
+    const requestPushPullChanges = async (
+      retryCount = 0,
+    ): Promise<Document<T, P>> => {
+      return this.rpcClient!.pushPullChanges(
+        {
+          clientId: this.id!,
+          documentId: docID,
+          changePack: converter.toChangePack(reqPack),
+          pushOnly: syncMode === SyncMode.RealtimePushOnly,
+        },
+        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+      )
+        .then((res) => {
+          const respPack = converter.fromChangePack<P>(res.changePack!);
 
-        // NOTE(chacha912, hackerwins): If syncLoop already executed with
-        // PushPull, ignore the response when the syncMode is PushOnly.
-        if (
-          respPack.hasChanges() &&
-          (attachment.syncMode === SyncMode.RealtimePushOnly ||
-            attachment.syncMode === SyncMode.RealtimeSyncOff)
-        ) {
+          // NOTE(chacha912, hackerwins): If syncLoop already executed with
+          // PushPull, ignore the response when the syncMode is PushOnly.
+          if (
+            respPack.hasChanges() &&
+            (attachment.syncMode === SyncMode.RealtimePushOnly ||
+              attachment.syncMode === SyncMode.RealtimeSyncOff)
+          ) {
+            return doc;
+          }
+
+          doc.applyChangePack(respPack);
+          attachment.doc.publish([
+            {
+              type: DocEventType.SyncStatusChanged,
+              value: DocumentSyncStatus.Synced,
+            },
+          ]);
+          // NOTE(chacha912): If a document has been removed, watchStream should
+          // be disconnected to not receive an event for that document.
+          if (doc.getStatus() === DocumentStatus.Removed) {
+            this.detachInternal(doc.getKey());
+          }
+
+          const docKey = doc.getKey();
+          const remoteSize = respPack.getChangeSize();
+          logger.info(
+            `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${reqPack.getChangeSize()} pull:${remoteSize} cp:${respPack
+              .getCheckpoint()
+              .toTestString()}`,
+          );
           return doc;
-        }
+        })
+        .catch(async (err) => {
+          if (retryCount >= DefaultRequestMaxRetries) {
+            doc.publish([
+              {
+                type: DocEventType.SyncStatusChanged,
+                value: DocumentSyncStatus.SyncFailed,
+              },
+            ]);
+            logger.error(
+              `[PP] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded`,
+            );
+            throw err;
+          }
 
-        doc.applyChangePack(respPack);
-        attachment.doc.publish([
-          {
-            type: DocEventType.SyncStatusChanged,
-            value: DocumentSyncStatus.Synced,
-          },
-        ]);
-        // NOTE(chacha912): If a document has been removed, watchStream should
-        // be disconnected to not receive an event for that document.
-        if (doc.getStatus() === DocumentStatus.Removed) {
-          this.detachInternal(doc.getKey());
-        }
+          if (await this.handleConnectError(err)) {
+            await delay(DefaultRequestRetryDelay);
+            return requestPushPullChanges(retryCount + 1);
+          }
 
-        const docKey = doc.getKey();
-        const remoteSize = respPack.getChangeSize();
-        logger.info(
-          `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${reqPack.getChangeSize()} pull:${remoteSize} cp:${respPack
-            .getCheckpoint()
-            .toTestString()}`,
-        );
-        return doc;
-      })
-      .catch((err) => {
-        doc.publish([
-          {
-            type: DocEventType.SyncStatusChanged,
-            value: DocumentSyncStatus.SyncFailed,
-          },
-        ]);
-        logger.error(`[PP] c:"${this.getKey()}" err :`, err);
-        throw err;
-      });
+          doc.publish([
+            {
+              type: DocEventType.SyncStatusChanged,
+              value: DocumentSyncStatus.SyncFailed,
+            },
+          ]);
+          logger.error(`[PP] c:"${this.getKey()}" err :`, err);
+          throw err;
+        });
+    };
+    return requestPushPullChanges();
   }
 
   /**
