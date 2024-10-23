@@ -95,7 +95,7 @@ export class VersionVector {
   public afterOrEqual(other: TimeTicket) {
     const lamport = this.vector.get(other.getActorID());
 
-    if (!lamport) {
+    if (lamport === undefined) {
       return false;
     }
 
@@ -122,7 +122,7 @@ export class VersionVector {
     for (const [actorID] of versionVector) {
       const lamport = this.vector.get(actorID);
 
-      if (lamport) {
+      if (lamport !== undefined) {
         filtered.set(actorID, lamport);
       }
     }

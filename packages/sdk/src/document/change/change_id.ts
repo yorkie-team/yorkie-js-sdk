@@ -131,7 +131,7 @@ export class ChangeID {
   }
 
   /**
-   * `setVersionVector` sets the given actor.
+   * `setVersionVector` sets the given version vector.
    */
   public setVersionVector(versionVector: VersionVector): ChangeID {
     return new ChangeID(
