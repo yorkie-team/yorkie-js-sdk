@@ -62,6 +62,7 @@ export {
   type TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
 export { type ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+export { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 export type {
   OperationInfo,
   TextOperationInfo,
