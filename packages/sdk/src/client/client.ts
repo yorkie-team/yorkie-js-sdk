@@ -882,6 +882,7 @@ export class Client {
     }
 
     this.conditions[ClientCondition.WatchLoop] = true;
+    let retryCount = 0;
     return attachment.runWatchLoop(
       (onDisconnect: () => void): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
@@ -948,6 +949,15 @@ export class Client {
                   err instanceof ConnectError &&
                   errorCodeOf(err) === Code.ErrUnauthenticated
                 ) {
+                  if (retryCount >= this.maxRequestRetries) {
+                    logger.error(
+                      `[WD] c:"${this.getKey()}" max retries (${
+                        this.maxRequestRetries
+                      }) exceeded`,
+                    );
+                    reject(err);
+                    return;
+                  }
                   attachment.doc.publish([
                     {
                       type: DocEventType.AuthError,
@@ -959,6 +969,7 @@ export class Client {
                   ]);
                 }
                 onDisconnect();
+                retryCount++;
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
               }
