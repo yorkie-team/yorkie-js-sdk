@@ -38,6 +38,7 @@ const webhookServer = express();
 const webhookServerPort = 3004;
 let webhookServerInstance: any;
 let apiKey: string;
+let adminToken: string;
 
 const InvalidTokenErrorMessage = 'invalid token';
 const ExpiredTokenErrorMessage = 'expired token';
@@ -86,7 +87,7 @@ describe('Auth Webhook', () => {
       `${testRPCAddr}/yorkie.v1.AdminService/LogIn`,
       { username: testAPIID, password: testAPIPW },
     );
-    const adminToken = loginResponse.data.token;
+    adminToken = loginResponse.data.token;
 
     // Create project
     const projectResponse = await axios.post(
@@ -144,11 +145,13 @@ describe('Auth Webhook', () => {
     await client.deactivate();
   });
 
-  it('should return unauthenticated error for client with invalid token (401)', async () => {
+  it('should return unauthenticated error for client with empty token (401)', async () => {
     // client without token
     const cliWithoutToken = new yorkie.Client(testRPCAddr, {
       apiKey,
+      retryRequestDelay: 0,
     });
+    // fail after 3 retries
     await assertThrowsAsync(
       async () => {
         await cliWithoutToken.activate();
@@ -156,7 +159,9 @@ describe('Auth Webhook', () => {
       ConnectError,
       /^\[unauthenticated\]/i,
     );
+  });
 
+  it('should return unauthenticated error for client with invalid token (401)', async () => {
     // client with invalid token
     const invalidTokenInjector = vi.fn(async () => {
       return 'invalid-token';
@@ -164,7 +169,9 @@ describe('Auth Webhook', () => {
     const cliWithInvalidToken = new yorkie.Client(testRPCAddr, {
       apiKey,
       authTokenInjector: invalidTokenInjector,
+      retryRequestDelay: 0,
     });
+    // fail after 3 retries
     await assertThrowsAsync(
       async () => {
         await cliWithInvalidToken.activate();
@@ -195,20 +202,21 @@ describe('Auth Webhook', () => {
     expect(notAllowedTokenInjector).nthCalledWith(1);
   });
 
-  it('should refresh token and retry when unauthenticated error occurs', async ({
+  it('should refresh token and retry methods when unauthenticated error occurs (in manual sync)', async ({
     task,
   }) => {
-    const TokenExpirationMs = 2000;
+    const TokenExpirationMs = 500;
     const authTokenInjector = vi.fn(async (authErrorMessage) => {
       if (authErrorMessage === ExpiredTokenErrorMessage) {
         return `token-${Date.now() + TokenExpirationMs}`;
       }
-      return `token-${Date.now() - 1000}`; // token expired
+      return `token-${Date.now() - TokenExpirationMs}`; // token expired
     });
     // client with token
     const client = new yorkie.Client(testRPCAddr, {
       apiKey,
       authTokenInjector,
+      retryRequestDelay: 0,
     });
 
     // retry activate
@@ -220,12 +228,23 @@ describe('Auth Webhook', () => {
     const doc = new yorkie.Document<{ k1: string }>(
       toDocKey(`${task.name}-${new Date().getTime()}`),
     );
+    const authErrorEventCollector = new EventCollector<{
+      errorMessage: string;
+      method: string;
+    }>();
+    doc.subscribe('auth-error', (event) => {
+      authErrorEventCollector.add(event.value);
+    });
 
     // retry attach
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
     await client.attach(doc, { syncMode: SyncMode.Manual });
     expect(authTokenInjector).toBeCalledTimes(3);
     expect(authTokenInjector).nthCalledWith(3, ExpiredTokenErrorMessage);
+    await authErrorEventCollector.waitAndVerifyNthEvent(1, {
+      errorMessage: ExpiredTokenErrorMessage,
+      method: 'AttachDocument',
+    });
 
     // retry sync in manual mode
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
@@ -235,31 +254,103 @@ describe('Auth Webhook', () => {
     await client.sync(doc);
     expect(authTokenInjector).toBeCalledTimes(4);
     expect(authTokenInjector).nthCalledWith(4, ExpiredTokenErrorMessage);
-
-    // retry sync in realtime mode
-    await new Promise((res) => setTimeout(res, TokenExpirationMs));
-    await client.changeSyncMode(doc, SyncMode.Realtime);
-    const syncEventCollector = new EventCollector();
-    doc.subscribe('sync', (event) => {
-      syncEventCollector.add(event.value);
+    await authErrorEventCollector.waitAndVerifyNthEvent(2, {
+      errorMessage: ExpiredTokenErrorMessage,
+      method: 'PushPull',
     });
-    doc.update((root) => {
-      root.k1 = 'v2';
-    });
-    await syncEventCollector.waitFor(DocumentSyncStatus.Synced);
-    expect(authTokenInjector).toBeCalledTimes(5);
-    expect(authTokenInjector).nthCalledWith(5, ExpiredTokenErrorMessage);
 
     // retry detach
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
     await client.detach(doc);
-    expect(authTokenInjector).toBeCalledTimes(6);
-    expect(authTokenInjector).nthCalledWith(6, ExpiredTokenErrorMessage);
+    expect(authTokenInjector).toBeCalledTimes(5);
+    expect(authTokenInjector).nthCalledWith(5, ExpiredTokenErrorMessage);
+    await authErrorEventCollector.waitAndVerifyNthEvent(3, {
+      errorMessage: ExpiredTokenErrorMessage,
+      method: 'DetachDocument',
+    });
 
     // retry deactivate
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
     await client.deactivate();
-    expect(authTokenInjector).toBeCalledTimes(7);
-    expect(authTokenInjector).nthCalledWith(7, ExpiredTokenErrorMessage);
+    expect(authTokenInjector).toBeCalledTimes(6);
+    expect(authTokenInjector).nthCalledWith(6, ExpiredTokenErrorMessage);
+  });
+
+  it('should refresh token and retry realtime sync', async ({ task }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      {
+        headers: { Authorization: adminToken },
+      },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://127.0.0.1:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['PushPull'] },
+        },
+      },
+      {
+        headers: { Authorization: adminToken },
+      },
+    );
+
+    const TokenExpirationMs = 500;
+    const authTokenInjector = vi.fn(async (authErrorMessage) => {
+      if (authErrorMessage === ExpiredTokenErrorMessage) {
+        return `token-${Date.now() + TokenExpirationMs}`;
+      }
+      return `token-${Date.now()}`;
+    });
+    // client with token
+    const client = new yorkie.Client(testRPCAddr, {
+      apiKey,
+      authTokenInjector,
+      retryRequestDelay: 0,
+    });
+
+    await client.activate();
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await client.attach(doc);
+
+    // retry realtime sync
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+    const authErrorEventCollector = new EventCollector<{
+      errorMessage: string;
+      method: string;
+    }>();
+    doc.subscribe('auth-error', (event) => {
+      authErrorEventCollector.add(event.value);
+    });
+
+    doc.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    await syncEventCollector.waitFor(DocumentSyncStatus.Synced);
+    await authErrorEventCollector.waitFor({
+      errorMessage: ExpiredTokenErrorMessage,
+      method: 'PushPull',
+    });
+    expect(authTokenInjector).toBeCalledTimes(2);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+
+    await client.detach(doc);
+    await client.deactivate();
   });
 });

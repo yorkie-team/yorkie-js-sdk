@@ -157,6 +157,19 @@ export interface ClientOptions {
    * default value is `1000`(ms).
    */
   reconnectStreamDelay?: number;
+
+  /**
+   * `retryRequestDelay` defines the waiting time between retry attempts.
+   * The default value is `1000`(ms).
+   */
+  retryRequestDelay?: number;
+
+  /**
+   * `maxRequestRetries` limits the maximum number of retry attempts for requests
+   * when a connectRPC error occurs and requires a retry. The default value is 3.
+   * This value must be greater than 0 to enable retry requests after token refresh.
+   */
+  maxRequestRetries?: number;
 }
 
 /**
@@ -166,6 +179,8 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
+  retryRequestDelay: 1000,
+  maxRequestRetries: 3,
 };
 
 /**
@@ -177,12 +192,6 @@ const DefaultBroadcastOptions = {
   maxBackoff: 20000,
 };
 
-/**
- * `DefaultRequestMaxRetries` limits the maximum number of retry attempts for requests
- * when a connectRPC error occurs and requires a retry.
- */
-const DefaultRequestMaxRetries = 3;
-const DefaultRequestRetryDelay = 1000;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -204,6 +213,8 @@ export class Client {
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
+  private retryRequestDelay: number;
+  private maxRequestRetries: number;
 
   private rpcAddr: string;
   private rpcClient?: PromiseClient<typeof YorkieService>;
@@ -229,11 +240,15 @@ export class Client {
       [ClientCondition.WatchLoop]: false,
     };
     this.syncLoopDuration =
-      opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
+      opts.syncLoopDuration ?? DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
-      opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
+      opts.reconnectStreamDelay ?? DefaultClientOptions.reconnectStreamDelay;
     this.retrySyncLoopDelay =
-      opts.retrySyncLoopDelay || DefaultClientOptions.retrySyncLoopDelay;
+      opts.retrySyncLoopDelay ?? DefaultClientOptions.retrySyncLoopDelay;
+    this.retryRequestDelay =
+      opts.retryRequestDelay ?? DefaultClientOptions.retryRequestDelay;
+    this.maxRequestRetries =
+      opts.maxRequestRetries ?? DefaultClientOptions.maxRequestRetries;
     this.rpcAddr = rpcAddr;
 
     this.taskQueue = [];
@@ -276,15 +291,17 @@ export class Client {
             logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}`);
           })
           .catch(async (err) => {
-            if (retryCount >= DefaultRequestMaxRetries) {
+            if (retryCount >= this.maxRequestRetries) {
               logger.error(
-                `[AC] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded`,
+                `[AC] c:"${this.getKey()}" max retries (${
+                  this.maxRequestRetries
+                }) exceeded`,
               );
               throw err;
             }
 
             if (await this.handleConnectError(err)) {
-              await delay(DefaultRequestRetryDelay);
+              await delay(this.retryRequestDelay);
               return requestActivateClient(retryCount + 1);
             }
 
@@ -315,17 +332,17 @@ export class Client {
             logger.info(`[DC] c"${this.getKey()}" deactivated`);
           })
           .catch(async (err) => {
-            if (retryCount >= DefaultRequestMaxRetries) {
+            if (retryCount >= this.maxRequestRetries) {
               logger.error(
-                `[DC] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded, id:"${
-                  this.id
-                }`,
+                `[DC] c:"${this.getKey()}" max retries (${
+                  this.maxRequestRetries
+                }) exceeded, id:"${this.id}`,
               );
               throw err;
             }
 
             if (await this.handleConnectError(err)) {
-              await delay(DefaultRequestRetryDelay);
+              await delay(this.retryRequestDelay);
               return requestDeactivateClient(retryCount + 1);
             }
 
@@ -420,17 +437,31 @@ export class Client {
             return doc;
           })
           .catch(async (err) => {
-            if (retryCount >= DefaultRequestMaxRetries) {
+            if (retryCount >= this.maxRequestRetries) {
               logger.error(
-                `[AD] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded, id:"${
-                  this.id
-                }`,
+                `[AD] c:"${this.getKey()}" max retries (${
+                  this.maxRequestRetries
+                }) exceeded, id:"${this.id}`,
               );
               throw err;
             }
 
             if (await this.handleConnectError(err)) {
-              await delay(DefaultRequestRetryDelay);
+              if (
+                err instanceof ConnectError &&
+                errorCodeOf(err) === Code.ErrUnauthenticated
+              ) {
+                doc.publish([
+                  {
+                    type: DocEventType.AuthError,
+                    value: {
+                      errorMessage: errorMetadataOf(err).message,
+                      method: 'AttachDocument',
+                    },
+                  },
+                ]);
+              }
+              await delay(this.retryRequestDelay);
               return requestAttachDocument(retryCount + 1);
             }
 
@@ -498,17 +529,31 @@ export class Client {
             return doc;
           })
           .catch(async (err) => {
-            if (retryCount >= DefaultRequestMaxRetries) {
+            if (retryCount >= this.maxRequestRetries) {
               logger.error(
-                `[DD] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded, id:"${
-                  this.id
-                }`,
+                `[DD] c:"${this.getKey()}" max retries (${
+                  this.maxRequestRetries
+                }) exceeded, id:"${this.id}`,
               );
               throw err;
             }
 
             if (await this.handleConnectError(err)) {
-              await delay(DefaultRequestRetryDelay);
+              if (
+                err instanceof ConnectError &&
+                errorCodeOf(err) === Code.ErrUnauthenticated
+              ) {
+                doc.publish([
+                  {
+                    type: DocEventType.AuthError,
+                    value: {
+                      errorMessage: errorMetadataOf(err).message,
+                      method: 'DetachDocument',
+                    },
+                  },
+                ]);
+              }
+              await delay(this.retryRequestDelay);
               return requestDetachDocument(retryCount + 1);
             }
 
@@ -899,6 +944,20 @@ export class Client {
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
               if (await this.handleConnectError(err)) {
+                if (
+                  err instanceof ConnectError &&
+                  errorCodeOf(err) === Code.ErrUnauthenticated
+                ) {
+                  attachment.doc.publish([
+                    {
+                      type: DocEventType.AuthError,
+                      value: {
+                        errorMessage: errorMetadataOf(err).message,
+                        method: 'WatchDocuments',
+                      },
+                    },
+                  ]);
+                }
                 onDisconnect();
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
@@ -1008,7 +1067,7 @@ export class Client {
           return doc;
         })
         .catch(async (err) => {
-          if (retryCount >= DefaultRequestMaxRetries) {
+          if (retryCount >= this.maxRequestRetries) {
             doc.publish([
               {
                 type: DocEventType.SyncStatusChanged,
@@ -1016,13 +1075,29 @@ export class Client {
               },
             ]);
             logger.error(
-              `[PP] c:"${this.getKey()}" max retries (${DefaultRequestMaxRetries}) exceeded`,
+              `[PP] c:"${this.getKey()}" max retries (${
+                this.maxRequestRetries
+              }) exceeded`,
             );
             throw err;
           }
 
           if (await this.handleConnectError(err)) {
-            await delay(DefaultRequestRetryDelay);
+            if (
+              err instanceof ConnectError &&
+              errorCodeOf(err) === Code.ErrUnauthenticated
+            ) {
+              doc.publish([
+                {
+                  type: DocEventType.AuthError,
+                  value: {
+                    errorMessage: errorMetadataOf(err).message,
+                    method: 'PushPull',
+                  },
+                },
+              ]);
+            }
+            await delay(this.retryRequestDelay);
             return requestPushPullChanges(retryCount + 1);
           }
 

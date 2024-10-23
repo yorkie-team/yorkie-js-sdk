@@ -200,6 +200,11 @@ export enum DocEventType {
    * `LocalBroadcast` means that the broadcast event is sent from the local client.
    */
   LocalBroadcast = 'local-broadcast',
+
+  /**
+   * `AuthError` means that the authentification error occurs.
+   */
+  AuthError = 'auth-error',
 }
 
 /**
@@ -220,7 +225,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | UnwatchedEvent<P>
   | PresenceChangedEvent<P>
   | BroadcastEvent
-  | LocalBroadcastEvent;
+  | LocalBroadcastEvent
+  | AuthErrorEvent;
 
 /**
  * `TransactionEvent` represents document events that occur within
@@ -412,6 +418,11 @@ export interface LocalBroadcastEvent extends BaseDocEvent {
   options?: BroadcastOptions;
 }
 
+export interface AuthErrorEvent extends BaseDocEvent {
+  type: DocEventType.AuthError;
+  value: { errorMessage: string; method: string };
+}
+
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
     | SnapshotEvent
@@ -431,6 +442,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   sync: NextFn<SyncStatusChangedEvent>;
   broadcast: NextFn<BroadcastEvent>;
   'local-broadcast': NextFn<LocalBroadcastEvent>;
+  'auth-error': NextFn<AuthErrorEvent>;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -467,14 +479,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-  ? CounterOperationInfo
-  : TElement extends Tree
-  ? TreeOperationInfo
-  : TElement extends BaseArray<any>
-  ? ArrayOperationInfo
-  : TElement extends BaseObject<any>
-  ? ObjectOperationInfo
-  : OperationInfo;
+    ? CounterOperationInfo
+    : TElement extends Tree
+      ? TreeOperationInfo
+      : TElement extends BaseArray<any>
+        ? ArrayOperationInfo
+        : TElement extends BaseObject<any>
+          ? ObjectOperationInfo
+          : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -495,24 +507,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-  ? TFirst extends keyof TElement
-    ? TElement[TFirst] extends BaseArray<unknown>
-      ? OperationInfoOfInternal<
-          TElement[TFirst],
-          number,
-          DecreasedDepthOf<TDepth>
-        >
-      : OperationInfoOfInternal<
-          TElement[TFirst],
-          TRest,
-          DecreasedDepthOf<TDepth>
-        >
-    : OperationInfo
-  : TKeyOrPath extends keyof TElement
-  ? TElement[TKeyOrPath] extends BaseArray<unknown>
-    ? ArrayOperationInfo
-    : OperationInfoOfElement<TElement[TKeyOrPath]>
-  : OperationInfo;
+    ? TFirst extends keyof TElement
+      ? TElement[TFirst] extends BaseArray<unknown>
+        ? OperationInfoOfInternal<
+            TElement[TFirst],
+            number,
+            DecreasedDepthOf<TDepth>
+          >
+        : OperationInfoOfInternal<
+            TElement[TFirst],
+            TRest,
+            DecreasedDepthOf<TDepth>
+          >
+      : OperationInfo
+    : TKeyOrPath extends keyof TElement
+      ? TElement[TKeyOrPath] extends BaseArray<unknown>
+        ? ArrayOperationInfo
+        : OperationInfoOfElement<TElement[TKeyOrPath]>
+      : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -520,24 +532,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-  ? 8
-  : Depth extends 8
-  ? 7
-  : Depth extends 7
-  ? 6
-  : Depth extends 6
-  ? 5
-  : Depth extends 5
-  ? 4
-  : Depth extends 4
-  ? 3
-  : Depth extends 3
-  ? 2
-  : Depth extends 2
-  ? 1
-  : Depth extends 1
-  ? 0
-  : -1;
+    ? 8
+    : Depth extends 8
+      ? 7
+      : Depth extends 7
+        ? 6
+        : Depth extends 6
+          ? 5
+          : Depth extends 5
+            ? 4
+            : Depth extends 4
+              ? 3
+              : Depth extends 3
+                ? 2
+                : Depth extends 2
+                  ? 1
+                  : Depth extends 1
+                    ? 0
+                    : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -549,29 +561,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-  ? {
-      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-        ? `${Prefix}${TKey & string}`
-        : TElement[TKey] extends BaseArray<infer TArrayElement>
-        ?
-            | `${Prefix}${TKey & string}`
-            | `${Prefix}${TKey & string}.${number}`
-            | PathOfInternal<
-                TArrayElement,
-                `${Prefix}${TKey & string}.${number}.`,
-                DecreasedDepthOf<Depth>
-              >
-        :
-            | `${Prefix}${TKey & string}`
-            | PathOfInternal<
-                TElement[TKey],
-                `${Prefix}${TKey & string}.`,
-                DecreasedDepthOf<Depth>
-              >;
-    }[keyof TElement]
-  : Prefix extends `${infer TRest}.`
-  ? TRest
-  : Prefix;
+    ? {
+        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+          ? `${Prefix}${TKey & string}`
+          : TElement[TKey] extends BaseArray<infer TArrayElement>
+            ?
+                | `${Prefix}${TKey & string}`
+                | `${Prefix}${TKey & string}.${number}`
+                | PathOfInternal<
+                    TArrayElement,
+                    `${Prefix}${TKey & string}.${number}.`,
+                    DecreasedDepthOf<Depth>
+                  >
+            :
+                | `${Prefix}${TKey & string}`
+                | PathOfInternal<
+                    TElement[TKey],
+                    `${Prefix}${TKey & string}.`,
+                    DecreasedDepthOf<Depth>
+                  >;
+      }[keyof TElement]
+    : Prefix extends `${infer TRest}.`
+      ? TRest
+      : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -893,6 +905,15 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the authentification error occurs.
+   */
+  public subscribe(
+    type: 'auth-error',
+    next: DocEventCallbackMap<P>['auth-error'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -1056,6 +1077,18 @@ export class Document<T, P extends Indexable = Indexable> {
         return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.Broadcast) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'auth-error') {
+        const callback = arg2 as DocEventCallbackMap<P>['auth-error'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.AuthError) {
               continue;
             }
 
