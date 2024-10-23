@@ -4,6 +4,8 @@ import yorkie, {
   Text,
   JSONArray,
   SyncMode,
+  Tree,
+  JSONElement,
 } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -12,6 +14,7 @@ import {
 import {
   EventCollector,
   assertThrowsAsync,
+  Indexable,
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
@@ -21,6 +24,8 @@ import {
 } from '@yorkie-js-sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+import Long from 'long';
 
 describe('Document', function () {
   afterEach(() => {
@@ -1095,6 +1100,190 @@ describe('Document', function () {
         }
       }
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
+    });
+  });
+
+  describe('Document with InitialRoot', function () {
+    it('Can attach with InitialRoot', async function ({ task }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      const c2 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      await c2.activate();
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+
+      // 01. attach and initialize document
+      const doc1 = new yorkie.Document(docKey);
+      await c1.attach(doc1, {
+        initialRoot: {
+          counter: new Counter(CounterType.IntegerCnt, 0),
+          content: { x: 1, y: 1 },
+        },
+      });
+      assert.equal(
+        doc1.toSortedJSON(),
+        '{"content":{"x":1,"y":1},"counter":0}',
+      );
+      await c1.sync();
+
+      // 02. attach and initialize document with new fields and if key already exists, it will be discarded
+      const doc2 = new yorkie.Document(docKey);
+      await c2.attach(doc2, {
+        initialRoot: {
+          counter: new Counter(CounterType.IntegerCnt, 1),
+          content: { x: 1, y: 2 },
+          new: { k: 'v' },
+        },
+      });
+      assert.equal(
+        doc2.toSortedJSON(),
+        '{"content":{"x":1,"y":1},"counter":0,"new":{"k":"v"}}',
+      );
+
+      await c1.deactivate();
+      await c2.deactivate();
+    });
+
+    it('Can handle concurrent attach with InitialRoot', async function ({
+      task,
+    }) {
+      const c1 = new yorkie.Client(testRPCAddr);
+      const c2 = new yorkie.Client(testRPCAddr);
+      await c1.activate();
+      await c2.activate();
+
+      const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+
+      // 01. user1 attach with initialRoot and client doesn't sync
+      const doc1 = new yorkie.Document(docKey);
+      await c1.attach(doc1, { initialRoot: { writer: 'user1' } });
+      assert.equal(doc1.toSortedJSON(), '{"writer":"user1"}');
+
+      // 02. user2 attach with initialRoot and client doesn't sync
+      const doc2 = new yorkie.Document(docKey);
+      await c2.attach(doc2, { initialRoot: { writer: 'user2' } });
+      assert.equal(doc2.toSortedJSON(), '{"writer":"user2"}');
+
+      // 03. user1 sync first and user2 seconds
+      await c1.sync();
+      await c2.sync();
+
+      // 04. user1's local document's writer was user1
+      assert.equal(doc1.toSortedJSON(), '{"writer":"user1"}');
+      assert.equal(doc2.toSortedJSON(), '{"writer":"user2"}');
+
+      // 05. user1's local document's writer is overwritten by user2
+      await c1.sync();
+      assert.equal(doc1.toSortedJSON(), '{"writer":"user2"}');
+
+      await c1.deactivate();
+      await c2.deactivate();
+    });
+
+    describe('With various types', () => {
+      interface TestCase {
+        name: string;
+        input: JSONElement | Indexable;
+        expectedJSON: string;
+      }
+
+      const testCases: Array<TestCase> = [
+        {
+          name: 'tree',
+          input: new Tree({
+            type: 'doc',
+            children: [
+              { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            ],
+          }),
+          expectedJSON: `{"tree":{"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"ab"}]}]}}`,
+        },
+        {
+          name: 'text',
+          input: new Text(),
+          expectedJSON: `{"text":[]}`,
+        },
+        {
+          name: 'counter',
+          input: new Counter(CounterType.IntegerCnt, 1),
+          expectedJSON: `{"counter":1}`,
+        },
+        {
+          name: 'null',
+          input: null,
+          expectedJSON: `{"null":null}`,
+        },
+        {
+          name: 'boolean',
+          input: true,
+          expectedJSON: `{"boolean":true}`,
+        },
+        {
+          name: 'number',
+          input: 1,
+          expectedJSON: `{"number":1}`,
+        },
+        {
+          name: 'long',
+          input: Long.MAX_VALUE,
+          expectedJSON: `{"long":9223372036854775807}`,
+        },
+        {
+          name: 'object',
+          input: { k: 'v' },
+          expectedJSON: `{"object":{"k":"v"}}`,
+        },
+        {
+          name: 'array',
+          input: [1, 2],
+          expectedJSON: `{"array":[1,2]}`,
+        },
+        // TODO(hackerwins): We need to consider the case where the value is
+        // a byte array and a date.
+        {
+          name: 'bytes',
+          input: new Uint8Array([1, 2]),
+          expectedJSON: `{"bytes":1,2}`,
+        },
+        // {
+        //   name: 'Date',
+        //   input: new Date(0),
+        //   expectedJSON: `{"k":"1970-01-01T00:00:00.000Z"}`,
+        // },
+      ];
+
+      for (const { name: name, input, expectedJSON } of testCases) {
+        it(`Can support various types: ${name}`, async function ({ task }) {
+          const c1 = new yorkie.Client(testRPCAddr);
+          await c1.activate();
+          const docKey = toDocKey(
+            `${task.name}-${name}-${new Date().getTime()}`,
+          );
+
+          type DocType = {
+            tree?: Tree;
+            text?: Text;
+            counter?: Counter;
+            null?: null;
+            boolean?: boolean;
+            number?: number;
+            long?: Long;
+            object?: { k: string };
+            array?: Array<JSONElement>;
+            bytes?: Uint8Array;
+            // date: Date;
+          };
+          const doc = new yorkie.Document<DocType>(docKey);
+
+          await c1.attach(doc, {
+            initialRoot: {
+              [name]: input,
+            },
+          });
+          assert.equal(doc.toSortedJSON(), expectedJSON);
+
+          await c1.deactivate();
+        });
+      }
     });
   });
 });

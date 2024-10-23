@@ -16,10 +16,9 @@
 
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
 import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { IndexTreeNode } from '@yorkie-js-sdk/src/util/index_tree';
 import yorkie, { Tree, Text } from '@yorkie-js-sdk/src/yorkie';
-import { timeT } from '@yorkie-js-sdk/test/helper/helper';
+import { MaxVersionVector } from '@yorkie-js-sdk/test/helper/helper';
 import { describe, it, assert } from 'vitest';
 
 // `getNodeLength` returns the number of nodes in the given tree.
@@ -58,7 +57,10 @@ describe('Garbage Collection', function () {
     }, 'deletes 2');
     assert.equal(doc.toSortedJSON(), '{"1":1,"3":3}');
     assert.equal(doc.getGarbageLen(), 4);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 4);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      4,
+    );
     assert.equal(doc.getGarbageLen(), 0);
   });
 
@@ -81,7 +83,10 @@ describe('Garbage Collection', function () {
     }, 'deletes 2');
     assert.equal(doc.toSortedJSON(), '{"1":1,"3":3}');
     assert.equal(doc.getGarbageLen(), 4);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 0);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      0,
+    );
     assert.equal(doc.getGarbageLen(), 4);
   });
 
@@ -96,7 +101,10 @@ describe('Garbage Collection', function () {
       delete root['1'];
     }, 'deletes the array');
 
-    assert.equal(doc.garbageCollect(MaxTimeTicket), size + 1);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      size + 1,
+    );
   });
 
   it('should collect garbage for nested elements', function () {
@@ -114,7 +122,10 @@ describe('Garbage Collection', function () {
     assert.equal(doc.toSortedJSON(), '{"list":[1,3]}');
 
     assert.equal(doc.getGarbageLen(), 1);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 1);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      1,
+    );
     assert.equal(doc.getGarbageLen(), 0);
 
     const root = (doc.getRootObject().get('list') as CRDTArray)
@@ -139,7 +150,7 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(doc.getGarbageLen(), 1);
-    doc.garbageCollect(MaxTimeTicket);
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
 
     assert.equal(
@@ -174,7 +185,10 @@ describe('Garbage Collection', function () {
     assert.equal(doc.toSortedJSON(), '{"k1":[{"val":"c"},{"val":"d"}]}');
     assert.equal(doc.getGarbageLen(), 2);
 
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 2);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      2,
+    );
     assert.equal(doc.getGarbageLen(), 0);
   });
 
@@ -208,7 +222,10 @@ describe('Garbage Collection', function () {
 
     const expectedGarbageLen = 4;
     assert.equal(doc.getGarbageLen(), expectedGarbageLen);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), expectedGarbageLen);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      expectedGarbageLen,
+    );
 
     const empty = 0;
     assert.equal(doc.getGarbageLen(), empty);
@@ -249,7 +266,10 @@ describe('Garbage Collection', function () {
       doc.getRoot().t.getIndexTree().getRoot(),
     );
     assert.equal(doc.getGarbageLen(), 2);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 2);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      2,
+    );
     assert.equal(doc.getGarbageLen(), 0);
     let nodeLengthAfterGC = getNodeLength(
       doc.getRoot().t.getIndexTree().getRoot(),
@@ -266,7 +286,10 @@ describe('Garbage Collection', function () {
       doc.getRoot().t.getIndexTree().getRoot(),
     );
     assert.equal(doc.getGarbageLen(), 1);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 1);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      1,
+    );
     assert.equal(doc.getGarbageLen(), 0);
     nodeLengthAfterGC = getNodeLength(doc.getRoot().t.getIndexTree().getRoot());
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 1);
@@ -284,7 +307,10 @@ describe('Garbage Collection', function () {
       doc.getRoot().t.getIndexTree().getRoot(),
     );
     assert.equal(doc.getGarbageLen(), 5);
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 5);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      5,
+    );
     assert.equal(doc.getGarbageLen(), 0);
     nodeLengthAfterGC = getNodeLength(doc.getRoot().t.getIndexTree().getRoot());
     assert.equal(nodeLengthBeforeGC - nodeLengthAfterGC, 5);
@@ -325,7 +351,10 @@ describe('Garbage Collection', function () {
     assert.equal(doc.getRoot().t.toXML(), `<doc><p><tn></tn></p></doc>`);
     assert.equal(doc.getGarbageLen(), 3);
 
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 3);
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      3,
+    );
     assert.equal(doc.getGarbageLen(), 0);
   });
 
@@ -338,7 +367,10 @@ describe('Garbage Collection', function () {
       delete root.shape;
     });
     assert.equal(doc.getGarbageLen(), 4); // shape, point, x, y
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 4); // The number of GC nodes must also be 4.
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      4,
+    ); // The number of GC nodes must also be 4.
   });
 });
 
@@ -506,14 +538,16 @@ describe('Garbage Collection for tree', () => {
         } else if (code === OpCode.DeleteNode) {
           root.t.edit(0, 2, undefined, 0);
         } else if (code === OpCode.GC) {
-          doc.garbageCollect(MaxTimeTicket);
+          doc.garbageCollect(
+            MaxVersionVector([doc.getChangeID().getActorID()]),
+          );
         }
       });
       assert.equal(doc.getRoot().t.toXML(), expectXML);
       assert.equal(doc.getGarbageLen(), garbageLen);
     }
 
-    doc.garbageCollect(MaxTimeTicket);
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
   });
 });
@@ -597,14 +631,14 @@ describe('Garbage Collection for text', () => {
         } else if (code === OpCode.DeleteNode) {
           root.t.edit(0, 2, '');
         } else if (code === OpCode.GC) {
-          doc.garbageCollect(timeT());
+          doc.garbageCollect(doc.getChangeID().getVersionVector());
         }
       });
       assert.equal(doc.getRoot().t.toJSON(), expectXML);
       assert.equal(doc.getGarbageLen(), garbageLen);
     }
 
-    doc.garbageCollect(MaxTimeTicket);
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
   });
 });

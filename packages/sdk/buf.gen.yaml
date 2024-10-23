@@ -4,9 +4,9 @@ plugins:
     out: .
     opt:
       - target=ts
-      - js_import_style=module
+      - import_extension=none
   - plugin: connect-es
     out: .
     opt:
       - target=ts
-      - js_import_style=module
+      - import_extension=none

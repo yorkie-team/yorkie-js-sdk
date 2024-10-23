@@ -18,6 +18,7 @@ import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js-sdk/src/document/change/change';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '../time/version_vector';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.
@@ -52,11 +53,17 @@ export class ChangePack<P extends Indexable> {
    */
   private minSyncedTicket?: TimeTicket;
 
+  /**
+   * `versionVector` is the version vector current document
+   */
+  private versionVector?: VersionVector;
+
   constructor(
     key: string,
     checkpoint: Checkpoint,
     isRemoved: boolean,
     changes: Array<Change<P>>,
+    versionVector?: VersionVector,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ) {
@@ -66,8 +73,8 @@ export class ChangePack<P extends Indexable> {
     this.changes = changes;
     this.snapshot = snapshot;
     this.minSyncedTicket = minSyncedTicket;
+    this.versionVector = versionVector;
   }
-
   /**
    * `create` creates a new instance of ChangePack.
    */
@@ -76,6 +83,7 @@ export class ChangePack<P extends Indexable> {
     checkpoint: Checkpoint,
     isRemoved: boolean,
     changes: Array<Change<P>>,
+    versionVector?: VersionVector,
     snapshot?: Uint8Array,
     minSyncedTicket?: TimeTicket,
   ): ChangePack<P> {
@@ -84,6 +92,7 @@ export class ChangePack<P extends Indexable> {
       checkpoint,
       isRemoved,
       changes,
+      versionVector,
       snapshot,
       minSyncedTicket,
     );
@@ -150,5 +159,12 @@ export class ChangePack<P extends Indexable> {
    */
   public getMinSyncedTicket(): TimeTicket | undefined {
     return this.minSyncedTicket;
+  }
+
+  /**
+   * `getVersionVector` returns the document's version vector of this pack
+   */
+  public getVersionVector(): VersionVector | undefined {
+    return this.versionVector;
   }
 }

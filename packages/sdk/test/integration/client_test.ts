@@ -526,12 +526,12 @@ describe.sequential('Client', function () {
 
     let checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 1);
-    assert.equal(checkpoint.getServerSeq().toInt(), 1);
+    assert.equal(checkpoint.getServerSeq(), 1n);
 
     await c1.sync();
     checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 2);
-    assert.equal(checkpoint.getServerSeq().toInt(), 2);
+    assert.equal(checkpoint.getServerSeq(), 2n);
 
     // 03. cli update the document with increasing the counter(0 -> 1)
     //     and sync with push-only mode: CP(2, 2) -> CP(3, 2)
@@ -548,7 +548,7 @@ describe.sequential('Client', function () {
     await eventCollector.waitFor(DocumentSyncStatus.Synced);
     checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 3);
-    assert.equal(checkpoint.getServerSeq().toInt(), 2);
+    assert.equal(checkpoint.getServerSeq(), 2n);
     await c1.changeSyncMode(d1, SyncMode.Manual);
 
     // 04. cli update the document with increasing the counter(1 -> 2)
@@ -565,7 +565,7 @@ describe.sequential('Client', function () {
     await c1.sync();
     checkpoint = d1.getCheckpoint();
     assert.equal(checkpoint.getClientSeq(), 4);
-    assert.equal(checkpoint.getServerSeq().toInt(), 4);
+    assert.equal(checkpoint.getServerSeq(), 4n);
     assert.equal(d1.getRoot().counter.getValue(), 2);
 
     unsub();
@@ -897,6 +897,7 @@ describe.sequential('Client', function () {
     await cli.attach(doc);
 
     // broadcast unserializable payload
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     const payload = () => {};
     const broadcastTopic = 'test';
     const broadcastErrMessage = 'payload is not serializable';

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { ConnectError } from '@connectrpc/connect';
 import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
@@ -45,6 +44,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
@@ -79,6 +79,7 @@ import {
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
+  VersionVector as PbVersionVector,
   ValueType as PbValueType,
   JSONElement_Tree as PbJSONElement_Tree,
   JSONElement_Text as PbJSONElement_Text,
@@ -149,7 +150,7 @@ function toPresenceChange(
  */
 function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
   return new PbCheckpoint({
-    serverSeq: checkpoint.getServerSeqAsString(),
+    serverSeq: checkpoint.getServerSeq(),
     clientSeq: checkpoint.getClientSeq(),
   });
 }
@@ -160,8 +161,9 @@ function toCheckpoint(checkpoint: Checkpoint): PbCheckpoint {
 function toChangeID(changeID: ChangeID): PbChangeID {
   return new PbChangeID({
     clientSeq: changeID.getClientSeq(),
-    lamport: changeID.getLamportAsString(),
+    lamport: changeID.getLamport(),
     actorId: toUint8Array(changeID.getActorID()),
+    versionVector: toVersionVector(changeID.getVersionVector()),
   });
 }
 
@@ -174,10 +176,25 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
   }
 
   return new PbTimeTicket({
-    lamport: ticket.getLamportAsString(),
+    lamport: ticket.getLamport(),
     delimiter: ticket.getDelimiter(),
     actorId: toUint8Array(ticket.getActorID()),
   });
+}
+
+/**
+ * `toVersionVector` converts the given model to Protobuf format.
+ */
+function toVersionVector(vector?: VersionVector): PbVersionVector | undefined {
+  if (!vector) {
+    return;
+  }
+
+  const pbVector = new PbVersionVector();
+  for (const [actorID, lamport] of vector) {
+    pbVector.vector[actorID] = BigInt(lamport.toString());
+  }
+  return pbVector;
 }
 
 /**
@@ -781,6 +798,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     isRemoved: pack.getIsRemoved(),
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
+    versionVector: toVersionVector(pack.getVersionVector()),
     minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
 }
@@ -817,17 +835,32 @@ export function errorMetadataOf(error: ConnectError): Record<string, string> {
  * `fromChangeID` converts the given Protobuf format to model format.
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
-  let serverSeq: Long | undefined;
-  if (pbChangeID.serverSeq) {
-    serverSeq = Long.fromString(pbChangeID.serverSeq, true);
-  }
-
+  // TODO(hackerwins): Remove BigInt conversion. Some of the bigint values are
+  // passed as string in the protobuf. We should fix this in the future.
   return ChangeID.of(
     pbChangeID.clientSeq,
-    Long.fromString(pbChangeID.lamport, true),
+    BigInt(pbChangeID.lamport),
     toHexString(pbChangeID.actorId),
-    serverSeq,
+    fromVersionVector(pbChangeID.versionVector)!,
+    BigInt(pbChangeID.serverSeq),
   );
+}
+
+/**
+ * `fromVersionVector` converts the given Protobuf format to model format.
+ */
+function fromVersionVector(
+  pbVersionVector?: PbVersionVector,
+): VersionVector | undefined {
+  if (!pbVersionVector) {
+    return;
+  }
+
+  const vector = new VersionVector();
+  Object.entries(pbVersionVector.vector).forEach(([key, value]) => {
+    vector.set(key, BigInt(value.toString()));
+  });
+  return vector;
 }
 
 /**
@@ -839,7 +872,7 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
   }
 
   return TimeTicket.of(
-    Long.fromString(pbTimeTicket.lamport, true),
+    BigInt(pbTimeTicket.lamport),
     pbTimeTicket.delimiter,
     toHexString(pbTimeTicket.actorId),
   );
@@ -1326,10 +1359,7 @@ function fromChanges<P extends Indexable>(
  * `fromCheckpoint` converts the given Protobuf format to model format.
  */
 function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
-  return Checkpoint.of(
-    Long.fromString(pbCheckpoint.serverSeq, true),
-    pbCheckpoint.clientSeq,
-  );
+  return Checkpoint.of(BigInt(pbCheckpoint.serverSeq), pbCheckpoint.clientSeq);
 }
 
 /**
@@ -1343,6 +1373,7 @@ function fromChangePack<P extends Indexable>(
     fromCheckpoint(pbPack.checkpoint!),
     pbPack.isRemoved,
     fromChanges(pbPack.changes),
+    fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
     fromTimeTicket(pbPack.minSyncedTicket),
   );
@@ -1490,6 +1521,25 @@ function bytesToSnapshot<P extends Indexable>(
 }
 
 /**
+ * `versionVectorToHex` converts the given VersionVector to bytes.
+ */
+function versionVectorToHex(vector: VersionVector): string {
+  const pbVersionVector = toVersionVector(vector)!;
+
+  return bytesToHex(pbVersionVector.toBinary());
+}
+
+/**
+ * `hexToVersionVector` creates a VersionVector from the given bytes.
+ */
+function hexToVersionVector(hex: string): VersionVector {
+  const bytes = hexToBytes(hex);
+  const pbVersionVector = PbVersionVector.fromBinary(bytes);
+
+  return fromVersionVector(pbVersionVector)!;
+}
+
+/**
  * `bytesToObject` creates an JSONObject from the given byte array.
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
@@ -1621,4 +1671,6 @@ export const converter = {
   PbChangeID,
   bytesToChangeID,
   bytesToOperation,
+  versionVectorToHex,
+  hexToVersionVector,
 };

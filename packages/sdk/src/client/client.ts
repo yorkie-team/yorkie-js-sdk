@@ -361,6 +361,7 @@ export class Client {
   public attach<T, P extends Indexable>(
     doc: Document<T, P>,
     options: {
+      initialRoot?: T;
       initialPresence?: P;
       syncMode?: SyncMode;
     } = {},
@@ -434,6 +435,20 @@ export class Client {
             logger.info(
               `[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`,
             );
+
+            const crdtObject = doc.getRootObject();
+            if (options.initialRoot) {
+              const initialRoot = options.initialRoot;
+              doc.update((root) => {
+                for (const [k, v] of Object.entries(initialRoot)) {
+                  if (!crdtObject.has(k)) {
+                    const key = k as keyof T;
+                    root[key] = v as any;
+                  }
+                }
+              });
+            }
+
             return doc;
           })
           .catch(async (err) => {
@@ -1107,9 +1122,9 @@ export class Client {
                   },
                 },
               ]);
+              await delay(this.retryRequestDelay);
+              return requestPushPullChanges(retryCount + 1);
             }
-            await delay(this.retryRequestDelay);
-            return requestPushPullChanges(retryCount + 1);
           }
 
           doc.publish([
