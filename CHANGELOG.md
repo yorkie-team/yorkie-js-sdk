@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.3] - 2024-10-23
+
+### Changed
+
+- Introducing version vector to solve GC problem by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/899
+
 ## [0.5.2] - 2024-10-22
 
 ### Changed
