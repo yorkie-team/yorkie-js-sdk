@@ -229,6 +229,11 @@ export class ChangePack extends Message<ChangePack> {
    */
   isRemoved = false;
 
+  /**
+   * @generated from field: yorkie.v1.VersionVector version_vector = 7;
+   */
+  versionVector?: VersionVector;
+
   constructor(data?: PartialMessage<ChangePack>) {
     super();
     proto3.util.initPartial(data, this);
@@ -243,6 +248,7 @@ export class ChangePack extends Message<ChangePack> {
     { no: 4, name: "changes", kind: "message", T: Change, repeated: true },
     { no: 5, name: "min_synced_ticket", kind: "message", T: TimeTicket },
     { no: 6, name: "is_removed", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 7, name: "version_vector", kind: "message", T: VersionVector },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChangePack {
@@ -341,6 +347,11 @@ export class ChangeID extends Message<ChangeID> {
    */
   actorId = new Uint8Array(0);
 
+  /**
+   * @generated from field: yorkie.v1.VersionVector version_vector = 5;
+   */
+  versionVector?: VersionVector;
+
   constructor(data?: PartialMessage<ChangeID>) {
     super();
     proto3.util.initPartial(data, this);
@@ -353,6 +364,7 @@ export class ChangeID extends Message<ChangeID> {
     { no: 2, name: "server_seq", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 3, name: "lamport", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 4, name: "actor_id", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 5, name: "version_vector", kind: "message", T: VersionVector },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChangeID {
@@ -369,6 +381,43 @@ export class ChangeID extends Message<ChangeID> {
 
   static equals(a: ChangeID | PlainMessage<ChangeID> | undefined, b: ChangeID | PlainMessage<ChangeID> | undefined): boolean {
     return proto3.util.equals(ChangeID, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.VersionVector
+ */
+export class VersionVector extends Message<VersionVector> {
+  /**
+   * @generated from field: map<string, int64> vector = 1;
+   */
+  vector: { [key: string]: bigint } = {};
+
+  constructor(data?: PartialMessage<VersionVector>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.VersionVector";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "vector", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 3 /* ScalarType.INT64 */} },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): VersionVector {
+    return new VersionVector().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): VersionVector {
+    return new VersionVector().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): VersionVector {
+    return new VersionVector().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: VersionVector | PlainMessage<VersionVector> | undefined, b: VersionVector | PlainMessage<VersionVector> | undefined): boolean {
+    return proto3.util.equals(VersionVector, a, b);
   }
 }
 

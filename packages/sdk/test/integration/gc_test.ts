@@ -1,10 +1,10 @@
 import { describe, it, assert } from 'vitest';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import yorkie, { Text, Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { MaxVersionVector, versionVectorHelper } from '../helper/helper';
 
 describe('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
@@ -48,8 +48,18 @@ describe('Garbage Collection', function () {
     assert.equal(doc2.getGarbageLen(), gcNodeLen);
 
     // Actual garbage-collected nodes
-    assert.equal(doc1.garbageCollect(MaxTimeTicket), gcNodeLen);
-    assert.equal(doc2.garbageCollect(MaxTimeTicket), gcNodeLen);
+    assert.equal(
+      doc1.garbageCollect(
+        MaxVersionVector([client1.getID()!, client2.getID()!]),
+      ),
+      gcNodeLen,
+    );
+    assert.equal(
+      doc2.garbageCollect(
+        MaxVersionVector([client1.getID()!, client2.getID()!]),
+      ),
+      gcNodeLen,
+    );
 
     await client1.deactivate();
     await client2.deactivate();
@@ -69,7 +79,20 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root.t = new Tree({
@@ -91,44 +114,100 @@ describe('Garbage Collection', function () {
         ],
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
-    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
 
-    // (1, 0) -> (1, 1): syncedseqs:(0, 0)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
 
     doc2.update((root) => {
       root.t.editByPath([0, 0, 0], [0, 0, 2], { type: 'text', value: 'gh' });
     }, 'removes 2');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 2);
 
     // (1, 1) -> (1, 2): syncedseqs:(0, 1)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 2);
 
-    // (1, 2) -> (2, 2): syncedseqs:(1, 1)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 2);
     assert.equal(doc2.getGarbageLen(), 2);
 
-    // (2, 2) -> (2, 2): syncedseqs:(1, 2)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 2);
     assert.equal(doc2.getGarbageLen(), 2);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 2);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
@@ -154,51 +233,120 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root['1'] = 1;
       root['2'] = [1, 2, 3];
       root['3'] = 3;
     }, 'sets 1, 2, 3');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
-    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
 
-    // (1, 0) -> (1, 1): syncedseqs:(0, 0)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
 
     doc2.update((root) => {
       delete root['2'];
     }, 'removes 2');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 4);
 
-    // (1, 1) -> (1, 2): syncedseqs:(0, 1)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 4);
 
-    // (1, 2) -> (2, 2): syncedseqs:(1, 1)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 4);
     assert.equal(doc2.getGarbageLen(), 4);
 
-    // (2, 2) -> (2, 2): syncedseqs:(1, 2)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 4);
     assert.equal(doc2.getGarbageLen(), 4);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
     await client1.sync();
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 4);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
@@ -222,7 +370,20 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root.text = new Text();
@@ -230,46 +391,100 @@ describe('Garbage Collection', function () {
       root.textWithAttr = new Text();
       root.textWithAttr.edit(0, 0, 'Hello World');
     }, 'sets text');
-
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
-    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
 
-    // (1, 0) -> (1, 1): syncedseqs:(0, 0)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
 
     doc2.update((root) => {
       root.text.edit(0, 1, 'a');
       root.text.edit(1, 2, 'b');
       root.textWithAttr.edit(0, 1, 'a', { b: '1' });
     }, 'edit text type elements');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 3);
 
-    // (1, 1) -> (1, 2): syncedseqs:(0, 1)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 3);
 
-    // (1, 2) -> (2, 2): syncedseqs:(1, 1)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 3);
     assert.equal(doc2.getGarbageLen(), 3);
 
-    // (2, 2) -> (2, 2): syncedseqs:(1, 2)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 3);
     assert.equal(doc2.getGarbageLen(), 3);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 3);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, 2): meet GC condition
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
@@ -301,7 +516,20 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root['1'] = 1;
@@ -312,38 +540,73 @@ describe('Garbage Collection', function () {
       root['5'] = new Text();
       root['5'].edit(0, 0, 'hi');
     }, 'sets 1, 2, 3, 4, 5');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 0);
 
-    // (0, 0) -> (1, 0): syncedseqs:(0, 0)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
 
-    // (1, 0) -> (1, 1): syncedseqs:(0, 0)
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       delete root['2'];
       root['4'].edit(0, 1, 'h');
       root['5'].edit(0, 1, 'h', { b: '1' });
     }, 'removes 2 and edit text type elements');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 6);
     assert.equal(doc2.getGarbageLen(), 0);
 
-    // (1, 1) -> (2, 1): syncedseqs:(1, 0)
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 6);
     assert.equal(doc2.getGarbageLen(), 0);
 
     await client2.detach(doc2);
 
-    // (2, 1) -> (2, 2): syncedseqs:(1, x)
     await client2.sync();
     assert.equal(doc1.getGarbageLen(), 6);
     assert.equal(doc2.getGarbageLen(), 6);
 
-    // (2, 2) -> (2, 2): syncedseqs:(2, x): meet GC condition
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 0);
     assert.equal(doc2.getGarbageLen(), 6);
 
@@ -363,15 +626,39 @@ describe('Garbage Collection', function () {
     await cli.activate();
 
     await cli.attach(doc, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     doc.update((root) => {
       root.point = { x: 0, y: 0 };
     });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
     doc.update((root) => {
       root.point = { x: 1, y: 1 };
     });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
     doc.update((root) => {
       root.point = { x: 2, y: 2 };
     });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc.getGarbageLen(), 6);
     assert.equal(doc.getGarbageLenFromClone(), 6);
   });
@@ -383,21 +670,45 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
     const cli = new yorkie.Client(testRPCAddr);
-    await cli.activate();
 
+    await cli.activate();
     await cli.attach(doc, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     doc.update((root) => {
       root.list = [0, 1, 2];
       root.list.push([3, 4, 5]);
     });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
     assert.equal('{"list":[0,1,2,[3,4,5]]}', doc.toJSON());
     doc.update((root) => {
       delete root.list[1];
     });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
     assert.equal('{"list":[0,2,[3,4,5]]}', doc.toJSON());
     doc.update((root) => {
       delete (root.list[2] as Array<number>)[1];
     });
+    assert.equal(
+      versionVectorHelper(doc.getVersionVector(), [
+        { actor: cli.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal('{"list":[0,2,[3,5]]}', doc.toJSON());
 
     assert.equal(doc.getGarbageLen(), 2);
@@ -419,32 +730,107 @@ describe('Garbage Collection', function () {
     await client2.activate();
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     doc1.update((root) => (root.point = { x: 0, y: 0 }));
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
     doc1.update((root) => (root.point.x = 1));
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getGarbageLen(), 1);
     await client1.sync();
+    assert.equal(doc1.getGarbageLen(), 0);
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
 
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     assert.equal(doc2.getGarbageLen(), 1);
     doc2.update((root) => (root.point.x = 2));
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
     assert.equal(doc2.getGarbageLen(), 2);
 
     doc1.update((root) => (root.point = { x: 3, y: 3 }));
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+    assert.equal(doc1.getGarbageLen(), 3);
     await client1.sync();
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(doc1.getGarbageLen(), 3);
 
     await client1.sync();
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(doc1.getGarbageLen(), 3);
 
     await client2.sync();
-    assert.equal(doc1.getGarbageLen(), 4);
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+    assert.equal(doc1.getGarbageLen(), 3);
     await client1.sync();
-    assert.equal(doc1.getGarbageLen(), 5);
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
+    assert.equal(doc1.getGarbageLen(), 4);
     await client2.sync();
-    assert.equal(doc1.getGarbageLen(), 5);
+    assert.equal(doc1.getGarbageLen(), 4);
     await client1.sync();
     assert.equal(doc1.getGarbageLen(), 0);
+    await client2.sync();
+    assert.equal(doc2.getGarbageLen(), 0);
 
     await client1.deactivate();
     await client2.deactivate();
@@ -460,7 +846,10 @@ describe('Garbage Collection', function () {
       delete root.shape;
     });
     assert.equal(doc.getGarbageLen(), 4); // shape, point, x, y
-    assert.equal(doc.garbageCollect(MaxTimeTicket), 4); // The number of GC nodes must also be 4.
+    assert.equal(
+      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      4,
+    ); // The number of GC nodes must also be 4.
   });
 
   it('Should work properly when there are multiple nodes to be collected in text type', async function ({
@@ -475,23 +864,74 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root.t = new yorkie.Text();
       root.t.edit(0, 0, 'z');
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
     doc1.update((root) => {
       root.t.edit(0, 1, 'a');
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
     doc1.update((root) => {
       root.t.edit(1, 1, 'b');
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     doc1.update((root) => {
       root.t.edit(2, 2, 'd');
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getRoot().t.toString(), 'abd');
     assert.equal(doc2.getRoot().t.toString(), 'abd');
     assert.equal(doc1.getGarbageLen(), 1); // z
@@ -499,23 +939,82 @@ describe('Garbage Collection', function () {
     doc1.update((root) => {
       root.t.edit(2, 2, 'c');
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.sync();
-    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
+      ]),
+      true,
+    );
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
     assert.equal(doc1.getRoot().t.toString(), 'abcd');
     assert.equal(doc2.getRoot().t.toString(), 'abcd');
 
     doc1.update((root) => {
       root.t.edit(1, 3, '');
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getRoot().t.toString(), 'ad');
     assert.equal(doc1.getGarbageLen(), 2); // b,c
 
     await client2.sync();
-    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(9) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    await client2.sync();
+    assert.equal(doc2.getGarbageLen(), 0);
     assert.equal(doc2.getRoot().t.toString(), 'ad');
+    await client1.sync();
     assert.equal(doc1.getGarbageLen(), 0);
 
     await client1.deactivate();
@@ -534,7 +1033,20 @@ describe('Garbage Collection', function () {
     await client1.activate();
     await client2.activate();
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
 
     doc1.update((root) => {
       root.t = new yorkie.Tree({
@@ -547,26 +1059,64 @@ describe('Garbage Collection', function () {
         ],
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
     doc1.update((root) => {
       root.t.editByPath([0], [1], {
         type: 'text',
         value: 'a',
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
     doc1.update((root) => {
       root.t.editByPath([1], [1], {
         type: 'text',
         value: 'b',
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
     doc1.update((root) => {
       root.t.editByPath([2], [2], {
         type: 'text',
         value: 'd',
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getRoot().t.toXML(), '<r>abd</r>');
     assert.equal(doc2.getRoot().t.toXML(), '<r>abd</r>');
     assert.equal(doc1.getGarbageLen(), 1); // z
@@ -577,24 +1127,474 @@ describe('Garbage Collection', function () {
         value: 'c',
       });
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client2.sync();
-    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getRoot().t.toXML(), '<r>abcd</r>');
     assert.equal(doc2.getRoot().t.toXML(), '<r>abcd</r>');
 
     doc1.update((root) => {
       root.t.editByPath([1], [3]);
     });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     assert.equal(doc1.getRoot().t.toXML(), '<r>ad</r>');
     assert.equal(doc1.getGarbageLen(), 2); // b,c
 
     await client2.sync();
-    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(9) },
+      ]),
+      true,
+    );
     await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
     assert.equal(doc2.getRoot().t.toXML(), '<r>ad</r>');
+    assert.equal(doc1.getGarbageLen(), 2);
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(9) },
+      ]),
+      true,
+    );
+    assert.equal(doc2.getRoot().t.toXML(), '<r>ad</r>');
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(doc1.getRoot().t.toXML(), '<r>ad</r>');
     assert.equal(doc1.getGarbageLen(), 0);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
+
+  it('concurrent garbage collection test', async function ({ task }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    doc1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+      root.t.edit(1, 1, 'b');
+      root.t.edit(2, 2, 'c');
+    }, 'sets text');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
+
+    doc2.update((root) => {
+      root.t.edit(2, 2, 'c');
+    }, 'insert c');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    doc1.update((root) => {
+      root.t.edit(1, 3, '');
+    }, 'delete bd');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 2);
+
+    doc2.update((root) => {
+      root.t.edit(2, 2, '1');
+    }, 'insert 1');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 0);
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
+
+  it('concurrent garbage collection test(with pushonly)', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    // d1/vv = [c1:2]
+    doc1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+      root.t.edit(1, 1, 'b');
+    }, 'insert ab');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
+
+    // d2/vv = [c1:2, c2:4]
+    doc2.update((root) => {
+      root.t.edit(2, 2, 'd');
+    }, 'insert d');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    // d2/vv = [c1:2, c2:5]
+    doc2.update((root) => {
+      root.t.edit(2, 2, 'c');
+    }, 'insert c');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
+
+    // c1/vv = [c1:6, c2:4]
+    doc1.update((root) => {
+      root.t.edit(1, 3, '');
+    }, 'remove ac');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    // Sync with PushOnly
+    await client2.changeSyncMode(doc2, SyncMode.RealtimePushOnly);
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
+
+    // d2/vv = [c1:2, c2:6]
+    doc2.update((root) => {
+      root.t.edit(2, 2, '1');
+    }, 'insert 1 (pushonly)');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
+        { actor: client2.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    // c2/vv = [c1:2, c2:7]
+    doc2.update((root) => {
+      root.t.edit(2, 2, '2');
+    }, 'insert 2 (pushonly)');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
+      ]),
+      true,
+    );
+
+    await client2.changeSyncMode(doc2, SyncMode.Manual);
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(9) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 2);
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(6) },
+        { actor: client2.getID()!, lamport: BigInt(8) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(9) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
+      ]),
+      true,
+    );
+
+    assert.equal(doc1.getGarbageLen(), 0);
+    assert.equal(doc2.getGarbageLen(), 0);
 
     await client1.deactivate();
     await client2.deactivate();

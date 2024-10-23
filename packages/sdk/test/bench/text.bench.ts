@@ -1,6 +1,6 @@
 import { Document, Text } from '@yorkie-js-sdk/src/yorkie';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import { assert, bench, describe } from 'vitest';
+import { MaxVersionVector } from '../helper/helper';
 
 const benchmarkTextEditGC = (size: number) => {
   const doc = new Document<{ text: Text }>('test-doc');
@@ -22,7 +22,10 @@ const benchmarkTextEditGC = (size: number) => {
   }, `modify ${size} nodes`);
   // 03. GC
   assert.equal(size, doc.getGarbageLen());
-  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  assert.equal(
+    size,
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+  );
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
 };
@@ -45,7 +48,10 @@ const benchmarkTextSplitGC = (size: number) => {
   }, 'Modify one node multiple times');
   // 03. GC
   assert.equal(size, doc.getGarbageLen());
-  assert.equal(size, doc.garbageCollect(MaxTimeTicket));
+  assert.equal(
+    size,
+    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+  );
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
 };

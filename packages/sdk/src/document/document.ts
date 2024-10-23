@@ -55,7 +55,6 @@ import {
   Checkpoint,
   InitialCheckpoint,
 } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
 import {
   OpSource,
   OperationInfo,
@@ -77,6 +76,7 @@ import {
 import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
 import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { VersionVector } from './time/version_vector';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -321,7 +321,11 @@ export interface SnapshotEvent extends BaseDocEvent {
    */
   type: DocEventType.Snapshot;
   source: OpSource.Remote;
-  value: { snapshot?: string; serverSeq: string };
+  value: {
+    snapshot: string | undefined;
+    serverSeq: string;
+    snapshotVector: string;
+  };
 }
 
 /**
@@ -466,14 +470,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-  ? CounterOperationInfo
-  : TElement extends Tree
-  ? TreeOperationInfo
-  : TElement extends BaseArray<any>
-  ? ArrayOperationInfo
-  : TElement extends BaseObject<any>
-  ? ObjectOperationInfo
-  : OperationInfo;
+    ? CounterOperationInfo
+    : TElement extends Tree
+      ? TreeOperationInfo
+      : TElement extends BaseArray<any>
+        ? ArrayOperationInfo
+        : TElement extends BaseObject<any>
+          ? ObjectOperationInfo
+          : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -494,24 +498,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-  ? TFirst extends keyof TElement
-    ? TElement[TFirst] extends BaseArray<unknown>
-      ? OperationInfoOfInternal<
-          TElement[TFirst],
-          number,
-          DecreasedDepthOf<TDepth>
-        >
-      : OperationInfoOfInternal<
-          TElement[TFirst],
-          TRest,
-          DecreasedDepthOf<TDepth>
-        >
-    : OperationInfo
-  : TKeyOrPath extends keyof TElement
-  ? TElement[TKeyOrPath] extends BaseArray<unknown>
-    ? ArrayOperationInfo
-    : OperationInfoOfElement<TElement[TKeyOrPath]>
-  : OperationInfo;
+    ? TFirst extends keyof TElement
+      ? TElement[TFirst] extends BaseArray<unknown>
+        ? OperationInfoOfInternal<
+            TElement[TFirst],
+            number,
+            DecreasedDepthOf<TDepth>
+          >
+        : OperationInfoOfInternal<
+            TElement[TFirst],
+            TRest,
+            DecreasedDepthOf<TDepth>
+          >
+      : OperationInfo
+    : TKeyOrPath extends keyof TElement
+      ? TElement[TKeyOrPath] extends BaseArray<unknown>
+        ? ArrayOperationInfo
+        : OperationInfoOfElement<TElement[TKeyOrPath]>
+      : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -519,24 +523,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-  ? 8
-  : Depth extends 8
-  ? 7
-  : Depth extends 7
-  ? 6
-  : Depth extends 6
-  ? 5
-  : Depth extends 5
-  ? 4
-  : Depth extends 4
-  ? 3
-  : Depth extends 3
-  ? 2
-  : Depth extends 2
-  ? 1
-  : Depth extends 1
-  ? 0
-  : -1;
+    ? 8
+    : Depth extends 8
+      ? 7
+      : Depth extends 7
+        ? 6
+        : Depth extends 6
+          ? 5
+          : Depth extends 5
+            ? 4
+            : Depth extends 4
+              ? 3
+              : Depth extends 3
+                ? 2
+                : Depth extends 2
+                  ? 1
+                  : Depth extends 1
+                    ? 0
+                    : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -548,29 +552,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-  ? {
-      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-        ? `${Prefix}${TKey & string}`
-        : TElement[TKey] extends BaseArray<infer TArrayElement>
-        ?
-            | `${Prefix}${TKey & string}`
-            | `${Prefix}${TKey & string}.${number}`
-            | PathOfInternal<
-                TArrayElement,
-                `${Prefix}${TKey & string}.${number}.`,
-                DecreasedDepthOf<Depth>
-              >
-        :
-            | `${Prefix}${TKey & string}`
-            | PathOfInternal<
-                TElement[TKey],
-                `${Prefix}${TKey & string}.`,
-                DecreasedDepthOf<Depth>
-              >;
-    }[keyof TElement]
-  : Prefix extends `${infer TRest}.`
-  ? TRest
-  : Prefix;
+    ? {
+        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+          ? `${Prefix}${TKey & string}`
+          : TElement[TKey] extends BaseArray<infer TArrayElement>
+            ?
+                | `${Prefix}${TKey & string}`
+                | `${Prefix}${TKey & string}.${number}`
+                | PathOfInternal<
+                    TArrayElement,
+                    `${Prefix}${TKey & string}.${number}.`,
+                    DecreasedDepthOf<Depth>
+                  >
+            :
+                | `${Prefix}${TKey & string}`
+                | PathOfInternal<
+                    TElement[TKey],
+                    `${Prefix}${TKey & string}.`,
+                    DecreasedDepthOf<Depth>
+                  >;
+      }[keyof TElement]
+    : Prefix extends `${infer TRest}.`
+      ? TRest
+      : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -1154,10 +1158,13 @@ export class Document<T, P extends Indexable = Indexable> {
    * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    if (pack.hasSnapshot()) {
+    const hasSnapshot = pack.hasSnapshot();
+
+    if (hasSnapshot) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
-        pack.getSnapshot(),
+        pack.getVersionVector()!,
+        pack.getSnapshot()!,
       );
     } else if (pack.hasChanges()) {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
@@ -1176,7 +1183,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // them after applying the snapshot. We need to treat the local changes
     // as remote changes because the application should apply the local
     // changes to their own document.
-    if (pack.hasSnapshot()) {
+    if (hasSnapshot) {
       this.applyChanges(this.localChanges, OpSource.Remote);
     }
 
@@ -1184,7 +1191,14 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 04. Do Garbage collection.
-    this.garbageCollect(pack.getMinSyncedTicket()!);
+    if (!hasSnapshot) {
+      this.garbageCollect(pack.getVersionVector()!);
+    }
+
+    // 05. Filter detached client's lamport from version vector
+    if (!hasSnapshot) {
+      this.filterVersionVector(pack.getVersionVector()!);
+    }
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
@@ -1246,7 +1260,13 @@ export class Document<T, P extends Indexable = Indexable> {
   public createChangePack(): ChangePack<P> {
     const changes = Array.from(this.localChanges);
     const checkpoint = this.checkpoint.increaseClientSeq(changes.length);
-    return ChangePack.create(this.key, checkpoint, false, changes);
+    return ChangePack.create(
+      this.key,
+      checkpoint,
+      false,
+      changes,
+      this.getVersionVector(),
+    );
   }
 
   /**
@@ -1318,15 +1338,15 @@ export class Document<T, P extends Indexable = Indexable> {
    *
    * @internal
    */
-  public garbageCollect(ticket: TimeTicket): number {
+  public garbageCollect(minSyncedVersionVector: VersionVector): number {
     if (this.opts.disableGC) {
       return 0;
     }
 
     if (this.clone) {
-      this.clone.root.garbageCollect(ticket);
+      this.clone.root.garbageCollect(minSyncedVersionVector);
     }
-    return this.root.garbageCollect(ticket);
+    return this.root.garbageCollect(minSyncedVersionVector);
   }
 
   /**
@@ -1381,11 +1401,15 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applySnapshot` applies the given snapshot into this document.
    */
-  public applySnapshot(serverSeq: bigint, snapshot?: Uint8Array) {
+  public applySnapshot(
+    serverSeq: bigint,
+    snapshotVector: VersionVector,
+    snapshot?: Uint8Array,
+  ) {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    this.changeID = this.changeID.syncLamport(serverSeq);
+    this.changeID = this.changeID.setClocks(serverSeq, snapshotVector);
 
     // drop clone because it is contaminated.
     this.clone = undefined;
@@ -1395,10 +1419,11 @@ export class Document<T, P extends Indexable = Indexable> {
         type: DocEventType.Snapshot,
         source: OpSource.Remote,
         value: {
+          serverSeq: serverSeq.toString(),
           snapshot: this.isEnableDevtools()
             ? converter.bytesToHex(snapshot)
             : undefined,
-          serverSeq: serverSeq.toString(),
+          snapshotVector: converter.versionVectorToHex(snapshotVector),
         },
       },
     ]);
@@ -1498,7 +1523,7 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
-    this.changeID = this.changeID.syncLamport(change.getID().getLamport());
+    this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length > 0) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       event.push(
@@ -1651,9 +1676,13 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     if (event.type === DocEventType.Snapshot) {
-      const { snapshot, serverSeq } = event.value;
+      const { snapshot, serverSeq, snapshotVector } = event.value;
       if (!snapshot) return;
-      this.applySnapshot(BigInt(serverSeq), converter.hexToBytes(snapshot));
+      this.applySnapshot(
+        BigInt(serverSeq),
+        converter.hexToVersionVector(snapshotVector),
+        converter.hexToBytes(snapshot),
+      );
       return;
     }
 
@@ -1860,6 +1889,15 @@ export class Document<T, P extends Indexable = Indexable> {
     return this.internalHistory.hasUndo() && !this.isUpdating;
   }
 
+  /**
+   * 'filterVersionVector' filters detached client's lamport from version vector.
+   */
+  private filterVersionVector(minSyncedVersionVector: VersionVector) {
+    const versionVector = this.changeID.getVersionVector();
+    const filteredVersionVector = versionVector.filter(minSyncedVersionVector);
+
+    this.changeID = this.changeID.setVersionVector(filteredVersionVector);
+  }
   /**
    * `canRedo` returns whether there are any operations to redo.
    */
@@ -2091,5 +2129,12 @@ export class Document<T, P extends Indexable = Indexable> {
     };
 
     this.publish([broadcastEvent]);
+  }
+
+  /**
+   * `getVersionVector` returns the version vector of document
+   */
+  public getVersionVector() {
+    return this.changeID.getVersionVector();
   }
 }

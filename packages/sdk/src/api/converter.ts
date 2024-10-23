@@ -44,6 +44,7 @@ import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
@@ -78,6 +79,7 @@ import {
   TreeNodes as PbTreeNodes,
   TreePos as PbTreePos,
   TreeNodeID as PbTreeNodeID,
+  VersionVector as PbVersionVector,
   ValueType as PbValueType,
   JSONElement_Tree as PbJSONElement_Tree,
   JSONElement_Text as PbJSONElement_Text,
@@ -161,6 +163,7 @@ function toChangeID(changeID: ChangeID): PbChangeID {
     clientSeq: changeID.getClientSeq(),
     lamport: changeID.getLamport(),
     actorId: toUint8Array(changeID.getActorID()),
+    versionVector: toVersionVector(changeID.getVersionVector()),
   });
 }
 
@@ -177,6 +180,21 @@ function toTimeTicket(ticket?: TimeTicket): PbTimeTicket | undefined {
     delimiter: ticket.getDelimiter(),
     actorId: toUint8Array(ticket.getActorID()),
   });
+}
+
+/**
+ * `toVersionVector` converts the given model to Protobuf format.
+ */
+function toVersionVector(vector?: VersionVector): PbVersionVector | undefined {
+  if (!vector) {
+    return;
+  }
+
+  const pbVector = new PbVersionVector();
+  for (const [actorID, lamport] of vector) {
+    pbVector.vector[actorID] = BigInt(lamport.toString());
+  }
+  return pbVector;
 }
 
 /**
@@ -780,6 +798,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     isRemoved: pack.getIsRemoved(),
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
+    versionVector: toVersionVector(pack.getVersionVector()),
     minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
 }
@@ -810,8 +829,26 @@ function fromChangeID(pbChangeID: PbChangeID): ChangeID {
     pbChangeID.clientSeq,
     BigInt(pbChangeID.lamport),
     toHexString(pbChangeID.actorId),
+    fromVersionVector(pbChangeID.versionVector)!,
     BigInt(pbChangeID.serverSeq),
   );
+}
+
+/**
+ * `fromVersionVector` converts the given Protobuf format to model format.
+ */
+function fromVersionVector(
+  pbVersionVector?: PbVersionVector,
+): VersionVector | undefined {
+  if (!pbVersionVector) {
+    return;
+  }
+
+  const vector = new VersionVector();
+  Object.entries(pbVersionVector.vector).forEach(([key, value]) => {
+    vector.set(key, BigInt(value.toString()));
+  });
+  return vector;
 }
 
 /**
@@ -1324,6 +1361,7 @@ function fromChangePack<P extends Indexable>(
     fromCheckpoint(pbPack.checkpoint!),
     pbPack.isRemoved,
     fromChanges(pbPack.changes),
+    fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
     fromTimeTicket(pbPack.minSyncedTicket),
   );
@@ -1471,6 +1509,25 @@ function bytesToSnapshot<P extends Indexable>(
 }
 
 /**
+ * `versionVectorToHex` converts the given VersionVector to bytes.
+ */
+function versionVectorToHex(vector: VersionVector): string {
+  const pbVersionVector = toVersionVector(vector)!;
+
+  return bytesToHex(pbVersionVector.toBinary());
+}
+
+/**
+ * `hexToVersionVector` creates a VersionVector from the given bytes.
+ */
+function hexToVersionVector(hex: string): VersionVector {
+  const bytes = hexToBytes(hex);
+  const pbVersionVector = PbVersionVector.fromBinary(bytes);
+
+  return fromVersionVector(pbVersionVector)!;
+}
+
+/**
  * `bytesToObject` creates an JSONObject from the given byte array.
  */
 function bytesToObject(bytes?: Uint8Array): CRDTObject {
@@ -1602,4 +1659,6 @@ export const converter = {
   PbChangeID,
   bytesToChangeID,
   bytesToOperation,
+  versionVectorToHex,
+  hexToVersionVector,
 };
