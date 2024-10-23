@@ -1259,7 +1259,7 @@ describe('Document', function () {
             `${task.name}-${name}-${new Date().getTime()}`,
           );
 
-          type docType = {
+          type DocType = {
             tree?: Tree;
             text?: Text;
             counter?: Counter;
@@ -1267,12 +1267,12 @@ describe('Document', function () {
             boolean?: boolean;
             number?: number;
             long?: Long;
-            object?: Object;
+            object?: { k: string };
             array?: Array<JSONElement>;
             bytes?: Uint8Array;
             // date: Date;
           };
-          const doc = new yorkie.Document<docType>(docKey);
+          const doc = new yorkie.Document<DocType>(docKey);
 
           await c1.attach(doc, {
             initialRoot: {

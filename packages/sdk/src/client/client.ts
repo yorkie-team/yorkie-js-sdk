@@ -296,8 +296,8 @@ export class Client {
   public attach<T, P extends Indexable>(
     doc: Document<T, P>,
     options: {
-      initialPresence?: P;
       initialRoot?: T;
+      initialPresence?: P;
       syncMode?: SyncMode;
     } = {},
   ): Promise<Document<T, P>> {
@@ -369,11 +369,12 @@ export class Client {
 
           const crdtObject = doc.getRootObject();
           if (options.initialRoot) {
+            const initialRoot = options.initialRoot;
             doc.update((root) => {
-              for (const [k, v] of Object.entries(options.initialRoot!)) {
-                if (!crdtObject.get(k)) {
-                  // TODO(raararaara): Need a way to accurately infer the type of `k` for indexing.
-                  (root as Record<string, unknown>)[k] = v;
+              for (const [k, v] of Object.entries(initialRoot)) {
+                if (!crdtObject.has(k)) {
+                  const key = k as keyof T;
+                  root[key] = v as any;
                 }
               }
             });
