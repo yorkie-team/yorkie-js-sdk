@@ -38,6 +38,7 @@ import express from 'express';
 const webhookServer = express();
 const webhookServerPort = 3004;
 let webhookServerInstance: any;
+let webhookServerAddress: string;
 let apiKey: string;
 let adminToken: string;
 
@@ -81,7 +82,13 @@ webhookServer.post('/auth-webhook', express.json(), (req, res) => {
 describe('Auth Webhook', () => {
   beforeAll(async () => {
     // Start webhook server
-    webhookServerInstance = webhookServer.listen(webhookServerPort);
+    webhookServerInstance = webhookServer.listen(webhookServerPort, () => {
+      const addr = webhookServerInstance.address();
+      webhookServerAddress =
+        addr.address === '::' || addr.address === '0.0.0.0'
+          ? 'localhost'
+          : addr.address;
+    });
 
     // Login to yorkie
     const loginResponse = await axios.post(
@@ -107,7 +114,7 @@ describe('Auth Webhook', () => {
       {
         id: projectId,
         fields: {
-          auth_webhook_url: `http://127.0.0.1:${webhookServerPort}/auth-webhook`,
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
         },
       },
       {
@@ -295,7 +302,7 @@ describe('Auth Webhook', () => {
       {
         id: projectId,
         fields: {
-          auth_webhook_url: `http://127.0.0.1:${webhookServerPort}/auth-webhook`,
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: ['PushPull'] },
         },
       },
@@ -373,7 +380,7 @@ describe('Auth Webhook', () => {
       {
         id: projectId,
         fields: {
-          auth_webhook_url: `http://127.0.0.1:${webhookServerPort}/auth-webhook`,
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: ['WatchDocuments'] },
         },
       },
