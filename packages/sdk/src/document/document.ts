@@ -199,6 +199,11 @@ export enum DocEventType {
    * `LocalBroadcast` means that the broadcast event is sent from the local client.
    */
   LocalBroadcast = 'local-broadcast',
+
+  /**
+   * `AuthError` means that the authentification error occurs.
+   */
+  AuthError = 'auth-error',
 }
 
 /**
@@ -219,7 +224,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | UnwatchedEvent<P>
   | PresenceChangedEvent<P>
   | BroadcastEvent
-  | LocalBroadcastEvent;
+  | LocalBroadcastEvent
+  | AuthErrorEvent;
 
 /**
  * `TransactionEvent` represents document events that occur within
@@ -415,6 +421,14 @@ export interface LocalBroadcastEvent extends BaseDocEvent {
   options?: BroadcastOptions;
 }
 
+export interface AuthErrorEvent extends BaseDocEvent {
+  type: DocEventType.AuthError;
+  value: {
+    errorMessage: string;
+    method: 'AttachDocument' | 'DetachDocument' | 'PushPull' | 'WatchDocuments';
+  };
+}
+
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
     | SnapshotEvent
@@ -434,6 +448,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   sync: NextFn<SyncStatusChangedEvent>;
   broadcast: NextFn<BroadcastEvent>;
   'local-broadcast': NextFn<LocalBroadcastEvent>;
+  'auth-error': NextFn<AuthErrorEvent>;
   all: NextFn<TransactionEvent<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -896,6 +911,15 @@ export class Document<T, P extends Indexable = Indexable> {
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the authentification error occurs.
+   */
+  public subscribe(
+    type: 'auth-error',
+    next: DocEventCallbackMap<P>['auth-error'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -1059,6 +1083,18 @@ export class Document<T, P extends Indexable = Indexable> {
         return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.Broadcast) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'auth-error') {
+        const callback = arg2 as DocEventCallbackMap<P>['auth-error'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.AuthError) {
               continue;
             }
 

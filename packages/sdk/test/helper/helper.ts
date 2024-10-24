@@ -187,7 +187,7 @@ function compareFunction(a: any, b: any): number {
 export async function assertThrowsAsync(
   fn: any,
   errType: any,
-  message?: string,
+  message?: RegExp | string,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   let errFn = () => {};

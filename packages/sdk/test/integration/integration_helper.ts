@@ -5,6 +5,8 @@ import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
 
 export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://127.0.0.1:8080';
+export const testAPIID = process.env.TEST_API_ID || 'admin';
+export const testAPIPW = process.env.TEST_API_PW || 'admin';
 
 export function toDocKey(title: string): string {
   return title
@@ -26,8 +28,12 @@ export async function withTwoClientsAndDocuments<
   title: string,
   syncMode: SyncMode = SyncMode.Manual,
 ): Promise<void> {
-  const client1 = new yorkie.Client(testRPCAddr);
-  const client2 = new yorkie.Client(testRPCAddr);
+  const client1 = new yorkie.Client(testRPCAddr, {
+    retryRequestDelay: 0,
+  });
+  const client2 = new yorkie.Client(testRPCAddr, {
+    retryRequestDelay: 0,
+  });
   await client1.activate();
   await client2.activate();
 
