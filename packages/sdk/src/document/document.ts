@@ -423,7 +423,10 @@ export interface LocalBroadcastEvent extends BaseDocEvent {
 
 export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
-  value: { errorMessage: string; method: string };
+  value: {
+    errorMessage: string;
+    method: 'AttachDocument' | 'DetachDocument' | 'PushPull' | 'WatchDocuments';
+  };
 }
 
 type DocEventCallbackMap<P extends Indexable> = {
