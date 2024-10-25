@@ -40,6 +40,17 @@ interface CRDTElementPair {
 }
 
 /**
+ * `RootStatus` is a structure that represents TODO(raa).
+ */
+interface RootStatus {
+  elements?: number;
+  textNodes?: number;
+  gcPairs?: number;
+  gcElements?: number;
+  maxSplayTreeHeight?: number;
+}
+
+/**
  * `CRDTRoot` is a structure that represents the root. It has a hash table of
  * all elements to find a specific element when applying remote changes
  * received from server.
@@ -307,5 +318,19 @@ export class CRDTRoot {
    */
   public toSortedJSON(): string {
     return this.rootObject.toSortedJSON();
+  }
+
+  /**
+   * `getStatus` returns the current status of root.
+   * for debugging purpose.
+   */
+  public getStatus(): RootStatus {
+    const text = this.rootObject.get('content') as CRDTText;
+    return {
+      elements: this.getElementMapSize(),
+      gcPairs: this.gcPairMap.size,
+      gcElements: this.getGarbageElementSetSize(),
+      maxSplayTreeHeight: text.getTreeByIndex().getHeight(),
+    };
   }
 }

@@ -26,9 +26,11 @@ export abstract class SplayNode<V> {
   private right?: SplayNode<V>;
   private parent?: SplayNode<V>;
   private weight!: number;
+  public height!: number;
 
   constructor(value: V) {
     this.value = value;
+    this.height = 1;
     this.initWeight();
   }
 
@@ -60,6 +62,20 @@ export abstract class SplayNode<V> {
    */
   public getRightWeight(): number {
     return !this.hasRight() ? 0 : this.right!.getWeight();
+  }
+
+  /**
+   * `getLeftHeight` returns left height of this node.
+   */
+  public getLeftHeight(): number {
+    return !this.hasLeft() ? 0 : this.left!.height;
+  }
+
+  /**
+   * `getRightHeight` returns left height of this node.
+   */
+  public getRightHeight(): number {
+    return !this.hasRight() ? 0 : this.right!.height;
   }
 
   /**
@@ -161,6 +177,13 @@ export abstract class SplayNode<V> {
   public initWeight(): void {
     this.weight = this.getLength();
   }
+
+  /**
+   * `initHeight` sets initial height of this node.
+   */
+  public initHeight() {
+    this.height = 1;
+  }
 }
 
 /**
@@ -211,7 +234,7 @@ export class SplayTree<V> {
         `out of index range: pos: ${pos} > node.length: ${node.getLength()}`,
       );
     }
-    this.splayNode(node)
+    this.splayNode(node);
     return [node, pos];
   }
 
@@ -226,7 +249,7 @@ export class SplayTree<V> {
       return -1;
     }
 
-    this.splayNode(node)
+    this.splayNode(node);
     return this.root!.getLeftWeight();
   }
 
@@ -268,6 +291,8 @@ export class SplayTree<V> {
     target.setRight();
     this.updateWeight(target);
     this.updateWeight(newNode);
+    this.updateHeight(target);
+    this.updateHeight(newNode);
 
     return newNode;
   }
@@ -289,7 +314,20 @@ export class SplayTree<V> {
   private updateTreeWeight(node: SplayNode<V>): void {
     while (node) {
       this.updateWeight(node);
+      this.updateHeight(node);
       node = node.getParent()!;
+    }
+  }
+
+  private updateHeight(node: SplayNode<V>): void {
+    node.initHeight();
+
+    if (node.height < node.getLeftHeight() + 1) {
+      node.height = node.getLeftHeight() + 1;
+    }
+
+    if (node.height < node.getRightHeight() + 1) {
+      node.height = node.getRightHeight() + 1;
     }
   }
 
@@ -332,6 +370,7 @@ export class SplayTree<V> {
           this.rotateLeft(node);
         }
         this.updateWeight(node);
+        this.updateHeight(node);
         return;
       }
     }
@@ -368,6 +407,7 @@ export class SplayTree<V> {
     node.unlink();
     if (this.root) {
       this.updateWeight(this.root);
+      this.updateHeight(this.root);
     }
   }
 
@@ -435,6 +475,14 @@ export class SplayTree<V> {
     return true;
   }
 
+  /**
+   * `getHeight` returns the height of this node.
+   * for debugging.
+   */
+  public getHeight(): number {
+    return this.root!.height;
+  }
+
   private getRightmost(): SplayNode<V> {
     let node = this.root!;
     while (node.hasRight()) {
@@ -492,6 +540,8 @@ export class SplayTree<V> {
 
     this.updateWeight(root);
     this.updateWeight(pivot);
+    this.updateHeight(root);
+    this.updateHeight(pivot);
   }
 
   private rotateRight(pivot: SplayNode<V>): void {
@@ -517,6 +567,8 @@ export class SplayTree<V> {
 
     this.updateWeight(root);
     this.updateWeight(pivot);
+    this.updateHeight(root);
+    this.updateHeight(pivot);
   }
 
   private isLeftChild(node?: SplayNode<V>): boolean {
