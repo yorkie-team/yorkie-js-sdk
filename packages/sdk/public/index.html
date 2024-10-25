@@ -328,6 +328,8 @@
           const doc = new yorkie.Document('codemirror', {
             enableDevtools: true,
           });
+          window.doc = doc;
+
           doc.subscribe('connection', new Network(statusHolder).statusListener);
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') return;

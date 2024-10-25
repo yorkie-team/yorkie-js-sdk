@@ -40,6 +40,26 @@ interface CRDTElementPair {
 }
 
 /**
+ * `RootStats` is a structure that represents the statistics of the root object.
+ */
+export interface RootStats {
+  /**
+   * `elements` is the number of elements in the root object.
+   */
+  elements?: number;
+
+  /**
+   * `gcElements` is the number of elements that can be garbage collected.
+   */
+  gcElements?: number;
+
+  /**
+   * `gcPairs` is the number of garbage collection pairs.
+   */
+  gcPairs?: number;
+}
+
+/**
  * `CRDTRoot` is a structure that represents the root. It has a hash table of
  * all elements to find a specific element when applying remote changes
  * received from server.
@@ -307,5 +327,17 @@ export class CRDTRoot {
    */
   public toSortedJSON(): string {
     return this.rootObject.toSortedJSON();
+  }
+
+  /**
+   * `getStats` returns the current statistics of the root object.
+   * This includes counts of various types of elements and structural information.
+   */
+  public getStats(): RootStats {
+    return {
+      elements: this.getElementMapSize(),
+      gcPairs: this.gcPairMap.size,
+      gcElements: this.getGarbageElementSetSize(),
+    };
   }
 }
