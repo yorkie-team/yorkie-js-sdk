@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.4] - 2024-10-28
+
+### Added
+
+- Implement `InitialRoot` option for Document attachment by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/913
+- Add doc.getStats for debugging purpose by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/920
+
+### Fixed
+
+- Export VersionVector by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/917
+
 ## [0.5.3] - 2024-10-23
 
 ### Changed
