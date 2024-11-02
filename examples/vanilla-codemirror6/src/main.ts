@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import yorkie, { DocEventType } from 'yorkie-js-sdk';
-import type { TextOperationInfo, EditOpInfo } from 'yorkie-js-sdk';
+import type { EditOpInfo, OperationInfo } from 'yorkie-js-sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import {
@@ -8,10 +8,10 @@ import {
   markdownKeymap,
   markdownLanguage,
 } from '@codemirror/lang-markdown';
-import { Transaction } from '@codemirror/state';
+import { Transaction, TransactionSpec } from '@codemirror/state';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
-import { YorkieDoc } from './type';
+import { YorkieDoc, YorkiePresence } from './type';
 import './style.css';
 
 const editorParentElem = document.getElementById('editor')!;
@@ -28,7 +28,7 @@ async function main() {
   await client.activate();
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc>(
+  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(
     `codemirror6-${new Date()
       .toISOString()
       .substring(0, 10)
@@ -55,10 +55,22 @@ async function main() {
   // 02-2. subscribe document event.
   const syncText = () => {
     const text = doc.getRoot().content;
-    view.dispatch({
+    const selection = doc.getMyPresence().selection;
+    const transactionSpec: TransactionSpec = {
       changes: { from: 0, to: view.state.doc.length, insert: text.toString() },
       annotations: [Transaction.remote.of(true)],
-    });
+    };
+
+    if (selection) {
+      // Restore the cursor position when the text is replaced.
+      const cursor = text.posRangeToIndexRange(selection);
+      transactionSpec['selection'] = {
+        anchor: cursor[0],
+        head: cursor[1],
+      };
+    }
+
+    view.dispatch(transactionSpec);
   };
   doc.subscribe((event) => {
     if (event.type === 'snapshot') {
@@ -100,7 +112,36 @@ async function main() {
     }
   });
 
-  // 03-2. create codemirror instance
+  // 03-2. define function that bind the selection with the codemirror(broadcast local selection to peers)
+  const selectionUpdateListener = EditorView.updateListener.of((viewUpdate) => {
+    const hasFocus =
+      viewUpdate.view.hasFocus && viewUpdate.view.dom.ownerDocument.hasFocus();
+    const sel = hasFocus ? viewUpdate.state.selection.main : null;
+
+    doc.update((root, presence) => {
+      if (sel && root.content) {
+        const selection = root.content.indexRangeToPosRange([
+          sel.anchor,
+          sel.head,
+        ]);
+
+        if (
+          JSON.stringify(selection) !==
+          JSON.stringify(presence.get('selection'))
+        ) {
+          presence.set({
+            selection,
+          });
+        }
+      } else if (presence.get('selection')) {
+        presence.set({
+          selection: undefined,
+        });
+      }
+    });
+  });
+
+  // 03-3. create codemirror instance
   const view = new EditorView({
     doc: '',
     extensions: [
@@ -108,12 +149,13 @@ async function main() {
       markdown({ base: markdownLanguage }),
       keymap.of(markdownKeymap),
       updateListener,
+      selectionUpdateListener,
     ],
     parent: editorParentElem,
   });
 
-  // 03-3. define event handler that apply remote changes to local
-  function handleOperations(operations: Array<TextOperationInfo>) {
+  // 03-4. define event handler that apply remote changes to local
+  function handleOperations(operations: Array<OperationInfo>) {
     for (const op of operations) {
       if (op.type === 'edit') {
         handleEditOp(op);
