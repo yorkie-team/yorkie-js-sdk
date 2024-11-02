@@ -1180,11 +1180,26 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     // NOTE(hackerwins): If the document has local changes, we need to apply
-    // them after applying the snapshot. We need to treat the local changes
-    // as remote changes because the application should apply the local
-    // changes to their own document.
+    // them after applying the snapshot, as local changes are not included in the snapshot data.
+    // Afterward, we should publish a snapshot event with the latest
+    // version of the document to ensure the user receives the most up-to-date snapshot.
     if (hasSnapshot) {
-      this.applyChanges(this.localChanges, OpSource.Remote);
+      this.applyChanges(this.localChanges, OpSource.Local);
+      this.publish([
+        {
+          type: DocEventType.Snapshot,
+          source: OpSource.Remote,
+          value: {
+            serverSeq: pack.getCheckpoint().getServerSeq().toString(),
+            snapshot: this.isEnableDevtools()
+              ? converter.bytesToHex(pack.getSnapshot()!)
+              : undefined,
+            snapshotVector: converter.versionVectorToHex(
+              pack.getVersionVector()!,
+            ),
+          },
+        },
+      ]);
     }
 
     // 03. Update the checkpoint.
@@ -1420,20 +1435,6 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // drop clone because it is contaminated.
     this.clone = undefined;
-
-    this.publish([
-      {
-        type: DocEventType.Snapshot,
-        source: OpSource.Remote,
-        value: {
-          serverSeq: serverSeq.toString(),
-          snapshot: this.isEnableDevtools()
-            ? converter.bytesToHex(snapshot)
-            : undefined,
-          snapshotVector: converter.versionVectorToHex(snapshotVector),
-        },
-      },
-    ]);
   }
 
   /**
