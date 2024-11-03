@@ -69,7 +69,6 @@ async function main() {
         head: cursor[1],
       };
     }
-
     view.dispatch(transactionSpec);
   };
   doc.subscribe((event) => {
@@ -110,10 +109,7 @@ async function main() {
         });
       }
     }
-  });
 
-  // 03-2. define function that bind the selection with the codemirror(broadcast local selection to peers)
-  const selectionUpdateListener = EditorView.updateListener.of((viewUpdate) => {
     const hasFocus =
       viewUpdate.view.hasFocus && viewUpdate.view.dom.ownerDocument.hasFocus();
     const sel = hasFocus ? viewUpdate.state.selection.main : null;
@@ -141,7 +137,7 @@ async function main() {
     });
   });
 
-  // 03-3. create codemirror instance
+  // 03-2. create codemirror instance
   const view = new EditorView({
     doc: '',
     extensions: [
@@ -149,12 +145,11 @@ async function main() {
       markdown({ base: markdownLanguage }),
       keymap.of(markdownKeymap),
       updateListener,
-      selectionUpdateListener,
     ],
     parent: editorParentElem,
   });
 
-  // 03-4. define event handler that apply remote changes to local
+  // 03-3. define event handler that apply remote changes to local
   function handleOperations(operations: Array<OperationInfo>) {
     for (const op of operations) {
       if (op.type === 'edit') {
