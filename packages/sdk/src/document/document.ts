@@ -42,7 +42,7 @@ import {
 import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
 import { converter } from '@yorkie-js-sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { CRDTRoot, RootStats } from '@yorkie-js-sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
 import {
   createJSON,
@@ -1422,6 +1422,13 @@ export class Document<T, P extends Indexable = Indexable> {
    */
   public toSortedJSON(): string {
     return this.root.toSortedJSON();
+  }
+
+  /**
+   * `getStats` returns the statistics of this document.
+   */
+  public getStats(): RootStats {
+    return this.root.getStats();
   }
 
   /**

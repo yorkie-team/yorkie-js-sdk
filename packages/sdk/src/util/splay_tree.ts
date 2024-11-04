@@ -211,7 +211,7 @@ export class SplayTree<V> {
         `out of index range: pos: ${pos} > node.length: ${node.getLength()}`,
       );
     }
-    this.splayNode(node)
+    this.splayNode(node);
     return [node, pos];
   }
 
@@ -226,7 +226,7 @@ export class SplayTree<V> {
       return -1;
     }
 
-    this.splayNode(node)
+    this.splayNode(node);
     return this.root!.getLeftWeight();
   }
 
