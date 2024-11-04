@@ -1601,6 +1601,10 @@ export class Document<T, P extends Indexable = Indexable> {
       const event: Array<WatchedEvent<P> | UnwatchedEvent<P> | BroadcastEvent> =
         [];
       if (type === PbDocEventType.DOCUMENT_WATCHED) {
+        if (this.onlineClients.has(publisher) && this.hasPresence(publisher)) {
+          return;
+        }
+
         this.addOnlineClient(publisher);
         // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
         // unless we also know their initial presence data at this point.

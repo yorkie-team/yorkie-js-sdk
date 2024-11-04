@@ -376,8 +376,8 @@ describe.sequential('Client', function () {
 
     // 03. [Step2] c1 sync with push-only mode, c2 sync with sync-off mode.
     // c3 can get the changes of c1 and c2, because c3 sync with push-pull mode.
-    c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
-    c2.changeSyncMode(d2, SyncMode.RealtimeSyncOff);
+    await c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
+    await c2.changeSyncMode(d2, SyncMode.RealtimeSyncOff);
     d1.update((root) => {
       root.c1 = 1;
     });
@@ -397,8 +397,8 @@ describe.sequential('Client', function () {
     assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":0,"c3":1}', 'd3');
 
     // 04. [Step3] c1 sync with sync-off mode, c2 sync with push-only mode.
-    c1.changeSyncMode(d1, SyncMode.RealtimeSyncOff);
-    c2.changeSyncMode(d2, SyncMode.RealtimePushOnly);
+    await c1.changeSyncMode(d1, SyncMode.RealtimeSyncOff);
+    await c2.changeSyncMode(d2, SyncMode.RealtimePushOnly);
     d1.update((root) => {
       root.c1 = 2;
     });
@@ -419,8 +419,8 @@ describe.sequential('Client', function () {
     assert.equal(d3.toSortedJSON(), '{"c1":1,"c2":2,"c3":2}', 'd3');
 
     // 05. [Step4] c1 and c2 sync with push-pull mode.
-    c1.changeSyncMode(d1, SyncMode.Realtime);
-    c2.changeSyncMode(d2, SyncMode.Realtime);
+    await c1.changeSyncMode(d1, SyncMode.Realtime);
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
     await eventCollectorD1.waitAndVerifyNthEvent(6, DocEventType.RemoteChange);
     await eventCollectorD1.waitAndVerifyNthEvent(7, DocEventType.RemoteChange);
     await eventCollectorD1.waitAndVerifyNthEvent(8, DocEventType.RemoteChange);
@@ -621,7 +621,7 @@ describe.sequential('Client', function () {
     c2.sync();
 
     // In push-only mode, remote-change events should not occur.
-    c2.changeSyncMode(d2, SyncMode.RealtimePushOnly);
+    await c2.changeSyncMode(d2, SyncMode.RealtimePushOnly);
     let remoteChangeOccured = false;
     const unsub3 = d2.subscribe((event) => {
       if (event.type === DocEventType.RemoteChange) {
@@ -635,7 +635,7 @@ describe.sequential('Client', function () {
     unsub3();
     assert.isFalse(remoteChangeOccured);
 
-    c2.changeSyncMode(d2, SyncMode.Realtime);
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
 
     d2.update((root) => {
       root.tree.edit(2, 2, { type: 'text', value: 'b' });
@@ -704,7 +704,7 @@ describe.sequential('Client', function () {
     c2.sync();
 
     // In sync-off mode, remote-change events should not occur.
-    c2.changeSyncMode(d2, SyncMode.RealtimeSyncOff);
+    await c2.changeSyncMode(d2, SyncMode.RealtimeSyncOff);
     let remoteChangeOccured = false;
     const unsub3 = d2.subscribe((event) => {
       if (event.type === DocEventType.RemoteChange) {
@@ -718,7 +718,7 @@ describe.sequential('Client', function () {
     unsub3();
     assert.isFalse(remoteChangeOccured);
 
-    c2.changeSyncMode(d2, SyncMode.Realtime);
+    await c2.changeSyncMode(d2, SyncMode.Realtime);
 
     d2.update((root) => {
       root.tree.edit(2, 2, { type: 'text', value: 'b' });
@@ -745,8 +745,6 @@ describe.sequential('Client', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<{ t: Text }>(docKey);
     const d2 = new yorkie.Document<{ t: Text }>(docKey);
-    await c1.attach(d1);
-    await c2.attach(d2);
 
     const eventCollectorD1 = new EventCollector();
     const eventCollectorD2 = new EventCollector();
@@ -756,6 +754,10 @@ describe.sequential('Client', function () {
     const unsub2 = d2.subscribe('sync', (event) => {
       eventCollectorD2.add(event.value);
     });
+
+    await c1.attach(d1);
+    await c2.attach(d2);
+    await eventCollectorD1.waitAndVerifyNthEvent(1, DocumentSyncStatus.Synced);
 
     d1.update((root) => {
       root.t = new Text();
@@ -767,7 +769,7 @@ describe.sequential('Client', function () {
     assert.equal(d2.getRoot().t.toString(), 'a');
 
     eventCollectorD1.reset();
-    c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
+    await c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
     d2.update((root) => {
       root.t.edit(1, 1, 'b');
     });
@@ -778,7 +780,7 @@ describe.sequential('Client', function () {
     await eventCollectorD2.waitAndVerifyNthEvent(3, DocumentSyncStatus.Synced);
 
     assert.equal(eventCollectorD1.getLength(), 0);
-    c1.changeSyncMode(d1, SyncMode.Realtime);
+    await c1.changeSyncMode(d1, SyncMode.Realtime);
     await eventCollectorD1.waitAndVerifyNthEvent(1, DocumentSyncStatus.Synced);
 
     assert.equal(d1.getRoot().t.toString(), 'abc');
