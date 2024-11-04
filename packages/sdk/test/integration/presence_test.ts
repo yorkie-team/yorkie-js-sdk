@@ -126,11 +126,22 @@ describe('Presence', function () {
     const unsub1 = doc1.subscribe('presence', ({ type, value }) =>
       events1.add({ type, value }),
     );
+    assert.deepEqual(
+      deepSort(doc1.getPresences()),
+      deepSort([{ clientID: c1ID, presence: { name: 'a' } }]),
+    );
 
     const doc2 = new yorkie.Document<{}, { name: string }>(docKey);
     await c2.attach(doc2, { initialPresence: { name: 'b' } });
     const unsub2 = doc2.subscribe('presence', ({ type, value }) =>
       events2.add({ type, value }),
+    );
+    assert.deepEqual(
+      deepSort(doc2.getPresences()),
+      deepSort([
+        { clientID: c2ID, presence: { name: 'b' } },
+        { clientID: c1ID, presence: { name: 'a' } },
+      ]),
     );
 
     await events1.waitAndVerifyNthEvent(1, {
