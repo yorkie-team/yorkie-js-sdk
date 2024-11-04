@@ -53,29 +53,29 @@ webhookServer.post('/auth-webhook', express.json(), (req, res) => {
   if (authToken.startsWith('token')) {
     const expireTime = authToken.split('-')[1];
     if (Number(expireTime) < Date.now()) {
-      res.status(200).send({
-        code: 401,
-        message: ExpiredTokenErrorMessage,
+      res.status(401).send({
+        allowed: false,
+        reason: ExpiredTokenErrorMessage,
       });
       return;
     }
     res.status(200).send({
-      code: 200,
+      allowed: true,
     });
     return;
   }
 
   if (authToken === NotAllowedToken) {
-    res.status(200).send({
-      code: 403,
+    res.status(403).send({
+      allowed: false,
     });
     return;
   }
 
   // invalid token
-  res.status(200).send({
-    code: 401,
-    message: InvalidTokenErrorMessage,
+  res.status(401).send({
+    allowed: false,
+    reason: InvalidTokenErrorMessage,
   });
 });
 
@@ -237,7 +237,7 @@ describe('Auth Webhook', () => {
       toDocKey(`${task.name}-${new Date().getTime()}`),
     );
     const authErrorEventCollector = new EventCollector<{
-      errorMessage: string;
+      reason: string;
       method: string;
     }>();
     doc.subscribe('auth-error', (event) => {
@@ -250,7 +250,7 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).toBeCalledTimes(3);
     expect(authTokenInjector).nthCalledWith(3, ExpiredTokenErrorMessage);
     await authErrorEventCollector.waitAndVerifyNthEvent(1, {
-      errorMessage: ExpiredTokenErrorMessage,
+      reason: ExpiredTokenErrorMessage,
       method: 'AttachDocument',
     });
 
@@ -263,7 +263,7 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).toBeCalledTimes(4);
     expect(authTokenInjector).nthCalledWith(4, ExpiredTokenErrorMessage);
     await authErrorEventCollector.waitAndVerifyNthEvent(2, {
-      errorMessage: ExpiredTokenErrorMessage,
+      reason: ExpiredTokenErrorMessage,
       method: 'PushPull',
     });
 
@@ -273,7 +273,7 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).toBeCalledTimes(5);
     expect(authTokenInjector).nthCalledWith(5, ExpiredTokenErrorMessage);
     await authErrorEventCollector.waitAndVerifyNthEvent(3, {
-      errorMessage: ExpiredTokenErrorMessage,
+      reason: ExpiredTokenErrorMessage,
       method: 'DetachDocument',
     });
 
@@ -338,7 +338,7 @@ describe('Auth Webhook', () => {
       syncEventCollector.add(event.value);
     });
     const authErrorEventCollector = new EventCollector<{
-      errorMessage: string;
+      reason: string;
       method: string;
     }>();
     doc.subscribe('auth-error', (event) => {
@@ -351,7 +351,7 @@ describe('Auth Webhook', () => {
 
     await syncEventCollector.waitFor(DocumentSyncStatus.Synced);
     await authErrorEventCollector.waitFor({
-      errorMessage: ExpiredTokenErrorMessage,
+      reason: ExpiredTokenErrorMessage,
       method: 'PushPull',
     });
     expect(authTokenInjector).toBeCalledTimes(2);
@@ -408,7 +408,7 @@ describe('Auth Webhook', () => {
     const doc = new yorkie.Document<{ k1: string }>(docKey);
 
     const authErrorEventCollector = new EventCollector<{
-      errorMessage: string;
+      reason: string;
       method: string;
     }>();
     doc.subscribe('auth-error', (event) => {
@@ -436,7 +436,7 @@ describe('Auth Webhook', () => {
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
     await client.attach(doc);
     await authErrorEventCollector.waitFor({
-      errorMessage: ExpiredTokenErrorMessage,
+      reason: ExpiredTokenErrorMessage,
       method: 'WatchDocuments',
     });
     expect(authTokenInjector).toBeCalledTimes(2);

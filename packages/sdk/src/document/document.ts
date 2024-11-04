@@ -424,7 +424,7 @@ export interface LocalBroadcastEvent extends BaseDocEvent {
 export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
   value: {
-    errorMessage: string;
+    reason: string;
     method: 'AttachDocument' | 'DetachDocument' | 'PushPull' | 'WatchDocuments';
   };
 }

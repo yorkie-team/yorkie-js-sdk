@@ -470,7 +470,7 @@ export class Client {
                   {
                     type: DocEventType.AuthError,
                     value: {
-                      errorMessage: errorMetadataOf(err).message,
+                      reason: errorMetadataOf(err).reason,
                       method: 'AttachDocument',
                     },
                   },
@@ -562,7 +562,7 @@ export class Client {
                   {
                     type: DocEventType.AuthError,
                     value: {
-                      errorMessage: errorMetadataOf(err).message,
+                      reason: errorMetadataOf(err).reason,
                       method: 'DetachDocument',
                     },
                   },
@@ -977,7 +977,7 @@ export class Client {
                     {
                       type: DocEventType.AuthError,
                       value: {
-                        errorMessage: errorMetadataOf(err).message,
+                        reason: errorMetadataOf(err).reason,
                         method: 'WatchDocuments',
                       },
                     },
@@ -1117,7 +1117,7 @@ export class Client {
                 {
                   type: DocEventType.AuthError,
                   value: {
-                    errorMessage: errorMetadataOf(err).message,
+                    reason: errorMetadataOf(err).reason,
                     method: 'PushPull',
                   },
                 },
@@ -1169,7 +1169,7 @@ export class Client {
     if (errorCodeOf(err) === Code.ErrUnauthenticated) {
       const token =
         this.authTokenInjector &&
-        (await this.authTokenInjector(errorMetadataOf(err).message));
+        (await this.authTokenInjector(errorMetadataOf(err).reason));
 
       this.rpcClient = createPromiseClient(
         YorkieService,
