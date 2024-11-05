@@ -30,6 +30,7 @@ import {
   testRPCAddr,
   testAPIID,
   testAPIPW,
+  webhookAddr,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { ConnectError } from '@connectrpc/connect';
 import axios from 'axios';
@@ -84,10 +85,7 @@ describe('Auth Webhook', () => {
     // Start webhook server
     webhookServerInstance = webhookServer.listen(webhookServerPort, () => {
       const addr = webhookServerInstance.address();
-      webhookServerAddress =
-        addr.address === '::' || addr.address === '0.0.0.0'
-          ? 'localhost'
-          : addr.address;
+      webhookServerAddress = webhookAddr || addr.address;
     });
 
     // Login to yorkie
