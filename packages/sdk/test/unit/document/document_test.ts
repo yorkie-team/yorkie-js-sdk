@@ -1505,7 +1505,7 @@ describe.sequential('Document', function () {
       const eventCollector = new EventCollector<number>();
       d2.subscribe((event) => {
         if (event.type === DocEventType.Snapshot) {
-          eventCollector.add(d2.getRoot().counter.getValue());
+          eventCollector.add(d2.getRoot().counter.getValue() as number);
         }
       });
 
