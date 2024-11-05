@@ -852,7 +852,7 @@ describe.sequential('Client', function () {
       await c2.sync();
 
       // 01. c1 increases the counter for creating snapshot.
-      for (let i = 0; i < 500; i++) {
+      for (let i = 0; i < 1000; i++) {
         d1.update((r) => r.counter.increase(1));
       }
       await c1.sync();
