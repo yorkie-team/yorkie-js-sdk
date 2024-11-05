@@ -470,14 +470,14 @@ export type DocumentKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-    ? CounterOperationInfo
-    : TElement extends Tree
-      ? TreeOperationInfo
-      : TElement extends BaseArray<any>
-        ? ArrayOperationInfo
-        : TElement extends BaseObject<any>
-          ? ObjectOperationInfo
-          : OperationInfo;
+  ? CounterOperationInfo
+  : TElement extends Tree
+  ? TreeOperationInfo
+  : TElement extends BaseArray<any>
+  ? ArrayOperationInfo
+  : TElement extends BaseObject<any>
+  ? ObjectOperationInfo
+  : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -498,24 +498,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-    ? TFirst extends keyof TElement
-      ? TElement[TFirst] extends BaseArray<unknown>
-        ? OperationInfoOfInternal<
-            TElement[TFirst],
-            number,
-            DecreasedDepthOf<TDepth>
-          >
-        : OperationInfoOfInternal<
-            TElement[TFirst],
-            TRest,
-            DecreasedDepthOf<TDepth>
-          >
-      : OperationInfo
-    : TKeyOrPath extends keyof TElement
-      ? TElement[TKeyOrPath] extends BaseArray<unknown>
-        ? ArrayOperationInfo
-        : OperationInfoOfElement<TElement[TKeyOrPath]>
-      : OperationInfo;
+  ? TFirst extends keyof TElement
+    ? TElement[TFirst] extends BaseArray<unknown>
+      ? OperationInfoOfInternal<
+          TElement[TFirst],
+          number,
+          DecreasedDepthOf<TDepth>
+        >
+      : OperationInfoOfInternal<
+          TElement[TFirst],
+          TRest,
+          DecreasedDepthOf<TDepth>
+        >
+    : OperationInfo
+  : TKeyOrPath extends keyof TElement
+  ? TElement[TKeyOrPath] extends BaseArray<unknown>
+    ? ArrayOperationInfo
+    : OperationInfoOfElement<TElement[TKeyOrPath]>
+  : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -523,24 +523,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-    ? 8
-    : Depth extends 8
-      ? 7
-      : Depth extends 7
-        ? 6
-        : Depth extends 6
-          ? 5
-          : Depth extends 5
-            ? 4
-            : Depth extends 4
-              ? 3
-              : Depth extends 3
-                ? 2
-                : Depth extends 2
-                  ? 1
-                  : Depth extends 1
-                    ? 0
-                    : -1;
+  ? 8
+  : Depth extends 8
+  ? 7
+  : Depth extends 7
+  ? 6
+  : Depth extends 6
+  ? 5
+  : Depth extends 5
+  ? 4
+  : Depth extends 4
+  ? 3
+  : Depth extends 3
+  ? 2
+  : Depth extends 2
+  ? 1
+  : Depth extends 1
+  ? 0
+  : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -552,29 +552,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-    ? {
-        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-          ? `${Prefix}${TKey & string}`
-          : TElement[TKey] extends BaseArray<infer TArrayElement>
-            ?
-                | `${Prefix}${TKey & string}`
-                | `${Prefix}${TKey & string}.${number}`
-                | PathOfInternal<
-                    TArrayElement,
-                    `${Prefix}${TKey & string}.${number}.`,
-                    DecreasedDepthOf<Depth>
-                  >
-            :
-                | `${Prefix}${TKey & string}`
-                | PathOfInternal<
-                    TElement[TKey],
-                    `${Prefix}${TKey & string}.`,
-                    DecreasedDepthOf<Depth>
-                  >;
-      }[keyof TElement]
-    : Prefix extends `${infer TRest}.`
-      ? TRest
-      : Prefix;
+  ? {
+      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+        ? `${Prefix}${TKey & string}`
+        : TElement[TKey] extends BaseArray<infer TArrayElement>
+        ?
+            | `${Prefix}${TKey & string}`
+            | `${Prefix}${TKey & string}.${number}`
+            | PathOfInternal<
+                TArrayElement,
+                `${Prefix}${TKey & string}.${number}.`,
+                DecreasedDepthOf<Depth>
+              >
+        :
+            | `${Prefix}${TKey & string}`
+            | PathOfInternal<
+                TElement[TKey],
+                `${Prefix}${TKey & string}.`,
+                DecreasedDepthOf<Depth>
+              >;
+    }[keyof TElement]
+  : Prefix extends `${infer TRest}.`
+  ? TRest
+  : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -1149,11 +1149,12 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `removeAppliedLocalChanges` removes local changes applied to the server.
+   * `removePushedLocalChanges` removes local changes that have been applied to
+   * the server from the local changes.
    *
    * @param clientSeq - client sequence number to remove local changes before it
    */
-  private removeAppliedLocalChanges(clientSeq: number) {
+  private removePushedLocalChanges(clientSeq: number) {
     while (this.localChanges.length) {
       const change = this.localChanges[0];
       if (change.getID().getClientSeq() > clientSeq) {
@@ -1175,6 +1176,7 @@ export class Document<T, P extends Indexable = Indexable> {
   public applyChangePack(pack: ChangePack<P>): void {
     const hasSnapshot = pack.hasSnapshot();
 
+    // 01. Apply snapshot or changes to the root object.
     if (hasSnapshot) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
@@ -1182,22 +1184,20 @@ export class Document<T, P extends Indexable = Indexable> {
         pack.getSnapshot()!,
         pack.getCheckpoint().getClientSeq(),
       );
-    } else if (pack.hasChanges()) {
+    } else {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
+      this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
     }
 
-    // 02. Remove local changes applied to server.
-    this.removeAppliedLocalChanges(pack.getCheckpoint().getClientSeq());
-
-    // 03. Update the checkpoint.
+    // 02. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    // 04. Do Garbage collection.
+    // 03. Do Garbage collection.
     if (!hasSnapshot) {
       this.garbageCollect(pack.getVersionVector()!);
     }
 
-    // 05. Filter detached client's lamport from version vector
+    // 04. Filter detached client's lamport from version vector
     if (!hasSnapshot) {
       this.filterVersionVector(pack.getVersionVector()!);
     }
@@ -1424,7 +1424,7 @@ export class Document<T, P extends Indexable = Indexable> {
     // drop clone because it is contaminated.
     this.clone = undefined;
 
-    this.removeAppliedLocalChanges(clientSeq);
+    this.removePushedLocalChanges(clientSeq);
 
     // NOTE(hackerwins): If the document has local changes, we need to apply
     // them after applying the snapshot, as local changes are not included in the snapshot data.
@@ -1699,6 +1699,7 @@ export class Document<T, P extends Indexable = Indexable> {
     if (event.type === DocEventType.Snapshot) {
       const { snapshot, serverSeq, snapshotVector } = event.value;
       if (!snapshot) return;
+      // TODO(hackerwins): We need to check the clientSeq of the snapshot.
       this.applySnapshot(
         BigInt(serverSeq),
         converter.hexToVersionVector(snapshotVector),
