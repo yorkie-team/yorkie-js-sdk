@@ -21,7 +21,10 @@ import {
   toDocKey,
   withTwoClientsAndDocuments,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { EventCollector } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  EventCollector,
+  DefaultSnapshotThreshold,
+} from '@yorkie-js-sdk/test/helper/helper';
 import {
   TreeEditOpInfo,
   TreeStyleOpInfo,
@@ -1558,8 +1561,7 @@ describe('Tree.style', function () {
     await c2.attach(d2, { syncMode: SyncMode.Manual });
 
     // Perform a dummy update to apply changes up to the snapshot threshold.
-    const snapshotThreshold = 500;
-    for (let idx = 0; idx < snapshotThreshold; idx++) {
+    for (let idx = 0; idx < DefaultSnapshotThreshold; idx++) {
       d1.update((root) => {
         root.num = 0;
       });

@@ -18,6 +18,7 @@ import { describe, it, assert, vi, afterEach } from 'vitest';
 import {
   EventCollector,
   MaxVersionVector,
+  DefaultSnapshotThreshold,
 } from '@yorkie-js-sdk/test/helper/helper';
 
 import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
@@ -1514,7 +1515,7 @@ describe.sequential('Document', function () {
       await c2.sync();
 
       // 01. c1 increases the counter for creating snapshot.
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < DefaultSnapshotThreshold; i++) {
         d1.update((r) => r.counter.increase(1));
       }
       await c1.sync();
@@ -1523,7 +1524,10 @@ describe.sequential('Document', function () {
       c2.sync();
       d2.update((r) => r.counter.increase(1));
 
-      await eventCollector.waitAndVerifyNthEvent(1, 1001);
+      await eventCollector.waitAndVerifyNthEvent(
+        1,
+        DefaultSnapshotThreshold + 1,
+      );
     }, task.name);
   });
 });

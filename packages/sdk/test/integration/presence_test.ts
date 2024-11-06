@@ -11,7 +11,11 @@ import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { EventCollector, deepSort } from '@yorkie-js-sdk/test/helper/helper';
+import {
+  EventCollector,
+  deepSort,
+  DefaultSnapshotThreshold,
+} from '@yorkie-js-sdk/test/helper/helper';
 
 describe('Presence', function () {
   afterEach(() => {
@@ -32,18 +36,17 @@ describe('Presence', function () {
     const doc2 = new yorkie.Document<{}, PresenceType>(docKey);
     await c2.attach(doc2, { syncMode: SyncMode.Manual });
 
-    const snapshotThreshold = 500;
-    for (let i = 0; i < snapshotThreshold; i++) {
+    for (let i = 0; i < DefaultSnapshotThreshold; i++) {
       doc1.update((root, p) => p.set({ key: `${i}` }));
     }
     assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), {
-      key: `${snapshotThreshold - 1}`,
+      key: `${DefaultSnapshotThreshold - 1}`,
     });
 
     await c1.sync();
     await c2.sync();
     assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), {
-      key: `${snapshotThreshold - 1}`,
+      key: `${DefaultSnapshotThreshold - 1}`,
     });
   });
 
