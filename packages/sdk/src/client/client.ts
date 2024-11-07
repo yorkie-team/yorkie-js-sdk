@@ -209,6 +209,7 @@ export class Client {
 
   private apiKey: string;
   private authTokenInjector?: (authErrorMessage?: string) => Promise<string>;
+  private setAuthToken?: (token: string) => void;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
@@ -267,14 +268,17 @@ export class Client {
     // Here we make the client itself, combining the service
     // definition with the transport.
     const token = this.authTokenInjector && (await this.authTokenInjector());
+    const { authInterceptor, setToken } = createAuthInterceptor(
+      this.apiKey,
+      token,
+    );
+    this.setAuthToken = setToken;
+
     this.rpcClient = createPromiseClient(
       YorkieService,
       createGrpcWebTransport({
         baseUrl: this.rpcAddr,
-        interceptors: [
-          createAuthInterceptor(this.apiKey, token),
-          createMetricInterceptor(),
-        ],
+        interceptors: [authInterceptor, createMetricInterceptor()],
       }),
     );
 
@@ -1170,17 +1174,9 @@ export class Client {
       const token =
         this.authTokenInjector &&
         (await this.authTokenInjector(errorMetadataOf(err).reason));
-
-      this.rpcClient = createPromiseClient(
-        YorkieService,
-        createGrpcWebTransport({
-          baseUrl: this.rpcAddr,
-          interceptors: [
-            createAuthInterceptor(this.apiKey, token),
-            createMetricInterceptor(),
-          ],
-        }),
-      );
+      if (token) {
+        this.setAuthToken?.(token);
+      }
       return true;
     }
 

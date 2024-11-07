@@ -23,14 +23,28 @@ import { Interceptor } from '@connectrpc/connect';
 export function createAuthInterceptor(
   apiKey?: string,
   token?: string,
-): Interceptor {
-  return (next) => async (req) => {
+): {
+  authInterceptor: Interceptor;
+  setToken: (token: string) => void;
+} {
+  let currentToken = token;
+
+  const setToken = (token: string) => {
+    currentToken = token;
+  };
+
+  const authInterceptor: Interceptor = (next) => async (req) => {
     if (apiKey) {
       req.header.set('x-api-key', apiKey);
     }
-    if (token) {
-      req.header.set('authorization', token);
+    if (currentToken) {
+      req.header.set('authorization', currentToken);
     }
     return await next(req);
+  };
+
+  return {
+    authInterceptor,
+    setToken,
   };
 }
