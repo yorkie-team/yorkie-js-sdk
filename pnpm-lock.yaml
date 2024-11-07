@@ -67,10 +67,6 @@ importers:
         specifier: 5.3.3
         version: 5.3.3
 
-  examples/nextjs-scheduler/dist: {}
-
-  examples/nextjs-scheduler/dist/types: {}
-
   examples/profile-stack:
     dependencies:
       yorkie-js-sdk:

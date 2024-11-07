@@ -36,12 +36,12 @@ import { uuid } from '@yorkie-js-sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js-sdk/src/client/attachment';
 import {
   Document,
-  DocumentKey,
-  DocumentStatus,
+  DocKey,
+  DocStatus,
   Indexable,
   DocEventType,
   StreamConnectionStatus,
-  DocumentSyncStatus,
+  DocSyncStatus,
 } from '@yorkie-js-sdk/src/document/document';
 import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
@@ -186,7 +186,7 @@ export class Client {
   private id?: ActorID;
   private key: string;
   private status: ClientStatus;
-  private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
+  private attachmentMap: Map<DocKey, Attachment<unknown, any>>;
 
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
@@ -320,7 +320,7 @@ export class Client {
         `${this.key} is not active`,
       );
     }
-    if (doc.getStatus() !== DocumentStatus.Detached) {
+    if (doc.getStatus() !== DocStatus.Detached) {
       throw new YorkieError(
         Code.ErrDocumentNotDetached,
         `${doc.getKey()} is not detached`,
@@ -358,11 +358,11 @@ export class Client {
         .then(async (res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
-          if (doc.getStatus() === DocumentStatus.Removed) {
+          if (doc.getStatus() === DocStatus.Removed) {
             return doc;
           }
 
-          doc.applyStatus(DocumentStatus.Attached);
+          doc.applyStatus(DocStatus.Attached);
           this.attachmentMap.set(
             doc.getKey(),
             new Attachment(
@@ -446,8 +446,8 @@ export class Client {
         .then((res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
-          if (doc.getStatus() !== DocumentStatus.Removed) {
-            doc.applyStatus(DocumentStatus.Detached);
+          if (doc.getStatus() !== DocStatus.Removed) {
+            doc.applyStatus(DocStatus.Detached);
           }
           this.detachInternal(doc.getKey());
 
@@ -646,7 +646,7 @@ export class Client {
    * `broadcast` broadcasts the given payload to the given topic.
    */
   public broadcast(
-    docKey: DocumentKey,
+    docKey: DocKey,
     topic: string,
     payload: Json,
     options?: BroadcastOptions,
@@ -792,7 +792,7 @@ export class Client {
    * `runWatchLoop` runs the watch loop for the given document. The watch loop
    * listens to the events of the given document from the server.
    */
-  private async runWatchLoop(docKey: DocumentKey): Promise<void> {
+  private async runWatchLoop(docKey: DocKey): Promise<void> {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
       throw new YorkieError(
@@ -913,11 +913,11 @@ export class Client {
 
     for (const [key, attachment] of this.attachmentMap) {
       this.detachInternal(key);
-      attachment.doc.applyStatus(DocumentStatus.Detached);
+      attachment.doc.applyStatus(DocStatus.Detached);
     }
   }
 
-  private detachInternal(docKey: DocumentKey) {
+  private detachInternal(docKey: DocKey) {
     // NOTE(hackerwins): If attachment is not found, it means that the document
     // has been already detached by another routine.
     // This can happen when detach or remove is called while the watch loop is
@@ -966,12 +966,12 @@ export class Client {
         attachment.doc.publish([
           {
             type: DocEventType.SyncStatusChanged,
-            value: DocumentSyncStatus.Synced,
+            value: DocSyncStatus.Synced,
           },
         ]);
         // NOTE(chacha912): If a document has been removed, watchStream should
         // be disconnected to not receive an event for that document.
-        if (doc.getStatus() === DocumentStatus.Removed) {
+        if (doc.getStatus() === DocStatus.Removed) {
           this.detachInternal(doc.getKey());
         }
 
@@ -988,7 +988,7 @@ export class Client {
         doc.publish([
           {
             type: DocEventType.SyncStatusChanged,
-            value: DocumentSyncStatus.SyncFailed,
+            value: DocSyncStatus.SyncFailed,
           },
         ]);
         logger.error(`[PP] c:"${this.getKey()}" err :`, err);

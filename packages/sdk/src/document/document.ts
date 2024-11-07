@@ -113,10 +113,10 @@ export interface DocumentOptions {
 }
 
 /**
- * `DocumentStatus` represents the status of the document.
+ * `DocStatus` represents the status of the document.
  * @public
  */
-export enum DocumentStatus {
+export enum DocStatus {
   /**
    * Detached means that the document is not attached to the client.
    * The actor of the ticket is created without being assigned.
@@ -254,9 +254,9 @@ export interface StatusChangedEvent extends BaseDocEvent {
   type: DocEventType.StatusChanged;
   source: OpSource;
   value:
-    | { status: DocumentStatus.Attached; actorID: string }
-    | { status: DocumentStatus.Detached }
-    | { status: DocumentStatus.Removed };
+    | { status: DocStatus.Attached; actorID: string }
+    | { status: DocStatus.Detached }
+    | { status: DocStatus.Removed };
 }
 
 /**
@@ -288,10 +288,10 @@ export interface ConnectionChangedEvent extends BaseDocEvent {
 }
 
 /**
- * `DocumentSyncStatus` represents the result of synchronizing the document with the server.
+ * `DocSyncStatus` represents the result of synchronizing the document with the server.
  * @public
  */
-export enum DocumentSyncStatus {
+export enum DocSyncStatus {
   /**
    * `Synced` means that document synced successfully.
    */
@@ -312,7 +312,7 @@ export interface SyncStatusChangedEvent extends BaseDocEvent {
    * enum {@link DocEventType}.SyncStatusChanged
    */
   type: DocEventType.SyncStatusChanged;
-  value: DocumentSyncStatus;
+  value: DocSyncStatus;
 }
 
 /**
@@ -474,10 +474,10 @@ type JsonObject = { [key: string]: Json | undefined };
 export type Indexable = Record<string, Json>;
 
 /**
- * `DocumentKey` represents the key of the document.
+ * `DocKey` represents the key of the document.
  * @public
  */
-export type DocumentKey = string;
+export type DocKey = string;
 
 /**
  * `OperationInfoOfElement` represents the type of the operation info of the given element.
@@ -619,8 +619,8 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
  * @public
  */
 export class Document<T, P extends Indexable = Indexable> {
-  private key: DocumentKey;
-  private status: DocumentStatus;
+  private key: DocKey;
+  private status: DocStatus;
   private opts: DocumentOptions;
 
   private changeID: ChangeID;
@@ -666,7 +666,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.opts = opts || {};
 
     this.key = key;
-    this.status = DocumentStatus.Detached;
+    this.status = DocStatus.Detached;
     this.root = CRDTRoot.create();
 
     this.changeID = InitialChangeID;
@@ -699,7 +699,7 @@ export class Document<T, P extends Indexable = Indexable> {
     updater: (root: JSONObject<T>, presence: Presence<P>) => void,
     message?: string,
   ): void {
-    if (this.getStatus() === DocumentStatus.Removed) {
+    if (this.getStatus() === DocStatus.Removed) {
       throw new YorkieError(Code.ErrDocumentRemoved, `${this.key} is removed`);
     }
 
@@ -1240,7 +1240,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
     // 05. Update the status.
     if (pack.getIsRemoved()) {
-      this.applyStatus(DocumentStatus.Removed);
+      this.applyStatus(DocStatus.Removed);
     }
 
     if (logger.isEnabled(LogLevel.Trivial)) {
@@ -1340,7 +1340,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getStatus` returns the status of this document.
    */
-  public getStatus(): DocumentStatus {
+  public getStatus(): DocStatus {
     return this.status;
   }
 
@@ -1700,20 +1700,19 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applyStatus` applies the document status into this document.
    */
-  public applyStatus(status: DocumentStatus) {
+  public applyStatus(status: DocStatus) {
     this.status = status;
 
-    if (status === DocumentStatus.Detached) {
+    if (status === DocStatus.Detached) {
       this.setActor(InitialActorID);
     }
 
     this.publish([
       {
-        source:
-          status === DocumentStatus.Removed ? OpSource.Remote : OpSource.Local,
+        source: status === DocStatus.Removed ? OpSource.Remote : OpSource.Local,
         type: DocEventType.StatusChanged,
         value:
-          status === DocumentStatus.Attached
+          status === DocStatus.Attached
             ? { status, actorID: this.changeID.getActorID() }
             : { status },
       },
@@ -1726,7 +1725,7 @@ export class Document<T, P extends Indexable = Indexable> {
   public applyDocEvent(event: DocEvent<P>) {
     if (event.type === DocEventType.StatusChanged) {
       this.applyStatus(event.value.status);
-      if (event.value.status === DocumentStatus.Attached) {
+      if (event.value.status === DocStatus.Attached) {
         this.setActor(event.value.actorID);
       }
       return;
@@ -1735,7 +1734,9 @@ export class Document<T, P extends Indexable = Indexable> {
     if (event.type === DocEventType.Snapshot) {
       const { snapshot, serverSeq, snapshotVector } = event.value;
       if (!snapshot) return;
-      // TODO(hackerwins): We need to check the clientSeq of the snapshot.
+
+      // TODO(hackerwins): We need to check version vector and lamport clock
+      // of the snapshot is valid.
       this.applySnapshot(
         BigInt(serverSeq),
         converter.hexToVersionVector(snapshotVector),
@@ -1862,7 +1863,7 @@ export class Document<T, P extends Indexable = Indexable> {
   public getMyPresence(): P {
     // TODO(chacha912): After resolving the presence initialization issue,
     // remove default presence.(#608)
-    if (this.status !== DocumentStatus.Attached) {
+    if (this.status !== DocStatus.Attached) {
       return {} as P;
     }
 

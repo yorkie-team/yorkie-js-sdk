@@ -18,7 +18,7 @@ import {
 } from '@yorkie-js-sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
 import {
-  DocumentStatus,
+  DocStatus,
   DocEventType,
   StatusChangedEvent,
 } from '@yorkie-js-sdk/src/document/document';
@@ -91,12 +91,12 @@ describe('Document', function () {
     // 3. client1 detaches the document.
     // The document is not removed as client2 is still attached to it.
     await client1.detach(doc1, { removeIfNotAttached: true });
-    assert.equal(doc1.getStatus(), DocumentStatus.Detached);
+    assert.equal(doc1.getStatus(), DocStatus.Detached);
 
     // 4. client2 detaches the document.
     // Since no client is attached to the document, it gets removed.
     await client2.detach(doc2, { removeIfNotAttached: true });
-    assert.equal(doc2.getStatus(), DocumentStatus.Removed);
+    assert.equal(doc2.getStatus(), DocStatus.Removed);
 
     // 5. client3 attaches the document.
     // The content of the removed document should not be exposed.
@@ -612,12 +612,12 @@ describe('Document', function () {
     });
     await c1.remove(d1);
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2,3]}', 'd1');
-    assert.equal(d1.getStatus(), DocumentStatus.Removed);
+    assert.equal(d1.getStatus(), DocStatus.Removed);
 
     // 03. c2 syncs and checks that d2 is removed.
     await c2.sync();
     assert.equal(d2.toSortedJSON(), '{"k1":[1,2,3]}', 'd2');
-    assert.equal(d2.getStatus(), DocumentStatus.Removed);
+    assert.equal(d2.getStatus(), DocStatus.Removed);
 
     await c1.deactivate();
     await c2.deactivate();
@@ -652,8 +652,8 @@ describe('Document', function () {
     await c1.sync();
     await c2.sync();
 
-    assert.equal(d1.getStatus(), DocumentStatus.Removed);
-    assert.equal(d2.getStatus(), DocumentStatus.Removed);
+    assert.equal(d1.getStatus(), DocStatus.Removed);
+    assert.equal(d2.getStatus(), DocStatus.Removed);
 
     await c1.deactivate();
     await c2.deactivate();
@@ -686,8 +686,8 @@ describe('Document', function () {
     await c1.sync();
     await c2.sync();
 
-    assert.equal(d1.getStatus(), DocumentStatus.Removed);
-    assert.equal(d2.getStatus(), DocumentStatus.Removed);
+    assert.equal(d1.getStatus(), DocStatus.Removed);
+    assert.equal(d2.getStatus(), DocStatus.Removed);
 
     await c1.deactivate();
     await c2.deactivate();
@@ -794,24 +794,24 @@ describe('Document', function () {
     await c2.attach(d2);
 
     await eventCollectorD1.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
+      status: DocStatus.Attached,
       actorID: c1ID,
     });
     await eventCollectorD2.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
+      status: DocStatus.Attached,
       actorID: c2ID,
     });
 
     // 2. When c1 detaches a document, it receives a detached event.
     await c1.detach(d1);
     await eventCollectorD1.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Detached,
+      status: DocStatus.Detached,
     });
 
     // 3. When c2 deactivates, it should also receive a detached event.
     await c2.deactivate();
     await eventCollectorD2.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Detached,
+      status: DocStatus.Detached,
     });
 
     // 4. When other document is attached, it receives an attached event.
@@ -828,7 +828,7 @@ describe('Document', function () {
     });
     await c1.attach(d3, { syncMode: SyncMode.Manual });
     await eventCollectorD3.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
+      status: DocStatus.Attached,
       actorID: c1ID,
     });
 
@@ -836,20 +836,20 @@ describe('Document', function () {
     c2ID = c2.getID()!;
     await c2.attach(d4, { syncMode: SyncMode.Manual });
     await eventCollectorD4.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
+      status: DocStatus.Attached,
       actorID: c2ID,
     });
 
     // 5. When c1 removes a document, it receives a removed event.
     await c1.remove(d3);
     await eventCollectorD3.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Removed,
+      status: DocStatus.Removed,
     });
 
     // 6. When c2 syncs, it should also receive a removed event.
     await c2.sync();
     await eventCollectorD4.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Removed,
+      status: DocStatus.Removed,
     });
 
     // 7. If the document is in the removed state, a detached event should not occur when deactivating.
@@ -897,18 +897,18 @@ describe('Document', function () {
     });
 
     await eventCollectorD1.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
+      status: DocStatus.Attached,
       actorID: c1ID,
     });
     await eventCollectorD2.waitAndVerifyNthEvent(1, {
-      status: DocumentStatus.Attached,
+      status: DocStatus.Attached,
       actorID: c2ID,
     });
 
     // 2. When c1 removes a document, it receives a removed event.
     await c1.remove(d1);
     await eventCollectorD1.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Removed,
+      status: DocStatus.Removed,
     });
 
     // 3. When c2 deactivates, it should also receive a removed event.
@@ -916,7 +916,7 @@ describe('Document', function () {
     // NOTE(chacha912): For now, document status changes to `Detached` when deactivating.
     // This behavior may change in the future.
     await eventCollectorD2.waitAndVerifyNthEvent(2, {
-      status: DocumentStatus.Detached,
+      status: DocStatus.Detached,
     });
 
     await c1.deactivate();

@@ -18,7 +18,7 @@ import { describe, it, vi, beforeAll, afterAll, expect } from 'vitest';
 
 import yorkie, {
   SyncMode,
-  DocumentSyncStatus,
+  DocSyncStatus,
   DocEventType,
 } from '@yorkie-js-sdk/src/yorkie';
 import {
@@ -364,7 +364,7 @@ describe('Auth Webhook', () => {
       root.k1 = 'v1';
     });
 
-    await syncEventCollector.waitFor(DocumentSyncStatus.Synced);
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
     await authErrorEventCollector.waitFor({
       reason: ExpiredTokenErrorMessage,
       method: 'PushPull',
@@ -465,7 +465,7 @@ describe('Auth Webhook', () => {
     doc2.update((root) => {
       root.k1 = 'v1';
     });
-    await syncEventCollector.waitFor(DocumentSyncStatus.Synced);
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
     expect(doc.getRoot().k1).toBe('v1');
 
     await client.detach(doc);
