@@ -1,4 +1,5 @@
 import { describe, it, assert } from 'vitest';
+import { DefaultSnapshotThreshold } from '@yorkie-js-sdk/test/helper/helper';
 import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
 import { Text } from '@yorkie-js-sdk/src/yorkie';
 
@@ -6,8 +7,8 @@ describe('Snapshot', function () {
   it('should handle snapshot', async function ({ task }) {
     type TestDoc = Record<string, number> & { key: string };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
-      // 01. Updates 700 changes over snapshot threshold.
-      for (let idx = 0; idx < 700; idx++) {
+      // 01. Updates changes over snapshot threshold.
+      for (let idx = 0; idx < DefaultSnapshotThreshold; idx++) {
         d1.update((root) => {
           root[`${idx}`] = idx;
         });
@@ -30,7 +31,7 @@ describe('Snapshot', function () {
 
   it('should handle snapshot for text object', async function ({ task }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
-      for (let idx = 0; idx < 700; idx++) {
+      for (let idx = 0; idx < DefaultSnapshotThreshold; idx++) {
         d1.update((root) => {
           root.k1 = new Text();
         }, 'set new doc by c1');
@@ -38,8 +39,8 @@ describe('Snapshot', function () {
       await c1.sync();
       await c2.sync();
 
-      // 01. Updates 500 changes over snapshot threshold by c1.
-      for (let idx = 0; idx < 500; idx++) {
+      // 01. Updates changes over snapshot threshold by c1.
+      for (let idx = 0; idx < DefaultSnapshotThreshold; idx++) {
         d1.update((root) => {
           root.k1.edit(idx, idx, 'x');
         });
@@ -69,8 +70,8 @@ describe('Snapshot', function () {
       await c1.sync();
       await c2.sync();
 
-      // 01. Updates 700 changes over snapshot threshold by c1.
-      for (let idx = 0; idx < 700; idx++) {
+      // 01. Updates changes over snapshot threshold by c1.
+      for (let idx = 0; idx < DefaultSnapshotThreshold; idx++) {
         d1.update((root) => {
           root.k1.setStyle(0, 1, { bold: 'true' });
         });
