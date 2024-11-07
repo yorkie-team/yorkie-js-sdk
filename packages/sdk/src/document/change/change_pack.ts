@@ -99,7 +99,7 @@ export class ChangePack<P extends Indexable> {
   }
 
   /**
-   * `getKey` returns the document key of this pack.
+   * `getDocumentKey` returns the document key of this pack.
    */
   public getDocumentKey(): string {
     return this.documentKey;

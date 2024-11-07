@@ -1,6 +1,6 @@
 import { Document, JSONArray } from '@yorkie-js-sdk/src/yorkie';
 import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { DocumentStatus } from '@yorkie-js-sdk/src/document/document';
+import { DocStatus } from '@yorkie-js-sdk/src/document/document';
 import { describe, bench, assert } from 'vitest';
 import { MaxVersionVector } from '../helper/helper';
 
@@ -56,9 +56,9 @@ describe('Document', () => {
 
   bench('status', () => {
     const doc = new Document<{ text: JSONArray<string> }>(`test-doc`);
-    assert.equal(doc.getStatus(), DocumentStatus.Detached);
-    doc.applyStatus(DocumentStatus.Attached);
-    assert.equal(doc.getStatus(), DocumentStatus.Attached);
+    assert.equal(doc.getStatus(), DocStatus.Detached);
+    doc.applyStatus(DocStatus.Attached);
+    assert.equal(doc.getStatus(), DocStatus.Attached);
   });
 
   bench('equals', () => {

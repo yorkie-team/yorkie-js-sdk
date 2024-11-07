@@ -11,6 +11,8 @@ services:
       - '8081:8081'
     depends_on:
       - mongo
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
   mongo:
     image: 'mongo:latest'
     container_name: 'mongo'
