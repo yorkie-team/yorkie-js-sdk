@@ -59,6 +59,22 @@ export class VersionVector {
   }
 
   /**
+   * `minLamport` returns min lamport value from vector
+   */
+  public minLamport() {
+    const lamports = [...this.vector.values()];
+    let min = lamports[0];
+
+    for (let i = 1; i < lamports.length; i++) {
+      if (lamports[i] < min) {
+        min = lamports[i];
+      }
+    }
+
+    return min;
+  }
+
+  /**
    * `max` returns new version vector which consists of max value of each vector
    */
   public max(other: VersionVector): VersionVector {
@@ -96,7 +112,9 @@ export class VersionVector {
     const lamport = this.vector.get(other.getActorID());
 
     if (lamport === undefined) {
-      return false;
+      const minLamport = this.minLamport();
+
+      return !!minLamport && minLamport > other.getLamport();
     }
 
     return lamport >= other.getLamport();
