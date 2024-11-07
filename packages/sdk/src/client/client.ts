@@ -25,19 +25,23 @@ import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_connect';
 import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
-import { converter, errorCodeOf } from '@yorkie-js-sdk/src/api/converter';
+import {
+  converter,
+  errorCodeOf,
+  errorMetadataOf,
+} from '@yorkie-js-sdk/src/api/converter';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import { uuid } from '@yorkie-js-sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js-sdk/src/client/attachment';
 import {
   Document,
-  DocumentKey,
-  DocumentStatus,
+  DocKey,
+  DocStatus,
   Indexable,
   DocEventType,
   StreamConnectionStatus,
-  DocumentSyncStatus,
+  DocSyncStatus,
 } from '@yorkie-js-sdk/src/document/document';
 import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
@@ -125,10 +129,11 @@ export interface ClientOptions {
   apiKey?: string;
 
   /**
-   * `token` is the authentication token of this client. It is used to identify
-   * the user of the client.
+   * `authTokenInjector` is a function that provides a token for the auth webhook.
+   * When the webhook response status code is 401, this function is called to refresh the token.
+   * The `reason` parameter is the reason from the webhook response.
    */
-  token?: string;
+  authTokenInjector?: (reason?: string) => Promise<string>;
 
   /**
    * `syncLoopDuration` is the duration of the sync loop. After each sync loop,
@@ -181,15 +186,17 @@ export class Client {
   private id?: ActorID;
   private key: string;
   private status: ClientStatus;
-  private attachmentMap: Map<DocumentKey, Attachment<unknown, any>>;
+  private attachmentMap: Map<DocKey, Attachment<unknown, any>>;
 
   private apiKey: string;
+  private authTokenInjector?: (reason?: string) => Promise<string>;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
 
   private rpcClient: PromiseClient<typeof YorkieService>;
+  private setAuthToken: (token: string) => void;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
 
@@ -206,16 +213,20 @@ export class Client {
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
+    this.authTokenInjector = opts.authTokenInjector;
     this.conditions = {
       [ClientCondition.SyncLoop]: false,
       [ClientCondition.WatchLoop]: false,
     };
     this.syncLoopDuration =
-      opts.syncLoopDuration || DefaultClientOptions.syncLoopDuration;
+      opts.syncLoopDuration ?? DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
-      opts.reconnectStreamDelay || DefaultClientOptions.reconnectStreamDelay;
+      opts.reconnectStreamDelay ?? DefaultClientOptions.reconnectStreamDelay;
     this.retrySyncLoopDelay =
-      opts.retrySyncLoopDelay || DefaultClientOptions.retrySyncLoopDelay;
+      opts.retrySyncLoopDelay ?? DefaultClientOptions.retrySyncLoopDelay;
+
+    const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
+    this.setAuthToken = setToken;
 
     // Here we make the client itself, combining the service
     // definition with the transport.
@@ -223,10 +234,7 @@ export class Client {
       YorkieService,
       createGrpcWebTransport({
         baseUrl: rpcAddr,
-        interceptors: [
-          createAuthInterceptor(opts.apiKey, opts.token),
-          createMetricInterceptor(),
-        ],
+        interceptors: [authInterceptor, createMetricInterceptor()],
       }),
     );
     this.taskQueue = [];
@@ -237,9 +245,14 @@ export class Client {
    * and receives a unique ID from the server. The given ID is used to
    * distinguish different clients.
    */
-  public activate(): Promise<void> {
+  public async activate(): Promise<void> {
     if (this.isActive()) {
       return Promise.resolve();
+    }
+
+    if (this.authTokenInjector) {
+      const token = await this.authTokenInjector();
+      this.setAuthToken(token);
     }
 
     return this.enqueueTask(async () => {
@@ -255,9 +268,9 @@ export class Client {
 
           logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
         })
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[AC] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
+          await this.handleConnectError(err);
           throw err;
         });
     });
@@ -281,9 +294,9 @@ export class Client {
           this.deactivateInternal();
           logger.info(`[DC] c"${this.getKey()}" deactivated`);
         })
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[DC] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
+          await this.handleConnectError(err);
           throw err;
         });
     });
@@ -307,7 +320,7 @@ export class Client {
         `${this.key} is not active`,
       );
     }
-    if (doc.getStatus() !== DocumentStatus.Detached) {
+    if (doc.getStatus() !== DocStatus.Detached) {
       throw new YorkieError(
         Code.ErrDocumentNotDetached,
         `${doc.getKey()} is not detached`,
@@ -345,11 +358,11 @@ export class Client {
         .then(async (res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
-          if (doc.getStatus() === DocumentStatus.Removed) {
+          if (doc.getStatus() === DocStatus.Removed) {
             return doc;
           }
 
-          doc.applyStatus(DocumentStatus.Attached);
+          doc.applyStatus(DocStatus.Attached);
           this.attachmentMap.set(
             doc.getKey(),
             new Attachment(
@@ -382,9 +395,9 @@ export class Client {
 
           return doc;
         })
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
+          await this.handleConnectError(err);
           throw err;
         });
     });
@@ -433,17 +446,17 @@ export class Client {
         .then((res) => {
           const pack = converter.fromChangePack<P>(res.changePack!);
           doc.applyChangePack(pack);
-          if (doc.getStatus() !== DocumentStatus.Removed) {
-            doc.applyStatus(DocumentStatus.Detached);
+          if (doc.getStatus() !== DocStatus.Removed) {
+            doc.applyStatus(DocStatus.Detached);
           }
           this.detachInternal(doc.getKey());
 
           logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
           return doc;
         })
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[DD] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
+          await this.handleConnectError(err);
           throw err;
         });
     });
@@ -524,11 +537,13 @@ export class Client {
         );
       }
       return this.enqueueTask(async () => {
-        return this.syncInternal(attachment, SyncMode.Realtime).catch((err) => {
-          logger.error(`[SY] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
-          throw err;
-        });
+        return this.syncInternal(attachment, SyncMode.Realtime).catch(
+          async (err) => {
+            logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+            await this.handleConnectError(err);
+            throw err;
+          },
+        );
       });
     }
 
@@ -537,9 +552,9 @@ export class Client {
       for (const [, attachment] of this.attachmentMap) {
         promises.push(this.syncInternal(attachment, attachment.syncMode));
       }
-      return Promise.all(promises).catch((err) => {
+      return Promise.all(promises).catch(async (err) => {
         logger.error(`[SY] c:"${this.getKey()}" err :`, err);
-        this.handleConnectError(err);
+        await this.handleConnectError(err);
         throw err;
       });
     });
@@ -584,9 +599,9 @@ export class Client {
 
           logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
         })
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[RD] c:"${this.getKey()}" err :`, err);
-          this.handleConnectError(err);
+          await this.handleConnectError(err);
           throw err;
         });
     });
@@ -631,7 +646,7 @@ export class Client {
    * `broadcast` broadcasts the given payload to the given topic.
    */
   public broadcast(
-    docKey: DocumentKey,
+    docKey: DocKey,
     topic: string,
     payload: Json,
     options?: BroadcastOptions,
@@ -688,9 +703,9 @@ export class Client {
               `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
             );
           })
-          .catch((err) => {
+          .catch(async (err) => {
             logger.error(`[BC] c:"${this.getKey()}" err:`, err);
-            if (this.handleConnectError(err)) {
+            if (await this.handleConnectError(err)) {
               if (retryCount < maxRetries) {
                 retryCount++;
                 setTimeout(() => doLoop(), exponentialBackoff(retryCount - 1));
@@ -732,16 +747,35 @@ export class Client {
       for (const [, attachment] of this.attachmentMap) {
         if (attachment.needRealtimeSync()) {
           attachment.remoteChangeEventReceived = false;
-          syncJobs.push(this.syncInternal(attachment, attachment.syncMode));
+          syncJobs.push(
+            this.syncInternal(attachment, attachment.syncMode).catch(
+              async (err) => {
+                if (
+                  err instanceof ConnectError &&
+                  errorCodeOf(err) === Code.ErrUnauthenticated
+                ) {
+                  attachment.doc.publish([
+                    {
+                      type: DocEventType.AuthError,
+                      value: {
+                        reason: errorMetadataOf(err).reason,
+                        method: 'PushPull',
+                      },
+                    },
+                  ]);
+                }
+                throw err;
+              },
+            ),
+          );
         }
       }
 
       Promise.all(syncJobs)
         .then(() => setTimeout(doLoop, this.syncLoopDuration))
-        .catch((err) => {
+        .catch(async (err) => {
           logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-
-          if (this.handleConnectError(err)) {
+          if (await this.handleConnectError(err)) {
             setTimeout(doLoop, this.retrySyncLoopDelay);
           } else {
             this.conditions[ClientCondition.SyncLoop] = false;
@@ -758,7 +792,7 @@ export class Client {
    * `runWatchLoop` runs the watch loop for the given document. The watch loop
    * listens to the events of the given document from the server.
    */
-  private async runWatchLoop(docKey: DocumentKey): Promise<void> {
+  private async runWatchLoop(docKey: DocKey): Promise<void> {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
       throw new YorkieError(
@@ -829,7 +863,21 @@ export class Client {
               ]);
               logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
 
-              if (this.handleConnectError(err)) {
+              if (await this.handleConnectError(err)) {
+                if (
+                  err instanceof ConnectError &&
+                  errorCodeOf(err) === Code.ErrUnauthenticated
+                ) {
+                  attachment.doc.publish([
+                    {
+                      type: DocEventType.AuthError,
+                      value: {
+                        reason: errorMetadataOf(err).reason,
+                        method: 'WatchDocuments',
+                      },
+                    },
+                  ]);
+                }
                 onDisconnect();
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
@@ -865,11 +913,11 @@ export class Client {
 
     for (const [key, attachment] of this.attachmentMap) {
       this.detachInternal(key);
-      attachment.doc.applyStatus(DocumentStatus.Detached);
+      attachment.doc.applyStatus(DocStatus.Detached);
     }
   }
 
-  private detachInternal(docKey: DocumentKey) {
+  private detachInternal(docKey: DocKey) {
     // NOTE(hackerwins): If attachment is not found, it means that the document
     // has been already detached by another routine.
     // This can happen when detach or remove is called while the watch loop is
@@ -918,12 +966,12 @@ export class Client {
         attachment.doc.publish([
           {
             type: DocEventType.SyncStatusChanged,
-            value: DocumentSyncStatus.Synced,
+            value: DocSyncStatus.Synced,
           },
         ]);
         // NOTE(chacha912): If a document has been removed, watchStream should
         // be disconnected to not receive an event for that document.
-        if (doc.getStatus() === DocumentStatus.Removed) {
+        if (doc.getStatus() === DocStatus.Removed) {
           this.detachInternal(doc.getKey());
         }
 
@@ -936,11 +984,11 @@ export class Client {
         );
         return doc;
       })
-      .catch((err) => {
+      .catch(async (err) => {
         doc.publish([
           {
             type: DocEventType.SyncStatusChanged,
-            value: DocumentSyncStatus.SyncFailed,
+            value: DocSyncStatus.SyncFailed,
           },
         ]);
         logger.error(`[PP] c:"${this.getKey()}" err :`, err);
@@ -952,7 +1000,7 @@ export class Client {
    * `handleConnectError` handles the given error. If the given error can be
    * retried after handling, it returns true.
    */
-  private handleConnectError(err: any): boolean {
+  private async handleConnectError(err: any): Promise<boolean> {
     if (!(err instanceof ConnectError)) {
       return false;
     }
@@ -971,6 +1019,17 @@ export class Client {
       return true;
     }
 
+    // NOTE(chacha912): If the error is `Unauthenticated`, it means that the
+    // token is invalid or expired. In this case, the client gets a new token
+    // from the `authTokenInjector` and retries the api call.
+    if (errorCodeOf(err) === Code.ErrUnauthenticated) {
+      if (this.authTokenInjector) {
+        const token = await this.authTokenInjector(errorMetadataOf(err).reason);
+        this.setAuthToken(token);
+      }
+      return true;
+    }
+
     // NOTE(hackerwins): Some errors should fix the state of the client.
     if (
       errorCodeOf(err) === Code.ErrClientNotActivated ||
@@ -978,9 +1037,6 @@ export class Client {
     ) {
       this.deactivateInternal();
     }
-
-    // TODO(hackerwins): We need to handle more cases.
-    // - Unauthenticated: The client is not authenticated. It is retryable after reauthentication.
 
     return false;
   }

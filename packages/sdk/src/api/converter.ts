@@ -804,19 +804,28 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
 }
 
 /**
+ * `errorMetadataOf` returns the error metadata of the given connect error.
+ */
+export function errorMetadataOf(error: ConnectError): Record<string, string> {
+  if (!(error instanceof ConnectError)) {
+    return {};
+  }
+
+  // NOTE(chacha912): Currently, we only use the first detail to represent the
+  // error metadata.
+  const infos = error.findDetails(ErrorInfo);
+  for (const info of infos) {
+    return info.metadata;
+  }
+
+  return {};
+}
+
+/**
  * `errorCodeOf` returns the error code of the given connect error.
  */
 export function errorCodeOf(error: ConnectError): string {
-  // NOTE(hackerwins): Currently, we only use the first detail to represent the
-  // error code.
-  const infos = error.findDetails(ErrorInfo);
-  for (const info of infos) {
-    if (info.metadata.code) {
-      return info.metadata.code;
-    }
-  }
-
-  return '';
+  return errorMetadataOf(error).code ?? '';
 }
 
 /**

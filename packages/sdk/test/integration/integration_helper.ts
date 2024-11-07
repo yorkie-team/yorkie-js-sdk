@@ -3,8 +3,29 @@ import yorkie, { SyncMode } from '@yorkie-js-sdk/src/yorkie';
 import { Client } from '@yorkie-js-sdk/src/client/client';
 import { Document } from '@yorkie-js-sdk/src/document/document';
 import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
+import { execSync } from 'child_process';
 
 export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://127.0.0.1:8080';
+export const testAPIID = process.env.TEST_API_ID || 'admin';
+export const testAPIPW = process.env.TEST_API_PW || 'admin';
+function isYorkieContainerRunning() {
+  if (process.env.CI === 'true') {
+    return true;
+  }
+
+  try {
+    const result = execSync(
+      'docker ps --filter "name=^/yorkie$" --format "{{.Names}}"',
+      {
+        stdio: 'pipe',
+      },
+    );
+    return result && result.toString().trim() !== '';
+  } catch (error) {
+    return false;
+  }
+}
+export const webhookAddr = isYorkieContainerRunning() && 'host.docker.internal';
 
 export function toDocKey(title: string): string {
   return title
