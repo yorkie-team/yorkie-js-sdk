@@ -1599,4 +1599,101 @@ describe('Garbage Collection', function () {
     await client1.deactivate();
     await client2.deactivate();
   });
+
+  it('gc targeting nodes made by deactivated client', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    doc1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+      root.t.edit(1, 1, 'b');
+      root.t.edit(2, 2, 'c');
+    }, 'sets text');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.sync();
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
+
+    doc2.update((root) => {
+      root.t.edit(2, 2, 'c');
+    }, 'insert c');
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    doc1.update((root) => {
+      root.t.edit(1, 3, '');
+    }, 'delete bd');
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client1.sync();
+    await client2.sync();
+
+    await client1.deactivate();
+    assert.equal(doc2.getGarbageLen(), 2);
+    assert.equal(doc2.getVersionVector().size(), 2);
+
+    // TODO(JOOHOJANG): remove below comments after https://github.com/yorkie-team/yorkie/issues/1058 resolved
+    // Due to https://github.com/yorkie-team/yorkie/issues/1058, removing deactivated client's version vector is not working properly now.
+
+    //await client2.sync();
+    //assert.equal(doc2.getGarbageLen(), 0);
+    //assert.equal(doc2.getVersionVector().size(), 1);
+  });
 });
