@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.5] - 2024-11-07
+
+### Added
+
+- Add dynamic token refresh and authentication error handling by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/911
+
+### Fixed
+
+- Fix tests for event batch publisher implementation by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/924
+- Modify Snapshot Event to publish updated local changes by @devleejb in https://github.com/yorkie-team/yorkie-js-sdk/pull/923
+
 ## [0.5.4] - 2024-10-28
 
 ### Added
