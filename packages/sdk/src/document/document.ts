@@ -1149,6 +1149,22 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `removePushedLocalChanges` removes local changes that have been applied to
+   * the server from the local changes.
+   *
+   * @param clientSeq - client sequence number to remove local changes before it
+   */
+  private removePushedLocalChanges(clientSeq: number) {
+    while (this.localChanges.length) {
+      const change = this.localChanges[0];
+      if (change.getID().getClientSeq() > clientSeq) {
+        break;
+      }
+      this.localChanges.shift();
+    }
+  }
+
+  /**
    * `applyChangePack` applies the given change pack into this document.
    * 1. Remove local changes applied to server.
    * 2. Update the checkpoint.
@@ -1160,42 +1176,28 @@ export class Document<T, P extends Indexable = Indexable> {
   public applyChangePack(pack: ChangePack<P>): void {
     const hasSnapshot = pack.hasSnapshot();
 
+    // 01. Apply snapshot or changes to the root object.
     if (hasSnapshot) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getVersionVector()!,
         pack.getSnapshot()!,
+        pack.getCheckpoint().getClientSeq(),
       );
-    } else if (pack.hasChanges()) {
+    } else {
       this.applyChanges(pack.getChanges(), OpSource.Remote);
+      this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
     }
 
-    // 02. Remove local changes applied to server.
-    while (this.localChanges.length) {
-      const change = this.localChanges[0];
-      if (change.getID().getClientSeq() > pack.getCheckpoint().getClientSeq()) {
-        break;
-      }
-      this.localChanges.shift();
-    }
-
-    // NOTE(hackerwins): If the document has local changes, we need to apply
-    // them after applying the snapshot. We need to treat the local changes
-    // as remote changes because the application should apply the local
-    // changes to their own document.
-    if (hasSnapshot) {
-      this.applyChanges(this.localChanges, OpSource.Remote);
-    }
-
-    // 03. Update the checkpoint.
+    // 02. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    // 04. Do Garbage collection.
+    // 03. Do Garbage collection.
     if (!hasSnapshot) {
       this.garbageCollect(pack.getVersionVector()!);
     }
 
-    // 05. Filter detached client's lamport from version vector
+    // 04. Filter detached client's lamport from version vector
     if (!hasSnapshot) {
       this.filterVersionVector(pack.getVersionVector()!);
     }
@@ -1412,6 +1414,7 @@ export class Document<T, P extends Indexable = Indexable> {
     serverSeq: bigint,
     snapshotVector: VersionVector,
     snapshot?: Uint8Array,
+    clientSeq: number = -1,
   ) {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
@@ -1421,6 +1424,13 @@ export class Document<T, P extends Indexable = Indexable> {
     // drop clone because it is contaminated.
     this.clone = undefined;
 
+    this.removePushedLocalChanges(clientSeq);
+
+    // NOTE(hackerwins): If the document has local changes, we need to apply
+    // them after applying the snapshot, as local changes are not included in the snapshot data.
+    // Afterward, we should publish a snapshot event with the latest
+    // version of the document to ensure the user receives the most up-to-date snapshot.
+    this.applyChanges(this.localChanges, OpSource.Local);
     this.publish([
       {
         type: DocEventType.Snapshot,
@@ -1689,6 +1699,7 @@ export class Document<T, P extends Indexable = Indexable> {
     if (event.type === DocEventType.Snapshot) {
       const { snapshot, serverSeq, snapshotVector } = event.value;
       if (!snapshot) return;
+      // TODO(hackerwins): We need to check the clientSeq of the snapshot.
       this.applySnapshot(
         BigInt(serverSeq),
         converter.hexToVersionVector(snapshotVector),
