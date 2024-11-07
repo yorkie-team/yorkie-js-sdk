@@ -166,12 +166,8 @@ describe.sequential('Client', function () {
   it('Can recover from temporary disconnect (realtime sync)', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr, {
-      retryRequestDelay: 0,
-    });
-    const c2 = new yorkie.Client(testRPCAddr, {
-      retryRequestDelay: 0,
-    });
+    const c1 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client(testRPCAddr);
     await c1.activate();
     await c2.activate();
 

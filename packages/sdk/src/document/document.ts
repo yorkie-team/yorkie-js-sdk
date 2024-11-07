@@ -201,7 +201,7 @@ export enum DocEventType {
   LocalBroadcast = 'local-broadcast',
 
   /**
-   * `AuthError` means that the authentification error occurs.
+   * `AuthError` indicates an authorization failure in syncLoop or watchLoop.
    */
   AuthError = 'auth-error',
 }
@@ -425,7 +425,7 @@ export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
   value: {
     reason: string;
-    method: 'AttachDocument' | 'DetachDocument' | 'PushPull' | 'WatchDocuments';
+    method: 'PushPull' | 'WatchDocuments';
   };
 }
 

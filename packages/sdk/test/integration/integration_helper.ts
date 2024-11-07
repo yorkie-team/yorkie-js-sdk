@@ -47,12 +47,8 @@ export async function withTwoClientsAndDocuments<
   title: string,
   syncMode: SyncMode = SyncMode.Manual,
 ): Promise<void> {
-  const client1 = new yorkie.Client(testRPCAddr, {
-    retryRequestDelay: 0,
-  });
-  const client2 = new yorkie.Client(testRPCAddr, {
-    retryRequestDelay: 0,
-  });
+  const client1 = new yorkie.Client(testRPCAddr);
+  const client2 = new yorkie.Client(testRPCAddr);
   await client1.activate();
   await client2.activate();
 
