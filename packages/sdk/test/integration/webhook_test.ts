@@ -212,8 +212,8 @@ describe('Auth Webhook', () => {
     task,
   }) => {
     const TokenExpirationMs = 500;
-    const authTokenInjector = vi.fn(async (authErrorMessage) => {
-      if (authErrorMessage === ExpiredTokenErrorMessage) {
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
         return `token-${Date.now() + TokenExpirationMs}`;
       }
       return `token-${Date.now() - TokenExpirationMs}`; // token expired
@@ -310,8 +310,8 @@ describe('Auth Webhook', () => {
     );
 
     const TokenExpirationMs = 500;
-    const authTokenInjector = vi.fn(async (authErrorMessage) => {
-      if (authErrorMessage === ExpiredTokenErrorMessage) {
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
         return `token-${Date.now() + TokenExpirationMs}`;
       }
       return `token-${Date.now()}`;
@@ -388,8 +388,8 @@ describe('Auth Webhook', () => {
     );
 
     const TokenExpirationMs = 2000;
-    const authTokenInjector = vi.fn(async (authErrorMessage) => {
-      if (authErrorMessage === ExpiredTokenErrorMessage) {
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
         return `token-${Date.now() + TokenExpirationMs}`;
       }
       return `token-${Date.now()}`;
