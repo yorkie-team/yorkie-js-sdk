@@ -62,12 +62,16 @@ export class VersionVector {
    * `minLamport` returns min lamport value from vector
    */
   public minLamport() {
-    const lamports = [...this.vector.values()];
-    let min = lamports[0];
+    if (this.vector.size === 0) {
+      return BigInt(0);
+    }
 
-    for (let i = 1; i < lamports.length; i++) {
-      if (lamports[i] < min) {
-        min = lamports[i];
+    // 2^63-1
+    let min = 9223372036854775807n;
+
+    for (const [, lamport] of this) {
+      if (lamport < min) {
+        min = lamport;
       }
     }
 
