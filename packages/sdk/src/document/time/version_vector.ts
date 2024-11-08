@@ -61,21 +61,18 @@ export class VersionVector {
   /**
    * `minLamport` returns min lamport value from vector
    */
-  public minLamport() {
+  public minLamport(): bigint {
     if (this.vector.size === 0) {
       return BigInt(0);
     }
 
-    // 2^63-1
-    let min = 9223372036854775807n;
-
+    let min: bigint | undefined;
     for (const [, lamport] of this) {
-      if (lamport < min) {
+      if (min === undefined || lamport < min) {
         min = lamport;
       }
     }
-
-    return min;
+    return min as bigint;
   }
 
   /**
