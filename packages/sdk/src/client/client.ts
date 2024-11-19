@@ -235,6 +235,14 @@ export class Client {
       createGrpcWebTransport({
         baseUrl: rpcAddr,
         interceptors: [authInterceptor, createMetricInterceptor()],
+        fetch: (input, init) => {
+          const newInit = {
+            ...init,
+            keepalive: true,
+          };
+
+          return fetch(input, newInit);
+        },
       }),
     );
     this.taskQueue = [];
@@ -279,8 +287,17 @@ export class Client {
   /**
    * `deactivate` deactivates this client.
    */
-  public deactivate(): Promise<void> {
+  public deactivate(fireImmediately = false): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
+      return Promise.resolve();
+    }
+
+    if (fireImmediately) {
+      this.rpcClient.deactivateClient(
+        { clientId: this.id! },
+        { headers: { 'x-shard-key': this.apiKey } },
+      );
+
       return Promise.resolve();
     }
 
