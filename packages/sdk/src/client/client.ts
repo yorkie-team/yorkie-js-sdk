@@ -199,6 +199,7 @@ export class Client {
   private setAuthToken: (token: string) => void;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
+  private unloading = false;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -238,7 +239,7 @@ export class Client {
         fetch: (input, init) => {
           const newInit = {
             ...init,
-            keepalive: true,
+            keepalive: this.unloading,
           };
 
           return fetch(input, newInit);
@@ -293,6 +294,7 @@ export class Client {
     }
 
     if (options.fireImmediately) {
+      this.unloading = true;
       this.rpcClient.deactivateClient(
         { clientId: this.id! },
         { headers: { 'x-shard-key': this.apiKey } },
