@@ -2031,4 +2031,67 @@ describe('Garbage Collection', function () {
     await client1.deactivate();
     await client2.deactivate();
   });
+  it.skip('attach > pushpull > detach lifecycle version vector text (run gc at last client detaches document and error occured', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Tree };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(2) },
+      ]),
+      true,
+    );
+
+    doc1.update((root) => {
+      root.t = new Tree({
+        type: 'r',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    await client1.sync();
+    await client2.sync();
+    assert.equal(doc1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+    assert.equal(doc2.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
+
+    doc1.update((r) => r.t.edit(2, 2, undefined, 1));
+    doc2.update((r) => r.t.edit(2, 3));
+    assert.equal(doc1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+    assert.equal(doc2.getRoot().t.toXML(), /*html*/ `<r><p>a</p></r>`);
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p></p></r>`);
+    assert.equal(doc2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p></p></r>`);
+
+    await client1.detach(doc1);
+    // error occured when apply changepack
+    // since last client detaches document, there's no active client in document, therefore min version vector is empty in responsepack
+    // since minversion vector is empty, VersionVector.minLamport() returns int64max value
+    // thus, GC removes every tombstone.
+
+    // when applying remote split operation to doc2, an error occurred during the split process because the tombstone-marked child nodes were not carried over by parent.
+    await client2.detach(doc2);
+
+    await client1.deactivate();
+    await client2.deactivate();
+  });
 });
