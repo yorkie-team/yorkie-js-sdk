@@ -287,12 +287,12 @@ export class Client {
   /**
    * `deactivate` deactivates this client.
    */
-  public deactivate(fireImmediately = false): Promise<void> {
+  public deactivate(options = { fireImmediately: false }): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
     }
 
-    if (fireImmediately) {
+    if (options.fireImmediately) {
       this.rpcClient.deactivateClient(
         { clientId: this.id! },
         { headers: { 'x-shard-key': this.apiKey } },
