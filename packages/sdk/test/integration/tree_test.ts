@@ -2462,8 +2462,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  // TODO(JOOHOJANG)
-  // split operation's defect cause GC error.
+  // TODO(JOOHOJANG): split operation's defect cause GC error.
   // remove this comment after implement split operation completely.
   it.skip('contained-split-and-delete-contents-in-split-node', async function ({
     task,
