@@ -1689,12 +1689,9 @@ describe('Garbage Collection', function () {
     assert.equal(doc2.getGarbageLen(), 2);
     assert.equal(doc2.getVersionVector().size(), 2);
 
-    // TODO(JOOHOJANG): remove below comments after https://github.com/yorkie-team/yorkie/issues/1058 resolved
-    // Due to https://github.com/yorkie-team/yorkie/issues/1058, removing deactivated client's version vector is not working properly now.
-
-    //await client2.sync();
-    //assert.equal(doc2.getGarbageLen(), 0);
-    //assert.equal(doc2.getVersionVector().size(), 1);
+    await client2.sync();
+    assert.equal(doc2.getGarbageLen(), 0);
+    assert.equal(doc2.getVersionVector().size(), 1);
   });
 
   it('attach > pushpull > detach lifecycle version vector test (run gc at last client detaches document, but no tombstone exsits)', async function ({
