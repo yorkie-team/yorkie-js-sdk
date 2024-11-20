@@ -199,7 +199,7 @@ export class Client {
   private setAuthToken: (token: string) => void;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
-  private unloading = false;
+  private keepalive = false;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -239,10 +239,10 @@ export class Client {
         fetch: (input, init) => {
           const newInit = {
             ...init,
-            keepalive: this.unloading,
+            keepalive: this.keepalive,
           };
 
-          return fetch(input, newInit);
+          return fetch(input as RequestInfo, newInit);
         },
       }),
     );
@@ -287,38 +287,40 @@ export class Client {
 
   /**
    * `deactivate` deactivates this client.
+   *
+   * @param options - If keepalive is true, the client will request deactivation
+   * immediately using `fetch` with the `keepalive` option enabled. This is
+   * useful for ensuring the deactivation request completes even if the page is
+   * being unloaded, such as in `beforeunload` or `unload` event listeners.
    */
-  public deactivate(options = { fireImmediately: false }): Promise<void> {
+  public deactivate(options = { keepalive: false }): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
     }
 
-    if (options.fireImmediately) {
-      this.unloading = true;
-      this.rpcClient.deactivateClient(
-        { clientId: this.id! },
-        { headers: { 'x-shard-key': this.apiKey } },
-      );
-
-      return Promise.resolve();
-    }
-
-    return this.enqueueTask(async () => {
-      return this.rpcClient
-        .deactivateClient(
+    const task = async () => {
+      try {
+        await this.rpcClient.deactivateClient(
           { clientId: this.id! },
           { headers: { 'x-shard-key': this.apiKey } },
-        )
-        .then(() => {
-          this.deactivateInternal();
-          logger.info(`[DC] c"${this.getKey()}" deactivated`);
-        })
-        .catch(async (err) => {
-          logger.error(`[DC] c:"${this.getKey()}" err :`, err);
-          await this.handleConnectError(err);
-          throw err;
-        });
-    });
+        );
+        this.deactivateInternal();
+        logger.info(`[DC] c"${this.getKey()}" deactivated`);
+      } catch (err) {
+        logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    if (options.keepalive) {
+      this.keepalive = true;
+      const resp = task();
+      this.keepalive = false;
+      return resp;
+    }
+
+    return this.enqueueTask(task);
   }
 
   /**
