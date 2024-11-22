@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.6] - 2024-11-22
+
+### Added
+
+- Add keepalive option in client.deactivate by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/928
+
+### Fixed
+
+- Improve GC for deactivated client's nodes by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/926
+
 ## [0.5.5] - 2024-11-07
 
 ### Added
