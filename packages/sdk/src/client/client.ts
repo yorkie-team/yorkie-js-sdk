@@ -727,6 +727,21 @@ export class Client {
           .catch(async (err) => {
             logger.error(`[BC] c:"${this.getKey()}" err:`, err);
             if (await this.handleConnectError(err)) {
+              if (
+                err instanceof ConnectError &&
+                errorCodeOf(err) === Code.ErrUnauthenticated
+              ) {
+                attachment.doc.publish([
+                  {
+                    type: DocEventType.AuthError,
+                    value: {
+                      reason: errorMetadataOf(err).reason,
+                      method: 'Broadcast',
+                    },
+                  },
+                ]);
+              }
+
               if (retryCount < maxRetries) {
                 retryCount++;
                 setTimeout(() => doLoop(), exponentialBackoff(retryCount - 1));
