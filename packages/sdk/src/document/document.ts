@@ -425,7 +425,7 @@ export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
   value: {
     reason: string;
-    method: 'PushPull' | 'WatchDocuments';
+    method: 'PushPull' | 'WatchDocuments' | 'Broadcast';
   };
 }
 

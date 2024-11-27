@@ -42,6 +42,16 @@ let webhookServerInstance: any;
 let webhookServerAddress: string;
 let apiKey: string;
 let adminToken: string;
+const AllAuthWebhookMethods = [
+  'ActivateClient',
+  'DeactivateClient',
+  'AttachDocument',
+  'DetachDocument',
+  'RemoveDocument',
+  'PushPull',
+  'WatchDocuments',
+  'Broadcast',
+];
 
 const InvalidTokenErrorMessage = 'invalid token';
 const ExpiredTokenErrorMessage = 'expired token';
@@ -113,6 +123,7 @@ describe('Auth Webhook', () => {
         id: projectId,
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: AllAuthWebhookMethods },
         },
       },
       {
@@ -131,24 +142,52 @@ describe('Auth Webhook', () => {
     task,
   }) => {
     // client with token
-    const client = new yorkie.Client(testRPCAddr, {
+    const c1 = new yorkie.Client(testRPCAddr, {
+      apiKey,
+      authTokenInjector: async () => {
+        return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
+      },
+    });
+    const c2 = new yorkie.Client(testRPCAddr, {
       apiKey,
       authTokenInjector: async () => {
         return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
       },
     });
 
-    await client.activate();
-    const doc = new yorkie.Document<{ k1: string }>(
-      toDocKey(`${task.name}-${new Date().getTime()}`),
-    );
-    await client.attach(doc);
-    doc.update((root) => {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    await c1.activate();
+    await c2.activate();
+    const doc1 = new yorkie.Document<{ k1: string }>(docKey);
+    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
+
+    await c1.attach(doc1);
+    await c2.attach(doc2);
+
+    const eventCollector = new EventCollector();
+    const topic = 'test';
+    const payload = 'data';
+    const unsubscribe = doc2.subscribe('broadcast', (event) => {
+      if (event.value.topic === topic) {
+        eventCollector.add(event.value.payload as string);
+      }
+    });
+    doc1.broadcast(topic, payload);
+    await eventCollector.waitAndVerifyNthEvent(1, payload);
+
+    doc1.update((root) => {
       root.k1 = 'v1';
     });
-    await client.sync(doc);
-    await client.detach(doc);
-    await client.deactivate();
+    await c1.sync(doc1);
+    await c2.sync(doc2);
+    expect(doc2.toSortedJSON()).toBe('{"k1":"v1"}');
+
+    await c1.detach(doc1);
+    await c2.remove(doc2);
+
+    unsubscribe();
+    await c1.deactivate();
+    await c2.deactivate();
   });
 
   it('should return unauthenticated error for client with empty token (401)', async () => {
@@ -296,6 +335,71 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).toBeCalledTimes(7);
     expect(authTokenInjector).nthCalledWith(7, ExpiredTokenErrorMessage);
     // retry deactivate
+    await client.deactivate();
+  });
+
+  it('should refresh token when unauthenticated error occurs (RemoveDocument)', async ({
+    task,
+  }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      {
+        headers: { Authorization: adminToken },
+      },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['RemoveDocument'] },
+        },
+      },
+      {
+        headers: { Authorization: adminToken },
+      },
+    );
+
+    const TokenExpirationMs = 500;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        return `token-${Date.now() + TokenExpirationMs}`;
+      }
+      return `token-${Date.now() - TokenExpirationMs}`; // token expired
+    });
+    // client with token
+    const client = new yorkie.Client(testRPCAddr, {
+      apiKey,
+      authTokenInjector,
+    });
+
+    await client.activate();
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    await assertThrowsAsync(
+      async () => {
+        await client.remove(doc);
+      },
+      ConnectError,
+      /^\[unauthenticated\]/i,
+    );
+    expect(authTokenInjector).toBeCalledTimes(2);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+    // retry remove document
+    await client.remove(doc);
+
     await client.deactivate();
   });
 
@@ -470,5 +574,94 @@ describe('Auth Webhook', () => {
 
     await client.detach(doc);
     await client.deactivate();
+  });
+
+  it('should refresh token and retry broadcast', async ({ task }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      {
+        headers: { Authorization: adminToken },
+      },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['Broadcast'] },
+        },
+      },
+      {
+        headers: { Authorization: adminToken },
+      },
+    );
+
+    const TokenExpirationMs = 1500; // Set higher than DefaultBroadcastOptions.initialRetryInterval (1000ms)
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        return `token-${Date.now() + TokenExpirationMs}`;
+      }
+      return `token-${Date.now()}`;
+    });
+    // client with token
+    const client = new yorkie.Client(testRPCAddr, {
+      apiKey,
+      authTokenInjector,
+      reconnectStreamDelay: 100,
+    });
+
+    await client.activate();
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ k1: string }>(docKey);
+    await client.attach(doc);
+    const authErrorEventCollector = new EventCollector<{
+      reason: string;
+      method: string;
+    }>();
+    doc.subscribe('auth-error', (event) => {
+      authErrorEventCollector.add(event.value);
+    });
+
+    // Another client for verifying if the broadcast is working properly
+    const client2 = new yorkie.Client(testRPCAddr, {
+      apiKey,
+      authTokenInjector: async () => {
+        return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
+      },
+    });
+    await client2.activate();
+    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
+    await client2.attach(doc2);
+    const eventCollector = new EventCollector();
+    const topic = 'test';
+    const payload = 'data';
+    const unsubscribe = doc2.subscribe('broadcast', (event) => {
+      if (event.value.topic === topic) {
+        eventCollector.add(event.value.payload as string);
+      }
+    });
+
+    // retry broadcast
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    doc.broadcast(topic, payload);
+    await eventCollector.waitAndVerifyNthEvent(1, payload);
+    await authErrorEventCollector.waitFor({
+      reason: ExpiredTokenErrorMessage,
+      method: 'Broadcast',
+    });
+    expect(authTokenInjector).toBeCalledTimes(2);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+
+    unsubscribe();
+    await client.deactivate();
+    await client2.deactivate();
   });
 });
