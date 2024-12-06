@@ -601,9 +601,11 @@ describe('Garbage Collection', function () {
     assert.equal(doc2.getGarbageLen(), 6);
 
     await client1.sync();
+    // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
         { actor: client1.getID()!, lamport: BigInt(5) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
       ]),
       true,
     );
@@ -1691,7 +1693,8 @@ describe('Garbage Collection', function () {
 
     await client2.sync();
     assert.equal(doc2.getGarbageLen(), 0);
-    assert.equal(doc2.getVersionVector().size(), 1);
+    // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
+    assert.equal(doc2.getVersionVector().size(), 2);
   });
 
   it('attach > pushpull > detach lifecycle version vector test (run gc at last client detaches document, but no tombstone exsits)', async function ({
@@ -1836,6 +1839,7 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
         { actor: client2.getID()!, lamport: BigInt(9) },
       ]),
       true,
@@ -1846,6 +1850,7 @@ describe('Garbage Collection', function () {
     }, 'delete all');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
         { actor: client2.getID()!, lamport: BigInt(10) },
       ]),
       true,
@@ -1854,6 +1859,7 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
         { actor: client2.getID()!, lamport: BigInt(10) },
       ]),
       true,
@@ -1995,6 +2001,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc2.getGarbageLen(), 0);
 
     await client1.sync();
+    // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.equal(
       versionVectorHelper(doc1.getVersionVector(), [
         { actor: client1.getID()!, lamport: BigInt(7) },
@@ -2007,6 +2014,7 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
         { actor: client2.getID()!, lamport: BigInt(9) },
       ]),
       true,
@@ -2017,6 +2025,7 @@ describe('Garbage Collection', function () {
     }, 'delete all');
     assert.equal(
       versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(8) },
         { actor: client2.getID()!, lamport: BigInt(10) },
       ]),
       true,
@@ -2027,5 +2036,194 @@ describe('Garbage Collection', function () {
 
     await client1.deactivate();
     await client2.deactivate();
+  });
+
+  it('detach gc test', async function ({ task }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const doc3 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    const client3 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+    await client3.activate();
+
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    await client3.attach(doc3, { syncMode: SyncMode.Manual });
+
+    await client1.sync();
+    await client2.sync();
+    await client3.sync();
+
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(3) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(3) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc3.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(1) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(3) },
+      ]),
+      true,
+    );
+
+    doc1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+      root.t.edit(1, 1, 'b');
+      root.t.edit(2, 2, 'c');
+    }, 'sets text');
+
+    await client1.sync();
+    await client2.sync();
+    await client3.sync();
+
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(5) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc3.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(5) },
+      ]),
+      true,
+    );
+
+    doc3.update((root) => {
+      root.t.edit(1, 3, '');
+    });
+
+    doc1.update((root) => {
+      root.t.edit(0, 0, '1');
+    });
+    doc1.update((root) => {
+      root.t.edit(0, 0, '2');
+    });
+    doc1.update((root) => {
+      root.t.edit(0, 0, '3');
+    });
+    doc2.update((root) => {
+      root.t.edit(3, 3, 'x');
+    });
+    doc2.update((root) => {
+      root.t.edit(4, 4, 'y');
+    });
+
+    await client1.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(
+      doc1.toJSON(),
+      '{"t":[{"val":"3"},{"val":"2"},{"val":"1"},{"val":"a"},{"val":"b"},{"val":"c"},{"val":"x"},{"val":"y"}]}',
+    );
+    assert.equal(
+      doc2.toJSON(),
+      '{"t":[{"val":"3"},{"val":"2"},{"val":"1"},{"val":"a"},{"val":"b"},{"val":"c"},{"val":"x"},{"val":"y"}]}',
+    );
+
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(9) },
+        { actor: client2.getID()!, lamport: BigInt(7) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(10) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc3.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(6) },
+      ]),
+      true,
+    );
+
+    await client3.detach(doc3);
+    doc2.update((root) => {
+      root.t.edit(5, 5, 'z');
+    });
+
+    await client1.sync();
+    assert.equal(doc1.getGarbageLen(), 2);
+    await client1.sync();
+    assert.equal(doc1.getGarbageLen(), 2);
+
+    await client2.sync();
+    await client1.sync();
+
+    // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(12) },
+        { actor: client2.getID()!, lamport: BigInt(11) },
+        { actor: client3.getID()!, lamport: BigInt(7) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(7) },
+        { actor: client2.getID()!, lamport: BigInt(13) },
+        { actor: client3.getID()!, lamport: BigInt(7) },
+      ]),
+      true,
+    );
+    assert.equal(
+      doc1.toJSON(),
+      '{"t":[{"val":"3"},{"val":"2"},{"val":"1"},{"val":"a"},{"val":"z"},{"val":"x"},{"val":"y"}]}',
+    );
+    assert.equal(
+      doc2.toJSON(),
+      '{"t":[{"val":"3"},{"val":"2"},{"val":"1"},{"val":"a"},{"val":"z"},{"val":"x"},{"val":"y"}]}',
+    );
+    assert.equal(doc1.getGarbageLen(), 2);
+    assert.equal(doc2.getGarbageLen(), 2);
+    await client2.sync();
+    await client1.sync();
+    assert.equal(doc1.getGarbageLen(), 0);
+    assert.equal(doc2.getGarbageLen(), 0);
+
+    await client1.deactivate();
+    await client2.deactivate();
+    await client3.deactivate();
   });
 });
