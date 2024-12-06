@@ -59,26 +59,6 @@ export class VersionVector {
   }
 
   /**
-   * `minLamport` returns min lamport value from vector
-   */
-  public minLamport(): bigint {
-    // TODO(hackerwins): If the version vector is empty, minLamport could be the
-    // max value of int64. This is because if the last client leaves the
-    // document, the min version vector becomes empty.
-    // This is a temporary solution and needs to be fixed later.
-
-    // 2^63-1 (int64 max)
-    let min = 9223372036854775807n;
-
-    for (const [, lamport] of this) {
-      if (lamport < min) {
-        min = lamport;
-      }
-    }
-    return min;
-  }
-
-  /**
    * `max` returns new version vector which consists of max value of each vector
    */
   public max(other: VersionVector): VersionVector {
@@ -116,7 +96,7 @@ export class VersionVector {
     const lamport = this.vector.get(other.getActorID());
 
     if (lamport === undefined) {
-      return this.minLamport() > other.getLamport();
+      return false;
     }
 
     return lamport >= other.getLamport();
