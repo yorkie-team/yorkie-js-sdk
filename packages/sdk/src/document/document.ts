@@ -1233,12 +1233,7 @@ export class Document<T, P extends Indexable = Indexable> {
       this.garbageCollect(pack.getVersionVector()!);
     }
 
-    // 04. Filter detached client's lamport from version vector
-    if (!hasSnapshot) {
-      this.filterVersionVector(pack.getVersionVector()!);
-    }
-
-    // 05. Update the status.
+    // 04. Update the status.
     if (pack.getIsRemoved()) {
       this.applyStatus(DocStatus.Removed);
     }
