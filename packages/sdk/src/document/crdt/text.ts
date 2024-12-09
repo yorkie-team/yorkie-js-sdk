@@ -15,10 +15,11 @@
  */
 
 import {
+  MaxLamport,
   InitialTimeTicket,
-  MaxTimeTicket,
   TimeTicket,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
 import { RHT, RHTNode } from '@yorkie-js-sdk/src/document/crdt/rht';
 import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
@@ -224,6 +225,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+    versionVector?: VersionVector,
   ): [
     Map<string, TimeTicket>,
     Array<TextChange<A>>,
@@ -243,6 +245,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         editedAt,
         crdtTextValue,
         maxCreatedAtMapByActor,
+        versionVector,
       );
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
@@ -278,6 +281,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+    versionVector?: VersionVector,
   ): [Map<string, TimeTicket>, Array<GCPair>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
@@ -294,14 +298,22 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
     for (const node of nodes) {
       const actorID = node.getCreatedAt().getActorID();
+      let maxCreatedAt: TimeTicket | undefined;
+      let clientLamportAtChange = 0n;
+      if (versionVector === undefined && maxCreatedAtMapByActor === undefined) {
+        // Local edit - use version vector comparison
+        clientLamportAtChange = MaxLamport;
+      } else if (versionVector!.size() > 0) {
+        clientLamportAtChange = versionVector!.get(actorID)
+          ? versionVector!.get(actorID)!
+          : 0n;
+      } else {
+        maxCreatedAt = maxCreatedAtMapByActor!.has(actorID)
+          ? maxCreatedAtMapByActor!.get(actorID)
+          : InitialTimeTicket;
+      }
 
-      const maxCreatedAt = maxCreatedAtMapByActor?.size
-        ? maxCreatedAtMapByActor!.has(actorID)
-          ? maxCreatedAtMapByActor!.get(actorID)!
-          : InitialTimeTicket
-        : MaxTimeTicket;
-
-      if (node.canStyle(editedAt, maxCreatedAt)) {
+      if (node.canStyle(editedAt, maxCreatedAt, clientLamportAtChange)) {
         const maxCreatedAt = createdAtMapByActor.get(actorID);
         const createdAt = node.getCreatedAt();
         if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {

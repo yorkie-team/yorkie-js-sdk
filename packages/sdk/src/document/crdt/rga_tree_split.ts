@@ -20,10 +20,11 @@ import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
 import {
   InitialTimeTicket,
-  MaxTimeTicket,
+  MaxLamport,
   TimeTicket,
   TimeTicketStruct,
 } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
@@ -439,12 +440,17 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   /**
    * `canDelete` checks if node is able to delete.
    */
-  public canDelete(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
+  public canDelete(
+    editedAt: TimeTicket,
+    maxCreatedAt: TimeTicket | undefined,
+    clientLamportAtChange: bigint,
+  ): boolean {
     const justRemoved = !this.removedAt;
-    if (
-      !this.getCreatedAt().after(maxCreatedAt) &&
-      (!this.removedAt || editedAt.after(this.removedAt))
-    ) {
+    const nodeExisted = maxCreatedAt
+      ? !this.getCreatedAt().after(maxCreatedAt)
+      : this.getCreatedAt().getLamport() <= clientLamportAtChange;
+
+    if (nodeExisted && (!this.removedAt || editedAt.after(this.removedAt))) {
       return justRemoved;
     }
 
@@ -454,11 +460,16 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   /**
    * `canStyle` checks if node is able to set style.
    */
-  public canStyle(editedAt: TimeTicket, maxCreatedAt: TimeTicket): boolean {
-    return (
-      !this.getCreatedAt().after(maxCreatedAt) &&
-      (!this.removedAt || editedAt.after(this.removedAt))
-    );
+  public canStyle(
+    editedAt: TimeTicket,
+    maxCreatedAt: TimeTicket | undefined,
+    clientLamportAtChange: bigint,
+  ): boolean {
+    const nodeExisted = maxCreatedAt
+      ? !this.getCreatedAt().after(maxCreatedAt)
+      : this.getCreatedAt().getLamport() <= clientLamportAtChange;
+
+    return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
   }
 
   /**
@@ -552,6 +563,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     editedAt: TimeTicket,
     value?: T,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+    versionVector?: VersionVector,
   ): [
     RGATreeSplitPos,
     Map<string, TimeTicket>,
@@ -568,6 +580,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       nodesToDelete,
       editedAt,
       maxCreatedAtMapByActor,
+      versionVector,
     );
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
@@ -878,6 +891,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+    versionVector?: VersionVector,
   ): [
     Array<ValueChange<T>>,
     Map<string, TimeTicket>,
@@ -894,6 +908,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       candidates,
       editedAt,
       maxCreatedAtMapByActor,
+      versionVector,
     );
 
     const createdAtMapByActor = new Map();
@@ -922,8 +937,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
     maxCreatedAtMapByActor?: Map<string, TimeTicket>,
+    versionVector?: VersionVector,
   ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T> | undefined>] {
-    const isRemote = !!maxCreatedAtMapByActor;
     const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
 
@@ -932,14 +947,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     for (const node of candidates) {
       const actorID = node.getCreatedAt().getActorID();
-
-      const maxCreatedAt = isRemote
-        ? maxCreatedAtMapByActor!.has(actorID)
+      let maxCreatedAt: TimeTicket | undefined;
+      let clientLamportAtChange = 0n;
+      if (versionVector === undefined && maxCreatedAtMapByActor === undefined) {
+        // Local edit - use version vector comparison
+        clientLamportAtChange = MaxLamport;
+      } else if (versionVector!.size() > 0) {
+        clientLamportAtChange = versionVector!.get(actorID)
+          ? versionVector!.get(actorID)!
+          : 0n;
+      } else {
+        maxCreatedAt = maxCreatedAtMapByActor!.has(actorID)
           ? maxCreatedAtMapByActor!.get(actorID)
-          : InitialTimeTicket
-        : MaxTimeTicket;
+          : InitialTimeTicket;
+      }
 
-      if (node.canDelete(editedAt, maxCreatedAt!)) {
+      if (node.canDelete(editedAt, maxCreatedAt, clientLamportAtChange)) {
         nodesToDelete.push(node);
       } else {
         nodesToKeep.push(node);

@@ -16,6 +16,7 @@
 
 import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { Indexable } from '@yorkie-js-sdk/src/document/document';
@@ -248,5 +249,6 @@ export abstract class Operation {
   public abstract execute(
     root: CRDTRoot,
     source: OpSource,
+    versionVector?: VersionVector,
   ): ExecutionResult | undefined;
 }
