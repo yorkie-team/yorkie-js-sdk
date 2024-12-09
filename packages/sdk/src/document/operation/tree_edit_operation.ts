@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTTree,
@@ -26,6 +27,7 @@ import {
   Operation,
   OperationInfo,
   ExecutionResult,
+  OpSource,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
@@ -82,7 +84,11 @@ export class TreeEditOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecutionResult {
+  public execute(
+    root: CRDTRoot,
+    _: OpSource,
+    versionVector?: VersionVector,
+  ): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       throw new YorkieError(
@@ -124,6 +130,7 @@ export class TreeEditOperation extends Operation {
         return issueTimeTicket;
       })(),
       this.maxCreatedAtMapByActor,
+      versionVector,
     );
 
     for (const pair of pairs) {

@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import {
   CRDTTree,
@@ -25,6 +26,7 @@ import {
   Operation,
   OperationInfo,
   ExecutionResult,
+  OpSource,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
@@ -74,7 +76,7 @@ export class TreeStyleOperation extends Operation {
       toPos,
       maxCreatedAtMapByActor,
       attributes,
-      new Array<string>(),
+      [],
       executedAt,
     );
   }
@@ -104,7 +106,11 @@ export class TreeStyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecutionResult {
+  public execute(
+    root: CRDTRoot,
+    _: OpSource,
+    versionVector: VersionVector,
+  ): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       throw new YorkieError(
@@ -130,6 +136,7 @@ export class TreeStyleOperation extends Operation {
         attributes,
         this.getExecutedAt(),
         this.maxCreatedAtMapByActor,
+        versionVector,
       );
     } else {
       const attributesToRemove = this.attributesToRemove;
@@ -139,6 +146,7 @@ export class TreeStyleOperation extends Operation {
         attributesToRemove,
         this.getExecutedAt(),
         this.maxCreatedAtMapByActor,
+        versionVector,
       );
     }
 

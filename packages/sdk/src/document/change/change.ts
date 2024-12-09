@@ -162,7 +162,11 @@ export class Change<P extends Indexable> {
     const reverseOps: Array<HistoryOperation<P>> = [];
 
     for (const operation of this.operations) {
-      const executionResult = operation.execute(root, source);
+      const executionResult = operation.execute(
+        root,
+        source,
+        this.id.getVersionVector(),
+      );
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
       // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;

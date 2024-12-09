@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
 import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
@@ -22,6 +23,7 @@ import {
   Operation,
   OperationInfo,
   ExecutionResult,
+  OpSource,
 } from '@yorkie-js-sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
@@ -74,7 +76,11 @@ export class StyleOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute<A extends Indexable>(root: CRDTRoot): ExecutionResult {
+  public execute<A extends Indexable>(
+    root: CRDTRoot,
+    _: OpSource,
+    versionVector?: VersionVector,
+  ): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       throw new YorkieError(
@@ -94,6 +100,7 @@ export class StyleOperation extends Operation {
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
       this.maxCreatedAtMapByActor,
+      versionVector,
     );
 
     for (const pair of pairs) {
