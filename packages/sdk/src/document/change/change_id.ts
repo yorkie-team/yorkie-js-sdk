@@ -94,6 +94,9 @@ export class ChangeID {
       maxVersionVector,
     );
     newID.versionVector.set(this.actor, lamport);
+    if (other.versionVector.size() === 0) {
+      newID.versionVector.set(other.actor, other.lamport);
+    }
     return newID;
   }
 
@@ -103,9 +106,10 @@ export class ChangeID {
    */
   public setClocks(otherLamport: bigint, vector: VersionVector): ChangeID {
     const lamport =
-      otherLamport > this.lamport ? otherLamport : this.lamport + 1n;
+      otherLamport > this.lamport ? otherLamport + 1n : this.lamport + 1n;
     const maxVersionVector = this.versionVector.max(vector);
     maxVersionVector.set(this.actor, lamport);
+    maxVersionVector.unset(InitialActorID);
 
     return ChangeID.of(this.clientSeq, lamport, this.actor, maxVersionVector);
   }
