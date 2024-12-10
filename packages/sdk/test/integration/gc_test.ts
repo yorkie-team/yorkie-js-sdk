@@ -4,7 +4,11 @@ import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { MaxVersionVector, versionVectorHelper } from '../helper/helper';
+import {
+  MaxVersionVector,
+  versionVectorHelper,
+  DefaultSnapshotThreshold,
+} from '../helper/helper';
 
 describe('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
@@ -1701,7 +1705,7 @@ describe('Garbage Collection', function () {
     task,
   }) {
     type TestDoc = { t: Text };
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${new Date().getTime()}-${task.name}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
     const client1 = new yorkie.Client(testRPCAddr);
@@ -1875,7 +1879,7 @@ describe('Garbage Collection', function () {
     task,
   }) {
     type TestDoc = { t: Text };
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const docKey = toDocKey(`${new Date().getTime()}-${task.name}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
     const client1 = new yorkie.Client(testRPCAddr);
@@ -2226,4 +2230,129 @@ describe('Garbage Collection', function () {
     await client2.deactivate();
     await client3.deactivate();
   });
+
+  it('snapshot version vector test', async function ({ task }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document<TestDoc>(docKey);
+    const doc2 = new yorkie.Document<TestDoc>(docKey);
+    const doc3 = new yorkie.Document<TestDoc>(docKey);
+    const client1 = new yorkie.Client(testRPCAddr);
+    const client2 = new yorkie.Client(testRPCAddr);
+    const client3 = new yorkie.Client(testRPCAddr);
+    await client1.activate();
+    await client2.activate();
+    await client3.activate();
+
+    await client1.attach(doc1, { syncMode: SyncMode.Manual });
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    await client3.attach(doc3, { syncMode: SyncMode.Manual });
+
+    doc1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+    }, 'sets text');
+
+    await client1.sync();
+    await client2.sync();
+    await client3.sync();
+
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(4) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(4) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc3.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    // 01. Updates changes over snapshot threshold.
+    for (let idx = 0; idx < DefaultSnapshotThreshold / 2; idx++) {
+      doc1.update((root) => {
+        root.t.edit(0, 0, `${idx % 10}`);
+      });
+      await client1.sync();
+      await client2.sync();
+
+      doc2.update((root) => {
+        root.t.edit(0, 0, `${idx % 10}`);
+      });
+      await client2.sync();
+      await client1.sync();
+    }
+
+    assert.equal(
+      versionVectorHelper(doc1.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2004) },
+        { actor: client2.getID()!, lamport: BigInt(2003) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc2.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2001) },
+        { actor: client2.getID()!, lamport: BigInt(2003) },
+        { actor: client3.getID()!, lamport: BigInt(1) },
+      ]),
+      true,
+    );
+    assert.equal(
+      versionVectorHelper(doc3.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2) },
+        { actor: client2.getID()!, lamport: BigInt(1) },
+        { actor: client3.getID()!, lamport: BigInt(4) },
+      ]),
+      true,
+    );
+
+    // 02. Makes local changes then pull a snapshot from the server.
+    doc3.update((root) => {
+      root.t.edit(0, 0, 'c');
+    });
+    await client3.sync();
+    assert.equal(
+      versionVectorHelper(doc3.getVersionVector(), [
+        { actor: client1.getID()!, lamport: BigInt(2001) },
+        { actor: client2.getID()!, lamport: BigInt(2003) },
+        { actor: client3.getID()!, lamport: BigInt(2006) },
+      ]),
+      true,
+    );
+    assert.equal(
+      DefaultSnapshotThreshold + 2,
+      doc3.getRoot().t.toString().length,
+    );
+
+    // 03. Delete text after receiving the snapshot.
+    doc3.update((root) => {
+      root.t.edit(1, 3, '');
+    });
+    assert.equal(DefaultSnapshotThreshold, doc3.getRoot().t.toString().length);
+    await client3.sync();
+    await client2.sync();
+    await client1.sync();
+    assert.equal(DefaultSnapshotThreshold, doc2.getRoot().t.toString().length);
+    assert.equal(DefaultSnapshotThreshold, doc1.getRoot().t.toString().length);
+
+    await client1.deactivate();
+    await client2.deactivate();
+    await client3.deactivate();
+  }, 50000);
 });

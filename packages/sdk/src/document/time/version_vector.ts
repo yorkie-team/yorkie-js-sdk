@@ -37,6 +37,13 @@ export class VersionVector {
   }
 
   /**
+   * `unset` removes the version for the given actor from the VersionVector.
+   */
+  public unset(actorID: string): void {
+    this.vector.delete(actorID);
+  }
+
+  /**
    * `get` gets the lamport timestamp of the given actor.
    */
   public get(actorID: string): bigint | undefined {

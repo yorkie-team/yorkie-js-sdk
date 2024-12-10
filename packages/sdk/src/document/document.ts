@@ -1450,7 +1450,10 @@ export class Document<T, P extends Indexable = Indexable> {
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    this.changeID = this.changeID.setClocks(serverSeq, snapshotVector);
+    this.changeID = this.changeID.setClocks(
+      snapshotVector.maxLamport(),
+      snapshotVector,
+    );
 
     // drop clone because it is contaminated.
     this.clone = undefined;
