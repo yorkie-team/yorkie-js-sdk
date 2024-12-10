@@ -85,8 +85,16 @@ export class ChangeID {
   public syncClocks(other: ChangeID): ChangeID {
     const lamport =
       other.lamport > this.lamport ? other.lamport + 1n : this.lamport + 1n;
-    const maxVersionVector = this.versionVector.max(other.versionVector);
 
+    // NOTE(chacha912): Handle changes from legacy SDK (v0.5.2 or below) which have empty version vectors.
+    // Add lamport to version vector to include this change's information.
+    let otherVV = other.versionVector;
+    if (otherVV.size() === 0) {
+      otherVV = otherVV.deepcopy();
+      otherVV.set(other.actor, other.lamport);
+    }
+
+    const maxVersionVector = this.versionVector.max(otherVV);
     const newID = new ChangeID(
       this.clientSeq,
       lamport,
@@ -94,9 +102,6 @@ export class ChangeID {
       maxVersionVector,
     );
     newID.versionVector.set(this.actor, lamport);
-    if (other.versionVector.size() === 0) {
-      newID.versionVector.set(other.actor, other.lamport);
-    }
     return newID;
   }
 
@@ -107,9 +112,13 @@ export class ChangeID {
   public setClocks(otherLamport: bigint, vector: VersionVector): ChangeID {
     const lamport =
       otherLamport > this.lamport ? otherLamport + 1n : this.lamport + 1n;
+
+    // NOTE(chacha912): Snapshot's version vector from server contains initialActorID.
+    // Remove it as it's not an actual participating client.
+    vector.unset(InitialActorID);
+
     const maxVersionVector = this.versionVector.max(vector);
     maxVersionVector.set(this.actor, lamport);
-    maxVersionVector.unset(InitialActorID);
 
     return ChangeID.of(this.clientSeq, lamport, this.actor, maxVersionVector);
   }
