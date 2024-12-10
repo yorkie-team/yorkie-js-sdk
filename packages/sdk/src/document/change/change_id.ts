@@ -86,8 +86,9 @@ export class ChangeID {
     const lamport =
       other.lamport > this.lamport ? other.lamport + 1n : this.lamport + 1n;
 
-    // NOTE(chacha912): Handle changes from legacy SDK (v0.5.2 or below) which have empty version vectors.
-    // Add lamport to version vector to include this change's information.
+    // NOTE(chacha912): For changes created by legacy SDK prior to v0.5.2 that lack version
+    // vectors, document's version vector was not being properly accumlated. To address this,
+    // we generate a version vector using the lamport timestamp when no version vector exists.
     let otherVV = other.versionVector;
     if (otherVV.size() === 0) {
       otherVV = otherVV.deepcopy();
@@ -113,8 +114,13 @@ export class ChangeID {
     const lamport =
       otherLamport > this.lamport ? otherLamport + 1n : this.lamport + 1n;
 
-    // NOTE(chacha912): Snapshot's version vector from server contains initialActorID.
-    // Remove it as it's not an actual participating client.
+    // NOTE(chacha912): Documents created by server may have an InitialActorID
+    // in their version vector. Although server is not an actual client, it
+    // generates document snapshots from changes by participating with an
+    // InitialActorID during document instance creation and accumulating stored
+    // changes in DB.
+    // Semantically, including a non-client actor in version vector is
+    // problematic. To address this, we remove the InitialActorID from snapshots.
     vector.unset(InitialActorID);
 
     const maxVersionVector = this.versionVector.max(vector);
