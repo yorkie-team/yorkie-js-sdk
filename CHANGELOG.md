@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.5.7] - 2024-12-11
+
+### Changed
+
+- Replace maxCreatedAtMap with version vector for causal-concurrent operations by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/932
+
+### Fixed
+
+- Enhance webhook tests and error handling for authentication by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/930
+- Preserve Detached Client's Lamport in Version Vector by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/931
+- Improve Version Vector Handling for Legacy SDK and Snapshots by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/933
+
 ## [0.5.6] - 2024-11-22
 
 ### Added
