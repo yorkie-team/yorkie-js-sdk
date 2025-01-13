@@ -1718,9 +1718,9 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyDocEvent` applies the docEvent into this document.
+   * `applyEventForDocReplay` applies the given event into this document.
    */
-  public applyDocEvent(event: DocEvent<P>) {
+  public applyEventForDocReplay(event: Devtools.EventForDocReplay<P>) {
     if (event.type === DocEventType.StatusChanged) {
       this.applyStatus(event.value.status);
       if (event.value.status === DocStatus.Attached) {
@@ -1782,11 +1782,11 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyTransactionEvent` applies the given TransactionEvent into this document.
+   * `applyEventsForDocReplay` applies the given events into this document.
    */
-  public applyTransactionEvent(event: TransactionEvent<P>) {
+  public applyEventsForDocReplay(event: Array<Devtools.EventForDocReplay<P>>) {
     for (const docEvent of event) {
-      this.applyDocEvent(docEvent);
+      this.applyEventForDocReplay(docEvent);
     }
   }
 

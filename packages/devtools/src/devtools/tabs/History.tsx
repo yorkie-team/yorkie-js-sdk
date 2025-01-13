@@ -15,18 +15,18 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { DocEventType, Change, type TransactionEvent } from 'yorkie-js-sdk';
+import { DocEventType, Change, Devtools } from 'yorkie-js-sdk';
 import Slider from 'rc-slider';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 import {
-  TransactionEventType,
-  useTransactionEvents,
+  ReplayDocEventType,
+  useReplayDocEvents,
 } from '../contexts/YorkieSource';
 
 const SLIDER_MARK_WIDTH = 24;
 
-const getEventInfo = (event: TransactionEvent) => {
+const getEventInfo = (event: Devtools.EventsForDocReplay) => {
   const info = [];
   for (const docEvent of event) {
     if (
@@ -75,7 +75,7 @@ export function History({
     presenceFilteredEvents,
     hidePresenceEvents,
     setHidePresenceEvents,
-  } = useTransactionEvents();
+  } = useReplayDocEvents();
 
   const events = hidePresenceEvents ? presenceFilteredEvents : originalEvents;
 
@@ -109,13 +109,13 @@ export function History({
     const marks = {};
     for (const [index, event] of events.entries()) {
       const source = event.event[0].source;
-      const transactionEventType = event.transactionEventType;
+      const replayDocEventType = event.replayDocEventType;
 
       marks[index] = (
         <span
-          className={`mark-history mark-${source} mark-${transactionEventType}`}
+          className={`mark-history mark-${source} mark-${replayDocEventType}`}
         >
-          {transactionEventType === TransactionEventType.Presence ? (
+          {replayDocEventType === ReplayDocEventType.Presence ? (
             <CursorIcon />
           ) : (
             <DocumentIcon />

@@ -23,7 +23,7 @@ import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
 import {
   YorkieSourceProvider,
   useCurrentDocKey,
-  useTransactionEvents,
+  useReplayDocEvents,
   useYorkieDoc,
 } from '../contexts/YorkieSource';
 import { Document } from '../tabs/Document';
@@ -34,7 +34,7 @@ import { Separator } from '../components/ResizableSeparator';
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
   const { originalEvents, presenceFilteredEvents, hidePresenceEvents } =
-    useTransactionEvents();
+    useReplayDocEvents();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -91,7 +91,7 @@ const Panel = () => {
         filteredEventIndex++;
       }
 
-      doc.applyTransactionEvent(originalEvents[eventIndex].event);
+      doc.applyEventsForDocReplay(originalEvents[eventIndex].event);
       eventIndex++;
     }
 

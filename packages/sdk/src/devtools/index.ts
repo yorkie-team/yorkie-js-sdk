@@ -14,33 +14,29 @@
  * limitations under the License.
  */
 
-import {
-  Document,
-  Indexable,
-  TransactionEvent,
-} from '@yorkie-js-sdk/src/yorkie';
-import { DocEventType } from '@yorkie-js-sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
+import { EventsForDocReplay, isEventsForDocReplay } from './types';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
 let devtoolsStatus: DevtoolsStatus = 'disconnected';
 const unsubsByDocKey = new Map<string, Array<() => void>>();
 
 /**
- * `transactionEventsByDocKey` stores all events in the document for replaying
+ * `replayEventsByDocKey` stores all events in the document for replaying
  * (time-traveling feature) in Devtools. Later, external storage such as
  * IndexedDB will be used.
  */
-const transactionEventsByDocKey = new Map<string, Array<TransactionEvent>>();
+const replayEventsByDocKey = new Map<string, Array<EventsForDocReplay>>();
 declare global {
   interface Window {
-    transactionEventsByDocKey: Map<string, Array<TransactionEvent>>;
+    replayEventsByDocKey: Map<string, Array<EventsForDocReplay>>;
   }
 }
 if (typeof window !== 'undefined') {
-  window.transactionEventsByDocKey = transactionEventsByDocKey;
+  window.replayEventsByDocKey = replayEventsByDocKey;
 }
 
 /**
@@ -79,25 +75,13 @@ export function setupDevtools<T, P extends Indexable>(
     return;
   }
 
-  transactionEventsByDocKey.set(doc.getKey(), []);
+  replayEventsByDocKey.set(doc.getKey(), []);
   const unsub = doc.subscribe('all', (event) => {
-    if (
-      event.some(
-        (docEvent) =>
-          docEvent.type !== DocEventType.StatusChanged &&
-          docEvent.type !== DocEventType.Snapshot &&
-          docEvent.type !== DocEventType.LocalChange &&
-          docEvent.type !== DocEventType.RemoteChange &&
-          docEvent.type !== DocEventType.Initialized &&
-          docEvent.type !== DocEventType.Watched &&
-          docEvent.type !== DocEventType.Unwatched &&
-          docEvent.type !== DocEventType.PresenceChanged,
-      )
-    ) {
+    if (!isEventsForDocReplay(event)) {
       return;
     }
 
-    transactionEventsByDocKey.get(doc.getKey())!.push(event);
+    replayEventsByDocKey.get(doc.getKey())!.push(event);
     if (devtoolsStatus === 'synced') {
       sendToPanel({
         msg: 'doc::sync::partial',
@@ -148,7 +132,7 @@ export function setupDevtools<T, P extends Indexable>(
           sendToPanel({
             msg: 'doc::sync::full',
             docKey: doc.getKey(),
-            events: transactionEventsByDocKey.get(doc.getKey())!,
+            events: replayEventsByDocKey.get(doc.getKey())!,
           });
           logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
           break;

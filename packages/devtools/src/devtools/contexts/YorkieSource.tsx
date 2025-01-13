@@ -24,18 +24,14 @@ import {
   useState,
 } from 'react';
 
-import {
-  DocEventType,
-  type SDKToPanelMessage,
-  type TransactionEvent,
-} from 'yorkie-js-sdk';
+import { DocEventType, Devtools, type SDKToPanelMessage } from 'yorkie-js-sdk';
 import { connectPort, sendToSDK } from '../../port';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
-const TransactionEventsContext = createContext<{
-  events: Array<TransactionEvent>;
+const ReplayDocEventsContext = createContext<{
+  events: Array<Devtools.EventsForDocReplay>;
   hidePresenceEvents: boolean;
   setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
 }>(null);
@@ -47,17 +43,16 @@ type Props = {
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
-  const [transactionEvents, setTransactionEvents] = useState<
-    Array<TransactionEvent>
+  const [replayDocEvents, setReplayDocEvents] = useState<
+    Array<Devtools.EventsForDocReplay>
   >([]);
 
   // filter out presence events
-  const [hideTransactionPresenceEvents, setHideTransactionPresenceEvents] =
-    useState(false);
+  const [hidePresenceEvents, setHidePresenceEvents] = useState(false);
 
   const resetDocument = () => {
     setCurrentDocKey('');
-    setTransactionEvents([]);
+    setReplayDocEvents([]);
     setDoc(null);
   };
 
@@ -77,11 +72,11 @@ export function YorkieSourceProvider({ children }: Props) {
       case 'doc::sync::full':
         // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
         if (message.events === undefined) break;
-        setTransactionEvents(message.events);
+        setReplayDocEvents(message.events);
         break;
       case 'doc::sync::partial':
         if (message.event === undefined) break;
-        setTransactionEvents((events) => [...events, message.event]);
+        setReplayDocEvents((events) => [...events, message.event]);
         break;
     }
   }, []);
@@ -108,17 +103,17 @@ export function YorkieSourceProvider({ children }: Props) {
 
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <TransactionEventsContext.Provider
+      <ReplayDocEventsContext.Provider
         value={{
-          events: transactionEvents,
-          hidePresenceEvents: hideTransactionPresenceEvents,
-          setHidePresenceEvents: setHideTransactionPresenceEvents,
+          events: replayDocEvents,
+          hidePresenceEvents,
+          setHidePresenceEvents,
         }}
       >
         <YorkieDocContext.Provider value={[doc, setDoc]}>
           {children}
         </YorkieDocContext.Provider>
-      </TransactionEventsContext.Provider>
+      </ReplayDocEventsContext.Provider>
     </DocKeyContext.Provider>
   );
 }
@@ -145,14 +140,14 @@ export function useYorkieDoc() {
   return value;
 }
 
-export enum TransactionEventType {
+export enum ReplayDocEventType {
   Document = 'document',
   Presence = 'presence',
 }
 
-export const getTransactionEventType = (
-  event: TransactionEvent,
-): TransactionEventType => {
+export const getReplayDocEventType = (
+  event: Devtools.EventsForDocReplay,
+): ReplayDocEventType => {
   for (const docEvent of event) {
     if (
       docEvent.type === DocEventType.StatusChanged ||
@@ -160,36 +155,36 @@ export const getTransactionEventType = (
       docEvent.type === DocEventType.LocalChange ||
       docEvent.type === DocEventType.RemoteChange
     ) {
-      return TransactionEventType.Document;
+      return ReplayDocEventType.Document;
     }
   }
 
-  return TransactionEventType.Presence;
+  return ReplayDocEventType.Presence;
 };
 
-export function useTransactionEvents() {
+export function useReplayDocEvents() {
   const { events, hidePresenceEvents, setHidePresenceEvents } = useContext(
-    TransactionEventsContext,
+    ReplayDocEventsContext,
   );
 
   if (events === undefined) {
     throw new YorkieError(
       Code.ErrContextNotProvided,
-      'useTransactionEvents should be used within YorkieSourceProvider',
+      'useReplayDocEvents should be used within YorkieSourceProvider',
     );
   }
 
   // create an enhanced events with metadata
   const enhancedEvents = useMemo(() => {
     return events.map((event) => {
-      const transactionEventType = getTransactionEventType(event);
+      const replayDocEventType = getReplayDocEventType(event);
 
       return {
         event,
-        transactionEventType,
+        replayDocEventType: replayDocEventType,
         isFiltered:
           hidePresenceEvents &&
-          transactionEventType === TransactionEventType.Presence,
+          replayDocEventType === ReplayDocEventType.Presence,
       };
     });
   }, [hidePresenceEvents, events]);
