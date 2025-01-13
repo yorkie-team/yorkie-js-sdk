@@ -44,6 +44,7 @@ export {
   DocSyncStatus,
   DocStatus,
   type Indexable,
+  type Json,
   type DocEvent,
   type TransactionEvent,
   Document,
