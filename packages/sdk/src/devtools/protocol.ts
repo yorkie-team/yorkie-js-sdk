@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { EventsForDocReplay } from './types';
+import { DocEventsForReplay } from './types';
 
 /**
  * `EventSourceDevPanel` is the name of the source representing messages
@@ -76,7 +76,7 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::full';
       docKey: string;
-      events: Array<EventsForDocReplay>;
+      events: Array<DocEventsForReplay>;
     }
   /**
    * Sent whenever the document is changed.
@@ -84,7 +84,7 @@ export type SDKToPanelMessage =
   | {
       msg: 'doc::sync::partial';
       docKey: string;
-      event: EventsForDocReplay;
+      event: DocEventsForReplay;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {

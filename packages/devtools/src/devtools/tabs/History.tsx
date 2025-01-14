@@ -26,7 +26,7 @@ import {
 
 const SLIDER_MARK_WIDTH = 24;
 
-const getEventInfo = (event: Devtools.EventsForDocReplay) => {
+const getEventInfo = (event: Devtools.DocEventsForReplay) => {
   const info = [];
   for (const docEvent of event) {
     if (

@@ -31,7 +31,7 @@ import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
 const ReplayDocEventsContext = createContext<{
-  events: Array<Devtools.EventsForDocReplay>;
+  events: Array<Devtools.DocEventsForReplay>;
   hidePresenceEvents: boolean;
   setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
 }>(null);
@@ -44,7 +44,7 @@ export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
   const [replayDocEvents, setReplayDocEvents] = useState<
-    Array<Devtools.EventsForDocReplay>
+    Array<Devtools.DocEventsForReplay>
   >([]);
 
   // filter out presence events
@@ -146,7 +146,7 @@ export enum ReplayDocEventType {
 }
 
 export const getReplayDocEventType = (
-  event: Devtools.EventsForDocReplay,
+  event: Devtools.DocEventsForReplay,
 ): ReplayDocEventType => {
   for (const docEvent of event) {
     if (

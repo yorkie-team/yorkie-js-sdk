@@ -91,7 +91,7 @@ const Panel = () => {
         filteredEventIndex++;
       }
 
-      doc.applyEventsForDocReplay(originalEvents[eventIndex].event);
+      doc.applyDocEventsForReplay(originalEvents[eventIndex].event);
       eventIndex++;
     }
 

@@ -18,7 +18,7 @@ import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
 import { logger } from '@yorkie-js-sdk/src/util/logger';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
-import { EventsForDocReplay, isEventsForDocReplay } from './types';
+import { DocEventsForReplay, isDocEventsForReplay } from './types';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
 let devtoolsStatus: DevtoolsStatus = 'disconnected';
@@ -29,10 +29,10 @@ const unsubsByDocKey = new Map<string, Array<() => void>>();
  * (time-traveling feature) in Devtools. Later, external storage such as
  * IndexedDB will be used.
  */
-const replayEventsByDocKey = new Map<string, Array<EventsForDocReplay>>();
+const replayEventsByDocKey = new Map<string, Array<DocEventsForReplay>>();
 declare global {
   interface Window {
-    replayEventsByDocKey: Map<string, Array<EventsForDocReplay>>;
+    replayEventsByDocKey: Map<string, Array<DocEventsForReplay>>;
   }
 }
 if (typeof window !== 'undefined') {
@@ -77,7 +77,7 @@ export function setupDevtools<T, P extends Indexable>(
 
   replayEventsByDocKey.set(doc.getKey(), []);
   const unsub = doc.subscribe('all', (event) => {
-    if (!isEventsForDocReplay(event)) {
+    if (!isDocEventsForReplay(event)) {
       return;
     }
 

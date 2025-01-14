@@ -101,9 +101,9 @@ export type TreeNodeInfo = {
 };
 
 /**
- * `EventForDocReplay` is an event used to replay a document.
+ * `DocEventForReplay` is an event used to replay a document.
  */
-export type EventForDocReplay<
+export type DocEventForReplay<
   P extends Indexable = Indexable,
   T = OperationInfo,
 > =
@@ -117,16 +117,16 @@ export type EventForDocReplay<
   | PresenceChangedEvent<P>;
 
 /**
- * `EventsForDocReplay` is a list of events used to replay a document.
+ * `DocEventsForReplay` is a list of events used to replay a document.
  */
-export type EventsForDocReplay = Array<EventForDocReplay>;
+export type DocEventsForReplay = Array<DocEventForReplay>;
 
 /**
- * `isEventForDocReplay` checks if an event can be used to replay a document.
+ * `isDocEventForReplay` checks if an event can be used to replay a document.
  */
-export function isEventForDocReplay(
+export function isDocEventForReplay(
   event: DocEvent,
-): event is EventForDocReplay {
+): event is DocEventForReplay {
   const typesForDocReplay = [
     DocEventType.StatusChanged,
     DocEventType.Snapshot,
@@ -142,10 +142,10 @@ export function isEventForDocReplay(
 }
 
 /**
- * `isEventsForDocReplay` checks if a list of events can be used to replay a document.
+ * `isDocEventsForReplay` checks if a list of events can be used to replay a document.
  */
-export function isEventsForDocReplay(
+export function isDocEventsForReplay(
   events: Array<DocEvent>,
-): events is EventsForDocReplay {
-  return events.every(isEventForDocReplay);
+): events is DocEventsForReplay {
+  return events.every(isDocEventForReplay);
 }

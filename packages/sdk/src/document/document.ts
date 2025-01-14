@@ -228,12 +228,10 @@ export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
   | AuthErrorEvent;
 
 /**
- * `TransactionEvent` represents document events that occur within
+ * `DocEvents` represents document events that occur within
  * a single transaction (e.g., doc.update).
  */
-export type TransactionEvent<P extends Indexable = Indexable> = Array<
-  DocEvent<P>
->;
+export type DocEvents<P extends Indexable = Indexable> = Array<DocEvent<P>>;
 
 /**
  * @internal
@@ -449,7 +447,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   broadcast: NextFn<BroadcastEvent>;
   'local-broadcast': NextFn<LocalBroadcastEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
-  all: NextFn<TransactionEvent<P>>;
+  all: NextFn<DocEvents<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
 export type DocEventCallback<P extends Indexable> =
@@ -633,8 +631,8 @@ export class Document<T, P extends Indexable = Indexable> {
     presences: Map<ActorID, P>;
   };
 
-  private eventStream: Observable<TransactionEvent<P>>;
-  private eventStreamObserver!: Observer<TransactionEvent<P>>;
+  private eventStream: Observable<DocEvents<P>>;
+  private eventStreamObserver!: Observer<DocEvents<P>>;
 
   /**
    * `onlineClients` is a set of client IDs that are currently online.
@@ -673,7 +671,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
 
-    this.eventStream = createObservable<TransactionEvent<P>>((observer) => {
+    this.eventStream = createObservable<DocEvents<P>>((observer) => {
       this.eventStreamObserver = observer;
     });
 
@@ -771,7 +769,7 @@ export class Document<T, P extends Indexable = Indexable> {
 
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
-      const event: TransactionEvent<P> = [];
+      const event: DocEvents<P> = [];
       if (opInfos.length > 0) {
         event.push({
           type: DocEventType.LocalChange,
@@ -1168,7 +1166,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `publish` triggers an event in this document, which can be received by
    * callback functions from document.subscribe().
    */
-  public publish(event: TransactionEvent<P>) {
+  public publish(event: DocEvents<P>) {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next(event);
     }
@@ -1522,7 +1520,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
-    const event: TransactionEvent<P> = [];
+    const event: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
     if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
       const presenceChange = change.getPresenceChange()!;
@@ -1718,9 +1716,9 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyEventForDocReplay` applies the given event into this document.
+   * `applyDocEventForReplay` applies the given event into this document.
    */
-  public applyEventForDocReplay(event: Devtools.EventForDocReplay<P>) {
+  public applyDocEventForReplay(event: Devtools.DocEventForReplay<P>) {
     if (event.type === DocEventType.StatusChanged) {
       this.applyStatus(event.value.status);
       if (event.value.status === DocStatus.Attached) {
@@ -1784,9 +1782,9 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applyEventsForDocReplay` applies the given events into this document.
    */
-  public applyEventsForDocReplay(event: Array<Devtools.EventForDocReplay<P>>) {
+  public applyDocEventsForReplay(event: Array<Devtools.DocEventForReplay<P>>) {
     for (const docEvent of event) {
-      this.applyEventForDocReplay(docEvent);
+      this.applyDocEventForReplay(docEvent);
     }
   }
 
@@ -2034,7 +2032,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
-    const event: TransactionEvent<P> = [];
+    const event: DocEvents<P> = [];
     if (opInfos.length > 0) {
       event.push({
         type: DocEventType.LocalChange,
@@ -2133,7 +2131,7 @@ export class Document<T, P extends Indexable = Indexable> {
     this.localChanges.push(change);
     this.changeID = change.getID();
     const actorID = this.changeID.getActorID();
-    const event: TransactionEvent<P> = [];
+    const event: DocEvents<P> = [];
     if (opInfos.length > 0) {
       event.push({
         type: DocEventType.LocalChange,
