@@ -44,8 +44,9 @@ export {
   DocSyncStatus,
   DocStatus,
   type Indexable,
+  type Json,
   type DocEvent,
-  type TransactionEvent,
+  type DocEvents,
   Document,
   type ChangeInfo,
 } from '@yorkie-js-sdk/src/document/document';

@@ -17,7 +17,21 @@
 import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
 import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
 import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { Json } from '@yorkie-js-sdk/src/document/document';
+import {
+  Json,
+  DocEvent,
+  DocEventType,
+  type Indexable,
+  type StatusChangedEvent,
+  type SnapshotEvent,
+  type LocalChangeEvent,
+  type RemoteChangeEvent,
+  type InitializedEvent,
+  type WatchedEvent,
+  type UnwatchedEvent,
+  type PresenceChangedEvent,
+} from '@yorkie-js-sdk/src/document/document';
+import type { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
 
 /**
  * `Client` represents a client value in devtools.
@@ -85,3 +99,53 @@ export type TreeNodeInfo = {
   path?: Array<number>;
   pos?: CRDTTreePosStruct;
 };
+
+/**
+ * `DocEventForReplay` is an event used to replay a document.
+ */
+export type DocEventForReplay<
+  P extends Indexable = Indexable,
+  T = OperationInfo,
+> =
+  | StatusChangedEvent
+  | SnapshotEvent
+  | LocalChangeEvent<T, P>
+  | RemoteChangeEvent<T, P>
+  | InitializedEvent<P>
+  | WatchedEvent<P>
+  | UnwatchedEvent<P>
+  | PresenceChangedEvent<P>;
+
+/**
+ * `DocEventsForReplay` is a list of events used to replay a document.
+ */
+export type DocEventsForReplay = Array<DocEventForReplay>;
+
+/**
+ * `isDocEventForReplay` checks if an event can be used to replay a document.
+ */
+export function isDocEventForReplay(
+  event: DocEvent,
+): event is DocEventForReplay {
+  const types = [
+    DocEventType.StatusChanged,
+    DocEventType.Snapshot,
+    DocEventType.LocalChange,
+    DocEventType.RemoteChange,
+    DocEventType.Initialized,
+    DocEventType.Watched,
+    DocEventType.Unwatched,
+    DocEventType.PresenceChanged,
+  ];
+
+  return types.includes(event.type);
+}
+
+/**
+ * `isDocEventsForReplay` checks if a list of events can be used to replay a document.
+ */
+export function isDocEventsForReplay(
+  events: Array<DocEvent>,
+): events is DocEventsForReplay {
+  return events.every(isDocEventForReplay);
+}

@@ -5,7 +5,7 @@ on:
     branches:
       - 'main'
     paths:
-      - packages/devtools/**
+      - packages/devtools/package.json
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest

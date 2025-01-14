@@ -110,9 +110,13 @@ function TreeGraph({ tree }: { tree: Devtools.TreeNodeInfo }) {
     [],
   );
 
-  return flattenTreeWithDepth(tree).map((node) => (
-    <TreeNode key={node.id} node={node} />
-  ));
+  return (
+    <>
+      {flattenTreeWithDepth(tree).map((node) => (
+        <TreeNode key={node.id} node={node} />
+      ))}
+    </>
+  );
 }
 
 export function TreeDetail({
