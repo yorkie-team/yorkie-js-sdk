@@ -30,7 +30,7 @@ import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);
-const ReplayDocEventsContext = createContext<{
+const DocEventsForReplayContext = createContext<{
   events: Array<Devtools.DocEventsForReplay>;
   hidePresenceEvents: boolean;
   setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
@@ -43,7 +43,7 @@ type Props = {
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
-  const [replayDocEvents, setReplayDocEvents] = useState<
+  const [docEventsForReplay, setDocEventsForReplay] = useState<
     Array<Devtools.DocEventsForReplay>
   >([]);
 
@@ -52,7 +52,7 @@ export function YorkieSourceProvider({ children }: Props) {
 
   const resetDocument = () => {
     setCurrentDocKey('');
-    setReplayDocEvents([]);
+    setDocEventsForReplay([]);
     setDoc(null);
   };
 
@@ -72,11 +72,11 @@ export function YorkieSourceProvider({ children }: Props) {
       case 'doc::sync::full':
         // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
         if (message.events === undefined) break;
-        setReplayDocEvents(message.events);
+        setDocEventsForReplay(message.events);
         break;
       case 'doc::sync::partial':
         if (message.event === undefined) break;
-        setReplayDocEvents((events) => [...events, message.event]);
+        setDocEventsForReplay((events) => [...events, message.event]);
         break;
     }
   }, []);
@@ -103,9 +103,9 @@ export function YorkieSourceProvider({ children }: Props) {
 
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <ReplayDocEventsContext.Provider
+      <DocEventsForReplayContext.Provider
         value={{
-          events: replayDocEvents,
+          events: docEventsForReplay,
           hidePresenceEvents,
           setHidePresenceEvents,
         }}
@@ -113,7 +113,7 @@ export function YorkieSourceProvider({ children }: Props) {
         <YorkieDocContext.Provider value={[doc, setDoc]}>
           {children}
         </YorkieDocContext.Provider>
-      </ReplayDocEventsContext.Provider>
+      </DocEventsForReplayContext.Provider>
     </DocKeyContext.Provider>
   );
 }
@@ -140,51 +140,54 @@ export function useYorkieDoc() {
   return value;
 }
 
-export enum ReplayDocEventType {
-  Document = 'document',
+/**
+ * `DocEventScope` represents the scope of the document event.
+ */
+export enum DocEventScope {
+  Root = 'root',
   Presence = 'presence',
+  Document = 'document',
 }
 
-export const getReplayDocEventType = (
-  event: Devtools.DocEventsForReplay,
-): ReplayDocEventType => {
-  for (const docEvent of event) {
+export const getDocEventsScope = (
+  events: Devtools.DocEventsForReplay,
+): DocEventScope => {
+  for (const e of events) {
     if (
-      docEvent.type === DocEventType.StatusChanged ||
-      docEvent.type === DocEventType.Snapshot ||
-      docEvent.type === DocEventType.LocalChange ||
-      docEvent.type === DocEventType.RemoteChange
+      e.type === DocEventType.Snapshot ||
+      e.type === DocEventType.LocalChange ||
+      e.type === DocEventType.RemoteChange
     ) {
-      return ReplayDocEventType.Document;
+      return DocEventScope.Root;
+    } else if (e.type === DocEventType.StatusChanged) {
+      return DocEventScope.Document;
     }
   }
 
-  return ReplayDocEventType.Presence;
+  return DocEventScope.Presence;
 };
 
-export function useReplayDocEvents() {
+export function useDocEventsForReplay() {
   const { events, hidePresenceEvents, setHidePresenceEvents } = useContext(
-    ReplayDocEventsContext,
+    DocEventsForReplayContext,
   );
 
   if (events === undefined) {
     throw new YorkieError(
       Code.ErrContextNotProvided,
-      'useReplayDocEvents should be used within YorkieSourceProvider',
+      'useDocEventsForReplay should be used within YorkieSourceProvider',
     );
   }
 
   // create an enhanced events with metadata
   const enhancedEvents = useMemo(() => {
     return events.map((event) => {
-      const replayDocEventType = getReplayDocEventType(event);
+      const scope = getDocEventsScope(event);
 
       return {
         event,
-        replayDocEventType: replayDocEventType,
-        isFiltered:
-          hidePresenceEvents &&
-          replayDocEventType === ReplayDocEventType.Presence,
+        scope,
+        isFiltered: hidePresenceEvents && scope === DocEventScope.Presence,
       };
     });
   }, [hidePresenceEvents, events]);

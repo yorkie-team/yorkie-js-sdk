@@ -1780,7 +1780,7 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyEventsForDocReplay` applies the given events into this document.
+   * `applyDocEventsForReplay` applies the given events into this document.
    */
   public applyDocEventsForReplay(event: Array<Devtools.DocEventForReplay<P>>) {
     for (const docEvent of event) {

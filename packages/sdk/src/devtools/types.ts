@@ -127,7 +127,7 @@ export type DocEventsForReplay = Array<DocEventForReplay>;
 export function isDocEventForReplay(
   event: DocEvent,
 ): event is DocEventForReplay {
-  const typesForDocReplay = [
+  const types = [
     DocEventType.StatusChanged,
     DocEventType.Snapshot,
     DocEventType.LocalChange,
@@ -138,7 +138,7 @@ export function isDocEventForReplay(
     DocEventType.PresenceChanged,
   ];
 
-  return typesForDocReplay.includes(event.type);
+  return types.includes(event.type);
 }
 
 /**

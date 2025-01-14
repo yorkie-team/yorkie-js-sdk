@@ -25,18 +25,18 @@ let devtoolsStatus: DevtoolsStatus = 'disconnected';
 const unsubsByDocKey = new Map<string, Array<() => void>>();
 
 /**
- * `replayEventsByDocKey` stores all events in the document for replaying
+ * `docEventsForReplayByDocKey` stores all events in the document for replaying
  * (time-traveling feature) in Devtools. Later, external storage such as
  * IndexedDB will be used.
  */
-const replayEventsByDocKey = new Map<string, Array<DocEventsForReplay>>();
+const docEventsForReplayByDocKey = new Map<string, Array<DocEventsForReplay>>();
 declare global {
   interface Window {
-    replayEventsByDocKey: Map<string, Array<DocEventsForReplay>>;
+    docEventsForReplayByDocKey: Map<string, Array<DocEventsForReplay>>;
   }
 }
 if (typeof window !== 'undefined') {
-  window.replayEventsByDocKey = replayEventsByDocKey;
+  window.docEventsForReplayByDocKey = docEventsForReplayByDocKey;
 }
 
 /**
@@ -75,13 +75,13 @@ export function setupDevtools<T, P extends Indexable>(
     return;
   }
 
-  replayEventsByDocKey.set(doc.getKey(), []);
+  docEventsForReplayByDocKey.set(doc.getKey(), []);
   const unsub = doc.subscribe('all', (event) => {
     if (!isDocEventsForReplay(event)) {
       return;
     }
 
-    replayEventsByDocKey.get(doc.getKey())!.push(event);
+    docEventsForReplayByDocKey.get(doc.getKey())!.push(event);
     if (devtoolsStatus === 'synced') {
       sendToPanel({
         msg: 'doc::sync::partial',
@@ -132,7 +132,7 @@ export function setupDevtools<T, P extends Indexable>(
           sendToPanel({
             msg: 'doc::sync::full',
             docKey: doc.getKey(),
-            events: replayEventsByDocKey.get(doc.getKey())!,
+            events: docEventsForReplayByDocKey.get(doc.getKey())!,
           });
           logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
           break;
