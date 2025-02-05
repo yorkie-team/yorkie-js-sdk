@@ -1011,6 +1011,7 @@ export class Client {
                   },
                 ]);
                 reject(err); // Don't retry on auth errors
+                onDisconnect();
                 return;
               }
 
