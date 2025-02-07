@@ -31,6 +31,16 @@ export class ActivateClientRequest extends Message<ActivateClientRequest> {
    */
   clientKey = "";
 
+  /**
+   * @generated from field: string user_id = 2;
+   */
+  userId = "";
+
+  /**
+   * @generated from field: map<string, string> metadata = 3;
+   */
+  metadata: { [key: string]: string } = {};
+
   constructor(data?: PartialMessage<ActivateClientRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -40,6 +50,8 @@ export class ActivateClientRequest extends Message<ActivateClientRequest> {
   static readonly typeName = "yorkie.v1.ActivateClientRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "user_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "metadata", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ActivateClientRequest {
