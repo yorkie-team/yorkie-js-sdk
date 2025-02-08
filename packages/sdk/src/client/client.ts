@@ -877,9 +877,7 @@ export class Client {
     let backoffAttempts: number = 0;
 
     return attachment.runWatchLoop(
-      (
-        handleDisconnect: () => void,
-      ): Promise<[WatchStream, AbortController]> => {
+      (onDisconnect: () => void): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
           this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
@@ -917,9 +915,10 @@ export class Client {
             if (idleTimer) {
               clearTimeout(idleTimer);
             }
+
             idleTimer = setTimeout(() => {
-              logger.warn(
-                `[WD] c:"${this.getKey()}" idle timeout reached - no events received for ${currentTimeout}ms`,
+              logger.info(
+                `[WD] c:"${this.getKey()}" watch idle timeout reached`,
               );
               updateTimeoutWithBackoff();
               ac.abort();
@@ -931,6 +930,7 @@ export class Client {
             if (idleTimer) {
               clearTimeout(idleTimer);
             }
+
             if (backoffAttempts > 0) {
               backoffAttempts = 0;
               currentTimeout = idleStreamTimeout;
@@ -946,6 +946,7 @@ export class Client {
               idleStreamTimeout +
               Math.random() * (exponentialDelay - idleStreamTimeout);
             currentTimeout = Math.min(jitteredDelay, maxIdleStreamTimeout);
+            
             return currentTimeout;
           };
 
@@ -1005,7 +1006,7 @@ export class Client {
                   ]);
                 }
                 updateTimeoutWithBackoff();
-                handleDisconnect();
+                onDisconnect();
               } else {
                 this.conditions[ClientCondition.WatchLoop] = false;
               }
