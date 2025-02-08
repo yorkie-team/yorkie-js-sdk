@@ -157,11 +157,18 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 
   /**
-   * `reconnectionStreamTimeout` is the timeout of the reconnection stream. If
+   * `idleStreamTimeout` is the timeout of the reconnection stream. If
    * the stream is disconnected, the client waits for the timeout to reconnect
-   * the stream. The default value is `30000`(ms).
+   * the stream. The default value is `60000`(ms).
    */
-  reconnectionStreamTimeout?: number;
+  idleStreamTimeout?: number;
+
+  /**
+   * `maxIdleStreamTimeout` is the maximum timeout of the reconnection stream.
+   * If the stream is disconnected, the client waits for the timeout to reconnect
+   * the stream. The default value is `Infinity`(ms).
+   */
+  maxIdleStreamTimeout?: number;
 }
 
 /**
@@ -171,7 +178,8 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
-  reconnectionStreamTimeout: 60000,
+  idleStreamTimeout: 60000,
+  maxIdleStreamTimeout: Infinity,
 };
 
 /**
@@ -201,8 +209,9 @@ export class Client {
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
-  private reconnectionStreamTimeout: number;
   private retrySyncLoopDelay: number;
+  private idleStreamTimeout: number;
+  private maxIdleStreamTimeout: number;
 
   private rpcClient: PromiseClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -232,11 +241,12 @@ export class Client {
       opts.syncLoopDuration ?? DefaultClientOptions.syncLoopDuration;
     this.reconnectStreamDelay =
       opts.reconnectStreamDelay ?? DefaultClientOptions.reconnectStreamDelay;
-    this.reconnectionStreamTimeout =
-      opts.reconnectionStreamTimeout ??
-      DefaultClientOptions.reconnectionStreamTimeout;
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay ?? DefaultClientOptions.retrySyncLoopDelay;
+    this.idleStreamTimeout =
+      opts.idleStreamTimeout ?? DefaultClientOptions.idleStreamTimeout;
+    this.maxIdleStreamTimeout =
+      opts.maxIdleStreamTimeout ?? DefaultClientOptions.maxIdleStreamTimeout;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -410,7 +420,8 @@ export class Client {
           if (syncMode !== SyncMode.Manual) {
             await this.runWatchLoop(
               doc.getKey(),
-              this.reconnectionStreamTimeout,
+              this.idleStreamTimeout,
+              this.maxIdleStreamTimeout,
             );
           }
 
@@ -543,7 +554,11 @@ export class Client {
 
     // manual to realtime
     if (prevSyncMode === SyncMode.Manual) {
-      await this.runWatchLoop(doc.getKey(), this.reconnectionStreamTimeout);
+      await this.runWatchLoop(
+        doc.getKey(),
+        this.idleStreamTimeout,
+        this.maxIdleStreamTimeout,
+      );
     }
 
     return doc;
@@ -845,7 +860,8 @@ export class Client {
    */
   private async runWatchLoop(
     docKey: DocKey,
-    reconnectionStreamTimeout: number,
+    idleStreamTimeout: number,
+    maxIdleStreamTimeout: number,
   ): Promise<void> {
     const attachment = this.attachmentMap.get(docKey);
     if (!attachment) {
@@ -856,186 +872,152 @@ export class Client {
     }
 
     this.conditions[ClientCondition.WatchLoop] = true;
-    let lastEventTime: number = Date.now();
-    let currentTimeout: number = reconnectionStreamTimeout;
-    let consecutiveTimeouts: number = 0;
 
-    logger.info(
-      `[WD] c:"${this.getKey()}" initializing watch loop with base timeout: ${reconnectionStreamTimeout}ms`,
-    );
+    let currentTimeout: number = idleStreamTimeout;
+    let backoffAttempts: number = 0;
 
-    const resetEventTimer = () => {
-      const previousEventTime = lastEventTime;
-      lastEventTime = Date.now();
-      logger.debug(
-        `[WD] c:"${this.getKey()}" event received after ${Date.now() - previousEventTime}ms`,
-      );
-
-      // Reset timeout if we're getting regular events
-      if (consecutiveTimeouts > 0) {
-        logger.info(
-          `[WD] c:"${this.getKey()}" resetting timeout from ${currentTimeout}ms to ${reconnectionStreamTimeout}ms after ${consecutiveTimeouts} timeouts`,
-        );
-        consecutiveTimeouts = 0;
-        currentTimeout = reconnectionStreamTimeout;
-      }
-    };
-
-    const calculateNextTimeout = () => {
-      consecutiveTimeouts++;
-      const previousTimeout = currentTimeout;
-      // Apply exponential backoff with a maximum of 5 minutes (300000ms)
-      currentTimeout = Math.min(
-        reconnectionStreamTimeout * Math.pow(2, consecutiveTimeouts - 1),
-        300000,
-      );
-      logger.info(
-        `[WD] c:"${this.getKey()}" increasing timeout from ${previousTimeout}ms to ${currentTimeout}ms (consecutive timeouts: ${consecutiveTimeouts})`,
-      );
-      return currentTimeout;
-    };
-
-    const attemptConnection = async (
-      onDisconnect: () => void,
-    ): Promise<[WatchStream, AbortController]> => {
-      if (!this.isActive()) {
-        logger.warn(
-          `[WD] c:"${this.getKey()}" client not active, rejecting connection attempt`,
-        );
-        this.conditions[ClientCondition.WatchLoop] = false;
-        return Promise.reject(
-          new YorkieError(
-            Code.ErrClientNotActivated,
-            `${this.key} is not active`,
-          ),
-        );
-      }
-
-      logger.debug(
-        `[WD] c:"${this.getKey()}" attempting connection with timeout ${currentTimeout}ms`,
-      );
-      const ac = new AbortController();
-      const stream = this.rpcClient.watchDocument(
-        {
-          clientId: this.id!,
-          documentId: attachment.docID,
-        },
-        {
-          headers: { 'x-shard-key': `${this.apiKey}/${docKey}` },
-          signal: ac.signal,
-        },
-      );
-
-      attachment.doc.publish([
-        {
-          type: DocEventType.ConnectionChanged,
-          value: StreamConnectionStatus.Connected,
-        },
-      ]);
-      logger.info(
-        `[WD] c:"${this.getKey()}" established watch stream for d:"${docKey}" (timeout: ${currentTimeout}ms)`,
-      );
-
-      return new Promise((resolve, reject) => {
-        // Start event timeout checker
-        const timeoutChecker = setInterval(() => {
-          const timeSinceLastEvent = Date.now() - lastEventTime;
-          logger.debug(
-            `[WD] c:"${this.getKey()}" time since last event: ${timeSinceLastEvent}ms/${currentTimeout}ms`,
+    return attachment.runWatchLoop(
+      (
+        handleDisconnect: () => void,
+      ): Promise<[WatchStream, AbortController]> => {
+        if (!this.isActive()) {
+          this.conditions[ClientCondition.WatchLoop] = false;
+          return Promise.reject(
+            new YorkieError(
+              Code.ErrClientNotActivated,
+              `${this.key} is not active`,
+            ),
           );
+        }
 
-          if (timeSinceLastEvent >= currentTimeout) {
-            logger.warn(
-              `[WD] c:"${this.getKey()}" timeout reached - no events for ${timeSinceLastEvent}ms (threshold: ${currentTimeout}ms)`,
-            );
-            clearInterval(timeoutChecker);
-            ac.abort();
-          }
-        }, 1000);
+        const ac = new AbortController();
+        const stream = this.rpcClient.watchDocument(
+          {
+            clientId: this.id!,
+            documentId: attachment.docID,
+          },
+          {
+            headers: { 'x-shard-key': `${this.apiKey}/${docKey}` },
+            signal: ac.signal,
+          },
+        );
 
-        const handleStream = async () => {
-          try {
-            logger.debug(`[WD] c:"${this.getKey()}" starting stream handler`);
-            for await (const resp of stream) {
-              logger.debug(
-                `[WD] c:"${this.getKey()}" received ${resp.body.case} event`,
-              );
-              this.handleWatchDocumentsResponse(attachment, resp);
+        attachment.doc.publish([
+          {
+            type: DocEventType.ConnectionChanged,
+            value: StreamConnectionStatus.Connected,
+          },
+        ]);
+        logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
 
-              if (resp.body.case === 'initialization') {
-                logger.info(
-                  `[WD] c:"${this.getKey()}" received initialization event`,
-                );
-                resolve([stream, ac]);
-              } else {
-                resetEventTimer();
-              }
+        return new Promise((resolve, reject) => {
+          let idleTimer: any;
+
+          const scheduleIdleTimer = () => {
+            if (idleTimer) {
+              clearTimeout(idleTimer);
             }
-          } catch (err) {
-            clearInterval(timeoutChecker);
-            logger.debug(
-              `[WD] c:"${this.getKey()}" stream error: ${err instanceof Error ? err.message : 'unknown error'}`,
-            );
+            idleTimer = setTimeout(() => {
+              logger.warn(
+                `[WD] c:"${this.getKey()}" idle timeout reached - no events received for ${currentTimeout}ms`,
+              );
+              updateTimeoutWithBackoff();
+              ac.abort();
+              scheduleIdleTimer();
+            }, currentTimeout);
+          };
 
-            attachment.doc.resetOnlineClients();
-            attachment.doc.publish([
-              {
-                type: DocEventType.Initialized,
-                source: OpSource.Local,
-                value: attachment.doc.getPresences(),
-              },
-            ]);
-            attachment.doc.publish([
-              {
-                type: DocEventType.ConnectionChanged,
-                value: StreamConnectionStatus.Disconnected,
-              },
-            ]);
-            logger.debug(`[WD] c:"${this.getKey()}" unwatches after error`);
+          const resetIdleTimer = () => {
+            if (idleTimer) {
+              clearTimeout(idleTimer);
+            }
+            if (backoffAttempts > 0) {
+              backoffAttempts = 0;
+              currentTimeout = idleStreamTimeout;
+            }
+            scheduleIdleTimer();
+          };
 
-            if (await this.handleConnectError(err)) {
-              if (
-                err instanceof ConnectError &&
-                errorCodeOf(err) === Code.ErrUnauthenticated
-              ) {
-                logger.error(
-                  `[WD] c:"${this.getKey()}" authentication error, stopping reconnection`,
-                );
-                attachment.doc.publish([
-                  {
-                    type: DocEventType.AuthError,
-                    value: {
-                      reason: errorMetadataOf(err).reason,
-                      method: 'WatchDocuments',
-                    },
-                  },
-                ]);
-                reject(err); // Don't retry on auth errors
-                onDisconnect();
-                return;
+          const updateTimeoutWithBackoff = (): number => {
+            backoffAttempts++;
+            const exponentialDelay =
+              idleStreamTimeout * Math.pow(2, backoffAttempts - 1);
+            const jitteredDelay =
+              idleStreamTimeout +
+              Math.random() * (exponentialDelay - idleStreamTimeout);
+            currentTimeout = Math.min(jitteredDelay, maxIdleStreamTimeout);
+            return currentTimeout;
+          };
+
+          scheduleIdleTimer();
+
+          const handleStream = async () => {
+            try {
+              for await (const resp of stream) {
+                this.handleWatchDocumentsResponse(attachment, resp);
+
+                // NOTE(hackerwins): When the first response is received, we need to
+                // resolve the promise to notify that the watch stream is ready.
+                if (resp.body.case === 'initialization') {
+                  resolve([stream, ac]);
+                } else if (
+                  resp.body.case === 'event' &&
+                  (resp.body.value.type === PbDocEventType.DOCUMENT_CHANGED ||
+                    resp.body.value.type === PbDocEventType.DOCUMENT_BROADCAST)
+                ) {
+                  resetIdleTimer();
+                }
+              }
+            } catch (err) {
+              if (idleTimer) {
+                clearTimeout(idleTimer);
               }
 
-              // Calculate next timeout duration with exponential backoff
-              const nextTimeout = calculateNextTimeout();
-              logger.info(
-                `[WD] c:"${this.getKey()}" initiating reconnection with new timeout: ${nextTimeout}ms`,
-              );
-              onDisconnect();
-            } else {
-              logger.error(
-                `[WD] c:"${this.getKey()}" unhandled error, stopping watch loop`,
-              );
-              this.conditions[ClientCondition.WatchLoop] = false;
+              attachment.doc.resetOnlineClients();
+              attachment.doc.publish([
+                {
+                  type: DocEventType.Initialized,
+                  source: OpSource.Local,
+                  value: attachment.doc.getPresences(),
+                },
+              ]);
+              attachment.doc.publish([
+                {
+                  type: DocEventType.ConnectionChanged,
+                  value: StreamConnectionStatus.Disconnected,
+                },
+              ]);
+              logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+
+              if (await this.handleConnectError(err)) {
+                if (
+                  err instanceof ConnectError &&
+                  errorCodeOf(err) === Code.ErrUnauthenticated
+                ) {
+                  attachment.doc.publish([
+                    {
+                      type: DocEventType.AuthError,
+                      value: {
+                        reason: errorMetadataOf(err).reason,
+                        method: 'WatchDocuments',
+                      },
+                    },
+                  ]);
+                }
+                updateTimeoutWithBackoff();
+                handleDisconnect();
+              } else {
+                this.conditions[ClientCondition.WatchLoop] = false;
+              }
+
               reject(err);
             }
-          }
-        };
+          };
 
-        handleStream();
-      });
-    };
-
-    return attachment.runWatchLoop(attemptConnection);
+          handleStream();
+        });
+      },
+    );
   }
 
   private handleWatchDocumentsResponse<T, P extends Indexable>(
