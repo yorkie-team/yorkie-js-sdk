@@ -911,7 +911,7 @@ export class Client {
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
 
         return new Promise((resolve, reject) => {
-          let idleTimer: any;
+          let idleTimer: ReturnType<typeof setTimeout>;
 
           const scheduleIdleTimer = () => {
             if (idleTimer) {
