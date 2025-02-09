@@ -129,12 +129,6 @@ export interface ClientOptions {
   apiKey?: string;
 
   /**
-   * `userId` is the user key. It is used to identify the user.
-   * If not set, a random key is generated.
-   */
-  userId?: string;
-
-  /**
    * `metadata` is the metadata of the client. It is used to store additional
    * information about the client.
    */
@@ -197,7 +191,6 @@ const DefaultBroadcastOptions = {
 export class Client {
   private id?: ActorID;
   private key: string;
-  private userId: string;
   private metadata: Record<string, string>;
   private status: ClientStatus;
   private attachmentMap: Map<DocKey, Attachment<unknown, any>>;
@@ -223,7 +216,6 @@ export class Client {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
-    this.userId = opts.userId ? opts.userId : uuid();
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
@@ -285,7 +277,6 @@ export class Client {
         .activateClient(
           {
             clientKey: this.key,
-            userId: this.userId,
             metadata: this.metadata,
           },
           { headers: { 'x-shard-key': this.apiKey } },
