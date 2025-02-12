@@ -129,6 +129,12 @@ export interface ClientOptions {
   apiKey?: string;
 
   /**
+   * `metadata` is the metadata of the client. It is used to store additional
+   * information about the client.
+   */
+  metadata?: Record<string, string>;
+
+  /**
    * `authTokenInjector` is a function that provides a token for the auth webhook.
    * When the webhook response status code is 401, this function is called to refresh the token.
    * The `reason` parameter is the reason from the webhook response.
@@ -185,6 +191,7 @@ const DefaultBroadcastOptions = {
 export class Client {
   private id?: ActorID;
   private key: string;
+  private metadata: Record<string, string>;
   private status: ClientStatus;
   private attachmentMap: Map<DocKey, Attachment<unknown, any>>;
 
@@ -209,6 +216,7 @@ export class Client {
     opts = opts || DefaultClientOptions;
 
     this.key = opts.key ? opts.key : uuid();
+    this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
 
@@ -267,7 +275,10 @@ export class Client {
     return this.enqueueTask(async () => {
       return this.rpcClient
         .activateClient(
-          { clientKey: this.key },
+          {
+            clientKey: this.key,
+            metadata: this.metadata,
+          },
           { headers: { 'x-shard-key': this.apiKey } },
         )
         .then((res) => {
