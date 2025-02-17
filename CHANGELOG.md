@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-02-17
+
+### Added
+
+- Add metadata to Client for MAU tracking by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/942
+
+### Changed
+
+- Update github actions version by @DongjaJ in https://github.com/yorkie-team/yorkie-js-sdk/pull/936
+
+### Fixed
+
+- Fix type errors in devtools package by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/938
+
 ## [0.5.7] - 2024-12-11
 
 ### Changed
