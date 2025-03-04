@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { DocEventType, Indexable, OperationInfo } from 'yorkie-js-sdk';
+import yorkie, { DocEventType, Indexable, OperationInfo } from '@yorkie-js/sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import QuillCursors from 'quill-cursors';
 import ColorHash from 'color-hash';

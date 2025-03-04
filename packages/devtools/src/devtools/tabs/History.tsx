@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { DocEventType, Change, Devtools } from 'yorkie-js-sdk';
+import { DocEventType, Change, Devtools } from '@yorkie-js/sdk';
 import Slider from 'rc-slider';
 import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';

@@ -16,7 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import classNames from 'classnames';
-import { Primitive } from 'yorkie-js-sdk';
+import { Primitive } from '@yorkie-js/sdk';
 import { RootTree } from '../components/Tree';
 import { JSONDetail, TreeDetail } from '../components/Detail';
 import { useSelectedNode } from '../contexts/SelectedNode';

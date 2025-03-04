@@ -17,7 +17,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "unique-names-generator": "^4.7.1",
-    "yorkie-js-sdk": "workspace:*"
+    "@yorkie-js/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/lodash": "^4.14.198",

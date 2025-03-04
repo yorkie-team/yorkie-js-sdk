@@ -1,4 +1,4 @@
-import { Indexable } from 'yorkie-js-sdk';
+import { Indexable } from '@yorkie-js/sdk';
 
 const randomPeers = [
   'Alice',

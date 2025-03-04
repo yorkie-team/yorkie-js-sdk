@@ -22,7 +22,7 @@ import useResizeObserver from 'use-resize-observer';
 
 import { useSelectedNode } from '../contexts/SelectedNode';
 import { useSelectedPresence } from '../contexts/SelectedPresence';
-import type { Devtools, Json } from 'yorkie-js-sdk';
+import type { Devtools, Json } from '@yorkie-js/sdk';
 
 import {
   ArrayIcon,

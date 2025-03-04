@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import yorkie, { Document, JSONArray } from 'yorkie-js-sdk';
+import yorkie, { Document, JSONArray } from '@yorkie-js/sdk';
 import 'todomvc-app-css/index.css';
 
 import Header from './Header';

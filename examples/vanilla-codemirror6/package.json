@@ -20,6 +20,6 @@
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "6.23.1",
     "codemirror": "^6.0.1",
-    "yorkie-js-sdk": "workspace:*"
+    "@yorkie-js/sdk": "workspace:*"
   }
 }

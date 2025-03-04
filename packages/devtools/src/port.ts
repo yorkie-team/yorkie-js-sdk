@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { EventSourceDevPanel } from 'yorkie-js-sdk';
-import type { PanelToSDKMessage } from 'yorkie-js-sdk';
+import { EventSourceDevPanel } from '@yorkie-js/sdk';
+import type { PanelToSDKMessage } from '@yorkie-js/sdk';
 
 const tabID = chrome.devtools.inspectedWindow.tabId;
 

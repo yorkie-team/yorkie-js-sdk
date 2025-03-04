@@ -1,5 +1,5 @@
 <script>
-import yorkie from 'yorkie-js-sdk';
+import yorkie from '@yorkie-js/sdk';
 
 const defaultLists = [
   {

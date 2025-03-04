@@ -20,7 +20,7 @@ import { useState, useCallback } from 'react';
 import { Code } from './Code';
 import type { RootTreeNode } from './Tree';
 import { CodeIcon, GraphIcon } from '../icons';
-import type { Devtools, CRDTTreeNodeIDStruct } from 'yorkie-js-sdk';
+import type { Devtools, CRDTTreeNodeIDStruct } from '@yorkie-js/sdk';
 
 type FlatTreeNodeInfo = Devtools.TreeNodeInfo & {
   depth: number;

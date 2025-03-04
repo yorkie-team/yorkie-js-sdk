@@ -5,9 +5,9 @@
   "description": "A collection of tools and examples for Yorkie",
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "sdk": "pnpm --filter=yorkie-js-sdk",
-    "create-yorkie-app": "pnpm --filter=create-yorkie-app",
-    "devtools": "pnpm --filter=yorkie-devtools",
+    "sdk": "pnpm --filter=@yorkie-js/sdk",
+    "create-yorkie-app": "pnpm --filter=@yorkie-js/create-yorkie-app",
+    "devtools": "pnpm --filter=@yorkie-js/devtools",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
     "react-tldraw": "pnpm --filter=react-tldraw",
     "profile-stack": "pnpm --filter=profile-stack",
@@ -27,11 +27,11 @@
   },
   "license": "Apache-2.0",
   "devDependencies": {
-    "eslint": "^8.19.0",
-    "husky": "^9.1.5",
-    "lint-staged": "^15.2.9",
-    "only-allow": "^1.2.1",
-    "eslint-plugin-jsdoc": "^39.3.3",
-    "eslint-plugin-prettier": "^5.0.0"
+    "eslint": "^8.57.1",
+    "eslint-plugin-jsdoc": "^39.9.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "only-allow": "^1.2.1"
   }
 }
