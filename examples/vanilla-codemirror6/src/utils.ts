@@ -1,5 +1,5 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import { Document, Indexable } from 'yorkie-js-sdk';
+import { Document, Indexable } from '@yorkie-js/sdk';
 import { YorkieDoc } from './type';
 
 // function to display peers

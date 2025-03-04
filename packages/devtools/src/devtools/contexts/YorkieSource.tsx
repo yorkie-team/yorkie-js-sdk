@@ -24,7 +24,7 @@ import {
   useState,
 } from 'react';
 
-import { DocEventType, Devtools, type SDKToPanelMessage } from 'yorkie-js-sdk';
+import { DocEventType, Devtools, type SDKToPanelMessage } from '@yorkie-js/sdk';
 import { connectPort, sendToSDK } from '../../port';
 import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
 

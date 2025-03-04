@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import yorkie from 'yorkie-js-sdk';
+import yorkie from '@yorkie-js/sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 import './App.css';

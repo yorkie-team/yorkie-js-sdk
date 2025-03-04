@@ -9,7 +9,7 @@ import {
   TldrawApp,
 } from '@tldraw/tldraw';
 import { useThrottleCallback } from '@react-hook/throttle';
-import * as yorkie from 'yorkie-js-sdk';
+import * as yorkie from '@yorkie-js/sdk';
 import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
 import _ from 'lodash';

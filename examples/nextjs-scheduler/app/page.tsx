@@ -9,7 +9,7 @@ import React, { useEffect, useState } from 'react';
 import { ContentTypes, ENVtypes } from './utils/types';
 import { displayPeers, createRandomPeers } from './utils/handlePeers';
 import { parseDate } from './utils/parseDate';
-import yorkie, { Document, JSONArray, DocEventType } from 'yorkie-js-sdk';
+import yorkie, { Document, JSONArray, DocEventType } from '@yorkie-js/sdk';
 import Scheduler from './Scheduler';
 
 // parseDate() value's format = "DD-MM-YYYY"

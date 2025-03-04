@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { DocEventType } from 'yorkie-js-sdk';
-import type { EditOpInfo, OperationInfo } from 'yorkie-js-sdk';
+import yorkie, { DocEventType } from '@yorkie-js/sdk';
+import type { EditOpInfo, OperationInfo } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
 import {

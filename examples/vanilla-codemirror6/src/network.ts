@@ -1,4 +1,4 @@
-import { DocEvent, StreamConnectionStatus } from 'yorkie-js-sdk';
+import { DocEvent, StreamConnectionStatus } from '@yorkie-js/sdk';
 export const network = {
   isOnline: false,
   showOffline: (elem: HTMLElement) => {

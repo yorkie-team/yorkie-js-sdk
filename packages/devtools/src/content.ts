@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import type { FullSDKToPanelMessage } from 'yorkie-js-sdk';
-import { EventSourceDevPanel, EventSourceSDK } from 'yorkie-js-sdk';
+import type { FullSDKToPanelMessage } from '@yorkie-js/sdk';
+import { EventSourceDevPanel, EventSourceSDK } from '@yorkie-js/sdk';
 
 let panelPort = null;
 

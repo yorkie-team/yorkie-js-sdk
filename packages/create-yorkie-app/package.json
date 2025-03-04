@@ -1,5 +1,5 @@
 {
-  "name": "create-yorkie-app",
+  "name": "@yorkie-js/create-yorkie-app",
   "version": "0.4.7-fix.1",
   "bin": {
     "create-yorkie-app": "dist/create-yorkie-app.mjs"

@@ -1,5 +1,5 @@
 {
-  "name": "yorkie-devtools",
+  "name": "@yorkie-js/devtools",
   "displayName": "Yorkie Devtools",
   "version": "0.4.28",
   "description": "A browser extension that helps you debug Yorkie.",
@@ -20,7 +20,7 @@
     "react-dom": "18.2.0",
     "react-resizable-layout": "^0.7.2",
     "use-resize-observer": "^9.1.0",
-    "yorkie-js-sdk": "workspace:*"
+    "@yorkie-js/sdk": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "0.0.251",

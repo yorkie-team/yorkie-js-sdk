@@ -16,7 +16,7 @@
 
 import { createRoot } from 'react-dom/client';
 import { useEffect, useState } from 'react';
-import yorkie from 'yorkie-js-sdk';
+import yorkie from '@yorkie-js/sdk';
 import { useResizable } from 'react-resizable-layout';
 import { SelectedNodeProvider } from '../contexts/SelectedNode';
 import { SelectedPresenceProvider } from '../contexts/SelectedPresence';
