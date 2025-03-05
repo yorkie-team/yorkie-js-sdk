@@ -90,7 +90,7 @@ export default {
     },
 
     async disconnect() {
-      await client.deactivate();
+      await client.deactivate({ keepalive: true });
     },
 
     isOpened(index) {

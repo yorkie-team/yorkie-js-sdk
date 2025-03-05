@@ -23,7 +23,7 @@ async function main() {
   });
 
   window.addEventListener('beforeunload', () => {
-    client.deactivate();
+    client.deactivate({ keepalive: true });
   });
 }
 

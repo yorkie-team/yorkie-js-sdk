@@ -43,7 +43,7 @@ const App = () => {
       });
 
       window.addEventListener('beforeunload', () => {
-        client.deactivate();
+        client.deactivate({ keepalive: true });
       });
     };
 

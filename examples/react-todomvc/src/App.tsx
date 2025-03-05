@@ -1,4 +1,4 @@
-import { useDocument, JSONArray } from '@yorkie-js/react';
+import { useDocument, JSONArray, JSONObject } from '@yorkie-js/react';
 import 'todomvc-app-css/index.css';
 
 import Header from './Header';
@@ -46,15 +46,15 @@ export default function App() {
     },
     deleteTodo: (id: number) => {
       update((root) => {
-        let target;
+        let target: (Todo & JSONObject<Todo>) | undefined;
         for (const todo of root.todos) {
           if (todo.id === id) {
-            target = todo as any;
+            target = todo as Todo & JSONObject<Todo>;
             break;
           }
         }
         if (target) {
-          root.todos.deleteByID!(target.getID());
+          root.todos.deleteByID!(target.getID!());
         }
       });
     },
@@ -90,8 +90,8 @@ export default function App() {
       update((root) => {
         for (const todo of root.todos) {
           if (todo.completed) {
-            const t = todo as any;
-            root.todos.deleteByID!(t.getID());
+            const t = todo as Todo & JSONObject<Todo>;
+            root.todos.deleteByID!(t.getID!());
           }
         }
       });

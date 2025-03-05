@@ -162,8 +162,7 @@ export function useMultiplayerState(roomId: string) {
     function handleDisconnect() {
       if (client === undefined || doc === undefined) return;
 
-      client.detach(doc);
-      client.deactivate();
+      client.deactivate({ keepalive: true });
     }
 
     window.addEventListener('beforeunload', handleDisconnect);
