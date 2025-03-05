@@ -15,7 +15,22 @@
  */
 
 import type { JSONArray, JSONObject } from '@yorkie-js/sdk';
-import { useDocument } from './useDocument';
 
-export { useDocument };
+import { useYorkieDoc } from './useYorkieDoc';
+import { YorkieProvider } from './YorkieProvider';
+import {
+  DocumentProvider,
+  useDocument,
+  useRoot,
+  usePresence,
+} from './DocumentProvider';
+
 export type { JSONArray, JSONObject };
+export {
+  YorkieProvider,
+  DocumentProvider,
+  useDocument,
+  useRoot,
+  usePresence,
+  useYorkieDoc,
+};
