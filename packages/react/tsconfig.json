@@ -7,26 +7,20 @@
     "skipLibCheck": true,
     "outDir": "./lib",
 
-    /* Bundle */
+    /* Bundler mode */
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
 
-    /* Lint */
+    /* Linting */
     "strict": true,
 
     /* Paths */
     "baseUrl": ".",
     "paths": {
-      "@yorkie-js-sdk/src/*": ["src/*"],
-      "@yorkie-js-sdk/test/*": ["test/*"]
-    },
-    "plugins": [
-      { "transform": "typescript-transform-paths" },
-      { "transform": "typescript-transform-paths", "afterDeclarations": true }
-    ]
+      "@yorkie-js-sdk/src/*": ["../../packages/sdk/src/*"]
+    }
   },
-  "include": ["./src/**/*", "./test/**/*"],
-  "exclude": ["./node_modules"]
+  "include": ["src"]
 }
