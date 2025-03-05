@@ -37,7 +37,16 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: pnpm install
 
-      - run: pnpm sdk build
-      - run: pnpm publish --filter=@yorkie-js/sdk --no-git-checks --provenance
+      - name: SDK Build
+        run: pnpm sdk build
+      - name: SDK Publish
+        run: pnpm publish --filter=@yorkie-js/sdk --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: React Build
+        run: pnpm react build
+      - name: React Publish
+        run: pnpm publish --filter=@yorkie-js/react --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
