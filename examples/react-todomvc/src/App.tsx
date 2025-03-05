@@ -6,41 +6,30 @@ import MainSection from './MainSection';
 import { Todo } from './model';
 import './App.css';
 
-const initialState = {
-  todos: [
-    {
-      id: 0,
-      text: 'Yorkie JS SDK',
-      completed: false,
-    },
-    {
-      id: 1,
-      text: 'Garbage collection',
-      completed: false,
-    },
-    {
-      id: 2,
-      text: 'RichText datatype',
-      completed: false,
-    },
-  ],
-};
-
 /**
  * `App` is the root component of the application.
  */
 export default function App() {
-  const { root, update } = useDocument<{ todos: JSONArray<Todo> }>(
+  const { root, update, loading, error } = useDocument<{
+    todos: JSONArray<Todo>;
+  }>(
     '',
-    `react-todomvc-${new Date()
-      .toISOString()
-      .substring(0, 10)
-      .replace(/-/g, '')}`,
-    initialState,
+    `react-todomvc-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`,
+    {
+      todos: [
+        { id: 0, text: 'Yorkie JS SDK', completed: false },
+        { id: 1, text: 'Garbage collection', completed: false },
+        { id: 2, text: 'RichText datatype', completed: false },
+      ],
+    },
   );
 
-  if (!root) {
-    return null;
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
   }
 
   const actions = {
