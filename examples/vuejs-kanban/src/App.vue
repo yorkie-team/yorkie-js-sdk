@@ -39,8 +39,8 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
 });
 
 window.addEventListener('beforeunload', () => {
-    client.deactivate({ keepalive: true });
-  });
+  client.deactivate({ keepalive: true });
+});
 
 const doc = new yorkie.Document(
   `vuejs-kanban-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`,
