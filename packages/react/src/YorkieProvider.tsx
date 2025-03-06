@@ -76,7 +76,9 @@ export const YorkieProvider: React.FC<
     activateClient();
 
     return () => {
-      client?.deactivate({ keepalive: true });
+      if (client && client.isActive()) {
+        client.deactivate({ keepalive: true });
+      }
     };
   }, [apiKey, rpcAddr]);
 
