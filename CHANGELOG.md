@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-03-06
+
+### Added
+
+- Add @yorkie-js/react package with hooks for SDK integration by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/945
+- Add YorkieProvider, DocumentProvider and suspense hooks by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/946
+- Add keepalive option when detaching a document by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/948
+
+### Changed
+
+- Refactor package names to include scope by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/944
+- Refactor import paths to use '@yorkie-js/sdk' by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/947
+- Support React 18 and guard hasDocument check by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/950
+
 ## [0.6.0] - 2025-02-17
 
 ### Added
