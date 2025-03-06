@@ -161,7 +161,6 @@ export function useMultiplayerState(roomId: string) {
     // Detach & deactive yorkie client before unload
     function handleDisconnect() {
       if (client === undefined || doc === undefined) return;
-
       client.deactivate({ keepalive: true });
     }
 
