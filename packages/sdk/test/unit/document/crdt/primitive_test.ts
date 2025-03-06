@@ -16,11 +16,11 @@
 
 import Long from 'long';
 import { describe, it, assert } from 'vitest';
-import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   Primitive,
   PrimitiveType,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 describe('Primitive', function () {
   const primitiveTypes = [

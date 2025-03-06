@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
-import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
-import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { deepcopy } from '@yorkie-js-sdk/src/util/object';
+import type { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
+import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import {
   Observer,
   Observable,
@@ -26,35 +26,35 @@ import {
   ErrorFn,
   CompleteFn,
   NextFn,
-} from '@yorkie-js-sdk/src/util/observable';
+} from '@yorkie-js/sdk/src/util/observable';
 import {
   ActorID,
   InitialActorID,
-} from '@yorkie-js-sdk/src/document/time/actor_id';
+} from '@yorkie-js/sdk/src/document/time/actor_id';
 import {
   Change,
   ChangeStruct,
-} from '@yorkie-js-sdk/src/document/change/change';
+} from '@yorkie-js/sdk/src/document/change/change';
 import {
   ChangeID,
   InitialChangeID,
-} from '@yorkie-js-sdk/src/document/change/change_id';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
-import { CRDTRoot, RootStats } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+} from '@yorkie-js/sdk/src/document/change/change_id';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import {
   createJSON,
   JSONElement,
   LeafElement,
   BaseArray,
   BaseObject,
-} from '@yorkie-js-sdk/src/document/json/element';
+} from '@yorkie-js/sdk/src/document/json/element';
 import {
   Checkpoint,
   InitialCheckpoint,
-} from '@yorkie-js-sdk/src/document/change/checkpoint';
+} from '@yorkie-js/sdk/src/document/change/checkpoint';
 import {
   OpSource,
   OperationInfo,
@@ -64,18 +64,18 @@ import {
   ArrayOperationInfo,
   TreeOperationInfo,
   Operation,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { JSONObject } from '@yorkie-js/sdk/src/document/json/object';
+import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+import { Text } from '@yorkie-js/sdk/src/document/json/text';
+import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import {
   Presence,
   PresenceChangeType,
-} from '@yorkie-js-sdk/src/document/presence/presence';
-import { History, HistoryOperation } from '@yorkie-js-sdk/src/document/history';
-import { setupDevtools } from '@yorkie-js-sdk/src/devtools';
-import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+} from '@yorkie-js/sdk/src/document/presence/presence';
+import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
+import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
+import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
 
 /**
@@ -483,14 +483,14 @@ export type DocKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-    ? CounterOperationInfo
-    : TElement extends Tree
-      ? TreeOperationInfo
-      : TElement extends BaseArray<any>
-        ? ArrayOperationInfo
-        : TElement extends BaseObject<any>
-          ? ObjectOperationInfo
-          : OperationInfo;
+  ? CounterOperationInfo
+  : TElement extends Tree
+  ? TreeOperationInfo
+  : TElement extends BaseArray<any>
+  ? ArrayOperationInfo
+  : TElement extends BaseObject<any>
+  ? ObjectOperationInfo
+  : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -511,24 +511,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-    ? TFirst extends keyof TElement
-      ? TElement[TFirst] extends BaseArray<unknown>
-        ? OperationInfoOfInternal<
-            TElement[TFirst],
-            number,
-            DecreasedDepthOf<TDepth>
-          >
-        : OperationInfoOfInternal<
-            TElement[TFirst],
-            TRest,
-            DecreasedDepthOf<TDepth>
-          >
-      : OperationInfo
-    : TKeyOrPath extends keyof TElement
-      ? TElement[TKeyOrPath] extends BaseArray<unknown>
-        ? ArrayOperationInfo
-        : OperationInfoOfElement<TElement[TKeyOrPath]>
-      : OperationInfo;
+  ? TFirst extends keyof TElement
+    ? TElement[TFirst] extends BaseArray<unknown>
+      ? OperationInfoOfInternal<
+          TElement[TFirst],
+          number,
+          DecreasedDepthOf<TDepth>
+        >
+      : OperationInfoOfInternal<
+          TElement[TFirst],
+          TRest,
+          DecreasedDepthOf<TDepth>
+        >
+    : OperationInfo
+  : TKeyOrPath extends keyof TElement
+  ? TElement[TKeyOrPath] extends BaseArray<unknown>
+    ? ArrayOperationInfo
+    : OperationInfoOfElement<TElement[TKeyOrPath]>
+  : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -536,24 +536,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-    ? 8
-    : Depth extends 8
-      ? 7
-      : Depth extends 7
-        ? 6
-        : Depth extends 6
-          ? 5
-          : Depth extends 5
-            ? 4
-            : Depth extends 4
-              ? 3
-              : Depth extends 3
-                ? 2
-                : Depth extends 2
-                  ? 1
-                  : Depth extends 1
-                    ? 0
-                    : -1;
+  ? 8
+  : Depth extends 8
+  ? 7
+  : Depth extends 7
+  ? 6
+  : Depth extends 6
+  ? 5
+  : Depth extends 5
+  ? 4
+  : Depth extends 4
+  ? 3
+  : Depth extends 3
+  ? 2
+  : Depth extends 2
+  ? 1
+  : Depth extends 1
+  ? 0
+  : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -565,29 +565,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-    ? {
-        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-          ? `${Prefix}${TKey & string}`
-          : TElement[TKey] extends BaseArray<infer TArrayElement>
-            ?
-                | `${Prefix}${TKey & string}`
-                | `${Prefix}${TKey & string}.${number}`
-                | PathOfInternal<
-                    TArrayElement,
-                    `${Prefix}${TKey & string}.${number}.`,
-                    DecreasedDepthOf<Depth>
-                  >
-            :
-                | `${Prefix}${TKey & string}`
-                | PathOfInternal<
-                    TElement[TKey],
-                    `${Prefix}${TKey & string}.`,
-                    DecreasedDepthOf<Depth>
-                  >;
-      }[keyof TElement]
-    : Prefix extends `${infer TRest}.`
-      ? TRest
-      : Prefix;
+  ? {
+      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+        ? `${Prefix}${TKey & string}`
+        : TElement[TKey] extends BaseArray<infer TArrayElement>
+        ?
+            | `${Prefix}${TKey & string}`
+            | `${Prefix}${TKey & string}.${number}`
+            | PathOfInternal<
+                TArrayElement,
+                `${Prefix}${TKey & string}.${number}.`,
+                DecreasedDepthOf<Depth>
+              >
+        :
+            | `${Prefix}${TKey & string}`
+            | PathOfInternal<
+                TElement[TKey],
+                `${Prefix}${TKey & string}.`,
+                DecreasedDepthOf<Depth>
+              >;
+    }[keyof TElement]
+  : Prefix extends `${infer TRest}.`
+  ? TRest
+  : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given

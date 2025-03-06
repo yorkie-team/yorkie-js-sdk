@@ -15,12 +15,12 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { buildIndexTree } from '@yorkie-js-sdk/test/helper/helper';
-import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
+import { buildIndexTree } from '@yorkie-js/sdk/test/helper/helper';
+import { CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   findCommonAncestor,
   IndexTree,
-} from '@yorkie-js-sdk/src/util/index_tree';
+} from '@yorkie-js/sdk/src/util/index_tree';
 
 /**
  * `toDiagnostic` is a helper function that converts the given node to a

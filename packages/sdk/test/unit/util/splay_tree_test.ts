@@ -15,7 +15,7 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import { SplayNode, SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 
 class StringNode extends SplayNode<string> {
   public removed: Boolean = false;

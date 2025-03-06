@@ -5,17 +5,17 @@ import yorkie, {
   Counter,
   SyncMode,
   StreamConnectionStatus,
-} from '@yorkie-js-sdk/src/yorkie';
-import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+} from '@yorkie-js/sdk/src/yorkie';
+import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import {
   testRPCAddr,
   toDocKey,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
   EventCollector,
   deepSort,
   DefaultSnapshotThreshold,
-} from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/test/helper/helper';
 
 describe('Presence', function () {
   afterEach(() => {

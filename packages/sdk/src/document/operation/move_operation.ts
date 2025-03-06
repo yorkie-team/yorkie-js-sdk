@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import {
   Operation,
   ExecutionResult,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `MoveOperation` is an operation representing moving an element to an Array.

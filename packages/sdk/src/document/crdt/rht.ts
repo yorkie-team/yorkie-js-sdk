@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
-import { GCChild } from '@yorkie-js-sdk/src/document/crdt/gc';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
-import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { TreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `OpSource` represents the source of the operation. It is used to handle

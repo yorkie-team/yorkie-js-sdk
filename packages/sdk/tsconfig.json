@@ -19,8 +19,8 @@
     /* Paths */
     "baseUrl": ".",
     "paths": {
-      "@yorkie-js-sdk/src/*": ["src/*"],
-      "@yorkie-js-sdk/test/*": ["test/*"]
+      "@yorkie-js/sdk/src/*": ["src/*"],
+      "@yorkie-js/sdk/test/*": ["test/*"]
     },
     "plugins": [
       { "transform": "typescript-transform-paths" },

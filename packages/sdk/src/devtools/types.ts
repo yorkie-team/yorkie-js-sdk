@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import type { PrimitiveValue } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import type { CRDTTreePosStruct } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
+import type { PrimitiveValue } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import type { CRDTTreePosStruct } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CounterValue } from '@yorkie-js/sdk/src/document/crdt/counter';
 import {
   Json,
   DocEvent,
@@ -30,8 +30,8 @@ import {
   type WatchedEvent,
   type UnwatchedEvent,
   type PresenceChangedEvent,
-} from '@yorkie-js-sdk/src/document/document';
-import type { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+} from '@yorkie-js/sdk/src/document/document';
+import type { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 
 /**
  * `Client` represents a client value in devtools.

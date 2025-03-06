@@ -18,16 +18,16 @@ import Long from 'long';
 import {
   ExecutionResult,
   Operation,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   Primitive,
   PrimitiveType,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { CRDTCounter } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.

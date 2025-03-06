@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { Change } from '@yorkie-js-sdk/src/document/change/change';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { Change } from '@yorkie-js/sdk/src/document/change/change';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '../time/version_vector';
 
 /**

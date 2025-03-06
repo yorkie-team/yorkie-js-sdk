@@ -18,24 +18,24 @@ import {
   MaxLamport,
   InitialTimeTicket,
   TimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { RHT, RHTNode } from '@yorkie-js-sdk/src/document/crdt/rht';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
+import { RHT, RHTNode } from '@yorkie-js/sdk/src/document/crdt/rht';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPosRange,
   ValueChange,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
-import { parseObjectValues } from '@yorkie-js-sdk/src/util/object';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import { GCChild, GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
-import { SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
-import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import { parseObjectValues } from '@yorkie-js/sdk/src/util/object';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
+import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 
 /**
  * `TextChangeType` is the type of TextChange.

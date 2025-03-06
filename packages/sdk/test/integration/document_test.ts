@@ -6,25 +6,25 @@ import yorkie, {
   SyncMode,
   Tree,
   JSONElement,
-} from '@yorkie-js-sdk/src/yorkie';
+} from '@yorkie-js/sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
   EventCollector,
   assertThrowsAsync,
   Indexable,
-} from '@yorkie-js-sdk/test/helper/helper';
-import type { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
+} from '@yorkie-js/sdk/test/helper/helper';
+import type { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import {
   DocStatus,
   DocEventType,
   StatusChangedEvent,
-} from '@yorkie-js-sdk/src/document/document';
-import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
-import { YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+} from '@yorkie-js/sdk/src/document/document';
+import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
+import { YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import Long from 'long';
 
 describe('Document', function () {

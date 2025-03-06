@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   OpSource,
   Operation,
   OperationInfo,
   ExecutionResult,
-} from '@yorkie-js-sdk/src/document/operation/operation';
+} from '@yorkie-js/sdk/src/document/operation/operation';
 import {
   CRDTContainer,
   CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
+import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `RemoveOperation` is an operation that removes an element from `CRDTContainer`.

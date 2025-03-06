@@ -26,7 +26,7 @@ import {
 
 import { DocEventType, Devtools, type SDKToPanelMessage } from '@yorkie-js/sdk';
 import { connectPort, sendToSDK } from '../../port';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 const DocKeyContext = createContext<string>(null);
 const YorkieDocContext = createContext(null);

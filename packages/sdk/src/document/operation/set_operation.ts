@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import {
   OpSource,
   Operation,
   ExecutionResult,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `SetOperation` represents an operation that stores the value corresponding to the

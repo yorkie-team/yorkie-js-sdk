@@ -18,7 +18,7 @@ import { describe, it, assert } from 'vitest';
 import {
   InitialTimeTicket as ITT,
   MaxTimeTicket as MTT,
-} from '@yorkie-js-sdk/src/document/time/ticket';
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   CRDTTree,
   CRDTTreeNode,
@@ -26,9 +26,9 @@ import {
   CRDTTreePos,
   toXML,
   TreeNodeForTest,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
-import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
-import { idT, posT, timeT } from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/src/document/crdt/tree';
+import { stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
+import { idT, posT, timeT } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('CRDTTreeNode', function () {
   it('Can be created', function () {

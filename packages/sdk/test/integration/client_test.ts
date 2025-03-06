@@ -24,19 +24,19 @@ import yorkie, {
   DocSyncStatus,
   Tree,
   Text,
-} from '@yorkie-js-sdk/src/yorkie';
+} from '@yorkie-js/sdk/src/yorkie';
 import {
   EventCollector,
   DefaultSnapshotThreshold,
-} from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/test/helper/helper';
 import {
   toDocKey,
   testRPCAddr,
   withTwoClientsAndDocuments,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { Json } from '@yorkie-js-sdk/src/document/document';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { Json } from '@yorkie-js/sdk/src/document/document';
 
 describe.sequential('Client', function () {
   afterEach(() => {

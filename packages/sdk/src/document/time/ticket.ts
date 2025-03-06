@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
+import { Comparator } from '@yorkie-js/sdk/src/util/comparator';
 import {
   ActorID,
   InitialActorID,
   MaxActorID,
-} from '@yorkie-js-sdk/src/document/time/actor_id';
+} from '@yorkie-js/sdk/src/document/time/actor_id';
 
 export const TicketComparator: Comparator<TimeTicket> = (
   p1: TimeTicket,

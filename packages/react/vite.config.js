@@ -21,7 +21,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@yorkie-js-sdk/src': path.resolve(__dirname, '../sdk/src'),
+      '@yorkie-js/sdk/src': path.resolve(__dirname, '../sdk/src'),
     },
   },
   plugins: [

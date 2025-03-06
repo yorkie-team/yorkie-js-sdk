@@ -1,12 +1,12 @@
 import { describe, it, assert } from 'vitest';
-import { Document } from '@yorkie-js-sdk/src/document/document';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
   JSONArray,
   WrappedElement,
   Primitive,
   TimeTicket,
-} from '@yorkie-js-sdk/src/yorkie';
+} from '@yorkie-js/sdk/src/yorkie';
 import { MaxVersionVector } from '../helper/helper';
 
 describe('Array', function () {

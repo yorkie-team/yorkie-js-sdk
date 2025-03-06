@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { logger } from '@yorkie-js-sdk/src/util/logger';
-import { uuid } from '@yorkie-js-sdk/src/util/uuid';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
+import { uuid } from '@yorkie-js/sdk/src/util/uuid';
 import { Code, YorkieError } from './error';
 
 export type NextFn<T> = (value: T) => void;

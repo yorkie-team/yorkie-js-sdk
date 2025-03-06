@@ -1,9 +1,9 @@
 import { describe, it, assert } from 'vitest';
 import Long from 'long';
-import { Document } from '@yorkie-js-sdk/src/document/document';
-import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { InitialCheckpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 describe('Primitive', function () {
   it('should apply updates of string', function () {

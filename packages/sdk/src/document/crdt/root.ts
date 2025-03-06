@@ -17,16 +17,16 @@
 import {
   InitialTimeTicket,
   TimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   CRDTContainer,
   CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
-import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
 
 /**

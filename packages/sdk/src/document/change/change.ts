@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import {
   OpSource,
   Operation,
   OperationInfo,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import {
   PresenceChange,
   PresenceChangeType,
-} from '@yorkie-js-sdk/src/document/presence/presence';
-import { deepcopy } from '@yorkie-js-sdk/src/util/object';
+} from '@yorkie-js/sdk/src/document/presence/presence';
+import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 
 /**
  * `ChangeStruct` represents the structure of Change.

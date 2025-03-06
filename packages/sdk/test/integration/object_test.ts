@@ -1,14 +1,14 @@
 import { describe, it, assert } from 'vitest';
-import { JSONObject, Client, SyncMode } from '@yorkie-js-sdk/src/yorkie';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { JSONObject, Client, SyncMode } from '@yorkie-js/sdk/src/yorkie';
+import { Document } from '@yorkie-js/sdk/src/document/document';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
   toDocKey,
   testRPCAddr,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
-import { toStringHistoryOp } from '@yorkie-js-sdk/test/helper/helper';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
+import { toStringHistoryOp } from '@yorkie-js/sdk/test/helper/helper';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 describe('Object', function () {
   it('valid key test', function () {

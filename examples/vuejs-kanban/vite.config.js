@@ -11,7 +11,7 @@ export default defineConfig({
   resolve: {
     alias: [
       {
-        find: '@yorkie-js-sdk/src',
+        find: '@yorkie-js/sdk/src',
         replacement: path.resolve(__dirname, '../../packages/sdk/src'),
       },
       {

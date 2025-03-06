@@ -1,9 +1,9 @@
 import { describe, it, assert } from 'vitest';
-import yorkie, { Text, Tree, SyncMode } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Text, Tree, SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
   MaxVersionVector,
   versionVectorHelper,

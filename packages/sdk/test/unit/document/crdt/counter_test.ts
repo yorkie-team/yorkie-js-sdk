@@ -15,13 +15,13 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import Long from 'long';
 import {
   CounterType,
   CRDTCounter,
-} from '@yorkie-js-sdk/src/document/crdt/counter';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+} from '@yorkie-js/sdk/src/document/crdt/counter';
+import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
@@ -53,12 +53,9 @@ describe('Counter', function () {
         ? counter.getValue()
         : operand.getValue();
 
-      assert.throw(
-        () => {
-          counter.increase(operand);
-        },
-        `Unsupported type of value: ${typeof errValue}`,
-      );
+      assert.throw(() => {
+        counter.increase(operand);
+      }, `Unsupported type of value: ${typeof errValue}`);
     }
 
     const str = Primitive.of('hello', InitialTimeTicket);

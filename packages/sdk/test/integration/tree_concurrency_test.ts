@@ -15,14 +15,14 @@
  */
 
 import { assert, describe, test } from 'vitest';
-import { TreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { Document } from '@yorkie-js-sdk/src/document/document';
+import { TreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { Document } from '@yorkie-js/sdk/src/document/document';
 import {
   testRPCAddr,
   toDocKey,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
-import yorkie, { SyncMode, Tree } from '@yorkie-js-sdk/src/yorkie';
-import { Indexable } from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
+import yorkie, { SyncMode, Tree } from '@yorkie-js/sdk/src/yorkie';
+import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
 
 function parseSimpleXML(s: string): Array<string> {
   const res: Array<string> = [];

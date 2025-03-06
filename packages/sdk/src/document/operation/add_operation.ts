@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import {
   Operation,
   ExecutionResult,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `AddOperation` is an operation representing adding an element to an Array.

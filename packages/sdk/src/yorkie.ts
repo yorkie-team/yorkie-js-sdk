@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { Client } from '@yorkie-js-sdk/src/client/client';
-import { Document } from '@yorkie-js-sdk/src/document/document';
-import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
-import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { Client } from '@yorkie-js/sdk/src/client/client';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Text } from '@yorkie-js/sdk/src/document/json/text';
+import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
+import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
+import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 export {
   Client,
@@ -28,7 +28,7 @@ export {
   ClientCondition,
   SyncMode,
   type ClientOptions,
-} from '@yorkie-js-sdk/src/client/client';
+} from '@yorkie-js/sdk/src/client/client';
 export {
   DocEventType,
   type SnapshotEvent,
@@ -49,8 +49,8 @@ export {
   type DocEvents,
   Document,
   type ChangeInfo,
-} from '@yorkie-js-sdk/src/document/document';
-export { Presence } from '@yorkie-js-sdk/src/document/presence/presence';
+} from '@yorkie-js/sdk/src/document/document';
+export { Presence } from '@yorkie-js/sdk/src/document/presence/presence';
 export {
   type Observer,
   type Observable,
@@ -58,13 +58,13 @@ export {
   type ErrorFn,
   type CompleteFn,
   type Unsubscribe,
-} from '@yorkie-js-sdk/src/util/observable';
+} from '@yorkie-js/sdk/src/util/observable';
 export {
   TimeTicket,
   type TimeTicketStruct,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-export { type ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-export { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+export { type ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
+export { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 export type {
   OperationInfo,
   TextOperationInfo,
@@ -81,28 +81,28 @@ export type {
   StyleOpInfo,
   TreeEditOpInfo,
   TreeStyleOpInfo,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-export { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+export { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 
 export {
   Primitive,
   type PrimitiveValue,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 export {
   type WrappedElement,
   type JSONElement,
-} from '@yorkie-js-sdk/src/document/json/element';
-export { type JSONObject } from '@yorkie-js-sdk/src/document/json/object';
-export { type JSONArray } from '@yorkie-js-sdk/src/document/json/array';
-export { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-export { type CounterValue } from '@yorkie-js-sdk/src/document/crdt/counter';
+} from '@yorkie-js/sdk/src/document/json/element';
+export { type JSONObject } from '@yorkie-js/sdk/src/document/json/object';
+export { type JSONArray } from '@yorkie-js/sdk/src/document/json/array';
+export { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+export { type CounterValue } from '@yorkie-js/sdk/src/document/crdt/counter';
 export {
   Text,
   type TextPosStruct,
   type TextPosStructRange,
-} from '@yorkie-js-sdk/src/document/json/text';
+} from '@yorkie-js/sdk/src/document/json/text';
 export {
   Tree,
   type TreeNode,
@@ -112,12 +112,12 @@ export {
   type TreeChangeType,
   type CRDTTreeNodeIDStruct,
   type TreePosStructRange,
-} from '@yorkie-js-sdk/src/document/json/tree';
-export { Change } from '@yorkie-js-sdk/src/document/change/change';
-export { converter } from '@yorkie-js-sdk/src/api/converter';
+} from '@yorkie-js/sdk/src/document/json/tree';
+export { Change } from '@yorkie-js/sdk/src/document/change/change';
+export { converter } from '@yorkie-js/sdk/src/api/converter';
 
-import { LogLevel, setLogLevel } from '@yorkie-js-sdk/src/util/logger';
-export { LogLevel, setLogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
+export { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
 
 export {
   EventSourceDevPanel,
@@ -126,7 +126,7 @@ export {
   type SDKToPanelMessage,
   type FullPanelToSDKMessage,
   type FullSDKToPanelMessage,
-} from '@yorkie-js-sdk/src/devtools/protocol';
+} from '@yorkie-js/sdk/src/devtools/protocol';
 export { Devtools };
 
 /**

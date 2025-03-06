@@ -17,8 +17,8 @@
 import {
   ActorID,
   InitialActorID,
-} from '@yorkie-js-sdk/src/document/time/actor_id';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+} from '@yorkie-js/sdk/src/document/time/actor_id';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { InitialVersionVector, VersionVector } from '../time/version_vector';
 
 /**
