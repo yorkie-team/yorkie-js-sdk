@@ -447,7 +447,8 @@ export class Client {
     doc: Document<T, P>,
     options: {
       removeIfNotAttached?: boolean;
-    } = {},
+      keepalive?: boolean;
+    } = { keepalive: false },
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
@@ -464,8 +465,8 @@ export class Client {
     }
     doc.update((_, p) => p.clear());
 
-    return this.enqueueTask(async () => {
-      return this.rpcClient
+    const task = async () => {
+      return await this.rpcClient
         .detachDocument(
           {
             clientId: this.id!,
@@ -482,7 +483,6 @@ export class Client {
             doc.applyStatus(DocStatus.Detached);
           }
           this.detachInternal(doc.getKey());
-
           logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
           return doc;
         })
@@ -491,7 +491,16 @@ export class Client {
           await this.handleConnectError(err);
           throw err;
         });
-    });
+    };
+
+    if (options.keepalive) {
+      this.keepalive = true;
+      const resp = task();
+      this.keepalive = false;
+      return resp;
+    }
+
+    return this.enqueueTask(task);
   }
 
   /**
