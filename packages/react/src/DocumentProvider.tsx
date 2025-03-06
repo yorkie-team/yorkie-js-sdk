@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
-import { createContext, useContext, useEffect, useState } from 'react';
-import { Document, Indexable } from '@yorkie-js/sdk';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+import { Document, Presence, Indexable } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
 
-type DocumentContextType<R, P> = {
+type DocumentContextType<R, P extends Indexable = Indexable> = {
   root: R;
   presences: { clientID: string; presence: P }[];
   update: (callback: (root: R) => void) => void;
@@ -26,11 +32,14 @@ type DocumentContextType<R, P> = {
   error: Error | undefined;
 };
 
-const DocumentContext = createContext<DocumentContextType<any, any> | null>(
-  null,
-);
+const DocumentContext = createContext<DocumentContextType<any> | null>(null);
 
-export const DocumentProvider = <R, P extends Indexable>({
+/**
+ * `DocumentProvider` is a component that provides a document to its children.
+ * This component must be under a `YorkieProvider` component to initialize the
+ * Yorkie client properly.
+ */
+export const DocumentProvider = <R, P extends Indexable = Indexable>({
   docKey,
   initialRoot,
   children,
@@ -85,11 +94,22 @@ export const DocumentProvider = <R, P extends Indexable>({
     };
   }, [client, docKey]);
 
-  const update = (callback: (root: any) => void) => {
-    if (doc) {
-      doc.update(callback);
-    }
-  };
+  const update = useCallback(
+    (callback: (root: R, presence: Presence<P>) => void) => {
+      if (!doc) {
+        return;
+      }
+
+      try {
+        doc.update(callback);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err : new Error('Failed to update document'),
+        );
+      }
+    },
+    [doc],
+  );
 
   return (
     <DocumentContext.Provider
@@ -104,7 +124,7 @@ export const DocumentProvider = <R, P extends Indexable>({
  * `useDocument` is a custom hook that returns the root object and update function of the document.
  * This hook must be used within a `DocumentProvider`.
  */
-export const useDocument = <R, P extends Indexable>() => {
+export const useDocument = <R, P extends Indexable = Indexable>() => {
   const context = useContext(DocumentContext);
   if (!context) {
     throw new Error('useDocument must be used within a DocumentProvider');
@@ -133,12 +153,12 @@ export const useRoot = () => {
 };
 
 /**
- * `usePresence` is a custom hook that returns the presence of the document.
+ * `usePresences` is a custom hook that returns the presences of the document.
  */
-export const usePresence = () => {
+export const usePresences = () => {
   const context = useContext(DocumentContext);
   if (!context) {
-    throw new Error('usePresence must be used within a DocumentProvider');
+    throw new Error('usePresences must be used within a DocumentProvider');
   }
   return context.presences;
 };

@@ -37,6 +37,7 @@ interface YorkieProviderProps {
 
 /**
  * `YorkieProvider` is a component that provides the Yorkie client to its children.
+ * It initializes the Yorkie client with the given API key and RPC address.
  */
 export const YorkieProvider: React.FC<
   PropsWithChildren<YorkieProviderProps>

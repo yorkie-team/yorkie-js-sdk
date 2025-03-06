@@ -11,10 +11,9 @@ import 'todomvc-app-css/index.css';
  * `App` is the root component of the application.
  */
 export default function App() {
-  const { root, update, loading, error } = useDocument<
-    { todos: JSONArray<Todo> },
-    any
-  >();
+  const { root, update, loading, error } = useDocument<{
+    todos: JSONArray<Todo>;
+  }>();
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
