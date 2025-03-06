@@ -84,49 +84,6 @@ export default function App() {
     },
   };
 
-  useEffect(() => {
-    const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
-      apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-    });
-
-    window.addEventListener('beforeunload', () => {
-      client.deactivate({ keepalive: true });
-    });
-
-    /**
-     * `attachDoc` is a helper function to attach the document into the client.
-     */
-    async function attachDoc(
-      doc: Document<{ todos: JSONArray<Todo> }>,
-      callback: (todos: any) => void,
-    ) {
-      // 01. create client with RPCAddr then activate it.
-      await client.activate();
-
-      // 02. attach the document into the client.
-      await client.attach(doc);
-
-      // 03. create default todos if not exists.
-      doc.update((root) => {
-        if (!root.todos) {
-          root.todos = initialState;
-        }
-      }, 'create default todos if not exists');
-
-      // 04. subscribe change event from local and remote.
-      doc.subscribe((event) => {
-        callback(doc.getRoot().todos);
-      });
-
-      // 05. set todos  the attached document.
-      callback(doc.getRoot().todos);
-    }
-
-    attachDoc(doc, (todos) => {
-      setTodos(todos);
-    });
-  }, []);
-
   return (
     <div className="App">
       <Header addTodo={actions.addTodo} />
