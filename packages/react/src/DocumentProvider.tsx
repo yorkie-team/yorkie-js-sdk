@@ -104,7 +104,9 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     attachDocument();
 
     return () => {
-      client.detach(newDoc);
+      if (client && client.hasDocument(docKey)) {
+        client.detach(newDoc);
+      }
     };
   }, [client, clientLoading, clientError, docKey]);
 

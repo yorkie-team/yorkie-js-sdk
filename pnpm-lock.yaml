@@ -363,8 +363,8 @@ importers:
         specifier: workspace:*
         version: link:../sdk
       react:
-        specifier: ^19.0.0
-        version: 19.0.0
+        specifier: ^18 || ^19
+        version: 18.2.0
     devDependencies:
       '@types/react':
         specifier: ^19.0.10

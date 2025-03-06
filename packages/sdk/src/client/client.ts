@@ -335,6 +335,15 @@ export class Client {
   }
 
   /**
+   * `hasDocument` checks if the given document is attached to this client.
+   * @param docKey - the key of the document.
+   * @returns true if the document is attached to this client.
+   */
+  public hasDocument(docKey: DocKey): boolean {
+    return this.attachmentMap.has(docKey);
+  }
+
+  /**
    * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */

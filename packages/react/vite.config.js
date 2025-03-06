@@ -14,6 +14,15 @@ export default defineConfig({
           ? 'yorkie-js-react.js'
           : `yorkie-js-react.${format}.js`,
     },
+    rollupOptions: {
+      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      output: {
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM',
+        },
+      },
+    },
     outDir: 'dist',
     sourcemap: true,
     minify: false,
