@@ -17,7 +17,7 @@
 import {
   Comparator,
   DefaultComparator,
-} from '@yorkie-js-sdk/src/util/comparator';
+} from '@yorkie-js/sdk/src/util/comparator';
 
 interface Entry<K, V> {
   key: K;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 
 /**
  * `GCPair` is a structure that represents a pair of parent and child for garbage

@@ -1,4 +1,4 @@
-import { converter, Document, Tree, TreeNode } from '@yorkie-js-sdk/src/yorkie';
+import { converter, Document, Tree, TreeNode } from '@yorkie-js/sdk/src/yorkie';
 import { describe, bench, assert } from 'vitest';
 import { MaxVersionVector } from '../helper/helper';
 

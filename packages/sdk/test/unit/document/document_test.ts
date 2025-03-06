@@ -19,18 +19,18 @@ import {
   EventCollector,
   MaxVersionVector,
   DefaultSnapshotThreshold,
-} from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/test/helper/helper';
 
-import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { OperationInfo } from '@yorkie-js-sdk/src/document/operation/operation';
+import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
+import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import yorkie, {
   JSONArray,
   Text,
   Counter,
   Tree,
-} from '@yorkie-js-sdk/src/yorkie';
-import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/src/yorkie';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
+import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 describe.sequential('Document', function () {
   afterEach(() => {

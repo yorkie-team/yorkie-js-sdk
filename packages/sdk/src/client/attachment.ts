@@ -1,5 +1,5 @@
-import { Document, Indexable } from '@yorkie-js-sdk/src/document/document';
-import { SyncMode } from '@yorkie-js-sdk/src/client/client';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
+import { SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Unsubscribe } from '../yorkie';
 
 /**

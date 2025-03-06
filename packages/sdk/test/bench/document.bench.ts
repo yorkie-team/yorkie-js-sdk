@@ -1,6 +1,6 @@
-import { Document, JSONArray } from '@yorkie-js-sdk/src/yorkie';
-import { InitialCheckpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { DocStatus } from '@yorkie-js-sdk/src/document/document';
+import { Document, JSONArray } from '@yorkie-js/sdk/src/yorkie';
+import { InitialCheckpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { DocStatus } from '@yorkie-js/sdk/src/document/document';
 import { describe, bench, assert } from 'vitest';
 import { MaxVersionVector } from '../helper/helper';
 

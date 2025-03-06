@@ -14,31 +14,31 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
   TimeTicket,
   TimeTicketStruct,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 import {
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
   RGATreeSplitPosRange,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import {
   CRDTText,
   CRDTTextValue,
   TextValueType,
-} from '@yorkie-js-sdk/src/document/crdt/text';
-import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
-import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
-import { stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import { SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
-import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/crdt/text';
+import { EditOperation } from '@yorkie-js/sdk/src/document/operation/edit_operation';
+import { StyleOperation } from '@yorkie-js/sdk/src/document/operation/style_operation';
+import { stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
+import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `TextPosStruct` represents the structure of RGATreeSplitPos.

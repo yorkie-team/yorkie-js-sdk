@@ -15,22 +15,22 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import yorkie, { Tree, SyncMode, converter } from '@yorkie-js-sdk/src/yorkie';
+import yorkie, { Tree, SyncMode, converter } from '@yorkie-js/sdk/src/yorkie';
 import {
   testRPCAddr,
   toDocKey,
   withTwoClientsAndDocuments,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
   EventCollector,
   DefaultSnapshotThreshold,
-} from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/test/helper/helper';
 import {
   TreeEditOpInfo,
   TreeStyleOpInfo,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { Document, DocEventType } from '@yorkie-js-sdk/src/document/document';
-import { toXML } from '@yorkie-js-sdk/src/document/crdt/tree';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
+import { toXML } from '@yorkie-js/sdk/src/document/crdt/tree';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {

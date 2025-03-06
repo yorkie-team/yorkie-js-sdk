@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import { escapeString } from '@yorkie-js-sdk/src/document/json/strings';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   CRDTContainer,
   CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
-import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+} from '@yorkie-js/sdk/src/document/crdt/element';
+import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,

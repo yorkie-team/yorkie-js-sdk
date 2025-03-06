@@ -1,5 +1,5 @@
-import { Document, Counter } from '@yorkie-js-sdk/src/yorkie';
-import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Document, Counter } from '@yorkie-js/sdk/src/yorkie';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { describe, bench, assert } from 'vitest';
 
 const benchmarkCounter = (size: number) => {

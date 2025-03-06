@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.

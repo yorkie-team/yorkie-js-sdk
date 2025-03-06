@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
 import Long from 'long';
 import {
   CounterType,
   CRDTCounter,
-} from '@yorkie-js-sdk/src/document/crdt/counter';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/crdt/counter';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `Counter` is a custom data type that is used to counter.

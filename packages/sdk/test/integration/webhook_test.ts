@@ -20,18 +20,18 @@ import yorkie, {
   SyncMode,
   DocSyncStatus,
   DocEventType,
-} from '@yorkie-js-sdk/src/yorkie';
+} from '@yorkie-js/sdk/src/yorkie';
 import {
   assertThrowsAsync,
   EventCollector,
-} from '@yorkie-js-sdk/test/helper/helper';
+} from '@yorkie-js/sdk/test/helper/helper';
 import {
   toDocKey,
   testRPCAddr,
   testAPIID,
   testAPIPW,
   webhookAddr,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 import { ConnectError } from '@connectrpc/connect';
 import axios from 'axios';
 import express from 'express';

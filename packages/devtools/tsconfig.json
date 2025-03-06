@@ -5,7 +5,7 @@
   "compilerOptions": {
     "paths": {
       "~*": ["./*"],
-      "@yorkie-js-sdk/src/*": ["../sdk/src/*"]
+      "@yorkie-js/sdk/src/*": ["../sdk/src/*"]
     },
     "baseUrl": ".",
     "typeRoots": ["./node_modules/@types"]

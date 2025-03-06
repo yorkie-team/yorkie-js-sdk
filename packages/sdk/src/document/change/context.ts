@@ -17,19 +17,19 @@
 import {
   TimeTicket,
   InitialDelimiter,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   CRDTContainer,
   CRDTElement,
-} from '@yorkie-js-sdk/src/document/crdt/element';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
-import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Change } from '@yorkie-js-sdk/src/document/change/change';
-import { PresenceChange } from '@yorkie-js-sdk/src/document/presence/presence';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { deepcopy } from '@yorkie-js-sdk/src/util/object';
-import { GCPair } from '@yorkie-js-sdk/src/document/crdt/gc';
+} from '@yorkie-js/sdk/src/document/crdt/element';
+import { Operation } from '@yorkie-js/sdk/src/document/operation/operation';
+import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { Change } from '@yorkie-js/sdk/src/document/change/change';
+import { PresenceChange } from '@yorkie-js/sdk/src/document/presence/presence';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
+import { deepcopy } from '@yorkie-js/sdk/src/util/object';
+import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing

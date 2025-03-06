@@ -15,10 +15,10 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { Document } from '@yorkie-js-sdk/src/document/document';
-import { converter } from '@yorkie-js-sdk/src/api/converter';
-import { Counter, Text, Tree } from '@yorkie-js-sdk/src/yorkie';
-import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { Counter, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {

@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreePos,
   toXML,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   Operation,
   OperationInfo,
   ExecutionResult,
   OpSource,
-} from '@yorkie-js-sdk/src/document/operation/operation';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/operation/operation';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `TreeEditOperation` is an operation representing Tree editing.

@@ -1,14 +1,14 @@
 import { describe, it, assert } from 'vitest';
-import { Document } from '@yorkie-js-sdk/src/document/document';
-import { toStringHistoryOp } from '@yorkie-js-sdk/test/helper/helper';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { toStringHistoryOp } from '@yorkie-js/sdk/test/helper/helper';
 import {
   withTwoClientsAndDocuments,
   assertUndoRedo,
   toDocKey,
   testRPCAddr,
-} from '@yorkie-js-sdk/test/integration/integration_helper';
-import yorkie, { Counter, SyncMode } from '@yorkie-js-sdk/src/yorkie';
-import { CounterType } from '@yorkie-js-sdk/src/document/crdt/counter';
+} from '@yorkie-js/sdk/test/integration/integration_helper';
+import yorkie, { Counter, SyncMode } from '@yorkie-js/sdk/src/yorkie';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import Long from 'long';
 
 describe('Counter', function () {

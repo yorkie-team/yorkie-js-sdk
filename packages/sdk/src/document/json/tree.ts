@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 import {
   CRDTTree,
   CRDTTreeNodeID,
   CRDTTreeNode,
   CRDTTreePos,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 
 import {
   IndexTree,
   DefaultRootType,
   DefaultTextType,
-} from '@yorkie-js-sdk/src/util/index_tree';
-import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
-import { isEmpty, stringifyObjectValues } from '@yorkie-js-sdk/src/util/object';
+} from '@yorkie-js/sdk/src/util/index_tree';
+import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
+import { isEmpty, stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
 import type {
@@ -40,9 +40,9 @@ import type {
   TreeChangeType,
   TreePosStructRange,
   CRDTTreeNodeIDStruct,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/crdt/tree';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in

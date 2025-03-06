@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
 
 /**
  * `deepcopy` returns a deep copy of the given object.

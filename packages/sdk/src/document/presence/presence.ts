@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { deepcopy } from '@yorkie-js-sdk/src/util/object';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
+import { deepcopy } from '@yorkie-js/sdk/src/util/object';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 
 /**
  * `PresenceChangeType` represents the type of presence change.

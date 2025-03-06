@@ -22,7 +22,7 @@
     "paths": {
       "@/*": ["./*"],
       "react": ["./node_modules/@types/react"],
-      "@yorkie-js-sdk/src/*": ["../../packages/sdk/src/*"]
+      "@yorkie-js/sdk/src/*": ["../../packages/sdk/src/*"]
     }
   },
   "include": [

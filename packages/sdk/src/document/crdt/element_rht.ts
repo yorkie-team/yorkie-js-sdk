@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { YorkieError, Code } from '@yorkie-js-sdk/src/util/error';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { YorkieError, Code } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `ElementRHTNode` is a node of ElementRHT.

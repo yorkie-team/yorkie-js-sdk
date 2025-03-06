@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { CRDTTreeNode } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { IndexTreeNode } from '@yorkie-js-sdk/src/util/index_tree';
-import yorkie, { Tree, Text } from '@yorkie-js-sdk/src/yorkie';
-import { MaxVersionVector } from '@yorkie-js-sdk/test/helper/helper';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
+import { CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { IndexTreeNode } from '@yorkie-js/sdk/src/util/index_tree';
+import yorkie, { Tree, Text } from '@yorkie-js/sdk/src/yorkie';
+import { MaxVersionVector } from '@yorkie-js/sdk/test/helper/helper';
 import { describe, it, assert } from 'vitest';
 
 // `getNodeLength` returns the number of nodes in the given tree.

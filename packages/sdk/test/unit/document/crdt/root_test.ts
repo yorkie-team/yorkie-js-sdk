@@ -1,19 +1,19 @@
 import { describe, it, assert } from 'vitest';
-import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { ArrayProxy } from '@yorkie-js-sdk/src/document/json/array';
-import { InitialTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { MaxTimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
-import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { Text } from '@yorkie-js-sdk/src/yorkie';
-import { MaxVersionVector } from '@yorkie-js-sdk/test/helper/helper';
+import { InitialChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { ArrayProxy } from '@yorkie-js/sdk/src/document/json/array';
+import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { MaxTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
+import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { RGATreeSplit } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { Text } from '@yorkie-js/sdk/src/yorkie';
+import { MaxVersionVector } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('ROOT', function () {
   it('basic test', function () {

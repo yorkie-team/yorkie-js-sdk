@@ -16,7 +16,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@yorkie-js-sdk/src/*": ["../../packages/sdk/src/*"]
+      "@yorkie-js/sdk/src/*": ["../../packages/sdk/src/*"]
     }
   },
   "include": ["src"],

@@ -1,7 +1,7 @@
 import { describe, it, assert } from 'vitest';
-import { DefaultSnapshotThreshold } from '@yorkie-js-sdk/test/helper/helper';
-import { withTwoClientsAndDocuments } from '@yorkie-js-sdk/test/integration/integration_helper';
-import { Text } from '@yorkie-js-sdk/src/yorkie';
+import { DefaultSnapshotThreshold } from '@yorkie-js/sdk/test/helper/helper';
+import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
+import { Text } from '@yorkie-js/sdk/src/yorkie';
 
 describe('Snapshot', function () {
   it('should handle snapshot', async function ({ task }) {

@@ -14,36 +14,36 @@
  * limitations under the License.
  */
 
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import {
   Primitive,
   PrimitiveValue,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   CounterType,
   CRDTCounter,
-} from '@yorkie-js-sdk/src/document/crdt/counter';
-import { CRDTTree } from '@yorkie-js-sdk/src/document/crdt/tree';
-import { RGATreeSplit } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+} from '@yorkie-js/sdk/src/document/crdt/counter';
+import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { RGATreeSplit } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 
 import {
   JSONObject,
   createJSONObject,
   ObjectProxy,
-} from '@yorkie-js-sdk/src/document/json/object';
+} from '@yorkie-js/sdk/src/document/json/object';
 import {
   JSONArray,
   createJSONArray,
   ArrayProxy,
-} from '@yorkie-js-sdk/src/document/json/array';
-import { Text } from '@yorkie-js-sdk/src/document/json/text';
-import { Counter } from '@yorkie-js-sdk/src/document/json/counter';
-import { Tree } from '@yorkie-js-sdk/src/document/json/tree';
+} from '@yorkie-js/sdk/src/document/json/array';
+import { Text } from '@yorkie-js/sdk/src/document/json/text';
+import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { Indexable } from '../document';
 
 /**

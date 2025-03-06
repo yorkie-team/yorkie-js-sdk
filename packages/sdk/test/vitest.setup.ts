@@ -15,7 +15,7 @@
  */
 
 import { expect } from 'vitest';
-import { Code } from '@yorkie-js-sdk/src/util/error';
+import { Code } from '@yorkie-js/sdk/src/util/error';
 
 expect.extend({
   /**

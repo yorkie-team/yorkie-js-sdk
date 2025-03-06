@@ -15,7 +15,7 @@
  */
 
 import type { Assertion, AsymmetricMatchersContaining } from 'vitest';
-import { Code } from '@yorkie-js-sdk/src/util/error';
+import { Code } from '@yorkie-js/sdk/src/util/error';
 
 interface CustomMatchers<R = unknown> {
   /**

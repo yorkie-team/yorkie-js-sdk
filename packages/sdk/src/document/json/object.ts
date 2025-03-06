@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
-import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
+import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import {
   toJSONElement,
   buildCRDTElement,
-} from '@yorkie-js-sdk/src/document/json/element';
-import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+} from '@yorkie-js/sdk/src/document/json/element';
+import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 /**
  * `JSONObject` represents a JSON object, but unlike regular JSON, it has time

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { Document, Indexable } from '@yorkie-js-sdk/src/yorkie';
-import { logger } from '@yorkie-js-sdk/src/util/logger';
+import { Document, Indexable } from '@yorkie-js/sdk/src/yorkie';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 import { DocEventsForReplay, isDocEventsForReplay } from './types';

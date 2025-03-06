@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { Comparator } from '@yorkie-js-sdk/src/util/comparator';
-import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
-import { LLRBTree } from '@yorkie-js-sdk/src/util/llrb_tree';
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { Comparator } from '@yorkie-js/sdk/src/util/comparator';
+import { SplayNode, SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
+import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import {
   InitialTimeTicket,
   MaxLamport,
   TimeTicket,
   TimeTicketStruct,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
-import { GCChild, GCPair, GCParent } from '@yorkie-js-sdk/src/document/crdt/gc';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 export interface ValueChange<T> {
   actor: ActorID;

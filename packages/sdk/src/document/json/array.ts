@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-import { logger, LogLevel } from '@yorkie-js-sdk/src/util/logger';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
-import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
-import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
+import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
+import { MoveOperation } from '@yorkie-js/sdk/src/document/operation/move_operation';
+import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
+import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import {
   JSONElement,
   WrappedElement,
   toWrappedElement,
   toJSONElement,
   buildCRDTElement,
-} from '@yorkie-js-sdk/src/document/json/element';
-import * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+} from '@yorkie-js/sdk/src/document/json/element';
+import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 /**
  * `JSONArray` represents JSON array, but unlike regular JSON, it has time
@@ -557,8 +557,8 @@ export class ArrayProxy {
       deleteCount === undefined
         ? length
         : deleteCount < 0
-          ? from
-          : Math.min(from + deleteCount, length);
+        ? from
+        : Math.min(from + deleteCount, length);
     const removeds: JSONArray<JSONElement> = [];
     for (let i = from; i < to; i++) {
       const removed = ArrayProxy.deleteInternalByIndex(context, target, from);
@@ -598,8 +598,8 @@ export class ArrayProxy {
       fromIndex === undefined
         ? 0
         : fromIndex < 0
-          ? Math.max(fromIndex + length, 0)
-          : fromIndex;
+        ? Math.max(fromIndex + length, 0)
+        : fromIndex;
 
     if (from >= length) return false;
 
@@ -634,8 +634,8 @@ export class ArrayProxy {
       fromIndex === undefined
         ? 0
         : fromIndex < 0
-          ? Math.max(fromIndex + length, 0)
-          : fromIndex;
+        ? Math.max(fromIndex + length, 0)
+        : fromIndex;
 
     if (from >= length) return -1;
 
@@ -670,8 +670,8 @@ export class ArrayProxy {
       fromIndex === undefined || fromIndex >= length
         ? length - 1
         : fromIndex < 0
-          ? fromIndex + length
-          : fromIndex;
+        ? fromIndex + length
+        : fromIndex;
 
     if (from < 0) return -1;
 

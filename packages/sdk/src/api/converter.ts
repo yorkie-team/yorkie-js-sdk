@@ -16,47 +16,47 @@
 
 import { ConnectError } from '@connectrpc/connect';
 import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { Indexable } from '@yorkie-js-sdk/src/document/document';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
   PresenceChange,
   PresenceChangeType,
-} from '@yorkie-js-sdk/src/document/presence/presence';
+} from '@yorkie-js/sdk/src/document/presence/presence';
 import {
   InitialTimeTicket,
   TimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { Operation } from '@yorkie-js-sdk/src/document/operation/operation';
-import { SetOperation } from '@yorkie-js-sdk/src/document/operation/set_operation';
-import { AddOperation } from '@yorkie-js-sdk/src/document/operation/add_operation';
-import { MoveOperation } from '@yorkie-js-sdk/src/document/operation/move_operation';
-import { RemoveOperation } from '@yorkie-js-sdk/src/document/operation/remove_operation';
-import { EditOperation } from '@yorkie-js-sdk/src/document/operation/edit_operation';
-import { StyleOperation } from '@yorkie-js-sdk/src/document/operation/style_operation';
-import { TreeEditOperation } from '@yorkie-js-sdk/src/document/operation/tree_edit_operation';
-import { ChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { Change } from '@yorkie-js-sdk/src/document/change/change';
-import { ChangePack } from '@yorkie-js-sdk/src/document/change/change_pack';
-import { Checkpoint } from '@yorkie-js-sdk/src/document/change/checkpoint';
-import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
-import { RGATreeList } from '@yorkie-js-sdk/src/document/crdt/rga_tree_list';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { CRDTArray } from '@yorkie-js-sdk/src/document/crdt/array';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { Operation } from '@yorkie-js/sdk/src/document/operation/operation';
+import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
+import { MoveOperation } from '@yorkie-js/sdk/src/document/operation/move_operation';
+import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
+import { EditOperation } from '@yorkie-js/sdk/src/document/operation/edit_operation';
+import { StyleOperation } from '@yorkie-js/sdk/src/document/operation/style_operation';
+import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
+import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { Change } from '@yorkie-js/sdk/src/document/change/change';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
+import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
-} from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText, CRDTTextValue } from '@yorkie-js-sdk/src/document/crdt/text';
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Primitive,
   PrimitiveType,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
 import {
   Change as PbChange,
   ChangeID as PbChangeID,
@@ -97,17 +97,17 @@ import {
   Operation_Increase as PbOperation_Increase,
   Operation_TreeEdit as PbOperation_TreeEdit,
   Operation_TreeStyle as PbOperation_TreeStyle,
-} from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
-import { IncreaseOperation } from '@yorkie-js-sdk/src/document/operation/increase_operation';
+} from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
 import {
   CounterType,
   CRDTCounter,
-} from '@yorkie-js-sdk/src/document/crdt/counter';
+} from '@yorkie-js/sdk/src/document/crdt/counter';
 import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreeNodeID,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import { traverseAll } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';

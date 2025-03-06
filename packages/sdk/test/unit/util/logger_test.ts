@@ -15,7 +15,7 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { logger, setLogLevel, LogLevel } from '@yorkie-js-sdk/src/util/logger';
+import { logger, setLogLevel, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 
 describe('logger', function () {
   it('Can log according to the level.', function () {

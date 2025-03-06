@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { RGATreeSplitPos } from '@yorkie-js-sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js-sdk/src/document/crdt/text';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
   OperationInfo,
   ExecutionResult,
   OpSource,
-} from '@yorkie-js-sdk/src/document/operation/operation';
+} from '@yorkie-js/sdk/src/document/operation/operation';
 import { Indexable } from '../document';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `EditOperation` is an operation representing editing Text. Most of the same as

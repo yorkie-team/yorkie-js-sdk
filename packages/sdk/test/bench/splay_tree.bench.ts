@@ -1,5 +1,5 @@
 import { describe, bench } from 'vitest';
-import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import { SplayNode, SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import editTraceData from './editing-trace.json';
 
 class StringNode extends SplayNode<string> {

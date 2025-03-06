@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { ActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import {
   createPromiseClient,
   PromiseClient,
@@ -22,18 +22,18 @@ import {
   Code as ConnectErrorCode,
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
-import { YorkieService } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_connect';
-import { WatchDocumentResponse } from '@yorkie-js-sdk/src/api/yorkie/v1/yorkie_pb';
-import { DocEventType as PbDocEventType } from '@yorkie-js-sdk/src/api/yorkie/v1/resources_pb';
+import { YorkieService } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_connect';
+import { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
+import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   converter,
   errorCodeOf,
   errorMetadataOf,
-} from '@yorkie-js-sdk/src/api/converter';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { logger } from '@yorkie-js-sdk/src/util/logger';
-import { uuid } from '@yorkie-js-sdk/src/util/uuid';
-import { Attachment, WatchStream } from '@yorkie-js-sdk/src/client/attachment';
+} from '@yorkie-js/sdk/src/api/converter';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
+import { uuid } from '@yorkie-js/sdk/src/util/uuid';
+import { Attachment, WatchStream } from '@yorkie-js/sdk/src/client/attachment';
 import {
   Document,
   DocKey,
@@ -42,12 +42,12 @@ import {
   DocEventType,
   StreamConnectionStatus,
   DocSyncStatus,
-} from '@yorkie-js-sdk/src/document/document';
-import { OpSource } from '@yorkie-js-sdk/src/document/operation/operation';
-import { createAuthInterceptor } from '@yorkie-js-sdk/src/client/auth_interceptor';
-import { createMetricInterceptor } from '@yorkie-js-sdk/src/client/metric_interceptor';
+} from '@yorkie-js/sdk/src/document/document';
+import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
+import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_interceptor';
+import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
 import { validateSerializable } from '../util/validator';
-import { Json, BroadcastOptions } from '@yorkie-js-sdk/src/document/document';
+import { Json, BroadcastOptions } from '@yorkie-js/sdk/src/document/document';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.

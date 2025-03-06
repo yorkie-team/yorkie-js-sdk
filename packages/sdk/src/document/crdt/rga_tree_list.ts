@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import { SplayNode, SplayTree } from '@yorkie-js-sdk/src/util/splay_tree';
+import { SplayNode, SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import {
   InitialTimeTicket,
   TimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { Primitive } from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `RGATreeListNode` is a node of RGATreeList.

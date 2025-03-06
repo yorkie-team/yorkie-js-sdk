@@ -13,7 +13,7 @@
     "noEmit": true,
     "skipLibCheck": true,
     "paths": {
-      "@yorkie-js-sdk/src/*": ["../../packages/sdk/src/*"]
+      "@yorkie-js/sdk/src/*": ["../../packages/sdk/src/*"]
     }
   },
   "include": ["src"]

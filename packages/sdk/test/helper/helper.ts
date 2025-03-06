@@ -16,30 +16,30 @@
 
 import { assert } from 'vitest';
 
-import yorkie, { Tree, ElementNode } from '@yorkie-js-sdk/src/yorkie';
-import { IndexTree } from '@yorkie-js-sdk/src/util/index_tree';
+import yorkie, { Tree, ElementNode } from '@yorkie-js/sdk/src/yorkie';
+import { IndexTree } from '@yorkie-js/sdk/src/util/index_tree';
 import {
   CRDTTreeNode,
   CRDTTreeNodeID,
-} from '@yorkie-js-sdk/src/document/crdt/tree';
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   OperationInfo,
   Operation,
-} from '@yorkie-js-sdk/src/document/operation/operation';
+} from '@yorkie-js/sdk/src/document/operation/operation';
 import {
   InitialTimeTicket as ITT,
   MaxLamport,
   TimeTicket,
-} from '@yorkie-js-sdk/src/document/time/ticket';
-import { HistoryOperation } from '@yorkie-js-sdk/src/document/history';
-import { ChangeContext } from '@yorkie-js-sdk/src/document/change/context';
-import { InitialChangeID } from '@yorkie-js-sdk/src/document/change/change_id';
-import { CRDTRoot } from '@yorkie-js-sdk/src/document/crdt/root';
-import { CRDTObject } from '@yorkie-js-sdk/src/document/crdt/object';
-import { ElementRHT } from '@yorkie-js-sdk/src/document/crdt/element_rht';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
-import { InitialActorID } from '@yorkie-js-sdk/src/document/time/actor_id';
-import { VersionVector } from '@yorkie-js-sdk/src/document/time/version_vector';
+} from '@yorkie-js/sdk/src/document/time/ticket';
+import { HistoryOperation } from '@yorkie-js/sdk/src/document/history';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { InitialChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
 export type Indexable = Record<string, any>;
 export const DefaultSnapshotThreshold = 1000;
@@ -122,13 +122,10 @@ export function deepSort(target: any): any {
   if (typeof target === 'object') {
     return Object.keys(target)
       .sort()
-      .reduce(
-        (result, key) => {
-          result[key] = deepSort(target[key]);
-          return result;
-        },
-        {} as Record<string, any>,
-      );
+      .reduce((result, key) => {
+        result[key] = deepSort(target[key]);
+        return result;
+      }, {} as Record<string, any>);
   }
   return target;
 }

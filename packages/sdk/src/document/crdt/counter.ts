@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-import { CRDTElement } from '@yorkie-js-sdk/src/document/crdt/element';
-import { TimeTicket } from '@yorkie-js-sdk/src/document/time/ticket';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import Long from 'long';
-import { Code, YorkieError } from '@yorkie-js-sdk/src/util/error';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   Primitive,
   PrimitiveType,
-} from '@yorkie-js-sdk/src/document/crdt/primitive';
-import { removeDecimal } from '@yorkie-js-sdk/src/util/number';
-import type * as Devtools from '@yorkie-js-sdk/src/devtools/types';
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { removeDecimal } from '@yorkie-js/sdk/src/util/number';
+import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 export enum CounterType {
   IntegerCnt,
