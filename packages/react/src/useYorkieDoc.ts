@@ -18,14 +18,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Client, Document } from '@yorkie-js/sdk';
 
 /**
- * `useDocument` is a custom hook that returns the root object of the document.
+ * `useYorkieDoc` is a custom hook that initializes a Yorkie client and attaches a document.
  *
  * @param apiKey
  * @param docKey
  * @param initialRoot
  * @returns
  */
-export function useDocument<T>(
+export function useYorkieDoc<T>(
   apiKey: string,
   docKey: string,
   initialRoot: T,

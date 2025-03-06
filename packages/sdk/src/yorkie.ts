@@ -50,6 +50,7 @@ export {
   Document,
   type ChangeInfo,
 } from '@yorkie-js-sdk/src/document/document';
+export { Presence } from '@yorkie-js-sdk/src/document/presence/presence';
 export {
   type Observer,
   type Observable,
