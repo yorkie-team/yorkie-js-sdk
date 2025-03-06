@@ -1085,6 +1085,12 @@ export class Client {
       this.deactivateInternal();
     }
 
+    // NOTE(emplam): If the error is `ConnectionLimitExceeded`, it means that
+    // the client has reached the connection limit.
+    if (errorCodeOf(err) === Code.ErrConnectionLimitExceeded) {
+      return true;
+    }
+
     return false;
   }
 
