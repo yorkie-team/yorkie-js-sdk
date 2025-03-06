@@ -6,6 +6,7 @@
     "lib": ["ES2020", "DOM"],
     "skipLibCheck": true,
     "outDir": "./lib",
+    "jsx": "react-jsxdev",
 
     /* Bundler mode */
     "moduleResolution": "node",

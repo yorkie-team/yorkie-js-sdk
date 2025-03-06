@@ -9,7 +9,8 @@
     "typings": "./dist/yorkie-js-sdk.d.ts"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc && vite build",
