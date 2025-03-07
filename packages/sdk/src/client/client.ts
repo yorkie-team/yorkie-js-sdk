@@ -1151,7 +1151,7 @@ export class Client {
   public checkIfConnectionLimitExceeded(err: any) {
     if (
       err instanceof ConnectError &&
-      errorCodeOf(err) === Code.ErrConnectionLimitExceeded
+      errorCodeOf(err) === Code.ErrSubscriptionLimitExceeded
     ) {
       logger.error(`[WD] c:"${this.getKey()}" err :`, err.rawMessage);
     }
