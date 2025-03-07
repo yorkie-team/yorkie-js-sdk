@@ -912,6 +912,10 @@ export class Client {
                 }
               }
             } catch (err) {
+              // Note(emplam27): If the error is a connection limit exceeded error,
+              // check in this method and handle it.
+              this.checkIfConnectionLimitExceeded(err);
+
               attachment.doc.resetOnlineClients();
               attachment.doc.publish([
                 {
@@ -1138,5 +1142,18 @@ export class Client {
     }
 
     this.processNext();
+  }
+
+  /**
+   * `checkIfConnectionLimitExceeded` check an error if the given error is
+   * `ConnectError` and the error code is `ErrConnectionLimitExceeded`.
+   */
+  public checkIfConnectionLimitExceeded(err: any) {
+    if (
+      err instanceof ConnectError &&
+      errorCodeOf(err) === Code.ErrConnectionLimitExceeded
+    ) {
+      logger.error(`[WD] c:"${this.getKey()}" err :`, err.rawMessage);
+    }
   }
 }
