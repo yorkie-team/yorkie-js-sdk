@@ -4,7 +4,6 @@
   "private": true,
   "description": "A collection of tools and examples for Yorkie",
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
     "sdk": "pnpm --filter=yorkie-js-sdk",
     "create-yorkie-app": "pnpm --filter=create-yorkie-app",
     "devtools": "pnpm --filter=yorkie-devtools",
@@ -18,7 +17,9 @@
     "vuejs-kanban": "pnpm --filter=vuejs-kanban",
     "build:examples": "pnpm --filter './examples/*' run build",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "npm run build:sdk",
+    "build:sdk": "cd packages/sdk && npm install && npm run build"
   },
   "keywords": [],
   "author": {
