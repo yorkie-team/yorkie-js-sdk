@@ -138,6 +138,24 @@ export class VersionVector {
   }
 
   /**
+   * `equals` returns true if the version vectors are equal.
+   */
+  public equals(other: VersionVector): boolean {
+    if (this.size() !== other.size()) {
+      return false;
+    }
+
+    for (const [actorID, lamport] of this) {
+      const otherLamport = other.get(actorID);
+      if (otherLamport === undefined || otherLamport !== lamport) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * `size` returns size of version vector
    */
   public size(): number {
