@@ -1095,6 +1095,14 @@ export class Client {
       return true;
     }
 
+    // NOTE(emplam27): If the error is 'ErrTooManySubscribers' it means,
+    // that the document has reached the maximum number of allowed subscriptions.
+    // In this case, the client should retry the connection.
+    if (errorCodeOf(err) === Code.ErrTooManySubscribers) {
+      logger.error(`[WD] c:"${this.getKey()}" err :`, err.rawMessage);
+      return true;
+    }
+
     // NOTE(hackerwins): Some errors should fix the state of the client.
     if (
       errorCodeOf(err) === Code.ErrClientNotActivated ||
