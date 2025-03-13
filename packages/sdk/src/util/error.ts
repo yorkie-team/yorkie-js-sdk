@@ -66,8 +66,8 @@ export enum Code {
   // ErrUnauthenticated is returned when the request does not have valid authentication credentials.
   ErrUnauthenticated = 'ErrUnauthenticated',
 
-  // ErrSubscriptionLimitExceeded is returned when the connection limit is exceeded.
-  ErrSubscriptionLimitExceeded = 'ErrSubscriptionLimitExceeded',
+  // ErrTooManySubscribers is returned when the number of subscribers exceeds the limit.
+  ErrTooManySubscribers = 'ErrTooManySubscribers',
 }
 
 /**

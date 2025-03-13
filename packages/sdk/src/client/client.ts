@@ -1095,10 +1095,10 @@ export class Client {
       return true;
     }
 
-    // Note(emplam27): If the error is 'ErrSubscriptionLimitExceeded' it means,
-    // that the client has reached the maximum number of allowed subscriptions.
+    // NOTE(emplam27): If the error is 'ErrTooManySubscribers' it means,
+    // that the document has reached the maximum number of allowed subscriptions.
     // In this case, the client should retry the connection.
-    if (errorCodeOf(err) === Code.ErrSubscriptionLimitExceeded) {
+    if (errorCodeOf(err) === Code.ErrTooManySubscribers) {
       logger.error(`[WD] c:"${this.getKey()}" err :`, err.rawMessage);
       return true;
     }
