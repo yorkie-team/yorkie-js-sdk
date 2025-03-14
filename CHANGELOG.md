@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.2] - 2025-03-14
+
+### Added
+
+- Handle Subscription limit per Document by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/952
+
 ## [0.6.1] - 2025-03-06
 
 ### Added
