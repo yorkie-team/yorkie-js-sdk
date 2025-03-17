@@ -23,27 +23,35 @@ function App() {
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange>) => {
-      update((root) => {
+      update((r) => {
         for (const c of changes) {
           switch (c.type) {
             case 'add':
-              root.nodes.push(c.item);
+              r.nodes.push(c.item);
               break;
             case 'replace':
-              const replace = root.nodes.findIndex((n) => n.id === c.id);
-              root.nodes[replace] = c.item;
+              {
+                const idx = r.nodes.findIndex((n) => n.id === c.id);
+                r.nodes[idx] = c.item;
+              }
               break;
             case 'remove':
-              var remove = root.nodes.findIndex((n) => n.id === c.id);
-              root.nodes.deleteByID!(root.nodes[remove].getID!());
+              {
+                const idx = r.nodes.findIndex((n) => n.id === c.id);
+                r.nodes.deleteByID!(r.nodes[idx].getID!());
+              }
               break;
             case 'position':
-              var pos = root.nodes.findIndex((n) => n.id === c.id);
-              root.nodes[pos].position = c.position!;
+              {
+                const idx = r.nodes.findIndex((n) => n.id === c.id);
+                r.nodes[idx].position = c.position!;
+              }
               break;
             case 'select':
-              var select = root.nodes.findIndex((n) => n.id === c.id);
-              root.nodes[select].selected = c.selected;
+              {
+                const idx = r.nodes.findIndex((n) => n.id === c.id);
+                r.nodes[idx].selected = c.selected;
+              }
               break;
             default:
               break;
@@ -51,28 +59,34 @@ function App() {
         }
       });
     },
-    [update, root],
+    [update],
   );
 
   const onEdgesChange = useCallback(
     (changes: Array<EdgeChange>) => {
-      update(() => {
+      update((r) => {
         for (const c of changes) {
           switch (c.type) {
             case 'add':
-              root.edges.push(c.item);
+              r.edges.push(c.item);
               break;
             case 'replace':
-              const replace = root.edges.findIndex((e) => e.id === c.id);
-              root.edges[replace] = c.item;
+              {
+                const idx = r.edges.findIndex((e) => e.id === c.id);
+                r.edges[idx] = c.item;
+              }
               break;
             case 'remove':
-              const remove = root.edges.findIndex((e) => e.id === c.id);
-              root.edges.deleteByID!(root.edges[remove].getID!());
+              {
+                const idx = r.edges.findIndex((e) => e.id === c.id);
+                r.edges.deleteByID!(r.edges[idx].getID!());
+              }
               break;
             case 'select':
-              const select = root.edges.findIndex((e) => e.id === c.id);
-              root.edges[select].selected = c.selected;
+              {
+                const idx = r.edges.findIndex((e) => e.id === c.id);
+                r.edges[idx].selected = c.selected;
+              }
               break;
             default:
               break;
@@ -80,7 +94,7 @@ function App() {
         }
       });
     },
-    [update, root],
+    [update],
   );
 
   if (loading) return <div>Loading...</div>;
