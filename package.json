@@ -11,6 +11,7 @@
     "react": "pnpm --filter=@yorkie-js/react",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
     "react-tldraw": "pnpm --filter=react-tldraw",
+    "react-flow": "pnpm --filter=react-flow",
     "profile-stack": "pnpm --filter=profile-stack",
     "react-todomvc": "pnpm --filter=react-todomvc",
     "simultaneous-cursors": "pnpm --filter=simultaneous-cursors",
