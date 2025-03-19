@@ -68,6 +68,9 @@ export enum Code {
 
   // ErrTooManySubscribers is returned when the number of subscribers exceeds the limit.
   ErrTooManySubscribers = 'ErrTooManySubscribers',
+
+  // ErrTooManyAttachments is returned when the number of attachments exceeds the limit.
+  ErrTooManyAttachments = 'ErrTooManyAttachments',
 }
 
 /**

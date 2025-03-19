@@ -1103,6 +1103,13 @@ export class Client {
       return true;
     }
 
+    // NOTE(emplam27): If the error is 'ErrTooManyAttachments' it means,
+    // that the client has reached the maximum number of allowed attachments.
+    // In this case, the client should remove some attachments.
+    if (errorCodeOf(err) === Code.ErrTooManyAttachments) {
+      return false;
+    }
+
     // NOTE(hackerwins): Some errors should fix the state of the client.
     if (
       errorCodeOf(err) === Code.ErrClientNotActivated ||
