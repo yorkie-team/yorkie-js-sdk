@@ -14,6 +14,10 @@ const networkStatusContainerElem = document.getElementById(
   'network-status-container',
 );
 const counterContainerElem = document.getElementById('counter-container');
+
+/**
+ * Main function
+ */
 async function main() {
   const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
@@ -29,29 +33,35 @@ async function main() {
 
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
-      displayPeers(peersElem, doc.getPresences(), client.getID());
+      const presences = doc.getPresences() as Array<{
+        clientID: string;
+        presence: { username: string };
+      }>;
+      displayPeers(peersElem!, presences, client.getID()!);
     }
   });
 
   doc.subscribe('connection', (event) => {
     connection.statusListener(
-      networkStatusElem,
-      incrementBtn,
-      errorElem,
+      networkStatusElem!,
+      incrementBtn!,
+      errorElem!,
     )(event);
   });
 
   doc.subscribe(() => {
-    displayCounter(counterValueElem, doc.getRoot().counter);
+    const root = doc.getRoot() as { counter: number };
+    displayCounter(counterValueElem!, root.counter);
   });
 
   doc.subscribe('status', (event) => {
     console.log(event);
   });
 
-  incrementBtn.addEventListener('click', () => {
+  incrementBtn!.addEventListener('click', () => {
     doc.update((root) => {
-      root.counter += 1;
+      const typedRoot = root as { counter: number };
+      typedRoot.counter += 1;
     }, 'increment counter');
   });
 
@@ -61,18 +71,19 @@ async function main() {
         counter: 0,
       },
       initialPresence: {
-        username: client.getID().slice(-2),
+        username: client.getID()!.slice(-2),
       },
     })
     .catch((error) => {
       if (error.message.includes('attachment limit exceeded')) {
-        errorElem.innerHTML = `<p>${error.message}</p>`;
-        peersContainerElem.innerHTML = '';
-        networkStatusContainerElem.innerHTML = '';
-        counterContainerElem.innerHTML = '';
+        errorElem!.innerHTML = `<p>${error.message}</p>`;
+        peersContainerElem!.innerHTML = '';
+        networkStatusContainerElem!.innerHTML = '';
+        counterContainerElem!.innerHTML = '';
       }
     });
-  displayCounter(counterValueElem, doc.getRoot().counter);
+  const root = doc.getRoot() as { counter: number };
+  displayCounter(counterValueElem!, root.counter);
 }
 
 main();

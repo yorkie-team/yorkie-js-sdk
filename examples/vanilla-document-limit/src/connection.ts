@@ -1,21 +1,33 @@
-import { StreamConnectionStatus } from '@yorkie-js/sdk';
+import { DocEvent, StreamConnectionStatus } from '@yorkie-js/sdk';
 
 export const connection = {
   isOnline: false,
-  showOffline: (statusElem, incrementBtn, errorElem) => {
+  showOffline: (
+    statusElem: HTMLElement,
+    incrementBtn: HTMLElement,
+    errorElem: HTMLElement,
+  ) => {
     connection.isOnline = false;
     statusElem.innerHTML = '<span class="red"> </span>';
-    incrementBtn.disabled = true;
+    (incrementBtn as HTMLButtonElement).disabled = true;
     errorElem.innerHTML = 'Stream subscription is disconnected';
   },
-  showOnline: (statusElem, incrementBtn, errorElem) => {
+  showOnline: (
+    statusElem: HTMLElement,
+    incrementBtn: HTMLElement,
+    errorElem: HTMLElement,
+  ) => {
     connection.isOnline = true;
     statusElem.innerHTML = '<span class="green"> </span>';
-    incrementBtn.disabled = false;
+    (incrementBtn as HTMLButtonElement).disabled = false;
     errorElem.innerHTML = '';
   },
-  statusListener: (statusElem, incrementBtn, errorElem) => {
-    return (event) => {
+  statusListener: (
+    statusElem: HTMLElement,
+    incrementBtn: HTMLElement,
+    errorElem: HTMLElement,
+  ) => {
+    return (event: DocEvent) => {
       if (
         connection.isOnline &&
         event.value === StreamConnectionStatus.Disconnected

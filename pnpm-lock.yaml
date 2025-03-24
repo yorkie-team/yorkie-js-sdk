@@ -280,6 +280,9 @@ importers:
         specifier: workspace:*
         version: link:../../packages/sdk
     devDependencies:
+      typescript:
+        specifier: ^5.3.3
+        version: 5.3.3
       vite:
         specifier: ^6.2.0
         version: 6.2.0(@types/node@20.9.0)(less@4.2.0)(lightningcss@1.23.0)(sass@1.70.0)(terser@5.31.3)(yaml@2.7.0)
