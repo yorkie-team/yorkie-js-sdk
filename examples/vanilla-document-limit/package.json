@@ -1,0 +1,18 @@
+{
+  "name": "vanilla-document-limit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@yorkie-js/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}
