@@ -1,5 +1,5 @@
-import yorkie, { DocEventType, StreamConnectionStatus } from '@yorkie-js/sdk';
-import { network } from './network.js';
+import yorkie, { DocEventType } from '@yorkie-js/sdk';
+import { connection } from './connection.js';
 import { displayPeers } from './peer.js';
 import { displayCounter } from './counter.js';
 import './index.css';
@@ -34,11 +34,11 @@ async function main() {
   });
 
   doc.subscribe('connection', (event) => {
-    network.statusListener(networkStatusElem)(event);
-    if (event.value == StreamConnectionStatus.Disconnected) {
-      incrementBtn.disabled = true;
-      errorElem.innerHTML = `<p>Stream subscription is disconnected</p>`;
-    }
+    connection.statusListener(
+      networkStatusElem,
+      incrementBtn,
+      errorElem,
+    )(event);
   });
 
   doc.subscribe(() => {
