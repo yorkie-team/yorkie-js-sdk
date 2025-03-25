@@ -21,15 +21,21 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { Document, Presence, Indexable } from '@yorkie-js/sdk';
+import {
+  Document,
+  Presence,
+  Indexable,
+  StreamConnectionStatus,
+} from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
 
 type DocumentContextType<R, P extends Indexable = Indexable> = {
   root: R;
-  presences: { clientID: string; presence: P }[];
+  presences: Array<{ clientID: string; presence: P }>;
   update: (callback: (root: R) => void) => void;
   loading: boolean;
   error: Error | undefined;
+  connection: StreamConnectionStatus | undefined;
 };
 
 const DocumentContext = createContext<DocumentContextType<any> | null>(null);
@@ -56,8 +62,11 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   const [error, setError] = useState<Error | undefined>(undefined);
   const [root, setRoot] = useState(initialRoot);
   const [presences, setPresences] = useState<
-    { clientID: string; presence: any }[]
+    Array<{ clientID: string; presence: any }>
   >([]);
+  const [connection, setConnection] = useState<
+    StreamConnectionStatus | undefined
+  >(undefined);
 
   useEffect(() => {
     if (clientError) {
@@ -75,19 +84,24 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     setError(undefined);
 
     const newDoc = new Document<R, P>(docKey);
+
+    newDoc.subscribe(() => {
+      setRoot(newDoc.getRoot());
+    });
+
+    newDoc.subscribe('presence', () => {
+      setPresences(newDoc.getPresences());
+    });
+
+    newDoc.subscribe('connection', (event) => {
+      setConnection(event.value);
+    });
+
     async function attachDocument() {
       try {
         await client?.attach(newDoc, {
           initialRoot,
           initialPresence,
-        });
-
-        newDoc.subscribe(() => {
-          setRoot(newDoc.getRoot());
-        });
-
-        newDoc.subscribe('presence', () => {
-          setPresences(newDoc.getPresences());
         });
 
         setDoc(newDoc);
@@ -130,7 +144,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 
   return (
     <DocumentContext.Provider
-      value={{ root, presences, update, loading, error }}
+      value={{ root, presences, update, loading, error, connection }}
     >
       {children}
     </DocumentContext.Provider>
@@ -154,6 +168,7 @@ export const useDocument = <R, P extends Indexable = Indexable>() => {
     ) => void,
     loading: context.loading,
     error: context.error,
+    connection: context.connection,
   };
 };
 
@@ -178,4 +193,15 @@ export const usePresences = () => {
     throw new Error('usePresences must be used within a DocumentProvider');
   }
   return context.presences;
+};
+
+/**
+ * `useConnection` is a custom hook that returns the connection status of the document.
+ */
+export const useConnection = () => {
+  const context = useContext(DocumentContext);
+  if (!context) {
+    throw new Error('useConnection must be used within a DocumentProvider');
+  }
+  return context.connection;
 };
