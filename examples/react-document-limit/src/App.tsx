@@ -1,5 +1,4 @@
 import { YorkieProvider, DocumentProvider } from '@yorkie-js/react';
-import DocumentLimits from './components/DocumentLimits';
 import { Counter } from './components/Counter';
 
 function App() {
@@ -15,7 +14,6 @@ function App() {
         >
           <Counter />
         </DocumentProvider>
-        <DocumentLimits />
       </div>
     </YorkieProvider>
   );

@@ -1,5 +1,5 @@
 import { useConnection } from "@yorkie-js/react";
-import { StreamConnectionStatus } from '../../../../packages/sdk/src/yorkie';
+import { StreamConnectionStatus } from "@yorkie-js/sdk";
 
 export function ConnectionStatus() {
   const connection = useConnection();

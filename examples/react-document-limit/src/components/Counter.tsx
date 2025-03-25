@@ -1,7 +1,7 @@
+import { StreamConnectionStatus } from "@yorkie-js/sdk";
 import { useConnection, useDocument } from '@yorkie-js/react';
 import { ConnectionStatus } from './ConnectionStatus';
 import { Peers } from './Peers';
-import { StreamConnectionStatus } from '../../../../packages/sdk/src/yorkie';
 
 export function Counter() {
   const { root, update, loading, error } = useDocument<{

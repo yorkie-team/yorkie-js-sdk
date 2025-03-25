@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@yorkie-js/sdk": "workspace:*",
     "@yorkie-js/react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
