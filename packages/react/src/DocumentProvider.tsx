@@ -92,6 +92,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 
         setDoc(newDoc);
         setRoot(newDoc.getRoot());
+        setPresences(newDoc.getPresences());
       } catch (err) {
         setError(
           err instanceof Error ? err : new Error('Failed to attach document'),
