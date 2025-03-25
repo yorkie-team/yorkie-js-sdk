@@ -23,6 +23,7 @@ import {
   useDocument,
   useRoot,
   usePresences,
+  useConnection,
 } from './DocumentProvider';
 
 export type { JSONArray, JSONObject };
@@ -32,5 +33,6 @@ export {
   useDocument,
   useRoot,
   usePresences,
+  useConnection,
   useYorkieDoc,
 };
