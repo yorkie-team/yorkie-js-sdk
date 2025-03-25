@@ -28,9 +28,7 @@ export default function DocumentLimits() {
           <p>3. Configure Max Attachments per Document value</p>
           <div className="alert warning">
             <p className="alert-text">To properly clean up resources when a client terminates, add the following code:</p>
-            <pre><code>{`window.addEventListener('beforeunload', () => {
-            client.deactivate({keepalive: true});
-});`}</code></pre>
+            <pre><code>{`window.addEventListener('beforeunload', () => {\n\tclient.deactivate({keepalive: true});\n});`}</code></pre>
           </div>
         </div>
       </div>
