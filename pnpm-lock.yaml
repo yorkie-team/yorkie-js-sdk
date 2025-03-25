@@ -82,6 +82,9 @@ importers:
       '@yorkie-js/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@yorkie-js/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       react:
         specifier: ^19.0.0
         version: 19.0.0
