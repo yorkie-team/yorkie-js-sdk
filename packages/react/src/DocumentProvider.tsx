@@ -31,7 +31,7 @@ import { useYorkie } from './YorkieProvider';
 
 type DocumentContextType<R, P extends Indexable = Indexable> = {
   root: R;
-  presences: Array<{ clientID: string; presence: P }>;
+  presences: { clientID: string; presence: P }[];
   update: (callback: (root: R) => void) => void;
   loading: boolean;
   error: Error | undefined;
@@ -62,7 +62,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   const [error, setError] = useState<Error | undefined>(undefined);
   const [root, setRoot] = useState(initialRoot);
   const [presences, setPresences] = useState<
-    Array<{ clientID: string; presence: any }>
+    { clientID: string; presence: any }[]
   >([]);
   const [connection, setConnection] = useState<
     StreamConnectionStatus | undefined
