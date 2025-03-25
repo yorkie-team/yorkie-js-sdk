@@ -8,10 +8,10 @@ const peersElem = document.getElementById('peers');
 const counterValueElem = document.getElementById('counter-value');
 const incrementBtn = document.getElementById('increment');
 const errorElem = document.getElementById('error');
-const networkStatusElem = document.getElementById('network-status');
+const connectionStatusElem = document.getElementById('connection-status');
 const peersContainerElem = document.getElementById('peers-container');
-const networkStatusContainerElem = document.getElementById(
-  'network-status-container',
+const connectionStatusContainerElem = document.getElementById(
+  'connection-status-container',
 );
 const counterContainerElem = document.getElementById('counter-container');
 
@@ -27,7 +27,7 @@ async function main() {
     client.deactivate({ keepalive: true });
   });
 
-  const doc = new yorkie.Document('vanilla-max-attachments-per-document', {
+  const doc = new yorkie.Document('vanilla-document-limit', {
     enableDevtools: true,
   });
 
@@ -43,7 +43,7 @@ async function main() {
 
   doc.subscribe('connection', (event) => {
     connection.statusListener(
-      networkStatusElem!,
+      connectionStatusElem!,
       incrementBtn!,
       errorElem!,
     )(event);
@@ -78,7 +78,7 @@ async function main() {
       if (error.message.includes('attachment limit exceeded')) {
         errorElem!.innerHTML = `<p>${error.message}</p>`;
         peersContainerElem!.innerHTML = '';
-        networkStatusContainerElem!.innerHTML = '';
+        connectionStatusContainerElem!.innerHTML = '';
         counterContainerElem!.innerHTML = '';
       }
     });

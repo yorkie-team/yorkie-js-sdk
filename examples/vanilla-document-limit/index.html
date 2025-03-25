@@ -7,10 +7,9 @@
   </head>
   <body>
     <div class="page-container">
-      <!-- Left side: Counter demo -->
       <div class="counter-side">
-        <div id="network-status-container">
-          <p>Connection Status: <span id="network-status"></span></p>
+        <div id="connection-status-container">
+          <p>Connection Status: <span id="connection-status"></span></p>
         </div>
         <div id="peers-container">
           <p>Peers: <span id="peers"></span></p>
@@ -21,40 +20,6 @@
           <button id="increment">Increment</button>
         </div>
         <div id="error"></div>
-      </div>
-      
-      <!-- Right side: Document limit information -->
-      <div class="info-side">
-        <h1>How to Configure Document Limits</h1>
-        <p class="info-subtitle">You can configure document limitations in Project Settings of the Yorkie Dashboard. After changing settings, it may take up to 10 minutes for the changes to be applied across all servers.</p>
-        
-        <div class="image-container">
-          <img src="/setting-image.png" alt="Yorkie Dashboard Settings" class="settings-image">
-          <p class="image-caption">Project Settings screen in Yorkie Dashboard</p>
-        </div>
-        
-        <div class="limit-info-container">
-          <h2>Setting Max Subscribers per Document</h2>
-          <p>1. Access Yorkie Dashboard</p>
-          <p>2. Select Project Settings menu</p>
-          <p>3. Configure Max Subscribers per Document value</p>
-          <div class="alert info">
-            <p class="alert-text">SDK auto-retries connection (1/sec) when limit exceeded</p>
-          </div>
-        </div>
-        
-        <div class="limit-info-container">
-          <h2>Setting Max Attachments per Document</h2>
-          <p>1. Access Yorkie Dashboard</p>
-          <p>2. Select Project Settings menu</p>
-          <p>3. Configure Max Attachments per Document value</p>
-          <div class="alert warning">
-            <p class="alert-text">To properly clean up resources when a client terminates, add the following code:</p>
-            <pre><code>window.addEventListener('beforeunload', () => {
-  client.deactivate({keepalive: true});
-});</code></pre>
-          </div>
-        </div>
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>

@@ -13,32 +13,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 2.5em;
-  line-height: 1.1;
-  margin-bottom: 1rem;
-}
-
-h2 {
-  font-size: 1.6em;
-  line-height: 1.1;
-  margin-top: 1.5rem;
-  margin-bottom: 0.75rem;
 }
 
 button {
@@ -64,9 +42,6 @@ button:focus-visible {
   :root {
     color: #213547;
     background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
   }
   button {
     background-color: #f9f9f9;
@@ -111,52 +86,19 @@ button:focus-visible {
 }
 
 .limit-info-container {
-  margin-bottom: rem;
+  margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Alerts */
-.alert {
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin: 1rem 0;
-}
-
-.alert.info {
-  background-color: rgba(0, 122, 255, 0.1);
-  border-left: 4px solid #007aff;
-}
-
-.alert.warning {
-  background-color: rgba(255, 159, 10, 0.1);
-  border-left: 4px solid #ff9f0a;
-}
-
-.alert-text {
-  margin: 0.5rem;
-}
-
-pre {
-  background-color: rgba(0, 0, 0, 0.2);
-  padding: 0.75rem;
-  border-radius: 0.25rem;
-  overflow-x: auto;
-}
-
-code {
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 0.9rem;
-}
-
-#network-status span {
+#connection-status span {
   display: inline-block;
   height: 0.8rem;
   width: 0.8rem;
   border-radius: 0.4rem;
 }
 
-#network-status-container,
+#connection-status-container,
 #peers-container {
   margin-bottom: 1.5rem;
   width: 100%;
@@ -199,24 +141,4 @@ code {
   .info-side {
     min-height: 50vh;
   }
-}
-
-/* Image styling */
-.image-container {
-  margin: 2rem 0;
-  text-align: center;
-}
-
-.settings-image {
-  max-width: 100%;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.image-caption {
-  margin-top: 0.75rem;
-  font-size: 0.9rem;
-  opacity: 0.7;
-  font-style: italic;
 }
