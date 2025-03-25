@@ -19,6 +19,7 @@
     "vanilla-quill": "pnpm --filter=vanilla-quill",
     "vuejs-kanban": "pnpm --filter=vuejs-kanban",
     "react-document-limit": "pnpm --filter=react-document-limit",
+    "vanilla-document-limit": "pnpm --filter=vanilla-document-limit",
     "build:examples": "pnpm --filter './examples/*' run build",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
     "prepare": "husky"
