@@ -32,10 +32,10 @@ import { useYorkie } from './YorkieProvider';
 type DocumentContextType<R, P extends Indexable = Indexable> = {
   root: R;
   presences: { clientID: string; presence: P }[];
+  connection: StreamConnectionStatus;
   update: (callback: (root: R) => void) => void;
   loading: boolean;
   error: Error | undefined;
-  connection: StreamConnectionStatus | undefined;
 };
 
 const DocumentContext = createContext<DocumentContextType<any> | null>(null);
@@ -64,9 +64,9 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   const [presences, setPresences] = useState<
     { clientID: string; presence: any }[]
   >([]);
-  const [connection, setConnection] = useState<
-    StreamConnectionStatus | undefined
-  >(undefined);
+  const [connection, setConnection] = useState<StreamConnectionStatus>(
+    StreamConnectionStatus.Disconnected,
+  );
 
   useEffect(() => {
     if (clientError) {
@@ -84,18 +84,25 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     setError(undefined);
 
     const newDoc = new Document<R, P>(docKey);
+    const unsubs: Array<() => void> = [];
 
-    newDoc.subscribe(() => {
-      setRoot(newDoc.getRoot());
-    });
+    unsubs.push(
+      newDoc.subscribe(() => {
+        setRoot(newDoc.getRoot());
+      }),
+    );
 
-    newDoc.subscribe('presence', () => {
-      setPresences(newDoc.getPresences());
-    });
+    unsubs.push(
+      newDoc.subscribe('presence', () => {
+        setPresences(newDoc.getPresences());
+      }),
+    );
 
-    newDoc.subscribe('connection', (event) => {
-      setConnection(event.value);
-    });
+    unsubs.push(
+      newDoc.subscribe('connection', (event) => {
+        setConnection(event.value);
+      }),
+    );
 
     async function attachDocument() {
       try {
@@ -122,6 +129,10 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
       if (client && client.hasDocument(docKey)) {
         client.detach(newDoc);
       }
+
+      for (const unsub of unsubs) {
+        unsub();
+      }
     };
   }, [client, clientLoading, clientError, docKey]);
 
@@ -144,7 +155,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 
   return (
     <DocumentContext.Provider
-      value={{ root, presences, update, loading, error, connection }}
+      value={{ root, presences, connection, update, loading, error }}
     >
       {children}
     </DocumentContext.Provider>
@@ -163,12 +174,12 @@ export const useDocument = <R, P extends Indexable = Indexable>() => {
   return {
     root: context.root as R,
     presences: context.presences as { clientID: string; presence: P }[],
+    connection: context.connection,
     update: context.update as (
       callback: (root: R, presence: P) => void,
     ) => void,
     loading: context.loading,
     error: context.error,
-    connection: context.connection,
   };
 };
 
