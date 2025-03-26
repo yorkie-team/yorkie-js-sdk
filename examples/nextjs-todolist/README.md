@@ -26,8 +26,8 @@ Create a new project and copy your public key from the dashboard
 Update the `.env` file like so:
 
 ```
-VITE_YORKIE_API_ADDR='https://api.yorkie.dev'
-VITE_YORKIE_API_KEY='your_key_xxxx'
+NEXT_PUBLIC_YORKIE_API_ADDR='https://api.yorkie.dev'
+NEXT_PUBLIC_YORKIE_API_KEY='your_key_xxxx'
 ```
 
 Start demo project
@@ -58,8 +58,8 @@ $ docker compose -f docker/docker-compose.yml up --build -d
 Update the `.env` file like so:
 
 ```
-VITE_YORKIE_API_ADDR='http://localhost:8080'
-VITE_YORKIE_API_KEY=''
+NEXT_PUBLIC_YORKIE_API_ADDR='http://localhost:8080'
+NEXT_PUBLIC_YORKIE_API_KEY=''
 ```
 
 Start demo project
