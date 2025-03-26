@@ -10,6 +10,7 @@
     "devtools": "pnpm --filter=@yorkie-js/devtools",
     "react": "pnpm --filter=@yorkie-js/react",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
+    "nextjs-todolist": "pnpm --filter=nextjs-todolist",
     "react-tldraw": "pnpm --filter=react-tldraw",
     "react-flow": "pnpm --filter=react-flow",
     "profile-stack": "pnpm --filter=profile-stack",
