@@ -133,7 +133,7 @@ temp
 api-review
 
 # lib folder used by api-extractor
-lib/
+packages/sdk/lib/
 
 .DS_Store
 
