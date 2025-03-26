@@ -19,6 +19,7 @@ import {
   PropsWithChildren,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { Client } from '@yorkie-js/sdk';
@@ -54,16 +55,27 @@ export const YorkieProvider: React.FC<
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | undefined>(undefined);
 
+  // NOTE(hackerwins): We use `useRef` to keep the client instance to prevent
+  // re-creating the client instance in StrictMode.
+  const clientRef = useRef<Client | undefined>(undefined);
+
   useEffect(() => {
     setLoading(true);
     setError(undefined);
 
     async function activateClient() {
       try {
+        if (clientRef.current?.isActive()) {
+          setClient(clientRef.current);
+          setLoading(false);
+          return;
+        }
+
         const newClient = new Client(rpcAddr, {
           apiKey,
         });
         await newClient.activate();
+        clientRef.current = newClient;
         setClient(newClient);
       } catch (e) {
         setError(
@@ -76,8 +88,9 @@ export const YorkieProvider: React.FC<
     activateClient();
 
     return () => {
-      if (client && client.isActive()) {
-        client.deactivate({ keepalive: true });
+      if (clientRef.current?.isActive()) {
+        clientRef.current.deactivate({ keepalive: true });
+        clientRef.current = undefined;
       }
     };
   }, [apiKey, rpcAddr]);
