@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.5] - 2025-03-28
+
+### Added
+
+- Add nextjs-todolist example by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/964
+- Add connection status hook in React Binder by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/960
+- Add react-document-limit example by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/958
+- Add vanilla-document-limit example by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/957
+
+### Fixed
+
+- Use useRef for client instance management in StrictMode by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/963
+- Add missing initial presence in Yorkie React by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/959
+
 ## [0.6.3] - 2025-03-19
 
 ### Added
