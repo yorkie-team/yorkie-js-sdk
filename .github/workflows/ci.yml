@@ -41,18 +41,31 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: pnpm install
 
-      - run: pnpm lint
-      - run: pnpm sdk build
-      - run: pnpm build:examples
-      - run: docker compose -f docker/docker-compose-ci.yml up --build -d
-      - run: pnpm sdk test:ci
+      - name: Lint
+        run: pnpm lint
 
+      - name: Build and Test SDK
+        run: |
+          pnpm sdk build
+          docker compose -f docker/docker-compose-ci.yml up --build -d
+          pnpm sdk test:ci
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage/lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Build Examples
+        run: pnpm build:examples
+
+      - name: Build React
+        run: pnpm react build
+
+      - name: Build and Test Schema
+        run: |
+          pnpm schema build
+          pnpm schema test
 
       - name: Run benchmark
         run: pnpm sdk test:bench

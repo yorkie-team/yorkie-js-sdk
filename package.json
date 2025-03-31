@@ -8,6 +8,7 @@
     "sdk": "pnpm --filter=@yorkie-js/sdk",
     "devtools": "pnpm --filter=@yorkie-js/devtools",
     "react": "pnpm --filter=@yorkie-js/react",
+    "schema": "pnpm --filter=@yorkie-js/schema",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
     "nextjs-todolist": "pnpm --filter=nextjs-todolist",
     "react-tldraw": "pnpm --filter=react-tldraw",

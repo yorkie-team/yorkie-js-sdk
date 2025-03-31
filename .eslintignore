@@ -11,3 +11,6 @@ packages/sdk/lib
 
 # examples
 examples/react-tldraw/src/tldraw.d.ts
+
+# schema
+packages/schema/antlr

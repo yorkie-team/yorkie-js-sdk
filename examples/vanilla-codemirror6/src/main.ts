@@ -1,13 +1,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
-import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import type { EditOpInfo, OperationInfo } from '@yorkie-js/sdk';
+import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';
-import { keymap } from '@codemirror/view';
-import {
-  markdown,
-  markdownKeymap,
-  markdownLanguage,
-} from '@codemirror/lang-markdown';
 import { Transaction, TransactionSpec } from '@codemirror/state';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
@@ -144,12 +138,7 @@ async function main() {
   // 03-2. create codemirror instance
   const view = new EditorView({
     doc: '',
-    extensions: [
-      basicSetup,
-      markdown({ base: markdownLanguage }),
-      keymap.of(markdownKeymap),
-      updateListener,
-    ],
+    extensions: [basicSetup, updateListener],
     parent: editorParentElem,
   });
 
