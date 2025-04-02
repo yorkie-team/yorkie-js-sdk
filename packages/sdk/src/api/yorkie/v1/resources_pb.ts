@@ -770,6 +770,8 @@ export class Operation_Edit extends Message<Operation_Edit> {
   to?: TextNodePos;
 
   /**
+   * deprecated
+   *
    * @generated from field: map<string, yorkie.v1.TimeTicket> created_at_map_by_actor = 4;
    */
   createdAtMapByActor: { [key: string]: TimeTicket } = {};
@@ -913,6 +915,8 @@ export class Operation_Style extends Message<Operation_Style> {
   executedAt?: TimeTicket;
 
   /**
+   * deprecated
+   *
    * @generated from field: map<string, yorkie.v1.TimeTicket> created_at_map_by_actor = 6;
    */
   createdAtMapByActor: { [key: string]: TimeTicket } = {};
@@ -1019,6 +1023,8 @@ export class Operation_TreeEdit extends Message<Operation_TreeEdit> {
   to?: TreePos;
 
   /**
+   * deprecated
+   *
    * @generated from field: map<string, yorkie.v1.TimeTicket> created_at_map_by_actor = 4;
    */
   createdAtMapByActor: { [key: string]: TimeTicket } = {};
@@ -1107,6 +1113,8 @@ export class Operation_TreeStyle extends Message<Operation_TreeStyle> {
   attributesToRemove: string[] = [];
 
   /**
+   * deprecated
+   *
    * @generated from field: map<string, yorkie.v1.TimeTicket> created_at_map_by_actor = 7;
    */
   createdAtMapByActor: { [key: string]: TimeTicket } = {};

@@ -16,7 +16,6 @@
 
 import {
   TimeTicket,
-  InitialTimeTicket,
   TimeTicketStruct,
   MaxLamport,
 } from '@yorkie-js/sdk/src/document/time/ticket';
@@ -633,12 +632,10 @@ export class CRDTTreeNode
    */
   public canDelete(
     editedAt: TimeTicket,
-    maxCreatedAt: TimeTicket | undefined,
     clientLamportAtChange: bigint,
   ): boolean {
-    const nodeExisted = maxCreatedAt
-      ? !this.getCreatedAt().after(maxCreatedAt)
-      : this.getCreatedAt().getLamport() <= clientLamportAtChange;
+    const nodeExisted =
+      this.getCreatedAt().getLamport() <= clientLamportAtChange;
 
     return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
   }
@@ -648,15 +645,13 @@ export class CRDTTreeNode
    */
   public canStyle(
     editedAt: TimeTicket,
-    maxCreatedAt: TimeTicket | undefined,
     clientLamportAtChange: bigint,
   ): boolean {
     if (this.isText) {
       return false;
     }
-    const nodeExisted = maxCreatedAt
-      ? !this.getCreatedAt().after(maxCreatedAt)
-      : this.getCreatedAt().getLamport() <= clientLamportAtChange;
+    const nodeExisted =
+      this.getCreatedAt().getLamport() <= clientLamportAtChange;
 
     return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
   }
@@ -888,9 +883,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     range: [CRDTTreePos, CRDTTreePos],
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
     versionVector?: VersionVector,
-  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TreeChange>] {
+  ): [Array<GCPair>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -901,7 +895,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const attrs: { [key: string]: any } = attributes
       ? parseObjectValues(attributes)
       : {};
-    const createdAtMapByActor = new Map<string, TimeTicket>();
     const pairs: Array<GCPair> = [];
     this.traverseInPosRange(
       fromParent,
@@ -910,34 +903,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       toLeft,
       ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
-        let maxCreatedAt: TimeTicket | undefined;
-        let clientLamportAtChange = 0n;
-        if (
-          versionVector === undefined &&
-          maxCreatedAtMapByActor === undefined
-        ) {
-          // Local edit - use version vector comparison
-          clientLamportAtChange = MaxLamport;
-        } else if (versionVector!.size() > 0) {
+        let clientLamportAtChange = MaxLamport; // Local edit
+        if (versionVector != undefined) {
           clientLamportAtChange = versionVector!.get(actorID)
             ? versionVector!.get(actorID)!
             : 0n;
-        } else {
-          maxCreatedAt = maxCreatedAtMapByActor!.has(actorID)
-            ? maxCreatedAtMapByActor!.get(actorID)
-            : InitialTimeTicket;
         }
 
-        if (
-          node.canStyle(editedAt, maxCreatedAt, clientLamportAtChange) &&
-          attributes
-        ) {
-          const maxCreatedAt = createdAtMapByActor!.get(actorID);
-          const createdAt = node.getCreatedAt();
-          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
-            createdAtMapByActor.set(actorID, createdAt);
-          }
-
+        if (node.canStyle(editedAt, clientLamportAtChange) && attributes) {
           const updatedAttrPairs = node.setAttrs(attributes, editedAt);
           const affectedAttrs = updatedAttrPairs.reduce(
             (acc: { [key: string]: string }, [, curr]) => {
@@ -975,7 +948,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
-    return [createdAtMapByActor, pairs, changes];
+    return [pairs, changes];
   }
 
   /**
@@ -985,9 +958,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     range: [CRDTTreePos, CRDTTreePos],
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
     versionVector?: VersionVector,
-  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TreeChange>] {
+  ): [Array<GCPair>, Array<TreeChange>] {
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
       editedAt,
@@ -995,7 +967,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
 
     const changes: Array<TreeChange> = [];
-    const createdAtMapByActor = new Map<string, TimeTicket>();
     const pairs: Array<GCPair> = [];
     this.traverseInPosRange(
       fromParent,
@@ -1004,34 +975,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
       toLeft,
       ([node]) => {
         const actorID = node.getCreatedAt().getActorID();
-        let maxCreatedAt: TimeTicket | undefined;
-        let clientLamportAtChange = 0n;
-        if (
-          versionVector === undefined &&
-          maxCreatedAtMapByActor === undefined
-        ) {
-          // Local edit - use version vector comparison
-          clientLamportAtChange = MaxLamport;
-        } else if (versionVector!.size() > 0) {
+        let clientLamportAtChange = MaxLamport; // Local edit
+        if (versionVector != undefined) {
           clientLamportAtChange = versionVector!.get(actorID)
             ? versionVector!.get(actorID)!
             : 0n;
-        } else {
-          maxCreatedAt = maxCreatedAtMapByActor!.has(actorID)
-            ? maxCreatedAtMapByActor!.get(actorID)
-            : InitialTimeTicket;
         }
 
         if (
-          node.canStyle(editedAt, maxCreatedAt, clientLamportAtChange) &&
+          node.canStyle(editedAt, clientLamportAtChange) &&
           attributesToRemove
         ) {
-          const maxCreatedAt = createdAtMapByActor!.get(actorID);
-          const createdAt = node.getCreatedAt();
-          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
-            createdAtMapByActor.set(actorID, createdAt);
-          }
-
           if (!node.attrs) {
             node.attrs = new RHT();
           }
@@ -1059,7 +1013,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
-    return [createdAtMapByActor, pairs, changes];
+    return [pairs, changes];
   }
 
   /**
@@ -1072,9 +1026,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
     versionVector?: VersionVector,
-  ): [Array<TreeChange>, Array<GCPair>, Map<string, TimeTicket>] {
+  ): [Array<TreeChange>, Array<GCPair>] {
     // 01. find nodes from the given range and split nodes.
     const [fromParent, fromLeft] = this.findNodesAndSplitText(
       range[0],
@@ -1088,7 +1041,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
-    const maxCreatedAtMap = new Map<string, TimeTicket>();
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -1112,37 +1064,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
 
         const actorID = node.getCreatedAt().getActorID();
-        let maxCreatedAt: TimeTicket | undefined;
-        let clientLamportAtChange = 0n;
-        if (
-          versionVector === undefined &&
-          maxCreatedAtMapByActor === undefined
-        ) {
-          // Local edit - use version vector comparison
-          clientLamportAtChange = MaxLamport;
-        } else if (versionVector!.size() > 0) {
+        let clientLamportAtChange = MaxLamport; // Local edit
+        if (versionVector != undefined) {
           clientLamportAtChange = versionVector!.get(actorID)
             ? versionVector!.get(actorID)!
             : 0n;
-        } else {
-          maxCreatedAt = maxCreatedAtMapByActor!.has(actorID)
-            ? maxCreatedAtMapByActor!.get(actorID)
-            : InitialTimeTicket;
         }
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
         if (
-          node.canDelete(editedAt, maxCreatedAt, clientLamportAtChange) ||
+          node.canDelete(editedAt, clientLamportAtChange) ||
           nodesToBeRemoved.includes(node.parent!)
         ) {
-          const maxCreatedAt = maxCreatedAtMap.get(actorID);
-          const createdAt = node.getCreatedAt();
-
-          if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
-            maxCreatedAtMap.set(actorID, createdAt);
-          }
-
           // NOTE(hackerwins): If the node overlaps as an end token with the
           // range then we need to keep the node.
           if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
@@ -1246,7 +1180,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs, maxCreatedAtMap];
+    return [changes, pairs];
   }
 
   /**
