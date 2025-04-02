@@ -38,7 +38,6 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 export class TreeStyleOperation extends Operation {
   private fromPos: CRDTTreePos;
   private toPos: CRDTTreePos;
-  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private attributes: Map<string, string>;
   private attributesToRemove: Array<string>;
 
@@ -46,7 +45,6 @@ export class TreeStyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     attributesToRemove: Array<string>,
     executedAt: TimeTicket,
@@ -54,7 +52,6 @@ export class TreeStyleOperation extends Operation {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
-    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.attributes = attributes;
     this.attributesToRemove = attributesToRemove;
   }
@@ -66,7 +63,6 @@ export class TreeStyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): TreeStyleOperation {
@@ -74,7 +70,6 @@ export class TreeStyleOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
-      maxCreatedAtMapByActor,
       attributes,
       [],
       executedAt,
@@ -88,7 +83,6 @@ export class TreeStyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: CRDTTreePos,
     toPos: CRDTTreePos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributesToRemove: Array<string>,
     executedAt: TimeTicket,
   ): TreeStyleOperation {
@@ -96,7 +90,6 @@ export class TreeStyleOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
-      maxCreatedAtMapByActor,
       new Map(),
       attributesToRemove,
       executedAt,
@@ -131,21 +124,19 @@ export class TreeStyleOperation extends Operation {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      [, pairs, changes] = tree.style(
+      [pairs, changes] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
-        this.maxCreatedAtMapByActor,
         versionVector,
       );
     } else {
       const attributesToRemove = this.attributesToRemove;
 
-      [, pairs, changes] = tree.removeStyle(
+      [pairs, changes] = tree.removeStyle(
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),
-        this.maxCreatedAtMapByActor,
         versionVector,
       );
     }
@@ -225,13 +216,5 @@ export class TreeStyleOperation extends Operation {
    */
   public getAttributesToRemove(): Array<string> {
     return this.attributesToRemove;
-  }
-
-  /**
-   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
-   * by actor for the nodes included in the styling range.
-   */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
-    return this.maxCreatedAtMapByActor;
   }
 }

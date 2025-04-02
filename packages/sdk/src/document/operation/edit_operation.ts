@@ -35,7 +35,6 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 export class EditOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
-  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private content: string;
   private attributes: Map<string, string>;
 
@@ -43,7 +42,6 @@ export class EditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
@@ -51,7 +49,6 @@ export class EditOperation extends Operation {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
-    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.content = content;
     this.attributes = attributes;
   }
@@ -63,7 +60,6 @@ export class EditOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     content: string,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
@@ -72,7 +68,6 @@ export class EditOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
-      maxCreatedAtMapByActor,
       content,
       attributes,
       executedAt,
@@ -102,12 +97,11 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [, changes, pairs] = text.edit(
+    const [changes, pairs] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
       Object.fromEntries(this.attributes),
-      this.maxCreatedAtMapByActor,
       versionVector,
     );
 
@@ -172,13 +166,5 @@ export class EditOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes || new Map();
-  }
-
-  /**
-   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
-   * by actor for the nodes included in the editing range.
-   */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
-    return this.maxCreatedAtMapByActor;
   }
 }
