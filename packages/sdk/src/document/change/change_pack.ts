@@ -17,7 +17,6 @@
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
-import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '../time/version_vector';
 
 /**
@@ -47,13 +46,6 @@ export class ChangePack<P extends Indexable> {
   private snapshot?: Uint8Array;
 
   /**
-   * `minSyncedTicket` is the minimum logical time taken by clients who attach
-   * to the document. It is used to collect garbage on the replica on the
-   * client.
-   */
-  private minSyncedTicket?: TimeTicket;
-
-  /**
    * `versionVector` is the version vector current document
    */
   private versionVector?: VersionVector;
@@ -65,14 +57,12 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
-    minSyncedTicket?: TimeTicket,
   ) {
     this.documentKey = key;
     this.checkpoint = checkpoint;
     this.isRemoved = isRemoved;
     this.changes = changes;
     this.snapshot = snapshot;
-    this.minSyncedTicket = minSyncedTicket;
     this.versionVector = versionVector;
   }
   /**
@@ -85,7 +75,6 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
-    minSyncedTicket?: TimeTicket,
   ): ChangePack<P> {
     return new ChangePack<P>(
       key,
@@ -94,7 +83,6 @@ export class ChangePack<P extends Indexable> {
       changes,
       versionVector,
       snapshot,
-      minSyncedTicket,
     );
   }
 
@@ -152,13 +140,6 @@ export class ChangePack<P extends Indexable> {
    */
   public getSnapshot(): Uint8Array | undefined {
     return this.snapshot;
-  }
-
-  /**
-   * `getMinSyncedTicket` returns the minimum synced ticket of this pack.
-   */
-  public getMinSyncedTicket(): TimeTicket | undefined {
-    return this.minSyncedTicket;
   }
 
   /**

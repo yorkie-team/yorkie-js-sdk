@@ -799,7 +799,6 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
     versionVector: toVersionVector(pack.getVersionVector()),
-    minSyncedTicket: toTimeTicket(pack.getMinSyncedTicket()),
   });
 }
 
@@ -1372,7 +1371,6 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
-    fromTimeTicket(pbPack.minSyncedTicket),
   );
 }
 
