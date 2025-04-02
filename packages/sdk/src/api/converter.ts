@@ -1616,6 +1616,7 @@ export const converter = {
   toUint8Array,
   toOperation,
   toChangeID,
+  toElement,
   PbChangeID,
   bytesToChangeID,
   bytesToOperation,

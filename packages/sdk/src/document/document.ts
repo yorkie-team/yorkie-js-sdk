@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 import type { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
-import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import {
+  DocEventType as PbDocEventType,
+  ChangePack as PbChangePack,
+  Snapshot as PbSnapshot,
+} from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
@@ -1207,7 +1211,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * @param pack - change pack
    * @internal
    */
-  public applyChangePack(pack: ChangePack<P>): void {
+  public applyChangePack(pack: ChangePack<P>, isForBenchTest = false): void {
     const hasSnapshot = pack.hasSnapshot();
 
     // 01. Apply snapshot or changes to the root object.
@@ -1219,7 +1223,7 @@ export class Document<T, P extends Indexable = Indexable> {
         pack.getCheckpoint().getClientSeq(),
       );
     } else {
-      this.applyChanges(pack.getChanges(), OpSource.Remote);
+      this.applyChanges(pack.getChanges(), OpSource.Remote, isForBenchTest);
       this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
     }
 
@@ -1239,6 +1243,46 @@ export class Document<T, P extends Indexable = Indexable> {
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
     }
+  }
+
+  /**
+   * `getLocalChangePack` returns the local change pack and
+   * clears the local changes for CRDT_BENCHMARKS.
+   */
+  public getLocalChangePack() {
+    const changePack = this.createChangePack();
+    const pbChangePack = converter.toChangePack(changePack);
+    const bytes = pbChangePack.toBinary();
+    this.localChanges = [];
+    return bytes;
+  }
+
+  /**
+   * `getSnapshotPack` returns the snapshot pack for CRDT_BENCHMARKS.
+   */
+  public getSnapshotPack() {
+    const snapshot = new PbSnapshot({
+      root: converter.toElement(this.getRootObject()),
+    }).toBinary();
+    const pack = ChangePack.create(
+      this.key,
+      this.checkpoint,
+      false,
+      [],
+      this.getVersionVector(),
+      snapshot,
+    );
+    const bytes = converter.toChangePack(pack);
+    return bytes.toBinary();
+  }
+
+  /**
+   * `applyChangePackFromBytes` applies the given change pack bytes into this document.
+   */
+  public applyChangePackFromBytes(pack: Uint8Array) {
+    const pbChangePack = PbChangePack.fromBinary(pack);
+    const changePack = converter.fromChangePack<P>(pbChangePack);
+    return this.applyChangePack(changePack, true);
   }
 
   /**
@@ -1303,8 +1347,6 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
-   *
-   * @internal
    */
   public setActor(actorID: ActorID): void {
     for (const change of this.localChanges) {
@@ -1481,7 +1523,11 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `applyChanges` applies the given changes into this document.
    */
-  public applyChanges(changes: Array<Change<P>>, source: OpSource): void {
+  public applyChanges(
+    changes: Array<Change<P>>,
+    source: OpSource,
+    isForBenchTest = false,
+  ): void {
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `trying to apply ${changes.length} remote changes.` +
@@ -1501,6 +1547,13 @@ export class Document<T, P extends Indexable = Indexable> {
     }
 
     for (const change of changes) {
+      if (
+        isForBenchTest &&
+        change.getID().getActorID() === this.changeID.getActorID()
+      ) {
+        continue;
+      }
+
       this.applyChange(change, source);
     }
 

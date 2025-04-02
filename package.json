@@ -4,7 +4,6 @@
   "private": true,
   "description": "A collection of tools and examples for Yorkie",
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
     "sdk": "pnpm --filter=@yorkie-js/sdk",
     "devtools": "pnpm --filter=@yorkie-js/devtools",
     "react": "pnpm --filter=@yorkie-js/react",
@@ -23,7 +22,9 @@
     "vanilla-document-limit": "pnpm --filter=vanilla-document-limit",
     "build:examples": "pnpm --filter './examples/*' run build",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "npm run build:sdk",
+    "build:sdk": "cd packages/sdk && npm install && npm run build"
   },
   "keywords": [],
   "author": {
