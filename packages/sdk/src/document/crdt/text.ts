@@ -36,6 +36,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
+import { MemoryMeasurable, MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -69,13 +70,25 @@ interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
  * Attributes are represented by RHT.
  *
  */
-export class CRDTTextValue {
+export class CRDTTextValue implements MemoryMeasurable {
   private attributes: RHT;
   private content: string;
 
   constructor(content: string) {
     this.attributes = RHT.create();
     this.content = content;
+  }
+
+  /**
+   * `calculateUsage` returns the size in bytes of CRDTTextValue.
+   */
+  calculateUsage(): MemoryUsage {
+    const contentSize = this.content.length * 2;
+
+    const attrUsage =
+      this.attributes?.calculateUsage?.() ?? new MemoryUsage(0, 0);
+
+    return new MemoryUsage(attrUsage.meta, contentSize, attrUsage.gc);
   }
 
   /**
@@ -239,7 +252,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, maxCreatedAtMap, pairs, valueChanges] =
+    const [caretPos, maxCreatedAtMap, pairs, valueChanges, diff] =
       this.rgaTreeSplit.edit(
         range,
         editedAt,
@@ -261,6 +274,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
           },
       type: TextChangeType.Content,
     }));
+    this.updateUsage(diff);
 
     return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }
@@ -274,6 +288,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * @param attributes - style attributes
    * @param editedAt - edited time
    * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
+   * @param versionVector - versionVector
    * @internal
    */
   public setStyle(
@@ -323,6 +338,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
+    const diff = new MemoryUsage();
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
       if (node.isRemoved()) {
@@ -343,12 +360,22 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       });
 
       for (const [key, value] of Object.entries(attributes)) {
-        const [prev] = node.getValue().setAttr(key, value, editedAt);
+        const [prev, next] = node.getValue().setAttr(key, value, editedAt);
+
         if (prev !== undefined) {
           pairs.push({ parent: node.getValue(), child: prev });
+
+          const prevUsage = prev.calculateUsage();
+          diff.transferLiveToGC(prevUsage);
+        }
+
+        if (next !== undefined) {
+          const nextUsage = next.calculateUsage();
+          diff.merge(nextUsage);
         }
       }
     }
+    this.updateUsage(diff);
 
     return [createdAtMapByActor, pairs, changes];
   }

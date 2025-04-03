@@ -17,17 +17,32 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { YorkieError, Code } from '@yorkie-js/sdk/src/util/error';
+import { calculateValueSize, isMemoryMeasurable, MemoryMeasurable, MemoryUsage } from "../../util/memory";
 
 /**
  * `ElementRHTNode` is a node of ElementRHT.
  */
-export class ElementRHTNode {
+export class ElementRHTNode implements MemoryMeasurable {
   private strKey: string;
   private value: CRDTElement;
 
   constructor(strKey: string, value: CRDTElement) {
     this.strKey = strKey;
     this.value = value;
+  }
+
+  /**
+   * `calculateUsage` returns the size in bytes of ElementRHTNode.
+   */
+  public calculateUsage(): MemoryUsage {
+    const keySize = calculateValueSize(this.strKey);
+    const elementUsage = this.value.getMemoryUsage();
+
+    return new MemoryUsage(
+      keySize + elementUsage.meta,
+      elementUsage.content,
+      elementUsage.gc,
+    );
   }
 
   /**
@@ -70,13 +85,33 @@ export class ElementRHTNode {
  * ElementRHT is a hashtable with logical clock(Replicated hashtable)
  *
  */
-export class ElementRHT {
+export class ElementRHT implements MemoryMeasurable {
   private nodeMapByKey: Map<string, ElementRHTNode>;
   private nodeMapByCreatedAt: Map<string, ElementRHTNode>;
 
   constructor() {
     this.nodeMapByKey = new Map();
     this.nodeMapByCreatedAt = new Map();
+  }
+
+  /**
+   * `calculateUsage` returns the size in bytes of ElementRHT.
+   */
+  calculateUsage(): MemoryUsage {
+    const usage = new MemoryUsage();
+
+    for (const [key, value] of this.nodeMapByKey.entries()) {
+      const keySize = calculateValueSize(key);
+      const valueUsage = isMemoryMeasurable(value)
+        ? value.calculateUsage()
+        : new MemoryUsage();
+
+      usage.meta += keySize + valueUsage.meta;
+      usage.content += valueUsage.content;
+      usage.gc += valueUsage.gc;
+    }
+
+    return usage;
   }
 
   /**

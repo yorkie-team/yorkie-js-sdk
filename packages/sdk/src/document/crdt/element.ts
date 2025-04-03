@@ -16,6 +16,7 @@
 
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -27,8 +28,35 @@ export abstract class CRDTElement {
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
 
+  private usage: MemoryUsage;
+  protected parent?: CRDTContainer;
+
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
+    this.usage = new MemoryUsage();
+  }
+
+  /**
+   * `setParent` sets the parent of this element.
+   */
+  public setParent(parent: CRDTContainer): void {
+    this.parent = parent;
+  }
+
+  /**
+   * `updateUsage` updates the memory usage of this element.
+   */
+  public updateUsage(diff: MemoryUsage): void {
+    this.usage.merge(diff);
+    this.parent?.updateUsage(diff);
+  }
+
+  /**
+   * `getMemoryUsage` summaries the memory usage of this element,
+   * distinguishing between live and logically removed elements.
+   */
+  public getMemoryUsage(): MemoryUsage {
+    return this.usage;
   }
 
   /**

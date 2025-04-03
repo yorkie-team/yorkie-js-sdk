@@ -22,6 +22,10 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import {
+  calculateValueSize,
+  MemoryUsage,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,
@@ -34,6 +38,23 @@ export class CRDTObject extends CRDTContainer {
   constructor(createdAt: TimeTicket, memberNodes: ElementRHT) {
     super(createdAt);
     this.memberNodes = memberNodes;
+  }
+
+  /**
+   * `calculateUsage` returns the size in bytes of CRDTObject.
+   */
+  public calculateUsage(): MemoryUsage {
+    const usage = this.memberNodes.calculateUsage();
+
+    usage.meta += calculateValueSize(this.getCreatedAt());
+    if (this.getMovedAt()) {
+      usage.meta += calculateValueSize(this.getMovedAt());
+    }
+    if (this.getRemovedAt()) {
+      usage.meta += calculateValueSize(this.getRemovedAt());
+    }
+
+    return usage;
   }
 
   /**

@@ -28,6 +28,11 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
+import {
+  calculateValueSize,
+  isMemoryMeasurable,
+  MemoryUsage,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -113,6 +118,33 @@ export class CRDTRoot {
   }
 
   /**
+   * `getMemoryUsage` returns the memory usage of this root object.
+   */
+  public getMemoryUsage(): MemoryUsage {
+    const usage = new MemoryUsage();
+
+    // 01. rootObject
+    usage.merge(this.rootObject.getMemoryUsage());
+
+    // 02. elementPairMapByCreatedAt
+    for (const [key] of this.elementPairMapByCreatedAt) {
+      usage.meta += calculateValueSize(key);
+    }
+
+    // 03. gcElementSetByCreatedAt
+    for (const key of this.gcElementSetByCreatedAt) {
+      usage.gc += calculateValueSize(key);
+    }
+
+    // 04. gcPairMap
+    for (const [key] of this.gcPairMap) {
+      usage.gc += calculateValueSize(key);
+    }
+
+    return usage;
+  }
+
+  /**
    * `create` creates a new instance of Root.
    */
   public static create(): CRDTRoot {
@@ -187,6 +219,10 @@ export class CRDTRoot {
       element,
     });
 
+    if (parent) {
+      element.setParent(parent);
+    }
+
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
         this.registerElement(elem, parent);
@@ -203,6 +239,10 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
+
+      const usage = elem.getMemoryUsage();
+      this.rootObject.updateUsage(usage);
+
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
@@ -305,6 +345,14 @@ export class CRDTRoot {
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        if (isMemoryMeasurable(pair.child)) {
+          const removedUsage = pair.child.calculateUsage();
+
+          this.rootObject.updateUsage(
+            new MemoryUsage(0, 0, -removedUsage.total),
+          );
+        }
+
         pair.parent.purge(pair.child);
 
         this.gcPairMap.delete(pair.child.toIDString());

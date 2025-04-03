@@ -73,6 +73,12 @@
             ></path>
           </svg>
           <div><span id="network-status"></span></div>
+          <!--          <div id="doc-size" style="margin-left: 16px; font-family: monospace;">-->
+          <!--            Size: 0.00 KB-->
+          <!--          </div>-->
+          <div style="margin-left: 8px; font-family: monospace">
+            <span id="memory-usage-text">Memory: -</span>
+          </div>
         </div>
         <div class="center-tools tools">
           <label style="display: flex; align-items: center">
@@ -310,6 +316,20 @@
         }
       }
 
+      function updateMemoryUsageDisplay(doc) {
+        const usage = doc.getMemoryUsage();
+        if (!usage) return;
+
+        document.getElementById('memory-usage-text').textContent =
+          `Memory: live=${usage.live}B, ` +
+          `gc=${usage.gc}B, ` +
+          `total=${usage.total}B`;
+
+        //           `Memory: live=${(usage.live / 1024).toFixed(2)}KiB, ` +
+        //           `gc=${(usage.gc / 1024).toFixed(2)}KiB, ` +
+        //           `total=${(usage.total / 1024).toFixed(2)}KiB`;
+      }
+
       async function main() {
         try {
           // 01. create an instance of codemirror.
@@ -323,6 +343,7 @@
           const client = new yorkie.Client({
             rpcAddr: 'http://localhost:8080',
           });
+
           // 02-2. activate client
           await client.activate();
 
@@ -372,6 +393,7 @@
             if (event.type === 'remote-change') {
               const { actor, operations } = event.value;
               handleOperations(operations, actor);
+              updateMemoryUsageDisplay(doc);
 
               const textLength = codemirror.getValue().length;
               if (
@@ -416,6 +438,7 @@
             ) {
               debugger;
             }
+            updateMemoryUsageDisplay(doc);
           });
 
           codemirror.on('beforeSelectionChange', (cm, change) => {
@@ -457,6 +480,7 @@
 
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());
+          updateMemoryUsageDisplay(doc);
           devtool.displayLog(doc, codemirror);
           for (const user of doc.getPresences()) {
             if (user.clientID === client.getID()) continue;

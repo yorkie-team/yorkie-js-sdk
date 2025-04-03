@@ -77,6 +77,10 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
+import {
+  calculateValueSize,
+  MemoryUsage,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -688,6 +692,46 @@ export class Document<R, P extends Indexable = Indexable> {
     };
 
     setupDevtools(this);
+  }
+
+  /**
+   * `getMemoryUsage` summarizes the memory usage of this document.
+   */
+  public getMemoryUsage(): MemoryUsage {
+    const usage = new MemoryUsage();
+
+    // 01. root
+    usage.merge(this.root.getMemoryUsage());
+    // console.log('before2: ', usage);
+
+    // 02. presences
+    if (this.presences) {
+      for (const [actorID, presence] of this.presences) {
+        const actSz = calculateValueSize(actorID);
+        const prSz = calculateValueSize(presence);
+        console.log(actSz, prSz);
+        usage.meta += calculateValueSize(actorID);
+        usage.meta += calculateValueSize(presence);
+      }
+    }
+
+    // 03. clone
+    if (this.clone) {
+      // cloneRoot
+      usage.merge(this.clone.root.getMemoryUsage());
+
+      // clone presences
+      if (this.clone.presences) {
+        for (const [actorID, presence] of this.clone.presences) {
+          usage.meta += calculateValueSize(actorID);
+          usage.meta += calculateValueSize(presence);
+        }
+      }
+    }
+
+    // TODO(raara): 04. localChanges
+
+    return usage;
   }
 
   /**

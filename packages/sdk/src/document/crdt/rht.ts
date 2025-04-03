@@ -17,11 +17,16 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  calculateValueSize,
+  MemoryMeasurable,
+  MemoryUsage,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
  */
-export class RHTNode implements GCChild {
+export class RHTNode implements GCChild, MemoryMeasurable {
   private key: string;
   private value: string;
   private updatedAt: TimeTicket;
@@ -37,6 +42,18 @@ export class RHTNode implements GCChild {
     this.value = value;
     this.updatedAt = updatedAt;
     this._isRemoved = isRemoved;
+  }
+
+  /**
+   * `calculateUsage` returns the size in bytes of RHTNode.
+   */
+  calculateUsage(): MemoryUsage {
+    const keySize = calculateValueSize(this.key);
+    const valueSize = calculateValueSize(this.value);
+    const ticketSize = calculateValueSize(this.updatedAt);
+    const metaSize = keySize + ticketSize;
+
+    return new MemoryUsage(metaSize, valueSize, 0);
   }
 
   /**
@@ -102,7 +119,7 @@ export class RHTNode implements GCChild {
  * RHT is replicated hash table by creation time.
  * For more details about RHT: @see http://csl.skku.edu/papers/jpdc11.pdf
  */
-export class RHT {
+export class RHT implements MemoryMeasurable {
   private nodeMapByKey: Map<string, RHTNode>;
   private numberOfRemovedElement: number;
 
@@ -111,6 +128,28 @@ export class RHT {
     this.numberOfRemovedElement = 0;
   }
 
+  /**
+   * `calculateUsage` returns the size in bytes of RHT.
+   */
+  calculateUsage(): MemoryUsage {
+    const usage = new MemoryUsage();
+
+    for (const [key, node] of this.nodeMapByKey) {
+      const keySize = calculateValueSize(key);
+      const valueSize = calculateValueSize(node.getValue());
+      const ticketSize = calculateValueSize(node.getUpdatedAt());
+      const metaSize = keySize + ticketSize;
+
+      if (node.isRemoved()) {
+        usage.gc += metaSize + valueSize;
+      } else {
+        usage.meta += metaSize;
+        usage.content += valueSize;
+      }
+    }
+
+    return usage;
+  }
   /**
    * `create` creates a new instance of RHT.
    */
