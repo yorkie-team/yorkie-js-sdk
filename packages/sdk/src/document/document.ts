@@ -691,6 +691,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getEstimatedSize` TODO(raara)
+   */
+  public getEstimatedSize(): number {
+    return this.getRootObject().getEstimatedSize();
+  }
+
+  /**
    * `update` executes the given updater to update this document.
    */
   public update(

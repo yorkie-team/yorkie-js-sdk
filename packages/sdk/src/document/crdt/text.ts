@@ -79,6 +79,26 @@ export class CRDTTextValue {
   }
 
   /**
+   * `estimateSize` TODO(raara)
+   */
+  estimateSize(): number {
+    let size = 0;
+
+    size += this.content.length * 2;
+
+    if (this.attributes) {
+      for (const attr of this.attributes) {
+        size += attr.getKey().length * 2;
+        size += attr.getValue().length * 2;
+        size += 16; // updatedAt
+        if (attr.getRemovedAt()) size += 16;
+      }
+    }
+
+    return size;
+  }
+
+  /**
    * `create` creates a instance of CRDTTextValue.
    */
   public static create(content: string): CRDTTextValue {
@@ -262,6 +282,14 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       type: TextChangeType.Content,
     }));
 
+    let delta = 0;
+    for (const change of valueChanges) {
+      if (change.value) {
+        delta += change.value.estimateSize();
+      }
+    }
+    this.updateEstimatedSize?.(delta);
+
     return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }
 
@@ -402,6 +430,19 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       if (!node.isRemoved()) {
         json.push(node.getValue().toJSON());
       }
+    }
+
+    return `[${json.join(',')}]`;
+  }
+
+  /**
+   * `toJSONTotal` returns the total content of JSON encoding of this text.
+   */
+  public toJSONTotal(): string {
+    const json = [];
+
+    for (const node of this.rgaTreeSplit) {
+      json.push(node.getValue().toJSON());
     }
 
     return `[${json.join(',')}]`;

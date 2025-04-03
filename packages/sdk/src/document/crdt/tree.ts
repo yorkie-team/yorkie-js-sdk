@@ -468,6 +468,33 @@ export class CRDTTreeNode
   }
 
   /**
+   * `estimateSize` TODO(raara)
+   */
+  estimateSize(): number {
+    let size = 0;
+
+    size += 16; // id
+
+    if (this.removedAt) size += 16;
+
+    if (this.insPrevID) size += 16;
+    if (this.insNextID) size += 16;
+
+    size += this._value.length * 2;
+
+    if (this.attrs) {
+      for (const node of this.attrs) {
+        size += node.getKey().length * 2;
+        size += node.getValue().length * 2;
+        size += 16; // updatedAt
+        if (node.getRemovedAt()) size += 16;
+      }
+    }
+
+    return size;
+  }
+
+  /**
    * `toIDString` returns the IDString of this node.
    */
   toIDString(): string {
@@ -1201,6 +1228,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     if (contents?.length) {
       const aliveContents: Array<CRDTTreeNode> = [];
       let leftInChildren = fromLeft; // tree
+
+      let totalDelta = 0;
+
       for (const content of contents) {
         // 05-1. Insert the content nodes to the tree.
         if (leftInChildren === fromParent) {
@@ -1222,12 +1252,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
 
           this.nodeMapByID.put(node.id, node);
+
+          totalDelta += node.estimateSize();
         });
 
         if (!content.isRemoved) {
           aliveContents.push(content);
         }
       }
+
+      this.updateEstimatedSize?.(totalDelta);
+
       if (aliveContents.length) {
         const value = aliveContents.map((content) => toTreeNode(content));
         if (changes.length && changes[changes.length - 1].from === fromIdx) {
@@ -1426,8 +1461,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const treePos = node.isText
         ? { node, offset: 0 }
         : parentNode && leftChildNode
-        ? this.toTreePos(parentNode, leftChildNode)
-        : null;
+          ? this.toTreePos(parentNode, leftChildNode)
+          : null;
 
       if (treePos) {
         index = this.indexTree.indexOf(treePos);

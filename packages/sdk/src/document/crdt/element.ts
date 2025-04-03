@@ -27,8 +27,34 @@ export abstract class CRDTElement {
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
 
+  private estimatedSize: number = 0;
+  protected parent?: CRDTContainer;
+
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
+  }
+
+  /**
+   * `setParent` TODO(raara)
+   * @param parent
+   */
+  public setParent(parent: CRDTContainer): void {
+    this.parent = parent;
+  }
+
+  /**
+   * `updateEstimatedSize` TODO(raara)
+   */
+  public updateEstimatedSize(delta: number): void {
+    this.estimatedSize += delta;
+    this.parent?.updateEstimatedSize(delta);
+  }
+
+  /**
+   * `getEstimatedSize` TODO(raara)
+   */
+  public getEstimatedSize(): number {
+    return this.estimatedSize;
   }
 
   /**

@@ -187,6 +187,10 @@ export class CRDTRoot {
       element,
     });
 
+    if (parent) {
+      element.setParent(parent);
+    }
+
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
         this.registerElement(elem, parent);
@@ -297,6 +301,9 @@ export class CRDTRoot {
       const removedAt = pair.element.getRemovedAt();
 
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        const size = pair.element.getEstimatedSize();
+        pair.parent!.updateEstimatedSize(-size);
+
         pair.parent!.purge(pair.element);
         count += this.deregisterElement(pair.element);
       }
