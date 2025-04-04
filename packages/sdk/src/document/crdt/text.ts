@@ -79,7 +79,7 @@ export class CRDTTextValue {
   }
 
   /**
-   * `estimateSize` TODO(raara)
+   * `estimateSize` returns an approximate size in bytes of CRDTTextValue.
    */
   estimateSize(): number {
     let size = 0;

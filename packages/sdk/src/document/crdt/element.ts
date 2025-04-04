@@ -36,15 +36,14 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `setParent` TODO(raara)
-   * @param parent
+   * `setParent` sets the parent of this element.
    */
   public setParent(parent: CRDTContainer): void {
     this.parent = parent;
   }
 
   /**
-   * `updateEstimatedSize` TODO(raara)
+   * `updateEstimatedSize` updates the estimated memory usage of this element.
    */
   public updateEstimatedSize(delta: number, isGC = false): void {
     if (isGC) {
@@ -56,7 +55,8 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `getMemoryUsage` TODO(raara)
+   * `getMemoryUsage` summaries the estimated memory usage of this element,
+   * distinguishing between live and logically removed elements.
    */
   public getMemoryUsage(): { live: number; gc: number; total: number } {
     return {

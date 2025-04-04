@@ -387,6 +387,7 @@
             if (event.type === 'remote-change') {
               const { actor, operations } = event.value;
               handleOperations(operations, actor);
+              updateMemoryUsageDisplay(doc);
 
               const textLength = codemirror.getValue().length;
               if (

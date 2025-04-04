@@ -468,7 +468,7 @@ export class CRDTTreeNode
   }
 
   /**
-   * `estimateSize` TODO(raara)
+   * `estimateSize` returns an approximate size in bytes of CRDTTreeNode.
    */
   estimateSize(): number {
     let size = 0;
