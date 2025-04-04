@@ -28,6 +28,7 @@ export abstract class CRDTElement {
   private removedAt?: TimeTicket;
 
   private estimatedSize: number = 0;
+  private estimatedGCSize: number = 0;
   protected parent?: CRDTContainer;
 
   constructor(createdAt: TimeTicket) {
@@ -45,16 +46,24 @@ export abstract class CRDTElement {
   /**
    * `updateEstimatedSize` TODO(raara)
    */
-  public updateEstimatedSize(delta: number): void {
-    this.estimatedSize += delta;
-    this.parent?.updateEstimatedSize(delta);
+  public updateEstimatedSize(delta: number, isGC = false): void {
+    if (isGC) {
+      this.estimatedGCSize += delta;
+    } else {
+      this.estimatedSize += delta;
+    }
+    this.parent?.updateEstimatedSize(delta, isGC);
   }
 
   /**
-   * `getEstimatedSize` TODO(raara)
+   * `getMemoryUsage` TODO(raara)
    */
-  public getEstimatedSize(): number {
-    return this.estimatedSize;
+  public getMemoryUsage(): { live: number; gc: number; total: number } {
+    return {
+      live: this.estimatedSize,
+      gc: this.estimatedGCSize,
+      total: this.estimatedSize + this.estimatedGCSize,
+    };
   }
 
   /**

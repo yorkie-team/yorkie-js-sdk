@@ -207,6 +207,14 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
+
+      const usage = elem.getMemoryUsage();
+      if (usage?.gc) {
+        this.rootObject.updateEstimatedSize(-usage.gc, true);
+      } else if (usage?.total) {
+        this.rootObject.updateEstimatedSize(-usage.total);
+      }
+
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
@@ -301,9 +309,6 @@ export class CRDTRoot {
       const removedAt = pair.element.getRemovedAt();
 
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
-        const size = pair.element.getEstimatedSize();
-        pair.parent!.updateEstimatedSize(-size);
-
         pair.parent!.purge(pair.element);
         count += this.deregisterElement(pair.element);
       }

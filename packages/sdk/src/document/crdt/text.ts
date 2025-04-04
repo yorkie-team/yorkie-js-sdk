@@ -283,12 +283,23 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     }));
 
     let delta = 0;
+    let gcDelta = 0;
     for (const change of valueChanges) {
       if (change.value) {
         delta += change.value.estimateSize();
       }
     }
+
+    for (const { child } of pairs) {
+      const node = child as RGATreeSplitNode<CRDTTextValue>;
+      const value = node.getValue();
+      if (value) {
+        gcDelta += value.estimateSize();
+      }
+    }
+
     this.updateEstimatedSize?.(delta);
+    this.updateEstimatedSize?.(gcDelta, true);
 
     return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }

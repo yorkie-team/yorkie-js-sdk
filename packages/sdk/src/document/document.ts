@@ -691,10 +691,10 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getEstimatedSize` TODO(raara)
+   * `getMemoryUsage` TODO(raara)
    */
-  public getEstimatedSize(): number {
-    return this.getRootObject().getEstimatedSize();
+  public getMemoryUsage(): { live: number; gc: number; total: number } {
+    return this.getRootObject().getMemoryUsage();
   }
 
   /**
