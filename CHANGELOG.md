@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.6] - 2025-04-07
+
+### Added
+
+- Add schema package with initial configuration by @hackerwins https://github.com/yorkie-team/yorkie-js-sdk/pull/968
+
+### Changed
+
+- Support StrictMode in React Standalone Mode by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/970
+
+### Removed
+
+- Remove create-yorkie-app package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/967
+
 ## [0.6.5] - 2025-03-28
 
 ### Added
