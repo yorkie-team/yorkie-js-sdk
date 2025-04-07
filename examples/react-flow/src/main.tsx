@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { DocumentProvider, YorkieProvider } from '@yorkie-js/react';
 import './index.css';
 import App from './App';
+import { StrictMode } from 'react';
 
 const initialNodes = [
   {
@@ -42,18 +43,21 @@ const initialGraph = {
 };
 
 createRoot(document.getElementById('root')!).render(
-  <YorkieProvider
-    apiKey={import.meta.env.VITE_YORKIE_API_KEY}
-    rpcAddr={import.meta.env.VITE_YORKIE_API_ADDR}
-  >
-    <DocumentProvider
-      docKey={`react-flow-${new Date()
-        .toISOString()
-        .substring(0, 10)
-        .replace(/-/g, '')}`}
-      initialRoot={initialGraph}
+  <StrictMode>
+    <YorkieProvider
+      apiKey={import.meta.env.VITE_YORKIE_API_KEY}
+      rpcAddr={import.meta.env.VITE_YORKIE_API_ADDR}
     >
-      <App />
-    </DocumentProvider>
-  </YorkieProvider>,
+      <DocumentProvider
+        docKey={`react-flow-${new Date()
+          .toISOString()
+          .substring(0, 10)
+          .replace(/-/g, '')}`}
+        initialRoot={initialGraph}
+      >
+        <App />
+      </DocumentProvider>
+    </YorkieProvider>
+    ,
+  </StrictMode>,
 );
