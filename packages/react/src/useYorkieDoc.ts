@@ -14,96 +14,58 @@
  * limitations under the License.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { Client, Document } from '@yorkie-js/sdk';
+import { Indexable, Presence, StreamConnectionStatus } from '@yorkie-js/sdk';
+import { useYorkieClient } from './YorkieProvider';
+import { useYorkieDocument } from './DocumentProvider';
 
 /**
- * `useYorkieDoc` is a custom hook that initializes a Yorkie client and attaches a document.
+ * `useYorkieDoc` is a custom hook that initializes a Yorkie Client and a
+ * document in a single hook.
  *
  * @param apiKey
  * @param docKey
- * @param initialRoot
  * @returns
  */
-export function useYorkieDoc<T>(
+export function useYorkieDoc<R, P extends Indexable>(
   apiKey: string,
   docKey: string,
-  initialRoot: T,
   options?: {
+    initialRoot?: R;
+    initialPresence?: P;
     rpcAddr?: string;
   },
 ): {
-  root: T;
-  update: (callback: (root: T) => void) => void;
+  root: R;
+  presences: Array<{ clientID: string; presence: P }>;
+  connection: StreamConnectionStatus;
+  update: (callback: (root: R, presence: Presence<P>) => void) => void;
   loading: boolean;
   error: Error | undefined;
 } {
-  const [client, setClient] = useState<Client | undefined>(undefined);
-  const [doc, setDoc] = useState<Document<T> | undefined>(undefined);
-  const [root, setRoot] = useState<T>(initialRoot);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | undefined>(undefined);
+  const rpcAddr = options?.rpcAddr || 'https://api.yorkie.dev';
+  const initialRoot = options?.initialRoot || ({} as R);
+  const initialPresence = options?.initialPresence || ({} as P);
 
-  useEffect(() => {
-    setLoading(true);
-    setError(undefined);
+  const {
+    client,
+    loading: clientLoading,
+    error: clientError,
+  } = useYorkieClient(apiKey, rpcAddr);
 
-    /**
-     * `setupYorkie` initializes the Yorkie client and attaches the document.
-     */
-    async function setupYorkie() {
-      try {
-        const client = new Client(
-          options?.rpcAddr || 'https://api.yorkie.dev',
-          { apiKey },
-        );
-        await client.activate();
-
-        const doc = new Document<T>(docKey);
-        await client.attach(doc, {
-          initialPresence: {},
-          initialRoot,
-        });
-
-        doc.subscribe((event) => {
-          if (event.type === 'remote-change' || event.type === 'local-change') {
-            setRoot(doc.getRoot());
-          }
-        });
-
-        setClient(client);
-        setDoc(doc);
-        setRoot(doc.getRoot());
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error'));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    setupYorkie();
-
-    return () => {
-      client?.deactivate({ keepalive: true });
-    };
-  }, [apiKey, docKey, JSON.stringify(initialRoot), JSON.stringify(options)]);
-
-  const update = useCallback(
-    (callback: (root: T) => void) => {
-      if (!doc) {
-        console.warn('Attempted to update document before it was initialized');
-        return;
-      }
-
-      doc.update((root) => {
-        callback(root);
-      });
-    },
-    [doc],
-  );
+  const { root, presences, connection, update, loading, error } =
+    useYorkieDocument(
+      client,
+      clientLoading,
+      clientError,
+      docKey,
+      initialRoot,
+      initialPresence,
+    );
 
   return {
     root,
+    presences,
+    connection,
     update,
     loading,
     error,
