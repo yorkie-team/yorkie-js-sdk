@@ -338,6 +338,7 @@
 
           await client.attach(doc, {
             initialPresence: { color: getRandomColor() },
+            schema: 'test@1',
           });
 
           doc.update((root) => {
