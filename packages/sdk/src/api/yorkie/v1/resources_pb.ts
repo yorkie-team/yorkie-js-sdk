@@ -19,7 +19,7 @@
 // @ts-nocheck
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
-import { Message, proto3, protoInt64, StringValue, Timestamp } from "@bufbuild/protobuf";
+import { Int32Value, Message, proto3, protoInt64, StringValue, Timestamp } from "@bufbuild/protobuf";
 
 /**
  * @generated from enum yorkie.v1.ValueType
@@ -234,6 +234,11 @@ export class ChangePack extends Message<ChangePack> {
    */
   versionVector?: VersionVector;
 
+  /**
+   * @generated from field: repeated yorkie.v1.Rule rules = 8;
+   */
+  rules: Rule[] = [];
+
   constructor(data?: PartialMessage<ChangePack>) {
     super();
     proto3.util.initPartial(data, this);
@@ -249,6 +254,7 @@ export class ChangePack extends Message<ChangePack> {
     { no: 5, name: "min_synced_ticket", kind: "message", T: TimeTicket },
     { no: 6, name: "is_removed", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 7, name: "version_vector", kind: "message", T: VersionVector },
+    { no: 8, name: "rules", kind: "message", T: Rule, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChangePack {
@@ -2130,12 +2136,17 @@ export class User extends Message<User> {
   id = "";
 
   /**
-   * @generated from field: string username = 2;
+   * @generated from field: string auth_provider = 2;
+   */
+  authProvider = "";
+
+  /**
+   * @generated from field: string username = 3;
    */
   username = "";
 
   /**
-   * @generated from field: google.protobuf.Timestamp created_at = 3;
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
   createdAt?: Timestamp;
 
@@ -2148,8 +2159,9 @@ export class User extends Message<User> {
   static readonly typeName = "yorkie.v1.User";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "username", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "created_at", kind: "message", T: Timestamp },
+    { no: 2, name: "auth_provider", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "username", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "created_at", kind: "message", T: Timestamp },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): User {
@@ -2204,17 +2216,42 @@ export class Project extends Message<Project> {
   authWebhookMethods: string[] = [];
 
   /**
-   * @generated from field: string client_deactivate_threshold = 7;
+   * @generated from field: string event_webhook_url = 7;
+   */
+  eventWebhookUrl = "";
+
+  /**
+   * @generated from field: repeated string event_webhook_events = 8;
+   */
+  eventWebhookEvents: string[] = [];
+
+  /**
+   * @generated from field: string client_deactivate_threshold = 9;
    */
   clientDeactivateThreshold = "";
 
   /**
-   * @generated from field: google.protobuf.Timestamp created_at = 8;
+   * @generated from field: int32 max_subscribers_per_document = 10;
+   */
+  maxSubscribersPerDocument = 0;
+
+  /**
+   * @generated from field: int32 max_attachments_per_document = 11;
+   */
+  maxAttachmentsPerDocument = 0;
+
+  /**
+   * @generated from field: repeated string allowed_origins = 14;
+   */
+  allowedOrigins: string[] = [];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 12;
    */
   createdAt?: Timestamp;
 
   /**
-   * @generated from field: google.protobuf.Timestamp updated_at = 9;
+   * @generated from field: google.protobuf.Timestamp updated_at = 13;
    */
   updatedAt?: Timestamp;
 
@@ -2232,9 +2269,14 @@ export class Project extends Message<Project> {
     { no: 4, name: "secret_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 5, name: "auth_webhook_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "auth_webhook_methods", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
-    { no: 7, name: "client_deactivate_threshold", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 8, name: "created_at", kind: "message", T: Timestamp },
-    { no: 9, name: "updated_at", kind: "message", T: Timestamp },
+    { no: 7, name: "event_webhook_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "event_webhook_events", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 9, name: "client_deactivate_threshold", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "max_subscribers_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 11, name: "max_attachments_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 14, name: "allowed_origins", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 12, name: "created_at", kind: "message", T: Timestamp },
+    { no: 13, name: "updated_at", kind: "message", T: Timestamp },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Project {
@@ -2251,6 +2293,49 @@ export class Project extends Message<Project> {
 
   static equals(a: Project | PlainMessage<Project> | undefined, b: Project | PlainMessage<Project> | undefined): boolean {
     return proto3.util.equals(Project, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.MetricPoint
+ */
+export class MetricPoint extends Message<MetricPoint> {
+  /**
+   * @generated from field: int64 timestamp = 1;
+   */
+  timestamp = protoInt64.zero;
+
+  /**
+   * @generated from field: int32 value = 2;
+   */
+  value = 0;
+
+  constructor(data?: PartialMessage<MetricPoint>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.MetricPoint";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "timestamp", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "value", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MetricPoint {
+    return new MetricPoint().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MetricPoint {
+    return new MetricPoint().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MetricPoint {
+    return new MetricPoint().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: MetricPoint | PlainMessage<MetricPoint> | undefined, b: MetricPoint | PlainMessage<MetricPoint> | undefined): boolean {
+    return proto3.util.equals(MetricPoint, a, b);
   }
 }
 
@@ -2274,9 +2359,34 @@ export class UpdatableProjectFields extends Message<UpdatableProjectFields> {
   authWebhookMethods?: UpdatableProjectFields_AuthWebhookMethods;
 
   /**
-   * @generated from field: google.protobuf.StringValue client_deactivate_threshold = 4;
+   * @generated from field: google.protobuf.StringValue event_webhook_url = 4;
+   */
+  eventWebhookUrl?: string;
+
+  /**
+   * @generated from field: yorkie.v1.UpdatableProjectFields.EventWebhookEvents event_webhook_events = 5;
+   */
+  eventWebhookEvents?: UpdatableProjectFields_EventWebhookEvents;
+
+  /**
+   * @generated from field: google.protobuf.StringValue client_deactivate_threshold = 6;
    */
   clientDeactivateThreshold?: string;
+
+  /**
+   * @generated from field: google.protobuf.Int32Value max_subscribers_per_document = 7;
+   */
+  maxSubscribersPerDocument?: number;
+
+  /**
+   * @generated from field: google.protobuf.Int32Value max_attachments_per_document = 8;
+   */
+  maxAttachmentsPerDocument?: number;
+
+  /**
+   * @generated from field: yorkie.v1.UpdatableProjectFields.AllowedOrigins allowed_origins = 9;
+   */
+  allowedOrigins?: UpdatableProjectFields_AllowedOrigins;
 
   constructor(data?: PartialMessage<UpdatableProjectFields>) {
     super();
@@ -2289,7 +2399,12 @@ export class UpdatableProjectFields extends Message<UpdatableProjectFields> {
     { no: 1, name: "name", kind: "message", T: StringValue },
     { no: 2, name: "auth_webhook_url", kind: "message", T: StringValue },
     { no: 3, name: "auth_webhook_methods", kind: "message", T: UpdatableProjectFields_AuthWebhookMethods },
-    { no: 4, name: "client_deactivate_threshold", kind: "message", T: StringValue },
+    { no: 4, name: "event_webhook_url", kind: "message", T: StringValue },
+    { no: 5, name: "event_webhook_events", kind: "message", T: UpdatableProjectFields_EventWebhookEvents },
+    { no: 6, name: "client_deactivate_threshold", kind: "message", T: StringValue },
+    { no: 7, name: "max_subscribers_per_document", kind: "message", T: Int32Value },
+    { no: 8, name: "max_attachments_per_document", kind: "message", T: Int32Value },
+    { no: 9, name: "allowed_origins", kind: "message", T: UpdatableProjectFields_AllowedOrigins },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdatableProjectFields {
@@ -2347,6 +2462,80 @@ export class UpdatableProjectFields_AuthWebhookMethods extends Message<Updatable
 }
 
 /**
+ * @generated from message yorkie.v1.UpdatableProjectFields.EventWebhookEvents
+ */
+export class UpdatableProjectFields_EventWebhookEvents extends Message<UpdatableProjectFields_EventWebhookEvents> {
+  /**
+   * @generated from field: repeated string events = 1;
+   */
+  events: string[] = [];
+
+  constructor(data?: PartialMessage<UpdatableProjectFields_EventWebhookEvents>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.UpdatableProjectFields.EventWebhookEvents";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "events", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdatableProjectFields_EventWebhookEvents {
+    return new UpdatableProjectFields_EventWebhookEvents().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UpdatableProjectFields_EventWebhookEvents {
+    return new UpdatableProjectFields_EventWebhookEvents().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UpdatableProjectFields_EventWebhookEvents {
+    return new UpdatableProjectFields_EventWebhookEvents().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UpdatableProjectFields_EventWebhookEvents | PlainMessage<UpdatableProjectFields_EventWebhookEvents> | undefined, b: UpdatableProjectFields_EventWebhookEvents | PlainMessage<UpdatableProjectFields_EventWebhookEvents> | undefined): boolean {
+    return proto3.util.equals(UpdatableProjectFields_EventWebhookEvents, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.UpdatableProjectFields.AllowedOrigins
+ */
+export class UpdatableProjectFields_AllowedOrigins extends Message<UpdatableProjectFields_AllowedOrigins> {
+  /**
+   * @generated from field: repeated string origins = 1;
+   */
+  origins: string[] = [];
+
+  constructor(data?: PartialMessage<UpdatableProjectFields_AllowedOrigins>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.UpdatableProjectFields.AllowedOrigins";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "origins", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): UpdatableProjectFields_AllowedOrigins {
+    return new UpdatableProjectFields_AllowedOrigins().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): UpdatableProjectFields_AllowedOrigins {
+    return new UpdatableProjectFields_AllowedOrigins().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): UpdatableProjectFields_AllowedOrigins {
+    return new UpdatableProjectFields_AllowedOrigins().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: UpdatableProjectFields_AllowedOrigins | PlainMessage<UpdatableProjectFields_AllowedOrigins> | undefined, b: UpdatableProjectFields_AllowedOrigins | PlainMessage<UpdatableProjectFields_AllowedOrigins> | undefined): boolean {
+    return proto3.util.equals(UpdatableProjectFields_AllowedOrigins, a, b);
+  }
+}
+
+/**
  * @generated from message yorkie.v1.DocumentSummary
  */
 export class DocumentSummary extends Message<DocumentSummary> {
@@ -2364,6 +2553,11 @@ export class DocumentSummary extends Message<DocumentSummary> {
    * @generated from field: string snapshot = 3;
    */
   snapshot = "";
+
+  /**
+   * @generated from field: int32 attached_clients = 7;
+   */
+  attachedClients = 0;
 
   /**
    * @generated from field: google.protobuf.Timestamp created_at = 4;
@@ -2391,6 +2585,7 @@ export class DocumentSummary extends Message<DocumentSummary> {
     { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "snapshot", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "attached_clients", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 4, name: "created_at", kind: "message", T: Timestamp },
     { no: 5, name: "accessed_at", kind: "message", T: Timestamp },
     { no: 6, name: "updated_at", kind: "message", T: Timestamp },
@@ -2755,6 +2950,116 @@ export class DocEvent extends Message<DocEvent> {
 
   static equals(a: DocEvent | PlainMessage<DocEvent> | undefined, b: DocEvent | PlainMessage<DocEvent> | undefined): boolean {
     return proto3.util.equals(DocEvent, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.Schema
+ */
+export class Schema extends Message<Schema> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id = "";
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name = "";
+
+  /**
+   * @generated from field: int32 version = 3;
+   */
+  version = 0;
+
+  /**
+   * @generated from field: string body = 4;
+   */
+  body = "";
+
+  /**
+   * @generated from field: repeated yorkie.v1.Rule rules = 5;
+   */
+  rules: Rule[] = [];
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 6;
+   */
+  createdAt?: Timestamp;
+
+  constructor(data?: PartialMessage<Schema>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.Schema";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "version", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "body", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "rules", kind: "message", T: Rule, repeated: true },
+    { no: 6, name: "created_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Schema {
+    return new Schema().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Schema {
+    return new Schema().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Schema {
+    return new Schema().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: Schema | PlainMessage<Schema> | undefined, b: Schema | PlainMessage<Schema> | undefined): boolean {
+    return proto3.util.equals(Schema, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.Rule
+ */
+export class Rule extends Message<Rule> {
+  /**
+   * @generated from field: string path = 1;
+   */
+  path = "";
+
+  /**
+   * @generated from field: string type = 2;
+   */
+  type = "";
+
+  constructor(data?: PartialMessage<Rule>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.Rule";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "path", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Rule {
+    return new Rule().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Rule {
+    return new Rule().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Rule {
+    return new Rule().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: Rule | PlainMessage<Rule> | undefined, b: Rule | PlainMessage<Rule> | undefined): boolean {
+    return proto3.util.equals(Rule, a, b);
   }
 }
 
