@@ -353,6 +353,7 @@ export class Client {
       initialRoot?: T;
       initialPresence?: P;
       syncMode?: SyncMode;
+      schema?: string;
     } = {},
   ): Promise<Document<T, P>> {
     if (!this.isActive()) {
@@ -393,6 +394,7 @@ export class Client {
           {
             clientId: this.id!,
             changePack: converter.toChangePack(doc.createChangePack()),
+            schema: options.schema ? options.schema : undefined,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         )

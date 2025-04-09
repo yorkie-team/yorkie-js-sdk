@@ -15,3 +15,4 @@
  */
 
 export { validate } from './validator';
+export { buildRuleset } from './rulesets';
