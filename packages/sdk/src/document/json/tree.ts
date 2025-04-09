@@ -314,18 +314,16 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [maxCreationMapByActor] = this.tree!.style(
-      [fromPos, toPos],
-      attrs,
-      ticket,
-    );
+    const [pairs] = this.tree!.style([fromPos, toPos], attrs, ticket);
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       TreeStyleOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreationMapByActor,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
@@ -359,12 +357,7 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [maxCreationMapByActor, pairs] = this.tree!.style(
-      [fromPos, toPos],
-      attrs,
-      ticket,
-    );
-
+    const [pairs] = this.tree!.style([fromPos, toPos], attrs, ticket);
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
     }
@@ -374,7 +367,6 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreationMapByActor,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
@@ -407,7 +399,7 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    const [maxCreationMapByActor, pairs] = this.tree!.removeStyle(
+    const [pairs] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
@@ -422,7 +414,6 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreationMapByActor,
         attributesToRemove,
         ticket,
       ),
@@ -467,7 +458,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    const [, pairs, maxCreatedAtMapByActor] = this.tree!.edit(
+    const [, pairs] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
@@ -488,7 +479,6 @@ export class Tree {
         toPos,
         crdtNodes.length ? crdtNodes : undefined,
         splitLevel,
-        maxCreatedAtMapByActor,
         ticket,
       ),
     );
