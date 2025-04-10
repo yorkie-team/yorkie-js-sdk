@@ -36,6 +36,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
+import { MemoryMeasurable, MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -69,7 +70,7 @@ interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
  * Attributes are represented by RHT.
  *
  */
-export class CRDTTextValue {
+export class CRDTTextValue implements MemoryMeasurable {
   private attributes: RHT;
   private content: string;
 
@@ -79,23 +80,15 @@ export class CRDTTextValue {
   }
 
   /**
-   * `estimateSize` returns an approximate size in bytes of CRDTTextValue.
+   * `estimateMemoryUsage` returns an approximate size in bytes of CRDTTextValue.
    */
-  estimateSize(): number {
-    let size = 0;
+  estimateMemoryUsage(): MemoryUsage {
+    const contentSize = this.content.length * 2;
 
-    size += this.content.length * 2;
+    const attrUsage =
+      this.attributes?.estimateMemoryUsage?.() ?? new MemoryUsage(0, 0);
 
-    if (this.attributes) {
-      for (const attr of this.attributes) {
-        size += attr.getKey().length * 2;
-        size += attr.getValue().length * 2;
-        size += 16; // updatedAt
-        if (attr.getRemovedAt()) size += 16;
-      }
-    }
-
-    return size;
+    return new MemoryUsage(contentSize + attrUsage.live, attrUsage.gc);
   }
 
   /**
@@ -259,7 +252,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, maxCreatedAtMap, pairs, valueChanges] =
+    const [caretPos, maxCreatedAtMap, pairs, valueChanges, memoryUsage] =
       this.rgaTreeSplit.edit(
         range,
         editedAt,
@@ -281,25 +274,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
           },
       type: TextChangeType.Content,
     }));
-
-    let delta = 0;
-    let gcDelta = 0;
-    for (const change of valueChanges) {
-      if (change.value) {
-        delta += change.value.estimateSize();
-      }
-    }
-
-    for (const { child } of pairs) {
-      const node = child as RGATreeSplitNode<CRDTTextValue>;
-      const value = node.getValue();
-      if (value) {
-        gcDelta += value.estimateSize();
-      }
-    }
-
-    this.updateEstimatedSize?.(delta);
-    this.updateEstimatedSize?.(gcDelta, true);
+    this.updateEstimatedSize(memoryUsage);
 
     return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }

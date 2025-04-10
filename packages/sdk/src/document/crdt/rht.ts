@@ -17,11 +17,16 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  estimateValueSize,
+  MemoryMeasurable,
+  MemoryUsage,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
  */
-export class RHTNode implements GCChild {
+export class RHTNode implements GCChild, MemoryMeasurable {
   private key: string;
   private value: string;
   private updatedAt: TimeTicket;
@@ -37,6 +42,19 @@ export class RHTNode implements GCChild {
     this.value = value;
     this.updatedAt = updatedAt;
     this._isRemoved = isRemoved;
+  }
+
+  /**
+   * `estimateMemoryUsage` TODO(raara).
+   */
+  estimateMemoryUsage(): MemoryUsage {
+    const usage = estimateValueSize(this);
+
+    if (this.isRemoved()) {
+      return new MemoryUsage(0, usage);
+    } else {
+      return new MemoryUsage(usage, 0);
+    }
   }
 
   /**
@@ -102,7 +120,7 @@ export class RHTNode implements GCChild {
  * RHT is replicated hash table by creation time.
  * For more details about RHT: @see http://csl.skku.edu/papers/jpdc11.pdf
  */
-export class RHT {
+export class RHT implements MemoryMeasurable {
   private nodeMapByKey: Map<string, RHTNode>;
   private numberOfRemovedElement: number;
 
@@ -111,6 +129,23 @@ export class RHT {
     this.numberOfRemovedElement = 0;
   }
 
+  /**
+   * `estimateMemoryUsage` returns an approximate size in bytes of RHT.
+   */
+  estimateMemoryUsage(): MemoryUsage {
+    const usage = new MemoryUsage(0, 0);
+    for (const [key, node] of this.nodeMapByKey) {
+      const nodeUsage = node.estimateMemoryUsage();
+      if (node.isRemoved()) {
+        nodeUsage.gc += estimateValueSize(key);
+      } else {
+        nodeUsage.live += estimateValueSize(key);
+      }
+      usage.add(nodeUsage);
+    }
+
+    return usage;
+  }
   /**
    * `create` creates a new instance of RHT.
    */

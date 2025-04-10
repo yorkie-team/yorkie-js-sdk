@@ -18,6 +18,12 @@ import {
   Comparator,
   DefaultComparator,
 } from '@yorkie-js/sdk/src/util/comparator';
+import {
+  estimateValueSize,
+  MemoryMeasurable,
+  MemoryUsage,
+  ptrSize,
+} from '@yorkie-js/sdk/src/util/memory';
 
 interface Entry<K, V> {
   key: K;
@@ -27,7 +33,7 @@ interface Entry<K, V> {
 /**
  * `LLRBNode` is node of LLRBTree.
  */
-class LLRBNode<K, V> {
+class LLRBNode<K, V> implements MemoryMeasurable {
   public key: K;
   public value: V;
   public parent?: LLRBNode<K, V>;
@@ -39,6 +45,17 @@ class LLRBNode<K, V> {
     this.key = key;
     this.value = value;
     this.isRed = isRed;
+  }
+
+  /**
+   * `estimateMemoryUsage` returns an approximate size in bytes of LLRBNode.
+   */
+  estimateMemoryUsage(): MemoryUsage {
+    // TODO(raara): Is this const?
+    const keySize = estimateValueSize(this.key);
+    const ptr = ptrSize * 3;
+    const live = keySize + ptr + ptrSize;
+    return new MemoryUsage(live, 0);
   }
 }
 

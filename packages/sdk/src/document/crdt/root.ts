@@ -209,11 +209,7 @@ export class CRDTRoot {
       const createdAt = elem.getCreatedAt().toIDString();
 
       const usage = elem.getMemoryUsage();
-      if (usage?.gc) {
-        this.rootObject.updateEstimatedSize(-usage.gc, true);
-      } else if (usage?.total) {
-        this.rootObject.updateEstimatedSize(-usage.total);
-      }
+      this.rootObject.updateEstimatedSize(usage);
 
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);

@@ -16,6 +16,7 @@
 
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -45,25 +46,20 @@ export abstract class CRDTElement {
   /**
    * `updateEstimatedSize` updates the estimated memory usage of this element.
    */
-  public updateEstimatedSize(delta: number, isGC = false): void {
-    if (isGC) {
-      this.estimatedGCSize += delta;
-    } else {
-      this.estimatedSize += delta;
-    }
-    this.parent?.updateEstimatedSize(delta, isGC);
+  public updateEstimatedSize(memoryUsage: MemoryUsage): void {
+    this.estimatedSize += memoryUsage.live;
+    this.estimatedSize -= memoryUsage.gc;
+    this.estimatedGCSize += memoryUsage.gc;
+
+    this.parent?.updateEstimatedSize(memoryUsage);
   }
 
   /**
    * `getMemoryUsage` summaries the estimated memory usage of this element,
    * distinguishing between live and logically removed elements.
    */
-  public getMemoryUsage(): { live: number; gc: number; total: number } {
-    return {
-      live: this.estimatedSize,
-      gc: this.estimatedGCSize,
-      total: this.estimatedSize + this.estimatedGCSize,
-    };
+  public getMemoryUsage(): MemoryUsage {
+    return new MemoryUsage(this.estimatedSize, this.estimatedGCSize);
   }
 
   /**

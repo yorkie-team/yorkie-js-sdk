@@ -15,11 +15,16 @@
  */
 
 import { Code, YorkieError } from './error';
+import {
+  MemoryMeasurable,
+  MemoryUsage,
+  ptrSize,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `SplayNode` is a node of SplayTree.
  */
-export abstract class SplayNode<V> {
+export abstract class SplayNode<V> implements MemoryMeasurable {
   protected value: V;
 
   private left?: SplayNode<V>;
@@ -30,6 +35,17 @@ export abstract class SplayNode<V> {
   constructor(value: V) {
     this.value = value;
     this.initWeight();
+  }
+
+  /**
+   * `estimateMemoryUsage` returns an approximate size in bytes of SplayNode.
+   */
+  estimateMemoryUsage(): MemoryUsage {
+    // TODO(raara): Is this const?
+    const weightSize = 8;
+
+    const live = ptrSize * 3 + weightSize;
+    return new MemoryUsage(live, 0);
   }
 
   abstract getLength(): number;
