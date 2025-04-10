@@ -22,7 +22,8 @@
 export const ptrSize = 8;
 
 /**
- * `MemoryUsage` TODO(raara).
+ * `MemoryUsage` represents the estimated memory usage of a CRDT element,
+ * separated into live and garbage-collected components.
  */
 export class MemoryUsage {
   public live: number;
@@ -36,7 +37,7 @@ export class MemoryUsage {
   }
 
   /**
-   * `add` TODO(raara).
+   * `add` merges another MemoryUsage into this one.
    */
   add(other: MemoryUsage): void {
     this.live += other.live;
@@ -45,12 +46,15 @@ export class MemoryUsage {
   }
 }
 
+/**
+ * `MemoryMeasurable` defines an interface for elements that can estimate their memory usage.
+ */
 export interface MemoryMeasurable {
   estimateMemoryUsage(): MemoryUsage;
 }
 
 /**
- * `estimateValueSize` estimates memory size of a primitive value.
+ * `estimateValueSize` returns an approximate size of various types.
  */
 export function estimateValueSize(value: unknown): number {
   switch (typeof value) {
@@ -72,7 +76,8 @@ export function estimateValueSize(value: unknown): number {
 }
 
 /**
- * `estimateObjectSize` TODO(raara).
+ * `estimateObjectSize` returns an approximate size in bytes of a plain object,
+ * including keys and values.
  */
 export function estimateObjectSize(obj: Record<string, unknown>): number {
   let size = 0;

@@ -51,7 +51,7 @@ class LLRBNode<K, V> implements MemoryMeasurable {
    * `estimateMemoryUsage` returns an approximate size in bytes of LLRBNode.
    */
   estimateMemoryUsage(): MemoryUsage {
-    // TODO(raara): Is this const?
+    // TODO(raararaara): Is this const?
     const keySize = estimateValueSize(this.key);
     const ptr = ptrSize * 3;
     const live = keySize + ptr + ptrSize;

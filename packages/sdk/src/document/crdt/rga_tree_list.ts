@@ -22,6 +22,7 @@ import {
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `RGATreeListNode` is a node of RGATreeList.
@@ -339,13 +340,24 @@ export class RGATreeList {
   /**
    * `delete` deletes the node of the given creation time.
    */
-  public delete(createdAt: TimeTicket, editedAt: TimeTicket): CRDTElement {
+  public delete(
+    createdAt: TimeTicket,
+    editedAt: TimeTicket,
+  ): [CRDTElement, MemoryUsage] {
     const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     const alreadyRemoved = node!.isRemoved();
+
+    const memoryUsage = new MemoryUsage(0, 0);
+
     if (node!.remove(editedAt) && !alreadyRemoved) {
       this.nodeMapByIndex.splayNode(node);
+
+      const usage = node!.estimateMemoryUsage();
+      memoryUsage.add(usage);
+      memoryUsage.live -= usage.total;
     }
-    return node!.getValue();
+
+    return [node!.getValue(), memoryUsage];
   }
 
   /**
@@ -354,16 +366,22 @@ export class RGATreeList {
   public deleteByIndex(
     index: number,
     editedAt: TimeTicket,
-  ): CRDTElement | undefined {
+  ): [CRDTElement, MemoryUsage] | undefined {
     const node = this.getByIndex(index);
     if (!node) {
       return;
     }
 
+    const memoryUsage = new MemoryUsage(0, 0);
+
     if (node.remove(editedAt)) {
       this.nodeMapByIndex.splayNode(node);
+
+      const usage = node!.estimateMemoryUsage();
+      memoryUsage.add(usage);
+      memoryUsage.live -= usage.total;
     }
-    return node.getValue();
+    return [node.getValue(), memoryUsage];
   }
 
   /**

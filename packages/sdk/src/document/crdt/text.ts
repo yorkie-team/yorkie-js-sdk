@@ -422,19 +422,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   }
 
   /**
-   * `toJSONTotal` returns the total content of JSON encoding of this text.
-   */
-  public toJSONTotal(): string {
-    const json = [];
-
-    for (const node of this.rgaTreeSplit) {
-      json.push(node.getValue().toJSON());
-    }
-
-    return `[${json.join(',')}]`;
-  }
-
-  /**
    * `toSortedJSON` returns the sorted JSON encoding of this text.
    */
   public toSortedJSON(): string {

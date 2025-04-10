@@ -45,7 +45,7 @@ export class RHTNode implements GCChild, MemoryMeasurable {
   }
 
   /**
-   * `estimateMemoryUsage` TODO(raara).
+   * `estimateMemoryUsage` returns an approximate size in bytes of RHTNode.
    */
   estimateMemoryUsage(): MemoryUsage {
     const usage = estimateValueSize(this);
