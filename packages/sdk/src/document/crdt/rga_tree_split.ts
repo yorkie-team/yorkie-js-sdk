@@ -31,7 +31,7 @@ import {
   estimateValueSize,
   MemoryMeasurable,
   MemoryUsage,
-  ptrSize,
+  PTRSize,
 } from '@yorkie-js/sdk/src/util/memory';
 
 export interface ValueChange<T> {
@@ -278,7 +278,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     const valueUsage =
       this.value?.estimateMemoryUsage?.() ?? new MemoryUsage(0, 0);
 
-    const ptr = ptrSize * 5;
+    const ptr = PTRSize * 5;
 
     if (isTombstone) {
       const ticketSize = estimateValueSize(this.removedAt);
@@ -610,7 +610,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       versionVector,
     );
 
-    const memoryUsage = new MemoryUsage(0, 0);
+    const diff = new MemoryUsage(0, 0);
 
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitPos.of(caretID, 0);
@@ -623,7 +623,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         fromLeft,
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
-      memoryUsage.add(inserted.estimateMemoryUsage());
+      diff.merge(inserted.estimateMemoryUsage());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
@@ -648,10 +648,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       pairs.push({ parent: this, child: removedNode });
 
       const removedUsage = removedNode.estimateMemoryUsage();
-      memoryUsage.add(removedUsage);
+      diff.merge(removedUsage);
     }
 
-    return [caretPos, maxCreatedAtMap, pairs, changes, memoryUsage];
+    return [caretPos, maxCreatedAtMap, pairs, changes, diff];
   }
 
   /**

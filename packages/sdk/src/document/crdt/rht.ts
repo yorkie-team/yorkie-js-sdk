@@ -141,7 +141,7 @@ export class RHT implements MemoryMeasurable {
       } else {
         nodeUsage.live += estimateValueSize(key);
       }
-      usage.add(nodeUsage);
+      usage.merge(nodeUsage);
     }
 
     return usage;

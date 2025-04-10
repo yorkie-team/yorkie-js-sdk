@@ -18,7 +18,7 @@ import { Code, YorkieError } from './error';
 import {
   MemoryMeasurable,
   MemoryUsage,
-  ptrSize,
+  PTRSize,
 } from '@yorkie-js/sdk/src/util/memory';
 
 /**
@@ -44,7 +44,7 @@ export abstract class SplayNode<V> implements MemoryMeasurable {
     // TODO(raara): Is this const?
     const weightSize = 8;
 
-    const live = ptrSize * 3 + weightSize;
+    const live = PTRSize * 3 + weightSize;
     return new MemoryUsage(live, 0);
   }
 

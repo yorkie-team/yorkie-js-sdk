@@ -28,12 +28,12 @@ export abstract class CRDTElement {
   private movedAt?: TimeTicket;
   private removedAt?: TimeTicket;
 
-  private estimatedSize: number = 0;
-  private estimatedGCSize: number = 0;
+  private usage: MemoryUsage;
   protected parent?: CRDTContainer;
 
   constructor(createdAt: TimeTicket) {
     this.createdAt = createdAt;
+    this.usage = new MemoryUsage(0, 0);
   }
 
   /**
@@ -44,14 +44,11 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `updateEstimatedSize` updates the estimated memory usage of this element.
+   * `updateUsage` updates the memory usage of this element.
    */
-  public updateEstimatedSize(memoryUsage: MemoryUsage): void {
-    this.estimatedSize += memoryUsage.live;
-    this.estimatedSize -= memoryUsage.gc;
-    this.estimatedGCSize += memoryUsage.gc;
-
-    this.parent?.updateEstimatedSize(memoryUsage);
+  public updateUsage(diff: MemoryUsage): void {
+    this.usage.acc(diff);
+    this.parent?.updateUsage(diff);
   }
 
   /**
@@ -59,7 +56,7 @@ export abstract class CRDTElement {
    * distinguishing between live and logically removed elements.
    */
   public getMemoryUsage(): MemoryUsage {
-    return new MemoryUsage(this.estimatedSize, this.estimatedGCSize);
+    return this.usage;
   }
 
   /**

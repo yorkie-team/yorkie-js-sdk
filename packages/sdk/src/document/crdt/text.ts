@@ -252,7 +252,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, maxCreatedAtMap, pairs, valueChanges, memoryUsage] =
+    const [caretPos, maxCreatedAtMap, pairs, valueChanges, diff] =
       this.rgaTreeSplit.edit(
         range,
         editedAt,
@@ -274,7 +274,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
           },
       type: TextChangeType.Content,
     }));
-    this.updateEstimatedSize(memoryUsage);
+    this.updateUsage(diff);
 
     return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }

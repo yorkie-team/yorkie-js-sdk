@@ -22,7 +22,7 @@ import {
   estimateValueSize,
   MemoryMeasurable,
   MemoryUsage,
-  ptrSize,
+  PTRSize,
 } from '@yorkie-js/sdk/src/util/memory';
 
 interface Entry<K, V> {
@@ -53,8 +53,8 @@ class LLRBNode<K, V> implements MemoryMeasurable {
   estimateMemoryUsage(): MemoryUsage {
     // TODO(raararaara): Is this const?
     const keySize = estimateValueSize(this.key);
-    const ptr = ptrSize * 3;
-    const live = keySize + ptr + ptrSize;
+    const ptr = PTRSize * 3;
+    const live = keySize + ptr + PTRSize;
     return new MemoryUsage(live, 0);
   }
 }

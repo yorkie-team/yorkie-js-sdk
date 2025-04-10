@@ -130,7 +130,7 @@ export class CRDTArray extends CRDTContainer {
       createdAt,
       editedAt,
     );
-    this.updateEstimatedSize(memoryUsage);
+    this.updateUsage(memoryUsage);
 
     return deletedElem;
   }
@@ -145,7 +145,7 @@ export class CRDTArray extends CRDTContainer {
     const result = this.elements.deleteByIndex(index, editedAt);
     if (result) {
       const [deletedElem, memoryUsage] = result;
-      this.updateEstimatedSize(memoryUsage);
+      this.updateUsage(memoryUsage);
 
       return deletedElem;
     }

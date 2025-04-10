@@ -19,7 +19,7 @@
  * and serialized size of various JS values and CRDT components.
  */
 
-export const ptrSize = 8;
+export const PTRSize = 8;
 
 /**
  * `MemoryUsage` represents the estimated memory usage of a CRDT element,
@@ -28,21 +28,35 @@ export const ptrSize = 8;
 export class MemoryUsage {
   public live: number;
   public gc: number;
-  public total: number;
 
   constructor(live: number, gc: number) {
     this.live = live;
     this.gc = gc;
-    this.total = live + gc;
   }
 
   /**
-   * `add` merges another MemoryUsage into this one.
+   * `acc` accumulates the memory usage of a CRDT element.
    */
-  add(other: MemoryUsage): void {
+  acc(diff: MemoryUsage): void {
+    this.live += diff.live;
+    this.live -= diff.gc;
+    this.gc += diff.gc;
+  }
+
+  /**
+   * `merge` combines the memory usage of two CRDT elements.
+   */
+  merge(other: MemoryUsage): void {
     this.live += other.live;
     this.gc += other.gc;
-    this.total += this.live + this.gc;
+  }
+
+  /**
+   * `total` returns the total memory usage, which is the sum of live and
+   * gc memory.
+   */
+  get total(): number {
+    return this.live + this.gc;
   }
 }
 
