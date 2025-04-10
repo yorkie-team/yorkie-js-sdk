@@ -691,6 +691,13 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getMemoryUsage` summarizes the estimated memory usage of this document.
+   */
+  public getMemoryUsage(): { live: number; gc: number; total: number } {
+    return this.getRootObject().getMemoryUsage();
+  }
+
+  /**
    * `update` executes the given updater to update this document.
    */
   public update(

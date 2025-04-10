@@ -187,6 +187,10 @@ export class CRDTRoot {
       element,
     });
 
+    if (parent) {
+      element.setParent(parent);
+    }
+
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
         this.registerElement(elem, parent);
@@ -203,6 +207,10 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
+
+      const usage = elem.getMemoryUsage();
+      this.rootObject.updateUsage(usage);
+
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;

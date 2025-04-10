@@ -36,6 +36,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
+import { MemoryMeasurable, MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -69,13 +70,25 @@ interface TextChange<A = Indexable> extends ValueChange<TextValueType<A>> {
  * Attributes are represented by RHT.
  *
  */
-export class CRDTTextValue {
+export class CRDTTextValue implements MemoryMeasurable {
   private attributes: RHT;
   private content: string;
 
   constructor(content: string) {
     this.attributes = RHT.create();
     this.content = content;
+  }
+
+  /**
+   * `estimateMemoryUsage` returns an approximate size in bytes of CRDTTextValue.
+   */
+  estimateMemoryUsage(): MemoryUsage {
+    const contentSize = this.content.length * 2;
+
+    const attrUsage =
+      this.attributes?.estimateMemoryUsage?.() ?? new MemoryUsage(0, 0);
+
+    return new MemoryUsage(contentSize + attrUsage.live, attrUsage.gc);
   }
 
   /**
@@ -239,7 +252,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, maxCreatedAtMap, pairs, valueChanges] =
+    const [caretPos, maxCreatedAtMap, pairs, valueChanges, diff] =
       this.rgaTreeSplit.edit(
         range,
         editedAt,
@@ -261,6 +274,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
           },
       type: TextChangeType.Content,
     }));
+    this.updateUsage(diff);
 
     return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
   }
