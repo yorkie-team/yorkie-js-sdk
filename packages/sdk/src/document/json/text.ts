@@ -114,7 +114,7 @@ export class Text<A extends Indexable = Indexable> {
     }
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor, , pairs, rangeAfterEdit] = this.text.edit(
+    const [, pairs, rangeAfterEdit] = this.text.edit(
       range,
       content,
       ticket,
@@ -130,7 +130,6 @@ export class Text<A extends Indexable = Indexable> {
         this.text.getCreatedAt(),
         range[0],
         range[1],
-        maxCreatedAtMapByActor,
         content,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
@@ -183,11 +182,7 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    const [maxCreatedAtMapByActor, pairs] = this.text.setStyle(
-      range,
-      attrs,
-      ticket,
-    );
+    const [pairs] = this.text.setStyle(range, attrs, ticket);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
@@ -198,7 +193,6 @@ export class Text<A extends Indexable = Indexable> {
         this.text.getCreatedAt(),
         range[0],
         range[1],
-        maxCreatedAtMapByActor,
         new Map(Object.entries(attrs)),
         ticket,
       ),

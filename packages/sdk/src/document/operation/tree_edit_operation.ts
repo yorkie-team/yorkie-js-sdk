@@ -39,7 +39,6 @@ export class TreeEditOperation extends Operation {
   private toPos: CRDTTreePos;
   private contents: Array<CRDTTreeNode> | undefined;
   private splitLevel: number;
-  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -47,7 +46,6 @@ export class TreeEditOperation extends Operation {
     toPos: CRDTTreePos,
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
@@ -55,7 +53,6 @@ export class TreeEditOperation extends Operation {
     this.toPos = toPos;
     this.contents = contents;
     this.splitLevel = splitLevel;
-    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
   }
 
   /**
@@ -67,7 +64,6 @@ export class TreeEditOperation extends Operation {
     toPos: CRDTTreePos,
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     executedAt: TimeTicket,
   ): TreeEditOperation {
     return new TreeEditOperation(
@@ -76,7 +72,6 @@ export class TreeEditOperation extends Operation {
       toPos,
       contents,
       splitLevel,
-      maxCreatedAtMapByActor,
       executedAt,
     );
   }
@@ -129,7 +124,6 @@ export class TreeEditOperation extends Operation {
           );
         return issueTimeTicket;
       })(),
-      this.maxCreatedAtMapByActor,
       versionVector,
     );
 
@@ -207,13 +201,5 @@ export class TreeEditOperation extends Operation {
    */
   public getSplitLevel(): number {
     return this.splitLevel;
-  }
-
-  /**
-   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
-   * by actor for the nodes included in the editing range.
-   */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
-    return this.maxCreatedAtMapByActor;
   }
 }
