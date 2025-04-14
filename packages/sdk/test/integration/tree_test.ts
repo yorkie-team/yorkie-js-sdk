@@ -1551,8 +1551,8 @@ describe('Tree.style', function () {
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
 
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await c1.activate();
     await c2.activate();
@@ -1755,7 +1755,7 @@ describe('Tree.style', function () {
 
     // A new client has been added.
     const d3 = new yorkie.Document<TestDoc>(docKey);
-    const c3 = new yorkie.Client(testRPCAddr);
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c3.activate();
     await c3.attach(d3, { syncMode: SyncMode.Manual });
     assert.equal(

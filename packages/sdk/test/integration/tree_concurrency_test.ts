@@ -227,8 +227,8 @@ async function runTest(
   desc: string,
 ): Promise<TestResult> {
   const docKey = `${toDocKey(desc)}-${new Date().getTime()}`;
-  const c1 = new yorkie.Client(testRPCAddr);
-  const c2 = new yorkie.Client(testRPCAddr);
+  const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+  const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
   await c1.activate();
   await c2.activate();
 

@@ -142,13 +142,15 @@ describe('Auth Webhook', () => {
     task,
   }) => {
     // client with token
-    const c1 = new yorkie.Client(testRPCAddr, {
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: async () => {
         return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
       },
     });
-    const c2 = new yorkie.Client(testRPCAddr, {
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: async () => {
         return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
@@ -192,7 +194,8 @@ describe('Auth Webhook', () => {
 
   it('should return unauthenticated error for client with empty token (401)', async () => {
     // client without token
-    const cliWithoutToken = new yorkie.Client(testRPCAddr, {
+    const cliWithoutToken = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
     });
     await assertThrowsAsync(
@@ -209,7 +212,8 @@ describe('Auth Webhook', () => {
     const invalidTokenInjector = vi.fn(async () => {
       return 'invalid-token';
     });
-    const cliWithInvalidToken = new yorkie.Client(testRPCAddr, {
+    const cliWithInvalidToken = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: invalidTokenInjector,
     });
@@ -227,7 +231,8 @@ describe('Auth Webhook', () => {
     const notAllowedTokenInjector = vi.fn(async () => {
       return NotAllowedToken;
     });
-    const cliNotAllowed = new yorkie.Client(testRPCAddr, {
+    const cliNotAllowed = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: notAllowedTokenInjector,
     });
@@ -257,7 +262,8 @@ describe('Auth Webhook', () => {
       return `token-${Date.now() - TokenExpirationMs}`; // token expired
     });
     // client with token
-    const client = new yorkie.Client(testRPCAddr, {
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
     });
@@ -375,7 +381,8 @@ describe('Auth Webhook', () => {
       return `token-${Date.now() - TokenExpirationMs}`; // token expired
     });
     // client with token
-    const client = new yorkie.Client(testRPCAddr, {
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
     });
@@ -438,7 +445,8 @@ describe('Auth Webhook', () => {
       return `token-${Date.now()}`;
     });
     // client with token
-    const client = new yorkie.Client(testRPCAddr, {
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
       retrySyncLoopDelay: 100,
@@ -516,7 +524,8 @@ describe('Auth Webhook', () => {
       return `token-${Date.now()}`;
     });
     // client with token
-    const client = new yorkie.Client(testRPCAddr, {
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
       reconnectStreamDelay: 100,
@@ -535,7 +544,8 @@ describe('Auth Webhook', () => {
     });
 
     // Another client for verifying if the watchDocument is working properly
-    const client2 = new yorkie.Client(testRPCAddr, {
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: async () => {
         return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
@@ -611,7 +621,8 @@ describe('Auth Webhook', () => {
       return `token-${Date.now()}`;
     });
     // client with token
-    const client = new yorkie.Client(testRPCAddr, {
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
       reconnectStreamDelay: 100,
@@ -630,7 +641,8 @@ describe('Auth Webhook', () => {
     });
 
     // Another client for verifying if the broadcast is working properly
-    const client2 = new yorkie.Client(testRPCAddr, {
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: async () => {
         return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour

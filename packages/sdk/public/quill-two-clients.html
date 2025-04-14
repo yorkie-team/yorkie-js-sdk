@@ -142,7 +142,9 @@
         try {
           async function initializeRealtimeEditor(clientElem) {
             // 01. create client with RPCAddr(envoy) then activate it.
-            const client = new yorkie.Client('http://localhost:8080');
+            const client = new yorkie.Client({
+              rpcAddr: 'http://localhost:8080',
+            });
             await client.activate();
             const clientID = client.getID().slice(-2);
             clientElem.querySelector('.client-id').textContent = clientID;
