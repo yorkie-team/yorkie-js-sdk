@@ -252,7 +252,7 @@
        * main is the entry point of the example.
        */
       async function main() {
-        const client = new yorkie.Client('http://localhost:8080');
+        const client = new yorkie.Client({ rpcAddr: 'http://localhost:8080' });
         await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.

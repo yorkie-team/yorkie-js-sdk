@@ -40,7 +40,8 @@ function toDeltaOperation<T extends TextValueType>(
 
 async function main() {
   // 01-1. create client with RPCAddr then activate it.
-  const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+  const client = new yorkie.Client({
+    rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();

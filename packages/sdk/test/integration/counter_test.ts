@@ -227,8 +227,8 @@ describe('Counter', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 

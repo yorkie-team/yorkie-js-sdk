@@ -45,7 +45,8 @@ describe.sequential('Client', function () {
 
   it('Can be activated, deactivated', async function ({ task }) {
     const clientKey = `${task.name}-${new Date().getTime()}`;
-    const clientWithKey = new yorkie.Client(testRPCAddr, {
+    const clientWithKey = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       key: clientKey,
       syncLoopDuration: 50,
       reconnectStreamDelay: 1000,
@@ -57,7 +58,7 @@ describe.sequential('Client', function () {
     await clientWithKey.deactivate();
     assert.isFalse(clientWithKey.isActive());
 
-    const clientWithoutKey = new yorkie.Client(testRPCAddr);
+    const clientWithoutKey = new yorkie.Client({ rpcAddr: testRPCAddr });
     assert.isFalse(clientWithoutKey.isActive());
     await clientWithoutKey.activate();
     assert.isTrue(clientWithoutKey.isActive());
@@ -68,7 +69,7 @@ describe.sequential('Client', function () {
   });
 
   it('Can attach/detach document', async function ({ task }) {
-    const cli = new yorkie.Client(testRPCAddr);
+    const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
     const doc = new yorkie.Document(
       toDocKey(`${task.name}-${new Date().getTime()}`),
@@ -166,8 +167,8 @@ describe.sequential('Client', function () {
   it('Can recover from temporary disconnect (realtime sync)', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -256,8 +257,8 @@ describe.sequential('Client', function () {
   });
 
   it('Can change sync mode(realtime <-> manual)', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -318,9 +319,9 @@ describe.sequential('Client', function () {
     // | c2 | PushPull | SyncOff  | PushOnly | PushPull |
     // | c3 | PushPull | PushPull | PushPull | PushPull |
 
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    const c3 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     await c3.activate();
@@ -448,8 +449,8 @@ describe.sequential('Client', function () {
   it('Should apply previous changes when switching to realtime sync', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -509,7 +510,7 @@ describe.sequential('Client', function () {
   it('Should not include changes applied in push-only mode when switching to realtime sync', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
 
     // 01. cli attach to the document having counter.
@@ -574,8 +575,8 @@ describe.sequential('Client', function () {
   it('Should prevent remote changes in push-only mode', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -657,8 +658,8 @@ describe.sequential('Client', function () {
   it('Should prevent remote changes in sync-off mode', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -740,8 +741,8 @@ describe.sequential('Client', function () {
   it('Should avoid unnecessary syncs in push-only mode', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -797,7 +798,7 @@ describe.sequential('Client', function () {
 
   it('Should handle each request one by one', async function ({ task }) {
     for (let i = 0; i < 10; i++) {
-      const cli = new yorkie.Client(testRPCAddr);
+      const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
       await cli.activate();
 
       const doc = new yorkie.Document<{ t: Text }>(
@@ -813,7 +814,8 @@ describe.sequential('Client', function () {
   it('Should retry on network failure and eventually succeed', async ({
     task,
   }) => {
-    const cli = new yorkie.Client(testRPCAddr, {
+    const cli = new yorkie.Client({
+      rpcAddr: testRPCAddr,
       retrySyncLoopDelay: 10,
     });
     await cli.activate();
@@ -873,7 +875,7 @@ describe.sequential('Client', function () {
   it('Should successfully broadcast serializeable payload', async ({
     task,
   }) => {
-    const cli = new yorkie.Client(testRPCAddr);
+    const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
     const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
@@ -891,7 +893,7 @@ describe.sequential('Client', function () {
     task,
   }) => {
     const eventCollector = new EventCollector<string>();
-    const cli = new yorkie.Client(testRPCAddr);
+    const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
     const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));

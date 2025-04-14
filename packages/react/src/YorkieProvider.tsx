@@ -73,7 +73,8 @@ export function useYorkieClient(apiKey: string, rpcAddr: string) {
       }
 
       try {
-        const newClient = new Client(rpcAddr, {
+        const newClient = new Client({
+          rpcAddr,
           apiKey,
         });
         await newClient.activate();

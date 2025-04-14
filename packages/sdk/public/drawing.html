@@ -38,7 +38,8 @@
       async function main() {
         try {
           // 01. create client with RPCAddr then activate it.
-          const client = new yorkie.Client('http://localhost:8080', {
+          const client = new yorkie.Client({
+            rpcAddr: 'http://localhost:8080',
             syncLoopDuration: 0,
             reconnectStreamDelay: 1000,
           });

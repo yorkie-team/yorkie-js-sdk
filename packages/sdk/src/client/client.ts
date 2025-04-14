@@ -16,10 +16,10 @@
 
 import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import {
-  createPromiseClient,
-  PromiseClient,
+  createClient as createConnectClient,
+  Client as ConnectClient,
   ConnectError,
-  Code as ConnectErrorCode,
+  Code as ConnectCode,
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_connect';
@@ -117,6 +117,12 @@ export enum ClientCondition {
  */
 export interface ClientOptions {
   /**
+   * `rpcAddr` is the address of the RPC server. It is used to connect to
+   * the server.
+   */
+  rpcAddr?: string;
+
+  /**
    * `key` is the client key. It is used to identify the client.
    * If not set, a random key is generated.
    */
@@ -164,9 +170,32 @@ export interface ClientOptions {
 }
 
 /**
+ * `AttachOptions` are user-settable options used when attaching documents.
+ */
+export interface AttachOptions<R, P> {
+  /**
+   * `initialRoot` is the initial root of the document. It is used to
+   * initialize the document. It is used when the fields are not set in the
+   * document.
+   */
+  initialRoot?: R;
+
+  /**
+   * `initialPresence` is the initial presence of the client.
+   */
+  initialPresence?: P;
+
+  /**
+   * `syncMode` defines the synchronization mode of the document.
+   */
+  syncMode?: SyncMode;
+}
+
+/**
  * `DefaultClientOptions` is the default options for Client.
  */
 const DefaultClientOptions = {
+  rpcAddr: 'https://api.yorkie.dev',
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
@@ -202,7 +231,7 @@ export class Client {
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
 
-  private rpcClient: PromiseClient<typeof YorkieService>;
+  private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
@@ -212,10 +241,11 @@ export class Client {
    * @param rpcAddr - the address of the RPC server.
    * @param opts - the options of the client.
    */
-  constructor(rpcAddr: string, opts?: ClientOptions) {
+  constructor(opts?: ClientOptions) {
     opts = opts || DefaultClientOptions;
 
-    this.key = opts.key ? opts.key : uuid();
+    const rpcAddr = opts.rpcAddr || DefaultClientOptions.rpcAddr;
+    this.key = opts.key || uuid();
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
@@ -239,7 +269,7 @@ export class Client {
 
     // Here we make the client itself, combining the service
     // definition with the transport.
-    this.rpcClient = createPromiseClient(
+    this.rpcClient = createConnectClient(
       YorkieService,
       createGrpcWebTransport({
         baseUrl: rpcAddr,
@@ -347,14 +377,10 @@ export class Client {
    * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */
-  public attach<T, P extends Indexable>(
-    doc: Document<T, P>,
-    options: {
-      initialRoot?: T;
-      initialPresence?: P;
-      syncMode?: SyncMode;
-    } = {},
-  ): Promise<Document<T, P>> {
+  public attach<R, P extends Indexable>(
+    doc: Document<R, P>,
+    options: AttachOptions<R, P> = {},
+  ): Promise<Document<R, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
@@ -427,7 +453,7 @@ export class Client {
             doc.update((root) => {
               for (const [k, v] of Object.entries(initialRoot)) {
                 if (!crdtObject.has(k)) {
-                  const key = k as keyof T;
+                  const key = k as keyof R;
                   root[key] = v as any;
                 }
               }
@@ -452,13 +478,13 @@ export class Client {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach<T, P extends Indexable>(
-    doc: Document<T, P>,
+  public detach<R, P extends Indexable>(
+    doc: Document<R, P>,
     options: {
       removeIfNotAttached?: boolean;
       keepalive?: boolean;
     } = { keepalive: false },
-  ): Promise<Document<T, P>> {
+  ): Promise<Document<R, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
@@ -515,10 +541,10 @@ export class Client {
   /**
    * `changeRealtimeSync` changes the synchronization mode of the given document.
    */
-  public async changeSyncMode<T, P extends Indexable>(
-    doc: Document<T, P>,
+  public async changeSyncMode<R, P extends Indexable>(
+    doc: Document<R, P>,
     syncMode: SyncMode,
-  ): Promise<Document<T, P>> {
+  ): Promise<Document<R, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
@@ -568,9 +594,9 @@ export class Client {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    */
-  public sync<T, P extends Indexable>(
-    doc?: Document<T, P>,
-  ): Promise<Array<Document<T, P>>> {
+  public sync<R, P extends Indexable>(
+    doc?: Document<R, P>,
+  ): Promise<Array<Document<R, P>>> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
@@ -579,7 +605,7 @@ export class Client {
     }
     if (doc) {
       // prettier-ignore
-      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<T, P>;
+      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<R, P>;
       if (!attachment) {
         throw new YorkieError(
           Code.ErrDocumentNotAttached,
@@ -613,7 +639,7 @@ export class Client {
   /**
    * `remove` removes the given document.
    */
-  public remove<T, P extends Indexable>(doc: Document<T, P>): Promise<void> {
+  public remove<R, P extends Indexable>(doc: Document<R, P>): Promise<void> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
@@ -958,8 +984,8 @@ export class Client {
     );
   }
 
-  private handleWatchDocumentsResponse<T, P extends Indexable>(
-    attachment: Attachment<T, P>,
+  private handleWatchDocumentsResponse<R, P extends Indexable>(
+    attachment: Attachment<R, P>,
     resp: WatchDocumentResponse,
   ) {
     if (
@@ -997,10 +1023,10 @@ export class Client {
     this.attachmentMap.delete(docKey);
   }
 
-  private syncInternal<T, P extends Indexable>(
-    attachment: Attachment<T, P>,
+  private syncInternal<R, P extends Indexable>(
+    attachment: Attachment<R, P>,
     syncMode: SyncMode,
-  ): Promise<Document<T, P>> {
+  ): Promise<Document<R, P>> {
     const { doc, docID } = attachment;
 
     const reqPack = doc.createChangePack();
@@ -1076,10 +1102,10 @@ export class Client {
     // Additionally, `Unknown` and `Canceled` are added separately as it
     // typically occurs when the server is stopped.
     if (
-      err.code === ConnectErrorCode.Canceled ||
-      err.code === ConnectErrorCode.Unknown ||
-      err.code === ConnectErrorCode.ResourceExhausted ||
-      err.code === ConnectErrorCode.Unavailable
+      err.code === ConnectCode.Canceled ||
+      err.code === ConnectCode.Unknown ||
+      err.code === ConnectCode.ResourceExhausted ||
+      err.code === ConnectCode.Unavailable
     ) {
       return true;
     }
