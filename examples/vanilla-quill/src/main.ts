@@ -46,10 +46,6 @@ async function main() {
   });
   await client.activate();
 
-  window.addEventListener('beforeunload', () => {
-    client.deactivate({ keepalive: true });
-  });
-
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey, {
     enableDevtools: true,
