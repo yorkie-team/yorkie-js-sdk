@@ -24,9 +24,6 @@ async function main() {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
-  window.addEventListener('beforeunload', () => {
-    client.deactivate({ keepalive: true });
-  });
 
   const doc = new yorkie.Document('vanilla-document-limit', {
     enableDevtools: true,

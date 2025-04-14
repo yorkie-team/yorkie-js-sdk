@@ -21,10 +21,6 @@ async function main() {
       color: getRandomColor(),
     },
   });
-
-  window.addEventListener('beforeunload', () => {
-    client.deactivate({ keepalive: true });
-  });
 }
 
 const MAX_PEER_VIEW = 4;

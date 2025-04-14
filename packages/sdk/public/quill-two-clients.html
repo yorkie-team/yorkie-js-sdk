@@ -486,9 +486,6 @@
 
             syncText(doc, quill);
             updateAllCursors();
-            window.addEventListener('beforeunload', async () => {
-              await client.deactivate({ keepalive: true });
-            });
 
             return { client, doc, quill };
           }

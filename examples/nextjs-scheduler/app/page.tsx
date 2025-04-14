@@ -94,10 +94,6 @@ export default function Editor() {
       apiKey: ENV.apiKey,
     });
 
-    window.addEventListener('beforeunload', () => {
-      client.deactivate({ keepalive: true });
-    });
-
     // subscribe document event of "PresenceChanged"(="peers-changed")
     doc.subscribe('presence', (event) => {
       if (event.type !== DocEventType.PresenceChanged) {

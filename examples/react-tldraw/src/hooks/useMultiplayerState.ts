@@ -14,7 +14,7 @@ import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
 import _ from 'lodash';
 
-import type { Options, YorkieDocType, YorkiePresenceType } from './types';
+import type { YorkieDocType, YorkiePresenceType } from './types';
 
 // Yorkie Client declaration
 let client: yorkie.Client;
@@ -158,14 +158,6 @@ export function useMultiplayerState(roomId: string) {
   useEffect(() => {
     if (!app) return;
 
-    // Detach & deactive yorkie client before unload
-    function handleDisconnect() {
-      if (client === undefined || doc === undefined) return;
-      client.deactivate({ keepalive: true });
-    }
-
-    window.addEventListener('beforeunload', handleDisconnect);
-
     // Subscribe to changes
     function handleChanges() {
       const root = doc.getRoot();
@@ -192,16 +184,12 @@ export function useMultiplayerState(roomId: string) {
       try {
         // 01. Create client with RPCAddr and options with apiKey if provided.
         //     Then activate client.
-        const options: Options = {
+        client = new yorkie.Client({
+          rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
           apiKey: import.meta.env.VITE_YORKIE_API_KEY,
           syncLoopDuration: 0,
           reconnectStreamDelay: 1000,
-        };
-
-        client = new yorkie.Client(
-          import.meta.env.VITE_YORKIE_API_ADDR,
-          options,
-        );
+        });
         await client.activate();
 
         // 02. Create document with tldraw custom object type.
@@ -283,7 +271,6 @@ export function useMultiplayerState(roomId: string) {
     setupDocument();
 
     return () => {
-      window.removeEventListener('beforeunload', handleDisconnect);
       stillAlive = false;
     };
   }, [app]);

@@ -38,10 +38,6 @@ const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
 });
 
-window.addEventListener('beforeunload', () => {
-  client.deactivate({ keepalive: true });
-});
-
 const doc = new yorkie.Document(
   `vuejs-kanban-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`,
   { enableDevtools: true },

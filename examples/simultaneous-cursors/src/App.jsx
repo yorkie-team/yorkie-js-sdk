@@ -41,10 +41,6 @@ const App = () => {
           pointerDown: false,
         },
       });
-
-      window.addEventListener('beforeunload', () => {
-        client.deactivate({ keepalive: true });
-      });
     };
 
     setup();
