@@ -167,6 +167,12 @@ export interface ClientOptions {
    * default value is `1000`(ms).
    */
   reconnectStreamDelay?: number;
+
+  /**
+   * `userAgent` is the user agent of the client. It is used to identify the
+   * client.
+   */
+  userAgent?: string;
 }
 
 /**
@@ -273,7 +279,10 @@ export class Client {
       YorkieService,
       createGrpcWebTransport({
         baseUrl: rpcAddr,
-        interceptors: [authInterceptor, createMetricInterceptor()],
+        interceptors: [
+          authInterceptor,
+          createMetricInterceptor(opts?.userAgent),
+        ],
         fetch: (input, init) => {
           const newInit = {
             ...init,

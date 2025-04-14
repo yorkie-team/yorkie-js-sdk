@@ -20,6 +20,7 @@ import {
   Presence,
   StreamConnectionStatus,
 } from '@yorkie-js/sdk';
+import pkg from '../package.json';
 import { useYorkieClient } from './YorkieProvider';
 import { useYorkieDocument } from './DocumentProvider';
 import { useMemo } from 'react';
@@ -49,6 +50,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
   const clientOpts = useMemo(() => {
     return {
       apiKey,
+      userAgent: pkg.name + '/' + pkg.version,
       ...opts,
     };
   }, [apiKey]);

@@ -23,6 +23,7 @@ import {
   useState,
 } from 'react';
 import { Client, ClientOptions } from '@yorkie-js/sdk';
+import pkg from '../package.json';
 
 type YorkieContextType = {
   client: Client | undefined;
@@ -96,13 +97,12 @@ export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
   // NOTE(hackerwins): useMemo is used to prevent re-creating the client
   // when the component re-renders. If the apiKey or rpcAddr changes,
   // the client will be re-created.
-  const clientOpts = useMemo(
-    () => ({
-      apiKey: opts.apiKey,
-      rpcAddr: opts.rpcAddr,
-    }),
-    [opts.apiKey, opts.rpcAddr],
-  );
+  const clientOpts = useMemo(() => {
+    return {
+      userAgent: pkg.name + '/' + pkg.version,
+      ...opts,
+    };
+  }, [opts.apiKey, opts.rpcAddr]);
   const { client, loading, error } = useYorkieClient(clientOpts);
 
   return (
