@@ -21,9 +21,13 @@ import { Interceptor } from '@connectrpc/connect';
  * `createMetricInterceptor` creates an interceptor to add the x-yorkie-user-agent header for each
  * request.
  */
-export function createMetricInterceptor(): Interceptor {
+export function createMetricInterceptor(userAgent?: string): Interceptor {
   return (next) => async (req) => {
-    req.header.set('x-yorkie-user-agent', pkg.name + '/' + pkg.version);
+    if (userAgent) {
+      req.header.set('x-yorkie-user-agent', userAgent);
+    } else {
+      req.header.set('x-yorkie-user-agent', pkg.name + '/' + pkg.version);
+    }
     return await next(req);
   };
 }
