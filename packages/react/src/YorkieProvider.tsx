@@ -19,10 +19,10 @@ import {
   PropsWithChildren,
   useContext,
   useEffect,
-  useRef,
+  useMemo,
   useState,
 } from 'react';
-import { Client } from '@yorkie-js/sdk';
+import { Client, ClientOptions } from '@yorkie-js/sdk';
 
 type YorkieContextType = {
   client: Client | undefined;
@@ -37,20 +37,9 @@ const YorkieContext = createContext<YorkieContextType>({
 });
 
 /**
- * `YorkieProviderProps` is a set of properties for `YorkieProvider`.
- */
-interface YorkieProviderProps {
-  apiKey: string;
-  rpcAddr?: string;
-}
-
-/**
  * `useYorkieClient` is a custom hook that initializes a Yorkie client.
- * @param apiKey
- * @param rpcAddr
- * @returns
  */
-export function useYorkieClient(apiKey: string, rpcAddr: string) {
+export function useYorkieClient(opts: ClientOptions) {
   const [client, setClient] = useState<Client | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | undefined>(undefined);
@@ -73,10 +62,7 @@ export function useYorkieClient(apiKey: string, rpcAddr: string) {
       }
 
       try {
-        const newClient = new Client({
-          rpcAddr,
-          apiKey,
-        });
+        const newClient = new Client(opts);
         await newClient.activate();
         setClient(newClient);
       } catch (e) {
@@ -94,7 +80,7 @@ export function useYorkieClient(apiKey: string, rpcAddr: string) {
         client.deactivate({ keepalive: true });
       }
     };
-  }, [apiKey, rpcAddr, didMount]);
+  }, [opts.apiKey, opts.rpcAddr, didMount]);
 
   return { client, loading, error };
 }
@@ -103,10 +89,21 @@ export function useYorkieClient(apiKey: string, rpcAddr: string) {
  * `YorkieProvider` is a component that provides the Yorkie client to its children.
  * It initializes the Yorkie client with the given API key and RPC address.
  */
-export const YorkieProvider: React.FC<
-  PropsWithChildren<YorkieProviderProps>
-> = ({ apiKey, rpcAddr = 'https://api.yorkie.dev', children }) => {
-  const { client, loading, error } = useYorkieClient(apiKey, rpcAddr);
+export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
+  children,
+  ...opts
+}) => {
+  // NOTE(hackerwins): useMemo is used to prevent re-creating the client
+  // when the component re-renders. If the apiKey or rpcAddr changes,
+  // the client will be re-created.
+  const clientOpts = useMemo(
+    () => ({
+      apiKey: opts.apiKey,
+      rpcAddr: opts.rpcAddr,
+    }),
+    [opts.apiKey, opts.rpcAddr],
+  );
+  const { client, loading, error } = useYorkieClient(clientOpts);
 
   return (
     <YorkieContext.Provider value={{ client, loading, error }}>

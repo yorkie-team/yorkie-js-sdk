@@ -14,25 +14,26 @@
  * limitations under the License.
  */
 
-import { Indexable, Presence, StreamConnectionStatus } from '@yorkie-js/sdk';
+import {
+  ClientOptions,
+  Indexable,
+  Presence,
+  StreamConnectionStatus,
+} from '@yorkie-js/sdk';
 import { useYorkieClient } from './YorkieProvider';
 import { useYorkieDocument } from './DocumentProvider';
+import { useMemo } from 'react';
 
 /**
  * `useYorkieDoc` is a custom hook that initializes a Yorkie Client and a
  * document in a single hook.
- *
- * @param apiKey
- * @param docKey
- * @returns
  */
-export function useYorkieDoc<R, P extends Indexable>(
+export function useYorkieDoc<R, P extends Indexable = Indexable>(
   apiKey: string,
   docKey: string,
-  options?: {
+  opts?: Omit<ClientOptions, 'apiKey'> & {
     initialRoot?: R;
     initialPresence?: P;
-    rpcAddr?: string;
   },
 ): {
   root: R;
@@ -42,15 +43,21 @@ export function useYorkieDoc<R, P extends Indexable>(
   loading: boolean;
   error: Error | undefined;
 } {
-  const rpcAddr = options?.rpcAddr || 'https://api.yorkie.dev';
-  const initialRoot = options?.initialRoot || ({} as R);
-  const initialPresence = options?.initialPresence || ({} as P);
+  // NOTE(hackerwins): useMemo is used to prevent creating a new client
+  // every time the component re-renders. If the apiKey or docKey
+  // changes, a new client will be created.
+  const clientOpts = useMemo(() => {
+    return {
+      apiKey,
+      ...opts,
+    };
+  }, [apiKey]);
 
   const {
     client,
     loading: clientLoading,
     error: clientError,
-  } = useYorkieClient(apiKey, rpcAddr);
+  } = useYorkieClient(clientOpts);
 
   const { root, presences, connection, update, loading, error } =
     useYorkieDocument(
@@ -58,15 +65,17 @@ export function useYorkieDoc<R, P extends Indexable>(
       clientLoading,
       clientError,
       docKey,
-      initialRoot,
-      initialPresence,
+      opts?.initialRoot,
+      opts?.initialPresence as P,
     );
 
   return {
-    root,
+    root: root as R,
     presences,
     connection,
-    update,
+    update: update as (
+      callback: (root: R, presence: Presence<P>) => void,
+    ) => void,
     loading,
     error,
   };

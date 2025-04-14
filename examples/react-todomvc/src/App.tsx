@@ -1,4 +1,9 @@
-import { JSONArray, JSONObject, useDocument } from '@yorkie-js/react';
+import {
+  JSONArray,
+  JSONObject,
+  useDocument,
+  useYorkieDoc,
+} from '@yorkie-js/react';
 
 import Header from './Header';
 import MainSection from './MainSection';
@@ -11,9 +16,20 @@ import 'todomvc-app-css/index.css';
  * `App` is the root component of the application.
  */
 export default function App() {
-  const { root, update, loading, error } = useDocument<{
+  const { root, update, loading, error } = useYorkieDoc<{
     todos: JSONArray<Todo>;
-  }>();
+  }>(
+    import.meta.env.VITE_YORKIE_API_KEY,
+    `react-todomvc-${new Date()
+      .toISOString()
+      .substring(0, 10)
+      .replace(/-/g, '')}`,
+    {
+      initialRoot: {
+        todos: [],
+      },
+    },
+  );
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
