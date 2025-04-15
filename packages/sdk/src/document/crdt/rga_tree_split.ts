@@ -28,7 +28,7 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
-  estimateValueSize,
+  calculateValueSize,
   MemoryMeasurable,
   MemoryUsage,
   PTRSize,
@@ -45,7 +45,7 @@ interface RGATreeSplitValue {
   length: number;
 
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
-  estimateMemoryUsage(): MemoryUsage;
+  calculateUsage(): MemoryUsage;
 }
 
 /**
@@ -271,18 +271,17 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   /**
-   * `estimateMemoryUsage` returns an approximate size in bytes of CRDTTextValue.
+   * `calculateUsage` returns the size in bytes of CRDTTextValue.
    */
-  public estimateMemoryUsage(): MemoryUsage {
+  public calculateUsage(): MemoryUsage {
     const isTombstone = !!this.removedAt;
-    const valueUsage =
-      this.value?.estimateMemoryUsage?.() ?? new MemoryUsage(0, 0);
+    const valueUsage = this.value?.calculateUsage?.() ?? new MemoryUsage(0, 0);
 
     const ptr = PTRSize * 5;
 
     if (isTombstone) {
-      const ticketSize = estimateValueSize(this.removedAt);
       // NOTE(raararaara): live must have ticketSize because of transferGCtoLive.
+      const ticketSize = calculateValueSize(this.removedAt);
       return new MemoryUsage(ticketSize, valueUsage.total + ticketSize + ptr);
     } else {
       return new MemoryUsage(valueUsage.total + ptr, 0);
@@ -582,7 +581,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * @param editedAt - edited time
    * @param value - value
    * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
-   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<GCPair>, Array<Change>]`
+   * @param versionVector - versionVector
+   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<GCPair>, Array<Change>, MemoryUsage]`
    */
   public edit(
     range: RGATreeSplitPosRange,
@@ -623,7 +623,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         fromLeft,
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
-      diff.merge(inserted.estimateMemoryUsage());
+      diff.merge(inserted.calculateUsage());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
@@ -647,7 +647,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     for (const [, removedNode] of removedNodes) {
       pairs.push({ parent: this, child: removedNode });
 
-      const removedUsage = removedNode.estimateMemoryUsage();
+      const removedUsage = removedNode.calculateUsage();
       diff.merge(removedUsage);
     }
 

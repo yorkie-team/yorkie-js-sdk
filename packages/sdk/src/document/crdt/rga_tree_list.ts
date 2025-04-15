@@ -352,7 +352,7 @@ export class RGATreeList {
     if (node!.remove(editedAt) && !alreadyRemoved) {
       this.nodeMapByIndex.splayNode(node);
 
-      const usage = node!.estimateMemoryUsage();
+      const usage = node!.calculateUsage();
       memoryUsage.merge(usage);
       memoryUsage.live -= usage.total;
     }
@@ -377,7 +377,7 @@ export class RGATreeList {
     if (node.remove(editedAt)) {
       this.nodeMapByIndex.splayNode(node);
 
-      const usage = node!.estimateMemoryUsage();
+      const usage = node!.calculateUsage();
       memoryUsage.merge(usage);
       memoryUsage.live -= usage.total;
     }

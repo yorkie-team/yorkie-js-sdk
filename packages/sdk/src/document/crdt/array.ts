@@ -143,14 +143,14 @@ export class CRDTArray extends CRDTContainer {
     editedAt: TimeTicket,
   ): CRDTElement | undefined {
     const result = this.elements.deleteByIndex(index, editedAt);
-    if (result) {
-      const [deletedElem, memoryUsage] = result;
-      this.updateUsage(memoryUsage);
 
-      return deletedElem;
+    if (!result) {
+      return;
     }
+    const [deletedElem, memoryUsage] = result;
+    this.updateUsage(memoryUsage);
 
-    return;
+    return deletedElem;
   }
 
   /**

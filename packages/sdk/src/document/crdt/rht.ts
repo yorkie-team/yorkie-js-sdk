@@ -18,7 +18,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
 import {
-  estimateValueSize,
+  calculateValueSize,
   MemoryMeasurable,
   MemoryUsage,
 } from '@yorkie-js/sdk/src/util/memory';
@@ -45,10 +45,10 @@ export class RHTNode implements GCChild, MemoryMeasurable {
   }
 
   /**
-   * `estimateMemoryUsage` returns an approximate size in bytes of RHTNode.
+   * `calculateUsage` returns the size in bytes of RHTNode.
    */
-  estimateMemoryUsage(): MemoryUsage {
-    const usage = estimateValueSize(this);
+  calculateUsage(): MemoryUsage {
+    const usage = calculateValueSize(this);
 
     if (this.isRemoved()) {
       return new MemoryUsage(0, usage);
@@ -130,16 +130,16 @@ export class RHT implements MemoryMeasurable {
   }
 
   /**
-   * `estimateMemoryUsage` returns an approximate size in bytes of RHT.
+   * `calculateUsage` returns the size in bytes of RHT.
    */
-  estimateMemoryUsage(): MemoryUsage {
+  calculateUsage(): MemoryUsage {
     const usage = new MemoryUsage(0, 0);
     for (const [key, node] of this.nodeMapByKey) {
-      const nodeUsage = node.estimateMemoryUsage();
+      const nodeUsage = node.calculateUsage();
       if (node.isRemoved()) {
-        nodeUsage.gc += estimateValueSize(key);
+        nodeUsage.gc += calculateValueSize(key);
       } else {
-        nodeUsage.live += estimateValueSize(key);
+        nodeUsage.live += calculateValueSize(key);
       }
       usage.merge(nodeUsage);
     }

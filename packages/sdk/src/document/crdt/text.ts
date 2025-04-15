@@ -80,13 +80,13 @@ export class CRDTTextValue implements MemoryMeasurable {
   }
 
   /**
-   * `estimateMemoryUsage` returns an approximate size in bytes of CRDTTextValue.
+   * `calculateMemoryUsage` returns the size in bytes of CRDTTextValue.
    */
-  estimateMemoryUsage(): MemoryUsage {
+  calculateUsage(): MemoryUsage {
     const contentSize = this.content.length * 2;
 
     const attrUsage =
-      this.attributes?.estimateMemoryUsage?.() ?? new MemoryUsage(0, 0);
+      this.attributes?.calculateUsage?.() ?? new MemoryUsage(0, 0);
 
     return new MemoryUsage(contentSize + attrUsage.live, attrUsage.gc);
   }
@@ -288,6 +288,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * @param attributes - style attributes
    * @param editedAt - edited time
    * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
+   * @param versionVector - versionVector
    * @internal
    */
   public setStyle(
@@ -337,6 +338,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
+    // const diff = new MemoryUsage(0, 0);
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
       if (node.isRemoved()) {
@@ -358,11 +361,21 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
       for (const [key, value] of Object.entries(attributes)) {
         const [prev] = node.getValue().setAttr(key, value, editedAt);
+        // const [prev, created] = node.getValue().setAttr(key, value, editedAt);
+
+        // if (created) {
+        //   diff.merge(created.calculateUsage());
+        // }
+
         if (prev !== undefined) {
           pairs.push({ parent: node.getValue(), child: prev });
+          //
+          // const removedUsage = prev.calculateUsage();
+          // diff.merge(removedUsage);
         }
       }
     }
+    // this.updateUsage(diff);
 
     return [createdAtMapByActor, pairs, changes];
   }

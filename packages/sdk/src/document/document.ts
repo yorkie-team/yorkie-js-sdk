@@ -77,6 +77,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
+import { MemoryUsage } from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -691,9 +692,9 @@ export class Document<T, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getMemoryUsage` summarizes the estimated memory usage of this document.
+   * `getMemoryUsage` summarizes the memory usage of this document.
    */
-  public getMemoryUsage(): { live: number; gc: number; total: number } {
+  public getMemoryUsage(): MemoryUsage {
     return this.getRootObject().getMemoryUsage();
   }
 

@@ -15,14 +15,14 @@
  */
 
 /**
- * `memory.ts` provides utility functions to estimate memory usage
- * and serialized size of various JS values and CRDT components.
+ * `memory.ts` provides utility functions to memory usage and
+ * serialized size of various JS values and CRDT components.
  */
 
 export const PTRSize = 8;
 
 /**
- * `MemoryUsage` represents the estimated memory usage of a CRDT element,
+ * `MemoryUsage` represents the memory usage of a CRDT element,
  * separated into live and garbage-collected components.
  */
 export class MemoryUsage {
@@ -52,8 +52,7 @@ export class MemoryUsage {
   }
 
   /**
-   * `total` returns the total memory usage, which is the sum of live and
-   * gc memory.
+   * `total` returns the total memory usage, which is the sum of live and gc memory.
    */
   get total(): number {
     return this.live + this.gc;
@@ -61,42 +60,51 @@ export class MemoryUsage {
 }
 
 /**
- * `MemoryMeasurable` defines an interface for elements that can estimate their memory usage.
+ * `MemoryMeasurable` defines an interface for elements that can calculate their memory usage.
  */
 export interface MemoryMeasurable {
-  estimateMemoryUsage(): MemoryUsage;
+  calculateUsage(): MemoryUsage;
 }
 
 /**
- * `estimateValueSize` returns an approximate size of various types.
+ * `isMemoryMeasurable` checks if the given object implements MemoryMeasurable.
  */
-export function estimateValueSize(value: unknown): number {
+export function isMemoryMeasurable(obj: unknown): obj is MemoryMeasurable {
+  return (
+    !!obj && typeof (obj as MemoryMeasurable).calculateUsage === 'function'
+  );
+}
+
+/**
+ * `calculateValueSize` returns the size of various types.
+ */
+export function calculateValueSize(value: unknown): number {
   switch (typeof value) {
     case 'string':
-      return new TextEncoder().encode(value).length * 2;
+      return value.length * 2;
     case 'number':
       return 8;
     case 'boolean':
       return 4;
     case 'bigint':
-      return new TextEncoder().encode(value.toString()).length * 2;
+      return value.toString().length * 2;
     case 'undefined':
       return 4;
     case 'object':
-      return estimateObjectSize(value as Record<string, unknown>);
+      return calculateObjectSize(value as Record<string, unknown>);
     default:
       return 0;
   }
 }
 
 /**
- * `estimateObjectSize` returns an approximate size in bytes of a plain object,
+ * `calculateObjectSize` returns the size in bytes of a plain object,
  * including keys and values.
  */
-export function estimateObjectSize(obj: Record<string, unknown>): number {
+export function calculateObjectSize(obj: Record<string, unknown>): number {
   let size = 0;
   for (const [key, value] of Object.entries(obj)) {
-    size += estimateValueSize(key) + estimateValueSize(value);
+    size += calculateValueSize(key) + calculateValueSize(value);
   }
   return size;
 }

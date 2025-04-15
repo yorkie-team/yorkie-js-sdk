@@ -52,7 +52,7 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `getMemoryUsage` summaries the estimated memory usage of this element,
+   * `getMemoryUsage` summaries the memory usage of this element,
    * distinguishing between live and logically removed elements.
    */
   public getMemoryUsage(): MemoryUsage {

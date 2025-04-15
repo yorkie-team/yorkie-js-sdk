@@ -19,7 +19,7 @@ import {
   DefaultComparator,
 } from '@yorkie-js/sdk/src/util/comparator';
 import {
-  estimateValueSize,
+  calculateValueSize,
   MemoryMeasurable,
   MemoryUsage,
   PTRSize,
@@ -48,14 +48,13 @@ class LLRBNode<K, V> implements MemoryMeasurable {
   }
 
   /**
-   * `estimateMemoryUsage` returns an approximate size in bytes of LLRBNode.
+   * `calculateUsage` returns the size in bytes of LLRBNode.
    */
-  estimateMemoryUsage(): MemoryUsage {
-    // TODO(raararaara): Is this const?
-    const keySize = estimateValueSize(this.key);
+  calculateUsage(): MemoryUsage {
+    const keySize = calculateValueSize(this.key);
     const ptr = PTRSize * 3;
-    const live = keySize + ptr + PTRSize;
-    return new MemoryUsage(live, 0);
+
+    return new MemoryUsage(keySize + ptr + PTRSize, 0);
   }
 }
 

@@ -38,14 +38,10 @@ export abstract class SplayNode<V> implements MemoryMeasurable {
   }
 
   /**
-   * `estimateMemoryUsage` returns an approximate size in bytes of SplayNode.
+   * `calculateUsage` returns the size in bytes of SplayNode.
    */
-  estimateMemoryUsage(): MemoryUsage {
-    // TODO(raara): Is this const?
-    const weightSize = 8;
-
-    const live = PTRSize * 3 + weightSize;
-    return new MemoryUsage(live, 0);
+  calculateUsage(): MemoryUsage {
+    return new MemoryUsage(PTRSize * 4 + 8, 0);
   }
 
   abstract getLength(): number;
