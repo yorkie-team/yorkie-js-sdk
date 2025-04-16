@@ -27,9 +27,14 @@ import {
   IndexTree,
   DefaultRootType,
   DefaultTextType,
+  TreePos,
 } from '@yorkie-js/sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
-import { isEmpty, stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
+import {
+  isEmpty,
+  parseObjectValues,
+  stringifyObjectValues,
+} from '@yorkie-js/sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
 import type {
@@ -58,6 +63,87 @@ export {
   TreePosStructRange,
   CRDTTreeNodeIDStruct,
 };
+
+/**
+ * `toTreeNode` returns tree node from CRDTTreeNode.
+ */
+function toTreeNode(node: CRDTTreeNode): TreeNode {
+  if (node.isText) {
+    return {
+      type: node.type,
+      value: node.value,
+    } as TextNode;
+  }
+  const newNode = {
+    type: node.type,
+    children: node.children.map((child) => toTreeNode(child)),
+  } as ElementNode;
+
+  if (node.attrs) {
+    newNode.attributes = parseObjectValues(node.attrs.toObject());
+  }
+
+  return newNode;
+}
+
+/**
+ * `createSplittedNode` returns new node which is splitted from the given node.
+ */
+function createSplittedNode(
+  node: CRDTTreeNode,
+  offset: number,
+): ElementNode | undefined {
+  if (node.isText && !node.value.length) {
+    return;
+  }
+
+  const newNode: ElementNode = {
+    type: node.isText ? node.parent!.type : node.type,
+    children: node.isText
+      ? [
+          {
+            type: DefaultTextType,
+            value: node
+              .parent!.children.map((child) => (child as TextNode).value)
+              .join('')
+              .slice(offset),
+          } as TextNode,
+        ]
+      : node.children.slice(offset).map((child) => toTreeNode(child)),
+  };
+
+  if (node.attrs) {
+    newNode.attributes = parseObjectValues(node.attrs.toObject());
+  }
+
+  return newNode;
+}
+
+/**
+ * `separateSplit` separates the split operation into insert and delete operations:
+ */
+function separateSplit(treePos: TreePos<CRDTTreeNode>, path: Array<number>) {
+  const { node } = treePos;
+  const parentPath = [...path].slice(0, -1);
+  const last = node.isText
+    ? node.parent!.getChildrenText().length
+    : node.children.length;
+  const toPath = [...parentPath, last];
+  const res: Array<{
+    fromPath: Array<number>;
+    toPath: Array<number>;
+    content?: TreeNode;
+  }> = [{ fromPath: [...path], toPath }];
+  const newNode = createSplittedNode(node, path[path.length - 1]);
+  const insertPath = [...parentPath];
+
+  if (newNode) {
+    insertPath[insertPath.length - 1] += 1;
+    res.push({ fromPath: insertPath, toPath: insertPath, content: newNode });
+  }
+
+  return res;
+}
 
 /**
  * `buildDescendants` builds descendants of the given tree node.
@@ -291,6 +377,36 @@ export class Tree {
     }
 
     return this.tree.getIndexTree();
+  }
+
+  /**
+   * `splitByPath` splits the tree by the given path.
+   */
+  public splitByPath(path: Array<number>) {
+    if (!this.context || !this.tree) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
+    }
+
+    if (!path.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
+    }
+
+    const treePos = this.tree.pathToTreePos(path);
+    const commands = separateSplit(treePos, path);
+
+    commands.forEach((command) => {
+      const { fromPath, toPath, content } = command;
+      const fromPos = this.tree!.pathToPos(fromPath);
+      const toPos = this.tree!.pathToPos(toPath);
+
+      return this.editInternal(fromPos, toPos, content ? [content] : [], 0);
+    });
   }
 
   /**
