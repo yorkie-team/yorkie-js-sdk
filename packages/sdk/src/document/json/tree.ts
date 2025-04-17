@@ -93,27 +93,24 @@ function createSplittedNode(
   node: CRDTTreeNode,
   offset: number,
 ): ElementNode | undefined {
-  if (node.isText && !node.value.length) {
-    return;
-  }
-
   const newNode: ElementNode = {
     type: node.isText ? node.parent!.type : node.type,
     children: node.isText
-      ? [
-          {
-            type: DefaultTextType,
-            value: node
-              .parent!.children.map((child) => (child as TextNode).value)
-              .join('')
-              .slice(offset),
-          } as TextNode,
-        ]
+      ? node.parent!.getChildrenText().length === offset
+        ? []
+        : [
+            {
+              type: DefaultTextType,
+              value: node.parent!.getChildrenText().slice(offset),
+            } as TextNode,
+          ]
       : node.children.slice(offset).map((child) => toTreeNode(child)),
   };
 
   if (node.attrs) {
     newNode.attributes = parseObjectValues(node.attrs.toObject());
+  } else if (node.isText && node.parent!.attrs) {
+    newNode.attributes = parseObjectValues(node.parent!.attrs.toObject());
   }
 
   return newNode;
@@ -122,23 +119,32 @@ function createSplittedNode(
 /**
  * `separateSplit` separates the split operation into insert and delete operations:
  */
-function separateSplit(treePos: TreePos<CRDTTreeNode>, path: Array<number>) {
+function separateSplit(
+  treePos: TreePos<CRDTTreeNode>,
+  path: Array<number>,
+): Array<{
+  fromPath: Array<number>;
+  toPath: Array<number>;
+  content?: TreeNode;
+}> {
   const { node } = treePos;
   const parentPath = [...path].slice(0, -1);
   const last = node.isText
     ? node.parent!.getChildrenText().length
     : node.children.length;
   const toPath = [...parentPath, last];
-  const res: Array<{
-    fromPath: Array<number>;
-    toPath: Array<number>;
-    content?: TreeNode;
-  }> = [{ fromPath: [...path], toPath }];
-  const newNode = createSplittedNode(node, path[path.length - 1]);
   const insertPath = [...parentPath];
+  const res = [];
+
+  insertPath[insertPath.length - 1] += 1;
+
+  if (!path.every((v, i) => v === toPath[i])) {
+    res.push({ fromPath: [...path], toPath });
+  }
+
+  const newNode = createSplittedNode(node, path[path.length - 1]);
 
   if (newNode) {
-    insertPath[insertPath.length - 1] += 1;
     res.push({ fromPath: insertPath, toPath: insertPath, content: newNode });
   }
 
