@@ -27,6 +27,12 @@ import {
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  calculateValueSize,
+  MemoryMeasurable,
+  MemoryUsage,
+  PTRSize,
+} from '@yorkie-js/sdk/src/util/memory';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -39,6 +45,7 @@ interface RGATreeSplitValue {
   length: number;
 
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+  calculateUsage(): MemoryUsage;
 }
 
 /**
@@ -247,7 +254,7 @@ export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
  */
 export class RGATreeSplitNode<T extends RGATreeSplitValue>
   extends SplayNode<T>
-  implements GCChild
+  implements GCChild, MemoryMeasurable
 {
   private id: RGATreeSplitNodeID;
   private removedAt?: TimeTicket;
@@ -261,6 +268,24 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     super(value!);
     this.id = id;
     this.removedAt = removedAt;
+  }
+
+  /**
+   * `calculateUsage` returns the size in bytes of CRDTTextValue.
+   */
+  public calculateUsage(): MemoryUsage {
+    const isTombstone = !!this.removedAt;
+    const valueUsage = this.value?.calculateUsage?.() ?? new MemoryUsage(0, 0);
+
+    const ptr = PTRSize * 5;
+
+    if (isTombstone) {
+      // NOTE(raararaara): live must have ticketSize because of transferGCtoLive.
+      const ticketSize = calculateValueSize(this.removedAt);
+      return new MemoryUsage(ticketSize, valueUsage.total + ticketSize + ptr);
+    } else {
+      return new MemoryUsage(valueUsage.total + ptr, 0);
+    }
   }
 
   /**
@@ -556,7 +581,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * @param editedAt - edited time
    * @param value - value
    * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
-   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<GCPair>, Array<Change>]`
+   * @param versionVector - versionVector
+   * @returns `[RGATreeSplitPos, Map<string, TimeTicket>, Array<GCPair>, Array<Change>, MemoryUsage]`
    */
   public edit(
     range: RGATreeSplitPosRange,
@@ -569,6 +595,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     Map<string, TimeTicket>,
     Array<GCPair>,
     Array<ValueChange<T>>,
+    MemoryUsage,
   ] {
     // 01. split nodes with from and to
     const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
@@ -583,6 +610,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       versionVector,
     );
 
+    const diff = new MemoryUsage(0, 0);
+
     const caretID = toRight ? toRight.getID() : toLeft.getID();
     let caretPos = RGATreeSplitPos.of(caretID, 0);
 
@@ -594,6 +623,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         fromLeft,
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
+      diff.merge(inserted.calculateUsage());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
@@ -616,9 +646,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const pairs: Array<GCPair> = [];
     for (const [, removedNode] of removedNodes) {
       pairs.push({ parent: this, child: removedNode });
+
+      const removedUsage = removedNode.calculateUsage();
+      diff.merge(removedUsage);
     }
 
-    return [caretPos, maxCreatedAtMap, pairs, changes];
+    return [caretPos, maxCreatedAtMap, pairs, changes, diff];
   }
 
   /**

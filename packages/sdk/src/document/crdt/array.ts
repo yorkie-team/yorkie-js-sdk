@@ -126,7 +126,13 @@ export class CRDTArray extends CRDTContainer {
    * `delete` deletes the element of the given creation time.
    */
   public delete(createdAt: TimeTicket, editedAt: TimeTicket): CRDTElement {
-    return this.elements.delete(createdAt, editedAt);
+    const [deletedElem, memoryUsage] = this.elements.delete(
+      createdAt,
+      editedAt,
+    );
+    this.updateUsage(memoryUsage);
+
+    return deletedElem;
   }
 
   /**
@@ -136,7 +142,15 @@ export class CRDTArray extends CRDTContainer {
     index: number,
     editedAt: TimeTicket,
   ): CRDTElement | undefined {
-    return this.elements.deleteByIndex(index, editedAt);
+    const result = this.elements.deleteByIndex(index, editedAt);
+
+    if (!result) {
+      return;
+    }
+    const [deletedElem, memoryUsage] = result;
+    this.updateUsage(memoryUsage);
+
+    return deletedElem;
   }
 
   /**

@@ -28,6 +28,10 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
+import {
+  isMemoryMeasurable,
+  MemoryUsage,
+} from '@yorkie-js/sdk/src/util/memory';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -187,6 +191,10 @@ export class CRDTRoot {
       element,
     });
 
+    if (parent) {
+      element.setParent(parent);
+    }
+
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
         this.registerElement(elem, parent);
@@ -203,6 +211,10 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
+
+      const usage = elem.getMemoryUsage();
+      this.rootObject.updateUsage(usage);
+
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
@@ -305,6 +317,14 @@ export class CRDTRoot {
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        // TODO(raara): Need refactor memory usage update during garbage collection
+        if (isMemoryMeasurable(pair.child)) {
+          const removedUsage = pair.child.calculateUsage();
+          this.rootObject.updateUsage(
+            new MemoryUsage(-removedUsage.gc, -removedUsage.gc),
+          );
+        }
+
         pair.parent.purge(pair.child);
 
         this.gcPairMap.delete(pair.child.toIDString());
