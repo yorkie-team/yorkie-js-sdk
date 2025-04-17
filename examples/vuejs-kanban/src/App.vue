@@ -34,7 +34,8 @@ const defaultLists = [
   },
 ];
 
-const client = new yorkie.Client(import.meta.env.VITE_YORKIE_API_ADDR, {
+const client = new yorkie.Client({
+  rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
   apiKey: import.meta.env.VITE_YORKIE_API_KEY,
 });
 
