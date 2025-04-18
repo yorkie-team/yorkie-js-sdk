@@ -195,6 +195,12 @@ export interface AttachOptions<R, P> {
    * `syncMode` defines the synchronization mode of the document.
    */
   syncMode?: SyncMode;
+
+  /**
+   * `schema` is the schema of the document. It is used to validate the
+   * document.
+   */
+  schema?: string;
 }
 
 /**
@@ -437,6 +443,7 @@ export class Client {
           {
             clientId: this.id!,
             changePack: converter.toChangePack(doc.createChangePack()),
+            schema: opts.schema ? opts.schema : undefined,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
