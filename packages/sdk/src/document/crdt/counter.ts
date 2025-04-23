@@ -24,6 +24,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { removeDecimal } from '@yorkie-js/sdk/src/util/number';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { Usage } from '../../util/usage';
 
 export enum CounterType {
   IntegerCnt,
@@ -104,6 +105,17 @@ export class CRDTCounter extends CRDTElement {
           `unimplemented type: ${counterType}`,
         );
     }
+  }
+
+  /**
+   * `getUsage` returns the usage of the primitive.
+   */
+  public getUsage(): Usage {
+    // TODO(hackerwins): implement content usage
+    return {
+      content: 0,
+      meta: this.getMetaUsage(),
+    };
   }
 
   /**

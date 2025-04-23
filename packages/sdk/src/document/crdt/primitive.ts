@@ -20,6 +20,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { Usage } from '../../util/usage';
 
 export enum PrimitiveType {
   Null,
@@ -96,6 +97,42 @@ export class Primitive extends CRDTElement {
           `unimplemented type: ${primitiveType}`,
         );
     }
+  }
+
+  private getValueUsage(): number {
+    switch (this.valueType) {
+      case PrimitiveType.Null:
+        return 8; // WordSize in 64-bit
+      case PrimitiveType.Boolean:
+        return 4; // 4 bytes
+      case PrimitiveType.Integer:
+        return 4; // 4 bytes
+      case PrimitiveType.Long:
+        return 8; // 8 bytes
+      case PrimitiveType.Double:
+        return 8; // 8 bytes
+      case PrimitiveType.String:
+        return (this.value as string).length * 2;
+      case PrimitiveType.Bytes:
+        return (this.value as Uint8Array).length;
+      case PrimitiveType.Date:
+        return 8; // 8 bytes
+      default:
+        throw new YorkieError(
+          Code.ErrUnimplemented,
+          `unimplemented type: ${this.valueType}`,
+        );
+    }
+  }
+
+  /**
+   * `getUsage` returns the usage of the primitive.
+   */
+  public getUsage(): Usage {
+    return {
+      content: this.getValueUsage(),
+      meta: this.getMetaUsage(),
+    };
   }
 
   /**

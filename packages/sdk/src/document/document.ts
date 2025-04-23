@@ -77,6 +77,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
+import { UsageTotal } from '../util/usage';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -1362,6 +1363,13 @@ export class Document<R, P extends Indexable = Indexable> {
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
     return createJSON<R>(context, this.clone!.root.getObject());
+  }
+
+  /**
+   * `getUsage` returns the usage of this document.
+   */
+  public getUsage(): UsageTotal {
+    return this.root.getUsage();
   }
 
   /**

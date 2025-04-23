@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import {
+  TimeTicket,
+  TimeTicketSize,
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { Usage } from '@yorkie-js/sdk/src/util/usage';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -116,6 +120,27 @@ export abstract class CRDTElement {
     return !!this.removedAt;
   }
 
+  /**
+   * `getMetaUsage` returns the meta usage of this element.
+   */
+  public getMetaUsage(): number {
+    let meta = 0;
+
+    if (this.getCreatedAt()) {
+      meta += TimeTicketSize;
+    }
+
+    if (this.getMovedAt()) {
+      meta += TimeTicketSize;
+    }
+    if (this.getRemovedAt()) {
+      meta += TimeTicketSize;
+    }
+
+    return meta;
+  }
+
+  abstract getUsage(): Usage;
   abstract toJSON(): string;
   abstract toSortedJSON(): string;
   abstract toJSForTest(): Devtools.JSONElement;

@@ -28,6 +28,7 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
+import { UsageTotal } from '../../util/usage';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -277,6 +278,28 @@ export class CRDTRoot {
    */
   public getGarbageLen(): number {
     return this.getGarbageElementSetSize() + this.gcPairMap.size;
+  }
+
+  /**
+   * `getUsage` returns the usage of this root object.
+   */
+  getUsage(): UsageTotal {
+    const usage = {
+      live: { content: 0, meta: 0 },
+      gc: { content: 0, meta: 0 },
+    };
+
+    for (const [createdAt, value] of this.elementPairMapByCreatedAt) {
+      if (this.gcElementSetByCreatedAt.has(createdAt)) {
+        usage.gc.content += value.element.getUsage().content;
+        usage.gc.meta += value.element.getUsage().meta;
+      } else {
+        usage.live.content += value.element.getUsage().content;
+        usage.live.meta += value.element.getUsage().meta;
+      }
+    }
+
+    return usage;
   }
 
   /**

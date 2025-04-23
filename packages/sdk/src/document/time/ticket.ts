@@ -39,6 +39,11 @@ export type TimeTicketStruct = {
 };
 
 /**
+ * TimeTicketSize is the size of the ticket in bytes.
+ */
+export const TimeTicketSize = 8 + 4 + 12; // Int64 + UInt32 + UInt32
+
+/**
  * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
  * It is created by `ChangeID`.
  *

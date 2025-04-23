@@ -36,6 +36,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
+import { Usage } from '../../util/usage';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -390,6 +391,18 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     RGATreeSplitNode<CRDTTextValue>
   > {
     return this.rgaTreeSplit.getTreeByID();
+  }
+
+  /**
+   * `getUsage` returns the usage of this text.
+   */
+  public getUsage(): Usage {
+    // TODO(hackerwins): implement content usage
+
+    return {
+      content: 0,
+      meta: this.getMetaUsage(),
+    };
   }
 
   /**

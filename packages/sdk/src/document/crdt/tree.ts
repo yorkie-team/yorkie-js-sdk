@@ -45,6 +45,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { Usage } from '../../util/usage';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -1385,6 +1386,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public toXML(): string {
     return toXML(this.indexTree.getRoot());
+  }
+
+  /**
+   * `getUsage` returns the usage of the primitive.
+   */
+  public getUsage(): Usage {
+    // TODO(hackerwins): Implement content usage.
+    return {
+      content: 0,
+      meta: this.getMetaUsage(),
+    };
   }
 
   /**
