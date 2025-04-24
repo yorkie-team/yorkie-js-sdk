@@ -111,35 +111,77 @@ describe('Document Size', () => {
     doc.update((root) => root.text.edit(6, 11, ''));
     assert.deepEqual(doc.getDocSize().live, { data: 12, meta: 120 });
     assert.deepEqual(doc.getDocSize().gc, { data: 10, meta: 48 });
+
+    doc.update((root) => root.text.setStyle(0, 5, { bold: true }));
+    assert.deepEqual(doc.getDocSize().live, { data: 28, meta: 144 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 10, meta: 48 });
   });
 
   it('tree test', function () {
     const doc = new Document<{ tree: Tree }>('test-doc');
 
-    doc.update((root) => (root.tree = new Tree()));
-    assert.deepEqual(doc.getDocSize().live, { data: 0, meta: 96 });
+    doc.update((root) => {
+      root.tree = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [] }],
+      });
+
+      assert.equal(root.tree.toXML(), `<doc><p></p></doc>`);
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 0, meta: 120 });
     assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
 
     doc.update((root) => {
-      root.tree.edit(0, 0, {
+      root.tree.edit(1, 1, {
         type: 'text',
         value: 'helloworld',
       });
-
-      // assert.equal(root.tree.toXML(), `<root>helloworld</root>`);
+      assert.equal(root.tree.toXML(), `<doc><p>helloworld</p></doc>`);
     });
-    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 120 });
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 144 });
     assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
 
     doc.update((root) => {
-      root.tree.edit(0, 6, {
+      root.tree.edit(1, 7, {
         type: 'text',
         value: 'w',
       });
 
-      // assert.equal(root.tree.toXML(), `<root>world</root>`);
+      assert.equal(root.tree.toXML(), `<doc><p>world</p></doc>`);
     });
-    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 144 });
+    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
     assert.deepEqual(doc.getDocSize().gc, { data: 12, meta: 48 });
+
+    doc.update((root) => {
+      root.tree.edit(7, 7, {
+        type: 'p',
+        children: [{ type: 'text', value: 'abcd' }],
+      });
+
+      assert.equal(root.tree.toXML(), `<doc><p>world</p><p>abcd</p></doc>`);
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 18, meta: 216 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 12, meta: 48 });
+
+    doc.update((root) => root.tree.edit(7, 13));
+    assert.equal(doc.getRoot().tree.toXML(), `<doc><p>world</p></doc>`);
+    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 20, meta: 144 });
+
+    doc.update((root) => {
+      root.tree.style(0, 7, { bold: true });
+
+      assert.equal(root.tree.toXML(), `<doc><p bold="true">world</p></doc>`);
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 26, meta: 192 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 20, meta: 144 });
+
+    doc.update((root) => {
+      root.tree.removeStyle(0, 7, ['bold']);
+
+      assert.equal(root.tree.toXML(), `<doc><p>world</p></doc>`);
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 36, meta: 168 });
   });
 });
