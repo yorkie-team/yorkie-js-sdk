@@ -178,7 +178,9 @@ function separateMerge(
   const insertPath = [
     ...parentPath,
     offset - 1,
-    leftSiblingNode.children.length,
+    leftSiblingNode.hasTextChild()
+      ? leftSiblingNode.getChildrenText().length
+      : leftSiblingNode.children.length,
   ];
   const nodes = children.map((child) => toTreeNode(child));
 
