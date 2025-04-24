@@ -40,8 +40,9 @@ export type TimeTicketStruct = {
 
 /**
  * TimeTicketSize is the size of the ticket in bytes.
+ * lamport(int64) + delimiter(uint32) + actorID(12 bytes)
  */
-export const TimeTicketSize = 8 + 4 + 12; // Int64 + UInt32 + UInt32
+export const TimeTicketSize = 8 + 4 + 12;
 
 /**
  * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
