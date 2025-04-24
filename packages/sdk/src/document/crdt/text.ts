@@ -36,7 +36,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
-import { DataSize } from '../../util/resource';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -127,6 +127,22 @@ export class CRDTTextValue {
    */
   public toString(): string {
     return this.content;
+  }
+
+  /**
+   * `getDataSize` returns the data usage of this value.
+   */
+  public getDataSize(): DataSize {
+    const dataSize = { data: 0, meta: 0 };
+    dataSize.data += this.content.length * 2;
+
+    for (const node of this.attributes) {
+      const size = node.getDataSize();
+      dataSize.meta += size.meta;
+      dataSize.data += size.data;
+    }
+
+    return dataSize;
   }
 
   /**
@@ -397,11 +413,20 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * `getDataSize` returns the data usage of this element.
    */
   public getDataSize(): DataSize {
-    // TODO(hackerwins): implement content usage
+    const dataSize = { data: 0, meta: 0 };
+    for (const node of this.rgaTreeSplit) {
+      if (node.isRemoved()) {
+        continue;
+      }
+
+      const size = node.getDataSize();
+      dataSize.data += size.data;
+      dataSize.meta += size.meta;
+    }
 
     return {
-      data: 0,
-      meta: this.getMetaUsage(),
+      data: dataSize.data,
+      meta: dataSize.meta + this.getMetaUsage(),
     };
   }
 

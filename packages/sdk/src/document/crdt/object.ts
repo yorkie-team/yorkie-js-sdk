@@ -22,7 +22,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { DataSize } from '../../util/resource';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,

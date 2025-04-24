@@ -77,7 +77,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
-import { DocSize } from '../util/resource';
+import { DocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
