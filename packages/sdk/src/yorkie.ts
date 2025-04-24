@@ -97,7 +97,10 @@ export {
 export { type JSONObject } from '@yorkie-js/sdk/src/document/json/object';
 export { type JSONArray } from '@yorkie-js/sdk/src/document/json/array';
 export { Counter } from '@yorkie-js/sdk/src/document/json/counter';
-export { type CounterValue } from '@yorkie-js/sdk/src/document/crdt/counter';
+export {
+  CounterType,
+  type CounterValue,
+} from '@yorkie-js/sdk/src/document/crdt/counter';
 export {
   Text,
   type TextPosStruct,
@@ -148,8 +151,8 @@ export default {
   Tree,
   LogLevel,
   setLogLevel,
-  IntType: CounterType.IntegerCnt,
-  LongType: CounterType.LongCnt,
+  IntType: CounterType.Int,
+  LongType: CounterType.Long,
 };
 
 // TODO(hackerwins): Remove this when we have a better way to expose the API.
@@ -163,7 +166,7 @@ if (typeof globalThis !== 'undefined') {
     Tree,
     LogLevel,
     setLogLevel,
-    IntType: CounterType.IntegerCnt,
-    LongType: CounterType.LongCnt,
+    IntType: CounterType.Int,
+    LongType: CounterType.Long,
   };
 }

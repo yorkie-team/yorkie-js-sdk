@@ -73,6 +73,9 @@
             ></path>
           </svg>
           <div><span id="network-status"></span></div>
+          <div style="margin-left: 8px; font-family: monospace">
+            <span id="memory-usage-text">Memory: -</span>
+          </div>
         </div>
         <div class="center-tools tools">
           <label style="display: flex; align-items: center">
@@ -233,6 +236,15 @@
         `;
       }
 
+      function updateMemoryUsageDisplay(doc) {
+        const docSize = doc.getDocSize();
+        if (!docSize) return;
+
+        document.getElementById('memory-usage-text').textContent =
+          `Memory: live=${docSize.live.data + docSize.live.meta}B, ` +
+          `gc=${docSize.gc.data + docSize.gc.meta}B`;
+      }
+
       // https://github.com/codemirror/CodeMirror/pull/5619
       function replaceRangeFix(cm, text, from, to, origin) {
         const adjust = cm.listSelections().findIndex(({ anchor, head }) => {
@@ -354,6 +366,7 @@
               codemirror.setValue(doc.getRoot().content.toString());
             }
             devtool.displayLog(doc, codemirror);
+            updateMemoryUsageDisplay(doc);
           });
 
           doc.subscribe('others', (event) => {
@@ -458,6 +471,7 @@
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());
           devtool.displayLog(doc, codemirror);
+          updateMemoryUsageDisplay(doc);
           for (const user of doc.getPresences()) {
             if (user.clientID === client.getID()) continue;
             displayRemoteSelection(codemirror, doc, user);
