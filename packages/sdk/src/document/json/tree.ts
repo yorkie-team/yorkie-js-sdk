@@ -152,6 +152,46 @@ function separateSplit(
 }
 
 /**
+ * `separateMerge` separates the merge operation into insert and delete operations:
+ */
+function separateMerge(
+  treePos: TreePos<CRDTTreeNode>,
+  path: Array<number>,
+): Array<{
+  fromPath: Array<number>;
+  toPath: Array<number>;
+  content?: Array<TreeNode>;
+}> {
+  const { node: parentNode, offset } = treePos;
+  const node = parentNode.children[offset];
+  const leftSiblingNode = parentNode.children[offset - 1];
+  const { children } = node;
+  const parentPath = [...path].slice(0, -1);
+  const res: ReturnType<typeof separateMerge> = [
+    { fromPath: [...path], toPath: [...parentPath, offset + 1] },
+  ];
+
+  if (!node.children.length) {
+    return res;
+  }
+
+  const insertPath = [
+    ...parentPath,
+    offset - 1,
+    leftSiblingNode.children.length,
+  ];
+  const nodes = children.map((child) => toTreeNode(child));
+
+  res.push({
+    fromPath: insertPath,
+    toPath: insertPath,
+    content: nodes,
+  });
+
+  return res;
+}
+
+/**
  * `buildDescendants` builds descendants of the given tree node.
  */
 function buildDescendants(
@@ -412,6 +452,44 @@ export class Tree {
       const toPos = this.tree!.pathToPos(toPath);
 
       return this.editInternal(fromPos, toPos, content ? [content] : [], 0);
+    });
+  }
+
+  /**
+   * `mergeByPath` merges the tree by the given path.
+   */
+  public mergeByPath(path: Array<number>) {
+    if (!this.context || !this.tree) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
+    }
+
+    if (!path.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
+    }
+
+    const treePos = this.tree.pathToTreePos(path);
+
+    if (treePos.node.isText) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'text node cannot be merged',
+      );
+    }
+
+    const commands = separateMerge(treePos, path);
+
+    commands.forEach((command) => {
+      const { fromPath, toPath, content } = command;
+      const fromPos = this.tree!.pathToPos(fromPath);
+      const toPos = this.tree!.pathToPos(toPath);
+
+      return this.editInternal(fromPos, toPos, content ?? [], 0);
     });
   }
 
