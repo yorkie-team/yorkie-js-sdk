@@ -100,26 +100,29 @@ export class Primitive extends CRDTElement {
   }
 
   /**
-   * `getValueSize` returns the size of the value.
+   * `getValueSize` returns the size of the value. The size is similar to
+   * the size of primitives in JavaScript.
    */
   private getValueSize(): number {
     switch (this.valueType) {
       case PrimitiveType.Null:
-        return 8; // WordSize in 64-bit
+        // Word Size in 64-bit system.
+        return 8;
       case PrimitiveType.Boolean:
-        return 4; // 4 bytes
+        return 4;
       case PrimitiveType.Integer:
-        return 4; // 4 bytes
+        return 4;
       case PrimitiveType.Long:
-        return 8; // 8 bytes
+        return 8;
       case PrimitiveType.Double:
-        return 8; // 8 bytes
+        return 8;
       case PrimitiveType.String:
+        // string is UTF-16 encoded.
         return (this.value as string).length * 2;
       case PrimitiveType.Bytes:
         return (this.value as Uint8Array).length;
       case PrimitiveType.Date:
-        return 8; // 8 bytes
+        return 8;
       default:
         throw new YorkieError(
           Code.ErrUnimplemented,
