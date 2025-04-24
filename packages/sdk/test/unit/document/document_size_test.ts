@@ -136,8 +136,8 @@ describe('Document Size', () => {
         type: 'text',
         value: 'helloworld',
       });
-      assert.equal(root.tree.toXML(), `<doc><p>helloworld</p></doc>`);
     });
+    assert.equal(doc.getRoot().tree.toXML(), `<doc><p>helloworld</p></doc>`);
     assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 144 });
     assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
 
@@ -146,9 +146,8 @@ describe('Document Size', () => {
         type: 'text',
         value: 'w',
       });
-
-      assert.equal(root.tree.toXML(), `<doc><p>world</p></doc>`);
     });
+    assert.equal(doc.getRoot().tree.toXML(), `<doc><p>world</p></doc>`);
     assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
     assert.deepEqual(doc.getDocSize().gc, { data: 12, meta: 48 });
 
@@ -157,9 +156,11 @@ describe('Document Size', () => {
         type: 'p',
         children: [{ type: 'text', value: 'abcd' }],
       });
-
-      assert.equal(root.tree.toXML(), `<doc><p>world</p><p>abcd</p></doc>`);
     });
+    assert.equal(
+      doc.getRoot().tree.toXML(),
+      `<doc><p>world</p><p>abcd</p></doc>`,
+    );
     assert.deepEqual(doc.getDocSize().live, { data: 18, meta: 216 });
     assert.deepEqual(doc.getDocSize().gc, { data: 12, meta: 48 });
 
@@ -170,17 +171,18 @@ describe('Document Size', () => {
 
     doc.update((root) => {
       root.tree.style(0, 7, { bold: true });
-
-      assert.equal(root.tree.toXML(), `<doc><p bold="true">world</p></doc>`);
     });
+    assert.equal(
+      doc.getRoot().tree.toXML(),
+      `<doc><p bold="true">world</p></doc>`,
+    );
     assert.deepEqual(doc.getDocSize().live, { data: 26, meta: 192 });
     assert.deepEqual(doc.getDocSize().gc, { data: 20, meta: 144 });
 
     doc.update((root) => {
       root.tree.removeStyle(0, 7, ['bold']);
-
-      assert.equal(root.tree.toXML(), `<doc><p>world</p></doc>`);
     });
+    assert.equal(doc.getRoot().tree.toXML(), `<doc><p>world</p></doc>`);
     assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
     assert.deepEqual(doc.getDocSize().gc, { data: 36, meta: 168 });
   });
