@@ -21,7 +21,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { DataSize } from '../../util/resource';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `CRDTArray` represents an array data type containing `CRDTElement`s.

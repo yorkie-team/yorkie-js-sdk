@@ -691,6 +691,18 @@ export class CRDTTreeNode
   }
 
   /**
+   * `getDataSize` returns the data size of the node.
+   */
+  public getDataSize(): DataSize {
+    // TODO(hackerwins): implement this.
+
+    return {
+      data: 0,
+      meta: 0,
+    };
+  }
+
+  /**
    * `getGCPairs` returns the pairs of GC.
    */
   public getGCPairs(): Array<GCPair> {

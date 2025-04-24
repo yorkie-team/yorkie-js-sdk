@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `GCPair` is a structure that represents a pair of parent and child for garbage
@@ -38,4 +39,5 @@ export interface GCParent {
 export interface GCChild {
   toIDString(): string;
   getRemovedAt(): TimeTicket | undefined;
+  getDataSize(): DataSize;
 }

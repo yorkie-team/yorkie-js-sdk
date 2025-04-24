@@ -28,7 +28,7 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
-import { DocSize } from '../../util/resource';
+import { DocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -294,6 +294,12 @@ export class CRDTRoot {
         docSize.live.data += value.element.getDataSize().data;
         docSize.live.meta += value.element.getDataSize().meta;
       }
+    }
+
+    for (const pair of this.gcPairMap.values()) {
+      const size = pair.child.getDataSize();
+      docSize.gc.data += size.data;
+      docSize.gc.meta += size.meta;
     }
 
     return docSize;

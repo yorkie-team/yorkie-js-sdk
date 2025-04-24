@@ -5,10 +5,11 @@ import {
   CounterType,
   Document,
   JSONObject,
+  Text,
 } from '@yorkie-js/sdk/src/yorkie';
 
 describe('Document Size', () => {
-  it('primitive test', function () {
+  it('primitive and object test', function () {
     const doc = new Document<{
       k0: null;
       k1: boolean;
@@ -67,12 +68,9 @@ describe('Document Size', () => {
   });
 
   it('gc test', function () {
-    const doc = new Document<
-      JSONObject<{
-        num?: number;
-        str: string;
-      }>
-    >('test-doc');
+    const doc = new Document<JSONObject<{ num?: number; str: string }>>(
+      'test-doc',
+    );
 
     doc.update((root) => {
       root['num'] = 1;
@@ -94,12 +92,23 @@ describe('Document Size', () => {
     assert.deepEqual(doc.getDocSize().live, { data: 4, meta: 72 });
   });
 
-  it.todo('text test', function () {
+  it('text test', function () {
     const doc = new Document<{ text: Text }>('test-doc');
 
-    doc.update((root) => {
-      root.text = new Text('hello');
-    });
-    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 72 });
+    doc.update((root) => (root.text = new Text()));
+    assert.deepEqual(doc.getDocSize().live, { data: 0, meta: 72 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+
+    doc.update((root) => root.text.edit(0, 0, 'helloworld'));
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 96 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+
+    doc.update((root) => root.text.edit(5, 5, ' '));
+    assert.deepEqual(doc.getDocSize().live, { data: 22, meta: 144 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+
+    doc.update((root) => root.text.edit(6, 11, ''));
+    assert.deepEqual(doc.getDocSize().live, { data: 12, meta: 120 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 10, meta: 48 });
   });
 });

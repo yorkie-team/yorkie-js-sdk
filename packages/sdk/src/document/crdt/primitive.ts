@@ -20,7 +20,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { DataSize } from '../../util/resource';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 export enum PrimitiveType {
   Null,
@@ -99,7 +99,10 @@ export class Primitive extends CRDTElement {
     }
   }
 
-  private getValueUsage(): number {
+  /**
+   * `getValueSize` returns the size of the value.
+   */
+  private getValueSize(): number {
     switch (this.valueType) {
       case PrimitiveType.Null:
         return 8; // WordSize in 64-bit
@@ -130,7 +133,7 @@ export class Primitive extends CRDTElement {
    */
   public getDataSize(): DataSize {
     return {
-      data: this.getValueUsage(),
+      data: this.getValueSize(),
       meta: this.getMetaUsage(),
     };
   }
