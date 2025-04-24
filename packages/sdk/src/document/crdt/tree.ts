@@ -19,6 +19,7 @@ import {
   InitialTimeTicket,
   TimeTicketStruct,
   MaxLamport,
+  TimeTicketSize,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
@@ -694,12 +695,33 @@ export class CRDTTreeNode
    * `getDataSize` returns the data size of the node.
    */
   public getDataSize(): DataSize {
-    // TODO(hackerwins): implement this.
+    const dataSize = { data: 0, meta: 0 };
 
-    return {
-      data: 0,
-      meta: 0,
-    };
+    if (this.isText) {
+      dataSize.data += this.size * 2;
+    }
+
+    if (this.id) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.removedAt) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.attrs) {
+      for (const node of this.attrs) {
+        if (node.getRemovedAt()) {
+          continue;
+        }
+
+        const size = node.getDataSize();
+        dataSize.meta += size.meta;
+        dataSize.data += size.data;
+      }
+    }
+
+    return dataSize;
   }
 
   /**
@@ -1404,10 +1426,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `getDataSize` returns the data usage of this element.
    */
   public getDataSize(): DataSize {
-    // TODO(hackerwins): Implement content usage.
+    const dataSize = { data: 0, meta: 0 };
+
+    this.indexTree.traverse((node) => {
+      if (node.getRemovedAt()) {
+        return;
+      }
+
+      const size = node.getDataSize();
+      dataSize.data += size.data;
+      dataSize.meta += size.meta;
+    });
+
     return {
-      data: 0,
-      meta: this.getMetaUsage(),
+      data: dataSize.data,
+      meta: dataSize.meta + this.getMetaUsage(),
     };
   }
 

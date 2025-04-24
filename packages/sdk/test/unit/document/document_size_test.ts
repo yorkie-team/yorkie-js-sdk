@@ -6,6 +6,7 @@ import {
   Document,
   JSONObject,
   Text,
+  Tree,
 } from '@yorkie-js/sdk/src/yorkie';
 
 describe('Document Size', () => {
@@ -110,5 +111,35 @@ describe('Document Size', () => {
     doc.update((root) => root.text.edit(6, 11, ''));
     assert.deepEqual(doc.getDocSize().live, { data: 12, meta: 120 });
     assert.deepEqual(doc.getDocSize().gc, { data: 10, meta: 48 });
+  });
+
+  it('tree test', function () {
+    const doc = new Document<{ tree: Tree }>('test-doc');
+
+    doc.update((root) => (root.tree = new Tree()));
+    assert.deepEqual(doc.getDocSize().live, { data: 0, meta: 96 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+
+    doc.update((root) => {
+      root.tree.edit(0, 0, {
+        type: 'text',
+        value: 'helloworld',
+      });
+
+      // assert.equal(root.tree.toXML(), `<root>helloworld</root>`);
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 120 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+
+    doc.update((root) => {
+      root.tree.edit(0, 6, {
+        type: 'text',
+        value: 'w',
+      });
+
+      // assert.equal(root.tree.toXML(), `<root>world</root>`);
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 144 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 12, meta: 48 });
   });
 });
