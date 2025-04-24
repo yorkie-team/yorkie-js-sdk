@@ -27,9 +27,9 @@ import yorkie, {
   JSONArray,
   Text,
   Counter,
+  CounterType,
   Tree,
 } from '@yorkie-js/sdk/src/yorkie';
-import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 describe.sequential('Document', function () {
@@ -1062,7 +1062,7 @@ describe.sequential('Document', function () {
     });
 
     doc.update((root) => {
-      root.cnt = new Counter(CounterType.IntegerCnt, 0);
+      root.cnt = new Counter(CounterType.Int, 0);
     });
     await eventCollector.waitAndVerifyNthEvent(1, [
       { type: 'set', path: '$', key: 'cnt' },
@@ -1330,7 +1330,7 @@ describe.sequential('Document', function () {
   it('gets the value of the counter', function () {
     const doc = new Document<{ counter: Counter }>('test-doc');
     doc.update((root) => {
-      root.counter = new Counter(CounterType.IntegerCnt, 155);
+      root.counter = new Counter(CounterType.Int, 155);
     });
     assert.equal(155, doc.getRoot().counter.getValue());
   });
@@ -1427,7 +1427,7 @@ describe.sequential('Document', function () {
     });
 
     doc.update((root) => {
-      root.counter = new Counter(CounterType.IntegerCnt, 0);
+      root.counter = new Counter(CounterType.Int, 0);
       root.counter.increase(1);
     });
 

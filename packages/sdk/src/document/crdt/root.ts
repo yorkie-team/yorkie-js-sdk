@@ -28,7 +28,7 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
-import { UsageTotal } from '../../util/usage';
+import { DocSize } from '../../util/resource';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -281,25 +281,22 @@ export class CRDTRoot {
   }
 
   /**
-   * `getUsage` returns the usage of this root object.
+   * `getDocSize` returns the size of the document.
    */
-  getUsage(): UsageTotal {
-    const usage = {
-      live: { content: 0, meta: 0 },
-      gc: { content: 0, meta: 0 },
-    };
+  getDocSize(): DocSize {
+    const docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
 
     for (const [createdAt, value] of this.elementPairMapByCreatedAt) {
       if (this.gcElementSetByCreatedAt.has(createdAt)) {
-        usage.gc.content += value.element.getUsage().content;
-        usage.gc.meta += value.element.getUsage().meta;
+        docSize.gc.data += value.element.getDataSize().data;
+        docSize.gc.meta += value.element.getDataSize().meta;
       } else {
-        usage.live.content += value.element.getUsage().content;
-        usage.live.meta += value.element.getUsage().meta;
+        docSize.live.data += value.element.getDataSize().data;
+        docSize.live.meta += value.element.getDataSize().meta;
       }
     }
 
-    return usage;
+    return docSize;
   }
 
   /**

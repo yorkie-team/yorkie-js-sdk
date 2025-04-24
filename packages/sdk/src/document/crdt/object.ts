@@ -22,7 +22,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { Usage } from '../../util/usage';
+import { DataSize } from '../../util/resource';
 
 /**
  * `CRDTObject` represents an object data type, but unlike regular JSON,
@@ -121,11 +121,11 @@ export class CRDTObject extends CRDTContainer {
   }
 
   /**
-   * `getUsage` returns the usage of the primitive.
+   * `getDataSize` returns the data usage of this element.
    */
-  public getUsage(): Usage {
+  public getDataSize(): DataSize {
     return {
-      content: 0,
+      data: 0,
       meta: this.getMetaUsage(),
     };
   }

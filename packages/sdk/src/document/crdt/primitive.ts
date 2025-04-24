@@ -20,7 +20,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { Usage } from '../../util/usage';
+import { DataSize } from '../../util/resource';
 
 export enum PrimitiveType {
   Null,
@@ -126,11 +126,11 @@ export class Primitive extends CRDTElement {
   }
 
   /**
-   * `getUsage` returns the usage of the primitive.
+   * `getDataSize` returns the data usage of this element.
    */
-  public getUsage(): Usage {
+  public getDataSize(): DataSize {
     return {
-      content: this.getValueUsage(),
+      data: this.getValueUsage(),
       meta: this.getMetaUsage(),
     };
   }

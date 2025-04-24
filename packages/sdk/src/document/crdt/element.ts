@@ -19,7 +19,7 @@ import {
   TimeTicketSize,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { Usage } from '@yorkie-js/sdk/src/util/usage';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
@@ -140,7 +140,11 @@ export abstract class CRDTElement {
     return meta;
   }
 
-  abstract getUsage(): Usage;
+  /**
+   * `getDataSize` returns the data usage of this element.
+   */
+  abstract getDataSize(): DataSize;
+
   abstract toJSON(): string;
   abstract toSortedJSON(): string;
   abstract toJSForTest(): Devtools.JSONElement;

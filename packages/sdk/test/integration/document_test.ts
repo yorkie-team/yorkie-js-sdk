@@ -6,6 +6,7 @@ import yorkie, {
   SyncMode,
   Tree,
   JSONElement,
+  CounterType,
 } from '@yorkie-js/sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -24,7 +25,6 @@ import {
 } from '@yorkie-js/sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import Long from 'long';
 
 describe('Document', function () {
@@ -1115,7 +1115,7 @@ describe('Document', function () {
       const doc1 = new yorkie.Document(docKey);
       await c1.attach(doc1, {
         initialRoot: {
-          counter: new Counter(CounterType.IntegerCnt, 0),
+          counter: new Counter(CounterType.Int, 0),
           content: { x: 1, y: 1 },
         },
       });
@@ -1129,7 +1129,7 @@ describe('Document', function () {
       const doc2 = new yorkie.Document(docKey);
       await c2.attach(doc2, {
         initialRoot: {
-          counter: new Counter(CounterType.IntegerCnt, 1),
+          counter: new Counter(CounterType.Int, 1),
           content: { x: 1, y: 2 },
           new: { k: 'v' },
         },
@@ -1204,7 +1204,7 @@ describe('Document', function () {
         },
         {
           name: 'counter',
-          input: new Counter(CounterType.IntegerCnt, 1),
+          input: new Counter(CounterType.Int, 1),
           expectedJSON: `{"counter":1}`,
         },
         {

@@ -77,7 +77,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
-import { UsageTotal } from '../util/usage';
+import { DocSize } from '../util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -1366,10 +1366,10 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getUsage` returns the usage of this document.
+   * `getDocSize` returns the size of this document.
    */
-  public getUsage(): UsageTotal {
-    return this.root.getUsage();
+  public getDocSize(): DocSize {
+    return this.root.getDocSize();
   }
 
   /**

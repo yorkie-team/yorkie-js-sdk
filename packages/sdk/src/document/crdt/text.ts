@@ -36,7 +36,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
-import { Usage } from '../../util/usage';
+import { DataSize } from '../../util/resource';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -394,13 +394,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   }
 
   /**
-   * `getUsage` returns the usage of this text.
+   * `getDataSize` returns the data usage of this element.
    */
-  public getUsage(): Usage {
+  public getDataSize(): DataSize {
     // TODO(hackerwins): implement content usage
 
     return {
-      content: 0,
+      data: 0,
       meta: this.getMetaUsage(),
     };
   }

@@ -21,7 +21,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { Usage } from '../../util/usage';
+import { DataSize } from '../../util/resource';
 
 /**
  * `CRDTArray` represents an array data type containing `CRDTElement`s.
@@ -193,11 +193,11 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `getUsage` returns the usage of the primitive.
+   * `getDataSize` returns the data usage of this element.
    */
-  public getUsage(): Usage {
+  public getDataSize(): DataSize {
     return {
-      content: 0,
+      data: 0,
       meta: this.getMetaUsage(),
     };
   }
