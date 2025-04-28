@@ -13,11 +13,11 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc && vite build",
+    "build": "tsc && vite build -c vite.build.ts",
     "build:proto": "npx buf generate",
     "build:docs": "typedoc",
     "build:ghpages": "mkdir -p ghpages/examples && cp -r docs ghpages/api-reference && find ../../examples -name 'dist' -type d -exec sh -c 'cp -r {} ghpages/examples/$(basename $(dirname {}))' \\;",
-    "dev": "vite build -c vite.preview.ts && vite preview",
+    "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:bench": "vitest bench",

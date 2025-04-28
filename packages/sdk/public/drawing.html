@@ -19,8 +19,8 @@
       <pre style="white-space: pre-wrap"><code id="online-clients"></code></pre>
       <pre style="white-space: pre-wrap" id="log-holder"></pre>
     </div>
-    <script src="./yorkie-js-sdk.js"></script>
-    <script>
+    <script type="module">
+      import './src/yorkie.ts';
       const drawingPanel = document.getElementById('drawing-panel');
       const docPanel = document.getElementById('log-holder');
       const onlineClientsPanel = document.getElementById('online-clients');
