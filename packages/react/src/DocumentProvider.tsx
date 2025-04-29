@@ -155,6 +155,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
 }
 
 type DocumentContextType<R, P extends Indexable = Indexable> = {
+  doc: Document<R, P> | undefined;
   root: R;
   presences: { clientID: string; presence: P }[];
   connection: StreamConnectionStatus;
@@ -163,7 +164,9 @@ type DocumentContextType<R, P extends Indexable = Indexable> = {
   error: Error | undefined;
 };
 
-const DocumentContext = createContext<DocumentContextType<any> | null>(null);
+const DocumentContext = createContext<DocumentContextType<any, any> | null>(
+  null,
+);
 
 /**
  * `DocumentProvider` is a component that provides a document to its children.
@@ -182,8 +185,8 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
-  const { root, presences, connection, update, loading, error } =
-    useYorkieDocument(
+  const { doc, root, presences, connection, update, loading, error } =
+    useYorkieDocument<R, P>(
       client,
       clientLoading,
       clientError,
@@ -194,7 +197,15 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 
   return (
     <DocumentContext.Provider
-      value={{ root, presences, connection, update, loading, error }}
+      value={{
+        doc,
+        root,
+        presences,
+        connection,
+        update,
+        loading,
+        error,
+      }}
     >
       {children}
     </DocumentContext.Provider>
@@ -211,6 +222,7 @@ export const useDocument = <R, P extends Indexable = Indexable>() => {
     throw new Error('useDocument must be used within a DocumentProvider');
   }
   return {
+    doc: context.doc as Document<R, P>,
     root: context.root as R,
     presences: context.presences as { clientID: string; presence: P }[],
     connection: context.connection,

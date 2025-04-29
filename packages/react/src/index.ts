@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { JSONArray, JSONObject } from '@yorkie-js/sdk';
+import type { Document, JSONArray, JSONObject } from '@yorkie-js/sdk';
 
 import { useYorkieDoc } from './useYorkieDoc';
 import { YorkieProvider } from './YorkieProvider';
@@ -26,7 +26,7 @@ import {
   useConnection,
 } from './DocumentProvider';
 
-export type { JSONArray, JSONObject };
+export type { Document, JSONArray, JSONObject };
 export {
   YorkieProvider,
   DocumentProvider,

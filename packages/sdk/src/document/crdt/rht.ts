@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import {
+  TimeTicket,
+  TimeTicketSize,
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
@@ -95,6 +99,16 @@ export class RHTNode implements GCChild {
     }
 
     return undefined;
+  }
+
+  /**
+   * `getDataSize` returns the size of this node.
+   */
+  public getDataSize(): DataSize {
+    return {
+      data: (this.key.length + this.value.length) * 2,
+      meta: TimeTicketSize,
+    };
   }
 }
 

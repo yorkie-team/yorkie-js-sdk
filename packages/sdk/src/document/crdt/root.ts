@@ -28,6 +28,7 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
+import { DocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -277,6 +278,31 @@ export class CRDTRoot {
    */
   public getGarbageLen(): number {
     return this.getGarbageElementSetSize() + this.gcPairMap.size;
+  }
+
+  /**
+   * `getDocSize` returns the size of the document.
+   */
+  getDocSize(): DocSize {
+    const docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
+
+    for (const [createdAt, value] of this.elementPairMapByCreatedAt) {
+      if (this.gcElementSetByCreatedAt.has(createdAt)) {
+        docSize.gc.data += value.element.getDataSize().data;
+        docSize.gc.meta += value.element.getDataSize().meta;
+      } else {
+        docSize.live.data += value.element.getDataSize().data;
+        docSize.live.meta += value.element.getDataSize().meta;
+      }
+    }
+
+    for (const pair of this.gcPairMap.values()) {
+      const size = pair.child.getDataSize();
+      docSize.gc.data += size.data;
+      docSize.gc.meta += size.meta;
+    }
+
+    return docSize;
   }
 
   /**

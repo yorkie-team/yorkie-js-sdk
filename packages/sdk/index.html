@@ -73,6 +73,9 @@
             ></path>
           </svg>
           <div><span id="network-status"></span></div>
+          <div style="margin-left: 8px; font-family: monospace">
+            <span id="memory-usage-text">Memory: -</span>
+          </div>
         </div>
         <div class="center-tools tools">
           <label style="display: flex; align-items: center">
@@ -181,10 +184,11 @@
         </div>
       </div>
     </div>
-    <script src="./yorkie-js-sdk.js"></script>
     <script src="./util.js"></script>
     <script src="./devtool/text.js"></script>
-    <script>
+    <script type="module">
+      import './src/yorkie.ts';
+
       const textarea = document.getElementById('textarea');
       const statusHolder = document.getElementById('network-status');
       const usersHolder = document.getElementById('users-holder');
@@ -231,6 +235,15 @@
             background-color: ${usersInfo[myClientID]?.color} !important;
           }
         `;
+      }
+
+      function updateMemoryUsageDisplay(doc) {
+        const docSize = doc.getDocSize();
+        if (!docSize) return;
+
+        document.getElementById('memory-usage-text').textContent =
+          `Memory: live=${docSize.live.data + docSize.live.meta}B, ` +
+          `gc=${docSize.gc.data + docSize.gc.meta}B`;
       }
 
       // https://github.com/codemirror/CodeMirror/pull/5619
@@ -354,6 +367,7 @@
               codemirror.setValue(doc.getRoot().content.toString());
             }
             devtool.displayLog(doc, codemirror);
+            updateMemoryUsageDisplay(doc);
           });
 
           doc.subscribe('others', (event) => {
@@ -458,6 +472,7 @@
           // 05. synchronize text of document and codemirror.
           codemirror.setValue(doc.getRoot().content.toString());
           devtool.displayLog(doc, codemirror);
+          updateMemoryUsageDisplay(doc);
           for (const user of doc.getPresences()) {
             if (user.clientID === client.getID()) continue;
             displayRemoteSelection(codemirror, doc, user);

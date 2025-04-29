@@ -19,6 +19,7 @@ import {
   InitialTimeTicket,
   TimeTicketStruct,
   MaxLamport,
+  TimeTicketSize,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
@@ -45,6 +46,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { DataSize } from '../../util/resource';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -687,6 +689,39 @@ export class CRDTTreeNode
     if (this.attrs) {
       this.attrs.purge(node);
     }
+  }
+
+  /**
+   * `getDataSize` returns the data size of the node.
+   */
+  public getDataSize(): DataSize {
+    const dataSize = { data: 0, meta: 0 };
+
+    if (this.isText) {
+      dataSize.data += this.size * 2;
+    }
+
+    if (this.id) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.removedAt) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.attrs) {
+      for (const node of this.attrs) {
+        if (node.getRemovedAt()) {
+          continue;
+        }
+
+        const size = node.getDataSize();
+        dataSize.meta += size.meta;
+        dataSize.data += size.data;
+      }
+    }
+
+    return dataSize;
   }
 
   /**
@@ -1394,6 +1429,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public toXML(): string {
     return toXML(this.indexTree.getRoot());
+  }
+
+  /**
+   * `getDataSize` returns the data usage of this element.
+   */
+  public getDataSize(): DataSize {
+    const dataSize = { data: 0, meta: 0 };
+
+    this.indexTree.traverse((node) => {
+      if (node.getRemovedAt()) {
+        return;
+      }
+
+      const size = node.getDataSize();
+      dataSize.data += size.data;
+      dataSize.meta += size.meta;
+    });
+
+    return {
+      data: dataSize.data,
+      meta: dataSize.meta + this.getMetaUsage(),
+    };
   }
 
   /**
