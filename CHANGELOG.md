@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.9] - 2025-04-30
+
+### Added
+
+- Implement Split, Merge in json layer of Tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/982
+
+### Fixed
+
+- Update dependencies in ProseMirror by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/986
+
 ## [0.6.8] - 2025-04-28
 
 ### Added
