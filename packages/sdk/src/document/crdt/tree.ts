@@ -1322,6 +1322,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `pathToTreePos` converts the given path of the node to the TreePos.
+   */
+  public pathToTreePos(
+    path: Array<number>,
+  ): ReturnType<typeof this.indexTree.pathToTreePos> {
+    return this.indexTree.pathToTreePos(path);
+  }
+
+  /**
    * `purge` physically purges the given node.
    */
   public purge(node: CRDTTreeNode): void {
