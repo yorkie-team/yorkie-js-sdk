@@ -300,7 +300,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `getChildrenText` returns text value of all text type children
+   * `getChildrenText` returns text value of all text type children.
    */
   getChildrenText(): string {
     if (this.isText) {

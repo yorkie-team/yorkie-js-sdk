@@ -87,9 +87,9 @@ function toTreeNode(node: CRDTTreeNode): TreeNode {
 }
 
 /**
- * `createSplittedNode` returns new node which is splitted from the given node.
+ * `createSplitNode` returns new node which is split from the given node.
  */
-function createSplittedNode(
+function createSplitNode(
   node: CRDTTreeNode,
   offset: number,
 ): ElementNode | undefined {
@@ -102,7 +102,7 @@ function createSplittedNode(
             {
               type: DefaultTextType,
               value: node.parent!.getChildrenText().slice(offset),
-            } as TextNode,
+            },
           ]
       : node.children.slice(offset).map((child) => toTreeNode(child)),
   };
@@ -117,7 +117,7 @@ function createSplittedNode(
 }
 
 /**
- * `separateSplit` separates the split operation into insert and delete operations:
+ * `separateSplit` separates the split operation into insert and delete operations.
  */
 function separateSplit(
   treePos: TreePos<CRDTTreeNode>,
@@ -142,7 +142,7 @@ function separateSplit(
     res.push({ fromPath: [...path], toPath });
   }
 
-  const newNode = createSplittedNode(node, path[path.length - 1]);
+  const newNode = createSplitNode(node, path[path.length - 1]);
 
   if (newNode) {
     res.push({ fromPath: insertPath, toPath: insertPath, content: newNode });
@@ -152,7 +152,7 @@ function separateSplit(
 }
 
 /**
- * `separateMerge` separates the merge operation into insert and delete operations:
+ * `separateMerge` separates the merge operation into insert and delete operations.
  */
 function separateMerge(
   treePos: TreePos<CRDTTreeNode>,
@@ -448,13 +448,13 @@ export class Tree {
     const treePos = this.tree.pathToTreePos(path);
     const commands = separateSplit(treePos, path);
 
-    commands.forEach((command) => {
+    for (const command of commands) {
       const { fromPath, toPath, content } = command;
       const fromPos = this.tree!.pathToPos(fromPath);
       const toPos = this.tree!.pathToPos(toPath);
 
-      return this.editInternal(fromPos, toPos, content ? [content] : [], 0);
-    });
+      this.editInternal(fromPos, toPos, content ? [content] : [], 0);
+    }
   }
 
   /**
@@ -486,13 +486,13 @@ export class Tree {
 
     const commands = separateMerge(treePos, path);
 
-    commands.forEach((command) => {
+    for (const command of commands) {
       const { fromPath, toPath, content } = command;
       const fromPos = this.tree!.pathToPos(fromPath);
       const toPos = this.tree!.pathToPos(toPath);
 
-      return this.editInternal(fromPos, toPos, content ?? [], 0);
-    });
+      this.editInternal(fromPos, toPos, content ?? [], 0);
+    }
   }
 
   /**
