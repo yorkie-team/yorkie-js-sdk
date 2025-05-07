@@ -300,6 +300,19 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `getChildrenText` returns text value of all text type children.
+   */
+  getChildrenText(): string {
+    if (this.isText) {
+      return this.value;
+    }
+    if (this.hasTextChild()) {
+      return this.children.map((child) => child.value).join('');
+    }
+    return '';
+  }
+
+  /**
    * `append` appends the given nodes to the children.
    */
   append(...newNode: Array<T>): void {

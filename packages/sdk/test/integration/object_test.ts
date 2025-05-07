@@ -377,8 +377,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -421,8 +421,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -471,8 +471,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -541,8 +541,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -587,8 +587,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -646,8 +646,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -722,8 +722,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -798,8 +798,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -854,8 +854,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
       const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -907,8 +907,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
       const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 
@@ -955,8 +955,8 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey);
       const doc2 = new Document<TestDoc>(docKey);
 
-      const client1 = new Client(testRPCAddr);
-      const client2 = new Client(testRPCAddr);
+      const client1 = new Client({ rpcAddr: testRPCAddr });
+      const client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
 

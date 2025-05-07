@@ -14,97 +14,70 @@
  * limitations under the License.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { Client, Document } from '@yorkie-js/sdk';
+import {
+  ClientOptions,
+  Indexable,
+  Presence,
+  StreamConnectionStatus,
+} from '@yorkie-js/sdk';
+import pkg from '../package.json';
+import { useYorkieClient } from './YorkieProvider';
+import { useYorkieDocument } from './DocumentProvider';
+import { useMemo } from 'react';
 
 /**
- * `useYorkieDoc` is a custom hook that initializes a Yorkie client and attaches a document.
- *
- * @param apiKey
- * @param docKey
- * @param initialRoot
- * @returns
+ * `useYorkieDoc` is a custom hook that initializes a Yorkie Client and a
+ * document in a single hook.
  */
-export function useYorkieDoc<T>(
+export function useYorkieDoc<R, P extends Indexable = Indexable>(
   apiKey: string,
   docKey: string,
-  initialRoot: T,
-  options?: {
-    rpcAddr?: string;
+  opts?: Omit<ClientOptions, 'apiKey'> & {
+    initialRoot?: R;
+    initialPresence?: P;
   },
 ): {
-  root: T;
-  update: (callback: (root: T) => void) => void;
+  root: R;
+  presences: Array<{ clientID: string; presence: P }>;
+  connection: StreamConnectionStatus;
+  update: (callback: (root: R, presence: Presence<P>) => void) => void;
   loading: boolean;
   error: Error | undefined;
 } {
-  const [client, setClient] = useState<Client | undefined>(undefined);
-  const [doc, setDoc] = useState<Document<T> | undefined>(undefined);
-  const [root, setRoot] = useState<T>(initialRoot);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | undefined>(undefined);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(undefined);
-
-    /**
-     * `setupYorkie` initializes the Yorkie client and attaches the document.
-     */
-    async function setupYorkie() {
-      try {
-        const client = new Client(
-          options?.rpcAddr || 'https://api.yorkie.dev',
-          { apiKey },
-        );
-        await client.activate();
-
-        const doc = new Document<T>(docKey);
-        await client.attach(doc, {
-          initialPresence: {},
-          initialRoot,
-        });
-
-        doc.subscribe((event) => {
-          if (event.type === 'remote-change' || event.type === 'local-change') {
-            setRoot(doc.getRoot());
-          }
-        });
-
-        setClient(client);
-        setDoc(doc);
-        setRoot(doc.getRoot());
-      } catch (err) {
-        setError(err instanceof Error ? err : new Error('Unknown error'));
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    setupYorkie();
-
-    return () => {
-      client?.deactivate({ keepalive: true });
+  // NOTE(hackerwins): useMemo is used to prevent creating a new client
+  // every time the component re-renders. If the apiKey or docKey
+  // changes, a new client will be created.
+  const clientOpts = useMemo(() => {
+    return {
+      apiKey,
+      userAgent: pkg.name + '/' + pkg.version,
+      ...opts,
     };
-  }, [apiKey, docKey, JSON.stringify(initialRoot), JSON.stringify(options)]);
+  }, [apiKey]);
 
-  const update = useCallback(
-    (callback: (root: T) => void) => {
-      if (!doc) {
-        console.warn('Attempted to update document before it was initialized');
-        return;
-      }
+  const {
+    client,
+    loading: clientLoading,
+    error: clientError,
+  } = useYorkieClient(clientOpts);
 
-      doc.update((root) => {
-        callback(root);
-      });
-    },
-    [doc],
-  );
+  const { root, presences, connection, update, loading, error } =
+    useYorkieDocument(
+      client,
+      clientLoading,
+      clientError,
+      docKey,
+      opts?.initialRoot,
+      opts?.initialPresence as P,
+    );
 
   return {
-    root,
-    update,
+    root: root as R,
+    presences,
+    connection,
+    update: update as (
+      callback: (root: R, presence: Presence<P>) => void,
+    ) => void,
     loading,
     error,
   };

@@ -117,9 +117,9 @@
         <div class="online-clients"></div>
       </div>
     </div>
-    <script src="./yorkie-js-sdk.js"></script>
     <script src="./util.js"></script>
-    <script>
+    <script type="module">
+      import './src/yorkie.ts';
       const colorHash = new ColorHash();
       const clientAElem = document.getElementById('client-a');
       const clientBElem = document.getElementById('client-b');
@@ -142,7 +142,9 @@
         try {
           async function initializeRealtimeEditor(clientElem) {
             // 01. create client with RPCAddr(envoy) then activate it.
-            const client = new yorkie.Client('http://localhost:8080');
+            const client = new yorkie.Client({
+              rpcAddr: 'http://localhost:8080',
+            });
             await client.activate();
             const clientID = client.getID().slice(-2);
             clientElem.querySelector('.client-id').textContent = clientID;
@@ -484,9 +486,6 @@
 
             syncText(doc, quill);
             updateAllCursors();
-            window.addEventListener('beforeunload', async () => {
-              await client.deactivate({ keepalive: true });
-            });
 
             return { client, doc, quill };
           }

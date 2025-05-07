@@ -109,7 +109,7 @@ export function toWrappedElement(
   } else if (elem instanceof CRDTText) {
     return new Text(context, elem);
   } else if (elem instanceof CRDTCounter) {
-    const counter = new Counter(CounterType.IntegerCnt, 0);
+    const counter = new Counter(CounterType.Int, 0);
     counter.initialize(context, elem);
     return counter;
   } else if (elem instanceof CRDTTree) {

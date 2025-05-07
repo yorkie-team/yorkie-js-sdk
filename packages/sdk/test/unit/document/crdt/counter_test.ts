@@ -25,13 +25,9 @@ import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
-    const double = CRDTCounter.create(
-      CounterType.IntegerCnt,
-      10,
-      InitialTimeTicket,
-    );
+    const double = CRDTCounter.create(CounterType.Int, 10, InitialTimeTicket);
     const long = CRDTCounter.create(
-      CounterType.LongCnt,
+      CounterType.Long,
       Long.fromString('100'),
       InitialTimeTicket,
     );
@@ -53,9 +49,12 @@ describe('Counter', function () {
         ? counter.getValue()
         : operand.getValue();
 
-      assert.throw(() => {
-        counter.increase(operand);
-      }, `Unsupported type of value: ${typeof errValue}`);
+      assert.throw(
+        () => {
+          counter.increase(operand);
+        },
+        `Unsupported type of value: ${typeof errValue}`,
+      );
     }
 
     const str = Primitive.of('hello', InitialTimeTicket);

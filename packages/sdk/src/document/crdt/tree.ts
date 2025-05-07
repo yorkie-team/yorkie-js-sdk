@@ -18,6 +18,7 @@ import {
   TimeTicket,
   TimeTicketStruct,
   MaxLamport,
+  TimeTicketSize,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
@@ -44,6 +45,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { DataSize } from '../../util/resource';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -685,6 +687,39 @@ export class CRDTTreeNode
   }
 
   /**
+   * `getDataSize` returns the data size of the node.
+   */
+  public getDataSize(): DataSize {
+    const dataSize = { data: 0, meta: 0 };
+
+    if (this.isText) {
+      dataSize.data += this.size * 2;
+    }
+
+    if (this.id) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.removedAt) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.attrs) {
+      for (const node of this.attrs) {
+        if (node.getRemovedAt()) {
+          continue;
+        }
+
+        const size = node.getDataSize();
+        dataSize.meta += size.meta;
+        dataSize.data += size.data;
+      }
+    }
+
+    return dataSize;
+  }
+
+  /**
    * `getGCPairs` returns the pairs of GC.
    */
   public getGCPairs(): Array<GCPair> {
@@ -1221,6 +1256,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `pathToTreePos` converts the given path of the node to the TreePos.
+   */
+  public pathToTreePos(
+    path: Array<number>,
+  ): ReturnType<typeof this.indexTree.pathToTreePos> {
+    return this.indexTree.pathToTreePos(path);
+  }
+
+  /**
    * `purge` physically purges the given node.
    */
   public purge(node: CRDTTreeNode): void {
@@ -1322,6 +1366,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `getDataSize` returns the data usage of this element.
+   */
+  public getDataSize(): DataSize {
+    const dataSize = { data: 0, meta: 0 };
+
+    this.indexTree.traverse((node) => {
+      if (node.getRemovedAt()) {
+        return;
+      }
+
+      const size = node.getDataSize();
+      dataSize.data += size.data;
+      dataSize.meta += size.meta;
+    });
+
+    return {
+      data: dataSize.data,
+      meta: dataSize.meta + this.getMetaUsage(),
+    };
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this tree.
    */
   public toJSON(): string {
@@ -1360,8 +1426,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const treePos = node.isText
         ? { node, offset: 0 }
         : parentNode && leftChildNode
-        ? this.toTreePos(parentNode, leftChildNode)
-        : null;
+          ? this.toTreePos(parentNode, leftChildNode)
+          : null;
 
       if (treePos) {
         index = this.indexTree.indexOf(treePos);

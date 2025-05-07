@@ -23,8 +23,8 @@ describe('Presence', function () {
   });
 
   it('Can be built from a snapshot', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -53,8 +53,8 @@ describe('Presence', function () {
   it('Can be set initial value in attach and be removed in detach', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -88,8 +88,8 @@ describe('Presence', function () {
   it('Should be initialized as an empty object if no initial value is set during attach', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -112,8 +112,8 @@ describe('Presence', function () {
   });
 
   it('Should be synced eventually', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     const c1ID = c1.getID()!;
@@ -196,8 +196,8 @@ describe('Presence', function () {
   it('Can be updated partially by doc.update function', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -230,9 +230,9 @@ describe('Presence', function () {
   });
 
   it(`Should return only online clients`, async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    const c3 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     await c3.activate();
@@ -299,8 +299,8 @@ describe('Presence', function () {
   it('Can get presence value using p.get() within doc.update function', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -332,8 +332,8 @@ describe('Presence', function () {
   it(`Should not be accessible to other clients' presence when the stream is disconnected`, async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     const c2ID = c2.getID()!;
@@ -380,8 +380,8 @@ describe(`Document.Subscribe('presence')`, function () {
   it(`Should receive presence-changed event for final presence if there are multiple presence changes within doc.update`, async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     const c1ID = c1.getID()!;
@@ -437,8 +437,8 @@ describe(`Document.Subscribe('presence')`, function () {
   it(`Can receive 'unwatched' event when a client detaches`, async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     const c1ID = c1.getID()!;
@@ -488,9 +488,9 @@ describe(`Document.Subscribe('presence')`, function () {
     type PresenceType = { name: string; cursor: { x: number; y: number } };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
-    const c3 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     await c3.activate();
@@ -614,7 +614,7 @@ describe('Undo/Redo', function () {
       root.counter = new Counter(yorkie.IntType, 100);
     }, 'init counter');
 
-    const client = new yorkie.Client(testRPCAddr);
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client.activate();
     await client.attach(doc, { initialPresence: { color: 'red' } });
 
@@ -668,7 +668,7 @@ describe('Undo/Redo', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{}, Presence>(docKey);
 
-    const client = new yorkie.Client(testRPCAddr);
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client.activate();
     await client.attach(doc, {
       initialPresence: { color: 'red', cursor: { x: 0, y: 0 } },
@@ -788,7 +788,7 @@ describe('Undo/Redo', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{}, Presence>(docKey);
 
-    const client = new yorkie.Client(testRPCAddr);
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client.activate();
     await client.attach(doc, { initialPresence: { color: 'red' } });
 

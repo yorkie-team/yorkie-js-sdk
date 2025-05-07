@@ -231,9 +231,9 @@ function toValueType(valueType: PrimitiveType): PbValueType {
  */
 function toCounterType(valueType: CounterType): PbValueType {
   switch (valueType) {
-    case CounterType.IntegerCnt:
+    case CounterType.Int:
       return PbValueType.INTEGER_CNT;
-    case CounterType.LongCnt:
+    case CounterType.Long:
       return PbValueType.LONG_CNT;
     default:
       throw new YorkieError(
@@ -940,9 +940,9 @@ function fromValueType(pbValueType: PbValueType): PrimitiveType {
 function fromCounterType(pbValueType: PbValueType): CounterType {
   switch (pbValueType) {
     case PbValueType.INTEGER_CNT:
-      return CounterType.IntegerCnt;
+      return CounterType.Int;
     case PbValueType.LONG_CNT:
-      return CounterType.LongCnt;
+      return CounterType.Long;
   }
   throw new YorkieError(
     Code.ErrUnimplemented,

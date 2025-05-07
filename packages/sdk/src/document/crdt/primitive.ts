@@ -20,6 +20,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 export enum PrimitiveType {
   Null,
@@ -96,6 +97,48 @@ export class Primitive extends CRDTElement {
           `unimplemented type: ${primitiveType}`,
         );
     }
+  }
+
+  /**
+   * `getValueSize` returns the size of the value. The size is similar to
+   * the size of primitives in JavaScript.
+   */
+  private getValueSize(): number {
+    switch (this.valueType) {
+      case PrimitiveType.Null:
+        // Word Size in 64-bit system.
+        return 8;
+      case PrimitiveType.Boolean:
+        return 4;
+      case PrimitiveType.Integer:
+        return 4;
+      case PrimitiveType.Long:
+        return 8;
+      case PrimitiveType.Double:
+        return 8;
+      case PrimitiveType.String:
+        // string is UTF-16 encoded.
+        return (this.value as string).length * 2;
+      case PrimitiveType.Bytes:
+        return (this.value as Uint8Array).length;
+      case PrimitiveType.Date:
+        return 8;
+      default:
+        throw new YorkieError(
+          Code.ErrUnimplemented,
+          `unimplemented type: ${this.valueType}`,
+        );
+    }
+  }
+
+  /**
+   * `getDataSize` returns the data usage of this element.
+   */
+  public getDataSize(): DataSize {
+    return {
+      data: this.getValueSize(),
+      meta: this.getMetaUsage(),
+    };
   }
 
   /**

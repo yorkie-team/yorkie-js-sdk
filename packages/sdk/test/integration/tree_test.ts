@@ -509,6 +509,278 @@ describe('Tree', () => {
     });
   });
 
+  it('Can edit its content by split', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  {
+                    type: 'tn',
+                    children: [{ type: 'text', value: '1234' }],
+                  },
+                ],
+              },
+              {
+                type: 'p',
+                children: [
+                  {
+                    type: 'tn',
+                    children: [{ type: 'text', value: '5678' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      root.t.splitByPath([0, 0, 0, 2]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      root.t.splitByPath([0, 0, 1]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      root.t.splitByPath([0, 2, 0, 4]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn><tn></tn></p></tc></doc>`,
+      );
+
+      root.t.splitByPath([0, 2, 1]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p><p><tn></tn></p></tc></doc>`,
+      );
+    });
+  });
+
+  it('Can edit its content by merge', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'tc',
+            children: [
+              {
+                type: 'p',
+                children: [
+                  {
+                    type: 'tn',
+                    children: [{ type: 'text', value: '1234' }],
+                  },
+                ],
+              },
+              {
+                type: 'p',
+                children: [
+                  {
+                    type: 'tn',
+                    children: [{ type: 'text', value: '5678' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      root.t.mergeByPath([0, 1]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn><tn>5678</tn></p></tc></doc>`,
+      );
+
+      root.t.mergeByPath([0, 0, 1]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12345678</tn></p></tc></doc>`,
+      );
+    });
+  });
+
+  it('Can sync its split with other clients', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'tc',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    {
+                      type: 'tn',
+                      children: [{ type: 'text', value: '1234' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'p',
+                  children: [
+                    {
+                      type: 'tn',
+                      children: [{ type: 'text', value: '5678' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.splitByPath([0, 0, 0, 2]);
+      });
+
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.splitByPath([0, 0, 1]);
+      });
+
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+    }, task.name);
+  });
+
+  it('Can sync its merge with other clients', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'tc',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    {
+                      type: 'tn',
+                      children: [{ type: 'text', value: '1234' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'p',
+                  children: [
+                    {
+                      type: 'tn',
+                      children: [{ type: 'text', value: '5678' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.mergeByPath([0, 1]);
+      });
+
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn><tn>5678</tn></p></tc></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>1234</tn><tn>5678</tn></p></tc></doc>`,
+      );
+
+      d1.update((root) => {
+        root.t.mergeByPath([0, 0, 1]);
+      });
+
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12345678</tn></p></tc></doc>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<doc><tc><p><tn>12345678</tn></p></tc></doc>`,
+      );
+    }, task.name);
+  });
+
   it('Can sync its content with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -1551,8 +1823,8 @@ describe('Tree.style', function () {
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
 
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await c1.activate();
     await c2.activate();
@@ -1755,7 +2027,7 @@ describe('Tree.style', function () {
 
     // A new client has been added.
     const d3 = new yorkie.Document<TestDoc>(docKey);
-    const c3 = new yorkie.Client(testRPCAddr);
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c3.activate();
     await c3.attach(d3, { syncMode: SyncMode.Manual });
     assert.equal(

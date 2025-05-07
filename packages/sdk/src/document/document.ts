@@ -77,6 +77,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
+import { DocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -483,14 +484,14 @@ export type DocKey = string;
 type OperationInfoOfElement<TElement> = TElement extends Text
   ? TextOperationInfo
   : TElement extends Counter
-  ? CounterOperationInfo
-  : TElement extends Tree
-  ? TreeOperationInfo
-  : TElement extends BaseArray<any>
-  ? ArrayOperationInfo
-  : TElement extends BaseObject<any>
-  ? ObjectOperationInfo
-  : OperationInfo;
+    ? CounterOperationInfo
+    : TElement extends Tree
+      ? TreeOperationInfo
+      : TElement extends BaseArray<any>
+        ? ArrayOperationInfo
+        : TElement extends BaseObject<any>
+          ? ObjectOperationInfo
+          : OperationInfo;
 
 /**
  * `OperationInfoOfInternal` represents the type of the operation info of the
@@ -511,24 +512,24 @@ type OperationInfoOfInternal<
 > = TDepth extends 0
   ? TElement
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-  ? TFirst extends keyof TElement
-    ? TElement[TFirst] extends BaseArray<unknown>
-      ? OperationInfoOfInternal<
-          TElement[TFirst],
-          number,
-          DecreasedDepthOf<TDepth>
-        >
-      : OperationInfoOfInternal<
-          TElement[TFirst],
-          TRest,
-          DecreasedDepthOf<TDepth>
-        >
-    : OperationInfo
-  : TKeyOrPath extends keyof TElement
-  ? TElement[TKeyOrPath] extends BaseArray<unknown>
-    ? ArrayOperationInfo
-    : OperationInfoOfElement<TElement[TKeyOrPath]>
-  : OperationInfo;
+    ? TFirst extends keyof TElement
+      ? TElement[TFirst] extends BaseArray<unknown>
+        ? OperationInfoOfInternal<
+            TElement[TFirst],
+            number,
+            DecreasedDepthOf<TDepth>
+          >
+        : OperationInfoOfInternal<
+            TElement[TFirst],
+            TRest,
+            DecreasedDepthOf<TDepth>
+          >
+      : OperationInfo
+    : TKeyOrPath extends keyof TElement
+      ? TElement[TKeyOrPath] extends BaseArray<unknown>
+        ? ArrayOperationInfo
+        : OperationInfoOfElement<TElement[TKeyOrPath]>
+      : OperationInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
@@ -536,24 +537,24 @@ type OperationInfoOfInternal<
 type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
   ? 9
   : Depth extends 9
-  ? 8
-  : Depth extends 8
-  ? 7
-  : Depth extends 7
-  ? 6
-  : Depth extends 6
-  ? 5
-  : Depth extends 5
-  ? 4
-  : Depth extends 4
-  ? 3
-  : Depth extends 3
-  ? 2
-  : Depth extends 2
-  ? 1
-  : Depth extends 1
-  ? 0
-  : -1;
+    ? 8
+    : Depth extends 8
+      ? 7
+      : Depth extends 7
+        ? 6
+        : Depth extends 6
+          ? 5
+          : Depth extends 5
+            ? 4
+            : Depth extends 4
+              ? 3
+              : Depth extends 3
+                ? 2
+                : Depth extends 2
+                  ? 1
+                  : Depth extends 1
+                    ? 0
+                    : -1;
 
 /**
  * `PathOfInternal` represents the type of the path of the given element.
@@ -565,29 +566,29 @@ type PathOfInternal<
 > = Depth extends 0
   ? Prefix
   : TElement extends Record<string, any>
-  ? {
-      [TKey in keyof TElement]: TElement[TKey] extends LeafElement
-        ? `${Prefix}${TKey & string}`
-        : TElement[TKey] extends BaseArray<infer TArrayElement>
-        ?
-            | `${Prefix}${TKey & string}`
-            | `${Prefix}${TKey & string}.${number}`
-            | PathOfInternal<
-                TArrayElement,
-                `${Prefix}${TKey & string}.${number}.`,
-                DecreasedDepthOf<Depth>
-              >
-        :
-            | `${Prefix}${TKey & string}`
-            | PathOfInternal<
-                TElement[TKey],
-                `${Prefix}${TKey & string}.`,
-                DecreasedDepthOf<Depth>
-              >;
-    }[keyof TElement]
-  : Prefix extends `${infer TRest}.`
-  ? TRest
-  : Prefix;
+    ? {
+        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+          ? `${Prefix}${TKey & string}`
+          : TElement[TKey] extends BaseArray<infer TArrayElement>
+            ?
+                | `${Prefix}${TKey & string}`
+                | `${Prefix}${TKey & string}.${number}`
+                | PathOfInternal<
+                    TArrayElement,
+                    `${Prefix}${TKey & string}.${number}.`,
+                    DecreasedDepthOf<Depth>
+                  >
+            :
+                | `${Prefix}${TKey & string}`
+                | PathOfInternal<
+                    TElement[TKey],
+                    `${Prefix}${TKey & string}.`,
+                    DecreasedDepthOf<Depth>
+                  >;
+      }[keyof TElement]
+    : Prefix extends `${infer TRest}.`
+      ? TRest
+      : Prefix;
 
 /**
  * `OperationInfoOf` represents the type of the operation info of the given
@@ -616,7 +617,7 @@ type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
  *
  * @public
  */
-export class Document<T, P extends Indexable = Indexable> {
+export class Document<R, P extends Indexable = Indexable> {
   private key: DocKey;
   private status: DocStatus;
   private opts: DocumentOptions;
@@ -694,7 +695,7 @@ export class Document<T, P extends Indexable = Indexable> {
    * `update` executes the given updater to update this document.
    */
   public update(
-    updater: (root: JSONObject<T>, presence: Presence<P>) => void,
+    updater: (root: JSONObject<R>, presence: Presence<P>) => void,
     message?: string,
   ): void {
     if (this.getStatus() === DocStatus.Removed) {
@@ -712,7 +713,7 @@ export class Document<T, P extends Indexable = Indexable> {
     );
 
     try {
-      const proxy = createJSON<JSONObject<T>>(
+      const proxy = createJSON<JSONObject<R>>(
         context,
         this.clone!.root.getObject(),
       );
@@ -879,8 +880,8 @@ export class Document<T, P extends Indexable = Indexable> {
    * The callback will be called when the targetPath or any of its nested values change.
    */
   public subscribe<
-    TPath extends PathOf<T>,
-    TOperationInfo extends OperationInfoOf<T, TPath>,
+    TPath extends PathOf<R>,
+    TOperationInfo extends OperationInfoOf<R, TPath>,
   >(
     targetPath: TPath,
     next: NextFn<
@@ -929,8 +930,8 @@ export class Document<T, P extends Indexable = Indexable> {
    * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe<
-    TPath extends PathOf<T>,
-    TOperationInfo extends OperationInfoOf<T, TPath>,
+    TPath extends PathOf<R>,
+    TOperationInfo extends OperationInfoOf<R, TPath>,
   >(
     arg1: TPath | DocEventTopic | DocEventCallbackMap<P>['default'],
     arg2?:
@@ -1353,7 +1354,7 @@ export class Document<T, P extends Indexable = Indexable> {
   /**
    * `getRoot` returns a new proxy of cloned root.
    */
-  public getRoot(): JSONObject<T> {
+  public getRoot(): JSONObject<R> {
     this.ensureClone();
 
     const context = ChangeContext.create(
@@ -1361,7 +1362,14 @@ export class Document<T, P extends Indexable = Indexable> {
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
-    return createJSON<T>(context, this.clone!.root.getObject());
+    return createJSON<R>(context, this.clone!.root.getObject());
+  }
+
+  /**
+   * `getDocSize` returns the size of this document.
+   */
+  public getDocSize(): DocSize {
+    return this.root.getDocSize();
   }
 
   /**

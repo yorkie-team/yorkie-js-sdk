@@ -22,11 +22,13 @@ import {
   InitialTimeTicket,
   MaxLamport,
   TimeTicket,
+  TimeTicketSize,
   TimeTicketStruct,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -37,8 +39,8 @@ export interface ValueChange<T> {
 
 interface RGATreeSplitValue {
   length: number;
-
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+  getDataSize(): DataSize;
 }
 
 /**
@@ -483,6 +485,23 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       RGATreeSplitPos.of(this.id, 0),
       RGATreeSplitPos.of(this.id, this.getLength()),
     ];
+  }
+
+  /**
+   * `getData` returns the data of this node.
+   */
+  public getDataSize(): DataSize {
+    const dataSize = this.value.getDataSize();
+
+    if (this.id) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    if (this.removedAt) {
+      dataSize.meta += TimeTicketSize;
+    }
+
+    return dataSize;
   }
 
   /**

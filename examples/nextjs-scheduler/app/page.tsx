@@ -89,12 +89,9 @@ export default function Editor() {
 
   useEffect(() => {
     // create Yorkie Client at client-side
-    const client = new yorkie.Client(ENV.url, {
+    const client = new yorkie.Client({
+      rpcAddr: ENV.url,
       apiKey: ENV.apiKey,
-    });
-
-    window.addEventListener('beforeunload', () => {
-      client.deactivate({ keepalive: true });
     });
 
     // subscribe document event of "PresenceChanged"(="peers-changed")

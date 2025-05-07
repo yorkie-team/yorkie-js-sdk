@@ -24,10 +24,11 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { removeDecimal } from '@yorkie-js/sdk/src/util/number';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 export enum CounterType {
-  IntegerCnt,
-  LongCnt,
+  Int,
+  Long,
 }
 
 export type CounterValue = number | Long;
@@ -50,7 +51,7 @@ export class CRDTCounter extends CRDTElement {
     super(createdAt);
     this.valueType = valueType;
     switch (valueType) {
-      case CounterType.IntegerCnt:
+      case CounterType.Int:
         if (typeof value === 'number') {
           if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
             this.value = Long.fromNumber(value).toInt();
@@ -61,7 +62,7 @@ export class CRDTCounter extends CRDTElement {
           this.value = value.toInt();
         }
         break;
-      case CounterType.LongCnt:
+      case CounterType.Long:
         if (typeof value === 'number') {
           this.value = Long.fromNumber(value);
         } else {
@@ -94,9 +95,9 @@ export class CRDTCounter extends CRDTElement {
     bytes: Uint8Array,
   ): CounterValue {
     switch (counterType) {
-      case CounterType.IntegerCnt:
+      case CounterType.Int:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
-      case CounterType.LongCnt:
+      case CounterType.Long:
         return Long.fromBytesLE(Array.from(bytes));
       default:
         throw new YorkieError(
@@ -104,6 +105,17 @@ export class CRDTCounter extends CRDTElement {
           `unimplemented type: ${counterType}`,
         );
     }
+  }
+
+  /**
+   * `getDataSize` returns the data usage of this element.
+   */
+  public getDataSize(): DataSize {
+    const data = this.valueType === CounterType.Int ? 4 : 8;
+    return {
+      data,
+      meta: this.getMetaUsage(),
+    };
   }
 
   /**
@@ -158,15 +170,15 @@ export class CRDTCounter extends CRDTElement {
     switch (typeof value) {
       case 'object':
         if (value instanceof Long) {
-          return CounterType.LongCnt;
+          return CounterType.Long;
         } else {
           return;
         }
       case 'number':
         if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
-          return CounterType.LongCnt;
+          return CounterType.Long;
         } else {
-          return CounterType.IntegerCnt;
+          return CounterType.Int;
         }
       default:
         return;
@@ -191,7 +203,7 @@ export class CRDTCounter extends CRDTElement {
    */
   public isNumericType(): boolean {
     const t = this.valueType;
-    return t === CounterType.IntegerCnt || t === CounterType.LongCnt;
+    return t === CounterType.Int || t === CounterType.Long;
   }
 
   /**
@@ -213,7 +225,7 @@ export class CRDTCounter extends CRDTElement {
    */
   public toBytes(): Uint8Array {
     switch (this.valueType) {
-      case CounterType.IntegerCnt: {
+      case CounterType.Int: {
         const intVal = this.value as number;
         return new Uint8Array([
           intVal & 0xff,
@@ -222,7 +234,7 @@ export class CRDTCounter extends CRDTElement {
           (intVal >> 24) & 0xff,
         ]);
       }
-      case CounterType.LongCnt: {
+      case CounterType.Long: {
         const longVal = this.value as Long;
         const longToBytes = longVal.toBytesLE();
         return Uint8Array.from(longToBytes);
@@ -252,7 +264,7 @@ export class CRDTCounter extends CRDTElement {
     checkNumericType(this);
     checkNumericType(v);
 
-    if (this.valueType === CounterType.LongCnt) {
+    if (this.valueType === CounterType.Long) {
       this.value = (this.value as Long).add(v.getValue() as number | Long);
     } else {
       if (v.getType() === PrimitiveType.Long) {

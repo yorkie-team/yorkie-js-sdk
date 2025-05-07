@@ -6,7 +6,7 @@ const benchmarkCounter = (size: number) => {
   const doc = new Document<{ counter: Counter }>('test-doc');
 
   doc.update((root) => {
-    root.counter = new Counter(CounterType.IntegerCnt, 0);
+    root.counter = new Counter(CounterType.Int, 0);
     for (let i = 0; i < size; i++) {
       root.counter.increase(i);
     }
@@ -22,7 +22,7 @@ describe('Counter', () => {
     const float = 3.14;
     const double = 5.66;
     doc.update((root) => {
-      root.age = new Counter(CounterType.IntegerCnt, 5);
+      root.age = new Counter(CounterType.Int, 5);
       root.age.increase(long);
       root.age.increase(double);
       root.age.increase(float);
@@ -31,7 +31,7 @@ describe('Counter', () => {
     });
     assert.equal('{"age":128}', doc.toJSON());
     doc.update((root) => {
-      root.price = new Counter(CounterType.LongCnt, 9000000000000000000);
+      root.price = new Counter(CounterType.Long, 9000000000000000000);
       root.price.increase(long);
       root.price.increase(double);
       root.price.increase(float);

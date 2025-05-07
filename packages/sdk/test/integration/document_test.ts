@@ -6,6 +6,7 @@ import yorkie, {
   SyncMode,
   Tree,
   JSONElement,
+  CounterType,
 } from '@yorkie-js/sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -24,7 +25,6 @@ import {
 } from '@yorkie-js/sdk/src/document/document';
 import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import Long from 'long';
 
 describe('Document', function () {
@@ -38,8 +38,8 @@ describe('Document', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -69,8 +69,8 @@ describe('Document', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -101,7 +101,7 @@ describe('Document', function () {
     // 5. client3 attaches the document.
     // The content of the removed document should not be exposed.
     const doc3 = new yorkie.Document<TestDoc>(docKey);
-    const client3 = new yorkie.Client(testRPCAddr);
+    const client3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client3.activate();
     await client3.attach(doc3);
     assert.equal('{}', doc3.toSortedJSON());
@@ -112,8 +112,8 @@ describe('Document', function () {
   });
 
   it('Can watch documents', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -150,8 +150,8 @@ describe('Document', function () {
   });
 
   it('detects the events from doc.subscribe', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -283,8 +283,8 @@ describe('Document', function () {
   });
 
   it('specify the topic to subscribe to', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -370,8 +370,8 @@ describe('Document', function () {
   });
 
   it('specify the nested topic to subscribe to', async function ({ task }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -467,8 +467,8 @@ describe('Document', function () {
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
 
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
 
@@ -502,7 +502,7 @@ describe('Document', function () {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document<TestDoc>(docKey);
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c1Key = c1.getKey();
 
     // 01. client is not activated.
@@ -558,7 +558,7 @@ describe('Document', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 creates d1 and removes it.
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     const d1 = new yorkie.Document<TestDoc>(docKey);
     d1.update((root) => {
@@ -569,7 +569,7 @@ describe('Document', function () {
     await c1.remove(d1);
 
     // 02. c2 creates d2 with the same key.
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c2.attach(d2);
@@ -591,7 +591,7 @@ describe('Document', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 attaches d1 and c2 watches same doc.
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     const d1 = new yorkie.Document<TestDoc>(docKey);
     d1.update((root) => {
@@ -600,7 +600,7 @@ describe('Document', function () {
     await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c2.attach(d2, { syncMode: SyncMode.Manual });
@@ -630,7 +630,7 @@ describe('Document', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 attaches d1 and c2 watches same doc.
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     const d1 = new yorkie.Document<TestDoc>(docKey);
     d1.update((root) => {
@@ -639,7 +639,7 @@ describe('Document', function () {
     await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c2.attach(d2, { syncMode: SyncMode.Manual });
@@ -664,7 +664,7 @@ describe('Document', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
     // 01. c1 attaches d1 and c2 watches same doc.
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     const d1 = new yorkie.Document<TestDoc>(docKey);
     d1.update((root) => {
@@ -673,7 +673,7 @@ describe('Document', function () {
     await c1.attach(d1, { syncMode: SyncMode.Manual });
     assert.equal(d1.toSortedJSON(), '{"k1":[1,2]}');
 
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c2.activate();
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c2.attach(d2, { syncMode: SyncMode.Manual });
@@ -703,7 +703,7 @@ describe('Document', function () {
   it('document state transition test', async function ({ task }) {
     type TestDoc = { k1: Array<number> };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const c1 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
 
     // 01. abnormal behavior on detached state
@@ -770,8 +770,8 @@ describe('Document', function () {
   it('Can subscribe to events related to document status changes', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     const c1ID = c1.getID()!;
@@ -869,8 +869,8 @@ describe('Document', function () {
   it('Should properly handle removed document when deactivating', async function ({
     task,
   }) {
-    const c1 = new yorkie.Client(testRPCAddr);
-    const c2 = new yorkie.Client(testRPCAddr);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
     const c1ID = c1.getID()!;
@@ -1105,8 +1105,8 @@ describe('Document', function () {
 
   describe('Document with InitialRoot', function () {
     it('Can attach with InitialRoot', async function ({ task }) {
-      const c1 = new yorkie.Client(testRPCAddr);
-      const c2 = new yorkie.Client(testRPCAddr);
+      const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
       await c1.activate();
       await c2.activate();
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
@@ -1115,7 +1115,7 @@ describe('Document', function () {
       const doc1 = new yorkie.Document(docKey);
       await c1.attach(doc1, {
         initialRoot: {
-          counter: new Counter(CounterType.IntegerCnt, 0),
+          counter: new Counter(CounterType.Int, 0),
           content: { x: 1, y: 1 },
         },
       });
@@ -1129,7 +1129,7 @@ describe('Document', function () {
       const doc2 = new yorkie.Document(docKey);
       await c2.attach(doc2, {
         initialRoot: {
-          counter: new Counter(CounterType.IntegerCnt, 1),
+          counter: new Counter(CounterType.Int, 1),
           content: { x: 1, y: 2 },
           new: { k: 'v' },
         },
@@ -1146,8 +1146,8 @@ describe('Document', function () {
     it('Can handle concurrent attach with InitialRoot', async function ({
       task,
     }) {
-      const c1 = new yorkie.Client(testRPCAddr);
-      const c2 = new yorkie.Client(testRPCAddr);
+      const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
       await c1.activate();
       await c2.activate();
 
@@ -1204,7 +1204,7 @@ describe('Document', function () {
         },
         {
           name: 'counter',
-          input: new Counter(CounterType.IntegerCnt, 1),
+          input: new Counter(CounterType.Int, 1),
           expectedJSON: `{"counter":1}`,
         },
         {
@@ -1253,7 +1253,7 @@ describe('Document', function () {
 
       for (const { name: name, input, expectedJSON } of testCases) {
         it(`Can support various types: ${name}`, async function ({ task }) {
-          const c1 = new yorkie.Client(testRPCAddr);
+          const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
           await c1.activate();
           const docKey = toDocKey(
             `${task.name}-${name}-${new Date().getTime()}`,

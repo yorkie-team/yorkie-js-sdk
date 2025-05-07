@@ -26,43 +26,34 @@ import {
   Presence,
   Indexable,
   StreamConnectionStatus,
+  Client,
 } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
 
-type DocumentContextType<R, P extends Indexable = Indexable> = {
-  root: R;
-  presences: { clientID: string; presence: P }[];
-  connection: StreamConnectionStatus;
-  update: (callback: (root: R) => void) => void;
-  loading: boolean;
-  error: Error | undefined;
-};
-
-const DocumentContext = createContext<DocumentContextType<any> | null>(null);
-
 /**
- * `DocumentProvider` is a component that provides a document to its children.
- * This component must be under a `YorkieProvider` component to initialize the
- * Yorkie client properly.
+ * `useYorkieDocument` is a custom hook that initializes a Yorkie document.
+ * @param client
+ * @param clientLoading
+ * @param clientError
+ * @param docKey
+ * @param initialRoot
+ * @param initialPresence
+ * @returns
  */
-export const DocumentProvider = <R, P extends Indexable = Indexable>({
-  docKey,
-  initialRoot = {} as R,
-  initialPresence = {} as P,
-  children,
-}: {
-  docKey: string;
-  initialRoot?: R;
-  initialPresence?: P;
-  children?: React.ReactNode;
-}) => {
-  const { client, loading: clientLoading, error: clientError } = useYorkie();
-  const [doc, setDoc] = useState<Document<R, P> | undefined>(undefined);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | undefined>(undefined);
+export function useYorkieDocument<R, P extends Indexable = Indexable>(
+  client: Client | undefined,
+  clientLoading: boolean,
+  clientError: Error | undefined,
+  docKey: string,
+  initialRoot: R,
+  initialPresence: P,
+) {
+  const [doc, setDoc] = useState<Document<R, P>>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error>();
   const [root, setRoot] = useState(initialRoot);
   const [presences, setPresences] = useState<
-    { clientID: string; presence: any }[]
+    Array<{ clientID: string; presence: P }>
   >([]);
   const [connection, setConnection] = useState<StreamConnectionStatus>(
     StreamConnectionStatus.Disconnected,
@@ -152,10 +143,69 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     },
     [doc],
   );
+  return {
+    doc,
+    root,
+    presences,
+    connection,
+    update,
+    loading,
+    error,
+  };
+}
+
+type DocumentContextType<R, P extends Indexable = Indexable> = {
+  doc: Document<R, P> | undefined;
+  root: R;
+  presences: { clientID: string; presence: P }[];
+  connection: StreamConnectionStatus;
+  update: (callback: (root: R, presence: Presence<P>) => void) => void;
+  loading: boolean;
+  error: Error | undefined;
+};
+
+const DocumentContext = createContext<DocumentContextType<any, any> | null>(
+  null,
+);
+
+/**
+ * `DocumentProvider` is a component that provides a document to its children.
+ * This component must be under a `YorkieProvider` component to initialize the
+ * Yorkie client properly.
+ */
+export const DocumentProvider = <R, P extends Indexable = Indexable>({
+  docKey,
+  initialRoot = {} as R,
+  initialPresence = {} as P,
+  children,
+}: {
+  docKey: string;
+  initialRoot?: R;
+  initialPresence?: P;
+  children?: React.ReactNode;
+}) => {
+  const { client, loading: clientLoading, error: clientError } = useYorkie();
+  const { doc, root, presences, connection, update, loading, error } =
+    useYorkieDocument<R, P>(
+      client,
+      clientLoading,
+      clientError,
+      docKey,
+      initialRoot,
+      initialPresence,
+    );
 
   return (
     <DocumentContext.Provider
-      value={{ root, presences, connection, update, loading, error }}
+      value={{
+        doc,
+        root,
+        presences,
+        connection,
+        update,
+        loading,
+        error,
+      }}
     >
       {children}
     </DocumentContext.Provider>
@@ -172,11 +222,12 @@ export const useDocument = <R, P extends Indexable = Indexable>() => {
     throw new Error('useDocument must be used within a DocumentProvider');
   }
   return {
+    doc: context.doc as Document<R, P>,
     root: context.root as R,
     presences: context.presences as { clientID: string; presence: P }[],
     connection: context.connection,
     update: context.update as (
-      callback: (root: R, presence: P) => void,
+      callback: (root: R, presence: Presence<P>) => void,
     ) => void,
     loading: context.loading,
     error: context.error,

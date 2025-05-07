@@ -7,6 +7,56 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.9] - 2025-04-30
+
+### Added
+
+- Implement Split, Merge in json layer of Tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/982
+
+### Fixed
+
+- Update dependencies in ProseMirror by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/986
+
+## [0.6.8] - 2025-04-28
+
+### Added
+
+- Add size tracking to CRDT by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/981
+- Add document to DocumentContext by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/983
+
+### Fixed
+
+- Update client initialization to use rpcAddr option in examples by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/979
+- Apply HMR in dev mode by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/984
+
+## [0.6.7] - 2025-04-17
+
+### Added
+
+- Add beforeunload deactivation handler directly to Client by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/977
+
+### Changed
+
+- Refactor client initialization to use options for rpcAddr by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/975
+
+### Fixed
+
+- Add missing user agent to @yorkie-js/react by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/976
+
+## [0.6.6] - 2025-04-07
+
+### Added
+
+- Add schema package with initial configuration by @hackerwins https://github.com/yorkie-team/yorkie-js-sdk/pull/968
+
+### Changed
+
+- Support StrictMode in React Standalone Mode by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/970
+
+### Removed
+
+- Remove create-yorkie-app package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/967
+
 ## [0.6.5] - 2025-03-28
 
 ### Added

@@ -19,10 +19,11 @@ import {
   PropsWithChildren,
   useContext,
   useEffect,
-  useRef,
+  useMemo,
   useState,
 } from 'react';
-import { Client } from '@yorkie-js/sdk';
+import { Client, ClientOptions } from '@yorkie-js/sdk';
+import pkg from '../package.json';
 
 type YorkieContextType = {
   client: Client | undefined;
@@ -37,45 +38,33 @@ const YorkieContext = createContext<YorkieContextType>({
 });
 
 /**
- * `YorkieProviderProps` is a set of properties for `YorkieProvider`.
+ * `useYorkieClient` is a custom hook that initializes a Yorkie client.
  */
-interface YorkieProviderProps {
-  apiKey: string;
-  rpcAddr?: string;
-}
-
-/**
- * `YorkieProvider` is a component that provides the Yorkie client to its children.
- * It initializes the Yorkie client with the given API key and RPC address.
- */
-export const YorkieProvider: React.FC<
-  PropsWithChildren<YorkieProviderProps>
-> = ({ apiKey, rpcAddr = 'https://api.yorkie.dev', children }) => {
+export function useYorkieClient(opts: ClientOptions) {
   const [client, setClient] = useState<Client | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | undefined>(undefined);
+  const [didMount, setDidMount] = useState(false);
 
-  // NOTE(hackerwins): We use `useRef` to keep the client instance to prevent
-  // re-creating the client instance in StrictMode.
-  const clientRef = useRef<Client | undefined>(undefined);
+  // NOTE(hackerwins): In StrictMode, the component will call twice
+  // useEffect in development mode. To prevent creating a new client
+  // twice, create a client after the mounting.
+  useEffect(() => {
+    setDidMount(true);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     setError(undefined);
 
     async function activateClient() {
-      try {
-        if (clientRef.current?.isActive()) {
-          setClient(clientRef.current);
-          setLoading(false);
-          return;
-        }
+      if (!didMount) {
+        return;
+      }
 
-        const newClient = new Client(rpcAddr, {
-          apiKey,
-        });
+      try {
+        const newClient = new Client(opts);
         await newClient.activate();
-        clientRef.current = newClient;
         setClient(newClient);
       } catch (e) {
         setError(
@@ -88,12 +77,33 @@ export const YorkieProvider: React.FC<
     activateClient();
 
     return () => {
-      if (clientRef.current?.isActive()) {
-        clientRef.current.deactivate({ keepalive: true });
-        clientRef.current = undefined;
+      if (client?.isActive()) {
+        client.deactivate({ keepalive: true });
       }
     };
-  }, [apiKey, rpcAddr]);
+  }, [opts.apiKey, opts.rpcAddr, didMount]);
+
+  return { client, loading, error };
+}
+
+/**
+ * `YorkieProvider` is a component that provides the Yorkie client to its children.
+ * It initializes the Yorkie client with the given API key and RPC address.
+ */
+export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
+  children,
+  ...opts
+}) => {
+  // NOTE(hackerwins): useMemo is used to prevent re-creating the client
+  // when the component re-renders. If the apiKey or rpcAddr changes,
+  // the client will be re-created.
+  const clientOpts = useMemo(() => {
+    return {
+      userAgent: pkg.name + '/' + pkg.version,
+      ...opts,
+    };
+  }, [opts.apiKey, opts.rpcAddr]);
+  const { client, loading, error } = useYorkieClient(clientOpts);
 
   return (
     <YorkieContext.Provider value={{ client, loading, error }}>
@@ -102,6 +112,10 @@ export const YorkieProvider: React.FC<
   );
 };
 
+/**
+ * `useYorkie` is a custom hook that returns the Yorkie client and its loading state.
+ * @returns
+ */
 export const useYorkie = () => {
   const context = useContext(YorkieContext);
   if (!context) {

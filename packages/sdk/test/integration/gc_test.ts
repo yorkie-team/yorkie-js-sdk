@@ -19,8 +19,8 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await client1.activate();
     await client2.activate();
@@ -76,8 +76,8 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<{ t: Tree }>(docKey);
     const doc2 = new yorkie.Document<{ t: Tree }>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await client1.activate();
     await client2.activate();
@@ -230,8 +230,8 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await client1.activate();
     await client2.activate();
@@ -367,8 +367,8 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await client1.activate();
     await client2.activate();
@@ -513,8 +513,8 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await client1.activate();
     await client2.activate();
@@ -628,7 +628,7 @@ describe('Garbage Collection', function () {
     type TestDoc = { point: { x: number; y: number } };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
-    const cli = new yorkie.Client(testRPCAddr);
+    const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
     await cli.attach(doc, { syncMode: SyncMode.Manual });
@@ -675,7 +675,7 @@ describe('Garbage Collection', function () {
     type TestDoc = { list: Array<number | Array<number>> };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc>(docKey);
-    const cli = new yorkie.Client(testRPCAddr);
+    const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await cli.activate();
     await cli.attach(doc, { syncMode: SyncMode.Manual });
@@ -729,8 +729,8 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
 
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
 
     await client1.activate();
     await client2.activate();
@@ -865,8 +865,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
@@ -1034,8 +1034,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
@@ -1230,8 +1230,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -1375,8 +1375,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -1613,8 +1613,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -1708,8 +1708,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${new Date().getTime()}-${task.name}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -1882,8 +1882,8 @@ describe('Garbage Collection', function () {
     const docKey = toDocKey(`${new Date().getTime()}-${task.name}`);
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
 
@@ -2048,9 +2048,9 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
     const doc3 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
-    const client3 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
     await client3.activate();
@@ -2237,9 +2237,9 @@ describe('Garbage Collection', function () {
     const doc1 = new yorkie.Document<TestDoc>(docKey);
     const doc2 = new yorkie.Document<TestDoc>(docKey);
     const doc3 = new yorkie.Document<TestDoc>(docKey);
-    const client1 = new yorkie.Client(testRPCAddr);
-    const client2 = new yorkie.Client(testRPCAddr);
-    const client3 = new yorkie.Client(testRPCAddr);
+    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const client3 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await client1.activate();
     await client2.activate();
     await client3.activate();

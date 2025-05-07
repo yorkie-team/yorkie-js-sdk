@@ -36,9 +36,9 @@
       <h2>yorkie document</h2>
       <pre style="white-space: pre-wrap" id="log-holder"></pre>
     </div>
-    <script src="./yorkie-js-sdk.js"></script>
     <script src="./util.js"></script>
-    <script>
+    <script type="module">
+      import './src/yorkie.ts';
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
       const onlineClientsHolder = document.getElementById('online-clients');
@@ -79,7 +79,9 @@
       async function main() {
         try {
           // 01-1. create client with RPCAddr.
-          const client = new yorkie.Client('http://localhost:8080');
+          const client = new yorkie.Client({
+            rpcAddr: 'http://localhost:8080',
+          });
           // 01-2. activate client
           await client.activate();
 

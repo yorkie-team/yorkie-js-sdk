@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <title>ProseMirror Example</title>
     <link rel="stylesheet" href="prosemirror.css" />
-    <script src="./yorkie-js-sdk.js"></script>
-    <script src="./util.js"></script>
   </head>
   <body>
     <div class="layout">
@@ -29,10 +27,6 @@
             <h2>ProseMirror.Doc</h2>
             <div id="pm-log"></div>
           </div>
-          <div class="data-item">
-            <h2>Yorkie.Tree</h2>
-            <div id="yorkie-log"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -40,18 +34,18 @@
     <script type="importmap">
       {
         "imports": {
+          "prosemirror-model": "https://cdn.jsdelivr.net/npm/prosemirror-model@1.23.0/+esm",
           "prosemirror-state": "https://cdn.jsdelivr.net/npm/prosemirror-state@1.4.3/+esm",
-          "prosemirror-view": "https://cdn.jsdelivr.net/npm/prosemirror-view@1.31.4/+esm",
-          "prosemirror-model": "https://cdn.jsdelivr.net/npm/prosemirror-model@1.19.4/+esm",
-          "prosemirror-transform": "https://cdn.jsdelivr.net//npm/prosemirror-transform@1.7.3/+esm",
+          "prosemirror-view": "https://cdn.jsdelivr.net/npm/prosemirror-view@1.37.0/+esm",
+          "prosemirror-transform": "https://cdn.jsdelivr.net/npm/prosemirror-transform@1.10.2/+esm",
           "prosemirror-keymap": "https://cdn.jsdelivr.net/npm/prosemirror-keymap@1.2.2/+esm",
           "prosemirror-example-setup": "https://cdn.jsdelivr.net/npm/prosemirror-example-setup@1.2.2/+esm",
-          "prosemirror-commands": "https://cdn.jsdelivr.net/npm/prosemirror-commands@1.5.2/+esm",
-          "@yorkie-js/sdk": "./yorkie.js"
+          "prosemirror-commands": "https://cdn.jsdelivr.net/npm/prosemirror-commands@1.6.2/+esm"
         }
       }
     </script>
     <script type="module">
+      import './src/yorkie.ts';
       import {
         EditorState,
         Transaction,
@@ -252,7 +246,7 @@
        * main is the entry point of the example.
        */
       async function main() {
-        const client = new yorkie.Client('http://localhost:8080');
+        const client = new yorkie.Client({ rpcAddr: 'http://localhost:8080' });
         await client.activate();
 
         // 01. Build yorkie.Text from ProseMirror doc.
@@ -274,11 +268,19 @@
             treeNodeToDoc(JSON.parse(doc.getRoot().tree.toJSON())),
           ),
           plugins: [
+            ...exampleSetup({ schema: mySchema }).reduce(
+              (uniquePlugins, plugin) => {
+                if (!uniquePlugins.some((p) => p.key === plugin.key)) {
+                  uniquePlugins.push(plugin);
+                }
+                return uniquePlugins;
+              },
+              [],
+            ),
             keymap({
               'Ctrl-b': toggleMark(mySchema.marks.shouting),
               'Ctrl-u': insertStar,
             }),
-            ...exampleSetup({ schema: mySchema }),
           ],
         });
 
@@ -511,7 +513,6 @@
           .join('');
 
         paintTree(view.state.doc, 'pm-log');
-        paintTree(doc.getRoot().tree.tree.getRoot(), 'yorkie-log');
         paintTransaction();
       }
 

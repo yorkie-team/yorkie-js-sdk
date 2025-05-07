@@ -1,6 +1,7 @@
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { DocumentProvider, YorkieProvider } from '@yorkie-js/react';
+import { StrictMode } from 'react';
 
 const initalRoot = {
   todos: [
@@ -11,15 +12,7 @@ const initalRoot = {
 };
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <YorkieProvider
-    apiKey={import.meta.env.VITE_YORKIE_API_KEY}
-    rpcAddr={import.meta.env.VITE_YORKIE_API_ADDR}
-  >
-    <DocumentProvider
-      docKey={`react-todomvc-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`}
-      initialRoot={initalRoot}
-    >
-      <App />
-    </DocumentProvider>
-  </YorkieProvider>,
+  <StrictMode>
+    <App />
+  </StrictMode>,
 );
