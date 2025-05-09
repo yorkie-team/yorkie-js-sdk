@@ -16,7 +16,6 @@
 
 import {
   MaxLamport,
-  InitialTimeTicket,
   TimeTicket,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
@@ -241,14 +240,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     content: string,
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
     versionVector?: VersionVector,
-  ): [
-    Map<string, TimeTicket>,
-    Array<TextChange<A>>,
-    Array<GCPair>,
-    RGATreeSplitPosRange,
-  ] {
+  ): [Array<TextChange<A>>, Array<GCPair>, RGATreeSplitPosRange] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -256,14 +249,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, maxCreatedAtMap, pairs, valueChanges] =
-      this.rgaTreeSplit.edit(
-        range,
-        editedAt,
-        crdtTextValue,
-        maxCreatedAtMapByActor,
-        versionVector,
-      );
+    const [caretPos, pairs, valueChanges] = this.rgaTreeSplit.edit(
+      range,
+      editedAt,
+      crdtTextValue,
+      versionVector,
+    );
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
@@ -279,7 +270,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       type: TextChangeType.Content,
     }));
 
-    return [maxCreatedAtMap, changes, pairs, [caretPos, caretPos]];
+    return [changes, pairs, [caretPos, caretPos]];
   }
 
   /**
@@ -290,16 +281,14 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * @param range - range of RGATreeSplitNode
    * @param attributes - style attributes
    * @param editedAt - edited time
-   * @param maxCreatedAtMapByActor - maxCreatedAtMapByActor
    * @internal
    */
   public setStyle(
     range: RGATreeSplitPosRange,
     attributes: Record<string, string>,
     editedAt: TimeTicket,
-    maxCreatedAtMapByActor?: Map<string, TimeTicket>,
     versionVector?: VersionVector,
-  ): [Map<string, TimeTicket>, Array<GCPair>, Array<TextChange<A>>] {
+  ): [Array<GCPair>, Array<TextChange<A>>] {
     // 01. split nodes with from and to
     const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
     const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
@@ -310,32 +299,18 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
     const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
-    const createdAtMapByActor = new Map<string, TimeTicket>();
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
     for (const node of nodes) {
       const actorID = node.getCreatedAt().getActorID();
-      let maxCreatedAt: TimeTicket | undefined;
-      let clientLamportAtChange = 0n;
-      if (versionVector === undefined && maxCreatedAtMapByActor === undefined) {
-        // Local edit - use version vector comparison
-        clientLamportAtChange = MaxLamport;
-      } else if (versionVector!.size() > 0) {
+      let clientLamportAtChange = MaxLamport; // Local edit
+      if (versionVector != undefined) {
         clientLamportAtChange = versionVector!.get(actorID)
           ? versionVector!.get(actorID)!
           : 0n;
-      } else {
-        maxCreatedAt = maxCreatedAtMapByActor!.has(actorID)
-          ? maxCreatedAtMapByActor!.get(actorID)
-          : InitialTimeTicket;
       }
 
-      if (node.canStyle(editedAt, maxCreatedAt, clientLamportAtChange)) {
-        const maxCreatedAt = createdAtMapByActor.get(actorID);
-        const createdAt = node.getCreatedAt();
-        if (!maxCreatedAt || createdAt.after(maxCreatedAt)) {
-          createdAtMapByActor.set(actorID, createdAt);
-        }
+      if (node.canStyle(editedAt, clientLamportAtChange)) {
         toBeStyleds.push(node);
       }
     }
@@ -367,7 +342,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    return [createdAtMapByActor, pairs, changes];
+    return [pairs, changes];
   }
 
   /**
