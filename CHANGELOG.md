@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.10] - 2025-05-09
+
+### Removed
+
+- Remove deprecated MinSyncedTicket and MaxCreatedAtMapByActor by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/969
+
 ## [0.6.9] - 2025-04-30
 
 ### Added
