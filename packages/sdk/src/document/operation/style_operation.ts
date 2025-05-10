@@ -34,21 +34,18 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
-  private maxCreatedAtMapByActor: Map<string, TimeTicket>;
   private attributes: Map<string, string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
-    this.maxCreatedAtMapByActor = maxCreatedAtMapByActor;
     this.attributes = attributes;
   }
 
@@ -59,7 +56,6 @@ export class StyleOperation extends Operation {
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
-    maxCreatedAtMapByActor: Map<string, TimeTicket>,
     attributes: Map<string, string>,
     executedAt: TimeTicket,
   ): StyleOperation {
@@ -67,7 +63,6 @@ export class StyleOperation extends Operation {
       parentCreatedAt,
       fromPos,
       toPos,
-      maxCreatedAtMapByActor,
       attributes,
       executedAt,
     );
@@ -95,11 +90,10 @@ export class StyleOperation extends Operation {
       );
     }
     const text = parentObject as CRDTText<A>;
-    const [, pairs, changes] = text.setStyle(
+    const [pairs, changes] = text.setStyle(
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
-      this.maxCreatedAtMapByActor,
       versionVector,
     );
 
@@ -157,13 +151,5 @@ export class StyleOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes;
-  }
-
-  /**
-   * `getMaxCreatedAtMapByActor` returns the map that stores the latest creation time
-   * by actor for the nodes included in the editing range.
-   */
-  public getMaxCreatedAtMapByActor(): Map<string, TimeTicket> {
-    return this.maxCreatedAtMapByActor;
   }
 }

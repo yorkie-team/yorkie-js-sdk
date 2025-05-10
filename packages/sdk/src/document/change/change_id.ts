@@ -86,16 +86,7 @@ export class ChangeID {
     const lamport =
       other.lamport > this.lamport ? other.lamport + 1n : this.lamport + 1n;
 
-    // NOTE(chacha912): For changes created by legacy SDK prior to v0.5.2 that lack version
-    // vectors, document's version vector was not being properly accumlated. To address this,
-    // we generate a version vector using the lamport timestamp when no version vector exists.
-    let otherVV = other.versionVector;
-    if (otherVV.size() === 0) {
-      otherVV = otherVV.deepcopy();
-      otherVV.set(other.actor, other.lamport);
-    }
-
-    const maxVersionVector = this.versionVector.max(otherVV);
+    const maxVersionVector = this.versionVector.max(other.versionVector);
     const newID = new ChangeID(
       this.clientSeq,
       lamport,

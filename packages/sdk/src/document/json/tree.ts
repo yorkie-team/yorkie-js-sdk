@@ -27,9 +27,14 @@ import {
   IndexTree,
   DefaultRootType,
   DefaultTextType,
+  TreePos,
 } from '@yorkie-js/sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
-import { isEmpty, stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
+import {
+  isEmpty,
+  parseObjectValues,
+  stringifyObjectValues,
+} from '@yorkie-js/sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
 import type {
@@ -58,6 +63,135 @@ export {
   TreePosStructRange,
   CRDTTreeNodeIDStruct,
 };
+
+/**
+ * `toTreeNode` returns tree node from CRDTTreeNode.
+ */
+function toTreeNode(node: CRDTTreeNode): TreeNode {
+  if (node.isText) {
+    return {
+      type: node.type,
+      value: node.value,
+    } as TextNode;
+  }
+  const newNode = {
+    type: node.type,
+    children: node.children.map((child) => toTreeNode(child)),
+  } as ElementNode;
+
+  if (node.attrs) {
+    newNode.attributes = parseObjectValues(node.attrs.toObject());
+  }
+
+  return newNode;
+}
+
+/**
+ * `createSplitNode` returns new node which is split from the given node.
+ */
+function createSplitNode(
+  node: CRDTTreeNode,
+  offset: number,
+): ElementNode | undefined {
+  const newNode: ElementNode = {
+    type: node.isText ? node.parent!.type : node.type,
+    children: node.isText
+      ? node.parent!.getChildrenText().length === offset
+        ? []
+        : [
+            {
+              type: DefaultTextType,
+              value: node.parent!.getChildrenText().slice(offset),
+            },
+          ]
+      : node.children.slice(offset).map((child) => toTreeNode(child)),
+  };
+
+  if (node.attrs) {
+    newNode.attributes = parseObjectValues(node.attrs.toObject());
+  } else if (node.isText && node.parent!.attrs) {
+    newNode.attributes = parseObjectValues(node.parent!.attrs.toObject());
+  }
+
+  return newNode;
+}
+
+/**
+ * `separateSplit` separates the split operation into insert and delete operations.
+ */
+function separateSplit(
+  treePos: TreePos<CRDTTreeNode>,
+  path: Array<number>,
+): Array<{
+  fromPath: Array<number>;
+  toPath: Array<number>;
+  content?: TreeNode;
+}> {
+  const { node } = treePos;
+  const parentPath = [...path].slice(0, -1);
+  const last = node.isText
+    ? node.parent!.getChildrenText().length
+    : node.children.length;
+  const toPath = [...parentPath, last];
+  const insertPath = [...parentPath];
+  const res = [];
+
+  insertPath[insertPath.length - 1] += 1;
+
+  if (!path.every((v, i) => v === toPath[i])) {
+    res.push({ fromPath: [...path], toPath });
+  }
+
+  const newNode = createSplitNode(node, path[path.length - 1]);
+
+  if (newNode) {
+    res.push({ fromPath: insertPath, toPath: insertPath, content: newNode });
+  }
+
+  return res;
+}
+
+/**
+ * `separateMerge` separates the merge operation into insert and delete operations.
+ */
+function separateMerge(
+  treePos: TreePos<CRDTTreeNode>,
+  path: Array<number>,
+): Array<{
+  fromPath: Array<number>;
+  toPath: Array<number>;
+  content?: Array<TreeNode>;
+}> {
+  const { node: parentNode, offset } = treePos;
+  const node = parentNode.children[offset];
+  const leftSiblingNode = parentNode.children[offset - 1];
+  const { children } = node;
+  const parentPath = [...path].slice(0, -1);
+  const res: ReturnType<typeof separateMerge> = [
+    { fromPath: [...path], toPath: [...parentPath, offset + 1] },
+  ];
+
+  if (!node.children.length) {
+    return res;
+  }
+
+  const insertPath = [
+    ...parentPath,
+    offset - 1,
+    leftSiblingNode.hasTextChild()
+      ? leftSiblingNode.getChildrenText().length
+      : leftSiblingNode.children.length,
+  ];
+  const nodes = children.map((child) => toTreeNode(child));
+
+  res.push({
+    fromPath: insertPath,
+    toPath: insertPath,
+    content: nodes,
+  });
+
+  return res;
+}
 
 /**
  * `buildDescendants` builds descendants of the given tree node.
@@ -294,6 +428,74 @@ export class Tree {
   }
 
   /**
+   * `splitByPath` splits the tree by the given path.
+   */
+  public splitByPath(path: Array<number>) {
+    if (!this.context || !this.tree) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
+    }
+
+    if (!path.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
+    }
+
+    const treePos = this.tree.pathToTreePos(path);
+    const commands = separateSplit(treePos, path);
+
+    for (const command of commands) {
+      const { fromPath, toPath, content } = command;
+      const fromPos = this.tree!.pathToPos(fromPath);
+      const toPos = this.tree!.pathToPos(toPath);
+
+      this.editInternal(fromPos, toPos, content ? [content] : [], 0);
+    }
+  }
+
+  /**
+   * `mergeByPath` merges the tree by the given path.
+   */
+  public mergeByPath(path: Array<number>) {
+    if (!this.context || !this.tree) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
+    }
+
+    if (!path.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
+    }
+
+    const treePos = this.tree.pathToTreePos(path);
+
+    if (treePos.node.isText) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'text node cannot be merged',
+      );
+    }
+
+    const commands = separateMerge(treePos, path);
+
+    for (const command of commands) {
+      const { fromPath, toPath, content } = command;
+      const fromPos = this.tree!.pathToPos(fromPath);
+      const toPos = this.tree!.pathToPos(toPath);
+
+      this.editInternal(fromPos, toPos, content ?? [], 0);
+    }
+  }
+
+  /**
    * `styleByPath` sets the attributes to the elements of the given path.
    */
   public styleByPath(path: Array<number>, attributes: { [key: string]: any }) {
@@ -314,18 +516,16 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [maxCreationMapByActor] = this.tree!.style(
-      [fromPos, toPos],
-      attrs,
-      ticket,
-    );
+    const [pairs] = this.tree!.style([fromPos, toPos], attrs, ticket);
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
 
     this.context.push(
       TreeStyleOperation.create(
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreationMapByActor,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
@@ -359,12 +559,7 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [maxCreationMapByActor, pairs] = this.tree!.style(
-      [fromPos, toPos],
-      attrs,
-      ticket,
-    );
-
+    const [pairs] = this.tree!.style([fromPos, toPos], attrs, ticket);
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
     }
@@ -374,7 +569,6 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreationMapByActor,
         attrs ? new Map(Object.entries(attrs)) : new Map(),
         ticket,
       ),
@@ -407,7 +601,7 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    const [maxCreationMapByActor, pairs] = this.tree!.removeStyle(
+    const [pairs] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
@@ -422,7 +616,6 @@ export class Tree {
         this.tree.getCreatedAt(),
         fromPos,
         toPos,
-        maxCreationMapByActor,
         attributesToRemove,
         ticket,
       ),
@@ -467,7 +660,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    const [, pairs, maxCreatedAtMapByActor] = this.tree!.edit(
+    const [, pairs] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
@@ -488,7 +681,6 @@ export class Tree {
         toPos,
         crdtNodes.length ? crdtNodes : undefined,
         splitLevel,
-        maxCreatedAtMapByActor,
         ticket,
       ),
     );

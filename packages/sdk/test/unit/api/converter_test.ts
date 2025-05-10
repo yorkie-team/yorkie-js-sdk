@@ -72,7 +72,7 @@ describe('Converter', function () {
         italic: false,
         color: 'red',
       });
-      root.k4 = new Counter(CounterType.IntegerCnt, 0);
+      root.k4 = new Counter(CounterType.Int, 0);
       root.k4.increase(1).increase(2).increase(3);
     });
 

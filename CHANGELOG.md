@@ -7,6 +7,34 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.10] - 2025-05-09
+
+### Removed
+
+- Remove deprecated MinSyncedTicket and MaxCreatedAtMapByActor by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/969
+
+## [0.6.9] - 2025-04-30
+
+### Added
+
+- Implement Split, Merge in json layer of Tree by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/982
+
+### Fixed
+
+- Update dependencies in ProseMirror by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/986
+
+## [0.6.8] - 2025-04-28
+
+### Added
+
+- Add size tracking to CRDT by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/981
+- Add document to DocumentContext by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/983
+
+### Fixed
+
+- Update client initialization to use rpcAddr option in examples by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/979
+- Apply HMR in dev mode by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/984
+
 ## [0.6.7] - 2025-04-17
 
 ### Added
