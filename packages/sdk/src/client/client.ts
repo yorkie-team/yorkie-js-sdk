@@ -355,15 +355,20 @@ export class Client {
       return Promise.resolve();
     }
 
+    // NOTE(hackerwins): First, we need to stop the sync loop to prevent
+    // unnecessary syncs after deactivation. So we need to set the
+    // condition to false.
+    this.deactivateInternal();
+
     const task = async () => {
       try {
         await this.rpcClient.deactivateClient(
           { clientId: this.id! },
           { headers: { 'x-shard-key': this.apiKey } },
         );
-        this.deactivateInternal();
         logger.info(`[DC] c"${this.getKey()}" deactivated`);
       } catch (err) {
+        this.status = ClientStatus.Activated;
         logger.error(`[DC] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
         throw err;
@@ -466,12 +471,12 @@ export class Client {
 
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
 
-        const crdtObject = doc.getRootObject();
+        const crdtRoot = doc.getRootObject();
         if (opts.initialRoot) {
           const initialRoot = opts.initialRoot;
           doc.update((root) => {
             for (const [k, v] of Object.entries(initialRoot)) {
-              if (!crdtObject.has(k)) {
+              if (!crdtRoot.has(k)) {
                 const key = k as keyof R;
                 root[key] = v as any;
               }
@@ -498,10 +503,7 @@ export class Client {
    */
   public detach<R, P extends Indexable>(
     doc: Document<R, P>,
-    opts: {
-      removeIfNotAttached?: boolean;
-      keepalive?: boolean;
-    } = { keepalive: false },
+    opts: { removeIfNotAttached?: boolean } = { removeIfNotAttached: false },
   ): Promise<Document<R, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
@@ -509,6 +511,7 @@ export class Client {
         `${this.key} is not active`,
       );
     }
+
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
@@ -518,14 +521,14 @@ export class Client {
     }
     doc.update((_, p) => p.clear());
 
-    const task = async () => {
+    return this.enqueueTask(async () => {
       try {
         const res = await this.rpcClient.detachDocument(
           {
             clientId: this.id!,
             documentId: attachment.docID,
             changePack: converter.toChangePack(doc.createChangePack()),
-            removeIfNotAttached: opts.removeIfNotAttached ?? false,
+            removeIfNotAttached: opts.removeIfNotAttached,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
@@ -545,16 +548,7 @@ export class Client {
         await this.handleConnectError(err);
         throw err;
       }
-    };
-
-    if (opts.keepalive) {
-      this.keepalive = true;
-      const resp = task();
-      this.keepalive = false;
-      return resp;
-    }
-
-    return this.enqueueTask(task);
+    });
   }
 
   /**
