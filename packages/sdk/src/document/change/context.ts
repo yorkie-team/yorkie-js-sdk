@@ -112,34 +112,34 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
-   * `getNextID` returns the next ID of this context.
+   * `getNextID` returns the next ID of this context. It will be set to the
+   * document for the next change.returns the next ID of this context.
    */
   public getNextID(): ChangeID {
-    // NOTE(hackerwins): If this context was created only for presence change,
-    // we can use the ID without logical clock that is used to resolve the
-    // conflict between operations.
+    // Even if the change has only presence change, the next ID for the document
+    // shoule have clocks. For this, we pass the clocks of the previous ID.
     if (this.operations.length === 0) {
-      return this.prevID.next(true);
+      return this.prevID
+        .next(true)
+        .setLamport(this.prevID.getLamport())
+        .setVersionVector(this.prevID.getVersionVector());
     }
 
     return this.nextID;
   }
 
   /**
-   * `getChange` creates a new instance of Change in this context.
+   * `toChange` creates a new instance of Change in this context.
    */
   public toChange(): Change<P> {
-    if (this.operations.length === 0) {
-      return Change.create<P>({
-        id: this.prevID.next(true).deepcopy(true),
-        operations: this.operations,
-        presenceChange: this.presenceChange,
-        message: this.message,
-      });
-    }
+    // NOTE(hackerwins): If this context was created only for presence change,
+    // we can use the ID without clocks that are used to resolve the
+    // conflict.
+    const id =
+      this.operations.length === 0 ? this.prevID.next(true) : this.nextID;
 
     return Change.create<P>({
-      id: this.prevID.next(),
+      id,
       operations: this.operations,
       presenceChange: this.presenceChange,
       message: this.message,

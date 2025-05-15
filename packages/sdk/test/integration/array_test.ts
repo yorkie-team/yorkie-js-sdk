@@ -7,7 +7,7 @@ import {
   Primitive,
   TimeTicket,
 } from '@yorkie-js/sdk/src/yorkie';
-import { MaxVersionVector } from '../helper/helper';
+import { maxVectorOf } from '../helper/helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
@@ -722,7 +722,7 @@ describe('Array', function () {
 
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
 
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     doc.update((root) => {
       const elem = root.list.getElementByID!(targetID);
       assert.isUndefined(elem);

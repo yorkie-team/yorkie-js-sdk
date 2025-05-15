@@ -516,7 +516,7 @@ describe('Object', function () {
       const c1ID = client1.getID()!.slice(-2);
       assert.deepEqual(
         doc1.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
-        [`2:${c1ID}:2.SET.point={"x":0,"y":0}`],
+        [`1:${c1ID}:2.SET.point={"x":0,"y":0}`],
       );
       doc1.history.undo();
       assert.equal(doc1.toSortedJSON(), '{}');
@@ -626,7 +626,7 @@ describe('Object', function () {
       const c1ID = client1.getID()!.slice(-2);
       assert.deepEqual(
         doc1.getUndoStackForTest().at(-1)?.map(toStringHistoryOp),
-        [`2:${c1ID}:2.REMOVE.3:${c1ID}:1`],
+        [`1:${c1ID}:2.REMOVE.2:${c1ID}:1`],
       );
       doc1.history.undo();
       assert.equal(doc1.toSortedJSON(), '{}');
@@ -886,8 +886,8 @@ describe('Object', function () {
       await client1.sync();
       await client2.sync();
       await client1.sync();
-      assert.equal(doc1.toSortedJSON(), '{"color":"black"}');
-      assert.equal(doc2.toSortedJSON(), '{"color":"black"}');
+      assert.equal(doc1.toSortedJSON(), '{"color":"green"}');
+      assert.equal(doc2.toSortedJSON(), '{"color":"green"}');
 
       doc1.history.redo();
       await client1.sync();

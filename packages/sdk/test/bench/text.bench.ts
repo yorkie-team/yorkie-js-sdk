@@ -1,6 +1,6 @@
 import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
 import { assert, bench, describe } from 'vitest';
-import { MaxVersionVector } from '../helper/helper';
+import { maxVectorOf } from '../helper/helper';
 
 const benchmarkTextEditGC = (size: number) => {
   const doc = new Document<{ text: Text }>('test-doc');
@@ -24,7 +24,7 @@ const benchmarkTextEditGC = (size: number) => {
   assert.equal(size, doc.getGarbageLen());
   assert.equal(
     size,
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
   );
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());
@@ -50,7 +50,7 @@ const benchmarkTextSplitGC = (size: number) => {
   assert.equal(size, doc.getGarbageLen());
   assert.equal(
     size,
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
   );
   const empty = 0;
   assert.equal(empty, doc.getGarbageLen());

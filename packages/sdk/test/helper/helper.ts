@@ -290,8 +290,10 @@ export function timeT(): TimeTicket {
   return dummyContext.issueTimeTicket();
 }
 
-// MaxVersionVector return the SyncedVectorMap that contains the given actors as key and Max Lamport.
-export function MaxVersionVector(actors: Array<string>) {
+/**
+ * `maxVectorOf` creates a VersionVector with the maximum lamport value for the given actors.
+ */
+export function maxVectorOf(actors: Array<string>) {
   if (!actors.length) {
     actors = [InitialActorID];
   }
@@ -305,25 +307,15 @@ export function MaxVersionVector(actors: Array<string>) {
   return new VersionVector(vector);
 }
 
-export function versionVectorHelper(
-  versionVector: VersionVector,
-  actorData: Array<{ actor: string; lamport: bigint }>,
-) {
-  if (versionVector.size() !== actorData.length) {
-    return false;
-  }
-
-  for (const { actor, lamport } of actorData) {
-    const vvLamport = versionVector.get(actor);
-
-    if (!vvLamport) {
-      return false;
-    }
-
-    if (vvLamport !== lamport) {
-      return false;
-    }
-  }
-
-  return true;
+/**
+ * `vectorOf` creates a VersionVector from an array of actor and lamport pairs.
+ */
+export function vectorOf(
+  actors: Array<{ c: string; l: bigint }>,
+): VersionVector {
+  const vector = new Map<string, bigint>();
+  actors.forEach(({ c: actor, l: lamport }) => {
+    vector.set(actor, lamport);
+  });
+  return new VersionVector(vector);
 }

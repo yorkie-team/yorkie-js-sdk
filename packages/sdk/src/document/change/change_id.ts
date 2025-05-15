@@ -18,7 +18,10 @@ import {
   ActorID,
   InitialActorID,
 } from '@yorkie-js/sdk/src/document/time/actor_id';
-import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import {
+  InitialLamport,
+  TimeTicket,
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import { InitialVersionVector, VersionVector } from '../time/version_vector';
 
 /**
@@ -35,11 +38,13 @@ export class ChangeID {
   private actor: ActorID;
 
   // `lamport` is the lamport clock of this change. This is used to determine
-  // the order of changes in logical time.
+  // the order of changes in logical time. It is optional and only present
+  // if the change has operations.
   private lamport: bigint;
 
   // `versionVector` is the vector clock of this change. This is used to
-  // determine the relationship is causal or not between changes.
+  // determine the relationship is causal or not between changes. It is optional
+  // and only present if the change has operations.
   private versionVector: VersionVector;
 
   constructor(
@@ -60,7 +65,7 @@ export class ChangeID {
    * `hasClocks` returns true if this ID has logical clocks.
    */
   public hasClocks(): boolean {
-    return this.versionVector.size() > 0;
+    return this.versionVector.size() > 0 && this.lamport != InitialLamport;
   }
 
   /**
@@ -79,14 +84,14 @@ export class ChangeID {
   /**
    * `next` creates a next ID of this ID.
    */
-  public next(withoutLogicalClock = false): ChangeID {
-    if (withoutLogicalClock) {
+  public next(excludeClocks = false): ChangeID {
+    if (excludeClocks) {
       return new ChangeID(
         this.clientSeq + 1,
         this.lamport,
         this.actor,
-        this.versionVector,
-        this.serverSeq,
+        InitialVersionVector,
+        InitialLamport,
       );
     }
 
@@ -168,6 +173,19 @@ export class ChangeID {
   }
 
   /**
+   * `setLamport` sets the given lamport clock.
+   */
+  public setLamport(lamport: bigint): ChangeID {
+    return new ChangeID(
+      this.clientSeq,
+      lamport,
+      this.actor,
+      this.versionVector,
+      this.serverSeq,
+    );
+  }
+
+  /**
    * `setVersionVector` sets the given version vector.
    */
   public setVersionVector(versionVector: VersionVector): ChangeID {
@@ -232,29 +250,6 @@ export class ChangeID {
     return `${this.lamport.toString()}:${this.actor.slice(-2)}:${
       this.clientSeq
     }`;
-  }
-
-  /**
-   * `deepcopy` creates a new instance of ChangeID.
-   */
-  public deepcopy(excludeVersionVector: boolean): ChangeID {
-    if (excludeVersionVector) {
-      return new ChangeID(
-        this.clientSeq,
-        this.lamport,
-        this.actor,
-        InitialVersionVector,
-        this.serverSeq,
-      );
-    }
-
-    return new ChangeID(
-      this.clientSeq,
-      this.lamport,
-      this.actor,
-      this.versionVector.deepcopy(),
-      this.serverSeq,
-    );
   }
 }
 
