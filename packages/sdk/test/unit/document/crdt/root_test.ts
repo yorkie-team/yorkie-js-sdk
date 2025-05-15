@@ -121,7 +121,7 @@ describe('ROOT', function () {
     const text = new Text(change, crdtText);
 
     text.edit(0, 0, 'Hello World');
-    assert.equal('[0:00:0:0 ][0:00:2:0 Hello World]', text.toTestString());
+    assert.equal('[0:00:0:0 ][1:00:2:0 Hello World]', text.toTestString());
     assert.equal(0, root.getGarbageLen());
 
     text.edit(6, 11, 'Yorkie');
@@ -131,7 +131,7 @@ describe('ROOT', function () {
     assert.equal(2, root.getGarbageLen());
 
     assert.equal(2, root.garbageCollect(MaxVersionVector([])));
-    assert.equal('[0:00:0:0 ][0:00:3:0 Yorkie]', text.toTestString());
+    assert.equal('[0:00:0:0 ][1:00:3:0 Yorkie]', text.toTestString());
     assert.equal(0, root.getGarbageLen());
   });
 });

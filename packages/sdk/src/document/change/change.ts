@@ -28,7 +28,7 @@ import { HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import {
   PresenceChange,
   PresenceChangeType,
-} from '@yorkie-js/sdk/src/document/presence/presence';
+} from '@yorkie-js/sdk/src/document/presence/change';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 
 /**

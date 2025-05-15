@@ -26,7 +26,7 @@ import {
 import { Operation } from '@yorkie-js/sdk/src/document/operation/operation';
 import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
-import { PresenceChange } from '@yorkie-js/sdk/src/document/presence/presence';
+import { PresenceChange } from '@yorkie-js/sdk/src/document/presence/change';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
@@ -37,7 +37,8 @@ import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
  * Finally returns a Change after the modification has been completed.
  */
 export class ChangeContext<P extends Indexable = Indexable> {
-  private id: ChangeID;
+  private prevID: ChangeID;
+  private nextID: ChangeID;
   private delimiter: number;
   private message?: string;
 
@@ -57,8 +58,9 @@ export class ChangeContext<P extends Indexable = Indexable> {
    */
   private reversePresenceKeys: Set<string>;
 
-  constructor(id: ChangeID, root: CRDTRoot, presence: P, message?: string) {
-    this.id = id;
+  constructor(prevID: ChangeID, root: CRDTRoot, presence: P, message?: string) {
+    this.prevID = prevID;
+    this.nextID = prevID.next();
     this.delimiter = InitialDelimiter;
 
     this.root = root;
@@ -73,12 +75,12 @@ export class ChangeContext<P extends Indexable = Indexable> {
    * `create` creates a new instance of ChangeContext.
    */
   public static create<P extends Indexable>(
-    id: ChangeID,
+    prevID: ChangeID,
     root: CRDTRoot,
     presence: P,
     message?: string,
   ): ChangeContext<P> {
-    return new ChangeContext(id, root, presence, message);
+    return new ChangeContext(prevID, root, presence, message);
   }
 
   /**
@@ -110,11 +112,34 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
+   * `getNextID` returns the next ID of this context.
+   */
+  public getNextID(): ChangeID {
+    // NOTE(hackerwins): If this context was created only for presence change,
+    // we can use the ID without logical clock that is used to resolve the
+    // conflict between operations.
+    if (this.operations.length === 0) {
+      return this.prevID.next(true);
+    }
+
+    return this.nextID;
+  }
+
+  /**
    * `getChange` creates a new instance of Change in this context.
    */
-  public getChange(): Change<P> {
+  public toChange(): Change<P> {
+    if (this.operations.length === 0) {
+      return Change.create<P>({
+        id: this.prevID.next(true).deepcopy(true),
+        operations: this.operations,
+        presenceChange: this.presenceChange,
+        message: this.message,
+      });
+    }
+
     return Change.create<P>({
-      id: this.id,
+      id: this.prevID.next(),
       operations: this.operations,
       presenceChange: this.presenceChange,
       message: this.message,
@@ -169,13 +194,13 @@ export class ChangeContext<P extends Indexable = Indexable> {
    */
   public issueTimeTicket(): TimeTicket {
     this.delimiter += 1;
-    return this.id.createTimeTicket(this.delimiter);
+    return this.nextID.createTimeTicket(this.delimiter);
   }
 
   /**
    * `getLastTimeTicket` returns the last time ticket issued in this context.
    */
   public getLastTimeTicket(): TimeTicket {
-    return this.id.createTimeTicket(this.delimiter);
+    return this.nextID.createTimeTicket(this.delimiter);
   }
 }

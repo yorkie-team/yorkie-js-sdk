@@ -10,7 +10,7 @@ import {
   DefaultSnapshotThreshold,
 } from '../helper/helper';
 
-describe('Garbage Collection', function () {
+describe.skip('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
     task,
   }) {

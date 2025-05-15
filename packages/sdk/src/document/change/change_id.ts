@@ -27,12 +27,17 @@ import { InitialVersionVector, VersionVector } from '../time/version_vector';
 export class ChangeID {
   // `clientSeq` is the sequence number of the client that created this change.
   private clientSeq: number;
+
   // `serverSeq` is optional and only present for changes stored on the server.
   private serverSeq?: bigint;
-  // `lamport` and `actor` are the lamport clock and the actor of this change.
-  // This is used to determine the order of changes in logical time.
-  private lamport: bigint;
+
+  // `actor` is the creator of this change.
   private actor: ActorID;
+
+  // `lamport` is the lamport clock of this change. This is used to determine
+  // the order of changes in logical time.
+  private lamport: bigint;
+
   // `versionVector` is the vector clock of this change. This is used to
   // determine the relationship is causal or not between changes.
   private versionVector: VersionVector;
@@ -52,6 +57,13 @@ export class ChangeID {
   }
 
   /**
+   * `hasClocks` returns true if this ID has logical clocks.
+   */
+  public hasClocks(): boolean {
+    return this.versionVector.size() > 0;
+  }
+
+  /**
    * `of` creates a new instance of ChangeID.
    */
   public static of(
@@ -67,7 +79,17 @@ export class ChangeID {
   /**
    * `next` creates a next ID of this ID.
    */
-  public next(): ChangeID {
+  public next(withoutLogicalClock = false): ChangeID {
+    if (withoutLogicalClock) {
+      return new ChangeID(
+        this.clientSeq + 1,
+        this.lamport,
+        this.actor,
+        this.versionVector,
+        this.serverSeq,
+      );
+    }
+
     const vector = this.versionVector.deepcopy();
     vector.set(this.actor, this.lamport + 1n);
 
@@ -80,9 +102,14 @@ export class ChangeID {
   }
 
   /**
-   * `syncClocks` syncs logical clocks with the given ID.
+   * `syncClocks` syncs logical clocks with the given ID. If the given ID
+   * doesn't have logical clocks, this ID is returned.
    */
   public syncClocks(other: ChangeID): ChangeID {
+    if (!other.hasClocks()) {
+      return this;
+    }
+
     const lamport =
       other.lamport > this.lamport ? other.lamport + 1n : this.lamport + 1n;
 
@@ -205,6 +232,29 @@ export class ChangeID {
     return `${this.lamport.toString()}:${this.actor.slice(-2)}:${
       this.clientSeq
     }`;
+  }
+
+  /**
+   * `deepcopy` creates a new instance of ChangeID.
+   */
+  public deepcopy(excludeVersionVector: boolean): ChangeID {
+    if (excludeVersionVector) {
+      return new ChangeID(
+        this.clientSeq,
+        this.lamport,
+        this.actor,
+        InitialVersionVector,
+        this.serverSeq,
+      );
+    }
+
+    return new ChangeID(
+      this.clientSeq,
+      this.lamport,
+      this.actor,
+      this.versionVector.deepcopy(),
+      this.serverSeq,
+    );
   }
 }
 
