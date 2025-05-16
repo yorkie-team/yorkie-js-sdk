@@ -69,10 +69,8 @@ import { JSONObject } from '@yorkie-js/sdk/src/document/json/object';
 import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
-import {
-  Presence,
-  PresenceChangeType,
-} from '@yorkie-js/sdk/src/document/presence/presence';
+import { Presence } from '@yorkie-js/sdk/src/document/presence/presence';
+import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
 import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
@@ -706,7 +704,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.ensureClone();
     const actorID = this.changeID.getActorID();
     const context = ChangeContext.create<P>(
-      this.changeID.next(),
+      this.changeID,
       this.clone!.root,
       this.clone!.presences.get(actorID) || ({} as P),
       message,
@@ -744,7 +742,7 @@ export class Document<R, P extends Indexable = Indexable> {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
-      const change = context.getChange();
+      const change = context.toChange();
       const { opInfos, reverseOps } = change.execute(
         this.root,
         this.presences,
@@ -766,7 +764,7 @@ export class Document<R, P extends Indexable = Indexable> {
       if (opInfos.length > 0) {
         this.internalHistory.clearRedo();
       }
-      this.changeID = change.getID();
+      this.changeID = context.getNextID();
 
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
@@ -1953,15 +1951,6 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
-   * 'filterVersionVector' filters detached client's lamport from version vector.
-   */
-  private filterVersionVector(minSyncedVersionVector: VersionVector) {
-    const versionVector = this.changeID.getVersionVector();
-    const filteredVersionVector = versionVector.filter(minSyncedVersionVector);
-
-    this.changeID = this.changeID.setVersionVector(filteredVersionVector);
-  }
-  /**
    * `canRedo` returns whether there are any operations to redo.
    */
   private canRedo(): boolean {
@@ -1991,7 +1980,7 @@ export class Document<R, P extends Indexable = Indexable> {
     // TODO(chacha912): After resolving the presence initialization issue,
     // remove default presence.(#608)
     const context = ChangeContext.create<P>(
-      this.changeID.next(),
+      this.changeID,
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
@@ -2012,7 +2001,7 @@ export class Document<R, P extends Indexable = Indexable> {
       context.push(undoOp);
     }
 
-    const change = context.getChange();
+    const change = context.toChange();
     change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
     const { opInfos, reverseOps } = change.execute(
@@ -2038,7 +2027,7 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     this.localChanges.push(change);
-    this.changeID = change.getID();
+    this.changeID = context.getNextID();
     const actorID = this.changeID.getActorID();
     const event: DocEvents<P> = [];
     if (opInfos.length > 0) {
@@ -2090,7 +2079,7 @@ export class Document<R, P extends Indexable = Indexable> {
 
     this.ensureClone();
     const context = ChangeContext.create<P>(
-      this.changeID.next(),
+      this.changeID,
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
@@ -2111,7 +2100,7 @@ export class Document<R, P extends Indexable = Indexable> {
       context.push(redoOp);
     }
 
-    const change = context.getChange();
+    const change = context.toChange();
     change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
     const { opInfos, reverseOps } = change.execute(
@@ -2137,7 +2126,7 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     this.localChanges.push(change);
-    this.changeID = change.getID();
+    this.changeID = context.getNextID();
     const actorID = this.changeID.getActorID();
     const event: DocEvents<P> = [];
     if (opInfos.length > 0) {
