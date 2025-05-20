@@ -30,6 +30,7 @@ import { PresenceChange } from '@yorkie-js/sdk/src/document/presence/change';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -202,5 +203,12 @@ export class ChangeContext<P extends Indexable = Indexable> {
    */
   public getLastTimeTicket(): TimeTicket {
     return this.nextID.createTimeTicket(this.delimiter);
+  }
+
+  /**
+   * `acc` accumulates the given diff to the root.
+   */
+  public acc(diff: DataSize) {
+    this.root.acc(diff);
   }
 }

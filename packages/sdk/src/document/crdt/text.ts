@@ -35,7 +35,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
-import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { DataSize, dataSizeAdd } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -241,7 +241,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     versionVector?: VersionVector,
-  ): [Array<TextChange<A>>, Array<GCPair>, RGATreeSplitPosRange] {
+  ): [Array<TextChange<A>>, Array<GCPair>, DataSize, RGATreeSplitPosRange] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -249,7 +249,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, pairs, valueChanges] = this.rgaTreeSplit.edit(
+    const [caretPos, pairs, diff, valueChanges] = this.rgaTreeSplit.edit(
       range,
       editedAt,
       crdtTextValue,
@@ -270,7 +270,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       type: TextChangeType.Content,
     }));
 
-    return [changes, pairs, [caretPos, caretPos]];
+    return [changes, pairs, diff, [caretPos, caretPos]];
   }
 
   /**
@@ -288,13 +288,21 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TextChange<A>>] {
+  ): [Array<GCPair>, DataSize, Array<TextChange<A>>] {
+    const diff = { data: 0, meta: 0 };
+
     // 01. split nodes with from and to
-    const [, toRight] = this.rgaTreeSplit.findNodeWithSplit(range[1], editedAt);
-    const [, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+    const [, diffTo, toRight] = this.rgaTreeSplit.findNodeWithSplit(
+      range[1],
+      editedAt,
+    );
+    const [, diffFrom, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
       range[0],
       editedAt,
     );
+
+    dataSizeAdd(diff, diffTo);
+    dataSizeAdd(diff, diffFrom);
 
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
@@ -339,10 +347,14 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         if (prev !== undefined) {
           pairs.push({ parent: node.getValue(), child: prev });
         }
+        const curr = node.getValue().getAttrs().getNodeMapByKey().get(key);
+        if (curr !== undefined) {
+          dataSizeAdd(diff, curr.getDataSize());
+        }
       }
     }
 
-    return [pairs, changes];
+    return [pairs, diff, changes];
   }
 
   /**

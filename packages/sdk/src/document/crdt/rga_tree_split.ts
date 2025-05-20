@@ -28,7 +28,11 @@ import {
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import {
+  DataSize,
+  dataSizeAdd,
+  dataSizeSub,
+} from '@yorkie-js/sdk/src/util/resource';
 
 export interface ValueChange<T> {
   actor: ActorID;
@@ -577,10 +581,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     editedAt: TimeTicket,
     value?: T,
     versionVector?: VersionVector,
-  ): [RGATreeSplitPos, Array<GCPair>, Array<ValueChange<T>>] {
+  ): [RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>] {
+    const diff = { data: 0, meta: 0 };
+
     // 01. split nodes with from and to
-    const [toLeft, toRight] = this.findNodeWithSplit(range[1], editedAt);
-    const [fromLeft, fromRight] = this.findNodeWithSplit(range[0], editedAt);
+    const [toLeft, diffTo, toRight] = this.findNodeWithSplit(
+      range[1],
+      editedAt,
+    );
+    const [fromLeft, diffFrom, fromRight] = this.findNodeWithSplit(
+      range[0],
+      editedAt,
+    );
+
+    dataSizeAdd(diff, diffTo);
+    dataSizeAdd(diff, diffFrom);
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
@@ -601,6 +616,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         fromLeft,
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
+      dataSizeAdd(diff, inserted.getDataSize());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
@@ -625,7 +641,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       pairs.push({ parent: this, child: removedNode });
     }
 
-    return [caretPos, pairs, changes];
+    return [caretPos, pairs, diff, changes];
   }
 
   /**
@@ -795,18 +811,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   public findNodeWithSplit(
     pos: RGATreeSplitPos,
     editedAt: TimeTicket,
-  ): [RGATreeSplitNode<T>, RGATreeSplitNode<T>] {
+  ): [RGATreeSplitNode<T>, DataSize, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
     let node = this.findFloorNodePreferToLeft(absoluteID);
     const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
 
-    this.splitNode(node, relativeOffset);
+    const [, diff] = this.splitNode(node, relativeOffset);
 
     while (node.hasNext() && node.getNext()!.getCreatedAt().after(editedAt)) {
       node = node.getNext()!;
     }
 
-    return [node, node.getNext()!];
+    return [node, diff, node.getNext()!];
   }
 
   private findFloorNodePreferToLeft(
@@ -867,7 +883,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   private splitNode(
     node: RGATreeSplitNode<T>,
     offset: number,
-  ): RGATreeSplitNode<T> | undefined {
+  ): [RGATreeSplitNode<T> | undefined, DataSize] {
+    const diff = { data: 0, meta: 0 };
+
     if (offset > node.getContentLength()) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
@@ -876,10 +894,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
 
     if (offset === 0) {
-      return node;
+      return [node, diff];
     } else if (offset === node.getContentLength()) {
-      return node.getNext();
+      return [node.getNext(), diff];
     }
+
+    const prvSize = node.getDataSize();
 
     const splitNode = node.split(offset);
     this.treeByIndex.updateWeight(splitNode);
@@ -891,7 +911,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
     splitNode.setInsPrev(node);
 
-    return splitNode;
+    dataSizeAdd(diff, node.getDataSize());
+    dataSizeAdd(diff, splitNode.getDataSize());
+    dataSizeSub(diff, prvSize);
+
+    return [splitNode, diff];
   }
 
   private deleteNodes(

@@ -75,7 +75,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
-import { DocSize } from '@yorkie-js/sdk/src/util/resource';
+import { DocSize, docSizeTotal } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -623,6 +623,7 @@ export class Document<R, P extends Indexable = Indexable> {
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
+  private maxSizeLimit: number;
 
   private root: CRDTRoot;
   private clone?: {
@@ -669,6 +670,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.maxSizeLimit = 0;
 
     this.eventStream = createObservable<DocEvents<P>>((observer) => {
       this.eventStreamObserver = observer;
@@ -734,6 +736,14 @@ export class Document<R, P extends Indexable = Indexable> {
       throw err;
     } finally {
       this.isUpdating = false;
+    }
+
+    const size = docSizeTotal(this.clone?.root.getDocSize());
+    if (this.maxSizeLimit > 0 && this.maxSizeLimit < size) {
+      throw new YorkieError(
+        Code.ErrDocumentSizeExceedsLimit,
+        `document size exceeded: ${size} > ${this.maxSizeLimit}`,
+      );
     }
 
     // 02. Update the root object and presences from changes.
@@ -1368,6 +1378,13 @@ export class Document<R, P extends Indexable = Indexable> {
    */
   public getDocSize(): DocSize {
     return this.root.getDocSize();
+  }
+
+  /**
+   * `setMaxSizePerDocument` sets the maximum size of this document.
+   */
+  public setMaxSizePerDocument(size: number) {
+    this.maxSizeLimit = size;
   }
 
   /**

@@ -441,6 +441,8 @@ export class Client {
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
 
+        doc.setMaxSizePerDocument(res.maxSizePerDocument);
+
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
 

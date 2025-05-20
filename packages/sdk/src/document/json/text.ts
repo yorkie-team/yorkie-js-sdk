@@ -114,12 +114,14 @@ export class Text<A extends Indexable = Indexable> {
     }
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
     const ticket = this.context.issueTimeTicket();
-    const [, pairs, rangeAfterEdit] = this.text.edit(
+    const [, pairs, diff, rangeAfterEdit] = this.text.edit(
       range,
       content,
       ticket,
       attrs,
     );
+
+    this.context!.acc(diff);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
@@ -182,11 +184,13 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    const [pairs] = this.text.setStyle(range, attrs, ticket);
+    const [pairs, diff] = this.text.setStyle(range, attrs, ticket);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
     }
+
+    this.context!.acc(diff);
 
     this.context.push(
       new StyleOperation(
