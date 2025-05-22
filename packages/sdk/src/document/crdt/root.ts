@@ -31,8 +31,8 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
 import {
   DataSize,
-  dataSizeAdd,
-  dataSizeSub,
+  addDataSizes,
+  subDataSize,
   DocSize,
 } from '@yorkie-js/sdk/src/util/resource';
 import { RHTNode } from '@yorkie-js/sdk/src/document/crdt/rht';
@@ -200,12 +200,12 @@ export class CRDTRoot {
       parent,
       element,
     });
-    dataSizeAdd(this.docSize.live, element.getDataSize());
+    addDataSizes(this.docSize.live, element.getDataSize());
 
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
         this.registerElement(elem, parent);
-        dataSizeAdd(this.docSize.live, elem.getDataSize());
+        addDataSizes(this.docSize.live, elem.getDataSize());
         return false;
       });
     }
@@ -219,7 +219,7 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
-      dataSizeSub(this.docSize.gc, elem.getDataSize());
+      subDataSize(this.docSize.gc, elem.getDataSize());
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
@@ -240,8 +240,8 @@ export class CRDTRoot {
    * `registerRemovedElement` registers the given element to the hash set.
    */
   public registerRemovedElement(element: CRDTElement): void {
-    dataSizeAdd(this.docSize.gc, element.getDataSize());
-    dataSizeSub(this.docSize.live, element.getDataSize());
+    addDataSizes(this.docSize.gc, element.getDataSize());
+    subDataSize(this.docSize.live, element.getDataSize());
     this.docSize.live.meta += TimeTicketSize;
 
     this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
@@ -262,8 +262,8 @@ export class CRDTRoot {
     const size = this.gcPairMap
       .get(pair.child.toIDString())!
       .child.getDataSize();
-    dataSizeAdd(this.docSize.gc, size);
-    dataSizeSub(this.docSize.live, size);
+    addDataSizes(this.docSize.gc, size);
+    subDataSize(this.docSize.live, size);
 
     if (!(pair.child instanceof RHTNode)) {
       this.docSize.live.meta += TimeTicketSize;
@@ -314,24 +314,6 @@ export class CRDTRoot {
    * `getDocSize` returns the size of the document.
    */
   getDocSize(): DocSize {
-    // const docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
-    //
-    // for (const [createdAt, value] of this.elementPairMapByCreatedAt) {
-    //   if (this.gcElementSetByCreatedAt.has(createdAt)) {
-    //     docSize.gc.data += value.element.getDataSize().data;
-    //     docSize.gc.meta += value.element.getDataSize().meta;
-    //   } else {
-    //     docSize.live.data += value.element.getDataSize().data;
-    //     docSize.live.meta += value.element.getDataSize().meta;
-    //   }
-    // }
-    //
-    // for (const pair of this.gcPairMap.values()) {
-    //   const size = pair.child.getDataSize();
-    //   docSize.gc.data += size.data;
-    //   docSize.gc.meta += size.meta;
-    // }
-
     return this.docSize;
   }
 
@@ -401,6 +383,6 @@ export class CRDTRoot {
    * `acc` accumulates the given diff to the document size.
    */
   public acc(diff: DataSize) {
-    dataSizeAdd(this.docSize.live, diff);
+    addDataSizes(this.docSize.live, diff);
   }
 }

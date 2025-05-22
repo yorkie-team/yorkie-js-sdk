@@ -206,7 +206,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
-   * `acc` accumulates the given diff to the root.
+   * `acc` accumulates the given DataSize to Live size of the root.
    */
   public acc(diff: DataSize) {
     this.root.acc(diff);

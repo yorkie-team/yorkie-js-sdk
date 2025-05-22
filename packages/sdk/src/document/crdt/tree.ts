@@ -45,7 +45,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { DataSize, dataSizeAdd } from '../../util/resource';
+import { DataSize, addDataSizes } from '../../util/resource';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -934,8 +934,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       editedAt,
     );
 
-    dataSizeAdd(diff, diffTo);
-    dataSizeAdd(diff, diffFrom);
+    addDataSizes(diff, diffTo, diffFrom);
 
     const changes: Array<TreeChange> = [];
     const attrs: { [key: string]: any } = attributes
@@ -994,7 +993,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           for (const [key] of Object.entries(attrs)) {
             const curr = node.attrs?.getNodeMapByKey().get(key);
             if (curr !== undefined && tokenType !== TokenType.End) {
-              dataSizeAdd(diff, curr.getDataSize());
+              addDataSizes(diff, curr.getDataSize());
             }
           }
         }
@@ -1024,8 +1023,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       editedAt,
     );
 
-    dataSizeAdd(diff, diffTo);
-    dataSizeAdd(diff, diffFrom);
+    addDataSizes(diff, diffTo, diffFrom);
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
@@ -1101,8 +1099,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       editedAt,
     );
 
-    dataSizeAdd(diff, diffTo);
-    dataSizeAdd(diff, diffFrom);
+    addDataSizes(diff, diffTo, diffFrom);
 
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const fromPath = this.toPath(fromParent, fromLeft);
@@ -1223,7 +1220,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
             pairs.push({ parent: this, child: node });
           } else {
-            dataSizeAdd(diff, node.getDataSize());
+            addDataSizes(diff, node.getDataSize());
           }
 
           this.nodeMapByID.put(node.id, node);

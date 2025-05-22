@@ -75,7 +75,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
-import { DocSize, docSizeTotal } from '@yorkie-js/sdk/src/util/resource';
+import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -730,7 +730,8 @@ export class Document<R, P extends Indexable = Indexable> {
         new Presence(context, this.clone!.presences.get(actorID)!),
       );
     } catch (err) {
-      // drop clone because it is contaminated.
+      // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
+      // clonePresences to prevent the user from accessing the invalid state.
       this.clone = undefined;
 
       throw err;
@@ -738,8 +739,11 @@ export class Document<R, P extends Indexable = Indexable> {
       this.isUpdating = false;
     }
 
-    const size = docSizeTotal(this.clone?.root.getDocSize());
+    const size = totalDocSize(this.clone?.root.getDocSize());
     if (this.maxSizeLimit > 0 && this.maxSizeLimit < size) {
+      // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
+      // clonePresences to prevent the user from accessing the invalid state.
+      this.clone = undefined;
       throw new YorkieError(
         Code.ErrDocumentSizeExceedsLimit,
         `document size exceeded: ${size} > ${this.maxSizeLimit}`,

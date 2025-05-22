@@ -18,8 +18,8 @@ import { TimeTicket } from '../yorkie';
 import { Code, YorkieError } from './error';
 import {
   DataSize,
-  dataSizeAdd,
-  dataSizeSub,
+  addDataSizes,
+  subDataSize,
 } from '@yorkie-js/sdk/src/util/resource';
 
 /**
@@ -283,9 +283,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.parent!.insertAfterInternal(rightNode, this as any);
 
-    dataSizeAdd(diff, this.getDataSize());
-    dataSizeAdd(diff, rightNode.getDataSize());
-    dataSizeSub(diff, prvSize);
+    // NOTE(hackerwins): Calculate data size after node splitting:
+    // Take the sum of the two split nodes(left and right) minus the size of
+    // the original node. This calculates the net metadata overhead added by
+    // the split operation.
+    addDataSizes(diff, this.getDataSize(), rightNode.getDataSize());
+    subDataSize(diff, prvSize);
 
     return [rightNode, diff];
   }
@@ -462,9 +465,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       child.parent = clone;
     }
 
-    dataSizeAdd(diff, this.getDataSize());
-    dataSizeAdd(diff, clone.getDataSize());
-    dataSizeSub(diff, prvSize);
+    // NOTE(hackerwins): Calculate data size after node splitting:
+    // Take the sum of the two split nodes(left and right) minus the size of
+    // the original node. This calculates the net metadata overhead added by
+    // the split operation.
+    addDataSizes(diff, this.getDataSize(), clone.getDataSize());
+    subDataSize(diff, prvSize);
 
     return [clone, diff];
   }

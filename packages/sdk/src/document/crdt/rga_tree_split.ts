@@ -30,8 +30,8 @@ import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   DataSize,
-  dataSizeAdd,
-  dataSizeSub,
+  addDataSizes,
+  subDataSize,
 } from '@yorkie-js/sdk/src/util/resource';
 
 export interface ValueChange<T> {
@@ -594,8 +594,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       editedAt,
     );
 
-    dataSizeAdd(diff, diffTo);
-    dataSizeAdd(diff, diffFrom);
+    addDataSizes(diff, diffTo, diffFrom);
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
@@ -616,7 +615,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         fromLeft,
         RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
       );
-      dataSizeAdd(diff, inserted.getDataSize());
+      addDataSizes(diff, inserted.getDataSize());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
         changes[changes.length - 1].value = value;
@@ -911,9 +910,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
     splitNode.setInsPrev(node);
 
-    dataSizeAdd(diff, node.getDataSize());
-    dataSizeAdd(diff, splitNode.getDataSize());
-    dataSizeSub(diff, prvSize);
+    // NOTE(hackerwins): Calculate data size after node splitting:
+    // Take the sum of the two split nodes(left and right) minus the size of
+    // the original node. This calculates the net metadata overhead added by
+    // the split operation.
+    addDataSizes(diff, node.getDataSize(), splitNode.getDataSize());
+    subDataSize(diff, prvSize);
 
     return [splitNode, diff];
   }

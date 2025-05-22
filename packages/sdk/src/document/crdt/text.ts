@@ -35,7 +35,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
-import { DataSize, dataSizeAdd } from '@yorkie-js/sdk/src/util/resource';
+import { DataSize, addDataSizes } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -301,8 +301,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       editedAt,
     );
 
-    dataSizeAdd(diff, diffTo);
-    dataSizeAdd(diff, diffFrom);
+    addDataSizes(diff, diffTo);
+    addDataSizes(diff, diffFrom);
 
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
@@ -349,7 +349,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         }
         const curr = node.getValue().getAttrs().getNodeMapByKey().get(key);
         if (curr !== undefined) {
-          dataSizeAdd(diff, curr.getDataSize());
+          addDataSizes(diff, curr.getDataSize());
         }
       }
     }

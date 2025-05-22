@@ -14,11 +14,11 @@ export type DocSize = {
 };
 
 /**
- * `docSizeTotal` calculates the total size of a document.
+ * `totalDocSize` calculates the total size of a document.
  */
-export function docSizeTotal(size: DocSize | undefined): number {
-  if (!size) return 0;
-  return dataSizeTotal(size.live) + dataSizeTotal(size.gc);
+export function totalDocSize(d: DocSize | undefined): number {
+  if (!d) return 0;
+  return totalDataSize(d.live) + totalDataSize(d.gc);
 }
 
 /**
@@ -37,24 +37,29 @@ export type DataSize = {
 };
 
 /**
- * `dataSizeTotal` calculates the total size of a resource.
+ * `totalDataSize` calculates the total size of a resource.
  */
-export function dataSizeTotal(ds: DataSize): number {
-  return ds.data + ds.meta;
+export function totalDataSize(d: DataSize): number {
+  return d.data + d.meta;
 }
 
 /**
- * `dataSizeAdd` adds the size of a resource to the target resource.
+ * `addDataSizes` adds the size of a resource to the target resource.
  */
-export function dataSizeAdd(target: DataSize, delta: DataSize): void {
-  target.data += delta.data;
-  target.meta += delta.meta;
+export function addDataSizes(
+  target: DataSize,
+  ...others: Array<DataSize>
+): void {
+  for (const other of others) {
+    target.data += other.data;
+    target.meta += other.meta;
+  }
 }
 
 /**
- * `dataSizeSub` subtracts the size of a resource from the target resource.
+ * `subDataSize` subtracts the size of a resource from the target resource.
  */
-export function dataSizeSub(target: DataSize, delta: DataSize): void {
-  target.data -= delta.data;
-  target.meta -= delta.meta;
+export function subDataSize(target: DataSize, other: DataSize): void {
+  target.data -= other.data;
+  target.meta -= other.meta;
 }
