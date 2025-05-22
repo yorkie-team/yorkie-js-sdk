@@ -301,8 +301,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       editedAt,
     );
 
-    addDataSizes(diff, diffTo);
-    addDataSizes(diff, diffFrom);
+    addDataSizes(diff, diffTo, diffFrom);
 
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];

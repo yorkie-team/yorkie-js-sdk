@@ -186,11 +186,11 @@ export class Text<A extends Indexable = Indexable> {
     const ticket = this.context.issueTimeTicket();
     const [pairs, diff] = this.text.setStyle(range, attrs, ticket);
 
+    this.context!.acc(diff);
+
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
     }
-
-    this.context!.acc(diff);
 
     this.context.push(
       new StyleOperation(

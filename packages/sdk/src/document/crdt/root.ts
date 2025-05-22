@@ -242,6 +242,8 @@ export class CRDTRoot {
   public registerRemovedElement(element: CRDTElement): void {
     addDataSizes(this.docSize.gc, element.getDataSize());
     subDataSize(this.docSize.live, element.getDataSize());
+    // NOTE(hackerwins): When an element is removed, parent sets the removedAt
+    // to mark the child as removed.
     this.docSize.live.meta += TimeTicketSize;
 
     this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
@@ -265,6 +267,10 @@ export class CRDTRoot {
     addDataSizes(this.docSize.gc, size);
     subDataSize(this.docSize.live, size);
 
+    // NOTE(hackerwins): In general cases, when removing a node, its size
+    // includes removedAt, so when subtracting the node size from docSize.Live,
+    // we need to subtract the removedAt size. However, RHTNode doesn't have
+    // removedAt, so we don't need to subtract it from the Live size.
     if (!(pair.child instanceof RHTNode)) {
       this.docSize.live.meta += TimeTicketSize;
     }

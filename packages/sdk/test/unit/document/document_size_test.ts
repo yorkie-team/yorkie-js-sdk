@@ -161,6 +161,14 @@ describe('Document Size', () => {
     doc.update((root) => root.text.setStyle(0, 5, { bold: true }));
     assert.deepEqual(doc.getDocSize().live, { data: 28, meta: 144 });
     assert.deepEqual(doc.getDocSize().gc, { data: 10, meta: 48 });
+
+    doc.update((root) => root.text.edit(1, 1, ''));
+    assert.equal(
+      doc.toJSON(),
+      `{"text":[{"attrs":{"bold":true},"val":"h"},{"attrs":{"bold":true},"val":"ello"},{"val":" "}]}`,
+    );
+    assert.deepEqual(doc.getDocSize().live, { data: 44, meta: 192 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 10, meta: 48 });
   });
 
   it('tree test', function () {
