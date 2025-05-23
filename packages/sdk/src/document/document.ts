@@ -1385,6 +1385,13 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getMaxSizePerDocument` gets the maximum size of this document.
+   */
+  public getMaxSizePerDocument() {
+    return this.maxSizeLimit;
+  }
+
+  /**
    * `setMaxSizePerDocument` sets the maximum size of this document.
    */
   public setMaxSizePerDocument(size: number) {
