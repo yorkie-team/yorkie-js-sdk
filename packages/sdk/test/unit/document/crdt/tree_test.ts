@@ -49,7 +49,7 @@ describe('CRDTTreeNode', function () {
     assert.equal(para.isText, false);
 
     const left = para.children[0];
-    const right = left.splitText(5, 0);
+    const [right] = left.splitText(5, 0);
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
     assert.equal(para.size, 11);
 
@@ -213,7 +213,7 @@ describe('CRDTTree.Edit', function () {
     t.editT([1, 3], undefined, 0, timeT(), timeT);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p></p></root>`);
 
-    let [parent, left] = t.findNodesAndSplitText(
+    let [[parent, left]] = t.findNodesAndSplitText(
       new CRDTTreePos(pNode.id, textNode.id),
       timeT(),
     );
@@ -225,7 +225,7 @@ describe('CRDTTree.Edit', function () {
     t.editT([0, 2], undefined, 0, timeT(), timeT);
     assert.deepEqual(t.toXML(), /*html*/ `<root></root>`);
 
-    [parent, left] = t.findNodesAndSplitText(
+    [[parent, left]] = t.findNodesAndSplitText(
       new CRDTTreePos(pNode.id, textNode.id),
       timeT(),
     );

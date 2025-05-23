@@ -90,12 +90,14 @@ export class StyleOperation extends Operation {
       );
     }
     const text = parentObject as CRDTText<A>;
-    const [pairs, changes] = text.setStyle(
+    const [pairs, diff, changes] = text.setStyle(
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
       versionVector,
     );
+
+    root.acc(diff);
 
     for (const pair of pairs) {
       root.registerGCPair(pair);

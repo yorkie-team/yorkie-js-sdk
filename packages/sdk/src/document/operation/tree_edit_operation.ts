@@ -99,7 +99,7 @@ export class TreeEditOperation extends Operation {
     }
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
-    const [changes, pairs] = tree.edit(
+    const [changes, pairs, diff] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
@@ -126,6 +126,8 @@ export class TreeEditOperation extends Operation {
       })(),
       versionVector,
     );
+
+    root.acc(diff);
 
     for (const pair of pairs) {
       root.registerGCPair(pair);

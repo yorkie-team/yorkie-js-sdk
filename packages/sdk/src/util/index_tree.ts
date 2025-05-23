@@ -16,6 +16,11 @@
 
 import { TimeTicket } from '../yorkie';
 import { Code, YorkieError } from './error';
+import {
+  DataSize,
+  addDataSizes,
+  subDataSize,
+} from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * About `index`, `path`, `size` and `TreePos` in crdt.IndexTree.
@@ -248,19 +253,28 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   abstract set value(v: string);
 
   /**
+   * `getDataSize` returns the size of the node.
+   */
+  abstract getDataSize(): DataSize;
+
+  /**
    * `splitText` splits the given node at the given offset.
    */
-  splitText(offset: number, absOffset: number): T | undefined {
+  splitText(offset: number, absOffset: number): [T | undefined, DataSize] {
+    const diff = { data: 0, meta: 0 };
+
     if (offset === 0 || offset === this.size) {
-      return;
+      return [undefined, diff];
     }
 
     const leftValue = this.value.slice(0, offset);
     const rightValue = this.value.slice(offset);
 
     if (!rightValue.length) {
-      return;
+      return [undefined, diff];
     }
+
+    const prvSize = this.getDataSize();
 
     this.value = leftValue;
 
@@ -269,7 +283,14 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.parent!.insertAfterInternal(rightNode, this as any);
 
-    return rightNode;
+    // NOTE(hackerwins): Calculate data size after node splitting:
+    // Take the sum of the two split nodes(left and right) minus the size of
+    // the original node. This calculates the net metadata overhead added by
+    // the split operation.
+    addDataSizes(diff, this.getDataSize(), rightNode.getDataSize());
+    subDataSize(diff, prvSize);
+
+    return [rightNode, diff];
   }
 
   /**
@@ -411,7 +432,11 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   splitElement(
     offset: number,
     issueTimeTicket: () => TimeTicket,
-  ): T | undefined {
+  ): [T | undefined, DataSize] {
+    const diff = { data: 0, meta: 0 };
+
+    const prvSize = this.getDataSize();
+
     /**
      * TODO(hackerwins): Define ID of split node for concurrent editing.
      * Text has fixed content and its split nodes could have limited offset
@@ -440,7 +465,14 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       child.parent = clone;
     }
 
-    return clone;
+    // NOTE(hackerwins): Calculate data size after node splitting:
+    // Take the sum of the two split nodes(left and right) minus the size of
+    // the original node. This calculates the net metadata overhead added by
+    // the split operation.
+    addDataSizes(diff, this.getDataSize(), clone.getDataSize());
+    subDataSize(diff, prvSize);
+
+    return [clone, diff];
   }
 
   /**
