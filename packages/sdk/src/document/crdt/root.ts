@@ -205,7 +205,6 @@ export class CRDTRoot {
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
         this.registerElement(elem, parent);
-        addDataSizes(this.docSize.live, elem.getDataSize());
         return false;
       });
     }
