@@ -101,7 +101,7 @@ export class CRDTRoot {
   private gcPairMap: Map<string, GCPair>;
 
   /**
-   * `docSize` is a structure that represents the size of the document. It
+   * `docSize` is a structure that represents the size of the document.
    */
   private docSize: DocSize;
 
@@ -386,7 +386,7 @@ export class CRDTRoot {
   }
 
   /**
-   * `acc` accumulates the given diff to the document size.
+   * `acc` accumulates the given DataSize to Live.
    */
   public acc(diff: DataSize) {
     addDataSizes(this.docSize.live, diff);
