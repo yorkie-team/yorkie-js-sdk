@@ -739,8 +739,18 @@ export class Document<R, P extends Indexable = Indexable> {
       this.isUpdating = false;
     }
 
+    let isDetachUpdate = false;
+    if (context.hasChange()) {
+      const change = context.toChange();
+      if (
+        change.hasPresenceChange() &&
+        change.getPresenceChange()!.type === PresenceChangeType.Clear
+      ) {
+        isDetachUpdate = true;
+      }
+    }
     const size = totalDocSize(this.clone?.root.getDocSize());
-    if (this.maxSizeLimit > 0 && this.maxSizeLimit < size) {
+    if (!isDetachUpdate && this.maxSizeLimit > 0 && this.maxSizeLimit < size) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
       this.clone = undefined;

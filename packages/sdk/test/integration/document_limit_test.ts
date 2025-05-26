@@ -91,7 +91,7 @@ describe('Document Size Limit', () => {
     await client.deactivate();
   });
 
-  it('should reject update that exceeds document size limit', async ({
+  it('should reject local update that exceeds document size limit', async ({
     task,
   }) => {
     const now = Date.now();
@@ -130,15 +130,6 @@ describe('Document Size Limit', () => {
 
     assert.deepEqual(doc.getDocSize().live, { data: 0, meta: 72 });
 
-    // try {
-    //   doc.update((root) => {
-    //     root.text.edit(0, 0, 'helloworld');
-    //   });
-    // } catch (err) {
-    //   assert.instanceOf(err, YorkieError);
-    //   assert.match((err as Error).message, /document size exceeded/);
-    // }
-
     assert.throws(
       () => {
         doc.update((root) => {
@@ -153,5 +144,92 @@ describe('Document Size Limit', () => {
 
     await client.detach(doc);
     await client.deactivate();
+  });
+
+  it('should allow remote updates even if they exceed document size limit', async ({
+    task,
+  }) => {
+    const now = Date.now();
+    const projectName = `size-remote-${now}`;
+    const sizeLimit = 100;
+
+    const createResp = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: projectName },
+      { headers: { Authorization: adminToken } },
+    );
+    const project = createResp.data.project;
+
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: project.id,
+        fields: {
+          max_size_per_document: sizeLimit,
+        },
+      },
+      { headers: { Authorization: adminToken } },
+    );
+
+    const client1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey: project.publicKey,
+    });
+    await client1.activate();
+
+    const docKey = toDocKey(`${task.name}-${now}`);
+    const doc = new yorkie.Document<{ text: Text }>(docKey);
+    await client1.attach(doc);
+
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey: project.publicKey,
+    });
+    await client2.activate();
+
+    const doc2 = new yorkie.Document<{ text: Text }>(docKey);
+    await client2.attach(doc2);
+
+    doc.update((root) => (root.text = new Text()));
+    await client1.sync();
+    await client2.sync();
+    assert.equal(totalDocSize(doc.getDocSize()), 72);
+
+    doc.update((root) => {
+      root.text.edit(0, 0, 'aa');
+    });
+    assert.equal(doc.getDocSize().live.data, 4);
+    assert.equal(doc.getDocSize().live.meta, 96);
+    await client1.sync();
+
+    doc2.update((root) => {
+      root.text.edit(0, 0, 'a');
+    });
+    assert.equal(doc2.getDocSize().live.data, 2);
+    assert.equal(doc2.getDocSize().live.meta, 96);
+    await client2.sync();
+    // Pulls changes - should succeed despite exceeding limit
+    assert.equal(doc2.getDocSize().live.data, 6);
+    assert.equal(doc2.getDocSize().live.meta, 120);
+
+    await client1.sync();
+    assert.equal(doc.getDocSize().live.data, 6);
+    assert.equal(doc.getDocSize().live.meta, 120);
+
+    // Local update should still be restricted
+    assert.throws(
+      () => {
+        doc.update((root) => {
+          root.text.edit(0, 0, 'a');
+        });
+      },
+      YorkieError,
+      `document size exceeded`,
+    );
+
+    await client1.detach(doc);
+    await client1.deactivate();
+    await client2.detach(doc2);
+    await client2.deactivate();
   });
 });
