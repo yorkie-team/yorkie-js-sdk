@@ -21,7 +21,7 @@ import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
   PresenceChange,
   PresenceChangeType,
-} from '@yorkie-js/sdk/src/document/presence/presence';
+} from '@yorkie-js/sdk/src/document/presence/change';
 import {
   InitialTimeTicket,
   TimeTicket,

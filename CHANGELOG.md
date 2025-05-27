@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.12] - 2025-05-16
+
+### Changed
+
+- Remove logical clock from presence-only changes by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/990
+
 ## [0.6.10] - 2025-05-09
 
 ### Removed

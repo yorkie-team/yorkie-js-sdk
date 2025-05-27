@@ -2,7 +2,7 @@ import { Document, JSONArray } from '@yorkie-js/sdk/src/yorkie';
 import { InitialCheckpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { DocStatus } from '@yorkie-js/sdk/src/document/document';
 import { describe, bench, assert } from 'vitest';
-import { MaxVersionVector } from '../helper/helper';
+import { maxVectorOf } from '../helper/helper';
 
 const benchmarkObject = (size: number) => {
   const doc = new Document<{ k1: number }>('test-doc');
@@ -42,7 +42,7 @@ const benchmarkArrayGC = (size: number) => {
 
   assert.equal(
     size + 1,
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
   );
 };
 

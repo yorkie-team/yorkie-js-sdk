@@ -641,7 +641,7 @@ describe('peri-text example: text concurrent edit', function () {
       await c1.sync();
       assert.equal(
         d1.toSortedJSON(),
-        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox "},{"attrs":{"bold":false},"val":"jumped."}]}',
+        '{"k1":[{"attrs":{"bold":true},"val":"The "},{"attrs":{"bold":false},"val":"fox "},{"attrs":{"bold":true},"val":"jumped."}]}',
         'd1',
       );
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');

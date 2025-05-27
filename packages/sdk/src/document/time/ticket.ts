@@ -187,12 +187,13 @@ export class TimeTicket {
   }
 }
 
+export const InitialLamport = 0n;
 export const InitialDelimiter = 0;
 export const MaxDelemiter = 4294967295; // UInt32 MAX_VALUE
 export const MaxLamport = 9223372036854775807n; // Int64 MAX_VALUE
 
 export const InitialTimeTicket = new TimeTicket(
-  0n,
+  InitialLamport,
   InitialDelimiter,
   InitialActorID,
 );

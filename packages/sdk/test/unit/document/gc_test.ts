@@ -18,7 +18,7 @@ import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { IndexTreeNode } from '@yorkie-js/sdk/src/util/index_tree';
 import yorkie, { Tree, Text } from '@yorkie-js/sdk/src/yorkie';
-import { MaxVersionVector } from '@yorkie-js/sdk/test/helper/helper';
+import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 import { describe, it, assert } from 'vitest';
 
 // `getNodeLength` returns the number of nodes in the given tree.
@@ -58,7 +58,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc.toSortedJSON(), '{"1":1,"3":3}');
     assert.equal(doc.getGarbageLen(), 4);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       4,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -84,7 +84,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc.toSortedJSON(), '{"1":1,"3":3}');
     assert.equal(doc.getGarbageLen(), 4);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       0,
     );
     assert.equal(doc.getGarbageLen(), 4);
@@ -102,7 +102,7 @@ describe('Garbage Collection', function () {
     }, 'deletes the array');
 
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       size + 1,
     );
   });
@@ -123,7 +123,7 @@ describe('Garbage Collection', function () {
 
     assert.equal(doc.getGarbageLen(), 1);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       1,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -150,7 +150,7 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(doc.getGarbageLen(), 1);
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
 
     assert.equal(
@@ -186,7 +186,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc.getGarbageLen(), 2);
 
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       2,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -223,7 +223,7 @@ describe('Garbage Collection', function () {
     const expectedGarbageLen = 4;
     assert.equal(doc.getGarbageLen(), expectedGarbageLen);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       expectedGarbageLen,
     );
 
@@ -267,7 +267,7 @@ describe('Garbage Collection', function () {
     );
     assert.equal(doc.getGarbageLen(), 2);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       2,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -287,7 +287,7 @@ describe('Garbage Collection', function () {
     );
     assert.equal(doc.getGarbageLen(), 1);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       1,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -308,7 +308,7 @@ describe('Garbage Collection', function () {
     );
     assert.equal(doc.getGarbageLen(), 5);
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       5,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -352,7 +352,7 @@ describe('Garbage Collection', function () {
     assert.equal(doc.getGarbageLen(), 3);
 
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       3,
     );
     assert.equal(doc.getGarbageLen(), 0);
@@ -368,7 +368,7 @@ describe('Garbage Collection', function () {
     });
     assert.equal(doc.getGarbageLen(), 4); // shape, point, x, y
     assert.equal(
-      doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()])),
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
       4,
     ); // The number of GC nodes must also be 4.
   });
@@ -538,16 +538,14 @@ describe('Garbage Collection for tree', () => {
         } else if (code === OpCode.DeleteNode) {
           root.t.edit(0, 2, undefined, 0);
         } else if (code === OpCode.GC) {
-          doc.garbageCollect(
-            MaxVersionVector([doc.getChangeID().getActorID()]),
-          );
+          doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
         }
       });
       assert.equal(doc.getRoot().t.toXML(), expectXML);
       assert.equal(doc.getGarbageLen(), garbageLen);
     }
 
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
   });
 });
@@ -638,7 +636,7 @@ describe('Garbage Collection for text', () => {
       assert.equal(doc.getGarbageLen(), garbageLen);
     }
 
-    doc.garbageCollect(MaxVersionVector([doc.getChangeID().getActorID()]));
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
   });
 });

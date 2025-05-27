@@ -17,22 +17,7 @@
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
-
-/**
- * `PresenceChangeType` represents the type of presence change.
- */
-export enum PresenceChangeType {
-  Put = 'put',
-  Clear = 'clear',
-}
-
-/**
- * `PresenceChange` represents the change of presence.
- */
-export type PresenceChange<P extends Indexable> =
-  | { type: PresenceChangeType.Put; presence: P }
-  | { type: PresenceChangeType.Clear };
-
+import { PresenceChangeType } from './change';
 /**
  * `Presence` represents a proxy for the Presence to be manipulated from the outside.
  */
