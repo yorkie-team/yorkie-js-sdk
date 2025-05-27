@@ -22,7 +22,7 @@ import {
   toDocKey,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import axios from 'axios';
-import yorkie, { Text } from '@yorkie-js/sdk/src/yorkie';
+import yorkie, { SyncMode, Text } from '@yorkie-js/sdk/src/yorkie';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 
@@ -83,7 +83,7 @@ describe('Document Size Limit', () => {
     const doc = new yorkie.Document<{ k1: string }>(
       toDocKey(`${task.name}-${new Date().getTime()}`),
     );
-    await client.attach(doc);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
 
     assert.equal(doc.getMaxSizePerDocument(), sizeLimit);
 
@@ -124,7 +124,7 @@ describe('Document Size Limit', () => {
 
     const docKey = toDocKey(`${task.name}-${now}`);
     const doc = new yorkie.Document<{ text: Text }>(docKey);
-    await client.attach(doc);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
 
     doc.update((root) => (root.text = new Text()));
 
@@ -181,7 +181,7 @@ describe('Document Size Limit', () => {
 
     const docKey = toDocKey(`${task.name}-${now}`);
     const doc = new yorkie.Document<{ text: Text }>(docKey);
-    await client1.attach(doc);
+    await client1.attach(doc, { syncMode: SyncMode.Manual });
 
     const client2 = new yorkie.Client({
       rpcAddr: testRPCAddr,
@@ -190,7 +190,7 @@ describe('Document Size Limit', () => {
     await client2.activate();
 
     const doc2 = new yorkie.Document<{ text: Text }>(docKey);
-    await client2.attach(doc2);
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
 
     doc.update((root) => (root.text = new Text()));
     await client1.sync();

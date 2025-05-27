@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.13] - 2025-05-27
+
+### Added
+
+- Introduce size limit for documents by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/992
+
+### Changed
+
+- Update SnapshotThreshold to 500 by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/993
+
 ## [0.6.12] - 2025-05-16
 
 ### Changed
