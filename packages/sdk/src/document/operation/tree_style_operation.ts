@@ -120,11 +120,13 @@ export class TreeStyleOperation extends Operation {
     const tree = parentObject as CRDTTree;
     let changes: Array<TreeChange>;
     let pairs: Array<GCPair>;
+    let diff = { data: 0, meta: 0 };
+
     if (this.attributes.size) {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      [pairs, changes] = tree.style(
+      [pairs, changes, diff] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
@@ -133,13 +135,15 @@ export class TreeStyleOperation extends Operation {
     } else {
       const attributesToRemove = this.attributesToRemove;
 
-      [pairs, changes] = tree.removeStyle(
+      [pairs, changes, diff] = tree.removeStyle(
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),
         versionVector,
       );
     }
+
+    root.acc(diff);
 
     for (const pair of pairs) {
       root.registerGCPair(pair);

@@ -30,6 +30,7 @@ import { PresenceChange } from '@yorkie-js/sdk/src/document/presence/change';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `ChangeContext` is used to record the context of modification when editing
@@ -118,7 +119,7 @@ export class ChangeContext<P extends Indexable = Indexable> {
   public getNextID(): ChangeID {
     // Even if the change has only presence change, the next ID for the document
     // shoule have clocks. For this, we pass the clocks of the previous ID.
-    if (this.operations.length === 0) {
+    if (this.isPresenceOnlyChange()) {
       return this.prevID
         .next(true)
         .setLamport(this.prevID.getLamport())
@@ -135,15 +136,23 @@ export class ChangeContext<P extends Indexable = Indexable> {
     // NOTE(hackerwins): If this context was created only for presence change,
     // we can use the ID without clocks that are used to resolve the
     // conflict.
-    const id =
-      this.operations.length === 0 ? this.prevID.next(true) : this.nextID;
-
+    const id = this.isPresenceOnlyChange()
+      ? this.prevID.next(true)
+      : this.nextID;
     return Change.create<P>({
       id,
       operations: this.operations,
       presenceChange: this.presenceChange,
       message: this.message,
     });
+  }
+
+  /**
+   * `isPresenceOnlyChange` returns whether this context is only for presence
+   * change or not.
+   */
+  public isPresenceOnlyChange(): boolean {
+    return this.operations.length === 0;
   }
 
   /**
@@ -202,5 +211,12 @@ export class ChangeContext<P extends Indexable = Indexable> {
    */
   public getLastTimeTicket(): TimeTicket {
     return this.nextID.createTimeTicket(this.delimiter);
+  }
+
+  /**
+   * `acc` accumulates the given DataSize to Live size of the root.
+   */
+  public acc(diff: DataSize) {
+    this.root.acc(diff);
   }
 }

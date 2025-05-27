@@ -516,7 +516,10 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [pairs] = this.tree!.style([fromPos, toPos], attrs, ticket);
+    const [pairs, , diff] = this.tree!.style([fromPos, toPos], attrs, ticket);
+
+    this.context!.acc(diff);
+
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
     }
@@ -559,7 +562,10 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [pairs] = this.tree!.style([fromPos, toPos], attrs, ticket);
+    const [pairs, , diff] = this.tree!.style([fromPos, toPos], attrs, ticket);
+
+    this.context!.acc(diff);
+
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
     }
@@ -601,11 +607,13 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    const [pairs] = this.tree!.removeStyle(
+    const [pairs, , diff] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
     );
+
+    this.context!.acc(diff);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
@@ -660,7 +668,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    const [, pairs] = this.tree!.edit(
+    const [, pairs, diff] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())
@@ -669,6 +677,8 @@ export class Tree {
       ticket,
       () => this.context!.issueTimeTicket(),
     );
+
+    this.context!.acc(diff);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);

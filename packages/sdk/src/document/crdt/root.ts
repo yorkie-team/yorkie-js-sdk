@@ -17,6 +17,7 @@
 import {
   InitialTimeTicket,
   TimeTicket,
+  TimeTicketSize,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   CRDTContainer,
@@ -28,7 +29,13 @@ import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
-import { DocSize } from '@yorkie-js/sdk/src/util/resource';
+import {
+  DataSize,
+  addDataSizes,
+  subDataSize,
+  DocSize,
+} from '@yorkie-js/sdk/src/util/resource';
+import { RHTNode } from '@yorkie-js/sdk/src/document/crdt/rht';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -93,11 +100,17 @@ export class CRDTRoot {
    */
   private gcPairMap: Map<string, GCPair>;
 
+  /**
+   * `docSize` is a structure that represents the size of the document.
+   */
+  private docSize: DocSize;
+
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.gcElementSetByCreatedAt = new Set();
     this.gcPairMap = new Map();
+    this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     this.registerElement(rootObject, undefined);
 
     rootObject.getDescendants((elem) => {
@@ -187,6 +200,7 @@ export class CRDTRoot {
       parent,
       element,
     });
+    addDataSizes(this.docSize.live, element.getDataSize());
 
     if (element instanceof CRDTContainer) {
       element.getDescendants((elem, parent) => {
@@ -204,6 +218,7 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
+      subDataSize(this.docSize.gc, elem.getDataSize());
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
@@ -224,6 +239,12 @@ export class CRDTRoot {
    * `registerRemovedElement` registers the given element to the hash set.
    */
   public registerRemovedElement(element: CRDTElement): void {
+    addDataSizes(this.docSize.gc, element.getDataSize());
+    subDataSize(this.docSize.live, element.getDataSize());
+    // NOTE(hackerwins): When an element is removed, parent sets the removedAt
+    // to mark the child as removed.
+    this.docSize.live.meta += TimeTicketSize;
+
     this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
   }
 
@@ -238,6 +259,20 @@ export class CRDTRoot {
     }
 
     this.gcPairMap.set(pair.child.toIDString(), pair);
+
+    const size = this.gcPairMap
+      .get(pair.child.toIDString())!
+      .child.getDataSize();
+    addDataSizes(this.docSize.gc, size);
+    subDataSize(this.docSize.live, size);
+
+    // NOTE(hackerwins): In general cases, when removing a node, its size
+    // includes removedAt, so when subtracting the node size from docSize.Live,
+    // we need to subtract the removedAt size. However, RHTNode doesn't have
+    // removedAt, so we don't need to subtract it from the Live size.
+    if (!(pair.child instanceof RHTNode)) {
+      this.docSize.live.meta += TimeTicketSize;
+    }
   }
 
   /**
@@ -284,25 +319,7 @@ export class CRDTRoot {
    * `getDocSize` returns the size of the document.
    */
   getDocSize(): DocSize {
-    const docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
-
-    for (const [createdAt, value] of this.elementPairMapByCreatedAt) {
-      if (this.gcElementSetByCreatedAt.has(createdAt)) {
-        docSize.gc.data += value.element.getDataSize().data;
-        docSize.gc.meta += value.element.getDataSize().meta;
-      } else {
-        docSize.live.data += value.element.getDataSize().data;
-        docSize.live.meta += value.element.getDataSize().meta;
-      }
-    }
-
-    for (const pair of this.gcPairMap.values()) {
-      const size = pair.child.getDataSize();
-      docSize.gc.data += size.data;
-      docSize.gc.meta += size.meta;
-    }
-
-    return docSize;
+    return this.docSize;
   }
 
   /**
@@ -365,5 +382,12 @@ export class CRDTRoot {
       gcPairs: this.gcPairMap.size,
       gcElements: this.getGarbageElementSetSize(),
     };
+  }
+
+  /**
+   * `acc` accumulates the given DataSize to Live.
+   */
+  public acc(diff: DataSize) {
+    addDataSizes(this.docSize.live, diff);
   }
 }
