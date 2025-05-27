@@ -129,6 +129,7 @@ describe('Document Size Limit', () => {
     doc.update((root) => (root.text = new Text()));
 
     assert.deepEqual(doc.getDocSize().live, { data: 0, meta: 72 });
+    assert.deepEqual(doc.getDocSize(), doc.getClone()!.root.getDocSize());
 
     assert.throws(
       () => {
@@ -143,6 +144,7 @@ describe('Document Size Limit', () => {
     assert.equal(totalDocSize(doc.getDocSize()), 72);
 
     await client.detach(doc);
+    assert.deepEqual(doc.getDocSize(), doc.getClone()!.root.getDocSize());
     await client.deactivate();
   });
 

@@ -1355,7 +1355,14 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getClone` return clone object.
+   * `getClone` returns this clone.
+   */
+  public getClone() {
+    return this.clone;
+  }
+
+  /**
+   * `getCloneRoot` returns clone object.
    *
    * @internal
    */
