@@ -1964,15 +1964,15 @@ describe('Garbage Collection', function () {
 
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2001n },
-        { c: c2.getID()!, l: 2000n },
+        { c: c1.getID()!, l: 1001n },
+        { c: c2.getID()!, l: 1000n },
       ]),
       d1.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1998n },
-        { c: c2.getID()!, l: 2000n },
+        { c: c1.getID()!, l: 998n },
+        { c: c2.getID()!, l: 1000n },
       ]),
       d2.getVersionVector(),
     );
@@ -1991,9 +1991,9 @@ describe('Garbage Collection', function () {
     await c3.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1998n },
-        { c: c2.getID()!, l: 2000n },
-        { c: c3.getID()!, l: 2003n },
+        { c: c1.getID()!, l: 998n },
+        { c: c2.getID()!, l: 1000n },
+        { c: c3.getID()!, l: 1003n },
       ]),
       d3.getVersionVector(),
     );

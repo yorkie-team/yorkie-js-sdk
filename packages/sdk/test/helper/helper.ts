@@ -42,7 +42,7 @@ import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
 export type Indexable = Record<string, any>;
-export const DefaultSnapshotThreshold = 1000;
+export const DefaultSnapshotThreshold = 500;
 
 /**
  * EventCollector provides a utility to collect and manage events.
