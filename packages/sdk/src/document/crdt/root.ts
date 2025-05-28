@@ -203,8 +203,12 @@ export class CRDTRoot {
     addDataSizes(this.docSize.live, element.getDataSize());
 
     if (element instanceof CRDTContainer) {
-      element.getDescendants((elem, parent) => {
-        this.registerElement(elem, parent);
+      element.getDescendants((elem) => {
+        this.elementPairMapByCreatedAt.set(elem.getCreatedAt().toIDString(), {
+          element: elem,
+          parent: element,
+        });
+        addDataSizes(this.docSize.live, elem.getDataSize());
         return false;
       });
     }
