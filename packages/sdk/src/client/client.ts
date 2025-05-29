@@ -540,6 +540,7 @@ export class Client {
 
         if (doc.getStatus() !== DocStatus.Removed) {
           doc.applyStatus(DocStatus.Detached);
+          doc.reset();
         }
 
         this.detachInternal(doc.getKey());
