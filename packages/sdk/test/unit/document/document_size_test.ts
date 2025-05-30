@@ -114,25 +114,6 @@ describe('Document Size', () => {
     assert.deepEqual(doc.getDocSize().gc, { data: 2, meta: 48 });
   });
 
-  it('gc test', function () {
-    const doc = new Document<JSONObject<{ num?: number; str: string }>>(
-      'test-doc',
-    );
-
-    doc.update((root) => {
-      root['num'] = 1;
-      root['str'] = 'hello';
-    });
-    assert.deepEqual(doc.getDocSize().live, { data: 14, meta: 120 });
-
-    doc.update((root) => {
-      delete root['num'];
-    });
-    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 72 });
-    // NOTE(hackerwins): P(CreatedAt, MovedAt, RemovedAt)
-    assert.deepEqual(doc.getDocSize().gc, { data: 4, meta: 72 });
-  });
-
   it('counter test', function () {
     const doc = new Document<{ counter: Counter }>('test-doc');
     doc.update((root) => (root.counter = new Counter(CounterType.Int, 0)));
@@ -239,5 +220,41 @@ describe('Document Size', () => {
     assert.equal(doc.getRoot().tree.toXML(), `<doc><p>world</p></doc>`);
     assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
     assert.deepEqual(doc.getDocSize().gc, { data: 36, meta: 168 });
+  });
+
+  it('gc test', function () {
+    const doc = new Document<JSONObject<{ num?: number; str: string }>>(
+      'test-doc',
+    );
+
+    doc.update((root) => {
+      root['num'] = 1;
+      root['str'] = 'hello';
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 14, meta: 120 });
+
+    doc.update((root) => {
+      delete root['num'];
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 72 });
+    // NOTE(hackerwins): P(CreatedAt, MovedAt, RemovedAt)
+    assert.deepEqual(doc.getDocSize().gc, { data: 4, meta: 72 });
+  });
+
+  it('deep copy test', function () {
+    const doc = new Document<{ counter: Counter }>('test-doc');
+    doc.update((root) => (root.counter = new Counter(CounterType.Int, 0)));
+    const clone = doc.getClone()!.root.deepcopy();
+    assert.deepEqual(doc.getDocSize(), clone.getDocSize());
+  });
+
+  it('deep copy for nested element test', function () {
+    const doc = new Document<{ arr: Array<Counter> }>('test-doc');
+
+    doc.update((root) => (root['arr'] = []));
+    doc.update((root) => root['arr'].push(new Counter(CounterType.Int, 0)));
+
+    const clone = doc.getClone()!.root.deepcopy();
+    assert.deepEqual(clone.getDocSize(), doc.getDocSize());
   });
 });
