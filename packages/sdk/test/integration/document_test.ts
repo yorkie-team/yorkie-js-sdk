@@ -1155,12 +1155,18 @@ describe('Document', function () {
 
       // 01. user1 attach with initialRoot and client doesn't sync
       const doc1 = new yorkie.Document(docKey);
-      await c1.attach(doc1, { initialRoot: { writer: 'user1' } });
+      await c1.attach(doc1, {
+        syncMode: SyncMode.Manual,
+        initialRoot: { writer: 'user1' },
+      });
       assert.equal(doc1.toSortedJSON(), '{"writer":"user1"}');
 
       // 02. user2 attach with initialRoot and client doesn't sync
       const doc2 = new yorkie.Document(docKey);
-      await c2.attach(doc2, { initialRoot: { writer: 'user2' } });
+      await c2.attach(doc2, {
+        syncMode: SyncMode.Manual,
+        initialRoot: { writer: 'user2' },
+      });
       assert.equal(doc2.toSortedJSON(), '{"writer":"user2"}');
 
       // 03. user1 sync first and user2 seconds
