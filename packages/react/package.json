@@ -26,6 +26,6 @@
   "devDependencies": {
     "@types/react": "^19.0.10",
     "typescript": "^5.3.3",
-    "vite": "^6.0.5"
+    "vite": "^6.2.7"
   }
 }
