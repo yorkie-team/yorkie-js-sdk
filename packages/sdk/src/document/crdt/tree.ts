@@ -15,37 +15,37 @@
  */
 
 import {
-  TimeTicket,
-  TimeTicketStruct,
   MaxLamport,
+  TimeTicket,
   TimeTicketSize,
+  TimeTicketStruct,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 
+import type {
+  DefaultTextType,
+  TreeNodeType,
+  TreeToken,
+} from '@yorkie-js/sdk/src/util/index_tree';
 import {
   IndexTree,
-  TreePos,
   IndexTreeNode,
-  traverseAll,
   TokenType,
+  traverseAll,
+  TreePos,
 } from '@yorkie-js/sdk/src/util/index_tree';
 import { RHT, RHTNode } from './rht';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js/sdk/src/util/comparator';
 import { parseObjectValues } from '@yorkie-js/sdk/src/util/object';
-import type {
-  DefaultTextType,
-  TreeNodeType,
-  TreeToken,
-} from '@yorkie-js/sdk/src/util/index_tree';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { DataSize } from '../../util/resource';
+import { DataSize, addDataSizes } from '../../util/resource';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -597,8 +597,8 @@ export class CRDTTreeNode
     tree: CRDTTree,
     offset: number,
     issueTimeTicket?: () => TimeTicket,
-  ): CRDTTreeNode | undefined {
-    const split = this.isText
+  ): [CRDTTreeNode | undefined, DataSize] {
+    const [split, diff] = this.isText
       ? this.splitText(offset, this.id.getOffset())
       : this.splitElement(offset, issueTimeTicket!);
 
@@ -612,7 +612,7 @@ export class CRDTTreeNode
       this.insNextID = split.id;
       tree.registerNode(split);
     }
-    return split;
+    return [split, diff];
   }
 
   /**
@@ -872,7 +872,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
   public findNodesAndSplitText(
     pos: CRDTTreePos,
     editedAt?: TimeTicket,
-  ): TreeNodePair {
+  ): [TreeNodePair, DataSize] {
+    let diff = { data: 0, meta: 0 };
+
     // 01. Find the parent and left sibling node of the given position.
     const [parent, leftSibling] = pos.toTreeNodePair(this);
     let leftNode = leftSibling;
@@ -885,10 +887,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     // 03. Split text node if the left node is a text node.
     if (leftNode.isText) {
-      leftNode.split(
+      const [, splitedDiff] = leftNode.split(
         this,
         pos.getLeftSiblingID().getOffset() - leftNode.id.getOffset(),
       );
+      diff = splitedDiff;
     }
 
     // 04. Find the appropriate left node. If some nodes are inserted at the
@@ -908,7 +911,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [realParent, leftNode];
+    return [[realParent, leftNode], diff];
   }
 
   /**
@@ -919,12 +922,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TreeChange>] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+  ): [Array<GCPair>, Array<TreeChange>, DataSize] {
+    const diff = { data: 0, meta: 0 };
+
+    const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+    const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
+      range[1],
+      editedAt,
+    );
+
+    addDataSizes(diff, diffTo, diffFrom);
 
     const changes: Array<TreeChange> = [];
     const attrs: { [key: string]: any } = attributes
@@ -936,7 +946,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       fromLeft,
       toParent,
       toLeft,
-      ([node]) => {
+      ([node, tokenType]) => {
         const actorID = node.getCreatedAt().getActorID();
         let clientLamportAtChange = MaxLamport; // Local edit
         if (versionVector != undefined) {
@@ -979,11 +989,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
               pairs.push({ parent: node, child: prev });
             }
           }
+
+          for (const [key] of Object.entries(attrs)) {
+            const curr = node.attrs?.getNodeMapByKey().get(key);
+            if (curr !== undefined && tokenType !== TokenType.End) {
+              addDataSizes(diff, curr.getDataSize());
+            }
+          }
         }
       },
     );
 
-    return [pairs, changes];
+    return [pairs, changes, diff];
   }
 
   /**
@@ -994,12 +1011,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TreeChange>] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+  ): [Array<GCPair>, Array<TreeChange>, DataSize] {
+    const diff = { data: 0, meta: 0 };
+
+    const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+    const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
+      range[1],
+      editedAt,
+    );
+
+    addDataSizes(diff, diffTo, diffFrom);
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
@@ -1048,7 +1072,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
-    return [pairs, changes];
+    return [pairs, changes, diff];
   }
 
   /**
@@ -1062,13 +1086,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
-  ): [Array<TreeChange>, Array<GCPair>] {
+  ): [Array<TreeChange>, Array<GCPair>, DataSize] {
+    const diff = { data: 0, meta: 0 };
+
     // 01. find nodes from the given range and split nodes.
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(
+    const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1], editedAt);
+    const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
+      range[1],
+      editedAt,
+    );
+
+    addDataSizes(diff, diffTo, diffFrom);
 
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const fromPath = this.toPath(fromParent, fromLeft);
@@ -1188,6 +1219,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
             node.remove(editedAt);
 
             pairs.push({ parent: this, child: node });
+          } else {
+            addDataSizes(diff, node.getDataSize());
           }
 
           this.nodeMapByID.put(node.id, node);
@@ -1215,7 +1248,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs];
+    return [changes, pairs, diff];
   }
 
   /**
@@ -1570,8 +1603,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
   public posRangeToPathRange(
     range: TreePosRange,
   ): [Array<number>, Array<number>] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(range[0]);
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1]);
+    const [[fromParent, fromLeft]] = this.findNodesAndSplitText(range[0]);
+    const [[toParent, toLeft]] = this.findNodesAndSplitText(range[1]);
     return [this.toPath(fromParent, fromLeft), this.toPath(toParent, toLeft)];
   }
 
@@ -1579,8 +1612,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `posRangeToIndexRange` converts the given position range to the path range.
    */
   public posRangeToIndexRange(range: TreePosRange): [number, number] {
-    const [fromParent, fromLeft] = this.findNodesAndSplitText(range[0]);
-    const [toParent, toLeft] = this.findNodesAndSplitText(range[1]);
+    const [[fromParent, fromLeft]] = this.findNodesAndSplitText(range[0]);
+    const [[toParent, toLeft]] = this.findNodesAndSplitText(range[1]);
     return [this.toIndex(fromParent, fromLeft), this.toIndex(toParent, toLeft)];
   }
 

@@ -2251,6 +2251,11 @@ export class Project extends Message<Project> {
   maxAttachmentsPerDocument = 0;
 
   /**
+   * @generated from field: int32 max_size_per_document = 15;
+   */
+  maxSizePerDocument = 0;
+
+  /**
    * @generated from field: repeated string allowed_origins = 14;
    */
   allowedOrigins: string[] = [];
@@ -2284,6 +2289,7 @@ export class Project extends Message<Project> {
     { no: 9, name: "client_deactivate_threshold", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 10, name: "max_subscribers_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 11, name: "max_attachments_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 15, name: "max_size_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 14, name: "allowed_origins", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 12, name: "created_at", kind: "message", T: Timestamp },
     { no: 13, name: "updated_at", kind: "message", T: Timestamp },
@@ -2303,49 +2309,6 @@ export class Project extends Message<Project> {
 
   static equals(a: Project | PlainMessage<Project> | undefined, b: Project | PlainMessage<Project> | undefined): boolean {
     return proto3.util.equals(Project, a, b);
-  }
-}
-
-/**
- * @generated from message yorkie.v1.MetricPoint
- */
-export class MetricPoint extends Message<MetricPoint> {
-  /**
-   * @generated from field: int64 timestamp = 1;
-   */
-  timestamp = protoInt64.zero;
-
-  /**
-   * @generated from field: int32 value = 2;
-   */
-  value = 0;
-
-  constructor(data?: PartialMessage<MetricPoint>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "yorkie.v1.MetricPoint";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "timestamp", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 2, name: "value", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MetricPoint {
-    return new MetricPoint().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): MetricPoint {
-    return new MetricPoint().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): MetricPoint {
-    return new MetricPoint().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: MetricPoint | PlainMessage<MetricPoint> | undefined, b: MetricPoint | PlainMessage<MetricPoint> | undefined): boolean {
-    return proto3.util.equals(MetricPoint, a, b);
   }
 }
 
@@ -2394,6 +2357,11 @@ export class UpdatableProjectFields extends Message<UpdatableProjectFields> {
   maxAttachmentsPerDocument?: number;
 
   /**
+   * @generated from field: google.protobuf.Int32Value max_size_per_document = 10;
+   */
+  maxSizePerDocument?: number;
+
+  /**
    * @generated from field: yorkie.v1.UpdatableProjectFields.AllowedOrigins allowed_origins = 9;
    */
   allowedOrigins?: UpdatableProjectFields_AllowedOrigins;
@@ -2414,6 +2382,7 @@ export class UpdatableProjectFields extends Message<UpdatableProjectFields> {
     { no: 6, name: "client_deactivate_threshold", kind: "message", T: StringValue },
     { no: 7, name: "max_subscribers_per_document", kind: "message", T: Int32Value },
     { no: 8, name: "max_attachments_per_document", kind: "message", T: Int32Value },
+    { no: 10, name: "max_size_per_document", kind: "message", T: Int32Value },
     { no: 9, name: "allowed_origins", kind: "message", T: UpdatableProjectFields_AllowedOrigins },
   ]);
 

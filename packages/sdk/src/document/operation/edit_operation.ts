@@ -97,13 +97,15 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [changes, pairs] = text.edit(
+    const [changes, pairs, diff] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
       Object.fromEntries(this.attributes),
       versionVector,
     );
+
+    root.acc(diff);
 
     for (const pair of pairs) {
       root.registerGCPair(pair);

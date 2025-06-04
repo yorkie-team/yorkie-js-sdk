@@ -75,7 +75,7 @@ import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
-import { DocSize } from '@yorkie-js/sdk/src/util/resource';
+import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -623,6 +623,7 @@ export class Document<R, P extends Indexable = Indexable> {
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
+  private maxSizeLimit: number;
 
   private root: CRDTRoot;
   private clone?: {
@@ -669,6 +670,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.maxSizeLimit = 0;
 
     this.eventStream = createObservable<DocEvents<P>>((observer) => {
       this.eventStreamObserver = observer;
@@ -728,12 +730,28 @@ export class Document<R, P extends Indexable = Indexable> {
         new Presence(context, this.clone!.presences.get(actorID)!),
       );
     } catch (err) {
-      // drop clone because it is contaminated.
+      // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
+      // clonePresences to prevent the user from accessing the invalid state.
       this.clone = undefined;
 
       throw err;
     } finally {
       this.isUpdating = false;
+    }
+
+    const size = totalDocSize(this.clone?.root.getDocSize());
+    if (
+      !context.isPresenceOnlyChange() &&
+      this.maxSizeLimit > 0 &&
+      this.maxSizeLimit < size
+    ) {
+      // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
+      // clonePresences to prevent the user from accessing the invalid state.
+      this.clone = undefined;
+      throw new YorkieError(
+        Code.ErrDocumentSizeExceedsLimit,
+        `document size exceeded: ${size} > ${this.maxSizeLimit}`,
+      );
     }
 
     // 02. Update the root object and presences from changes.
@@ -1337,7 +1355,14 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
-   * `getClone` return clone object.
+   * `getClone` returns this clone.
+   */
+  public getClone() {
+    return this.clone;
+  }
+
+  /**
+   * `getCloneRoot` returns clone object.
    *
    * @internal
    */
@@ -1368,6 +1393,20 @@ export class Document<R, P extends Indexable = Indexable> {
    */
   public getDocSize(): DocSize {
     return this.root.getDocSize();
+  }
+
+  /**
+   * `getMaxSizePerDocument` gets the maximum size of this document.
+   */
+  public getMaxSizePerDocument() {
+    return this.maxSizeLimit;
+  }
+
+  /**
+   * `setMaxSizePerDocument` sets the maximum size of this document.
+   */
+  public setMaxSizePerDocument(size: number) {
+    this.maxSizeLimit = size;
   }
 
   /**

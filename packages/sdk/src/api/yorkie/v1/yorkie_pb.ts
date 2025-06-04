@@ -229,6 +229,11 @@ export class AttachDocumentResponse extends Message<AttachDocumentResponse> {
   documentId = "";
 
   /**
+   * @generated from field: int32 max_size_per_document = 3;
+   */
+  maxSizePerDocument = 0;
+
+  /**
    * @generated from field: yorkie.v1.ChangePack change_pack = 2;
    */
   changePack?: ChangePack;
@@ -242,6 +247,7 @@ export class AttachDocumentResponse extends Message<AttachDocumentResponse> {
   static readonly typeName = "yorkie.v1.AttachDocumentResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "max_size_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 2, name: "change_pack", kind: "message", T: ChangePack },
   ]);
 
