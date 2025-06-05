@@ -318,7 +318,7 @@ export class Client {
             clientKey: this.key,
             metadata: this.metadata,
           },
-          { headers: { 'x-shard-key': this.apiKey } },
+          { headers: { 'x-shard-key': `${this.apiKey}/${this.key}` } },
         );
 
         this.id = res.clientId;
@@ -359,7 +359,7 @@ export class Client {
       try {
         await this.rpcClient.deactivateClient(
           { clientId: this.id! },
-          { headers: { 'x-shard-key': this.apiKey } },
+          { headers: { 'x-shard-key': `${this.apiKey}/${this.key}` } },
         );
         this.deactivateInternal();
         logger.info(`[DC] c"${this.getKey()}" deactivated`);
