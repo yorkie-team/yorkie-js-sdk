@@ -452,6 +452,9 @@ export class Client {
         if (maxSize > 0) {
           doc.setMaxSizePerDocument(res.maxSizePerDocument);
         }
+        if (res.schemaRules.length > 0) {
+          doc.setSchemaRules(converter.fromSchemaRules(res.schemaRules));
+        }
 
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);

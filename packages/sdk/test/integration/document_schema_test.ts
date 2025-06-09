@@ -105,10 +105,12 @@ describe('Document Schema', () => {
       YorkieError,
       `schema validation failed: Expected string at path $.title`,
     );
+    assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
       root.title = 'hello';
     });
+    assert.equal('{"title":"hello"}', doc.toSortedJSON());
 
     await client.deactivate();
   });

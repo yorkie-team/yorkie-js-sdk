@@ -744,7 +744,7 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     const schemaRules = this.getSchemaRules();
-    if (schemaRules.length > 0) {
+    if (!context.isPresenceOnlyChange() && schemaRules.length > 0) {
       const result = validateYorkieRuleset(
         this.clone?.root.getObject(),
         schemaRules,
@@ -1272,12 +1272,6 @@ export class Document<R, P extends Indexable = Indexable> {
     // 04. Update the status.
     if (pack.getIsRemoved()) {
       this.applyStatus(DocStatus.Removed);
-    }
-
-    // 05. Update the schema rules.
-    const schemaRules = pack.getSchemaRules();
-    if (schemaRules) {
-      this.setSchemaRules(schemaRules);
     }
 
     if (logger.isEnabled(LogLevel.Trivial)) {

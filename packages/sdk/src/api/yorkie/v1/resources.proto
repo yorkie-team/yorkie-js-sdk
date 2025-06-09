@@ -47,7 +47,6 @@ message ChangePack {
   TimeTicket min_synced_ticket = 5; // deprecated
   bool is_removed = 6;
   VersionVector version_vector = 7;
-  repeated Rule rules = 8;
 }
 
 message Change {
@@ -310,6 +309,11 @@ message Project {
   google.protobuf.Timestamp updated_at = 13;
 }
 
+message MetricPoint {
+  int64 timestamp = 1;
+  int32 value = 2;
+}
+
 message UpdatableProjectFields {
   message AuthWebhookMethods {
     repeated string methods = 1;
@@ -340,6 +344,7 @@ message DocumentSummary {
   string key = 2;
   string snapshot = 3;
   int32 attached_clients = 7;
+  DocSize document_size = 8;
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp accessed_at = 5;
   google.protobuf.Timestamp updated_at = 6;
@@ -410,6 +415,16 @@ message DocEvent {
   DocEventType type = 1;
   string publisher = 2;
   DocEventBody body = 3;
+}
+
+message DataSize {
+  int32 data = 1;
+  int32 meta = 2;
+}
+
+message DocSize {
+  DataSize live = 1;
+  DataSize gc = 2;
 }
 
 message Schema {

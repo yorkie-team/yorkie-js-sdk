@@ -18,7 +18,6 @@ import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
 import { VersionVector } from '../time/version_vector';
-import { Rule } from '@yorkie-js/schema';
 
 /**
  * `ChangePack` is a unit for delivering changes in a document to the remote.
@@ -51,11 +50,6 @@ export class ChangePack<P extends Indexable> {
    */
   private versionVector?: VersionVector;
 
-  /**
-   * `schemaRules` is the rules of the document.
-   */
-  private schemaRules?: Array<Rule>;
-
   constructor(
     key: string,
     checkpoint: Checkpoint,
@@ -63,7 +57,6 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
-    schemaRules?: Array<Rule>,
   ) {
     this.documentKey = key;
     this.checkpoint = checkpoint;
@@ -71,7 +64,6 @@ export class ChangePack<P extends Indexable> {
     this.changes = changes;
     this.snapshot = snapshot;
     this.versionVector = versionVector;
-    this.schemaRules = schemaRules;
   }
   /**
    * `create` creates a new instance of ChangePack.
@@ -83,7 +75,6 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
-    schemaRules?: Array<Rule>,
   ): ChangePack<P> {
     return new ChangePack<P>(
       key,
@@ -92,7 +83,6 @@ export class ChangePack<P extends Indexable> {
       changes,
       versionVector,
       snapshot,
-      schemaRules,
     );
   }
 
@@ -157,12 +147,5 @@ export class ChangePack<P extends Indexable> {
    */
   public getVersionVector(): VersionVector | undefined {
     return this.versionVector;
-  }
-
-  /**
-   * `getSchemaRules` returns the schema rules of this pack.
-   */
-  public getSchemaRules(): Array<Rule> | undefined {
-    return this.schemaRules;
   }
 }

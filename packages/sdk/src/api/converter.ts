@@ -1326,7 +1326,6 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
-    fromSchemaRules(pbPack.rules),
   );
 }
 
@@ -1636,4 +1635,5 @@ export const converter = {
   bytesToOperation,
   versionVectorToHex,
   hexToVersionVector,
+  fromSchemaRules,
 };
