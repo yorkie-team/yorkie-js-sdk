@@ -19,5 +19,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "../sdk/src/schema/ruleset_validator.ts"]
+  "include": ["src"]
 }

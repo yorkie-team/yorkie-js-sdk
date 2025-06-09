@@ -26,6 +26,7 @@ import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 let adminToken: string;
+const time = new Date().getTime();
 
 describe('Document Schema', () => {
   beforeAll(async () => {
@@ -34,14 +35,11 @@ describe('Document Schema', () => {
       { username: testAPIID, password: testAPIPW },
     );
     adminToken = loginResponse.data.token;
-  });
-
-  it('should attach document with schema', async ({ task }) => {
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateSchema`,
       {
         projectName: 'default',
-        schemaName: 'attach-schema',
+        schemaName: `schema-${time}`,
         schemaVersion: 1,
         schemaBody: 'type Document = {title: string;};',
         rules: [
@@ -55,7 +53,9 @@ describe('Document Schema', () => {
         headers: { Authorization: adminToken },
       },
     );
+  });
 
+  it('should attach document with schema', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
     });
@@ -78,31 +78,12 @@ describe('Document Schema', () => {
 
     await client.attach(doc, {
       syncMode: SyncMode.Manual,
-      schema: 'attach-schema@1',
+      schema: `schema-${time}@1`,
     });
     await client.deactivate();
   });
 
   it('should reject local update that violates schema', async ({ task }) => {
-    await axios.post(
-      `${testRPCAddr}/yorkie.v1.AdminService/CreateSchema`,
-      {
-        projectName: 'default',
-        schemaName: 'reject-schema',
-        schemaVersion: 6,
-        schemaBody: 'type Document = {title: string;};',
-        rules: [
-          {
-            path: '$.title',
-            type: 'string',
-          },
-        ],
-      },
-      {
-        headers: { Authorization: adminToken },
-      },
-    );
-
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
     });
@@ -112,7 +93,7 @@ describe('Document Schema', () => {
     const doc = new yorkie.Document<{ title: any }>(docKey);
     await client.attach(doc, {
       syncMode: SyncMode.Manual,
-      schema: 'reject-schema@1',
+      schema: `schema-${time}@1`,
     });
 
     assert.throws(

@@ -15,13 +15,15 @@
  */
 
 import { Rule } from '@yorkie-js/schema/src/rulesets';
-import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
-import { PrimitiveType } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import {
+  Primitive,
+  PrimitiveType,
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 export type ValidationResult = {
   valid: boolean;
@@ -88,7 +90,7 @@ function validateValue(value: any, rule: Rule): ValidationResult {
   switch (rule.type) {
     case 'string':
       if (
-        value instanceof yorkie.Primitive &&
+        value instanceof Primitive &&
         value.getType() === PrimitiveType.String
       ) {
         return {
