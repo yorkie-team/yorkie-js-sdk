@@ -28,8 +28,14 @@ import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
 /**
  * `Rule` represents a rule for a field in the schema.
  */
-export type Rule = StringRule | ObjectRule | ArrayRule;
-export type RuleType = 'string' | 'object' | 'array';
+export type Rule = StringRule | ObjectRule | ArrayRule | YorkieTypeRule;
+export type RuleType =
+  | 'string'
+  | 'object'
+  | 'array'
+  | 'yorkie.Text'
+  | 'yorkie.Tree'
+  | 'yorkie.Counter';
 
 export type RuleBase = {
   path: string;
@@ -42,11 +48,15 @@ export type StringRule = {
 
 export type ObjectRule = {
   type: 'object';
-  properties: { [key: string]: RuleBase };
+  properties?: { [key: string]: RuleBase };
 } & RuleBase;
 
 export type ArrayRule = {
   type: 'array';
+} & RuleBase;
+
+export type YorkieTypeRule = {
+  type: 'yorkie.Text' | 'yorkie.Tree' | 'yorkie.Counter';
 } & RuleBase;
 
 /**

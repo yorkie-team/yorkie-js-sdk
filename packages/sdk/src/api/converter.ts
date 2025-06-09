@@ -16,6 +16,7 @@
 
 import { ConnectError } from '@connectrpc/connect';
 import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
+import { Rule, RuleType } from '@yorkie-js/schema';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
@@ -62,6 +63,7 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
+  Rule as PbRule,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   NodeAttr as PbNodeAttr,
@@ -1324,6 +1326,7 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
+    fromSchemaRules(pbPack.rules),
   );
 }
 
@@ -1443,6 +1446,18 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
   } else {
     throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
   }
+}
+
+/**
+ * `fromSchemaRules` converts the given Protobuf format to model format.
+ */
+function fromSchemaRules(pbRules: Array<PbRule>): Array<Rule> {
+  return pbRules.map((pbRule) => {
+    return {
+      path: pbRule.path,
+      type: pbRule.type as RuleType,
+    };
+  });
 }
 
 /**

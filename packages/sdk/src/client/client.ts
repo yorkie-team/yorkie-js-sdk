@@ -443,7 +443,7 @@ export class Client {
           {
             clientId: this.id!,
             changePack: converter.toChangePack(doc.createChangePack()),
-            schema: opts.schema ? opts.schema : undefined,
+            schema: opts.schema,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );

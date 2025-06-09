@@ -16,3 +16,4 @@
 
 export { validate } from './validator';
 export { buildRuleset } from './rulesets';
+export type { Rule, RuleType } from './rulesets';
