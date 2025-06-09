@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.15] - 2025-06-09
+
+### Changed
+
+- Improve Shard Key for Client Requests to Prevent Load Skew by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1003
+
+### Fixed
+
+- Update eslint-plugin-jsdoc to support Node.js version>=20 by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1001
+- Remove obsolete version field from docker-compose.yml by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1005
+
 ## [0.6.14] - 2025-06-02
 
 ### Fixed
