@@ -27,8 +27,10 @@ describe('RulesetBuilder', () => {
     `;
 
     const ruleset = buildRuleset(schema);
-    expect(ruleset.get('$.name')!.type).to.eq('string');
-    expect(ruleset.get('$.age')!.type).to.eq('number');
+    expect(ruleset).to.deep.equal([
+      { path: '$.name', type: 'string' },
+      { path: '$.age', type: 'number' },
+    ]);
   });
 
   it('should handle nested objects', () => {
@@ -49,9 +51,11 @@ describe('RulesetBuilder', () => {
     `;
 
     const ruleset = buildRuleset(schema);
-    expect(ruleset.get('$.user.name')!.type).to.eq('string');
-    expect(ruleset.get('$.user.address.street')!.type).to.eq('string');
-    expect(ruleset.get('$.user.address.city')!.type).to.eq('string');
+    expect(ruleset).to.deep.equal([
+      { path: '$.user.name', type: 'string' },
+      { path: '$.user.address.street', type: 'string' },
+      { path: '$.user.address.city', type: 'string' },
+    ]);
   });
 
   // TODO(hackerwins): Implement array type handling.
@@ -68,8 +72,10 @@ describe('RulesetBuilder', () => {
     `;
 
     const ruleset = buildRuleset(schema);
-    expect(ruleset.get('$.todos')!.type).to.eq('array');
-    expect(ruleset.get('$.todos[*].id')!.type).to.be('string');
-    expect(ruleset.get('$.todos[*].text')!.type).to.be('string');
+    expect(ruleset).to.deep.equal([
+      { path: '$.todos', type: 'array' },
+      { path: '$.todos[*].id', type: 'string' },
+      { path: '$.todos[*].text', type: 'string' },
+    ]);
   });
 });

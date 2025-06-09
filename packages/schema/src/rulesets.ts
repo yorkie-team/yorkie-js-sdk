@@ -106,15 +106,15 @@ export class RulesetBuilder implements YorkieSchemaListener {
   /**
    * `build` returns the built ruleset.
    */
-  build(): Map<string, Rule> {
-    return this.ruleMap;
+  build(): Array<Rule> {
+    return Array.from(this.ruleMap.values());
   }
 }
 
 /**
  * `buildRuleset` builds a ruleset from the given schema string.
  */
-export function buildRuleset(schema: string): Map<string, Rule> {
+export function buildRuleset(schema: string): Array<Rule> {
   const stream = CharStreams.fromString(schema);
   const lexer = new YorkieSchemaLexer(stream);
   const tokens = new CommonTokenStream(lexer);
