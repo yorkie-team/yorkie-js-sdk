@@ -751,7 +751,6 @@ export class Document<R, P extends Indexable = Indexable> {
       );
       if (!result.valid) {
         this.clone = undefined;
-        console.log(result);
         throw new YorkieError(
           Code.ErrDocumentSchemaValidationFailed,
           `schema validation failed: ${result.errors

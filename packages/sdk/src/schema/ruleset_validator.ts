@@ -16,6 +16,12 @@
 
 import { Rule } from '@yorkie-js/schema/src/rulesets';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
+import { PrimitiveType } from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 export type ValidationResult = {
   valid: boolean;
@@ -64,10 +70,10 @@ function getValueByPath(obj: any, path: string): any {
 
   for (let i = 1; i < keys.length; i++) {
     const key = keys[i];
-    if (current === undefined || current === null) {
+    if (!(current instanceof CRDTObject)) {
       return undefined;
     }
-    current = current[key];
+    current = current.get(key);
   }
 
   return current;
@@ -81,90 +87,83 @@ function getValueByPath(obj: any, path: string): any {
 function validateValue(value: any, rule: Rule): ValidationResult {
   switch (rule.type) {
     case 'string':
-      if (typeof value !== 'string') {
+      if (
+        value instanceof yorkie.Primitive &&
+        value.getType() === PrimitiveType.String
+      ) {
         return {
-          valid: false,
-          errors: [
-            {
-              path: rule.path,
-              message: `Expected string at path ${
-                rule.path
-              }, got ${typeof value}`,
-            },
-          ],
+          valid: true,
         };
       }
-      break;
+      return {
+        valid: false,
+        errors: [
+          {
+            path: rule.path,
+            message: `Expected string at path ${rule.path}`,
+          },
+        ],
+      };
     case 'object':
-      if (typeof value !== 'object' || value === null) {
+      if (!(value instanceof CRDTObject)) {
         return {
           valid: false,
           errors: [
             {
               path: rule.path,
-              message: `Expected object at path ${
-                rule.path
-              }, got ${typeof value}`,
+              message: `Expected object at path ${rule.path}`,
             },
           ],
         };
       }
       break;
     case 'array':
-      if (!Array.isArray(value)) {
+      if (!(value instanceof CRDTArray)) {
         return {
           valid: false,
           errors: [
             {
               path: rule.path,
-              message: `Expected array at path ${
-                rule.path
-              }, got ${typeof value}`,
+              message: `Expected array at path ${rule.path}`,
             },
           ],
         };
       }
       break;
     case 'yorkie.Text':
-      if (!(value instanceof yorkie.Text)) {
+      if (!(value instanceof CRDTText)) {
         return {
           valid: false,
           errors: [
             {
               path: rule.path,
-              message: `Expected yorkie.Text at path ${
-                rule.path
-              }, got ${typeof value}`,
+              message: `Expected yorkie.Text at path ${rule.path}`,
             },
           ],
         };
       }
       break;
     case 'yorkie.Tree':
-      if (!(value instanceof yorkie.Tree)) {
+      if (!(value instanceof CRDTTree)) {
         return {
           valid: false,
           errors: [
             {
               path: rule.path,
-              message: `Expected yorkie.Tree at path ${
-                rule.path
-              }, got ${typeof value}`,
+              message: `Expected yorkie.Tree at path ${rule.path}`,
             },
           ],
         };
       }
       break;
     case 'yorkie.Counter':
-      if (!(value instanceof yorkie.Counter)) {
+      if (!(value instanceof CRDTCounter)) {
         return {
           valid: false,
           errors: [
             {
               path: rule.path,
-              message: `Expected yorkie.Counter at path ${
-                rule.path
-              }, got ${typeof value}`,
+              message: `Expected yorkie.Counter at path ${rule.path}`,
             },
           ],
         };
