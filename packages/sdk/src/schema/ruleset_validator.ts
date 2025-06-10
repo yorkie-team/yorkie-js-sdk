@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-import { Rule } from '@yorkie-js/schema/src/rulesets';
+import {
+  ObjectRule,
+  PrimitiveRule,
+  Rule,
+} from '@yorkie-js/schema/src/rulesets';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
@@ -83,42 +87,20 @@ function getValueByPath(obj: any, path: string): any {
 
 /**
  * `validateValue` validates a value against a rule.
- * @param value - The value to validate
- * @param rule - The rule to validate against
  */
 function validateValue(value: any, rule: Rule): ValidationResult {
   switch (rule.type) {
     case 'string':
-      if (
-        value instanceof Primitive &&
-        value.getType() === PrimitiveType.String
-      ) {
-        return {
-          valid: true,
-        };
-      }
-      return {
-        valid: false,
-        errors: [
-          {
-            path: rule.path,
-            message: `Expected string at path ${rule.path}`,
-          },
-        ],
-      };
+    case 'boolean':
+    case 'integer':
+    case 'double':
+    case 'long':
+    case 'date':
+    case 'bytes':
+    case 'null':
+      return validatePrimitiveValue(value, rule as PrimitiveRule);
     case 'object':
-      if (!(value instanceof CRDTObject)) {
-        return {
-          valid: false,
-          errors: [
-            {
-              path: rule.path,
-              message: `Expected object at path ${rule.path}`,
-            },
-          ],
-        };
-      }
-      break;
+      return validateObjectValue(value, rule as ObjectRule);
     case 'array':
       if (!(value instanceof CRDTArray)) {
         return {
@@ -178,4 +160,99 @@ function validateValue(value: any, rule: Rule): ValidationResult {
   return {
     valid: true,
   };
+}
+
+/**
+ * `getPrimitiveType` converts a string type to PrimitiveType.
+ */
+function getPrimitiveType(type: string): PrimitiveType {
+  switch (type) {
+    case 'null':
+      return PrimitiveType.Null;
+    case 'boolean':
+      return PrimitiveType.Boolean;
+    case 'integer':
+      return PrimitiveType.Integer;
+    case 'long':
+      return PrimitiveType.Long;
+    case 'double':
+      return PrimitiveType.Double;
+    case 'string':
+      return PrimitiveType.String;
+    case 'bytes':
+      return PrimitiveType.Bytes;
+    case 'date':
+      return PrimitiveType.Date;
+    default:
+      throw new Error(`Unknown primitive type: ${type}`);
+  }
+}
+
+/**
+ * `validatePrimitiveValue` validates a primitive value against a rule.
+ */
+function validatePrimitiveValue(
+  value: any,
+  rule: PrimitiveRule,
+): ValidationResult {
+  if (
+    value instanceof Primitive &&
+    value.getType() === getPrimitiveType(rule.type)
+  ) {
+    return { valid: true };
+  }
+
+  return {
+    valid: false,
+    errors: [
+      {
+        path: rule.path,
+        message: `Expected ${rule.type} at path ${rule.path}`,
+      },
+    ],
+  };
+}
+
+/**
+ * `validateObjectValue` validates an object value against a rule.
+ */
+function validateObjectValue(value: any, rule: ObjectRule): ValidationResult {
+  const errors: Array<ValidationError> = [];
+
+  if (!(value instanceof CRDTObject)) {
+    errors.push({
+      path: rule.path,
+      message: `Expected object at path ${rule.path}`,
+    });
+    return {
+      valid: false,
+      errors,
+    };
+  }
+
+  for (const key of value.getKeys()) {
+    if (!rule.properties.includes(key)) {
+      errors.push({
+        path: `${rule.path}.${key}`,
+        message: `Unexpected property '${key}' at path ${rule.path}`,
+      });
+    }
+  }
+
+  if (rule.optional) {
+    const requiredProps = rule.properties.filter(
+      (prop) => !rule.optional?.includes(prop),
+    );
+
+    for (const prop of requiredProps) {
+      if (!value.has(prop)) {
+        errors.push({
+          path: `${rule.path}.${prop}`,
+          message: `Missing required property '${prop}' at path ${rule.path}`,
+        });
+      }
+    }
+  }
+
+  return errors.length > 0 ? { valid: false, errors } : { valid: true };
 }

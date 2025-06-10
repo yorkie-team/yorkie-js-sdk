@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import Long from 'long';
 import { describe, it, expect } from 'vitest';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
@@ -21,52 +22,98 @@ import { Rule } from '@yorkie-js/schema/src/rulesets';
 import { toDocKey } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 describe('ruleset-validator', () => {
-  it('should validate string type correctly', ({ task }) => {
-    const ruleset: Array<Rule> = [{ path: '$.name', type: 'string' }];
+  it('should validate primitive type correctly', ({ task }) => {
+    const ruleset: Array<Rule> = [
+      {
+        path: '$',
+        type: 'object',
+        properties: [
+          'field1',
+          'field2',
+          'field3',
+          'field4',
+          'field5',
+          'field6',
+          'field7',
+          'field8',
+        ],
+      },
+      { path: '$.field1', type: 'null' },
+      { path: '$.field2', type: 'boolean' },
+      { path: '$.field3', type: 'integer' },
+      { path: '$.field4', type: 'double' },
+      { path: '$.field5', type: 'long' },
+      { path: '$.field6', type: 'string' },
+      { path: '$.field7', type: 'date' },
+      { path: '$.field8', type: 'bytes' },
+    ];
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const doc = new yorkie.Document<{ name: any }>(docKey);
+    const doc = new yorkie.Document<any>(docKey);
     doc.update((root) => {
-      root.name = 'test';
+      root.field1 = null;
+      root.field2 = true;
+      root.field3 = 123;
+      root.field4 = 123.456;
+      root.field5 = Long.MAX_VALUE;
+      root.field6 = 'test';
+      root.field7 = new Date();
+      root.field8 = new Uint8Array([1, 2, 3]);
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      true,
-    );
+    let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(true);
 
     doc.update((root) => {
-      root.name = 123;
+      root.field1 = false;
+      root.field2 = 123;
+      root.field3 = 123.456;
+      root.field4 = Long.MAX_VALUE;
+      root.field5 = 'test';
+      root.field6 = new Date();
+      root.field7 = new Uint8Array([1, 2, 3]);
+      root.field8 = null;
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      false,
-    );
-    expect(
-      validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-    ).to.deep.eq([
+    result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(false);
+    expect(result.errors).to.deep.eq([
       {
-        path: '$.name',
-        message: 'Expected string at path $.name',
+        path: '$.field1',
+        message: 'Expected null at path $.field1',
       },
-    ]);
-
-    doc.update((root) => {
-      delete root.name;
-    });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      false,
-    );
-    expect(
-      validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-    ).to.deep.eq([
       {
-        path: '$.name',
-        message: 'Expected string at path $.name',
+        path: '$.field2',
+        message: 'Expected boolean at path $.field2',
+      },
+      {
+        path: '$.field3',
+        message: 'Expected integer at path $.field3',
+      },
+      {
+        path: '$.field4',
+        message: 'Expected double at path $.field4',
+      },
+      {
+        path: '$.field5',
+        message: 'Expected long at path $.field5',
+      },
+      {
+        path: '$.field6',
+        message: 'Expected string at path $.field6',
+      },
+      {
+        path: '$.field7',
+        message: 'Expected date at path $.field7',
+      },
+      {
+        path: '$.field8',
+        message: 'Expected bytes at path $.field8',
       },
     ]);
   });
 
   it('should validate object type correctly', ({ task }) => {
     const ruleset: Array<Rule> = [
-      { path: '$.user', type: 'object', properties: {} },
+      { path: '$.user', type: 'object', properties: ['name'] },
     ];
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
@@ -74,19 +121,15 @@ describe('ruleset-validator', () => {
     doc.update((root) => {
       root.user = { name: 'test' };
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      true,
-    );
+    let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(true);
 
     doc.update((root) => {
       root.user = 'not an object';
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      false,
-    );
-    expect(
-      validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-    ).to.deep.eq([
+    result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(false);
+    expect(result.errors).to.deep.eq([
       {
         path: '$.user',
         message: 'Expected object at path $.user',
@@ -95,26 +138,24 @@ describe('ruleset-validator', () => {
   });
 
   it('should validate array type correctly', ({ task }) => {
-    const ruleset: Array<Rule> = [{ path: '$.items', type: 'array' }];
+    const ruleset: Array<Rule> = [
+      { path: '$.items', type: 'array', items: { type: 'integer' } },
+    ];
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ items: any }>(docKey);
     doc.update((root) => {
       root.items = [1, 2, 3];
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      true,
-    );
+    let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(true);
 
     doc.update((root) => {
       root.items = 'not an array';
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      false,
-    );
-    expect(
-      validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-    ).to.deep.eq([
+    result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(false);
+    expect(result.errors).to.deep.eq([
       {
         path: '$.items',
         message: 'Expected array at path $.items',
@@ -124,29 +165,26 @@ describe('ruleset-validator', () => {
 
   it('should validate nested paths correctly', ({ task }) => {
     const ruleset: Array<Rule> = [
-      { path: '$.user', type: 'object', properties: {} },
+      { path: '$', type: 'object', properties: ['user'] },
+      { path: '$.user', type: 'object', properties: ['name', 'age'] },
       { path: '$.user.name', type: 'string' },
-      { path: '$.user.age', type: 'string' },
+      { path: '$.user.age', type: 'integer' },
     ];
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ user: any }>(docKey);
     doc.update((root) => {
-      root.user = { name: 'test', age: '25' };
+      root.user = { name: 'test', age: 25 };
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      true,
-    );
+    let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(true);
 
     doc.update((root) => {
       root.user.name = 123;
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      false,
-    );
-    expect(
-      validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-    ).to.deep.eq([
+    result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(false);
+    expect(result.errors).to.deep.eq([
       {
         path: '$.user.name',
         message: 'Expected string at path $.user.name',
@@ -157,41 +195,67 @@ describe('ruleset-validator', () => {
   it.todo(
     'should handle missing or unexpected values correctly',
     ({ task }) => {
+      // TODO(chacha912): Need to handle rules for optional property paths.
       const ruleset: Array<Rule> = [
-        { path: '$.user', type: 'object', properties: {} },
+        {
+          path: '$.user',
+          type: 'object',
+          properties: ['name', 'age', 'address'],
+          optional: ['address'],
+        },
         { path: '$.user.name', type: 'string' },
-        { path: '$.user.age', type: 'string' },
+        { path: '$.user.age', type: 'integer' },
+        { path: '$.user.address', type: 'string' },
       ];
 
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc = new yorkie.Document<{ user: any }>(docKey);
+
+      // 1. All properties are present
+      doc.update((root) => {
+        root.user = { name: 'test', age: 25, address: '123 Main St' };
+      });
+      let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+      expect(result.valid).to.eq(true);
+
+      // 2. Optional property is missing
+      doc.update((root) => {
+        root.user = { name: 'test', age: 26 };
+      });
+      result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+      expect(result.valid).to.eq(true);
+
+      // 3. Required property is missing
       doc.update((root) => {
         root.user = { name: 'test' };
       });
-      expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-        false,
-      );
-      expect(
-        validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-      ).to.deep.eq([
+      result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+      expect(result.valid).to.eq(false);
+      expect(result.errors).to.deep.eq([
         {
           path: '$.user.age',
-          message: 'Expected string at path $.user.age',
+          message: "Missing required property 'age' at path $.user",
         },
       ]);
 
-      // TODO(chacha912): Implement unexpected values handling.
+      // 4. Unexpected property is present
       doc.update((root) => {
-        root.user = { name: 'test', age: '25', address: '123 Main St' };
+        root.user = { name: 'test', age: 27, unknown: 'hello' };
       });
-      expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-        false,
-      );
+      result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+      expect(result.valid).to.eq(false);
+      expect(result.errors).to.deep.eq([
+        {
+          path: '$.user.unknown',
+          message: "Unexpected property 'unknown' at path $.user",
+        },
+      ]);
     },
   );
 
   it('should handle yorkie types correctly', ({ task }) => {
     const ruleset: Array<Rule> = [
+      { path: '$', type: 'object', properties: ['text', 'tree', 'counter'] },
       { path: '$.text', type: 'yorkie.Text' },
       { path: '$.tree', type: 'yorkie.Tree' },
       { path: '$.counter', type: 'yorkie.Counter' },
@@ -206,21 +270,17 @@ describe('ruleset-validator', () => {
       root.tree = new yorkie.Tree({ type: 'doc', children: [] });
       root.counter = new yorkie.Counter(yorkie.IntType, 0);
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      true,
-    );
+    let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(true);
 
     doc.update((root) => {
       root.text = 'text';
       root.tree = 'doc';
       root.counter = 1;
     });
-    expect(validateYorkieRuleset(doc.getRootObject(), ruleset).valid).to.eq(
-      false,
-    );
-    expect(
-      validateYorkieRuleset(doc.getRootObject(), ruleset).errors,
-    ).to.deep.eq([
+    result = validateYorkieRuleset(doc.getRootObject(), ruleset);
+    expect(result.valid).to.eq(false);
+    expect(result.errors).to.deep.eq([
       {
         path: '$.text',
         message: 'Expected yorkie.Text at path $.text',

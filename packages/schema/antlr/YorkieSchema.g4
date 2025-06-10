@@ -48,21 +48,24 @@ primaryType
     ;
 
 primitiveType
-    : 'number'
-    | 'string'
+    : 'string'
     | 'boolean'
-    | 'any'
-    | 'void'
     | 'null'
-    | 'undefined'
+    | 'integer'
+    | 'double'
+    | 'long'
+    | 'bytes'
+    | 'date'
+    | 'any'
     ;
 
 objectType
     : '{' (propertySignature)* '}'
     ;
 
+QUESTION: '?';
 propertySignature
-    : propertyName '?'? typeAnnotation ';'
+    : propertyName QUESTION? typeAnnotation ';'
     ;
 
 propertyName

@@ -18,9 +18,11 @@ import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { ParseTreeWalker } from 'antlr4ts/tree';
 import {
   PrimitiveTypeContext,
-  PropertyNameContext,
   TypeAliasDeclarationContext,
   YorkieSchemaParser,
+  PropertySignatureContext,
+  ObjectTypeContext,
+  YorkieTypeContext,
 } from '../antlr/YorkieSchemaParser';
 import { YorkieSchemaLexer } from '../antlr/YorkieSchemaLexer';
 import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
@@ -28,35 +30,51 @@ import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
 /**
  * `Rule` represents a rule for a field in the schema.
  */
-export type Rule = StringRule | ObjectRule | ArrayRule | YorkieTypeRule;
-export type RuleType =
+export type Rule = PrimitiveRule | ObjectRule | ArrayRule | YorkieTypeRule;
+type RuleWithoutPath =
+  | Omit<PrimitiveRule, 'path'>
+  | Omit<ObjectRule, 'path'>
+  | Omit<ArrayRule, 'path'>
+  | Omit<YorkieTypeRule, 'path'>;
+export type PrimitiveType =
+  | 'null'
+  | 'boolean'
+  | 'integer'
+  | 'double'
+  | 'long'
   | 'string'
-  | 'object'
-  | 'array'
+  | 'date'
+  | 'bytes';
+export type YorkieType =
   | 'yorkie.Text'
   | 'yorkie.Tree'
-  | 'yorkie.Counter';
+  | 'yorkie.Counter'
+  | 'yorkie.Object'
+  | 'yorkie.Array';
+export type RuleType = 'object' | 'array' | PrimitiveType | YorkieType;
 
 export type RuleBase = {
   path: string;
   type: RuleType;
 };
 
-export type StringRule = {
-  type: 'string';
+export type PrimitiveRule = {
+  type: PrimitiveType;
 } & RuleBase;
 
 export type ObjectRule = {
   type: 'object';
-  properties?: { [key: string]: RuleBase };
+  properties: Array<string>;
+  optional?: Array<string>;
 } & RuleBase;
 
 export type ArrayRule = {
   type: 'array';
+  items: RuleWithoutPath;
 } & RuleBase;
 
 export type YorkieTypeRule = {
-  type: 'yorkie.Text' | 'yorkie.Tree' | 'yorkie.Counter';
+  type: YorkieType;
 } & RuleBase;
 
 /**
@@ -73,27 +91,93 @@ export class RulesetBuilder implements YorkieSchemaListener {
     const typeName = ctx.Identifier().text;
     if (typeName === 'Document') {
       this.currentPath = ['$'];
-    }
-  }
 
-  /**
-   * `enterPropertyName` is called when entering a property name.
-   */
-  enterPropertyName(ctx: PropertyNameContext) {
-    const propName = ctx.Identifier()!.text;
-    this.currentPath.push(propName);
+      this.ruleMap.set('$', {
+        path: '$',
+        type: 'object',
+        properties: [],
+      });
+    }
   }
 
   /**
    * `enterPrimitiveType` is called when entering a primitive type.
    */
   enterPrimitiveType(ctx: PrimitiveTypeContext) {
-    const type = ctx.text;
+    const type = ctx.text as PrimitiveType;
     const path = this.buildPath();
-    const rule = {
+    const rule: Rule = {
       path,
       type,
-    } as Rule;
+    };
+
+    this.ruleMap.set(path, rule);
+    this.currentPath.pop();
+  }
+
+  /**
+   * `enterObjectType` is called when entering an object type.
+   */
+  enterObjectType(ctx: ObjectTypeContext) {
+    const isObjectType = ctx.children?.some((child) => {
+      if (child.text === '{' || child.text === '}') {
+        return true;
+      }
+      if (child instanceof PropertySignatureContext) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!isObjectType) {
+      return;
+    }
+
+    const path = this.buildPath();
+    const rule: ObjectRule = {
+      path,
+      type: 'object',
+      properties: [],
+    };
+
+    this.ruleMap.set(path, rule);
+  }
+
+  /**
+   * `enterPropertySignature` is called when entering a property signature.
+   */
+  enterPropertySignature(ctx: PropertySignatureContext) {
+    const propName = ctx.propertyName().text;
+    const parentPath = this.buildPath();
+    const parentRule = this.ruleMap.get(parentPath);
+
+    if (parentRule) {
+      if (parentRule.type === 'object') {
+        const objectRule = parentRule as ObjectRule;
+        objectRule.properties = objectRule.properties ?? [];
+        objectRule.properties.push(propName);
+
+        const isOptional = !!ctx.QUESTION();
+        if (isOptional) {
+          objectRule.optional = objectRule.optional ?? [];
+          objectRule.optional.push(propName);
+        }
+      }
+    }
+
+    this.currentPath.push(propName);
+  }
+
+  /**
+   * `enterYorkieType` is called when entering a Yorkie type.
+   */
+  enterYorkieType(ctx: YorkieTypeContext) {
+    const type = ctx.text as YorkieType;
+    const path = this.buildPath();
+    const rule: YorkieTypeRule = {
+      path,
+      type,
+    };
 
     this.ruleMap.set(path, rule);
     this.currentPath.pop();
