@@ -16,7 +16,7 @@
 
 import { ConnectError } from '@connectrpc/connect';
 import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
-import { Rule, RuleType } from '@yorkie-js/schema';
+import { Rule } from '@yorkie-js/schema';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
@@ -1451,11 +1451,12 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
  * `fromSchemaRules` converts the given Protobuf format to model format.
  */
 function fromSchemaRules(pbRules: Array<PbRule>): Array<Rule> {
+  // TODO(chacha912): Need to consider fields other than type and path.
   return pbRules.map((pbRule) => {
     return {
       path: pbRule.path,
-      type: pbRule.type as RuleType,
-    };
+      type: pbRule.type,
+    } as Rule;
   });
 }
 
