@@ -63,7 +63,6 @@ objectType
     : '{' (propertySignature)* '}'
     ;
 
-QUESTION: '?';
 propertySignature
     : propertyName QUESTION? typeAnnotation ';'
     ;
@@ -116,6 +115,7 @@ literal
     ;
 
 // Lexer rules
+QUESTION: '?';
 Identifier: [a-zA-Z_][a-zA-Z0-9_]*;
 StringLiteral: '"' (~["\r\n])* '"';
 NumberLiteral: [0-9]+('.'[0-9]+)?;

@@ -230,6 +230,7 @@ function validateObjectValue(value: any, rule: ObjectRule): ValidationResult {
     };
   }
 
+  // Check unexpected properties
   for (const key of value.getKeys()) {
     if (!rule.properties.includes(key)) {
       errors.push({
@@ -239,18 +240,16 @@ function validateObjectValue(value: any, rule: ObjectRule): ValidationResult {
     }
   }
 
-  if (rule.optional) {
-    const requiredProps = rule.properties.filter(
-      (prop) => !rule.optional?.includes(prop),
-    );
-
-    for (const prop of requiredProps) {
-      if (!value.has(prop)) {
-        errors.push({
-          path: `${rule.path}.${prop}`,
-          message: `Missing required property '${prop}' at path ${rule.path}`,
-        });
-      }
+  // Check required properties
+  const requiredProps = rule.properties.filter(
+    (prop) => !rule.optional?.includes(prop),
+  );
+  for (const prop of requiredProps) {
+    if (!value.has(prop)) {
+      errors.push({
+        path: `${rule.path}.${prop}`,
+        message: `Missing required property '${prop}' at path ${rule.path}`,
+      });
     }
   }
 

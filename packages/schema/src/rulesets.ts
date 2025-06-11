@@ -21,7 +21,6 @@ import {
   TypeAliasDeclarationContext,
   YorkieSchemaParser,
   PropertySignatureContext,
-  ObjectTypeContext,
   YorkieTypeContext,
 } from '../antlr/YorkieSchemaParser';
 import { YorkieSchemaLexer } from '../antlr/YorkieSchemaLexer';
@@ -31,11 +30,6 @@ import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
  * `Rule` represents a rule for a field in the schema.
  */
 export type Rule = PrimitiveRule | ObjectRule | ArrayRule | YorkieTypeRule;
-type RuleWithoutPath =
-  | Omit<PrimitiveRule, 'path'>
-  | Omit<ObjectRule, 'path'>
-  | Omit<ArrayRule, 'path'>
-  | Omit<YorkieTypeRule, 'path'>;
 export type PrimitiveType =
   | 'null'
   | 'boolean'
@@ -70,7 +64,6 @@ export type ObjectRule = {
 
 export type ArrayRule = {
   type: 'array';
-  items: RuleWithoutPath;
 } & RuleBase;
 
 export type YorkieTypeRule = {
@@ -112,27 +105,19 @@ export class RulesetBuilder implements YorkieSchemaListener {
     };
 
     this.ruleMap.set(path, rule);
+  }
+
+  /**
+   * `exitPrimitiveType` is called when exiting a primitive type.
+   */
+  exitPrimitiveType() {
     this.currentPath.pop();
   }
 
   /**
    * `enterObjectType` is called when entering an object type.
    */
-  enterObjectType(ctx: ObjectTypeContext) {
-    const isObjectType = ctx.children?.some((child) => {
-      if (child.text === '{' || child.text === '}') {
-        return true;
-      }
-      if (child instanceof PropertySignatureContext) {
-        return true;
-      }
-      return false;
-    });
-
-    if (!isObjectType) {
-      return;
-    }
-
+  enterObjectType() {
     const path = this.buildPath();
     const rule: ObjectRule = {
       path,
@@ -180,6 +165,12 @@ export class RulesetBuilder implements YorkieSchemaListener {
     };
 
     this.ruleMap.set(path, rule);
+  }
+
+  /**
+   * `exitYorkieType` is called when exiting a Yorkie type.
+   */
+  exitYorkieType() {
     this.currentPath.pop();
   }
 
@@ -205,6 +196,6 @@ export function buildRuleset(schema: string): Array<Rule> {
   const parser = new YorkieSchemaParser(tokens);
   const tree = parser.document();
   const builder = new RulesetBuilder();
-  ParseTreeWalker.DEFAULT.walk(builder as any, tree);
+  ParseTreeWalker.DEFAULT.walk<YorkieSchemaListener>(builder, tree);
   return builder.build();
 }

@@ -138,9 +138,7 @@ describe('ruleset-validator', () => {
   });
 
   it('should validate array type correctly', ({ task }) => {
-    const ruleset: Array<Rule> = [
-      { path: '$.items', type: 'array', items: { type: 'integer' } },
-    ];
+    const ruleset: Array<Rule> = [{ path: '$.items', type: 'array' }];
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ items: any }>(docKey);
