@@ -14,11 +14,7 @@
  * limitations under the License.
  */
 
-import {
-  ObjectRule,
-  PrimitiveRule,
-  Rule,
-} from '@yorkie-js/schema/src/rulesets';
+import { PrimitiveRule, Rule } from '@yorkie-js/schema/src/rulesets';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
@@ -100,7 +96,18 @@ function validateValue(value: any, rule: Rule): ValidationResult {
     case 'null':
       return validatePrimitiveValue(value, rule as PrimitiveRule);
     case 'object':
-      return validateObjectValue(value, rule as ObjectRule);
+      if (!(value instanceof CRDTObject)) {
+        return {
+          valid: false,
+          errors: [
+            {
+              path: rule.path,
+              message: `Expected object at path ${rule.path}`,
+            },
+          ],
+        };
+      }
+      break;
     case 'array':
       if (!(value instanceof CRDTArray)) {
         return {
@@ -211,47 +218,4 @@ function validatePrimitiveValue(
       },
     ],
   };
-}
-
-/**
- * `validateObjectValue` validates an object value against a rule.
- */
-function validateObjectValue(value: any, rule: ObjectRule): ValidationResult {
-  const errors: Array<ValidationError> = [];
-
-  if (!(value instanceof CRDTObject)) {
-    errors.push({
-      path: rule.path,
-      message: `Expected object at path ${rule.path}`,
-    });
-    return {
-      valid: false,
-      errors,
-    };
-  }
-
-  // Check unexpected properties
-  for (const key of value.getKeys()) {
-    if (!rule.properties.includes(key)) {
-      errors.push({
-        path: `${rule.path}.${key}`,
-        message: `Unexpected property '${key}' at path ${rule.path}`,
-      });
-    }
-  }
-
-  // Check required properties
-  const requiredProps = rule.properties.filter(
-    (prop) => !rule.optional?.includes(prop),
-  );
-  for (const prop of requiredProps) {
-    if (!value.has(prop)) {
-      errors.push({
-        path: `${rule.path}.${prop}`,
-        message: `Missing required property '${prop}' at path ${rule.path}`,
-      });
-    }
-  }
-
-  return errors.length > 0 ? { valid: false, errors } : { valid: true };
 }
