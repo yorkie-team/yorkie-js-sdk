@@ -2581,6 +2581,11 @@ export class DocumentSummary extends Message<DocumentSummary> {
   documentSize?: DocSize;
 
   /**
+   * @generated from field: string schema_key = 9;
+   */
+  schemaKey = "";
+
+  /**
    * @generated from field: google.protobuf.Timestamp created_at = 4;
    */
   createdAt?: Timestamp;
@@ -2608,6 +2613,7 @@ export class DocumentSummary extends Message<DocumentSummary> {
     { no: 3, name: "snapshot", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 7, name: "attached_clients", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 8, name: "document_size", kind: "message", T: DocSize },
+    { no: 9, name: "schema_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "created_at", kind: "message", T: Timestamp },
     { no: 5, name: "accessed_at", kind: "message", T: Timestamp },
     { no: 6, name: "updated_at", kind: "message", T: Timestamp },
