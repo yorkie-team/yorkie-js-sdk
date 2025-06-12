@@ -286,8 +286,9 @@ message TreePos {
 
 message User {
   string id = 1;
-  string username = 2;
-  google.protobuf.Timestamp created_at = 3;
+  string auth_provider = 2;
+  string username = 3;
+  google.protobuf.Timestamp created_at = 4;
 }
 
 message Project {
@@ -306,6 +307,11 @@ message Project {
   repeated string allowed_origins = 14;
   google.protobuf.Timestamp created_at = 12;
   google.protobuf.Timestamp updated_at = 13;
+}
+
+message MetricPoint {
+  int64 timestamp = 1;
+  int32 value = 2;
 }
 
 message UpdatableProjectFields {
@@ -337,6 +343,9 @@ message DocumentSummary {
   string id = 1;
   string key = 2;
   string snapshot = 3;
+  int32 attached_clients = 7;
+  DocSize document_size = 8;
+  string schema_key = 9;
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp accessed_at = 5;
   google.protobuf.Timestamp updated_at = 6;
@@ -407,4 +416,28 @@ message DocEvent {
   DocEventType type = 1;
   string publisher = 2;
   DocEventBody body = 3;
+}
+
+message DataSize {
+  int32 data = 1;
+  int32 meta = 2;
+}
+
+message DocSize {
+  DataSize live = 1;
+  DataSize gc = 2;
+}
+
+message Schema {
+  string id = 1;
+  string name = 2;
+  int32 version = 3;
+  string body = 4;
+  repeated Rule rules = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message Rule {
+  string path = 1;
+  string type = 2;
 }

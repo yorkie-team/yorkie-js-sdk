@@ -195,6 +195,12 @@ export interface AttachOptions<R, P> {
    * `syncMode` defines the synchronization mode of the document.
    */
   syncMode?: SyncMode;
+
+  /**
+   * `schema` is the schema of the document. It is used to validate the
+   * document.
+   */
+  schema?: string;
 }
 
 /**
@@ -437,6 +443,7 @@ export class Client {
           {
             clientId: this.id!,
             changePack: converter.toChangePack(doc.createChangePack()),
+            schemaKey: opts.schema,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
@@ -444,6 +451,9 @@ export class Client {
         const maxSize = res.maxSizePerDocument ?? 0;
         if (maxSize > 0) {
           doc.setMaxSizePerDocument(res.maxSizePerDocument);
+        }
+        if (res.schemaRules.length > 0) {
+          doc.setSchemaRules(converter.fromSchemaRules(res.schemaRules));
         }
 
         const pack = converter.fromChangePack<P>(res.changePack!);
