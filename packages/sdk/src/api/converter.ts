@@ -117,9 +117,10 @@ import { RHT } from '../document/crdt/rht';
  */
 function toPresence(presence: Indexable): PbPresence {
   const pbPresence = new PbPresence();
-  const pbDataMap = pbPresence.data;
+  const pbDataArray = pbPresence.data;
   for (const [key, value] of Object.entries(presence)) {
-    pbDataMap[key] = JSON.stringify(value);
+    pbDataArray.push(key);
+    pbDataArray.push(JSON.stringify(value));
   }
   return pbPresence;
 }
@@ -863,10 +864,11 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
  */
 function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
   const data: Record<string, string> = {};
-  Object.entries(pbPresence.data).forEach(([key, value]) => {
+  for (let i = 0; i < pbPresence.data.length; i += 2) {
+    const key = pbPresence.data[i];
+    const value = pbPresence.data[i + 1];
     data[key] = JSON.parse(value);
-  });
-
+  }
   return data as P;
 }
 
