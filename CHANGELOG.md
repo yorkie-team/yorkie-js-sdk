@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.17] - 2025-06-23
+
+### Changed
+
+- Bump up presence protocol by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1008
+
 ## [0.6.15] - 2025-06-09
 
 ### Changed
