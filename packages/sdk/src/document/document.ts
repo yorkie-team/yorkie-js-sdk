@@ -691,6 +691,35 @@ export class Document<R, P extends Indexable = Indexable> {
     setupDevtools(this);
   }
 
+  private resetChangeTracking(): void {
+    this.changeID = InitialChangeID;
+    this.checkpoint = InitialCheckpoint;
+    this.localChanges = [];
+  }
+
+  private resetClientState(): void {
+    this.onlineClients = new Set();
+    this.presences = new Map();
+  }
+
+  private resetHistory(): void {
+    this.internalHistory = new History();
+  }
+
+  /**
+   * `reset` resets the document state for reattachment.
+   * This method should be called before reattaching a detached document.
+   *
+   * @internal
+   */
+  public reset(): void {
+    this.resetChangeTracking();
+    this.resetClientState();
+    this.resetHistory();
+    this.status = DocStatus.Detached;
+    this.ensureClone();
+  }
+
   /**
    * `update` executes the given updater to update this document.
    */
