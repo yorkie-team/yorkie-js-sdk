@@ -54,7 +54,6 @@
     "@typescript-eslint/parser": "^6.21.0",
     "@vitest/coverage-istanbul": "^0.34.5",
     "@vitest/coverage-v8": "^0.34.5",
-    "@yorkie-js/schema": "workspace:*",
     "axios": "^1.7.7",
     "eslint-plugin-tsdoc": "^0.2.16",
     "express": "^4.21.1",
@@ -73,6 +72,7 @@
     "@bufbuild/protobuf": "^1.6.0",
     "@connectrpc/connect": "^1.4.0",
     "@connectrpc/connect-web": "^1.4.0",
-    "long": "^5.2.0"
+    "long": "^5.2.0",
+    "@yorkie-js/schema": "workspace:*"
   }
 }
