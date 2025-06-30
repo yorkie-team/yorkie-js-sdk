@@ -541,6 +541,9 @@ importers:
       '@connectrpc/connect-web':
         specifier: ^1.4.0
         version: 1.6.1(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.6.1(@bufbuild/protobuf@1.10.0))
+      '@yorkie-js/schema':
+        specifier: workspace:*
+        version: link:../schema
       long:
         specifier: ^5.2.0
         version: 5.3.1
@@ -578,9 +581,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^0.34.5
         version: 0.34.6(vitest@0.34.6(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0))
-      '@yorkie-js/schema':
-        specifier: workspace:*
-        version: link:../schema
       axios:
         specifier: ^1.7.7
         version: 1.8.4
