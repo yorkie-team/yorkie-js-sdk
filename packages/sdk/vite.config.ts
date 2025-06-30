@@ -9,4 +9,7 @@ export default defineConfig({
       ignoreConfigErrors: true,
     }),
   ],
+  define: {
+    'process.env': {},
+  },
 });

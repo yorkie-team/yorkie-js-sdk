@@ -20,7 +20,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
-import { ChangePack, DocEvent } from "./resources_pb";
+import { ChangePack, DocEvent, Rule } from "./resources_pb";
 
 /**
  * @generated from message yorkie.v1.ActivateClientRequest
@@ -184,6 +184,11 @@ export class AttachDocumentRequest extends Message<AttachDocumentRequest> {
    */
   changePack?: ChangePack;
 
+  /**
+   * @generated from field: string schema_key = 3;
+   */
+  schemaKey = "";
+
   constructor(data?: PartialMessage<AttachDocumentRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -194,6 +199,7 @@ export class AttachDocumentRequest extends Message<AttachDocumentRequest> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "change_pack", kind: "message", T: ChangePack },
+    { no: 3, name: "schema_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AttachDocumentRequest {
@@ -223,14 +229,19 @@ export class AttachDocumentResponse extends Message<AttachDocumentResponse> {
   documentId = "";
 
   /**
+   * @generated from field: yorkie.v1.ChangePack change_pack = 2;
+   */
+  changePack?: ChangePack;
+
+  /**
    * @generated from field: int32 max_size_per_document = 3;
    */
   maxSizePerDocument = 0;
 
   /**
-   * @generated from field: yorkie.v1.ChangePack change_pack = 2;
+   * @generated from field: repeated yorkie.v1.Rule schema_rules = 4;
    */
-  changePack?: ChangePack;
+  schemaRules: Rule[] = [];
 
   constructor(data?: PartialMessage<AttachDocumentResponse>) {
     super();
@@ -241,8 +252,9 @@ export class AttachDocumentResponse extends Message<AttachDocumentResponse> {
   static readonly typeName = "yorkie.v1.AttachDocumentResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "max_size_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 2, name: "change_pack", kind: "message", T: ChangePack },
+    { no: 3, name: "max_size_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "schema_rules", kind: "message", T: Rule, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AttachDocumentResponse {

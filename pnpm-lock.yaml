@@ -578,6 +578,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^0.34.5
         version: 0.34.6(vitest@0.34.6(less@4.2.2)(lightningcss@1.29.3)(sass@1.86.0))
+      '@yorkie-js/schema':
+        specifier: workspace:*
+        version: link:../schema
       axios:
         specifier: ^1.7.7
         version: 1.8.4
