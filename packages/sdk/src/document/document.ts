@@ -15,6 +15,8 @@
  */
 import type { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import { Rule } from '@yorkie-js/schema';
+import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
@@ -624,6 +626,7 @@ export class Document<R, P extends Indexable = Indexable> {
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
   private maxSizeLimit: number;
+  private schemaRules: Array<Rule>;
 
   private root: CRDTRoot;
   private clone?: {
@@ -671,6 +674,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
     this.maxSizeLimit = 0;
+    this.schemaRules = [];
 
     this.eventStream = createObservable<DocEvents<P>>((observer) => {
       this.eventStreamObserver = observer;
@@ -737,6 +741,23 @@ export class Document<R, P extends Indexable = Indexable> {
       throw err;
     } finally {
       this.isUpdating = false;
+    }
+
+    const schemaRules = this.getSchemaRules();
+    if (!context.isPresenceOnlyChange() && schemaRules.length > 0) {
+      const result = validateYorkieRuleset(
+        this.clone?.root.getObject(),
+        schemaRules,
+      );
+      if (!result.valid) {
+        this.clone = undefined;
+        throw new YorkieError(
+          Code.ErrDocumentSchemaValidationFailed,
+          `schema validation failed: ${result.errors
+            ?.map((error) => error.message)
+            .join(', ')}`,
+        );
+      }
     }
 
     const size = totalDocSize(this.clone?.root.getDocSize());
@@ -1407,6 +1428,20 @@ export class Document<R, P extends Indexable = Indexable> {
    */
   public setMaxSizePerDocument(size: number) {
     this.maxSizeLimit = size;
+  }
+
+  /**
+   * `getSchemaRules` gets the schema rules of this document.
+   */
+  public getSchemaRules() {
+    return this.schemaRules;
+  }
+
+  /**
+   * `setSchemaRules` sets the schema rules of this document.
+   */
+  public setSchemaRules(rules: Array<Rule>) {
+    this.schemaRules = rules;
   }
 
   /**

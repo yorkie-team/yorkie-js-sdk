@@ -16,6 +16,7 @@
 
 import { ConnectError } from '@connectrpc/connect';
 import { ErrorInfo } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
+import { Rule } from '@yorkie-js/schema';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
@@ -62,6 +63,7 @@ import {
   ChangeID as PbChangeID,
   ChangePack as PbChangePack,
   Checkpoint as PbCheckpoint,
+  Rule as PbRule,
   JSONElement as PbJSONElement,
   JSONElementSimple as PbJSONElementSimple,
   NodeAttr as PbNodeAttr,
@@ -1446,6 +1448,19 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
 }
 
 /**
+ * `fromSchemaRules` converts the given Protobuf format to model format.
+ */
+function fromSchemaRules(pbRules: Array<PbRule>): Array<Rule> {
+  // TODO(chacha912): Need to consider fields other than type and path.
+  return pbRules.map((pbRule) => {
+    return {
+      path: pbRule.path,
+      type: pbRule.type,
+    } as Rule;
+  });
+}
+
+/**
  * `bytesToSnapshot` creates a Snapshot from the given byte array.
  */
 function bytesToSnapshot<P extends Indexable>(
@@ -1621,4 +1636,5 @@ export const converter = {
   bytesToOperation,
   versionVectorToHex,
   hexToVersionVector,
+  fromSchemaRules,
 };

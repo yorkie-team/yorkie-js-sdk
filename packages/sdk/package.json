@@ -72,6 +72,7 @@
     "@bufbuild/protobuf": "^1.6.0",
     "@connectrpc/connect": "^1.4.0",
     "@connectrpc/connect-web": "^1.4.0",
-    "long": "^5.2.0"
+    "long": "^5.2.0",
+    "@yorkie-js/schema": "workspace:*"
   }
 }

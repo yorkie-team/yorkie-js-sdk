@@ -541,6 +541,9 @@ importers:
       '@connectrpc/connect-web':
         specifier: ^1.4.0
         version: 1.6.1(@bufbuild/protobuf@1.10.0)(@connectrpc/connect@1.6.1(@bufbuild/protobuf@1.10.0))
+      '@yorkie-js/schema':
+        specifier: workspace:*
+        version: link:../schema
       long:
         specifier: ^5.2.0
         version: 5.3.1

@@ -36,7 +36,7 @@ describe('Schema:TypeScript', () => {
   it('should validate array with anonymous type definition', () => {
     const schema = `
       type Document = {
-        objectArray: { name: string; age: number; }[];
+        objectArray: { name: string; age: integer; }[];
       };
     `;
     expect(validate(schema).errors.length).toBe(0);
@@ -64,7 +64,7 @@ describe('Schema:TypeScript', () => {
   it('should detect invalid syntax: no semicolon', () => {
     const schema = `
       type Document = {
-        invalidField: number
+        invalidField: integer
       }
     `;
     expect(validate(schema).errors.length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ describe('Schema:TypeScript', () => {
       type Document = {
         scientist: { 
           name: string; 
-          age: number;
+          age: integer;
         };
       };
     `;
@@ -86,7 +86,7 @@ describe('Schema:TypeScript', () => {
     const schema = `
       type Document = {
         title: string;
-        version?: number;
+        version?: integer;
         author?: string;
       };
     `;
@@ -128,7 +128,7 @@ describe('Schema:TypeScript', () => {
     const schema = `
       type Document = {
         field: string;
-        field: number;
+        field: integer;
       };
     `;
     expect(validate(schema).errors.length).toBeGreaterThan(0);
@@ -149,10 +149,12 @@ describe('Schema:Yorkie', () => {
       type Document = {
         field1: null;
         field2: boolean;
-        field3: number;
-        field4: any;
-        field7: string;
-        field8: undefined;
+        field3: integer;
+        field4: long;
+        field5: double;
+        field6: string;
+        field7: date;
+        field8: bytes;
       };
     `;
     expect(validate(schema).errors.length).toBe(0);
@@ -242,18 +244,18 @@ describe('Schema:User-Defined', () => {
       };
       type MyTypeName = {
         apple: string;
-        banana: number;
+        banana: integer;
         cookie: boolean;
-        dog: number[];
-        stringOrNumber: string | number;  
-        arrayOfStringOrNumber: (string | number)[];
-        complex: string | number | boolean[];
-        arrayOfComplex: (string | number | boolean)[];  
+        dog: integer[];
+        stringOrInteger: string | integer;  
+        arrayOfStringOrInteger: (string | integer)[];
+        complex: string | integer | boolean[];
+        arrayOfComplex: (string | integer | boolean)[];  
       };
       type UserDetail = {
         address: string;
-        age: number;
-        foo: string | number | boolean;
+        age: integer;
+        foo: string | integer | boolean;
         bar: string[];
       };
     `;

@@ -48,13 +48,15 @@ primaryType
     ;
 
 primitiveType
-    : 'number'
-    | 'string'
+    : 'string'
     | 'boolean'
-    | 'any'
-    | 'void'
     | 'null'
-    | 'undefined'
+    | 'integer'
+    | 'double'
+    | 'long'
+    | 'bytes'
+    | 'date'
+    | 'any'
     ;
 
 objectType
@@ -62,7 +64,7 @@ objectType
     ;
 
 propertySignature
-    : propertyName '?'? typeAnnotation ';'
+    : propertyName QUESTION? typeAnnotation ';'
     ;
 
 propertyName
@@ -113,6 +115,7 @@ literal
     ;
 
 // Lexer rules
+QUESTION: '?';
 Identifier: [a-zA-Z_][a-zA-Z0-9_]*;
 StringLiteral: '"' (~["\r\n])* '"';
 NumberLiteral: [0-9]+('.'[0-9]+)?;
