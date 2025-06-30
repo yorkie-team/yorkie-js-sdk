@@ -10,9 +10,11 @@
       <div id="network-status"></div>
       <div id="online-clients"></div>
       <div class="schema">
-        <button class="valid">valid</button>
-        <button class="invalid">invalid</button>
+        Update Root:
+        <button class="valid">increase version</button>
+        <button class="invalid">invalid schema</button>
       </div>
+      <div class="error-holder" style="color: red; margin-top: 10px"></div>
       <pre style="white-space: pre-wrap" id="log-holder"></pre>
     </div>
     <script src="./util.js"></script>
@@ -21,6 +23,7 @@
       const statusHolder = document.getElementById('network-status');
       const onlineClientsHolder = document.getElementById('online-clients');
       const logHolder = document.getElementById('log-holder');
+      const errorHolder = document.querySelector('.error-holder');
 
       function displayOnlineClients(presences, myClientID) {
         const usernames = [];
@@ -56,21 +59,32 @@
           });
           doc.update((root) => {
             if (!root.title) {
-              root.title = 'hello';
-              root.version = 2;
+              root.title = 'schema-test';
+              root.version = 1;
             }
           }, 'initaialize doc');
 
           document.querySelector('.valid').addEventListener('click', () => {
-            doc.update((root) => {
-              root.version = root.version + 1;
-            });
+            try {
+              errorHolder.textContent = '';
+              doc.update((root) => {
+                root.version = root.version + 1;
+              });
+            } catch (e) {
+              errorHolder.textContent = e.message;
+            }
           });
           document.querySelector('.invalid').addEventListener('click', () => {
-            doc.update((root) => {
-              root.title = 123;
-              root.version = 'abc';
-            });
+            try {
+              errorHolder.textContent = '';
+              // test invalid schema
+              doc.update((root) => {
+                root.title = 123;
+                root.version = 'abc';
+              });
+            } catch (e) {
+              errorHolder.textContent = e.message;
+            }
           });
         } catch (e) {
           console.error(e);
