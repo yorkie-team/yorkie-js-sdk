@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.18] - 2025-07-01
+
+### Added
+
+- Add schema support by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1010
+
+### Changed
+
+- Replace example project by @hackerwins in #f1c4dc9
+
 ## [0.6.15] - 2025-06-09
 
 ### Changed
