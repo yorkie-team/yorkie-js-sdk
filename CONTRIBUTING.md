@@ -45,7 +45,7 @@ For building yorkie-js-sdk, You'll first need Node.js installed(Node.js version 
 # install packages
 
 # In the root directory of the repository.
-$ pnpm sdk install
+$ pnpm i
 
 # build
 
