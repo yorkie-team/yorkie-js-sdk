@@ -364,7 +364,7 @@ export class Client {
     const task = async () => {
       try {
         await this.rpcClient.deactivateClient(
-          { clientId: this.id! },
+          { clientId: this.id!, clientKey: this.key },
           { headers: { 'x-shard-key': `${this.apiKey}/${this.key}` } },
         );
         this.deactivateInternal();
@@ -442,6 +442,7 @@ export class Client {
         const res = await this.rpcClient.attachDocument(
           {
             clientId: this.id!,
+            clientKey: this.key,
             changePack: converter.toChangePack(doc.createChangePack()),
             schemaKey: opts.schema,
           },
@@ -538,6 +539,7 @@ export class Client {
         const res = await this.rpcClient.detachDocument(
           {
             clientId: this.id!,
+            clientKey: this.key,
             documentId: attachment.docID,
             changePack: converter.toChangePack(doc.createChangePack()),
             removeIfNotAttached: opts.removeIfNotAttached ?? false,
@@ -697,6 +699,7 @@ export class Client {
         const res = await this.rpcClient.removeDocument(
           {
             clientId: this.id!,
+            clientKey: this.key,
             documentId: attachment.docID,
             changePack: pbChangePack,
           },
@@ -801,6 +804,7 @@ export class Client {
           await this.rpcClient.broadcast(
             {
               clientId: this.id!,
+              clientKey: this.key,
               documentId: attachment.docID,
               topic,
               payload: new TextEncoder().encode(JSON.stringify(payload)),
@@ -939,6 +943,7 @@ export class Client {
         const stream = this.rpcClient.watchDocument(
           {
             clientId: this.id!,
+            clientKey: this.key,
             documentId: attachment.docID,
           },
           {
@@ -1064,6 +1069,7 @@ export class Client {
       const res = await this.rpcClient.pushPullChanges(
         {
           clientId: this.id!,
+          clientKey: this.key,
           documentId: docID,
           changePack: converter.toChangePack(reqPack),
           pushOnly: syncMode === SyncMode.RealtimePushOnly,

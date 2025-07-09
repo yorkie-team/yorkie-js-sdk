@@ -111,6 +111,11 @@ export class DeactivateClientRequest extends Message<DeactivateClientRequest> {
    */
   clientId = "";
 
+  /**
+   * @generated from field: string client_key = 2;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<DeactivateClientRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -120,6 +125,7 @@ export class DeactivateClientRequest extends Message<DeactivateClientRequest> {
   static readonly typeName = "yorkie.v1.DeactivateClientRequest";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DeactivateClientRequest {
@@ -189,6 +195,11 @@ export class AttachDocumentRequest extends Message<AttachDocumentRequest> {
    */
   schemaKey = "";
 
+  /**
+   * @generated from field: string client_key = 4;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<AttachDocumentRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -200,6 +211,7 @@ export class AttachDocumentRequest extends Message<AttachDocumentRequest> {
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "change_pack", kind: "message", T: ChangePack },
     { no: 3, name: "schema_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AttachDocumentRequest {
@@ -298,6 +310,11 @@ export class DetachDocumentRequest extends Message<DetachDocumentRequest> {
    */
   removeIfNotAttached = false;
 
+  /**
+   * @generated from field: string client_key = 5;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<DetachDocumentRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -310,6 +327,7 @@ export class DetachDocumentRequest extends Message<DetachDocumentRequest> {
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "change_pack", kind: "message", T: ChangePack },
     { no: 4, name: "remove_if_not_attached", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 5, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DetachDocumentRequest {
@@ -380,6 +398,11 @@ export class WatchDocumentRequest extends Message<WatchDocumentRequest> {
    */
   documentId = "";
 
+  /**
+   * @generated from field: string client_key = 3;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<WatchDocumentRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -390,6 +413,7 @@ export class WatchDocumentRequest extends Message<WatchDocumentRequest> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): WatchDocumentRequest {
@@ -515,6 +539,11 @@ export class RemoveDocumentRequest extends Message<RemoveDocumentRequest> {
    */
   changePack?: ChangePack;
 
+  /**
+   * @generated from field: string client_key = 4;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<RemoveDocumentRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -526,6 +555,7 @@ export class RemoveDocumentRequest extends Message<RemoveDocumentRequest> {
     { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "change_pack", kind: "message", T: ChangePack },
+    { no: 4, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RemoveDocumentRequest {
@@ -606,6 +636,11 @@ export class PushPullChangesRequest extends Message<PushPullChangesRequest> {
    */
   pushOnly = false;
 
+  /**
+   * @generated from field: string client_key = 5;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<PushPullChangesRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -618,6 +653,7 @@ export class PushPullChangesRequest extends Message<PushPullChangesRequest> {
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "change_pack", kind: "message", T: ChangePack },
     { no: 4, name: "push_only", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 5, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PushPullChangesRequest {
@@ -698,6 +734,11 @@ export class BroadcastRequest extends Message<BroadcastRequest> {
    */
   payload = new Uint8Array(0);
 
+  /**
+   * @generated from field: string client_key = 5;
+   */
+  clientKey = "";
+
   constructor(data?: PartialMessage<BroadcastRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -710,6 +751,7 @@ export class BroadcastRequest extends Message<BroadcastRequest> {
     { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 5, name: "client_key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BroadcastRequest {
