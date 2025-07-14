@@ -128,12 +128,14 @@ export class RemoveOperation extends Operation {
     if (parentObject instanceof CRDTArray) {
       const value = parentObject.getByID(this.createdAt);
       if (value !== undefined) {
-        const prevCreatedAt: TimeTicket = parentObject.getPrevCreatedAt(this.createdAt);
+        const prevCreatedAt: TimeTicket = parentObject.getPrevCreatedAt(
+          this.createdAt,
+        );
         // NOTE(KMSstudio): executedAt is assigned just before execution, when Document.undo() is called.
         return AddOperation.create(
           this.getParentCreatedAt(),
           prevCreatedAt,
-          value.deepcopy()
+          value.deepcopy(),
         );
       }
     }

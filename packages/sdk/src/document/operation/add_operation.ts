@@ -93,7 +93,7 @@ export class AddOperation extends Operation {
     // NOTE(KMSstudio): executedAt is assigned just before execution, when Document.undo() is called.
     const reverseOp = RemoveOperation.create(
       this.getParentCreatedAt(),
-      this.value.getCreatedAt()
+      this.value.getCreatedAt(),
     );
 
     return reverseOp;
