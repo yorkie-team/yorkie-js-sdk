@@ -34,7 +34,7 @@ export class MoveOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.prevCreatedAt = prevCreatedAt;
@@ -48,7 +48,7 @@ export class MoveOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): MoveOperation {
     return new MoveOperation(
       parentCreatedAt,
@@ -76,6 +76,8 @@ export class MoveOperation extends Operation {
       );
     }
     const array = parentObject as CRDTArray;
+    const reverseOp = this.toReverseOperation(array);
+    
     const previousIndex = Number(array.subPathOf(this.createdAt));
     array.moveAfter(this.prevCreatedAt, this.createdAt, this.getExecutedAt());
     const index = Number(array.subPathOf(this.createdAt));
@@ -88,7 +90,20 @@ export class MoveOperation extends Operation {
           previousIndex,
         },
       ],
+      reverseOp: reverseOp,
     };
+  }
+
+  private toReverseOperation(
+    array: CRDTArray,
+  ): Operation {
+    const preservePrevCreatedAt = array.getPrevCreatedAt(this.createdAt);
+    // NOTE(KMSstudio): executedAt is assigned just before execution, when Document.undo() is called.
+    return MoveOperation.create(
+      this.getParentCreatedAt(),
+      this.createdAt,
+      preservePrevCreatedAt
+    );
   }
 
   /**

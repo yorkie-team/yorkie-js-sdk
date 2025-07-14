@@ -22,6 +22,7 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js/sdk/src/document/operation/operation';
+import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
@@ -35,7 +36,7 @@ export class AddOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     value: CRDTElement,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.prevCreatedAt = prevCreatedAt;
@@ -49,7 +50,7 @@ export class AddOperation extends Operation {
     parentCreatedAt: TimeTicket,
     prevCreatedAt: TimeTicket,
     value: CRDTElement,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): AddOperation {
     return new AddOperation(parentCreatedAt, prevCreatedAt, value, executedAt);
   }
@@ -84,7 +85,18 @@ export class AddOperation extends Operation {
           index: Number(array.subPathOf(this.getEffectedCreatedAt())),
         },
       ],
+      reverseOp: this.toReverseOperation(),
     };
+  }
+
+  private toReverseOperation(): Operation {
+    // NOTE(KMSstudio): executedAt is assigned just before execution, when Document.undo() is called.
+    const reverseOp = RemoveOperation.create(
+      this.getParentCreatedAt(),
+      this.value.getCreatedAt()
+    );
+
+    return reverseOp;
   }
 
   /**
