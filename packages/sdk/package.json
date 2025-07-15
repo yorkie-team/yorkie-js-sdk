@@ -23,7 +23,8 @@
     "test:bench": "vitest bench",
     "test:ci": "vitest run --coverage",
     "test:yorkie.dev": "TEST_RPC_ADDR=https://api.yorkie.dev vitest run --coverage",
-    "prepare": "pnpm build"
+    "prepare": "pnpm build",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx"
   },
   "engines": {
     "node": ">=18.0.0",
