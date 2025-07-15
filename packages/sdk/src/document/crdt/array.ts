@@ -71,8 +71,8 @@ export class CRDTArray extends CRDTContainer {
   /**
    * `insertAfter` adds a new node after the the given node.
    */
-  public insertAfter(prevCreatedAt: TimeTicket, value: CRDTElement): void {
-    this.elements.insertAfter(prevCreatedAt, value);
+  public insertAfter(prevCreatedAt: TimeTicket, value: CRDTElement, executedAt?: TimeTicket): void {
+    this.elements.insertAfter(prevCreatedAt, value, executedAt);
   }
 
   /**

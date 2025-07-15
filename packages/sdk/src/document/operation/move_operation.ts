@@ -99,8 +99,8 @@ export class MoveOperation extends Operation {
     // NOTE(KMSstudio): executedAt is assigned just before execution, when Document.undo() is called.
     return MoveOperation.create(
       this.getParentCreatedAt(),
-      this.createdAt,
       preservePrevCreatedAt,
+      this.createdAt,
     );
   }
 

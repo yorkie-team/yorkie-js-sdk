@@ -74,7 +74,7 @@ export class AddOperation extends Operation {
     }
     const array = parentObject as CRDTArray;
     const value = this.value.deepcopy();
-    array.insertAfter(this.prevCreatedAt, value);
+    array.insertAfter(this.prevCreatedAt, value, this.getExecutedAt());
     root.registerElement(value, array);
 
     return {
