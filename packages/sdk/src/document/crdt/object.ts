@@ -173,7 +173,7 @@ export class CRDTObject extends CRDTContainer {
    * `getKeys` returns array of keys in this object.
    */
   public getKeys(): Array<string> {
-    const keys = Array<string>();
+    const keys: Array<string> = [];
     for (const [key] of this) {
       keys.push(key);
     }
@@ -185,7 +185,7 @@ export class CRDTObject extends CRDTContainer {
    * `toSortedJSON` returns the sorted JSON encoding of this object.
    */
   public toSortedJSON(): string {
-    const keys = Array<string>();
+    const keys: Array<string> = [];
     for (const [key] of this) {
       keys.push(key);
     }
