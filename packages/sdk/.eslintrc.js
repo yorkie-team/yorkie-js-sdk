@@ -14,4 +14,11 @@ module.exports = {
       },
     },
   ],
+  ignorePatterns: [
+    'dist/**/*',
+    '**/*.d.ts',
+    // TODO(pengooseDev): Consider unifying the test file naming convention (e.g. .test or _test)
+    '**/*_test.ts',
+    '**/*.bench.ts',
+  ],
 };
