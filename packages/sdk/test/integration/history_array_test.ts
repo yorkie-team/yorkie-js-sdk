@@ -3,7 +3,7 @@ import { Document } from '@yorkie-js/sdk/src/document/document';
 import { JSONArray } from '@yorkie-js/sdk/src/yorkie';
 
 type Op = 'add' | 'move' | 'remove' | 'set';
-const ops: Op[] = ['add', 'remove', 'move'];
+const ops: Op[] = ['add', 'remove'];
 
 function applyOp(doc: Document<{ list: JSONArray<string> }>, op: Op) {
   doc.update((root) => {
