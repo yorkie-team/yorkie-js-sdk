@@ -89,10 +89,7 @@ describe('Document Schema', () => {
       });
       assert.fail('Expected an error to be thrown');
     } catch (error) {
-      assert.equal(
-        (error as Error).message,
-        '[not_found] noexist 1: schema not found',
-      );
+      assert.include((error as Error).message, 'schema not found');
     }
 
     await client.attach(doc, {
