@@ -32,9 +32,13 @@ import {
 /**
  * `Rule` represents a rule for a field in the schema.
  */
-export type Rule = PrimitiveRule | ObjectRule | ArrayRule | YorkieTypeRule | EnumRule;
+export type Rule =
+  | PrimitiveRule
+  | ObjectRule
+  | ArrayRule
+  | YorkieTypeRule
+  | EnumRule;
 export type PrimitiveType =
-  | 'null'
   | 'boolean'
   | 'integer'
   | 'double'
@@ -79,22 +83,27 @@ export type EnumRule = {
 } & RuleBase;
 
 // Internal types for building
-type TypeDefinition = {
-  kind: 'primitive';
-  primitiveType: PrimitiveType;
-} | {
-  kind: 'yorkie';
-  yorkieType: YorkieType;
-} | {
-  kind: 'object';
-  properties: PropertyDefinition[];
-} | {
-  kind: 'reference';
-  typeName: string;
-} | {
-  kind: 'enum';
-  values: Array<string | number | boolean>;
-};
+type TypeDefinition =
+  | {
+      kind: 'primitive';
+      primitiveType: PrimitiveType;
+    }
+  | {
+      kind: 'yorkie';
+      yorkieType: YorkieType;
+    }
+  | {
+      kind: 'object';
+      properties: Array<PropertyDefinition>;
+    }
+  | {
+      kind: 'reference';
+      typeName: string;
+    }
+  | {
+      kind: 'enum';
+      values: Array<string | number | boolean>;
+    };
 
 type PropertyDefinition = {
   name: string;
@@ -109,10 +118,12 @@ export class RulesetBuilder implements YorkieSchemaListener {
   private typeDefinitions: Map<string, TypeDefinition> = new Map();
   private currentTypeName: string | undefined = undefined;
   private currentProperty: PropertyDefinition | undefined = undefined;
-  private typeStack: TypeDefinition[] = [];
-  private propertyStack: PropertyDefinition[][] = [];
-  private currentProperties: PropertyDefinition[] = [];
-  private unionContext: { isEnum: boolean; values: Array<string | number | boolean> } | undefined = undefined;
+  private typeStack: Array<TypeDefinition> = [];
+  private propertyStack: Array<Array<PropertyDefinition>> = [];
+  private currentProperties: Array<PropertyDefinition> = [];
+  private unionContext:
+    | { isEnum: boolean; values: Array<string | number | boolean> }
+    | undefined = undefined;
 
   /**
    * `enterTypeAliasDeclaration` is called when entering a type alias declaration.
@@ -189,7 +200,7 @@ export class RulesetBuilder implements YorkieSchemaListener {
     console.log('Entering property signature:', ctx.text);
     const propName = ctx.propertyName().text;
     const isOptional = !!ctx.QUESTION();
-    
+
     this.currentProperty = {
       name: propName,
       type: { kind: 'primitive', primitiveType: 'string' }, // temporary
@@ -226,7 +237,11 @@ export class RulesetBuilder implements YorkieSchemaListener {
    */
   exitUnionType() {
     console.log('Exiting union type');
-    if (this.unionContext && this.unionContext.isEnum && this.unionContext.values.length > 0) {
+    if (
+      this.unionContext &&
+      this.unionContext.isEnum &&
+      this.unionContext.values.length > 0
+    ) {
       this.typeStack.push({ kind: 'enum', values: this.unionContext.values });
     }
     this.unionContext = undefined;
@@ -238,8 +253,8 @@ export class RulesetBuilder implements YorkieSchemaListener {
   enterLiteral(ctx: LiteralContext) {
     console.log('Entering literal:', ctx.text);
     const text = ctx.text;
-    let value: string | number | boolean;
-    
+    let value: string | number | boolean | undefined = undefined;
+
     if (text.startsWith('"') && text.endsWith('"')) {
       // String literal
       value = text.slice(1, -1);
@@ -252,7 +267,7 @@ export class RulesetBuilder implements YorkieSchemaListener {
     } else {
       return; // Invalid literal
     }
-    
+
     if (this.unionContext && this.unionContext.isEnum) {
       this.unionContext.values.push(value);
     } else {
@@ -265,23 +280,30 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `build` returns the built ruleset.
    */
   build(): Array<Rule> {
-    console.log('Building ruleset from type definitions:', Array.from(this.typeDefinitions.keys()));
-    
+    console.log(
+      'Building ruleset from type definitions:',
+      Array.from(this.typeDefinitions.keys()),
+    );
+
     const documentType = this.typeDefinitions.get('Document');
     if (!documentType) {
       console.warn('Document type not found');
       return [];
     }
-    
+
     const rules: Array<Rule> = [];
     this.expandType(documentType, '$', rules);
-    
+
     return rules;
   }
 
-  private expandType(typeDef: TypeDefinition, path: string, rules: Array<Rule>): void {
+  private expandType(
+    typeDef: TypeDefinition,
+    path: string,
+    rules: Array<Rule>,
+  ): void {
     console.log(`Expanding type at path: ${path}`);
-    
+
     switch (typeDef.kind) {
       case 'primitive':
         rules.push({
@@ -289,14 +311,14 @@ export class RulesetBuilder implements YorkieSchemaListener {
           type: typeDef.primitiveType,
         });
         break;
-        
+
       case 'yorkie':
         rules.push({
           path,
           type: typeDef.yorkieType,
         });
         break;
-        
+
       case 'enum':
         rules.push({
           path,
@@ -304,21 +326,23 @@ export class RulesetBuilder implements YorkieSchemaListener {
           values: typeDef.values,
         });
         break;
-        
+
       case 'object': {
         const objectRule: ObjectRule = {
           path,
           type: 'object',
-          properties: typeDef.properties.map(p => p.name),
+          properties: typeDef.properties.map((p) => p.name),
         };
-        
-        const optionalProps = typeDef.properties.filter(p => p.optional).map(p => p.name);
+
+        const optionalProps = typeDef.properties
+          .filter((p) => p.optional)
+          .map((p) => p.name);
         if (optionalProps.length > 0) {
           objectRule.optional = optionalProps;
         }
-        
+
         rules.push(objectRule);
-        
+
         // Recursively expand properties
         for (const property of typeDef.properties) {
           const propertyPath = `${path}.${property.name}`;
@@ -326,7 +350,7 @@ export class RulesetBuilder implements YorkieSchemaListener {
         }
         break;
       }
-        
+
       case 'reference': {
         const referencedType = this.typeDefinitions.get(typeDef.typeName);
         if (referencedType) {
