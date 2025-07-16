@@ -37,7 +37,7 @@ export type Rule =
   | ObjectRule
   | ArrayRule
   | YorkieTypeRule
-  | EnumRule;
+  | UnionRule;
 export type PrimitiveType =
   | 'boolean'
   | 'integer'
@@ -52,7 +52,13 @@ export type YorkieType =
   | 'yorkie.Counter'
   | 'yorkie.Object'
   | 'yorkie.Array';
-export type RuleType = 'object' | 'array' | 'enum' | PrimitiveType | YorkieType;
+export type RuleType =
+  | 'object'
+  | 'array'
+  | 'union'
+  | PrimitiveType
+  | YorkieType
+  | 'enum';
 
 export type RuleBase = {
   path: string;
@@ -77,8 +83,8 @@ export type YorkieTypeRule = {
   type: YorkieType;
 } & RuleBase;
 
-export type EnumRule = {
-  type: 'enum';
+export type UnionRule = {
+  type: 'union';
   values: Array<string | number | boolean>;
 } & RuleBase;
 
@@ -101,7 +107,7 @@ type TypeDefinition =
       typeName: string;
     }
   | {
-      kind: 'enum';
+      kind: 'union';
       values: Array<string | number | boolean>;
     };
 
@@ -122,14 +128,13 @@ export class RulesetBuilder implements YorkieSchemaListener {
   private propertyStack: Array<Array<PropertyDefinition>> = [];
   private currentProperties: Array<PropertyDefinition> = [];
   private unionContext:
-    | { isEnum: boolean; values: Array<string | number | boolean> }
+    | { values: Array<string | number | boolean> }
     | undefined = undefined;
 
   /**
    * `enterTypeAliasDeclaration` is called when entering a type alias declaration.
    */
   enterTypeAliasDeclaration(ctx: TypeAliasDeclarationContext) {
-    console.log('Entering type alias declaration:', ctx.text);
     this.currentTypeName = ctx.Identifier().text;
     this.currentProperties = [];
     this.unionContext = undefined;
@@ -142,7 +147,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
     if (this.currentTypeName && this.typeStack.length > 0) {
       const typeDef = this.typeStack.pop()!;
       this.typeDefinitions.set(this.currentTypeName, typeDef);
-      console.log(`Stored type definition: ${this.currentTypeName}`);
     }
     this.currentTypeName = undefined;
   }
@@ -151,7 +155,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterPrimitiveType` is called when entering a primitive type.
    */
   enterPrimitiveType(ctx: PrimitiveTypeContext) {
-    console.log('Entering primitive type:', ctx.text);
     const primitiveType = ctx.text as PrimitiveType;
     this.typeStack.push({ kind: 'primitive', primitiveType });
   }
@@ -160,7 +163,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterYorkieType` is called when entering a Yorkie type.
    */
   enterYorkieType(ctx: YorkieTypeContext) {
-    console.log('Entering Yorkie type:', ctx.text);
     const yorkieType = ctx.text as YorkieType;
     this.typeStack.push({ kind: 'yorkie', yorkieType });
   }
@@ -169,7 +171,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterTypeReference` is called when entering a type reference.
    */
   enterTypeReference(ctx: TypeReferenceContext) {
-    console.log('Entering type reference:', ctx.text);
     const typeName = ctx.Identifier().text;
     this.typeStack.push({ kind: 'reference', typeName });
   }
@@ -178,7 +179,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterObjectType` is called when entering an object type.
    */
   enterObjectType() {
-    console.log('Entering object type');
     this.propertyStack.push(this.currentProperties);
     this.currentProperties = [];
   }
@@ -187,7 +187,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `exitObjectType` is called when exiting an object type.
    */
   exitObjectType() {
-    console.log('Exiting object type');
     const properties = this.currentProperties;
     this.currentProperties = this.propertyStack.pop() || [];
     this.typeStack.push({ kind: 'object', properties });
@@ -197,7 +196,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterPropertySignature` is called when entering a property signature.
    */
   enterPropertySignature(ctx: PropertySignatureContext) {
-    console.log('Entering property signature:', ctx.text);
     const propName = ctx.propertyName().text;
     const isOptional = !!ctx.QUESTION();
 
@@ -212,7 +210,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `exitPropertySignature` is called when exiting a property signature.
    */
   exitPropertySignature() {
-    console.log('Exiting property signature');
     if (this.currentProperty && this.typeStack.length > 0) {
       this.currentProperty.type = this.typeStack.pop()!;
       this.currentProperties.push(this.currentProperty);
@@ -224,25 +221,15 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterUnionType` is called when entering a union type.
    */
   enterUnionType(ctx: UnionTypeContext) {
-    console.log('Entering union type:', ctx.text);
-    // Check if this is an enum (union of literals)
-    const text = ctx.text;
-    if (text.includes('"') || /\b\d+\b/.test(text)) {
-      this.unionContext = { isEnum: true, values: [] };
-    }
+    this.unionContext = { values: [] };
   }
 
   /**
    * `exitUnionType` is called when exiting a union type.
    */
   exitUnionType() {
-    console.log('Exiting union type');
-    if (
-      this.unionContext &&
-      this.unionContext.isEnum &&
-      this.unionContext.values.length > 0
-    ) {
-      this.typeStack.push({ kind: 'enum', values: this.unionContext.values });
+    if (this.unionContext && this.unionContext.values.length > 0) {
+      this.typeStack.push({ kind: 'union', values: this.unionContext.values });
     }
     this.unionContext = undefined;
   }
@@ -251,28 +238,23 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterLiteral` is called when entering a literal.
    */
   enterLiteral(ctx: LiteralContext) {
-    console.log('Entering literal:', ctx.text);
     const text = ctx.text;
     let value: string | number | boolean | undefined = undefined;
 
     if (text.startsWith('"') && text.endsWith('"')) {
-      // String literal
       value = text.slice(1, -1);
     } else if (!isNaN(Number(text))) {
-      // Number literal
       value = Number(text);
     } else if (text === 'true' || text === 'false') {
-      // Boolean literal
       value = text === 'true';
     } else {
       return; // Invalid literal
     }
 
-    if (this.unionContext && this.unionContext.isEnum) {
+    if (this.unionContext) {
       this.unionContext.values.push(value);
     } else {
-      // Single literal (not part of enum)
-      this.typeStack.push({ kind: 'enum', values: [value] });
+      this.typeStack.push({ kind: 'union', values: [value] });
     }
   }
 
@@ -280,11 +262,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `build` returns the built ruleset.
    */
   build(): Array<Rule> {
-    console.log(
-      'Building ruleset from type definitions:',
-      Array.from(this.typeDefinitions.keys()),
-    );
-
     const documentType = this.typeDefinitions.get('Document');
     if (!documentType) {
       console.warn('Document type not found');
@@ -302,8 +279,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
     path: string,
     rules: Array<Rule>,
   ): void {
-    console.log(`Expanding type at path: ${path}`);
-
     switch (typeDef.kind) {
       case 'primitive':
         rules.push({
@@ -319,7 +294,7 @@ export class RulesetBuilder implements YorkieSchemaListener {
         });
         break;
 
-      case 'enum':
+      case 'union':
         rules.push({
           path,
           type: 'enum',
