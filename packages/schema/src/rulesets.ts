@@ -36,7 +36,7 @@ export type Rule =
   | ObjectRule
   | ArrayRule
   | YorkieTypeRule
-  | UnionRule;
+  | EnumRule;
 export type PrimitiveType =
   | 'boolean'
   | 'integer'
@@ -82,8 +82,8 @@ export type YorkieTypeRule = {
   type: YorkieType;
 } & RuleBase;
 
-export type UnionRule = {
-  type: 'union';
+export type EnumRule = {
+  type: 'enum';
   values: Array<string | number | boolean>;
 } & RuleBase;
 
