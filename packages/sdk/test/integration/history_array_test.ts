@@ -3,7 +3,7 @@ import { Document } from '@yorkie-js/sdk/src/document/document';
 import { JSONArray } from '@yorkie-js/sdk/src/yorkie';
 
 type Op = 'add' | 'move' | 'remove' | 'set';
-const ops: Op[] = ['add', 'remove'];
+const ops: Array<Op> = ['add', 'remove'];
 
 function applyOp(doc: Document<{ list: JSONArray<string> }>, op: Op) {
   doc.update((root) => {
@@ -43,17 +43,24 @@ describe('Array Undo Operations', () => {
             root.list = ['a', 'b', 'c', 'd', 'e'];
           }, 'init');
 
-          const S: string[] = [];
+          const S: Array<string> = [];
           S.push(doc.toSortedJSON());
 
-          applyOp(doc, op1); S.push(doc.toSortedJSON());
-          applyOp(doc, op2); S.push(doc.toSortedJSON());
-          applyOp(doc, op3); S.push(doc.toSortedJSON());
+          applyOp(doc, op1);
+          S.push(doc.toSortedJSON());
+          applyOp(doc, op2);
+          S.push(doc.toSortedJSON());
+          applyOp(doc, op3);
+          S.push(doc.toSortedJSON());
 
           for (let i = 3; i >= 1; i--) {
             doc.history.undo();
             const back = doc.toSortedJSON();
-            assert.equal(back, S[i - 1], `undo back to S${i - 1} failed on ${caseName}`);
+            assert.equal(
+              back,
+              S[i - 1],
+              `undo back to S${i - 1} failed on ${caseName}`,
+            );
           }
         });
       }
