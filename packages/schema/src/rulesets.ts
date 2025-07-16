@@ -44,7 +44,8 @@ export type PrimitiveType =
   | 'long'
   | 'string'
   | 'date'
-  | 'bytes';
+  | 'bytes'
+  | 'null';
 export type YorkieType =
   | 'yorkie.Text'
   | 'yorkie.Tree'
@@ -55,9 +56,11 @@ export type RuleType =
   | 'object'
   | 'array'
   | 'union'
+  | 'enum'
+  | 'null'
   | PrimitiveType
   | YorkieType
-  | 'enum';
+  ;
 
 export type RuleBase = {
   path: string;
