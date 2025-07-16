@@ -2,7 +2,7 @@ services:
   yorkie:
     image: 'yorkieteam/yorkie:latest'
     container_name: 'yorkie'
-    command: ['server', '--enable-pprof']
+    command: ['server', '--pprof-enabled']
     restart: always
     ports:
       - '8080:8080'
