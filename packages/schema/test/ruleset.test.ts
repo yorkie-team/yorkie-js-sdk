@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildRuleset } from '../src/rulesets';
 
 describe('RulesetBuilder', () => {
@@ -99,7 +99,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle nested objects regardless of order', () => {
+  it('should handle nested objects regardless of order', () => {
     const schema = `
       type Document = {
         user: User;
@@ -360,7 +360,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle enum types', () => {
+  it('should handle enum types', () => {
     const schema = `
       type Document = {
         theme: "light" | "dark";
