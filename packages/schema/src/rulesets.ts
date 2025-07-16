@@ -24,7 +24,6 @@ import {
   PropertySignatureContext,
   TypeAliasDeclarationContext,
   TypeReferenceContext,
-  UnionTypeContext,
   YorkieSchemaParser,
   YorkieTypeContext,
 } from '../antlr/YorkieSchemaParser';
@@ -220,7 +219,7 @@ export class RulesetBuilder implements YorkieSchemaListener {
   /**
    * `enterUnionType` is called when entering a union type.
    */
-  enterUnionType(ctx: UnionTypeContext) {
+  enterUnionType() {
     this.unionContext = { values: [] };
   }
 
