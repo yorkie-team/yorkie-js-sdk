@@ -16,36 +16,51 @@
 
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { ParseTreeWalker } from 'antlr4ts/tree';
-import {
-  PrimitiveTypeContext,
-  TypeAliasDeclarationContext,
-  YorkieSchemaParser,
-  PropertySignatureContext,
-  YorkieTypeContext,
-} from '../antlr/YorkieSchemaParser';
 import { YorkieSchemaLexer } from '../antlr/YorkieSchemaLexer';
 import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
+import {
+  LiteralContext,
+  PrimitiveTypeContext,
+  PropertySignatureContext,
+  TypeAliasDeclarationContext,
+  TypeReferenceContext,
+  YorkieSchemaParser,
+  YorkieTypeContext,
+} from '../antlr/YorkieSchemaParser';
 
 /**
  * `Rule` represents a rule for a field in the schema.
  */
-export type Rule = PrimitiveRule | ObjectRule | ArrayRule | YorkieTypeRule;
+export type Rule =
+  | PrimitiveRule
+  | ObjectRule
+  | ArrayRule
+  | YorkieTypeRule
+  | EnumRule;
 export type PrimitiveType =
-  | 'null'
   | 'boolean'
   | 'integer'
   | 'double'
   | 'long'
   | 'string'
   | 'date'
-  | 'bytes';
+  | 'bytes'
+  | 'null';
 export type YorkieType =
   | 'yorkie.Text'
   | 'yorkie.Tree'
   | 'yorkie.Counter'
   | 'yorkie.Object'
   | 'yorkie.Array';
-export type RuleType = 'object' | 'array' | PrimitiveType | YorkieType;
+export type RuleType =
+  | 'object'
+  | 'array'
+  | 'union'
+  | 'enum'
+  | 'null'
+  | PrimitiveType
+  | YorkieType
+  ;
 
 export type RuleBase = {
   path: string;
@@ -70,62 +85,113 @@ export type YorkieTypeRule = {
   type: YorkieType;
 } & RuleBase;
 
+export type EnumRule = {
+  type: 'enum';
+  values: Array<string | number | boolean>;
+} & RuleBase;
+
+// Internal types for building
+type TypeDefinition =
+  | {
+      kind: 'primitive';
+      primitiveType: PrimitiveType;
+    }
+  | {
+      kind: 'yorkie';
+      yorkieType: YorkieType;
+    }
+  | {
+      kind: 'object';
+      properties: Array<PropertyDefinition>;
+    }
+  | {
+      kind: 'reference';
+      typeName: string;
+    }
+  | {
+      kind: 'union';
+      values: Array<string | number | boolean>;
+    };
+
+type PropertyDefinition = {
+  name: string;
+  type: TypeDefinition;
+  optional: boolean;
+};
+
 /**
  * `RulesetBuilder` is a visitor that builds a ruleset from the given schema.
  */
 export class RulesetBuilder implements YorkieSchemaListener {
-  private currentPath: Array<string> = ['$'];
-  private ruleMap: Map<string, Rule> = new Map();
+  private typeDefinitions: Map<string, TypeDefinition> = new Map();
+  private currentTypeName: string | undefined = undefined;
+  private currentProperty: PropertyDefinition | undefined = undefined;
+  private typeStack: Array<TypeDefinition> = [];
+  private propertyStack: Array<Array<PropertyDefinition>> = [];
+  private currentProperties: Array<PropertyDefinition> = [];
+  private unionContext:
+    | { values: Array<string | number | boolean> }
+    | undefined = undefined;
 
   /**
    * `enterTypeAliasDeclaration` is called when entering a type alias declaration.
    */
   enterTypeAliasDeclaration(ctx: TypeAliasDeclarationContext) {
-    const typeName = ctx.Identifier().text;
-    if (typeName === 'Document') {
-      this.currentPath = ['$'];
+    this.currentTypeName = ctx.Identifier().text;
+    this.currentProperties = [];
+    this.unionContext = undefined;
+  }
 
-      this.ruleMap.set('$', {
-        path: '$',
-        type: 'object',
-        properties: [],
-      });
+  /**
+   * `exitTypeAliasDeclaration` is called when exiting a type alias declaration.
+   */
+  exitTypeAliasDeclaration() {
+    if (this.currentTypeName && this.typeStack.length > 0) {
+      const typeDef = this.typeStack.pop()!;
+      this.typeDefinitions.set(this.currentTypeName, typeDef);
     }
+    this.currentTypeName = undefined;
   }
 
   /**
    * `enterPrimitiveType` is called when entering a primitive type.
    */
   enterPrimitiveType(ctx: PrimitiveTypeContext) {
-    const type = ctx.text as PrimitiveType;
-    const path = this.buildPath();
-    const rule: Rule = {
-      path,
-      type,
-    };
-
-    this.ruleMap.set(path, rule);
+    const primitiveType = ctx.text as PrimitiveType;
+    this.typeStack.push({ kind: 'primitive', primitiveType });
   }
 
   /**
-   * `exitPrimitiveType` is called when exiting a primitive type.
+   * `enterYorkieType` is called when entering a Yorkie type.
    */
-  exitPrimitiveType() {
-    this.currentPath.pop();
+  enterYorkieType(ctx: YorkieTypeContext) {
+    const yorkieType = ctx.text as YorkieType;
+    this.typeStack.push({ kind: 'yorkie', yorkieType });
+  }
+
+  /**
+   * `enterTypeReference` is called when entering a type reference.
+   */
+  enterTypeReference(ctx: TypeReferenceContext) {
+    const typeName = ctx.Identifier().text;
+    this.typeStack.push({ kind: 'reference', typeName });
   }
 
   /**
    * `enterObjectType` is called when entering an object type.
    */
   enterObjectType() {
-    const path = this.buildPath();
-    const rule: ObjectRule = {
-      path,
-      type: 'object',
-      properties: [],
-    };
+    this.propertyStack.push(this.currentProperties);
+    this.currentProperties = [];
+  }
 
-    this.ruleMap.set(path, rule);
+  /**
+   * `exitObjectType` is called when exiting an object type.
+   */
+  exitObjectType() {
+    const properties = this.currentProperties;
+    this.currentProperties = this.propertyStack.pop() || [];
+    this.typeStack.push({ kind: 'object', properties });
   }
 
   /**
@@ -133,56 +199,145 @@ export class RulesetBuilder implements YorkieSchemaListener {
    */
   enterPropertySignature(ctx: PropertySignatureContext) {
     const propName = ctx.propertyName().text;
-    const parentPath = this.buildPath();
-    const parentRule = this.ruleMap.get(parentPath);
+    const isOptional = !!ctx.QUESTION();
 
-    if (parentRule) {
-      if (parentRule.type === 'object') {
-        const objectRule = parentRule as ObjectRule;
-        objectRule.properties = objectRule.properties ?? [];
-        objectRule.properties.push(propName);
+    this.currentProperty = {
+      name: propName,
+      type: { kind: 'primitive', primitiveType: 'string' }, // temporary
+      optional: isOptional,
+    };
+  }
 
-        const isOptional = !!ctx.QUESTION();
-        if (isOptional) {
-          objectRule.optional = objectRule.optional ?? [];
-          objectRule.optional.push(propName);
-        }
-      }
+  /**
+   * `exitPropertySignature` is called when exiting a property signature.
+   */
+  exitPropertySignature() {
+    if (this.currentProperty && this.typeStack.length > 0) {
+      this.currentProperty.type = this.typeStack.pop()!;
+      this.currentProperties.push(this.currentProperty);
+    }
+    this.currentProperty = undefined;
+  }
+
+  /**
+   * `enterUnionType` is called when entering a union type.
+   */
+  enterUnionType() {
+    this.unionContext = { values: [] };
+  }
+
+  /**
+   * `exitUnionType` is called when exiting a union type.
+   */
+  exitUnionType() {
+    if (this.unionContext && this.unionContext.values.length > 0) {
+      this.typeStack.push({ kind: 'union', values: this.unionContext.values });
+    }
+    this.unionContext = undefined;
+  }
+
+  /**
+   * `enterLiteral` is called when entering a literal.
+   */
+  enterLiteral(ctx: LiteralContext) {
+    const text = ctx.text;
+    let value: string | number | boolean | undefined = undefined;
+
+    if (text.startsWith('"') && text.endsWith('"')) {
+      value = text.slice(1, -1);
+    } else if (!isNaN(Number(text))) {
+      value = Number(text);
+    } else if (text === 'true' || text === 'false') {
+      value = text === 'true';
+    } else {
+      return; // Invalid literal
     }
 
-    this.currentPath.push(propName);
-  }
-
-  /**
-   * `enterYorkieType` is called when entering a Yorkie type.
-   */
-  enterYorkieType(ctx: YorkieTypeContext) {
-    const type = ctx.text as YorkieType;
-    const path = this.buildPath();
-    const rule: YorkieTypeRule = {
-      path,
-      type,
-    };
-
-    this.ruleMap.set(path, rule);
-  }
-
-  /**
-   * `exitYorkieType` is called when exiting a Yorkie type.
-   */
-  exitYorkieType() {
-    this.currentPath.pop();
-  }
-
-  private buildPath(): string {
-    return this.currentPath.join('.');
+    if (this.unionContext) {
+      this.unionContext.values.push(value);
+    } else {
+      this.typeStack.push({ kind: 'union', values: [value] });
+    }
   }
 
   /**
    * `build` returns the built ruleset.
    */
   build(): Array<Rule> {
-    return Array.from(this.ruleMap.values());
+    const documentType = this.typeDefinitions.get('Document');
+    if (!documentType) {
+      console.warn('Document type not found');
+      return [];
+    }
+
+    const rules: Array<Rule> = [];
+    this.expandType(documentType, '$', rules);
+
+    return rules;
+  }
+
+  private expandType(
+    typeDef: TypeDefinition,
+    path: string,
+    rules: Array<Rule>,
+  ): void {
+    switch (typeDef.kind) {
+      case 'primitive':
+        rules.push({
+          path,
+          type: typeDef.primitiveType,
+        });
+        break;
+
+      case 'yorkie':
+        rules.push({
+          path,
+          type: typeDef.yorkieType,
+        });
+        break;
+
+      case 'union':
+        rules.push({
+          path,
+          type: 'enum',
+          values: typeDef.values,
+        });
+        break;
+
+      case 'object': {
+        const objectRule: ObjectRule = {
+          path,
+          type: 'object',
+          properties: typeDef.properties.map((p) => p.name),
+        };
+
+        const optionalProps = typeDef.properties
+          .filter((p) => p.optional)
+          .map((p) => p.name);
+        if (optionalProps.length > 0) {
+          objectRule.optional = optionalProps;
+        }
+
+        rules.push(objectRule);
+
+        // Recursively expand properties
+        for (const property of typeDef.properties) {
+          const propertyPath = `${path}.${property.name}`;
+          this.expandType(property.type, propertyPath, rules);
+        }
+        break;
+      }
+
+      case 'reference': {
+        const referencedType = this.typeDefinitions.get(typeDef.typeName);
+        if (referencedType) {
+          this.expandType(referencedType, path, rules);
+        } else {
+          console.warn(`Type reference not found: ${typeDef.typeName}`);
+        }
+        break;
+      }
+    }
   }
 }
 
