@@ -1,114 +1,55 @@
 'use client';
 
-import { useDocument, usePresences } from '@yorkie-js/react';
-import { Indexable, OperationInfo, Text } from '@yorkie-js/sdk';
-import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
+import { useDocument } from '@yorkie-js/react';
+import { OperationInfo, Text } from '@yorkie-js/sdk';
+import Quill, { QuillOptionsStatic, type DeltaStatic } from 'quill';
 import 'quill/dist/quill.snow.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { getDeltaOperations, toDeltaOperation } from '../lib/utils';
+import { YorkieDoc } from '../types';
+import DocumentInfo from './DocumentInfo';
 import NetworkStatus from './NetworkStatus';
+import Participants from './Participants';
 
-type YorkieDoc = {
-  content: Text;
-};
+const quillSettings = {
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      ['blockquote', 'code-block'],
+      [{ header: 1 }, { header: 2 }],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      [{ script: 'sub' }, { script: 'super' }],
+      [{ indent: '-1' }, { indent: '+1' }],
+      [{ direction: 'rtl' }],
+      [{ size: ['small', false, 'large', 'huge'] }],
+      [{ header: [1, 2, 3, 4, 5, 6, false] }],
+      [{ color: [] }, { background: [] }],
+      [{ font: [] }],
+      [{ align: [] }],
+      ['clean'],
+    ],
+  },
+  theme: 'snow',
+} satisfies QuillOptionsStatic;
 
-type TextValueType = {
-  attributes?: Indexable;
-  content?: string;
-};
-
-function toDeltaOperation<T extends TextValueType>(
-  textValue: T,
-): DeltaOperation {
-  const { embed, ...restAttributes } = textValue.attributes ?? {};
-  if (embed) {
-    return { insert: embed, attributes: restAttributes };
-  }
-
-  return {
-    insert: textValue.content || '',
-    attributes: textValue.attributes,
-  };
-}
-
-export default function Editor() {
+const Editor = () => {
   const editorRef = useRef<HTMLDivElement>(null);
   const quillRef = useRef<Quill | null>(null);
   const initializingRef = useRef(false);
 
-  const [documentJson, setDocumentJson] = useState('');
-  const [documentText, setDocumentText] = useState('');
-
   const { doc, update, loading, error } = useDocument<YorkieDoc>();
-  const presences = usePresences();
 
-  // Document state update
-  useEffect(() => {
-    if (doc) {
-      setDocumentJson(doc.toJSON());
-      setDocumentText(doc.getRoot().content?.toTestString() || '');
-    }
-  }, [doc]);
-
-  const handleOperations = useCallback((ops: Array<OperationInfo>) => {
+  const handleOperations = useCallback((ops: OperationInfo[]) => {
     if (!quillRef.current) return;
 
-    const deltaOperations = [];
-    let prevTo = 0;
-
-    for (const op of ops) {
-      if (op.type === 'edit') {
-        const from = op.from;
-        const to = op.to;
-        const retainFrom = from - prevTo;
-        const retainTo = to - from;
-
-        const { insert, attributes } = toDeltaOperation(op.value!);
-        console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
-
-        if (retainFrom) {
-          deltaOperations.push({ retain: retainFrom });
-        }
-        if (retainTo) {
-          deltaOperations.push({ delete: retainTo });
-        }
-        if (insert) {
-          const op: DeltaOperation = { insert };
-          if (attributes) {
-            op.attributes = attributes;
-          }
-          deltaOperations.push(op);
-        }
-        prevTo = to;
-      } else if (op.type === 'style') {
-        const from = op.from;
-        const to = op.to;
-        const retainFrom = from - prevTo;
-        const retainTo = to - from;
-        const { attributes } = toDeltaOperation(op.value!);
-        console.log(
-          `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
-          'color: skyblue',
-        );
-
-        if (retainFrom) {
-          deltaOperations.push({ retain: retainFrom });
-        }
-        if (attributes) {
-          const op: DeltaOperation = { attributes };
-          if (retainTo) {
-            op.retain = retainTo;
-          }
-          deltaOperations.push(op);
-        }
-        prevTo = to;
-      }
-    }
+    const deltaOperations = getDeltaOperations(ops);
 
     if (deltaOperations.length) {
       console.log(
         `%c to quill: ${JSON.stringify(deltaOperations)}`,
         'color: green',
       );
+
       const delta = {
         ops: deltaOperations,
       } as DeltaStatic;
@@ -130,7 +71,6 @@ export default function Editor() {
 
   useEffect(() => {
     if (!editorRef.current || !doc || initializingRef.current) return;
-
     initializingRef.current = true;
 
     // Document content initialization
@@ -146,8 +86,6 @@ export default function Editor() {
       if (event.type === 'snapshot') {
         syncText();
       }
-      setDocumentJson(doc.toJSON());
-      setDocumentText(doc.getRoot().content?.toTestString() || '');
     });
 
     const unsubscribeContent = doc.subscribe('$.content', (event: any) => {
@@ -157,28 +95,7 @@ export default function Editor() {
     });
 
     // Quill initialization
-    const quill = new Quill(editorRef.current, {
-      modules: {
-        toolbar: [
-          ['bold', 'italic', 'underline', 'strike'],
-          ['blockquote', 'code-block'],
-          [{ header: 1 }, { header: 2 }],
-          [{ list: 'ordered' }, { list: 'bullet' }],
-          [{ script: 'sub' }, { script: 'super' }],
-          [{ indent: '-1' }, { indent: '+1' }],
-          [{ direction: 'rtl' }],
-          [{ size: ['small', false, 'large', 'huge'] }],
-          [{ header: [1, 2, 3, 4, 5, 6, false] }],
-          [{ color: [] }, { background: [] }],
-          [{ font: [] }],
-          [{ align: [] }],
-          ['image', 'video'],
-          ['clean'],
-        ],
-      },
-      theme: 'snow',
-    });
-
+    const quill = new Quill(editorRef.current, quillSettings);
     quillRef.current = quill;
 
     // Quill event bindings
@@ -271,39 +188,16 @@ export default function Editor() {
     <div className="container mx-auto p-4">
       <div className="mb-4 flex items-center gap-4">
         <NetworkStatus doc={doc} />
-        // TODO : seperate participants component
-        <div className="flex items-center gap-2">
-          <span>Participants:</span>
-          <div className="flex items-center gap-2">
-            {presences && presences.length > 0 ? (
-              <span className="text-sm text-gray-600">
-                {presences.length === 1 ? 'Just you' : `${presences.length} users`}
-              </span>
-            ) : (
-              <span className="text-sm text-gray-400">No participants</span>
-            )}
-          </div>
-        </div>
+        <Participants />
       </div>
 
       <div className="mb-4">
         <div ref={editorRef} className="h-96 border border-gray-300 rounded" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h3 className="font-bold mb-2">Document JSON:</h3>
-          <pre className="bg-gray-100 p-2 rounded text-sm overflow-auto max-h-40">
-            {documentJson}
-          </pre>
-        </div>
-        <div>
-          <h3 className="font-bold mb-2">Document Text:</h3>
-          <pre className="bg-gray-100 p-2 rounded text-sm overflow-auto max-h-40">
-            {documentText}
-          </pre>
-        </div>
-      </div>
+      <DocumentInfo doc={doc} />
     </div>
   );
 }
+
+export default Editor;

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { useMemo } from "react";
 
 // For Quill, we need to disable server-side rendering
-// Without this, Quill will throw an error that document is not defined
+// Without it, Quill will throw an error that document is not defined
 const ClientEditor = dynamic(() => import('../components/Editor'), {
   ssr: false,
 });
