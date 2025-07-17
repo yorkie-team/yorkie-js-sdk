@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.20] - 2025-07-17
+
+### Added
+
+- Support Undo/Redo for array.add and array.remove by @KMSstudio in https://github.com/yorkie-team/yorkie-js-sdk/pull/1014
+
+### Fixed
+
+- Update CONTRIBUTING.md to use `pnpm i` by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1012
+- Update deprecated pprof flag by @pengooseDev in https://github.com/yorkie-team/yorkie-js-sdk/pull/1020
+- Change schema tests to use assert.include by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1024
+- Fix typo in MaxDelimiter constant name by @jaesoekjjang in https://github.com/yorkie-team/yorkie-js-sdk/pull/1022
+
 ## [0.6.18] - 2025-07-01
 
 ### Added
