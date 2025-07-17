@@ -15,10 +15,9 @@ module.exports = {
     },
   ],
   ignorePatterns: [
-    'dist/**/*',
-    '**/*.d.ts',
-    // TODO(pengooseDev): Consider unifying the test file naming convention (e.g. .test or _test)
-    '**/*_test.ts',
-    '**/*.bench.ts',
+    'dist/*',
+    'src/api/yorkie/v1/*.d.ts',
+    'test/vitest.d.ts',
+    'lib',
   ],
 };
