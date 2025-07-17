@@ -924,6 +924,56 @@ describe('Document', function () {
     unsub2();
   });
 
+  it('can re-attach a detached document with same client', async function ({
+    task,
+  }) {
+    type TestDoc = { foo: string };
+    const docKey = toDocKey(
+      `${task.name}-reattach-same-client-${new Date().getTime()}`,
+    );
+    const doc = new yorkie.Document<TestDoc>(docKey);
+
+    // Create and activate client
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await client.activate();
+
+    // 1. First attach and update
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    doc.update((root) => {
+      root.foo = 'bar';
+    });
+    await client.sync();
+    assert.equal(doc.getStatus(), DocStatus.Attached);
+    assert.equal(doc.toSortedJSON(), '{"foo":"bar"}');
+
+    // 2. Detach document and sync before detaching
+    await client.sync();
+    await client.detach(doc);
+    assert.equal(doc.getStatus(), DocStatus.Detached);
+
+    // 3. Wait for server state to settle
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // 4. Re-attach the same document
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    await client.sync();
+    assert.equal(doc.getStatus(), DocStatus.Attached);
+    assert.equal(doc.toSortedJSON(), '{"foo":"bar"}');
+
+    // 5. Update after reattachment
+    doc.update((root) => {
+      root.foo = 'baz';
+    });
+    await client.sync();
+    assert.equal(doc.toSortedJSON(), '{"foo":"baz"}');
+
+    // 6. Final cleanup
+    await client.sync();
+    await client.detach(doc);
+    assert.equal(doc.getStatus(), DocStatus.Detached);
+    await client.deactivate();
+  });
+
   describe('Undo/Redo', function () {
     it('Can canUndo/canRedo work properly', async function ({ task }) {
       type TestDoc = { counter: Counter };
