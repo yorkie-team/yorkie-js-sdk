@@ -9,10 +9,10 @@ const ClientEditor = dynamic(() => import('../components/Editor'), {
 });
 
 export default function Home() {
-  const docKey = useMemo(() => `nextjs-quill-${new Date()
-    .toISOString()
-    .substring(0, 10)
-    .replace(/-/g, '')}`, []);
+  const docKey = useMemo(() => {
+    const today = new Date().toISOString().substring(0, 10).replace(/-/g, '');
+    return `nextjs-quill-${today}`;
+  }, []);
 
   return (
     <YorkieProvider
