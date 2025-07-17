@@ -1,9 +1,11 @@
 'use client';
 
-import { YorkieProvider, DocumentProvider } from '@yorkie-js/react';
+import { DocumentProvider, YorkieProvider } from '@yorkie-js/react';
 import dynamic from 'next/dynamic';
 import { useMemo } from "react";
 
+// For Quill, we need to disable server-side rendering
+// Without this, Quill will throw an error that document is not defined
 const ClientEditor = dynamic(() => import('../components/Editor'), {
   ssr: false,
 });

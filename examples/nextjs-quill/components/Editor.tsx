@@ -1,19 +1,14 @@
 'use client';
 
 import { useDocument, usePresences } from '@yorkie-js/react';
-import { Indexable, OperationInfo, Text, TextPosStructRange } from '@yorkie-js/sdk';
+import { Indexable, OperationInfo, Text } from '@yorkie-js/sdk';
 import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import NetworkStatus from './NetworkStatus';
 
 type YorkieDoc = {
   content: Text;
-};
-
-type YorkiePresence = {
-  username: string;
-  color: string;
-  selection?: TextPosStructRange;
 };
 
 type TextValueType = {
@@ -43,7 +38,7 @@ export default function Editor() {
   const [documentJson, setDocumentJson] = useState('');
   const [documentText, setDocumentText] = useState('');
 
-  const { doc, update, loading, error } = useDocument<YorkieDoc, YorkiePresence>();
+  const { doc, update, loading, error } = useDocument<YorkieDoc>();
   const presences = usePresences();
 
   // Document state update
@@ -265,36 +260,25 @@ export default function Editor() {
     };
   }, [doc]);
 
-  if (loading) return <div className="p-4">Loading editor...</div>;
-  if (error) return <div className="p-4 text-red-500">Error: {error.message}</div>;
+  if (loading) return (
+    <div className="p-4">Loading editor...</div>
+  );
+  if (error) return (
+    <div className="p-4 text-red-500">Error: {error.message}</div>
+  );
 
   return (
     <div className="container mx-auto p-4">
       <div className="mb-4 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <span>Network Status:</span>
-          <span className="inline-block w-3 h-3 rounded-full bg-green-500"></span>
-        </div>
+        <NetworkStatus doc={doc} />
+        // TODO : seperate participants component
         <div className="flex items-center gap-2">
           <span>Participants:</span>
           <div className="flex items-center gap-2">
             {presences && presences.length > 0 ? (
-              <>
-                <div className="flex -space-x-2">
-                  {presences.slice(0, 3).map((user, _) => (
-                    <div
-                      key={user.clientID}
-                      className="h-6 w-6 rounded-full border-2 border-white flex items-center justify-center text-xs text-white"
-                      style={{ backgroundColor: user.presence.color }}
-                    >
-                      {user.presence.username}
-                    </div>
-                  ))}
-                </div>
-                <span className="text-sm text-gray-600">
-                  {presences.length === 1 ? 'Just you' : `${presences.length} users`}
-                </span>
-              </>
+              <span className="text-sm text-gray-600">
+                {presences.length === 1 ? 'Just you' : `${presences.length} users`}
+              </span>
             ) : (
               <span className="text-sm text-gray-400">No participants</span>
             )}
