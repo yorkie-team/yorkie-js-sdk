@@ -1,6 +1,6 @@
 'use client';
 
-import { DocumentProvider, YorkieProvider } from "@yorkie-js/react";
+import { YorkieProvider, DocumentProvider } from '@yorkie-js/react';
 import dynamic from 'next/dynamic';
 import { useMemo } from "react";
 
