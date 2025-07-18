@@ -154,10 +154,10 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   };
 }
 
-type DocumentContextType<R, P extends Indexable = Indexable> = {
+export type DocumentContextType<R, P extends Indexable = Indexable> = {
   doc: Document<R, P> | undefined;
   root: R;
-  presences: { clientID: string; presence: P }[];
+  presences: Array<{ clientID: string; presence: P }>;
   connection: StreamConnectionStatus;
   update: (callback: (root: R, presence: Presence<P>) => void) => void;
   loading: boolean;
