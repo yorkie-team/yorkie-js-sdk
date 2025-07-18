@@ -273,6 +273,50 @@ export function useDocument<
 }
 
 /**
+ * `useDocumentSelector` is a custom hook that returns a selected slice of the document state.
+ * Since 2nd, 3rd type parameters are swapped, it has little better usability than `useDocument`
+ * when you want to select a specific part of the document state.
+ */
+export const useDocumentSelector = <
+  R,
+  T = DocumentContextType<R, Indexable>,
+  P extends Indexable = Indexable,
+>(
+  selector: (state: DocumentContextType<R, P>) => T,
+  equalityFn?: (a: T, b: T) => boolean,
+): T => {
+  const documentStore = useContext(DocumentContext);
+  if (!documentStore) {
+    throw new Error(
+      'useDocumentSelector must be used within a DocumentProvider',
+    );
+  }
+  return useSelector(documentStore, selector, equalityFn);
+};
+
+/**
+ * `createUseDocument` is a factory function that provides a selector-based `useDocument` hook.
+ * By currying this function, type T can be inferred from the selector function.
+ */
+export const createUseDocument = <R, P extends Indexable = Indexable>() => {
+  return <T = DocumentContextType<R, P>,>(
+    selector?: (state: DocumentContextType<R, P>) => T,
+    equalityFn?: (a: T, b: T) => boolean,
+  ): T => {
+    const documentStore = useContext(DocumentContext);
+    if (!documentStore) {
+      throw new Error('useDocument must be used within a DocumentProvider');
+    }
+
+    if (!selector) {
+      return useSelector(documentStore, (s) => s as T, equalityFn);
+    }
+
+    return useSelector(documentStore, selector, equalityFn);
+  };
+};
+
+/**
  * `useRoot` is a custom hook that returns the root object of the document.
  * This hook must be used within a `DocumentProvider`.
  */

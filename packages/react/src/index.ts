@@ -24,6 +24,8 @@ import {
   useRoot,
   usePresences,
   useConnection,
+  createUseDocument,
+  useDocumentSelector,
 } from './DocumentProvider';
 
 export type { Document, JSONArray, JSONObject };
@@ -35,4 +37,6 @@ export {
   usePresences,
   useConnection,
   useYorkieDoc,
+  createUseDocument,
+  useDocumentSelector,
 };
