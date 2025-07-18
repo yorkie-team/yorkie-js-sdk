@@ -95,6 +95,9 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
       }),
     );
 
+    /**
+     * `attachDocument` is a function that attaches the document to the client.
+     */
     async function attachDocument() {
       try {
         await client?.attach(newDoc, {
@@ -164,6 +167,7 @@ export type DocumentContextType<R, P extends Indexable = Indexable> = {
   error: Error | undefined;
 };
 
+// eslint-disable-next-line @typescript-eslint/ban-types
 const DocumentContext = createContext<DocumentContextType<any, any> | null>(
   null,
 );
@@ -224,7 +228,7 @@ export const useDocument = <R, P extends Indexable = Indexable>() => {
   return {
     doc: context.doc as Document<R, P>,
     root: context.root as R,
-    presences: context.presences as { clientID: string; presence: P }[],
+    presences: context.presences as Array<{ clientID: string; presence: P }>,
     connection: context.connection,
     update: context.update as (
       callback: (root: R, presence: Presence<P>) => void,
