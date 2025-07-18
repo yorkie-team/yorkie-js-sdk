@@ -1,11 +1,12 @@
-import { useConnection } from "@yorkie-js/react";
-import { StreamConnectionStatus } from "@yorkie-js/sdk";
+import { useConnection } from '@yorkie-js/react';
+import { StreamConnectionStatus } from '@yorkie-js/sdk';
+import { memo } from 'react';
 
-export function ConnectionStatus() {
+export const ConnectionStatus = memo(function ConnectionStatus() {
   const connection = useConnection();
   return (
     <div id="connection-status">
-      Connection Status: {' '}
+      Connection Status:{' '}
       {connection === StreamConnectionStatus.Connected ? (
         <span className="green"> </span>
       ) : (
@@ -13,4 +14,4 @@ export function ConnectionStatus() {
       )}
     </div>
   );
-}
+});
