@@ -19,6 +19,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -29,6 +30,9 @@ import {
   Client,
 } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
+import { createDocumentStore } from './createDocumentStore';
+import { useSelector } from './useSelector';
+import { Store } from './createStore';
 
 /**
  * `useYorkieDocument` is a custom hook that initializes a Yorkie document.
@@ -167,10 +171,9 @@ export type DocumentContextType<R, P extends Indexable = Indexable> = {
   error: Error | undefined;
 };
 
-// eslint-disable-next-line @typescript-eslint/ban-types
-const DocumentContext = createContext<DocumentContextType<any, any> | null>(
-  null,
-);
+const DocumentContext =
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  createContext<Store<DocumentContextType<any, any>> | null>(null);
 
 /**
  * `DocumentProvider` is a component that provides a document to its children.
@@ -189,6 +192,21 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
+
+  /**
+   * Initialize the document store only once per component instance.
+   * It prevents creating a new store on every render without using `useMemo`.
+   */
+  const documentStoreRef = useRef<
+    ReturnType<typeof createDocumentStore<R, P>> | undefined
+  >(undefined);
+
+  if (!documentStoreRef.current) {
+    documentStoreRef.current = createDocumentStore<R, P>(initialRoot);
+  }
+
+  const documentStore = documentStoreRef.current;
+
   const { doc, root, presences, connection, update, loading, error } =
     useYorkieDocument<R, P>(
       client,
@@ -199,18 +217,20 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
       initialPresence,
     );
 
+  useEffect(() => {
+    documentStore.setState(() => ({
+      doc,
+      root,
+      presences,
+      connection,
+      update,
+      loading,
+      error,
+    }));
+  }, [doc, root, presences, connection, update, loading, error, documentStore]);
+
   return (
-    <DocumentContext.Provider
-      value={{
-        doc,
-        root,
-        presences,
-        connection,
-        update,
-        loading,
-        error,
-      }}
-    >
+    <DocumentContext.Provider value={documentStore}>
       {children}
     </DocumentContext.Provider>
   );
@@ -219,55 +239,76 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 /**
  * `useDocument` is a custom hook that returns the root object and update function of the document.
  * This hook must be used within a `DocumentProvider`.
+ * @param selector A function to select a slice of the document state.
+ * @param equalityFn A function to compare the selected slice of state.
+ * @returns The selected slice of the document state.
  */
-export const useDocument = <R, P extends Indexable = Indexable>() => {
-  const context = useContext(DocumentContext);
-  if (!context) {
+export function useDocument<
+  R,
+  P extends Indexable = Indexable,
+>(): DocumentContextType<R, P>;
+export function useDocument<
+  R,
+  P extends Indexable = Indexable,
+  T = DocumentContextType<R, P>,
+>(
+  selector: (state: DocumentContextType<R, P>) => T,
+  equalityFn?: (a: T, b: T) => boolean,
+): T;
+// eslint-disable-next-line jsdoc/require-jsdoc -- JSDoc already written for overloads
+export function useDocument<
+  R,
+  P extends Indexable = Indexable,
+  T = DocumentContextType<R, P>,
+>(
+  selector?: (state: DocumentContextType<R, P>) => T,
+  equalityFn: (a: T, b: T) => boolean = Object.is,
+): T {
+  const documentStore = useContext(DocumentContext);
+  if (!documentStore) {
     throw new Error('useDocument must be used within a DocumentProvider');
   }
-  return {
-    doc: context.doc as Document<R, P>,
-    root: context.root as R,
-    presences: context.presences as Array<{ clientID: string; presence: P }>,
-    connection: context.connection,
-    update: context.update as (
-      callback: (root: R, presence: Presence<P>) => void,
-    ) => void,
-    loading: context.loading,
-    error: context.error,
-  };
-};
+
+  return useSelector(documentStore, selector, equalityFn);
+}
 
 /**
  * `useRoot` is a custom hook that returns the root object of the document.
  * This hook must be used within a `DocumentProvider`.
  */
-export const useRoot = () => {
-  const context = useContext(DocumentContext);
-  if (!context) {
-    throw new Error('useRoot must be used within a DocumentProvider');
-  }
-  return { root: context.root };
+export const useRoot = <R,>() => {
+  const documentStore = useDocumentStore('useRoot');
+  const root = useSelector(documentStore, (store) => store.root);
+  return { root: root as R };
 };
 
 /**
  * `usePresences` is a custom hook that returns the presences of the document.
  */
-export const usePresences = () => {
-  const context = useContext(DocumentContext);
-  if (!context) {
-    throw new Error('usePresences must be used within a DocumentProvider');
-  }
-  return context.presences;
+export const usePresences = <P extends Indexable = Indexable>() => {
+  const documentStore = useDocumentStore('usePresences');
+  return useSelector(documentStore, (store) => store.presences) as Array<{
+    clientID: string;
+    presence: P;
+  }>;
 };
 
 /**
  * `useConnection` is a custom hook that returns the connection status of the document.
  */
 export const useConnection = () => {
-  const context = useContext(DocumentContext);
-  if (!context) {
-    throw new Error('useConnection must be used within a DocumentProvider');
+  const documentStore = useDocumentStore('useConnection');
+  return useSelector(documentStore, (store) => store.connection);
+};
+
+/**
+ * `useDocumentStore` is a custom hook that returns the document store.
+ * It also ensures that the hook is used within a `DocumentProvider`.
+ */
+const useDocumentStore = (hookName: string) => {
+  const documentStore = useContext(DocumentContext);
+  if (!documentStore) {
+    throw new Error(`${hookName} must be used within a DocumentProvider`);
   }
-  return context.connection;
+  return documentStore;
 };
