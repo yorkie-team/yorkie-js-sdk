@@ -1,7 +1,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { OperationInfo } from '@yorkie-js/sdk';
 import { clsx, type ClassValue } from 'clsx';
-import { Op } from 'quill/core';
+import { Op } from 'quill';
 import { twMerge } from 'tailwind-merge';
 import { TextValueType } from '../types';
 
@@ -9,8 +9,8 @@ export const cn = (...inputs: Array<ClassValue>) => {
   return twMerge(clsx(inputs));
 };
 
-// Converts a TextValueType to a DeltaOperation
-export function toDeltaOperation<T extends TextValueType>(textValue: T): Op {
+// Convert Yorkie TextValueType to Quill Operation
+export const toDeltaOperation = <T extends TextValueType>(textValue: T): Op => {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
     return { insert: JSON.parse(embed), attributes: restAttributes };
@@ -20,9 +20,10 @@ export function toDeltaOperation<T extends TextValueType>(textValue: T): Op {
     insert: textValue.content || '',
     attributes: textValue.attributes,
   };
-}
+};
 
-export const getDeltaOperations = (ops: Array<OperationInfo>) => {
+// Convert array of Yorkie OperationInfo to array of Quill Delta Operations
+export const getDeltaOperations = (ops: OperationInfo[]): Op[] => {
   const operations: Op[] = [];
   let prevTo = 0;
 

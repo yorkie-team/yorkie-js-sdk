@@ -39,6 +39,7 @@ const Editor = () => {
 
   const { doc, update, loading, error } = useDocument<YorkieDoc>();
 
+  // Handle remote operations and apply them to Quill editor
   const handleOperations = useCallback((ops: OperationInfo[]) => {
     if (!quillRef.current) return;
 
@@ -50,11 +51,14 @@ const Editor = () => {
         'color: green',
       );
 
+      // Apply remote changes to Quill editor 
       const delta = new Delta(deltaOperations);
+      // using 'api' source to prevent infinite loop
       quillRef.current.updateContents(delta, 'api');
     }
   }, []);
 
+  // Synchronize entire document content with Quill editor
   const syncText = useCallback(() => {
     if (!doc || !quillRef.current) return;
 
@@ -62,6 +66,7 @@ const Editor = () => {
     if (!text) return;
 
     const delta = new Delta(text.values().map((val: any) => toDeltaOperation(val)));
+    // using 'api' source to prevent infinite loop
     quillRef.current.setContents(delta, 'api');
   }, [doc]);
 
@@ -77,32 +82,37 @@ const Editor = () => {
       }
     });
 
-    // Document event subscription
+    // Subscribe to document-level events (snapshots, connection status, etc.)
     const unsubscribeDoc = doc.subscribe((event: any) => {
       if (event.type === 'snapshot') {
         syncText();
       }
     });
 
+    // Subscribe to changes specifically in the 'content' field
+    // $.content means we are subscribing to changes in the 'content' field of the document
+    // (which is a YorkieText in YorkieDoc type in this case)
     const unsubscribeContent = doc.subscribe('$.content', (event: any) => {
       if (event.type === 'remote-change') {
         handleOperations(event.value.operations);
       }
     });
 
-    // Quill initialization
+    // Initialize Quill editor instance
     const quill = new Quill(editorRef.current, quillSettings);
     quillRef.current = quill;
 
-    // Quill event bindings
-    quill.on('text-change', (delta: Delta, _: Delta, source: string) => {
+    // Listen to local text changes in Quill editor
+    quill.on('text-change', (delta: Delta, _oldContent: Delta, source: string) => {
       if (source === 'api' || !delta.ops) {
         return;
       }
 
+      // Track cursor position for processing operations
       let from = 0, to = 0;
       console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
 
+      // Process each operation in the delta
       for (const op of delta.ops) {
         if (op.attributes !== undefined || op.insert !== undefined) {
           if (op.retain !== undefined && typeof op.retain === 'number') {
@@ -114,8 +124,7 @@ const Editor = () => {
             'color: green',
           );
 
-          update((root, presence) => {
-            let range;
+          update((root) => {
             if (op.attributes !== undefined && op.insert === undefined) {
               root.content.setStyle(from, to, op.attributes);
             } else if (op.insert !== undefined) {
@@ -123,34 +132,24 @@ const Editor = () => {
                 to = from;
               }
 
+              // Handle embedded objects (images, videos, etc.)
               if (typeof op.insert === 'object') {
-                range = root.content.edit(from, to, ' ', {
+                root.content.edit(from, to, ' ', {
                   embed: JSON.stringify(op.insert),
                   ...op.attributes,
                 });
               } else {
-                range = root.content.edit(from, to, op.insert, op.attributes);
+                root.content.edit(from, to, op.insert, op.attributes);
               }
               from = to + (typeof op.insert === 'string' ? op.insert.length : 1);
-            }
-
-            if (range && presence) {
-              presence.set({
-                selection: root.content.indexRangeToPosRange(range),
-              });
             }
           });
         } else if (op.delete !== undefined) {
           to = from + op.delete;
           console.log(`%c local: ${from}-${to}: ''`, 'color: green');
-
-          update((root, presence) => {
-            const range = root.content.edit(from, to, '');
-            if (range && presence) {
-              presence.set({
-                selection: root.content.indexRangeToPosRange(range),
-              });
-            }
+          update((root) => {
+            // Delete by replacing with empty string
+            root.content.edit(from, to, '');
           });
         } else if (op.retain !== undefined && typeof op.retain === 'number') {
           from = to + op.retain;
@@ -159,9 +158,10 @@ const Editor = () => {
       }
     });
 
-    // Initial document content synchronization
+    // Perform initial synchronization of document content
     syncText();
 
+    // Cleanup function
     return () => {
       unsubscribeDoc();
       unsubscribeContent();
