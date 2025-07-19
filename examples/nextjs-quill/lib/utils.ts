@@ -13,7 +13,7 @@ export const cn = (...inputs: Array<ClassValue>) => {
 export const toDeltaOperation = <T extends TextValueType>(textValue: T): Op => {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
-    return { insert: JSON.parse(embed), attributes: restAttributes };
+    return { insert: JSON.parse(embed.toString()), attributes: restAttributes };
   }
 
   return {

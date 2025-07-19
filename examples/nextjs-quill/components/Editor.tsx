@@ -126,7 +126,7 @@ const Editor = () => {
 
           update((root) => {
             if (op.attributes !== undefined && op.insert === undefined) {
-              root.content.setStyle(from, to, op.attributes);
+              root.content.setStyle(from, to, op.attributes as any);
             } else if (op.insert !== undefined) {
               if (to < from) {
                 to = from;
@@ -139,7 +139,7 @@ const Editor = () => {
                   ...op.attributes,
                 });
               } else {
-                root.content.edit(from, to, op.insert, op.attributes);
+                root.content.edit(from, to, op.insert, op.attributes as any);
               }
               from = to + (typeof op.insert === 'string' ? op.insert.length : 1);
             }
