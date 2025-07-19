@@ -64,7 +64,7 @@ const Editor = () => {
     const text = doc.getRoot().content;
     if (!text) return;
 
-    const delta = new Delta(text.values().map((val: any) => toDeltaOperation(val)));
+    const delta = new Delta(text.values().map((val) => toDeltaOperation(val)));
     // using 'api' source to prevent infinite loop
     quillRef.current.setContents(delta, 'api');
   }, [doc]);
@@ -82,7 +82,7 @@ const Editor = () => {
     });
 
     // Subscribe to document-level events (snapshots, connection status, etc.)
-    const unsubscribeDoc = doc.subscribe((event: any) => {
+    const unsubscribeDoc = doc.subscribe((event) => {
       if (event.type === 'snapshot') {
         syncText();
       }
@@ -91,7 +91,7 @@ const Editor = () => {
     // Subscribe to changes specifically in the 'content' field
     // $.content means we are subscribing to changes in the 'content' field of the document
     // (which is a YorkieText in YorkieDoc type in this case)
-    const unsubscribeContent = doc.subscribe('$.content', (event: any) => {
+    const unsubscribeContent = doc.subscribe('$.content', (event) => {
       if (event.type === 'remote-change') {
         handleOperations(event.value.operations);
       }
@@ -170,7 +170,7 @@ const Editor = () => {
       }
       initializingRef.current = false;
     };
-  }, [doc]);
+  }, [doc, update, handleOperations, syncText]);
 
   if (loading) return (
     <div className="p-4">Loading editor...</div>

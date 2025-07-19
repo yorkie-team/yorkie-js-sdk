@@ -34,6 +34,10 @@ export const getDeltaOperations = (ops: OperationInfo[]): Op[] => {
       const retainFrom = from - prevTo;
       const retainTo = to - from;
 
+      if (!op.value) {
+        console.error('Operation value is undefined:', op);
+        continue;
+      }
       const { insert, attributes } = toDeltaOperation(op.value!);
       console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
