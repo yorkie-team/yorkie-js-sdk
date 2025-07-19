@@ -1,7 +1,7 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import { OperationInfo } from '@yorkie-js/sdk';
 import { clsx, type ClassValue } from 'clsx';
-import { DeltaOperation } from 'quill';
+import { Op } from 'quill/core';
 import { twMerge } from 'tailwind-merge';
 import { TextValueType } from '../types';
 
@@ -10,12 +10,10 @@ export const cn = (...inputs: Array<ClassValue>) => {
 };
 
 // Converts a TextValueType to a DeltaOperation
-export function toDeltaOperation<T extends TextValueType>(
-  textValue: T,
-): DeltaOperation {
+export function toDeltaOperation<T extends TextValueType>(textValue: T): Op {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
-    return { insert: embed, attributes: restAttributes };
+    return { insert: JSON.parse(embed), attributes: restAttributes };
   }
 
   return {
@@ -25,7 +23,7 @@ export function toDeltaOperation<T extends TextValueType>(
 }
 
 export const getDeltaOperations = (ops: Array<OperationInfo>) => {
-  const deltaOperations = [];
+  const operations: Op[] = [];
   let prevTo = 0;
 
   for (const op of ops) {
@@ -39,17 +37,17 @@ export const getDeltaOperations = (ops: Array<OperationInfo>) => {
       console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
       if (retainFrom) {
-        deltaOperations.push({ retain: retainFrom });
+        operations.push({ retain: retainFrom });
       }
       if (retainTo) {
-        deltaOperations.push({ delete: retainTo });
+        operations.push({ delete: retainTo });
       }
       if (insert) {
-        const op: DeltaOperation = { insert };
+        const deltaOp: Op = { insert };
         if (attributes) {
-          op.attributes = attributes;
+          deltaOp.attributes = attributes;
         }
-        deltaOperations.push(op);
+        operations.push(deltaOp);
       }
       prevTo = to;
     } else if (op.type === 'style') {
@@ -64,18 +62,18 @@ export const getDeltaOperations = (ops: Array<OperationInfo>) => {
       );
 
       if (retainFrom) {
-        deltaOperations.push({ retain: retainFrom });
+        operations.push({ retain: retainFrom });
       }
       if (attributes) {
-        const op: DeltaOperation = { attributes };
+        const deltaOp: Op = { attributes };
         if (retainTo) {
-          op.retain = retainTo;
+          deltaOp.retain = retainTo;
         }
-        deltaOperations.push(op);
+        operations.push(deltaOp);
       }
       prevTo = to;
     }
   }
 
-  return deltaOperations;
+  return operations;
 };

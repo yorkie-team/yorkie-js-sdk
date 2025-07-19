@@ -2,7 +2,7 @@
 
 import { useDocument } from '@yorkie-js/react';
 import { OperationInfo, Text } from '@yorkie-js/sdk';
-import Quill, { QuillOptionsStatic, type DeltaStatic } from 'quill';
+import Quill, { Delta, QuillOptions } from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useCallback, useEffect, useRef } from 'react';
 import { getDeltaOperations, toDeltaOperation } from '../lib/utils';
@@ -11,7 +11,7 @@ import DocumentInfo from './DocumentInfo';
 import NetworkStatus from './NetworkStatus';
 import Participants from './Participants';
 
-const quillSettings = {
+const quillSettings: QuillOptions = {
   modules: {
     toolbar: [
       ['bold', 'italic', 'underline', 'strike'],
@@ -30,7 +30,7 @@ const quillSettings = {
     ],
   },
   theme: 'snow',
-} satisfies QuillOptionsStatic;
+};
 
 const Editor = () => {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -50,9 +50,7 @@ const Editor = () => {
         'color: green',
       );
 
-      const delta = {
-        ops: deltaOperations,
-      } as DeltaStatic;
+      const delta = new Delta(deltaOperations);
       quillRef.current.updateContents(delta, 'api');
     }
   }, []);
@@ -63,9 +61,7 @@ const Editor = () => {
     const text = doc.getRoot().content;
     if (!text) return;
 
-    const delta = {
-      ops: text.values().map((val: any) => toDeltaOperation(val)),
-    } as DeltaStatic;
+    const delta = new Delta(text.values().map((val: any) => toDeltaOperation(val)));
     quillRef.current.setContents(delta, 'api');
   }, [doc]);
 
@@ -99,7 +95,7 @@ const Editor = () => {
     quillRef.current = quill;
 
     // Quill event bindings
-    quill.on('text-change', (delta, _, source) => {
+    quill.on('text-change', (delta: Delta, _: Delta, source: string) => {
       if (source === 'api' || !delta.ops) {
         return;
       }
@@ -109,7 +105,7 @@ const Editor = () => {
 
       for (const op of delta.ops) {
         if (op.attributes !== undefined || op.insert !== undefined) {
-          if (op.retain !== undefined) {
+          if (op.retain !== undefined && typeof op.retain === 'number') {
             to = from + op.retain;
           }
           console.log(
@@ -135,7 +131,7 @@ const Editor = () => {
               } else {
                 range = root.content.edit(from, to, op.insert, op.attributes);
               }
-              from = to + op.insert.length;
+              from = to + (typeof op.insert === 'string' ? op.insert.length : 1);
             }
 
             if (range && presence) {
@@ -156,7 +152,7 @@ const Editor = () => {
               });
             }
           });
-        } else if (op.retain !== undefined) {
+        } else if (op.retain !== undefined && typeof op.retain === 'number') {
           from = to + op.retain;
           to = from;
         }
