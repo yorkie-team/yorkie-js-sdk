@@ -8,7 +8,6 @@ import { useCallback, useEffect, useRef } from 'react';
 import { getDeltaOperations, toDeltaOperation } from '../lib/utils';
 import { YorkieDoc } from '../types';
 import DocumentInfo from './DocumentInfo';
-import NetworkStatus from './NetworkStatus';
 import Participants from './Participants';
 
 const quillSettings: QuillOptions = {
@@ -183,7 +182,6 @@ const Editor = () => {
   return (
     <div className="container mx-auto p-4">
       <div className="mb-4 flex items-center gap-4">
-        <NetworkStatus doc={doc} />
         <Participants />
       </div>
 

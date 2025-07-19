@@ -60,15 +60,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.0.17
-      '@types/color-hash':
-        specifier: ^1.0.5
-        version: 1.0.5
       '@types/node':
         specifier: ^20
         version: 20.9.0
-      '@types/quill':
-        specifier: ^1.3.10
-        version: 1.3.10
       '@types/react':
         specifier: ^19
         version: 19.0.12
