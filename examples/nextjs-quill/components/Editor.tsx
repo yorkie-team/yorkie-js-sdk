@@ -1,7 +1,7 @@
 'use client';
 
 import { useDocument } from '@yorkie-js/react';
-import { OperationInfo, Text } from '@yorkie-js/sdk';
+import { Indexable, OperationInfo, Text } from '@yorkie-js/sdk';
 import Quill, { Delta, QuillOptions } from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useCallback, useEffect, useRef } from 'react';
@@ -125,7 +125,7 @@ const Editor = () => {
 
           update((root) => {
             if (op.attributes !== undefined && op.insert === undefined) {
-              root.content.setStyle(from, to, op.attributes as any);
+              root.content.setStyle(from, to, op.attributes as Indexable);
             } else if (op.insert !== undefined) {
               if (to < from) {
                 to = from;
@@ -138,7 +138,7 @@ const Editor = () => {
                   ...op.attributes,
                 });
               } else {
-                root.content.edit(from, to, op.insert, op.attributes as any);
+                root.content.edit(from, to, op.insert, op.attributes as Indexable);
               }
               from = to + (typeof op.insert === 'string' ? op.insert.length : 1);
             }
