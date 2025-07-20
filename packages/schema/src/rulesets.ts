@@ -19,13 +19,14 @@ import { ParseTreeWalker } from 'antlr4ts/tree';
 import { YorkieSchemaLexer } from '../antlr/YorkieSchemaLexer';
 import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
 import {
+  ArrayTypeContext,
   LiteralContext,
   PrimitiveTypeContext,
   PropertySignatureContext,
   TypeAliasDeclarationContext,
   TypeReferenceContext,
   YorkieSchemaParser,
-  YorkieTypeContext,
+  YorkieTypeContext
 } from '../antlr/YorkieSchemaParser';
 
 /**
@@ -79,6 +80,10 @@ export type ObjectRule = {
 
 export type ArrayRule = {
   type: 'array';
+  items? : {
+    type: string;
+    properties?: Array<string>;
+  }
 } & RuleBase;
 
 export type YorkieTypeRule = {
@@ -103,6 +108,10 @@ type TypeDefinition =
   | {
       kind: 'object';
       properties: Array<PropertyDefinition>;
+    }
+  | {
+      kind: 'array';
+      itemType: TypeDefinition;
     }
   | {
       kind: 'reference';
@@ -132,6 +141,7 @@ export class RulesetBuilder implements YorkieSchemaListener {
   private unionContext:
     | { values: Array<string | number | boolean> }
     | undefined = undefined;
+  private arrayDepth: number = 0;
 
   /**
    * `enterTypeAliasDeclaration` is called when entering a type alias declaration.
@@ -141,6 +151,37 @@ export class RulesetBuilder implements YorkieSchemaListener {
     this.currentProperties = [];
     this.unionContext = undefined;
   }
+
+  /**
+   * 
+   */
+  enterArrayType(ctx: ArrayTypeContext) {
+    console.log('enter array');
+    this.arrayDepth++;
+  }
+
+  /**
+   * `exitArrayType` is called when exiting an array type.
+   */
+  exitArrayType(ctx: ArrayTypeContext) {
+    console.log('Exiting array type:', ctx.text);
+    this.arrayDepth--;
+    
+    const text = ctx.text;
+    const hasArrayBrackets = text.includes('[]');
+    const hasArrayGeneric = text.match(/^Array<.+>$/);
+    
+    if ((hasArrayBrackets || hasArrayGeneric) && this.typeStack.length > 0) {
+      console.log('Creating array type for:', text);
+      const elementType = this.typeStack.pop()!;
+      this.typeStack.push({ 
+        kind: 'array', 
+        itemType: elementType 
+      });
+      console.log('Created array type with element:', elementType);
+    }
+  }
+
 
   /**
    * `exitTypeAliasDeclaration` is called when exiting a type alias declaration.
@@ -295,6 +336,51 @@ export class RulesetBuilder implements YorkieSchemaListener {
           type: typeDef.yorkieType,
         });
         break;
+      
+      case 'array': {
+        const arrayRule: ArrayRule = {
+          path,
+          type: 'array',
+        };
+        
+        // add items attribute
+        if (typeDef.itemType.kind === 'reference') {
+          const referencedType = this.typeDefinitions.get(typeDef.itemType.typeName);
+          if (referencedType && referencedType.kind === 'object') {
+            arrayRule.items = {
+              type: 'object',
+              properties: referencedType.properties.map(p => p.name),
+            };
+          }
+        } else if (typeDef.itemType.kind === 'object') {
+          arrayRule.items = {
+            type: 'object',
+            properties: typeDef.itemType.properties.map(p => p.name),
+          };
+        } 
+        
+        rules.push(arrayRule);
+
+        const elementPath = `${path}[*]`;
+      
+      if (typeDef.itemType.kind === 'reference') {
+        const referencedType = this.typeDefinitions.get(typeDef.itemType.typeName);
+        if (referencedType && referencedType.kind === 'object') {
+          for (const property of referencedType.properties) {
+            const propertyPath = `${elementPath}.${property.name}`;
+            this.expandType(property.type, propertyPath, rules);
+          }
+        }
+      } else if (typeDef.itemType.kind === 'object') {
+        for (const property of typeDef.itemType.properties) {
+          const propertyPath = `${elementPath}.${property.name}`;
+          this.expandType(property.type, propertyPath, rules);
+        }
+      } else {
+        this.expandType(typeDef.itemType, elementPath, rules);
+      }
+      break;
+      }
 
       case 'union':
         rules.push({

@@ -169,7 +169,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle array types - Array<T>', () => {
+  it('should handle array types - Array<T>', () => {
     const schema = `
       type Document = {
         todos: Array<Todo>;
