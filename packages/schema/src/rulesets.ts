@@ -26,7 +26,7 @@ import {
   TypeAliasDeclarationContext,
   TypeReferenceContext,
   YorkieSchemaParser,
-  YorkieTypeContext
+  YorkieTypeContext,
 } from '../antlr/YorkieSchemaParser';
 
 /**
@@ -60,8 +60,7 @@ export type RuleType =
   | 'enum'
   | 'null'
   | PrimitiveType
-  | YorkieType
-  ;
+  | YorkieType;
 
 export type RuleBase = {
   path: string;
@@ -80,10 +79,10 @@ export type ObjectRule = {
 
 export type ArrayRule = {
   type: 'array';
-  items? : {
+  items?: {
     type: string;
     properties?: Array<string>;
-  }
+  };
 } & RuleBase;
 
 export type YorkieTypeRule = {
@@ -153,9 +152,9 @@ export class RulesetBuilder implements YorkieSchemaListener {
   }
 
   /**
-   * 
+   * `enterArrayType` is called when entering an array type.
    */
-  enterArrayType(ctx: ArrayTypeContext) {
+  enterArrayType() {
     console.log('enter array');
     this.arrayDepth++;
   }
@@ -166,22 +165,21 @@ export class RulesetBuilder implements YorkieSchemaListener {
   exitArrayType(ctx: ArrayTypeContext) {
     console.log('Exiting array type:', ctx.text);
     this.arrayDepth--;
-    
+
     const text = ctx.text;
     const hasArrayBrackets = text.includes('[]');
     const hasArrayGeneric = text.match(/^Array<.+>$/);
-    
+
     if ((hasArrayBrackets || hasArrayGeneric) && this.typeStack.length > 0) {
       console.log('Creating array type for:', text);
       const elementType = this.typeStack.pop()!;
-      this.typeStack.push({ 
-        kind: 'array', 
-        itemType: elementType 
+      this.typeStack.push({
+        kind: 'array',
+        itemType: elementType,
       });
       console.log('Created array type with element:', elementType);
     }
   }
-
 
   /**
    * `exitTypeAliasDeclaration` is called when exiting a type alias declaration.
@@ -336,50 +334,54 @@ export class RulesetBuilder implements YorkieSchemaListener {
           type: typeDef.yorkieType,
         });
         break;
-      
+
       case 'array': {
         const arrayRule: ArrayRule = {
           path,
           type: 'array',
         };
-        
+
         // add items attribute
         if (typeDef.itemType.kind === 'reference') {
-          const referencedType = this.typeDefinitions.get(typeDef.itemType.typeName);
+          const referencedType = this.typeDefinitions.get(
+            typeDef.itemType.typeName,
+          );
           if (referencedType && referencedType.kind === 'object') {
             arrayRule.items = {
               type: 'object',
-              properties: referencedType.properties.map(p => p.name),
+              properties: referencedType.properties.map((p) => p.name),
             };
           }
         } else if (typeDef.itemType.kind === 'object') {
           arrayRule.items = {
             type: 'object',
-            properties: typeDef.itemType.properties.map(p => p.name),
+            properties: typeDef.itemType.properties.map((p) => p.name),
           };
-        } 
-        
+        }
+
         rules.push(arrayRule);
 
         const elementPath = `${path}[*]`;
-      
-      if (typeDef.itemType.kind === 'reference') {
-        const referencedType = this.typeDefinitions.get(typeDef.itemType.typeName);
-        if (referencedType && referencedType.kind === 'object') {
-          for (const property of referencedType.properties) {
+
+        if (typeDef.itemType.kind === 'reference') {
+          const referencedType = this.typeDefinitions.get(
+            typeDef.itemType.typeName,
+          );
+          if (referencedType && referencedType.kind === 'object') {
+            for (const property of referencedType.properties) {
+              const propertyPath = `${elementPath}.${property.name}`;
+              this.expandType(property.type, propertyPath, rules);
+            }
+          }
+        } else if (typeDef.itemType.kind === 'object') {
+          for (const property of typeDef.itemType.properties) {
             const propertyPath = `${elementPath}.${property.name}`;
             this.expandType(property.type, propertyPath, rules);
           }
+        } else {
+          this.expandType(typeDef.itemType, elementPath, rules);
         }
-      } else if (typeDef.itemType.kind === 'object') {
-        for (const property of typeDef.itemType.properties) {
-          const propertyPath = `${elementPath}.${property.name}`;
-          this.expandType(property.type, propertyPath, rules);
-        }
-      } else {
-        this.expandType(typeDef.itemType, elementPath, rules);
-      }
-      break;
+        break;
       }
 
       case 'union':
