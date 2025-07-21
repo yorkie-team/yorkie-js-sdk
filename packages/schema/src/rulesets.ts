@@ -163,23 +163,29 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `exitArrayType` is called when exiting an array type.
    */
   exitArrayType(ctx: ArrayTypeContext) {
-  console.log('Exiting array type:', ctx.text);
-  this.arrayDepth--;
-  
-  const hasArrayBrackets = ctx.children?.some(child => child.text === '[' || child.text === ']');
-  const hasArrayKeyword = ctx.children?.some(child => child.text === 'Array');
-  
-  console.log(`Array context check - brackets: ${hasArrayBrackets}, keyword: ${hasArrayKeyword}`);
-  
-  if ((hasArrayBrackets || hasArrayKeyword) && this.typeStack.length > 0) {
-    console.log('Creating array type for:', ctx.text);
-    const elementType = this.typeStack.pop()!;
-    this.typeStack.push({
-      kind: 'array',
-      itemType: elementType,
-    });
-    console.log('Created array type with element:', elementType);
-  }
+    console.log('Exiting array type:', ctx.text);
+    this.arrayDepth--;
+
+    const hasArrayBrackets = ctx.children?.some(
+      (child) => child.text === '[' || child.text === ']',
+    );
+    const hasArrayKeyword = ctx.children?.some(
+      (child) => child.text === 'Array',
+    );
+
+    console.log(
+      `Array context check - brackets: ${hasArrayBrackets}, keyword: ${hasArrayKeyword}`,
+    );
+
+    if ((hasArrayBrackets || hasArrayKeyword) && this.typeStack.length > 0) {
+      console.log('Creating array type for:', ctx.text);
+      const elementType = this.typeStack.pop()!;
+      this.typeStack.push({
+        kind: 'array',
+        itemType: elementType,
+      });
+      console.log('Created array type with element:', elementType);
+    }
   }
 
   /**
@@ -311,7 +317,9 @@ export class RulesetBuilder implements YorkieSchemaListener {
     }
 
     const rules: Array<Rule> = [];
-    this.expandType(documentType, '$', rules, 'Document');
+    const visited = new Set<string>();
+
+    this.expandType(documentType, '$', rules, 'Document', visited);
 
     return rules;
   }
@@ -321,9 +329,18 @@ export class RulesetBuilder implements YorkieSchemaListener {
     path: string,
     rules: Array<Rule>,
     currentTypeName?: string,
+    visited: Set<string> = new Set(),
+    depth: number = 0,
   ): void {
-    console.log(`currentTypeName: ${currentTypeName}, `);
-    
+    const visitKey = `${path},${currentTypeName}`;
+
+    if (visited.has(visitKey)) {
+      console.log(`Already visited: ${visitKey}`);
+      return;
+    }
+
+    visited.add(visitKey);
+
     switch (typeDef.kind) {
       case 'primitive':
         rules.push({
@@ -368,8 +385,10 @@ export class RulesetBuilder implements YorkieSchemaListener {
         const elementPath = `${path}[*]`;
 
         if (typeDef.itemType.kind === 'reference') {
-          if (currentTypeName === typeDef.itemType.typeName) {
-             console.log(`Preventing array recursion: ${typeDef.itemType.typeName} at ${elementPath}`);
+          if (currentTypeName === typeDef.itemType.typeName && depth >= 1) {
+            console.log(
+              `Preventing array recursion: ${typeDef.itemType.typeName} at ${elementPath}`,
+            );
             return;
           }
           const referencedType = this.typeDefinitions.get(
@@ -378,16 +397,37 @@ export class RulesetBuilder implements YorkieSchemaListener {
           if (referencedType && referencedType.kind === 'object') {
             for (const property of referencedType.properties) {
               const propertyPath = `${elementPath}.${property.name}`;
-              this.expandType(property.type, propertyPath, rules, typeDef.itemType.typeName); // or currentTypeName?
+              this.expandType(
+                property.type,
+                propertyPath,
+                rules,
+                typeDef.itemType.typeName,
+                visited,
+                depth + 1,
+              );
             }
           }
         } else if (typeDef.itemType.kind === 'object') {
           for (const property of typeDef.itemType.properties) {
             const propertyPath = `${elementPath}.${property.name}`;
-            this.expandType(property.type, propertyPath, rules, currentTypeName); 
+            this.expandType(
+              property.type,
+              propertyPath,
+              rules,
+              currentTypeName,
+              visited,
+              depth + 1,
+            );
           }
         } else {
-          this.expandType(typeDef.itemType, elementPath, rules, currentTypeName);
+          this.expandType(
+            typeDef.itemType,
+            elementPath,
+            rules,
+            currentTypeName,
+            visited,
+            depth + 1,
+          );
         }
         break;
       }
@@ -420,19 +460,21 @@ export class RulesetBuilder implements YorkieSchemaListener {
         // Recursively expand properties
         for (const property of typeDef.properties) {
           const propertyPath = `${path}.${property.name}`;
-          this.expandType(property.type, propertyPath, rules, currentTypeName); 
+          this.expandType(property.type, propertyPath, rules, currentTypeName);
         }
         break;
       }
 
       case 'reference': {
-        console.log(`currentTypeName: ${currentTypeName}, typeDef.typeName: ${typeDef.typeName}`);
-        
+        console.log(
+          `currentTypeName: ${currentTypeName}, typeDef.typeName: ${typeDef.typeName}`,
+        );
+
         if (currentTypeName === typeDef.typeName) {
           console.log(`Preventing recursion: ${typeDef.typeName} at ${path}`);
           return;
         }
-        
+
         const referencedType = this.typeDefinitions.get(typeDef.typeName);
         if (referencedType) {
           this.expandType(referencedType, path, rules, typeDef.typeName);
