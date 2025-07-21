@@ -163,22 +163,23 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `exitArrayType` is called when exiting an array type.
    */
   exitArrayType(ctx: ArrayTypeContext) {
-    console.log('Exiting array type:', ctx.text);
-    this.arrayDepth--;
-
-    const text = ctx.text;
-    const hasArrayBrackets = text.includes('[]');
-    const hasArrayGeneric = text.match(/^Array<.+>$/);
-
-    if ((hasArrayBrackets || hasArrayGeneric) && this.typeStack.length > 0) {
-      console.log('Creating array type for:', text);
-      const elementType = this.typeStack.pop()!;
-      this.typeStack.push({
-        kind: 'array',
-        itemType: elementType,
-      });
-      console.log('Created array type with element:', elementType);
-    }
+  console.log('Exiting array type:', ctx.text);
+  this.arrayDepth--;
+  
+  const hasArrayBrackets = ctx.children?.some(child => child.text === '[' || child.text === ']');
+  const hasArrayKeyword = ctx.children?.some(child => child.text === 'Array');
+  
+  console.log(`Array context check - brackets: ${hasArrayBrackets}, keyword: ${hasArrayKeyword}`);
+  
+  if ((hasArrayBrackets || hasArrayKeyword) && this.typeStack.length > 0) {
+    console.log('Creating array type for:', ctx.text);
+    const elementType = this.typeStack.pop()!;
+    this.typeStack.push({
+      kind: 'array',
+      itemType: elementType,
+    });
+    console.log('Created array type with element:', elementType);
+  }
   }
 
   /**

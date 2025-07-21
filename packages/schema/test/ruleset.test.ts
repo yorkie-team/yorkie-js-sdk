@@ -204,7 +204,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle array types - T[]', () => {
+  it('should handle array types - T[]', () => {
     const schema = `
       type Document = {
         todos: Todo[];
