@@ -242,6 +242,45 @@ describe('RulesetBuilder', () => {
   it.todo('should handle recursive types', () => {
     const schema = `
       type Document = {
+        linkedList: Node;
+      };
+
+      type Node = {
+        value: string;
+        next: Node;
+      };
+    `;
+
+    const ruleset = buildRuleset(schema);
+    expect(ruleset).to.deep.equal([
+      {
+        path: '$',
+        properties: ['linkedList'],
+        type: 'object',
+      },
+      {
+        path: '$.linkedList',
+        type: 'object',
+        properties: ['value', 'next'],
+      },
+      { path: '$.linkedList.value', type: 'string' },
+      {
+        path: '$.linkedList.next',
+        type: 'object',
+        properties: ['value', 'next'],
+      },
+      { path: '$.linkedList.next[*].value', type: 'string' },
+      {
+        path: '$.linkedList.next[*].next',
+        type: 'object',
+        properties: ['value', 'next'],
+      },
+    ]);
+  });
+
+  it('should handle recursive array types', () => {
+    const schema = `
+      type Document = {
         tree: Node;
       };
 
