@@ -1,13 +1,13 @@
 /* eslint-disable jsdoc/require-jsdoc */
 import yorkie, { DocEventType, Indexable, OperationInfo } from '@yorkie-js/sdk';
-import Quill, { type DeltaOperation, type DeltaStatic } from 'quill';
-import QuillCursors from 'quill-cursors';
 import ColorHash from 'color-hash';
-import { network } from './network';
-import { displayLog, displayPeers } from './utils';
-import { YorkieDoc, YorkiePresence } from './type';
+import Quill, { Delta, type Op } from 'quill';
+import QuillCursors from 'quill-cursors';
 import 'quill/dist/quill.snow.css';
+import { network } from './network';
 import './style.css';
+import { YorkieDoc, YorkiePresence } from './type';
+import { displayLog, displayPeers } from './utils';
 
 type TextValueType = {
   attributes?: Indexable;
@@ -24,12 +24,10 @@ const documentKey = `vanilla-quill-${new Date()
   .substring(0, 10)
   .replace(/-/g, '')}`;
 
-function toDeltaOperation<T extends TextValueType>(
-  textValue: T,
-): DeltaOperation {
+function toDeltaOperation<T extends TextValueType>(textValue: T): Op {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
-    return { insert: embed, attributes: restAttributes };
+    return { insert: JSON.parse(embed.toString()), attributes: restAttributes };
   }
 
   return {
@@ -146,7 +144,7 @@ async function main() {
     },
     theme: 'snow',
   });
-  const cursors = quill.getModule('cursors');
+  const cursors = quill.getModule('cursors') as QuillCursors;
 
   // 04. bind the document with the Quill.
   // 04-1. Quill to Document.
@@ -161,7 +159,7 @@ async function main() {
       console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
       for (const op of delta.ops) {
         if (op.attributes !== undefined || op.insert !== undefined) {
-          if (op.retain !== undefined) {
+          if (op.retain !== undefined && typeof op.retain === 'number') {
             to = from + op.retain;
           }
           console.log(
@@ -174,7 +172,7 @@ async function main() {
           doc.update((root, presence) => {
             let range;
             if (op.attributes !== undefined && op.insert === undefined) {
-              root.content.setStyle(from, to, op.attributes);
+              root.content.setStyle(from, to, op.attributes as Indexable);
             } else if (op.insert !== undefined) {
               if (to < from) {
                 to = from;
@@ -186,9 +184,15 @@ async function main() {
                   ...op.attributes,
                 });
               } else {
-                range = root.content.edit(from, to, op.insert, op.attributes);
+                range = root.content.edit(
+                  from,
+                  to,
+                  op.insert,
+                  op.attributes as Indexable,
+                );
               }
-              from = to + op.insert.length;
+              from =
+                to + (typeof op.insert === 'string' ? op.insert.length : 1);
             }
 
             range &&
@@ -207,7 +211,7 @@ async function main() {
                 selection: root.content.indexRangeToPosRange(range),
               });
           }, `update content by ${client.getID()}`);
-        } else if (op.retain !== undefined) {
+        } else if (op.retain !== undefined && typeof op.retain === 'number') {
           from = to + op.retain;
           to = from;
         }
@@ -266,7 +270,7 @@ async function main() {
           deltaOperations.push({ delete: retainTo });
         }
         if (insert) {
-          const op: DeltaOperation = { insert };
+          const op: Op = { insert };
           if (attributes) {
             op.attributes = attributes;
           }
@@ -288,7 +292,7 @@ async function main() {
           deltaOperations.push({ retain: retainFrom });
         }
         if (attributes) {
-          const op: DeltaOperation = { attributes };
+          const op: Op = { attributes };
           if (retainTo) {
             op.retain = retainTo;
           }
@@ -304,9 +308,7 @@ async function main() {
         `%c to quill: ${JSON.stringify(deltaOperations)}`,
         'color: green',
       );
-      const delta = {
-        ops: deltaOperations,
-      } as DeltaStatic;
+      const delta = new Delta(deltaOperations);
       quill.updateContents(delta, 'api');
     }
   }
@@ -315,9 +317,9 @@ async function main() {
   function syncText() {
     const text = doc.getRoot().content;
 
-    const delta = {
-      ops: text.values().map((val) => toDeltaOperation(val)),
-    } as DeltaStatic;
+    const delta = new Delta(
+      text.values().map((value) => toDeltaOperation(value)),
+    );
     quill.setContents(delta, 'api');
   }
 
