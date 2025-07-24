@@ -140,7 +140,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
   private unionContext:
     | { values: Array<string | number | boolean> }
     | undefined = undefined;
-  private arrayDepth: number = 0;
 
   /**
    * `enterTypeAliasDeclaration` is called when entering a type alias declaration.
@@ -152,20 +151,9 @@ export class RulesetBuilder implements YorkieSchemaListener {
   }
 
   /**
-   * `enterArrayType` is called when entering an array type.
-   */
-  enterArrayType() {
-    console.log('enter array');
-    this.arrayDepth++;
-  }
-
-  /**
    * `exitArrayType` is called when exiting an array type.
    */
   exitArrayType(ctx: ArrayTypeContext) {
-    console.log('Exiting array type:', ctx.text);
-    this.arrayDepth--;
-
     const hasArrayBrackets = ctx.children?.some(
       (child) => child.text === '[' || child.text === ']',
     );
@@ -173,18 +161,12 @@ export class RulesetBuilder implements YorkieSchemaListener {
       (child) => child.text === 'Array',
     );
 
-    console.log(
-      `Array context check - brackets: ${hasArrayBrackets}, keyword: ${hasArrayKeyword}`,
-    );
-
     if ((hasArrayBrackets || hasArrayKeyword) && this.typeStack.length > 0) {
-      console.log('Creating array type for:', ctx.text);
       const elementType = this.typeStack.pop()!;
       this.typeStack.push({
         kind: 'array',
         itemType: elementType,
       });
-      console.log('Created array type with element:', elementType);
     }
   }
 
@@ -312,7 +294,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
   build(): Array<Rule> {
     const documentType = this.typeDefinitions.get('Document');
     if (!documentType) {
-      console.warn('Document type not found');
       return [];
     }
 
@@ -330,12 +311,10 @@ export class RulesetBuilder implements YorkieSchemaListener {
     rules: Array<Rule>,
     currentTypeName?: string,
     visited: Set<string> = new Set(),
-    depth: number = 0,
   ): void {
     const visitKey = `${path},${currentTypeName}`;
 
     if (visited.has(visitKey)) {
-      console.log(`Already visited: ${visitKey}`);
       return;
     }
 
@@ -385,12 +364,10 @@ export class RulesetBuilder implements YorkieSchemaListener {
         const elementPath = `${path}[*]`;
 
         if (typeDef.itemType.kind === 'reference') {
-          if (currentTypeName === typeDef.itemType.typeName && depth >= 1) {
-            console.log(
-              `Preventing array recursion: ${typeDef.itemType.typeName} at ${elementPath}`,
-            );
+          if (currentTypeName === typeDef.itemType.typeName && path.includes('[*]')) {
             return;
           }
+
           const referencedType = this.typeDefinitions.get(
             typeDef.itemType.typeName,
           );
@@ -403,7 +380,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
                 rules,
                 typeDef.itemType.typeName,
                 visited,
-                depth + 1,
               );
             }
           }
@@ -416,7 +392,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
               rules,
               currentTypeName,
               visited,
-              depth + 1,
             );
           }
         } else {
@@ -426,7 +401,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
             rules,
             currentTypeName,
             visited,
-            depth + 1,
           );
         }
         break;
@@ -441,7 +415,6 @@ export class RulesetBuilder implements YorkieSchemaListener {
         break;
 
       case 'object': {
-        // console.log(`currentTypeName: ${currentTypeName}`);
         const objectRule: ObjectRule = {
           path,
           type: 'object',
@@ -460,27 +433,53 @@ export class RulesetBuilder implements YorkieSchemaListener {
         // Recursively expand properties
         for (const property of typeDef.properties) {
           const propertyPath = `${path}.${property.name}`;
-          this.expandType(property.type, propertyPath, rules, currentTypeName);
+          this.expandType(property.type, propertyPath, rules, currentTypeName, visited);
         }
         break;
       }
 
       case 'reference': {
-        console.log(
-          `currentTypeName: ${currentTypeName}, typeDef.typeName: ${typeDef.typeName}`,
-        );
-
-        if (currentTypeName === typeDef.typeName) {
-          console.log(`Preventing recursion: ${typeDef.typeName} at ${path}`);
+        const referencedType = this.typeDefinitions.get(typeDef.typeName);
+        if (!referencedType) {
           return;
         }
 
-        const referencedType = this.typeDefinitions.get(typeDef.typeName);
-        if (referencedType) {
-          this.expandType(referencedType, path, rules, typeDef.typeName);
-        } else {
-          console.warn(`Type reference not found: ${typeDef.typeName}`);
+        if (currentTypeName === typeDef.typeName) {
+          if (path.includes('[*]')) { // e.g. Node[] type in Node
+            if (referencedType.kind === 'object') {
+              const objectRule: ObjectRule = {
+                path,
+                type: 'object',
+                properties: referencedType.properties.map((p) => p.name),
+              };
+              rules.push(objectRule);
+            }
+            return;
+          }
+
+          if (referencedType.kind === 'object') { // e.g. Node type in Node
+            const objectRule: ObjectRule = {
+              path,
+              type: 'object',
+              properties: referencedType.properties.map((p) => p.name),
+            };
+            rules.push(objectRule);
+
+            for (const property of referencedType.properties) {
+              const propertyPath = `${path}[*].${property.name}`;
+              this.expandType(
+                property.type,
+                propertyPath,
+                rules,
+                typeDef.typeName,
+                visited,
+              );
+            }
+          }
+          return;
         }
+
+        this.expandType(referencedType, path, rules, typeDef.typeName, visited);
         break;
       }
     }

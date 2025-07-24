@@ -239,7 +239,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle recursive types', () => {
+  it('should handle recursive types', () => {
     const schema = `
       type Document = {
         linkedList: Node;
