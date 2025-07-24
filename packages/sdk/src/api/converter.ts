@@ -1594,8 +1594,20 @@ function hexToBytes(hex: string): Uint8Array {
  * `base64ToUint8Array` converts the given base64 string to Uint8Array.
  */
 function base64ToUint8Array(base64: string): Uint8Array {
-  const buffer = Buffer.from(base64, 'base64');
-  return new Uint8Array(buffer);
+  if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+    const binary = window.atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  } else if (typeof Buffer !== 'undefined') {
+    // Node.js fallback
+    return new Uint8Array(Buffer.from(base64, 'base64'));
+  } else {
+    throw new Error('No base64 decoder available');
+  }
 }
 
 /**
@@ -1609,7 +1621,18 @@ function toUint8Array(hex: string): Uint8Array {
  * `uint8ArrayToBase64` converts the given Uint8Array to base64 string.
  */
 function uint8ArrayToBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('base64');
+  if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  } else if (typeof Buffer !== 'undefined') {
+    // Node.js fallback
+    return Buffer.from(bytes).toString('base64');
+  } else {
+    throw new Error('No base64 encoder available');
+  }
 }
 /**
  * `bytesToChangeID` creates a ChangeID from the given bytes.
