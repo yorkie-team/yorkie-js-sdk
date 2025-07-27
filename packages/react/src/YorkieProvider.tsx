@@ -20,10 +20,13 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
+  useRef,
 } from 'react';
 import { Client, ClientOptions } from '@yorkie-js/sdk';
 import pkg from '../package.json';
+import { createClientStore } from './createClientStore';
+import { useSelector } from './useSelector';
+import { Store } from './createStore';
 
 type YorkieContextType = {
   client: Client | undefined;
@@ -31,59 +34,69 @@ type YorkieContextType = {
   error: Error | undefined;
 };
 
-const YorkieContext = createContext<YorkieContextType>({
-  client: undefined,
-  loading: true,
-  error: undefined,
-});
+// eslint-disable-next-line @typescript-eslint/ban-types
+const YorkieContext = createContext<Store<YorkieContextType> | null>(null);
 
 /**
  * `useYorkieClient` is a custom hook that initializes a Yorkie client.
+ * NOTE(hackerwins): In StrictMode, the component will call twice
+ *  useEffect in development mode. To prevent creating a new client
+ *  twice, create a client after the mounting.
  */
-export function useYorkieClient(opts: ClientOptions) {
-  const [client, setClient] = useState<Client | undefined>(undefined);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | undefined>(undefined);
-  const [didMount, setDidMount] = useState(false);
+export function useYorkieClient(
+  opts: ClientOptions,
+  clientStore: Store<YorkieContextType>,
+) {
+  const didMountRef = useRef(false);
 
-  // NOTE(hackerwins): In StrictMode, the component will call twice
-  // useEffect in development mode. To prevent creating a new client
-  // twice, create a client after the mounting.
   useEffect(() => {
-    setDidMount(true);
+    didMountRef.current = true;
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    setError(undefined);
+    clientStore.setState((state) => ({
+      ...state,
+      loading: true,
+      error: undefined,
+    }));
 
+    /**
+     * `activateClient` is an asynchronous function that creates a new Yorkie client
+     */
     async function activateClient() {
-      if (!didMount) {
+      if (!didMountRef.current) {
         return;
       }
 
       try {
         const newClient = new Client(opts);
         await newClient.activate();
-        setClient(newClient);
+        clientStore.setState((state) => ({
+          ...state,
+          client: newClient,
+        }));
       } catch (e) {
-        setError(
-          e instanceof Error ? e : new Error('Failed to activate client'),
-        );
+        clientStore.setState((state) => ({
+          ...state,
+          error:
+            e instanceof Error ? e : new Error('Failed to activate client'),
+        }));
       } finally {
-        setLoading(false);
+        clientStore.setState((state) => ({
+          ...state,
+          loading: false,
+        }));
       }
     }
     activateClient();
 
     return () => {
-      if (client?.isActive()) {
-        client.deactivate({ keepalive: true });
+      const currentState = clientStore.getSnapshot();
+      if (currentState.client?.isActive()) {
+        currentState.client.deactivate({ keepalive: true });
       }
     };
-  }, [opts.apiKey, opts.rpcAddr, didMount]);
-
-  return { client, loading, error };
+  }, [opts.apiKey, opts.rpcAddr, clientStore]);
 }
 
 /**
@@ -94,6 +107,16 @@ export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
   children,
   ...opts
 }) => {
+  const clientStoreRef = useRef<
+    ReturnType<typeof createClientStore> | undefined
+  >(undefined);
+
+  if (!clientStoreRef.current) {
+    clientStoreRef.current = createClientStore();
+  }
+
+  const clientStore = clientStoreRef.current;
+
   // NOTE(hackerwins): useMemo is used to prevent re-creating the client
   // when the component re-renders. If the apiKey or rpcAddr changes,
   // the client will be re-created.
@@ -103,28 +126,25 @@ export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
       ...opts,
     };
   }, [opts.apiKey, opts.rpcAddr]);
-  const { client, loading, error } = useYorkieClient(clientOpts);
+
+  useYorkieClient(clientOpts, clientStore);
 
   return (
-    <YorkieContext.Provider value={{ client, loading, error }}>
+    <YorkieContext.Provider value={clientStore}>
       {children}
     </YorkieContext.Provider>
   );
 };
 
 /**
- * `useYorkie` is a custom hook that returns the Yorkie client and its loading state.
- * @returns
+ * `useYorkie` is a custom hook that returns the complete Yorkie client context.
+ * @returns The complete Yorkie client context.
  */
 export const useYorkie = () => {
-  const context = useContext(YorkieContext);
-  if (!context) {
+  const clientStore = useContext(YorkieContext);
+  if (!clientStore) {
     throw new Error('useYorkie must be used under YorkieProvider');
   }
 
-  return {
-    client: context.client,
-    loading: context.loading,
-    error: context.error,
-  };
+  return useSelector(clientStore);
 };
