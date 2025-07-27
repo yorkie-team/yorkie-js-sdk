@@ -224,39 +224,20 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 };
 
 /**
- * `useDocument` is a custom hook that returns the root object and update function of the document.
+ * `useDocument` is a custom hook that returns the complete document context.
  * This hook must be used within a `DocumentProvider`.
- * @param selector A function to select a slice of the document state.
- * @param equalityFn A function to compare the selected slice of state.
- * @returns The selected slice of the document state.
+ * @returns The complete document context.
  */
 export function useDocument<
   R,
   P extends Indexable = Indexable,
->(): DocumentContextType<R, P>;
-export function useDocument<
-  R,
-  P extends Indexable = Indexable,
-  T = DocumentContextType<R, P>,
->(
-  selector: (state: DocumentContextType<R, P>) => T,
-  equalityFn?: (a: T, b: T) => boolean,
-): T;
-// eslint-disable-next-line jsdoc/require-jsdoc -- JSDoc already written for overloads
-export function useDocument<
-  R,
-  P extends Indexable = Indexable,
-  T = DocumentContextType<R, P>,
->(
-  selector?: (state: DocumentContextType<R, P>) => T,
-  equalityFn: (a: T, b: T) => boolean = Object.is,
-): T {
+>(): DocumentContextType<R, P> {
   const documentStore = useContext(DocumentContext);
   if (!documentStore) {
     throw new Error('useDocument must be used within a DocumentProvider');
   }
 
-  return useSelector(documentStore, selector, equalityFn);
+  return useSelector(documentStore);
 }
 
 /**
