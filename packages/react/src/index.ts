@@ -24,6 +24,7 @@ import {
   useRoot,
   usePresences,
   useConnection,
+  createDocumentSelector,
 } from './DocumentProvider';
 
 export type { Document, JSONArray, JSONObject };
@@ -35,4 +36,7 @@ export {
   usePresences,
   useConnection,
   useYorkieDoc,
+  createDocumentSelector,
 };
+
+export { shallowEqual } from './shallowEqual';

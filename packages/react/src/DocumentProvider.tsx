@@ -241,6 +241,31 @@ export function useDocument<
 }
 
 /**
+ * `createDocumentSelector` is a factory function that provides a selector-based `useDocument` hook.
+ * By currying this function, type T can be inferred from the selector function.
+ */
+export const createDocumentSelector = <
+  R,
+  P extends Indexable = Indexable,
+>() => {
+  return <T = DocumentContextType<R, P>,>(
+    selector?: (state: DocumentContextType<R, P>) => T,
+    equalityFn: (a: T, b: T) => boolean = shallowEqual,
+  ): T => {
+    const documentStore = useContext(DocumentContext);
+    if (!documentStore) {
+      throw new Error('useDocument must be used within a DocumentProvider');
+    }
+
+    if (!selector) {
+      return useSelector(documentStore, (s) => s as T, equalityFn);
+    }
+
+    return useSelector(documentStore, selector, equalityFn);
+  };
+};
+
+/**
  * `useRoot` is a custom hook that returns the root object of the document.
  * This hook must be used within a `DocumentProvider`.
  */
