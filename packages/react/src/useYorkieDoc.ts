@@ -23,7 +23,10 @@ import {
 import pkg from '../package.json';
 import { useYorkieClient } from './YorkieProvider';
 import { useYorkieDocument } from './DocumentProvider';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { createClientStore } from './createClientStore';
+import { createDocumentStore } from './createDocumentStore';
+import { useSelector } from './useSelector';
 
 /**
  * `useYorkieDoc` is a custom hook that initializes a Yorkie Client and a
@@ -44,6 +47,32 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
   loading: boolean;
   error: Error | undefined;
 } {
+  const clientStoreRef = useRef<
+    ReturnType<typeof createClientStore> | undefined
+  >(undefined);
+  const documentStoreRef = useRef<
+    ReturnType<typeof createDocumentStore<R, P>> | undefined
+  >(undefined);
+
+  if (!clientStoreRef.current) {
+    clientStoreRef.current = createClientStore();
+  }
+
+  if (!documentStoreRef.current) {
+    documentStoreRef.current = createDocumentStore<R, P>({
+      doc: undefined,
+      root: opts?.initialRoot ?? ({} as R),
+      presences: [] as Array<{ clientID: string; presence: P }>,
+      connection: StreamConnectionStatus.Disconnected,
+      update: () => {},
+      loading: true,
+      error: undefined,
+    });
+  }
+
+  const clientStore = clientStoreRef.current;
+  const documentStore = documentStoreRef.current;
+
   // NOTE(hackerwins): useMemo is used to prevent creating a new client
   // every time the component re-renders. If the apiKey or docKey
   // changes, a new client will be created.
@@ -55,30 +84,32 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     };
   }, [apiKey]);
 
+  useYorkieClient(clientOpts, clientStore);
+
   const {
     client,
     loading: clientLoading,
     error: clientError,
-  } = useYorkieClient(clientOpts);
+  } = useSelector(clientStore);
 
-  const { root, presences, connection, update, loading, error } =
-    useYorkieDocument(
-      client,
-      clientLoading,
-      clientError,
-      docKey,
-      opts?.initialRoot,
-      opts?.initialPresence as P,
-    );
+  useYorkieDocument<R, P>(
+    client,
+    clientLoading,
+    clientError,
+    docKey,
+    opts?.initialRoot ?? ({} as R),
+    opts?.initialPresence ?? ({} as P),
+    documentStore,
+  );
+
+  const documentState = useSelector(documentStore);
 
   return {
-    root: root as R,
-    presences,
-    connection,
-    update: update as (
-      callback: (root: R, presence: Presence<P>) => void,
-    ) => void,
-    loading,
-    error,
+    root: documentState.root,
+    presences: documentState.presences,
+    connection: documentState.connection,
+    update: documentState.update,
+    loading: documentState.loading,
+    error: documentState.error,
   };
 }

@@ -201,7 +201,15 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   >(undefined);
 
   if (!documentStoreRef.current) {
-    documentStoreRef.current = createDocumentStore<R, P>(initialRoot);
+    documentStoreRef.current = createDocumentStore<R, P>({
+      doc: undefined,
+      root: initialRoot,
+      presences: [],
+      connection: StreamConnectionStatus.Disconnected,
+      update: () => {},
+      loading: true,
+      error: undefined,
+    });
   }
 
   const documentStore = documentStoreRef.current;
