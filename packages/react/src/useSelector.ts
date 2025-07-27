@@ -35,12 +35,5 @@ export function useSelector<T, R = T>(
     return nextSlice;
   };
 
-  const getServerSnapshot = () => {
-    const state = store.getSnapshot();
-    return selectorRef.current
-      ? selectorRef.current(state)
-      : (state as unknown as R);
-  };
-
-  return useSyncExternalStore(store.subscribe, getSelection, getServerSnapshot);
+  return useSyncExternalStore(store.subscribe, getSelection, getSelection);
 }
