@@ -1,7 +1,10 @@
-import React, { memo } from 'react';
+import React from 'react';
 import { usePresences } from '@yorkie-js/react';
 
-export const Peers = memo(function Peers() {
+/**
+ * Peers component displays the list of connected peers
+ */
+export function Peers() {
   const presences = usePresences();
   return (
     <div id="peers-container">
@@ -16,4 +19,4 @@ export const Peers = memo(function Peers() {
       </p>
     </div>
   );
-});
+}
