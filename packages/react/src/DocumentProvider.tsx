@@ -14,14 +14,7 @@
  * limitations under the License.
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import {
   Document,
   Presence,
@@ -33,6 +26,7 @@ import { useYorkie } from './YorkieProvider';
 import { createDocumentStore } from './createDocumentStore';
 import { useSelector } from './useSelector';
 import { Store } from './createStore';
+import { shallowEqual } from './shallowEqual';
 
 /**
  * `useYorkieDocument` is a custom hook that initializes a Yorkie document.
@@ -51,57 +45,65 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   docKey: string,
   initialRoot: R,
   initialPresence: P,
+  documentStore: Store<DocumentContextType<R, P>>,
 ) {
-  const [doc, setDoc] = useState<Document<R, P>>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error>();
-  const [root, setRoot] = useState(initialRoot);
-  const [presences, setPresences] = useState<
-    Array<{ clientID: string; presence: P }>
-  >([]);
-  const [connection, setConnection] = useState<StreamConnectionStatus>(
-    StreamConnectionStatus.Disconnected,
-  );
-
   useEffect(() => {
     if (clientError) {
-      setLoading(false);
-      setError(clientError);
+      documentStore.setState((state) => ({
+        ...state,
+        loading: false,
+        error: clientError,
+      }));
       return;
     }
 
     if (!client || clientLoading) {
-      setLoading(true);
+      documentStore.setState((state) => ({
+        ...state,
+        loading: true,
+      }));
       return;
     }
 
-    setLoading(true);
-    setError(undefined);
+    documentStore.setState((state) => ({
+      ...state,
+      loading: true,
+      error: undefined,
+    }));
 
     const newDoc = new Document<R, P>(docKey);
     const unsubs: Array<() => void> = [];
 
     unsubs.push(
       newDoc.subscribe(() => {
-        setRoot(newDoc.getRoot());
+        documentStore.setState((state) => ({
+          ...state,
+          root: newDoc.getRoot(),
+        }));
       }),
     );
 
     unsubs.push(
       newDoc.subscribe('presence', () => {
-        setPresences(newDoc.getPresences());
+        documentStore.setState((state) => ({
+          ...state,
+          presences: newDoc.getPresences(),
+        }));
       }),
     );
 
     unsubs.push(
       newDoc.subscribe('connection', (event) => {
-        setConnection(event.value);
+        documentStore.setState((state) => ({
+          ...state,
+          connection: event.value,
+        }));
       }),
     );
 
     /**
-     * `attachDocument` is a function that attaches the document to the client.
-     */
+     * `attachDocument` is an asynchronous function that attaches the document to the client.
+     * */
     async function attachDocument() {
       try {
         await client?.attach(newDoc, {
@@ -109,15 +111,38 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           initialPresence,
         });
 
-        setDoc(newDoc);
-        setRoot(newDoc.getRoot());
-        setPresences(newDoc.getPresences());
+        const update = (callback: (root: R, presence: Presence<P>) => void) => {
+          try {
+            newDoc.update(callback);
+          } catch (err) {
+            documentStore.setState((state) => ({
+              ...state,
+              error:
+                err instanceof Error
+                  ? err
+                  : new Error('Failed to update document'),
+            }));
+          }
+        };
+
+        documentStore.setState((state) => ({
+          ...state,
+          doc: newDoc,
+          root: newDoc.getRoot(),
+          presences: newDoc.getPresences(),
+          update,
+        }));
       } catch (err) {
-        setError(
-          err instanceof Error ? err : new Error('Failed to attach document'),
-        );
+        documentStore.setState((state) => ({
+          ...state,
+          error:
+            err instanceof Error ? err : new Error('Failed to attach document'),
+        }));
       } finally {
-        setLoading(false);
+        documentStore.setState((state) => ({
+          ...state,
+          loading: false,
+        }));
       }
     }
 
@@ -132,33 +157,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [client, clientLoading, clientError, docKey]);
-
-  const update = useCallback(
-    (callback: (root: R, presence: Presence<P>) => void) => {
-      if (!doc) {
-        return;
-      }
-
-      try {
-        doc.update(callback);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err : new Error('Failed to update document'),
-        );
-      }
-    },
-    [doc],
-  );
-  return {
-    doc,
-    root,
-    presences,
-    connection,
-    update,
-    loading,
-    error,
-  };
+  }, [client, clientLoading, clientError, docKey, documentStore]);
 }
 
 export type DocumentContextType<R, P extends Indexable = Indexable> = {
@@ -207,27 +206,15 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
 
   const documentStore = documentStoreRef.current;
 
-  const { doc, root, presences, connection, update, loading, error } =
-    useYorkieDocument<R, P>(
-      client,
-      clientLoading,
-      clientError,
-      docKey,
-      initialRoot,
-      initialPresence,
-    );
-
-  useEffect(() => {
-    documentStore.setState(() => ({
-      doc,
-      root,
-      presences,
-      connection,
-      update,
-      loading,
-      error,
-    }));
-  }, [doc, root, presences, connection, update, loading, error, documentStore]);
+  useYorkieDocument<R, P>(
+    client,
+    clientLoading,
+    clientError,
+    docKey,
+    initialRoot,
+    initialPresence,
+    documentStore,
+  );
 
   return (
     <DocumentContext.Provider value={documentStore}>
