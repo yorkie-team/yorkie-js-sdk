@@ -57,6 +57,9 @@ export function useYorkieClient(opts: ClientOptions) {
     setLoading(true);
     setError(undefined);
 
+    /**
+     * `activateClient` activates the Yorkie client.
+     */
     async function activateClient() {
       if (!didMount) {
         return;

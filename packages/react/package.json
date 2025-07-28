@@ -15,7 +15,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx"
   },
   "dependencies": {
     "@yorkie-js/sdk": "workspace:*"
