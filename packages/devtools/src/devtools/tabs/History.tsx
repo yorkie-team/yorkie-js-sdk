@@ -21,8 +21,15 @@ import { JSONView } from '../components/JsonView';
 import { CursorIcon, DocumentIcon } from '../icons';
 import { DocEventScope, useDocEventsForReplay } from '../contexts/YorkieSource';
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const SLIDER_MARK_WIDTH = 24;
 
+/**
+ * Extracts event information from a Devtools.DocEventsForReplay object.
+ *
+ * @param event - The Devtools.DocEventsForReplay object to process.
+ * @returns An array of event information objects.
+ */
 const getEventInfo = (event: Devtools.DocEventsForReplay) => {
   const info = [];
   for (const docEvent of event) {
@@ -58,6 +65,14 @@ const getEventInfo = (event: Devtools.DocEventsForReplay) => {
   return info;
 };
 
+/**
+ * Renders the History tab showing the document events and their details.
+ *
+ * @param props.style - Inline styles for the root container.
+ * @param props.selectedEvent - The currently selected event.
+ * @param props.selectedEventIndexInfo - The index and last status of the selected event.
+ * @param props.setSelectedEventIndexInfo - Setter function to update the selected event index.
+ */
 export function History({
   style,
   selectedEvent,

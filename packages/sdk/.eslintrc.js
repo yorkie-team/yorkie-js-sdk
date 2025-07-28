@@ -14,4 +14,10 @@ module.exports = {
       },
     },
   ],
+  ignorePatterns: [
+    'dist/*',
+    'src/api/yorkie/v1/*.d.ts',
+    'test/vitest.d.ts',
+    'lib',
+  ],
 };

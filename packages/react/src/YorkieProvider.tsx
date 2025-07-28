@@ -61,7 +61,7 @@ export function useYorkieClient(
     }));
 
     /**
-     * `activateClient` is an asynchronous function that creates a new Yorkie client
+     * `activateClient` activates the Yorkie client.
      */
     async function activateClient() {
       if (!didMountRef.current) {

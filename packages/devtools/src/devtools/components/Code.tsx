@@ -62,6 +62,16 @@ const theme: PrismTheme = {
   ],
 };
 
+/**
+ * Renders a syntax-highlighted code block using Prism.
+ *
+ * @param code - The source code string to be highlighted.
+ * @param language - The language identifier supported by Prism
+ *   (See https://prismjs.com/index.html#supported-languages for supported languages).
+ * @param withLineNumbers - Whether to display line numbers before each line.
+ *   Defaults to `false`.
+ * @returns A React element containing the highlighted code block.
+ */
 export function Code({
   code,
   language,

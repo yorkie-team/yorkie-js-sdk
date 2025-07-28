@@ -16,6 +16,12 @@
 
 import ReactJsonView from '@microlink/react-json-view';
 
+/**
+ * Render JSON data using ReactJsonView with custom styling and options.
+ *
+ * @param props.src - The JSON object or array to display.
+ * @returns A React element that visualizes the provided JSON.
+ */
 export function JSONView({ src }) {
   return (
     <ReactJsonView

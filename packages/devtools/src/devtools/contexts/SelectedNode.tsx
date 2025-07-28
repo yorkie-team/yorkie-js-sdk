@@ -23,11 +23,19 @@ type SelectedNodeContext = [
   RootTreeNode,
   Dispatch<SetStateAction<RootTreeNode>>,
 ];
+// eslint-disable-next-line @typescript-eslint/ban-types
 const SelectedNodeContext = createContext<SelectedNodeContext | null>(null);
 
 type Props = {
   children?: ReactNode;
 };
+
+/**
+ * Provides selected node context to descendant components.
+ *
+ * @param props.children - React elements that consume the selected node context.
+ * @returns A context provider wrapping the given children.
+ */
 export function SelectedNodeProvider({ children }: Props) {
   const selectedNodeState = useState(null);
 
@@ -38,6 +46,12 @@ export function SelectedNodeProvider({ children }: Props) {
   );
 }
 
+/**
+ * Hook to access and update the currently selected tree node.
+ *
+ * @throws YorkieError if called outside of a SelectedNodeProvider.
+ * @returns A tuple [selectedNode, setSelectedNode].
+ */
 export function useSelectedNode() {
   const value = useContext(SelectedNodeContext);
   if (value === undefined) {

@@ -194,7 +194,8 @@ function toVersionVector(vector?: VersionVector): PbVersionVector | undefined {
 
   const pbVector = new PbVersionVector();
   for (const [actorID, lamport] of vector) {
-    pbVector.vector[actorID] = BigInt(lamport.toString());
+    const base64ActorID = uint8ArrayToBase64(toUint8Array(actorID));
+    pbVector.vector[base64ActorID] = BigInt(lamport.toString());
   }
   return pbVector;
 }
@@ -840,7 +841,8 @@ function fromVersionVector(
 
   const vector = new VersionVector();
   Object.entries(pbVersionVector.vector).forEach(([key, value]) => {
-    vector.set(key, BigInt(value.toString()));
+    const hexKey = bytesToHex(base64ToUint8Array(key));
+    vector.set(hexKey, BigInt(value.toString()));
   });
   return vector;
 }
@@ -1589,12 +1591,49 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 /**
+ * `base64ToUint8Array` converts the given base64 string to Uint8Array.
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+  if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+    const binary = window.atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+    const Buffer = (globalThis as any).Buffer;
+    return new Uint8Array(Buffer.from(base64, 'base64'));
+  } else {
+    throw new Error('No base64 decoder available');
+  }
+}
+
+/**
  * `toUnit8Array` converts the given hex string to byte array.
  */
 function toUint8Array(hex: string): Uint8Array {
   return hexToBytes(hex);
 }
 
+/**
+ * `uint8ArrayToBase64` converts the given Uint8Array to base64 string.
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+    const Buffer = (globalThis as any).Buffer;
+    return Buffer.from(bytes).toString('base64');
+  } else {
+    throw new Error('No base64 encoder available');
+  }
+}
 /**
  * `bytesToChangeID` creates a ChangeID from the given bytes.
  */

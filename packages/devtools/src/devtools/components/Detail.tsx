@@ -28,7 +28,10 @@ type FlatTreeNodeInfo = Devtools.TreeNodeInfo & {
 };
 
 /**
- * `nodeIDToString` converts the given CRDTTreeNodeIDStruct to a simple string.
+ * Convert a CRDTTreeNodeIDStruct into a readable identifier string.
+ *
+ * @param id - CRDTTreeNodeIDStruct with creation metadata and offset.
+ * @returns A string formatted as `${lamport}:${actorID.slice(-2)}:${delimiter}/${offset}`.
  */
 const nodeIDToString = (id: CRDTTreeNodeIDStruct) => {
   const {
@@ -38,6 +41,11 @@ const nodeIDToString = (id: CRDTTreeNodeIDStruct) => {
   return `${lamport}:${actorID.slice(-2)}:${delimiter}/${offset}`;
 };
 
+/**
+ * Render one tree node with depth-based styling and tooltip info.
+ *
+ * @param props.node - FlatTreeNodeInfo including type, value, id, depth, childIndex, etc.
+ */
 function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
   // NOTE(chacha912): The 'depth' variable is used for styling purposes.
   // For 'text' nodes, when they are not the first child node, 'depth' is
@@ -94,6 +102,11 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
   );
 }
 
+/**
+ * Flatten the tree and render each node via TreeNode.
+ *
+ * @param props.tree - Root Devtools.TreeNodeInfo to flatten and display.
+ */
 function TreeGraph({ tree }: { tree: Devtools.TreeNodeInfo }) {
   const flattenTreeWithDepth = useCallback(
     (
@@ -119,6 +132,12 @@ function TreeGraph({ tree }: { tree: Devtools.TreeNodeInfo }) {
   );
 }
 
+/**
+ * Show selected node details with JSON or graph view toggle.
+ *
+ * @param props.node - The currently selected RootTreeNode.
+ * @param props.tree - The full Devtools.TreeNodeInfo for graph mode.
+ */
 export function TreeDetail({
   node,
   tree,
@@ -162,6 +181,11 @@ export function TreeDetail({
   );
 }
 
+/**
+ * Display a JSON string in a syntax‑highlighted code block with line numbers.
+ *
+ * @param props.json - The JSON text to render.
+ */
 export function JSONDetail({ json }: { json: string }) {
   return <Code code={json ?? ''} language="json" withLineNumbers />;
 }

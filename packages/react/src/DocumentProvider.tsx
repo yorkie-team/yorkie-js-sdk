@@ -102,8 +102,8 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
     );
 
     /**
-     * `attachDocument` is an asynchronous function that attaches the document to the client.
-     * */
+     * `attachDocument` attaches a new document to the client.
+     */
     async function attachDocument() {
       try {
         await client?.attach(newDoc, {

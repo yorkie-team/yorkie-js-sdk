@@ -1,6 +1,6 @@
 {
   "name": "@yorkie-js/react",
-  "version": "0.6.20",
+  "version": "0.6.22",
   "description": "A set of hooks and providers for Yorkie JS SDK",
   "main": "./src/index.ts",
   "publishConfig": {
@@ -15,7 +15,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx"
   },
   "dependencies": {
     "@yorkie-js/sdk": "workspace:*"

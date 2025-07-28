@@ -7,6 +7,27 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.22] - 2025-07-28
+
+### Changed
+
+- Change VersionVector actorID encoding from hex to base64 by @mnnseong in https://github.com/yorkie-team/yorkie-js-sdk/pull/1030
+
+### Fixed
+
+- Fix eslint cleanup SDK by @pengooseDev https://github.com/yorkie-team/yorkie-js-sdk/pull/1023
+
+## [0.6.21] - 2025-07-25
+
+### Added
+
+- Add nextjs-quill example using Yorkie and Quill v2 by @miinhho in https://github.com/yorkie-team/yorkie-js-sdk/pull/1032
+- Support for object, array and enum in ruleset builder by @sigmaith in https://github.com/yorkie-team/yorkie-js-sdk/pull/1025
+
+### Changed
+
+- Migrate vanilla-quill example dependency to Quill v2 by @miinhho in https://github.com/yorkie-team/yorkie-js-sdk/pull/1034
+
 ## [0.6.20] - 2025-07-17
 
 ### Added
