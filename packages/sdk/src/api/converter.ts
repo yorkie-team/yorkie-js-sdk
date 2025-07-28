@@ -1602,8 +1602,8 @@ function base64ToUint8Array(base64: string): Uint8Array {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
-  } else if (typeof Buffer !== 'undefined') {
-    // Node.js fallback
+  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+    const Buffer = (globalThis as any).Buffer;
     return new Uint8Array(Buffer.from(base64, 'base64'));
   } else {
     throw new Error('No base64 decoder available');
@@ -1627,8 +1627,8 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
       binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
-  } else if (typeof Buffer !== 'undefined') {
-    // Node.js fallback
+  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+    const Buffer = (globalThis as any).Buffer;
     return Buffer.from(bytes).toString('base64');
   } else {
     throw new Error('No base64 encoder available');
