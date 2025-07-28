@@ -16,6 +16,12 @@
 
 import type { ComponentProps } from 'react';
 
+/**
+ * Render an SVG icon for an object node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the object icon.
+ */
 export function ObjectIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -35,6 +41,12 @@ export function ObjectIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for an array node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the array icon.
+ */
 export function ArrayIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -54,6 +66,12 @@ export function ArrayIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a primitive node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the primitive icon.
+ */
 export function PrimitiveIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -73,6 +91,12 @@ export function PrimitiveIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a text node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the text icon.
+ */
 export function TextIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -92,6 +116,12 @@ export function TextIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a tree node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the tree icon.
+ */
 export function TreeIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -111,6 +141,12 @@ export function TreeIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a counter node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the counter icon.
+ */
 export function CounterIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -130,6 +166,12 @@ export function CounterIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a user node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the user icon.
+ */
 export function UserIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -149,6 +191,12 @@ export function UserIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a close button.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the close icon.
+ */
 export function CloseIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -168,6 +216,12 @@ export function CloseIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a code node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the code icon.
+ */
 export function CodeIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -187,6 +241,12 @@ export function CodeIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a graph node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the graph icon.
+ */
 export function GraphIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -206,6 +266,12 @@ export function GraphIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a cursor node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the cursor icon.
+ */
 export function CursorIcon(props: ComponentProps<'svg'>) {
   return (
     <svg
@@ -225,6 +291,12 @@ export function CursorIcon(props: ComponentProps<'svg'>) {
   );
 }
 
+/**
+ * Render an SVG icon for a document node.
+ *
+ * @param props - SVG props for styling and size.
+ * @returns A React component that renders the document icon.
+ */
 export function DocumentIcon(props: ComponentProps<'svg'>) {
   return (
     <svg

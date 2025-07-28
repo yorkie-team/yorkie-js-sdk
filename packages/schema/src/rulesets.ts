@@ -364,7 +364,10 @@ export class RulesetBuilder implements YorkieSchemaListener {
         const elementPath = `${path}[*]`;
 
         if (typeDef.itemType.kind === 'reference') {
-          if (currentTypeName === typeDef.itemType.typeName && path.includes('[*]')) {
+          if (
+            currentTypeName === typeDef.itemType.typeName &&
+            path.includes('[*]')
+          ) {
             return;
           }
 
@@ -433,7 +436,13 @@ export class RulesetBuilder implements YorkieSchemaListener {
         // Recursively expand properties
         for (const property of typeDef.properties) {
           const propertyPath = `${path}.${property.name}`;
-          this.expandType(property.type, propertyPath, rules, currentTypeName, visited);
+          this.expandType(
+            property.type,
+            propertyPath,
+            rules,
+            currentTypeName,
+            visited,
+          );
         }
         break;
       }
@@ -445,7 +454,8 @@ export class RulesetBuilder implements YorkieSchemaListener {
         }
 
         if (currentTypeName === typeDef.typeName) {
-          if (path.includes('[*]')) { // e.g. Node[] type in Node
+          if (path.includes('[*]')) {
+            // e.g. Node[] type in Node
             if (referencedType.kind === 'object') {
               const objectRule: ObjectRule = {
                 path,
@@ -457,7 +467,8 @@ export class RulesetBuilder implements YorkieSchemaListener {
             return;
           }
 
-          if (referencedType.kind === 'object') { // e.g. Node type in Node
+          if (referencedType.kind === 'object') {
+            // e.g. Node type in Node
             const objectRule: ObjectRule = {
               path,
               type: 'object',

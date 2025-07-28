@@ -40,6 +40,12 @@ type Props = {
   children?: ReactNode;
 };
 
+/**
+ * Provides the current document key and events for replay.
+ *
+ * @param props.children - React elements that consume the document context.
+ * @returns A context provider wrapping the given children.
+ */
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
   const [doc, setDoc] = useState(null);
@@ -118,6 +124,12 @@ export function YorkieSourceProvider({ children }: Props) {
   );
 }
 
+/**
+ * Hook to access the current document key.
+ *
+ * @throws YorkieError if called outside of a YorkieSourceProvider.
+ * @returns The current document key.
+ */
 export function useCurrentDocKey() {
   const value = useContext(DocKeyContext);
   if (value === undefined) {
@@ -129,6 +141,12 @@ export function useCurrentDocKey() {
   return value;
 }
 
+/**
+ * Hook to access the current Yorkie document.
+ *
+ * @throws YorkieError if called outside of a YorkieSourceProvider.
+ * @returns The current Yorkie document.
+ */
 export function useYorkieDoc() {
   const value = useContext(YorkieDocContext);
   if (value === undefined) {
@@ -167,6 +185,12 @@ export const getDocEventsScope = (
   return DocEventScope.Presence;
 };
 
+/**
+ * Hook to access and manipulate document events for replay.
+ *
+ * @throws YorkieError if called outside of a YorkieSourceProvider.
+ * @returns An object containing the original events, filtered events, and methods to control filtering.
+ */
 export function useDocEventsForReplay() {
   const { events, hidePresenceEvents, setHidePresenceEvents } = useContext(
     DocEventsForReplayContext,

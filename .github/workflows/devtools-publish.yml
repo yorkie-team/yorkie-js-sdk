@@ -20,14 +20,15 @@ jobs:
       - name: Setup Node 🔧
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install and Build 🔧
+        env:
+          PARCEL_WORKER_BACKEND: process
         run: |
-          cd packages/devtools
-          pnpm install
-          pnpm build
+          pnpm i
+          pnpm devtools build
 
       - name: Deploy 🚀
         uses: PlasmoHQ/bpp@v3

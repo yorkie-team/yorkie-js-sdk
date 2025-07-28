@@ -168,6 +168,11 @@ const Panel = () => {
   );
 };
 
+/**
+ * Main application component that provides the Yorkie source context.
+ *
+ * @returns A React element that renders the Yorkie source provider and panel.
+ */
 function PanelApp() {
   return (
     <YorkieSourceProvider>
@@ -177,4 +182,5 @@ function PanelApp() {
 }
 
 const root = createRoot(document.getElementById('root'));
+// @ts-ignore
 root.render(<PanelApp />);

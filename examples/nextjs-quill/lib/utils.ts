@@ -23,8 +23,8 @@ export const toDeltaOperation = <T extends TextValueType>(textValue: T): Op => {
 };
 
 // Convert array of Yorkie OperationInfo to array of Quill Delta Operations
-export const getDeltaOperations = (ops: OperationInfo[]): Op[] => {
-  const operations: Op[] = [];
+export const getDeltaOperations = (ops: Array<OperationInfo>): Array<Op> => {
+  const operations: Array<Op> = [];
   let prevTo = 0;
 
   for (const op of ops) {

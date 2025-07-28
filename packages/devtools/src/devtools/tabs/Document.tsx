@@ -23,6 +23,13 @@ import { useSelectedNode } from '../contexts/SelectedNode';
 import { useCurrentDocKey, useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
+/**
+ * Renders the Document tab showing the Yorkie tree and selected node details.
+ *
+ * @param props.style - Inline styles for the root container.
+ * @param props.hidePresenceTab - Whether the Presence tab is hidden.
+ * @param props.setHidePresenceTab - Setter function to toggle the Presence tab.
+ */
 export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
   const currentDocKey = useCurrentDocKey();
   const [doc] = useYorkieDoc();
