@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useMemo,
-} from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import {
   Document,
   Presence,
@@ -53,6 +47,9 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   initialPresence: P,
   documentStore: Store<DocumentContextType<R, P>>,
 ) {
+  const initialRootRef = useRef(initialRoot);
+  const initialPresenceRef = useRef(initialPresence);
+
   useEffect(() => {
     if (clientError) {
       documentStore.setState((state) => ({
@@ -113,8 +110,8 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
     async function attachDocument() {
       try {
         await client?.attach(newDoc, {
-          initialRoot,
-          initialPresence,
+          initialRoot: initialRootRef.current,
+          initialPresence: initialPresenceRef.current,
         });
 
         const update = (callback: (root: R, presence: Presence<P>) => void) => {
@@ -163,15 +160,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [
-    client,
-    clientLoading,
-    clientError,
-    docKey,
-    documentStore,
-    initialRoot,
-    initialPresence,
-  ]);
+  }, [client, clientLoading, clientError, docKey, documentStore]);
 }
 
 export type DocumentContextType<R, P extends Indexable = Indexable> = {
@@ -195,8 +184,8 @@ const DocumentContext =
  */
 export const DocumentProvider = <R, P extends Indexable = Indexable>({
   docKey,
-  initialRoot,
-  initialPresence,
+  initialRoot = {} as R,
+  initialPresence = {} as P,
   children,
 }: {
   docKey: string;
@@ -205,15 +194,6 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
-
-  const stableInitialRoot = useMemo(
-    () => initialRoot || ({} as R),
-    [initialRoot],
-  );
-  const stableInitialPresence = useMemo(
-    () => initialPresence || ({} as P),
-    [initialPresence],
-  );
 
   /**
    * Initialize the document store only once per component instance.
@@ -226,7 +206,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   if (!documentStoreRef.current) {
     documentStoreRef.current = createDocumentStore<R, P>({
       doc: undefined,
-      root: stableInitialRoot,
+      root: initialRoot,
       presences: [],
       connection: StreamConnectionStatus.Disconnected,
       update: () => {},
@@ -242,8 +222,8 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     clientLoading,
     clientError,
     docKey,
-    stableInitialRoot,
-    stableInitialPresence,
+    initialRoot,
+    initialPresence,
     documentStore,
   );
 

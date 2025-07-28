@@ -24,7 +24,6 @@ import pkg from '../package.json';
 import { useYorkieClient } from './YorkieProvider';
 import { useYorkieDocument } from './DocumentProvider';
 import { useMemo, useRef } from 'react';
-import { createClientStore } from './createClientStore';
 import { createDocumentStore } from './createDocumentStore';
 import { useSelector } from './useSelector';
 
@@ -47,16 +46,9 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
   loading: boolean;
   error: Error | undefined;
 } {
-  const clientStoreRef = useRef<
-    ReturnType<typeof createClientStore> | undefined
-  >(undefined);
   const documentStoreRef = useRef<
     ReturnType<typeof createDocumentStore<R, P>> | undefined
   >(undefined);
-
-  if (!clientStoreRef.current) {
-    clientStoreRef.current = createClientStore();
-  }
 
   if (!documentStoreRef.current) {
     documentStoreRef.current = createDocumentStore<R, P>({
@@ -70,7 +62,6 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     });
   }
 
-  const clientStore = clientStoreRef.current;
   const documentStore = documentStoreRef.current;
 
   // NOTE(hackerwins): useMemo is used to prevent creating a new client
@@ -84,13 +75,11 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     };
   }, [apiKey, opts]);
 
-  useYorkieClient(clientOpts, clientStore);
-
   const {
     client,
     loading: clientLoading,
     error: clientError,
-  } = useSelector(clientStore);
+  } = useYorkieClient(clientOpts);
 
   useYorkieDocument<R, P>(
     client,
