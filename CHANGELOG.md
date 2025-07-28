@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.22] - 2025-07-28
+
+### Changed
+
+- Change VersionVector actorID encoding from hex to base64 by @mnnseong in https://github.com/yorkie-team/yorkie-js-sdk/pull/1030
+
+### Fixed
+
+- Fix eslint cleanup SDK by @pengooseDev https://github.com/yorkie-team/yorkie-js-sdk/pull/1023
+
 ## [0.6.21] - 2025-07-25
 
 ### Added
