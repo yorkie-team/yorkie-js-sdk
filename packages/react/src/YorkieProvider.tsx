@@ -96,8 +96,10 @@ export function useYorkieClient(
         currentState.client.deactivate({ keepalive: true });
       }
     };
-  }, [opts.apiKey, opts.rpcAddr, clientStore]);
+  }, [opts, clientStore]);
 }
+
+// [apiKey, opts?.rpcAddr, opts?.token, opts?.initialPresence, opts?.initialRoot])
 
 /**
  * `YorkieProvider` is a component that provides the Yorkie client to its children.

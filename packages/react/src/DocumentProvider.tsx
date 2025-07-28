@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useMemo,
+} from 'react';
 import {
   Document,
   Presence,
@@ -157,7 +163,15 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [client, clientLoading, clientError, docKey, documentStore]);
+  }, [
+    client,
+    clientLoading,
+    clientError,
+    docKey,
+    documentStore,
+    initialRoot,
+    initialPresence,
+  ]);
 }
 
 export type DocumentContextType<R, P extends Indexable = Indexable> = {
@@ -181,8 +195,8 @@ const DocumentContext =
  */
 export const DocumentProvider = <R, P extends Indexable = Indexable>({
   docKey,
-  initialRoot = {} as R,
-  initialPresence = {} as P,
+  initialRoot,
+  initialPresence,
   children,
 }: {
   docKey: string;
@@ -191,6 +205,15 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
+
+  const stableInitialRoot = useMemo(
+    () => initialRoot || ({} as R),
+    [initialRoot],
+  );
+  const stableInitialPresence = useMemo(
+    () => initialPresence || ({} as P),
+    [initialPresence],
+  );
 
   /**
    * Initialize the document store only once per component instance.
@@ -203,7 +226,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   if (!documentStoreRef.current) {
     documentStoreRef.current = createDocumentStore<R, P>({
       doc: undefined,
-      root: initialRoot,
+      root: stableInitialRoot,
       presences: [],
       connection: StreamConnectionStatus.Disconnected,
       update: () => {},
@@ -219,8 +242,8 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     clientLoading,
     clientError,
     docKey,
-    initialRoot,
-    initialPresence,
+    stableInitialRoot,
+    stableInitialPresence,
     documentStore,
   );
 

@@ -82,7 +82,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
       userAgent: pkg.name + '/' + pkg.version,
       ...opts,
     };
-  }, [apiKey]);
+  }, [apiKey, opts]);
 
   useYorkieClient(clientOpts, clientStore);
 
