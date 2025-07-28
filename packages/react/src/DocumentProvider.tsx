@@ -257,16 +257,12 @@ export const createDocumentSelector = <
   P extends Indexable = Indexable,
 >() => {
   return <T = DocumentContextType<R, P>,>(
-    selector?: (state: DocumentContextType<R, P>) => T,
+    selector: (state: DocumentContextType<R, P>) => T,
     equalityFn: (a: T, b: T) => boolean = shallowEqual,
   ): T => {
     const documentStore = useContext(DocumentContext);
     if (!documentStore) {
       throw new Error('useDocument must be used within a DocumentProvider');
-    }
-
-    if (!selector) {
-      return useSelector(documentStore, (s) => s as T, equalityFn);
     }
 
     return useSelector(documentStore, selector, equalityFn);
