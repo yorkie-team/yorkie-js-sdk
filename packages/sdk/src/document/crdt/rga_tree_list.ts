@@ -273,7 +273,7 @@ export class RGATreeList {
       );
     }
 
-    if (executedAt.after(node.getPositionedAt())) {
+    if (prevNode !== node && executedAt.after(node.getPositionedAt())) {
       const movedFrom = node.getPrev();
       let nextNode = node.getNext();
       this.release(node);
