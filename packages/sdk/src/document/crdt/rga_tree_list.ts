@@ -113,14 +113,14 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
   }
 
   /**
-   * `getMovedFrom` returns a node that this node was moved from.
+   * `getMovedFrom` returns the previous element before the element moved.
    */
   public getMovedFrom(): RGATreeListNode | undefined {
     return this.movedFrom;
   }
 
   /**
-   * `setMovedFrom` sets a node that this node was moved from.
+   * `setMovedFrom` sets the previous element before the element moved.
    */
   public setMovedFrom(movedFrom?: RGATreeListNode): void {
     this.movedFrom = movedFrom;

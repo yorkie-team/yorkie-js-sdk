@@ -475,8 +475,8 @@ export class ArrayProxy {
   }
 
   /**
-   * `moveAfterInternal` moves the given `createdAt` element
-   * after the given index.
+   * `moveAfterByIndexInternal` moves the given element to its new position
+   * after the given previous element.
    */
   public static moveAfterByIndexInternal(
     context: ChangeContext,
@@ -572,7 +572,7 @@ export class ArrayProxy {
   }
 
   /**
-   * `insertIntegerAfterInternal` inserts the value after the previously created element.
+   * `insertIntegerAfterInternal` inserts the given integer after the given previous element.
    */
   public static insertIntegerAfterInternal(
     context: ChangeContext,
@@ -580,14 +580,19 @@ export class ArrayProxy {
     index: number,
     value: number,
   ): CRDTElement {
-    const prev = target.get(index);
-    if (!prev) {
+    const prevElem = target.get(index);
+    if (!prevElem) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
         `index out of bounds: ${index}`,
       );
     }
-    ArrayProxy.insertAfterInternal(context, target, prev.getCreatedAt(), value);
+    ArrayProxy.insertAfterInternal(
+      context,
+      target,
+      prevElem.getCreatedAt(),
+      value,
+    );
     return target;
   }
 
@@ -609,7 +614,7 @@ export class ArrayProxy {
   }
 
   /**
-   * `setIntegerInternal` sets the element of the given index.
+   * `setIntegerInternal` sets the given integer at the given index.
    */
   public static setIntegerInternal(
     context: ChangeContext,

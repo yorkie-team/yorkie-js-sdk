@@ -768,7 +768,7 @@ describe('Array Concurrency Table Tests', function () {
     executor: (arr: JSONArray<number>, cid: number) => void;
   }
 
-  // NOTE: It tests all (op1, op2) pairs in operations.
+  // NOTE(junseo): It tests all (op1, op2) pairs in operations.
   // `oneIdx` is the index where both op1 and op2 reference.
   // `opName` represents the parameter of operation selected as `oneIdx'.
   // `otherIdxs` ensures that indexs other than `oneIdx` are not duplicated.
@@ -879,9 +879,11 @@ describe('Can handle complicated concurrent array operations', function () {
   }
 
   // This test checks CRDT convergence in the presence of concurrent modifications:
-  // - Client 1 performs a single operation (`op`) at index `oneIdx`.
-  // - Client 2 performs two move operations involving index `oneIdx`.
+  // - Client 0 performs a single operation (`op`) at index `oneIdx`.
+  // - Client 1 performs two move operations involving index `oneIdx`.
   // The test ensures that after syncing both clients, their array states converge.
+  // `oneIdx`: the index on which both the arbitrary operation and the first move operation are applied.
+  // `opName`: describes the type of operation being tested (insert, move, set, or remove).
   const operations: Array<ArrayOp> = [
     // insert
     {
