@@ -98,9 +98,14 @@ export abstract class CRDTElement {
    * `remove` removes this element.
    */
   public remove(removedAt?: TimeTicket): boolean {
+    // TODO(emplam27) : For Array operation convergency,
+    // `removedAt.after(this.createdAt)` checks are necessary.
+    // Therefore, It is aligned with the same logic as go sdk.
+    // When implementing Undo/Redo logic, it is necessary to check for side effects.
+    // The original logic for Undo/Redo is `removedAt.after(this.getPositionedAt())`.
     if (
       removedAt &&
-      removedAt.after(this.getPositionedAt()) &&
+      removedAt.after(this.createdAt) &&
       (!this.removedAt || removedAt.after(this.removedAt))
     ) {
       // NOTE(chacha912): If it's a CRDTContainer, removedAt is marked only on
