@@ -811,7 +811,7 @@ describe('Array Concurrency Table Tests', function () {
     {
       opName: 'set.target',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.setInteger!(oneIdx, newValues[cid]);
+        arr.setValue!(oneIdx, newValues[cid]);
       },
     },
 
@@ -997,12 +997,12 @@ describe('Array Set By Index Tests', function () {
       assert.equal(d1.toJSON!(), d2.toJSON!());
 
       d2.update((root) => {
-        root.k1.setInteger!(1, -4);
+        root.k1.setValue!(1, -4);
         assert.equal('{"k1":[-1,-4,-3]}', root.toJSON!());
       });
 
       d1.update((root) => {
-        root.k1.setInteger!(0, -5);
+        root.k1.setValue!(0, -5);
         assert.equal('{"k1":[-5,-2,-3]}', root.toJSON!());
       });
 
@@ -1014,7 +1014,7 @@ describe('Array Set By Index Tests', function () {
     }, task.name);
   });
 
-    it('can handle array set operation by Proxy', () => {
+  it('can handle array set operation by Proxy', () => {
     const doc = new Document<{ list: JSONArray<any> }>('test-doc');
 
     doc.update((root) => {
@@ -1043,13 +1043,19 @@ describe('Array Set By Index Tests', function () {
       const idx = root.list.findIndex((v) => v === 'setV');
       if (idx >= 0) root.list[idx] = 'setV2';
     }, 'set #2');
-    assert.equal(doc.toSortedJSON(), '{"list":["setV2","newV","newV","b","c"]}');
-    
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"list":["setV2","newV","newV","b","c"]}',
+    );
+
     doc.update((root) => {
       const idx = root.list.findIndex((v) => v === 'setV2');
       if (idx >= 0) root.list[idx] = ['s', 'e', 't', 'V', '3'];
     }, 'set #2');
-    assert.equal(doc.toSortedJSON(), '{"list":[["s","e","t","V","3"],"newV","newV","b","c"]}');
+    assert.equal(
+      doc.toSortedJSON(),
+      '{"list":[["s","e","t","V","3"],"newV","newV","b","c"]}',
+    );
   });
 });
 
