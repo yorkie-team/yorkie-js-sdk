@@ -827,10 +827,6 @@ describe('Array Concurrency Table Tests', function () {
   for (const op1 of operations) {
     for (const op2 of operations) {
       it(op1.opName + ' vs ' + op2.opName, async function ({ task }) {
-        // if (op1.opName !== 'set.target' || op2.opName !== 'move.target') {
-        //   return;
-        // }
-
         await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
           d1.update((root) => {
             root.a = [...initArr];
