@@ -60,9 +60,9 @@ export type JSONArray<T> = {
   getLast?(): WrappedElement<T>;
 
   /**
-   * `setInteger` sets the element of the given index.
+   * `setValue` sets the given value at the given index.
    */
-  setInteger?(index: number, value: number): WrappedElement<T>;
+  setValue?(index: number, value: unknown): WrappedElement<T>;
 
   /**
    * `delete` deletes the element of the given index.
@@ -265,9 +265,9 @@ export class ArrayProxy {
             );
             return toWrappedElement(context, inserted);
           };
-        } else if (method === 'setInteger') {
+        } else if (method === 'setValue') {
           return (index: number, value: number): WrappedElement | undefined => {
-            const array = ArrayProxy.setIntegerInternal(
+            const array = ArrayProxy.setValueInternal(
               context,
               target,
               index,
@@ -374,6 +374,15 @@ export class ArrayProxy {
         // behavior and the case where we need to call an internal method
         // throw new TypeError(`Unsupported method: ${String(method)}`);
         return Reflect.get(target, method, receiver);
+      },
+
+      set: (target: CRDTArray, key: string, value: any): boolean => {
+        if (isNumericString(key)) {
+          const index = Number(key);
+          ArrayProxy.setValueInternal(context, target, index, value);
+          return true;
+        }
+        return Reflect.set(target, key, value);
       },
 
       deleteProperty: (target: CRDTArray, key: string): boolean => {
@@ -614,13 +623,13 @@ export class ArrayProxy {
   }
 
   /**
-   * `setIntegerInternal` sets the given integer at the given index.
+   * `setValueInternal` sets the given value at the given index.
    */
-  public static setIntegerInternal(
+  public static setValueInternal(
     context: ChangeContext,
     target: CRDTArray,
     index: number,
-    value: number,
+    value: unknown,
   ): CRDTElement {
     const prev = target.get(index);
     if (!prev) {
