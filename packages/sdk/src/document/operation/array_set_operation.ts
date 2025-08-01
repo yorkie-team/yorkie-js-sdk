@@ -22,7 +22,6 @@ import {
   Operation,
   ExecutionResult,
 } from '@yorkie-js/sdk/src/document/operation/operation';
-import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
@@ -82,7 +81,8 @@ export class ArraySetOperation extends Operation {
     // because there is no way to distinguish between old and new element with same `createdAt`.
     root.registerElement(value);
 
-    const reverseOp = this.toReverseOperation(value);
+    // TODO(emplam27): The reverse operation is not implemented yet.
+    const reverseOp = undefined;
 
     return {
       opInfos: [
@@ -93,26 +93,6 @@ export class ArraySetOperation extends Operation {
       ],
       reverseOp,
     };
-  }
-
-  /**
-   * `toReverseOperation` returns the reverse operation of this operation.
-   */
-  private toReverseOperation(value: CRDTElement | undefined): Operation {
-    let reverseOp: ArraySetOperation | RemoveOperation = RemoveOperation.create(
-      this.getParentCreatedAt(),
-      this.value.getCreatedAt(),
-    );
-
-    if (value !== undefined && !value.isRemoved()) {
-      reverseOp = ArraySetOperation.create(
-        this.getParentCreatedAt(),
-        this.value.getCreatedAt(),
-        value.deepcopy(),
-        this.getExecutedAt(),
-      );
-    }
-    return reverseOp;
   }
 
   /**
