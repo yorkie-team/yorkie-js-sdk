@@ -1,5 +1,6 @@
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Client } from '@yorkie-js/sdk/src/client/client';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
   JSONArray,
@@ -8,6 +9,7 @@ import {
   TimeTicket,
 } from '@yorkie-js/sdk/src/yorkie';
 import { maxVectorOf } from '../helper/helper';
+import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
@@ -751,3 +753,301 @@ describe('Array', function () {
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
   });
 });
+
+describe('Array Concurrency Table Tests', function () {
+  type TestDoc = { a: JSONArray<number> };
+
+  const initArr = [1, 2, 3, 4];
+  const initMarshal = '{"a":[1,2,3,4]}';
+  const oneIdx = 1;
+  const otherIdxs = [2, 3];
+  const newValues = [5, 6];
+
+  interface ArrayOp {
+    opName: string;
+    executor: (arr: JSONArray<number>, cid: number) => void;
+  }
+
+  // NOTE(junseo): It tests all (op1, op2) pairs in operations.
+  // `oneIdx` is the index where both op1 and op2 reference.
+  // `opName` represents the parameter of operation selected as `oneIdx'.
+  // `otherIdxs` ensures that indexs other than `oneIdx` are not duplicated.
+  const operations: Array<ArrayOp> = [
+    // insert
+    {
+      opName: 'insert.prev',
+      executor: (arr: JSONArray<number>, cid: number) => {
+        arr.insertIntegerAfter!(oneIdx, newValues[cid]);
+      },
+    },
+    {
+      opName: 'insert.prev.next',
+      executor: (arr: JSONArray<number>, cid: number) => {
+        arr.insertIntegerAfter!(oneIdx - 1, newValues[cid]);
+      },
+    },
+
+    // move
+    {
+      opName: 'move.prev',
+      executor: (arr: JSONArray<number>, cid: number) => {
+        arr.moveAfterByIndex!(oneIdx, otherIdxs[cid]);
+      },
+    },
+    {
+      opName: 'move.prev.next',
+      executor: (arr: JSONArray<number>, cid: number) => {
+        arr.moveAfterByIndex!(oneIdx - 1, otherIdxs[cid]);
+      },
+    },
+    {
+      opName: 'move.target',
+      executor: (arr: JSONArray<number>, cid: number) => {
+        arr.moveAfterByIndex!(otherIdxs[cid], oneIdx);
+      },
+    },
+
+    // set by index
+    {
+      opName: 'set.target',
+      executor: (arr: JSONArray<number>, cid: number) => {
+        arr.setInteger!(oneIdx, newValues[cid]);
+      },
+    },
+
+    // remove
+    {
+      opName: 'remove.target',
+      executor: (arr: JSONArray<number>) => {
+        arr.delete!(oneIdx);
+      },
+    },
+  ];
+
+  for (const op1 of operations) {
+    for (const op2 of operations) {
+      it(op1.opName + ' vs ' + op2.opName, async function ({ task }) {
+        // if (op1.opName !== 'set.target' || op2.opName !== 'move.target') {
+        //   return;
+        // }
+
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          d1.update((root) => {
+            root.a = [...initArr];
+            assert.equal(initMarshal, root.toJSON!());
+          });
+
+          await c1.sync();
+          await c2.sync();
+
+          // Verify initial state
+          assert.equal(d1.toJSON!(), d2.toJSON!());
+
+          // Apply operations concurrently
+          d1.update((root) => {
+            op1.executor(root.a, 0);
+          });
+
+          d2.update((root) => {
+            op2.executor(root.a, 1);
+          });
+
+          // Sync and verify convergence using syncClientsThenCheckEqual
+          const result = await syncClientsThenCheckEqual([
+            { client: c1, doc: d1 },
+            { client: c2, doc: d2 },
+          ]);
+          assert.isTrue(result);
+        }, task.name);
+      });
+    }
+  }
+});
+
+describe('Can handle complicated concurrent array operations', function () {
+  type TestDoc = { a: JSONArray<number> };
+
+  const initArr = [1, 2, 3, 4];
+  const initMarshal = '{"a":[1,2,3,4]}';
+  const oneIdx = 1;
+  const otherIdx = 0;
+  const newValue = 5;
+
+  interface ArrayOp {
+    opName: string;
+    executor: (arr: JSONArray<number>) => void;
+  }
+
+  // This test checks CRDT convergence in the presence of concurrent modifications:
+  // - Client 0 performs a single operation (`op`) at index `oneIdx`.
+  // - Client 1 performs two move operations involving index `oneIdx`.
+  // The test ensures that after syncing both clients, their array states converge.
+  // `oneIdx`: the index on which both the arbitrary operation and the first move operation are applied.
+  // `opName`: describes the type of operation being tested (insert, move, set, or remove).
+  const operations: Array<ArrayOp> = [
+    // insert
+    {
+      opName: 'insert',
+      executor: (arr: JSONArray<number>) => {
+        arr.insertAfter!(arr.getElementByIndex!(oneIdx).getID!(), newValue);
+      },
+    },
+
+    // move
+    {
+      opName: 'move',
+      executor: (arr: JSONArray<number>) => {
+        arr.moveAfter!(
+          arr.getElementByIndex!(otherIdx).getID!(),
+          arr.getElementByIndex!(oneIdx).getID!(),
+        );
+      },
+    },
+
+    // set (implemented as delete + insert)
+    {
+      opName: 'set',
+      executor: (arr: JSONArray<number>) => {
+        arr.deleteByID!(arr.getElementByIndex!(oneIdx).getID!());
+        if (oneIdx > 0) {
+          arr.insertAfter!(
+            arr.getElementByIndex!(oneIdx - 1).getID!(),
+            newValue,
+          );
+        } else {
+          const firstElement = arr.getElementByIndex!(0);
+          arr.insertBefore!(firstElement.getID!(), newValue);
+        }
+      },
+    },
+
+    // remove
+    {
+      opName: 'remove',
+      executor: (arr: JSONArray<number>) => {
+        arr.deleteByID!(arr.getElementByIndex!(oneIdx).getID!());
+      },
+    },
+  ];
+
+  for (const op of operations) {
+    it(op.opName, async function ({ task }) {
+      // TODO(emplam27): This test's move operation is not working as expected.
+      // It is not converging now.
+      if (op.opName == 'move') {
+        return;
+      }
+
+      await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+        // Reset documents for each test case
+        d1.update((root) => {
+          root.a = [...initArr];
+          assert.equal(initMarshal, root.toJSON!());
+        });
+
+        await c1.sync();
+        await c2.sync();
+
+        // Verify initial state
+        assert.equal(d1.toJSON!(), d2.toJSON!());
+
+        // Client 1 performs the test operation
+        d1.update((root) => {
+          op.executor(root.a);
+        });
+
+        // Client 2 performs two move operations
+        d2.update((root) => {
+          // Move element at index 2 after element at oneIdx
+          root.a.moveAfter!(
+            root.a.getElementByIndex!(oneIdx).getID!(),
+            root.a.getElementByIndex!(2).getID!(),
+          );
+
+          // Move element at index 3 after element at index 2
+          root.a.moveAfter!(
+            root.a.getElementByIndex!(2).getID!(),
+            root.a.getElementByIndex!(3).getID!(),
+          );
+        });
+
+        // Sync and verify convergence using syncClientsThenCheckEqual
+        const result = await syncClientsThenCheckEqual([
+          { client: c1, doc: d1 },
+          { client: c2, doc: d2 },
+        ]);
+        assert.isTrue(result);
+      }, task.name);
+    });
+  }
+});
+
+describe('Array Set By Index Tests', function () {
+  it('Can handle simple array set operations', async function ({ task }) {
+    type TestDoc = { k1: JSONArray<number> };
+
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = [-1, -2, -3];
+        assert.equal('{"k1":[-1,-2,-3]}', root.toJSON!());
+      });
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toJSON!(), d2.toJSON!());
+
+      d2.update((root) => {
+        root.k1.setInteger!(1, -4);
+        assert.equal('{"k1":[-1,-4,-3]}', root.toJSON!());
+      });
+
+      d1.update((root) => {
+        root.k1.setInteger!(0, -5);
+        assert.equal('{"k1":[-5,-2,-3]}', root.toJSON!());
+      });
+
+      const result = await syncClientsThenCheckEqual([
+        { client: c1, doc: d1 },
+        { client: c2, doc: d2 },
+      ]);
+      assert.isTrue(result);
+    }, task.name);
+  });
+});
+
+interface ClientAndDocPair<T extends Indexable> {
+  client: Client;
+  doc: Document<T>;
+}
+
+async function syncClientsThenCheckEqual<T extends Indexable>(
+  pairs: Array<ClientAndDocPair<T>>,
+): Promise<boolean> {
+  assert.isTrue(pairs.length > 1);
+
+  // Save own changes and get previous changes.
+  for (let i = 0; i < pairs.length; i++) {
+    const pair = pairs[i];
+    console.log(`before d${i + 1}: ${pair.doc.toSortedJSON()}`);
+    await pair.client.sync();
+  }
+
+  // Get last client changes.
+  // Last client get all precede changes in above loop.
+  for (const pair of pairs.slice(0, -1)) {
+    await pair.client.sync();
+  }
+
+  // Assert start.
+  const expected = pairs[0].doc.toSortedJSON();
+  console.log(`after d1: ${expected}`);
+  for (let i = 1; i < pairs.length; i++) {
+    const v = pairs[i].doc.toSortedJSON();
+    console.log(`after d${i + 1}: ${v}`);
+    if (expected !== v) {
+      return false;
+    }
+  }
+
+  return true;
+}

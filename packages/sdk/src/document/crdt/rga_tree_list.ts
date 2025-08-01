@@ -29,6 +29,7 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 class RGATreeListNode extends SplayNode<CRDTElement> {
   private prev?: RGATreeListNode;
   private next?: RGATreeListNode;
+  private movedFrom?: RGATreeListNode;
 
   constructor(value: CRDTElement) {
     super(value);
@@ -112,6 +113,20 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
   }
 
   /**
+   * `getMovedFrom` returns the previous element before the element moved.
+   */
+  public getMovedFrom(): RGATreeListNode | undefined {
+    return this.movedFrom;
+  }
+
+  /**
+   * `setMovedFrom` sets the previous element before the element moved.
+   */
+  public setMovedFrom(movedFrom?: RGATreeListNode): void {
+    this.movedFrom = movedFrom;
+  }
+
+  /**
    * `getValue` returns a element value.
    */
   public getValue(): CRDTElement {
@@ -187,6 +202,14 @@ export class RGATreeList {
     }
 
     while (
+      node!.getValue().getMovedAt() &&
+      node!.getValue().getMovedAt()!.after(executedAt) &&
+      node!.getMovedFrom()
+    ) {
+      node = node!.getMovedFrom();
+    }
+
+    while (
       node!.getNext() &&
       node!.getNext()!.getPositionedAt().after(executedAt)
     ) {
@@ -213,7 +236,7 @@ export class RGATreeList {
     prevCreatedAt: TimeTicket,
     value: CRDTElement,
     executedAt: TimeTicket = value.getCreatedAt(),
-  ): void {
+  ): RGATreeListNode {
     const prevNode = this.findNextBeforeExecutedAt(prevCreatedAt, executedAt);
     const newNode = RGATreeListNode.createAfter(prevNode, value);
     if (prevNode === this.last) {
@@ -222,6 +245,7 @@ export class RGATreeList {
 
     this.nodeMapByIndex.insertAfter(prevNode, newNode);
     this.nodeMapByCreatedAt.set(newNode.getCreatedAt().toIDString(), newNode);
+    return newNode;
   }
 
   /**
@@ -233,7 +257,7 @@ export class RGATreeList {
     createdAt: TimeTicket,
     executedAt: TimeTicket,
   ): void {
-    const prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
+    let prevNode = this.nodeMapByCreatedAt.get(prevCreatedAt.toIDString());
     if (!prevNode) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
@@ -241,7 +265,7 @@ export class RGATreeList {
       );
     }
 
-    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
     if (!node) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
@@ -249,14 +273,34 @@ export class RGATreeList {
       );
     }
 
-    if (
-      prevNode !== node &&
-      (!node!.getValue().getMovedAt() ||
-        executedAt.after(node!.getValue().getMovedAt()!))
-    ) {
-      this.release(node!);
-      this.insertAfter(prevNode!.getCreatedAt(), node!.getValue(), executedAt);
-      node!.getValue().setMovedAt(executedAt);
+    if (prevNode !== node && executedAt.after(node.getPositionedAt())) {
+      const movedFrom = node.getPrev();
+      let nextNode = node.getNext();
+      this.release(node);
+      node = this.insertAfter(
+        prevNode!.getCreatedAt(),
+        node!.getValue(),
+        executedAt,
+      );
+
+      node.getValue().setMovedAt(executedAt);
+      node.setMovedFrom(movedFrom);
+
+      while (nextNode! && nextNode.getPositionedAt().after(executedAt)) {
+        prevNode = node;
+        node = nextNode;
+        nextNode = node.getNext();
+
+        this.release(node);
+        node = this.insertAfter(
+          prevNode!.getCreatedAt(),
+          node!.getValue(),
+          executedAt,
+        );
+
+        node.getValue().setMovedAt(executedAt);
+        node.setMovedFrom(movedFrom);
+      }
     }
   }
 
@@ -346,6 +390,26 @@ export class RGATreeList {
       this.nodeMapByIndex.splayNode(node);
     }
     return node!.getValue();
+  }
+
+  /**
+   * `set` sets the given element at the given creation time.
+   */
+  public set(
+    createdAt: TimeTicket,
+    element: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement {
+    const node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
+    if (!node) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `cant find the given node: ${createdAt.toIDString()}`,
+      );
+    }
+
+    this.insertAfter(node.getCreatedAt(), element, executedAt);
+    return this.delete(createdAt, executedAt);
   }
 
   /**
