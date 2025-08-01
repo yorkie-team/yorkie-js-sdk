@@ -1218,9 +1218,6 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       attributes,
       fromTimeTicket(pbStyleOperation!.executedAt)!,
     );
-  } else if (pbOperation.body.case === 'select') {
-    // TODO(hackerwins): Select is deprecated.
-    return;
   } else if (pbOperation.body.case === 'increase') {
     const pbIncreaseOperation = pbOperation.body.value;
     return IncreaseOperation.create(
@@ -1602,7 +1599,10 @@ function base64ToUint8Array(base64: string): Uint8Array {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
-  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+  } else if (
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as any).Buffer !== 'undefined'
+  ) {
     const Buffer = (globalThis as any).Buffer;
     return new Uint8Array(Buffer.from(base64, 'base64'));
   } else {
@@ -1627,7 +1627,10 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
       binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
-  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+  } else if (
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as any).Buffer !== 'undefined'
+  ) {
     const Buffer = (globalThis as any).Buffer;
     return Buffer.from(bytes).toString('base64');
   } else {
