@@ -62,7 +62,7 @@ export type JSONArray<T> = {
   /**
    * `setInteger` sets the element of the given index.
    */
-  setInteger?(index: number, value: number): WrappedElement<T>;
+  setInteger?(index: number, value: unknown): WrappedElement<T>;
 
   /**
    * `delete` deletes the element of the given index.
@@ -376,6 +376,15 @@ export class ArrayProxy {
         return Reflect.get(target, method, receiver);
       },
 
+      set: (target: CRDTArray, key: string, value: any): boolean => {
+        if (isNumericString(key)) {
+          const index = Number(key);
+          ArrayProxy.setIntegerInternal(context, target, index, value);
+          return true;
+        }
+        return Reflect.set(target, key, value);
+      },
+
       deleteProperty: (target: CRDTArray, key: string): boolean => {
         if (logger.isEnabled(LogLevel.Trivial)) {
           logger.trivial(`array[${key}]`);
@@ -620,7 +629,7 @@ export class ArrayProxy {
     context: ChangeContext,
     target: CRDTArray,
     index: number,
-    value: number,
+    value: unknown,
   ): CRDTElement {
     const prev = target.get(index);
     if (!prev) {

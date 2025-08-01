@@ -1013,6 +1013,44 @@ describe('Array Set By Index Tests', function () {
       assert.isTrue(result);
     }, task.name);
   });
+
+    it('can handle array set operation by Proxy', () => {
+    const doc = new Document<{ list: JSONArray<any> }>('test-doc');
+
+    doc.update((root) => {
+      root.list = ['a', 'b', 'c'];
+    }, 'init');
+    assert.equal(doc.toSortedJSON(), '{"list":["a","b","c"]}');
+
+    doc.update((root) => {
+      const prev = root.list.getElementByIndex!(0);
+      root.list.insertAfter!(prev.getID!(), 'newV');
+    }, 'insertAfter #1');
+    assert.equal(doc.toSortedJSON(), '{"list":["a","newV","b","c"]}');
+
+    doc.update((root) => {
+      const prev = root.list.getElementByIndex!(0);
+      root.list.insertAfter!(prev.getID!(), 'newV');
+    }, 'insertAfter #2');
+    assert.equal(doc.toSortedJSON(), '{"list":["a","newV","newV","b","c"]}');
+
+    doc.update((root) => {
+      root.list[0] = 'setV';
+    }, 'set #1');
+    assert.equal(doc.toSortedJSON(), '{"list":["setV","newV","newV","b","c"]}');
+
+    doc.update((root) => {
+      const idx = root.list.findIndex((v) => v === 'setV');
+      if (idx >= 0) root.list[idx] = 'setV2';
+    }, 'set #2');
+    assert.equal(doc.toSortedJSON(), '{"list":["setV2","newV","newV","b","c"]}');
+    
+    doc.update((root) => {
+      const idx = root.list.findIndex((v) => v === 'setV2');
+      if (idx >= 0) root.list[idx] = ['s', 'e', 't', 'V', '3'];
+    }, 'set #2');
+    assert.equal(doc.toSortedJSON(), '{"list":[["s","e","t","V","3"],"newV","newV","b","c"]}');
+  });
 });
 
 interface ClientAndDocPair<T extends Indexable> {
