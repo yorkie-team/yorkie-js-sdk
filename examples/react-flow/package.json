@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --flag v10_config_lookup_from_file",
     "preview": "vite preview"
   },
   "dependencies": {

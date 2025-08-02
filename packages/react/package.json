@@ -16,7 +16,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx"
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {
     "@yorkie-js/sdk": "workspace:*"
