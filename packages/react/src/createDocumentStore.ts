@@ -14,29 +14,12 @@
  * limitations under the License.
  */
 
-import type { Document, JSONArray, JSONObject } from '@yorkie-js/sdk';
+import { Indexable } from '@yorkie-js/sdk';
+import { createStore } from './createStore';
+import { DocumentContextType } from './DocumentProvider';
 
-import { useYorkieDoc } from './useYorkieDoc';
-import { YorkieProvider } from './YorkieProvider';
-import {
-  DocumentProvider,
-  useDocument,
-  useRoot,
-  usePresences,
-  useConnection,
-  createDocumentSelector,
-} from './DocumentProvider';
-
-export type { Document, JSONArray, JSONObject };
-export {
-  YorkieProvider,
-  DocumentProvider,
-  useDocument,
-  useRoot,
-  usePresences,
-  useConnection,
-  useYorkieDoc,
-  createDocumentSelector,
+export const createDocumentStore = <R, P extends Indexable = Indexable>(
+  initialState: DocumentContextType<R, P>,
+) => {
+  return createStore<DocumentContextType<R, P>>(initialState);
 };
-
-export { shallowEqual } from './shallowEqual';

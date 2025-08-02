@@ -59,8 +59,10 @@ jobs:
       - name: Build Examples
         run: pnpm build:examples
 
-      - name: Build React
-        run: pnpm react build
+      - name: Build React and Test React
+        run: |
+          pnpm react build
+          pnpm react test
 
       - name: Build and Test Schema
         run: |
