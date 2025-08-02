@@ -1,6 +1,5 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
-import tsParser from '@typescript-eslint/parser';
 import prettierPlugin from 'eslint-plugin-prettier';
 import jsdocPlugin from 'eslint-plugin-jsdoc';
 import { globalIgnores } from 'eslint/config';
@@ -23,7 +22,7 @@ export default tseslint.config(
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
-      parser: tsParser,
+      parser: tseslint.parser,
     },
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',
