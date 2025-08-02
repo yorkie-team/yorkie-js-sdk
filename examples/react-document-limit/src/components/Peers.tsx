@@ -1,5 +1,5 @@
-import React from "react";
-import { usePresences } from "@yorkie-js/react";
+import React from 'react';
+import { usePresences } from '@yorkie-js/react';
 
 export function Peers() {
   const presences = usePresences();

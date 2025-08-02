@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import classnames from 'classnames';
 
 interface TodoInputProps {
-  onSave: Function;
+  onSave: (text: string) => void;
   placeholder?: string;
   editing?: boolean;
   text?: string;
   newTodo?: boolean;
 }
 
+/**
+ * `TodoTextInput` is a component that allows the user to input a text.
+ */
 export default function TodoTextInput(props: TodoInputProps) {
   const [text, setText] = useState(props.text || '');
 

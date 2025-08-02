@@ -195,10 +195,11 @@ async function main() {
                 to + (typeof op.insert === 'string' ? op.insert.length : 1);
             }
 
-            range &&
+            if (range) {
               presence.set({
                 selection: root.content.indexRangeToPosRange(range),
               });
+            }
           }, `update style by ${client.getID()}`);
         } else if (op.delete !== undefined) {
           to = from + op.delete;
@@ -206,10 +207,11 @@ async function main() {
 
           doc.update((root, presence) => {
             const range = root.content.edit(from, to, '');
-            range &&
+            if (range) {
               presence.set({
                 selection: root.content.indexRangeToPosRange(range),
               });
+            }
           }, `update content by ${client.getID()}`);
         } else if (op.retain !== undefined && typeof op.retain === 'number') {
           from = to + op.retain;

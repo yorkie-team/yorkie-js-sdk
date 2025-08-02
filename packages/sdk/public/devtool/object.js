@@ -1,7 +1,4 @@
-const objectDevtool = (
-  doc,
-  { rootHolder, opsHolder, undoOpsHolder, redoOpsHolder },
-) => {
+const objectDevtool = (doc, { rootHolder, undoOpsHolder, redoOpsHolder }) => {
   const displayRootObject = () => {
     const rootObj = doc.getRoot().toJSForTest();
     rootHolder.innerHTML = `
@@ -87,7 +84,7 @@ const objectDevtool = (
                   <span class="type ${opType.toLowerCase()}">${opType}</span>
                   ${`<span class="timeticket">${id}</span>`}${op.toTestString()}
                 </span>`;
-            } catch (e) {
+            } catch {
               // operation in the undo/redo stack does not yet have "executedAt" set.
               return `
                 <span class="op">

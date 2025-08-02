@@ -2,7 +2,7 @@ import React from 'react';
 import TodoTextInput from './TodoTextInput';
 
 interface HeaderProps {
-  addTodo: Function
+  addTodo: Function;
 }
 
 export default function Header(props: HeaderProps) {
