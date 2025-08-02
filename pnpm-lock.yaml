@@ -14,12 +14,6 @@ importers:
       '@eslint/js':
         specifier: ^9.32.0
         version: 9.32.0
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.38.0
-        version: 8.38.0(@typescript-eslint/parser@8.38.0(eslint@9.32.0(jiti@2.5.1))(typescript@5.8.2))(eslint@9.32.0(jiti@2.5.1))(typescript@5.8.2)
-      '@typescript-eslint/parser':
-        specifier: ^8.38.0
-        version: 8.38.0(eslint@9.32.0(jiti@2.5.1))(typescript@5.8.2)
       eslint:
         specifier: ^9.32.0
         version: 9.32.0(jiti@2.5.1)
