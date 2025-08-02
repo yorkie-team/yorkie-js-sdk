@@ -23,7 +23,7 @@ type SelectedNodeContext = [
   RootTreeNode,
   Dispatch<SetStateAction<RootTreeNode>>,
 ];
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-restricted-types
 const SelectedNodeContext = createContext<SelectedNodeContext | null>(null);
 
 type Props = {

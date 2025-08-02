@@ -8,7 +8,7 @@
     "dev": "plasmo dev --build-path=dist",
     "build": "plasmo build --build-path=dist --zip",
     "test": "plasmo test",
-    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx"
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {
     "@microlink/react-json-view": "^1.23.0",

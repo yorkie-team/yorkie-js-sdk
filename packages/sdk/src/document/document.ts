@@ -460,7 +460,7 @@ export type DocEventCallback<P extends Indexable> =
  */
 export type Json = JsonPrimitive | JsonArray | JsonObject;
 
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-restricted-types
 type JsonPrimitive = string | number | boolean | null;
 type JsonArray = Array<Json>;
 type JsonObject = { [key: string]: Json | undefined };
@@ -1163,11 +1163,13 @@ export class Document<R, P extends Indexable = Indexable> {
                 targetOps.push(op as TOperationInfo);
               }
             }
-            targetOps.length &&
+
+            if (targetOps.length) {
               callback({
                 ...docEvent,
                 value: { ...docEvent.value, operations: targetOps },
               });
+            }
           }
         },
         arg3,

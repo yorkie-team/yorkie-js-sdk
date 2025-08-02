@@ -38,7 +38,7 @@ export enum PrimitiveType {
  * included in `PrimitiveValue` can be set to the document.
  */
 export type PrimitiveValue =
-  // eslint-disable-next-line @typescript-eslint/ban-types
+  // eslint-disable-next-line @typescript-eslint/no-restricted-types
   null | boolean | number | Long | string | Uint8Array | Date;
 
 /**
