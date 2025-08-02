@@ -17,7 +17,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { StreamConnectionStatus } from '@yorkie-js/sdk';
-import { createDocumentSelector, DocumentProvider } from './DocumentProvider';
+import {
+  createDocumentSelector,
+  DocumentProvider,
+} from '../../src/DocumentProvider';
 import type { Indexable } from '@yorkie-js/sdk';
 
 interface TestDocumentRoot {
@@ -118,8 +121,13 @@ let currentMockClient: ReturnType<typeof createMockClient>;
 /**
  * mock useYorkie hook to use without YorkieProvider.
  */
-vi.mock('./YorkieProvider', () => ({
+vi.mock('../../src/YorkieProvider', () => ({
   useYorkie: () => ({
+    client: currentMockClient,
+    loading: false,
+    error: undefined,
+  }),
+  useYorkieClient: () => ({
     client: currentMockClient,
     loading: false,
     error: undefined,

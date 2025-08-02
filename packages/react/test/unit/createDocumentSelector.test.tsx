@@ -18,8 +18,11 @@ import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { StreamConnectionStatus } from '@yorkie-js/sdk';
-import { createDocumentSelector, DocumentProvider } from './DocumentProvider';
-import { shallowEqual } from './shallowEqual';
+import {
+  createDocumentSelector,
+  DocumentProvider,
+} from '../../src/DocumentProvider';
+import { shallowEqual } from '../../src/shallowEqual';
 import type { Indexable } from '@yorkie-js/sdk';
 
 const mockDocument = {

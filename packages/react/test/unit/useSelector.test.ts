@@ -16,9 +16,9 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useSelector } from './useSelector';
-import { createStore } from './createStore';
-import { shallowEqual } from './shallowEqual';
+import { useSelector } from '../../src/useSelector';
+import { createStore } from '../../src/createStore';
+import { shallowEqual } from '../../src/shallowEqual';
 
 interface TestState {
   counter: number;
