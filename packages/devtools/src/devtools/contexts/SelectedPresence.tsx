@@ -23,7 +23,7 @@ type SelectedPresenceContext = [
   PresenceJsonNode,
   Dispatch<SetStateAction<PresenceJsonNode>>,
 ];
-// eslint-disable-next-line @typescript-eslint/ban-types
+// eslint-disable-next-line @typescript-eslint/no-restricted-types
 const SelectedPresenceContext = createContext<SelectedPresenceContext | null>(
   null,
 );
