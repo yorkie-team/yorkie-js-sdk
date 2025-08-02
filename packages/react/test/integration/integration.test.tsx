@@ -53,6 +53,12 @@ const createMockDocument = () => {
   };
   let presences: Array<TestPresence> = [];
 
+  const unsubscribeFns = {
+    document: vi.fn(),
+    presence: vi.fn(),
+    connection: vi.fn(),
+  };
+
   const mockDocument = {
     subscribe: vi
       .fn()
@@ -64,13 +70,15 @@ const createMockDocument = () => {
           if (typeof eventTypeOrCallback === 'string') {
             if (eventTypeOrCallback === 'presence') {
               presenceSubscribeCallback = callback as () => void;
+              return unsubscribeFns.presence;
             } else if (eventTypeOrCallback === 'connection') {
               connectionSubscribeCallback = callback as (event: any) => void;
+              return unsubscribeFns.connection;
             }
             return () => {};
           } else {
             documentSubscribeCallback = eventTypeOrCallback as () => void;
-            return () => {};
+            return unsubscribeFns.document;
           }
         },
       ),
@@ -100,6 +108,7 @@ const createMockDocument = () => {
         });
       }
     },
+    _getUnsubscribeFns: () => unsubscribeFns,
   };
 
   return mockDocument;
@@ -412,8 +421,13 @@ describe('Integration Test', () => {
 
       expect(currentMockDocument.subscribe).toHaveBeenCalledTimes(3);
 
+      const unsubscribeFns = currentMockDocument._getUnsubscribeFns();
+
       unmount();
 
+      expect(unsubscribeFns.document).toHaveBeenCalledTimes(1);
+      expect(unsubscribeFns.presence).toHaveBeenCalledTimes(1);
+      expect(unsubscribeFns.connection).toHaveBeenCalledTimes(1);
       expect(currentMockClient.detach).toHaveBeenCalledTimes(1);
 
       act(() => {
