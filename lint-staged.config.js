@@ -18,22 +18,5 @@ const removeIgnoredFiles = async (files) => {
 };
 
 module.exports = {
-  '**/*.ts': async (files) => {
-    const filesToLint = await removeIgnoredFiles(files);
-
-    if (filesToLint.length > 0) {
-      const fileArgs = filesToLint.join(' ');
-      const command = `pnpm exec eslint ${fileArgs} --fix --max-warnings=0 --ext .ts`;
-      try {
-        execSync(command, { stdio: 'inherit' });
-        process.exit(0);
-      } catch (error) {
-        console.error('Linting failed. Commit will be aborted.');
-        process.exit(1);
-      }
-    } else {
-      console.log('No eligible files to lint. Skipping lint-staged command.');
-      process.exit(0);
-    }
-  },
+  '**/*.{ts,tsx}': 'pnpm exec eslint --fix --max-warnings=0 --no-warn-ignored',
 };
