@@ -95,7 +95,7 @@ export default tseslint.config(
     'packages/sdk/test/vitest.d.ts',
     'packages/sdk/lib',
     // examples
-    'examples/react-tldraw/src/tldraw.d.ts',
+    'examples/**/*',
     // schema
     'packages/schema/antlr',
   ]),
