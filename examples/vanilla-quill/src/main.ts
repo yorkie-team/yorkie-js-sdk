@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import yorkie, { DocEventType, Indexable, OperationInfo } from '@yorkie-js/sdk';
 import ColorHash from 'color-hash';
 import Quill, { Delta, type Op } from 'quill';

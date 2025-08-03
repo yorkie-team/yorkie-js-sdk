@@ -50,7 +50,7 @@ const Editor = () => {
         'color: green',
       );
 
-      // Apply remote changes to Quill editor 
+      // Apply remote changes to Quill editor
       const delta = new Delta(deltaOperations);
       // using 'api' source to prevent infinite loop
       quillRef.current.updateContents(delta, 'api');
@@ -102,60 +102,71 @@ const Editor = () => {
     quillRef.current = quill;
 
     // Listen to local text changes in Quill editor
-    quill.on('text-change', (delta: Delta, _oldContent: Delta, source: string) => {
-      if (source === 'api' || !delta.ops) {
-        return;
-      }
-
-      // Track cursor position for processing operations
-      let from = 0, to = 0;
-      console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
-
-      // Process each operation in the delta
-      for (const op of delta.ops) {
-        if (op.attributes !== undefined || op.insert !== undefined) {
-          if (op.retain !== undefined && typeof op.retain === 'number') {
-            to = from + op.retain;
-          }
-          console.log(
-            `%c local: ${from}-${to}: ${op.insert} ${op.attributes ? JSON.stringify(op.attributes) : '{}'
-            }`,
-            'color: green',
-          );
-
-          update((root) => {
-            if (op.attributes !== undefined && op.insert === undefined) {
-              root.content.setStyle(from, to, op.attributes as Indexable);
-            } else if (op.insert !== undefined) {
-              if (to < from) {
-                to = from;
-              }
-
-              // Handle embedded objects (images, videos, etc.)
-              if (typeof op.insert === 'object') {
-                root.content.edit(from, to, ' ', {
-                  embed: JSON.stringify(op.insert),
-                  ...op.attributes,
-                });
-              } else {
-                root.content.edit(from, to, op.insert, op.attributes as Indexable);
-              }
-              from = to + (typeof op.insert === 'string' ? op.insert.length : 1);
-            }
-          });
-        } else if (op.delete !== undefined) {
-          to = from + op.delete;
-          console.log(`%c local: ${from}-${to}: ''`, 'color: green');
-          update((root) => {
-            // Delete by replacing with empty string
-            root.content.edit(from, to, '');
-          });
-        } else if (op.retain !== undefined && typeof op.retain === 'number') {
-          from = to + op.retain;
-          to = from;
+    quill.on(
+      'text-change',
+      (delta: Delta, _oldContent: Delta, source: string) => {
+        if (source === 'api' || !delta.ops) {
+          return;
         }
-      }
-    });
+
+        // Track cursor position for processing operations
+        let from = 0,
+          to = 0;
+        console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
+
+        // Process each operation in the delta
+        for (const op of delta.ops) {
+          if (op.attributes !== undefined || op.insert !== undefined) {
+            if (op.retain !== undefined && typeof op.retain === 'number') {
+              to = from + op.retain;
+            }
+            console.log(
+              `%c local: ${from}-${to}: ${op.insert} ${
+                op.attributes ? JSON.stringify(op.attributes) : '{}'
+              }`,
+              'color: green',
+            );
+
+            update((root) => {
+              if (op.attributes !== undefined && op.insert === undefined) {
+                root.content.setStyle(from, to, op.attributes as Indexable);
+              } else if (op.insert !== undefined) {
+                if (to < from) {
+                  to = from;
+                }
+
+                // Handle embedded objects (images, videos, etc.)
+                if (typeof op.insert === 'object') {
+                  root.content.edit(from, to, ' ', {
+                    embed: JSON.stringify(op.insert),
+                    ...op.attributes,
+                  });
+                } else {
+                  root.content.edit(
+                    from,
+                    to,
+                    op.insert,
+                    op.attributes as Indexable,
+                  );
+                }
+                from =
+                  to + (typeof op.insert === 'string' ? op.insert.length : 1);
+              }
+            });
+          } else if (op.delete !== undefined) {
+            to = from + op.delete;
+            console.log(`%c local: ${from}-${to}: ''`, 'color: green');
+            update((root) => {
+              // Delete by replacing with empty string
+              root.content.edit(from, to, '');
+            });
+          } else if (op.retain !== undefined && typeof op.retain === 'number') {
+            from = to + op.retain;
+            to = from;
+          }
+        }
+      },
+    );
 
     // Perform initial synchronization of document content
     syncText();
@@ -172,12 +183,9 @@ const Editor = () => {
     };
   }, [doc, update, handleOperations, syncText]);
 
-  if (loading) return (
-    <div className="p-4">Loading editor...</div>
-  );
-  if (error) return (
-    <div className="p-4 text-red-500">Error: {error.message}</div>
-  );
+  if (loading) return <div className="p-4">Loading editor...</div>;
+  if (error)
+    return <div className="p-4 text-red-500">Error: {error.message}</div>;
 
   return (
     <div className="container mx-auto p-4">
@@ -192,6 +200,6 @@ const Editor = () => {
       <DocumentInfo doc={doc} />
     </div>
   );
-}
+};
 
 export default Editor;

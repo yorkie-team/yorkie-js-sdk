@@ -78,6 +78,12 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['examples/**/*'],
+    rules: {
+      'jsdoc/require-jsdoc': 'off',
+    },
+  },
   globalIgnores([
     // common
     '**/dist/*',

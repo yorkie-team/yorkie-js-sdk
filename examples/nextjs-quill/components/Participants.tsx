@@ -1,6 +1,6 @@
 'use client';
 
-import { usePresences } from "@yorkie-js/react";
+import { usePresences } from '@yorkie-js/react';
 
 const Participants = () => {
   const presences = usePresences();
@@ -19,6 +19,6 @@ const Participants = () => {
       </div>
     </div>
   );
-}
+};
 
-export default Participants
+export default Participants;

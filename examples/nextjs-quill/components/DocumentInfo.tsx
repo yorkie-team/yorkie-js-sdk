@@ -1,13 +1,14 @@
 'use client';
 
-import { Document } from "@yorkie-js/sdk";
-import { useEffect, useState } from "react";
+import { YorkieDoc } from '@/types';
+import { Document } from '@yorkie-js/sdk';
+import { useEffect, useState } from 'react';
 
-interface DocumentInfoProps {
-  doc: Document<any>;
+interface DocumentInfoProps<T extends YorkieDoc> {
+  doc: Document<T>;
 }
 
-const DocumentInfo = ({ doc }: DocumentInfoProps) => {
+const DocumentInfo = <T extends YorkieDoc>({ doc }: DocumentInfoProps<T>) => {
   const [documentJson, setDocumentJson] = useState('');
   const [documentText, setDocumentText] = useState('');
 
@@ -42,7 +43,7 @@ const DocumentInfo = ({ doc }: DocumentInfoProps) => {
         </pre>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default DocumentInfo
+export default DocumentInfo;
