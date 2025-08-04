@@ -19,6 +19,7 @@
     "react-flow": "pnpm --filter=react-flow",
     "profile-stack": "pnpm --filter=profile-stack",
     "react-todomvc": "pnpm --filter=react-todomvc",
+    "react-watch-this-page": "pnpm --filter=react-watch-this-page",
     "simultaneous-cursors": "pnpm --filter=simultaneous-cursors",
     "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
     "vanilla-quill": "pnpm --filter=vanilla-quill",
