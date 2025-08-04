@@ -12,9 +12,7 @@ export default defineConfig({
       provider: 'istanbul',
       reporter: ['lcov', 'text-summary'],
     },
-    onConsoleLog() {
-      return false;
-    },
+    onConsoleLog() {},
     globals: true,
     testTimeout: isCI ? 5000 : Infinity,
     benchmark: {

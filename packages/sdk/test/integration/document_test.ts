@@ -61,6 +61,30 @@ describe('Document', function () {
     await client2.deactivate();
   });
 
+  it('Can reattach document after detaching if it is new instance', async function ({
+    task,
+  }) {
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc1 = new yorkie.Document(docKey);
+
+    const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await cli.activate();
+
+    console.log(`doc status: ${doc1.getCheckpoint().toTestString()}`);
+    await cli.attach(doc1);
+    assert.equal('{}', doc1.toSortedJSON());
+    console.log(`doc status: ${doc1.getCheckpoint().toTestString()}`);
+
+    await cli.detach(doc1);
+    assert.equal(doc1.getStatus(), DocStatus.Detached);
+    console.log(`doc status: ${doc1.getCheckpoint().toTestString()}`);
+
+    // Reattaching an empty document should not throw an error.
+    const doc2 = new yorkie.Document(docKey);
+    await cli.attach(doc2);
+    assert.equal('{}', doc2.toSortedJSON());
+  });
+
   it('Can remove document using removeIfNotAttached option when detaching', async function ({
     task,
   }) {
