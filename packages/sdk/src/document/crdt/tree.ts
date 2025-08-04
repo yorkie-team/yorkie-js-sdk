@@ -459,7 +459,9 @@ export class CRDTTreeNode
     super(type);
     this.id = id;
     this.removedAt = removedAt;
-    attributes && (this.attrs = attributes);
+    if (attributes) {
+      this.attrs = attributes;
+    }
 
     if (typeof opts === 'string') {
       this.value = opts;
@@ -552,16 +554,18 @@ export class CRDTTreeNode
   /**
    * `remove` marks the node as removed.
    */
-  remove(removedAt: TimeTicket): void {
-    const alived = !this.removedAt;
+  remove(removedAt: TimeTicket): boolean {
+    const justRemoved = !this.removedAt;
 
     if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
       this.removedAt = removedAt;
+      if (justRemoved) {
+        this.updateAncestorsSize();
+      }
+      return justRemoved;
     }
 
-    if (alived) {
-      this.updateAncestorsSize();
-    }
+    return false;
   }
 
   /**
@@ -1086,7 +1090,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize] {
+  ): [Array<GCPair>, DataSize] {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
@@ -1101,78 +1105,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     addDataSizes(diff, diffTo, diffFrom);
 
-    const fromIdx = this.toIndex(fromParent, fromLeft);
-    const fromPath = this.toPath(fromParent, fromLeft);
-
-    const nodesToBeRemoved: Array<CRDTTreeNode> = [];
-    const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
-    const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
-    this.traverseInPosRange(
+    const { removes, merges } = this.collectDeleteAndMerge(
       fromParent,
       fromLeft,
       toParent,
       toLeft,
-      ([node, tokenType], ended) => {
-        // NOTE(hackerwins): If the node overlaps as a start tag with the
-        // range then we need to move the remaining children to fromParent.
-        if (tokenType === TokenType.Start && !ended) {
-          // TODO(hackerwins): Define more clearly merge-able rules
-          // between two parents. For now, we only merge two parents are
-          // both element nodes having text children.
-          // e.g. <p>a|b</p><p>c|d</p> -> <p>a|d</p>
-          // if (!fromParent.hasTextChild() || !toParent.hasTextChild()) {
-          //   return;
-          // }
-
-          for (const child of node.children) {
-            toBeMovedToFromParents.push(child);
-          }
-        }
-
-        const actorID = node.getCreatedAt().getActorID();
-        let clientLamportAtChange = MaxLamport; // Local edit
-        if (versionVector != undefined) {
-          clientLamportAtChange = versionVector!.get(actorID)
-            ? versionVector!.get(actorID)!
-            : 0n;
-        }
-
-        // NOTE(sejongk): If the node is removable or its parent is going to
-        // be removed, then this node should be removed.
-        if (
-          node.canDelete(editedAt, clientLamportAtChange) ||
-          nodesToBeRemoved.includes(node.parent!)
-        ) {
-          // NOTE(hackerwins): If the node overlaps as an end token with the
-          // range then we need to keep the node.
-          if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
-            nodesToBeRemoved.push(node);
-          }
-          tokensToBeRemoved.push([node, tokenType]);
-        }
-      },
-    );
-
-    // NOTE(hackerwins): If concurrent deletion happens, we need to separate the
-    // range(from, to) into multiple ranges.
-    const changes: Array<TreeChange> = this.makeDeletionChanges(
-      tokensToBeRemoved,
-      editedAt,
     );
 
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
-    for (const node of nodesToBeRemoved) {
-      node.remove(editedAt);
-      if (node.isRemoved) {
-        pairs.push({ parent: this, child: node });
+    for (const node of removes) {
+      const removed = this.removeNode(node, editedAt, versionVector);
+      if (removed) {
+        pairs.push({ parent: this, child: removed });
       }
     }
 
     // 03. Merge: move the nodes that are marked as moved.
-    for (const node of toBeMovedToFromParents) {
-      if (!node.removedAt) {
-        fromParent.append(node);
+    for (const node of merges) {
+      const removed = this.mergeNode(node, editedAt, versionVector);
+      if (removed) {
+        pairs.push({ parent: this, child: removed });
       }
     }
 
@@ -1187,14 +1140,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
         parent = parent.parent!;
         splitCount++;
       }
-      changes.push({
-        type: TreeChangeType.Content,
-        from: fromIdx,
-        to: fromIdx,
-        fromPath,
-        toPath: fromPath,
-        actor: editedAt.getActorID(),
-      });
     }
 
     // 05. Insert: insert the given nodes at the given position.
@@ -1230,25 +1175,119 @@ export class CRDTTree extends CRDTElement implements GCParent {
           aliveContents.push(content);
         }
       }
-      if (aliveContents.length) {
-        const value = aliveContents.map((content) => toTreeNode(content));
-        if (changes.length && changes[changes.length - 1].from === fromIdx) {
-          changes[changes.length - 1].value = value;
-        } else {
-          changes.push({
-            type: TreeChangeType.Content,
-            from: fromIdx,
-            to: fromIdx,
-            fromPath,
-            toPath: fromPath,
-            actor: editedAt.getActorID(),
-            value,
-          });
-        }
-      }
     }
 
-    return [changes, pairs, diff];
+    return [pairs, diff];
+  }
+
+  private collectDeleteAndMerge(
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+  ): { removes: Array<CRDTTreeNode>; merges: Array<CRDTTreeNode> } {
+    const removes: Array<CRDTTreeNode> = [];
+    const merges: Array<CRDTTreeNode> = [];
+    const stack: Array<CRDTTreeNodeID> = [];
+
+    this.traverseInTreePos(
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      (parent, left) => {
+        if (left.isText) {
+          removes.push(left);
+          return;
+        }
+
+        if (parent === left) {
+          // push
+          stack.push(left.id);
+        } else {
+          // pop
+          const top = stack[stack.length - 1];
+          if (top && top.equals(left.id)) {
+            stack.pop();
+            removes.push(left);
+          } else {
+            merges.push(left);
+          }
+        }
+      },
+    );
+
+    merges.reverse();
+    return { removes, merges };
+  }
+
+  private removeNode(
+    node: CRDTTreeNode,
+    editedAt: TimeTicket,
+    versionVector?: VersionVector,
+  ): CRDTTreeNode | undefined {
+    const actorID = node.getCreatedAt().getActorID();
+
+    if (!versionVector || versionVector.size() === 0) {
+      if (node.remove(editedAt)) {
+        return node;
+      }
+      return undefined;
+    }
+    const clientLamportAtChange = versionVector.get(actorID);
+    if (clientLamportAtChange === undefined) {
+      return undefined;
+    }
+
+    if (node.canDelete(editedAt, clientLamportAtChange)) {
+      if (node.remove(editedAt)) {
+        return node;
+      }
+      return undefined;
+    }
+    return undefined;
+  }
+
+  private mergeNode(
+    node: CRDTTreeNode,
+    editedAt: TimeTicket,
+    versionVector?: VersionVector,
+  ): CRDTTreeNode | undefined {
+    const actorID = node.getCreatedAt().getActorID();
+
+    let clientLamportAtChange = MaxLamport;
+    if (versionVector && versionVector.size() > 0) {
+      const lamport = versionVector.get(actorID);
+      if (lamport === undefined) return undefined;
+      clientLamportAtChange = lamport;
+    }
+
+    let nodeIdx = node;
+
+    while (true) {
+      const nextInfo = nodeIdx.nextSibling!;
+      if (!nextInfo) break;
+
+      const right = nextInfo;
+      nodeIdx = nextInfo;
+
+      if (!right.canDelete(editedAt, clientLamportAtChange)) continue;
+
+      if (node.type !== right.type) return undefined;
+
+      const children = right.allChildren;
+      if (children.length > 0) {
+        right.clearChildren();
+        node.append(...children);
+      }
+
+      if (right.remove(editedAt)) {
+        return right;
+      }
+      return undefined;
+    }
+
+    return undefined;
   }
 
   /**
@@ -1271,6 +1310,65 @@ export class CRDTTree extends CRDTElement implements GCParent {
       editedAt,
       issueTimeTicket,
     );
+  }
+
+  private traverseInTreePos(
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+    callback: (parent: CRDTTreeNode, left: CRDTTreeNode) => void,
+  ): void {
+    const isEnd = (
+      p1: CRDTTreeNode,
+      l1: CRDTTreeNode,
+      p2: CRDTTreeNode,
+      l2: CRDTTreeNode,
+    ): boolean => p1.id.equals(p2.id) && l1.id.equals(l2.id);
+
+    const stack: Array<CRDTTreeNode> = [];
+
+    while (true) {
+      if (isEnd(fromParent, fromLeft, toParent, toLeft)) break;
+
+      const next = this.nextTreePos(fromParent, fromLeft, stack);
+      if (!next) break;
+
+      [fromParent, fromLeft] = next;
+      callback(fromParent, fromLeft);
+    }
+  }
+
+  private nextTreePos(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    stack: Array<CRDTTreeNode>,
+  ): readonly [CRDTTreeNode, CRDTTreeNode] | undefined {
+    let nextNode: CRDTTreeNode | undefined;
+
+    if (parent === left) {
+      stack.unshift(...parent.allChildren.slice());
+    } else if (stack.length === 0) {
+      const offset = parent.findOffset(left);
+      const siblings = parent.allChildren.slice(offset + 1);
+      stack.unshift(...siblings);
+    }
+
+    if (stack.length > 0) {
+      nextNode = stack[0];
+    }
+
+    if (nextNode && stack[0].parent === parent) {
+      stack.shift();
+      if (nextNode.isText) {
+        return [parent, nextNode];
+      } else {
+        return [nextNode, nextNode];
+      }
+    } else {
+      if (!parent.parent) return undefined;
+      return [parent.parent, parent];
+    }
   }
 
   /**

@@ -158,6 +158,24 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `UpdateAncestorsSizeByAppend` updates the size of ancestors.
+   * For the scenario that append removed node.
+   */
+  UpdateAncestorsSizeByAppend(): void {
+    let parent: T | undefined = this.parent;
+    if (this.isRemoved) {
+      return;
+    }
+    while (parent) {
+      parent.size += this.paddedSize;
+      if (parent.isRemoved) {
+        break;
+      }
+      parent = parent.parent;
+    }
+  }
+
+  /**
    * `updateDescendantsSize` updates the size of the descendants. It is used when
    * the tree is newly created and the size of the descendants is not calculated.
    */
@@ -312,6 +330,13 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `clearChildren` removes all child nodes from this node.
+   */
+  public clearChildren(): void {
+    this._children = [];
+  }
+
+  /**
    * `hasTextChild` returns true if the node's children consist of only text children.
    */
   hasTextChild(): boolean {
@@ -344,7 +369,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.push(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-      node.updateAncestorsSize();
+      node.UpdateAncestorsSizeByAppend();
     }
   }
 

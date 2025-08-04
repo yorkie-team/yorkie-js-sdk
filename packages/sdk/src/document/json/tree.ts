@@ -668,7 +668,7 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
-    const [, pairs, diff] = this.tree!.edit(
+    const [pairs, diff] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
         ? crdtNodes.map((crdtNode) => crdtNode?.deepcopy())

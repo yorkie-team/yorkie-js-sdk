@@ -480,7 +480,7 @@ describe('CRDTTree.Merge', function () {
     //       0   1   2 3 4    5
     // <root> <p> <b> a d </b> </root>
     t.editT([3, 8], undefined, 0, timeT(), timeT);
-    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ad</b></p></root>`);
+    assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>a</b>d</p></root>`);
   });
 
   it.skip('Can merge different levels with edit', function () {
