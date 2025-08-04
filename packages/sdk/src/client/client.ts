@@ -1205,7 +1205,7 @@ export class Client {
       this.processing = true;
       const task = this.taskQueue.shift()!;
       await task();
-    } catch (error) {
+    } catch {
       logger.error(`[TQ] c:"${this.getKey()}" process failed, id:"${this.id}"`);
     }
 

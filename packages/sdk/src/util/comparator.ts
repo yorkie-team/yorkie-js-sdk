@@ -16,7 +16,6 @@
 
 export type Comparator<K> = (keyA: K, keyB: K) => number;
 
-// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
 export const DefaultComparator = (a: any, b: any): number => {
   if (a === b) {
     return 0;

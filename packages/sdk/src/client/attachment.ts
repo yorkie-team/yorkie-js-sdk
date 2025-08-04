@@ -89,7 +89,7 @@ export class Attachment<T, P extends Indexable> {
               this.reconnectStreamDelay,
             );
           });
-      } catch (err) {
+      } catch {
         // TODO(hackerwins): For now, if the creation of the watch stream fails,
         // it is considered normal and the watch loop is executed again after a
         // certain period of time.

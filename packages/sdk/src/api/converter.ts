@@ -1375,7 +1375,6 @@ function fromObject(pbObject: PbJSONElement_JSONObject): CRDTObject {
 function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.nodes) {
-    // eslint-disable-next-line
     rgaTreeList.insert(fromElement(pbRGANode.element!));
   }
 

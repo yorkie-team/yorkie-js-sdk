@@ -24,7 +24,7 @@ export const validateSerializable = (value: unknown): boolean => {
     if (serialized === undefined) {
       return false;
     }
-  } catch (error) {
+  } catch {
     return false;
   }
   return true;

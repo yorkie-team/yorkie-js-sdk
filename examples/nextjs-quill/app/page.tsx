@@ -2,7 +2,7 @@
 
 import { DocumentProvider, YorkieProvider } from '@yorkie-js/react';
 import dynamic from 'next/dynamic';
-import { useMemo } from "react";
+import { useMemo } from 'react';
 
 // For Quill, we need to disable server-side rendering
 // Without it, Quill will throw an error that document is not defined

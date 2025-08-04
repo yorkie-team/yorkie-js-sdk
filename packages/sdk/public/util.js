@@ -1,7 +1,7 @@
 /**
  * `Network` is a class that manages the network status.
  */
-class Network {
+export class Network {
   constructor(elem) {
     this.isOnline = false;
     this.elem = elem;

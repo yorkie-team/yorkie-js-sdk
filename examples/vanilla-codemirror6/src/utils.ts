@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { Document, Indexable } from '@yorkie-js/sdk';
 import { YorkieDoc } from './type';
 

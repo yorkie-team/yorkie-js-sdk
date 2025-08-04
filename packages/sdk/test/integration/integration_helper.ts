@@ -21,7 +21,7 @@ function isYorkieContainerRunning() {
       },
     );
     return result && result.toString().trim() !== '';
-  } catch (error) {
+  } catch {
     return false;
   }
 }

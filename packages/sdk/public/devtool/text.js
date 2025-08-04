@@ -1,5 +1,5 @@
-/* eslint-env browser */
-/* eslint-disable jsdoc/require-jsdoc*/
+/* global document, setTimeout, clearTimeout, window -- defined by browser */
+/* global panzoom -- defined by panzoom */
 
 (function (global) {
   // TODO(hackerwins): Remove direct dependency on the document.
@@ -63,7 +63,7 @@
     structureTextHolder.innerHTML = contentString;
 
     // Make textItems to blockList
-    const textItems = [...contentString.matchAll(/(\[[^\]]*\]|\{[^\}]*})/g)];
+    const textItems = [...contentString.matchAll(/(\[[^\]]*\]|\{[^}]*})/g)];
     let textOffset = 0;
     for (const item of textItems) {
       let block = null;
@@ -74,7 +74,7 @@
         blockKeys[block.time] = block;
       } else {
         // deleted block
-        block = getDeleteBlock(item[0].match(/\{([^\}]*)\}/));
+        block = getDeleteBlock(item[0].match(/\{([^}]*)\}/));
       }
       blockList.push(block);
     }
@@ -318,6 +318,7 @@
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function calculateAbsolutePosition(type, node, startX = 0, endX = 0) {
     if (!node) {
       return;
