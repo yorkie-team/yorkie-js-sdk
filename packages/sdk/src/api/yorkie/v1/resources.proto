@@ -101,16 +101,6 @@ message Operation {
     TimeTicket executed_at = 6;
     map<string, string> attributes = 7;
   }
-  // NOTE(hackerwins): Select Operation is not used in the current version.
-  // In the previous version, it was used to represent selection of Text.
-  // However, it has been replaced by Presence now. It is retained for backward
-  // compatibility purposes.
-  message Select {
-    TimeTicket parent_created_at = 1;
-    TextNodePos from = 2;
-    TextNodePos to = 3;
-    TimeTicket executed_at = 4;
-  }
   message Style {
     TimeTicket parent_created_at = 1;
     TextNodePos from = 2;
@@ -155,7 +145,6 @@ message Operation {
     Move move = 3;
     Remove remove = 4;
     Edit edit = 5;
-    Select select = 6;
     Style style = 7;
     Increase increase = 8;
     TreeEdit tree_edit = 9;
@@ -342,10 +331,11 @@ message UpdatableProjectFields {
 message DocumentSummary {
   string id = 1;
   string key = 2;
-  string snapshot = 3;
+  string root = 3;
   int32 attached_clients = 7;
   DocSize document_size = 8;
   string schema_key = 9;
+  map<string, Presence> presences = 10;
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp accessed_at = 5;
   google.protobuf.Timestamp updated_at = 6;

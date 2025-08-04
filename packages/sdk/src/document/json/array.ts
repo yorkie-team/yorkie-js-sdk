@@ -17,6 +17,7 @@
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
+import { ArraySetOperation } from '@yorkie-js/sdk/src/document/operation/array_set_operation';
 import { MoveOperation } from '@yorkie-js/sdk/src/document/operation/move_operation';
 import { RemoveOperation } from '@yorkie-js/sdk/src/document/operation/remove_operation';
 import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
@@ -31,6 +32,7 @@ import {
   buildCRDTElement,
 } from '@yorkie-js/sdk/src/document/json/element';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { Code, YorkieError } from '../../util/error';
 
 /**
  * `JSONArray` represents JSON array, but unlike regular JSON, it has time
@@ -58,6 +60,16 @@ export type JSONArray<T> = {
   getLast?(): WrappedElement<T>;
 
   /**
+   * `setValue` sets the given value at the given index.
+   */
+  setValue?(index: number, value: unknown): WrappedElement<T>;
+
+  /**
+   * `delete` deletes the element of the given index.
+   */
+  delete?(index: number): WrappedElement<T>;
+
+  /**
    * `deleteByID` deletes the element of the given ID.
    */
   deleteByID?(createdAt: TimeTicket): WrappedElement<T>;
@@ -73,6 +85,11 @@ export type JSONArray<T> = {
   insertAfter?(prevID: TimeTicket, value: any): WrappedElement<T>;
 
   /**
+   * `insertIntegerAfter` inserts a value after the given index.
+   */
+  insertIntegerAfter?(index: number, value: number): WrappedElement<T>;
+
+  /**
    * `moveBefore` moves the element before the given next element.
    */
   moveBefore?(nextID: TimeTicket, id: TimeTicket): void;
@@ -81,6 +98,11 @@ export type JSONArray<T> = {
    * `moveAfter` moves the element after the given previous element.
    */
   moveAfter?(prevID: TimeTicket, id: TimeTicket): void;
+
+  /**
+   * `moveAfterByIndex` moves the element after the given index.
+   */
+  moveAfterByIndex?(prevIndex: number, targetIndex: number): void;
 
   /**
    * `moveFront` moves the element before the first element.
@@ -189,6 +211,15 @@ export class ArrayProxy {
           return (): WrappedElement | undefined => {
             return toWrappedElement(context, target.getLast());
           };
+        } else if (method === 'delete') {
+          return (index: number): WrappedElement | undefined => {
+            const deleted = ArrayProxy.deleteInternalByIndex(
+              context,
+              target,
+              index,
+            );
+            return toWrappedElement(context, deleted);
+          };
         } else if (method === 'deleteByID') {
           return (createdAt: TimeTicket): WrappedElement | undefined => {
             const deleted = ArrayProxy.deleteInternalByID(
@@ -211,6 +242,16 @@ export class ArrayProxy {
             );
             return toWrappedElement(context, inserted);
           };
+        } else if (method === 'insertIntegerAfter') {
+          return (index: number, value: number): WrappedElement | undefined => {
+            const array = ArrayProxy.insertIntegerAfterInternal(
+              context,
+              target,
+              index,
+              value,
+            );
+            return toWrappedElement(context, array);
+          };
         } else if (method === 'insertBefore') {
           return (
             nextID: TimeTicket,
@@ -224,6 +265,16 @@ export class ArrayProxy {
             );
             return toWrappedElement(context, inserted);
           };
+        } else if (method === 'setValue') {
+          return (index: number, value: number): WrappedElement | undefined => {
+            const array = ArrayProxy.setValueInternal(
+              context,
+              target,
+              index,
+              value,
+            );
+            return toWrappedElement(context, array);
+          };
         } else if (method === 'moveBefore') {
           return (nextID: TimeTicket, id: TimeTicket): void => {
             ArrayProxy.moveBeforeInternal(context, target, nextID, id);
@@ -232,6 +283,15 @@ export class ArrayProxy {
         } else if (method === 'moveAfter') {
           return (prevID: TimeTicket, id: TimeTicket): void => {
             ArrayProxy.moveAfterInternal(context, target, prevID, id);
+          };
+        } else if (method === 'moveAfterByIndex') {
+          return (prevIndex: number, targetIndex: number): void => {
+            ArrayProxy.moveAfterByIndexInternal(
+              context,
+              target,
+              prevIndex,
+              targetIndex,
+            );
           };
         } else if (method === 'moveFront') {
           return (id: TimeTicket): void => {
@@ -314,6 +374,15 @@ export class ArrayProxy {
         // behavior and the case where we need to call an internal method
         // throw new TypeError(`Unsupported method: ${String(method)}`);
         return Reflect.get(target, method, receiver);
+      },
+
+      set: (target: CRDTArray, key: string, value: any): boolean => {
+        if (isNumericString(key)) {
+          const index = Number(key);
+          ArrayProxy.setValueInternal(context, target, index, value);
+          return true;
+        }
+        return Reflect.set(target, key, value);
       },
 
       deleteProperty: (target: CRDTArray, key: string): boolean => {
@@ -403,7 +472,6 @@ export class ArrayProxy {
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
-    target.moveAfter(prevCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -411,6 +479,41 @@ export class ArrayProxy {
         createdAt,
         ticket,
       ),
+    );
+    target.moveAfter(prevCreatedAt, createdAt, ticket);
+  }
+
+  /**
+   * `moveAfterByIndexInternal` moves the given element to its new position
+   * after the given previous element.
+   */
+  public static moveAfterByIndexInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    prevIndex: number,
+    targetIndex: number,
+  ): void {
+    const prevElem = target.get(prevIndex);
+    if (!prevElem) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `index out of bounds: ${prevIndex}`,
+      );
+    }
+
+    const targetElem = target.get(targetIndex);
+    if (!targetElem) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `index out of bounds: ${targetIndex}`,
+      );
+    }
+
+    ArrayProxy.moveAfterInternal(
+      context,
+      target,
+      prevElem.getCreatedAt(),
+      targetElem.getCreatedAt(),
     );
   }
 
@@ -478,6 +581,31 @@ export class ArrayProxy {
   }
 
   /**
+   * `insertIntegerAfterInternal` inserts the given integer after the given previous element.
+   */
+  public static insertIntegerAfterInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    index: number,
+    value: number,
+  ): CRDTElement {
+    const prevElem = target.get(index);
+    if (!prevElem) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `index out of bounds: ${index}`,
+      );
+    }
+    ArrayProxy.insertAfterInternal(
+      context,
+      target,
+      prevElem.getCreatedAt(),
+      value,
+    );
+    return target;
+  }
+
+  /**
    * `insertBeforeInternal` inserts the value before the previously created element.
    */
   public static insertBeforeInternal(
@@ -492,6 +620,56 @@ export class ArrayProxy {
       target.getPrevCreatedAt(nextCreatedAt),
       value,
     );
+  }
+
+  /**
+   * `setValueInternal` sets the given value at the given index.
+   */
+  public static setValueInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    index: number,
+    value: unknown,
+  ): CRDTElement {
+    const prev = target.get(index);
+    if (!prev) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `index out of bounds: ${index}`,
+      );
+    }
+
+    ArrayProxy.setByIndexInternal(context, target, prev.getCreatedAt(), value);
+    return target;
+  }
+
+  /**
+   * `setByIndexInternal` sets the element of the given index.
+   */
+  public static setByIndexInternal(
+    context: ChangeContext,
+    target: CRDTArray,
+    createdAt: TimeTicket,
+    value: unknown,
+  ): CRDTElement {
+    const ticket = context.issueTimeTicket();
+    const element = buildCRDTElement(context, value, ticket);
+
+    const copiedValue = element.deepcopy();
+
+    context.push(
+      ArraySetOperation.create(
+        target.getCreatedAt(),
+        createdAt,
+        copiedValue,
+        ticket,
+      ),
+    );
+
+    target.set(createdAt, element, ticket);
+    context.registerElement(element, target);
+
+    return element;
   }
 
   /**

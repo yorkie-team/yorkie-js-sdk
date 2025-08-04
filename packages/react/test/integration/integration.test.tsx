@@ -39,11 +39,9 @@ interface TestPresence extends Indexable {
   };
 }
 
-/* eslint-disable @typescript-eslint/ban-types */
-let documentSubscribeCallback: (() => void) | null = null;
-let presenceSubscribeCallback: (() => void) | null = null;
-let connectionSubscribeCallback: ((event: any) => void) | null = null;
-/* eslint-enable @typescript-eslint/ban-types */
+let documentSubscribeCallback: (() => void) | undefined = undefined;
+let presenceSubscribeCallback: (() => void) | undefined = undefined;
+let connectionSubscribeCallback: ((event: any) => void) | undefined = undefined;
 
 const createMockDocument = () => {
   let rootData: TestDocumentRoot = {
@@ -160,9 +158,9 @@ describe('Integration Test', () => {
     currentMockDocument = createMockDocument();
     currentMockClient = createMockClient();
 
-    documentSubscribeCallback = null;
-    presenceSubscribeCallback = null;
-    connectionSubscribeCallback = null;
+    documentSubscribeCallback = undefined;
+    presenceSubscribeCallback = undefined;
+    connectionSubscribeCallback = undefined;
   });
 
   describe('Integrate DocumentProvider through Store to Selector', () => {

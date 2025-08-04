@@ -1,3 +1,4 @@
+/* global document -- defined by browser */
 import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { getRandomName, getRandomColor } from './util.js';
 

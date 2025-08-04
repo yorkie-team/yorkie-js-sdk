@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { useCallback, useEffect, useState } from 'react';
 import {
   TDUserStatus,

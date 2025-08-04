@@ -145,6 +145,17 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
+   * `set` sets the given element at the given position of the creation time.
+   */
+  public set(
+    createdAt: TimeTicket,
+    value: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement {
+    return this.elements.set(createdAt, value, executedAt);
+  }
+
+  /**
    * `getLastCreatedAt` get last created element.
    */
   public getLastCreatedAt(): TimeTicket {

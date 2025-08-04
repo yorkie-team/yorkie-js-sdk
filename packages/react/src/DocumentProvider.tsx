@@ -173,9 +173,9 @@ export type DocumentContextType<R, P extends Indexable = Indexable> = {
   error: Error | undefined;
 };
 
-const DocumentContext =
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  createContext<Store<DocumentContextType<any, any>> | null>(null);
+const DocumentContext = createContext<
+  Store<DocumentContextType<any, any>> | undefined
+>(undefined);
 
 /**
  * `DocumentProvider` is a component that provides a document to its children.

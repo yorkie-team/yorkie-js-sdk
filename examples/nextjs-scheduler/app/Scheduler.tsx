@@ -30,9 +30,11 @@ export default function Scheduler(props: EditorPropsTypes) {
           }
         });
 
-        flag
-          ? actions.updateContent(currentDate, text)
-          : actions.addContent(currentDate, text);
+        if (flag) {
+          actions.updateContent(currentDate, text);
+        } else {
+          actions.addContent(currentDate, text);
+        }
 
         setText('Enter text here!');
         break;

@@ -7,6 +7,14 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [0.6.23] - 2025-08-01
+
+### Fixed
+
+- Cleanup ESLint packages/react by @jaesoekjjang in https://github.com/yorkie-team/yorkie-js-sdk/pull/1027
+- Remove deprecated SelectOperation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1038
+- Resolve convergence issues in Array.Move and Array.Set by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1037
+
 ## [0.6.22] - 2025-07-28
 
 ### Changed

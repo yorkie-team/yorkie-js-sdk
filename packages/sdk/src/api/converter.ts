@@ -99,6 +99,7 @@ import {
   Operation_Increase as PbOperation_Increase,
   Operation_TreeEdit as PbOperation_TreeEdit,
   Operation_TreeStyle as PbOperation_TreeStyle,
+  Operation_ArraySet as PbOperation_ArraySet,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
 import {
@@ -113,6 +114,7 @@ import {
 import { traverseAll } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
+import { ArraySetOperation } from '../document/operation/array_set_operation';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -476,6 +478,21 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbOperation.body.case = 'treeStyle';
     pbOperation.body.value = pbTreeStyleOperation;
+  } else if (operation instanceof ArraySetOperation) {
+    const arraySetOperation = operation as ArraySetOperation;
+    const pbArraySetOperation = new PbOperation_ArraySet();
+    pbArraySetOperation.parentCreatedAt = toTimeTicket(
+      arraySetOperation.getParentCreatedAt(),
+    );
+    pbArraySetOperation.createdAt = toTimeTicket(
+      arraySetOperation.getCreatedAt(),
+    );
+    pbArraySetOperation.value = toElementSimple(arraySetOperation.getValue());
+    pbArraySetOperation.executedAt = toTimeTicket(
+      arraySetOperation.getExecutedAt(),
+    );
+    pbOperation.body.case = 'arraySet';
+    pbOperation.body.value = pbArraySetOperation;
   } else {
     throw new YorkieError(Code.ErrUnimplemented, 'unimplemented operation');
   }
@@ -1218,9 +1235,6 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       attributes,
       fromTimeTicket(pbStyleOperation!.executedAt)!,
     );
-  } else if (pbOperation.body.case === 'select') {
-    // TODO(hackerwins): Select is deprecated.
-    return;
   } else if (pbOperation.body.case === 'increase') {
     const pbIncreaseOperation = pbOperation.body.value;
     return IncreaseOperation.create(
@@ -1265,6 +1279,14 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
         fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
       );
     }
+  } else if (pbOperation.body.case === 'arraySet') {
+    const pbArraySetOperation = pbOperation.body.value;
+    return ArraySetOperation.create(
+      fromTimeTicket(pbArraySetOperation!.parentCreatedAt)!,
+      fromTimeTicket(pbArraySetOperation!.createdAt)!,
+      fromElementSimple(pbArraySetOperation!.value!),
+      fromTimeTicket(pbArraySetOperation!.executedAt)!,
+    );
   } else {
     throw new YorkieError(Code.ErrUnimplemented, `unimplemented operation`);
   }
@@ -1353,7 +1375,6 @@ function fromObject(pbObject: PbJSONElement_JSONObject): CRDTObject {
 function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.nodes) {
-    // eslint-disable-next-line
     rgaTreeList.insert(fromElement(pbRGANode.element!));
   }
 
@@ -1602,7 +1623,10 @@ function base64ToUint8Array(base64: string): Uint8Array {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
-  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+  } else if (
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as any).Buffer !== 'undefined'
+  ) {
     const Buffer = (globalThis as any).Buffer;
     return new Uint8Array(Buffer.from(base64, 'base64'));
   } else {
@@ -1627,7 +1651,10 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
       binary += String.fromCharCode(bytes[i]);
     }
     return window.btoa(binary);
-  } else if (typeof globalThis !== 'undefined' && typeof (globalThis as any).Buffer !== 'undefined') {
+  } else if (
+    typeof globalThis !== 'undefined' &&
+    typeof (globalThis as any).Buffer !== 'undefined'
+  ) {
     const Buffer = (globalThis as any).Buffer;
     return Buffer.from(bytes).toString('base64');
   } else {

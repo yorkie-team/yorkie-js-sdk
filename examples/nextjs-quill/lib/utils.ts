@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { OperationInfo } from '@yorkie-js/sdk';
 import { clsx, type ClassValue } from 'clsx';
 import { Op } from 'quill';
