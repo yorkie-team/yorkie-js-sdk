@@ -14,13 +14,7 @@
  * limitations under the License.
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import React, { createContext, useContext, useEffect, useRef } from 'react';
 import {
   Document,
   Presence,
@@ -29,6 +23,10 @@ import {
   Client,
 } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
+import { createDocumentStore } from './createDocumentStore';
+import { useSelector } from './useSelector';
+import { Store } from './createStore';
+import { shallowEqual } from './shallowEqual';
 
 /**
  * `useYorkieDocument` is a custom hook that initializes a Yorkie document.
@@ -47,51 +45,62 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   docKey: string,
   initialRoot: R,
   initialPresence: P,
+  documentStore: Store<DocumentContextType<R, P>>,
 ) {
-  const [doc, setDoc] = useState<Document<R, P>>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error>();
-  const [root, setRoot] = useState(initialRoot);
-  const [presences, setPresences] = useState<
-    Array<{ clientID: string; presence: P }>
-  >([]);
-  const [connection, setConnection] = useState<StreamConnectionStatus>(
-    StreamConnectionStatus.Disconnected,
-  );
+  const initialRootRef = useRef(initialRoot);
+  const initialPresenceRef = useRef(initialPresence);
 
   useEffect(() => {
     if (clientError) {
-      setLoading(false);
-      setError(clientError);
+      documentStore.setState((state) => ({
+        ...state,
+        loading: false,
+        error: clientError,
+      }));
       return;
     }
 
     if (!client || clientLoading) {
-      setLoading(true);
+      documentStore.setState((state) => ({
+        ...state,
+        loading: true,
+      }));
       return;
     }
 
-    setLoading(true);
-    setError(undefined);
+    documentStore.setState((state) => ({
+      ...state,
+      loading: true,
+      error: undefined,
+    }));
 
     const newDoc = new Document<R, P>(docKey);
     const unsubs: Array<() => void> = [];
 
     unsubs.push(
       newDoc.subscribe(() => {
-        setRoot(newDoc.getRoot());
+        documentStore.setState((state) => ({
+          ...state,
+          root: newDoc.getRoot(),
+        }));
       }),
     );
 
     unsubs.push(
       newDoc.subscribe('presence', () => {
-        setPresences(newDoc.getPresences());
+        documentStore.setState((state) => ({
+          ...state,
+          presences: newDoc.getPresences(),
+        }));
       }),
     );
 
     unsubs.push(
       newDoc.subscribe('connection', (event) => {
-        setConnection(event.value);
+        documentStore.setState((state) => ({
+          ...state,
+          connection: event.value,
+        }));
       }),
     );
 
@@ -101,19 +110,42 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
     async function attachDocument() {
       try {
         await client?.attach(newDoc, {
-          initialRoot,
-          initialPresence,
+          initialRoot: initialRootRef.current,
+          initialPresence: initialPresenceRef.current,
         });
 
-        setDoc(newDoc);
-        setRoot(newDoc.getRoot());
-        setPresences(newDoc.getPresences());
+        const update = (callback: (root: R, presence: Presence<P>) => void) => {
+          try {
+            newDoc.update(callback);
+          } catch (err) {
+            documentStore.setState((state) => ({
+              ...state,
+              error:
+                err instanceof Error
+                  ? err
+                  : new Error('Failed to update document'),
+            }));
+          }
+        };
+
+        documentStore.setState((state) => ({
+          ...state,
+          doc: newDoc,
+          root: newDoc.getRoot(),
+          presences: newDoc.getPresences(),
+          update,
+        }));
       } catch (err) {
-        setError(
-          err instanceof Error ? err : new Error('Failed to attach document'),
-        );
+        documentStore.setState((state) => ({
+          ...state,
+          error:
+            err instanceof Error ? err : new Error('Failed to attach document'),
+        }));
       } finally {
-        setLoading(false);
+        documentStore.setState((state) => ({
+          ...state,
+          loading: false,
+        }));
       }
     }
 
@@ -128,36 +160,10 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [client, clientLoading, clientError, docKey]);
-
-  const update = useCallback(
-    (callback: (root: R, presence: Presence<P>) => void) => {
-      if (!doc) {
-        return;
-      }
-
-      try {
-        doc.update(callback);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err : new Error('Failed to update document'),
-        );
-      }
-    },
-    [doc],
-  );
-  return {
-    doc,
-    root,
-    presences,
-    connection,
-    update,
-    loading,
-    error,
-  };
+  }, [client, clientLoading, clientError, docKey, documentStore]);
 }
 
-type DocumentContextType<R, P extends Indexable = Indexable> = {
+export type DocumentContextType<R, P extends Indexable = Indexable> = {
   doc: Document<R, P> | undefined;
   root: R;
   presences: Array<{ clientID: string; presence: P }>;
@@ -167,10 +173,9 @@ type DocumentContextType<R, P extends Indexable = Indexable> = {
   error: Error | undefined;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-restricted-types
-const DocumentContext = createContext<DocumentContextType<any, any> | null>(
-  null,
-);
+const DocumentContext = createContext<
+  Store<DocumentContextType<any, any>> | undefined
+>(undefined);
 
 /**
  * `DocumentProvider` is a component that provides a document to its children.
@@ -189,52 +194,81 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
-  const { doc, root, presences, connection, update, loading, error } =
-    useYorkieDocument<R, P>(
-      client,
-      clientLoading,
-      clientError,
-      docKey,
-      initialRoot,
-      initialPresence,
-    );
+
+  /**
+   * Initialize the document store only once per component instance.
+   * It prevents creating a new store on every render without using `useMemo`.
+   */
+  const documentStoreRef = useRef<
+    ReturnType<typeof createDocumentStore<R, P>> | undefined
+  >(undefined);
+
+  if (!documentStoreRef.current) {
+    documentStoreRef.current = createDocumentStore<R, P>({
+      doc: undefined,
+      root: initialRoot,
+      presences: [],
+      connection: StreamConnectionStatus.Disconnected,
+      update: () => {},
+      loading: true,
+      error: undefined,
+    });
+  }
+
+  const documentStore = documentStoreRef.current;
+
+  useYorkieDocument<R, P>(
+    client,
+    clientLoading,
+    clientError,
+    docKey,
+    initialRoot,
+    initialPresence,
+    documentStore,
+  );
 
   return (
-    <DocumentContext.Provider
-      value={{
-        doc,
-        root,
-        presences,
-        connection,
-        update,
-        loading,
-        error,
-      }}
-    >
+    <DocumentContext.Provider value={documentStore}>
       {children}
     </DocumentContext.Provider>
   );
 };
 
 /**
- * `useDocument` is a custom hook that returns the root object and update function of the document.
+ * `useDocument` is a custom hook that returns the complete document context.
  * This hook must be used within a `DocumentProvider`.
+ * @returns The complete document context.
  */
-export const useDocument = <R, P extends Indexable = Indexable>() => {
-  const context = useContext(DocumentContext);
-  if (!context) {
+export function useDocument<
+  R,
+  P extends Indexable = Indexable,
+>(): DocumentContextType<R, P> {
+  const documentStore = useContext(DocumentContext);
+  if (!documentStore) {
     throw new Error('useDocument must be used within a DocumentProvider');
   }
-  return {
-    doc: context.doc as Document<R, P>,
-    root: context.root as R,
-    presences: context.presences as Array<{ clientID: string; presence: P }>,
-    connection: context.connection,
-    update: context.update as (
-      callback: (root: R, presence: Presence<P>) => void,
-    ) => void,
-    loading: context.loading,
-    error: context.error,
+
+  return useSelector(documentStore);
+}
+
+/**
+ * `createDocumentSelector` is a factory function that provides a selector-based `useDocument` hook.
+ * By currying this function, type T can be inferred from the selector function.
+ */
+export const createDocumentSelector = <
+  R,
+  P extends Indexable = Indexable,
+>() => {
+  return <T = DocumentContextType<R, P>,>(
+    selector: (state: DocumentContextType<R, P>) => T,
+    equalityFn: (a: T, b: T) => boolean = shallowEqual,
+  ): T => {
+    const documentStore = useContext(DocumentContext);
+    if (!documentStore) {
+      throw new Error('useDocument must be used within a DocumentProvider');
+    }
+
+    return useSelector(documentStore, selector, equalityFn);
   };
 };
 
@@ -242,32 +276,39 @@ export const useDocument = <R, P extends Indexable = Indexable>() => {
  * `useRoot` is a custom hook that returns the root object of the document.
  * This hook must be used within a `DocumentProvider`.
  */
-export const useRoot = () => {
-  const context = useContext(DocumentContext);
-  if (!context) {
-    throw new Error('useRoot must be used within a DocumentProvider');
-  }
-  return { root: context.root };
+export const useRoot = <R,>() => {
+  const documentStore = useDocumentStore('useRoot');
+  const root = useSelector(documentStore, (store) => store.root);
+  return { root: root as R };
 };
 
 /**
  * `usePresences` is a custom hook that returns the presences of the document.
  */
-export const usePresences = () => {
-  const context = useContext(DocumentContext);
-  if (!context) {
-    throw new Error('usePresences must be used within a DocumentProvider');
-  }
-  return context.presences;
+export const usePresences = <P extends Indexable = Indexable>() => {
+  const documentStore = useDocumentStore('usePresences');
+  return useSelector(documentStore, (store) => store.presences) as Array<{
+    clientID: string;
+    presence: P;
+  }>;
 };
 
 /**
  * `useConnection` is a custom hook that returns the connection status of the document.
  */
 export const useConnection = () => {
-  const context = useContext(DocumentContext);
-  if (!context) {
-    throw new Error('useConnection must be used within a DocumentProvider');
+  const documentStore = useDocumentStore('useConnection');
+  return useSelector(documentStore, (store) => store.connection);
+};
+
+/**
+ * `useDocumentStore` is a custom hook that returns the document store.
+ * It also ensures that the hook is used within a `DocumentProvider`.
+ */
+const useDocumentStore = (hookName: string) => {
+  const documentStore = useContext(DocumentContext);
+  if (!documentStore) {
+    throw new Error(`${hookName} must be used within a DocumentProvider`);
   }
-  return context.connection;
+  return documentStore;
 };

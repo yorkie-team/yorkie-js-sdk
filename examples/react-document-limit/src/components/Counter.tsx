@@ -1,12 +1,19 @@
 import { StreamConnectionStatus } from '@yorkie-js/sdk';
-import { useConnection, useDocument } from '@yorkie-js/react';
+import { useConnection } from '@yorkie-js/react';
 import { ConnectionStatus } from './ConnectionStatus';
 import { Peers } from './Peers';
+import { useDocumentSelector } from '../hooks/useDocumentSelector';
+import { CounterNumber } from './CounterNumber';
+import { IncrementButton } from './IncrementButton';
 
+/**
+ * Counter component that demonstrates the usage of Yorkie's document state management.
+ */
 export function Counter() {
-  const { root, update, loading, error } = useDocument<{
-    counter: number;
-  }>();
+  const { loading, error } = useDocumentSelector(({ loading, error }) => ({
+    loading,
+    error,
+  }));
 
   const connection = useConnection();
 
@@ -25,14 +32,8 @@ export function Counter() {
       <Peers />
       <div id="counter-container">
         <h1 id="counter">Counter</h1>
-        <div id="counter-value">{root.counter}</div>
-        <button
-          id="increment"
-          disabled={connection === StreamConnectionStatus.Disconnected}
-          onClick={() => update((root) => (root.counter += 1))}
-        >
-          Increment
-        </button>
+        <CounterNumber />
+        <IncrementButton />
       </div>
       <div id="error">
         {connection === StreamConnectionStatus.Disconnected && (

@@ -1,6 +1,9 @@
 import React from 'react';
 import { usePresences } from '@yorkie-js/react';
 
+/**
+ * Peers component displays the list of connected peers
+ */
 export function Peers() {
   const presences = usePresences();
   return (
