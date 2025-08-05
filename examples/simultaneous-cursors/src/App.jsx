@@ -17,88 +17,84 @@ const App = () => {
   const [clients, setClients] = useState([]);
 
   const handleCursorShapeSelect = (cursorShape) => {
-    doc.update((root, presence) => {
-      presence.set({
-        cursorShape,
-      });
+    doc.update((_, presence) => {
+      presence.set({ cursorShape });
     });
   };
 
   useEffect(() => {
+    // Define handlers here so cleanup can reference them
+    const handlePointerDown = () => {
+      doc.update((_, presence) => {
+        presence.set({ pointerDown: true });
+      });
+    };
+    const handlePointerUp = () => {
+      doc.update((_, presence) => {
+        presence.set({ pointerDown: false });
+      });
+    };
+    const handleMouseMove = (event) => {
+      doc.update((_, presence) => {
+        presence.set({
+          cursor: { xPos: event.clientX, yPos: event.clientY },
+        });
+      });
+    };
+
     const setup = async () => {
-      await client.activate();
+      try {
+        // 1) Activate client to get a valid actor ID
+        await client.activate();
 
-      doc.subscribe('presence', (event) => {
-        setClients(doc.getPresences());
-      });
-
-      await client.attach(doc, {
-        initialPresence: {
-          cursorShape: 'cursor',
-          cursor: {
-            xPos: 0,
-            yPos: 0,
+        // 2) Attach document with initial presence under that actor ID
+        await client.attach(doc, {
+          initialPresence: {
+            cursorShape: 'cursor',
+            cursor: { xPos: 0, yPos: 0 },
+            pointerDown: false,
           },
-          pointerDown: false,
-        },
-      });
+        });
+
+        // 3) Subscribe to presence changes
+        doc.subscribe('presence', () => {
+          setClients(doc.getPresences());
+        });
+
+        // 4) Now that actor ID is valid, register window event listeners
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mouseup', handlePointerUp);
+        window.addEventListener('mousemove', handleMouseMove);
+      } catch (err) {
+        console.error('Yorkie setup failed:', err);
+      }
     };
 
     setup();
 
-    const handlePointerUp = () => {
-      doc.update((root, presence) => {
-        presence.set({
-          pointerDown: false,
-        });
-      });
-    };
-    const handlePointerDown = () => {
-      doc.update((root, presence) => {
-        presence.set({
-          pointerDown: true,
-        });
-      });
-    };
-    const handleMouseMove = (event) => {
-      doc.update((root, presence) => {
-        presence.set({
-          cursor: {
-            xPos: event.clientX,
-            yPos: event.clientY,
-          },
-        });
-      });
-    };
-
-    window.addEventListener('mousedown', handlePointerDown);
-    window.addEventListener('mouseup', handlePointerUp);
-    window.addEventListener('mousemove', handleMouseMove);
-
     return () => {
+      // Cleanup event listeners and subscription
       window.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('mousemove', handleMouseMove);
+      doc.unsubscribe(); // optional: unsubscribes all handlers
     };
   }, []);
 
   return (
     <div className="general-container">
       {clients.map(
-        ({ clientID, presence: { cursorShape, cursor, pointerDown } }) => {
-          if (!cursor) return null;
-          return (
+        ({ clientID, presence: { cursorShape, cursor, pointerDown } }) =>
+          cursor && (
             <Cursor
+              key={clientID}
               selectedCursorShape={cursorShape}
               x={cursor.xPos}
               y={cursor.yPos}
               pointerDown={pointerDown}
-              key={clientID}
             />
-          );
-        },
+          ),
       )}
-
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
         clientsLength={clients.length}
