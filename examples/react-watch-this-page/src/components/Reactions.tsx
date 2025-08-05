@@ -75,7 +75,7 @@ function Reactions() {
     <div className="inline-reactions">
       <div className="reactions-buttons">
         {reactions.map((reaction) => {
-          const count = getReactionCount(reaction.id);
+          const count = getReactionCount(reaction.id) || 0;
           const isAnimatingThis = isAnimating === reaction.id;
           
           return (
@@ -91,6 +91,7 @@ function Reactions() {
                   {count}
                 </span>
               )}
+              {count === 0 && <span className="reaction-count" style={{ color: reaction.color }}>0</span>}
               {isAnimatingThis && (
                 <div className={`inline-reaction-animation goUp${animationVariants[reaction.id]?.goUp || 0}`}>
                   <span style={{ 
