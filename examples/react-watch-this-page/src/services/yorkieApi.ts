@@ -60,7 +60,7 @@ export class YorkieApiService {
    * @returns Promise with watch-this-page documents
    */
   async getWatchThisPageDocuments(documentKeys: string[]): Promise<YorkieDocument[]> {
-    const documents = await this.getDocuments('default', documentKeys, true);
+    const documents = await this.getDocuments(import.meta.env.VITE_YORKIE_PROJECT_NAME || 'default', documentKeys, true);
     console.log("documents", documents);
     return documents;
   }
