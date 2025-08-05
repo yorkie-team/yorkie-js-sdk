@@ -1109,6 +1109,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
+    const alreadyRemovedNodes: Array<CRDTTreeNode> = [];
+
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -1151,6 +1153,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
             nodesToBeRemoved.push(node);
           }
           tokensToBeRemoved.push([node, tokenType]);
+        } else if (node.isRemoved && editedAt.after(node.removedAt!)) {
+          // Update removedAt for already removed nodes in remote scenarios
+          alreadyRemovedNodes.push(node);
         }
       },
     );
@@ -1171,14 +1176,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    // 03. Merge: move the nodes that are marked as moved.
+    // 03. Update removedAt for already removed nodes in remote scenarios
+    for (const node of alreadyRemovedNodes) {
+      node.remove(editedAt);
+    }
+
+    // 04. Merge: move the nodes that are marked as moved.
     for (const node of toBeMovedToFromParents) {
       if (!node.removedAt) {
         fromParent.append(node);
       }
     }
 
-    // 04. Split: split the element nodes for the given split level.
+    // 05. Split: split the element nodes for the given split level.
     if (splitLevel > 0) {
       let splitCount = 0;
       let parent = fromParent;
@@ -1199,17 +1209,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
       });
     }
 
-    // 05. Insert: insert the given nodes at the given position.
+    // 06. Insert: insert the given nodes at the given position.
     if (contents?.length) {
       const aliveContents: Array<CRDTTreeNode> = [];
       let leftInChildren = fromLeft; // tree
       for (const content of contents) {
-        // 05-1. Insert the content nodes to the tree.
+        // 06-1. Insert the content nodes to the tree.
         if (leftInChildren === fromParent) {
-          // 05-1-1. when there's no leftSibling, then insert content into very front of parent's children.
+          // 06-1-1. when there's no leftSibling, then insert content into very front of parent's children.
           fromParent.insertAt(content, 0);
         } else {
-          // 05-1-2. insert after leftSibling
+          // 06-1-2. insert after leftSibling
           fromParent.insertAfter(content, leftInChildren);
         }
 
