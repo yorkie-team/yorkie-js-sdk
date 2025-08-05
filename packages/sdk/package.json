@@ -1,6 +1,6 @@
 {
   "name": "@yorkie-js/sdk",
-  "version": "0.6.18",
+  "version": "0.6.23",
   "description": "Yorkie JS SDK",
   "main": "./src/yorkie.ts",
   "publishConfig": {
@@ -23,11 +23,13 @@
     "test:bench": "vitest bench",
     "test:ci": "vitest run --coverage",
     "test:yorkie.dev": "TEST_RPC_ADDR=https://api.yorkie.dev vitest run --coverage",
-    "prepare": "pnpm build"
+    "prepare": "pnpm build",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "engines": {
     "node": ">=18.0.0",
-    "npm": ">=7.1.0"
+    "npm": ">=7.1.0",
+    "pnpm": ">=9.6.0"
   },
   "repository": {
     "type": "git",
@@ -50,12 +52,9 @@
     "@types/express": "^4.17.21",
     "@types/google-protobuf": "^3.15.5",
     "@types/long": "^4.0.1",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
     "@vitest/coverage-istanbul": "^0.34.5",
     "@vitest/coverage-v8": "^0.34.5",
     "axios": "^1.7.7",
-    "eslint-plugin-tsdoc": "^0.2.16",
     "express": "^4.21.1",
     "prettier": "^2.7.1",
     "ts-node": "^10.9.1",
@@ -72,7 +71,7 @@
     "@bufbuild/protobuf": "^1.6.0",
     "@connectrpc/connect": "^1.4.0",
     "@connectrpc/connect-web": "^1.4.0",
-    "long": "^5.2.0",
-    "@yorkie-js/schema": "workspace:*"
+    "@yorkie-js/schema": "workspace:*",
+    "long": "^5.2.0"
   }
 }

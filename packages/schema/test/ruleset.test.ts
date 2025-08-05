@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildRuleset } from '../src/rulesets';
 
 describe('RulesetBuilder', () => {
@@ -99,7 +99,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle nested objects regardless of order', () => {
+  it('should handle nested objects regardless of order', () => {
     const schema = `
       type Document = {
         user: User;
@@ -169,7 +169,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle array types - Array<T>', () => {
+  it('should handle array types - Array<T>', () => {
     const schema = `
       type Document = {
         todos: Array<Todo>;
@@ -204,7 +204,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle array types - T[]', () => {
+  it('should handle array types - T[]', () => {
     const schema = `
       type Document = {
         todos: Todo[];
@@ -239,7 +239,46 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle recursive types', () => {
+  it('should handle recursive types', () => {
+    const schema = `
+      type Document = {
+        linkedList: Node;
+      };
+
+      type Node = {
+        value: string;
+        next: Node;
+      };
+    `;
+
+    const ruleset = buildRuleset(schema);
+    expect(ruleset).to.deep.equal([
+      {
+        path: '$',
+        properties: ['linkedList'],
+        type: 'object',
+      },
+      {
+        path: '$.linkedList',
+        type: 'object',
+        properties: ['value', 'next'],
+      },
+      { path: '$.linkedList.value', type: 'string' },
+      {
+        path: '$.linkedList.next',
+        type: 'object',
+        properties: ['value', 'next'],
+      },
+      { path: '$.linkedList.next[*].value', type: 'string' },
+      {
+        path: '$.linkedList.next[*].next',
+        type: 'object',
+        properties: ['value', 'next'],
+      },
+    ]);
+  });
+
+  it('should handle recursive array types', () => {
     const schema = `
       type Document = {
         tree: Node;
@@ -360,7 +399,7 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
-  it.todo('should handle enum types', () => {
+  it('should handle enum types', () => {
     const schema = `
       type Document = {
         theme: "light" | "dark";

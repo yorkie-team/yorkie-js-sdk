@@ -13,7 +13,7 @@ interface TodoItemProps {
 export default function TodoItem(props: TodoItemProps) {
   const [editing, setEditing] = useState(false);
   const { todo, completeTodo, editTodo, deleteTodo } = props;
- 
+
   return (
     <li
       className={classnames({
@@ -43,8 +43,18 @@ export default function TodoItem(props: TodoItemProps) {
             checked={todo.completed}
             onChange={() => completeTodo(todo.id)}
           />
-          <label htmlFor={`item-input-${todo.id}`} onDoubleClick={() => setEditing(true)}>{todo.text}</label>
-          <button type="button" aria-label="Delete" className="destroy" onClick={() => deleteTodo(todo.id)} />
+          <label
+            htmlFor={`item-input-${todo.id}`}
+            onDoubleClick={() => setEditing(true)}
+          >
+            {todo.text}
+          </label>
+          <button
+            type="button"
+            aria-label="Delete"
+            className="destroy"
+            onClick={() => deleteTodo(todo.id)}
+          />
         </div>
       )}
     </li>

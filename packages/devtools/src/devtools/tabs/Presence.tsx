@@ -21,6 +21,12 @@ import { useSelectedPresence } from '../contexts/SelectedPresence';
 import { useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
+/**
+ * Displays the Presence tab, listing self and others, and shows details
+ * of the currently selected presence entry.
+ *
+ * @returns A React element rendering the presence list and selected details.
+ */
 export function Presence() {
   const [doc] = useYorkieDoc();
   const [selectedPresence, setSelectedPresence] = useSelectedPresence();

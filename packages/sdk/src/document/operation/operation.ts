@@ -57,7 +57,11 @@ export type CounterOperationInfo = IncreaseOpInfo;
 /**
  * `ArrayOperationInfo` represents the OperationInfo for the JSONArray.
  */
-export type ArrayOperationInfo = AddOpInfo | RemoveOpInfo | MoveOpInfo;
+export type ArrayOperationInfo =
+  | AddOpInfo
+  | RemoveOpInfo
+  | MoveOpInfo
+  | ArraySetOpInfo;
 
 /**
  * `ObjectOperationInfo` represents the OperationInfo for the JSONObject.
@@ -95,6 +99,14 @@ export type SetOpInfo = {
   type: 'set';
   path: string;
   key: string;
+};
+
+/**
+ * `ArraySetOpInfo` represents the information of the array set operation.
+ */
+export type ArraySetOpInfo = {
+  type: 'array-set';
+  path: string;
 };
 
 /**

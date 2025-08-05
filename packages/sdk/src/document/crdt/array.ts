@@ -71,8 +71,12 @@ export class CRDTArray extends CRDTContainer {
   /**
    * `insertAfter` adds a new node after the the given node.
    */
-  public insertAfter(prevCreatedAt: TimeTicket, value: CRDTElement): void {
-    this.elements.insertAfter(prevCreatedAt, value);
+  public insertAfter(
+    prevCreatedAt: TimeTicket,
+    value: CRDTElement,
+    executedAt?: TimeTicket,
+  ): void {
+    this.elements.insertAfter(prevCreatedAt, value, executedAt);
   }
 
   /**
@@ -138,6 +142,17 @@ export class CRDTArray extends CRDTContainer {
     editedAt: TimeTicket,
   ): CRDTElement | undefined {
     return this.elements.deleteByIndex(index, editedAt);
+  }
+
+  /**
+   * `set` sets the given element at the given position of the creation time.
+   */
+  public set(
+    createdAt: TimeTicket,
+    value: CRDTElement,
+    executedAt: TimeTicket,
+  ): CRDTElement {
+    return this.elements.set(createdAt, value, executedAt);
   }
 
   /**

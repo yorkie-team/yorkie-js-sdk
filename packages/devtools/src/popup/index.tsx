@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+/**
+ * Renders the popup component that displays a message when the extension is opened.
+ *
+ * @returns A React element rendering the popup content.
+ */
 function Popup() {
   return (
     <div

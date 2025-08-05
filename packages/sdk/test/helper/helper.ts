@@ -190,7 +190,6 @@ export async function assertThrowsAsync(
   errType: any,
   message?: RegExp | string,
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   let errFn = () => {};
   try {
     await fn();

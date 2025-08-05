@@ -23,6 +23,7 @@ type SelectedPresenceContext = [
   PresenceJsonNode,
   Dispatch<SetStateAction<PresenceJsonNode>>,
 ];
+// eslint-disable-next-line @typescript-eslint/no-restricted-types
 const SelectedPresenceContext = createContext<SelectedPresenceContext | null>(
   null,
 );
@@ -30,6 +31,13 @@ const SelectedPresenceContext = createContext<SelectedPresenceContext | null>(
 type Props = {
   children?: ReactNode;
 };
+
+/**
+ * Provides selected presence context to descendant components.
+ *
+ * @param props.children - React elements that consume the selected presence context.
+ * @returns A context provider wrapping the given children.
+ */
 export function SelectedPresenceProvider({ children }: Props) {
   const selectedPresenceState = useState(null);
 
@@ -40,6 +48,12 @@ export function SelectedPresenceProvider({ children }: Props) {
   );
 }
 
+/**
+ * Hook to access and update the currently selected presence node.
+ *
+ * @throws YorkieError if called outside of a SelectedPresenceProvider.
+ * @returns A tuple [selectedPresence, setSelectedPresence].
+ */
 export function useSelectedPresence() {
   const value = useContext(SelectedPresenceContext);
   if (value === undefined) {

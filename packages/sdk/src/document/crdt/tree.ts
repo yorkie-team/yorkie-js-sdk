@@ -459,7 +459,9 @@ export class CRDTTreeNode
     super(type);
     this.id = id;
     this.removedAt = removedAt;
-    attributes && (this.attrs = attributes);
+    if (attributes) {
+      this.attrs = attributes;
+    }
 
     if (typeof opts === 'string') {
       this.value = opts;

@@ -58,7 +58,7 @@ export default function Editor() {
         let target;
         for (const item of root.content) {
           if (item.date === date) {
-            target = item as any;
+            target = item;
             break;
           }
         }
@@ -106,7 +106,7 @@ export default function Editor() {
      */
     async function attachDoc(
       doc: Document<{ content: JSONArray<ContentTypes> }>,
-      callback: (props: any) => void,
+      callback: (props: JSONArray<ContentTypes>) => void,
     ) {
       // 01. activate client
       await client.activate();

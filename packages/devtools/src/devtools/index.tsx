@@ -23,6 +23,9 @@ chrome.devtools.panels.create(
   yorkiePanelHTML.split('/').pop(),
 );
 
+/**
+ * Render the main application component into the DOM.
+ */
 function Page() {
   return null;
 }

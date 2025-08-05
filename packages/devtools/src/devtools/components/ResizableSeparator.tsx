@@ -17,6 +17,14 @@
 import { useState } from 'react';
 import classNames from 'classnames';
 
+/**
+ * Render a focusable separator bar with drag and focus styling.
+ *
+ * @param props.id - Element id and test-id (default: 'drag-bar').
+ * @param props.dir - Orientation: 'horizontal' or 'vertical'.
+ * @param props.isDragging - Whether the separator is being dragged.
+ * @param props... - Additional props spread onto the root div.
+ */
 export function Separator({ id = 'drag-bar', dir, isDragging, ...props }: any) {
   const [isFocused, setIsFocused] = useState(false);
 

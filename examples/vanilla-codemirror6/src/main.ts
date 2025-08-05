@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import type { EditOpInfo, OperationInfo } from '@yorkie-js/sdk';
 import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';

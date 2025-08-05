@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { validate } from '../src/validator';
 
 describe('Schema:TypeScript', () => {
@@ -314,5 +314,17 @@ describe('Schema:Semantic', () => {
       };
     `;
     expect(validate(schema).errors.length).toBeGreaterThan(0);
+  });
+
+  it.todo('should validate complex union types', () => {
+    const schema = `
+      type Document = {
+        union: string | integer;
+        complexUnion: (string | integer)[] | boolean;
+        nestedUnion: (string | { value: integer }) | null;
+        multipleUnion: string | integer | boolean | null;
+      };
+    `;
+    expect(validate(schema).errors.length).toBe(0);
   });
 });
