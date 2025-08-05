@@ -83,6 +83,7 @@ export type TreeNodeForTest = TreeNode & {
  * `TreeChangeType` represents the type of change in the tree.
  */
 export enum TreeChangeType {
+  Edit = 'edit',
   Content = 'content',
   Style = 'style',
   RemoveStyle = 'removeStyle',
@@ -94,11 +95,9 @@ export enum TreeChangeType {
 export type TreeChange =
   | {
       actor: ActorID;
-      type: TreeChangeType.Content;
+      type: TreeChangeType.Edit;
       from: number;
       to: number;
-      fromPath: Array<number>;
-      toPath: Array<number>;
       value?: Array<TreeNode>;
       splitLevel?: number;
     }
@@ -1090,7 +1089,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, DataSize] {
+  ): [TreeChange, Array<GCPair>, DataSize] {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
@@ -1104,6 +1103,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     );
 
     addDataSizes(diff, diffTo, diffFrom);
+    const fromIdx = this.toIndex(fromParent, fromLeft)
+    const toIdx = this.toIndex(toParent, toLeft)
 
     const { removes, merges } = this.collectDeleteAndMerge(
       fromParent,
@@ -1116,7 +1117,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const pairs: Array<GCPair> = [];
     for (const node of removes) {
       const removed = this.removeNode(node, editedAt, versionVector);
-      if (removed) {
+      if (removed?.isRemoved) {
         pairs.push({ parent: this, child: removed });
       }
     }
@@ -1124,7 +1125,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03. Merge: move the nodes that are marked as moved.
     for (const node of merges) {
       const removed = this.mergeNode(node, editedAt, versionVector);
-      if (removed) {
+      if (removed?.isRemoved) {
         pairs.push({ parent: this, child: removed });
       }
     }
@@ -1177,7 +1178,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [pairs, diff];
+    const change = {
+      type: TreeChangeType.Edit,
+      from: fromIdx,
+      to: toIdx,
+      value: contents?.map((content) => toTreeNode(content)),
+      splitLevel: splitLevel,
+      actor: editedAt.getActorID() as ActorID,
+    } as TreeChange
+
+    return [change, pairs, diff];
   }
 
   private collectDeleteAndMerge(
@@ -1778,72 +1788,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
       node: parentNode,
       offset,
     };
-  }
-
-  /**
-   * `makeDeletionChanges` converts nodes to be deleted to deletion changes.
-   */
-  private makeDeletionChanges(
-    candidates: Array<TreeToken<CRDTTreeNode>>,
-    editedAt: TimeTicket,
-  ): Array<TreeChange> {
-    const changes: Array<TreeChange> = [];
-    const ranges: Array<Array<TreeToken<CRDTTreeNode>>> = [];
-
-    // Generate ranges by accumulating consecutive nodes.
-    let start = null;
-    let end = null;
-    for (let i = 0; i < candidates.length; i++) {
-      const cur = candidates[i];
-      const next = candidates[i + 1];
-      if (!start) {
-        start = cur;
-      }
-      end = cur;
-
-      const rightToken = this.findRightToken(cur);
-      if (
-        !rightToken ||
-        !next ||
-        rightToken[0] !== next[0] ||
-        rightToken[1] !== next[1]
-      ) {
-        ranges.push([start, end]);
-        start = null;
-        end = null;
-      }
-    }
-
-    // Convert each range to a deletion change.
-    for (const range of ranges) {
-      const [start, end] = range;
-      const [fromLeft, fromLeftTokenType] = this.findLeftToken(start);
-      const [toLeft, toLeftTokenType] = end;
-      const fromParent =
-        fromLeftTokenType === TokenType.Start ? fromLeft : fromLeft.parent!;
-      const toParent =
-        toLeftTokenType === TokenType.Start ? toLeft : toLeft.parent!;
-
-      const fromIdx = this.toIndex(fromParent, fromLeft);
-      const toIdx = this.toIndex(toParent, toLeft);
-      if (fromIdx < toIdx) {
-        // When the range is overlapped with the previous one, compact them.
-        if (changes.length > 0 && fromIdx === changes[changes.length - 1].to) {
-          changes[changes.length - 1].to = toIdx;
-          changes[changes.length - 1].toPath = this.toPath(toParent, toLeft);
-        } else {
-          changes.push({
-            type: TreeChangeType.Content,
-            from: fromIdx,
-            to: toIdx,
-            fromPath: this.toPath(fromParent, fromLeft),
-            toPath: this.toPath(toParent, toLeft),
-            actor: editedAt.getActorID(),
-          });
-        }
-      }
-    }
-    return changes.reverse();
   }
 
   /**

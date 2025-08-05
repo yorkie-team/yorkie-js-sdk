@@ -165,8 +165,8 @@ export type TreeEditOpInfo = {
   to: number;
   value?: Array<TreeNode>;
   splitLevel?: number;
-  fromPath: Array<number>;
-  toPath: Array<number>;
+  fromPath?: Array<number>;
+  toPath?: Array<number>;
 };
 
 /**

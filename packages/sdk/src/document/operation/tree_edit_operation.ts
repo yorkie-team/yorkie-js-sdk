@@ -99,7 +99,7 @@ export class TreeEditOperation extends Operation {
     }
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
-    const [changes, pairs, diff] = tree.edit(
+    const [change, pairs, diff] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
@@ -134,20 +134,14 @@ export class TreeEditOperation extends Operation {
     }
 
     return {
-      opInfos: changes.map(
-        ({ from, to, value, splitLevel, fromPath, toPath }) => {
-          return {
-            type: 'tree-edit',
-            path: root.createPath(this.getParentCreatedAt()),
-            from,
-            to,
-            value,
-            splitLevel,
-            fromPath,
-            toPath,
-          } as OperationInfo;
-        },
-      ),
+      opInfos: [{
+        type: 'tree-edit',
+        path: root.createPath(this.getParentCreatedAt()),
+        to: change.to,
+        from: change.from,
+        value: change.value,
+        splitLevel: change.splitLevel
+      } as OperationInfo, ]
     };
   }
 
