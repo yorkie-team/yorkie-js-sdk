@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Document,
   Presence,
@@ -49,6 +55,14 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
 ) {
   const initialRootRef = useRef(initialRoot);
   const initialPresenceRef = useRef(initialPresence);
+  const [didMount, setDidMount] = useState(false);
+
+  // NOTE(hackerwins): In StrictMode, the component will call twice
+  // useEffect in development mode. To prevent attaching a document
+  // twice, attach a document after the mounting.
+  useEffect(() => {
+    setDidMount(true);
+  }, []);
 
   useEffect(() => {
     if (clientError) {
@@ -60,7 +74,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
       return;
     }
 
-    if (!client || clientLoading) {
+    if (!client || clientLoading || !didMount) {
       documentStore.setState((state) => ({
         ...state,
         loading: true,
@@ -160,7 +174,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [client, clientLoading, clientError, docKey, documentStore]);
+  }, [client, clientLoading, clientError, docKey, documentStore, didMount]);
 }
 
 export type DocumentContextType<R, P extends Indexable = Indexable> = {
