@@ -940,6 +940,18 @@ export class Client {
           );
         }
 
+        // NOTE(hackerwins): Check if the document is still attached to prevent
+        // watch stream creation after detachment.
+        if (!this.attachmentMap.has(docKey)) {
+          this.conditions[ClientCondition.WatchLoop] = false;
+          return Promise.reject(
+            new YorkieError(
+              Code.ErrDocumentNotAttached,
+              `${docKey} is not attached`,
+            ),
+          );
+        }
+
         const ac = new AbortController();
         const stream = this.rpcClient.watchDocument(
           {
