@@ -857,51 +857,56 @@ export class Client {
    * the server and pulls remote changes from the server.
    */
   private runSyncLoop(): void {
-    const doLoop = (): void => {
+    const doLoop = async (): Promise<void> => {
       if (!this.isActive()) {
         logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`);
         this.conditions[ClientCondition.SyncLoop] = false;
         return;
       }
 
-      const syncJobs = [];
-      for (const [, attachment] of this.attachmentMap) {
-        if (attachment.needRealtimeSync()) {
-          attachment.remoteChangeEventReceived = false;
-          syncJobs.push(
-            this.syncInternal(attachment, attachment.syncMode).catch(
-              async (err) => {
-                if (
-                  err instanceof ConnectError &&
-                  errorCodeOf(err) === Code.ErrUnauthenticated
-                ) {
-                  attachment.doc.publish([
-                    {
-                      type: DocEventType.AuthError,
-                      value: {
-                        reason: errorMetadataOf(err).reason,
-                        method: 'PushPull',
+      try {
+        await this.enqueueTask(async () => {
+          const syncs: Array<any> = [];
+          for (const [, attachment] of this.attachmentMap) {
+            if (!attachment.needRealtimeSync()) {
+              continue;
+            }
+
+            attachment.remoteChangeEventReceived = false;
+            syncs.push(
+              this.syncInternal(attachment, attachment.syncMode).catch(
+                async (err) => {
+                  if (
+                    err instanceof ConnectError &&
+                    errorCodeOf(err) === Code.ErrUnauthenticated
+                  ) {
+                    attachment.doc.publish([
+                      {
+                        type: DocEventType.AuthError,
+                        value: {
+                          reason: errorMetadataOf(err).reason,
+                          method: 'PushPull',
+                        },
                       },
-                    },
-                  ]);
-                }
-                throw err;
-              },
-            ),
-          );
+                    ]);
+                  }
+                  throw err;
+                },
+              ),
+            );
+          }
+
+          await Promise.all(syncs);
+          setTimeout(doLoop, this.syncLoopDuration);
+        });
+      } catch (err) {
+        logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
+        if (await this.handleConnectError(err)) {
+          setTimeout(doLoop, this.retrySyncLoopDelay);
+        } else {
+          this.conditions[ClientCondition.SyncLoop] = false;
         }
       }
-
-      Promise.all(syncJobs)
-        .then(() => setTimeout(doLoop, this.syncLoopDuration))
-        .catch(async (err) => {
-          logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-          if (await this.handleConnectError(err)) {
-            setTimeout(doLoop, this.retrySyncLoopDelay);
-          } else {
-            this.conditions[ClientCondition.SyncLoop] = false;
-          }
-        });
     };
 
     logger.debug(`[SL] c:"${this.getKey()}" run sync loop`);
