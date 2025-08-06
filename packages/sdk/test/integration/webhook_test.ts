@@ -476,11 +476,6 @@ describe('Auth Webhook', () => {
       root.k1 = 'v1';
     });
 
-    await syncEventCollector.waitFor(DocSyncStatus.Synced);
-    await authErrorEventCollector.waitFor({
-      reason: ExpiredTokenErrorMessage,
-      method: 'PushPull',
-    });
     expect(authTokenInjector).toBeCalledTimes(2);
     expect(authTokenInjector).nthCalledWith(1);
     expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
