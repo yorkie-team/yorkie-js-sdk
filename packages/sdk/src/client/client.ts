@@ -607,11 +607,11 @@ export class Client {
       return doc;
     }
 
+    // NOTE(hackerwins): In non-pushpull mode, the client does not receive change events
+    // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
+    // to sync the local and remote changes. This has limitations in that unnecessary
+    // syncs occur if the client and server do not have any changes.
     if (syncMode === SyncMode.Realtime) {
-      // NOTE(hackerwins): In non-pushpull mode, the client does not receive change events
-      // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
-      // to sync the local and remote changes. This has limitations in that unnecessary
-      // syncs occur if the client and server do not have any changes.
       attachment.remoteChangeEventReceived = true;
     }
 
@@ -971,6 +971,11 @@ export class Client {
           },
         ]);
         logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
+
+        // NOTE(hackerwins): Set remoteChangeEventReceived to true to prevent
+        // event stream gap issues. This ensures sync loop continues even when
+        // no remote change events are received immediately after watch stream starts.
+        attachment.remoteChangeEventReceived = true;
 
         return new Promise((resolve, reject) => {
           const handleStream = async () => {

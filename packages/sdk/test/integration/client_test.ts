@@ -767,7 +767,7 @@ describe.sequential('Client', function () {
       root.t = new Text();
       root.t.edit(0, 0, 'a');
     });
-    await eventCollectorD2.waitAndVerifyNthEvent(1, DocSyncStatus.Synced);
+    await eventCollectorD2.waitAndVerifyNthEvent(2, DocSyncStatus.Synced);
 
     assert.equal(d1.getRoot().t.toString(), 'a');
     assert.equal(d2.getRoot().t.toString(), 'a');
