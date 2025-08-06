@@ -7,6 +7,24 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.24] - 2025-08-06
+
+### Added
+
+- Support `array[idx] = val` via Proxy.set trap by @KMSstudio in https://github.com/yorkie-team/yorkie-js-sdk/pull/1041
+- Add selector-based context system to reduce re-renders by @jaesoekjjang in https://github.com/yorkie-team/yorkie-js-sdk/pull/1031
+
+### Changed
+
+- Migrate to ESLint 9.x flat config across monorepo by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1045
+
+### Fixed
+
+- Prevent document attachment before component mount by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1050
+- Fix race condition between detach and syncLoop by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1051
+- Prevent watch stream re-creation after detachment by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1052
+- Prevent event loss by ensuring sync loop resumes after reconnect by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1054
+
 ## [0.6.23] - 2025-08-01
 
 ### Fixed
