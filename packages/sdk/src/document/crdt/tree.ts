@@ -98,6 +98,18 @@ export type TreeChange =
       type: TreeChangeType.Edit;
       from: number;
       to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
+      value?: Array<TreeNode>;
+      splitLevel?: number;
+    }
+  | {
+      actor: ActorID;
+      type: TreeChangeType.Content;
+      from: number;
+      to: number;
+      fromPath: Array<number>;
+      toPath: Array<number>;
       value?: Array<TreeNode>;
       splitLevel?: number;
     }
@@ -1103,8 +1115,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
     );
 
     addDataSizes(diff, diffTo, diffFrom);
-    const fromIdx = this.toIndex(fromParent, fromLeft)
-    const toIdx = this.toIndex(toParent, toLeft)
+    
+    const fromIdx = this.toIndex(fromParent, fromLeft);
+    const fromPath = this.toPath(fromParent, fromLeft);
+    const toIdx = this.toIndex(toParent, toLeft);
+    const toPath = this.toPath(toParent, toLeft);
 
     const { removes, merges } = this.collectDeleteAndMerge(
       fromParent,
@@ -1178,14 +1193,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    const change = {
+    const change: TreeChange = {
       type: TreeChangeType.Edit,
       from: fromIdx,
       to: toIdx,
+      fromPath,
+      toPath,
+      actor: editedAt.getActorID(),
       value: contents?.map((content) => toTreeNode(content)),
-      splitLevel: splitLevel,
-      actor: editedAt.getActorID() as ActorID,
-    } as TreeChange
+      splitLevel,
+    } as TreeChange;
 
     return [change, pairs, diff];
   }

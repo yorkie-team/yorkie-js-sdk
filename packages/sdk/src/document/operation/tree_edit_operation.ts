@@ -137,11 +137,13 @@ export class TreeEditOperation extends Operation {
       opInfos: [{
         type: 'tree-edit',
         path: root.createPath(this.getParentCreatedAt()),
-        to: change.to,
         from: change.from,
+        to: change.to,
         value: change.value,
-        splitLevel: change.splitLevel
-      } as OperationInfo, ]
+        splitLevel: change.splitLevel,
+        fromPath:  change.fromPath,
+        toPath: change.toPath
+      } as OperationInfo],
     };
   }
 

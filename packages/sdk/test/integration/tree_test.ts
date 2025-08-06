@@ -4688,6 +4688,12 @@ describe('TreeChange', () => {
             to: 4,
             value: undefined,
           },
+          {
+            type: 'tree-edit',
+            from: 0,
+            to: 0,
+            value: undefined,
+          }
         ],
       );
 
@@ -4786,14 +4792,8 @@ describe('TreeChange', () => {
           },
           {
             type: 'tree-edit',
-            from: 3,
-            to: 4,
-            value: undefined,
-          },
-          {
-            type: 'tree-edit',
             from: 1,
-            to: 2,
+            to: 4,
             value: undefined,
           },
         ],
@@ -4843,6 +4843,12 @@ describe('TreeChange', () => {
             from: 0,
             to: 4,
             value: undefined,
+          },
+          {
+            type: 'tree-edit',
+            from: 0,
+            to: 0,
+            value: [{ type: 'text', value: 'c' }],
           },
         ],
       );
@@ -4943,7 +4949,7 @@ describe('TreeChange', () => {
           {
             type: 'tree-edit',
             from: 1,
-            to: 2,
+            to: 3,
             value: [{ type: 'text', value: 'b' }],
           },
         ],
