@@ -13,94 +13,94 @@ const doc = new yorkie.Document('simultaneous-cursors', {
   enableDevtools: true,
 });
 
-const App = () => {
-  const [clients, setClients] = useState([]);
+export default function App() {
+  const [clients, setClients]       = useState([]);
+  const [fadeEnabled, setFadeEnabled] = useState(false);
+  const [color,   setColor]         = useState('#000000');
+  const [width,   setWidth]         = useState(6);
 
   const handleCursorShapeSelect = (cursorShape) => {
-    doc.update((_, presence) => {
-      presence.set({ cursorShape });
-    });
+    setFadeEnabled(cursorShape === 'fading');
+    doc.update((_, p) => p.set({ cursorShape }));
+  };
+
+  const handleColorChange = (newColor) => {
+    setColor(newColor);
+    doc.update((_, p) => p.set({ color: newColor }));
+  };
+
+
+  const handleWidthChange = (newW) => {
+    setWidth(newW);
+    doc.update((_, p) => p.set({ width: newW }));
   };
 
   useEffect(() => {
-    // Define handlers here so cleanup can reference them
-    const handlePointerDown = () => {
-      doc.update((_, presence) => {
-        presence.set({ pointerDown: true });
+    const onDown  = () => doc.update((_, p) => p.set({ pointerDown: true  }));
+    const onUp    = () => doc.update((_, p) => p.set({ pointerDown: false }));
+    const onMove  = e => doc.update((_, p) =>
+      p.set({ cursor: { xPos: e.clientX, yPos: e.clientY } })
+    );
+
+    async function setup() {
+      await client.activate();
+      await client.attach(doc, {
+        initialPresence: {
+          cursorShape: 'cursor',
+          cursor:      { xPos:0,yPos:0 },
+          pointerDown: false,
+          color:       '#000000',
+          width:       6,
+        },
       });
-    };
-    const handlePointerUp = () => {
-      doc.update((_, presence) => {
-        presence.set({ pointerDown: false });
-      });
-    };
-    const handleMouseMove = (event) => {
-      doc.update((_, presence) => {
-        presence.set({
-          cursor: { xPos: event.clientX, yPos: event.clientY },
-        });
-      });
-    };
-
-    const setup = async () => {
-      try {
-        // 1) Activate client to get a valid actor ID
-        await client.activate();
-
-        // 2) Attach document with initial presence under that actor ID
-        await client.attach(doc, {
-          initialPresence: {
-            cursorShape: 'cursor',
-            cursor: { xPos: 0, yPos: 0 },
-            pointerDown: false,
-          },
-        });
-
-        // 3) Subscribe to presence changes
-        doc.subscribe('presence', () => {
-          setClients(doc.getPresences());
-        });
-
-        // 4) Now that actor ID is valid, register window event listeners
-        window.addEventListener('mousedown', handlePointerDown);
-        window.addEventListener('mouseup', handlePointerUp);
-        window.addEventListener('mousemove', handleMouseMove);
-      } catch (err) {
-        console.error('Yorkie setup failed:', err);
-      }
-    };
-
-    setup();
-
+      doc.subscribe('presence', () => setClients(doc.getPresences()));
+      window.addEventListener('mousedown', onDown);
+      window.addEventListener('mouseup',   onUp);
+      window.addEventListener('mousemove', onMove);
+    }
+    setup().catch(console.error);
     return () => {
-      // Cleanup event listeners and subscription
-      window.removeEventListener('mousedown', handlePointerDown);
-      window.removeEventListener('mouseup', handlePointerUp);
-      window.removeEventListener('mousemove', handleMouseMove);
-      doc.unsubscribe(); // optional: unsubscribes all handlers
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('mouseup',   onUp);
+      window.removeEventListener('mousemove', onMove);
+      doc.unsubscribe();
     };
   }, []);
 
   return (
     <div className="general-container">
-      {clients.map(
-        ({ clientID, presence: { cursorShape, cursor, pointerDown } }) =>
-          cursor && (
-            <Cursor
-              key={clientID}
-              selectedCursorShape={cursorShape}
-              x={cursor.xPos}
-              y={cursor.yPos}
-              pointerDown={pointerDown}
-            />
-          ),
-      )}
+      {clients.map(({ clientID, presence }) => {
+        const {
+          cursorShape,
+          cursor,
+          pointerDown,
+          color: presColor = '#000000',
+          width: presWidth  = 6,
+        } = presence;
+        return cursor && (
+          <Cursor
+            key={clientID}
+            selectedCursorShape={cursorShape}
+            x={cursor.xPos}
+            y={cursor.yPos}
+            pointerDown={pointerDown}
+            fadeEnabled={cursorShape==='fading'}
+            color={presColor}
+            width={presWidth}
+          />
+        );
+      })}
+
       <CursorSelections
         handleCursorShapeSelect={handleCursorShapeSelect}
         clientsLength={clients.length}
+        fadeEnabled={fadeEnabled}
+        onFadeToggle={() => setFadeEnabled(v => !v)}
+        color={color}
+        onColorChange={handleColorChange}
+        width={width}
+        onWidthChange={handleWidthChange}
       />
     </div>
   );
-};
-
-export default App;
+}
