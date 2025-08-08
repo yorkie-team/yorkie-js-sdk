@@ -640,7 +640,7 @@ describe('CRDTTree.Merge', function () {
   });
 });
 
-describe('CRDTTree.Merge', function () {
+describe('CRDTTree.RemovedAtUpdate', function () {
   it('Should verify removedAt update logic works correctly', function () {
     // Create a simple tree: <root><p>text</p></root>
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
@@ -664,7 +664,7 @@ describe('CRDTTree.Merge', function () {
     t.editT([1, 5], undefined, 0, firstEditAt, timeT);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p></p></root>`);
 
-    // Verify text node is removed
+    // Verify text node is removed and capture initial removedAt
     assert.equal(textNode.isRemoved, true);
     const firstRemovedAt = textNode.getRemovedAt();
     assert.notEqual(firstRemovedAt, undefined);
@@ -678,13 +678,11 @@ describe('CRDTTree.Merge', function () {
     assert.equal(pNode.isRemoved, true);
     assert.equal(textNode.isRemoved, true);
 
-    // Check that removedAt values are set (don't compare exact values due to time differences)
+    // Verify that textNode's removedAt was updated to the more recent timestamp
+    const updatedRemovedAt = textNode.getRemovedAt();
     assert.notEqual(pNode.getRemovedAt(), undefined);
-    assert.notEqual(textNode.getRemovedAt(), undefined);
-
-    // Verify that the logic for updating removedAt is implemented
-    // The actual implementation should handle this correctly
-    console.log('First removedAt:', firstRemovedAt);
-    console.log('Second removedAt:', textNode.getRemovedAt());
+    assert.notEqual(updatedRemovedAt, undefined);
+    // The core feature: already removed node should have updated timestamp
+    assert.equal(updatedRemovedAt, secondEditAt);
   });
 });
