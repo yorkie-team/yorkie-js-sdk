@@ -17,6 +17,7 @@ export class Attachment<T, P extends Indexable> {
   docID: string;
   syncMode: SyncMode;
   remoteChangeEventReceived: boolean;
+  cancelled: boolean;
 
   watchStream?: WatchStream;
   watchLoopTimerID?: ReturnType<typeof setTimeout>;
@@ -36,6 +37,7 @@ export class Attachment<T, P extends Indexable> {
     this.docID = docID;
     this.syncMode = syncMode;
     this.remoteChangeEventReceived = false;
+    this.cancelled = false;
     this.unsubscribeBroadcastEvent = unsubscribeBroacastEvent;
   }
 
@@ -84,10 +86,15 @@ export class Attachment<T, P extends Indexable> {
           await watchStreamCreator(() => {
             this.watchStream = undefined;
             this.watchAbortController = undefined;
-            this.watchLoopTimerID = setTimeout(
-              doLoop,
-              this.reconnectStreamDelay,
-            );
+
+            // NOTE(hackerwins): Only set reconnect timer if we're not being
+            // cancelled.
+            if (!this.cancelled) {
+              this.watchLoopTimerID = setTimeout(
+                doLoop,
+                this.reconnectStreamDelay,
+              );
+            }
           });
       } catch {
         // TODO(hackerwins): For now, if the creation of the watch stream fails,
@@ -104,6 +111,8 @@ export class Attachment<T, P extends Indexable> {
    * `cancelWatchStream` cancels the watch stream.
    */
   public cancelWatchStream(): void {
+    this.cancelled = true;
+
     if (this.watchStream && this.watchAbortController) {
       this.watchAbortController.abort();
       this.watchStream = undefined;
