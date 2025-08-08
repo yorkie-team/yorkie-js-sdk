@@ -1153,8 +1153,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
             nodesToBeRemoved.push(node);
           }
           tokensToBeRemoved.push([node, tokenType]);
-        } else if (node.isRemoved && editedAt.after(node.removedAt!)) {
+        } else if (
+          node.isRemoved &&
+          editedAt.after(node.removedAt!) &&
+          contents === undefined
+        ) {
           // Update removedAt for already removed nodes in remote scenarios
+          // Only when performing deletion (not insertion)
           alreadyRemovedNodes.push(node);
         }
       },
