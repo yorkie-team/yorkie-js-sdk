@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
 import classnames from 'classnames';
-import { Todo } from './model';
+import { Todo } from '../model';
 import TodoTextInput from './TodoTextInput';
+import { TodoAction } from '../todoReducer';
 
 interface TodoItemProps {
   todo: Todo;
-  editTodo: Function;
-  deleteTodo: Function;
-  completeTodo: Function;
+  dispatch: (action: TodoAction) => void;
 }
 
-export default function TodoItem(props: TodoItemProps) {
+export default function TodoItem({ todo, dispatch }: TodoItemProps) {
   const [editing, setEditing] = useState(false);
-  const { todo, completeTodo, editTodo, deleteTodo } = props;
+
+  const deleteTodo = (id: string) => {
+    dispatch({ type: 'DELETED_TODO', payload: { id } });
+  };
+
+  const editTodo = (id: string, text: string) => {
+    dispatch({ type: 'EDITED_TODO', payload: { id, text } });
+  };
+
+  const completeTodo = (id: string) => {
+    dispatch({ type: 'COMPLETED_TODO', payload: { id } });
+  };
 
   return (
     <li
@@ -23,7 +33,6 @@ export default function TodoItem(props: TodoItemProps) {
     >
       {editing ? (
         <TodoTextInput
-          text={todo.text}
           editing={editing}
           onSave={(text: string) => {
             if (text.length === 0) {
