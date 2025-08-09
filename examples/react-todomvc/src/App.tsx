@@ -1,8 +1,5 @@
-import { JSONArray, JSONObject, useYorkieDoc } from '@yorkie-js/react';
-
 import Header from './components/Header';
 import MainSection from './MainSection';
-import { Todo } from './model';
 import './App.css';
 
 import 'todomvc-app-css/index.css';

@@ -1,7 +1,8 @@
 import React from 'react';
 import classnames from 'classnames';
+import { Filter } from '../MainSection';
 
-const FILTER_TITLES: { [name: string]: string } = {
+const filterTitles: { [key in Filter]: string } = {
   SHOW_ALL: 'All',
   SHOW_ACTIVE: 'Active',
   SHOW_COMPLETED: 'Completed',
@@ -14,19 +15,18 @@ type MouseEventHandler = (
 interface FooterProps {
   completedCount: number;
   activeCount: number;
-  filter: string;
+  filter: Filter;
   onClearCompleted: MouseEventHandler;
-  onShow: (filter: string) => void;
+  onShow: (filter: Filter) => void;
 }
 
-export default function Footer(props: FooterProps) {
-  const {
-    activeCount,
-    completedCount,
-    filter: selectedFilter,
-    onClearCompleted,
-    onShow,
-  } = props;
+export default function Footer({
+  completedCount,
+  activeCount,
+  filter: selectedFilter,
+  onClearCompleted,
+  onShow,
+}: FooterProps) {
   return (
     <footer className="footer">
       <span className="todo-count">
@@ -34,15 +34,15 @@ export default function Footer(props: FooterProps) {
         &nbsp;{activeCount === 1 ? 'item' : 'items'} left
       </span>
       <ul className="filters">
-        {['SHOW_ALL', 'SHOW_ACTIVE', 'SHOW_COMPLETED'].map((filter) => (
+        {Object.keys(filterTitles).map((filter) => (
           <li key={filter}>
             <button
               type="button"
               className={classnames({ selected: filter === selectedFilter })}
               style={{ cursor: 'pointer' }}
-              onClick={() => onShow(filter)}
+              onClick={() => onShow(filter as Filter)}
             >
-              {FILTER_TITLES[filter]}
+              {filterTitles[filter as Filter]}
             </button>
           </li>
         ))}

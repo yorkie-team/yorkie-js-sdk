@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import classnames from 'classnames';
 
 interface TodoInputProps {
   onSave: (text: string) => void;
@@ -9,12 +8,12 @@ interface TodoInputProps {
 
 const sanitize = (text: string) => {
   const map = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#x27;",
-      "/": "&#x2F;",
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#x27;',
+    '/': '&#x2F;',
   };
   const reg = /[&<>"'/]/gi;
   return text.replace(reg, (match: string) => map[match as keyof typeof map]);
@@ -23,7 +22,7 @@ const sanitize = (text: string) => {
 /**
  * `TodoTextInput` is a component that allows the user to input a text.
  */
-export default function TodoTextInput({onSave, placeholder}: TodoInputProps) {
+export default function TodoTextInput({ onSave, placeholder }: TodoInputProps) {
   const [text, setText] = useState('');
 
   return (

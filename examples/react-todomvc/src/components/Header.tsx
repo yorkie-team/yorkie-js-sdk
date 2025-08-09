@@ -6,7 +6,7 @@ interface HeaderProps {
   dispatch: (action: TodoAction) => void;
 }
 
-export default function Header({dispatch}: HeaderProps) {
+export default function Header({ dispatch }: HeaderProps) {
   const addTodo = (text: string) => {
     dispatch({ type: 'ADDED_TODO', payload: { text } });
   };

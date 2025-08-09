@@ -9,18 +9,18 @@ interface TodoItemProps {
   dispatch: (action: TodoAction) => void;
 }
 
-export default function TodoItem({todo, dispatch}: TodoItemProps) {
+export default function TodoItem({ todo, dispatch }: TodoItemProps) {
   const [editing, setEditing] = useState(false);
 
-  const deleteTodo = (id: number) => {
+  const deleteTodo = (id: string) => {
     dispatch({ type: 'DELETED_TODO', payload: { id } });
   };
 
-  const editTodo = (id: number, text: string) => {
+  const editTodo = (id: string, text: string) => {
     dispatch({ type: 'EDITED_TODO', payload: { id, text } });
   };
 
-  const completeTodo = (id: number) => {
+  const completeTodo = (id: string) => {
     dispatch({ type: 'COMPLETED_TODO', payload: { id } });
   };
 

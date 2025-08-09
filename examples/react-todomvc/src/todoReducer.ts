@@ -2,7 +2,7 @@
 import { JSONArray, JSONObject } from '@yorkie-js/react';
 import { Todo } from './model';
 
-export type TodoAction = 
+export type TodoAction =
   | { type: 'ADDED_TODO'; payload: { text: string } }
   | { type: 'DELETED_TODO'; payload: { id: number } }
   | { type: 'EDITED_TODO'; payload: { id: number; text: string } }
@@ -19,7 +19,7 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
     case 'ADDED_TODO': {
       const { text } = action.payload;
       root.todos.push({
-        id: root.todos.reduce((maxID, todo) => Math.max(todo.id, maxID), -1) + 1,
+        id: Math.floor(Date.now() / 1000),
         completed: false,
         text,
       });
@@ -82,7 +82,7 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
     }
 
     case 'TOGGLED_ALL': {
-      const allCompleted = root.todos.every(todo => todo.completed);
+      const allCompleted = root.todos.every((todo) => todo.completed);
       for (const todo of root.todos) {
         todo.completed = !allCompleted;
       }
