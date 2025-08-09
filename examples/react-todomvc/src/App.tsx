@@ -8,9 +8,9 @@ import { useEffect } from 'react';
 
 const initialRoot = {
   todos: [
-    { id: 0, text: 'Yorkie JS SDK', completed: false },
-    { id: 1, text: 'Garbage collection', completed: false },
-    { id: 2, text: 'RichText datatype', completed: false },
+    { id: crypto.randomUUID(), text: 'Yorkie JS SDK', completed: false },
+    { id: crypto.randomUUID(), text: 'Garbage collection', completed: false },
+    { id: crypto.randomUUID(), text: 'RichText datatype', completed: false },
   ],
 };
 
@@ -21,7 +21,7 @@ export default function App() {
   const { root, dispatch, loading, error } = useTodoReducer(initialRoot);
 
   useEffect(() => {
-    console.log(root.todos.toString());
+    console.log(root.todos.join('\n'));
   }, [root.todos]);
 
   if (loading) return <div>Loading...</div>;

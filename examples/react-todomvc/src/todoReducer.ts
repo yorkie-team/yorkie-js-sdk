@@ -4,9 +4,9 @@ import { Todo } from './model';
 
 export type TodoAction =
   | { type: 'ADDED_TODO'; payload: { text: string } }
-  | { type: 'DELETED_TODO'; payload: { id: number } }
-  | { type: 'EDITED_TODO'; payload: { id: number; text: string } }
-  | { type: 'COMPLETED_TODO'; payload: { id: number } }
+  | { type: 'DELETED_TODO'; payload: { id: string } }
+  | { type: 'EDITED_TODO'; payload: { id: string; text: string } }
+  | { type: 'COMPLETED_TODO'; payload: { id: string } }
   | { type: 'CLEARED_COMPLETED' }
   | { type: 'TOGGLED_ALL' };
 
@@ -19,7 +19,7 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
     case 'ADDED_TODO': {
       const { text } = action.payload;
       root.todos.push({
-        id: Math.floor(Date.now() / 1000),
+        id: crypto.randomUUID(),
         completed: false,
         text,
       });
