@@ -1,48 +1,48 @@
 import React, { useState } from 'react';
 import { Todo } from './model';
-import TodoItem from './TodoItem';
-import Footer from './Footer';
+import Footer from './components/Footer';
+import TodoItem from './components/TodoItem';
+import { TodoAction } from './todoReducer';
 
 const TODO_FILTERS: { [name: string]: (todo: Todo) => boolean } = {
   SHOW_ALL: (todo: Todo) => true,
   SHOW_ACTIVE: (todo: Todo) => !todo.completed,
   SHOW_COMPLETED: (todo: Todo) => todo.completed,
 };
-
-type ChangeEventHandler = (event: React.ChangeEvent<HTMLInputElement>) => void;
-
 interface MainSectionProps {
   todos: Array<Todo>;
-  actions: { [name: string]: Function };
+  dispatch: (action: TodoAction) => void;
 }
 
-export default function MainSection({ todos, actions }: MainSectionProps) {
+export default function MainSection({ todos, dispatch }: MainSectionProps) {
   const [filter, setFilter] = useState('SHOW_ALL');
   const filteredTodos = todos.filter(TODO_FILTERS[filter]);
-  const completedCount = todos.reduce((count, todo) => {
-    return todo.completed ? count + 1 : count;
-  }, 0);
+  const completedCount = todos.filter(todo => todo.completed).length;
   const activeCount = todos.length - completedCount;
+
+  const clearCompleted = () => dispatch({ type: 'CLEARED_COMPLETED' });
+  const toggleAll = () => dispatch({ type: 'TOGGLED_ALL' });
+
   if (todos.length === 0) {
     return null;
   }
 
   return (
     <section className="main">
-      <input
-        className="toggle-all"
-        type="checkbox"
-        defaultChecked={completedCount === todos.length}
-        onChange={actions.completeAll as ChangeEventHandler}
-      />
+      {filteredTodos.length > 0 ? (
+          <div className="toggle-all-container">
+              <input className="toggle-all" type="checkbox" id="toggle-all" checked={completedCount === todos.length} onChange={toggleAll} />
+              <label className="toggle-all-label" htmlFor="toggle-all">
+                  Mark all as complete
+              </label>
+          </div>
+      ) : null}
       <ul className="todo-list">
         {filteredTodos.map((todo) => (
           <TodoItem
             key={todo.id}
             todo={todo}
-            editTodo={actions.editTodo}
-            deleteTodo={actions.deleteTodo}
-            completeTodo={actions.completeTodo}
+            dispatch={dispatch}
           />
         ))}
       </ul>
@@ -50,7 +50,7 @@ export default function MainSection({ todos, actions }: MainSectionProps) {
         completedCount={completedCount}
         activeCount={activeCount}
         filter={filter}
-        onClearCompleted={() => actions.clearCompleted()}
+        onClearCompleted={clearCompleted}
         onShow={setFilter}
       />
     </section>

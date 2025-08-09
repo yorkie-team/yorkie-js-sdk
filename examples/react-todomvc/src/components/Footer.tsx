@@ -16,7 +16,7 @@ interface FooterProps {
   activeCount: number;
   filter: string;
   onClearCompleted: MouseEventHandler;
-  onShow: Function;
+  onShow: (filter: string) => void;
 }
 
 export default function Footer(props: FooterProps) {
