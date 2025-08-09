@@ -1,5 +1,5 @@
 // examples/react-todomvc/src/todoReducer.ts
-import { JSONArray, JSONObject } from '@yorkie-js/react';
+import { JSONArray } from '@yorkie-js/react';
 import { Todo } from './model';
 
 export type TodoAction =
@@ -28,64 +28,40 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
 
     case 'DELETED_TODO': {
       const { id } = action.payload;
-      let target: (Todo & JSONObject<Todo>) | undefined;
-      for (const todo of root.todos) {
-        if (todo.id === id) {
-          target = todo as Todo & JSONObject<Todo>;
-          break;
-        }
-      }
-      if (target) {
-        root.todos.deleteByID!(target.getID!());
-      }
+      root.todos = root.todos.filter((todo) => todo.id !== id);
       break;
     }
 
     case 'EDITED_TODO': {
       const { id, text } = action.payload;
-      let target;
-      for (const todo of root.todos) {
+      root.todos.forEach((todo) => {
         if (todo.id === id) {
-          target = todo;
-          break;
+          todo.text = text;
         }
-      }
-      if (target) {
-        target.text = text;
-      }
+      });
       break;
     }
 
     case 'COMPLETED_TODO': {
       const { id } = action.payload;
-      let target;
-      for (const todo of root.todos) {
+      root.todos.forEach((todo) => {
         if (todo.id === id) {
-          target = todo;
-          break;
+          todo.completed = !todo.completed;
         }
-      }
-      if (target) {
-        target.completed = !target.completed;
-      }
+      });
       break;
     }
 
     case 'CLEARED_COMPLETED': {
-      for (const todo of root.todos) {
-        if (todo.completed) {
-          const t = todo as Todo & JSONObject<Todo>;
-          root.todos.deleteByID!(t.getID!());
-        }
-      }
+      root.todos = root.todos.filter((todo) => !todo.completed);
       break;
     }
 
     case 'TOGGLED_ALL': {
       const allCompleted = root.todos.every((todo) => todo.completed);
-      for (const todo of root.todos) {
+      root.todos.forEach((todo) => {
         todo.completed = !allCompleted;
-      }
+      });
       break;
     }
 

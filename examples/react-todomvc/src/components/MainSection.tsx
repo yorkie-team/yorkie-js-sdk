@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Todo } from './model';
-import Footer from './components/Footer';
-import TodoItem from './components/TodoItem';
-import { TodoAction } from './todoReducer';
+import { Todo } from '../model';
+import Footer from './Footer';
+import TodoItem from './TodoItem';
+import { TodoAction } from '../todoReducer';
 import { JSONArray } from '@yorkie-js/react';
 
 export type Filter = 'SHOW_ALL' | 'SHOW_ACTIVE' | 'SHOW_COMPLETED';

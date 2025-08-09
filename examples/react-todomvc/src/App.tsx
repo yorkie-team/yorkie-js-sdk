@@ -1,5 +1,5 @@
 import Header from './components/Header';
-import MainSection from './MainSection';
+import MainSection from './components/MainSection';
 import './App.css';
 
 import 'todomvc-app-css/index.css';

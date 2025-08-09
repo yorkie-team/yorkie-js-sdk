@@ -1,6 +1,6 @@
 import React from 'react';
 import classnames from 'classnames';
-import { Filter } from '../MainSection';
+import { Filter } from './MainSection';
 
 const filterTitles: { [key in Filter]: string } = {
   SHOW_ALL: 'All',
