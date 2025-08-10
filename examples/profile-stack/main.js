@@ -1,26 +1,30 @@
-/* global document -- defined by browser */
-import yorkie, { DocEventType } from '@yorkie-js/sdk';
+import yorkie from '@yorkie-js/sdk';
 import { getRandomName, getRandomColor } from './util.js';
 
+const client = new yorkie.Client({
+  rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+  apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+});
+
+const doc = new yorkie.Document('profile-stack', {
+  enableDevtools: true,
+});
+
+const myRandomPresence = {
+  name: getRandomName(),
+  color: getRandomColor(),
+};
+
 async function main() {
-  const client = new yorkie.Client({
-    rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
-    apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-  });
   await client.activate();
-  const doc = new yorkie.Document('profile-stack', {
-    enableDevtools: true,
-  });
-  doc.subscribe('presence', (event) => {
-    if (event.type !== DocEventType.PresenceChanged) {
-      displayPeerList(doc.getPresences(), client.getID());
-    }
+  doc.subscribe('presence', () => {
+    displayPeerList(doc.getPresences(), client.getID());
   });
   await client.attach(doc, {
     // set the client's name and color to presence.
     initialPresence: {
-      name: getRandomName(),
-      color: getRandomColor(),
+      name: myRandomPresence.name,
+      color: myRandomPresence.color,
     },
   });
 }
@@ -36,7 +40,6 @@ window.addEventListener('click', (event) => {
   const $profile = $target.closest('.profile');
   const $speechBubble = $target.closest('.speech-bubble');
   const $editProfileModal = $target.closest('.modal');
-
   if ($profile || $speechBubble || $editProfileModal) {
     return;
   }
@@ -66,10 +69,16 @@ const closeEditModal = (e) => {
   $editProfileModal.style.display = 'none';
 };
 
-const saveEditProfile = () => {
+const saveEditProfile = async () => {
   const $editProfileModal = document.getElementById('editProfileModal');
   const $editProfileModalInput = $editProfileModal.querySelector('input');
-  console.log($editProfileModalInput.value);
+  const newName = $editProfileModalInput.value;
+  doc.update((_, presence) => {
+    presence.set({
+      name: newName,
+    });
+  });
+  closeEditModal();
 };
 
 const MAX_PEER_VIEW = 4;
@@ -99,6 +108,7 @@ const createPeer = (name, color, type, isMe = false) => {
   return $peer;
 };
 
+// TODO: when subscribed event is triggered, the client's UI should not be initialized.
 const displayPeerList = (peers, myClientID) => {
   const peerList = peers.filter(
     ({ clientID: id, presence }) =>
@@ -133,6 +143,8 @@ const displayPeerList = (peers, myClientID) => {
   $editProfileModalInput.value = myPresence.name;
   const $editProfileModalSaveBtn = $editProfileModal.querySelector('.save');
   $editProfileModalSaveBtn.addEventListener('click', saveEditProfile);
+  const $editProfileModalImg = $editProfileModal.querySelector('.profile-img');
+  $editProfileModalImg.src = `./images/profile-${myPresence.color}.svg`;
 
   peerList.forEach((peer, i) => {
     const { name, color } = peer.presence;
