@@ -36,13 +36,13 @@ img {
   background: transparent;
 }
 
-.speech-bubbles {
+.speech-bubble {
   padding: 16px;
   border: 1px solid var(--gray);
   border-radius: 16px;
 }
 
-.speech-bubbles:before {
+.speech-bubble:before {
   position: absolute;
   top: 0;
   left: 50%;
@@ -57,7 +57,7 @@ img {
   border-bottom: 8px solid var(--gray);
 }
 
-.speech-bubbles:after {
+.speech-bubble:after {
   position: absolute;
   top: 0;
   left: 50%;
@@ -98,7 +98,8 @@ img {
   white-space: nowrap;
 }
 
-.peer .speech-bubbles {
+.peer .speech-bubble {
+  visibility: hidden;
   display: flex;
   flex-direction: column;
   position: absolute;
@@ -108,7 +109,11 @@ img {
   background: var(--white);
 }
 
-.peer .speech-bubbles.me {
+.peer .speech-bubble.visible {
+  visibility: visible;
+}
+
+.peer .speech-bubble.me {
   align-items: center;
   gap: 8px;
 }

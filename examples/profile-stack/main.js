@@ -25,6 +25,36 @@ async function main() {
   });
 }
 
+const SPEECH_BUBBLE_INDEX = {
+  me: 0,
+  peer: (index) => index + 1,
+  more: 4,
+};
+
+window.addEventListener('click', (event) => {
+  const $target = event.target;
+  const $profile = $target.closest('.profile');
+  const $speechBubble = $target.closest('.speech-bubble');
+
+  if ($profile || $speechBubble) {
+    return;
+  }
+  hideSpeechBubble();
+});
+
+const hideSpeechBubble = () => {
+  const $speechBubble = document.querySelectorAll(`.speech-bubble`);
+  $speechBubble.forEach((bubble) => {
+    bubble.classList.remove('visible');
+  });
+};
+
+const showSpeechBubble = (index) => {
+  hideSpeechBubble();
+  const $speechBubble = document.querySelectorAll(`.speech-bubble`)[index];
+  $speechBubble.classList.add('visible');
+};
+
 const MAX_PEER_VIEW = 4;
 const createPeer = (name, color, type, isMe = false) => {
   const $peer = document.createElement('div');
@@ -37,7 +67,7 @@ const createPeer = (name, color, type, isMe = false) => {
     <div class="profile">
       <img src="./images/profile-${color}.svg" alt="profile" class="profile-img"/>
     </div>
-    <div class="name speech-bubbles ${isMe ? 'me' : ''}">
+    <div class="name speech-bubble ${isMe ? 'me' : ''}">
         ${name}
         ${isMe ? ' (me)' : ''}
         ${isMe ? editButtonHtml : ''}
@@ -62,12 +92,19 @@ const displayPeerList = (peers, myClientID) => {
   const $peerList = document.getElementById('peerList');
   $peerList.innerHTML = '';
   const $peerMoreList = document.createElement('div');
-  $peerMoreList.className = 'peer-more-list speech-bubbles';
+  $peerMoreList.className = 'peer-more-list speech-bubble';
+  $peerMoreList.addEventListener('click', () =>
+    showSpeechBubble(SPEECH_BUBBLE_INDEX.more),
+  );
 
   const myPresence = peers.find(
     ({ clientID: id }) => id === myClientID,
   ).presence;
   const $me = createPeer(`${myPresence.name}`, myPresence.color, 'main', true);
+  const $profile = $me.querySelector('.profile');
+  $profile.addEventListener('click', () =>
+    showSpeechBubble(SPEECH_BUBBLE_INDEX.me),
+  );
   $me.classList.add('me');
   $peerList.appendChild($me);
   peerList.forEach((peer, i) => {
@@ -75,6 +112,10 @@ const displayPeerList = (peers, myClientID) => {
     if (i < MAX_PEER_VIEW - 1) {
       const $peer = createPeer(name, color, 'main');
       $peerList.appendChild($peer);
+      const $profile = $peer.querySelector('.profile');
+      $profile.addEventListener('click', () =>
+        showSpeechBubble(SPEECH_BUBBLE_INDEX.peer(i)),
+      );
       return;
     }
     const $peer = createPeer(name, color, 'more');
@@ -91,6 +132,10 @@ const displayPeerList = (peers, myClientID) => {
     `;
     $peer.appendChild($peerMoreList);
     $peerList.appendChild($peer);
+    const $profile = $peer.querySelector('.profile');
+    $profile.addEventListener('click', () =>
+      showSpeechBubble(SPEECH_BUBBLE_INDEX.more),
+    );
   }
 };
 
