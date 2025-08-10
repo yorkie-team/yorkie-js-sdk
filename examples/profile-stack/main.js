@@ -26,16 +26,22 @@ async function main() {
 }
 
 const MAX_PEER_VIEW = 4;
-const createPeer = (name, color, type) => {
+const createPeer = (name, color, type, isMe = false) => {
   const $peer = document.createElement('div');
   $peer.className = 'peer';
 
   if (type === 'main') {
+    const editButtonHtml =
+      '<button class="edit-profile-btn" onclick="openEditModal()">Edit Profile</button>';
     $peer.innerHTML = `
     <div class="profile">
       <img src="./images/profile-${color}.svg" alt="profile" class="profile-img"/>
     </div>
-    <div class="name speech-bubbles">${name}</div>
+    <div class="name speech-bubbles ${isMe ? 'me' : ''}">
+        ${name}
+        ${isMe ? ' (me)' : ''}
+        ${isMe ? editButtonHtml : ''}
+    </div>
   `;
   } else if (type === 'more') {
     $peer.innerHTML = `
@@ -61,7 +67,7 @@ const displayPeerList = (peers, myClientID) => {
   const myPresence = peers.find(
     ({ clientID: id }) => id === myClientID,
   ).presence;
-  const $me = createPeer(`${myPresence.name} (me)`, myPresence.color, 'main');
+  const $me = createPeer(`${myPresence.name}`, myPresence.color, 'main', true);
   $me.classList.add('me');
   $peerList.appendChild($me);
   peerList.forEach((peer, i) => {

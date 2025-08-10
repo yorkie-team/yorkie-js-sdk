@@ -8,6 +8,7 @@ body {
   --gray: #c2bdba;
   --black: #332e2b;
   --white: #fefdfb;
+  --orange: #ff8c00;
 
   display: flex;
   justify-content: center;
@@ -98,7 +99,8 @@ img {
 }
 
 .peer .speech-bubbles {
-  display: none;
+  display: flex;
+  flex-direction: column;
   position: absolute;
   top: 80px;
   left: 50%;
@@ -106,8 +108,9 @@ img {
   background: var(--white);
 }
 
-.peer:hover .speech-bubbles {
-  display: block;
+.peer .speech-bubbles.me {
+  align-items: center;
+  gap: 8px;
 }
 
 .peer.more {
@@ -140,4 +143,16 @@ img {
 .peer-more-list .profile-img {
   margin-right: 8px;
   width: 26px;
+}
+
+.edit-profile-btn {
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--white);
+  color: var(--orange);
+  border: 1px solid var(--orange);
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 400;
+  cursor: pointer;
 }
