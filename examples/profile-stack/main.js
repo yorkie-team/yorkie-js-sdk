@@ -35,8 +35,9 @@ window.addEventListener('click', (event) => {
   const $target = event.target;
   const $profile = $target.closest('.profile');
   const $speechBubble = $target.closest('.speech-bubble');
+  const $editProfileModal = $target.closest('.modal');
 
-  if ($profile || $speechBubble) {
+  if ($profile || $speechBubble || $editProfileModal) {
     return;
   }
   hideSpeechBubble();
@@ -55,14 +56,30 @@ const showSpeechBubble = (index) => {
   $speechBubble.classList.add('visible');
 };
 
+const openEditModal = () => {
+  const $editProfileModal = document.getElementById('editProfileModal');
+  $editProfileModal.style.display = 'block';
+};
+
+const closeEditModal = (e) => {
+  const $editProfileModal = document.getElementById('editProfileModal');
+  $editProfileModal.style.display = 'none';
+};
+
+const saveEditProfile = () => {
+  const $editProfileModal = document.getElementById('editProfileModal');
+  const $editProfileModalInput = $editProfileModal.querySelector('input');
+  console.log($editProfileModalInput.value);
+};
+
 const MAX_PEER_VIEW = 4;
 const createPeer = (name, color, type, isMe = false) => {
   const $peer = document.createElement('div');
   $peer.className = 'peer';
 
   if (type === 'main') {
-    const editButtonHtml =
-      '<button class="edit-profile-btn" onclick="openEditModal()">Edit Profile</button>';
+    const editProfileBtnHtml =
+      '<button class="edit-profile-btn">Edit Profile</button>';
     $peer.innerHTML = `
     <div class="profile">
       <img src="./images/profile-${color}.svg" alt="profile" class="profile-img"/>
@@ -70,7 +87,7 @@ const createPeer = (name, color, type, isMe = false) => {
     <div class="name speech-bubble ${isMe ? 'me' : ''}">
         ${name}
         ${isMe ? ' (me)' : ''}
-        ${isMe ? editButtonHtml : ''}
+        ${isMe ? editProfileBtnHtml : ''}
     </div>
   `;
   } else if (type === 'more') {
@@ -107,6 +124,16 @@ const displayPeerList = (peers, myClientID) => {
   );
   $me.classList.add('me');
   $peerList.appendChild($me);
+  const $editProfileBtn = $me.querySelector('.edit-profile-btn');
+  $editProfileBtn.addEventListener('click', openEditModal);
+  const $editProfileModal = document.getElementById('editProfileModal');
+  const $editProfileModalCloseBtn = $editProfileModal.querySelector('.close');
+  $editProfileModalCloseBtn.addEventListener('click', closeEditModal);
+  const $editProfileModalInput = $editProfileModal.querySelector('input');
+  $editProfileModalInput.value = myPresence.name;
+  const $editProfileModalSaveBtn = $editProfileModal.querySelector('.save');
+  $editProfileModalSaveBtn.addEventListener('click', saveEditProfile);
+
   peerList.forEach((peer, i) => {
     const { name, color } = peer.presence;
     if (i < MAX_PEER_VIEW - 1) {
