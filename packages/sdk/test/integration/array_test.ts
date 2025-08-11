@@ -1059,6 +1059,115 @@ describe('Array Set By Index Tests', function () {
   });
 });
 
+type Op = 'add' | 'remove' | 'move';
+const ops: Op[] = ['add', 'remove', 'move'];
+
+function applyOp(doc: Document<{ list: JSONArray<string> }>, op: Op) {
+  doc.update((root) => {
+    const list = root.list;
+    switch (op) {
+      case 'add': {
+        const prev = list.getElementByIndex?.(0);
+        if (!prev) return;
+        list.insertAfter!(prev.getID!(), 'insV');
+        break;
+      }
+      case 'move': {
+        if (list.length < 3) return;
+        const from = list.getElementByIndex!(0);
+        const to = list.getElementByIndex!(2);
+        list.moveAfter!(to.getID!(), from.getID!());
+        break;
+      }
+      case 'remove': {
+        if (list.length > 0) delete list[0];
+        break;
+      }
+    }
+  }, op);
+}
+
+describe('Array Undo in Multi-Client', () => {
+  for (const op1 of ops) {
+    for (const op2 of ops) {
+      const caseName = `${op1}-${op2}`;
+
+      it(`should handle individual undo operation correctly in multi user environment: ${caseName}`, async ({ task }) => {
+        type TestDoc = { list: JSONArray<string> };
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          // Initial setup
+          d1.update((root) => {
+            root.list = ['a', 'b', 'c', 'd', 'e'];
+          }, 'init');
+          await c1.sync();
+          await c2.sync();
+          assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+          applyOp(d1, op1);
+          applyOp(d2, op2);
+
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+          assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'Mismatch after both ops');
+
+          const jsonAfterOps = d1.toSortedJSON();
+
+          // Undo 순차 실행
+          d1.history.undo();
+          d2.history.undo();
+
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+          assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'Mismatch after both undos');
+
+          // 상태는 다시 init과 같아야 함
+          const jsonInit = '{"list":["a","b","c","d","e"]}';
+          assert.equal(d1.toSortedJSON(), jsonInit, `Final state after undo should be initial: ${caseName}`);
+        }, task.name);
+      });
+    }
+  }
+});
+
+describe('Array Undo Operations', () => {
+  for (const op1 of ops) {
+    for (const op2 of ops) {
+      for (const op3 of ops) {
+        const caseName = `${op1}-${op2}-${op3}`;
+        it(`should return to each state correctly: ${caseName}`, () => {
+          const doc = new Document<{ list: JSONArray<string> }>('test-doc');
+
+          doc.update((root) => {
+            root.list = ['a', 'b', 'c', 'd', 'e'];
+          }, 'init');
+
+          const S: string[] = [];
+          S.push(doc.toSortedJSON());
+
+          applyOp(doc, op1); S.push(doc.toSortedJSON());
+          console.log(`S3: ${S[1]}`)
+          applyOp(doc, op2); S.push(doc.toSortedJSON());
+          console.log(`S3: ${S[2]}`)
+          applyOp(doc, op3); S.push(doc.toSortedJSON());
+          console.log(`S3: ${S[3]}`)
+
+          console.log(doc.history);
+
+          for (let i = 3; i >= 1; i--) {
+            doc.history.undo();
+            const back = doc.toSortedJSON();
+            console.log(`rS${i-1}: ${back}`)
+            assert.equal(back, S[i - 1], `undo back to S${i - 1} failed on ${caseName}`);
+          }
+        });
+      }
+    }
+  }
+});
+
+
 interface ClientAndDocPair<T extends Indexable> {
   client: Client;
   doc: Document<T>;
