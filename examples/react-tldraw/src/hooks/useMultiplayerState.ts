@@ -13,7 +13,6 @@ import * as yorkie from '@yorkie-js/sdk';
 import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
 import _ from 'lodash';
-import useUndoRedo from './useUndoRedo';
 
 import type {
   Options,
@@ -31,7 +30,6 @@ let doc: yorkie.Document<YorkieDocType, YorkiePresenceType>;
 export function useMultiplayerState(roomId: string) {
   const [app, setApp] = useState<TldrawApp>();
   const [loading, setLoading] = useState(true);
-  const { push, undo, redo } = useUndoRedo();
 
   // Callbacks --------------
 
@@ -305,7 +303,7 @@ export function useMultiplayerState(roomId: string) {
       };
 
       // Create History
-      push(command);
+      // push(command);
     },
     20,
     false,
