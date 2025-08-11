@@ -72,17 +72,16 @@ export class ArraySetOperation extends Operation {
       );
     }
 
-    const value = this.value.deepcopy();
+    const previousValue = parentObject.getByID(this.createdAt)!.deepcopy();
+    const reverseOp = this.toReverseOperation(this.value, previousValue);
 
+    const value = this.value.deepcopy();
     parentObject.insertAfter(this.createdAt, value, this.getExecutedAt());
     parentObject.delete(this.createdAt, this.getExecutedAt());
 
     // TODO(junseo): GC logic is not implemented here
     // because there is no way to distinguish between old and new element with same `createdAt`.
     root.registerElement(value);
-
-    // TODO(emplam27): The reverse operation is not implemented yet.
-    const reverseOp = undefined;
 
     return {
       opInfos: [
@@ -93,6 +92,23 @@ export class ArraySetOperation extends Operation {
       ],
       reverseOp,
     };
+  }
+
+  /**
+   * `toReverseOperation` returns the reverse operation of this operation.
+   */
+  private toReverseOperation(
+    newValue: CRDTElement,
+    prevValue: CRDTElement,
+  ): Operation {
+    const reverseOp: ArraySetOperation = ArraySetOperation.create(
+      this.getParentCreatedAt(),
+      newValue.getCreatedAt(),
+      prevValue,
+      this.getExecutedAt(),
+    );
+
+    return reverseOp;
   }
 
   /**

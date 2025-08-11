@@ -2074,6 +2074,8 @@ export class Document<R, P extends Indexable = Indexable> {
       }
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
+      // if ((undoOp instanceof ArraySetOperation) || (undoOp instanceof AddOperation)) {
+      //   undoOp.getValue().setCreatedAt(ticket); }
       context.push(undoOp);
     }
 

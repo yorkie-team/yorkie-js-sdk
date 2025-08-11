@@ -4,7 +4,7 @@ import { JSONArray } from '@yorkie-js/sdk/src/yorkie';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 type Op = 'add' | 'move' | 'remove' | 'set';
-const ops: Array<Op> = ['add', 'remove', 'remove'];
+const ops: Array<Op> = ['add', 'remove'];
 
 function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
   doc.update((root) => {
@@ -26,6 +26,10 @@ function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
       }
       case 'remove': {
         if (list.length > 0) delete list[0];
+        break;
+      }
+      case 'set': {
+        if (list.length > 1) list.setValue!(1, 's');
         break;
       }
     }
@@ -54,9 +58,36 @@ function applyOp2(doc: Document<{ list: JSONArray<string> }>, op: Op) {
         if (list.length > 1) delete list[1];
         break;
       }
+      case 'set': {
+        if (list.length > 2) list.setValue!(2, '2');
+        break;
+      }
     }
   }, op);
 }
+
+describe('Array Undo Operations', () => {
+  for (const op of ['add', 'move', 'remove', 'set'] as Array<Op>) {
+    it(`should handle undo of ${op} operation`, () => {
+      const doc = new Document<{ list: JSONArray<string> }>('test-doc');
+
+      doc.update((root) => {
+        root.list = ['a', 'b', 'c', 'd', 'e'];
+      }, 'init');
+
+      const initialJSON = doc.toSortedJSON();
+
+      applyOp1(doc, op);
+      doc.history.undo();
+
+      assert.equal(
+        doc.toSortedJSON(),
+        initialJSON,
+        'initial state - undo state',
+      );
+    });
+  }
+});
 
 describe('Array Undo Operations', () => {
   for (const op1 of ops) {
