@@ -7,14 +7,20 @@ interface Post {
   id: number;
   key: string;
   title: string;
+  subscribe: string;
+  content: PostContent[];
+}
+
+interface PostContent {
+  id: number;
+  key: string;
+  title: string;
   content: string;
-  author: string;
-  createdAt: string;
 }
 
 interface PostListWithApiProps {
   currentUser: string;
-  samplePosts: Post[];
+  sampleTopic: Post[];
 }
 
 interface YorkieDocument {
@@ -27,40 +33,49 @@ interface YorkieDocument {
   presences: any;
 }
 
-// Individual post item component
-function PostItemWithApi({ 
-  post, 
+// Individual topic item component
+function TopicItemWithApi({ 
+  topic, 
   currentUser, 
   yorkieDocuments 
 }: { 
-  post: Post; 
+  topic: Post; 
   currentUser: string;
   yorkieDocuments: YorkieDocument[];
 }) {
-  // Find the corresponding Yorkie document for this post
-  const docKey = post.key;
+  // Find the corresponding Yorkie document for this topic
+  const docKey = topic.key;
   const document = yorkieDocuments.find(doc => doc.key === docKey);
 
   return (
-    <Link to={`/post/${post.id}`} className="post-item-link">
-      <div className="post-item">
-        <div className="post-header">
-          <h3 className="post-title">{post.title}</h3>
+    <Link to={`/topic/${topic.id}`} className="topic-item-link">
+      <div className="topic-item">
+        <div className="topic-header">
+          <h3 className="topic-title">{topic.title}</h3>
           <PostViewerCount document={document}/>
         </div>
-        <div className="post-meta">
-          <span className="post-author">Author: {post.author}</span>
-          <span className="post-date">{post.createdAt}</span>
+        <div className="topic-meta">
+          <span className="topic-subscribe">{topic.subscribe}</span>
+          <span className="topic-content-count">{topic.content.length} contents</span>
         </div>
-        <p className="post-preview">
-          {post.content.substring(0, 100)}...
-        </p>
+        <div className="topic-content-preview">
+          {topic.content.slice(0, 2).map((content) => (
+            <div key={content.id} className="content-preview-item">
+              <span className="content-title">{content.title}</span>
+            </div>
+          ))}
+          {topic.content.length > 2 && (
+            <div className="content-preview-more">
+              +{topic.content.length - 2} more contents
+            </div>
+          )}
+        </div>
       </div>
     </Link>
   );
 }
 
-function PostListWithApi({ currentUser, samplePosts }: PostListWithApiProps) {
+function PostListWithApi({ currentUser, sampleTopic }: PostListWithApiProps) {
   const [yorkieDocuments, setYorkieDocuments] = useState<YorkieDocument[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +85,7 @@ function PostListWithApi({ currentUser, samplePosts }: PostListWithApiProps) {
       setLoading(true);
       setError(null);
       
-      const documents = await yorkieApi.getWatchThisPageDocuments(samplePosts.map(post => post.key));
+      const documents = await yorkieApi.getWatchThisPageDocuments(sampleTopic.map(post => post.key));
       setYorkieDocuments(documents);
     } catch (err) {
       console.error('Failed to fetch Yorkie documents:', err);
@@ -122,11 +137,11 @@ function PostListWithApi({ currentUser, samplePosts }: PostListWithApiProps) {
           <p>⚠️ {error}</p>
           <p>Real-time viewer count may not be available.</p>
         </div>
-        <div className="posts-grid">
-          {samplePosts.map((post) => (
-            <PostItemWithApi
-              key={post.id}
-              post={post}
+        <div className="topics-grid">
+          {sampleTopic.map((topic) => (
+            <TopicItemWithApi
+              key={topic.id}
+              topic={topic}
               currentUser={currentUser}
               yorkieDocuments={yorkieDocuments}
             />
@@ -146,11 +161,11 @@ function PostListWithApi({ currentUser, samplePosts }: PostListWithApiProps) {
         </p>
       </header>
       
-      <div className="posts-grid">
-        {samplePosts.map((post) => (
-          <PostItemWithApi
-            key={post.id}
-            post={post}
+      <div className="topics-grid">
+        {sampleTopic.map((topic) => (
+          <TopicItemWithApi
+            key={topic.id}
+            topic={topic}
             currentUser={currentUser}
             yorkieDocuments={yorkieDocuments}
           />

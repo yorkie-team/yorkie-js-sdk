@@ -20,6 +20,7 @@
     "profile-stack": "pnpm --filter=profile-stack",
     "react-todomvc": "pnpm --filter=react-todomvc",
     "react-watch-this-page": "pnpm --filter=react-watch-this-page",
+    "react-watch-this-page-v2": "pnpm --filter=react-watch-this-page-v2",
     "simultaneous-cursors": "pnpm --filter=simultaneous-cursors",
     "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
     "vanilla-quill": "pnpm --filter=vanilla-quill",
