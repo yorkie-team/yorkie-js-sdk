@@ -640,7 +640,7 @@ describe('CRDTTree.Merge', function () {
   });
 });
 
-describe('CRDTTree.Merge', function () {
+describe('CRDTTree.update-removeAt', function () {
   it('Should verify removedAt update logic works correctly', function () {
     // Create a simple tree: <root><p>text</p></root>
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
@@ -684,7 +684,5 @@ describe('CRDTTree.Merge', function () {
 
     // Verify that the logic for updating removedAt is implemented
     // The actual implementation should handle this correctly
-    console.log('First removedAt:', firstRemovedAt);
-    console.log('Second removedAt:', textNode.getRemovedAt());
   });
 });
