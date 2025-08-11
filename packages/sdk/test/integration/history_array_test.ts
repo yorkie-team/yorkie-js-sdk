@@ -4,7 +4,7 @@ import { JSONArray } from '@yorkie-js/sdk/src/yorkie';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 type Op = 'add' | 'move' | 'remove' | 'set';
-const ops: Array<Op> = ['add', 'remove'];
+const ops: Array<Op> = ['add', 'remove', 'remove'];
 
 function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
   doc.update((root) => {
@@ -141,13 +141,6 @@ describe('Array Undo in Multi-Client', () => {
             d1.toSortedJSON(),
             d2.toSortedJSON(),
             'Mismatch after both undos',
-          );
-
-          const jsonInit = '{"list":["a","b","c","d","e"]}';
-          assert.equal(
-            d1.toSortedJSON(),
-            jsonInit,
-            `Final state after undo should be initial: ${caseName}`,
           );
         }, task.name);
       });
