@@ -1,4 +1,3 @@
-/* eslint-disable jsdoc/require-jsdoc */
 import { useCallback, useEffect, useState } from 'react';
 import {
   TDUserStatus,
@@ -14,12 +13,7 @@ import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
 import _ from 'lodash';
 
-import type {
-  Options,
-  YorkieDocType,
-  YorkiePresenceType,
-  TlType,
-} from './types';
+import type { YorkieDocType, YorkiePresenceType } from './types';
 
 // Yorkie Client declaration
 let client: yorkie.Client;
@@ -77,13 +71,12 @@ export function useMultiplayerState(roomId: string) {
   // Subscribe to changes
   function handleChanges() {
     const root = doc.getRoot();
-    console.log('handleChange');
 
     // Parse proxy object to record
     const shapeRecord: Record<string, TDShape> = JSON.parse(
       root.shapes.toJSON!(),
     );
-    console.log(`shapeRecond length: ${Object.keys(shapeRecord).length}`)
+    // console.log(`shapeRecond length: ${Object.keys(shapeRecord).length}`)
     const bindingRecord: Record<string, TDBinding> = JSON.parse(
       root.bindings.toJSON!(),
     );
@@ -105,13 +98,6 @@ export function useMultiplayerState(roomId: string) {
     ) => {
       if (!app || client === undefined || doc === undefined) return;
 
-      // Object that stores the latest state value of yorkie doc before the client changes
-      const currentYorkieDocSnapshot: TlType = {
-        shapes: {},
-        bindings: {},
-        assets: {},
-      };
-
       const getUpdatedPropertyList = <T extends object>(
         source: T,
         target: T,
@@ -123,26 +109,18 @@ export function useMultiplayerState(roomId: string) {
 
       Object.entries(shapes).forEach(([id, shape]) => {
         doc.update((root) => {
-          const rootShapesToJS = root.shapes.toJS!();
           if (!shape) {
-            currentYorkieDocSnapshot.shapes[id] = rootShapesToJS[id];
             delete root.shapes[id];
           } else if (!root.shapes[id]) {
-            currentYorkieDocSnapshot.shapes[id] = undefined!;
             root.shapes[id] = shape;
           } else {
             const updatedPropertyList = getUpdatedPropertyList(
               shape,
-              rootShapesToJS[id],
+              root.shapes[id]!.toJS!(),
             );
-            currentYorkieDocSnapshot.shapes[id] =
-              {} as yorkie.JSONObject<TDShape>;
+
             updatedPropertyList.forEach((key) => {
               const newValue = shape[key];
-              const snapshotValue = rootShapesToJS[id][key];
-              (currentYorkieDocSnapshot.shapes[id][
-                key
-              ] as typeof snapshotValue) = snapshotValue;
               (root.shapes[id][key] as typeof newValue) = newValue;
             });
           }
@@ -151,26 +129,18 @@ export function useMultiplayerState(roomId: string) {
 
       Object.entries(bindings).forEach(([id, binding]) => {
         doc.update((root) => {
-          const rootBindingsToJS = root.bindings.toJS!();
           if (!binding) {
-            currentYorkieDocSnapshot.bindings[id] = rootBindingsToJS[id];
             delete root.bindings[id];
           } else if (!root.bindings[id]) {
-            currentYorkieDocSnapshot.bindings[id] = undefined!;
             root.bindings[id] = binding;
           } else {
             const updatedPropertyList = getUpdatedPropertyList(
               binding,
-              rootBindingsToJS[id],
+              root.bindings[id]!.toJS!(),
             );
-            currentYorkieDocSnapshot.bindings[id] =
-              {} as yorkie.JSONObject<TDBinding>;
+
             updatedPropertyList.forEach((key) => {
               const newValue = binding[key];
-              const snapshotValue = rootBindingsToJS[id][key];
-              (currentYorkieDocSnapshot.bindings[id][
-                key
-              ] as typeof snapshotValue) = snapshotValue;
               (root.bindings[id][key] as typeof newValue) = newValue;
             });
           }
@@ -181,16 +151,14 @@ export function useMultiplayerState(roomId: string) {
       // Document key for assets should be asset.id (string), not index
       Object.entries(app.assets).forEach(([, asset]) => {
         doc.update((root) => {
-          const rootAssetsToJS = root.assets.toJS!();
-          currentYorkieDocSnapshot.assets[asset.id] = rootAssetsToJS[asset.id];
           if (!asset.id) {
             delete root.assets[asset.id];
-          } else if (!root.assets[asset.id]) {
+          } else if (root.assets[asset.id]) {
             root.assets[asset.id] = asset;
           } else {
             const updatedPropertyList = getUpdatedPropertyList(
               asset,
-              rootAssetsToJS[asset.id],
+              root.assets[asset.id]!.toJS!(),
             );
 
             updatedPropertyList.forEach((key) => {
@@ -200,112 +168,8 @@ export function useMultiplayerState(roomId: string) {
           }
         });
       });
-
-      // Command object for action
-      // Undo, redo work the same way
-      // undo(): Save yorkie doc's state before returning
-      // redo(): Save yorkie doc's state before moving forward
-      const command = {
-        snapshot: currentYorkieDocSnapshot,
-        undo: () => {
-          const currentYorkieDocSnapshot: TlType = {
-            shapes: {},
-            bindings: {},
-            assets: {},
-          };
-          const snapshot = command.snapshot;
-          Object.entries(snapshot.shapes).forEach(([id, shape]) => {
-            doc.update((root) => {
-              const rootShapesToJS = root.shapes.toJS!();
-              if (!shape) {
-                currentYorkieDocSnapshot.shapes[id] = rootShapesToJS[id];
-                delete root.shapes[id];
-              } else if (!root.shapes.toJS!()[id]) {
-                currentYorkieDocSnapshot.shapes[id] = undefined!;
-                if (shape.id) root.shapes[id] = shape;
-              } else {
-                currentYorkieDocSnapshot.shapes[id] =
-                  {} as yorkie.JSONObject<TDShape>;
-                (
-                  Object.keys(snapshot.shapes[id]) as Array<keyof TDShape>
-                ).forEach((key) => {
-                  const snapshotValue = snapshot.shapes[id][key];
-                  const newSnapshotValue = rootShapesToJS[id][key];
-
-                  (currentYorkieDocSnapshot.shapes[id][
-                    key
-                  ] as typeof newSnapshotValue) = newSnapshotValue;
-                  (root.shapes[id][key] as typeof snapshotValue) =
-                    snapshotValue;
-                });
-              }
-            });
-          });
-
-          Object.entries(snapshot.bindings).forEach(([id, binding]) => {
-            doc.update((root) => {
-              const rootBindingsToJs = root.bindings.toJS!();
-              if (!binding) {
-                currentYorkieDocSnapshot.bindings[id] = rootBindingsToJs[id];
-                delete root.bindings[id];
-              } else if (!root.bindings.toJS!()[id]) {
-                currentYorkieDocSnapshot.bindings[id] = undefined!;
-                if (binding.id) root.bindings[id] = binding;
-              } else {
-                currentYorkieDocSnapshot.bindings[id] =
-                  {} as yorkie.JSONObject<TDBinding>;
-                (
-                  Object.keys(snapshot.bindings[id]) as Array<keyof TDBinding>
-                ).forEach((key) => {
-                  const snapshotValue = snapshot.bindings[id][key];
-                  const newSnapshotValue = rootBindingsToJs[id][key];
-
-                  (currentYorkieDocSnapshot.bindings[id][
-                    key
-                  ] as typeof newSnapshotValue) = newSnapshotValue;
-                  (root.bindings[id][key] as typeof snapshotValue) =
-                    snapshotValue;
-                });
-              }
-            });
-          });
-
-          Object.entries(snapshot.assets).forEach(([, asset]) => {
-            doc.update((root) => {
-              const rootAssetsToJs = root.assets.toJS!();
-              currentYorkieDocSnapshot.assets[asset.id] =
-                rootAssetsToJs[asset.id];
-              if (!asset.id) {
-                delete root.assets[asset.id];
-              } else if (!root.assets.toJS!()[asset.id]) {
-                root.assets[asset.id] = asset;
-              } else {
-                const updatedPropertyList = getUpdatedPropertyList(
-                  asset,
-                  rootAssetsToJs[asset.id],
-                );
-
-                updatedPropertyList.forEach((key) => {
-                  const newValue = asset[key];
-                  (root.assets[asset.id][key] as typeof newValue) = newValue;
-                });
-              }
-            });
-          });
-          command.snapshot = currentYorkieDocSnapshot;
-          // Reflect changes locally
-          handleChanges();
-        },
-        redo: () => {
-          command.undo();
-          handleChanges();
-        },
-      };
-
-      // Create History
-      // push(command);
     },
-    20,
+    60,
     false,
   );
 
@@ -327,37 +191,44 @@ export function useMultiplayerState(roomId: string) {
   useEffect(() => {
     if (!app) return;
 
-    // Detach & deactive yorkie client before unload
-    function handleDisconnect() {
-      if (client === undefined || doc === undefined) return;
+    // Subscribe to changes
+    function handleChanges() {
+      const root = doc.getRoot();
 
-      client.detach(doc);
-      client.deactivate();
+      // Parse proxy object to record
+      const shapeRecord: Record<string, TDShape> = JSON.parse(
+        root.shapes.toJSON!(),
+      );
+      const bindingRecord: Record<string, TDBinding> = JSON.parse(
+        root.bindings.toJSON!(),
+      );
+      const assetRecord: Record<string, TDAsset> = JSON.parse(
+        root.assets.toJSON!(),
+      );
+
+      // Replace page content with changed(propagated) records
+      app?.replacePageContent(shapeRecord, bindingRecord, assetRecord);
     }
-
-    window.addEventListener('beforeunload', handleDisconnect);
 
     let stillAlive = true;
 
     // Setup the document's storage and subscriptions
     async function setupDocument() {
       try {
-        // 01. Create client with RPCAddr(envoy) and options with apiKey if provided.
+        // 01. Create client with RPCAddr and options with apiKey if provided.
         //     Then activate client.
-        const options: Options = {
+        client = new yorkie.Client({
+          rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
           apiKey: import.meta.env.VITE_YORKIE_API_KEY,
           syncLoopDuration: 0,
           reconnectStreamDelay: 1000,
-        };
-
-        client = new yorkie.Client(
-          import.meta.env.VITE_YORKIE_API_ADDR,
-          options,
-        );
+        });
         await client.activate();
 
         // 02. Create document with tldraw custom object type.
-        doc = new yorkie.Document<YorkieDocType, YorkiePresenceType>(roomId);
+        doc = new yorkie.Document<YorkieDocType, YorkiePresenceType>(roomId, {
+          enableDevtools: true,
+        });
 
         // 02-1. Subscribe peers-changed event and update tldraw users state
         doc.subscribe('my-presence', (event) => {
@@ -382,11 +253,10 @@ export function useMultiplayerState(roomId: string) {
         });
 
         // 02-2. Attach document with initialPresence.
-        await client.attach(doc, {
-          initialPresence: {
-            tdUser: app?.currentUser,
-          },
-        });
+        const option = app?.currentUser && {
+          initialPresence: { tdUser: app.currentUser },
+        };
+        await client.attach(doc, option);
 
         // 03. Initialize document if document not exists.
         doc.update((root) => {
@@ -434,7 +304,6 @@ export function useMultiplayerState(roomId: string) {
     setupDocument();
 
     return () => {
-      window.removeEventListener('beforeunload', handleDisconnect);
       stillAlive = false;
     };
   }, [app]);
