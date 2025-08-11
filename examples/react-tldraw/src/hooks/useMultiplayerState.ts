@@ -57,15 +57,19 @@ export function useMultiplayerState(roomId: string) {
   // undo
 
   const onUndo = useCallback(() => {
-    doc.history.undo();
-    handleChanges();
+    if (doc.history.canUndo()) {
+      doc.history.undo();
+      handleChanges();
+    }
   }, [doc, roomId]);
 
   // redo
 
   const onRedo = useCallback(() => {
-    doc.history.redo();
-    handleChanges();
+    if (doc.history.canRedo()) {
+      doc.history.redo();
+      handleChanges();
+    }
   }, [doc, roomId]);
 
   // Subscribe to changes
