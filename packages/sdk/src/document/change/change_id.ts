@@ -137,15 +137,6 @@ export class ChangeID {
     const lamport =
       otherLamport > this.lamport ? otherLamport + 1n : this.lamport + 1n;
 
-    // NOTE(chacha912): Documents created by server may have an InitialActorID
-    // in their version vector. Although server is not an actual client, it
-    // generates document snapshots from changes by participating with an
-    // InitialActorID during document instance creation and accumulating stored
-    // changes in DB.
-    // Semantically, including a non-client actor in version vector is
-    // problematic. To address this, we remove the InitialActorID from snapshots.
-    vector.unset(InitialActorID);
-
     const maxVersionVector = this.versionVector.max(vector);
     maxVersionVector.set(this.actor, lamport);
 

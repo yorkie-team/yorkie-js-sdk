@@ -9,6 +9,7 @@ import {
   vectorOf,
   DefaultSnapshotThreshold,
 } from '../helper/helper';
+import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 
 describe('Garbage Collection', function () {
   it('getGarbageLen should return the actual number of elements garbage-collected', async function ({
@@ -1993,6 +1994,7 @@ describe('Garbage Collection', function () {
       vectorOf([
         { c: c1.getID()!, l: 998n },
         { c: c2.getID()!, l: 1000n },
+        { c: InitialActorID, l: 1002n },
         { c: c3.getID()!, l: 1003n },
       ]),
       d3.getVersionVector(),
