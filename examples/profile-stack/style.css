@@ -36,10 +36,22 @@ img {
   background: transparent;
 }
 
+#app {
+  position: relative;
+}
+
 .speech-bubble {
+  position: absolute;
   padding: 16px;
   border: 1px solid var(--gray);
   border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--white);
+  left: 50%;
+  bottom: -50%;
+  transform: translateY(100%) translateX(-50%);
 }
 
 .speech-bubble:before {
@@ -72,6 +84,11 @@ img {
   border-bottom: 7px solid var(--white);
 }
 
+.speech-bubble.me {
+  align-items: center;
+  gap: 8px;
+}
+
 #peerList {
   display: inline-flex;
   border: 1px solid var(--gray);
@@ -98,26 +115,6 @@ img {
   white-space: nowrap;
 }
 
-.peer .speech-bubble {
-  visibility: hidden;
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translate(-50%);
-  background: var(--white);
-}
-
-.peer .speech-bubble.visible {
-  visibility: visible;
-}
-
-.peer .speech-bubble.me {
-  align-items: center;
-  gap: 8px;
-}
-
 .peer.more {
   display: flex;
   justify-content: center;
@@ -133,6 +130,7 @@ img {
 
 .peer-more-list {
   font-size: 16px;
+  gap: 12px;
 }
 
 .peer-more-list .peer {
@@ -141,13 +139,14 @@ img {
   margin: 0 0 12px 0;
 }
 
-.peer-more-list .peer:last-child {
-  margin-bottom: 0;
+.peer-more-list .profile-img {
+  width: 26px;
 }
 
-.peer-more-list .profile-img {
-  margin-right: 8px;
-  width: 26px;
+.small-peer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .edit-profile-btn {
