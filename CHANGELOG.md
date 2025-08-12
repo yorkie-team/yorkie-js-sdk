@@ -7,6 +7,13 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.25] - 2025-08-12
+
+- Prevent watch stream creation after cancellation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1056
+- Modernize and align with React TodoMVC by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1057
+- Connect tldraw undo/redo to History API by @KMSstudio in https://github.com/yorkie-team/yorkie-js-sdk/pull/1060
+- Fix incorrect deletion of compacted documents by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1061
+
 ## [v0.6.24] - 2025-08-06
 
 ### Added
