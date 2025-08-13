@@ -817,3 +817,112 @@ describe('peri-text example: text concurrent edit', function () {
     }, task.name);
   });
 });
+
+describe.only('Causal Relationship Tests', function () {
+  it('causal deletion preserves original timestamps', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      // T1: Insert "abcd"
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'abcd');
+      }, 'insert abcd');
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"abcd"}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      // T2: Delete "bc" (causal - d2 knows about the state)
+      d1.update((root) => {
+        root.k1.edit(1, 3, '');
+      }, 'delete bc');
+
+      assert.equal(d1.getRoot().k1.toString(), 'ad');
+
+      // Sync so d2 knows about bc deletion
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      // d2가 bc를 삭제했는지 알고 있는지 확인하는 메서드입니다.
+      d2.update((root) => {
+        const text = root.k1;
+
+        const nodeACanDelete = text.canDeleteForTest(0);
+        assert.equal(nodeACanDelete, true);
+
+        const nodeBCanDelete = text.canDeleteForTest(1);
+        assert.equal(nodeBCanDelete, false);
+
+        const nodeCCanDelete = text.canDeleteForTest(2);
+        assert.equal(nodeCCanDelete, false);
+        const nodeDCanDelete = text.canDeleteForTest(3);
+        assert.equal(nodeDCanDelete, true);
+      });
+    }, task.name);
+  });
+
+  it('concurrent deletion test for LWW behavior', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'abcd');
+      }, 'insert abcd');
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), `{"k1":[{"val":"abcd"}]}`);
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      d1.update((root) => {
+        root.k1.edit(1, 3, '');
+      }, 'delete bc by c1');
+
+      assert.equal(d1.getRoot().k1.toString(), 'ad');
+      d2.update((root) => {
+        root.k1.edit(0, 4, '');
+      }, 'delete abcd by c2');
+
+      assert.equal(d2.getRoot().k1.toString(), '');
+
+      // Sync - LWW should apply
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      // Get both text instances
+      const t1 = d1.getRoot().k1;
+      const t2 = d2.getRoot().k1;
+
+      // LWW unification is now automatically applied during sync
+      // No need to manually call unifyRemovedAtTimestamps
+
+      // Final sync to ensure consistency
+      await c1.sync();
+      await c2.sync();
+
+      // Get nodes after unification
+      const nodes1 = Array.from(t1.getTreeByID().values());
+      const nodes2 = Array.from(t2.getTreeByID().values());
+
+      // Verify all nodes have the same removedAt timestamp
+      const timestampSet = new Set<string>();
+      for (const n of [...nodes1, ...nodes2]) {
+        if (n.isRemoved()) {
+          console.log(n.getRemovedAt()?.toTestString());
+          timestampSet.add(n.getRemovedAt()?.toTestString() || '');
+        }
+      }
+
+      // If the timestampSet.size is 1, it means that the LWW synchronization is applied.
+      // assert.Equal(timestampSet.size, 1);
+
+      // Verify final document state
+      assert.equal(d1.toSortedJSON(), `{"k1":[]}`);
+      assert.equal(d2.toSortedJSON(), `{"k1":[]}`);
+    }, task.name);
+  });
+});

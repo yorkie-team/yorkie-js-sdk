@@ -528,4 +528,30 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
     return pairs;
   }
+
+  /**
+   * `canDeleteForTest` returns whether the node at the given index can be deleted for testing purpose.
+   * This method checks the deletion state of nodes regardless of their current index position.
+   */
+  public canDeleteForTest(index: number): boolean {
+    let currentIndex = 0;
+    for (const rgaNode of this.rgaTreeSplit) {
+      const originalLength = rgaNode.getValue().getContent().length;
+
+      if (currentIndex <= index && index < currentIndex + originalLength) {
+        if (rgaNode.getRemovedAt()) {
+          return false;
+        }
+
+        return rgaNode.canDelete(
+          this.getCreatedAt(),
+          this.getCreatedAt().getLamport(),
+        );
+      }
+
+      currentIndex += originalLength;
+    }
+
+    return false;
+  }
 }
