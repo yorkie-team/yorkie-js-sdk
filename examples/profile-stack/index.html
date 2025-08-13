@@ -5,12 +5,31 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Profile Stack - Yorkie Example</title>
-    <script type="module" crossorigin src="./assets/index-AwLs3R2Q.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BKoTBSKb.css">
+    <script type="module" crossorigin src="./assets/index-D6lOldkQ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DoWECbbv.css">
   </head>
   <body>
     <div id="app">
       <div id="peerList"></div>
     </div>
+
+    <!-- Edit Profile Modal -->
+    <div id="editProfileModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <img alt="profile" class="profile-img" />
+          <button class="close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input
+            type="text"
+            id="usernameInput"
+            placeholder="Enter new username"
+          />
+          <button class="save">Save</button>
+        </div>
+      </div>
+    </div>
+
   </body>
 </html>
