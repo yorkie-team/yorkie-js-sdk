@@ -4,7 +4,7 @@ import { JSONArray } from '@yorkie-js/sdk/src/yorkie';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 type Op = 'add' | 'move' | 'remove' | 'set';
-const ops: Array<Op> = ['add', 'remove'];
+const ops: Array<Op> = ['add', 'remove', 'move'];
 
 function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
   doc.update((root) => {
@@ -135,7 +135,7 @@ describe('Array Undo in Multi-Client', () => {
     for (const op2 of ops) {
       const caseName = `${op1}-${op2}`;
 
-      it(`should handle individual undo operation correctly in multi user environment: ${caseName}`, async function ({
+      it(`should handle multi user undo: ${caseName}`, async function ({
         task,
       }) {
         type TestDoc = { list: JSONArray<string> };

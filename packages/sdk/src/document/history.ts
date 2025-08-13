@@ -106,4 +106,23 @@ export class History<P extends Indexable> {
   public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.redoStack;
   }
+  /**
+   * `replaceCreatedAt` replace if each HisatoryOperation's `createdAt` or `prevCreatedAt` field is same as `prevCreatedAt`
+   */
+  public replaceCreatedAt(prevCreatedAt: any, currCreatedAt: any): void {
+    const replaceInStack = (stack: Array<Array<HistoryOperation<P>>>) => {
+      for (const ops of stack) {
+        for (const op of ops) {
+          if ('createdAt' in op && op.createdAt === prevCreatedAt) {
+            (op as any).createdAt = currCreatedAt;
+          }
+          if ('prevCreatedAt' in op && op.prevCreatedAt === prevCreatedAt) {
+            (op as any).prevCreatedAt = currCreatedAt;
+          }
+        }
+      }
+    };
+    replaceInStack(this.undoStack);
+    replaceInStack(this.redoStack);
+  }
 }
