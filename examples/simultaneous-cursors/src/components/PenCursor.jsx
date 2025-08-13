@@ -202,8 +202,6 @@ const PenCursor = ({
           ctx.closePath();
         }
         ctx.restore();
-
-
         if (stroke.tool === 'pencil') {
           ctx.save();
           ctx.strokeStyle = stroke.color;

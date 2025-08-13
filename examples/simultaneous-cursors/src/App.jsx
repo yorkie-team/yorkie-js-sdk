@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef} from 'react';
+import React, { useEffect, useState} from 'react';
 import yorkie from '@yorkie-js/sdk';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
