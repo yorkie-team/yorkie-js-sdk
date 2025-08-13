@@ -87,7 +87,7 @@ describe('Document Schema', () => {
         syncMode: SyncMode.Manual,
         schema: 'noexist@1',
       });
-      assert.fail('Expected an error to be thrown');
+      assert.fail('expected an error to be thrown');
     } catch (error) {
       assert.include((error as Error).message, 'schema not found');
     }
@@ -119,7 +119,7 @@ describe('Document Schema', () => {
         });
       },
       YorkieError,
-      `schema validation failed: Expected string at path $.title`,
+      `schema validation failed: expected string at path $.title`,
     );
     assert.equal('{}', doc.toSortedJSON());
 
@@ -251,11 +251,11 @@ describe('Document Schema', () => {
           headers: { Authorization: adminToken },
         },
       );
-      assert.fail('Expected an error to be thrown');
+      assert.fail('expected an error to be thrown');
     } catch (error) {
       assert.equal(
         (error as AxiosError<{ message: string }>).response?.data?.message,
-        'schema validation failed: Expected integer at path $.title',
+        'schema validation failed: expected integer at path $.title',
       );
     }
 
@@ -383,7 +383,7 @@ describe('Document Schema', () => {
     } catch (error) {
       assert.equal(
         (error as AxiosError<{ message: string }>).response?.data?.message,
-        'schema validation failed: Expected integer at path $.title',
+        'schema validation failed: expected integer at path $.title',
       );
     }
 
@@ -413,7 +413,7 @@ describe('Document Schema', () => {
         });
       },
       YorkieError,
-      `schema validation failed: Expected string at path $.title`,
+      `schema validation failed: expected string at path $.title`,
     );
 
     await client.deactivate();
@@ -458,7 +458,7 @@ describe('Document Schema', () => {
     } catch (error) {
       assert.equal(
         (error as AxiosError<{ message: string }>).response?.data?.message,
-        'schema validation failed: Expected integer at path $.title',
+        'schema validation failed: expected integer at path $.title',
       );
     }
 
@@ -546,7 +546,7 @@ describe('Document Schema', () => {
     } catch (error) {
       assert.equal(
         (error as AxiosError<{ message: string }>).response?.data?.message,
-        'schema validation failed: Expected string at path $.title',
+        'schema validation failed: expected string at path $.title',
       );
     }
 
@@ -576,7 +576,7 @@ describe('Document Schema', () => {
         });
       },
       YorkieError,
-      `schema validation failed: Expected string at path $.title`,
+      `schema validation failed: expected string at path $.title`,
     );
 
     await client.deactivate();
