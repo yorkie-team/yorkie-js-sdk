@@ -789,6 +789,15 @@ export class Document<R, P extends Indexable = Indexable> {
         this.presences,
         OpSource.Local,
       );
+      /////$$$$$$$$$$
+      const operations = change.getOperations();
+      for (const operation of operations) {
+        if (operation instanceof ArraySetOperation) {
+          const prevCreatedAt = operation.getCreatedAt();
+          const currCreatedAt = operation.getValue().getCreatedAt();
+          this.internalHistory.replaceCreatedAt(prevCreatedAt, currCreatedAt);
+        }
+      }
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
         reverseOps.push({

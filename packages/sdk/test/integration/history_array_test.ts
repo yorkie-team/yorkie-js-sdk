@@ -4,7 +4,7 @@ import { JSONArray } from '@yorkie-js/sdk/src/yorkie';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 type Op = 'add' | 'move' | 'remove' | 'set';
-const ops: Array<Op> = ['add', 'remove', 'move'];
+const ops: Array<Op> = ['add', 'remove', 'move', 'set'];
 
 function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
   doc.update((root) => {
