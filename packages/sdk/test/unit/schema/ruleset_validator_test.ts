@@ -78,35 +78,35 @@ describe('ruleset-validator', () => {
     expect(result.errors).to.deep.eq([
       {
         path: '$.field1',
-        message: 'Expected null at path $.field1',
+        message: 'expected null at path $.field1',
       },
       {
         path: '$.field2',
-        message: 'Expected boolean at path $.field2',
+        message: 'expected boolean at path $.field2',
       },
       {
         path: '$.field3',
-        message: 'Expected integer at path $.field3',
+        message: 'expected integer at path $.field3',
       },
       {
         path: '$.field4',
-        message: 'Expected double at path $.field4',
+        message: 'expected double at path $.field4',
       },
       {
         path: '$.field5',
-        message: 'Expected long at path $.field5',
+        message: 'expected long at path $.field5',
       },
       {
         path: '$.field6',
-        message: 'Expected string at path $.field6',
+        message: 'expected string at path $.field6',
       },
       {
         path: '$.field7',
-        message: 'Expected date at path $.field7',
+        message: 'expected date at path $.field7',
       },
       {
         path: '$.field8',
-        message: 'Expected bytes at path $.field8',
+        message: 'expected bytes at path $.field8',
       },
     ]);
   });
@@ -132,7 +132,7 @@ describe('ruleset-validator', () => {
     expect(result.errors).to.deep.eq([
       {
         path: '$.user',
-        message: 'Expected object at path $.user',
+        message: 'expected object at path $.user',
       },
     ]);
   });
@@ -156,7 +156,7 @@ describe('ruleset-validator', () => {
     expect(result.errors).to.deep.eq([
       {
         path: '$.items',
-        message: 'Expected array at path $.items',
+        message: 'expected array at path $.items',
       },
     ]);
   });
@@ -185,7 +185,7 @@ describe('ruleset-validator', () => {
     expect(result.errors).to.deep.eq([
       {
         path: '$.user.name',
-        message: 'Expected string at path $.user.name',
+        message: 'expected string at path $.user.name',
       },
     ]);
   });
@@ -281,15 +281,15 @@ describe('ruleset-validator', () => {
     expect(result.errors).to.deep.eq([
       {
         path: '$.text',
-        message: 'Expected yorkie.Text at path $.text',
+        message: 'expected yorkie.Text at path $.text',
       },
       {
         path: '$.tree',
-        message: 'Expected yorkie.Tree at path $.tree',
+        message: 'expected yorkie.Tree at path $.tree',
       },
       {
         path: '$.counter',
-        message: 'Expected yorkie.Counter at path $.counter',
+        message: 'expected yorkie.Counter at path $.counter',
       },
     ]);
   });
