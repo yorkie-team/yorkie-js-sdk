@@ -818,7 +818,7 @@ describe('peri-text example: text concurrent edit', function () {
   });
 });
 
-describe.only('Causal Relationship Tests', function () {
+describe('Causal Relationship Tests', function () {
   it('causal deletion preserves original timestamps', async function ({
     task,
   }) {
