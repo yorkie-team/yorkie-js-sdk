@@ -1,27 +1,34 @@
 import PenCursor from './PenCursor';
 import FullAnimation from './FullAnimation';
 
-
-
 const Cursor = ({
   selectedCursorShape,
-  x,
-  y,
+  x, y,
   pointerDown,
   fadeEnabled,
   color,
   width,
+  opacity,
+  lineEraseMode,
+  visible = true,
+  resetNonce = 0,
 }) => {
-  const drawingTools = ['pen', 'pencil', 'highlighter', 'eraser', 'fading'];
-  const tool = fadeEnabled && selectedCursorShape === 'pen'
-    ? 'fading'
-    : selectedCursorShape;
+  const baseTool = selectedCursorShape;
+  const tool = (fadeEnabled && baseTool === 'pen') ? 'fading' : baseTool;
+
+  const iconBase =
+    (selectedCursorShape === 'pen' && fadeEnabled)
+      ? 'fading'
+      : (selectedCursorShape === 'eraser' && lineEraseMode)
+        ? 'line'
+        : selectedCursorShape;
+
+  const drawingTools = ['pen','pencil','highlighter','eraser','fading'];
 
   return (
     <>
-
       <img
-        src={`/icons/icon_${selectedCursorShape}.svg`}
+        src={`/icons/icon_${iconBase}.svg`}
         className={`${selectedCursorShape}-cursor`}
         style={{
           position: 'fixed',
@@ -29,11 +36,10 @@ const Cursor = ({
           top: `${y}px`,
           transform: 'translate(-50%, -100%)',
           pointerEvents: 'none',
-          zIndex: 9999,
+          zIndex: 10001,
         }}
-        alt={selectedCursorShape}
+        alt={iconBase}
       />
-
 
       {(selectedCursorShape === 'heart' || selectedCursorShape === 'thumbs') && (
         <FullAnimation
@@ -44,7 +50,6 @@ const Cursor = ({
         />
       )}
 
-
       {drawingTools.includes(tool) && (
         <PenCursor
           xPos={x}
@@ -52,7 +57,11 @@ const Cursor = ({
           tool={tool}
           color={color}
           lineWidth={width}
+          opacity={opacity}
+          lineEraseMode={lineEraseMode}
           pointerDown={pointerDown}
+          visible={visible}
+          resetNonce={resetNonce}
         />
       )}
     </>
