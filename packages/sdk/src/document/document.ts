@@ -2083,6 +2083,7 @@ export class Document<R, P extends Indexable = Indexable> {
         presence.set(undoOp.value, { addToHistory: true });
         continue;
       }
+
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
       if (undoOp instanceof ArraySetOperation) {
@@ -2096,6 +2097,7 @@ export class Document<R, P extends Indexable = Indexable> {
         (undoOp as AddOperation).getValue().setCreatedAt(ticket);
         this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
       }
+
       context.push(undoOp);
     }
 
