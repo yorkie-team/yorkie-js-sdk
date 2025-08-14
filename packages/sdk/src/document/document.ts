@@ -67,6 +67,8 @@ import {
   TreeOperationInfo,
   Operation,
 } from '@yorkie-js/sdk/src/document/operation/operation';
+import { ArraySetOperation } from '@yorkie-js/sdk/src/document/operation/array_set_operation';
+import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
 import { JSONObject } from '@yorkie-js/sdk/src/document/json/object';
 import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
@@ -787,6 +789,15 @@ export class Document<R, P extends Indexable = Indexable> {
         this.presences,
         OpSource.Local,
       );
+      /////$$$$$$$$$$
+      const operations = change.getOperations();
+      for (const operation of operations) {
+        if (operation instanceof ArraySetOperation) {
+          const prevCreatedAt = operation.getCreatedAt();
+          const currCreatedAt = operation.getValue().getCreatedAt();
+          this.internalHistory.replaceCreatedAt(prevCreatedAt, currCreatedAt);
+        }
+      }
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
@@ -2072,8 +2083,21 @@ export class Document<R, P extends Indexable = Indexable> {
         presence.set(undoOp.value, { addToHistory: true });
         continue;
       }
+
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
+      if (undoOp instanceof ArraySetOperation) {
+        const prevCreatedAt = (undoOp as ArraySetOperation).getCreatedAt();
+        (undoOp as ArraySetOperation).getValue().setCreatedAt(ticket);
+        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+      } else if (undoOp instanceof AddOperation) {
+        const prevCreatedAt = (undoOp as AddOperation)
+          .getValue()
+          .getCreatedAt();
+        (undoOp as AddOperation).getValue().setCreatedAt(ticket);
+        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+      }
+
       context.push(undoOp);
     }
 

@@ -76,6 +76,17 @@ export abstract class CRDTElement {
   }
 
   /**
+   * `setCreatedAt` sets the move time of this element.
+   */
+  public setCreatedAt(createdAt: TimeTicket): boolean {
+    if (!this.createdAt || (createdAt && createdAt.after(this.createdAt))) {
+      this.createdAt = createdAt;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * `setMovedAt` sets the move time of this element.
    */
   public setMovedAt(movedAt?: TimeTicket): boolean {
