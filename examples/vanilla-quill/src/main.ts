@@ -6,7 +6,7 @@ import 'quill/dist/quill.snow.css';
 import { network } from './network';
 import './style.css';
 import { YorkieDoc, YorkiePresence } from './type';
-import { displayLog, displayPeers } from './utils';
+import { displayPeers } from './utils';
 
 type TextValueType = {
   attributes?: Indexable;
@@ -14,8 +14,6 @@ type TextValueType = {
 };
 
 const peersElem = document.getElementById('peers')!;
-const documentElem = document.getElementById('document')!;
-const documentTextElem = document.getElementById('document-text')!;
 const networkStatusElem = document.getElementById('network-status')!;
 const colorHash = new ColorHash();
 const documentKey = `vanilla-quill-${new Date()
@@ -77,7 +75,6 @@ async function main() {
       // The text is replaced to snapshot and must be re-synced.
       syncText();
     }
-    displayLog(documentElem, documentTextElem, doc);
   });
 
   doc.subscribe('$.content', (event) => {
@@ -123,19 +120,13 @@ async function main() {
   Quill.register('modules/cursors', QuillCursors);
   const quill = new Quill('#editor', {
     modules: {
+      // Simplified toolbar: keep only core formatting features.
+      // Add or remove items easily by editing this array.
       toolbar: [
-        ['bold', 'italic', 'underline', 'strike'],
-        ['blockquote', 'code-block'],
+        ['bold', 'italic', 'underline'],
         [{ header: 1 }, { header: 2 }],
         [{ list: 'ordered' }, { list: 'bullet' }],
-        [{ script: 'sub' }, { script: 'super' }],
-        [{ indent: '-1' }, { indent: '+1' }],
-        [{ direction: 'rtl' }],
-        [{ size: ['small', false, 'large', 'huge'] }],
-        [{ header: [1, 2, 3, 4, 5, 6, false] }],
-        [{ color: [] }, { background: [] }],
-        [{ font: [] }],
-        [{ align: [] }],
+        ['blockquote', 'code-block'],
         ['image', 'video'],
         ['clean'],
       ],
@@ -326,7 +317,6 @@ async function main() {
 
   syncText();
   updateAllCursors();
-  displayLog(documentElem, documentTextElem, doc);
 }
 
 main();

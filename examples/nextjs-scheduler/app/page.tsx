@@ -131,13 +131,18 @@ export default function Editor() {
 
   return (
     <main className={styles.main}>
-      <p>
-        peers : [
-        {peers.map((man: string, i: number) => {
-          return <span key={i}> {man}, </span>;
-        })}{' '}
-        ]
-      </p>
+      <header>
+        <div className={styles.peersRow} aria-label="Active collaborators">
+          {peers.length === 0 && (
+            <span className={styles.muted}>No peers connected</span>
+          )}
+          {peers.map((p, i) => (
+            <span className={styles.peerChip} key={i}>
+              {p}
+            </span>
+          ))}
+        </div>
+      </header>
       <Scheduler content={content} actions={actions} />
     </main>
   );

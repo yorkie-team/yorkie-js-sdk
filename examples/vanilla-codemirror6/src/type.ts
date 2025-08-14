@@ -5,5 +5,6 @@ export type YorkieDoc = {
 };
 
 export type YorkiePresence = {
+  username: string;
   selection?: TextPosStructRange;
 };
