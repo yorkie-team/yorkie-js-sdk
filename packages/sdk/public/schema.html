@@ -17,9 +17,10 @@
       <div class="error-holder" style="color: red; margin-top: 10px"></div>
       <pre style="white-space: pre-wrap" id="log-holder"></pre>
     </div>
-    <script src="./util.js"></script>
     <script type="module">
       import './src/yorkie.ts';
+      import Network from './devtool/network.js';
+
       const statusHolder = document.getElementById('network-status');
       const onlineClientsHolder = document.getElementById('online-clients');
       const logHolder = document.getElementById('log-holder');

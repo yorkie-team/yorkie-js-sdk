@@ -36,9 +36,10 @@
       <h2>yorkie document</h2>
       <pre style="white-space: pre-wrap" id="log-holder"></pre>
     </div>
-    <script src="./util.js"></script>
     <script type="module">
       import './src/yorkie.ts';
+      import Network from './devtool/network.js';
+
       const statusHolder = document.getElementById('network-status');
       const placeholder = document.getElementById('placeholder');
       const onlineClientsHolder = document.getElementById('online-clients');

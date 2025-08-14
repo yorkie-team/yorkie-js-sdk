@@ -72,10 +72,10 @@
         </div>
       </div>
     </div>
-    <script src="./util.js"></script>
     <script type="module">
       import './src/yorkie.ts';
       import devtool from './devtool/object.js';
+      import Network from './devtool/network.js';
       const statusHolder = document.getElementById('network-status');
       const onlineClientsHolder = document.getElementById('online-clients');
       const docHolder = document.getElementById('document-holder');
@@ -166,11 +166,10 @@
         // When the shape movement is completed, update from presence to the document
         if (isDragging && selectedShapeID && movingShapePoint) {
           doc.update((root, presence) => {
-            const selectedShape = root.shapes.find(
-              (shape) => shape.id === selectedShapeID,
-            );
-            selectedShape.point = movingShapePoint;
             presence.set({ movingShapePoint: null });
+            const selected = root.shapes.find((s) => s.id === selectedShapeID);
+            if (!selected) return;
+            selected.point = movingShapePoint;
           });
         }
         // If the user clicks on the canvas, deselect the shape.
@@ -221,11 +220,11 @@
         const selectedShapeID = doc.getMyPresence().selectedShapeID;
         if (!selectedShapeID) return;
         doc.update((root, presence) => {
-          const selectedShape = root.shapes.find(
+          const idx = root.shapes.findIndex(
             (shape) => shape.id === selectedShapeID,
           );
-          if (!selectedShape) return;
-          root.shapes.deleteByID(selectedShape.getID());
+          if (idx === -1) return;
+          root.shapes.delete(idx);
           presence.set({ selectedShapeID: null });
         });
       };

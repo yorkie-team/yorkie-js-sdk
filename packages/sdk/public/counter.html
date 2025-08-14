@@ -15,9 +15,10 @@
         <button id="decreaseButton">-</button>
       </div>
     </div>
-    <script src="./util.js"></script>
     <script type="module">
       import './src/yorkie.ts';
+      import Network from './devtool/network.js';
+
       const statusHolder = document.getElementById('network-status');
       const onlineClientsHolder = document.getElementById('online-clients');
       const counter = document.getElementById('counter');

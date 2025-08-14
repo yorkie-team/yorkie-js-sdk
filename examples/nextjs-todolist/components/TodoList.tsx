@@ -48,11 +48,9 @@ const TodoList = () => {
 
   const deleteTodo = (id: string) => {
     update((root) => {
-      for (const todo of root.todos) {
-        if (todo.id === id) {
-          root.todos.deleteByID!(todo.getID!());
-          break;
-        }
+      const idx = root.todos.findIndex((todo) => todo.id === id);
+      if (idx !== -1) {
+        root.todos.delete?.(idx);
       }
     });
   };

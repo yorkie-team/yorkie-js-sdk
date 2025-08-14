@@ -4,33 +4,15 @@ import yorkie from '@yorkie-js/sdk';
 const defaultLists = [
   {
     title: 'Todo',
-    cards: [
-      {
-        title: 'Pruning document',
-      },
-      {
-        title: 'Clean up codes',
-      },
-    ],
+    cards: [{ title: 'Pruning document' }, { title: 'Clean up codes' }],
   },
   {
     title: 'Doing',
-    cards: [
-      {
-        title: 'Array operations',
-      },
-    ],
+    cards: [{ title: 'Array operations' }],
   },
   {
     title: 'Done',
-    cards: [
-      {
-        title: 'Create a sample page',
-      },
-      {
-        title: 'Launch demo site',
-      },
-    ],
+    cards: [{ title: 'Create a sample page' }, { title: 'Launch demo site' }],
   },
 ];
 
