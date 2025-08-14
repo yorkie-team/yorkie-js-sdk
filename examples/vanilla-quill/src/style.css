@@ -14,6 +14,7 @@ body {
   height: 0.8rem;
   width: 0.8rem;
   border-radius: 0.4rem;
+  margin-right: 1rem;
 }
 
 #network-status:before {
@@ -22,7 +23,7 @@ body {
 }
 
 #peers:before {
-  display: block;
+  /* inline like #network-status:before so they appear on the same line */
   content: 'peers: ';
   font-size: 1rem;
 }
