@@ -19,9 +19,10 @@
     <div id="editor"></div>
     <div id="document"></div>
     <div id="document-text"></div>
-    <script src="./util.js"></script>
     <script type="module">
       import './src/yorkie.ts';
+      import Network from './devtool/network.js';
+
       const onlineClientsElem = document.getElementById('online-clients');
       const documentElem = document.getElementById('document');
       const documentTextElem = document.getElementById('document-text');

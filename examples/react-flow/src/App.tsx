@@ -14,8 +14,8 @@ import '@xyflow/react/dist/style.css';
 import './App.css';
 
 type Graph = {
-  nodes: JSONArray<JSONObject<Node>>;
-  edges: JSONArray<JSONObject<Edge>>;
+  nodes: JSONArray<Node>;
+  edges: JSONArray<Edge>;
 };
 
 function App() {
@@ -32,25 +32,33 @@ function App() {
             case 'replace':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes[idx] = c.item;
+                if (idx === -1) {
+                  r.nodes[idx] = c.item;
+                }
               }
               break;
             case 'remove':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes.deleteByID!(r.nodes[idx].getID!());
+                if (idx === -1) {
+                  r.nodes.delete?.(idx);
+                }
               }
               break;
             case 'position':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes[idx].position = c.position!;
+                if (idx === -1) {
+                  r.nodes[idx].position = c.position!;
+                }
               }
               break;
             case 'select':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes[idx].selected = c.selected;
+                if (idx === -1) {
+                  r.nodes[idx].selected = c.selected;
+                }
               }
               break;
             default:
@@ -79,7 +87,7 @@ function App() {
             case 'remove':
               {
                 const idx = r.edges.findIndex((e) => e.id === c.id);
-                r.edges.deleteByID!(r.edges[idx].getID!());
+                r.edges.delete?.(idx);
               }
               break;
             case 'select':

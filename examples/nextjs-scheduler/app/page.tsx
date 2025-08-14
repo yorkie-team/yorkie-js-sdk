@@ -55,16 +55,9 @@ export default function Editor() {
     // delete selected content at Yorkie's database
     deleteContent(date: string) {
       doc.update((root) => {
-        let target;
-        for (const item of root.content) {
-          if (item.date === date) {
-            target = item;
-            break;
-          }
-        }
-
-        if (target) {
-          root.content.deleteByID!(target.getID());
+        const idx = root.content.findIndex((item) => item.date === date);
+        if (idx !== -1) {
+          root.content.delete?.(idx);
         }
       });
     },
