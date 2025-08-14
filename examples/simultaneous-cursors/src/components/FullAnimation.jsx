@@ -50,3 +50,5 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
 };
 
 export default FullAnimation;
+
+//burst when you press down on the cursor
