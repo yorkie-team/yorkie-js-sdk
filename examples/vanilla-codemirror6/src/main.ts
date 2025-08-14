@@ -7,11 +7,9 @@ import { displayLog, displayPeers } from './utils';
 import { YorkieDoc, YorkiePresence } from './type';
 import './style.css';
 
-const editorParentElem = document.getElementById('editor')!;
-const peersElem = document.getElementById('peers')!;
-const documentElem = document.getElementById('document')!;
-const documentTextElem = document.getElementById('document-text')!;
 const networkStatusElem = document.getElementById('network-status')!;
+const peersElem = document.getElementById('peers')!;
+const editorParentElem = document.getElementById('editor')!;
 
 async function main() {
   // 01. create client with RPCAddr then activate it.
@@ -39,7 +37,11 @@ async function main() {
       displayPeers(peersElem, doc.getPresences(), client.getID()!);
     }
   });
-  await client.attach(doc);
+  await client.attach(doc, {
+    initialPresence: {
+      username: client.getID()!.slice(-2),
+    },
+  });
   doc.update((root) => {
     if (!root.content) {
       root.content = new yorkie.Text();
@@ -70,7 +72,6 @@ async function main() {
       // The text is replaced to snapshot and must be re-synced.
       syncText();
     }
-    displayLog(documentElem, documentTextElem, doc);
   });
 
   doc.subscribe('$.content', (event) => {
@@ -132,9 +133,14 @@ async function main() {
   });
 
   // 03-2. create codemirror instance
+  // Height: show about 10 lines without needing actual blank text lines.
+  // Adjust the px value if font-size/line-height changes.
+  const fixedHeightTheme = EditorView.theme({
+    '.cm-content, .cm-gutter': { minHeight: '210px' }, // ~10 lines (≈21px per line including padding)
+  });
   const view = new EditorView({
     doc: '',
-    extensions: [basicSetup, updateListener],
+    extensions: [basicSetup, fixedHeightTheme, updateListener],
     parent: editorParentElem,
   });
 
@@ -162,7 +168,6 @@ async function main() {
   }
 
   syncText();
-  displayLog(documentElem, documentTextElem, doc);
 }
 
 main();

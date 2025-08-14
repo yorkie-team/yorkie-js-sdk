@@ -23,7 +23,6 @@ body {
 }
 
 #peers:before {
-  /* inline like #network-status:before so they appear on the same line */
   content: 'peers: ';
   font-size: 1rem;
 }

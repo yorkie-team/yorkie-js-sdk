@@ -8,8 +8,12 @@ export function displayPeers(
   myClientID: string,
 ) {
   const usernames = [];
-  for (const { clientID } of peers) {
-    usernames.push(myClientID === clientID ? `<b>${clientID}</b>` : clientID);
+  for (const { clientID, presence } of peers) {
+    usernames.push(
+      myClientID === clientID
+        ? `<b>${presence.username}</b>`
+        : presence.username,
+    );
   }
   elem.innerHTML = JSON.stringify(usernames);
 }
