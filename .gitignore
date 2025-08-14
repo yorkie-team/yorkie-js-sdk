@@ -145,3 +145,5 @@ packages/sdk/lib/
 
 # npm
 **/package-lock.json
+**/pnpm-lock.yaml
+
