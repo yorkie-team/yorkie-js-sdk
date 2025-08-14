@@ -25,6 +25,7 @@ const CursorSelections = ({
   onToggleDrawing,
   onClearDrawing,
 }) => {
+
   const [selectedCursorShape, setSelectedCursorShape] = useState('cursor');
   const [showPenOptions, setShowPenOptions]           = useState(false);
   const [showSizeSlider, setShowSizeSlider]           = useState(false);
