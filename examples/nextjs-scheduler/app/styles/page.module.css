@@ -1,20 +1,242 @@
+/* Layout */
 .main {
-  width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.board {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1.5rem 1.75rem 2rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.calendarWrapper {
+  flex: 0 0 350px;
+}
+
+.panel {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 300px;
+}
+
+/* Peers */
+.peersRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 14px;
+}
+
+.peerChip {
+  background: linear-gradient(135deg, #00887a, #00a98f);
+  color: #fff;
+  padding: 2px 10px 3px;
+  border-radius: 999px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+/* Event List */
+.eventList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 160px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.eventCard {
+  position: relative;
+  padding: 0.6rem 0.8rem 0.6rem 1rem;
+  background: #f5f9f9;
+  border: 1px solid #d8ecea;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #22403d;
+}
+
+.eventCard button {
+  all: unset;
+}
+
+.eventCardInteractive {
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.eventCardInteractive:hover {
+  background: #eef7f6;
+  border-color: #b7dbd7;
+}
+
+.eventCardActive {
+  background: #e2f4f2;
+  border-color: #83d6cd;
+  box-shadow: 0 0 0 2px #c9ece7;
+}
+
+.eventCard:before {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: #00887a;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.emptyState {
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
+}
+
+/* Form */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* (Removed preview/counter/icon styles after simplification) */
+
+.sectionTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.formLabel {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #355752;
 }
 
 .textArea {
-  width: 100%;
-  height: 8rem;
+  min-height: 7rem;
+  padding: 0.75rem 0.85rem;
+  background: #fcfdfd;
+  border: 1px solid #c9d9d7;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #22403d;
 }
 
-.memo {
-  width: 100%;
-  min-height: 1rem;
-  border-top: 1px solid #2f2f2f;
-  border-bottom: 1px solid #2f2f2f;
-  word-wrap: break-word;
+.textArea:focus {
+  outline: 2px solid #83d6cd;
+  border-color: #5cb9ae;
 }
 
-.inputForm_editor {
-  margin-top: 3rem;
+.buttonBar {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.buttonPrimary {
+  background: #00887a;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0.85rem 1.4rem;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+
+.buttonPrimary:hover:not(:disabled) {
+  background: #006f64;
+}
+
+.buttonPrimary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.buttonDanger {
+  background: #e64848;
+}
+
+.buttonDanger:hover:not(:disabled) {
+  background: #c93636;
+}
+
+.buttonPrimary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Calendar overrides */
+.calendarWithDots :global(.react-calendar__tile) {
+  position: relative;
+}
+
+.calendarWithDots :global(.react-calendar__tile .dot) {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: #00887a;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+/* Utility */
+.muted {
+  color: #5c6d6b;
+  font-size: 13px;
+}
+
+@media (max-width: 780px) {
+  .calendarWrapper {
+    flex: 1 1 100%;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .panel {
+    flex: 1 1 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .board {
+    padding: 1.1rem 1rem 1.5rem;
+  }
+  .calendarWrapper {
+    justify-content: center;
+  }
+  .calendarWithDots {
+    transform: scale(0.95);
+    transform-origin: top center;
+  }
 }

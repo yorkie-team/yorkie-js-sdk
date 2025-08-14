@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import './styles/calendar.css';
 import styles from './styles/page.module.css';
 
@@ -14,78 +14,107 @@ import Calendar from 'react-calendar';
 export default function Scheduler(props: EditorPropsTypes) {
   const { content, actions } = props;
   const [date, onChange] = useState<CalendarValue>(new Date());
-  const [text, setText] = useState<string>('Enter text here!');
+  const [text, setText] = useState<string>('');
 
   const currentDate = date ? parseDate(new Date(date.toString())) : '';
 
-  const eventHandler = (event: string) => {
-    let flag = false;
-    switch (event) {
-      case 'PUSH':
-        flag = false;
-        content.forEach((item) => {
-          if (item.date === currentDate) {
-            flag = !flag;
-            return 0;
-          }
-        });
+  const existing = useMemo(
+    () => content.find((item) => item.date === currentDate),
+    [content, currentDate],
+  );
 
-        if (flag) {
-          actions.updateContent(currentDate, text);
-        } else {
-          actions.addContent(currentDate, text);
-        }
+  // If a date with an event is selected and editor empty, preload text
+  useEffect(() => {
+    if (existing && text === '') {
+      setText(existing.text);
+    }
+    if (!existing) {
+      setText('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing?.date]);
 
-        setText('Enter text here!');
-        break;
-      case 'DELETE':
-        actions.deleteContent(currentDate);
-        break;
+  const canSave = !!currentDate && text.trim().length > 0;
+
+  const handleSave = () => {
+    if (!canSave) return;
+    if (existing) {
+      actions.updateContent(currentDate, text.trim());
+    } else {
+      actions.addContent(currentDate, text.trim());
+    }
+    setText('');
+  };
+
+  const handleDelete = () => {
+    if (existing) {
+      actions.deleteContent(currentDate);
+      setText('');
     }
   };
 
   return (
-    <article>
-      <div>
-        <Calendar
-          onChange={onChange}
-          value={date}
-          locale="en-EN"
-          showNeighboringMonth={false}
-          formatDay={(locale, date) =>
-            date.toLocaleString('en', { day: 'numeric' })
-          }
-          tileClassName={({ date }) =>
-            content.find((item) => item.date === parseDate(date))
-              ? 'highlight'
-              : ''
-          }
-        />
-        <p>selected day : {currentDate}</p>
-        <div className={styles.memo}>
-          {content.map((item, i: number) => {
-            if (item.date === currentDate) {
-              return <p key={i}>{item.text}</p>;
+    <section className={styles.board} aria-label="Scheduler board">
+      <div className={styles.calendarWrapper}>
+        <div className={styles.calendarWithDots}>
+          <Calendar
+            onChange={onChange}
+            value={date}
+            locale="en-EN"
+            showNeighboringMonth={false}
+            formatDay={(locale, date) =>
+              date.toLocaleString('en', { day: 'numeric' })
             }
-          })}
+            tileContent={({ date }) => {
+              const matched = content.some(
+                (item) => item.date === parseDate(date),
+              );
+              return matched ? <span className="dot" /> : null;
+            }}
+          />
         </div>
-        <div className={styles.inputForm_editor}>
-          <h3>input form</h3>
+      </div>
+      <div className={styles.panel}>
+        <p className={styles.muted}>
+          Selected: <strong>{currentDate || '—'}</strong>
+        </p>
+
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor="event-text">
+            {existing ? 'Edit Event' : 'New Event'}
+          </label>
           <textarea
+            id="event-text"
+            placeholder={
+              existing ? 'Update selected event…' : 'Describe the event…'
+            }
             className={styles.textArea}
             value={text}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
               setText(e.target.value)
             }
+            maxLength={500}
           />
         </div>
-        <button className="button" onClick={() => eventHandler('PUSH')}>
-          push
-        </button>
-        <button className="button" onClick={() => eventHandler('DELETE')}>
-          pop
-        </button>
+        <div className={styles.buttonBar}>
+          <button
+            className={styles.buttonPrimary}
+            disabled={!canSave}
+            onClick={handleSave}
+            aria-disabled={!canSave}
+          >
+            {existing ? 'Save Changes' : 'Add Event'}
+          </button>
+          <button
+            className={`${styles.buttonPrimary} ${styles.buttonDanger}`}
+            disabled={!existing}
+            onClick={handleDelete}
+            aria-disabled={!existing}
+          >
+            Delete
+          </button>
+        </div>
       </div>
-    </article>
+    </section>
   );
 }
