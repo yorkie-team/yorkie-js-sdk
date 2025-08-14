@@ -1071,6 +1071,7 @@ export class Client {
     }
 
     attachment.cancelWatchStream();
+    attachment.doc.resetOnlineClients();
     attachment.unsubscribeBroadcastEvent();
     this.attachmentMap.delete(docKey);
   }
