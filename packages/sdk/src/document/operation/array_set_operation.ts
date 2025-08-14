@@ -105,7 +105,6 @@ export class ArraySetOperation extends Operation {
       this.getParentCreatedAt(),
       newValue.getCreatedAt(),
       prevValue,
-      this.getExecutedAt(),
     );
 
     return reverseOp;
