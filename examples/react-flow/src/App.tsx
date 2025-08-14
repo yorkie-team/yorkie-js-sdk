@@ -1,14 +1,13 @@
-import { useCallback } from 'react';
-import { JSONArray, JSONObject, useDocument } from '@yorkie-js/react';
+import { useCallback, useRef } from 'react';
+import { JSONArray, useDocument } from '@yorkie-js/react';
 import {
   ReactFlow,
-  Controls,
-  MiniMap,
   Node,
   Edge,
   Background,
   NodeChange,
   EdgeChange,
+  Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './App.css';
@@ -20,6 +19,8 @@ type Graph = {
 
 function App() {
   const { root, update, loading, error } = useDocument<Graph>();
+  // simple incremental id for new edges
+  const edgeIdRef = useRef(0);
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange>) => {
@@ -32,25 +33,33 @@ function App() {
             case 'replace':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes[idx] = c.item;
+                if (idx !== -1) {
+                  r.nodes[idx] = c.item;
+                }
               }
               break;
             case 'remove':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes.delete?.(idx);
+                if (idx !== -1) {
+                  r.nodes.delete?.(idx);
+                }
               }
               break;
             case 'position':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes[idx].position = c.position!;
+                if (idx !== -1 && c.position) {
+                  r.nodes[idx].position = c.position;
+                }
               }
               break;
             case 'select':
               {
                 const idx = r.nodes.findIndex((n) => n.id === c.id);
-                r.nodes[idx].selected = c.selected;
+                if (idx !== -1) {
+                  r.nodes[idx].selected = c.selected;
+                }
               }
               break;
             default:
@@ -73,19 +82,25 @@ function App() {
             case 'replace':
               {
                 const idx = r.edges.findIndex((e) => e.id === c.id);
-                r.edges[idx] = c.item;
+                if (idx !== -1) {
+                  r.edges[idx] = c.item;
+                }
               }
               break;
             case 'remove':
               {
                 const idx = r.edges.findIndex((e) => e.id === c.id);
-                r.edges.delete?.(idx);
+                if (idx !== -1) {
+                  r.edges.delete?.(idx);
+                }
               }
               break;
             case 'select':
               {
                 const idx = r.edges.findIndex((e) => e.id === c.id);
-                r.edges[idx].selected = c.selected;
+                if (idx !== -1) {
+                  r.edges[idx].selected = c.selected;
+                }
               }
               break;
             default:
@@ -97,21 +112,48 @@ function App() {
     [update],
   );
 
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+      update((r) => {
+        const already = r.edges.some(
+          (e) =>
+            e.source === connection.source &&
+            e.target === connection.target &&
+            e.sourceHandle === connection.sourceHandle &&
+            e.targetHandle === connection.targetHandle,
+        );
+        if (already) return;
+        const id = `e-${connection.source}-${
+          connection.target
+        }-${edgeIdRef.current++}`;
+        r.edges.push({
+          id,
+          type: 'smoothstep',
+          source: connection.source,
+          target: connection.target,
+          sourceHandle: connection.sourceHandle,
+          targetHandle: connection.targetHandle,
+        });
+      });
+    },
+    [update],
+  );
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div style={{ position: 'fixed', inset: 0, height: '100vh' }}>
       <ReactFlow
-        nodes={root.nodes}
-        edges={root.edges}
+        nodes={[...root.nodes].filter(Boolean) as Node[]}
+        edges={[...root.edges].filter(Boolean) as Edge[]}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
         fitView
       >
         <Background gap={10} size={1} color="silver" />
-        <Controls orientation="horizontal" showInteractive={false} />
-        <MiniMap />
       </ReactFlow>
     </div>
   );
