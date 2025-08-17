@@ -639,3 +639,34 @@ describe('CRDTTree.Merge', function () {
     );
   });
 });
+
+describe.only('LWW Remove Tests', function () {
+  it('should apply first removal when no previous removal exists', function () {
+    const node = new CRDTTreeNode(idT, 'text', 'hello');
+    const removeTicket = timeT();
+
+    // first removal
+    node.remove(removeTicket);
+
+    assert.equal(node.isRemoved, true);
+    assert.deepEqual(node.getRemovedAt(), removeTicket);
+  });
+
+  it('should NOT apply older removal when existing removal is newer (LWW)', function () {
+    const node = new CRDTTreeNode(idT, 'text', 'hello');
+    const newerRemoveTicket = timeT();
+    const olderRemoveTicket = timeT();
+
+    // apply the more recent removal first
+    node.remove(newerRemoveTicket);
+    assert.equal(node.isRemoved, true);
+    assert.deepEqual(node.getRemovedAt(), newerRemoveTicket);
+
+    // older removal should be ignored by LWW
+    node.remove(olderRemoveTicket);
+
+    // still the more recent deletion should be maintained
+    assert.equal(node.isRemoved, true);
+    assert.deepEqual(node.getRemovedAt(), olderRemoveTicket);
+  });
+});
