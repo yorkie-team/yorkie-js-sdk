@@ -346,7 +346,8 @@ export class CRDTTreeNodeID {
    */
   public equals(other: CRDTTreeNodeID): boolean {
     return (
-      this.createdAt.compare(other.createdAt) === 0 &&
+      !this.createdAt.after(other.createdAt) &&
+      !other.createdAt.after(this.createdAt) &&
       this.offset === other.offset
     );
   }
@@ -557,7 +558,7 @@ export class CRDTTreeNode
   remove(removedAt: TimeTicket): void {
     const alived = !this.removedAt;
 
-    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
+    if (!this.removedAt || removedAt.after(this.removedAt)) {
       this.removedAt = removedAt;
     }
 
