@@ -346,8 +346,7 @@ export class CRDTTreeNodeID {
    */
   public equals(other: CRDTTreeNodeID): boolean {
     return (
-      !this.createdAt.after(other.createdAt) &&
-      !other.createdAt.after(this.createdAt) &&
+      this.createdAt.compare(other.createdAt) === 0 &&
       this.offset === other.offset
     );
   }
