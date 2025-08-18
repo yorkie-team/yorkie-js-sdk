@@ -394,9 +394,9 @@ importers:
 
   examples/simultaneous-cursors:
     dependencies:
-      '@yorkie-js/sdk':
+      '@yorkie-js/react':
         specifier: workspace:*
-        version: link:../../packages/sdk
+        version: link:../../packages/react
       react:
         specifier: ^18.2.0
         version: 18.2.0
