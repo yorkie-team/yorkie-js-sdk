@@ -2,9 +2,13 @@ import { useState } from 'react';
 import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
 
-const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
+export default function FullAnimation({
+  pointerDown,
+  xPos,
+  yPos,
+  selectedCursorShape,
+}) {
   const [singleAnimationsArray, setSingleAnimationsArray] = useState([]);
-
   const animationBubbleRate = 100;
 
   useInterval(() => {
@@ -47,8 +51,4 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
       })}
     </div>
   );
-};
-
-export default FullAnimation;
-
-//burst when you press down on the cursor
+}
