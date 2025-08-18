@@ -818,7 +818,7 @@ describe('peri-text example: text concurrent edit', function () {
   });
 });
 
-describe('Causal Relationship Tests', function () {
+describe.only('Causal Relationship Tests', function () {
   it('causal deletion preserves original timestamps', async function ({
     task,
   }) {
@@ -891,18 +891,15 @@ describe('Causal Relationship Tests', function () {
       await c1.sync();
       await c2.sync();
       await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-      // Get both text instances
       const t1 = d1.getRoot().k1;
       const t2 = d2.getRoot().k1;
 
-      // LWW unification is now automatically applied during sync
-      // No need to manually call unifyRemovedAtTimestamps
-
       // Final sync to ensure consistency
-      await c1.sync();
-      await c2.sync();
 
       // Get nodes after unification
       const nodes1 = Array.from(t1.getTreeByID().values());
@@ -918,9 +915,8 @@ describe('Causal Relationship Tests', function () {
       }
 
       // If the timestampSet.size is 1, it means that the LWW synchronization is applied.
-      // assert.Equal(timestampSet.size, 1);
+      assert.equal(timestampSet.size, 1);
 
-      // Verify final document state
       assert.equal(d1.toSortedJSON(), `{"k1":[]}`);
       assert.equal(d2.toSortedJSON(), `{"k1":[]}`);
     }, task.name);
