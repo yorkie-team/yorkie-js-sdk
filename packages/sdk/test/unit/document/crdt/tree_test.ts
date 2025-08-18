@@ -640,7 +640,7 @@ describe('CRDTTree.Merge', function () {
   });
 });
 
-describe.only('LWW Remove Tests', function () {
+describe('LWW Remove Tests', function () {
   it('should apply first removal when no previous removal exists', function () {
     const node = new CRDTTreeNode(idT, 'text', 'hello');
     const removeTicket = timeT();
