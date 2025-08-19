@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   YorkieProvider,
   DocumentProvider,
@@ -8,6 +8,7 @@ import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 import './App.css';
 
+// `initialPresence` is the initial cursor state for each user.
 const initialPresence = {
   cursorShape: 'cursor',
   cursor: { xPos: 0, yPos: 0 },
@@ -17,10 +18,17 @@ const initialPresence = {
   overInteractive: false,
 };
 
+// `pixcelThreshold` is the minimum distance to consider a cursor movement.
+const pixcelThreshold = 2;
+
 function CursorsCanvas() {
   const { doc, presences, update, loading, error } = useDocument();
   const [fadeEnabled, setFadeEnabled] = useState(false);
   const [color, setColor] = useState('#000000');
+  const myClientIDRef = useRef(null);
+  const pendingRef = useRef(null);
+  const lastSentRef = useRef({ x: 0, y: 0 });
+  const pointerDownRef = useRef(false);
 
   const handleCursorShapeSelect = (cursorShape) => {
     update((_, p) => p.set({ cursorShape }));
@@ -37,29 +45,58 @@ function CursorsCanvas() {
 
   useEffect(() => {
     if (loading || error) return;
-
-    const onDown = () => update((_, p) => p.set({ pointerDown: true }));
-    const onUp = () => update((_, p) => p.set({ pointerDown: false }));
-
     const interactiveSelector =
       'button, input, select, textarea, [role="button"], a, [data-native-cursor]';
+
+    const onDown = () => {
+      pointerDownRef.current = true;
+      update((_, p) => p.set({ pointerDown: true }));
+    };
+    const onUp = () => {
+      pointerDownRef.current = false;
+      update((_, p) => p.set({ pointerDown: false }));
+    };
     const onMove = (e) => {
       const overInteractive = !!(
         e.target.closest && e.target.closest(interactiveSelector)
       );
-
-      update((_, p) =>
-        p.set({
-          cursor: { xPos: e.clientX, yPos: e.clientY },
-          overInteractive,
-        }),
-      );
+      pendingRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        overInteractive,
+      };
     };
+
+    let frameID;
+    const loop = () => {
+      const pending = pendingRef.current;
+      if (pending) {
+        const last = lastSentRef.current;
+        const dx = pending.x - last.x;
+        const dy = pending.y - last.y;
+        const dist = Math.hypot(dx, dy);
+        const forceSend = pointerDownRef.current;
+        if (forceSend || dist >= pixcelThreshold) {
+          lastSentRef.current = { x: pending.x, y: pending.y };
+          update((_, p) =>
+            p.set({
+              cursor: { xPos: pending.x, yPos: pending.y },
+              overInteractive: pending.overInteractive,
+            }),
+          );
+        }
+        pendingRef.current = null;
+      }
+      frameID = requestAnimationFrame(loop);
+    };
+    frameID = requestAnimationFrame(loop);
 
     window.addEventListener('mousedown', onDown);
     window.addEventListener('mouseup', onUp);
     window.addEventListener('mousemove', onMove);
+
     return () => {
+      cancelAnimationFrame(frameID);
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('mouseup', onUp);
       window.removeEventListener('mousemove', onMove);
@@ -68,10 +105,11 @@ function CursorsCanvas() {
 
   useEffect(() => {
     if (!doc) return;
-    const my = doc.getMyPresence?.();
-    if (my) {
-      setFadeEnabled(my.fadeEnabled ?? false);
-      setColor(my.color ?? '#000000');
+
+    const myPresence = doc.getMyPresence?.();
+    if (myPresence) {
+      setFadeEnabled(myPresence.fadeEnabled ?? false);
+      setColor(myPresence.color ?? '#000000');
     }
   }, [presences, doc]);
 
@@ -88,7 +126,7 @@ function CursorsCanvas() {
         e.preventDefault();
       }}
     >
-      {presences.map(({ clientID, presence }) => {
+      {presences.map(({ clientID, presence }, idx) => {
         const {
           cursorShape,
           cursor,
@@ -97,6 +135,11 @@ function CursorsCanvas() {
           fadeEnabled: presFade = false,
           overInteractive = false,
         } = presence;
+
+        if (idx === 0 && myClientIDRef.current === null) {
+          myClientIDRef.current = clientID;
+        }
+        const isLocal = clientID === myClientIDRef.current;
 
         return (
           cursor && (
@@ -109,6 +152,7 @@ function CursorsCanvas() {
               fadeEnabled={presFade}
               color={presColor}
               overInteractive={overInteractive}
+              animate={!isLocal}
             />
           )
         );

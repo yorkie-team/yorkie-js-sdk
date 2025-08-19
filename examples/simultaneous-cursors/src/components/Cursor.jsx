@@ -11,6 +11,7 @@ export default function Cursor({
   visible = true,
   resetNonce = 0,
   overInteractive = false,
+  animate = true,
 }) {
   const baseTool = selectedCursorShape;
   const tool = fadeEnabled && baseTool === 'pen' ? 'fading' : baseTool;
@@ -19,24 +20,23 @@ export default function Cursor({
     selectedCursorShape === 'pen' && fadeEnabled
       ? 'fading'
       : selectedCursorShape === 'eraser'
-        ? 'line'
-        : selectedCursorShape;
+      ? 'line'
+      : selectedCursorShape;
 
-  const drawingTools = ['pen', 'pencil', 'highlighter', 'eraser', 'fading'];
+  const drawingTools = ['pen', 'highlighter', 'eraser', 'fading'];
 
   // Pixel-based anchoring for drawing tools: treat (x,y) as the tip.
   // Width/height come from each SVG's intrinsic size. tipX/tipY are offsets
   // from (center-bottom) anchor to actual drawing tip (positive right/down).
   // Initial values are estimates; adjust after visual check.
   const toolOffsets = {
-    pen: { w: 36, h: 36, tipX: 8, tipY: 6 }, // pen tip slightly right & above bottom
-    pencil: { w: 23, h: 26, tipX: 10, tipY: 0 }, // tune after inspection
-    highlighter: { w: 23, h: 24, tipX: 5, tipY: 4 }, // tune after inspection
+    pen: { w: 36, h: 36, tipX: 18, tipY: 38 },
+    highlighter: { w: 23, h: 24, tipX: 5, tipY: -8 },
   };
   // 'fading' shares the pen icon dimensions (iconBase becomes 'fading' though)
   const baseForOffsets = iconBase === 'fading' ? 'pen' : iconBase;
   const off = toolOffsets[baseForOffsets];
-  const usePixelAnchor = !!off; // apply to pen/pencil/highlighter(+fading)
+  const usePixelAnchor = !!off; // apply to pen/highlighter(+fading)
   const transformStyle = usePixelAnchor
     ? `translate(${-(off.w / 2) + off.tipX}px, ${-off.h + off.tipY}px)`
     : 'translate(-50%, -100%)';
@@ -46,12 +46,12 @@ export default function Cursor({
       {!overInteractive && (
         <img
           src={`/icons/icon_${iconBase}.svg`}
-          className={`${selectedCursorShape}-cursor`}
+          className={`${selectedCursorShape}-cursor${
+            animate ? ' animated-remote-cursor' : ''
+          }`}
           style={{
             position: 'fixed',
-            left: `${x}px`,
-            top: `${y}px`,
-            transform: transformStyle,
+            transform: `translate3d(${x}px, ${y}px, 0) ${transformStyle}`,
             pointerEvents: 'none',
             zIndex: 10001,
           }}

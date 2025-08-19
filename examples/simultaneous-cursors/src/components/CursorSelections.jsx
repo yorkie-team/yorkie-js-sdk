@@ -54,15 +54,14 @@ export default function CursorSelections({
           {[
             { key: 'pen', icon: 'pen' },
             { key: 'fading', icon: 'fading' },
-            { key: 'pencil', icon: 'pencil' },
             { key: 'highlighter', icon: 'highlighter' },
           ].map((item) => {
             const isSelected =
               item.icon === 'pen'
                 ? selectedCursorShape === 'pen' && !fadeEnabled
                 : item.icon === 'fading'
-                  ? selectedCursorShape === 'pen' && fadeEnabled
-                  : selectedCursorShape === item.icon;
+                ? selectedCursorShape === 'pen' && fadeEnabled
+                : selectedCursorShape === item.icon;
             return (
               <button
                 key={item.key}
@@ -129,9 +128,7 @@ export default function CursorSelections({
           {cursorShapes.map((shape) => {
             const isSelected =
               shape === 'pen'
-                ? ['pen', 'pencil', 'highlighter', 'eraser'].includes(
-                    selectedCursorShape,
-                  )
+                ? ['pen', 'highlighter', 'eraser'].includes(selectedCursorShape)
                 : selectedCursorShape === shape;
             return (
               <button
@@ -158,8 +155,12 @@ export default function CursorSelections({
         <div
           className="yc-count-pill"
           data-native-cursor
-          title={`${clientsLength} user${clientsLength === 1 ? '' : 's'} online`}
-          aria-label={`${clientsLength} user${clientsLength === 1 ? '' : 's'} online`}
+          title={`${clientsLength} user${
+            clientsLength === 1 ? '' : 's'
+          } online`}
+          aria-label={`${clientsLength} user${
+            clientsLength === 1 ? '' : 's'
+          } online`}
         >
           <svg
             width="16"

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 
 class Point {
   constructor(x, y) {
@@ -8,6 +8,10 @@ class Point {
   }
 }
 
+/**
+ * `rdp` applies the Ramer-Douglas-Peucker algorithm to reduce the number of points
+ * in a path while preserving its shape.
+ */
 function rdp(points, eps) {
   if (points.length < 3) return points;
   let maxD = 0,
@@ -35,6 +39,9 @@ function rdp(points, eps) {
   return [s, e];
 }
 
+/**
+ * `getSplinePoint` calculates a point on a cubic spline curve.
+ */
 function getSplinePoint(pts, t) {
   const [p0, p1, p2, p3] = pts;
   const t2 = t * t,
@@ -55,6 +62,9 @@ function getSplinePoint(pts, t) {
   };
 }
 
+/**
+ * `distToSegment` calculates the distance from a point to a line segment.
+ */
 function distToSegment(px, py, ax, ay, bx, by) {
   const abx = bx - ax,
     aby = by - ay;
@@ -68,6 +78,8 @@ function distToSegment(px, py, ax, ay, bx, by) {
     cy = ay + t * aby;
   return Math.hypot(px - cx, py - cy);
 }
+
+const fixedWidth = 6;
 
 export default function PenCursor({
   xPos,
@@ -101,7 +113,6 @@ export default function PenCursor({
       lastRef.current = { x: null, y: null };
       return;
     }
-    const fixedWidth = 6; // fixed stroke width after removing dynamic sizing
     if (tool === 'eraser') {
       strokesRef.current = strokesRef.current.filter((stroke) => {
         const pts = stroke.points;
@@ -251,7 +262,7 @@ export default function PenCursor({
           ctx.save();
           ctx.strokeStyle = stroke.color;
           ctx.lineWidth = Math.max(1, stroke.width * 0.5);
-          ctx.globalAlpha = 0.6; // fixed pencil secondary stroke alpha
+          ctx.globalAlpha = 0.6;
           const density = 0.3;
           for (let i = 1; i < simple.length; i++) {
             if (Math.random() > density) continue;

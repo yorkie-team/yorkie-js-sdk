@@ -131,6 +131,10 @@ importers:
         specifier: 5.3.3
         version: 5.3.3
 
+  examples/nextjs-scheduler/dist: {}
+
+  examples/nextjs-scheduler/dist/types: {}
+
   examples/nextjs-todolist:
     dependencies:
       '@radix-ui/react-slot':
