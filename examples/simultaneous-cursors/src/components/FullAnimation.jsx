@@ -2,9 +2,13 @@ import { useState } from 'react';
 import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
 
-const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
+export default function FullAnimation({
+  pointerDown,
+  xPos,
+  yPos,
+  selectedCursorShape,
+}) {
   const [singleAnimationsArray, setSingleAnimationsArray] = useState([]);
-
   const animationBubbleRate = 100;
 
   useInterval(() => {
@@ -31,7 +35,7 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
   return (
     <div
       style={{
-        transform: `translateX(${xPos}px) translateY(${yPos}px)`,
+        transform: `translateX(${xPos - 30}px) translateY(${yPos - 40}px)`,
       }}
     >
       {singleAnimationsArray.map((animation) => {
@@ -47,6 +51,4 @@ const FullAnimation = ({ pointerDown, xPos, yPos, selectedCursorShape }) => {
       })}
     </div>
   );
-};
-
-export default FullAnimation;
+}

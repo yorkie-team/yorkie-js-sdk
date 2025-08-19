@@ -110,6 +110,12 @@ body {
   top: -5px;
 }
 
+/* common cursor animation: transform-based linear transition */
+.animated-remote-cursor {
+  will-change: transform;
+  transition: transform var(--cursor-dur, 80ms) linear;
+}
+
 .cursor-name {
   position: fixed;
   left: 35px;
