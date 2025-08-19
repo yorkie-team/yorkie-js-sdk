@@ -41,7 +41,7 @@ export interface ValueChange<T> {
   value?: T;
 }
 
-interface RGATreeSplitValue {
+export interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
   getDataSize(): DataSize;
@@ -576,12 +576,29 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * @param value - value
    * @returns `[RGATreeSplitPos, Array<GCPair>, Array<Change>]`
    */
+  /**
+   * `edit` does following steps
+   * 1. split nodes with from and to
+   * 2. delete between from and to
+   * 3. insert a new node
+   * 4. add removed node
+   * @param range - range of RGATreeSplitNode
+   * @param editedAt - edited time
+   * @param value - value
+   * @returns `[RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>, Array<CRDTElement>]`
+   */
   public edit(
     range: RGATreeSplitPosRange,
     editedAt: TimeTicket,
     value?: T,
     versionVector?: VersionVector,
-  ): [RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>] {
+  ): [
+    RGATreeSplitPos,
+    Array<GCPair>,
+    DataSize,
+    Array<ValueChange<T>>,
+    Array<T>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     // 01. split nodes with from and to
@@ -636,11 +653,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     // 04. add removed node
     const pairs: Array<GCPair> = [];
+    const removedValues: Array<T> = [];
     for (const [, removedNode] of removedNodes) {
       pairs.push({ parent: this, child: removedNode });
+      removedValues.push(removedNode.getValue());
     }
 
-    return [caretPos, pairs, diff, changes];
+    return [caretPos, pairs, diff, changes, removedValues];
   }
 
   /**
@@ -824,6 +843,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     return [node, diff, node.getNext()!];
   }
 
+  // $$$$$$$$$$$$$$$$$$$$$$$ wtf?
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {
