@@ -1,5 +1,6 @@
 import PenCursor from './PenCursor';
 import FullAnimation from './FullAnimation';
+import ColoredIcon from './ColoredIcon';
 
 export default function Cursor({
   selectedCursorShape,
@@ -24,15 +25,14 @@ export default function Cursor({
       : selectedCursorShape;
 
   const drawingTools = ['pen', 'highlighter', 'eraser', 'fading'];
-
-  // Pixel-based anchoring for drawing tools: treat (x,y) as the tip.
-  // Width/height come from each SVG's intrinsic size. tipX/tipY are offsets
-  // from (center-bottom) anchor to actual drawing tip (positive right/down).
-  // Initial values are estimates; adjust after visual check.
   const toolOffsets = {
+    // These offsets map the SVG's center-bottom anchor to the actual nib/tip.
+    // tipX: horizontal pixels from center to nib (positive right)
+    // tipY: vertical pixels from bottom to nib (positive down)
     pen: { w: 36, h: 36, tipX: 18, tipY: 38 },
     highlighter: { w: 23, h: 24, tipX: 5, tipY: -8 },
   };
+
   // 'fading' shares the pen icon dimensions (iconBase becomes 'fading' though)
   const baseForOffsets = iconBase === 'fading' ? 'pen' : iconBase;
   const off = toolOffsets[baseForOffsets];
@@ -44,8 +44,7 @@ export default function Cursor({
   return (
     <>
       {!overInteractive && (
-        <img
-          src={`/icons/icon_${iconBase}.svg`}
+        <div
           className={`${selectedCursorShape}-cursor${
             animate ? ' animated-remote-cursor' : ''
           }`}
@@ -55,8 +54,9 @@ export default function Cursor({
             pointerEvents: 'none',
             zIndex: 10001,
           }}
-          alt={iconBase}
-        />
+        >
+          <ColoredIcon type={iconBase} color={color} />
+        </div>
       )}
 
       {(selectedCursorShape === 'heart' ||

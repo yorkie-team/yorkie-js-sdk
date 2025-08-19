@@ -8,12 +8,39 @@ import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 import './App.css';
 
+// Generate a visually distinctive random color
+// (pastel-ish for good contrast on white)
+function generateRandomColor() {
+  // HSL to hex conversion for consistent vivid colors
+  const h = Math.floor(Math.random() * 360); // full hue range
+  const s = 70; // saturation percentage
+  const l = 55; // lightness percentage
+  const toHex = (v) => v.toString(16).padStart(2, '0');
+
+  // Convert HSL to RGB
+  const c = (1 - Math.abs((2 * l) / 100 - 1)) * (s / 100);
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l / 100 - c / 2;
+  let r1, g1, b1;
+  if (h < 60) [r1, g1, b1] = [c, x, 0];
+  else if (h < 120) [r1, g1, b1] = [x, c, 0];
+  else if (h < 180) [r1, g1, b1] = [0, c, x];
+  else if (h < 240) [r1, g1, b1] = [0, x, c];
+  else if (h < 300) [r1, g1, b1] = [x, 0, c];
+  else [r1, g1, b1] = [c, 0, x];
+  const r = Math.round((r1 + m) * 255);
+  const g = Math.round((g1 + m) * 255);
+  const b = Math.round((b1 + m) * 255);
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 // `initialPresence` is the initial cursor state for each user.
 const initialPresence = {
   cursorShape: 'cursor',
   cursor: { xPos: 0, yPos: 0 },
   pointerDown: false,
-  color: '#000000',
+  // Assign a per-user random color (same value is used for both cursor stroke + pen drawing)
+  color: generateRandomColor(),
   fadeEnabled: false,
   overInteractive: false,
 };
@@ -24,7 +51,7 @@ const pixcelThreshold = 2;
 function CursorsCanvas() {
   const { doc, presences, update, loading, error } = useDocument();
   const [fadeEnabled, setFadeEnabled] = useState(false);
-  const [color, setColor] = useState('#000000');
+  const [color, setColor] = useState(initialPresence.color);
   const myClientIDRef = useRef(null);
   const pendingRef = useRef(null);
   const lastSentRef = useRef({ x: 0, y: 0 });
@@ -109,7 +136,7 @@ function CursorsCanvas() {
     const myPresence = doc.getMyPresence?.();
     if (myPresence) {
       setFadeEnabled(myPresence.fadeEnabled ?? false);
-      setColor(myPresence.color ?? '#000000');
+      setColor(myPresence.color ?? initialPresence.color);
     }
   }, [presences, doc]);
 

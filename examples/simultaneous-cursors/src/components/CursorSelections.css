@@ -97,10 +97,7 @@
   border-radius: var(--yc-radius-sm);
   cursor: pointer;
   position: relative;
-  transition:
-    background 0.18s,
-    transform 0.18s,
-    box-shadow 0.18s;
+  transition: background 0.18s, transform 0.18s, box-shadow 0.18s;
   background: var(--yc-surface-alt);
   border: 1px solid var(--yc-surface-border);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
@@ -122,8 +119,7 @@
 }
 .yc-tool-icon[data-selected='true'] {
   background: var(--yc-accent);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.22),
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22),
     0 2px 4px -1px rgba(0, 0, 0, 0.55);
   border-color: rgba(255, 255, 255, 0.25);
 }
@@ -166,9 +162,7 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  box-shadow:
-    0 0 0 1px var(--yc-surface-border),
-    0 1px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 0 1px var(--yc-surface-border), 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 .yc-draw-tools .yc-color-chip:hover {
   transform: translateY(-3px) scale(1.04);
@@ -227,9 +221,7 @@
   cursor: pointer;
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
-  transition:
-    transform 0.18s,
-    box-shadow 0.18s;
+  transition: transform 0.18s, box-shadow 0.18s;
 }
 .yc-color-chip:hover {
   transform: translateY(-2px);
@@ -252,9 +244,7 @@
   cursor: pointer;
   user-select: none;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-  transition:
-    background 0.2s,
-    transform 0.18s;
+  transition: background 0.2s, transform 0.18s;
   border: 1px solid var(--yc-surface-border);
 }
 .yc-size-pill:hover {
@@ -399,10 +389,7 @@
   cursor: pointer;
   border: 1px solid var(--yc-surface-border);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  transition:
-    transform 0.18s,
-    background 0.2s,
-    box-shadow 0.2s;
+  transition: transform 0.18s, background 0.2s, box-shadow 0.2s;
 }
 .yc-nav-btn:hover {
   background: var(--yc-surface-hover);
@@ -427,10 +414,7 @@
   background: var(--yc-surface-alt);
   border: 1px solid var(--yc-panel-border);
   cursor: pointer;
-  transition:
-    background 0.16s,
-    transform 0.16s,
-    box-shadow 0.16s;
+  transition: background 0.16s, transform 0.16s, box-shadow 0.16s;
 }
 .yc-icon-btn.danger svg {
   color: #d9487d;
@@ -443,8 +427,7 @@
 }
 .yc-nav-btn[data-selected='true'] {
   background: var(--yc-accent);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.2),
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2),
     0 3px 8px -2px rgba(184, 131, 0, 0.55);
 }
 .yc-nav-btn img {
@@ -462,7 +445,6 @@
   box-shadow: var(--yc-focus-ring);
 }
 
-/* (Removed separate status bar; merged into .yc-combined-bar) */
 .yc-badge {
   background: var(--yc-surface-alt);
   padding: 10px 18px;
@@ -484,9 +466,7 @@
   font-weight: 500;
   letter-spacing: 0.3px;
   box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.45);
-  transition:
-    background 0.2s,
-    transform 0.18s;
+  transition: background 0.2s, transform 0.18s;
 }
 .yc-btn:hover {
   background: var(--yc-accent-hover);
