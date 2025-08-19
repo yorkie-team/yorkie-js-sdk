@@ -843,7 +843,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     return [node, diff, node.getNext()!];
   }
 
-  // $$$$$$$$$$$$$$$$$$$$$$$ wtf?
+  // $$$$$$$$$$$$$$$$$$$$$$$
   private findFloorNodePreferToLeft(
     id: RGATreeSplitNodeID,
   ): RGATreeSplitNode<T> {
