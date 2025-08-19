@@ -1,20 +1,22 @@
 <script>
 import yorkie from '@yorkie-js/sdk';
 
-const defaultLists = [
-  {
-    title: 'Todo',
-    cards: [{ title: 'Pruning document' }, { title: 'Clean up codes' }],
-  },
-  {
-    title: 'Doing',
-    cards: [{ title: 'Array operations' }],
-  },
-  {
-    title: 'Done',
-    cards: [{ title: 'Create a sample page' }, { title: 'Launch demo site' }],
-  },
-];
+const initialRoot = {
+  lists: [
+    {
+      title: 'Todo',
+      cards: [{ title: 'Pruning document' }, { title: 'Clean up codes' }],
+    },
+    {
+      title: 'Doing',
+      cards: [{ title: 'Array operations' }],
+    },
+    {
+      title: 'Done',
+      cards: [{ title: 'Create a sample page' }, { title: 'Launch demo site' }],
+    },
+  ],
+};
 
 const client = new yorkie.Client({
   rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
@@ -37,9 +39,6 @@ export default {
   created() {
     this.fetchDoc();
   },
-  beforeUnmount() {
-    this.disconnect();
-  },
   watch: {
     opened(index) {
       this.$nextTick(function () {
@@ -57,13 +56,7 @@ export default {
   methods: {
     async fetchDoc() {
       await client.activate();
-      await client.attach(doc);
-
-      doc.update((root) => {
-        if (!root.lists) {
-          root.lists = defaultLists;
-        }
-      }, 'create default list if not exists');
+      await client.attach(doc, { initialRoot });
 
       doc.subscribe((event) => {
         this.lists = doc.getRoot().lists;
@@ -71,10 +64,6 @@ export default {
       await client.sync();
 
       this.lists = doc.getRoot().lists;
-    },
-
-    async disconnect() {
-      await client.deactivate({ keepalive: true });
     },
 
     isOpened(index) {
