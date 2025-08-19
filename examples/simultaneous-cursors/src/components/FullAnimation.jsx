@@ -35,7 +35,7 @@ export default function FullAnimation({
   return (
     <div
       style={{
-        transform: `translateX(${xPos}px) translateY(${yPos}px)`,
+        transform: `translateX(${xPos - 30}px) translateY(${yPos - 40}px)`,
       }}
     >
       {singleAnimationsArray.map((animation) => {
