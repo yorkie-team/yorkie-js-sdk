@@ -7,6 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.26] - 2025-08-20
+
+### Added
+
+- Add edit name feature in Profile Stack by @saemileee in https://github.com/yorkie-team/yorkie-js-sdk/pull/1063
+- Enhance drawing tools and smoothing pipeline by @echae22 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1069
+
+### Changed
+
+- Normalize error in validation functions to lowercase by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1064
+- Simplify examples by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1067
+
+### Fixed
+
+- Reset online clients on attachment cancellation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1066
+- Fix removedAt timestamp handling in text deletions by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1071
+
 ## [v0.6.25] - 2025-08-12
 
 - Prevent watch stream creation after cancellation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1056
