@@ -1057,7 +1057,7 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     fromTextNodeID(pbTextNode.id!),
     textValue,
   );
-  textNode.remove(fromTimeTicket(pbTextNode.removedAt));
+  textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
   return textNode;
 }
 
