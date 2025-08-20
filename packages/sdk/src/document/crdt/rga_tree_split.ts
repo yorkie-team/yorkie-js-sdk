@@ -452,7 +452,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       return false;
     }
 
-    if (this.removedAt == null) {
+    if (!this.removedAt) {
       return true;
     }
 
@@ -483,7 +483,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `remove` removes the node of the given edited time.
    */
   public remove(removedAt: TimeTicket, tombstoneKnown: boolean) {
-    if (this.removedAt == null) {
+    if (!this.removedAt) {
       this.removedAt = removedAt;
       return;
     }

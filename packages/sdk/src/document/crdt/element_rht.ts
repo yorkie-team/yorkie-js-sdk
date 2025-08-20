@@ -96,13 +96,13 @@ export class ElementRHT {
   ): CRDTElement | undefined {
     let removed;
     const node = this.nodeMapByKey.get(key);
-    if (node != null && !node.isRemoved() && node.remove(executedAt)) {
+    if (!!node && !node.isRemoved() && node.remove(executedAt)) {
       removed = node.getValue();
     }
 
     const newNode = ElementRHTNode.of(key, value);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
-    if (node == null || executedAt.after(node.getValue().getPositionedAt())) {
+    if (!node || executedAt.after(node.getValue().getPositionedAt())) {
       this.nodeMapByKey.set(key, newNode);
       value.setMovedAt(executedAt);
     }
@@ -167,7 +167,7 @@ export class ElementRHT {
     removedAt: TimeTicket,
   ): CRDTElement | undefined {
     const node = this.nodeMapByKey.get(key);
-    if (node == null) {
+    if (!node) {
       return;
     }
 
@@ -183,7 +183,7 @@ export class ElementRHT {
    */
   public has(key: string): boolean {
     const node = this.nodeMapByKey.get(key);
-    if (node == null) {
+    if (!node) {
       return false;
     }
     return !node.isRemoved();
