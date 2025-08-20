@@ -51,6 +51,13 @@ export class VersionVector {
   }
 
   /**
+   * `has` checks if the given actor exists in the VersionVector.
+   */
+  public has(actorID: string): boolean {
+    return this.vector.has(actorID);
+  }
+
+  /**
    * `maxLamport` returns max lamport value from vector
    */
   public maxLamport() {

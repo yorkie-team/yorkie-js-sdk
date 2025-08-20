@@ -20,7 +20,6 @@ import { SplayNode, SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import {
   InitialTimeTicket,
-  MaxLamport,
   TimeTicket,
   TimeTicketSize,
   TimeTicketStruct,
@@ -446,16 +445,15 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   /**
    * `canDelete` checks if node is able to delete.
    */
-  public canDelete(
-    editedAt: TimeTicket,
-    clientLamportAtChange: bigint,
-  ): boolean {
-    const justRemoved = !this.removedAt;
-    const nodeExisted =
-      this.getCreatedAt().getLamport() <= clientLamportAtChange;
+  public canRemove(creationKnown: boolean): boolean {
+    // NOTE(hackerwins): Skip if the node's creation was not visible to this
+    // operation.
+    if (!creationKnown) {
+      return false;
+    }
 
-    if (nodeExisted && (!this.removedAt || editedAt.after(this.removedAt))) {
-      return justRemoved;
+    if (!this.removedAt) {
+      return true;
     }
 
     return false;
@@ -475,10 +473,26 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   /**
-   * `remove` removes node of given edited time.
+   * `setRemovedAt` sets the remove time of this node.
    */
-  public remove(editedAt?: TimeTicket): void {
-    this.removedAt = editedAt;
+  public setRemovedAt(removedAt?: TimeTicket): void {
+    this.removedAt = removedAt;
+  }
+
+  /**
+   * `remove` removes the node of the given edited time.
+   */
+  public remove(removedAt: TimeTicket, tombstoneKnown: boolean) {
+    if (!this.removedAt) {
+      this.removedAt = removedAt;
+      return;
+    }
+
+    // NOTE(hackerwins): Overwrite only if prior tombstone was not known
+    // (concurrent or unseen) and newer.
+    if (!tombstoneKnown && removedAt.after(this.removedAt)) {
+      this.removedAt = removedAt;
+    }
   }
 
   /**
@@ -923,64 +937,46 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
-    versionVector?: VersionVector,
+    vector?: VersionVector,
   ): [Array<ValueChange<T>>, Map<string, RGATreeSplitNode<T>>] {
     if (!candidates.length) {
       return [[], new Map()];
     }
 
-    // There are 2 types of nodes in `candidates`: should delete, should not delete.
-    // `nodesToKeep` contains nodes should not delete,
-    // then is used to find the boundary of the range to be deleted.
-    const [nodesToDelete, nodesToKeep] = this.filterNodes(
-      candidates,
-      editedAt,
-      versionVector,
-    );
+    const isLocal = vector === undefined;
 
-    const removedNodes = new Map();
-    // First we need to collect indexes for change.
-    const changes = this.makeChanges(nodesToKeep, editedAt);
-    for (const node of nodesToDelete) {
-      // Then make nodes be tombstones and map that.
-      removedNodes.set(node.getID().toIDString(), node);
-      node.remove(editedAt);
-    }
-    // Finally remove index nodes of tombstones.
-    this.deleteIndexNodes(nodesToKeep);
-
-    return [changes, removedNodes];
-  }
-
-  private filterNodes(
-    candidates: Array<RGATreeSplitNode<T>>,
-    editedAt: TimeTicket,
-    versionVector?: VersionVector,
-  ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T> | undefined>] {
-    const nodesToDelete: Array<RGATreeSplitNode<T>> = [];
+    // 01. Collect nodes to remove and keep.
+    const nodesToRemove: Array<RGATreeSplitNode<T>> = [];
     const nodesToKeep: Array<RGATreeSplitNode<T> | undefined> = [];
-
     const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
     nodesToKeep.push(leftEdge);
-
     for (const node of candidates) {
-      const actorID = node.getCreatedAt().getActorID();
-      let clientLamportAtChange = MaxLamport; // Local edit
-      if (versionVector != undefined) {
-        clientLamportAtChange = versionVector!.get(actorID)
-          ? versionVector!.get(actorID)!
-          : 0n;
-      }
-
-      if (node.canDelete(editedAt, clientLamportAtChange)) {
-        nodesToDelete.push(node);
+      if (node.canRemove(isLocal || vector.afterOrEqual(node.getCreatedAt()))) {
+        nodesToRemove.push(node);
       } else {
         nodesToKeep.push(node);
       }
     }
     nodesToKeep.push(rightEdge);
 
-    return [nodesToDelete, nodesToKeep];
+    // 02. Create value changes with previous indexes before deletion.
+    const changes = this.makeChanges(nodesToKeep, editedAt);
+
+    // 03. Mark tombstones for removal.
+    const removedNodes = new Map();
+    for (const node of nodesToRemove) {
+      removedNodes.set(node.getID().toIDString(), node);
+      node.remove(
+        editedAt,
+        node.isRemoved() &&
+          (isLocal || vector.afterOrEqual(node.getRemovedAt()!)),
+      );
+    }
+
+    // 04. Clear the index tree of the given deletion boundaries.
+    this.deleteIndexNodes(nodesToKeep);
+
+    return [changes, removedNodes];
   }
 
   /**
