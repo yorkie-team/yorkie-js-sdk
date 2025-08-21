@@ -15,6 +15,11 @@
  */
 import { Operation } from './operation/operation';
 import { Indexable } from './document';
+import { ArraySetOperation } from './operation/array_set_operation';
+import { RemoveOperation } from './operation/remove_operation';
+import { MoveOperation } from './operation/move_operation';
+import { AddOperation } from './operation/add_operation';
+import { TimeTicket } from '../yorkie';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -105,5 +110,44 @@ export class History<P extends Indexable> {
    */
   public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.redoStack;
+  }
+
+  /**
+   * `reconcileCreatedAt` updates the createdAt and prevCreatedAt fields.
+   *
+   * When an element is replaced(e.g., UndoRemove as Add, or Set),
+   * it receives a new createdAt(executedAt). However, existing history
+   * operations may still reference the old createdAt or prevCreatedAt.
+   *
+   * This method scans both undo/redo stacks and replaces any matching
+   * createdAt/prevCreatedAt with the new one, ensuring consistency.
+   */
+  public reconcileCreatedAt(
+    prevCreatedAt: TimeTicket,
+    currCreatedAt: TimeTicket,
+  ): void {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      for (const ops of stack) {
+        for (const op of ops) {
+          if (
+            (op instanceof ArraySetOperation ||
+              op instanceof RemoveOperation ||
+              op instanceof MoveOperation) &&
+            op.getCreatedAt() === prevCreatedAt
+          ) {
+            op.setCreatedAt(currCreatedAt);
+          }
+
+          if (
+            (op instanceof AddOperation || op instanceof MoveOperation) &&
+            op.getPrevCreatedAt() === prevCreatedAt
+          ) {
+            op.setPrevCreatedAt(currCreatedAt);
+          }
+        }
+      }
+    };
+    replace(this.undoStack);
+    replace(this.redoStack);
   }
 }

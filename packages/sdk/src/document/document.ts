@@ -67,6 +67,8 @@ import {
   TreeOperationInfo,
   Operation,
 } from '@yorkie-js/sdk/src/document/operation/operation';
+import { ArraySetOperation } from '@yorkie-js/sdk/src/document/operation/array_set_operation';
+import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
 import { JSONObject } from '@yorkie-js/sdk/src/document/json/object';
 import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
@@ -787,6 +789,19 @@ export class Document<R, P extends Indexable = Indexable> {
         this.presences,
         OpSource.Local,
       );
+
+      // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
+      // The history stack may still reference the old element's createdAt,
+      // so we reconcile it to the new createdAt here.
+      for (const op of change.getOperations()) {
+        if (op instanceof ArraySetOperation) {
+          this.internalHistory.reconcileCreatedAt(
+            op.getCreatedAt(),
+            op.getValue().getCreatedAt(),
+          );
+        }
+      }
+
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
@@ -2072,8 +2087,25 @@ export class Document<R, P extends Indexable = Indexable> {
         presence.set(undoOp.value, { addToHistory: true });
         continue;
       }
+
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
+
+      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
+      // - Set: replaces the element value.
+      // - Add: serves as UndoRemove, effectively restoring a deleted element.
+      // In both cases, the history stack may point to the old createdAt,
+      // so we update it to the new createdAt.
+      if (undoOp instanceof ArraySetOperation) {
+        const prev = undoOp.getCreatedAt();
+        undoOp.getValue().setCreatedAt(ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
+      } else if (undoOp instanceof AddOperation) {
+        const prev = undoOp.getValue().getCreatedAt();
+        undoOp.getValue().setCreatedAt(ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
+      }
+
       context.push(undoOp);
     }
 
@@ -2171,8 +2203,25 @@ export class Document<R, P extends Indexable = Indexable> {
         presence.set(redoOp.value, { addToHistory: true });
         continue;
       }
+
       const ticket = context.issueTimeTicket();
       redoOp.setExecutedAt(ticket);
+
+      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
+      // - Set: replaces the element value.
+      // - Add: serves as UndoRemove, effectively restoring a deleted element.
+      // In both cases, the history stack may point to the old createdAt,
+      // so we update it to the new createdAt.
+      if (redoOp instanceof ArraySetOperation) {
+        const prev = redoOp.getCreatedAt();
+        redoOp.getValue().setCreatedAt(ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
+      } else if (redoOp instanceof AddOperation) {
+        const prev = redoOp.getValue().getCreatedAt();
+        redoOp.getValue().setCreatedAt(ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
+      }
+
       context.push(redoOp);
     }
 

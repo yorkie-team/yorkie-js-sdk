@@ -126,4 +126,11 @@ export class AddOperation extends Operation {
   public getValue(): CRDTElement {
     return this.value;
   }
+
+  /**
+   * `setPrevCreatedAt` sets the creation time of the previous element.
+   */
+  public setPrevCreatedAt(createdAt: TimeTicket) {
+    this.prevCreatedAt = createdAt;
+  }
 }
