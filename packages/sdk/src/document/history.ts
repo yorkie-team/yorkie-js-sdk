@@ -15,6 +15,10 @@
  */
 import { Operation } from './operation/operation';
 import { Indexable } from './document';
+import { ArraySetOperation } from './operation/array_set_operation';
+import { RemoveOperation } from './operation/remove_operation';
+import { MoveOperation } from './operation/move_operation';
+import { AddOperation } from './operation/add_operation';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -116,11 +120,19 @@ export class History<P extends Indexable> {
     const replaceInStack = (stack: Array<Array<HistoryOperation<P>>>) => {
       for (const ops of stack) {
         for (const op of ops) {
-          if ('createdAt' in op && op.createdAt === prevCreatedAt) {
-            (op as any).createdAt = currCreatedAt;
+          if (
+            (op instanceof ArraySetOperation ||
+              op instanceof RemoveOperation ||
+              op instanceof MoveOperation) &&
+            op.getCreatedAt() === prevCreatedAt
+          ) {
+            op.setCreatedAt(currCreatedAt);
           }
-          if ('prevCreatedAt' in op && op.prevCreatedAt === prevCreatedAt) {
-            (op as any).prevCreatedAt = currCreatedAt;
+          if (
+            (op instanceof AddOperation || op instanceof MoveOperation) &&
+            op.getPrevCreatedAt() === prevCreatedAt
+          ) {
+            op.setPrevCreatedAt(currCreatedAt);
           }
         }
       }

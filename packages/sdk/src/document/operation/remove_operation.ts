@@ -174,4 +174,11 @@ export class RemoveOperation extends Operation {
   public getCreatedAt(): TimeTicket {
     return this.createdAt;
   }
+
+  /**
+   * `setCreatedAt` sets the creation time of the target element.
+   */
+  public setCreatedAt(createdAt: TimeTicket) {
+    this.createdAt = createdAt;
+  }
 }

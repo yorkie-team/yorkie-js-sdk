@@ -131,4 +131,18 @@ export class MoveOperation extends Operation {
   public getCreatedAt(): TimeTicket {
     return this.createdAt;
   }
+
+  /**
+   * `setPrevCreatedAt` sets the creation time of the previous element.
+   */
+  public setPrevCreatedAt(createdAt: TimeTicket) {
+    this.prevCreatedAt = createdAt;
+  }
+
+  /**
+   * `setCreatedAt` sets the creation time of the target element.
+   */
+  public setCreatedAt(createdAt: TimeTicket) {
+    this.createdAt = createdAt;
+  }
 }

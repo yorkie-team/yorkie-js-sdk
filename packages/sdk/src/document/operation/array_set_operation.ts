@@ -137,4 +137,11 @@ export class ArraySetOperation extends Operation {
   public getValue(): CRDTElement {
     return this.value;
   }
+
+  /**
+   * `setCreatedAt` sets the creation time of the target element.
+   */
+  public setCreatedAt(createdAt: TimeTicket) {
+    this.createdAt = createdAt;
+  }
 }
