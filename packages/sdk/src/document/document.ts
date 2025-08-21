@@ -789,7 +789,7 @@ export class Document<R, P extends Indexable = Indexable> {
         this.presences,
         OpSource.Local,
       );
-      /////$$$$$$$$$$
+
       const operations = change.getOperations();
       for (const operation of operations) {
         if (operation instanceof ArraySetOperation) {
@@ -2087,14 +2087,12 @@ export class Document<R, P extends Indexable = Indexable> {
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
       if (undoOp instanceof ArraySetOperation) {
-        const prevCreatedAt = (undoOp as ArraySetOperation).getCreatedAt();
-        (undoOp as ArraySetOperation).getValue().setCreatedAt(ticket);
+        const prevCreatedAt = undoOp.getCreatedAt();
+        undoOp.getValue().setCreatedAt(ticket);
         this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
       } else if (undoOp instanceof AddOperation) {
-        const prevCreatedAt = (undoOp as AddOperation)
-          .getValue()
-          .getCreatedAt();
-        (undoOp as AddOperation).getValue().setCreatedAt(ticket);
+        const prevCreatedAt = undoOp.getValue().getCreatedAt();
+        undoOp.getValue().setCreatedAt(ticket);
         this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
       }
 
@@ -2197,6 +2195,16 @@ export class Document<R, P extends Indexable = Indexable> {
       }
       const ticket = context.issueTimeTicket();
       redoOp.setExecutedAt(ticket);
+      if (redoOp instanceof ArraySetOperation) {
+        const prevCreatedAt = redoOp.getCreatedAt();
+        redoOp.getValue().setCreatedAt(ticket);
+        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+      } else if (redoOp instanceof AddOperation) {
+        const prevCreatedAt = redoOp.getValue().getCreatedAt();
+        redoOp.getValue().setCreatedAt(ticket);
+        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+      }
+
       context.push(redoOp);
     }
 
