@@ -19,6 +19,7 @@ import { ArraySetOperation } from './operation/array_set_operation';
 import { RemoveOperation } from './operation/remove_operation';
 import { MoveOperation } from './operation/move_operation';
 import { AddOperation } from './operation/add_operation';
+import { TimeTicket } from '../yorkie';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -114,8 +115,8 @@ export class History<P extends Indexable> {
    * `reconcileOperationCreatedAt` replace if each HisatoryOperation's `createdAt` or `prevCreatedAt` field is same as `prevCreatedAt`
    */
   public reconcileOperationCreatedAt(
-    prevCreatedAt: any,
-    currCreatedAt: any,
+    prevCreatedAt: TimeTicket,
+    currCreatedAt: TimeTicket,
   ): void {
     const replaceInStack = (stack: Array<Array<HistoryOperation<P>>>) => {
       for (const ops of stack) {
