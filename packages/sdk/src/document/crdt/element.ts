@@ -76,14 +76,10 @@ export abstract class CRDTElement {
   }
 
   /**
-   * `setCreatedAt` sets the creation time of this element.
+   * `setCreatedAt` sets the creation time of this element manually.
    */
-  public setCreatedAt(createdAt: TimeTicket): boolean {
-    if (!this.createdAt || (createdAt && createdAt.after(this.createdAt))) {
-      this.createdAt = createdAt;
-      return true;
-    }
-    return false;
+  public setCreatedAt(createdAt: TimeTicket) {
+    this.createdAt = createdAt;
   }
 
   /**
