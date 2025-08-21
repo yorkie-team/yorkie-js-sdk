@@ -112,7 +112,8 @@ export class History<P extends Indexable> {
     return this.redoStack;
   }
   /**
-   * `reconcileOperationCreatedAt` replace if each HisatoryOperation's `createdAt` or `prevCreatedAt` field is same as `prevCreatedAt`
+   * `reconcileOperationCreatedAt` replace if each HisatoryOperation's `createdAt` or
+   * `prevCreatedAt` field is same as `prevCreatedAt`
    */
   public reconcileOperationCreatedAt(
     prevCreatedAt: TimeTicket,
