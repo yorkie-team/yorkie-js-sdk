@@ -790,17 +790,18 @@ export class Document<R, P extends Indexable = Indexable> {
         OpSource.Local,
       );
 
-      const operations = change.getOperations();
-      for (const operation of operations) {
-        if (operation instanceof ArraySetOperation) {
-          const prevCreatedAt = operation.getCreatedAt();
-          const currCreatedAt = operation.getValue().getCreatedAt();
-          this.internalHistory.reconcileOperationCreatedAt(
-            prevCreatedAt,
-            currCreatedAt,
+      // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
+      // The history stack may still reference the old element's createdAt,
+      // so we reconcile it to the new createdAt here.
+      for (const op of change.getOperations()) {
+        if (op instanceof ArraySetOperation) {
+          this.internalHistory.reconcileCreatedAt(
+            op.getCreatedAt(),
+            op.getValue().getCreatedAt(),
           );
         }
       }
+
       const reversePresence = context.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
@@ -2089,14 +2090,20 @@ export class Document<R, P extends Indexable = Indexable> {
 
       const ticket = context.issueTimeTicket();
       undoOp.setExecutedAt(ticket);
+
+      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
+      // - Set: replaces the element value.
+      // - Add: serves as UndoRemove, effectively restoring a deleted element.
+      // In both cases, the history stack may point to the old createdAt,
+      // so we update it to the new createdAt.
       if (undoOp instanceof ArraySetOperation) {
-        const prevCreatedAt = undoOp.getCreatedAt();
+        const prev = undoOp.getCreatedAt();
         undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
       } else if (undoOp instanceof AddOperation) {
-        const prevCreatedAt = undoOp.getValue().getCreatedAt();
+        const prev = undoOp.getValue().getCreatedAt();
         undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
       }
 
       context.push(undoOp);
@@ -2196,16 +2203,23 @@ export class Document<R, P extends Indexable = Indexable> {
         presence.set(redoOp.value, { addToHistory: true });
         continue;
       }
+
       const ticket = context.issueTimeTicket();
       redoOp.setExecutedAt(ticket);
+
+      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
+      // - Set: replaces the element value.
+      // - Add: serves as UndoRemove, effectively restoring a deleted element.
+      // In both cases, the history stack may point to the old createdAt,
+      // so we update it to the new createdAt.
       if (redoOp instanceof ArraySetOperation) {
-        const prevCreatedAt = redoOp.getCreatedAt();
+        const prev = redoOp.getCreatedAt();
         redoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
       } else if (redoOp instanceof AddOperation) {
-        const prevCreatedAt = redoOp.getValue().getCreatedAt();
+        const prev = redoOp.getValue().getCreatedAt();
         redoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
       }
 
       context.push(redoOp);

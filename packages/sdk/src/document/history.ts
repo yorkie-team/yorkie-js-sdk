@@ -111,15 +111,22 @@ export class History<P extends Indexable> {
   public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.redoStack;
   }
+
   /**
-   * `reconcileOperationCreatedAt` replace if each HisatoryOperation's `createdAt` or
-   * `prevCreatedAt` field is same as `prevCreatedAt`
+   * `reconcileCreatedAt` updates the createdAt and prevCreatedAt fields.
+   *
+   * When an element is replaced(e.g., UndoRemove as Add, or Set),
+   * it receives a new createdAt(executedAt). However, existing history
+   * operations may still reference the old createdAt or prevCreatedAt.
+   *
+   * This method scans both undo/redo stacks and replaces any matching
+   * createdAt/prevCreatedAt with the new one, ensuring consistency.
    */
-  public reconcileOperationCreatedAt(
+  public reconcileCreatedAt(
     prevCreatedAt: TimeTicket,
     currCreatedAt: TimeTicket,
   ): void {
-    const replaceInStack = (stack: Array<Array<HistoryOperation<P>>>) => {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
       for (const ops of stack) {
         for (const op of ops) {
           if (
@@ -130,6 +137,7 @@ export class History<P extends Indexable> {
           ) {
             op.setCreatedAt(currCreatedAt);
           }
+
           if (
             (op instanceof AddOperation || op instanceof MoveOperation) &&
             op.getPrevCreatedAt() === prevCreatedAt
@@ -139,7 +147,7 @@ export class History<P extends Indexable> {
         }
       }
     };
-    replaceInStack(this.undoStack);
-    replaceInStack(this.redoStack);
+    replace(this.undoStack);
+    replace(this.redoStack);
   }
 }
