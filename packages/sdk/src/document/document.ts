@@ -795,7 +795,10 @@ export class Document<R, P extends Indexable = Indexable> {
         if (operation instanceof ArraySetOperation) {
           const prevCreatedAt = operation.getCreatedAt();
           const currCreatedAt = operation.getValue().getCreatedAt();
-          this.internalHistory.replaceCreatedAt(prevCreatedAt, currCreatedAt);
+          this.internalHistory.reconcileOperationCreatedAt(
+            prevCreatedAt,
+            currCreatedAt,
+          );
         }
       }
       const reversePresence = context.getReversePresence();
@@ -2089,11 +2092,11 @@ export class Document<R, P extends Indexable = Indexable> {
       if (undoOp instanceof ArraySetOperation) {
         const prevCreatedAt = undoOp.getCreatedAt();
         undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
       } else if (undoOp instanceof AddOperation) {
         const prevCreatedAt = undoOp.getValue().getCreatedAt();
         undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
       }
 
       context.push(undoOp);
@@ -2198,11 +2201,11 @@ export class Document<R, P extends Indexable = Indexable> {
       if (redoOp instanceof ArraySetOperation) {
         const prevCreatedAt = redoOp.getCreatedAt();
         redoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
       } else if (redoOp instanceof AddOperation) {
         const prevCreatedAt = redoOp.getValue().getCreatedAt();
         redoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.replaceCreatedAt(prevCreatedAt, ticket);
+        this.internalHistory.reconcileOperationCreatedAt(prevCreatedAt, ticket);
       }
 
       context.push(redoOp);
