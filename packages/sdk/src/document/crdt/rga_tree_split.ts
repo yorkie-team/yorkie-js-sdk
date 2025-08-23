@@ -761,7 +761,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
 
     let offsetInPart = pos.getRelativeOffset();
-    let partLen = node.getLength();
+    let partLen = node.getContentLength();
     while (offsetInPart > partLen) {
       offsetInPart -= partLen;
       const next: RGATreeSplitNode<T> | undefined = node!.getNext();
