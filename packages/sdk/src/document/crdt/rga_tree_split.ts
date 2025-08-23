@@ -595,7 +595,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     editedAt: TimeTicket,
     value?: T,
     versionVector?: VersionVector,
-  ): [RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>] {
+  ): [
+    RGATreeSplitPos,
+    Array<GCPair>,
+    DataSize,
+    Array<ValueChange<T>>,
+    Array<T>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     // 01. split nodes with from and to
@@ -650,11 +656,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     // 04. add removed node
     const pairs: Array<GCPair> = [];
+    const removedValues: Array<T> = [];
     for (const [, removedNode] of removedNodes) {
       pairs.push({ parent: this, child: removedNode });
+      removedValues.push(removedNode.getValue());
     }
 
-    return [caretPos, pairs, diff, changes];
+    return [caretPos, pairs, diff, changes, removedValues];
   }
 
   /**
@@ -721,6 +729,50 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    */
   public getTreeByID(): LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>> {
     return this.treeByID;
+  }
+
+  /**
+   * `refinePos` remaps the given pos to the current split chain.
+   *
+   * - Traverses the physical `next` chain (not `insNext`).
+   * - Counts only live characters: removed nodes are treated as length 0.
+   * - If the given offset exceeds the length of the current node,
+   *   it moves forward through `next` nodes, subtracting lengths,
+   *   until the offset fits in a live node.
+   * - If it runs out of nodes, it snaps to the end of the last node.
+   *
+   * Example:
+   *   Before split: ["12345"](1:2:0), pos = (1:2:0, rel=5)
+   *   After split : ["1"](1:2:0) - ["23"](1:2:1) - ["45"](1:2:3)
+   *   refinePos(pos) -> (1:2:3, rel=2)
+   *
+   * Example:
+   *   ["12"](1:2:0, live) and pos = (1:2:0, rel=4)
+   *   refinePos(pos) -> points two chars after "12",
+   *   i.e. advances into following nodes, skipping removed ones.
+   */
+  public refinePos(pos: RGATreeSplitPos): RGATreeSplitPos {
+    let node = this.findFloorNode(pos.getID());
+    if (!node) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be found: ${pos.getID().toTestString()}`,
+      );
+    }
+
+    let offsetInPart = pos.getRelativeOffset();
+    let partLen = node.getLength();
+    while (offsetInPart > partLen) {
+      offsetInPart -= partLen;
+      const next: RGATreeSplitNode<T> | undefined = node!.getNext();
+      if (!next) {
+        return RGATreeSplitPos.of(node.getID(), partLen);
+      }
+      node = next;
+      partLen = node.getLength();
+    }
+
+    return RGATreeSplitPos.of(node.getID(), offsetInPart);
   }
 
   /**

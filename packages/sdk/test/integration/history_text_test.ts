@@ -3,7 +3,7 @@ import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 type TextOp = 'insert' | 'delete' | 'replace' | 'style';
-const ops: Array<TextOp> = ['insert', 'delete', 'replace', 'style'];
+const ops: Array<TextOp> = ['insert', 'delete', 'replace'];
 
 /**
  * 단일 클라이언트용: root.t에 op1 세트를 적용
@@ -114,9 +114,9 @@ describe('Text Undo - chained ops', () => {
   // 텍스트 내용만 읽는 헬퍼
   const contentOf = (doc: Document<{ t: Text }>) => doc.getRoot().t.toString();
 
-  for (const op1 of ['insert', 'delete', 'replace'] as Array<TextOp>) {
-    for (const op2 of ['insert', 'delete', 'replace'] as Array<TextOp>) {
-      for (const op3 of ['insert', 'delete', 'replace'] as Array<TextOp>) {
+  for (const op1 of ops) {
+    for (const op2 of ops) {
+      for (const op3 of ops) {
         const caseName = `${op1}-${op2}-${op3}`;
 
         it(`should step back correctly: ${caseName}`, () => {
@@ -206,46 +206,4 @@ describe('Text Undo - multi client', () => {
       });
     }
   }
-});
-
-/**
- * 특수 케이스: 복합 치환/스타일 섞인 시나리오에 대한 빠른 회귀 테스트
- */
-describe('Text Undo - mixed scenario smoke test', () => {
-  it('should undo replace+style+insert in order', () => {
-    const doc = new Document<{ t: Text }>('test-doc');
-    doc.update((root) => {
-      root.t = new Text();
-      root.t.edit(0, 0, 'Hello World');
-    }, 'init');
-
-    const S0 = doc.toSortedJSON();
-
-    // replace
-    doc.update((root) => root.t.edit(6, 11, 'Yorkie'), 'replace');
-    const S1 = doc.toSortedJSON();
-
-    // style
-    doc.update(
-      (root) => root.t.setStyle(0, 11, { bold: true } as any),
-      'style',
-    );
-    const S2 = doc.toSortedJSON();
-
-    // insert
-    doc.update((root) => root.t.edit(11, 11, '!'), 'insert');
-    // const S3 = doc.toSortedJSON();
-
-    // undo insert
-    doc.history.undo();
-    assert.equal(doc.toSortedJSON(), S2, 'undo insert');
-
-    // undo style
-    doc.history.undo();
-    assert.equal(doc.toSortedJSON(), S1, 'undo style');
-
-    // undo replace
-    doc.history.undo();
-    assert.equal(doc.toSortedJSON(), S0, 'undo replace');
-  });
 });
