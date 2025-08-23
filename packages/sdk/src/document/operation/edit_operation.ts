@@ -17,8 +17,11 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
-import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import {
+  RGATreeSplitPos,
+  RGATreeSplitPosRange,
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
   OperationInfo,
@@ -44,7 +47,7 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -62,7 +65,7 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -97,7 +100,7 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [changes, pairs, diff] = text.edit(
+    const [changes, pairs, diff, caretPos, removed] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -105,8 +108,9 @@ export class EditOperation extends Operation {
       versionVector,
     );
 
-    root.acc(diff);
+    const reverseOp = this.toReverseOperation(caretPos, removed);
 
+    root.acc(diff);
     for (const pair of pairs) {
       root.registerGCPair(pair);
     }
@@ -121,7 +125,38 @@ export class EditOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OperationInfo;
       }),
+      reverseOp,
     };
+  }
+
+  private toReverseOperation(
+    caretPos: RGATreeSplitPosRange,
+    removedValues: Array<CRDTTextValue>,
+  ): Operation | undefined {
+    // 1) Content
+    const restoredContent =
+      removedValues && removedValues.length !== 0
+        ? removedValues.map((v) => v.getContent()).join('')
+        : '';
+
+    // 2) Arttibute
+    let restoredAttrs: Array<[string, string]> | undefined;
+    if (removedValues.length === 1) {
+      const attrsObj = removedValues[0].getAttributes();
+      if (attrsObj) {
+        // Object.fromEntries에 맞출 수 있도록 엔트리 배열로 변환
+        restoredAttrs = Array.from(Object.entries(attrsObj as any));
+      }
+    }
+
+    // 3) Create Reverse Operation
+    return EditOperation.create(
+      this.getParentCreatedAt(),
+      this.fromPos,
+      caretPos[0],
+      restoredContent,
+      restoredAttrs ? new Map(restoredAttrs) : new Map(),
+    );
   }
 
   /**
