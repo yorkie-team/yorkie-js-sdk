@@ -114,9 +114,9 @@ describe('Text Undo - chained ops', () => {
   // 텍스트 내용만 읽는 헬퍼
   const contentOf = (doc: Document<{ t: Text }>) => doc.getRoot().t.toString();
 
-  for (const op1 of ['replace'] as Array<TextOp>) {
-    for (const op2 of ['delete'] as Array<TextOp>) {
-      for (const op3 of ['delete'] as Array<TextOp>) {
+  for (const op1 of ['insert', 'delete', 'replace'] as Array<TextOp>) {
+    for (const op2 of ['insert', 'delete', 'replace'] as Array<TextOp>) {
+      for (const op3 of ['insert', 'delete', 'replace'] as Array<TextOp>) {
         const caseName = `${op1}-${op2}-${op3}`;
 
         it(`should step back correctly: ${caseName}`, () => {
