@@ -30,7 +30,7 @@ export class Attachment<T, P extends Indexable> {
     doc: Document<T, P>,
     docID: string,
     syncMode: SyncMode,
-    unsubscribeBroacastEvent: Unsubscribe,
+    unsubscribeBroadcastEvent: Unsubscribe,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.doc = doc;
@@ -38,7 +38,7 @@ export class Attachment<T, P extends Indexable> {
     this.syncMode = syncMode;
     this.remoteChangeEventReceived = false;
     this.cancelled = false;
-    this.unsubscribeBroadcastEvent = unsubscribeBroacastEvent;
+    this.unsubscribeBroadcastEvent = unsubscribeBroadcastEvent;
   }
 
   /**
