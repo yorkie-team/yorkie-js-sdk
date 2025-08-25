@@ -27,6 +27,7 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { GCLock } from '@yorkie-js/sdk/src/util/gclock';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
 import {
@@ -36,6 +37,7 @@ import {
   DocSize,
 } from '@yorkie-js/sdk/src/util/resource';
 import { RHTNode } from '@yorkie-js/sdk/src/document/crdt/rht';
+import { Operation } from '../operation/operation';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -99,17 +101,19 @@ export class CRDTRoot {
    * element itself and its parent.
    */
   private gcPairMap: Map<string, GCPair>;
+  private gcLock: GCLock<Operation>;
 
   /**
    * `docSize` is a structure that represents the size of the document.
    */
   private docSize: DocSize;
 
-  constructor(rootObject: CRDTObject) {
+  constructor(rootObject: CRDTObject, gcLock?: GCLock<Operation>) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.gcElementSetByCreatedAt = new Set();
     this.gcPairMap = new Map();
+    this.gcLock = gcLock ?? new GCLock<Operation>();
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     this.registerElement(rootObject, undefined);
 
@@ -320,6 +324,13 @@ export class CRDTRoot {
   }
 
   /**
+   * `getGCLock` returns GCLock of this object.
+   */
+  public getGCLock(): GCLock<Operation> {
+    return this.gcLock;
+  }
+
+  /**
    * `getDocSize` returns the size of the document.
    */
   getDocSize(): DocSize {
@@ -343,15 +354,25 @@ export class CRDTRoot {
       const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
       const removedAt = pair.element.getRemovedAt();
 
-      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
+      if (
+        removedAt &&
+        minSyncedVersionVector?.afterOrEqual(removedAt) &&
+        !this.gcLock.isLocked(pair.element.getCreatedAt().toIDString())
+      ) {
         pair.parent!.purge(pair.element);
         count += this.deregisterElement(pair.element);
       }
     }
 
     for (const [, pair] of this.gcPairMap) {
+      const isLocked = this.gcLock.isLocked(pair.child.toIDString());
       const removedAt = pair.child.getRemovedAt();
-      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
+      if (
+        removedAt &&
+        minSyncedVersionVector?.afterOrEqual(removedAt) &&
+        !isLocked
+      ) {
+        console.log(`${pair.child.toIDString()} purge`);
         pair.parent.purge(pair.child);
 
         this.gcPairMap.delete(pair.child.toIDString());

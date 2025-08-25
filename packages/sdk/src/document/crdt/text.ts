@@ -26,6 +26,7 @@ import {
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
+  RGATreeSplitPos,
   RGATreeSplitPosRange,
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
@@ -241,7 +242,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     editedAt: TimeTicket,
     attributes?: Record<string, string>,
     versionVector?: VersionVector,
-  ): [Array<TextChange<A>>, Array<GCPair>, DataSize, RGATreeSplitPosRange] {
+  ): [
+    Array<TextChange<A>>,
+    Array<GCPair>,
+    DataSize,
+    RGATreeSplitPosRange,
+    Array<CRDTTextValue>,
+  ] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
       for (const [k, v] of Object.entries(attributes)) {
@@ -249,12 +256,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, pairs, diff, valueChanges] = this.rgaTreeSplit.edit(
-      range,
-      editedAt,
-      crdtTextValue,
-      versionVector,
-    );
+    const [caretPos, pairs, diff, valueChanges, removedValues] =
+      this.rgaTreeSplit.edit(range, editedAt, crdtTextValue, versionVector);
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
       ...change,
@@ -270,7 +273,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       type: TextChangeType.Content,
     }));
 
-    return [changes, pairs, diff, [caretPos, caretPos]];
+    return [changes, pairs, diff, [caretPos, caretPos], removedValues];
   }
 
   /**
@@ -414,6 +417,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       data: dataSize.data,
       meta: dataSize.meta + this.getMetaUsage(),
     };
+  }
+
+  /**
+   * `refinePos` refines the given RGATreeSplitPos.
+   */
+  public refinePos(pos: RGATreeSplitPos): RGATreeSplitPos {
+    return this.rgaTreeSplit.refinePos(pos);
   }
 
   /**
