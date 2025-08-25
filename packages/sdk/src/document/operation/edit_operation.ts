@@ -120,6 +120,8 @@ export class EditOperation extends Operation {
       root.registerGCPair(pair);
     }
 
+    console.log(`gcLock: ${this.fromPos.getID().getCreatedAt().toIDString()}`);
+
     return {
       opInfos: changes.map(({ from, to, value }) => {
         return {
@@ -131,6 +133,7 @@ export class EditOperation extends Operation {
         } as OperationInfo;
       }),
       reverseOp,
+      gcLock: this.fromPos.getID().toIDString(),
     };
   }
   /**

@@ -193,6 +193,7 @@ export type ExecutionResult = {
   // TODO(chacha912): After implementing all of the reverseOperation,
   // we change the type to non-optional.
   reverseOp?: Operation;
+  gcLock?: string;
 };
 
 /**

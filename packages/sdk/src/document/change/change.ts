@@ -154,6 +154,7 @@ export class Change<P extends Indexable> {
     root: CRDTRoot,
     presences: Map<ActorID, P>,
     source: OpSource,
+    clone?: CRDTRoot,
   ): {
     opInfos: Array<OperationInfo>;
     reverseOps: Array<HistoryOperation<P>>;
@@ -170,13 +171,24 @@ export class Change<P extends Indexable> {
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
       // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;
-      const { opInfos, reverseOp } = executionResult;
+      const { opInfos, reverseOp, gcLock } = executionResult;
       changeOpInfos.push(...opInfos);
 
       // TODO(hackerwins): This condition should be removed after implementing
       // all reverse operations.
       if (reverseOp) {
         reverseOps.unshift(reverseOp);
+      }
+
+      root.getGCLock().unlock(operation);
+      if (gcLock && reverseOp) {
+        root.getGCLock().lock(gcLock, reverseOp);
+      }
+      if (clone) {
+        clone.getGCLock().unlock(operation);
+        if (gcLock && reverseOp) {
+          clone.getGCLock().lock(gcLock, reverseOp);
+        }
       }
     }
 

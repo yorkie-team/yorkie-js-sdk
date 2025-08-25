@@ -492,7 +492,12 @@
             console.log(`%c local: ${from}-${to}: ${content}`, 'color: green');
           });
           codemirror.on('change', (cm, change) => {
-            if (change.origin === 'yorkie' || change.origin === 'setValue') {
+            if (
+              change.origin === 'yorkie' ||
+              change.origin === 'setValue' ||
+              change.origin === 'undo' ||
+              change.origin === 'redo'
+            ) {
               return;
             }
 

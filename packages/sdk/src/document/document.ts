@@ -788,6 +788,7 @@ export class Document<R, P extends Indexable = Indexable> {
         this.root,
         this.presences,
         OpSource.Local,
+        this.clone?.root,
       );
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
