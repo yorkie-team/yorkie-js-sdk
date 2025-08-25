@@ -332,6 +332,71 @@
           yorkie.setLogLevel(yorkie.LogLevel.Debug);
           devtool.setCodeMirror(codemirror);
 
+          // Intercept keyboard undo/redo and route through Yorkie's history.
+          // This ensures multi-user undo/redo is coordinated by Yorkie.
+          codemirror.addKeyMap({
+            'Ctrl-Z': function (cm) {
+              if (
+                doc &&
+                doc.history &&
+                doc.history.canUndo &&
+                doc.history.canUndo()
+              ) {
+                doc.history.undo();
+                return true;
+              }
+              return CodeMirror.commands.undo(cm);
+            },
+            'Cmd-Z': function (cm) {
+              if (
+                doc &&
+                doc.history &&
+                doc.history.canUndo &&
+                doc.history.canUndo()
+              ) {
+                doc.history.undo();
+                return true;
+              }
+              return CodeMirror.commands.undo(cm);
+            },
+            'Ctrl-Y': function (cm) {
+              if (
+                doc &&
+                doc.history &&
+                doc.history.canRedo &&
+                doc.history.canRedo()
+              ) {
+                doc.history.redo();
+                return true;
+              }
+              return CodeMirror.commands.redo(cm);
+            },
+            'Shift-Ctrl-Z': function (cm) {
+              if (
+                doc &&
+                doc.history &&
+                doc.history.canRedo &&
+                doc.history.canRedo()
+              ) {
+                doc.history.redo();
+                return true;
+              }
+              return CodeMirror.commands.redo(cm);
+            },
+            'Shift-Cmd-Z': function (cm) {
+              if (
+                doc &&
+                doc.history &&
+                doc.history.canRedo &&
+                doc.history.canRedo()
+              ) {
+                doc.history.redo();
+                return true;
+              }
+              return CodeMirror.commands.redo(cm);
+            },
+          });
+
           // 02-1. create client with RPCAddr.
           const client = new yorkie.Client({
             rpcAddr: 'http://localhost:8080',
@@ -383,7 +448,8 @@
           });
 
           doc.subscribe('$.content', (event) => {
-            if (event.type === 'remote-change') {
+            // Handle both remote changes and undo/redo-applied changes.
+            if (event.type === 'remote-change' || event.source === 'undoredo') {
               const { actor, operations } = event.value;
               handleOperations(operations, actor);
 
@@ -401,7 +467,15 @@
           // 04. bind the document with the codemirror.
           // 04-1. codemirror to document(applying local).
           codemirror.on('beforeChange', (cm, change) => {
-            if (change.origin === 'yorkie' || change.origin === 'setValue') {
+            // Ignore changes that originated from Yorkie sync or programmatic setValue.
+            // Also ignore CodeMirror's undo/redo origins as those are routed
+            // through Yorkie's history to keep multi-user history consistent.
+            if (
+              change.origin === 'yorkie' ||
+              change.origin === 'setValue' ||
+              change.origin === 'undo' ||
+              change.origin === 'redo'
+            ) {
               return;
             }
 

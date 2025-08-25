@@ -13,6 +13,7 @@
     "vite": "^5.0.12"
   },
   "dependencies": {
+    "@codemirror/view": "^6.4.1",
     "@codemirror/state": "^6.4.1",
     "codemirror": "^6.0.1",
     "@yorkie-js/sdk": "workspace:*"

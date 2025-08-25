@@ -131,10 +131,6 @@ importers:
         specifier: 5.3.3
         version: 5.3.3
 
-  examples/nextjs-scheduler/dist: {}
-
-  examples/nextjs-scheduler/dist/types: {}
-
   examples/nextjs-todolist:
     dependencies:
       '@radix-ui/react-slot':
@@ -426,6 +422,9 @@ importers:
       '@codemirror/state':
         specifier: ^6.4.1
         version: 6.5.2
+      '@codemirror/view':
+        specifier: ^6.4.1
+        version: 6.38.1
       '@yorkie-js/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
