@@ -588,7 +588,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * @param range - range of RGATreeSplitNode
    * @param editedAt - edited time
    * @param value - value
-   * @returns `[RGATreeSplitPos, Array<GCPair>, Array<Change>]`
+   * @returns `[RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>, Array<T>]`
    */
   public edit(
     range: RGATreeSplitPosRange,

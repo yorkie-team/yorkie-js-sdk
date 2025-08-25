@@ -6,8 +6,7 @@ type TextOp = 'insert' | 'delete' | 'replace' | 'style';
 const ops: Array<TextOp> = ['insert', 'delete', 'replace'];
 
 /**
- * 단일 클라이언트용: root.t에 op1 세트를 적용
- * 문서는 항상 초기 콘텐츠를 충분히 갖도록 설정해서 인덱스 안전하게 씁니다.
+ * Operation Set 1
  */
 function applyTextOp1(doc: Document<{ t: Text }>, op: TextOp) {
   doc.update((root) => {
@@ -15,41 +14,37 @@ function applyTextOp1(doc: Document<{ t: Text }>, op: TextOp) {
 
     switch (op) {
       case 'insert': {
-        // 끝에 삽입
         const len = t.length ?? t.toString().length;
         t.edit(len, len, 'X');
         break;
       }
       case 'delete': {
-        // 중간 한 글자 삭제 (가능하면)
         const len = t.length ?? t.toString().length;
         if (len >= 3) {
-          t.edit(1, 2, ''); // [1,2) 삭제
+          t.edit(1, 2, ''); // del [1,2)
         } else if (len > 0) {
           t.edit(0, 1, '');
         }
         break;
       }
       case 'replace': {
-        // [1,3) → '12' 로 치환 (가능하면)
+        // [1,3) → '12'
         const len = t.length ?? t.toString().length;
         if (len >= 3) {
           t.edit(1, 3, '12');
         } else {
-          // 길이가 짧으면 앞에서 가능한 범위를 치환
           const to = Math.min(1, len);
           t.edit(0, to, 'R');
         }
         break;
       }
       case 'style': {
-        // 전체 또는 가능한 범위에 스타일 부여
         const len = t.length ?? t.toString().length;
         if (len === 0) {
           t.edit(0, 0, 'A');
         }
         const end = t.length ?? t.toString().length;
-        t.setStyle(0, end, { bold: true } as any);
+        t.setStyle(0, end, { bold: true });
         break;
       }
     }
@@ -57,8 +52,7 @@ function applyTextOp1(doc: Document<{ t: Text }>, op: TextOp) {
 }
 
 /**
- * 두 번째 클라이언트용: op2 세트를 적용
- * 인덱스를 다르게 잡아서 충돌/병합 시나리오를 만들어봄.
+ * Operation Set 2
  */
 function applyTextOp2(doc: Document<{ t: Text }>, op: TextOp) {
   doc.update((root) => {
@@ -66,18 +60,15 @@ function applyTextOp2(doc: Document<{ t: Text }>, op: TextOp) {
 
     switch (op) {
       case 'insert': {
-        // 앞쪽에 삽입
         t.edit(0, 0, 'Q');
         break;
       }
       case 'delete': {
-        // 뒤쪽 한 글자 삭제 (가능하면)
         const len = t.length ?? t.toString().length;
         if (len > 0) t.edit(len - 1, len, '');
         break;
       }
       case 'replace': {
-        // [0,1) → 'Z' 로 치환 (가능하면)
         const len = t.length ?? t.toString().length;
         if (len > 0) t.edit(0, 1, 'Z');
         else t.edit(0, 0, 'Z');
@@ -91,13 +82,13 @@ describe('Text Undo - single op', () => {
   for (const op of ['insert', 'delete', 'replace'] as Array<TextOp>) {
     it(`should undo ${op}`, () => {
       const doc = new Document<{ t: Text }>('test-doc');
-      // 초기화
+      // initialize
       doc.update((root) => {
         root.t = new Text();
         root.t.edit(0, 0, 'The fox jumped.');
       }, 'init');
 
-      // op 적용 후 undo
+      // undo
       applyTextOp1(doc, op);
       doc.history.undo();
 
@@ -111,7 +102,7 @@ describe('Text Undo - single op', () => {
 });
 
 describe('Text Undo - chained ops', () => {
-  // 텍스트 내용만 읽는 헬퍼
+  // read the text content
   const contentOf = (doc: Document<{ t: Text }>) => doc.getRoot().t.toString();
 
   for (const op1 of ops) {
@@ -140,7 +131,7 @@ describe('Text Undo - chained ops', () => {
           applyTextOp1(doc, op3);
           S.push(contentOf(doc)); // S3
 
-          // S3 -> S2 -> S1 -> S0 순으로 되돌아가는지 확인
+          // S3 -> S2 -> S1 -> S0
           for (let i = 3; i >= 1; i--) {
             doc.history.undo();
             const back = contentOf(doc);
@@ -166,7 +157,6 @@ describe('Text Undo - multi client', () => {
       }) {
         type TestDoc = { t: Text };
         await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
-          // 초기 동기화
           d1.update((root) => {
             root.t = new Text();
             root.t.edit(0, 0, 'The fox jumped.');
@@ -175,11 +165,9 @@ describe('Text Undo - multi client', () => {
           await c2.sync();
           assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
-          // 각자 op 적용
           applyTextOp1(d1, op1);
           applyTextOp2(d2, op2);
 
-          // 수렴 확인
           await c1.sync();
           await c2.sync();
           await c1.sync();
@@ -189,7 +177,6 @@ describe('Text Undo - multi client', () => {
             'Mismatch after both ops',
           );
 
-          // 둘 다 undo
           d1.history.undo();
           d2.history.undo();
 
