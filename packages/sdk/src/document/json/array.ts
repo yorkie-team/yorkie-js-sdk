@@ -42,89 +42,89 @@ export type JSONArray<T> = {
   /**
    * `getID` returns the ID, `TimeTicket` of this Object.
    */
-  getID?(): TimeTicket;
+  getID(): TimeTicket;
 
   /**
    * `getElementByID` returns the element for the given ID.
    */
-  getElementByID?(createdAt: TimeTicket): WrappedElement<T>;
+  getElementByID(createdAt: TimeTicket): WrappedElement<T>;
 
   /**
    * `getElementByIndex` returns the element for the given index.
    */
-  getElementByIndex?(index: number): WrappedElement<T>;
+  getElementByIndex(index: number): WrappedElement<T>;
 
   /**
    * `getLast` returns the last element of this array.
    */
-  getLast?(): WrappedElement<T>;
+  getLast(): WrappedElement<T>;
 
   /**
    * `setValue` sets the given value at the given index.
    */
-  setValue?(index: number, value: unknown): WrappedElement<T>;
+  setValue(index: number, value: unknown): WrappedElement<T>;
 
   /**
    * `delete` deletes the element of the given index.
    */
-  delete?(index: number): WrappedElement<T>;
+  delete(index: number): WrappedElement<T>;
 
   /**
    * `deleteByID` deletes the element of the given ID.
    */
-  deleteByID?(createdAt: TimeTicket): WrappedElement<T>;
+  deleteByID(createdAt: TimeTicket): WrappedElement<T>;
 
   /**
    * `insertBefore` inserts a value before the given next element.
    */
-  insertBefore?(nextID: TimeTicket, value: any): WrappedElement<T>;
+  insertBefore(nextID: TimeTicket, value: any): WrappedElement<T>;
 
   /**
    * `insertAfter` inserts a value after the given previous element.
    */
-  insertAfter?(prevID: TimeTicket, value: any): WrappedElement<T>;
+  insertAfter(prevID: TimeTicket, value: any): WrappedElement<T>;
 
   /**
    * `insertIntegerAfter` inserts a value after the given index.
    */
-  insertIntegerAfter?(index: number, value: number): WrappedElement<T>;
+  insertIntegerAfter(index: number, value: number): WrappedElement<T>;
 
   /**
    * `moveBefore` moves the element before the given next element.
    */
-  moveBefore?(nextID: TimeTicket, id: TimeTicket): void;
+  moveBefore(nextID: TimeTicket, id: TimeTicket): void;
 
   /**
    * `moveAfter` moves the element after the given previous element.
    */
-  moveAfter?(prevID: TimeTicket, id: TimeTicket): void;
+  moveAfter(prevID: TimeTicket, id: TimeTicket): void;
 
   /**
    * `moveAfterByIndex` moves the element after the given index.
    */
-  moveAfterByIndex?(prevIndex: number, targetIndex: number): void;
+  moveAfterByIndex(prevIndex: number, targetIndex: number): void;
 
   /**
    * `moveFront` moves the element before the first element.
    */
-  moveFront?(id: TimeTicket): void;
+  moveFront(id: TimeTicket): void;
 
   /**
    * `moveLast` moves the element after the last element.
    */
-  moveLast?(id: TimeTicket): void;
+  moveLast(id: TimeTicket): void;
 
   /**
    * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
-  toTestString?(): string;
+  toTestString(): string;
 
   /**
    * `toJSForTest` returns the JSON object of this array for debugging.
    * @internal
    */
-  toJSForTest?(): Devtools.JSONElement;
+  toJSForTest(): Devtools.JSONElement;
 } & Array<T>;
 
 /**
@@ -737,7 +737,7 @@ export class ArrayProxy {
         : deleteCount < 0
           ? from
           : Math.min(from + deleteCount, length);
-    const removeds: JSONArray<JSONElement> = [];
+    const removeds: JSONArray<JSONElement> = [] as any;
     for (let i = from; i < to; i++) {
       const removed = ArrayProxy.deleteInternalByIndex(context, target, from);
       if (removed) {
@@ -790,7 +790,7 @@ export class ArrayProxy {
 
     for (let i = from; i < length; i++) {
       if (
-        target.get(i)?.getID() === (searchElement as WrappedElement).getID!()
+        target.get(i)?.getID() === (searchElement as WrappedElement).getID()
       ) {
         return true;
       }
@@ -826,7 +826,7 @@ export class ArrayProxy {
 
     for (let i = from; i < length; i++) {
       if (
-        target.get(i)?.getID() === (searchElement as WrappedElement).getID!()
+        target.get(i)?.getID() === (searchElement as WrappedElement).getID()
       ) {
         return i;
       }
@@ -862,7 +862,7 @@ export class ArrayProxy {
 
     for (let i = from; i > 0; i--) {
       if (
-        target.get(i)?.getID() === (searchElement as WrappedElement).getID!()
+        target.get(i)?.getID() === (searchElement as WrappedElement).getID()
       ) {
         return i;
       }

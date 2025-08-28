@@ -36,23 +36,23 @@ export type JSONObject<T> = {
   /**
    * `getID` returns the ID(time ticket) of this Object.
    */
-  getID?(): TimeTicket;
+  getID(): TimeTicket;
 
   /**
    * `toJSON` returns the JSON encoding of this object.
    */
-  toJSON?(): string;
+  toJSON(): string;
 
   /**
    * `toJS` returns the JSON object of this object.
    */
-  toJS?(): T;
+  toJS(): T;
 
   /**
    * `toJSForTest` returns the JSON object of this object for debugging.
    * @internal
    */
-  toJSForTest?(): Devtools.JSONElement;
+  toJSForTest(): Devtools.JSONElement;
 } & T;
 
 /**

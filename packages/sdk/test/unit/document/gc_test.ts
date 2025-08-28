@@ -203,7 +203,7 @@ describe('Garbage Collection', function () {
       root.k1 = new Text();
       root.k1.edit(0, 0, 'Hello world', { b: '1' });
       root.k1.edit(6, 11, 'mario');
-      assert.equal(root.toJSON!(), expectedMessage);
+      assert.equal(root.toJSON(), expectedMessage);
     }, 'edit text k1');
     assert.equal(doc.toSortedJSON(), expectedMessage);
     assert.equal(doc.getGarbageLen(), 1);
@@ -216,7 +216,7 @@ describe('Garbage Collection', function () {
       text.edit(0, 5, 'Hi', { b: '1' });
       text.edit(3, 4, 'j');
       text.edit(4, 8, 'ane', { b: '1' });
-      assert.equal(root.toJSON!(), expectedMessage);
+      assert.equal(root.toJSON(), expectedMessage);
     }, 'edit text k1');
     assert.equal(doc.toSortedJSON(), expectedMessage);
 

@@ -114,19 +114,22 @@ describe('Object', function () {
   });
 
   it('should support toJS and toJSON methods', function () {
-    const doc = new Document<{
-      content: JSONObject<{ a: number; b: number; c: number }>;
-    }>('test-doc');
+    type DocType = { content: JSONObject<{ a: number; b: number; c: number }> };
+    const doc = new Document<DocType>('test-doc');
     doc.update((root) => {
-      root.content = { a: 1, b: 2, c: 3 };
+      root.content = { a: 1, b: 2, c: 3 } as JSONObject<{
+        a: number;
+        b: number;
+        c: number;
+      }>;
     }, 'set a, b, c');
     assert.equal(doc.toSortedJSON(), '{"content":{"a":1,"b":2,"c":3}}');
 
     const root = doc.getRoot();
-    assert.equal(root.toJSON!(), '{"content":{"a":1,"b":2,"c":3}}');
-    assert.deepEqual(root.toJS!(), { content: { a: 1, b: 2, c: 3 } });
-    assert.equal(root.content.toJSON!(), '{"a":1,"b":2,"c":3}');
-    assert.deepEqual(root.content.toJS!(), { a: 1, b: 2, c: 3 });
+    assert.equal(root.toJSON(), '{"content":{"a":1,"b":2,"c":3}}');
+    assert.deepEqual(root.toJS(), { content: { a: 1, b: 2, c: 3 } } as DocType);
+    assert.equal(root.content.toJSON(), '{"a":1,"b":2,"c":3}');
+    assert.deepEqual(root.content.toJS(), { a: 1, b: 2, c: 3 });
   });
 
   it('Object.keys, Object.values and Object.entries test', function () {
@@ -236,9 +239,7 @@ describe('Object', function () {
 
   describe('Undo/Redo', function () {
     it('can get proper reverse operations', function () {
-      const doc = new Document<{
-        shape: { color: string };
-      }>('test-doc');
+      const doc = new Document<{ shape: { color: string } }>('test-doc');
 
       doc.update((root) => {
         root.shape = { color: 'black' };
