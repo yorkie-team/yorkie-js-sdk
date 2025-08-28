@@ -194,7 +194,7 @@ describe('Document', function () {
 
     d1.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 100);
-      root.todos = ['todo1', 'todo2', 'todo3'];
+      root.todos = ['todo1', 'todo2', 'todo3'] as JSONArray<string>;
       root.content = new yorkie.Text();
       root.content.edit(0, 0, 'hello world', {
         italic: true,
@@ -242,9 +242,9 @@ describe('Document', function () {
     d2.update((root) => {
       root.counter.increase(1);
       root.todos.push('todo4');
-      const prevItem = root.todos.getElementByIndex!(1);
-      const currItem = root.todos.getElementByIndex!(0);
-      root.todos.moveAfter!(prevItem.getID!(), currItem.getID!());
+      const prevItem = root.todos.getElementByIndex(1);
+      const currItem = root.todos.getElementByIndex(0);
+      root.todos.moveAfter(prevItem.getID(), currItem.getID());
       root.content.setStyle(0, 5, { bold: true });
     });
     expectedEventValue = [
@@ -289,10 +289,7 @@ describe('Document', function () {
     await c2.activate();
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    type TestDoc = {
-      counter: Counter;
-      todos: JSONArray<string>;
-    };
+    type TestDoc = { counter: Counter; todos: Array<string> };
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c1.attach(d1);

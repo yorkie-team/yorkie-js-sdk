@@ -44,7 +44,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
 
       // 02. Create a text into the paragraph.
@@ -52,7 +52,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p>AB</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"}]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
 
       // 03. Insert a text into the paragraph.
@@ -61,7 +61,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p>ABCD</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"},{"type":"text","value":"CD"}]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
 
       // 04. Replace ABCD with Yorkie
@@ -72,7 +72,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p>Yorkie</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"Yorkie"}]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
     });
   });
@@ -1501,7 +1501,7 @@ describe('Tree.style', function () {
       );
 
       assert.equal(
-        root.toJSON!(),
+        root.toJSON(),
         /*html*/ `{"t":{"type":"doc","children":[{"type":"tc","children":[{"type":"p","children":[{"type":"tn","children":[],"attributes":{"z":"m"}}],"attributes":{"a":"b","c":"q"}}]}]}}`,
       );
     });

@@ -13,7 +13,7 @@ import yorkie, { Document, JSONArray, DocEventType } from '@yorkie-js/sdk';
 import Scheduler from './Scheduler';
 
 // parseDate() value's format = "DD-MM-YYYY"
-const defaultContent: JSONArray<ContentTypes> = [
+const defaultContent = [
   {
     date: parseDate(new Date()).replace(/^\d{2}/, '01'),
     text: 'payday',
@@ -22,7 +22,7 @@ const defaultContent: JSONArray<ContentTypes> = [
     date: parseDate(new Date()).replace(/^\d{2}/, '17'),
     text: "Garry's birthday",
   },
-];
+] as JSONArray<ContentTypes>;
 
 const ENV: ENVtypes = {
   url: process.env.NEXT_PUBLIC_YORKIE_API_ADDR!,

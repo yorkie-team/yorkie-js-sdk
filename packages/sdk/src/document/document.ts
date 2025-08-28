@@ -1528,7 +1528,7 @@ export class Document<R, P extends Indexable = Indexable> {
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
-      ...this.getRoot().toJSForTest!(),
+      ...this.getRoot().toJSForTest(),
       key: 'root',
     };
   }

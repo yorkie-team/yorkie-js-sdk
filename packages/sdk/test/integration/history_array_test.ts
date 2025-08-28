@@ -12,16 +12,16 @@ function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
 
     switch (op) {
       case 'add': {
-        const prev = list.getElementByIndex?.(0);
+        const prev = list.getElementByIndex(0);
         if (!prev) return;
-        list.insertAfter!(prev.getID!(), String('insV'));
+        list.insertAfter(prev.getID(), String('insV'));
         break;
       }
       case 'move': {
-        if (list.length < 2) return;
-        const from = list.getElementByIndex!(0);
-        const to = list.getElementByIndex!(2);
-        list.moveAfter!(to.getID!(), from.getID!());
+        if (list.length < 3) return;
+        const from = list.getElementByIndex(0);
+        const to = list.getElementByIndex(2);
+        list.moveAfter(to.getID(), from.getID());
         break;
       }
       case 'remove': {
@@ -29,7 +29,7 @@ function applyOp1(doc: Document<{ list: JSONArray<string> }>, op: Op) {
         break;
       }
       case 'set': {
-        if (list.length > 1) list.setValue!(1, 's');
+        if (list.length > 1) list.setValue(1, 's');
         break;
       }
     }
@@ -42,16 +42,16 @@ function applyOp2(doc: Document<{ list: JSONArray<string> }>, op: Op) {
 
     switch (op) {
       case 'add': {
-        const prev = list.getElementByIndex?.(2);
+        const prev = list.getElementByIndex(2);
         if (!prev) return;
-        list.insertAfter!(prev.getID!(), String('insV'));
+        list.insertAfter(prev.getID(), String('insV'));
         break;
       }
       case 'move': {
-        if (list.length < 2) return;
-        const from = list.getElementByIndex!(1);
-        const to = list.getElementByIndex!(3);
-        list.moveAfter!(to.getID!(), from.getID!());
+        if (list.length < 4) return;
+        const from = list.getElementByIndex(1);
+        const to = list.getElementByIndex(3);
+        list.moveAfter(to.getID(), from.getID());
         break;
       }
       case 'remove': {
@@ -59,7 +59,7 @@ function applyOp2(doc: Document<{ list: JSONArray<string> }>, op: Op) {
         break;
       }
       case 'set': {
-        if (list.length > 2) list.setValue!(2, '2');
+        if (list.length > 2) list.setValue(2, '2');
         break;
       }
     }
@@ -72,7 +72,7 @@ describe('Array Undo Operations', () => {
       const doc = new Document<{ list: JSONArray<string> }>('test-doc');
 
       doc.update((root) => {
-        root.list = ['a', 'b', 'c', 'd', 'e'];
+        root.list = ['a', 'b', 'c', 'd', 'e'] as JSONArray<string>;
       }, 'init');
 
       const initialJSON = doc.toSortedJSON();
@@ -98,7 +98,7 @@ describe('Array Undo Operations', () => {
           const doc = new Document<{ list: JSONArray<string> }>('test-doc');
 
           doc.update((root) => {
-            root.list = ['a', 'b', 'c', 'd', 'e'];
+            root.list = ['a', 'b', 'c', 'd', 'e'] as JSONArray<string>;
           }, 'init');
 
           const S: Array<string> = [];
@@ -142,7 +142,7 @@ describe('Array Undo in Multi-Client', () => {
         await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
           // Initial setup
           d1.update((root) => {
-            root.list = ['a', 'b', 'c', 'd', 'e'];
+            root.list = ['a', 'b', 'c', 'd', 'e'] as JSONArray<string>;
           }, 'init');
           await c1.sync();
           await c2.sync();
