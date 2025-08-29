@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.27] - 2025-08-29
+
+### Added
+
+- Support undo for move/set by fixing collisions by @KMSstudio in https://github.com/yorkie-team/yorkie-js-sdk/pull/1059
+
+### Changed
+
+- Remove optional methods from JSONArray/JSONObject by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1076
+
+### Fixed
+
+- Fix attachment constructor argument typo by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1073
+
 ## [v0.6.26] - 2025-08-20
 
 ### Added
