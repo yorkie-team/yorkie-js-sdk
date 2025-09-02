@@ -1965,6 +1965,25 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
+   * `getOthersPresences` returns the presences of all other clients.
+   */
+  public getOthersPresences(): Array<{ clientID: ActorID; presence: P }> {
+    const others: Array<{ clientID: ActorID; presence: P }> = [];
+    const myClientID = this.changeID.getActorID();
+
+    for (const clientID of this.onlineClients) {
+      if (clientID !== myClientID && this.presences.has(clientID)) {
+        others.push({
+          clientID,
+          presence: deepcopy(this.presences.get(clientID)!),
+        });
+      }
+    }
+
+    return others;
+  }
+
+  /**
    * `getPresence` returns the presence of the given clientID.
    */
   public getPresence(clientID: ActorID): P | undefined {
@@ -1973,17 +1992,6 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     if (!this.onlineClients.has(clientID)) return;
-    const p = this.presences.get(clientID);
-    return p ? deepcopy(p) : undefined;
-  }
-
-  /**
-   * `getPresenceForTest` returns the presence of the given clientID
-   * regardless of whether the client is online or not.
-   *
-   * @internal
-   */
-  public getPresenceForTest(clientID: ActorID): P | undefined {
     const p = this.presences.get(clientID);
     return p ? deepcopy(p) : undefined;
   }
@@ -2007,6 +2015,17 @@ export class Document<R, P extends Indexable = Indexable> {
       }
     }
     return presences;
+  }
+
+  /**
+   * `getPresenceForTest` returns the presence of the given clientID
+   * regardless of whether the client is online or not.
+   *
+   * @internal
+   */
+  public getPresenceForTest(clientID: ActorID): P | undefined {
+    const p = this.presences.get(clientID);
+    return p ? deepcopy(p) : undefined;
   }
 
   /**
