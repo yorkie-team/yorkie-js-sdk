@@ -176,6 +176,26 @@ export interface ClientOptions {
 }
 
 /**
+ * `DeactivateOptions` are user-settable options used when deactivating clients.
+ */
+export interface DeactivateOptions {
+  /**
+   * `keepalive` is used to enable the keepalive option when deactivating.
+   * If true, the client will request deactivation immediately using `fetch`
+   * with the `keepalive` option enabled. This is useful for ensuring the
+   * deactivation request completes even if the page is being unloaded.
+   */
+  keepalive?: boolean;
+
+  /**
+   * `synchronous` is used to enable the synchronous option when deactivating.
+   * If true, the server will wait for all pending operations to complete
+   * before deactivating.
+   */
+  synchronous?: boolean;
+}
+
+/**
  * `AttachOptions` are user-settable options used when attaching documents.
  */
 export interface AttachOptions<R, P> {
@@ -355,8 +375,12 @@ export class Client {
    * immediately using `fetch` with the `keepalive` option enabled. This is
    * useful for ensuring the deactivation request completes even if the page is
    * being unloaded, such as in `beforeunload` or `unload` event listeners.
+   * If synchronous is true, the server will wait for all pending operations to
+   * complete before deactivating.
    */
-  public deactivate(options = { keepalive: false }): Promise<void> {
+  public deactivate(
+    options: DeactivateOptions = { keepalive: false, synchronous: false },
+  ): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
     }
@@ -364,7 +388,10 @@ export class Client {
     const task = async () => {
       try {
         await this.rpcClient.deactivateClient(
-          { clientId: this.id! },
+          {
+            clientId: this.id!,
+            synchronous: options.synchronous,
+          },
           { headers: { 'x-shard-key': `${this.apiKey}/${this.key}` } },
         );
         this.deactivateInternal();

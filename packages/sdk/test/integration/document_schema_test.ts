@@ -25,63 +25,63 @@ import axios, { AxiosError } from 'axios';
 import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 
-let adminToken: string;
 const time = new Date().getTime();
 
 describe('Document Schema', () => {
+  let projectApiKey: string;
+  let projectSecretKey: string;
+
   beforeAll(async () => {
     const loginResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/LogIn`,
       { username: testAPIID, password: testAPIPW },
     );
-    adminToken = loginResponse.data.token;
+    const adminToken = loginResponse.data.token;
+
+    // Create a new project for schema testing
+    const createProjectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `schema-test-${time}` },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+    projectApiKey = createProjectResponse.data.project.publicKey;
+    projectSecretKey = createProjectResponse.data.project.secretKey;
+
+    // Create schemas using API-Key authentication (for project context)
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateSchema`,
       {
-        projectName: 'default',
         schemaName: `schema-${time}`,
         schemaVersion: 1,
         schemaBody: 'type Document = {title: string;};',
-        rules: [
-          {
-            path: '$.title',
-            type: 'string',
-          },
-        ],
+        rules: [{ path: '$.title', type: 'string' }],
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
 
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateSchema`,
       {
-        projectName: 'default',
         schemaName: `schema2-${time}`,
         schemaVersion: 1,
         schemaBody: 'type Document = {title: integer;};',
-        rules: [
-          {
-            path: '$.title',
-            type: 'integer',
-          },
-        ],
+        rules: [{ path: '$.title', type: 'integer' }],
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
   });
 
   it('can attach document with schema', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
+
     const doc = new yorkie.Document<{ title: string }>(
       toDocKey(`${task.name}-${new Date().getTime()}`),
     );
+
     try {
       await client.attach(doc, {
         syncMode: SyncMode.Manual,
@@ -102,6 +102,7 @@ describe('Document Schema', () => {
   it('should reject local update that violates schema', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -136,6 +137,7 @@ describe('Document Schema', () => {
   }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -157,14 +159,11 @@ describe('Document Schema', () => {
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
       {
-        projectName: 'default',
         documentKey: docKey,
         root: `{"title": Int(123)}`,
         schemaKey: `schema2-${time}@1`,
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
 
     const doc2 = new yorkie.Document<{ title: any }>(docKey);
@@ -181,6 +180,7 @@ describe('Document Schema', () => {
   }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -196,14 +196,11 @@ describe('Document Schema', () => {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
         {
-          projectName: 'default',
           documentKey: docKey,
           root: `{"title": Int(123)}`,
           schemaKey: `schema2-${time}@1`,
         },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
     } catch (error) {
       assert.equal(
@@ -220,6 +217,7 @@ describe('Document Schema', () => {
   }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -242,14 +240,11 @@ describe('Document Schema', () => {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
         {
-          projectName: 'default',
           documentKey: docKey,
           root: `{"title": Long(123)}`,
           schemaKey: `schema2-${time}@1`,
         },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
       assert.fail('expected an error to be thrown');
     } catch (error) {
@@ -265,6 +260,7 @@ describe('Document Schema', () => {
   it('can detach schema via UpdateDocument API', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -284,15 +280,8 @@ describe('Document Schema', () => {
     try {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-        {
-          projectName: 'default',
-          documentKey: docKey,
-          root: '',
-          schemaKey: '',
-        },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { documentKey: docKey, root: '', schemaKey: '' },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
     } catch (error) {
       assert.equal(
@@ -305,13 +294,12 @@ describe('Document Schema', () => {
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
       {
-        projectName: 'default',
         documentKey: docKey,
         root: '',
         schemaKey: '',
       },
       {
-        headers: { Authorization: adminToken },
+        headers: { Authorization: `API-Key ${projectSecretKey}` },
       },
     );
 
@@ -331,6 +319,7 @@ describe('Document Schema', () => {
   it('can attach schema via UpdateDocument API', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -349,15 +338,8 @@ describe('Document Schema', () => {
     try {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-        {
-          projectName: 'default',
-          documentKey: docKey,
-          root: '',
-          schemaKey: `schema2-${time}@1`,
-        },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { documentKey: docKey, root: '', schemaKey: `schema2-${time}@1` },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
     } catch (error) {
       assert.equal(
@@ -370,15 +352,8 @@ describe('Document Schema', () => {
     try {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-        {
-          projectName: 'default',
-          documentKey: docKey,
-          root: '',
-          schemaKey: `schema2-${time}@1`,
-        },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { documentKey: docKey, root: '', schemaKey: `schema2-${time}@1` },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
     } catch (error) {
       assert.equal(
@@ -389,15 +364,8 @@ describe('Document Schema', () => {
 
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-      {
-        projectName: 'default',
-        documentKey: docKey,
-        root: '',
-        schemaKey: `schema-${time}@1`,
-      },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { documentKey: docKey, root: '', schemaKey: `schema-${time}@1` },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
 
     const doc2 = new yorkie.Document<{ title: any }>(docKey);
@@ -422,6 +390,7 @@ describe('Document Schema', () => {
   it('can update schema only', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -445,15 +414,8 @@ describe('Document Schema', () => {
     try {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-        {
-          projectName: 'default',
-          documentKey: docKey,
-          root: '',
-          schemaKey: `schema2-${time}@1`,
-        },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { documentKey: docKey, root: '', schemaKey: `schema2-${time}@1` },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
     } catch (error) {
       assert.equal(
@@ -468,6 +430,7 @@ describe('Document Schema', () => {
   it('can update root only', async ({ task }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -486,15 +449,8 @@ describe('Document Schema', () => {
 
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-      {
-        projectName: 'default',
-        documentKey: docKey,
-        root: `{"title": Int(123)}`,
-        schemaKey: '',
-      },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { documentKey: docKey, root: `{"title": Int(123)}`, schemaKey: '' },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
     await client.detach(doc);
 
@@ -512,6 +468,7 @@ describe('Document Schema', () => {
   }) => {
     const client = new yorkie.Client({
       rpcAddr: testRPCAddr,
+      apiKey: projectApiKey,
     });
     await client.activate();
 
@@ -533,15 +490,8 @@ describe('Document Schema', () => {
     try {
       await axios.post(
         `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-        {
-          projectName: 'default',
-          documentKey: docKey,
-          root: `{"title": Int(123)}`,
-          schemaKey: '',
-        },
-        {
-          headers: { Authorization: adminToken },
-        },
+        { documentKey: docKey, root: `{"title": Int(123)}`, schemaKey: '' },
+        { headers: { Authorization: `API-Key ${projectSecretKey}` } },
       );
     } catch (error) {
       assert.equal(
@@ -552,15 +502,8 @@ describe('Document Schema', () => {
 
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateDocument`,
-      {
-        projectName: 'default',
-        documentKey: docKey,
-        root: `{"title": "world"}`,
-        schemaKey: '',
-      },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { documentKey: docKey, root: `{"title": "world"}`, schemaKey: '' },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
 
     const doc2 = new yorkie.Document<{ title: any }>(docKey);

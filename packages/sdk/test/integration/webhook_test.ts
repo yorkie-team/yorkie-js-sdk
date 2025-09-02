@@ -109,9 +109,7 @@ describe('Auth Webhook', () => {
     const projectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: `auth-webhook-${new Date().getTime()}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const projectId = projectResponse.data.project.id;
     apiKey = projectResponse.data.project.publicKey;
@@ -126,9 +124,7 @@ describe('Auth Webhook', () => {
           auth_webhook_methods: { methods: AllAuthWebhookMethods },
         },
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
   });
 
@@ -351,9 +347,7 @@ describe('Auth Webhook', () => {
     const projectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: `auth-webhook-${new Date().getTime()}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const projectId = projectResponse.data.project.id;
     apiKey = projectResponse.data.project.publicKey;
@@ -368,9 +362,7 @@ describe('Auth Webhook', () => {
           auth_webhook_methods: { methods: ['RemoveDocument'] },
         },
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const TokenExpirationMs = 500;
@@ -415,9 +407,7 @@ describe('Auth Webhook', () => {
     const projectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: `auth-webhook-${new Date().getTime()}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const projectId = projectResponse.data.project.id;
     apiKey = projectResponse.data.project.publicKey;
@@ -432,9 +422,7 @@ describe('Auth Webhook', () => {
           auth_webhook_methods: { methods: ['PushPull'] },
         },
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const TokenExpirationMs = 500;
@@ -489,9 +477,7 @@ describe('Auth Webhook', () => {
     const projectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: `auth-webhook-${new Date().getTime()}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const projectId = projectResponse.data.project.id;
     apiKey = projectResponse.data.project.publicKey;
@@ -506,9 +492,7 @@ describe('Auth Webhook', () => {
           auth_webhook_methods: { methods: ['WatchDocuments'] },
         },
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const TokenExpirationMs = 500;
@@ -586,9 +570,7 @@ describe('Auth Webhook', () => {
     const projectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: `auth-webhook-${new Date().getTime()}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const projectId = projectResponse.data.project.id;
     apiKey = projectResponse.data.project.publicKey;
@@ -603,9 +585,7 @@ describe('Auth Webhook', () => {
           auth_webhook_methods: { methods: ['Broadcast'] },
         },
       },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const TokenExpirationMs = 1500; // Set higher than DefaultBroadcastOptions.initialRetryInterval (1000ms)
