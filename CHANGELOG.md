@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.28] - 2025-09-02
+
+### Added
+
+- Add getOthersPresences and synchronous deactivation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1081
+
 ## [v0.6.27] - 2025-08-29
 
 ### Added
