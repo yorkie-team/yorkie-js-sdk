@@ -43,33 +43,22 @@ describe('Document Size Limit', () => {
     const createProjectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: `doc-size-${now}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
-    const projectId = createProjectResponse.data.project.id;
-    // apiKey = createProjectResponse.data.project.publicKey;
+    const createdProject = createProjectResponse.data.project;
+    const projectId = createdProject.id;
 
     const sizeLimit = 10 * 1024 * 1024;
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
-      {
-        id: projectId,
-        fields: {
-          max_size_per_document: sizeLimit,
-        },
-      },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { id: projectId, fields: { max_size_per_document: sizeLimit } },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const projectResponse = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/GetProject`,
-      { name: `doc-size-${now}` },
-      {
-        headers: { Authorization: adminToken },
-      },
+      { name: createdProject.name },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const project = projectResponse.data.project;
     assert.equal(project.maxSizePerDocument, sizeLimit);
@@ -101,7 +90,7 @@ describe('Document Size Limit', () => {
     const createResp = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: projectName },
-      { headers: { Authorization: adminToken } },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const project = createResp.data.project;
 
@@ -109,11 +98,9 @@ describe('Document Size Limit', () => {
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
       {
         id: project.id,
-        fields: {
-          max_size_per_document: sizeLimit,
-        },
+        fields: { max_size_per_document: sizeLimit },
       },
-      { headers: { Authorization: adminToken } },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const client = new yorkie.Client({
@@ -158,7 +145,7 @@ describe('Document Size Limit', () => {
     const createResp = await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
       { name: projectName },
-      { headers: { Authorization: adminToken } },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
     const project = createResp.data.project;
 
@@ -170,7 +157,7 @@ describe('Document Size Limit', () => {
           max_size_per_document: sizeLimit,
         },
       },
-      { headers: { Authorization: adminToken } },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
     );
 
     const client1 = new yorkie.Client({
