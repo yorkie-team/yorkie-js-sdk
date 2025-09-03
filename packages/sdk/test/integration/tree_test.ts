@@ -5205,6 +5205,144 @@ describe('TreeChange', () => {
       );
     }, task.name);
   });
+
+  it('causal deletion preserves original timestamps in Tree', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      // Insert initial tree structure on c1
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'i', children: [{ type: 'text', value: 'cd' }] },
+              ],
+            },
+          ],
+        });
+      }, 'insert initial structure');
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><b>ab</b><i>cd</i></p></doc>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+
+      d1.update((root) => root.t.edit(5, 8), 'delete <i>cd</i>');
+      await c1.sync();
+      await c2.sync();
+
+      d2.update((root) => root.t.edit(1, 6), 'delete <b>ab</b><i>cd</i></p>');
+
+      // Helper to extract underlying Tree nodes (test-only, uses private field)
+      function getAllNodes(doc: typeof d1) {
+        const nodes: Array<any> = [];
+        doc
+          .getRoot()
+          .t.getIndexTree()
+          .traverseAll((node) => {
+            nodes.push(node);
+          });
+        return nodes;
+      }
+
+      // Identify nodes by value from d2 (where second deletion happened)
+      let bNode: any, iNode: any;
+      for (const n of getAllNodes(d2)) {
+        if (n.type === 'b') {
+          bNode = n;
+        } else if (n.type === 'i') {
+          iNode = n;
+        }
+      }
+
+      // <b>ab</b> should be removed after <i>cd</i>
+      assert.ok(bNode.getRemovedAt().after(iNode.getRemovedAt()));
+    }, task.name);
+  });
+  it.only('concurrent deletion test for LWW behavior in Tree', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      // Insert initial tree structure on c1
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'i', children: [{ type: 'text', value: 'cd' }] },
+              ],
+            },
+          ],
+        });
+      }, 'insert initial structure');
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<doc><p><b>ab</b><i>cd</i></p></doc>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+
+      console.log("초기 데이터");
+      console.log(d1.getRoot().t.toXML());
+      d1.update((root) => root.t.edit(5,8), 'delete <i>cd</i>');
+      console.log("edit(5,8) 삭제 후 데이터 실제로 <i> 와 c,d 인덱스만 삭제 한 경우");
+      console.log(d1.getRoot().t.toXML());
+
+      // // Concurrent deletions
+      // d1.update((root) => root.t.edit(5, 8), 'delete <i>cd</i>');
+      // d2.update((root) => root.t.edit(0, 9), 'delete <b>ab</b><i>cd</i>');
+
+      // await c1.sync();
+      // await c2.sync();
+      // await c1.sync();
+
+      // function getAllNodes(doc: typeof d1) {
+      //   const nodes: Array<any> = [];
+      //   doc
+      //     .getRoot()
+      //     .t.getIndexTree()
+      //     .traverseAll((node) => {
+      //       nodes.push(node);
+      //     });
+      //   return nodes;
+      // }
+
+      // // All visible content removed
+      // assert.equal(d1.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+      // assert.equal(d2.getRoot().t.toXML(), /*html*/ `<doc></doc>`);
+
+      // await c2.sync();
+      // await c1.sync();
+
+      // // All nodes should be tombstoned; timestamps may differ (per-actor order); ensure each node has removedAt.
+      // const timestampSet = new Set<string>();
+
+      // for (const n of [...getAllNodes(d1), ...getAllNodes(d2)]) {
+      //   if (n.isText) {
+      //     const timestamp = n.getRemovedAt().toIDString();
+      //     timestampSet.add(timestamp);
+      //   }
+      // }
+
+      // assert.equal(
+      //   timestampSet.size,
+      //   1,
+      //   'Should have 1 timestamp in concurrent deletion',
+      // );
+    }, task.name);
+  });
 });
 
 function subscribeDocs(

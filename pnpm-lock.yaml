@@ -7,6 +7,16 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@bufbuild/protobuf':
+        specifier: ^1.3.0
+        version: 1.10.1
+      '@connectrpc/connect':
+        specifier: ^2.0.4
+        version: 2.0.4(@bufbuild/protobuf@1.10.1)
+      '@connectrpc/connect-web':
+        specifier: ^2.0.4
+        version: 2.0.4(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@2.0.4(@bufbuild/protobuf@1.10.1))
     devDependencies:
       '@eslint/eslintrc':
         specifier: ^3.3.1
@@ -14,6 +24,9 @@ importers:
       '@eslint/js':
         specifier: ^9.32.0
         version: 9.32.0
+      autoprefixer:
+        specifier: ^10.4.21
+        version: 10.4.21(postcss@8.5.6)
       eslint:
         specifier: ^9.32.0
         version: 9.32.0(jiti@2.5.1)
@@ -32,9 +45,21 @@ importers:
       only-allow:
         specifier: ^1.2.1
         version: 1.2.1
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
+      tailwindcss:
+        specifier: ^4.1.12
+        version: 4.1.12
       typescript-eslint:
         specifier: ^8.38.0
         version: 8.38.0(eslint@9.32.0(jiti@2.5.1))(typescript@5.8.2)
+      vite-tsconfig-paths:
+        specifier: ^5.1.4
+        version: 5.1.4(typescript@5.8.2)(vite@6.3.5(@types/node@20.9.0)(jiti@2.5.1)(less@4.4.0)(lightningcss@1.30.1)(sass@1.89.2)(yaml@2.8.0))
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@20.9.0)(jiti@2.5.1)(jsdom@26.1.0)(less@4.4.0)(lightningcss@1.30.1)(sass@1.89.2)(yaml@2.8.0)
 
   examples/nextjs-quill:
     dependencies:
@@ -130,10 +155,6 @@ importers:
       typescript:
         specifier: 5.3.3
         version: 5.3.3
-
-  examples/nextjs-scheduler/dist: {}
-
-  examples/nextjs-scheduler/dist/types: {}
 
   examples/nextjs-todolist:
     dependencies:
@@ -655,15 +676,24 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^0.34.5
         version: 0.34.6(vitest@0.34.6(jsdom@26.1.0)(less@4.4.0)(lightningcss@1.30.1)(sass@1.89.2))
+      autoprefixer:
+        specifier: ^10.4.21
+        version: 10.4.21(postcss@8.5.6)
       axios:
         specifier: ^1.7.7
         version: 1.11.0
       express:
         specifier: ^4.21.1
         version: 4.21.2
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
       prettier:
         specifier: ^2.7.1
         version: 2.8.8
+      tailwindcss:
+        specifier: ^4.1.12
+        version: 4.1.12
       ts-node:
         specifier: ^10.9.1
         version: 10.9.2(@swc/core@1.13.3(@swc/helpers@0.5.17))(@types/node@20.9.0)(typescript@5.3.3)
@@ -893,10 +923,21 @@ packages:
       '@bufbuild/protobuf': ^1.10.0
       '@connectrpc/connect': 1.6.1
 
+  '@connectrpc/connect-web@2.0.4':
+    resolution: {integrity: sha512-wMiStHClk7YopPIrmFvgviPjHeFpiNGykPxuVIi6leGTpg/GKx317tsN5GySX46iV7RrnESOvAyuisQtJXO99w==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.2.0
+      '@connectrpc/connect': 2.0.4
+
   '@connectrpc/connect@1.6.1':
     resolution: {integrity: sha512-KchMDNtU4CDTdkyf0qG7ugJ6qHTOR/aI7XebYn3OTCNagaDYWiZUVKgRgwH79yeMkpNgvEUaXSK7wKjaBK9b/Q==}
     peerDependencies:
       '@bufbuild/protobuf': ^1.10.0
+
+  '@connectrpc/connect@2.0.4':
+    resolution: {integrity: sha512-E3EDUMHDdLKVYRxaGbb/MWImZUiGiPQgoehigCvy0NtMTiAn9AQIz/an1689b7mFbkMIXztPHwSNsvtqRPHhqQ==}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.2.0
 
   '@connectrpc/protoc-gen-connect-es@1.6.1':
     resolution: {integrity: sha512-0fHcaADd+GKM0I/koIQpmKg7b+QL18bXlggTUYEAlMFzsd4zN/ApG3235hdUcRyhrAOAItTXxh8ZAV/nNd43Gg==}
@@ -4546,6 +4587,13 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
+  autoprefixer@10.4.21:
+    resolution: {integrity: sha512-O+A6LWV5LDHSJD3LjHYoNi4VLsj/Whi7k6zG12xTYaU4cQ8oxQGckXNX8cRHK5yOZ/ppVHe0ZBXGzSV9jXdVbQ==}
+    engines: {node: ^10 || ^12 || >=14}
+    hasBin: true
+    peerDependencies:
+      postcss: ^8.1.0
+
   available-typed-arrays@1.0.7:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
@@ -5618,6 +5666,9 @@ packages:
   forwarded@0.2.0:
     resolution: {integrity: sha512-buRG0fpBtRHSTCOASe6hD258tEubFoRLb4ZNA6NxMVHNw2gOcwHo9wyablzMzOA5z9xA9L1KNjk/Nt6MT9aYow==}
     engines: {node: '>= 0.6'}
+
+  fraction.js@4.3.7:
+    resolution: {integrity: sha512-ZsDfxO51wGAXREY55a7la9LScWpwv9RxIrYABrlvOFBlH/ShPnrtsXeuUIfXKKOVicNxQ+o8JTbJvjS4M89yew==}
 
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
@@ -6815,6 +6866,10 @@ packages:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
 
+  normalize-range@0.1.2:
+    resolution: {integrity: sha512-bdok/XvKII3nUpklnV6P2hxtMNrCboOjAcyBuQnWEhO665FwrSNRxU+AqpsyvO6LgGYPspN+lu5CLtw4jPRKNA==}
+    engines: {node: '>=0.10.0'}
+
   normalize-url@8.0.2:
     resolution: {integrity: sha512-Ee/R3SyN4BuynXcnTaekmaVdbDAEiNrHqjQIA37mHU8G9pf7aaAD4ZX3XjBLo6rsdcxA/gtkcNYZLt30ACgynw==}
     engines: {node: '>=14.16'}
@@ -7895,6 +7950,9 @@ packages:
   tailwindcss@4.1.11:
     resolution: {integrity: sha512-2E9TBm6MDD/xKYe+dvJZAmg3yxIEDNRc0jwlNyDg/4Fil2QcSLjFKGVff0lAf1jjeaArlG/M75Ey/EYr/OJtBA==}
 
+  tailwindcss@4.1.12:
+    resolution: {integrity: sha512-DzFtxOi+7NsFf7DBtI3BJsynR+0Yp6etH+nRPTbpWnS2pZBaSksv/JGctNwSWzbFjp0vxSqknaUylseZqMDGrA==}
+
   tapable@2.2.2:
     resolution: {integrity: sha512-Re10+NauLTMCudc7T5WLFLAwDhQ0JWdrMK+9B2M8zR5hRExKmsRDCBA7/aV/pNJFltmBFO5BAMlQFi/vq3nKOg==}
     engines: {node: '>=6'}
@@ -8329,6 +8387,14 @@ packages:
 
   vite-tsconfig-paths@4.3.2:
     resolution: {integrity: sha512-0Vd/a6po6Q+86rPlntHye7F31zA2URZMbH8M3saAZ/xR9QoGN/L21bxEGfXdWmFdNkqPpRdxFT7nmNe12e9/uA==}
+    peerDependencies:
+      vite: '*'
+    peerDependenciesMeta:
+      vite:
+        optional: true
+
+  vite-tsconfig-paths@5.1.4:
+    resolution: {integrity: sha512-cYj0LRuLV2c2sMqhqhGpaO3LretdtMn/BVX4cPLanIZuwwrkVl+lK84E/miEXkCHWXuq65rhNN4rXsBcOB3S4w==}
     peerDependencies:
       vite: '*'
     peerDependenciesMeta:
@@ -8905,7 +8971,16 @@ snapshots:
       '@bufbuild/protobuf': 1.10.1
       '@connectrpc/connect': 1.6.1(@bufbuild/protobuf@1.10.1)
 
+  '@connectrpc/connect-web@2.0.4(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@2.0.4(@bufbuild/protobuf@1.10.1))':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.1
+      '@connectrpc/connect': 2.0.4(@bufbuild/protobuf@1.10.1)
+
   '@connectrpc/connect@1.6.1(@bufbuild/protobuf@1.10.1)':
+    dependencies:
+      '@bufbuild/protobuf': 1.10.1
+
+  '@connectrpc/connect@2.0.4(@bufbuild/protobuf@1.10.1)':
     dependencies:
       '@bufbuild/protobuf': 1.10.1
 
@@ -12921,6 +12996,16 @@ snapshots:
 
   asynckit@0.4.0: {}
 
+  autoprefixer@10.4.21(postcss@8.5.6):
+    dependencies:
+      browserslist: 4.25.1
+      caniuse-lite: 1.0.30001731
+      fraction.js: 4.3.7
+      normalize-range: 0.1.2
+      picocolors: 1.1.1
+      postcss: 8.5.6
+      postcss-value-parser: 4.2.0
+
   available-typed-arrays@1.0.7:
     dependencies:
       possible-typed-array-names: 1.1.0
@@ -14311,6 +14396,8 @@ snapshots:
 
   forwarded@0.2.0: {}
 
+  fraction.js@4.3.7: {}
+
   fresh@0.5.2: {}
 
   fs-extra@11.1.1:
@@ -15515,6 +15602,8 @@ snapshots:
       vm-browserify: 1.1.2
 
   normalize-path@3.0.0: {}
+
+  normalize-range@0.1.2: {}
 
   normalize-url@8.0.2: {}
 
@@ -16824,6 +16913,8 @@ snapshots:
 
   tailwindcss@4.1.11: {}
 
+  tailwindcss@4.1.12: {}
+
   tapable@2.2.2: {}
 
   tar@7.4.3:
@@ -16954,6 +17045,10 @@ snapshots:
   tsconfck@3.1.6(typescript@5.3.3):
     optionalDependencies:
       typescript: 5.3.3
+
+  tsconfck@3.1.6(typescript@5.8.2):
+    optionalDependencies:
+      typescript: 5.8.2
 
   tsconfig-paths@3.15.0:
     dependencies:
@@ -17326,6 +17421,17 @@ snapshots:
       tsconfck: 3.1.6(typescript@5.3.3)
     optionalDependencies:
       vite: 5.4.19(@types/node@20.9.0)(less@4.4.0)(lightningcss@1.30.1)(sass@1.89.2)
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
+
+  vite-tsconfig-paths@5.1.4(typescript@5.8.2)(vite@6.3.5(@types/node@20.9.0)(jiti@2.5.1)(less@4.4.0)(lightningcss@1.30.1)(sass@1.89.2)(yaml@2.8.0)):
+    dependencies:
+      debug: 4.4.1
+      globrex: 0.1.2
+      tsconfck: 3.1.6(typescript@5.8.2)
+    optionalDependencies:
+      vite: 6.3.5(@types/node@20.9.0)(jiti@2.5.1)(less@4.4.0)(lightningcss@1.30.1)(sass@1.89.2)(yaml@2.8.0)
     transitivePeerDependencies:
       - supports-color
       - typescript

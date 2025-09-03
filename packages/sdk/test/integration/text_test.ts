@@ -909,6 +909,23 @@ describe('peri-text example: text concurrent edit', function () {
       for (const n of [...getAllNodes(d1), ...getAllNodes(d2)]) {
         assert.ok(n.getRemovedAt(), 'node should be deleted');
       }
+
+      await c2.sync();
+      await c1.sync();
+      
+      const timestampSet = new Set<string>();
+      for (const n of [...getAllNodes(d1), ...getAllNodes(d2)]) {
+          if (n.getRemovedAt()) {
+            const timestamp = n.getRemovedAt().toIDString();
+            timestampSet.add(timestamp);
+          }
+        }
+  
+        assert.equal(
+          timestampSet.size,
+          1,
+          'Should have 1 timestamp in concurrent deletion',
+        );
     }, task.name);
   });
 });

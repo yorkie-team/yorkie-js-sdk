@@ -35,12 +35,22 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.32.0",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",
     "eslint-plugin-jsdoc": "^50.7.1",
     "eslint-plugin-prettier": "^5.2.3",
     "husky": "^9.1.7",
-    "lint-staged": "^15.4.3",
+    "lint-staged": "^15.5.2",
     "only-allow": "^1.2.1",
-    "typescript-eslint": "^8.38.0"
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.12",
+    "typescript-eslint": "^8.38.0",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.7.0",
+    "@connectrpc/connect": "^2.0.4",
+    "@connectrpc/connect-web": "^2.0.4"
   }
 }

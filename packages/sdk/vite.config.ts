@@ -1,15 +1,13 @@
-import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
-import commonjs from 'vite-plugin-commonjs';
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from 'tailwindcss'
+import autoprefixer from 'autoprefixer'
 
 export default defineConfig({
-  plugins: [
-    commonjs(),
-    tsconfigPaths({
-      ignoreConfigErrors: true,
-    }),
-  ],
-  define: {
-    'process.env': {},
+  plugins: [react()],
+  css: {
+    postcss: {
+      plugins: [tailwindcss(), autoprefixer()],
+    },
   },
-});
+})

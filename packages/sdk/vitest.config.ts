@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import commonjs from 'vite-plugin-commonjs';
 
 // CI is true when running on GitHub Actions.
 const isCI = process.env.CI === 'true';
@@ -13,7 +14,7 @@ export default defineConfig({
       reporter: ['lcov', 'text-summary'],
     },
     onConsoleLog() {
-      return false;
+      return true;
     },
     globals: true,
     testTimeout: isCI ? 5000 : Infinity,
@@ -23,6 +24,7 @@ export default defineConfig({
     setupFiles: ['./test/vitest.setup.ts'],
   },
   plugins: [
+    commonjs(),
     tsconfigPaths({
       ignoreConfigErrors: true,
     }),
