@@ -23,7 +23,7 @@ import {
   DocEventType,
   StatusChangedEvent,
 } from '@yorkie-js/sdk/src/document/document';
-import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
+import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 import Long from 'long';
 
@@ -174,9 +174,9 @@ describe('Document', function () {
 
     type EventForTest = {
       type: DocEventType;
-      value: Array<OperationInfo>;
+      value: Array<OpInfo>;
     };
-    let expectedEventValue: Array<OperationInfo>;
+    let expectedEventValue: Array<OpInfo>;
     const eventCollectorD1 = new EventCollector<EventForTest>();
     const eventCollectorD2 = new EventCollector<EventForTest>();
     const unsub1 = d1.subscribe((event) => {
@@ -295,10 +295,9 @@ describe('Document', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
-    const eventCollectorForTodos = new EventCollector<EventForTest>();
-    const eventCollectorForCounter = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForTodos = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForCounter = new EventCollector<Array<OpInfo>>();
     const unsub = d1.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -385,10 +384,9 @@ describe('Document', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
-    const eventCollectorForTodos0 = new EventCollector<EventForTest>();
-    const eventCollectorForObjC1 = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForTodos0 = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForObjC1 = new EventCollector<Array<OpInfo>>();
     const unsub = d1.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;

@@ -59,12 +59,12 @@ import {
 } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import {
   OpSource,
-  OperationInfo,
-  ObjectOperationInfo,
-  TextOperationInfo,
-  CounterOperationInfo,
-  ArrayOperationInfo,
-  TreeOperationInfo,
+  OpInfo,
+  ObjectOpInfo,
+  TextOpInfo,
+  CounterOpInfo,
+  ArrayOpInfo,
+  TreeOpInfo,
   Operation,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { ArraySetOperation } from '@yorkie-js/sdk/src/document/operation/array_set_operation';
@@ -215,7 +215,7 @@ export enum DocEventType {
  *
  * @public
  */
-export type DocEvent<P extends Indexable = Indexable, T = OperationInfo> =
+export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | StatusChangedEvent
   | ConnectionChangedEvent
   | SyncStatusChangedEvent
@@ -339,7 +339,7 @@ export interface SnapshotEvent extends BaseDocEvent {
  * `ChangeInfo` represents the modifications made during a document update
  * and the message passed.
  */
-export interface ChangeInfo<T = OperationInfo> {
+export interface ChangeInfo<T = OpInfo> {
   message: string;
   operations: Array<T>;
   actor: ActorID;
@@ -353,10 +353,8 @@ export interface ChangeInfo<T = OperationInfo> {
  *
  * @public
  */
-export interface LocalChangeEvent<
-  T = OperationInfo,
-  P extends Indexable = Indexable,
-> extends BaseDocEvent {
+export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
+  extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.LocalChange
    */
@@ -372,10 +370,8 @@ export interface LocalChangeEvent<
  *
  * @public
  */
-export interface RemoteChangeEvent<
-  T = OperationInfo,
-  P extends Indexable = Indexable,
-> extends BaseDocEvent {
+export interface RemoteChangeEvent<T = OpInfo, P extends Indexable = Indexable>
+  extends BaseDocEvent {
   /**
    * enum {@link DocEventType}.RemoteChange
    */
@@ -432,9 +428,7 @@ export interface AuthErrorEvent extends BaseDocEvent {
 
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
-    | SnapshotEvent
-    | LocalChangeEvent<OperationInfo, P>
-    | RemoteChangeEvent<OperationInfo, P>
+    SnapshotEvent | LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P>
   >;
   presence: NextFn<
     | InitializedEvent<P>
@@ -481,62 +475,42 @@ export type Indexable = Record<string, Json>;
 export type DocKey = string;
 
 /**
- * `OperationInfoOfElement` represents the type of the operation info of the given element.
+ * `OpInfoOfElement` represents the type of the operation info of the given element.
  */
-type OperationInfoOfElement<TElement> = TElement extends Text
-  ? TextOperationInfo
-  : TElement extends Counter
-    ? CounterOperationInfo
-    : TElement extends Tree
-      ? TreeOperationInfo
-      : TElement extends BaseArray<any>
-        ? ArrayOperationInfo
-        : TElement extends BaseObject<any>
-          ? ObjectOperationInfo
-          : OperationInfo;
+type OpInfoOfElement<TElem> = TElem extends Text
+  ? TextOpInfo
+  : TElem extends Counter
+    ? CounterOpInfo
+    : TElem extends Tree
+      ? TreeOpInfo
+      : TElem extends BaseArray<any>
+        ? ArrayOpInfo
+        : TElem extends BaseObject<any>
+          ? ObjectOpInfo
+          : OpInfo;
 
 /**
- * `OperationInfoOfInternal` represents the type of the operation info of the
+ * `OpInfoOfInner` represents the type of the operation info of the
  * given path in the Document.subscribe.
- *
- * TODO(easylogic): If the parent is optional, children cannot be inferred.
- * TODO(easylogic): Currently, the below cases of Document.subscribe are confused.
- * ```
- *  type DocType = { obj: { key: string }, text: Text }
- *  $.obj.text ->> obj's operations
- *  $.text ->> text's operations
- * ```
  */
-type OperationInfoOfInternal<
-  TElement,
+type OpInfoOfInner<
+  TElem,
   TKeyOrPath,
   TDepth extends number = 0,
 > = TDepth extends 0
-  ? TElement
+  ? OpInfoOfElement<TElem>
   : TKeyOrPath extends `${infer TFirst}.${infer TRest}`
-    ? TFirst extends keyof TElement
-      ? TElement[TFirst] extends BaseArray<unknown>
-        ? OperationInfoOfInternal<
-            TElement[TFirst],
-            number,
-            DecreasedDepthOf<TDepth>
-          >
-        : OperationInfoOfInternal<
-            TElement[TFirst],
-            TRest,
-            DecreasedDepthOf<TDepth>
-          >
-      : OperationInfo
-    : TKeyOrPath extends keyof TElement
-      ? TElement[TKeyOrPath] extends BaseArray<unknown>
-        ? ArrayOperationInfo
-        : OperationInfoOfElement<TElement[TKeyOrPath]>
-      : OperationInfo;
+    ? TFirst extends keyof TElem
+      ? OpInfoOfInner<TElem[TFirst], TRest, DecreasedDepthOf<TDepth>>
+      : OpInfo
+    : TKeyOrPath extends keyof TElem
+      ? OpInfoOfElement<TElem[TKeyOrPath]>
+      : OpInfo;
 
 /**
  * `DecreasedDepthOf` represents the type of the decreased depth of the given depth.
  */
-type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
+type DecreasedDepthOf<Depth extends number> = Depth extends 10
   ? 9
   : Depth extends 9
     ? 8
@@ -559,59 +533,55 @@ type DecreasedDepthOf<Depth extends number = 0> = Depth extends 10
                     : -1;
 
 /**
- * `PathOfInternal` represents the type of the path of the given element.
+ * `PathOfInner` represents the type of the path of the given element.
  */
-type PathOfInternal<
-  TElement,
+type PathOfInner<
+  TElem,
   Prefix extends string = '',
   Depth extends number = 0,
 > = Depth extends 0
   ? Prefix
-  : TElement extends Record<string, any>
+  : TElem extends Record<string, any>
     ? {
-        [TKey in keyof TElement]: TElement[TKey] extends LeafElement
+        [TKey in keyof TElem]: TElem[TKey] extends LeafElement
           ? `${Prefix}${TKey & string}`
-          : TElement[TKey] extends BaseArray<infer TArrayElement>
+          : TElem[TKey] extends BaseArray<infer TArrayElement>
             ?
                 | `${Prefix}${TKey & string}`
                 | `${Prefix}${TKey & string}.${number}`
-                | PathOfInternal<
+                | PathOfInner<
                     TArrayElement,
                     `${Prefix}${TKey & string}.${number}.`,
                     DecreasedDepthOf<Depth>
                   >
             :
                 | `${Prefix}${TKey & string}`
-                | PathOfInternal<
-                    TElement[TKey],
+                | PathOfInner<
+                    TElem[TKey],
                     `${Prefix}${TKey & string}.`,
                     DecreasedDepthOf<Depth>
                   >;
-      }[keyof TElement]
+      }[keyof TElem]
     : Prefix extends `${infer TRest}.`
       ? TRest
       : Prefix;
 
 /**
- * `OperationInfoOf` represents the type of the operation info of the given
+ * `OpInfoOf` represents the type of the operation info of the given
  * path in the Document.subscribe. It is used to remove the `$.` prefix.
  */
-type OperationInfoOf<
-  TDocument,
+type OpInfoOf<
+  TRoot,
   TKey extends string = '',
   TDepth extends number = 10,
 > = TKey extends `$.${infer TPath}`
-  ? OperationInfoOfInternal<TDocument, TPath, TDepth>
-  : OperationInfoOfInternal<TDocument, TKey, TDepth>;
+  ? OpInfoOfInner<TRoot, TPath, TDepth>
+  : OpInfoOfInner<TRoot, TKey, TDepth>;
 
 /**
- * `PathOf` represents the type of the all possible paths in the Document.subscribe.
+ * `PathOf` represents the type of all possible paths in the Document.subscribe.
  */
-type PathOf<TDocument, Depth extends number = 10> = PathOfInternal<
-  TDocument,
-  '$.',
-  Depth
->;
+type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 
 /**
  * `Document` is a CRDT-based data type. We can represent the model
@@ -931,14 +901,9 @@ export class Document<R, P extends Indexable = Indexable> {
    * `subscribe` registers a callback to subscribe to events on the document.
    * The callback will be called when the targetPath or any of its nested values change.
    */
-  public subscribe<
-    TPath extends PathOf<R>,
-    TOperationInfo extends OperationInfoOf<R, TPath>,
-  >(
+  public subscribe<TPath extends PathOf<R>, TOpInfo extends OpInfoOf<R, TPath>>(
     targetPath: TPath,
-    next: NextFn<
-      LocalChangeEvent<TOperationInfo, P> | RemoteChangeEvent<TOperationInfo, P>
-    >,
+    next: NextFn<LocalChangeEvent<TOpInfo, P> | RemoteChangeEvent<TOpInfo, P>>,
     error?: ErrorFn,
     complete?: CompleteFn,
   ): Unsubscribe;
@@ -981,16 +946,10 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
    */
-  public subscribe<
-    TPath extends PathOf<R>,
-    TOperationInfo extends OperationInfoOf<R, TPath>,
-  >(
+  public subscribe<TPath extends PathOf<R>, TOpInfo extends OpInfoOf<R, TPath>>(
     arg1: TPath | DocEventTopic | DocEventCallbackMap<P>['default'],
     arg2?:
-      | NextFn<
-          | LocalChangeEvent<TOperationInfo, P>
-          | RemoteChangeEvent<TOperationInfo, P>
-        >
+      | NextFn<LocalChangeEvent<TOpInfo, P> | RemoteChangeEvent<TOpInfo, P>>
       | DocEventCallback<P>
       | ErrorFn,
     arg3?: ErrorFn | CompleteFn,
@@ -1159,8 +1118,7 @@ export class Document<R, P extends Indexable = Indexable> {
       }
       const target = arg1;
       const callback = arg2 as NextFn<
-        | LocalChangeEvent<TOperationInfo, P>
-        | RemoteChangeEvent<TOperationInfo, P>
+        LocalChangeEvent<TOpInfo, P> | RemoteChangeEvent<TOpInfo, P>
       >;
       return this.eventStream.subscribe(
         (event) => {
@@ -1172,10 +1130,10 @@ export class Document<R, P extends Indexable = Indexable> {
               continue;
             }
 
-            const targetOps: Array<TOperationInfo> = [];
+            const targetOps: Array<TOpInfo> = [];
             for (const op of docEvent.value.operations) {
               if (this.isSameElementOrChildOf(op.path, target)) {
-                targetOps.push(op as TOperationInfo);
+                targetOps.push(op as TOpInfo);
               }
             }
 

@@ -23,7 +23,7 @@ import {
   CRDTTreeNodeID,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
-  OperationInfo,
+  OpInfo,
   Operation,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import {
@@ -213,10 +213,7 @@ export class TextView {
     this.value = '';
   }
 
-  public applyOperations(
-    operations: Array<OperationInfo>,
-    enableLog = false,
-  ): void {
+  public applyOperations(operations: Array<OpInfo>, enableLog = false): void {
     const oldValue = this.value;
     const changeLogs = [];
     for (const op of operations) {

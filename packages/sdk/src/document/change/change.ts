@@ -18,7 +18,7 @@ import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import {
   OpSource,
   Operation,
-  OperationInfo,
+  OpInfo,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
@@ -155,10 +155,10 @@ export class Change<P extends Indexable> {
     presences: Map<ActorID, P>,
     source: OpSource,
   ): {
-    opInfos: Array<OperationInfo>;
+    opInfos: Array<OpInfo>;
     reverseOps: Array<HistoryOperation<P>>;
   } {
-    const changeOpInfos: Array<OperationInfo> = [];
+    const changeOpInfos: Array<OpInfo> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
 
     for (const operation of this.operations) {

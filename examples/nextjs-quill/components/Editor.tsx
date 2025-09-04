@@ -1,7 +1,7 @@
 'use client';
 
 import { useDocument } from '@yorkie-js/react';
-import { Indexable, OperationInfo, Text } from '@yorkie-js/sdk';
+import { Indexable, Text } from '@yorkie-js/sdk';
 import Quill, { Delta, QuillOptions } from 'quill';
 import 'quill/dist/quill.snow.css';
 import { useCallback, useEffect, useRef } from 'react';
@@ -39,7 +39,7 @@ const Editor = () => {
   const { doc, update, loading, error } = useDocument<YorkieDoc>();
 
   // Handle remote operations and apply them to Quill editor
-  const handleOperations = useCallback((ops: OperationInfo[]) => {
+  const handleOperations = useCallback((ops) => {
     if (!quillRef.current) return;
 
     const deltaOperations = getDeltaOperations(ops);

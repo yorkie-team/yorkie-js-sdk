@@ -34,44 +34,44 @@ export enum OpSource {
 }
 
 /**
- * `OperationInfo` represents the information of an operation.
+ * `OpInfo` represents the information of an operation.
  * It is used to inform to the user what kind of operation was executed.
  */
-export type OperationInfo =
-  | TextOperationInfo
-  | CounterOperationInfo
-  | ArrayOperationInfo
-  | ObjectOperationInfo
-  | TreeOperationInfo;
+export type OpInfo =
+  | TextOpInfo
+  | CounterOpInfo
+  | ArrayOpInfo
+  | ObjectOpInfo
+  | TreeOpInfo;
 
 /**
- * `TextOperationInfo` represents the OperationInfo for the yorkie.Text.
+ * `TextOpInfo` represents the OperationInfo for the yorkie.Text.
  */
-export type TextOperationInfo = EditOpInfo | StyleOpInfo;
+export type TextOpInfo = EditOpInfo | StyleOpInfo;
 
 /**
- * `CounterOperationInfo` represents the OperationInfo for the yorkie.Counter.
+ * `CounterOpInfo` represents the OperationInfo for the yorkie.Counter.
  */
-export type CounterOperationInfo = IncreaseOpInfo;
+export type CounterOpInfo = IncreaseOpInfo;
 
 /**
- * `ArrayOperationInfo` represents the OperationInfo for the JSONArray.
+ * `ArrayOpInfo` represents the OperationInfo for the JSONArray.
  */
-export type ArrayOperationInfo =
+export type ArrayOpInfo =
   | AddOpInfo
   | RemoveOpInfo
   | MoveOpInfo
   | ArraySetOpInfo;
 
 /**
- * `ObjectOperationInfo` represents the OperationInfo for the JSONObject.
+ * `ObjectOpInfo` represents the OperationInfo for the JSONObject.
  */
-export type ObjectOperationInfo = SetOpInfo | RemoveOpInfo;
+export type ObjectOpInfo = SetOpInfo | RemoveOpInfo;
 
 /**
- * `TreeOperationInfo` represents the OperationInfo for the yorkie.Tree.
+ * `TreeOpInfo` represents the OperationInfo for the yorkie.Tree.
  */
-export type TreeOperationInfo = TreeEditOpInfo | TreeStyleOpInfo;
+export type TreeOpInfo = TreeEditOpInfo | TreeStyleOpInfo;
 
 /**
  * `AddOpInfo` represents the information of the add operation.
@@ -189,7 +189,7 @@ export type TreeStyleOpInfo = {
  * `ExecutionResult` represents the result of operation execution.
  */
 export type ExecutionResult = {
-  opInfos: Array<OperationInfo>;
+  opInfos: Array<OpInfo>;
   // TODO(chacha912): After implementing all of the reverseOperation,
   // we change the type to non-optional.
   reverseOp?: Operation;
