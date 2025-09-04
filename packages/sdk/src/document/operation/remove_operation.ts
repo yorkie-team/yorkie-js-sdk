@@ -19,7 +19,7 @@ import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   OpSource,
   Operation,
-  OperationInfo,
+  OpInfo,
   ExecutionResult,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import {
@@ -99,7 +99,7 @@ export class RemoveOperation extends Operation {
     const elem = container.delete(this.createdAt, this.getExecutedAt());
     root.registerRemovedElement(elem);
 
-    const opInfos: Array<OperationInfo> =
+    const opInfos: Array<OpInfo> =
       container instanceof CRDTArray
         ? [
             {

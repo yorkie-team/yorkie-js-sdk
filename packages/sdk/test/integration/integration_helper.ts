@@ -1,8 +1,7 @@
 import { assert } from 'vitest';
 import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import { Client } from '@yorkie-js/sdk/src/client/client';
-import { Document } from '@yorkie-js/sdk/src/document/document';
-import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { execSync } from 'child_process';
 
 export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://127.0.0.1:8080';

@@ -25,7 +25,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   Operation,
-  OperationInfo,
+  OpInfo,
   ExecutionResult,
   OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
@@ -145,7 +145,7 @@ export class TreeEditOperation extends Operation {
             splitLevel,
             fromPath,
             toPath,
-          } as OperationInfo;
+          } as OpInfo;
         },
       ),
     };

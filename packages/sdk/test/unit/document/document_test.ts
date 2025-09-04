@@ -22,7 +22,7 @@ import {
 } from '@yorkie-js/sdk/test/helper/helper';
 
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
-import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
+import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import yorkie, {
   JSONArray,
   Text,
@@ -972,8 +972,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for object', async function () {
     const doc = new Document<any>('test-doc');
 
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1017,8 +1016,7 @@ describe.sequential('Document', function () {
 
   it('changeInfo test for array', async function () {
     const doc = new Document<any>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1050,8 +1048,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for counter', async function () {
     type TestDoc = { cnt: Counter };
     const doc = new Document<TestDoc>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1104,8 +1101,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for text', async function () {
     type TestDoc = { text: Text };
     const doc = new Document<TestDoc>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1135,8 +1131,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for text with attributes', async function () {
     type TestDoc = { textWithAttr: Text };
     const doc = new Document<TestDoc>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1358,7 +1353,7 @@ describe.sequential('Document', function () {
     });
   });
 
-  it('check OperationInfo type for subscribe path', function () {
+  it('check OpInfo type for subscribe path', function () {
     const doc = new Document<{
       num?: number;
       b: { c: Array<number>; d: { e: { fname: Array<number> } } };
@@ -1404,11 +1399,7 @@ describe.sequential('Document', function () {
     doc.update((root) => {
       root.b = {
         c: [],
-        d: {
-          e: {
-            fname: [],
-          },
-        },
+        d: { e: { fname: [] } },
       };
 
       root.b.d.e.fname.push(1);

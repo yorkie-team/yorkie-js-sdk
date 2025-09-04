@@ -1,5 +1,5 @@
 import { describe, it, assert } from 'vitest';
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Client } from '@yorkie-js/sdk/src/client/client';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
@@ -9,7 +9,6 @@ import {
   TimeTicket,
 } from '@yorkie-js/sdk/src/yorkie';
 import { maxVectorOf } from '../helper/helper';
-import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {

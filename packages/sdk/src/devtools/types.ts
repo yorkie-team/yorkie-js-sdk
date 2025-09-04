@@ -31,7 +31,7 @@ import {
   type UnwatchedEvent,
   type PresenceChangedEvent,
 } from '@yorkie-js/sdk/src/document/document';
-import type { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
+import type { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 
 /**
  * `Client` represents a client value in devtools.
@@ -103,10 +103,7 @@ export type TreeNodeInfo = {
 /**
  * `DocEventForReplay` is an event used to replay a document.
  */
-export type DocEventForReplay<
-  P extends Indexable = Indexable,
-  T = OperationInfo,
-> =
+export type DocEventForReplay<P extends Indexable = Indexable, T = OpInfo> =
   | StatusChangedEvent
   | SnapshotEvent
   | LocalChangeEvent<T, P>

@@ -22,7 +22,6 @@ import {
   toDocKey,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import yorkie, { SyncMode, Tree } from '@yorkie-js/sdk/src/yorkie';
-import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
 
 function parseSimpleXML(s: string): Array<string> {
   const res: Array<string> = [];
@@ -137,11 +136,7 @@ enum EditOpCode {
 }
 
 interface OperationInterface {
-  run(
-    doc: Document<{ t: Tree }, Indexable>,
-    user: number,
-    ranges: TwoRangesType,
-  ): void;
+  run(doc: Document<{ t: Tree }>, user: number, ranges: TwoRangesType): void;
   getDesc(): string;
 }
 
@@ -158,11 +153,7 @@ class StyleOperationType implements OperationInterface {
     return this.desc;
   }
 
-  async run(
-    doc: Document<{ t: Tree }, Indexable>,
-    user: number,
-    ranges: TwoRangesType,
-  ) {
+  async run(doc: Document<{ t: Tree }>, user: number, ranges: TwoRangesType) {
     const interval = getRange(ranges, this.selector, user);
     const { from, to } = interval;
 
@@ -191,11 +182,7 @@ class EditOperationType implements OperationInterface {
     return this.desc;
   }
 
-  async run(
-    doc: Document<{ t: Tree }, Indexable>,
-    user: number,
-    ranges: TwoRangesType,
-  ) {
+  async run(doc: Document<{ t: Tree }>, user: number, ranges: TwoRangesType) {
     const interval = getRange(ranges, this.selector, user);
     const { from, to } = interval;
 

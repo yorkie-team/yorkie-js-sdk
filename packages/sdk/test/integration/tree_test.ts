@@ -30,7 +30,10 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
-import { toXML } from '@yorkie-js/sdk/src/document/crdt/tree';
+import {
+  toXML,
+  TreePosStructRange,
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -894,7 +897,10 @@ describe('Tree', () => {
   it('Should return correct range from index within doc.subscribe', async function ({
     task,
   }) {
-    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<
+      { t: Tree },
+      { selection: TreePosStructRange }
+    >(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
           type: 'doc',
