@@ -1,6 +1,7 @@
 import type { EditOpInfo, OperationInfo } from '@yorkie-js/sdk';
 import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';
+import { keymap } from '@codemirror/view';
 import { Transaction, TransactionSpec } from '@codemirror/state';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
@@ -74,8 +75,14 @@ async function main() {
     }
   });
 
+  // Apply both remote changes and undo/redo-driven local changes coming from Yorkie.
   doc.subscribe('$.content', (event) => {
-    if (event.type === 'remote-change') {
+    // `remote-change` -> changes from other peers
+    // `source === 'undoredo'` -> undo/redo executed via Yorkie (local but applied through history)
+    if (
+      event.type === 'remote-change' ||
+      (event as any).source === 'undoredo'
+    ) {
       const { operations } = event.value;
       handleOperations(operations);
     }
@@ -87,7 +94,10 @@ async function main() {
   const updateListener = EditorView.updateListener.of((viewUpdate) => {
     if (viewUpdate.docChanged) {
       for (const tr of viewUpdate.transactions) {
-        const events = ['select', 'input', 'delete', 'move', 'undo', 'redo'];
+        // Note: undo/redo keyboard handling is intercepted by a custom keymap
+        // so we don't treat native CM undo/redo transactions as local
+        // operations to send to Yorkie here.
+        const events = ['select', 'input', 'delete', 'move'];
         if (!events.map((event) => tr.isUserEvent(event)).some(Boolean)) {
           continue;
         }
@@ -132,15 +142,60 @@ async function main() {
     });
   });
 
+  // Intercept keyboard undo/redo and route through Yorkie's history.
+  // This ensures multi-user undo/redo is coordinated by Yorkie and the
+  // local CodeMirror undo stack doesn't diverge.
+  const cmUndoRedoKeymap = keymap.of([
+    {
+      key: 'Mod-z',
+      run: () => {
+        console.log('undo');
+        if (doc.history.canUndo()) {
+          doc.history.undo();
+          return true;
+        }
+        return false;
+      },
+    },
+    {
+      key: 'Mod-y',
+      run: () => {
+        console.log('redo');
+        if (doc.history.canRedo()) {
+          doc.history.redo();
+          return true;
+        }
+        return false;
+      },
+    },
+    {
+      key: 'Mod-Shift-z',
+      run: () => {
+        console.log('redo');
+        if (doc.history.canRedo()) {
+          doc.history.redo();
+          return true;
+        }
+        return false;
+      },
+    },
+  ]);
+
   // 03-2. create codemirror instance
   // Height: show about 10 lines without needing actual blank text lines.
   // Adjust the px value if font-size/line-height changes.
   const fixedHeightTheme = EditorView.theme({
     '.cm-content, .cm-gutter': { minHeight: '210px' }, // ~10 lines (≈21px per line including padding)
   });
+  console.log('EditorView', EditorView);
   const view = new EditorView({
     doc: '',
-    extensions: [basicSetup, fixedHeightTheme, updateListener],
+    extensions: [
+      basicSetup,
+      fixedHeightTheme,
+      cmUndoRedoKeymap,
+      updateListener,
+    ],
     parent: editorParentElem,
   });
 

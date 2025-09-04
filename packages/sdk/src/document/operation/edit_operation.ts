@@ -18,7 +18,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
   OperationInfo,
@@ -37,6 +37,7 @@ export class EditOperation extends Operation {
   private toPos: RGATreeSplitPos;
   private content: string;
   private attributes: Map<string, string>;
+  private isUndoOp: boolean | undefined;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -44,13 +45,15 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
+    isUndoOp?: boolean,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.content = content;
     this.attributes = attributes;
+    this.isUndoOp = isUndoOp;
   }
 
   /**
@@ -62,7 +65,8 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
+    isUndoOp?: boolean,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -71,6 +75,7 @@ export class EditOperation extends Operation {
       content,
       attributes,
       executedAt,
+      isUndoOp,
     );
   }
 
@@ -95,9 +100,12 @@ export class EditOperation extends Operation {
         `fail to execute, only Text can execute edit`,
       );
     }
-
     const text = parentObject as CRDTText<A>;
-    const [changes, pairs, diff] = text.edit(
+
+    if (this.isUndoOp && !this.fromPos.equals(this.toPos)) {
+      this.toPos = text.refinePos(this.toPos);
+    }
+    const [changes, pairs, diff, , removed] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -105,11 +113,14 @@ export class EditOperation extends Operation {
       versionVector,
     );
 
-    root.acc(diff);
+    const reverseOp = this.toReverseOperation(removed);
 
+    root.acc(diff);
     for (const pair of pairs) {
       root.registerGCPair(pair);
     }
+
+    console.log(`gcLock: ${this.fromPos.getID().getCreatedAt().toIDString()}`);
 
     return {
       opInfos: changes.map(({ from, to, value }) => {
@@ -121,7 +132,56 @@ export class EditOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OperationInfo;
       }),
+      reverseOp,
+      gcLock: this.fromPos.getID().toIDString(),
     };
+  }
+  /**
+   * `toReverseOperation` creates the reverse EditOperation for undo.
+   *
+   * - Restores the content and attributes from `removedValues`.
+   *   - If multiple values were removed, their contents are concatenated.
+   *   - If exactly one value was removed, its attributes are also restored.
+   * - Computes the target range for the reverse operation:
+   *   - `fromPos`: the original start position of this edit.
+   *   - `toPos`  : fromPos advanced by the length of inserted content
+   *     → This ensures that the reverse operation deletes the text
+   *       that was inserted by the original operation. (by refinePos)
+   * - Returns a new `EditOperation` that, when executed, restores
+   *   the removed content and attributes in place of the inserted one.
+   */
+
+  private toReverseOperation(
+    removedValues: Array<CRDTTextValue>,
+  ): Operation | undefined {
+    // 1) Content
+    const restoredContent =
+      removedValues && removedValues.length !== 0
+        ? removedValues.map((v) => v.getContent()).join('')
+        : '';
+
+    // 2) Arttibute
+    let restoredAttrs: Array<[string, string]> | undefined;
+    if (removedValues.length === 1) {
+      const attrsObj = removedValues[0].getAttributes();
+      if (attrsObj) {
+        restoredAttrs = Array.from(Object.entries(attrsObj as any));
+      }
+    }
+
+    // 3) Create Reverse Operation
+    return EditOperation.create(
+      this.getParentCreatedAt(),
+      this.fromPos,
+      RGATreeSplitPos.of(
+        this.fromPos.getID(),
+        this.fromPos.getRelativeOffset() + (this.content?.length ?? 0),
+      ),
+      restoredContent,
+      restoredAttrs ? new Map(restoredAttrs) : new Map(),
+      undefined,
+      true,
+    );
   }
 
   /**
