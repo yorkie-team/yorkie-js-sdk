@@ -79,10 +79,6 @@ export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | Counter
   | Tree;
 
-export type LeafElement = PrimitiveValue | Primitive | Text | Counter | Tree;
-export type BaseArray<T> = JSONArray<T> | Array<T>;
-export type BaseObject<T> = JSONObject<T> | T;
-
 /**
  * `toWrappedElement` converts the CRDT type to `WrappedElement`.
  */
