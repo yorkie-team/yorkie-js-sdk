@@ -36,8 +36,6 @@ export type CounterValue = number | Long;
 /**
  * `CRDTCounter` is a CRDT implementation of a counter. It is used to represent
  * a number that can be incremented or decremented.
- *
- * @internal
  */
 export class CRDTCounter extends CRDTElement {
   private valueType: CounterType;

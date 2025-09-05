@@ -69,7 +69,6 @@ export class Text<A extends Indexable = Indexable> {
 
   /**
    * `initialize` initialize this text with context and internal text.
-   * @internal
    */
   public initialize(context: ChangeContext, text: CRDTText<A>): void {
     this.context = context;
@@ -321,7 +320,6 @@ export class Text<A extends Indexable = Indexable> {
 
   /**
    * `toJSForTest` returns value with meta data for testing.
-   * @internal
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.text) {

@@ -232,8 +232,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
   /**
    * `edit` edits the given range with the given value and attributes.
-   *
-   * @internal
    */
   public edit(
     range: RGATreeSplitPosRange,
@@ -281,7 +279,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * @param range - range of RGATreeSplitNode
    * @param attributes - style attributes
    * @param editedAt - edited time
-   * @internal
    */
   public setStyle(
     range: RGATreeSplitPosRange,
@@ -477,8 +474,6 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
   /**
    * `getRGATreeSplit` returns rgaTreeSplit.
-   *
-   * @internal
    */
   public getRGATreeSplit(): RGATreeSplit<CRDTTextValue> {
     return this.rgaTreeSplit;

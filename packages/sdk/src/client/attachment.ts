@@ -1,3 +1,19 @@
+/*
+ * Copyright 2025 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Unsubscribe } from '../yorkie';
@@ -12,16 +28,16 @@ export type WatchStream = any; // TODO(hackerwins): Define proper type of watchS
  */
 export class Attachment<T, P extends Indexable> {
   // TODO(hackerwins): Consider to changing the modifiers of the following properties to private.
-  private reconnectStreamDelay: number;
   doc: Document<T, P>;
   docID: string;
   syncMode: SyncMode;
   remoteChangeEventReceived: boolean;
-  cancelled: boolean;
 
-  watchStream?: WatchStream;
-  watchLoopTimerID?: ReturnType<typeof setTimeout>;
-  watchAbortController?: AbortController;
+  private reconnectStreamDelay: number;
+  private cancelled: boolean;
+  private watchStream?: WatchStream;
+  private watchLoopTimerID?: ReturnType<typeof setTimeout>;
+  private watchAbortController?: AbortController;
 
   unsubscribeBroadcastEvent: Unsubscribe;
 

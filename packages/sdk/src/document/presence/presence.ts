@@ -55,7 +55,6 @@ export class Presence<P extends Indexable> {
 
   /**
    * `clear` clears the presence.
-   * @internal
    */
   public clear() {
     this.presence = {} as P;

@@ -139,8 +139,6 @@ export { Devtools };
  * assigned to the `yorkie` global.
  *
  * e.g) `new yorkie.Client(...);`
- *
- * @public
  */
 export default {
   Client,

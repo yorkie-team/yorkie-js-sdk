@@ -122,7 +122,6 @@ export type JSONArray<T> = {
 
   /**
    * `toJSForTest` returns the JSON object of this array for debugging.
-   * @internal
    */
   toJSForTest(): Devtools.JSONElement;
 } & Array<T>;

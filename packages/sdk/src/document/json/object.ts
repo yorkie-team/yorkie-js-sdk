@@ -50,7 +50,6 @@ export type JSONObject<T> = {
 
   /**
    * `toJSForTest` returns the JSON object of this object for debugging.
-   * @internal
    */
   toJSForTest(): Devtools.JSONElement;
 } & T;

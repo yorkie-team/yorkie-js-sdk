@@ -15,11 +15,11 @@
  */
 import type { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
-import { Rule } from '@yorkie-js/schema';
-import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
+import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 import {
   Observer,
   Observable,
@@ -33,6 +33,7 @@ import {
   ActorID,
   InitialActorID,
 } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
   ChangeStruct,
@@ -42,17 +43,7 @@ import {
   InitialChangeID,
 } from '@yorkie-js/sdk/src/document/change/change_id';
 import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
-import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
-import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
-import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import {
-  createJSON,
-  JSONElement,
-  LeafElement,
-  BaseArray,
-  BaseObject,
-} from '@yorkie-js/sdk/src/document/json/element';
 import {
   Checkpoint,
   InitialCheckpoint,
@@ -69,22 +60,31 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { ArraySetOperation } from '@yorkie-js/sdk/src/document/operation/array_set_operation';
 import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
+import {
+  createJSON,
+  JSONElement,
+} from '@yorkie-js/sdk/src/document/json/element';
+import { JSONArray } from '@yorkie-js/sdk/src/document/json/array';
 import { JSONObject } from '@yorkie-js/sdk/src/document/json/object';
 import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
+import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { Presence } from '@yorkie-js/sdk/src/document/presence/presence';
 import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
 import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
+import {
+  Primitive,
+  PrimitiveValue,
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { Rule } from '@yorkie-js/schema';
+import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { VersionVector } from './time/version_vector';
-import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
- *
- * @public
  */
 export interface BroadcastOptions {
   /**
@@ -100,8 +100,6 @@ export interface BroadcastOptions {
 
 /**
  * `DocumentOptions` are the options to create a new document.
- *
- * @public
  */
 export interface DocumentOptions {
   /**
@@ -117,7 +115,6 @@ export interface DocumentOptions {
 
 /**
  * `DocStatus` represents the status of the document.
- * @public
  */
 export enum DocStatus {
   /**
@@ -139,7 +136,6 @@ export enum DocStatus {
 
 /**
  * `DocEventType` represents the type of the event that occurs in `Document`.
- * @public
  */
 export enum DocEventType {
   /**
@@ -212,8 +208,6 @@ export enum DocEventType {
 /**
  * `DocEvent` is an event that occurs in `Document`. It can be delivered
  * using `Document.subscribe()`.
- *
- * @public
  */
 export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | StatusChangedEvent
@@ -222,10 +216,7 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | SnapshotEvent
   | LocalChangeEvent<T, P>
   | RemoteChangeEvent<T, P>
-  | InitializedEvent<P>
-  | WatchedEvent<P>
-  | UnwatchedEvent<P>
-  | PresenceChangedEvent<P>
+  | PresenceEvent<P>
   | BroadcastEvent
   | LocalBroadcastEvent
   | AuthErrorEvent;
@@ -236,22 +227,14 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
  */
 export type DocEvents<P extends Indexable = Indexable> = Array<DocEvent<P>>;
 
-/**
- * @internal
- */
-export interface BaseDocEvent {
+interface BaseDocEvent {
   type: DocEventType;
 }
 
 /**
  * `StatusChangedEvent` is an event that occurs when the status of a document changes.
- *
- * @public
  */
 export interface StatusChangedEvent extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.StatusChanged
-   */
   type: DocEventType.StatusChanged;
   source: OpSource;
   value:
@@ -262,13 +245,13 @@ export interface StatusChangedEvent extends BaseDocEvent {
 
 /**
  * `StreamConnectionStatus` represents whether the stream connection is connected or not.
- * @public
  */
 export enum StreamConnectionStatus {
   /**
    * `Connected` means that the stream connection is connected.
    */
   Connected = 'connected',
+
   /**
    * `Disconnected` means that the stream connection is disconnected.
    */
@@ -277,26 +260,21 @@ export enum StreamConnectionStatus {
 
 /**
  * `ConnectionChangedEvent` is an event that occurs when the stream connection state changes.
- *
- * @public
  */
 export interface ConnectionChangedEvent extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.ConnectionChanged
-   */
   type: DocEventType.ConnectionChanged;
   value: StreamConnectionStatus;
 }
 
 /**
  * `DocSyncStatus` represents the result of synchronizing the document with the server.
- * @public
  */
 export enum DocSyncStatus {
   /**
    * `Synced` means that document synced successfully.
    */
   Synced = 'synced',
+
   /**
    * `SyncFiled` means that document synchronization has failed.
    */
@@ -305,13 +283,8 @@ export enum DocSyncStatus {
 
 /**
  * `SyncStatusChangedEvent` is an event that occurs when document is synced with the server.
- *
- * @public
  */
 export interface SyncStatusChangedEvent extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.SyncStatusChanged
-   */
   type: DocEventType.SyncStatusChanged;
   value: DocSyncStatus;
 }
@@ -319,13 +292,8 @@ export interface SyncStatusChangedEvent extends BaseDocEvent {
 /**
  * `SnapshotEvent` is an event that occurs when a snapshot is received from
  * the server.
- *
- * @public
  */
 export interface SnapshotEvent extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.Snapshot
-   */
   type: DocEventType.Snapshot;
   source: OpSource.Remote;
   value: {
@@ -348,16 +316,20 @@ export interface ChangeInfo<T = OpInfo> {
 }
 
 /**
+ * `PresenceEvent` is an event that occurs when the presence of a client changes.
+ */
+export type PresenceEvent<P extends Indexable = Indexable> =
+  | InitializedEvent<P>
+  | WatchedEvent<P>
+  | UnwatchedEvent<P>
+  | PresenceChangedEvent<P>;
+
+/**
  * `LocalChangeEvent` is an event that occurs when the document is changed
  * by local changes.
- *
- * @public
  */
 export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
   extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.LocalChange
-   */
   type: DocEventType.LocalChange;
   source: OpSource.Local | OpSource.UndoRedo;
   value: ChangeInfo<T>;
@@ -367,14 +339,9 @@ export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
 /**
  * `RemoteChangeEvent` is an event that occurs when the document is changed
  * by remote changes.
- *
- * @public
  */
 export interface RemoteChangeEvent<T = OpInfo, P extends Indexable = Indexable>
   extends BaseDocEvent {
-  /**
-   * enum {@link DocEventType}.RemoteChange
-   */
   type: DocEventType.RemoteChange;
   source: OpSource.Remote;
   value: ChangeInfo<T>;
@@ -428,14 +395,9 @@ export interface AuthErrorEvent extends BaseDocEvent {
 
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
-    SnapshotEvent | LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P>
+    LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P> | SnapshotEvent
   >;
-  presence: NextFn<
-    | InitializedEvent<P>
-    | WatchedEvent<P>
-    | UnwatchedEvent<P>
-    | PresenceChangedEvent<P>
-  >;
+  presence: NextFn<PresenceEvent<P>>;
   'my-presence': NextFn<InitializedEvent<P> | PresenceChangedEvent<P>>;
   others: NextFn<WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P>>;
   connection: NextFn<ConnectionChangedEvent>;
@@ -465,15 +427,17 @@ type JsonObject = { [key: string]: Json | undefined };
  * `Indexable` represents an object with string keys and Json values. It is
  * used to various places such as the presence or attributes of text elements
  * and etc.
- * @public
  */
 export type Indexable = Record<string, Json>;
 
 /**
  * `DocKey` represents the key of the document.
- * @public
  */
 export type DocKey = string;
+
+export type LeafElement = PrimitiveValue | Primitive | Text | Counter | Tree;
+export type BaseArray<T> = JSONArray<T> | Array<T>;
+export type BaseObject<T> = JSONObject<T> | T;
 
 /**
  * `OpInfoOfElement` represents the type of the operation info of the given element.
@@ -587,82 +551,59 @@ type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
- *
- * @public
  */
 export class Document<R, P extends Indexable = Indexable> {
   private key: DocKey;
   private status: DocStatus;
   private opts: DocumentOptions;
+  private maxSizeLimit: number;
+  private schemaRules: Array<Rule>;
 
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
-  private maxSizeLimit: number;
-  private schemaRules: Array<Rule>;
 
   private root: CRDTRoot;
-  private clone?: {
-    root: CRDTRoot;
-    presences: Map<ActorID, P>;
-  };
+  private presences: Map<ActorID, P>;
+  private clone?: { root: CRDTRoot; presences: Map<ActorID, P> };
+  private internalHistory: History<P>;
+  private isUpdating: boolean;
+  private onlineClients: Set<ActorID>;
 
   private eventStream: Observable<DocEvents<P>>;
   private eventStreamObserver!: Observer<DocEvents<P>>;
-
-  /**
-   * `onlineClients` is a set of client IDs that are currently online.
-   */
-  private onlineClients: Set<ActorID>;
-
-  /**
-   * `presences` is a map of client IDs to their presence information.
-   */
-  private presences: Map<ActorID, P>;
 
   /**
    * `history` is exposed to the user to manage undo/redo operations.
    */
   public history;
 
-  /**
-   * `internalHistory` is used to manage undo/redo operations internally.
-   */
-  public internalHistory: History<P>;
-
-  /**
-   * `isUpdating` is whether the document is updating by updater or not. It is
-   * used to prevent the updater from calling undo/redo.
-   */
-  private isUpdating: boolean;
-
   constructor(key: string, opts?: DocumentOptions) {
-    this.opts = opts || {};
-
     this.key = key;
     this.status = DocStatus.Detached;
-    this.root = CRDTRoot.create();
+    this.opts = opts || {};
+    this.maxSizeLimit = 0;
+    this.schemaRules = [];
 
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
-    this.maxSizeLimit = 0;
-    this.schemaRules = [];
 
-    this.eventStream = createObservable<DocEvents<P>>((observer) => {
-      this.eventStreamObserver = observer;
-    });
-
-    this.onlineClients = new Set();
+    this.root = CRDTRoot.create();
     this.presences = new Map();
-
-    this.isUpdating = false;
+    this.onlineClients = new Set();
     this.internalHistory = new History();
+    this.isUpdating = false;
+
+    this.eventStream = createObservable<DocEvents<P>>(
+      (observer) => (this.eventStreamObserver = observer),
+    );
+
     this.history = {
-      canUndo: this.canUndo.bind(this),
-      canRedo: this.canRedo.bind(this),
-      undo: this.undo.bind(this),
-      redo: this.redo.bind(this),
+      canUndo: () => this.internalHistory.hasUndo() && !this.isUpdating,
+      canRedo: () => this.internalHistory.hasRedo() && !this.isUpdating,
+      undo: () => this.executeUndoRedo(true),
+      redo: () => this.executeUndoRedo(false),
     };
 
     setupDevtools(this);
@@ -682,7 +623,7 @@ export class Document<R, P extends Indexable = Indexable> {
     // 01. Update the clone object and create a change.
     this.ensureClone();
     const actorID = this.changeID.getActorID();
-    const context = ChangeContext.create<P>(
+    const ctx = ChangeContext.create<P>(
       this.changeID,
       this.clone!.root,
       this.clone!.presences.get(actorID) || ({} as P),
@@ -691,7 +632,7 @@ export class Document<R, P extends Indexable = Indexable> {
 
     try {
       const proxy = createJSON<JSONObject<R>>(
-        context,
+        ctx,
         this.clone!.root.getObject(),
       );
 
@@ -702,10 +643,7 @@ export class Document<R, P extends Indexable = Indexable> {
       // NOTE(hackerwins): The updater should not be able to call undo/redo.
       // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
-      updater(
-        proxy,
-        new Presence(context, this.clone!.presences.get(actorID)!),
-      );
+      updater(proxy, new Presence(ctx, this.clone!.presences.get(actorID)!));
     } catch (err) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
@@ -716,12 +654,9 @@ export class Document<R, P extends Indexable = Indexable> {
       this.isUpdating = false;
     }
 
-    const schemaRules = this.getSchemaRules();
-    if (!context.isPresenceOnlyChange() && schemaRules.length > 0) {
-      const result = validateYorkieRuleset(
-        this.clone?.root.getObject(),
-        schemaRules,
-      );
+    const rules = this.getSchemaRules();
+    if (!ctx.isPresenceOnlyChange() && rules.length) {
+      const result = validateYorkieRuleset(this.clone?.root.getObject(), rules);
       if (!result.valid) {
         this.clone = undefined;
         throw new YorkieError(
@@ -735,7 +670,7 @@ export class Document<R, P extends Indexable = Indexable> {
 
     const size = totalDocSize(this.clone?.root.getDocSize());
     if (
-      !context.isPresenceOnlyChange() &&
+      !ctx.isPresenceOnlyChange() &&
       this.maxSizeLimit > 0 &&
       this.maxSizeLimit < size
     ) {
@@ -749,12 +684,12 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     // 02. Update the root object and presences from changes.
-    if (context.hasChange()) {
+    if (ctx.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
-      const change = context.toChange();
+      const change = ctx.toChange();
       const { opInfos, reverseOps } = change.execute(
         this.root,
         this.presences,
@@ -773,7 +708,7 @@ export class Document<R, P extends Indexable = Indexable> {
         }
       }
 
-      const reversePresence = context.getReversePresence();
+      const reversePresence = ctx.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
           type: 'presence',
@@ -782,19 +717,19 @@ export class Document<R, P extends Indexable = Indexable> {
       }
 
       this.localChanges.push(change);
-      if (reverseOps.length > 0) {
+      if (reverseOps.length) {
         this.internalHistory.pushUndo(reverseOps);
       }
       // NOTE(chacha912): Clear redo when a new local operation is applied.
-      if (opInfos.length > 0) {
+      if (opInfos.length) {
         this.internalHistory.clearRedo();
       }
-      this.changeID = context.getNextID();
+      this.changeID = ctx.getNextID();
 
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
       const event: DocEvents<P> = [];
-      if (opInfos.length > 0) {
+      if (opInfos.length) {
         event.push({
           type: DocEventType.LocalChange,
           source: OpSource.Local,
@@ -1180,35 +1115,9 @@ export class Document<R, P extends Indexable = Indexable> {
    * `publish` triggers an event in this document, which can be received by
    * callback functions from document.subscribe().
    */
-  public publish(event: DocEvents<P>) {
+  public publish(events: DocEvents<P>) {
     if (this.eventStreamObserver) {
-      this.eventStreamObserver.next(event);
-    }
-  }
-
-  private isSameElementOrChildOf(elem: string, parent: string): boolean {
-    if (parent === elem) {
-      return true;
-    }
-
-    const nodePath = elem.split('.');
-    const targetPath = parent.split('.');
-    return targetPath.every((path, index) => path === nodePath[index]);
-  }
-
-  /**
-   * `removePushedLocalChanges` removes local changes that have been applied to
-   * the server from the local changes.
-   *
-   * @param clientSeq - client sequence number to remove local changes before it
-   */
-  private removePushedLocalChanges(clientSeq: number) {
-    while (this.localChanges.length) {
-      const change = this.localChanges[0];
-      if (change.getID().getClientSeq() > clientSeq) {
-        break;
-      }
-      this.localChanges.shift();
+      this.eventStreamObserver.next(events);
     }
   }
 
@@ -1217,15 +1126,10 @@ export class Document<R, P extends Indexable = Indexable> {
    * 1. Remove local changes applied to server.
    * 2. Update the checkpoint.
    * 3. Do Garbage collection.
-   *
-   * @param pack - change pack
-   * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    const hasSnapshot = pack.hasSnapshot();
-
     // 01. Apply snapshot or changes to the root object.
-    if (hasSnapshot) {
+    if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getVersionVector()!,
@@ -1241,7 +1145,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 03. Do Garbage collection.
-    if (!hasSnapshot) {
+    if (!pack.hasSnapshot()) {
       this.garbageCollect(pack.getVersionVector()!);
     }
 
@@ -1257,8 +1161,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getCheckpoint` returns the checkpoint of this document.
-   *
-   * @internal
    */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
@@ -1266,8 +1168,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getChangeID` returns the change id of this document.
-   *
-   * @internal
    */
   public getChangeID(): ChangeID {
     return this.changeID;
@@ -1282,8 +1182,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `ensureClone` make a clone of root.
-   *
-   * @internal
    */
   public ensureClone(): void {
     if (this.clone) {
@@ -1299,8 +1197,6 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `createChangePack` create change pack of the local changes to send to the
    * remote server.
-   *
-   * @internal
    */
   public createChangePack(): ChangePack<P> {
     const changes = Array.from(this.localChanges);
@@ -1317,8 +1213,6 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
-   *
-   * @internal
    */
   public setActor(actorID: ActorID): void {
     for (const change of this.localChanges) {
@@ -1360,8 +1254,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getCloneRoot` returns clone object.
-   *
-   * @internal
    */
   public getCloneRoot(): CRDTObject | undefined {
     if (!this.clone) {
@@ -1377,12 +1269,12 @@ export class Document<R, P extends Indexable = Indexable> {
   public getRoot(): JSONObject<R> {
     this.ensureClone();
 
-    const context = ChangeContext.create(
+    const ctx = ChangeContext.create(
       this.changeID.next(),
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
-    return createJSON<R>(context, this.clone!.root.getObject());
+    return createJSON<R>(ctx, this.clone!.root.getObject());
   }
 
   /**
@@ -1422,8 +1314,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `garbageCollect` purges elements that were removed before the given time.
-   *
-   * @internal
    */
   public garbageCollect(minSyncedVersionVector: VersionVector): number {
     if (this.opts.disableGC) {
@@ -1438,8 +1328,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getRootObject` returns root object.
-   *
-   * @internal
    */
   public getRootObject(): CRDTObject {
     return this.root.getObject();
@@ -1447,8 +1335,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getGarbageLen` returns the length of elements should be purged.
-   *
-   * @internal
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
@@ -1576,7 +1462,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
-    const event: DocEvents<P> = [];
+    const events: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
     if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
       const presenceChange = change.getPresenceChange()!;
@@ -1586,7 +1472,7 @@ export class Document<R, P extends Indexable = Indexable> {
           // their presence was initially absent, we can consider that we have
           // received their initial presence, so trigger the 'watched' event.
 
-          event.push(
+          events.push(
             this.presences.has(actorID)
               ? {
                   type: DocEventType.PresenceChanged,
@@ -1612,7 +1498,7 @@ export class Document<R, P extends Indexable = Indexable> {
           // occurring before unwatching.
           // Detached user is no longer participating in the document, we remove
           // them from the online clients and trigger the 'unwatched' event.
-          event.push({
+          events.push({
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: {
@@ -1629,9 +1515,9 @@ export class Document<R, P extends Indexable = Indexable> {
 
     const { opInfos } = change.execute(this.root, this.presences, source);
     this.changeID = this.changeID.syncClocks(change.getID());
-    if (opInfos.length > 0) {
+    if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
-      event.push(
+      events.push(
         source === OpSource.Remote
           ? {
               type: DocEventType.RemoteChange,
@@ -1663,8 +1549,8 @@ export class Document<R, P extends Indexable = Indexable> {
     // This is because 3rd party model should be synced with the Document
     // after RemoteChange event is emitted. If the event is emitted
     // asynchronously, the model can be changed and breaking consistency.
-    if (event.length > 0) {
-      this.publish(event);
+    if (events.length) {
+      this.publish(events);
     }
   }
 
@@ -1679,6 +1565,7 @@ export class Document<R, P extends Indexable = Indexable> {
         if (clientID === this.changeID.getActorID()) {
           continue;
         }
+
         onlineClients.add(clientID);
       }
       this.setOnlineClients(onlineClients);
@@ -1695,8 +1582,9 @@ export class Document<R, P extends Indexable = Indexable> {
 
     if (resp.body.case === 'event') {
       const { type, publisher } = resp.body.value;
-      const event: Array<WatchedEvent<P> | UnwatchedEvent<P> | BroadcastEvent> =
-        [];
+      const events: Array<
+        WatchedEvent<P> | UnwatchedEvent<P> | BroadcastEvent
+      > = [];
       if (type === PbDocEventType.DOCUMENT_WATCHED) {
         if (this.onlineClients.has(publisher) && this.hasPresence(publisher)) {
           return;
@@ -1706,7 +1594,7 @@ export class Document<R, P extends Indexable = Indexable> {
         // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
         // unless we also know their initial presence data at this point.
         if (this.hasPresence(publisher)) {
-          event.push({
+          events.push({
             type: DocEventType.Watched,
             source: OpSource.Remote,
             value: {
@@ -1721,7 +1609,7 @@ export class Document<R, P extends Indexable = Indexable> {
         // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
         // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
         if (presence) {
-          event.push({
+          events.push({
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: { clientID: publisher, presence },
@@ -1732,7 +1620,7 @@ export class Document<R, P extends Indexable = Indexable> {
           const { topic, payload } = resp.body.value.body;
           const decoder = new TextDecoder();
 
-          event.push({
+          events.push({
             type: DocEventType.Broadcast,
             value: {
               clientID: publisher,
@@ -1743,8 +1631,8 @@ export class Document<R, P extends Indexable = Indexable> {
         }
       }
 
-      if (event.length > 0) {
-        this.publish(event);
+      if (events.length) {
+        this.publish(events);
       }
     }
   }
@@ -1772,75 +1660,60 @@ export class Document<R, P extends Indexable = Indexable> {
   }
 
   /**
-   * `applyDocEventForReplay` applies the given event into this document.
-   */
-  public applyDocEventForReplay(event: Devtools.DocEventForReplay<P>) {
-    if (event.type === DocEventType.StatusChanged) {
-      this.applyStatus(event.value.status);
-      if (event.value.status === DocStatus.Attached) {
-        this.setActor(event.value.actorID);
-      }
-      return;
-    }
-
-    if (event.type === DocEventType.Snapshot) {
-      const { snapshot, serverSeq, snapshotVector } = event.value;
-      if (!snapshot) return;
-
-      // TODO(hackerwins): We need to check version vector and lamport clock
-      // of the snapshot is valid.
-      this.applySnapshot(
-        BigInt(serverSeq),
-        converter.hexToVersionVector(snapshotVector),
-        converter.hexToBytes(snapshot),
-      );
-      return;
-    }
-
-    if (
-      event.type === DocEventType.LocalChange ||
-      event.type === DocEventType.RemoteChange
-    ) {
-      if (!event.rawChange) return;
-      const change = Change.fromStruct<P>(event.rawChange);
-      this.applyChange(change, event.source);
-    }
-
-    if (event.type === DocEventType.Initialized) {
-      const onlineClients: Set<ActorID> = new Set();
-      for (const { clientID, presence } of event.value) {
-        onlineClients.add(clientID);
-        this.presences.set(clientID, presence);
-      }
-      this.setOnlineClients(onlineClients);
-      return;
-    }
-
-    if (event.type === DocEventType.Watched) {
-      const { clientID, presence } = event.value;
-      this.addOnlineClient(clientID);
-      this.presences.set(clientID, presence);
-      return;
-    }
-
-    if (event.type === DocEventType.Unwatched) {
-      const { clientID } = event.value;
-      this.removeOnlineClient(clientID);
-      this.presences.delete(clientID);
-    }
-
-    if (event.type === DocEventType.PresenceChanged) {
-      const { clientID, presence } = event.value;
-      this.presences.set(clientID, presence);
-    }
-  }
-
-  /**
    * `applyDocEventsForReplay` applies the given events into this document.
    */
-  public applyDocEventsForReplay(event: Array<Devtools.DocEventForReplay<P>>) {
-    for (const docEvent of event) {
-      this.applyDocEventForReplay(docEvent);
+  public applyDocEventsForReplay(events: Array<Devtools.DocEventForReplay<P>>) {
+    for (const event of events) {
+      if (event.type === DocEventType.StatusChanged) {
+        this.applyStatus(event.value.status);
+        if (event.value.status === DocStatus.Attached) {
+          this.setActor(event.value.actorID);
+        }
+        continue;
+      }
+
+      if (event.type === DocEventType.Snapshot) {
+        const { snapshot, serverSeq, snapshotVector } = event.value;
+        if (!snapshot) continue;
+
+        // TODO(hackerwins): We need to check version vector and lamport clock
+        // of the snapshot is valid.
+        this.applySnapshot(
+          BigInt(serverSeq),
+          converter.hexToVersionVector(snapshotVector),
+          converter.hexToBytes(snapshot),
+        );
+        continue;
+      }
+
+      if (
+        event.type === DocEventType.LocalChange ||
+        event.type === DocEventType.RemoteChange
+      ) {
+        if (!event.rawChange) continue;
+        const change = Change.fromStruct<P>(event.rawChange);
+        this.applyChange(change, event.source);
+      }
+
+      if (event.type === DocEventType.Initialized) {
+        const onlineClients: Set<ActorID> = new Set();
+        for (const { clientID, presence } of event.value) {
+          onlineClients.add(clientID);
+          this.presences.set(clientID, presence);
+        }
+        this.setOnlineClients(onlineClients);
+      } else if (event.type === DocEventType.Watched) {
+        const { clientID, presence } = event.value;
+        this.addOnlineClient(clientID);
+        this.presences.set(clientID, presence);
+      } else if (event.type === DocEventType.Unwatched) {
+        const { clientID } = event.value;
+        this.removeOnlineClient(clientID);
+        this.presences.delete(clientID);
+      } else if (event.type === DocEventType.PresenceChanged) {
+        const { clientID, presence } = event.value;
+        this.presences.set(clientID, presence);
+      }
     }
   }
 
@@ -1854,20 +1727,18 @@ export class Document<R, P extends Indexable = Indexable> {
         `path must start with "$"`,
       );
     }
-    const pathArr = path.split('.');
-    pathArr.shift();
+    const paths = path.split('.');
+    paths.shift();
     let value: JSONObject<any> = this.getRoot();
-    for (const key of pathArr) {
+    for (const key of paths) {
       value = value[key];
-      if (value === undefined) return undefined;
+      if (!value) return undefined;
     }
     return value;
   }
 
   /**
    * `setOnlineClients` sets the given online client set.
-   *
-   * @internal
    */
   public setOnlineClients(onlineClients: Set<ActorID>) {
     this.onlineClients = onlineClients;
@@ -1875,8 +1746,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `resetOnlineClients` resets the online client set.
-   *
-   * @internal
    */
   public resetOnlineClients() {
     this.onlineClients = new Set();
@@ -1884,8 +1753,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `addOnlineClient` adds the given clientID into the online client set.
-   *
-   * @internal
    */
   public addOnlineClient(clientID: ActorID) {
     this.onlineClients.add(clientID);
@@ -1893,8 +1760,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `removeOnlineClient` removes the clientID from the online client set.
-   *
-   * @internal
    */
   public removeOnlineClient(clientID: ActorID) {
     this.onlineClients.delete(clientID);
@@ -1902,8 +1767,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `hasPresence` returns whether the given clientID has a presence or not.
-   *
-   * @internal
    */
   public hasPresence(clientID: ActorID): boolean {
     return this.presences.has(clientID);
@@ -1979,8 +1842,6 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `getPresenceForTest` returns the presence of the given clientID
    * regardless of whether the client is online or not.
-   *
-   * @internal
    */
   public getPresenceForTest(clientID: ActorID): P | undefined {
     const p = this.presences.get(clientID);
@@ -1989,8 +1850,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getSelfForTest` returns the client that has attached this document.
-   *
-   * @internal
    */
   public getSelfForTest() {
     return {
@@ -2001,8 +1860,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getOthersForTest` returns all the other clients in online, sorted by clientID.
-   *
-   * @internal
    */
   public getOthersForTest() {
     const myClientID = this.getChangeID().getActorID();
@@ -2010,253 +1867,6 @@ export class Document<R, P extends Indexable = Indexable> {
     return this.getPresences()
       .filter((a) => a.clientID !== myClientID)
       .sort((a, b) => (a.clientID > b.clientID ? 1 : -1));
-  }
-
-  /**
-   * `canUndo` returns whether there are any operations to undo.
-   */
-  private canUndo(): boolean {
-    return this.internalHistory.hasUndo() && !this.isUpdating;
-  }
-
-  /**
-   * `canRedo` returns whether there are any operations to redo.
-   */
-  private canRedo(): boolean {
-    return this.internalHistory.hasRedo() && !this.isUpdating;
-  }
-
-  /**
-   * `undo` undoes the last operation executed by the current client.
-   * It does not impact operations made by other clients.
-   */
-  private undo(): void {
-    if (this.isUpdating) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        'Undo is not allowed during an update',
-      );
-    }
-    const undoOps = this.internalHistory.popUndo();
-    if (undoOps === undefined) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        'There is no operation to be undone',
-      );
-    }
-
-    this.ensureClone();
-    // TODO(chacha912): After resolving the presence initialization issue,
-    // remove default presence.(#608)
-    const context = ChangeContext.create<P>(
-      this.changeID,
-      this.clone!.root,
-      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
-    );
-
-    // apply undo operation in the context to generate a change
-    for (const undoOp of undoOps) {
-      if (!(undoOp instanceof Operation)) {
-        // apply presence change to the context
-        const presence = new Presence<P>(
-          context,
-          deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
-        );
-        presence.set(undoOp.value, { addToHistory: true });
-        continue;
-      }
-
-      const ticket = context.issueTimeTicket();
-      undoOp.setExecutedAt(ticket);
-
-      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
-      // - Set: replaces the element value.
-      // - Add: serves as UndoRemove, effectively restoring a deleted element.
-      // In both cases, the history stack may point to the old createdAt,
-      // so we update it to the new createdAt.
-      if (undoOp instanceof ArraySetOperation) {
-        const prev = undoOp.getCreatedAt();
-        undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileCreatedAt(prev, ticket);
-      } else if (undoOp instanceof AddOperation) {
-        const prev = undoOp.getValue().getCreatedAt();
-        undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileCreatedAt(prev, ticket);
-      }
-
-      context.push(undoOp);
-    }
-
-    const change = context.toChange();
-    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
-
-    const { opInfos, reverseOps } = change.execute(
-      this.root,
-      this.presences,
-      OpSource.UndoRedo,
-    );
-    const reversePresence = context.getReversePresence();
-    if (reversePresence) {
-      reverseOps.push({
-        type: 'presence',
-        value: reversePresence,
-      });
-    }
-    if (reverseOps.length > 0) {
-      this.internalHistory.pushRedo(reverseOps);
-    }
-
-    // NOTE(chacha912): When there is no applied operation or presence
-    // during undo/redo, skip propagating change remotely.
-    if (!change.hasPresenceChange() && opInfos.length === 0) {
-      return;
-    }
-
-    this.localChanges.push(change);
-    this.changeID = context.getNextID();
-    const actorID = this.changeID.getActorID();
-    const event: DocEvents<P> = [];
-    if (opInfos.length > 0) {
-      event.push({
-        type: DocEventType.LocalChange,
-        source: OpSource.UndoRedo,
-        value: {
-          message: change.getMessage() || '',
-          operations: opInfos,
-          actor: actorID,
-          clientSeq: change.getID().getClientSeq(),
-          serverSeq: change.getID().getServerSeq(),
-        },
-        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
-      });
-    }
-    if (change.hasPresenceChange()) {
-      event.push({
-        type: DocEventType.PresenceChanged,
-        source: OpSource.UndoRedo,
-        value: {
-          clientID: actorID,
-          presence: this.getPresence(actorID)!,
-        },
-      });
-    }
-    this.publish(event);
-  }
-
-  /**
-   * `redo` redoes the last operation executed by the current client.
-   * It does not impact operations made by other clients.
-   */
-  private redo(): void {
-    if (this.isUpdating) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        'Redo is not allowed during an update',
-      );
-    }
-
-    const redoOps = this.internalHistory.popRedo();
-    if (redoOps === undefined) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        'There is no operation to be redone',
-      );
-    }
-
-    this.ensureClone();
-    const context = ChangeContext.create<P>(
-      this.changeID,
-      this.clone!.root,
-      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
-    );
-
-    // apply redo operation in the context to generate a change
-    for (const redoOp of redoOps) {
-      if (!(redoOp instanceof Operation)) {
-        // apply presence change to the context
-        const presence = new Presence<P>(
-          context,
-          deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
-        );
-        presence.set(redoOp.value, { addToHistory: true });
-        continue;
-      }
-
-      const ticket = context.issueTimeTicket();
-      redoOp.setExecutedAt(ticket);
-
-      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
-      // - Set: replaces the element value.
-      // - Add: serves as UndoRemove, effectively restoring a deleted element.
-      // In both cases, the history stack may point to the old createdAt,
-      // so we update it to the new createdAt.
-      if (redoOp instanceof ArraySetOperation) {
-        const prev = redoOp.getCreatedAt();
-        redoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileCreatedAt(prev, ticket);
-      } else if (redoOp instanceof AddOperation) {
-        const prev = redoOp.getValue().getCreatedAt();
-        redoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileCreatedAt(prev, ticket);
-      }
-
-      context.push(redoOp);
-    }
-
-    const change = context.toChange();
-    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
-
-    const { opInfos, reverseOps } = change.execute(
-      this.root,
-      this.presences,
-      OpSource.UndoRedo,
-    );
-    const reversePresence = context.getReversePresence();
-    if (reversePresence) {
-      reverseOps.push({
-        type: 'presence',
-        value: reversePresence,
-      });
-    }
-    if (reverseOps.length > 0) {
-      this.internalHistory.pushUndo(reverseOps);
-    }
-
-    // NOTE(chacha912): When there is no applied operation or presence
-    // during undo/redo, skip propagating change remotely.
-    if (!change.hasPresenceChange() && opInfos.length === 0) {
-      return;
-    }
-
-    this.localChanges.push(change);
-    this.changeID = context.getNextID();
-    const actorID = this.changeID.getActorID();
-    const event: DocEvents<P> = [];
-    if (opInfos.length > 0) {
-      event.push({
-        type: DocEventType.LocalChange,
-        source: OpSource.UndoRedo,
-        value: {
-          message: change.getMessage() || '',
-          operations: opInfos,
-          actor: actorID,
-          clientSeq: change.getID().getClientSeq(),
-          serverSeq: change.getID().getServerSeq(),
-        },
-        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
-      });
-    }
-    if (change.hasPresenceChange()) {
-      event.push({
-        type: DocEventType.PresenceChanged,
-        source: OpSource.UndoRedo,
-        value: {
-          clientID: actorID,
-          presence: this.getPresence(actorID)!,
-        },
-      });
-    }
-    this.publish(event);
   }
 
   /**
@@ -2277,13 +1887,13 @@ export class Document<R, P extends Indexable = Indexable> {
    * `broadcast` the payload to the given topic.
    */
   public broadcast(topic: string, payload: Json, options?: BroadcastOptions) {
-    const broadcastEvent: LocalBroadcastEvent = {
-      type: DocEventType.LocalBroadcast,
-      value: { topic, payload },
-      options,
-    };
-
-    this.publish([broadcastEvent]);
+    this.publish([
+      {
+        type: DocEventType.LocalBroadcast,
+        value: { topic, payload },
+        options,
+      },
+    ]);
   }
 
   /**
@@ -2291,5 +1901,152 @@ export class Document<R, P extends Indexable = Indexable> {
    */
   public getVersionVector() {
     return this.changeID.getVersionVector();
+  }
+
+  private isSameElementOrChildOf(elem: string, parent: string): boolean {
+    if (parent === elem) {
+      return true;
+    }
+
+    const nodePath = elem.split('.');
+    return parent.split('.').every((path, index) => path === nodePath[index]);
+  }
+
+  /**
+   * `removePushedLocalChanges` removes local changes that have been applied to
+   * the server from the local changes.
+   *
+   * @param clientSeq - client sequence number to remove local changes before it
+   */
+  private removePushedLocalChanges(clientSeq: number) {
+    while (this.localChanges.length) {
+      const change = this.localChanges[0];
+      if (change.getID().getClientSeq() > clientSeq) {
+        break;
+      }
+      this.localChanges.shift();
+    }
+  }
+
+  /**
+   * `executeUndoRedo` executes undo or redo operation with shared logic.
+   */
+  private executeUndoRedo(isUndo: boolean): void {
+    if (this.isUpdating) {
+      throw new YorkieError(
+        Code.ErrRefused,
+        `${isUndo ? 'Undo' : 'Redo'} is not allowed during an update`,
+      );
+    }
+
+    const ops = isUndo
+      ? this.internalHistory.popUndo()
+      : this.internalHistory.popRedo();
+
+    if (!ops) {
+      throw new YorkieError(
+        Code.ErrRefused,
+        `There is no operation to be ${isUndo ? 'undone' : 'redone'}`,
+      );
+    }
+
+    this.ensureClone();
+    // TODO(chacha912): After resolving the presence initialization issue,
+    // remove default presence.(#608)
+    const ctx = ChangeContext.create<P>(
+      this.changeID,
+      this.clone!.root,
+      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
+    );
+
+    // apply undo/redo operation in the context to generate a change
+    for (const op of ops) {
+      if (!(op instanceof Operation)) {
+        // apply presence change to the context
+        const presence = new Presence<P>(
+          ctx,
+          deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
+        );
+        presence.set(op.value, { addToHistory: true });
+        continue;
+      }
+
+      const ticket = ctx.issueTimeTicket();
+      op.setExecutedAt(ticket);
+
+      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
+      // - Set: replaces the element value.
+      // - Add: serves as UndoRemove, effectively restoring a deleted element.
+      // In both cases, the history stack may point to the old createdAt,
+      // so we update it to the new createdAt.
+      if (op instanceof ArraySetOperation) {
+        const prev = op.getCreatedAt();
+        op.getValue().setCreatedAt(ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
+      } else if (op instanceof AddOperation) {
+        const prev = op.getValue().getCreatedAt();
+        op.getValue().setCreatedAt(ticket);
+        this.internalHistory.reconcileCreatedAt(prev, ticket);
+      }
+
+      ctx.push(op);
+    }
+
+    const change = ctx.toChange();
+    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
+
+    const { opInfos, reverseOps } = change.execute(
+      this.root,
+      this.presences,
+      OpSource.UndoRedo,
+    );
+    const reverse = ctx.getReversePresence();
+    if (reverse) {
+      reverseOps.push({ type: 'presence', value: reverse });
+    }
+
+    if (reverseOps.length) {
+      if (isUndo) {
+        this.internalHistory.pushRedo(reverseOps);
+      } else {
+        this.internalHistory.pushUndo(reverseOps);
+      }
+    }
+
+    // NOTE(chacha912): When there is no applied operation or presence
+    // during undo/redo, skip propagating change remotely.
+    if (!change.hasPresenceChange() && !opInfos.length) {
+      return;
+    }
+
+    this.localChanges.push(change);
+    this.changeID = ctx.getNextID();
+    const actorID = this.changeID.getActorID();
+    const events: DocEvents<P> = [];
+    if (opInfos.length) {
+      events.push({
+        type: DocEventType.LocalChange,
+        source: OpSource.UndoRedo,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: actorID,
+          clientSeq: change.getID().getClientSeq(),
+          serverSeq: change.getID().getServerSeq(),
+        },
+        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
+      });
+    }
+    if (change.hasPresenceChange()) {
+      events.push({
+        type: DocEventType.PresenceChanged,
+        source: OpSource.UndoRedo,
+        value: {
+          clientID: actorID,
+          presence: this.getPresence(actorID)!,
+        },
+      });
+    }
+    this.publish(events);
   }
 }
