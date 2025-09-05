@@ -51,7 +51,6 @@ import { Json, BroadcastOptions } from '@yorkie-js/sdk/src/document/document';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
- * @public
  */
 export enum SyncMode {
   /**
@@ -78,7 +77,6 @@ export enum SyncMode {
 
 /**
  * `ClientStatus` represents the status of the client.
- * @public
  */
 export enum ClientStatus {
   /**
@@ -112,8 +110,6 @@ export enum ClientCondition {
 
 /**
  * `ClientOptions` are user-settable options used when defining clients.
- *
- * @public
  */
 export interface ClientOptions {
   /**
@@ -246,8 +242,6 @@ const DefaultBroadcastOptions = {
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
- *
- * @public
  */
 export class Client {
   private id?: ActorID;
@@ -310,12 +304,10 @@ export class Client {
           createMetricInterceptor(opts?.userAgent),
         ],
         fetch: (input, init) => {
-          const newInit = {
+          return fetch(input as RequestInfo, {
             ...init,
             keepalive: this.keepalive,
-          };
-
-          return fetch(input as RequestInfo, newInit);
+          });
         },
       }),
     );

@@ -346,7 +346,6 @@ export class Tree {
 
   /**
    * `initialize` initialize this tree with context and internal tree.
-   * @internal
    */
   public initialize(context: ChangeContext, tree: CRDTTree): void {
     this.context = context;
@@ -862,7 +861,6 @@ export class Tree {
 
   /**
    * `toJSForTest` returns value with meta data for testing.
-   * @internal
    */
   public toJSForTest(): Devtools.JSONElement {
     if (!this.context || !this.tree) {
@@ -877,8 +875,6 @@ export class Tree {
 
   /**
    * `toJSInfoForTest` returns detailed TreeNode information for use in Devtools.
-   *
-   * @internal
    */
   public toJSInfoForTest(): Devtools.TreeNodeInfo {
     if (!this.context || !this.tree) {

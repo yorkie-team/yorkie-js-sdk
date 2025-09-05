@@ -85,8 +85,6 @@ import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
- *
- * @public
  */
 export interface BroadcastOptions {
   /**
@@ -102,8 +100,6 @@ export interface BroadcastOptions {
 
 /**
  * `DocumentOptions` are the options to create a new document.
- *
- * @public
  */
 export interface DocumentOptions {
   /**
@@ -119,7 +115,6 @@ export interface DocumentOptions {
 
 /**
  * `DocStatus` represents the status of the document.
- * @public
  */
 export enum DocStatus {
   /**
@@ -141,7 +136,6 @@ export enum DocStatus {
 
 /**
  * `DocEventType` represents the type of the event that occurs in `Document`.
- * @public
  */
 export enum DocEventType {
   /**
@@ -214,8 +208,6 @@ export enum DocEventType {
 /**
  * `DocEvent` is an event that occurs in `Document`. It can be delivered
  * using `Document.subscribe()`.
- *
- * @public
  */
 export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | StatusChangedEvent
@@ -224,10 +216,7 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | SnapshotEvent
   | LocalChangeEvent<T, P>
   | RemoteChangeEvent<T, P>
-  | InitializedEvent<P>
-  | WatchedEvent<P>
-  | UnwatchedEvent<P>
-  | PresenceChangedEvent<P>
+  | PresenceEvent<P>
   | BroadcastEvent
   | LocalBroadcastEvent
   | AuthErrorEvent;
@@ -238,17 +227,12 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
  */
 export type DocEvents<P extends Indexable = Indexable> = Array<DocEvent<P>>;
 
-/**
- * @internal
- */
-export interface BaseDocEvent {
+interface BaseDocEvent {
   type: DocEventType;
 }
 
 /**
  * `StatusChangedEvent` is an event that occurs when the status of a document changes.
- *
- * @public
  */
 export interface StatusChangedEvent extends BaseDocEvent {
   type: DocEventType.StatusChanged;
@@ -261,13 +245,13 @@ export interface StatusChangedEvent extends BaseDocEvent {
 
 /**
  * `StreamConnectionStatus` represents whether the stream connection is connected or not.
- * @public
  */
 export enum StreamConnectionStatus {
   /**
    * `Connected` means that the stream connection is connected.
    */
   Connected = 'connected',
+
   /**
    * `Disconnected` means that the stream connection is disconnected.
    */
@@ -276,8 +260,6 @@ export enum StreamConnectionStatus {
 
 /**
  * `ConnectionChangedEvent` is an event that occurs when the stream connection state changes.
- *
- * @public
  */
 export interface ConnectionChangedEvent extends BaseDocEvent {
   type: DocEventType.ConnectionChanged;
@@ -286,13 +268,13 @@ export interface ConnectionChangedEvent extends BaseDocEvent {
 
 /**
  * `DocSyncStatus` represents the result of synchronizing the document with the server.
- * @public
  */
 export enum DocSyncStatus {
   /**
    * `Synced` means that document synced successfully.
    */
   Synced = 'synced',
+
   /**
    * `SyncFiled` means that document synchronization has failed.
    */
@@ -301,8 +283,6 @@ export enum DocSyncStatus {
 
 /**
  * `SyncStatusChangedEvent` is an event that occurs when document is synced with the server.
- *
- * @public
  */
 export interface SyncStatusChangedEvent extends BaseDocEvent {
   type: DocEventType.SyncStatusChanged;
@@ -312,8 +292,6 @@ export interface SyncStatusChangedEvent extends BaseDocEvent {
 /**
  * `SnapshotEvent` is an event that occurs when a snapshot is received from
  * the server.
- *
- * @public
  */
 export interface SnapshotEvent extends BaseDocEvent {
   type: DocEventType.Snapshot;
@@ -338,10 +316,17 @@ export interface ChangeInfo<T = OpInfo> {
 }
 
 /**
+ * `PresenceEvent` is an event that occurs when the presence of a client changes.
+ */
+export type PresenceEvent<P extends Indexable = Indexable> =
+  | InitializedEvent<P>
+  | WatchedEvent<P>
+  | UnwatchedEvent<P>
+  | PresenceChangedEvent<P>;
+
+/**
  * `LocalChangeEvent` is an event that occurs when the document is changed
  * by local changes.
- *
- * @public
  */
 export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
   extends BaseDocEvent {
@@ -354,8 +339,6 @@ export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
 /**
  * `RemoteChangeEvent` is an event that occurs when the document is changed
  * by remote changes.
- *
- * @public
  */
 export interface RemoteChangeEvent<T = OpInfo, P extends Indexable = Indexable>
   extends BaseDocEvent {
@@ -412,14 +395,9 @@ export interface AuthErrorEvent extends BaseDocEvent {
 
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
-    SnapshotEvent | LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P>
+    LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P> | SnapshotEvent
   >;
-  presence: NextFn<
-    | InitializedEvent<P>
-    | WatchedEvent<P>
-    | UnwatchedEvent<P>
-    | PresenceChangedEvent<P>
-  >;
+  presence: NextFn<PresenceEvent<P>>;
   'my-presence': NextFn<InitializedEvent<P> | PresenceChangedEvent<P>>;
   others: NextFn<WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P>>;
   connection: NextFn<ConnectionChangedEvent>;
@@ -449,13 +427,11 @@ type JsonObject = { [key: string]: Json | undefined };
  * `Indexable` represents an object with string keys and Json values. It is
  * used to various places such as the presence or attributes of text elements
  * and etc.
- * @public
  */
 export type Indexable = Record<string, Json>;
 
 /**
  * `DocKey` represents the key of the document.
- * @public
  */
 export type DocKey = string;
 
@@ -575,8 +551,6 @@ type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
- *
- * @public
  */
 export class Document<R, P extends Indexable = Indexable> {
   private key: DocKey;
@@ -605,27 +579,26 @@ export class Document<R, P extends Indexable = Indexable> {
   public history;
 
   constructor(key: string, opts?: DocumentOptions) {
-    this.opts = opts || {};
-
     this.key = key;
     this.status = DocStatus.Detached;
-    this.root = CRDTRoot.create();
+    this.opts = opts || {};
+    this.maxSizeLimit = 0;
+    this.schemaRules = [];
 
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
-    this.maxSizeLimit = 0;
-    this.schemaRules = [];
 
-    this.eventStream = createObservable<DocEvents<P>>((observer) => {
-      this.eventStreamObserver = observer;
-    });
-
-    this.onlineClients = new Set();
+    this.root = CRDTRoot.create();
     this.presences = new Map();
-
-    this.isUpdating = false;
+    this.onlineClients = new Set();
     this.internalHistory = new History();
+    this.isUpdating = false;
+
+    this.eventStream = createObservable<DocEvents<P>>(
+      (observer) => (this.eventStreamObserver = observer),
+    );
+
     this.history = {
       canUndo: () => this.internalHistory.hasUndo() && !this.isUpdating,
       canRedo: () => this.internalHistory.hasRedo() && !this.isUpdating,
@@ -650,7 +623,7 @@ export class Document<R, P extends Indexable = Indexable> {
     // 01. Update the clone object and create a change.
     this.ensureClone();
     const actorID = this.changeID.getActorID();
-    const context = ChangeContext.create<P>(
+    const ctx = ChangeContext.create<P>(
       this.changeID,
       this.clone!.root,
       this.clone!.presences.get(actorID) || ({} as P),
@@ -659,7 +632,7 @@ export class Document<R, P extends Indexable = Indexable> {
 
     try {
       const proxy = createJSON<JSONObject<R>>(
-        context,
+        ctx,
         this.clone!.root.getObject(),
       );
 
@@ -670,10 +643,7 @@ export class Document<R, P extends Indexable = Indexable> {
       // NOTE(hackerwins): The updater should not be able to call undo/redo.
       // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
-      updater(
-        proxy,
-        new Presence(context, this.clone!.presences.get(actorID)!),
-      );
+      updater(proxy, new Presence(ctx, this.clone!.presences.get(actorID)!));
     } catch (err) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
@@ -685,7 +655,7 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     const rules = this.getSchemaRules();
-    if (!context.isPresenceOnlyChange() && rules.length) {
+    if (!ctx.isPresenceOnlyChange() && rules.length) {
       const result = validateYorkieRuleset(this.clone?.root.getObject(), rules);
       if (!result.valid) {
         this.clone = undefined;
@@ -700,7 +670,7 @@ export class Document<R, P extends Indexable = Indexable> {
 
     const size = totalDocSize(this.clone?.root.getDocSize());
     if (
-      !context.isPresenceOnlyChange() &&
+      !ctx.isPresenceOnlyChange() &&
       this.maxSizeLimit > 0 &&
       this.maxSizeLimit < size
     ) {
@@ -714,12 +684,12 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     // 02. Update the root object and presences from changes.
-    if (context.hasChange()) {
+    if (ctx.hasChange()) {
       if (logger.isEnabled(LogLevel.Trivial)) {
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
-      const change = context.toChange();
+      const change = ctx.toChange();
       const { opInfos, reverseOps } = change.execute(
         this.root,
         this.presences,
@@ -738,7 +708,7 @@ export class Document<R, P extends Indexable = Indexable> {
         }
       }
 
-      const reversePresence = context.getReversePresence();
+      const reversePresence = ctx.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
           type: 'presence',
@@ -754,7 +724,7 @@ export class Document<R, P extends Indexable = Indexable> {
       if (opInfos.length) {
         this.internalHistory.clearRedo();
       }
-      this.changeID = context.getNextID();
+      this.changeID = ctx.getNextID();
 
       // 03. Publish the document change event.
       // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
@@ -1156,15 +1126,10 @@ export class Document<R, P extends Indexable = Indexable> {
    * 1. Remove local changes applied to server.
    * 2. Update the checkpoint.
    * 3. Do Garbage collection.
-   *
-   * @param pack - change pack
-   * @internal
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    const hasSnapshot = pack.hasSnapshot();
-
     // 01. Apply snapshot or changes to the root object.
-    if (hasSnapshot) {
+    if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
         pack.getVersionVector()!,
@@ -1180,7 +1145,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
     // 03. Do Garbage collection.
-    if (!hasSnapshot) {
+    if (!pack.hasSnapshot()) {
       this.garbageCollect(pack.getVersionVector()!);
     }
 
@@ -1196,8 +1161,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getCheckpoint` returns the checkpoint of this document.
-   *
-   * @internal
    */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
@@ -1205,8 +1168,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getChangeID` returns the change id of this document.
-   *
-   * @internal
    */
   public getChangeID(): ChangeID {
     return this.changeID;
@@ -1221,8 +1182,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `ensureClone` make a clone of root.
-   *
-   * @internal
    */
   public ensureClone(): void {
     if (this.clone) {
@@ -1238,8 +1197,6 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `createChangePack` create change pack of the local changes to send to the
    * remote server.
-   *
-   * @internal
    */
   public createChangePack(): ChangePack<P> {
     const changes = Array.from(this.localChanges);
@@ -1256,8 +1213,6 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
-   *
-   * @internal
    */
   public setActor(actorID: ActorID): void {
     for (const change of this.localChanges) {
@@ -1299,8 +1254,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getCloneRoot` returns clone object.
-   *
-   * @internal
    */
   public getCloneRoot(): CRDTObject | undefined {
     if (!this.clone) {
@@ -1316,12 +1269,12 @@ export class Document<R, P extends Indexable = Indexable> {
   public getRoot(): JSONObject<R> {
     this.ensureClone();
 
-    const context = ChangeContext.create(
+    const ctx = ChangeContext.create(
       this.changeID.next(),
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
-    return createJSON<R>(context, this.clone!.root.getObject());
+    return createJSON<R>(ctx, this.clone!.root.getObject());
   }
 
   /**
@@ -1361,8 +1314,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `garbageCollect` purges elements that were removed before the given time.
-   *
-   * @internal
    */
   public garbageCollect(minSyncedVersionVector: VersionVector): number {
     if (this.opts.disableGC) {
@@ -1377,8 +1328,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getRootObject` returns root object.
-   *
-   * @internal
    */
   public getRootObject(): CRDTObject {
     return this.root.getObject();
@@ -1386,8 +1335,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getGarbageLen` returns the length of elements should be purged.
-   *
-   * @internal
    */
   public getGarbageLen(): number {
     return this.root.getGarbageLen();
@@ -1515,7 +1462,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
-    const event: DocEvents<P> = [];
+    const events: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
     if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
       const presenceChange = change.getPresenceChange()!;
@@ -1525,7 +1472,7 @@ export class Document<R, P extends Indexable = Indexable> {
           // their presence was initially absent, we can consider that we have
           // received their initial presence, so trigger the 'watched' event.
 
-          event.push(
+          events.push(
             this.presences.has(actorID)
               ? {
                   type: DocEventType.PresenceChanged,
@@ -1551,7 +1498,7 @@ export class Document<R, P extends Indexable = Indexable> {
           // occurring before unwatching.
           // Detached user is no longer participating in the document, we remove
           // them from the online clients and trigger the 'unwatched' event.
-          event.push({
+          events.push({
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: {
@@ -1570,7 +1517,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
-      event.push(
+      events.push(
         source === OpSource.Remote
           ? {
               type: DocEventType.RemoteChange,
@@ -1602,8 +1549,8 @@ export class Document<R, P extends Indexable = Indexable> {
     // This is because 3rd party model should be synced with the Document
     // after RemoteChange event is emitted. If the event is emitted
     // asynchronously, the model can be changed and breaking consistency.
-    if (event.length) {
-      this.publish(event);
+    if (events.length) {
+      this.publish(events);
     }
   }
 
@@ -1780,10 +1727,10 @@ export class Document<R, P extends Indexable = Indexable> {
         `path must start with "$"`,
       );
     }
-    const pathArr = path.split('.');
-    pathArr.shift();
+    const paths = path.split('.');
+    paths.shift();
     let value: JSONObject<any> = this.getRoot();
-    for (const key of pathArr) {
+    for (const key of paths) {
       value = value[key];
       if (!value) return undefined;
     }
@@ -1792,8 +1739,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `setOnlineClients` sets the given online client set.
-   *
-   * @internal
    */
   public setOnlineClients(onlineClients: Set<ActorID>) {
     this.onlineClients = onlineClients;
@@ -1801,8 +1746,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `resetOnlineClients` resets the online client set.
-   *
-   * @internal
    */
   public resetOnlineClients() {
     this.onlineClients = new Set();
@@ -1810,8 +1753,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `addOnlineClient` adds the given clientID into the online client set.
-   *
-   * @internal
    */
   public addOnlineClient(clientID: ActorID) {
     this.onlineClients.add(clientID);
@@ -1819,8 +1760,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `removeOnlineClient` removes the clientID from the online client set.
-   *
-   * @internal
    */
   public removeOnlineClient(clientID: ActorID) {
     this.onlineClients.delete(clientID);
@@ -1828,8 +1767,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `hasPresence` returns whether the given clientID has a presence or not.
-   *
-   * @internal
    */
   public hasPresence(clientID: ActorID): boolean {
     return this.presences.has(clientID);
@@ -1905,8 +1842,6 @@ export class Document<R, P extends Indexable = Indexable> {
   /**
    * `getPresenceForTest` returns the presence of the given clientID
    * regardless of whether the client is online or not.
-   *
-   * @internal
    */
   public getPresenceForTest(clientID: ActorID): P | undefined {
     const p = this.presences.get(clientID);
@@ -1915,8 +1850,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getSelfForTest` returns the client that has attached this document.
-   *
-   * @internal
    */
   public getSelfForTest() {
     return {
@@ -1927,8 +1860,6 @@ export class Document<R, P extends Indexable = Indexable> {
 
   /**
    * `getOthersForTest` returns all the other clients in online, sorted by clientID.
-   *
-   * @internal
    */
   public getOthersForTest() {
     const myClientID = this.getChangeID().getActorID();
@@ -1956,13 +1887,13 @@ export class Document<R, P extends Indexable = Indexable> {
    * `broadcast` the payload to the given topic.
    */
   public broadcast(topic: string, payload: Json, options?: BroadcastOptions) {
-    const broadcastEvent: LocalBroadcastEvent = {
-      type: DocEventType.LocalBroadcast,
-      value: { topic, payload },
-      options,
-    };
-
-    this.publish([broadcastEvent]);
+    this.publish([
+      {
+        type: DocEventType.LocalBroadcast,
+        value: { topic, payload },
+        options,
+      },
+    ]);
   }
 
   /**
@@ -2022,7 +1953,7 @@ export class Document<R, P extends Indexable = Indexable> {
     this.ensureClone();
     // TODO(chacha912): After resolving the presence initialization issue,
     // remove default presence.(#608)
-    const context = ChangeContext.create<P>(
+    const ctx = ChangeContext.create<P>(
       this.changeID,
       this.clone!.root,
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
@@ -2033,14 +1964,14 @@ export class Document<R, P extends Indexable = Indexable> {
       if (!(op instanceof Operation)) {
         // apply presence change to the context
         const presence = new Presence<P>(
-          context,
+          ctx,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
         );
         presence.set(op.value, { addToHistory: true });
         continue;
       }
 
-      const ticket = context.issueTimeTicket();
+      const ticket = ctx.issueTimeTicket();
       op.setExecutedAt(ticket);
 
       // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
@@ -2058,10 +1989,10 @@ export class Document<R, P extends Indexable = Indexable> {
         this.internalHistory.reconcileCreatedAt(prev, ticket);
       }
 
-      context.push(op);
+      ctx.push(op);
     }
 
-    const change = context.toChange();
+    const change = ctx.toChange();
     change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
     const { opInfos, reverseOps } = change.execute(
@@ -2069,9 +2000,9 @@ export class Document<R, P extends Indexable = Indexable> {
       this.presences,
       OpSource.UndoRedo,
     );
-    const reversePresence = context.getReversePresence();
-    if (reversePresence) {
-      reverseOps.push({ type: 'presence', value: reversePresence });
+    const reverse = ctx.getReversePresence();
+    if (reverse) {
+      reverseOps.push({ type: 'presence', value: reverse });
     }
 
     if (reverseOps.length) {
@@ -2089,7 +2020,7 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     this.localChanges.push(change);
-    this.changeID = context.getNextID();
+    this.changeID = ctx.getNextID();
     const actorID = this.changeID.getActorID();
     const events: DocEvents<P> = [];
     if (opInfos.length) {

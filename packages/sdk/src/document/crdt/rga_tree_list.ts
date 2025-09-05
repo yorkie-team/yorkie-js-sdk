@@ -143,8 +143,6 @@ class RGATreeListNode extends SplayNode<CRDTElement> {
 
 /**
  * `RGATreeList` is a replicated growable array.
- *
- * @internal
  */
 export class RGATreeList {
   private dummyHead: RGATreeListNode;
@@ -185,9 +183,7 @@ export class RGATreeList {
    * `findNextBeforeExecutedAt` returns the node by the given createdAt and
    * executedAt. It passes through nodes created after executedAt from the
    * given node and returns the next node.
-   * @param createdAt - created time
-   * @param executedAt - executed time
-   * @returns next node
+   * @returns the next node of the given createdAt and executedAt
    */
   private findNextBeforeExecutedAt(
     createdAt: TimeTicket,

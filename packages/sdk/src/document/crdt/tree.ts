@@ -1431,8 +1431,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `toJSForTest` returns value with meta data for testing.
-   *
-   * @internal
    */
   public toJSForTest(): Devtools.JSONElement {
     return {
@@ -1444,8 +1442,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `toJSInfoForTest` returns detailed TreeNode information for use in Devtools.
-   *
-   * @internal
    */
   public toJSInfoForTest(): Devtools.TreeNodeInfo {
     const rootNode = this.indexTree.getRoot();
