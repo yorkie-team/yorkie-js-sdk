@@ -372,6 +372,66 @@ describe('Garbage Collection', function () {
       4,
     ); // The number of GC nodes must also be 4.
   });
+
+  it('should update gc size correctly after text garbage collection', function () {
+    const doc = new yorkie.Document<{ text: Text }>('test-doc');
+
+    // Initial state
+    doc.update((root) => (root.text = new Text()));
+    const initialSize = doc.getDocSize();
+    assert.deepEqual(initialSize.gc, { data: 0, meta: 0 });
+
+    // Add and then remove text to create garbage
+    doc.update((root) => root.text.edit(0, 0, 'Hello world'));
+    doc.update((root) => root.text.edit(6, 11, ''));
+
+    const sizeBeforeGC = doc.getDocSize();
+    assert.equal(sizeBeforeGC.gc.data, 10);
+    assert.equal(sizeBeforeGC.gc.meta, 48);
+    assert.equal(doc.getGarbageLen(), 1);
+
+    // Perform garbage collection
+    const collected = doc.garbageCollect(
+      maxVectorOf([doc.getChangeID().getActorID()]),
+    );
+    assert.equal(collected, 1);
+
+    // Verify gc size is properly reset after collection
+    const sizeAfterGC = doc.getDocSize();
+    assert.deepEqual(sizeAfterGC.gc, { data: 0, meta: 0 });
+    assert.equal(doc.getGarbageLen(), 0);
+  });
+
+  it('should update gc size correctly after multiple text operations and gc', function () {
+    const doc = new yorkie.Document<{ text: Text }>('test-doc');
+
+    doc.update((root) => (root.text = new Text()));
+
+    // Create multiple text segments and then remove some
+    doc.update((root) => {
+      root.text.edit(0, 0, 'ABC');
+      root.text.edit(1, 2, 'X');
+      root.text.edit(2, 3, '');
+    });
+
+    const sizeBeforeGC = doc.getDocSize();
+    const garbageLen = doc.getGarbageLen();
+
+    assert.equal(sizeBeforeGC.gc.data, 4);
+    assert.equal(sizeBeforeGC.gc.meta, 96);
+    assert.equal(garbageLen, 2); // B and C should be garbage
+
+    // Perform garbage collection
+    const collected = doc.garbageCollect(
+      maxVectorOf([doc.getChangeID().getActorID()]),
+    );
+    assert.equal(collected, garbageLen);
+
+    // Verify all gc size is cleared
+    const sizeAfterGC = doc.getDocSize();
+    assert.deepEqual(sizeAfterGC.gc, { data: 0, meta: 0 });
+    assert.equal(doc.getGarbageLen(), 0);
+  });
 });
 
 describe('Garbage Collection for tree', () => {

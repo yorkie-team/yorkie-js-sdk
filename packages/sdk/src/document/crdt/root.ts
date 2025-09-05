@@ -354,6 +354,7 @@ export class CRDTRoot {
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
         pair.parent.purge(pair.child);
 
+        subDataSize(this.docSize.gc, pair.child.getDataSize());
         this.gcPairMap.delete(pair.child.toIDString());
         count += 1;
       }
