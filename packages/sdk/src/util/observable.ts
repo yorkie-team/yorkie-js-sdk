@@ -148,9 +148,9 @@ class ObserverProxy<T> implements Observer<T> {
     if (this.finalized) {
       try {
         if (this.finalError) {
-          observer.error!(this.finalError);
+          observer.error(this.finalError);
         } else {
-          observer.complete!();
+          observer.complete();
         }
       } catch (err) {
         // nothing

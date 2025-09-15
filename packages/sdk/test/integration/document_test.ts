@@ -15,15 +15,15 @@ import {
 import {
   EventCollector,
   assertThrowsAsync,
-  Indexable,
 } from '@yorkie-js/sdk/test/helper/helper';
 import type { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import {
   DocStatus,
   DocEventType,
   StatusChangedEvent,
+  Json,
 } from '@yorkie-js/sdk/src/document/document';
-import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
+import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 import Long from 'long';
 
@@ -174,9 +174,9 @@ describe('Document', function () {
 
     type EventForTest = {
       type: DocEventType;
-      value: Array<OperationInfo>;
+      value: Array<OpInfo>;
     };
-    let expectedEventValue: Array<OperationInfo>;
+    let expectedEventValue: Array<OpInfo>;
     const eventCollectorD1 = new EventCollector<EventForTest>();
     const eventCollectorD2 = new EventCollector<EventForTest>();
     const unsub1 = d1.subscribe((event) => {
@@ -194,7 +194,7 @@ describe('Document', function () {
 
     d1.update((root) => {
       root.counter = new yorkie.Counter(yorkie.IntType, 100);
-      root.todos = ['todo1', 'todo2', 'todo3'];
+      root.todos = ['todo1', 'todo2', 'todo3'] as JSONArray<string>;
       root.content = new yorkie.Text();
       root.content.edit(0, 0, 'hello world', {
         italic: true,
@@ -242,9 +242,9 @@ describe('Document', function () {
     d2.update((root) => {
       root.counter.increase(1);
       root.todos.push('todo4');
-      const prevItem = root.todos.getElementByIndex!(1);
-      const currItem = root.todos.getElementByIndex!(0);
-      root.todos.moveAfter!(prevItem.getID!(), currItem.getID!());
+      const prevItem = root.todos.getElementByIndex(1);
+      const currItem = root.todos.getElementByIndex(0);
+      root.todos.moveAfter(prevItem.getID(), currItem.getID());
       root.content.setStyle(0, 5, { bold: true });
     });
     expectedEventValue = [
@@ -289,19 +289,15 @@ describe('Document', function () {
     await c2.activate();
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    type TestDoc = {
-      counter: Counter;
-      todos: JSONArray<string>;
-    };
+    type TestDoc = { counter: Counter; todos: Array<string> };
     const d1 = new yorkie.Document<TestDoc>(docKey);
     const d2 = new yorkie.Document<TestDoc>(docKey);
     await c1.attach(d1);
     await c2.attach(d2);
 
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
-    const eventCollectorForTodos = new EventCollector<EventForTest>();
-    const eventCollectorForCounter = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForTodos = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForCounter = new EventCollector<Array<OpInfo>>();
     const unsub = d1.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -388,10 +384,9 @@ describe('Document', function () {
     await c1.attach(d1);
     await c2.attach(d2);
 
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
-    const eventCollectorForTodos0 = new EventCollector<EventForTest>();
-    const eventCollectorForObjC1 = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForTodos0 = new EventCollector<Array<OpInfo>>();
+    const eventCollectorForObjC1 = new EventCollector<Array<OpInfo>>();
     const unsub = d1.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1186,13 +1181,11 @@ describe('Document', function () {
     });
 
     describe('With various types', () => {
-      interface TestCase {
+      const testCases: Array<{
         name: string;
-        input: JSONElement | Indexable;
+        input: JSONElement | Json;
         expectedJSON: string;
-      }
-
-      const testCases: Array<TestCase> = [
+      }> = [
         {
           name: 'tree',
           input: new Tree({

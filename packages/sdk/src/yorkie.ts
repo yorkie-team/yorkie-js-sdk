@@ -66,19 +66,19 @@ export {
 export { type ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 export { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 export type {
-  OperationInfo,
-  TextOperationInfo,
-  CounterOperationInfo,
-  ArrayOperationInfo,
-  ObjectOperationInfo,
-  TreeOperationInfo,
-  AddOpInfo,
+  OpInfo,
+  CounterOpInfo,
   IncreaseOpInfo,
-  RemoveOpInfo,
+  ObjectOpInfo,
   SetOpInfo,
+  RemoveOpInfo,
+  ArrayOpInfo,
+  AddOpInfo,
   MoveOpInfo,
+  TextOpInfo,
   EditOpInfo,
   StyleOpInfo,
+  TreeOpInfo,
   TreeEditOpInfo,
   TreeStyleOpInfo,
 } from '@yorkie-js/sdk/src/document/operation/operation';
@@ -139,8 +139,6 @@ export { Devtools };
  * assigned to the `yorkie` global.
  *
  * e.g) `new yorkie.Client(...);`
- *
- * @public
  */
 export default {
   Client,

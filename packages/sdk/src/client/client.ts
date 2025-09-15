@@ -51,7 +51,6 @@ import { Json, BroadcastOptions } from '@yorkie-js/sdk/src/document/document';
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
- * @public
  */
 export enum SyncMode {
   /**
@@ -78,7 +77,6 @@ export enum SyncMode {
 
 /**
  * `ClientStatus` represents the status of the client.
- * @public
  */
 export enum ClientStatus {
   /**
@@ -112,8 +110,6 @@ export enum ClientCondition {
 
 /**
  * `ClientOptions` are user-settable options used when defining clients.
- *
- * @public
  */
 export interface ClientOptions {
   /**
@@ -176,6 +172,26 @@ export interface ClientOptions {
 }
 
 /**
+ * `DeactivateOptions` are user-settable options used when deactivating clients.
+ */
+export interface DeactivateOptions {
+  /**
+   * `keepalive` is used to enable the keepalive option when deactivating.
+   * If true, the client will request deactivation immediately using `fetch`
+   * with the `keepalive` option enabled. This is useful for ensuring the
+   * deactivation request completes even if the page is being unloaded.
+   */
+  keepalive?: boolean;
+
+  /**
+   * `synchronous` is used to enable the synchronous option when deactivating.
+   * If true, the server will wait for all pending operations to complete
+   * before deactivating.
+   */
+  synchronous?: boolean;
+}
+
+/**
  * `AttachOptions` are user-settable options used when attaching documents.
  */
 export interface AttachOptions<R, P> {
@@ -226,8 +242,6 @@ const DefaultBroadcastOptions = {
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
- *
- * @public
  */
 export class Client {
   private id?: ActorID;
@@ -290,12 +304,10 @@ export class Client {
           createMetricInterceptor(opts?.userAgent),
         ],
         fetch: (input, init) => {
-          const newInit = {
+          return fetch(input as RequestInfo, {
             ...init,
             keepalive: this.keepalive,
-          };
-
-          return fetch(input as RequestInfo, newInit);
+          });
         },
       }),
     );
@@ -355,8 +367,12 @@ export class Client {
    * immediately using `fetch` with the `keepalive` option enabled. This is
    * useful for ensuring the deactivation request completes even if the page is
    * being unloaded, such as in `beforeunload` or `unload` event listeners.
+   * If synchronous is true, the server will wait for all pending operations to
+   * complete before deactivating.
    */
-  public deactivate(options = { keepalive: false }): Promise<void> {
+  public deactivate(
+    options: DeactivateOptions = { keepalive: false, synchronous: false },
+  ): Promise<void> {
     if (this.status === ClientStatus.Deactivated) {
       return Promise.resolve();
     }
@@ -364,7 +380,10 @@ export class Client {
     const task = async () => {
       try {
         await this.rpcClient.deactivateClient(
-          { clientId: this.id! },
+          {
+            clientId: this.id!,
+            synchronous: options.synchronous,
+          },
           { headers: { 'x-shard-key': `${this.apiKey}/${this.key}` } },
         );
         this.deactivateInternal();

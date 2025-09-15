@@ -28,7 +28,9 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
 
     case 'DELETED_TODO': {
       const { id } = action.payload;
-      root.todos = root.todos.filter((todo) => todo.id !== id);
+      root.todos = root.todos.filter(
+        (todo) => todo.id !== id,
+      ) as JSONArray<Todo>;
       break;
     }
 
@@ -53,7 +55,9 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
     }
 
     case 'CLEARED_COMPLETED': {
-      root.todos = root.todos.filter((todo) => !todo.completed);
+      root.todos = root.todos.filter(
+        (todo) => !todo.completed,
+      ) as JSONArray<Todo>;
       break;
     }
 

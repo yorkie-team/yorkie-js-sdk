@@ -1,4 +1,4 @@
-import type { EditOpInfo, OperationInfo } from '@yorkie-js/sdk';
+import type { EditOpInfo, OpInfo } from '@yorkie-js/sdk';
 import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { keymap } from '@codemirror/view';
@@ -200,7 +200,7 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  function handleOperations(operations: Array<OperationInfo>) {
+  function handleOperations(operations: Array<OpInfo>) {
     for (const op of operations) {
       if (op.type === 'edit') {
         handleEditOp(op);

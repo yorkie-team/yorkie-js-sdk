@@ -16,14 +16,18 @@
 
 import { assert } from 'vitest';
 
-import yorkie, { Tree, ElementNode } from '@yorkie-js/sdk/src/yorkie';
+import yorkie, {
+  Tree,
+  ElementNode,
+  Indexable,
+} from '@yorkie-js/sdk/src/yorkie';
 import { IndexTree } from '@yorkie-js/sdk/src/util/index_tree';
 import {
   CRDTTreeNode,
   CRDTTreeNodeID,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
-  OperationInfo,
+  OpInfo,
   Operation,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import {
@@ -41,7 +45,6 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
-export type Indexable = Record<string, any>;
 export const DefaultSnapshotThreshold = 500;
 
 /**
@@ -213,10 +216,7 @@ export class TextView {
     this.value = '';
   }
 
-  public applyOperations(
-    operations: Array<OperationInfo>,
-    enableLog = false,
-  ): void {
+  public applyOperations(operations: Array<OpInfo>, enableLog = false): void {
     const oldValue = this.value;
     const changeLogs = [];
     for (const op of operations) {

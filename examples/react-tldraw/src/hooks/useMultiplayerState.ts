@@ -133,11 +133,11 @@ export function useMultiplayerState(roomId: string) {
           if (!shape) {
             delete root.shapes[id];
           } else if (!root.shapes[id]) {
-            root.shapes[id] = shape;
+            root.shapes[id] = shape as yorkie.JSONObject<TDShape>;
           } else {
             const updatedPropertyList = getUpdatedPropertyList(
               shape,
-              root.shapes[id]!.toJS!(),
+              root.shapes[id].toJS(),
             );
 
             for (const key of updatedPropertyList) {
@@ -153,11 +153,11 @@ export function useMultiplayerState(roomId: string) {
           if (!binding) {
             delete root.bindings[id];
           } else if (!root.bindings[id]) {
-            root.bindings[id] = binding;
+            root.bindings[id] = binding as yorkie.JSONObject<TDBinding>;
           } else {
             const updatedPropertyList = getUpdatedPropertyList(
               binding,
-              root.bindings[id]!.toJS!(),
+              root.bindings[id].toJS(),
             );
 
             for (const key of updatedPropertyList) {
@@ -181,11 +181,11 @@ export function useMultiplayerState(roomId: string) {
             // Skip assets without valid IDs
             return;
           } else if (!root.assets[asset.id]) {
-            root.assets[asset.id] = asset;
+            root.assets[asset.id] = asset as yorkie.JSONObject<TDAsset>;
           } else {
             const updatedPropertyList = getUpdatedPropertyList(
               asset,
-              root.assets[asset.id]!.toJS!(),
+              root.assets[asset.id].toJS(),
             );
 
             for (const key of updatedPropertyList) {
@@ -312,7 +312,11 @@ export function useMultiplayerState(roomId: string) {
         );
 
         await client.attach(doc, {
-          initialRoot: { shapes: {}, bindings: {}, assets: {} },
+          initialRoot: {
+            shapes: {},
+            bindings: {},
+            assets: {},
+          } as YorkieDocType,
           initialPresence: app?.currentUser
             ? { tdUser: app.currentUser }
             : undefined,

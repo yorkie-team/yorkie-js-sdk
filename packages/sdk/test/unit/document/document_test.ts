@@ -22,7 +22,7 @@ import {
 } from '@yorkie-js/sdk/test/helper/helper';
 
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
-import { OperationInfo } from '@yorkie-js/sdk/src/document/operation/operation';
+import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import yorkie, {
   JSONArray,
   Text,
@@ -262,8 +262,8 @@ describe.sequential('Document', function () {
   describe('should support standard array read-only operations', () => {
     type TestDoc = {
       empty: [];
-      list: JSONArray<number>;
-      objects: JSONArray<{ id: string }>;
+      list: Array<number>;
+      objects: Array<{ id: string }>;
     };
 
     it('concat()', () => {
@@ -462,9 +462,7 @@ describe.sequential('Document', function () {
     });
 
     it('includes()', () => {
-      type TestDoc = {
-        list: JSONArray<number | string>;
-      };
+      type TestDoc = { list: Array<number | string> };
       const doc = new Document<TestDoc>('test-doc');
       doc.update((root) => {
         root.list = [1, 2, 3, NaN, '4'];
@@ -796,25 +794,25 @@ describe.sequential('Document', function () {
   it('move elements before a specific node of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0)!;
-      const two = root.data.getElementByIndex!(2)!;
-      root.data.moveBefore!(two.getID!(), zero.getID!());
+      const zero = root.data.getElementByIndex(0);
+      const two = root.data.getElementByIndex(2);
+      root.data.moveBefore(two.getID(), zero.getID());
     });
     assert.equal('{"data":[1,0,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1)!;
-      const three = root.data.getElementByIndex!(3)!;
-      root.data.moveBefore!(one.getID!(), three.getID!());
-      assert.equal('{"data":[1,3,0,2]}', root.toJSON!());
+      const one = root.data.getElementByIndex(1);
+      const three = root.data.getElementByIndex(3);
+      root.data.moveBefore(one.getID(), three.getID());
+      assert.equal('{"data":[1,3,0,2]}', root.toJSON());
     });
     assert.equal('{"data":[1,3,0,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -823,17 +821,17 @@ describe.sequential('Document', function () {
   it('simple move elements before a specific node of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
-    assert.equal(3, doc.getRoot!().data.length);
+    assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1)!;
-      const three = root.data.getElementByIndex!(3)!;
-      root.data.moveBefore!(one.getID!(), three.getID!());
-      assert.equal('{"data":[0,3,1,2]}', root.toJSON!());
+      const one = root.data.getElementByIndex(1);
+      const three = root.data.getElementByIndex(3);
+      root.data.moveBefore(one.getID(), three.getID());
+      assert.equal('{"data":[0,3,1,2]}', root.toJSON());
     });
     assert.equal('{"data":[0,3,1,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -842,25 +840,25 @@ describe.sequential('Document', function () {
   it('move elements after a specific node of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0)!;
-      const two = root.data.getElementByIndex!(2)!;
-      root.data.moveAfter!(two.getID!(), zero.getID!());
+      const zero = root.data.getElementByIndex(0);
+      const two = root.data.getElementByIndex(2);
+      root.data.moveAfter(two.getID(), zero.getID());
     });
     assert.equal('{"data":[1,2,0]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1)!;
-      const three = root.data.getElementByIndex!(3)!;
-      root.data.moveAfter!(one.getID!(), three.getID!());
-      assert.equal('{"data":[1,2,3,0]}', root.toJSON!());
+      const one = root.data.getElementByIndex(1);
+      const three = root.data.getElementByIndex(3);
+      root.data.moveAfter(one.getID(), three.getID());
+      assert.equal('{"data":[1,2,3,0]}', root.toJSON());
     });
     assert.equal('{"data":[1,2,3,0]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -869,17 +867,17 @@ describe.sequential('Document', function () {
   it('simple move elements after a specific node of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1)!;
-      const three = root.data.getElementByIndex!(3)!;
-      root.data.moveAfter!(one.getID!(), three.getID!());
-      assert.equal('{"data":[0,1,3,2]}', root.toJSON!());
+      const one = root.data.getElementByIndex(1);
+      const three = root.data.getElementByIndex(3);
+      root.data.moveAfter(one.getID(), three.getID());
+      assert.equal('{"data":[0,1,3,2]}', root.toJSON());
     });
     assert.equal('{"data":[0,1,3,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -888,23 +886,23 @@ describe.sequential('Document', function () {
   it('move elements at the first of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex!(2)!;
-      root.data.moveFront!(two.getID!());
+      const two = root.data.getElementByIndex(2);
+      root.data.moveFront(two.getID());
     });
     assert.equal('{"data":[2,0,1]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const three = root.data.getElementByIndex!(3)!;
-      root.data.moveFront!(three.getID!());
-      assert.equal('{"data":[3,2,0,1]}', root.toJSON!());
+      const three = root.data.getElementByIndex(3);
+      root.data.moveFront(three.getID());
+      assert.equal('{"data":[3,2,0,1]}', root.toJSON());
     });
     assert.equal('{"data":[3,2,0,1]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -913,16 +911,16 @@ describe.sequential('Document', function () {
   it('simple move elements at the first of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1)!;
-      root.data.moveFront!(one.getID!());
-      assert.equal('{"data":[1,0,2,3]}', root.toJSON!());
+      const one = root.data.getElementByIndex(1);
+      root.data.moveFront(one.getID());
+      assert.equal('{"data":[1,0,2,3]}', root.toJSON());
     });
     assert.equal('{"data":[1,0,2,3]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -931,23 +929,23 @@ describe.sequential('Document', function () {
   it('move elements at the last of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex!(2)!;
-      root.data.moveLast!(two.getID!());
+      const two = root.data.getElementByIndex(2);
+      root.data.moveLast(two.getID());
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const two = root.data.getElementByIndex!(2)!;
-      root.data.moveLast!(two.getID!());
-      assert.equal('{"data":[0,1,3,2]}', root.toJSON!());
+      const two = root.data.getElementByIndex(2);
+      root.data.moveLast(two.getID());
+      assert.equal('{"data":[0,1,3,2]}', root.toJSON());
     });
     assert.equal('{"data":[0,1,3,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -956,16 +954,16 @@ describe.sequential('Document', function () {
   it('simple move elements at the last of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
       root.data.push(3);
-      const one = root.data.getElementByIndex!(1)!;
-      root.data.moveLast!(one.getID!());
-      assert.equal('{"data":[0,2,3,1]}', root.toJSON!());
+      const one = root.data.getElementByIndex(1);
+      root.data.moveLast(one.getID());
+      assert.equal('{"data":[0,2,3,1]}', root.toJSON());
     });
     assert.equal('{"data":[0,2,3,1]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
@@ -974,8 +972,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for object', async function () {
     const doc = new Document<any>('test-doc');
 
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1019,8 +1016,7 @@ describe.sequential('Document', function () {
 
   it('changeInfo test for array', async function () {
     const doc = new Document<any>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1052,8 +1048,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for counter', async function () {
     type TestDoc = { cnt: Counter };
     const doc = new Document<TestDoc>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1106,8 +1101,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for text', async function () {
     type TestDoc = { text: Text };
     const doc = new Document<TestDoc>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1137,8 +1131,7 @@ describe.sequential('Document', function () {
   it('changeInfo test for text with attributes', async function () {
     type TestDoc = { textWithAttr: Text };
     const doc = new Document<TestDoc>('test-doc');
-    type EventForTest = Array<OperationInfo>;
-    const eventCollector = new EventCollector<EventForTest>();
+    const eventCollector = new EventCollector<Array<OpInfo>>();
     const unsub = doc.subscribe((event) => {
       if (event.type === DocEventType.Snapshot) {
         return;
@@ -1176,28 +1169,28 @@ describe.sequential('Document', function () {
   it('insert elements before a specific node of array', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0)!;
-      root.data.insertBefore!(zero.getID!(), 3);
+      const zero = root.data.getElementByIndex(0);
+      root.data.insertBefore(zero.getID(), 3);
     });
     assert.equal('{"data":[3,0,1,2]}', doc.toSortedJSON());
     assert.equal(4, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const one = root.data.getElementByIndex!(2)!;
-      root.data.insertBefore!(one.getID!(), 4);
+      const one = root.data.getElementByIndex(2);
+      root.data.insertBefore(one.getID(), 4);
     });
     assert.equal('{"data":[3,0,4,1,2]}', doc.toSortedJSON());
     assert.equal(5, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const two = root.data.getElementByIndex!(4)!;
-      root.data.insertBefore!(two.getID!(), 5);
+      const two = root.data.getElementByIndex(4)!;
+      root.data.insertBefore(two.getID(), 5);
     });
     assert.equal('{"data":[3,0,4,1,5,2]}', doc.toSortedJSON());
     assert.equal(6, doc.getRoot().data.length);
@@ -1206,27 +1199,27 @@ describe.sequential('Document', function () {
   it('can insert an element before specific position after delete operation', function () {
     const doc = new Document<{ data: JSONArray<number> }>('test-doc');
     doc.update((root) => {
-      root.data = [0, 1, 2];
+      root.data = [0, 1, 2] as JSONArray<number>;
     });
     assert.equal('{"data":[0,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const zero = root.data.getElementByIndex!(0)!;
-      root.data.deleteByID!(zero.getID!());
+      const zero = root.data.getElementByIndex(0);
+      root.data.deleteByID(zero.getID());
 
-      const one = root.data.getElementByIndex!(0)!;
-      root.data.insertBefore!(one.getID!(), 3);
+      const one = root.data.getElementByIndex(0);
+      root.data.insertBefore(one.getID(), 3);
     });
     assert.equal('{"data":[3,1,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
 
     doc.update((root) => {
-      const one = root.data.getElementByIndex!(1)!;
-      root.data.deleteByID!(one.getID!());
+      const one = root.data.getElementByIndex(1);
+      root.data.deleteByID(one.getID());
 
-      const two = root.data.getElementByIndex!(1)!;
-      root.data.insertBefore!(two.getID!(), 4);
+      const two = root.data.getElementByIndex(1);
+      root.data.insertBefore(two.getID(), 4);
     });
     assert.equal('{"data":[3,4,2]}', doc.toSortedJSON());
     assert.equal(3, doc.getRoot().data.length);
@@ -1317,7 +1310,7 @@ describe.sequential('Document', function () {
   });
 
   it('escapes string for elements in array', function () {
-    const doc = new Document<{ data: JSONArray<string> }>('test-doc');
+    const doc = new Document<{ data: Array<string> }>('test-doc');
     doc.update((root) => {
       root.data = ['"hello"', '\n', '\b', '\t', '\f', '\r', '\\'];
     });
@@ -1360,7 +1353,7 @@ describe.sequential('Document', function () {
     });
   });
 
-  it('check OperationInfo type for subscribe path', function () {
+  it('check OpInfo type for subscribe path', function () {
     const doc = new Document<{
       num?: number;
       b: { c: Array<number>; d: { e: { fname: Array<number> } } };
@@ -1406,11 +1399,7 @@ describe.sequential('Document', function () {
     doc.update((root) => {
       root.b = {
         c: [],
-        d: {
-          e: {
-            fname: [],
-          },
-        },
+        d: { e: { fname: [] } },
       };
 
       root.b.d.e.fname.push(1);

@@ -47,8 +47,6 @@ export const TimeTicketSize = 8 + 4 + 12;
 /**
  * `TimeTicket` is a timestamp of the logical clock. Ticket is immutable.
  * It is created by `ChangeID`.
- *
- * @public
  */
 export class TimeTicket {
   private lamport: bigint;

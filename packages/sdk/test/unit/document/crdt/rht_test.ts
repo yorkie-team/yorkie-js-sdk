@@ -18,7 +18,6 @@ import { describe, it, assert } from 'vitest';
 import { RHT } from '@yorkie-js/sdk/src/document/crdt/rht';
 import { InitialTimeTicket as ITT } from '@yorkie-js/sdk/src/document/time/ticket';
 import { timeT } from '@yorkie-js/sdk/test/helper/helper';
-import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('RHT interface', function () {
   it('should set and get a value', function () {
@@ -86,7 +85,7 @@ describe('RHT interface', function () {
   });
 
   it('should handle toJSON', function () {
-    const testData: Indexable = {
+    const testData = {
       testKey1: 'testValue1',
       testKey2: 'testValue2',
       testKey3: 'testValue3',
@@ -105,7 +104,7 @@ describe('RHT interface', function () {
   });
 
   it('should handle toObject', function () {
-    const testData: Indexable = {
+    const testData = {
       testKey1: 'testValue1',
       testKey2: 'testValue2',
       testKey3: 'testValue3',

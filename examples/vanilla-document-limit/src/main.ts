@@ -25,9 +25,12 @@ async function main() {
   });
   await client.activate();
 
-  const doc = new yorkie.Document('vanilla-document-limit', {
-    enableDevtools: true,
-  });
+  const doc = new yorkie.Document<{ counter: number }>(
+    'vanilla-document-limit',
+    {
+      enableDevtools: true,
+    },
+  );
 
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
@@ -48,7 +51,7 @@ async function main() {
   });
 
   doc.subscribe(() => {
-    const root = doc.getRoot() as { counter: number };
+    const root = doc.getRoot();
     displayCounter(counterValueElem!, root.counter);
   });
 

@@ -74,7 +74,7 @@
           </svg>
           <div><span id="network-status"></span></div>
           <div style="margin-left: 8px; font-family: monospace">
-            <span id="memory-usage-text">Memory: -</span>
+            <span id="doc-size"></span>
           </div>
         </div>
         <div class="center-tools tools">
@@ -238,12 +238,11 @@
       }
 
       function updateMemoryUsageDisplay(doc) {
-        const docSize = doc.getDocSize();
-        if (!docSize) return;
-
-        document.getElementById('memory-usage-text').textContent =
-          `Memory: live=${docSize.live.data + docSize.live.meta}B, ` +
-          `gc=${docSize.gc.data + docSize.gc.meta}B`;
+        const size = doc.getDocSize();
+        document.getElementById('doc-size').textContent =
+          `Live=${size.live.data + size.live.meta}B, ` +
+          `GC=${size.gc.data + size.gc.meta}B, ` +
+          `Garbage=${doc.getGarbageLen()}`;
       }
 
       // https://github.com/codemirror/CodeMirror/pull/5619

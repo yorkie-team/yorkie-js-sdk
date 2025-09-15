@@ -1,5 +1,5 @@
 import { describe, it, assert } from 'vitest';
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Client } from '@yorkie-js/sdk/src/client/client';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 import {
@@ -9,11 +9,10 @@ import {
   TimeTicket,
 } from '@yorkie-js/sdk/src/yorkie';
 import { maxVectorOf } from '../helper/helper';
-import { Indexable } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('Array', function () {
   it('should handle delete operations', function () {
-    const doc = new Document<{ k1: JSONArray<string> }>('test-doc');
+    const doc = new Document<{ k1: Array<string> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -29,9 +28,7 @@ describe('Array', function () {
   });
 
   it('can push array element after delete operation', function () {
-    const doc = new Document<{ k1: JSONArray<string | Array<number>> }>(
-      'test-doc',
-    );
+    const doc = new Document<{ k1: Array<string | Array<number>> }>('test-doc');
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -46,16 +43,16 @@ describe('Array', function () {
 
     doc.update((root) => {
       root.k1.push([4, 5, 6]);
-      assert.equal('{"k1":["1","3","4",[4,5,6]]}', root.toJSON!());
+      assert.equal('{"k1":["1","3","4",[4,5,6]]}', root.toJSON());
     });
 
     assert.equal('{"k1":["1","3","4",[4,5,6]]}', doc.toJSON());
   });
 
   it('can push object element after delete operation', function () {
-    const doc = new Document<{
-      k1: JSONArray<string | { a: string; b: string }>;
-    }>('test-doc');
+    const doc = new Document<{ k1: Array<string | { a: string; b: string }> }>(
+      'test-doc',
+    );
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
@@ -70,7 +67,7 @@ describe('Array', function () {
 
     doc.update((root) => {
       root.k1.push({ a: '1', b: '2' });
-      assert.equal('{"k1":["1","3","4",{"a":"1","b":"2"}]}', root.toJSON!());
+      assert.equal('{"k1":["1","3","4",{"a":"1","b":"2"}]}', root.toJSON());
     });
 
     assert.equal('{"k1":["1","3","4",{"a":"1","b":"2"}]}', doc.toJSON());
@@ -84,7 +81,7 @@ describe('Array', function () {
     doc.update((root) => {
       root.arr = [1, 2, 3];
       root.arr.push([4, 5, 6]);
-      assert.equal('{"arr":[1,2,3,[4,5,6]]}', root.toJSON!());
+      assert.equal('{"arr":[1,2,3,[4,5,6]]}', root.toJSON());
     });
     assert.equal('{"arr":[1,2,3,[4,5,6]]}', doc.toJSON());
   });
@@ -95,18 +92,18 @@ describe('Array', function () {
 
     let target: WrappedElement;
     doc.update((root) => {
-      root.list = [];
+      root.list = [] as unknown as JSONArray<number>;
       assert.equal(1, root.list.push(4));
       assert.equal(2, root.list.push(3));
       assert.equal(3, root.list.push(2));
       assert.equal(4, root.list.push(1));
-      target = root.list.getElementByIndex!(2);
+      target = root.list.getElementByIndex(2);
     }, 'set {"list":[4,3,2,1]}');
 
     assert.equal('{"list":[4,3,2,1]}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.list.deleteByID!(target.getID!());
+      root.list.deleteByID(target.getID());
     }, 'delete 2');
     assert.equal('{"list":[4,3,1]}', doc.toSortedJSON());
 
@@ -122,17 +119,17 @@ describe('Array', function () {
 
     let prev: WrappedElement;
     doc.update((root) => {
-      root.list = [];
+      root.list = [] as unknown as JSONArray<number>;
       root.list.push(1);
       root.list.push(2);
       root.list.push(4);
-      prev = root.list.getElementByIndex!(1);
+      prev = root.list.getElementByIndex(1);
     }, 'set {"list":[1,2,4]}');
 
     assert.equal('{"list":[1,2,4]}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.list.insertAfter!(prev.getID!(), 3);
+      root.list.insertAfter(prev.getID(), 3);
     }, 'insert 3');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
@@ -142,8 +139,8 @@ describe('Array', function () {
     assert.equal('{"list":[1,3,4]}', doc.toSortedJSON());
 
     doc.update((root) => {
-      prev = root.list.getElementByIndex!(0);
-      root.list.insertAfter!(prev.getID!(), 2);
+      prev = root.list.getElementByIndex(0);
+      root.list.insertAfter(prev.getID(), 2);
     }, 'insert 2');
     assert.equal('{"list":[1,2,3,4]}', doc.toSortedJSON());
 
@@ -158,21 +155,21 @@ describe('Array', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.list = [0, 1, 2];
+      root.list = [0, 1, 2] as JSONArray<number>;
     }, 'set {"list":[0,1,2]}');
 
     doc.update((root) => {
-      const next = root.list.getElementByIndex!(0);
-      const item = root.list.getElementByIndex!(2);
-      root.list.moveBefore!(next.getID!(), item.getID!());
-      assert.equal('{"list":[2,0,1]}', root.toJSON!());
+      const next = root.list.getElementByIndex(0);
+      const item = root.list.getElementByIndex(2);
+      root.list.moveBefore(next.getID(), item.getID());
+      assert.equal('{"list":[2,0,1]}', root.toJSON());
     });
 
     doc.update((root) => {
-      const next = root.list.getElementByIndex!(0);
-      const item = root.list.getElementByIndex!(2);
-      root.list.moveBefore!(next.getID!(), item.getID!());
-      assert.equal('{"list":[1,2,0]}', root.toJSON!());
+      const next = root.list.getElementByIndex(0);
+      const item = root.list.getElementByIndex(2);
+      root.list.moveBefore(next.getID(), item.getID());
+      assert.equal('{"list":[1,2,0]}', root.toJSON());
     });
   });
 
@@ -181,21 +178,21 @@ describe('Array', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.list = [0, 1, 2];
+      root.list = [0, 1, 2] as JSONArray<number>;
     }, 'set {"list":[0,1,2]}');
 
     doc.update((root) => {
-      const prev = root.list.getElementByIndex!(0);
-      const item = root.list.getElementByIndex!(2);
-      root.list.moveAfter!(prev.getID!(), item.getID!());
-      assert.equal('{"list":[0,2,1]}', root.toJSON!());
+      const prev = root.list.getElementByIndex(0);
+      const item = root.list.getElementByIndex(2);
+      root.list.moveAfter(prev.getID(), item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
     });
 
     doc.update((root) => {
-      const prev = root.list.getElementByIndex!(0);
-      const item = root.list.getElementByIndex!(2);
-      root.list.moveAfter!(prev.getID!(), item.getID!());
-      assert.equal('{"list":[0,1,2]}', root.toJSON!());
+      const prev = root.list.getElementByIndex(0);
+      const item = root.list.getElementByIndex(2);
+      root.list.moveAfter(prev.getID(), item.getID());
+      assert.equal('{"list":[0,1,2]}', root.toJSON());
     });
   });
 
@@ -204,25 +201,25 @@ describe('Array', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.list = [0, 1, 2];
+      root.list = [0, 1, 2] as JSONArray<number>;
     }, 'set {"list":[0,1,2]}');
 
     doc.update((root) => {
-      const item = root.list.getElementByIndex!(2);
-      root.list.moveFront!(item.getID!());
-      assert.equal('{"list":[2,0,1]}', root.toJSON!());
+      const item = root.list.getElementByIndex(2);
+      root.list.moveFront(item.getID());
+      assert.equal('{"list":[2,0,1]}', root.toJSON());
     });
 
     doc.update((root) => {
-      const item = root.list.getElementByIndex!(1);
-      root.list.moveFront!(item.getID!());
-      assert.equal('{"list":[0,2,1]}', root.toJSON!());
+      const item = root.list.getElementByIndex(1);
+      root.list.moveFront(item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
     });
 
     doc.update((root) => {
-      const item = root.list.getElementByIndex!(0);
-      root.list.moveFront!(item.getID!());
-      assert.equal('{"list":[0,2,1]}', root.toJSON!());
+      const item = root.list.getElementByIndex(0);
+      root.list.moveFront(item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
     });
   });
 
@@ -231,25 +228,25 @@ describe('Array', function () {
     assert.equal('{}', doc.toSortedJSON());
 
     doc.update((root) => {
-      root.list = [0, 1, 2];
+      root.list = [0, 1, 2] as JSONArray<number>;
     }, 'set {"list":[0,1,2]}');
 
     doc.update((root) => {
-      const item = root.list.getElementByIndex!(2);
-      root.list.moveLast!(item.getID!());
-      assert.equal('{"list":[0,1,2]}', root.toJSON!());
+      const item = root.list.getElementByIndex(2);
+      root.list.moveLast(item.getID());
+      assert.equal('{"list":[0,1,2]}', root.toJSON());
     });
 
     doc.update((root) => {
-      const item = root.list.getElementByIndex!(1);
-      root.list.moveLast!(item.getID!());
-      assert.equal('{"list":[0,2,1]}', root.toJSON!());
+      const item = root.list.getElementByIndex(1);
+      root.list.moveLast(item.getID());
+      assert.equal('{"list":[0,2,1]}', root.toJSON());
     });
 
     doc.update((root) => {
-      const item = root.list.getElementByIndex!(0);
-      root.list.moveLast!(item.getID!());
-      assert.equal('{"list":[2,1,0]}', root.toJSON!());
+      const item = root.list.getElementByIndex(0);
+      root.list.moveLast(item.getID());
+      assert.equal('{"list":[2,1,0]}', root.toJSON());
     });
   });
 
@@ -258,36 +255,36 @@ describe('Array', function () {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
       d1.update((root) => {
-        root.k1 = [1, 2, 3, 4];
-        prev = root.k1.getElementByIndex!(1);
+        root.k1 = [1, 2, 3, 4] as JSONArray<number>;
+        prev = root.k1.getElementByIndex(1);
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root.k1.deleteByID!(prev.getID!());
-        assert.equal('{"k1":[1,3,4]}', root.toJSON!());
+        root.k1.deleteByID(prev.getID());
+        assert.equal('{"k1":[1,3,4]}', root.toJSON());
       });
       d2.update((root) => {
-        root.k1.insertAfter!(prev.getID!(), 2);
-        assert.equal('{"k1":[1,2,2,3,4]}', root.toJSON!());
+        root.k1.insertAfter(prev.getID(), 2);
+        assert.equal('{"k1":[1,2,2,3,4]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-      assert.equal('{"k1":[1,2,3,4]}', d1.toJSON!());
+      assert.equal('{"k1":[1,2,3,4]}', d1.toJSON());
 
       d1.update((root) => {
-        const prev = root.k1.getElementByIndex!(1);
-        root.k1.insertAfter!(prev.getID!(), '2.1');
-        assert.equal('{"k1":[1,2,"2.1",3,4]}', root.toJSON!());
+        const prev = root.k1.getElementByIndex(1);
+        root.k1.insertAfter(prev.getID(), '2.1');
+        assert.equal('{"k1":[1,2,"2.1",3,4]}', root.toJSON());
       });
       d2.update((root) => {
-        const prev = root.k1.getElementByIndex!(1);
-        root.k1.insertAfter!(prev.getID!(), '2.2');
-        assert.equal('{"k1":[1,2,"2.2",3,4]}', root.toJSON!());
+        const prev = root.k1.getElementByIndex(1);
+        root.k1.insertAfter(prev.getID(), '2.2');
+        assert.equal('{"k1":[1,2,"2.2",3,4]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
@@ -302,39 +299,39 @@ describe('Array', function () {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [0, 1, 2];
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        root.k1 = [0, 1, 2] as JSONArray<number>;
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
-        assert.equal('{"k1":[2,0,1]}', root.toJSON!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
       });
 
       d1.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
-        assert.equal('{"k1":[1,2,0]}', root.toJSON!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
-        assert.equal('{"k1":[1,0,2]}', root.toJSON!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,0,2]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
 
       await c1.sync();
@@ -350,25 +347,25 @@ describe('Array', function () {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [0, 1, 2];
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        root.k1 = [0, 1, 2] as JSONArray<number>;
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
-        assert.equal('{"k1":[1,0,2]}', root.toJSON!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[1,0,2]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const next = root.k1.getElementByIndex!(1);
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
-        assert.equal('{"k1":[0,2,1]}', root.toJSON!());
+        const next = root.k1.getElementByIndex(1);
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveBefore(next.getID(), item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
 
       await c1.sync();
@@ -384,35 +381,35 @@ describe('Array', function () {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [0, 1, 2];
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        root.k1 = [0, 1, 2] as JSONArray<number>;
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveFront!(item.getID!());
-        assert.equal('{"k1":[2,0,1]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveFront(item.getID());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
       });
 
       d1.update((root) => {
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveFront!(item.getID!());
-        assert.equal('{"k1":[1,2,0]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveFront(item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveFront!(item.getID!());
-        assert.equal('{"k1":[1,0,2]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveFront(item.getID());
+        assert.equal('{"k1":[1,0,2]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveFront!(item.getID!());
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveFront(item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
 
       await c1.sync();
@@ -428,23 +425,23 @@ describe('Array', function () {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [0, 1, 2];
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        root.k1 = [0, 1, 2] as JSONArray<number>;
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveFront!(item.getID!());
-        assert.equal('{"k1":[2,0,1]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveFront(item.getID());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveFront!(item.getID!());
-        assert.equal('{"k1":[2,0,1]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveFront(item.getID());
+        assert.equal('{"k1":[2,0,1]}', root.toJSON());
       });
 
       await c1.sync();
@@ -458,23 +455,23 @@ describe('Array', function () {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [0, 1, 2];
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        root.k1 = [0, 1, 2] as JSONArray<number>;
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveLast!(item.getID!());
-        assert.equal('{"k1":[0,2,1]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveLast(item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const item = root.k1.getElementByIndex!(0);
-        root.k1.moveLast!(item.getID!());
-        assert.equal('{"k1":[1,2,0]}', root.toJSON!());
+        const item = root.k1.getElementByIndex(0);
+        root.k1.moveLast(item.getID());
+        assert.equal('{"k1":[1,2,0]}', root.toJSON());
       });
 
       await c1.sync();
@@ -491,21 +488,21 @@ describe('Array', function () {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
       d1.update((root) => {
-        root.k1 = [0];
-        prev = root.k1.getElementByIndex!(0);
+        root.k1 = [0] as JSONArray<number>;
+        prev = root.k1.getElementByIndex(0);
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root.k1.insertAfter!(prev.getID!(), 1);
-        assert.equal('{"k1":[0,1]}', root.toJSON!());
+        root.k1.insertAfter(prev.getID(), 1);
+        assert.equal('{"k1":[0,1]}', root.toJSON());
       });
 
       d2.update((root) => {
-        root.k1.insertAfter!(prev.getID!(), 2);
-        assert.equal('{"k1":[0,2]}', root.toJSON!());
+        root.k1.insertAfter(prev.getID(), 2);
+        assert.equal('{"k1":[0,2]}', root.toJSON());
       });
 
       await c1.sync();
@@ -514,15 +511,15 @@ describe('Array', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveBefore(next.getID(), item.getID());
       });
 
       d2.update((root) => {
-        const next = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveBefore!(next.getID!(), item.getID!());
+        const next = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveBefore(next.getID(), item.getID());
       });
 
       await c1.sync();
@@ -536,25 +533,25 @@ describe('Array', function () {
     type TestDoc = { k1: JSONArray<number> };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [0, 1, 2];
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        root.k1 = [0, 1, 2] as JSONArray<number>;
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d1.update((root) => {
-        const prev = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(1);
-        root.k1.moveAfter!(prev.getID!(), item.getID!());
-        assert.equal('{"k1":[0,1,2]}', root.toJSON!());
+        const prev = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(1);
+        root.k1.moveAfter(prev.getID(), item.getID());
+        assert.equal('{"k1":[0,1,2]}', root.toJSON());
       });
 
       d2.update((root) => {
-        const prev = root.k1.getElementByIndex!(0);
-        const item = root.k1.getElementByIndex!(2);
-        root.k1.moveAfter!(prev.getID!(), item.getID!());
-        assert.equal('{"k1":[0,2,1]}', root.toJSON!());
+        const prev = root.k1.getElementByIndex(0);
+        const item = root.k1.getElementByIndex(2);
+        root.k1.moveAfter(prev.getID(), item.getID());
+        assert.equal('{"k1":[0,2,1]}', root.toJSON());
       });
 
       await c1.sync();
@@ -592,20 +589,20 @@ describe('Array', function () {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       let prev: WrappedElement;
       d1.update((root) => {
-        root.k1 = [1, 2, 3, 4];
+        root.k1 = [1, 2, 3, 4] as JSONArray<number>;
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        prev = root.k1.getElementByIndex!(2);
-        root.k1.deleteByID!(prev.getID!());
+        prev = root.k1.getElementByIndex(2);
+        root.k1.deleteByID(prev.getID());
       });
 
       d2.update((root) => {
-        prev = root.k1.getElementByIndex!(2);
-        root.k1.deleteByID!(prev.getID!());
+        prev = root.k1.getElementByIndex(2);
+        root.k1.deleteByID(prev.getID());
       });
 
       await c1.sync();
@@ -625,21 +622,21 @@ describe('Array', function () {
       let prev: WrappedElement;
 
       d1.update((root) => {
-        root.k1 = [1];
-        prev = root.k1.getElementByIndex!(0);
+        root.k1 = [1] as JSONArray<number>;
+        prev = root.k1.getElementByIndex(0);
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root.k1.deleteByID!(prev.getID!());
-        assert.equal('{"k1":[]}', root.toJSON!());
+        root.k1.deleteByID(prev.getID());
+        assert.equal('{"k1":[]}', root.toJSON());
         assert.equal(0, root.k1.length);
       });
       d2.update((root) => {
-        root.k1.insertBefore!(prev.getID!(), 2);
-        assert.equal('{"k1":[2,1]}', root.toJSON!());
+        root.k1.insertBefore(prev.getID(), 2);
+        assert.equal('{"k1":[2,1]}', root.toJSON());
         assert.equal(2, root.k1.length);
       });
       await c1.sync();
@@ -647,7 +644,7 @@ describe('Array', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
       d1.update((root) => {
-        assert.equal('{"k1":[2]}', root.toJSON!());
+        assert.equal('{"k1":[2]}', root.toJSON());
         assert.equal(1, root.k1.length);
       });
     }, task.name);
@@ -661,41 +658,41 @@ describe('Array', function () {
       let prev: WrappedElement;
 
       d1.update((root) => {
-        root.k1 = [1, 2, 3, 4];
-        prev = root.k1.getElementByIndex!(1);
+        root.k1 = [1, 2, 3, 4] as JSONArray<number>;
+        prev = root.k1.getElementByIndex(1);
       });
       await c1.sync();
       await c2.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
 
       d1.update((root) => {
-        root.k1.deleteByID!(prev.getID!());
-        assert.equal('{"k1":[1,3,4]}', root.toJSON!());
+        root.k1.deleteByID(prev.getID());
+        assert.equal('{"k1":[1,3,4]}', root.toJSON());
         assert.equal(3, root.k1.length);
       });
       d2.update((root) => {
-        root.k1.insertBefore!(prev.getID!(), 5);
-        assert.equal('{"k1":[1,5,2,3,4]}', root.toJSON!());
+        root.k1.insertBefore(prev.getID(), 5);
+        assert.equal('{"k1":[1,5,2,3,4]}', root.toJSON());
         assert.equal(5, root.k1.length);
       });
       await c1.sync();
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-      assert.equal('{"k1":[1,5,3,4]}', d1.toJSON!());
+      assert.equal('{"k1":[1,5,3,4]}', d1.toJSON());
 
       d1.update((root) => {
-        const prev = root.k1.getElementByIndex!(3);
+        const prev = root.k1.getElementByIndex(3);
         assert.equal(4, root.k1.length);
-        root.k1.insertBefore!(prev.getID!(), 6);
-        assert.equal('{"k1":[1,5,3,6,4]}', root.toJSON!());
+        root.k1.insertBefore(prev.getID(), 6);
+        assert.equal('{"k1":[1,5,3,6,4]}', root.toJSON());
         assert.equal(5, root.k1.length);
       });
       d2.update((root) => {
-        const prev = root.k1.getElementByIndex!(0);
+        const prev = root.k1.getElementByIndex(0);
         assert.equal(4, root.k1.length);
-        root.k1.insertBefore!(prev.getID!(), 7);
-        assert.equal('{"k1":[7,1,5,3,4]}', root.toJSON!());
+        root.k1.insertBefore(prev.getID(), 7);
+        assert.equal('{"k1":[7,1,5,3,4]}', root.toJSON());
         assert.equal(5, root.k1.length);
       });
       await c1.sync();
@@ -703,7 +700,7 @@ describe('Array', function () {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
       d1.update((root) => {
-        assert.equal('{"k1":[7,1,5,3,6,4]}', root.toJSON!());
+        assert.equal('{"k1":[7,1,5,3,6,4]}', root.toJSON());
         assert.equal(6, root.k1.length);
       });
     }, task.name);
@@ -714,19 +711,19 @@ describe('Array', function () {
     let targetID: TimeTicket;
 
     doc.update((root) => {
-      root.list = [0, 1, 2];
-      targetID = root.list.getElementByIndex!(2).getID!();
+      root.list = [0, 1, 2] as JSONArray<number>;
+      targetID = root.list.getElementByIndex(2).getID();
     });
 
     doc.update((root) => {
-      root.list.deleteByID!(targetID);
+      root.list.deleteByID(targetID);
     });
 
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
 
     doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     doc.update((root) => {
-      const elem = root.list.getElementByID!(targetID);
+      const elem = root.list.getElementByID(targetID);
       assert.isUndefined(elem);
     });
   });
@@ -736,18 +733,18 @@ describe('Array', function () {
     let targetID: TimeTicket;
 
     doc.update((root) => {
-      root.list = [0, 1, 2];
-      targetID = root.list.getElementByIndex!(2).getID!();
+      root.list = [0, 1, 2] as JSONArray<number>;
+      targetID = root.list.getElementByIndex(2).getID();
     });
 
     doc.update((root) => {
-      const elem = root.list.getElementByID!(targetID) as Primitive;
+      const elem = root.list.getElementByID(targetID) as Primitive;
       assert.equal(2, elem.getValue());
     });
 
     doc.update((root) => {
-      root.list.deleteByID!(targetID);
-      assert.isUndefined(root.list.getElementByID!(targetID));
+      root.list.deleteByID(targetID);
+      assert.isUndefined(root.list.getElementByID(targetID));
     });
 
     assert.equal('{"list":[0,1]}', doc.toSortedJSON());
@@ -777,13 +774,13 @@ describe('Array Concurrency Table Tests', function () {
     {
       opName: 'insert.prev',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.insertIntegerAfter!(oneIdx, newValues[cid]);
+        arr.insertIntegerAfter(oneIdx, newValues[cid]);
       },
     },
     {
       opName: 'insert.prev.next',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.insertIntegerAfter!(oneIdx - 1, newValues[cid]);
+        arr.insertIntegerAfter(oneIdx - 1, newValues[cid]);
       },
     },
 
@@ -791,19 +788,19 @@ describe('Array Concurrency Table Tests', function () {
     {
       opName: 'move.prev',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.moveAfterByIndex!(oneIdx, otherIdxs[cid]);
+        arr.moveAfterByIndex(oneIdx, otherIdxs[cid]);
       },
     },
     {
       opName: 'move.prev.next',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.moveAfterByIndex!(oneIdx - 1, otherIdxs[cid]);
+        arr.moveAfterByIndex(oneIdx - 1, otherIdxs[cid]);
       },
     },
     {
       opName: 'move.target',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.moveAfterByIndex!(otherIdxs[cid], oneIdx);
+        arr.moveAfterByIndex(otherIdxs[cid], oneIdx);
       },
     },
 
@@ -811,7 +808,7 @@ describe('Array Concurrency Table Tests', function () {
     {
       opName: 'set.target',
       executor: (arr: JSONArray<number>, cid: number) => {
-        arr.setValue!(oneIdx, newValues[cid]);
+        arr.setValue(oneIdx, newValues[cid]);
       },
     },
 
@@ -819,7 +816,7 @@ describe('Array Concurrency Table Tests', function () {
     {
       opName: 'remove.target',
       executor: (arr: JSONArray<number>) => {
-        arr.delete!(oneIdx);
+        arr.delete(oneIdx);
       },
     },
   ];
@@ -833,15 +830,15 @@ describe('Array Concurrency Table Tests', function () {
 
         await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
           d1.update((root) => {
-            root.a = [...initArr];
-            assert.equal(initMarshal, root.toJSON!());
+            root.a = [...initArr] as JSONArray<number>;
+            assert.equal(initMarshal, root.toJSON());
           });
 
           await c1.sync();
           await c2.sync();
 
           // Verify initial state
-          assert.equal(d1.toJSON!(), d2.toJSON!());
+          assert.equal(d1.toJSON(), d2.toJSON());
 
           // Apply operations concurrently
           d1.update((root) => {
@@ -889,7 +886,7 @@ describe('Can handle complicated concurrent array operations', function () {
     {
       opName: 'insert',
       executor: (arr: JSONArray<number>) => {
-        arr.insertAfter!(arr.getElementByIndex!(oneIdx).getID!(), newValue);
+        arr.insertAfter(arr.getElementByIndex(oneIdx).getID(), newValue);
       },
     },
 
@@ -897,9 +894,9 @@ describe('Can handle complicated concurrent array operations', function () {
     {
       opName: 'move',
       executor: (arr: JSONArray<number>) => {
-        arr.moveAfter!(
-          arr.getElementByIndex!(otherIdx).getID!(),
-          arr.getElementByIndex!(oneIdx).getID!(),
+        arr.moveAfter(
+          arr.getElementByIndex(otherIdx).getID(),
+          arr.getElementByIndex(oneIdx).getID(),
         );
       },
     },
@@ -908,15 +905,12 @@ describe('Can handle complicated concurrent array operations', function () {
     {
       opName: 'set',
       executor: (arr: JSONArray<number>) => {
-        arr.deleteByID!(arr.getElementByIndex!(oneIdx).getID!());
+        arr.deleteByID(arr.getElementByIndex(oneIdx).getID());
         if (oneIdx > 0) {
-          arr.insertAfter!(
-            arr.getElementByIndex!(oneIdx - 1).getID!(),
-            newValue,
-          );
+          arr.insertAfter(arr.getElementByIndex(oneIdx - 1).getID(), newValue);
         } else {
-          const firstElement = arr.getElementByIndex!(0);
-          arr.insertBefore!(firstElement.getID!(), newValue);
+          const firstElement = arr.getElementByIndex(0);
+          arr.insertBefore(firstElement.getID(), newValue);
         }
       },
     },
@@ -925,7 +919,7 @@ describe('Can handle complicated concurrent array operations', function () {
     {
       opName: 'remove',
       executor: (arr: JSONArray<number>) => {
-        arr.deleteByID!(arr.getElementByIndex!(oneIdx).getID!());
+        arr.deleteByID(arr.getElementByIndex(oneIdx).getID());
       },
     },
   ];
@@ -941,15 +935,15 @@ describe('Can handle complicated concurrent array operations', function () {
       await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
         // Reset documents for each test case
         d1.update((root) => {
-          root.a = [...initArr];
-          assert.equal(initMarshal, root.toJSON!());
+          root.a = [...initArr] as JSONArray<number>;
+          assert.equal(initMarshal, root.toJSON());
         });
 
         await c1.sync();
         await c2.sync();
 
         // Verify initial state
-        assert.equal(d1.toJSON!(), d2.toJSON!());
+        assert.equal(d1.toJSON(), d2.toJSON());
 
         // Client 1 performs the test operation
         d1.update((root) => {
@@ -959,15 +953,15 @@ describe('Can handle complicated concurrent array operations', function () {
         // Client 2 performs two move operations
         d2.update((root) => {
           // Move element at index 2 after element at oneIdx
-          root.a.moveAfter!(
-            root.a.getElementByIndex!(oneIdx).getID!(),
-            root.a.getElementByIndex!(2).getID!(),
+          root.a.moveAfter(
+            root.a.getElementByIndex(oneIdx).getID(),
+            root.a.getElementByIndex(2).getID(),
           );
 
           // Move element at index 3 after element at index 2
-          root.a.moveAfter!(
-            root.a.getElementByIndex!(2).getID!(),
-            root.a.getElementByIndex!(3).getID!(),
+          root.a.moveAfter(
+            root.a.getElementByIndex(2).getID(),
+            root.a.getElementByIndex(3).getID(),
           );
         });
 
@@ -988,22 +982,22 @@ describe('Array Set By Index Tests', function () {
 
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.k1 = [-1, -2, -3];
-        assert.equal('{"k1":[-1,-2,-3]}', root.toJSON!());
+        root.k1 = [-1, -2, -3] as JSONArray<number>;
+        assert.equal('{"k1":[-1,-2,-3]}', root.toJSON());
       });
 
       await c1.sync();
       await c2.sync();
-      assert.equal(d1.toJSON!(), d2.toJSON!());
+      assert.equal(d1.toJSON(), d2.toJSON());
 
       d2.update((root) => {
-        root.k1.setValue!(1, -4);
-        assert.equal('{"k1":[-1,-4,-3]}', root.toJSON!());
+        root.k1.setValue(1, -4);
+        assert.equal('{"k1":[-1,-4,-3]}', root.toJSON());
       });
 
       d1.update((root) => {
-        root.k1.setValue!(0, -5);
-        assert.equal('{"k1":[-5,-2,-3]}', root.toJSON!());
+        root.k1.setValue(0, -5);
+        assert.equal('{"k1":[-5,-2,-3]}', root.toJSON());
       });
 
       const result = await syncClientsThenCheckEqual([
@@ -1018,19 +1012,19 @@ describe('Array Set By Index Tests', function () {
     const doc = new Document<{ list: JSONArray<any> }>('test-doc');
 
     doc.update((root) => {
-      root.list = ['a', 'b', 'c'];
+      root.list = ['a', 'b', 'c'] as JSONArray<string>;
     }, 'init');
     assert.equal(doc.toSortedJSON(), '{"list":["a","b","c"]}');
 
     doc.update((root) => {
-      const prev = root.list.getElementByIndex!(0);
-      root.list.insertAfter!(prev.getID!(), 'newV');
+      const prev = root.list.getElementByIndex(0);
+      root.list.insertAfter(prev.getID(), 'newV');
     }, 'insertAfter #1');
     assert.equal(doc.toSortedJSON(), '{"list":["a","newV","b","c"]}');
 
     doc.update((root) => {
-      const prev = root.list.getElementByIndex!(0);
-      root.list.insertAfter!(prev.getID!(), 'newV');
+      const prev = root.list.getElementByIndex(0);
+      root.list.insertAfter(prev.getID(), 'newV');
     }, 'insertAfter #2');
     assert.equal(doc.toSortedJSON(), '{"list":["a","newV","newV","b","c"]}');
 

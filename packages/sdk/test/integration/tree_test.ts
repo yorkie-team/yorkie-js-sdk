@@ -30,7 +30,10 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
-import { toXML } from '@yorkie-js/sdk/src/document/crdt/tree';
+import {
+  toXML,
+  TreePosStructRange,
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 
 describe('Tree', () => {
   it('Can be created', function ({ task }) {
@@ -44,7 +47,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p></p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
 
       // 02. Create a text into the paragraph.
@@ -52,7 +55,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p>AB</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"}]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
 
       // 03. Insert a text into the paragraph.
@@ -61,7 +64,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p>ABCD</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"AB"},{"type":"text","value":"CD"}]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
 
       // 04. Replace ABCD with Yorkie
@@ -72,7 +75,7 @@ describe('Tree', () => {
       assert.equal(root.t.toXML(), /*html*/ `<root><p>Yorkie</p></root>`);
       assert.equal(
         '{"t":{"type":"root","children":[{"type":"p","children":[{"type":"text","value":"Yorkie"}]}]}}',
-        root.toJSON!(),
+        root.toJSON(),
       );
     });
   });
@@ -894,7 +897,10 @@ describe('Tree', () => {
   it('Should return correct range from index within doc.subscribe', async function ({
     task,
   }) {
-    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+    await withTwoClientsAndDocuments<
+      { t: Tree },
+      { selection: TreePosStructRange }
+    >(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
           type: 'doc',
@@ -1501,7 +1507,7 @@ describe('Tree.style', function () {
       );
 
       assert.equal(
-        root.toJSON!(),
+        root.toJSON(),
         /*html*/ `{"t":{"type":"doc","children":[{"type":"tc","children":[{"type":"p","children":[{"type":"tn","children":[],"attributes":{"z":"m"}}],"attributes":{"a":"b","c":"q"}}]}]}}`,
       );
     });

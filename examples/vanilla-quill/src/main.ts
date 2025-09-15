@@ -1,4 +1,4 @@
-import yorkie, { DocEventType, Indexable, OperationInfo } from '@yorkie-js/sdk';
+import yorkie, { DocEventType, Indexable, OpInfo } from '@yorkie-js/sdk';
 import ColorHash from 'color-hash';
 import Quill, { Delta, type Op } from 'quill';
 import QuillCursors from 'quill-cursors';
@@ -242,7 +242,7 @@ async function main() {
     });
 
   // 04-2. document to Quill(remote).
-  function handleOperations(ops: Array<OperationInfo>) {
+  function handleOperations(ops: Array<OpInfo>) {
     const deltaOperations = [];
     let prevTo = 0;
     for (const op of ops) {

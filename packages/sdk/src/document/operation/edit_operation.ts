@@ -21,7 +21,7 @@ import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split
 import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
-  OperationInfo,
+  OpInfo,
   ExecutionResult,
   OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
@@ -135,7 +135,7 @@ export class EditOperation extends Operation {
           to,
           value,
           path: root.createPath(this.getParentCreatedAt()),
-        } as OperationInfo;
+        } as OpInfo;
       }),
       reverseOp,
     };

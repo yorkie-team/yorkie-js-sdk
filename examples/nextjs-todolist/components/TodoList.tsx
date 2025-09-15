@@ -29,7 +29,7 @@ const TodoList = () => {
           id: String(Date.now()),
           text: newTodo,
           completed: false,
-        });
+        } as JSONObject<Todo>);
       });
       setNewTodo('');
     }

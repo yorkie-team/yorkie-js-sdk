@@ -23,8 +23,6 @@ import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `CRDTElement` represents an element that has `TimeTicket`s.
- *
- * @internal
  */
 export abstract class CRDTElement {
   private createdAt: TimeTicket;
@@ -105,13 +103,6 @@ export abstract class CRDTElement {
    * `remove` removes this element.
    */
   public remove(removedAt?: TimeTicket): boolean {
-    // TODO(emplam27) : The CRDT elements `remove` method had a condition
-    // for `Undo/Redo` is `removedAt.after(this.getPositionedAt()) === true`.
-    // However, with the resolve for `Array.Move` and `Array.Set` convergence,
-    // Array Operations are diverging due to `removedAt.after(this.getPositionedAt()) === true` condition.
-    // Since the `Undo/Redo` function is not yet in used, this condition should be
-    // rolled back to its previous state `removedAt.after(this.createdAt()) === true`,
-    // And additional review is required when implementing the `Undo/Redo` logic.
     if (
       removedAt &&
       removedAt.after(this.createdAt) &&

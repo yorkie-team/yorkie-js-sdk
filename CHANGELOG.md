@@ -7,6 +7,38 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.29] - 2025-09-05
+
+### Changed
+
+- Ensure LWW concurrent deletions collapse to single tombstone timestamp by @PlusUltraCode in https://github.com/yorkie-team/yorkie-js-sdk/pull/1083
+- Rename OperationInfo to OpInfo across the codebase by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1084
+- Refactor JSON element types and streamline document core by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1085
+
+### Fixed
+
+- Fix garbage size accounting for Text nodes by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1086
+
+## [v0.6.28] - 2025-09-02
+
+### Added
+
+- Add getOthersPresences and synchronous deactivation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1081
+
+## [v0.6.27] - 2025-08-29
+
+### Added
+
+- Support undo for move/set by fixing collisions by @KMSstudio in https://github.com/yorkie-team/yorkie-js-sdk/pull/1059
+
+### Changed
+
+- Remove optional methods from JSONArray/JSONObject by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1076
+
+### Fixed
+
+- Fix attachment constructor argument typo by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1073
+
 ## [v0.6.26] - 2025-08-20
 
 ### Added

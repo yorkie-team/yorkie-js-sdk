@@ -1,4 +1,4 @@
-import { OperationInfo } from '@yorkie-js/sdk';
+import { OpInfo } from '@yorkie-js/sdk';
 import { clsx, type ClassValue } from 'clsx';
 import { Op } from 'quill';
 import { twMerge } from 'tailwind-merge';
@@ -21,8 +21,8 @@ export const toDeltaOperation = <T extends TextValueType>(textValue: T): Op => {
   };
 };
 
-// Convert array of Yorkie OperationInfo to array of Quill Delta Operations
-export const getDeltaOperations = (ops: Array<OperationInfo>): Array<Op> => {
+// Convert array of Yorkie OpInfo to array of Quill Delta Operations
+export const getDeltaOperations = (ops: Array<OpInfo>): Array<Op> => {
   const operations: Array<Op> = [];
   let prevTo = 0;
 

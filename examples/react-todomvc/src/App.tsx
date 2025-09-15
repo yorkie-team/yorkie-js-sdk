@@ -4,7 +4,8 @@ import './App.css';
 
 import 'todomvc-app-css/index.css';
 import { useTodoReducer } from './useTodoReducer';
-import { useEffect } from 'react';
+import { JSONArray } from '@yorkie-js/react';
+import { Todo } from './model';
 
 const initialRoot = {
   todos: [
@@ -12,7 +13,7 @@ const initialRoot = {
     { id: crypto.randomUUID(), text: 'Garbage collection', completed: false },
     { id: crypto.randomUUID(), text: 'RichText datatype', completed: false },
   ],
-};
+} as { todos: JSONArray<Todo> };
 
 /**
  * `App` is the root component of the application.

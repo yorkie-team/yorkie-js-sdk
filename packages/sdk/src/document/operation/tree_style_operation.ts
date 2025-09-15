@@ -24,7 +24,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   Operation,
-  OperationInfo,
+  OpInfo,
   ExecutionResult,
   OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
@@ -161,7 +161,7 @@ export class TreeStyleOperation extends Operation {
           fromPath,
           toPath,
           path: root.createPath(this.getParentCreatedAt()),
-        } as OperationInfo;
+        } as OpInfo;
       }),
     };
   }
