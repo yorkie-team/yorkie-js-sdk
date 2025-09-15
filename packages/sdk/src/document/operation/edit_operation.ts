@@ -283,16 +283,6 @@ export class EditOperation extends Operation {
       });
     };
 
-    // Fully overlap: contains
-    if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
-      apply(rangeFrom, rangeFrom, 'contains-left');
-      return;
-    }
-    if (a <= rangeFrom && rangeTo <= b && a !== b) {
-      apply(a, b - rangeLen + contentLen, 'contains-right');
-      return;
-    }
-
     // Does not overlap
     if (rangeTo <= a) {
       apply(a - rangeLen + contentLen, b - rangeLen + contentLen, 'before');
@@ -300,6 +290,16 @@ export class EditOperation extends Operation {
     }
     if (b <= rangeFrom) {
       console.log('[no-change] range after op', { a, b });
+      return;
+    }
+
+    // Fully overlap: contains
+    if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
+      apply(rangeFrom, rangeFrom, 'contains-left');
+      return;
+    }
+    if (a <= rangeFrom && rangeTo <= b && a !== b) {
+      apply(a, b - rangeLen + contentLen, 'contains-right');
       return;
     }
 
