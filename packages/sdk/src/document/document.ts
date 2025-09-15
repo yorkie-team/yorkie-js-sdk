@@ -80,6 +80,7 @@ import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
 import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
+import { EditOperation } from './operation/edit_operation';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -798,6 +799,14 @@ export class Document<R, P extends Indexable = Indexable> {
           this.internalHistory.reconcileCreatedAt(
             op.getCreatedAt(),
             op.getValue().getCreatedAt(),
+          );
+        } else if (op instanceof EditOperation) {
+          const [rangeFrom, rangeTo] = op.normalizePos(this.root);
+          this.internalHistory.reconcileTextEdit(
+            op.getParentCreatedAt(),
+            rangeFrom,
+            rangeTo,
+            op.getContent().length,
           );
         }
       }
@@ -2104,6 +2113,14 @@ export class Document<R, P extends Indexable = Indexable> {
         const prev = undoOp.getValue().getCreatedAt();
         undoOp.getValue().setCreatedAt(ticket);
         this.internalHistory.reconcileCreatedAt(prev, ticket);
+      } else if (undoOp instanceof EditOperation) {
+        const [rangeFrom, rangeTo] = undoOp.normalizePos(this.root);
+        this.internalHistory.reconcileTextEdit(
+          undoOp.getParentCreatedAt(),
+          rangeFrom,
+          rangeTo,
+          undoOp.getContent().length,
+        );
       }
 
       context.push(undoOp);
@@ -2220,6 +2237,14 @@ export class Document<R, P extends Indexable = Indexable> {
         const prev = redoOp.getValue().getCreatedAt();
         redoOp.getValue().setCreatedAt(ticket);
         this.internalHistory.reconcileCreatedAt(prev, ticket);
+      } else if (redoOp instanceof EditOperation) {
+        const [rangeFrom, rangeTo] = redoOp.normalizePos(this.root);
+        this.internalHistory.reconcileTextEdit(
+          redoOp.getParentCreatedAt(),
+          rangeFrom,
+          rangeTo,
+          redoOp.getContent().length,
+        );
       }
 
       context.push(redoOp);

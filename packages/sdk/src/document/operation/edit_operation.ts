@@ -102,7 +102,11 @@ export class EditOperation extends Operation {
     }
     const text = parentObject as CRDTText<A>;
 
-    if (this.isUndoOp && !this.fromPos.equals(this.toPos)) {
+    if (this.isUndoOp) {
+      console.log(
+        `##### from=${this.fromPos.getRelativeOffset()}, to=${this.toPos.getRelativeOffset()}}`,
+      );
+      this.fromPos = text.refinePos(this.fromPos);
       this.toPos = text.refinePos(this.toPos);
     }
     const [changes, pairs, diff, , removed] = text.edit(
@@ -113,7 +117,10 @@ export class EditOperation extends Operation {
       versionVector,
     );
 
-    const reverseOp = this.toReverseOperation(removed);
+    const reverseOp = this.toReverseOperation(
+      removed,
+      text.normalizePos(this.fromPos),
+    );
 
     root.acc(diff);
     for (const pair of pairs) {
@@ -150,6 +157,7 @@ export class EditOperation extends Operation {
 
   private toReverseOperation(
     removedValues: Array<CRDTTextValue>,
+    normalizedPos: RGATreeSplitPos,
   ): Operation | undefined {
     // 1) Content
     const restoredContent =
@@ -157,7 +165,7 @@ export class EditOperation extends Operation {
         ? removedValues.map((v) => v.getContent()).join('')
         : '';
 
-    // 2) Arttibute
+    // 2) Attribute
     let restoredAttrs: Array<[string, string]> | undefined;
     if (removedValues.length === 1) {
       const attrsObj = removedValues[0].getAttributes();
@@ -166,19 +174,148 @@ export class EditOperation extends Operation {
       }
     }
 
+    console.log(
+      `%%%%% from=${normalizedPos.getRelativeOffset()}, to=${normalizedPos.getRelativeOffset() + (this.content?.length ?? 0)}}`,
+    );
+
     // 3) Create Reverse Operation
     return EditOperation.create(
       this.getParentCreatedAt(),
-      this.fromPos,
+      normalizedPos,
       RGATreeSplitPos.of(
-        this.fromPos.getID(),
-        this.fromPos.getRelativeOffset() + (this.content?.length ?? 0),
+        normalizedPos.getID(),
+        normalizedPos.getRelativeOffset() + (this.content?.length ?? 0),
       ),
       restoredContent,
       restoredAttrs ? new Map(restoredAttrs) : new Map(),
       undefined,
       true,
     );
+  }
+
+  /**
+   * Normalize the current edit operation's [fromPos,toPos] into absolute offsets.
+   *
+   * - Looks up the parent object in the given `CRDTRoot` by `parentCreatedAt`.
+   * - Verifies that the parent is a `CRDTText`; otherwise throws an error.
+   * - Calls `text.normalizePos` for both `fromPos` and `toPos` to convert each
+   *   local `(id, relOffset)` into a global offset measured from the head `(0:0)`.
+   * - Returns the normalized range as a tuple `[rangeFrom, rangeTo]`.
+   *
+   * @typeParam A - The element type of the CRDTText (extends Indexable).
+   * @param root - The CRDTRoot containing the CRDTText this operation belongs to.
+   * @returns A two-element array `[rangeFrom, rangeTo]` representing the absolute
+   *          offsets of this operation's start and end positions.
+   * @throws {YorkieError} If the parent object cannot be found or is not a CRDTText.
+   */
+  public normalizePos<A extends Indexable>(root: CRDTRoot): [number, number] {
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+    if (!parentObject) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
+    }
+    if (!(parentObject instanceof CRDTText)) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to execute, only Text can normalize edit`,
+      );
+    }
+    const text = parentObject as CRDTText<A>;
+
+    const rangeFrom = text.normalizePos(this.fromPos).getRelativeOffset();
+    const rangeTo = text.normalizePos(this.toPos).getRelativeOffset();
+    return [rangeFrom, rangeTo];
+  }
+
+  /**
+   * Reconcile this UNDO edit's local range [a,b) (relative offsets on current IDs)
+   * against an external local range [rangeFrom, rangeTo) (relative offsets), and
+   * mutate this.fromPos/toPos accordingly.
+   *
+   * Rules (executed in this order):
+   * 6) [rangeFrom,rangeTo) @ [a,b)               -> a=b=rangeFrom
+   * 1) [rangeFrom,rangeTo) strictly before [a,b) -> a-=len, b-=len
+   * 5) [rangeFrom,rangeTo) strictly after  [a,b) -> no change
+   * 2) rangeFrom < a < rangeTo < b               -> a=rangeFrom, b=rangeFrom+(b-rangeTo)
+   * 3) [rangeFrom,rangeTo) c [a,b)               -> b-=len
+   * 4) a < rangeFrom < b and b < rangeTo         -> b=rangeFrom
+   *
+   * Notes:
+   * - Runs only if this.isUndoOp === true; otherwise no-op.
+   * - Assumes integer inputs with rangeFrom < rangeTo.
+   * - Keeps node IDs; adjusts relative offsets only. Offsets are clamped to ≥ 0.
+   */
+  public reconcileOperation(
+    rangeFrom: number,
+    rangeTo: number,
+    contentLen: number,
+  ): void {
+    if (!this.isUndoOp) {
+      console.log('[skip] not an undo op');
+      return;
+    }
+    if (!Number.isInteger(rangeFrom) || !Number.isInteger(rangeTo)) {
+      console.log('[skip] invalid args', { rangeFrom, rangeTo });
+      return;
+    }
+    if (rangeFrom > rangeTo) {
+      console.log('[skip] invalid range order', { rangeFrom, rangeTo });
+      return;
+    }
+
+    const rangeLen = rangeTo - rangeFrom;
+    const a = this.fromPos.getRelativeOffset();
+    const b = this.toPos.getRelativeOffset();
+
+    const apply = (na: number, nb: number, label: string) => {
+      console.log(`[apply-${label}] before`, { a, b }, 'range', {
+        rangeFrom,
+        rangeTo,
+        contentLen,
+      });
+      this.fromPos = RGATreeSplitPos.of(this.fromPos.getID(), Math.max(0, na));
+      this.toPos = RGATreeSplitPos.of(this.toPos.getID(), Math.max(0, nb));
+      console.log(`[apply-${label}] after`, {
+        from: this.fromPos.getRelativeOffset(),
+        to: this.toPos.getRelativeOffset(),
+      });
+    };
+
+    // Fully overlap: contains
+    if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
+      apply(rangeFrom, rangeFrom, 'contains-left');
+      return;
+    }
+    if (a <= rangeFrom && rangeTo <= b && a !== b) {
+      apply(a, b - rangeLen + contentLen, 'contains-right');
+      return;
+    }
+
+    // Does not overlap
+    if (rangeTo <= a) {
+      apply(a - rangeLen + contentLen, b - rangeLen + contentLen, 'before');
+      return;
+    }
+    if (b <= rangeFrom) {
+      console.log('[no-change] range after op', { a, b });
+      return;
+    }
+
+    // overlap at the start
+    if (rangeFrom < a && a < rangeTo && rangeTo < b) {
+      apply(rangeFrom, rangeFrom + (b - rangeTo), 'overlap-start');
+      return;
+    }
+
+    // overlap at the end
+    if (a < rangeFrom && rangeFrom < b && b < rangeTo) {
+      apply(a, rangeFrom, 'overlap-end');
+      return;
+    }
+
+    console.log('[no-match] no case applied', { a, b, rangeFrom, rangeTo });
   }
 
   /**

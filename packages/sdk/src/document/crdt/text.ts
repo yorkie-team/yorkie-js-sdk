@@ -427,6 +427,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   }
 
   /**
+   * `normalizePos` normalizes the given RGATreeSplitPos.
+   */
+  public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
+    return this.rgaTreeSplit.normalizePos(pos);
+  }
+
+  /**
    * `toJSON` returns the JSON encoding of this text.
    */
   public toJSON(): string {

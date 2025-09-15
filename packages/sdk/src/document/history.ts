@@ -20,6 +20,7 @@ import { RemoveOperation } from './operation/remove_operation';
 import { MoveOperation } from './operation/move_operation';
 import { AddOperation } from './operation/add_operation';
 import { TimeTicket } from '../yorkie';
+import { EditOperation } from './operation/edit_operation';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -143,6 +144,30 @@ export class History<P extends Indexable> {
             op.getPrevCreatedAt() === prevCreatedAt
           ) {
             op.setPrevCreatedAt(currCreatedAt);
+          }
+        }
+      }
+    };
+    replace(this.undoStack);
+    replace(this.redoStack);
+  }
+
+  /**
+   */
+  public reconcileTextEdit(
+    parentCreatedAt: TimeTicket,
+    rangeFrom: number,
+    rangeTo: number,
+    contentLen: number,
+  ): void {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      for (const ops of stack) {
+        for (const op of ops) {
+          if (
+            op instanceof EditOperation &&
+            op.getParentCreatedAt().compare(parentCreatedAt) === 0
+          ) {
+            op.reconcileOperation(rangeFrom, rangeTo, contentLen);
           }
         }
       }
