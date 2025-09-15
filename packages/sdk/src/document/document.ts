@@ -19,7 +19,6 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
-import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 import {
   Observer,
   Observable,
@@ -33,7 +32,6 @@ import {
   ActorID,
   InitialActorID,
 } from '@yorkie-js/sdk/src/document/time/actor_id';
-import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
   ChangeStruct,
