@@ -1906,71 +1906,6 @@ export class Document<R, P extends Indexable = Indexable> {
       },
     ]);
   }
-  
-  private undo(): void {
-    if (this.isUpdating) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        'Undo is not allowed during an update',
-      );
-    }
-    const undoOps = this.internalHistory.popUndo();
-    if (undoOps === undefined) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        'There is no operation to be undone',
-      );
-    }
-
-    this.ensureClone();
-    // TODO(chacha912): After resolving the presence initialization issue,
-    // remove default presence.(#608)
-    const context = ChangeContext.create<P>(
-      this.changeID,
-      this.clone!.root,
-      this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
-    );
-
-    // apply undo operation in the context to generate a change
-    for (const undoOp of undoOps) {
-      if (!(undoOp instanceof Operation)) {
-        // apply presence change to the context
-        const presence = new Presence<P>(
-          context,
-          deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
-        );
-        presence.set(undoOp.value, { addToHistory: true });
-        continue;
-      }
-
-      const ticket = context.issueTimeTicket();
-      undoOp.setExecutedAt(ticket);
-
-      // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
-      // - Set: replaces the element value.
-      // - Add: serves as UndoRemove, effectively restoring a deleted element.
-      // In both cases, the history stack may point to the old createdAt,
-      // so we update it to the new createdAt.
-      if (undoOp instanceof ArraySetOperation) {
-        const prev = undoOp.getCreatedAt();
-        undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileCreatedAt(prev, ticket);
-      } else if (undoOp instanceof AddOperation) {
-        const prev = undoOp.getValue().getCreatedAt();
-        undoOp.getValue().setCreatedAt(ticket);
-        this.internalHistory.reconcileCreatedAt(prev, ticket);
-      } else if (undoOp instanceof EditOperation) {
-        const [rangeFrom, rangeTo] = undoOp.normalizePos(this.root);
-        this.internalHistory.reconcileTextEdit(
-          undoOp.getParentCreatedAt(),
-          rangeFrom,
-          rangeTo,
-          undoOp.getContent().length,
-        );
-      }
-
-      context.push(undoOp);
-    }
 
   /**
    * `getVersionVector` returns the version vector of document
@@ -2063,13 +1998,13 @@ export class Document<R, P extends Indexable = Indexable> {
         const prev = op.getValue().getCreatedAt();
         op.getValue().setCreatedAt(ticket);
         this.internalHistory.reconcileCreatedAt(prev, ticket);
-      } else if (redoOp instanceof EditOperation) {
-        const [rangeFrom, rangeTo] = redoOp.normalizePos(this.root);
+      } else if (op instanceof EditOperation) {
+        const [rangeFrom, rangeTo] = op.normalizePos(this.root);
         this.internalHistory.reconcileTextEdit(
-          redoOp.getParentCreatedAt(),
+          op.getParentCreatedAt(),
           rangeFrom,
           rangeTo,
-          redoOp.getContent().length,
+          op.getContent().length,
         );
       }
 
