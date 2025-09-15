@@ -82,7 +82,7 @@ import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { VersionVector } from './time/version_vector';
 import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
-import { EditOperation } from './operation/edit_operation';
+// import { EditOperation } from './operation/edit_operation';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -706,15 +706,16 @@ export class Document<R, P extends Indexable = Indexable> {
             op.getCreatedAt(),
             op.getValue().getCreatedAt(),
           );
-        } else if (op instanceof EditOperation) {
-          const [rangeFrom, rangeTo] = op.normalizePos(this.root);
-          this.internalHistory.reconcileTextEdit(
-            op.getParentCreatedAt(),
-            rangeFrom,
-            rangeTo,
-            op.getContent().length,
-          );
         }
+        // else if (op instanceof EditOperation) {
+        //   const [rangeFrom, rangeTo] = op.normalizePos(this.root);
+        //   this.internalHistory.reconcileTextEdit(
+        //     op.getParentCreatedAt(),
+        //     rangeFrom,
+        //     rangeTo,
+        //     op.getContent()?.length ?? 0,
+        //   );
+        // }
       }
 
       const reversePresence = ctx.getReversePresence();
@@ -1996,15 +1997,16 @@ export class Document<R, P extends Indexable = Indexable> {
         const prev = op.getValue().getCreatedAt();
         op.getValue().setCreatedAt(ticket);
         this.internalHistory.reconcileCreatedAt(prev, ticket);
-      } else if (op instanceof EditOperation) {
-        const [rangeFrom, rangeTo] = op.normalizePos(this.root);
-        this.internalHistory.reconcileTextEdit(
-          op.getParentCreatedAt(),
-          rangeFrom,
-          rangeTo,
-          op.getContent().length,
-        );
       }
+      // else if (op instanceof EditOperation) {
+      //   const [rangeFrom, rangeTo] = op.normalizePos(this.root);
+      //   this.internalHistory.reconcileTextEdit(
+      //     op.getParentCreatedAt(),
+      //     rangeFrom,
+      //     rangeTo,
+      //     op.getContent().length,
+      //   );
+      // }
 
       ctx.push(op);
     }
