@@ -331,70 +331,35 @@
           yorkie.setLogLevel(yorkie.LogLevel.Debug);
           devtool.setCodeMirror(codemirror);
 
+          function createUndoRedoKeyMap(doc) {
+            const undoHandler = function (cm) {
+              if (doc?.history?.canUndo()) {
+                doc.history.undo();
+                return true;
+              }
+              return CodeMirror.commands.undo(cm);
+            }
+
+            const redoHandler = function (cm) {
+              if (doc?.history?.canRedo()) {
+                doc.history.redo();
+                return true;
+              }
+              return CodeMirror.commands.redo(cm);
+            }
+
+            return {
+              'Ctrl-Z': undoHandler,
+              'Cmd-Z': undoHandler,
+              'Ctrl-Y': redoHandler,
+              'Shift-Ctrl-Z': redoHandler,
+              'Shift-Cmd-Z': redoHandler,
+            };
+          }
+
           // Intercept keyboard undo/redo and route through Yorkie's history.
           // This ensures multi-user undo/redo is coordinated by Yorkie.
-          codemirror.addKeyMap({
-            'Ctrl-Z': function (cm) {
-              if (
-                doc &&
-                doc.history &&
-                doc.history.canUndo &&
-                doc.history.canUndo()
-              ) {
-                doc.history.undo();
-                return true;
-              }
-              return CodeMirror.commands.undo(cm);
-            },
-            'Cmd-Z': function (cm) {
-              if (
-                doc &&
-                doc.history &&
-                doc.history.canUndo &&
-                doc.history.canUndo()
-              ) {
-                doc.history.undo();
-                return true;
-              }
-              return CodeMirror.commands.undo(cm);
-            },
-            'Ctrl-Y': function (cm) {
-              if (
-                doc &&
-                doc.history &&
-                doc.history.canRedo &&
-                doc.history.canRedo()
-              ) {
-                doc.history.redo();
-                return true;
-              }
-              return CodeMirror.commands.redo(cm);
-            },
-            'Shift-Ctrl-Z': function (cm) {
-              if (
-                doc &&
-                doc.history &&
-                doc.history.canRedo &&
-                doc.history.canRedo()
-              ) {
-                doc.history.redo();
-                return true;
-              }
-              return CodeMirror.commands.redo(cm);
-            },
-            'Shift-Cmd-Z': function (cm) {
-              if (
-                doc &&
-                doc.history &&
-                doc.history.canRedo &&
-                doc.history.canRedo()
-              ) {
-                doc.history.redo();
-                return true;
-              }
-              return CodeMirror.commands.redo(cm);
-            },
-          });
+          codemirror.addKeyMap(createUndoRedoKeyMap(doc));
 
           // 02-1. create client with RPCAddr.
           const client = new yorkie.Client({

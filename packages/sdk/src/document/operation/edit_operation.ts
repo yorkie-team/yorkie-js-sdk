@@ -103,9 +103,6 @@ export class EditOperation extends Operation {
     const text = parentObject as CRDTText<A>;
 
     if (this.isUndoOp) {
-      console.log(
-        `##### from=${this.fromPos.getRelativeOffset()}, to=${this.toPos.getRelativeOffset()}}`,
-      );
       this.fromPos = text.refinePos(this.fromPos);
       this.toPos = text.refinePos(this.toPos);
     }
@@ -173,10 +170,6 @@ export class EditOperation extends Operation {
         restoredAttrs = Array.from(Object.entries(attrsObj as any));
       }
     }
-
-    console.log(
-      `%%%%% from=${normalizedPos.getRelativeOffset()}, to=${normalizedPos.getRelativeOffset() + (this.content?.length ?? 0)}}`,
-    );
 
     // 3) Create Reverse Operation
     return EditOperation.create(
@@ -253,15 +246,12 @@ export class EditOperation extends Operation {
     contentLen: number,
   ): void {
     if (!this.isUndoOp) {
-      console.log('[skip] not an undo op');
       return;
     }
     if (!Number.isInteger(rangeFrom) || !Number.isInteger(rangeTo)) {
-      console.log('[skip] invalid args', { rangeFrom, rangeTo });
       return;
     }
     if (rangeFrom > rangeTo) {
-      console.log('[skip] invalid range order', { rangeFrom, rangeTo });
       return;
     }
 
@@ -269,53 +259,41 @@ export class EditOperation extends Operation {
     const a = this.fromPos.getRelativeOffset();
     const b = this.toPos.getRelativeOffset();
 
-    const apply = (na: number, nb: number, label: string) => {
-      console.log(`[apply-${label}] before`, { a, b }, 'range', {
-        rangeFrom,
-        rangeTo,
-        contentLen,
-      });
+    const apply = (na: number, nb: number) => {
       this.fromPos = RGATreeSplitPos.of(this.fromPos.getID(), Math.max(0, na));
       this.toPos = RGATreeSplitPos.of(this.toPos.getID(), Math.max(0, nb));
-      console.log(`[apply-${label}] after`, {
-        from: this.fromPos.getRelativeOffset(),
-        to: this.toPos.getRelativeOffset(),
-      });
     };
 
     // Does not overlap
     if (rangeTo <= a) {
-      apply(a - rangeLen + contentLen, b - rangeLen + contentLen, 'before');
+      apply(a - rangeLen + contentLen, b - rangeLen + contentLen);
       return;
     }
     if (b <= rangeFrom) {
-      console.log('[no-change] range after op', { a, b });
       return;
     }
 
     // Fully overlap: contains
     if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
-      apply(rangeFrom, rangeFrom, 'contains-left');
+      apply(rangeFrom, rangeFrom);
       return;
     }
     if (a <= rangeFrom && rangeTo <= b && a !== b) {
-      apply(a, b - rangeLen + contentLen, 'contains-right');
+      apply(a, b - rangeLen + contentLen);
       return;
     }
 
     // overlap at the start
     if (rangeFrom < a && a < rangeTo && rangeTo < b) {
-      apply(rangeFrom, rangeFrom + (b - rangeTo), 'overlap-start');
+      apply(rangeFrom, rangeFrom + (b - rangeTo));
       return;
     }
 
     // overlap at the end
     if (a < rangeFrom && rangeFrom < b && b < rangeTo) {
-      apply(a, rangeFrom, 'overlap-end');
+      apply(a, rangeFrom);
       return;
     }
-
-    console.log('[no-match] no case applied', { a, b, rangeFrom, rangeTo });
   }
 
   /**

@@ -153,6 +153,22 @@ export class History<P extends Indexable> {
   }
 
   /**
+   * Reconcile stored text `EditOperation`s in undo/redo stacks against a recent edit.
+   *
+   * Scans both `undoStack` and `redoStack`, and for every `EditOperation` whose
+   * parent text matches `parentCreatedAt`, invokes `op.reconcileOperation(rangeFrom, rangeTo, contentLen)`.
+   * This adjusts each operation’s `(fromPos, toPos)` relative offsets so they remain
+   * valid after another edit has modified the document.
+   *
+   * @param parentCreatedAt - The creation time of the target `CRDTText` whose edits should be reconciled.
+   * @param rangeFrom - Start offset of the applied edit range `[rangeFrom, rangeTo)` (integer).
+   * @param rangeTo - End offset (exclusive) of the applied edit range `[rangeFrom, rangeTo)` (integer).
+   * @param contentLen - The length of the newly inserted content that replaced `[rangeFrom, rangeTo)`.
+   *
+   * @remarks
+   * - Complexity is O(total number of stored operations) across both stacks.
+   * - This method does not normalize coordinates; callers must pass offsets that
+   *   match the coordinate system used by stored `EditOperation`s.
    */
   public reconcileTextEdit(
     parentCreatedAt: TimeTicket,

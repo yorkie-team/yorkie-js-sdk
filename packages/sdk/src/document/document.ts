@@ -707,15 +707,6 @@ export class Document<R, P extends Indexable = Indexable> {
             op.getValue().getCreatedAt(),
           );
         }
-        // else if (op instanceof EditOperation) {
-        //   const [rangeFrom, rangeTo] = op.normalizePos(this.root);
-        //   this.internalHistory.reconcileTextEdit(
-        //     op.getParentCreatedAt(),
-        //     rangeFrom,
-        //     rangeTo,
-        //     op.getContent()?.length ?? 0,
-        //   );
-        // }
       }
 
       const reversePresence = ctx.getReversePresence();
@@ -2015,15 +2006,6 @@ export class Document<R, P extends Indexable = Indexable> {
         op.getValue().setCreatedAt(ticket);
         this.internalHistory.reconcileCreatedAt(prev, ticket);
       }
-      // else if (op instanceof EditOperation) {
-      //   const [rangeFrom, rangeTo] = op.normalizePos(this.root);
-      //   this.internalHistory.reconcileTextEdit(
-      //     op.getParentCreatedAt(),
-      //     rangeFrom,
-      //     rangeTo,
-      //     op.getContent()?.length ?? 0,
-      //   );
-      // }
 
       ctx.push(op);
     }
