@@ -588,14 +588,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * @param range - range of RGATreeSplitNode
    * @param editedAt - edited time
    * @param value - value
-   * @returns `[RGATreeSplitPos, Array<GCPair>, Array<Change>]`
+   * @returns `[RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>, Array<T>]`
    */
   public edit(
     range: RGATreeSplitPosRange,
     editedAt: TimeTicket,
     value?: T,
     versionVector?: VersionVector,
-  ): [RGATreeSplitPos, Array<GCPair>, DataSize, Array<ValueChange<T>>] {
+  ): [
+    RGATreeSplitPos,
+    Array<GCPair>,
+    DataSize,
+    Array<ValueChange<T>>,
+    Array<T>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     // 01. split nodes with from and to
@@ -650,11 +656,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     // 04. add removed node
     const pairs: Array<GCPair> = [];
+    const removedValues: Array<T> = [];
     for (const [, removedNode] of removedNodes) {
       pairs.push({ parent: this, child: removedNode });
+      removedValues.push(removedNode.getValue());
     }
 
-    return [caretPos, pairs, diff, changes];
+    return [caretPos, pairs, diff, changes, removedValues];
   }
 
   /**
@@ -721,6 +729,101 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    */
   public getTreeByID(): LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>> {
     return this.treeByID;
+  }
+
+  /**
+   * `normalizePos` converts a local position `(id, rel)` into a single
+   * absolute offset measured from the head `(0:0)` of the physical chain.
+   *
+   * - Traverses the physical `prev` chain (not `insPrev`) from the start node
+   *   toward the head.
+   * - Counts only live characters: removed/tombstoned nodes contribute length 0.
+   * - Sums the live content length of every predecessor node and finally adds
+   *   the input `rel` of the start node.
+   * - Returns a position anchored at the head with the computed absolute offset.
+   *
+   * Invariants & assumptions:
+   * - Works across arbitrary split boundaries; GC may remove linkage like
+   *   insert-predecessors, but the physical `prev` chain is used exclusively.
+   * - The head node `(0:0)` is a zero-length origin; it contributes no content.
+   * - If the given `id` cannot be resolved to a node, an error is thrown.
+   * - If `(id, rel)` is potentially stale (e.g., after splits/deletions),
+   *   callers should first reconcile it with `refinePos` before normalizing.
+   *
+   * Example:
+   *   Chain: |"12" 1:0| - |"A" 2:1| - |"34" 1:2|
+   *   normalizePos((1:2, rel=1)) -> (0:0, 4)
+   *   // because |"12"|=2 + |"A"|=1 + rel(1) = 4
+   *
+   * Example (skipping removed):
+   *   Chain: |"abc" 1:0| - |"A" 2:1| - |"de" 3:0|
+   *   normalizePos((3:0, rel=2)) -> (0:0, 5)
+   *   // |"abc"|=3 + |removed|=0 + rel(2) = 5
+   */
+  public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
+    const node = this.findFloorNode(pos.getID());
+    if (!node) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be found: ${pos.getID().toTestString()}`,
+      );
+    }
+
+    let total = pos.getRelativeOffset();
+    let curr = node;
+    let prev = node.getPrev();
+
+    while (prev) {
+      total += prev.getLength();
+      curr = prev;
+      prev = prev.getPrev();
+    }
+
+    return RGATreeSplitPos.of(curr.getID(), total);
+  }
+
+  /**
+   * `refinePos` remaps the given pos to the current split chain.
+   *
+   * - Traverses the physical `next` chain (not `insNext`).
+   * - Counts only live characters: removed nodes are treated as length 0.
+   * - If the given offset exceeds the length of the current node,
+   *   it moves forward through `next` nodes, subtracting lengths,
+   *   until the offset fits in a live node.
+   * - If it runs out of nodes, it snaps to the end of the last node.
+   *
+   * Example:
+   *   Before split: ["12345"](1:2:0), pos = (1:2:0, rel=5)
+   *   After split : ["1"](1:2:0) - ["23"](1:2:1) - ["45"](1:2:3)
+   *   refinePos(pos) -> (1:2:3, rel=2)
+   *
+   * Example:
+   *   ["12"](1:2:0, live) and pos = (1:2:0, rel=4)
+   *   refinePos(pos) -> points two chars after "12",
+   *   i.e. advances into following nodes, skipping removed ones.
+   */
+  public refinePos(pos: RGATreeSplitPos): RGATreeSplitPos {
+    let node = this.findFloorNode(pos.getID());
+    if (!node) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be found: ${pos.getID().toTestString()}`,
+      );
+    }
+
+    let offsetInPart = pos.getRelativeOffset();
+    let partLen = node.getContentLength();
+    while (offsetInPart > partLen) {
+      offsetInPart -= partLen;
+      const next: RGATreeSplitNode<T> | undefined = node!.getNext();
+      if (!next) {
+        return RGATreeSplitPos.of(node.getID(), partLen);
+      }
+      node = next;
+      partLen = node.getLength();
+    }
+
+    return RGATreeSplitPos.of(node.getID(), offsetInPart);
   }
 
   /**

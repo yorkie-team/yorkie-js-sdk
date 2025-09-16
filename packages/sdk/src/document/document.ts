@@ -19,7 +19,6 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
-import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 import {
   Observer,
   Observable,
@@ -33,7 +32,6 @@ import {
   ActorID,
   InitialActorID,
 } from '@yorkie-js/sdk/src/document/time/actor_id';
-import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
   ChangeStruct,
@@ -82,6 +80,9 @@ import { Rule } from '@yorkie-js/schema';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { VersionVector } from './time/version_vector';
+import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
+import { EditOperation } from './operation/edit_operation';
 
 /**
  * `BroadcastOptions` are the options to create a new document.
@@ -1514,6 +1515,23 @@ export class Document<R, P extends Indexable = Indexable> {
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
+    for (const op of change.getOperations()) {
+      if (op instanceof ArraySetOperation) {
+        this.internalHistory.reconcileCreatedAt(
+          op.getCreatedAt(),
+          op.getValue().getCreatedAt(),
+        );
+      } else if (op instanceof EditOperation) {
+        const [rangeFrom, rangeTo] = op.normalizePos(this.root);
+        this.internalHistory.reconcileTextEdit(
+          op.getParentCreatedAt(),
+          rangeFrom,
+          rangeTo,
+          op.getContent()?.length ?? 0,
+        );
+      }
+    }
+
     this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
