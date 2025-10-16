@@ -17,7 +17,7 @@
 import {
   ClientOptions,
   Indexable,
-  Presence,
+  DocPresence,
   StreamConnectionStatus,
 } from '@yorkie-js/sdk';
 import pkg from '../package.json';
@@ -42,7 +42,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
   root: R;
   presences: Array<{ clientID: string; presence: P }>;
   connection: StreamConnectionStatus;
-  update: (callback: (root: R, presence: Presence<P>) => void) => void;
+  update: (callback: (root: R, presence: DocPresence<P>) => void) => void;
   loading: boolean;
   error: Error | undefined;
 } {

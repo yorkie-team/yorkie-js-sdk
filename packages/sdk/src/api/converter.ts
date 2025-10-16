@@ -832,6 +832,16 @@ export function errorCodeOf(error: ConnectError): string {
 }
 
 /**
+ * `isErrorCode` checks if the error is a ConnectError with the given error code.
+ */
+export function isErrorCode(
+  error: unknown,
+  code: string,
+): error is ConnectError {
+  return error instanceof ConnectError && errorCodeOf(error) === code;
+}
+
+/**
  * `fromChangeID` converts the given Protobuf format to model format.
  */
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {

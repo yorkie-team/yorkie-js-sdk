@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Presence Example</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Presence</h1>
+      <p class="subtitle">Real-time online user tracking with Yorkie</p>
+
+      <div class="info-box">
+        <p><strong>Key:</strong> <span id="room-id">key-123</span></p>
+        <p><strong>Client ID:</strong> <span id="client-id">-</span></p>
+        <p>
+          <strong>Status:</strong>
+          <span id="status" class="status disconnected">Disconnected</span>
+        </p>
+      </div>
+
+      <div class="counter-section">
+        <span class="counter-label">👥 Users Online</span>
+        <span class="counter-value" id="counter-value">0</span>
+        <button id="join-btn" class="join-btn">Join Room</button>
+        <button id="leave-btn" class="leave-btn" disabled>Leave Room</button>
+      </div>
+
+      <div class="events-log">
+        <h3>📋 Activity Log</h3>
+        <div id="events-container"></div>
+      </div>
+    </div>
+
+    <script type="module">
+      import yorkie from './src/yorkie.ts';
+
+      const roomId = 'room-123';
+      const client = new yorkie.Client({
+        rpcAddr: 'http://localhost:8080',
+      });
+
+      let presence = null;
+      const events = [];
+
+      const elements = {
+        clientId: document.getElementById('client-id'),
+        status: document.getElementById('status'),
+        counterValue: document.getElementById('counter-value'),
+        joinBtn: document.getElementById('join-btn'),
+        leaveBtn: document.getElementById('leave-btn'),
+        eventsContainer: document.getElementById('events-container'),
+      };
+
+      function updateStatus(isConnected) {
+        elements.status.textContent = isConnected
+          ? 'Connected'
+          : 'Disconnected';
+        elements.status.className = isConnected
+          ? 'status connected'
+          : 'status disconnected';
+      }
+
+      function updateCounter(count) {
+        elements.counterValue.textContent = count;
+      }
+
+      function addEvent(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        events.unshift(`[${timestamp}] ${message}`);
+        if (events.length > 10) events.pop();
+
+        elements.eventsContainer.innerHTML = events
+          .map((event) => `<div class="event-item">${event}</div>`)
+          .join('');
+      }
+
+      async function initialize() {
+        try {
+          await client.activate();
+          elements.clientId.textContent =
+            client.getID().substring(0, 8) + '...';
+          addEvent('Client activated successfully');
+        } catch (error) {
+          console.error('Failed to activate client:', error);
+          addEvent('❌ Failed to activate client');
+        }
+      }
+
+      elements.joinBtn.addEventListener('click', async () => {
+        try {
+          elements.joinBtn.disabled = true;
+
+          presence = new yorkie.Presence(roomId);
+
+          presence.subscribe((event) => {
+            console.log('Presence event:', event);
+            updateCounter(event.count);
+
+            if (event.type === yorkie.PresenceEventType.Initialized) {
+              addEvent(`✅ Joined room - ${event.count} user(s) online`);
+            } else if (event.type === yorkie.PresenceEventType.Changed) {
+              addEvent(`📊 Count updated - ${event.count} user(s) online`);
+            }
+          });
+
+          await client.attach(presence);
+          updateStatus(true);
+          elements.leaveBtn.disabled = false;
+
+          updateCounter(presence.getCount());
+        } catch (error) {
+          console.error('Failed to join room:', error);
+          addEvent('❌ Failed to join room');
+          elements.joinBtn.disabled = false;
+        }
+      });
+
+      elements.leaveBtn.addEventListener('click', async () => {
+        try {
+          elements.leaveBtn.disabled = true;
+
+          await client.detach(presence);
+          updateStatus(false);
+          elements.joinBtn.disabled = false;
+
+          addEvent(`👋 Left room - ${presence.getCount()} user(s) remaining`);
+          updateCounter(0);
+          presence = null;
+        } catch (error) {
+          console.error('Failed to leave room:', error);
+          addEvent('❌ Failed to leave room');
+          elements.leaveBtn.disabled = false;
+        }
+      });
+
+      // Initialize on load
+      initialize();
+    </script>
+  </body>
+</html>

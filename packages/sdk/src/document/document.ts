@@ -33,6 +33,7 @@ import {
   ActorID,
   InitialActorID,
 } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { Attachable } from '@yorkie-js/sdk/src/client/attachable';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
@@ -71,7 +72,7 @@ import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import { Presence } from '@yorkie-js/sdk/src/document/presence/presence';
+import { DocPresence } from '@yorkie-js/sdk/src/document/presence/presence';
 import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
 import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import {
@@ -79,7 +80,7 @@ import {
   PrimitiveValue,
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { Rule } from '@yorkie-js/schema';
-import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
+import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
@@ -389,7 +390,7 @@ export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
   value: {
     reason: string;
-    method: 'PushPull' | 'WatchDocuments' | 'Broadcast';
+    method: 'PushPull' | 'WatchDocument' | 'Broadcast';
   };
 }
 
@@ -429,11 +430,6 @@ type JsonObject = { [key: string]: Json | undefined };
  * and etc.
  */
 export type Indexable = Record<string, Json>;
-
-/**
- * `DocKey` represents the key of the document.
- */
-export type DocKey = string;
 
 export type LeafElement = PrimitiveValue | Primitive | Text | Counter | Tree;
 export type BaseArray<T> = JSONArray<T> | Array<T>;
@@ -551,9 +547,12 @@ type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 /**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
+ * It implements Attachable interface to be managed by Attachment.
  */
-export class Document<R, P extends Indexable = Indexable> {
-  private key: DocKey;
+export class Document<R, P extends Indexable = Indexable>
+  implements Attachable
+{
+  private key: string;
   private status: DocStatus;
   private opts: DocumentOptions;
   private maxSizeLimit: number;
@@ -613,7 +612,7 @@ export class Document<R, P extends Indexable = Indexable> {
    * `update` executes the given updater to update this document.
    */
   public update(
-    updater: (root: JSONObject<R>, presence: Presence<P>) => void,
+    updater: (root: JSONObject<R>, presence: DocPresence<P>) => void,
     message?: string,
   ): void {
     if (this.getStatus() === DocStatus.Removed) {
@@ -643,7 +642,7 @@ export class Document<R, P extends Indexable = Indexable> {
       // NOTE(hackerwins): The updater should not be able to call undo/redo.
       // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
-      updater(proxy, new Presence(ctx, this.clone!.presences.get(actorID)!));
+      updater(proxy, new DocPresence(ctx, this.clone!.presences.get(actorID)!));
     } catch (err) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
@@ -1963,7 +1962,7 @@ export class Document<R, P extends Indexable = Indexable> {
     for (const op of ops) {
       if (!(op instanceof Operation)) {
         // apply presence change to the context
-        const presence = new Presence<P>(
+        const presence = new DocPresence<P>(
           ctx,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
         );

@@ -103,7 +103,7 @@ export class EventCollector<E = string> {
           resolve();
           return;
         }
-        setTimeout(doLoop, 0);
+        setTimeout(doLoop, 100);
       };
       doLoop();
     });
