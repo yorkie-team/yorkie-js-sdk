@@ -21,6 +21,10 @@ import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import {
+  Presence,
+  PresenceEventType,
+} from '@yorkie-js/sdk/src/presence/presence';
 
 export {
   Client,
@@ -29,6 +33,12 @@ export {
   SyncMode,
   type ClientOptions,
 } from '@yorkie-js/sdk/src/client/client';
+export {
+  Presence,
+  PresenceStatus,
+  PresenceEventType,
+  type PresenceEvent,
+} from '@yorkie-js/sdk/src/presence/presence';
 export {
   DocEventType,
   type SnapshotEvent,
@@ -50,7 +60,7 @@ export {
   Document,
   type ChangeInfo,
 } from '@yorkie-js/sdk/src/document/document';
-export { Presence } from '@yorkie-js/sdk/src/document/presence/presence';
+export { DocPresence as DocPresence } from '@yorkie-js/sdk/src/document/presence/presence';
 export {
   type Observer,
   type Observable,
@@ -147,6 +157,8 @@ export default {
   Text,
   Counter,
   Tree,
+  Presence,
+  PresenceEventType,
   LogLevel,
   setLogLevel,
   IntType: CounterType.Int,
@@ -162,6 +174,8 @@ if (typeof globalThis !== 'undefined') {
     Text,
     Counter,
     Tree,
+    Presence,
+    PresenceEventType,
     LogLevel,
     setLogLevel,
     IntType: CounterType.Int,

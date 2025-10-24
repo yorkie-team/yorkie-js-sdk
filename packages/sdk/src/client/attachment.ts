@@ -14,24 +14,35 @@
  * limitations under the License.
  */
 
-import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
-import { Unsubscribe } from '../yorkie';
+import { Unsubscribe } from '@yorkie-js/sdk/src/util/observable';
+import { Attachable } from './attachable';
 
 /**
- * `WatchStream` is a stream that watches the changes of the document.
+ * `WatchStream` represents a stream that watches the changes of a resource.
+ * - For Document: AsyncIterable<WatchDocumentResponse>
+ * - For Presence: AsyncIterable<WatchPresenceResponse>
  */
-export type WatchStream = any; // TODO(hackerwins): Define proper type of watchStream.
+export type WatchStream = AsyncIterable<unknown>;
 
 /**
- * `Attachment` is a class that manages the state of the document.
+ * `WatchStreamCreator` is a function type that creates a watch stream for a resource.
+ * It takes an onDisconnect callback and returns a promise that resolves to a tuple of
+ * [WatchStream, AbortController] for managing the stream lifecycle.
  */
-export class Attachment<T, P extends Indexable> {
-  // TODO(hackerwins): Consider to changing the modifiers of the following properties to private.
-  doc: Document<T, P>;
-  docID: string;
-  syncMode: SyncMode;
-  remoteChangeEventReceived: boolean;
+export type WatchStreamCreator = (
+  onDisconnect: () => void,
+) => Promise<[WatchStream, AbortController]>;
+
+/**
+ * `Attachment` is a class that manages the state of an attachable resource (Document or Presence).
+ */
+export class Attachment<R extends Attachable> {
+  resource: R;
+  resourceID: string;
+  syncMode?: SyncMode;
+  changeEventReceived?: boolean;
+  lastHeartbeatTime: number;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
@@ -39,20 +50,21 @@ export class Attachment<T, P extends Indexable> {
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private watchAbortController?: AbortController;
 
-  unsubscribeBroadcastEvent: Unsubscribe;
+  unsubscribeBroadcastEvent?: Unsubscribe;
 
   constructor(
     reconnectStreamDelay: number,
-    doc: Document<T, P>,
-    docID: string,
-    syncMode: SyncMode,
-    unsubscribeBroadcastEvent: Unsubscribe,
+    resource: R,
+    resourceID: string,
+    syncMode?: SyncMode,
+    unsubscribeBroadcastEvent?: Unsubscribe,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
-    this.doc = doc;
-    this.docID = docID;
+    this.resource = resource;
+    this.resourceID = resourceID;
     this.syncMode = syncMode;
-    this.remoteChangeEventReceived = false;
+    this.changeEventReceived = syncMode !== undefined ? false : undefined;
+    this.lastHeartbeatTime = Date.now();
     this.cancelled = false;
     this.unsubscribeBroadcastEvent = unsubscribeBroadcastEvent;
   }
@@ -65,28 +77,55 @@ export class Attachment<T, P extends Indexable> {
   }
 
   /**
-   * `needRealtimeSync` returns whether the document needs to be synced in real time.
+   * `needRealtimeSync` returns whether the resource needs to be synced in real time.
+   * Only applicable to Document resources with syncMode defined.
    */
   public needRealtimeSync(): boolean {
+    // If syncMode is not defined (e.g., for Presence), no sync is needed
+    if (this.syncMode === undefined) {
+      return false;
+    }
+
     if (this.syncMode === SyncMode.RealtimeSyncOff) {
       return false;
     }
 
     if (this.syncMode === SyncMode.RealtimePushOnly) {
-      return this.doc.hasLocalChanges();
+      return this.resource.hasLocalChanges();
     }
 
     return (
       this.syncMode !== SyncMode.Manual &&
-      (this.doc.hasLocalChanges() || this.remoteChangeEventReceived)
+      (this.resource.hasLocalChanges() || (this.changeEventReceived ?? false))
     );
+  }
+
+  /**
+   * `needSync` determines if the attachment needs sync.
+   * This includes both document sync and presence heartbeat.
+   */
+  public needSync(heartbeatInterval: number): boolean {
+    // For Document: check if realtime sync is needed
+    if (this.syncMode !== undefined) {
+      return this.needRealtimeSync();
+    }
+
+    // For Presence: check if heartbeat is needed
+    return Date.now() - this.lastHeartbeatTime >= heartbeatInterval;
+  }
+
+  /**
+   * `updateHeartbeatTime` updates the last heartbeat time.
+   */
+  public updateHeartbeatTime(): void {
+    this.lastHeartbeatTime = Date.now();
   }
 
   /**
    * `runWatchLoop` runs the watch loop.
    */
   public async runWatchLoop(
-    watchStreamCreator: (onDisconnect: () => void) => Promise<WatchStream>,
+    watchStreamCreator: WatchStreamCreator,
   ): Promise<void> {
     const doLoop = async (): Promise<void> => {
       if (this.watchStream) {

@@ -21,7 +21,7 @@ import { PresenceChangeType } from './change';
 /**
  * `Presence` represents a proxy for the Presence to be manipulated from the outside.
  */
-export class Presence<P extends Indexable> {
+export class DocPresence<P extends Indexable> {
   private context: ChangeContext;
   private presence: P;
 

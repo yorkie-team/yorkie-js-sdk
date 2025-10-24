@@ -16,8 +16,8 @@
 
 import Long from 'long';
 import { describe, it, expect } from 'vitest';
-import { validateYorkieRuleset } from '@yorkie-js/sdk/src/schema/ruleset_validator';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
+import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
 import { Rule } from '@yorkie-js/schema/src/rulesets';
 import { toDocKey } from '@yorkie-js/sdk/test/integration/integration_helper';
 

@@ -45,11 +45,12 @@ let adminToken: string;
 const AllAuthWebhookMethods = [
   'ActivateClient',
   'DeactivateClient',
+
   'AttachDocument',
   'DetachDocument',
   'RemoveDocument',
   'PushPull',
-  'WatchDocuments',
+  'WatchDocument',
   'Broadcast',
 ];
 
@@ -489,7 +490,7 @@ describe('Auth Webhook', () => {
         id: projectId,
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
-          auth_webhook_methods: { methods: ['WatchDocuments'] },
+          auth_webhook_methods: { methods: ['WatchDocument'] },
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -503,14 +504,14 @@ describe('Auth Webhook', () => {
       return `token-${Date.now()}`;
     });
     // client with token
-    const client = new yorkie.Client({
+    const c1 = new yorkie.Client({
       rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
       reconnectStreamDelay: 100,
     });
 
-    await client.activate();
+    await c1.activate();
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ k1: string }>(docKey);
 
@@ -541,10 +542,10 @@ describe('Auth Webhook', () => {
 
     // retry watch document
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
-    await client.attach(doc);
+    await c1.attach(doc);
     await authErrorEventCollector.waitFor({
       reason: ExpiredTokenErrorMessage,
-      method: 'WatchDocuments',
+      method: 'WatchDocument',
     });
     expect(authTokenInjector).toBeCalledTimes(2);
     expect(authTokenInjector).nthCalledWith(1);
@@ -561,8 +562,8 @@ describe('Auth Webhook', () => {
     await syncEventCollector.waitFor(DocSyncStatus.Synced);
     expect(doc.getRoot().k1).toBe('v1');
 
-    await client.detach(doc);
-    await client.deactivate();
+    await c1.detach(doc);
+    await c1.deactivate();
   });
 
   it('should refresh token and retry broadcast', async ({ task }) => {

@@ -54,7 +54,7 @@ vi.mock('../../src/YorkieProvider', () => ({
     client: {
       attach: vi.fn(),
       detach: vi.fn(),
-      hasDocument: vi.fn(() => false),
+      has: vi.fn(() => false),
     },
     loading: false,
     error: undefined,

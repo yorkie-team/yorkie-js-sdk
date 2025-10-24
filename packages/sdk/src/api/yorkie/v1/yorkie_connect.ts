@@ -18,7 +18,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ActivateClientRequest, ActivateClientResponse, AttachDocumentRequest, AttachDocumentResponse, BroadcastRequest, BroadcastResponse, DeactivateClientRequest, DeactivateClientResponse, DetachDocumentRequest, DetachDocumentResponse, PushPullChangesRequest, PushPullChangesResponse, RemoveDocumentRequest, RemoveDocumentResponse, WatchDocumentRequest, WatchDocumentResponse } from "./yorkie_pb";
+import { ActivateClientRequest, ActivateClientResponse, AttachDocumentRequest, AttachDocumentResponse, AttachPresenceRequest, AttachPresenceResponse, BroadcastRequest, BroadcastResponse, DeactivateClientRequest, DeactivateClientResponse, DetachDocumentRequest, DetachDocumentResponse, DetachPresenceRequest, DetachPresenceResponse, PushPullChangesRequest, PushPullChangesResponse, RefreshPresenceRequest, RefreshPresenceResponse, RemoveDocumentRequest, RemoveDocumentResponse, WatchDocumentRequest, WatchDocumentResponse, WatchPresenceRequest, WatchPresenceResponse } from "./yorkie_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -90,6 +90,42 @@ export const YorkieService = {
       name: "WatchDocument",
       I: WatchDocumentRequest,
       O: WatchDocumentResponse,
+      kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.AttachPresence
+     */
+    attachPresence: {
+      name: "AttachPresence",
+      I: AttachPresenceRequest,
+      O: AttachPresenceResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.DetachPresence
+     */
+    detachPresence: {
+      name: "DetachPresence",
+      I: DetachPresenceRequest,
+      O: DetachPresenceResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.RefreshPresence
+     */
+    refreshPresence: {
+      name: "RefreshPresence",
+      I: RefreshPresenceRequest,
+      O: RefreshPresenceResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.WatchPresence
+     */
+    watchPresence: {
+      name: "WatchPresence",
+      I: WatchPresenceRequest,
+      O: WatchPresenceResponse,
       kind: MethodKind.ServerStreaming,
     },
     /**

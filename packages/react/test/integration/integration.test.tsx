@@ -115,7 +115,7 @@ const createMockDocument = () => {
 const createMockClient = () => {
   const mockClient = {
     detach: vi.fn(),
-    hasDocument: vi.fn(() => true),
+    has: vi.fn(() => true),
     isActive: vi.fn(() => true),
   };
 

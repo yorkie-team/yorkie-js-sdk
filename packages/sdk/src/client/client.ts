@@ -23,12 +23,16 @@ import {
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_connect';
-import { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
+import {
+  WatchDocumentResponse,
+  WatchPresenceResponse,
+} from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   converter,
   errorCodeOf,
   errorMetadataOf,
+  isErrorCode,
 } from '@yorkie-js/sdk/src/api/converter';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
@@ -36,7 +40,6 @@ import { uuid } from '@yorkie-js/sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js/sdk/src/client/attachment';
 import {
   Document,
-  DocKey,
   DocStatus,
   Indexable,
   DocEventType,
@@ -48,6 +51,17 @@ import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_intercepto
 import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
 import { validateSerializable } from '../util/validator';
 import { Json, BroadcastOptions } from '@yorkie-js/sdk/src/document/document';
+import {
+  Presence,
+  PresenceStatus,
+  PresenceEventType,
+} from '@yorkie-js/sdk/src/presence/presence';
+import { Attachable } from './attachable';
+
+/**
+ * `Key` is a string representing the key of Document or Presence.
+ */
+type Key = string;
 
 /**
  * `SyncMode` defines synchronization modes for the PushPullChanges API.
@@ -165,6 +179,13 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 
   /**
+   * `presenceHeartbeatInterval` is the interval of the presence heartbeat.
+   * The client sends a heartbeat to the server to refresh the presence TTL.
+   * The default value is `30000`(ms).
+   */
+  presenceHeartbeatInterval?: number;
+
+  /**
    * `userAgent` is the user agent of the client. It is used to identify the
    * client.
    */
@@ -227,6 +248,7 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
+  presenceHeartbeatInterval: 30000,
 };
 
 /**
@@ -248,7 +270,7 @@ export class Client {
   private key: string;
   private metadata: Record<string, string>;
   private status: ClientStatus;
-  private attachmentMap: Map<DocKey, Attachment<unknown, any>>;
+  private attachmentMap: Map<string, Attachment<Attachable>>;
 
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
@@ -256,6 +278,7 @@ export class Client {
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
+  private presenceHeartbeatInterval: number;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -289,6 +312,9 @@ export class Client {
       opts.reconnectStreamDelay ?? DefaultClientOptions.reconnectStreamDelay;
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay ?? DefaultClientOptions.retrySyncLoopDelay;
+    this.presenceHeartbeatInterval =
+      opts.presenceHeartbeatInterval ??
+      DefaultClientOptions.presenceHeartbeatInterval;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -406,19 +432,46 @@ export class Client {
   }
 
   /**
-   * `hasDocument` checks if the given document is attached to this client.
-   * @param docKey - the key of the document.
-   * @returns true if the document is attached to this client.
+   * `has` checks if the given resource is attached to this client.
+   * @param key - the key of the resource.
+   * @returns true if the resource is attached to this client.
    */
-  public hasDocument(docKey: DocKey): boolean {
-    return this.attachmentMap.has(docKey);
+  public has(key: Key): boolean {
+    return this.attachmentMap.has(key);
+  }
+
+  /**
+   * `attach` attaches a Document or Presence to this client.
+   * Overloaded to support both types.
+   */
+  public attach<R, P extends Indexable>(
+    resource: Document<R, P>,
+    opts?: AttachOptions<R, P>,
+  ): Promise<Document<R, P>>;
+
+  /**
+   * `attach` attaches the given presence to this client. It tells the server that
+   * this client will track the presence.
+   */
+  public attach(resource: Presence): Promise<Presence>;
+
+  /**
+   * `attach` attaches a Document or Presence to this client.
+   * Overloaded to support both types.
+   */
+  public attach(resource: any, opts?: any): Promise<any> {
+    if (resource instanceof Presence) {
+      return this.attachPresence(resource);
+    } else {
+      return this.attachDocument(resource, opts);
+    }
   }
 
   /**
    * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */
-  public attach<R, P extends Indexable>(
+  private attachDocument<R, P extends Indexable>(
     doc: Document<R, P>,
     opts: AttachOptions<R, P> = {},
   ): Promise<Document<R, P>> {
@@ -523,6 +576,35 @@ export class Client {
   }
 
   /**
+   * `detach` detaches a Document or Presence from this client.
+   * Overloaded to support both types.
+   */
+  public detach<R, P extends Indexable>(
+    resource: Document<R, P>,
+    opts?: {
+      removeIfNotAttached?: boolean;
+      keepalive?: boolean;
+    },
+  ): Promise<Document<R, P>>;
+
+  /**
+   * `detach` detaches the given presence from this client.
+   * It tells the server that this client will no longer track the presence.
+   */
+  public detach(resource: Presence): Promise<Presence>;
+
+  /**
+   * `detach` detaches a Document or Presence from this client.
+   */
+  public detach(resource: any, opts?: any): Promise<any> {
+    if (resource instanceof Presence) {
+      return this.detachPresence(resource);
+    } else {
+      return this.detachDocument(resource, opts);
+    }
+  }
+
+  /**
    * `detach` detaches the given document from this client. It tells the
    * server that this client will no longer synchronize the given document.
    *
@@ -530,7 +612,7 @@ export class Client {
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
    */
-  public detach<R, P extends Indexable>(
+  private detachDocument<R, P extends Indexable>(
     doc: Document<R, P>,
     opts: {
       removeIfNotAttached?: boolean;
@@ -557,7 +639,7 @@ export class Client {
         const res = await this.rpcClient.detachDocument(
           {
             clientId: this.id!,
-            documentId: attachment.docID,
+            documentId: attachment.resourceID,
             changePack: converter.toChangePack(doc.createChangePack()),
             removeIfNotAttached: opts.removeIfNotAttached ?? false,
           },
@@ -592,7 +674,114 @@ export class Client {
   }
 
   /**
-   * `changeRealtimeSync` changes the synchronization mode of the given document.
+   * `attach` attaches the given presence counter to this client.
+   * It tells the server that this client will track the presence count.
+   */
+  public async attachPresence(presence: Presence): Promise<Presence> {
+    // 01. Check if the client is ready to attach presence.
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    if (presence.getStatus() !== PresenceStatus.Detached) {
+      throw new YorkieError(
+        Code.ErrDocumentNotDetached,
+        `${presence.getKey()} is not detached`,
+      );
+    }
+
+    presence.setActor(this.id!);
+
+    const task = async () => {
+      try {
+        const res = await this.rpcClient.attachPresence(
+          {
+            clientId: this.id!,
+            presenceKey: presence.getKey(),
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${presence.getKey()}` } },
+        );
+
+        presence.setPresenceID(res.presenceId);
+        presence.updateCount(Number(res.count), 0);
+        presence.applyStatus(PresenceStatus.Attached);
+        const attachment = new Attachment(
+          this.reconnectStreamDelay,
+          presence,
+          res.presenceId,
+        );
+        this.attachmentMap.set(presence.getKey(), attachment);
+
+        // Start watching presence count changes in background
+        await this.runWatchLoop(presence.getKey());
+
+        logger.info(
+          `[AP] c:"${this.getKey()}" attaches p:"${presence.getKey()}" count:${presence.getCount()}`,
+        );
+        return presence;
+      } catch (err) {
+        logger.error(`[AP] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `detachPresence` detaches the given presence counter from this client.
+   * It tells the server that this client will no longer track the presence count.
+   */
+  public async detachPresence(presence: Presence): Promise<Presence> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    if (!this.attachmentMap.has(presence.getKey())) {
+      throw new YorkieError(
+        Code.ErrDocumentNotAttached,
+        `${presence.getKey()} is not attached`,
+      );
+    }
+
+    const task = async () => {
+      try {
+        const res = await this.rpcClient.detachPresence(
+          {
+            clientId: this.id!,
+            presenceId: presence.getPresenceID()!,
+            presenceKey: presence.getKey(),
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${presence.getKey()}` } },
+        );
+
+        presence.updateCount(Number(res.count), 0);
+        presence.applyStatus(PresenceStatus.Detached);
+
+        // Clean up watch stream and remove from attachment map
+        this.detachInternal(presence.getKey());
+
+        logger.info(
+          `[DP] c:"${this.getKey()}" detaches p:"${presence.getKey()}" count:${presence.getCount()}`,
+        );
+        return presence;
+      } catch (err) {
+        logger.error(`[DP] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `changeSyncMode` changes the synchronization mode of the given document.
    */
   public async changeSyncMode<R, P extends Indexable>(
     doc: Document<R, P>,
@@ -631,7 +820,7 @@ export class Client {
     // to sync the local and remote changes. This has limitations in that unnecessary
     // syncs occur if the client and server do not have any changes.
     if (syncMode === SyncMode.Realtime) {
-      attachment.remoteChangeEventReceived = true;
+      attachment.changeEventReceived = true;
     }
 
     // manual to realtime
@@ -658,7 +847,7 @@ export class Client {
     }
     if (doc) {
       // prettier-ignore
-      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<R, P>;
+      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<Document<R, P>>;
       if (!attachment) {
         throw new YorkieError(
           Code.ErrDocumentNotAttached,
@@ -679,7 +868,18 @@ export class Client {
     return this.enqueueTask(async () => {
       const promises = [];
       for (const [, attachment] of this.attachmentMap) {
-        promises.push(this.syncInternal(attachment, attachment.syncMode));
+        // Only sync Document resources that have syncMode defined
+        if (
+          attachment.syncMode !== undefined &&
+          attachment.resource instanceof Document
+        ) {
+          promises.push(
+            this.syncInternal(
+              attachment as Attachment<Document<R, P>>,
+              attachment.syncMode,
+            ),
+          );
+        }
       }
       return Promise.all(promises).catch(async (err) => {
         logger.error(`[SY] c:"${this.getKey()}" err :`, err);
@@ -716,7 +916,7 @@ export class Client {
         const res = await this.rpcClient.removeDocument(
           {
             clientId: this.id!,
-            documentId: attachment.docID,
+            documentId: attachment.resourceID,
             changePack: pbChangePack,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
@@ -774,7 +974,7 @@ export class Client {
    * `broadcast` broadcasts the given payload to the given topic.
    */
   public broadcast(
-    docKey: DocKey,
+    key: Key,
     topic: string,
     payload: Json,
     options?: BroadcastOptions,
@@ -785,11 +985,11 @@ export class Client {
         `${this.key} is not active`,
       );
     }
-    const attachment = this.attachmentMap.get(docKey);
+    const attachment = this.attachmentMap.get(key);
     if (!attachment) {
       throw new YorkieError(
         Code.ErrDocumentNotAttached,
-        `${docKey} is not attached`,
+        `${key} is not attached`,
       );
     }
 
@@ -820,33 +1020,32 @@ export class Client {
           await this.rpcClient.broadcast(
             {
               clientId: this.id!,
-              documentId: attachment.docID,
+              documentId: attachment.resourceID,
               topic,
               payload: new TextEncoder().encode(JSON.stringify(payload)),
             },
-            { headers: { 'x-shard-key': `${this.apiKey}/${docKey}` } },
+            { headers: { 'x-shard-key': `${this.apiKey}/${key}` } },
           );
 
           logger.info(
-            `[BC] c:"${this.getKey()}" broadcasts d:"${docKey}" t:"${topic}"`,
+            `[BC] c:"${this.getKey()}" broadcasts d:"${key}" t:"${topic}"`,
           );
         } catch (err) {
           logger.error(`[BC] c:"${this.getKey()}" err:`, err);
 
           if (await this.handleConnectError(err)) {
-            if (
-              err instanceof ConnectError &&
-              errorCodeOf(err) === Code.ErrUnauthenticated
-            ) {
-              attachment.doc.publish([
-                {
-                  type: DocEventType.AuthError,
-                  value: {
-                    reason: errorMetadataOf(err).reason,
-                    method: 'Broadcast',
+            if (isErrorCode(err, Code.ErrUnauthenticated)) {
+              if (attachment.resource instanceof Document) {
+                attachment.resource.publish([
+                  {
+                    type: DocEventType.AuthError,
+                    value: {
+                      reason: errorMetadataOf(err).reason,
+                      method: 'Broadcast',
+                    },
                   },
-                },
-              ]);
+                ]);
+              }
             }
 
             if (retryCount < maxRetries) {
@@ -887,31 +1086,31 @@ export class Client {
         await this.enqueueTask(async () => {
           const syncs: Array<any> = [];
           for (const [, attachment] of this.attachmentMap) {
-            if (!attachment.needRealtimeSync()) {
+            if (!attachment.needSync(this.presenceHeartbeatInterval)) {
               continue;
             }
 
-            attachment.remoteChangeEventReceived = false;
+            // Reset changeEventReceived for Document resources
+            if (attachment.changeEventReceived !== undefined) {
+              attachment.changeEventReceived = false;
+            }
+
             syncs.push(
-              this.syncInternal(attachment, attachment.syncMode).catch(
-                async (err) => {
-                  if (
-                    err instanceof ConnectError &&
-                    errorCodeOf(err) === Code.ErrUnauthenticated
-                  ) {
-                    attachment.doc.publish([
-                      {
-                        type: DocEventType.AuthError,
-                        value: {
-                          reason: errorMetadataOf(err).reason,
-                          method: 'PushPull',
-                        },
+              this.syncInternal(attachment, attachment.syncMode!).catch((e) => {
+                if (isErrorCode(e, Code.ErrUnauthenticated)) {
+                  attachment.resource.publish([
+                    {
+                      type: DocEventType.AuthError,
+                      value: {
+                        reason: errorMetadataOf(e).reason,
+                        method: 'PushPull',
                       },
-                    ]);
-                  }
-                  throw err;
-                },
-              ),
+                    },
+                  ]);
+                }
+
+                throw e;
+              }),
             );
           }
 
@@ -934,15 +1133,15 @@ export class Client {
   }
 
   /**
-   * `runWatchLoop` runs the watch loop for the given document. The watch loop
-   * listens to the events of the given document from the server.
+   * `runWatchLoop` runs the watch loop for the given resource (Document or Presence).
+   * The watch loop listens to the events of the given resource from the server.
    */
-  private async runWatchLoop(docKey: DocKey): Promise<void> {
-    const attachment = this.attachmentMap.get(docKey);
+  private async runWatchLoop(key: Key): Promise<void> {
+    const attachment = this.attachmentMap.get(key);
     if (!attachment) {
       throw new YorkieError(
         Code.ErrDocumentNotAttached,
-        `${docKey} is not attached`,
+        `${key} is not attached`,
       );
     }
 
@@ -959,115 +1158,263 @@ export class Client {
           );
         }
 
-        // NOTE(hackerwins): Check if the document is still attached to prevent
+        // NOTE(hackerwins): Check if the resource is still attached to prevent
         // watch stream creation after detachment.
-        if (!this.attachmentMap.has(docKey)) {
+        if (!this.attachmentMap.has(key)) {
           this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
             new YorkieError(
               Code.ErrDocumentNotAttached,
-              `${docKey} is not attached`,
+              `${key} is not attached`,
             ),
           );
         }
 
         const ac = new AbortController();
-        const stream = this.rpcClient.watchDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.docID,
-          },
-          {
-            headers: { 'x-shard-key': `${this.apiKey}/${docKey}` },
-            signal: ac.signal,
-          },
+
+        // Create watch stream based on resource type
+        if (attachment.resource instanceof Document) {
+          return this.createDocumentWatchStream(
+            attachment as Attachment<Document<any, any>>,
+            key,
+            ac,
+            onDisconnect,
+          );
+        } else if (attachment.resource instanceof Presence) {
+          return this.createPresenceWatchStream(
+            attachment as Attachment<Presence>,
+            key,
+            ac,
+            onDisconnect,
+          );
+        }
+
+        return Promise.reject(
+          new YorkieError(
+            Code.ErrClientNotActivated,
+            `Unknown resource type for ${key}`,
+          ),
         );
-
-        attachment.doc.publish([
-          {
-            type: DocEventType.ConnectionChanged,
-            value: StreamConnectionStatus.Connected,
-          },
-        ]);
-        logger.info(`[WD] c:"${this.getKey()}" watches d:"${docKey}"`);
-
-        // NOTE(hackerwins): Set remoteChangeEventReceived to true to prevent
-        // event stream gap issues. This ensures sync loop continues even when
-        // no remote change events are received immediately after watch stream starts.
-        attachment.remoteChangeEventReceived = true;
-
-        return new Promise((resolve, reject) => {
-          const handleStream = async () => {
-            try {
-              for await (const resp of stream) {
-                this.handleWatchDocumentsResponse(attachment, resp);
-
-                // NOTE(hackerwins): When the first response is received, we need to
-                // resolve the promise to notify that the watch stream is ready.
-                if (resp.body.case === 'initialization') {
-                  resolve([stream, ac]);
-                }
-              }
-            } catch (err) {
-              attachment.doc.resetOnlineClients();
-              attachment.doc.publish([
-                {
-                  type: DocEventType.Initialized,
-                  source: OpSource.Local,
-                  value: attachment.doc.getPresences(),
-                },
-              ]);
-              attachment.doc.publish([
-                {
-                  type: DocEventType.ConnectionChanged,
-                  value: StreamConnectionStatus.Disconnected,
-                },
-              ]);
-              logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-
-              if (await this.handleConnectError(err)) {
-                if (
-                  err instanceof ConnectError &&
-                  errorCodeOf(err) === Code.ErrUnauthenticated
-                ) {
-                  attachment.doc.publish([
-                    {
-                      type: DocEventType.AuthError,
-                      value: {
-                        reason: errorMetadataOf(err).reason,
-                        method: 'WatchDocuments',
-                      },
-                    },
-                  ]);
-                }
-                onDisconnect();
-              } else {
-                this.conditions[ClientCondition.WatchLoop] = false;
-              }
-
-              reject(err);
-            }
-          };
-
-          handleStream();
-        });
       },
     );
   }
 
-  private handleWatchDocumentsResponse<R, P extends Indexable>(
-    attachment: Attachment<R, P>,
+  /**
+   * `createDocumentWatchStream` creates a watch stream for a Document.
+   * @internal
+   */
+  private createDocumentWatchStream<R, P extends Indexable>(
+    attachment: Attachment<Document<R, P>>,
+    key: Key,
+    ac: AbortController,
+    onDisconnect: () => void,
+  ): Promise<[WatchStream, AbortController]> {
+    const stream = this.rpcClient.watchDocument(
+      {
+        clientId: this.id!,
+        documentId: attachment.resourceID,
+      },
+      {
+        headers: { 'x-shard-key': `${this.apiKey}/${key}` },
+        signal: ac.signal,
+      },
+    );
+
+    attachment.resource.publish([
+      {
+        type: DocEventType.ConnectionChanged,
+        value: StreamConnectionStatus.Connected,
+      },
+    ]);
+    logger.info(`[WD] c:"${this.getKey()}" watches d:"${key}"`);
+
+    // NOTE(hackerwins): Set changeEventReceived to true to prevent
+    // event stream gap issues. This ensures sync loop continues even when
+    // no remote change events are received immediately after watch stream starts.
+    if (attachment.changeEventReceived !== undefined) {
+      attachment.changeEventReceived = true;
+    }
+
+    return new Promise((resolve, reject) => {
+      const handleStream = async () => {
+        try {
+          for await (const resp of stream) {
+            this.handleWatchDocumentResponse(attachment, resp);
+
+            // NOTE(hackerwins): When the first response is received, we need to
+            // resolve the promise to notify that the watch stream is ready.
+            if (resp.body.case === 'initialization') {
+              resolve([stream, ac]);
+            }
+          }
+
+          // NOTE(hackerwins): If the stream ends normally (without error),
+          // we should clean up and trigger reconnection.
+          attachment.resource.resetOnlineClients();
+          attachment.resource.publish([
+            {
+              type: DocEventType.Initialized,
+              source: OpSource.Local,
+              value: attachment.resource.getPresences(),
+            },
+          ]);
+          attachment.resource.publish([
+            {
+              type: DocEventType.ConnectionChanged,
+              value: StreamConnectionStatus.Disconnected,
+            },
+          ]);
+          logger.debug(`[WD] c:"${this.getKey()}" unwatches (stream ended)`);
+          onDisconnect();
+        } catch (err) {
+          attachment.resource.resetOnlineClients();
+          attachment.resource.publish([
+            {
+              type: DocEventType.Initialized,
+              source: OpSource.Local,
+              value: attachment.resource.getPresences(),
+            },
+          ]);
+          attachment.resource.publish([
+            {
+              type: DocEventType.ConnectionChanged,
+              value: StreamConnectionStatus.Disconnected,
+            },
+          ]);
+          logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+
+          if (await this.handleConnectError(err)) {
+            if (isErrorCode(err, Code.ErrUnauthenticated)) {
+              attachment.resource.publish([
+                {
+                  type: DocEventType.AuthError,
+                  value: {
+                    reason: errorMetadataOf(err).reason,
+                    method: 'WatchDocument',
+                  },
+                },
+              ]);
+            }
+            onDisconnect();
+          } else {
+            this.conditions[ClientCondition.WatchLoop] = false;
+          }
+
+          reject(err);
+        }
+      };
+
+      handleStream();
+    });
+  }
+
+  /**
+   * `createPresenceWatchStream` creates a watch stream for a Presence.
+   * @internal
+   */
+  private createPresenceWatchStream(
+    attachment: Attachment<Presence>,
+    key: Key,
+    ac: AbortController,
+    onDisconnect: () => void,
+  ): Promise<[WatchStream, AbortController]> {
+    const stream = this.rpcClient.watchPresence(
+      {
+        clientId: this.id!,
+        presenceKey: key,
+      },
+      {
+        headers: { 'x-shard-key': `${this.apiKey}/${key}` },
+        signal: ac.signal,
+      },
+    );
+
+    logger.info(`[WP] c:"${this.getKey()}" watches p:"${key}"`);
+
+    return new Promise((resolve, reject) => {
+      const handleStream = async () => {
+        try {
+          let isFirstResponse = true;
+          for await (const resp of stream) {
+            // Parse protocol response and update presence
+            this.handleWatchPresenceResponse(attachment, resp);
+
+            // Resolve on first response to notify that the watch stream is ready
+            if (isFirstResponse) {
+              isFirstResponse = false;
+              resolve([stream, ac]);
+            }
+          }
+
+          // NOTE(hackerwins): If the stream ends normally (without error),
+          // we should trigger reconnection by calling onDisconnect.
+          logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);
+          onDisconnect();
+        } catch (err) {
+          // Check if the error is due to abort
+          if (err instanceof Error && err.name === 'AbortError') {
+            logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream aborted`);
+            return;
+          }
+          logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" err:`, err);
+
+          if (await this.handleConnectError(err)) {
+            onDisconnect();
+          } else {
+            this.conditions[ClientCondition.WatchLoop] = false;
+          }
+
+          reject(err);
+        }
+      };
+
+      handleStream();
+    });
+  }
+
+  /**
+   * `handleWatchPresenceResponse` handles the watch presence response from the server.
+   * This method parses the protocol buffer response and updates the presence counter.
+   * @internal
+   */
+  private handleWatchPresenceResponse(
+    attachment: Attachment<Presence>,
+    resp: WatchPresenceResponse,
+  ) {
+    if (resp.body.case === 'initialized') {
+      const { count, seq } = resp.body.value;
+      if (attachment.resource.updateCount(Number(count), Number(seq))) {
+        attachment.resource.publish({
+          type: PresenceEventType.Initialized,
+          count: Number(count),
+        });
+      }
+    } else if (resp.body.case === 'event') {
+      const { count, seq } = resp.body.value;
+      if (attachment.resource.updateCount(Number(count), Number(seq))) {
+        attachment.resource.publish({
+          type: PresenceEventType.Changed,
+          count: Number(count),
+        });
+      }
+    }
+  }
+
+  private handleWatchDocumentResponse<R, P extends Indexable>(
+    attachment: Attachment<Document<R, P>>,
     resp: WatchDocumentResponse,
   ) {
     if (
       resp.body.case === 'event' &&
       resp.body.value.type === PbDocEventType.DOCUMENT_CHANGED
     ) {
-      attachment.remoteChangeEventReceived = true;
+      if (attachment.changeEventReceived !== undefined) {
+        attachment.changeEventReceived = true;
+      }
       return;
     }
 
-    attachment.doc.applyWatchStream(resp);
+    attachment.resource.applyWatchStream(resp);
   }
 
   private deactivateInternal() {
@@ -1075,31 +1422,68 @@ export class Client {
 
     for (const [key, attachment] of this.attachmentMap) {
       this.detachInternal(key);
-      attachment.doc.applyStatus(DocStatus.Detached);
+      if (attachment.resource instanceof Document) {
+        attachment.resource.applyStatus(DocStatus.Detached);
+      } else if (attachment.resource instanceof Presence) {
+        attachment.resource.applyStatus(PresenceStatus.Detached);
+      }
     }
   }
 
-  private detachInternal(docKey: DocKey) {
+  private detachInternal(key: Key) {
     // NOTE(hackerwins): If attachment is not found, it means that the document
     // has been already detached by another routine.
     // This can happen when detach or remove is called while the watch loop is
     // running.
-    const attachment = this.attachmentMap.get(docKey);
+    const attachment = this.attachmentMap.get(key);
     if (!attachment) {
       return;
     }
 
     attachment.cancelWatchStream();
-    attachment.doc.resetOnlineClients();
-    attachment.unsubscribeBroadcastEvent();
-    this.attachmentMap.delete(docKey);
+    if (attachment.resource instanceof Document) {
+      attachment.resource.resetOnlineClients();
+    }
+    attachment.unsubscribeBroadcastEvent?.();
+    this.attachmentMap.delete(key);
   }
 
   private async syncInternal<R, P extends Indexable>(
-    attachment: Attachment<R, P>,
-    syncMode: SyncMode,
-  ): Promise<Document<R, P>> {
-    const { doc, docID } = attachment;
+    attachment: Attachment<Attachable>,
+    syncMode?: SyncMode,
+  ): Promise<Attachable> {
+    const { resource } = attachment;
+
+    // Handle Presence heartbeat
+    if (resource instanceof Presence) {
+      try {
+        await this.rpcClient.refreshPresence(
+          {
+            clientId: this.id!,
+            presenceId: resource.getPresenceID()!,
+            presenceKey: resource.getKey(),
+          },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${resource.getKey()}`,
+            },
+          },
+        );
+
+        attachment.updateHeartbeatTime();
+        logger.debug(
+          `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}"`,
+        );
+      } catch (err) {
+        logger.error(`[RP] c:"${this.getKey()}" err :`, err);
+        throw err;
+      }
+      return resource;
+    }
+
+    // Handle Document sync
+    const doc = resource as Document<R, P>;
+    const { resourceID: docID } = attachment;
 
     const reqPack = doc.createChangePack();
     try {
@@ -1126,7 +1510,7 @@ export class Client {
       }
 
       doc.applyChangePack(respPack);
-      attachment.doc.publish([
+      attachment.resource.publish([
         {
           type: DocEventType.SyncStatusChanged,
           value: DocSyncStatus.Synced,
@@ -1139,10 +1523,10 @@ export class Client {
         this.detachInternal(doc.getKey());
       }
 
-      const docKey = doc.getKey();
+      const key = doc.getKey();
       const remoteSize = respPack.getChangeSize();
       logger.info(
-        `[PP] c:"${this.getKey()}" sync d:"${docKey}", push:${reqPack.getChangeSize()} pull:${remoteSize} cp:${respPack
+        `[PP] c:"${this.getKey()}" sync d:"${key}", push:${reqPack.getChangeSize()} pull:${remoteSize} cp:${respPack
           .getCheckpoint()
           .toTestString()}`,
       );
