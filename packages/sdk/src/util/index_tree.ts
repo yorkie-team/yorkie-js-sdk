@@ -120,6 +120,28 @@ export function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
 }
 
 /**
+ * `addSizeOfLeftSiblingsIncludeTombstoneNodes` returns the size of left siblings of the given offset including tombstone nodes.
+ */
+export function addSizeOfLeftSiblingsIncludeTombstoneNodes<
+  T extends IndexTreeNode<T>,
+>(parent: T, offset: number): number {
+  let acc = 0;
+  const siblings = parent.allChildren;
+
+  for (let i = 0; i < offset; i++) {
+    const leftSibling = siblings[i];
+
+    if (!leftSibling) {
+      continue;
+    }
+
+    acc += leftSibling.paddedSizeIncludeTombstoneNodes;
+  }
+
+  return acc;
+}
+
+/**
  * `IndexTreeNode` is the node of IndexTree. It is used to represent the
  * document of text-based editors.
  */
@@ -128,10 +150,12 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   parent?: T;
   _children: Array<T>;
   size: number;
+  sizeIncludeTombstoneNodes: number;
 
   constructor(type: TreeNodeType, children: Array<T> = []) {
     this.type = type;
     this.size = 0;
+    this.sizeIncludeTombstoneNodes = 0;
     this._children = children;
 
     if (this.isText && this._children.length > 0) {
@@ -158,6 +182,34 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `updateAncestorsSizeIncludeTombstoneNodes` updates the size of the ancestors including tombstone nodes. It is used when
+   * the size of the node is changed.
+   */
+  updateAncestorsSizeIncludeTombstoneNodes(): void {
+    let parent: T | undefined = this.parent;
+    if (this.isRemoved) {
+      return;
+    }
+
+    while (parent) {
+      parent.sizeIncludeTombstoneNodes += this.paddedSizeIncludeTombstoneNodes;
+      parent = parent.parent;
+    }
+  }
+
+  /**
+   * `reduceAncestorsSizeIncludeTombstoneNodes` reduces the size of the ancestors including tombstone nodes. It is used when
+   * the size of the node is reduced.
+   */
+  reduceAncestorsSizeIncludeTombstoneNodes(): void {
+    let parent: T | undefined = this.parent;
+    while (parent) {
+      parent.sizeIncludeTombstoneNodes -= this.paddedSizeIncludeTombstoneNodes;
+      parent = parent.parent;
+    }
+  }
+
+  /**
    * `updateDescendantsSize` updates the size of the descendants. It is used when
    * the tree is newly created and the size of the descendants is not calculated.
    */
@@ -178,6 +230,21 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `updateDescendantsSizeIncludeTombstoneNodes` updates the size of the descendants including tombstone nodes. It is used when
+   * the size of the node is changed.
+   */
+  updateDescendantsSizeIncludeTombstoneNodes(): number {
+    let size = 0;
+    for (const child of this._children) {
+      size += child.updateDescendantsSizeIncludeTombstoneNodes();
+    }
+
+    this.sizeIncludeTombstoneNodes += size;
+
+    return this.paddedSizeIncludeTombstoneNodes;
+  }
+
+  /**
    * `isText` returns true if the node is a text node.
    */
   get isText(): boolean {
@@ -191,6 +258,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
    */
   get paddedSize(): number {
     return this.size + (this.isText ? 0 : ElementPaddingSize);
+  }
+
+  /**
+   * `paddedSizeIncludeRemovedNodes` returns the size of the node including padding size including removed nodes.
+   */
+  get paddedSizeIncludeTombstoneNodes(): number {
+    return (
+      this.sizeIncludeTombstoneNodes + (this.isText ? 0 : ElementPaddingSize)
+    );
   }
 
   /**
@@ -345,6 +421,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     for (const node of newNode) {
       node.parent = this as any;
       node.updateAncestorsSize();
+      node.updateAncestorsSizeIncludeTombstoneNodes();
     }
   }
 
@@ -378,6 +455,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.insertAtInternal(newNode, offset);
     newNode.updateAncestorsSize();
+    newNode.updateAncestorsSizeIncludeTombstoneNodes();
   }
 
   /**
@@ -395,6 +473,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.insertAtInternal(newNode, offset + 1);
     newNode.updateAncestorsSize();
+    newNode.updateAncestorsSizeIncludeTombstoneNodes();
   }
 
   /**
@@ -407,6 +486,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.insertAtInternal(newNode, offset);
     newNode.updateAncestorsSize();
+    newNode.updateAncestorsSizeIncludeTombstoneNodes();
   }
 
   /**
@@ -423,6 +503,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this._children.splice(offset, 1);
+    child.reduceAncestorsSizeIncludeTombstoneNodes();
     child.parent = undefined;
   }
 
@@ -448,6 +529,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     const clone = this.cloneElement(issueTimeTicket);
     this.parent!.insertAfterInternal(clone, this as any);
     clone.updateAncestorsSize();
+    clone.updateAncestorsSizeIncludeTombstoneNodes();
 
     const leftChildren = this.children.slice(0, offset);
     const rightChildren = this.children.slice(offset);
@@ -457,8 +539,16 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       (acc, child) => acc + child.paddedSize,
       0,
     );
+    this.sizeIncludeTombstoneNodes = this._children.reduce(
+      (acc, child) => acc + child.paddedSizeIncludeTombstoneNodes,
+      0,
+    );
     clone.size = clone._children.reduce(
       (acc, child) => acc + child.paddedSize,
+      0,
+    );
+    clone.sizeIncludeTombstoneNodes = clone._children.reduce(
+      (acc, child) => acc + child.paddedSizeIncludeTombstoneNodes,
       0,
     );
     for (const child of clone._children) {
@@ -527,6 +617,17 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     return this.children.indexOf(node);
+  }
+
+  /**
+   * `findOffsetIncludeTombstoneNodes` returns the offset of the given node in the children including tombstone nodes.
+   */
+  findOffsetIncludeTombstoneNodes(node: T): number {
+    if (this.isText) {
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
+    }
+
+    return this._children.indexOf(node);
   }
 
   /**
@@ -678,6 +779,76 @@ function tokensBetween<T extends IndexTreeNode<T>>(
       }
     }
     pos += child.paddedSize;
+  }
+}
+
+/**
+ * `tokensBetweenIncludeRemovedNodes` iterates the tokens between the given range including tombstone nodes.
+ */
+function tokensBetweenIncludeTombstoneNodes<T extends IndexTreeNode<T>>(
+  root: T,
+  from: number,
+  to: number,
+  callback: (token: TreeToken<T>, ended: boolean) => void,
+) {
+  console.log('tokensBetweenIncludeTombstoneNodes', from, to);
+  if (from > to) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `from is greater than to: ${from} > ${to}`,
+    );
+  }
+
+  if (from > root.sizeIncludeTombstoneNodes) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `from is out of range: ${from} > ${root.sizeIncludeTombstoneNodes}`,
+    );
+  }
+
+  if (to > root.sizeIncludeTombstoneNodes) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `to is out of range: ${to} > ${root.sizeIncludeTombstoneNodes}`,
+    );
+  }
+
+  if (from === to) {
+    return;
+  }
+
+  let pos = 0;
+  for (const child of root._children) {
+    // If the child is an element node, the size of the child.
+    if (from - child.paddedSizeIncludeTombstoneNodes < pos && pos < to) {
+      // If the child is an element node, the range of the child
+      // is from - 1 to to - 1. Because the range of the element node is from
+      // the open tag to the close tag.
+      const fromChild = child.isText ? from - pos : from - pos - 1;
+      const toChild = child.isText ? to - pos : to - pos - 1;
+
+      // If the range spans outside the child,
+      // the callback is called with the child.
+      const startContained = !child.isText && fromChild < 0;
+      const endContained =
+        !child.isText && toChild > child.sizeIncludeTombstoneNodes;
+      if (child.isText || startContained) {
+        callback(
+          [child, child.isText ? TokenType.Text : TokenType.Start],
+          endContained,
+        );
+      }
+      tokensBetweenIncludeTombstoneNodes(
+        child,
+        Math.max(0, fromChild),
+        Math.min(toChild, child.sizeIncludeTombstoneNodes),
+        callback,
+      );
+      if (endContained) {
+        callback([child, TokenType.End], endContained);
+      }
+    }
+    pos += child.paddedSizeIncludeTombstoneNodes;
   }
 }
 
@@ -862,6 +1033,17 @@ export class IndexTree<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `tokensBetweenIncludeTombstoneNodes` returns the tokens between the given range including tombstone nodes.
+   */
+  tokensBetweenIncludeTombstoneNodes(
+    from: number,
+    to: number,
+    callback: (token: TreeToken<T>, ended: boolean) => void,
+  ): void {
+    tokensBetweenIncludeTombstoneNodes<T>(this.root, from, to, callback);
+  }
+
+  /**
    * `traverse` traverses the tree with postorder traversal.
    */
   traverse(callback: (node: T) => void): void {
@@ -1041,6 +1223,46 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       }
 
       size += addSizeOfLeftSiblings(parent, offsetOfNode);
+      depth++;
+      node = node.parent;
+    }
+
+    return size + depth - 1;
+  }
+
+  /**
+   * `indexOfIncludeTombstoneNodes` returns the index of the given tree position including tombstone nodes.
+   */
+  public indexOfIncludeTombstoneNodes(pos: TreePos<T>): number {
+    let { node } = pos;
+    const { offset } = pos;
+
+    let size = 0;
+    let depth = 1;
+    if (node.isText) {
+      size += offset;
+
+      const parent = node.parent! as T;
+      const offsetOfNode = parent.findOffsetIncludeTombstoneNodes(node);
+      if (offsetOfNode === -1) {
+        throw new YorkieError(Code.ErrInvalidArgument, 'invalid pos');
+      }
+
+      size += addSizeOfLeftSiblingsIncludeTombstoneNodes(parent, offsetOfNode);
+
+      node = node.parent!;
+    } else {
+      size += addSizeOfLeftSiblingsIncludeTombstoneNodes(node, offset);
+    }
+
+    while (node?.parent) {
+      const parent = node.parent;
+      const offsetOfNode = parent.findOffsetIncludeTombstoneNodes(node);
+      if (offsetOfNode === -1) {
+        throw new YorkieError(Code.ErrInvalidArgument, 'invalid pos');
+      }
+
+      size += addSizeOfLeftSiblingsIncludeTombstoneNodes(parent, offsetOfNode);
       depth++;
       node = node.parent;
     }

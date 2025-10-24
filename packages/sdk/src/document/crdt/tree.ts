@@ -504,6 +504,7 @@ export class CRDTTreeNode
     clone.removedAt = this.removedAt;
     clone._value = this._value;
     clone.size = this.size;
+    clone.sizeIncludeTombstoneNodes = this.sizeIncludeTombstoneNodes;
     clone.attrs = this.attrs?.deepcopy();
     clone._children = this._children.map((child) => {
       const childClone = child.deepcopy();
@@ -542,6 +543,7 @@ export class CRDTTreeNode
 
     this._value = v;
     this.size = v.length;
+    this.sizeIncludeTombstoneNodes = v.length;
   }
 
   /**
@@ -554,16 +556,20 @@ export class CRDTTreeNode
   /**
    * `remove` marks the node as removed.
    */
-  remove(removedAt: TimeTicket): void {
-    const alived = !this.removedAt;
+  remove(removedAt: TimeTicket): boolean {
+    if (!this.removedAt) {
+      this.removedAt = removedAt;
+      this.updateAncestorsSize();
+      this.updateAncestorsSizeIncludeTombstoneNodes();
+      return true;
+    }
 
-    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
+    // NOTE(sigmaith): Overwrite only if prior tombstone was not known
+    // (concurrent or unseen) and newer.
+    if (removedAt.after(this.removedAt)) {
       this.removedAt = removedAt;
     }
-
-    if (alived) {
-      this.updateAncestorsSize();
-    }
+    return false;
   }
 
   /**
@@ -636,12 +642,24 @@ export class CRDTTreeNode
    */
   public canDelete(
     editedAt: TimeTicket,
-    clientLamportAtChange: bigint,
+    creationKnown: boolean,
+    tombstoneKnown: boolean,
   ): boolean {
-    const nodeExisted =
-      this.getCreatedAt().getLamport() <= clientLamportAtChange;
+    // NOTE(sigmaith): Skip if the node's creation was not visible to this operation.
+    if (!creationKnown) {
+      return false;
+    }
 
-    return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
+    if (!this.removedAt) {
+      return true;
+    }
+
+    // NOTE(sigmaith): Overwrite only if prior tombstone was not known
+    // (concurrent or unseen) and newer. This enables LWW for concurrent deletions.
+    if (!tombstoneKnown && editedAt?.after(this.removedAt)) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -1109,7 +1127,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
-    this.traverseInPosRange(
+
+    this.traverseInPosRangeIncludeTombstoneNodes(
       fromParent,
       fromLeft,
       toParent,
@@ -1131,18 +1150,39 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
         }
 
-        const actorID = node.getCreatedAt().getActorID();
-        let clientLamportAtChange = MaxLamport; // Local edit
-        if (versionVector != undefined) {
-          clientLamportAtChange = versionVector!.get(actorID)
-            ? versionVector!.get(actorID)!
-            : 0n;
+        // NOTE(sigmaith): Determine if the node's creation event was visible.
+        const isLocal = versionVector ? versionVector.size() === 0 : true;
+        let creationKnown = false;
+        const createdAtVV = versionVector?.get(
+          node.id.getCreatedAt()?.getActorID(),
+        );
+        if (isLocal) {
+          creationKnown = true;
+        } else if (
+          createdAtVV &&
+          createdAtVV >= node.id.getCreatedAt().getLamport()
+        ) {
+          creationKnown = true;
+        }
+
+        // NOTE(sigmaith): Determine if existing tombstone was already causally known.
+        let tombstoneKnown = false;
+        if (node.removedAt) {
+          const removedAtVV = versionVector?.get(node.removedAt.getActorID());
+          if (isLocal) {
+            tombstoneKnown = true;
+          } else if (
+            removedAtVV &&
+            removedAtVV >= node.removedAt.getLamport()
+          ) {
+            tombstoneKnown = true;
+          }
         }
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
         if (
-          node.canDelete(editedAt, clientLamportAtChange) ||
+          node.canDelete(editedAt, creationKnown, tombstoneKnown) ||
           nodesToBeRemoved.includes(node.parent!)
         ) {
           // NOTE(hackerwins): If the node overlaps as an end token with the
@@ -1556,6 +1596,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `toIndexIncludeTombstoneNodes` converts the given CRDTTreeNodeID to the index of the tree including tombstone nodes.
+   */
+  public toIndexIncludeTombstoneNodes(
+    parentNode: CRDTTreeNode,
+    leftNode: CRDTTreeNode,
+  ): number {
+    const treePos = this.toTreePosIncludeTombstoneNodes(parentNode, leftNode);
+    if (!treePos) {
+      return -1;
+    }
+
+    return this.indexTree.indexOfIncludeTombstoneNodes(treePos);
+  }
+
+  /**
    * `indexToPath` converts the given tree index to path.
    */
   public indexToPath(index: number): Array<number> {
@@ -1631,6 +1686,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `traverseInPosRangeIncludeTombstoneNodes` traverses the tree in the given position range including tombstone nodes.
+   */
+  private traverseInPosRangeIncludeTombstoneNodes(
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+    callback: (token: TreeToken<CRDTTreeNode>, ended: boolean) => void,
+  ): void {
+    const fromIdx = this.toIndexIncludeTombstoneNodes(fromParent, fromLeft);
+    const toIdx = this.toIndexIncludeTombstoneNodes(toParent, toLeft);
+    return this.indexTree.tokensBetweenIncludeTombstoneNodes(
+      fromIdx,
+      toIdx,
+      callback,
+    );
+  }
+
+  /**
    * `toTreePos` converts the given nodes to the position of the IndexTree.
    */
   private toTreePos(
@@ -1673,6 +1747,40 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
       offset++;
     }
+
+    return {
+      node: parentNode,
+      offset,
+    };
+  }
+
+  /**
+   * `toTreePos` converts the given nodes to the position of the IndexTree.
+   */
+  private toTreePosIncludeTombstoneNodes(
+    parentNode: CRDTTreeNode,
+    leftNode: CRDTTreeNode,
+  ): TreePos<CRDTTreeNode> | undefined {
+    if (!parentNode || !leftNode) {
+      return;
+    }
+
+    if (parentNode === leftNode) {
+      return {
+        node: parentNode,
+        offset: 0,
+      };
+    }
+
+    let offset = parentNode.findOffsetIncludeTombstoneNodes(leftNode);
+    if (leftNode.isText) {
+      return {
+        node: leftNode,
+        offset: leftNode.paddedSize,
+      };
+    }
+
+    offset++;
 
     return {
       node: parentNode,
