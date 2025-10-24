@@ -445,7 +445,11 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   /**
    * `canDelete` checks if node is able to delete.
    */
-  public canRemove(creationKnown: boolean): boolean {
+  public canRemove(
+    editedAt: TimeTicket,
+    creationKnown: boolean,
+    tombstoneKnown: boolean,
+  ): boolean {
     // NOTE(hackerwins): Skip if the node's creation was not visible to this
     // operation.
     if (!creationKnown) {
@@ -456,6 +460,11 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       return true;
     }
 
+    // NOTE(hackerwins): Overwrite only if prior tombstone was not known
+    // (concurrent or unseen) and newer. This enables LWW for concurrent deletions.
+    if (!tombstoneKnown && editedAt?.after(this.removedAt)) {
+      return true;
+    }
     return false;
   }
 
@@ -482,7 +491,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   /**
    * `remove` removes the node of the given edited time.
    */
-  public remove(removedAt: TimeTicket, tombstoneKnown: boolean) {
+  public remove(removedAt: TimeTicket) {
     if (!this.removedAt) {
       this.removedAt = removedAt;
       return;
@@ -490,7 +499,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
 
     // NOTE(hackerwins): Overwrite only if prior tombstone was not known
     // (concurrent or unseen) and newer.
-    if (!tombstoneKnown && removedAt.after(this.removedAt)) {
+    if (removedAt.after(this.removedAt)) {
       this.removedAt = removedAt;
     }
   }
@@ -943,7 +952,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       return [[], new Map()];
     }
 
-    const isLocal = vector === undefined;
+    const isLocal = vector === undefined || vector.size() === 0;
 
     // 01. Collect nodes to remove and keep.
     const nodesToRemove: Array<RGATreeSplitNode<T>> = [];
@@ -951,7 +960,30 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
     nodesToKeep.push(leftEdge);
     for (const node of candidates) {
-      if (node.canRemove(isLocal || vector.afterOrEqual(node.getCreatedAt()))) {
+      let creationKnown = false;
+      if (isLocal) {
+        creationKnown = true;
+      } else {
+        const createdAtVV = vector?.get(node.getCreatedAt().getActorID());
+        if (createdAtVV && createdAtVV >= node.getCreatedAt().getLamport()) {
+          creationKnown = true;
+        }
+      }
+
+      let tombstoneKnown = false;
+      if (node.getRemovedAt()) {
+        const removedAtVV = vector?.get(node.getRemovedAt()!.getActorID());
+        if (isLocal) {
+          tombstoneKnown = true;
+        } else if (
+          removedAtVV &&
+          removedAtVV >= node.getRemovedAt()!.getLamport()
+        ) {
+          tombstoneKnown = true;
+        }
+      }
+
+      if (node.canRemove(editedAt, creationKnown, tombstoneKnown)) {
         nodesToRemove.push(node);
       } else {
         nodesToKeep.push(node);
@@ -966,11 +998,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const removedNodes = new Map();
     for (const node of nodesToRemove) {
       removedNodes.set(node.getID().toIDString(), node);
-      node.remove(
-        editedAt,
-        node.isRemoved() &&
-          (isLocal || vector.afterOrEqual(node.getRemovedAt()!)),
-      );
+      node.remove(editedAt);
     }
 
     // 04. Clear the index tree of the given deletion boundaries.

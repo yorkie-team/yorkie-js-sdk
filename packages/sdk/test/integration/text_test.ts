@@ -816,7 +816,9 @@ describe('peri-text example: text concurrent edit', function () {
       assert.equal(d2.toSortedJSON(), d1.toSortedJSON(), 'd2');
     }, task.name);
   });
+});
 
+describe('Text LWW', () => {
   it('causal deletion preserves original timestamps', async function ({
     task,
   }) {
@@ -875,7 +877,9 @@ describe('peri-text example: text concurrent edit', function () {
     }, task.name);
   });
 
-  it('concurrent deletion test for LWW behavior', async function ({ task }) {
+  it('concurrent deletion test for LWW behavior - complete inclusion (larger range later)', async function ({
+    task,
+  }) {
     await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
       // Insert initial text on c1
       d1.update((root) => {
@@ -901,31 +905,170 @@ describe('peri-text example: text concurrent edit', function () {
         return Array.from(rga) as Array<any>;
       }
 
-      // All visible content removed
-      assert.equal(d1.toSortedJSON(), '{"k1":[]}');
-      assert.equal(d2.toSortedJSON(), '{"k1":[]}');
-
-      // All nodes should be tombstoned; timestamps may differ (per-actor order); ensure each node has removedAt.
-      for (const n of [...getAllNodes(d1), ...getAllNodes(d2)]) {
-        assert.ok(n.getRemovedAt(), 'node should be deleted');
+      let aNode1, bcNode1, dNode1: any;
+      for (const n of getAllNodes(d1)) {
+        const val = n.getValue().toString();
+        if (val === 'a') aNode1 = n;
+        else if (val === 'bc') bcNode1 = n;
+        else if (val === 'd') dNode1 = n;
       }
 
+      let aNode2, bcNode2, dNode2: any;
+      for (const n of getAllNodes(d2)) {
+        const val = n.getValue().toString();
+        if (val === 'a') aNode2 = n;
+        else if (val === 'bc') bcNode2 = n;
+        else if (val === 'd') dNode2 = n;
+      }
+
+      assert.exists(aNode1.getRemovedAt());
+      assert.exists(bcNode1.getRemovedAt());
+      assert.exists(dNode1.getRemovedAt());
+      assert.exists(aNode2.getRemovedAt());
+      assert.exists(bcNode2.getRemovedAt());
+      assert.exists(dNode2.getRemovedAt());
+
+      const removedAt = aNode1.getRemovedAt();
+      assert.equal(removedAt.compare(bcNode1.getRemovedAt()), 0);
+      assert.equal(removedAt.compare(dNode1.getRemovedAt()), 0);
+      assert.equal(removedAt.compare(aNode2.getRemovedAt()), 0);
+      assert.equal(removedAt.compare(bcNode2.getRemovedAt()), 0);
+      assert.equal(removedAt.compare(dNode2.getRemovedAt()), 0);
+
+      assert.equal(d1.toSortedJSON(), '{"k1":[]}');
+      assert.equal(d2.toSortedJSON(), '{"k1":[]}');
+    }, task.name);
+  });
+
+  it('concurrent deletion test for LWW behavior - complete inclusion (smaller range later)', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      // Insert initial text on c1
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'abcd');
+      }, 'insert abcd');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), '{"k1":[{"val":"abcd"}]}');
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      // Concurrent deletions
+      d1.update((root) => root.k1.edit(0, 4, ''), 'delete abcd by c1');
+      d2.update((root) => root.k1.edit(1, 3, ''), 'delete bc by c2');
+
+      await c1.sync();
       await c2.sync();
       await c1.sync();
 
-      const timestampSet = new Set<string>();
-      for (const n of [...getAllNodes(d1), ...getAllNodes(d2)]) {
-        if (n.getRemovedAt()) {
-          const timestamp = n.getRemovedAt().toIDString();
-          timestampSet.add(timestamp);
-        }
+      function getAllNodes(doc: typeof d1) {
+        const text = doc.getRoot().k1;
+        const rga = (text as any).text.getRGATreeSplit();
+        return Array.from(rga) as Array<any>;
       }
 
-      assert.equal(
-        timestampSet.size,
-        1,
-        'Should have 1 timestamp in concurrent deletion',
-      );
+      let aNode1, bcNode1, dNode1: any;
+      for (const n of getAllNodes(d1)) {
+        const val = n.getValue().toString();
+        if (val === 'a') aNode1 = n;
+        else if (val === 'bc') bcNode1 = n;
+        else if (val === 'd') dNode1 = n;
+      }
+
+      let aNode2, bcNode2, dNode2: any;
+      for (const n of getAllNodes(d2)) {
+        const val = n.getValue().toString();
+        if (val === 'a') aNode2 = n;
+        else if (val === 'bc') bcNode2 = n;
+        else if (val === 'd') dNode2 = n;
+      }
+
+      assert.exists(aNode1.getRemovedAt());
+      assert.exists(bcNode1.getRemovedAt());
+      assert.exists(dNode1.getRemovedAt());
+      assert.exists(aNode2.getRemovedAt());
+      assert.exists(bcNode2.getRemovedAt());
+      assert.exists(dNode2.getRemovedAt());
+
+      const earlierExpectedRemovedAt = aNode1.getRemovedAt();
+      const laterExpectedRemovedAt = bcNode1.getRemovedAt();
+      assert.isTrue(laterExpectedRemovedAt.after(earlierExpectedRemovedAt));
+
+      assert.equal(earlierExpectedRemovedAt.compare(dNode1.getRemovedAt()), 0);
+      assert.equal(earlierExpectedRemovedAt.compare(aNode2.getRemovedAt()), 0);
+      assert.equal(earlierExpectedRemovedAt.compare(dNode2.getRemovedAt()), 0);
+
+      assert.equal(laterExpectedRemovedAt.compare(bcNode2.getRemovedAt()), 0);
+
+      assert.equal(d1.toSortedJSON(), '{"k1":[]}');
+      assert.equal(d2.toSortedJSON(), '{"k1":[]}');
+    }, task.name);
+  });
+
+  it('concurrent deletion test for LWW behavior - partial overlap', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ k1: Text }>(async (c1, d1, c2, d2) => {
+      // Insert initial text on c1
+      d1.update((root) => {
+        root.k1 = new Text();
+        root.k1.edit(0, 0, 'abcd');
+      }, 'insert abcd');
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.toSortedJSON(), '{"k1":[{"val":"abcd"}]}');
+      assert.equal(d2.toSortedJSON(), d1.toSortedJSON());
+
+      // Concurrent deletions
+      d1.update((root) => root.k1.edit(0, 3, ''), 'delete abc by c1');
+      d2.update((root) => root.k1.edit(1, 4, ''), 'delete bcd by c2');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      function getAllNodes(doc: typeof d1) {
+        const text = doc.getRoot().k1;
+        const rga = (text as any).text.getRGATreeSplit();
+        return Array.from(rga) as Array<any>;
+      }
+
+      let aNode1, bcNode1, dNode1: any;
+      for (const n of getAllNodes(d1)) {
+        const val = n.getValue().toString();
+        if (val === 'a') aNode1 = n;
+        else if (val === 'bc') bcNode1 = n;
+        else if (val === 'd') dNode1 = n;
+      }
+
+      let aNode2, bcNode2, dNode2: any;
+      for (const n of getAllNodes(d2)) {
+        const val = n.getValue().toString();
+        if (val === 'a') aNode2 = n;
+        else if (val === 'bc') bcNode2 = n;
+        else if (val === 'd') dNode2 = n;
+      }
+
+      assert.exists(aNode1.getRemovedAt());
+      assert.exists(bcNode1.getRemovedAt());
+      assert.exists(dNode1.getRemovedAt());
+      assert.exists(aNode2.getRemovedAt());
+      assert.exists(bcNode2.getRemovedAt());
+      assert.exists(dNode2.getRemovedAt());
+
+      const earlierExpectedRemovedAt = aNode1.getRemovedAt();
+      const laterExpectedRemovedAt = bcNode1.getRemovedAt();
+      assert.isTrue(laterExpectedRemovedAt.after(earlierExpectedRemovedAt));
+
+      assert.equal(earlierExpectedRemovedAt.compare(aNode2.getRemovedAt()), 0);
+
+      assert.equal(laterExpectedRemovedAt.compare(bcNode2.getRemovedAt()), 0);
+      assert.equal(laterExpectedRemovedAt.compare(dNode1.getRemovedAt()), 0);
+      assert.equal(laterExpectedRemovedAt.compare(dNode2.getRemovedAt()), 0);
+
+      assert.equal(d1.toSortedJSON(), '{"k1":[]}');
+      assert.equal(d2.toSortedJSON(), '{"k1":[]}');
     }, task.name);
   });
 });
