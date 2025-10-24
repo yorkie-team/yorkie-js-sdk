@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.34] - 2025-10-24
+
+### Added
+
+- Add real-time presence tracking @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1091
+
 ## [v0.6.29] - 2025-09-05
 
 ### Changed
