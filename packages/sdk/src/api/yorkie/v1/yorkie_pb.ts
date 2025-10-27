@@ -681,6 +681,92 @@ export class PushPullChangesResponse extends Message<PushPullChangesResponse> {
 }
 
 /**
+ * @generated from message yorkie.v1.BroadcastRequest
+ */
+export class BroadcastRequest extends Message<BroadcastRequest> {
+  /**
+   * @generated from field: string client_id = 1;
+   */
+  clientId = "";
+
+  /**
+   * @generated from field: string document_id = 2;
+   */
+  documentId = "";
+
+  /**
+   * @generated from field: string topic = 3;
+   */
+  topic = "";
+
+  /**
+   * @generated from field: bytes payload = 4;
+   */
+  payload = new Uint8Array(0);
+
+  constructor(data?: PartialMessage<BroadcastRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.BroadcastRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BroadcastRequest {
+    return new BroadcastRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BroadcastRequest {
+    return new BroadcastRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BroadcastRequest {
+    return new BroadcastRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BroadcastRequest | PlainMessage<BroadcastRequest> | undefined, b: BroadcastRequest | PlainMessage<BroadcastRequest> | undefined): boolean {
+    return proto3.util.equals(BroadcastRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.BroadcastResponse
+ */
+export class BroadcastResponse extends Message<BroadcastResponse> {
+  constructor(data?: PartialMessage<BroadcastResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.BroadcastResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BroadcastResponse {
+    return new BroadcastResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BroadcastResponse {
+    return new BroadcastResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BroadcastResponse {
+    return new BroadcastResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: BroadcastResponse | PlainMessage<BroadcastResponse> | undefined, b: BroadcastResponse | PlainMessage<BroadcastResponse> | undefined): boolean {
+    return proto3.util.equals(BroadcastResponse, a, b);
+  }
+}
+
+/**
  * @generated from message yorkie.v1.AttachPresenceRequest
  */
 export class AttachPresenceRequest extends Message<AttachPresenceRequest> {
@@ -905,6 +991,11 @@ export class RefreshPresenceRequest extends Message<RefreshPresenceRequest> {
  * @generated from message yorkie.v1.RefreshPresenceResponse
  */
 export class RefreshPresenceResponse extends Message<RefreshPresenceResponse> {
+  /**
+   * @generated from field: int64 count = 1;
+   */
+  count = protoInt64.zero;
+
   constructor(data?: PartialMessage<RefreshPresenceResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -913,6 +1004,7 @@ export class RefreshPresenceResponse extends Message<RefreshPresenceResponse> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "yorkie.v1.RefreshPresenceResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RefreshPresenceResponse {
@@ -1065,92 +1157,6 @@ export class WatchPresenceInitialized extends Message<WatchPresenceInitialized> 
 
   static equals(a: WatchPresenceInitialized | PlainMessage<WatchPresenceInitialized> | undefined, b: WatchPresenceInitialized | PlainMessage<WatchPresenceInitialized> | undefined): boolean {
     return proto3.util.equals(WatchPresenceInitialized, a, b);
-  }
-}
-
-/**
- * @generated from message yorkie.v1.BroadcastRequest
- */
-export class BroadcastRequest extends Message<BroadcastRequest> {
-  /**
-   * @generated from field: string client_id = 1;
-   */
-  clientId = "";
-
-  /**
-   * @generated from field: string document_id = 2;
-   */
-  documentId = "";
-
-  /**
-   * @generated from field: string topic = 3;
-   */
-  topic = "";
-
-  /**
-   * @generated from field: bytes payload = 4;
-   */
-  payload = new Uint8Array(0);
-
-  constructor(data?: PartialMessage<BroadcastRequest>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "yorkie.v1.BroadcastRequest";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 4, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BroadcastRequest {
-    return new BroadcastRequest().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BroadcastRequest {
-    return new BroadcastRequest().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BroadcastRequest {
-    return new BroadcastRequest().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: BroadcastRequest | PlainMessage<BroadcastRequest> | undefined, b: BroadcastRequest | PlainMessage<BroadcastRequest> | undefined): boolean {
-    return proto3.util.equals(BroadcastRequest, a, b);
-  }
-}
-
-/**
- * @generated from message yorkie.v1.BroadcastResponse
- */
-export class BroadcastResponse extends Message<BroadcastResponse> {
-  constructor(data?: PartialMessage<BroadcastResponse>) {
-    super();
-    proto3.util.initPartial(data, this);
-  }
-
-  static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "yorkie.v1.BroadcastResponse";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-  ]);
-
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): BroadcastResponse {
-    return new BroadcastResponse().fromBinary(bytes, options);
-  }
-
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): BroadcastResponse {
-    return new BroadcastResponse().fromJson(jsonValue, options);
-  }
-
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): BroadcastResponse {
-    return new BroadcastResponse().fromJsonString(jsonString, options);
-  }
-
-  static equals(a: BroadcastResponse | PlainMessage<BroadcastResponse> | undefined, b: BroadcastResponse | PlainMessage<BroadcastResponse> | undefined): boolean {
-    return proto3.util.equals(BroadcastResponse, a, b);
   }
 }
 

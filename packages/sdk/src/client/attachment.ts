@@ -17,6 +17,7 @@
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Unsubscribe } from '@yorkie-js/sdk/src/util/observable';
 import { Attachable } from './attachable';
+import { Document } from '@yorkie-js/sdk/src/document/document';
 
 /**
  * `WatchStream` represents a stream that watches the changes of a resource.
@@ -81,11 +82,6 @@ export class Attachment<R extends Attachable> {
    * Only applicable to Document resources with syncMode defined.
    */
   public needRealtimeSync(): boolean {
-    // If syncMode is not defined (e.g., for Presence), no sync is needed
-    if (this.syncMode === undefined) {
-      return false;
-    }
-
     if (this.syncMode === SyncMode.RealtimeSyncOff) {
       return false;
     }
@@ -106,11 +102,16 @@ export class Attachment<R extends Attachable> {
    */
   public needSync(heartbeatInterval: number): boolean {
     // For Document: check if realtime sync is needed
-    if (this.syncMode !== undefined) {
+    if (this.resource instanceof Document) {
       return this.needRealtimeSync();
     }
 
-    // For Presence: check if heartbeat is needed
+    // For Presence in Manual mode: never auto-sync
+    if (this.syncMode === SyncMode.Manual) {
+      return false;
+    }
+
+    // For Presence in Realtime mode: check if heartbeat is needed
     return Date.now() - this.lastHeartbeatTime >= heartbeatInterval;
   }
 
