@@ -241,6 +241,19 @@ export interface AttachOptions<R, P> {
 }
 
 /**
+ * `AttachPresenceOptions` are user-settable options used when attaching presence.
+ */
+export interface AttachPresenceOptions {
+  /**
+   * `isRealtime` determines whether to automatically watch presence changes
+   * and send heartbeats. If false (manual mode), the client must call sync()
+   * explicitly to refresh the TTL.
+   * Default is true for backward compatibility.
+   */
+  isRealtime?: boolean;
+}
+
+/**
  * `DefaultClientOptions` is the default options for Client.
  */
 const DefaultClientOptions = {
@@ -453,17 +466,23 @@ export class Client {
    * `attach` attaches the given presence to this client. It tells the server that
    * this client will track the presence.
    */
-  public attach(resource: Presence): Promise<Presence>;
+  public attach(
+    resource: Presence,
+    opts?: AttachPresenceOptions,
+  ): Promise<Presence>;
 
   /**
    * `attach` attaches a Document or Presence to this client.
    * Overloaded to support both types.
    */
-  public attach(resource: any, opts?: any): Promise<any> {
+  public attach<R, P extends Indexable>(
+    resource: Document<R, P> | Presence,
+    opts?: AttachOptions<R, P> | AttachPresenceOptions,
+  ): Promise<Document<R, P> | Presence> {
     if (resource instanceof Presence) {
-      return this.attachPresence(resource);
+      return this.attachPresence(resource, opts as AttachPresenceOptions);
     } else {
-      return this.attachDocument(resource, opts);
+      return this.attachDocument(resource, opts as AttachOptions<R, P>);
     }
   }
 
@@ -677,7 +696,10 @@ export class Client {
    * `attach` attaches the given presence counter to this client.
    * It tells the server that this client will track the presence count.
    */
-  public async attachPresence(presence: Presence): Promise<Presence> {
+  public async attachPresence(
+    presence: Presence,
+    opts: AttachPresenceOptions = {},
+  ): Promise<Presence> {
     // 01. Check if the client is ready to attach presence.
     if (!this.isActive()) {
       throw new YorkieError(
@@ -707,18 +729,26 @@ export class Client {
         presence.setPresenceID(res.presenceId);
         presence.updateCount(Number(res.count), 0);
         presence.applyStatus(PresenceStatus.Attached);
+
+        // Determine sync mode: default is Realtime for backward compatibility
+        const syncMode =
+          opts.isRealtime !== false ? SyncMode.Realtime : SyncMode.Manual;
+
         const attachment = new Attachment(
           this.reconnectStreamDelay,
           presence,
           res.presenceId,
+          syncMode,
         );
         this.attachmentMap.set(presence.getKey(), attachment);
 
-        // Start watching presence count changes in background
-        await this.runWatchLoop(presence.getKey());
+        // Start watching presence count changes only in realtime mode
+        if (syncMode === SyncMode.Realtime) {
+          await this.runWatchLoop(presence.getKey());
+        }
 
         logger.info(
-          `[AP] c:"${this.getKey()}" attaches p:"${presence.getKey()}" count:${presence.getCount()}`,
+          `[AP] c:"${this.getKey()}" attaches p:"${presence.getKey()}" mode:${syncMode} count:${presence.getCount()}`,
         );
         return presence;
       } catch (err) {
@@ -835,23 +865,58 @@ export class Client {
    * `sync` pushes local changes of the attached documents to the server and
    * receives changes of the remote replica from the server then apply them to
    * local documents.
+   *
+   * For Presence in manual mode, it refreshes the TTL by sending a heartbeat.
    */
   public sync<R, P extends Indexable>(
     doc?: Document<R, P>,
-  ): Promise<Array<Document<R, P>>> {
+  ): Promise<Array<Document<R, P>>>;
+
+  /**
+   * `sync` refreshes the TTL of the given presence counter by sending a heartbeat.
+   * This is used for manual mode presence counters.
+   */
+  public sync(presence: Presence): Promise<Presence>;
+
+  /**
+   * `sync` implementation that handles both Document and Presence.
+   */
+  public sync<R, P extends Indexable>(
+    resource?: Document<R, P> | Presence,
+  ): Promise<Array<Document<R, P>> | Presence> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
         `${this.key} is not active`,
       );
     }
-    if (doc) {
-      // prettier-ignore
-      const attachment = this.attachmentMap.get(doc.getKey()) as Attachment<Document<R, P>>;
+
+    if (resource instanceof Presence) {
+      const attachment = this.attachmentMap.get(
+        resource.getKey(),
+      ) as Attachment<Presence>;
       if (!attachment) {
         throw new YorkieError(
           Code.ErrDocumentNotAttached,
-          `${doc.getKey()} is not attached`,
+          `${resource.getKey()} is not attached`,
+        );
+      }
+      return this.enqueueTask(async () => {
+        return this.syncInternal(attachment).catch(async (err) => {
+          logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+          await this.handleConnectError(err);
+          throw err;
+        });
+      }) as Promise<Presence>;
+    }
+
+    if (resource instanceof Document) {
+      // prettier-ignore
+      const attachment = this.attachmentMap.get(resource.getKey()) as Attachment<Document<R, P>>;
+      if (!attachment) {
+        throw new YorkieError(
+          Code.ErrDocumentNotAttached,
+          `${resource.getKey()} is not attached`,
         );
       }
       return this.enqueueTask(async () => {
@@ -862,7 +927,7 @@ export class Client {
             throw err;
           },
         );
-      });
+      }) as Promise<Array<Document<R, P>>>;
     }
 
     return this.enqueueTask(async () => {
@@ -886,7 +951,7 @@ export class Client {
         await this.handleConnectError(err);
         throw err;
       });
-    });
+    }) as Promise<Array<Document<R, P>>>;
   }
 
   /**
@@ -1457,7 +1522,7 @@ export class Client {
     // Handle Presence heartbeat
     if (resource instanceof Presence) {
       try {
-        await this.rpcClient.refreshPresence(
+        const res = await this.rpcClient.refreshPresence(
           {
             clientId: this.id!,
             presenceId: resource.getPresenceID()!,
@@ -1470,9 +1535,13 @@ export class Client {
           },
         );
 
+        resource.updateCount(Number(res.count), 0);
         attachment.updateHeartbeatTime();
+
         logger.debug(
-          `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}"`,
+          `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}" mode:${
+            attachment.syncMode
+          }`,
         );
       } catch (err) {
         logger.error(`[RP] c:"${this.getKey()}" err :`, err);
