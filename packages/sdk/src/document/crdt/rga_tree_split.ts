@@ -497,8 +497,8 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       return;
     }
 
-    // NOTE(hackerwins): Overwrite only if prior tombstone was not known
-    // (concurrent or unseen) and newer.
+    // NOTE: Overwrite only if newer. Callers must ensure overwrite is valid
+    // (e.g., prior tombstone was not known) by checking canRemove beforehand.
     if (removedAt.after(this.removedAt)) {
       this.removedAt = removedAt;
     }
