@@ -1303,10 +1303,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: () => TimeTicket,
-  ): void {
+  ): [Array<TreeChange>, Array<GCPair>, DataSize] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
-    this.edit(
+    return this.edit(
       [fromPos, toPos],
       contents,
       splitLevel,

@@ -25,6 +25,7 @@ import {
   CRDTTreeNodeID,
   CRDTTreePos,
   toXML,
+  TreeChangeType,
   TreeNodeForTest,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
@@ -95,13 +96,30 @@ describe('CRDTTree.Edit', function () {
 
     //           1
     // <root> <p> </p> </root>
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
     assert.equal(t.toXML(), /*html*/ `<r><p></p></r>`);
     assert.equal(t.getRoot().size, 2);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
 
     //           1
     // <root> <p> h e l l o </p> </root>
-    t.editT(
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'hello')],
       0,
@@ -110,19 +128,58 @@ describe('CRDTTree.Edit', function () {
     );
     assert.equal(t.toXML(), /*html*/ `<r><p>hello</p></r>`);
     assert.equal(t.getRoot().size, 7);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'hello' }],
+      },
+    ]);
 
     //       0   1 2 3 4 5 6    7   8 9  10 11 12 13    14
     // <root> <p> h e l l o </p> <p> w  o  r  l  d  </p>  </root>
     const p = new CRDTTreeNode(posT(), 'p', []);
     p.insertAt(new CRDTTreeNode(posT(), 'text', 'world'), 0);
-    t.editT([7, 7], [p], 0, timeT(), timeT);
+    [changes, , ,] = t.editT([7, 7], [p], 0, timeT(), timeT);
     assert.equal(t.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
     assert.equal(t.getRoot().size, 14);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 7,
+        to: 7,
+        fromPath: [1],
+        toPath: [1],
+        value: [{ type: 'p', children: [{ type: 'text', value: 'world' }] }],
+      },
+    ]);
 
     //       0   1 2 3 4 5 6 7    8   9 10 11 12 13 14    15
     // <root> <p> h e l l o ! </p> <p> w  o  r  l  d  </p>  </root>
-    t.editT([6, 6], [new CRDTTreeNode(posT(), 'text', '!')], 0, timeT(), timeT);
+    [changes, , ,] = t.editT(
+      [6, 6],
+      [new CRDTTreeNode(posT(), 'text', '!')],
+      0,
+      timeT(),
+      timeT,
+    );
     assert.equal(t.toXML(), /*html*/ `<r><p>hello!</p><p>world</p></r>`);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 6,
+        to: 6,
+        fromPath: [0, 5],
+        toPath: [0, 5],
+        value: [{ type: 'text', value: '!' }],
+      },
+    ]);
 
     assert.deepEqual(t.toTestTreeNode(), {
       type: 'r',
@@ -151,8 +208,25 @@ describe('CRDTTree.Edit', function () {
 
     //       0   1 2 3 4 5 6 7 8    9   10 11 12 13 14 15    16
     // <root> <p> h e l l o ~ ! </p> <p>  w  o  r  l  d  </p>  </root>
-    t.editT([6, 6], [new CRDTTreeNode(posT(), 'text', '~')], 0, timeT(), timeT);
+    [changes, , ,] = t.editT(
+      [6, 6],
+      [new CRDTTreeNode(posT(), 'text', '~')],
+      0,
+      timeT(),
+      timeT,
+    );
     assert.equal(t.toXML(), /*html*/ `<r><p>hello~!</p><p>world</p></r>`);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 6,
+        to: 6,
+        fromPath: [0, 5],
+        toPath: [0, 5],
+        value: [{ type: 'text', value: '~' }],
+      },
+    ]);
   });
 
   it('Can delete text nodes with edit', function () {
@@ -160,22 +234,78 @@ describe('CRDTTree.Edit', function () {
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
     const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    tree.editT(
+    let [changes, , ,] = tree.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
-    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    tree.editT(
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
+      [4, 4],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 4,
+        to: 4,
+        fromPath: [1],
+        toPath: [1],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
       [5, 5],
       [new CRDTTreeNode(posT(), 'text', 'cd')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 5,
+        to: 5,
+        fromPath: [1, 0],
+        toPath: [1, 0],
+        value: [{ type: 'text', value: 'cd' }],
+      },
+    ]);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
     let treeNode = tree.toTestTreeNode();
@@ -186,13 +316,234 @@ describe('CRDTTree.Edit', function () {
     // 02. delete b from first paragraph
     //       0   1 2    3   4 5 6    7
     // <root> <p> a </p> <p> c d </p> </root>
-    tree.editT([2, 3], undefined, 0, timeT(), timeT);
+    [changes, , ,] = tree.editT([2, 3], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 2,
+        to: 3,
+        fromPath: [0, 1],
+        toPath: [0, 2],
+      },
+    ]);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
 
     treeNode = tree.toTestTreeNode();
     assert.equal(treeNode.size, 7);
     assert.equal(treeNode.children![0].size, 1);
     assert.equal(treeNode.children![0].children![0].size, 1);
+  });
+
+  it('Can delete tree nodes with edit', function () {
+    // 01. Create a tree with 2 paragraphs.
+    //       0   1 2 3    4   5 6 7    8
+    // <root> <p> a b </p> <p> c d </p> </root>
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    let [changes, , ,] = tree.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ab')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
+      [4, 4],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 4,
+        to: 4,
+        fromPath: [1],
+        toPath: [1],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
+      [5, 5],
+      [new CRDTTreeNode(posT(), 'text', 'cd')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 5,
+        to: 5,
+        fromPath: [1, 0],
+        toPath: [1, 0],
+        value: [{ type: 'text', value: 'cd' }],
+      },
+    ]);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
+
+    let treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 8);
+    assert.equal(treeNode.children![0].size, 2);
+    assert.equal(treeNode.children![0].children![0].size, 2);
+
+    // 02. delete the first paragraph
+    //       0   1 2 3    4
+    // <root> <p> c d </p> </root>
+    [changes, , ,] = tree.editT([0, 4], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 4,
+        fromPath: [0],
+        toPath: [1],
+      },
+    ]);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>cd</p></root>`);
+
+    treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 4);
+    assert.equal(treeNode.children![0].size, 2);
+    assert.equal(treeNode.children![0].children![0].size, 2);
+
+    // 03. add a new paragraph
+    //       0   1 2 3    4   5 6 7    8
+    // <root> <p> e f </p> <p> c d </p> </root>
+    [changes, , ,] = tree.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ef')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ef' }],
+      },
+    ]);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ef</p><p>cd</p></root>`);
+    treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 8);
+    assert.equal(treeNode.children![1].size, 2);
+    assert.equal(treeNode.children![1].children![0].size, 2);
+
+    // 04. delete all paragraph
+    [changes, , ,] = tree.editT([0, 8], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 8,
+        fromPath: [0],
+        toPath: [2],
+      },
+    ]);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root></root>`);
+    treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 0);
+    assert.equal(treeNode.children!.length, 0);
+
+    // 05. add a new paragraph
+    [changes, , ,] = tree.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'gh')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'gh' }],
+      },
+    ]);
+    assert.deepEqual(tree.toXML(), /*html*/ `<root><p>gh</p></root>`);
+    treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.size, 4);
+    assert.equal(treeNode.children![0].size, 2);
+    assert.equal(treeNode.children![0].children![0].size, 2);
   });
 
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
@@ -203,14 +554,46 @@ describe('CRDTTree.Edit', function () {
 
     //       0   1 2 3    4
     // <root> <p> a b </p> </root>
-    t.editT([0, 0], [pNode], 0, timeT(), timeT);
-    t.editT([1, 1], [textNode], 0, timeT(), timeT);
+    let [changes, , ,] = t.editT([0, 0], [pNode], 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT([1, 1], [textNode], 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
 
     // Find the closest index.TreePos when leftSiblingNode in crdt.TreePos is removed.
     //       0   1    2
     // <root> <p> </p> </root>
-    t.editT([1, 3], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 3,
+        fromPath: [0, 0],
+        toPath: [0, 2],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p></p></root>`);
 
     let [[parent, left]] = t.findNodesAndSplitText(
@@ -222,7 +605,17 @@ describe('CRDTTree.Edit', function () {
     // Find the closest index.TreePos when parentNode in crdt.TreePos is removed.
     //       0
     // <root> </root>
-    t.editT([0, 2], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([0, 2], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 2,
+        fromPath: [0],
+        toPath: [1],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root></root>`);
 
     [[parent, left]] = t.findNodesAndSplitText(
@@ -239,14 +632,42 @@ describe('CRDTTree.Split', function () {
     //       0   1     6     11
     // <root> <p> hello world  </p> </root>
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'helloworld')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'helloworld' }],
+      },
+    ]);
     const expectedIntial = {
       type: 'root',
       children: [
@@ -265,15 +686,18 @@ describe('CRDTTree.Split', function () {
     assert.deepEqual(t.toTestTreeNode(), expectedIntial);
 
     // 01. Split left side of 'helloworld'.
-    t.editT([1, 1], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([1, 1], undefined, 0, timeT(), timeT);
     assert.deepEqual(t.toTestTreeNode(), expectedIntial);
+    assert.deepEqual(changes, []);
 
     // 02. Split right side of 'helloworld'.
-    t.editT([11, 11], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([11, 11], undefined, 0, timeT(), timeT);
     assert.deepEqual(t.toTestTreeNode(), expectedIntial);
+    assert.deepEqual(changes, []);
 
     // 03. Split 'helloworld' into 'hello' and 'world'.
-    t.editT([6, 6], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([6, 6], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, []);
     assert.deepEqual(t.toTestTreeNode(), {
       type: 'root',
       children: [
@@ -298,46 +722,160 @@ describe('CRDTTree.Split', function () {
 
     // 01. Split position 1.
     let t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
-    t.editT([1, 1], undefined, 1, timeT(), timeT);
+    [changes, , ,] = t.editT([1, 1], undefined, 1, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p></p><p>ab</p></root>`);
     assert.equal(t.getSize(), 6);
 
     // 02. Split position 2.
     t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
-    t.editT([2, 2], undefined, 1, timeT(), timeT);
+    [changes, , ,] = t.editT([2, 2], undefined, 1, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 2,
+        to: 2,
+        fromPath: [0, 1],
+        toPath: [0, 1],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>a</p><p>b</p></root>`);
     assert.equal(t.getSize(), 6);
 
     // 03. Split position 3.
     t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p></root>`);
-    t.editT([3, 3], undefined, 1, timeT(), timeT);
+    [changes, , ,] = t.editT([3, 3], undefined, 1, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 3,
+        to: 3,
+        fromPath: [0, 2],
+        toPath: [0, 2],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p></p></root>`);
     assert.equal(t.getSize(), 6);
   });
@@ -348,17 +886,72 @@ describe('CRDTTree.Split', function () {
 
     // 01. Split nodes level 1.
     let t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], 0, timeT(), timeT);
-    t.editT(
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'b')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'b', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [2, 2],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 2,
+        to: 2,
+        fromPath: [0, 0, 0],
+        toPath: [0, 0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
-    t.editT([3, 3], undefined, 1, timeT(), timeT);
+    [changes, , ,] = t.editT([3, 3], undefined, 1, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 3,
+        to: 3,
+        fromPath: [0, 0, 1],
+        toPath: [0, 0, 1],
+      },
+    ]);
     assert.deepEqual(
       t.toXML(),
       /*html*/ `<root><p><b>a</b><b>b</b></p></root>`,
@@ -366,17 +959,72 @@ describe('CRDTTree.Split', function () {
 
     // 02. Split nodes level 2.
     t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], 0, timeT(), timeT);
-    t.editT(
+    [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'b')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'b', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [2, 2],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 2,
+        to: 2,
+        fromPath: [0, 0, 0],
+        toPath: [0, 0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ab</b></p></root>`);
-    t.editT([3, 3], undefined, 2, timeT(), timeT);
+    [changes, , ,] = t.editT([3, 3], undefined, 2, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 3,
+        to: 3,
+        fromPath: [0, 0, 1],
+        toPath: [0, 0, 1],
+      },
+    ]);
     assert.deepEqual(
       t.toXML(),
       /*html*/ `<root><p><b>a</b></p><p><b>b</b></p></root>`,
@@ -385,24 +1033,72 @@ describe('CRDTTree.Split', function () {
 
   it('Can split and merge element nodes by edit', function () {
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'abcd')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'abcd' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
     assert.equal(t.getSize(), 6);
 
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
-    t.editT([3, 3], undefined, 1, timeT(), timeT);
+    [changes, , ,] = t.editT([3, 3], undefined, 1, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 3,
+        to: 3,
+        fromPath: [0, 2],
+        toPath: [0, 2],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
     assert.equal(t.getSize(), 8);
 
-    t.editT([3, 5], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([3, 5], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 3,
+        to: 5,
+        fromPath: [0, 2],
+        toPath: [1, 0],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>abcd</p></root>`);
     assert.equal(t.getSize(), 6);
   });
@@ -414,28 +1110,94 @@ describe('CRDTTree.Merge', function () {
     //       0   1 2 3    4   5 6 7    8
     // <root> <p> a b </p> <p> c d </p> </root>
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [1, 1],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
-    t.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
+      [4, 4],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 4,
+        to: 4,
+        fromPath: [1],
+        toPath: [1],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [5, 5],
       [new CRDTTreeNode(posT(), 'text', 'cd')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 5,
+        to: 5,
+        fromPath: [1, 0],
+        toPath: [1, 0],
+        value: [{ type: 'text', value: 'cd' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
     // 02. delete b, c and the second paragraph.
     //       0   1 2 3    4
     // <root> <p> a d </p> </root>
-    t.editT([2, 6], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([2, 6], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 2,
+        to: 6,
+        fromPath: [0, 1],
+        toPath: [1, 1],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ad</p></root>`);
 
     const node = t.toTestTreeNode();
@@ -445,7 +1207,24 @@ describe('CRDTTree.Merge', function () {
     assert.equal(node.children![0].children![1].size, 1); // d
 
     // 03. insert a new text node at the start of the first paragraph.
-    t.editT([1, 1], [new CRDTTreeNode(posT(), 'text', '@')], 0, timeT(), timeT);
+    [changes, , ,] = t.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', '@')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'text', value: '@' }],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>@ad</p></root>`);
   });
 
@@ -454,23 +1233,96 @@ describe('CRDTTree.Merge', function () {
     //       0   1   2 3 4    5    6   7 8 9    10
     // <root> <p> <b> a b </b> </p> <p> c d </p>  </root>
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
-    t.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT([1, 1], [new CRDTTreeNode(posT(), 'b')], 0, timeT(), timeT);
-    t.editT(
+    let [changes, , ,] = t.editT(
+      [0, 0],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 0,
+        to: 0,
+        fromPath: [0],
+        toPath: [0],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'b')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 1,
+        to: 1,
+        fromPath: [0, 0],
+        toPath: [0, 0],
+        value: [{ type: 'b', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [2, 2],
       [new CRDTTreeNode(posT(), 'text', 'ab')],
       0,
       timeT(),
       timeT,
     );
-    t.editT([6, 6], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
-    t.editT(
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 2,
+        to: 2,
+        fromPath: [0, 0, 0],
+        toPath: [0, 0, 0],
+        value: [{ type: 'text', value: 'ab' }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
+      [6, 6],
+      [new CRDTTreeNode(posT(), 'p')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 6,
+        to: 6,
+        fromPath: [1],
+        toPath: [1],
+        value: [{ type: 'p', children: [] }],
+      },
+    ]);
+    [changes, , ,] = t.editT(
       [7, 7],
       [new CRDTTreeNode(posT(), 'text', 'cd')],
       0,
       timeT(),
       timeT,
     );
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 7,
+        to: 7,
+        fromPath: [1, 0],
+        toPath: [1, 0],
+        value: [{ type: 'text', value: 'cd' }],
+      },
+    ]);
     assert.deepEqual(
       t.toXML(),
       /*html*/ `<root><p><b>ab</b></p><p>cd</p></root>`,
@@ -479,12 +1331,22 @@ describe('CRDTTree.Merge', function () {
     // 02. delete b, c and second paragraph.
     //       0   1   2 3 4    5
     // <root> <p> <b> a d </b> </root>
-    t.editT([3, 8], undefined, 0, timeT(), timeT);
+    [changes, , ,] = t.editT([3, 8], undefined, 0, timeT(), timeT);
+    assert.deepEqual(changes, [
+      {
+        actor: timeT().getActorID(),
+        type: TreeChangeType.Content,
+        from: 3,
+        to: 8,
+        fromPath: [0, 0, 1],
+        toPath: [1, 1],
+      },
+    ]);
     assert.deepEqual(t.toXML(), /*html*/ `<root><p><b>ad</b></p></root>`);
   });
 
   it.skip('Can merge different levels with edit', function () {
-    // TODO(hackerwins): Fix this test.
+    // TODO(hackerwins): Fix this test and add assertion for changes.
     // 01. edit between two element nodes in the same hierarchy.
     //       0   1   2   3 4 5    6    7    8
     // <root> <p> <b> <i> a b </i> </b> </p> </root>
