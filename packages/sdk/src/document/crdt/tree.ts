@@ -1151,32 +1151,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
 
         // NOTE(sigmaith): Determine if the node's creation event was visible.
-        const isLocal = versionVector ? versionVector.size() === 0 : true;
+        const isLocal = versionVector === undefined;
+
         let creationKnown = false;
         const createdAtVV = versionVector?.get(
-          node.id.getCreatedAt()?.getActorID(),
+          node.id.getCreatedAt().getActorID(),
         );
-        if (isLocal) {
-          creationKnown = true;
-        } else if (
-          createdAtVV &&
-          createdAtVV >= node.id.getCreatedAt().getLamport()
-        ) {
-          creationKnown = true;
-        }
+        creationKnown =
+          isLocal ||
+          (createdAtVV !== undefined &&
+            createdAtVV >= node.id.getCreatedAt().getLamport());
 
         // NOTE(sigmaith): Determine if existing tombstone was already causally known.
         let tombstoneKnown = false;
         if (node.removedAt) {
           const removedAtVV = versionVector?.get(node.removedAt.getActorID());
-          if (isLocal) {
-            tombstoneKnown = true;
-          } else if (
-            removedAtVV &&
-            removedAtVV >= node.removedAt.getLamport()
-          ) {
-            tombstoneKnown = true;
-          }
+          tombstoneKnown =
+            isLocal ||
+            (removedAtVV !== undefined &&
+              removedAtVV >= node.removedAt.getLamport());
         }
 
         // NOTE(sejongk): If the node is removable or its parent is going to
@@ -1682,7 +1675,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): void {
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const toIdx = this.toIndex(toParent, toLeft);
-    return this.indexTree.tokensBetween(fromIdx, toIdx, callback);
+    this.indexTree.tokensBetween(fromIdx, toIdx, callback);
   }
 
   /**
@@ -1697,11 +1690,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): void {
     const fromIdx = this.toIndexIncludeTombstoneNodes(fromParent, fromLeft);
     const toIdx = this.toIndexIncludeTombstoneNodes(toParent, toLeft);
-    return this.indexTree.tokensBetweenIncludeTombstoneNodes(
-      fromIdx,
-      toIdx,
-      callback,
-    );
+    this.indexTree.tokensBetweenIncludeTombstoneNodes(fromIdx, toIdx, callback);
   }
 
   /**

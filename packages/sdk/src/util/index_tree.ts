@@ -791,7 +791,6 @@ function tokensBetweenIncludeTombstoneNodes<T extends IndexTreeNode<T>>(
   to: number,
   callback: (token: TreeToken<T>, ended: boolean) => void,
 ) {
-  console.log('tokensBetweenIncludeTombstoneNodes', from, to);
   if (from > to) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
