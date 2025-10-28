@@ -164,15 +164,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `updateAncestorsSize` updates the size of the ancestors. It is used when
-   * the size of the node is changed.
+   * `updateAncestorsSize` updates the size of the ancestors.
+   * It is used when the size of the node is changed.
+   * Only cases that delta is negative is when the node is marked tombstone. It is not for purging node.
    */
-  updateAncestorsSize(): void {
+  updateAncestorsSize(delta: number): void {
     let parent: T | undefined = this.parent;
-    const sign = this.isRemoved ? -1 : 1;
 
     while (parent) {
-      parent.size += this.paddedSize * sign;
+      parent.size += delta;
       if (parent.isRemoved) {
         break;
       }
@@ -182,17 +182,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `updateAncestorsSizeIncludeTombstoneNodes` updates the size of the ancestors including tombstone nodes. It is used when
-   * the size of the node is changed.
+   * `updateAncestorsSizeIncludeTombstoneNodes` updates the size of the ancestors including tombstone nodes.
+   * It is used when the size of the node is changed.
+   * Only cases that delta is negative is when the node is purged. It is not for marking tombstone.
    */
-  updateAncestorsSizeIncludeTombstoneNodes(): void {
+  updateAncestorsSizeIncludeTombstoneNodes(delta: number): void {
     let parent: T | undefined = this.parent;
-    if (this.isRemoved) {
-      return;
-    }
 
     while (parent) {
-      parent.sizeIncludeTombstoneNodes += this.paddedSizeIncludeTombstoneNodes;
+      parent.sizeIncludeTombstoneNodes += delta;
       parent = parent.parent;
     }
   }
@@ -420,8 +418,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.push(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-      node.updateAncestorsSize();
-      node.updateAncestorsSizeIncludeTombstoneNodes();
+      node.updateAncestorsSize(node.paddedSize);
+      node.updateAncestorsSizeIncludeTombstoneNodes(
+        node.paddedSizeIncludeTombstoneNodes,
+      );
     }
   }
 
@@ -454,8 +454,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this.insertAtInternal(newNode, offset);
-    newNode.updateAncestorsSize();
-    newNode.updateAncestorsSizeIncludeTombstoneNodes();
+    newNode.updateAncestorsSize(newNode.paddedSize);
+    newNode.updateAncestorsSizeIncludeTombstoneNodes(
+      newNode.paddedSizeIncludeTombstoneNodes,
+    );
   }
 
   /**
@@ -472,8 +474,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this.insertAtInternal(newNode, offset + 1);
-    newNode.updateAncestorsSize();
-    newNode.updateAncestorsSizeIncludeTombstoneNodes();
+    newNode.updateAncestorsSize(newNode.paddedSize);
+    newNode.updateAncestorsSizeIncludeTombstoneNodes(
+      newNode.paddedSizeIncludeTombstoneNodes,
+    );
   }
 
   /**
@@ -485,8 +489,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this.insertAtInternal(newNode, offset);
-    newNode.updateAncestorsSize();
-    newNode.updateAncestorsSizeIncludeTombstoneNodes();
+    newNode.updateAncestorsSize(newNode.paddedSize);
+    newNode.updateAncestorsSizeIncludeTombstoneNodes(
+      newNode.paddedSizeIncludeTombstoneNodes,
+    );
   }
 
   /**
@@ -503,7 +509,11 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this._children.splice(offset, 1);
-    child.reduceAncestorsSizeIncludeTombstoneNodes();
+    // Note(emplam27): Decrease ancestors' LengthIncludeRemovedNodes
+    // since this node is being purged (physically removed from tree).
+    child.updateAncestorsSizeIncludeTombstoneNodes(
+      -child.paddedSizeIncludeTombstoneNodes,
+    );
     child.parent = undefined;
   }
 
@@ -528,8 +538,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
      */
     const clone = this.cloneElement(issueTimeTicket);
     this.parent!.insertAfterInternal(clone, this as any);
-    clone.updateAncestorsSize();
-    clone.updateAncestorsSizeIncludeTombstoneNodes();
+    clone.updateAncestorsSize(clone.paddedSize);
+    clone.updateAncestorsSizeIncludeTombstoneNodes(
+      clone.paddedSizeIncludeTombstoneNodes,
+    );
 
     const leftChildren = this.children.slice(0, offset);
     const rightChildren = this.children.slice(offset);

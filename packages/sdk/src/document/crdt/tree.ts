@@ -559,13 +559,14 @@ export class CRDTTreeNode
   remove(removedAt: TimeTicket): boolean {
     if (!this.removedAt) {
       this.removedAt = removedAt;
-      this.updateAncestorsSize();
-      this.updateAncestorsSizeIncludeTombstoneNodes();
+      // Note(emplam27): Decrease ancestors' Length
+      // since this node is being removed (marked as tombstone, not purged).
+      this.updateAncestorsSize(-this.paddedSize);
       return true;
     }
 
-    // NOTE: Overwrite only if newer. Callers must ensure overwrite is valid
-    // (e.g., prior tombstone was not known) by checking canRemove beforehand.
+    // NOTE(sigmaith): Overwrite if newer tombstone.
+    // This enables LWW for concurrent deletions.
     if (removedAt.after(this.removedAt)) {
       this.removedAt = removedAt;
     }
