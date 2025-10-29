@@ -75,7 +75,7 @@ export type TextNode = {
  */
 export type TreeNodeForTest = TreeNode & {
   children?: Array<TreeNodeForTest>;
-  size: number;
+  visibleSize: number;
   isRemoved: boolean;
 };
 
@@ -503,7 +503,8 @@ export class CRDTTreeNode
     const clone = new CRDTTreeNode(this.id, this.type);
     clone.removedAt = this.removedAt;
     clone._value = this._value;
-    clone.size = this.size;
+    clone.visibleSize = this.visibleSize;
+    clone.totalSize = this.totalSize;
     clone.attrs = this.attrs?.deepcopy();
     clone._children = this._children.map((child) => {
       const childClone = child.deepcopy();
@@ -541,7 +542,8 @@ export class CRDTTreeNode
     }
 
     this._value = v;
-    this.size = v.length;
+    this.visibleSize = v.length;
+    this.totalSize = v.length;
   }
 
   /**
@@ -554,16 +556,21 @@ export class CRDTTreeNode
   /**
    * `remove` marks the node as removed.
    */
-  remove(removedAt: TimeTicket): void {
-    const alived = !this.removedAt;
+  remove(removedAt: TimeTicket): boolean {
+    if (!this.removedAt) {
+      this.removedAt = removedAt;
+      // NOTE(hackerwins): Decrease only visibleSize because
+      // this node marked as tombstone, not purged.
+      this.updateAncestorsSize(-this.paddedSize());
+      return true;
+    }
 
-    if (!this.removedAt || this.removedAt.compare(removedAt) > 0) {
+    // NOTE(sigmaith): Overwrite if newer tombstone.
+    // This enables LWW for concurrent deletions.
+    if (removedAt.after(this.removedAt)) {
       this.removedAt = removedAt;
     }
-
-    if (alived) {
-      this.updateAncestorsSize();
-    }
+    return false;
   }
 
   /**
@@ -636,12 +643,24 @@ export class CRDTTreeNode
    */
   public canDelete(
     editedAt: TimeTicket,
-    clientLamportAtChange: bigint,
+    creationKnown: boolean,
+    tombstoneKnown: boolean,
   ): boolean {
-    const nodeExisted =
-      this.getCreatedAt().getLamport() <= clientLamportAtChange;
+    // NOTE(sigmaith): Skip if the node's creation was not visible to this operation.
+    if (!creationKnown) {
+      return false;
+    }
 
-    return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
+    if (!this.removedAt) {
+      return true;
+    }
+
+    // NOTE(sigmaith): Overwrite only if prior tombstone was not known
+    // (concurrent or unseen) and newer. This enables LWW for concurrent deletions.
+    if (!tombstoneKnown && editedAt?.after(this.removedAt)) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -695,7 +714,7 @@ export class CRDTTreeNode
     const dataSize = { data: 0, meta: 0 };
 
     if (this.isText) {
-      dataSize.data += this.size * 2;
+      dataSize.data += this.visibleSize * 2;
     }
 
     if (this.id) {
@@ -804,7 +823,7 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
     return {
       type: currentNode.type,
       value: currentNode.value,
-      size: currentNode.size,
+      visibleSize: currentNode.visibleSize,
       isRemoved: currentNode.isRemoved,
     } as TreeNodeForTest;
   }
@@ -812,7 +831,7 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
   return {
     type: node.type,
     children: node.children.map(toTestTreeNode),
-    size: node.size,
+    visibleSize: node.visibleSize,
     isRemoved: node.isRemoved,
   };
 }
@@ -1109,6 +1128,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
+
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -1131,18 +1151,32 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
         }
 
-        const actorID = node.getCreatedAt().getActorID();
-        let clientLamportAtChange = MaxLamport; // Local edit
-        if (versionVector != undefined) {
-          clientLamportAtChange = versionVector!.get(actorID)
-            ? versionVector!.get(actorID)!
-            : 0n;
+        // NOTE(sigmaith): Determine if the node's creation event was visible.
+        const isLocal = versionVector === undefined;
+
+        let creationKnown = false;
+        const createdAtVV = versionVector?.get(
+          node.id.getCreatedAt().getActorID(),
+        );
+        creationKnown =
+          isLocal ||
+          (createdAtVV !== undefined &&
+            createdAtVV >= node.id.getCreatedAt().getLamport());
+
+        // NOTE(sigmaith): Determine if existing tombstone was already causally known.
+        let tombstoneKnown = false;
+        if (node.removedAt) {
+          const removedAtVV = versionVector?.get(node.removedAt.getActorID());
+          tombstoneKnown =
+            isLocal ||
+            (removedAtVV !== undefined &&
+              removedAtVV >= node.removedAt.getLamport());
         }
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
         if (
-          node.canDelete(editedAt, clientLamportAtChange) ||
+          node.canDelete(editedAt, creationKnown, tombstoneKnown) ||
           nodesToBeRemoved.includes(node.parent!)
         ) {
           // NOTE(hackerwins): If the node overlaps as an end token with the
@@ -1153,6 +1187,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           tokensToBeRemoved.push([node, tokenType]);
         }
       },
+      true,
     );
 
     // NOTE(hackerwins): If concurrent deletion happens, we need to separate the
@@ -1263,10 +1298,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: () => TimeTicket,
-  ): void {
+  ): [Array<TreeChange>, Array<GCPair>, DataSize] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
-    this.edit(
+    return this.edit(
       [fromPos, toPos],
       contents,
       splitLevel,
@@ -1469,7 +1504,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const nodeInfo: Devtools.TreeNodeInfo = {
         type: node.type,
         parent: parentNode?.id.toTestString(),
-        size: node.size,
+        size: node.visibleSize,
         id: node.id.toTestString(),
         removedAt: node.removedAt?.toTestString(),
         insPrev: node.insPrevID?.toTestString(),
@@ -1545,14 +1580,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `toIndex` converts the given CRDTTreeNodeID to the index of the tree.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
-  public toIndex(parentNode: CRDTTreeNode, leftNode: CRDTTreeNode): number {
-    const treePos = this.toTreePos(parentNode, leftNode);
+  public toIndex(
+    parentNode: CRDTTreeNode,
+    leftNode: CRDTTreeNode,
+    includeRemoved: boolean = false,
+  ): number {
+    const treePos = this.toTreePos(parentNode, leftNode, includeRemoved);
     if (!treePos) {
       return -1;
     }
 
-    return this.indexTree.indexOf(treePos);
+    return this.indexTree.indexOf(treePos, includeRemoved);
   }
 
   /**
@@ -1617,6 +1657,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `traverseInPosRange` traverses the tree in the given position range.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
   private traverseInPosRange(
     fromParent: CRDTTreeNode,
@@ -1624,31 +1665,35 @@ export class CRDTTree extends CRDTElement implements GCParent {
     toParent: CRDTTreeNode,
     toLeft: CRDTTreeNode,
     callback: (token: TreeToken<CRDTTreeNode>, ended: boolean) => void,
+    includeRemoved: boolean = false,
   ): void {
-    const fromIdx = this.toIndex(fromParent, fromLeft);
-    const toIdx = this.toIndex(toParent, toLeft);
-    return this.indexTree.tokensBetween(fromIdx, toIdx, callback);
+    const fromIdx = this.toIndex(fromParent, fromLeft, includeRemoved);
+    const toIdx = this.toIndex(toParent, toLeft, includeRemoved);
+    this.indexTree.tokensBetween(fromIdx, toIdx, callback, includeRemoved);
   }
 
   /**
    * `toTreePos` converts the given nodes to the position of the IndexTree.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
   private toTreePos(
     parentNode: CRDTTreeNode,
     leftNode: CRDTTreeNode,
+    includeRemoved: boolean = false,
   ): TreePos<CRDTTreeNode> | undefined {
     if (!parentNode || !leftNode) {
       return;
     }
 
-    if (parentNode.isRemoved) {
+    if (!includeRemoved && parentNode.isRemoved) {
+      // If parentNode is removed, treePos is the position of its least alive ancestor.
       let childNode: CRDTTreeNode;
       while (parentNode.isRemoved) {
         childNode = parentNode;
         parentNode = childNode.parent!;
       }
 
-      const offset = parentNode.findOffset(childNode!);
+      const offset = parentNode.findOffset(childNode!, includeRemoved);
       return {
         node: parentNode,
         offset,
@@ -1662,12 +1707,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
       };
     }
 
-    let offset = parentNode.findOffset(leftNode);
-    if (!leftNode.isRemoved) {
+    // Find the closest existing leftSibling node.
+    let offset = parentNode.findOffset(leftNode, includeRemoved);
+    if (includeRemoved || !leftNode.isRemoved) {
       if (leftNode.isText) {
         return {
           node: leftNode,
-          offset: leftNode.paddedSize,
+          offset: leftNode.paddedSize(includeRemoved),
         };
       }
 

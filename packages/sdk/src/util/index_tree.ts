@@ -98,22 +98,24 @@ export type TreeNodeType = string;
 
 /**
  * `addSizeOfLeftSiblings` returns the size of left siblings of the given offset.
+ * If includeRemoved is true, it includes removed nodes in the calculation.
  */
 export function addSizeOfLeftSiblings<T extends IndexTreeNode<T>>(
   parent: T,
   offset: number,
+  includeRemoved: boolean = false,
 ): number {
   let acc = 0;
-  const siblings = parent.children;
+  const siblings = includeRemoved ? parent.allChildren : parent.children;
 
   for (let i = 0; i < offset; i++) {
     const leftSibling = siblings[i];
 
-    if (!leftSibling || leftSibling.isRemoved) {
+    if (!leftSibling || (!includeRemoved && leftSibling.isRemoved)) {
       continue;
     }
 
-    acc += leftSibling.paddedSize;
+    acc += leftSibling.paddedSize(includeRemoved);
   }
 
   return acc;
@@ -127,11 +129,13 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   type: TreeNodeType;
   parent?: T;
   _children: Array<T>;
-  size: number;
+  visibleSize: number;
+  totalSize: number;
 
   constructor(type: TreeNodeType, children: Array<T> = []) {
     this.type = type;
-    this.size = 0;
+    this.visibleSize = 0;
+    this.totalSize = 0;
     this._children = children;
 
     if (this.isText && this._children.length > 0) {
@@ -140,17 +144,24 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `updateAncestorsSize` updates the size of the ancestors. It is used when
-   * the size of the node is changed.
+   * `updateAncestorsSize` updates the size of the ancestors.
+   * It is used when the size of the node is changed.
+   * If includeRemoved is true, it updates ancestors totalSize including removed nodes.
    */
-  updateAncestorsSize(): void {
+  updateAncestorsSize(delta: number, includeRemoved: boolean = false): void {
     let parent: T | undefined = this.parent;
-    const sign = this.isRemoved ? -1 : 1;
 
     while (parent) {
-      parent.size += this.paddedSize * sign;
-      if (parent.isRemoved) {
-        break;
+      if (includeRemoved) {
+        parent.totalSize += delta;
+      } else {
+        parent.visibleSize += delta;
+        // NOTE(hackerwins): If a parent node is removed (tombstone),
+        // it is not visible to the user, and its children are also not visible.
+        // Therefore, there is no need to update the visibleSize above the removed parent.
+        if (parent.isRemoved) {
+          break;
+        }
       }
 
       parent = parent.parent;
@@ -158,23 +169,28 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `updateDescendantsSize` updates the size of the descendants. It is used when
+   * `UpdateDescendantsSize` updates the size of the descendants. It is used when
    * the tree is newly created and the size of the descendants is not calculated.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
-  updateDescendantsSize(): number {
+  updateDescendantsSize(includeRemoved: boolean = false): number {
     let size = 0;
     for (const child of this._children) {
-      const childSize = child.updateDescendantsSize();
-      if (child.isRemoved) {
+      const childSize = child.updateDescendantsSize(includeRemoved);
+      if (!includeRemoved && child.isRemoved) {
         continue;
       }
 
       size += childSize;
     }
 
-    this.size += size;
+    if (includeRemoved) {
+      this.totalSize += size;
+    } else {
+      this.visibleSize += size;
+    }
 
-    return this.paddedSize;
+    return this.paddedSize(includeRemoved);
   }
 
   /**
@@ -187,10 +203,18 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
-   * `paddedSize` returns the size of the node including padding size.
+   * `paddedSize` returns the length of the node including padding.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
-  get paddedSize(): number {
-    return this.size + (this.isText ? 0 : ElementPaddingSize);
+  paddedSize(includeRemoved: boolean = false): number {
+    let size = this.visibleSize;
+    if (includeRemoved) {
+      size = this.totalSize;
+    }
+    if (!this.isText) {
+      size += ElementPaddingSize;
+    }
+    return size;
   }
 
   /**
@@ -263,7 +287,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   splitText(offset: number, absOffset: number): [T | undefined, DataSize] {
     const diff = { data: 0, meta: 0 };
 
-    if (offset === 0 || offset === this.size) {
+    if (offset === 0 || offset === this.visibleSize) {
       return [undefined, diff];
     }
 
@@ -344,7 +368,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children.push(...newNode);
     for (const node of newNode) {
       node.parent = this as any;
-      node.updateAncestorsSize();
+      node.updateAncestorsSize(node.paddedSize());
+      node.updateAncestorsSize(node.paddedSize(true), true);
     }
   }
 
@@ -377,7 +402,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this.insertAtInternal(newNode, offset);
-    newNode.updateAncestorsSize();
+    newNode.updateAncestorsSize(newNode.paddedSize());
+    newNode.updateAncestorsSize(newNode.paddedSize(true), true);
   }
 
   /**
@@ -394,7 +420,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this.insertAtInternal(newNode, offset + 1);
-    newNode.updateAncestorsSize();
+    newNode.updateAncestorsSize(newNode.paddedSize());
+    newNode.updateAncestorsSize(newNode.paddedSize(true), true);
   }
 
   /**
@@ -406,11 +433,13 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this.insertAtInternal(newNode, offset);
-    newNode.updateAncestorsSize();
+    newNode.updateAncestorsSize(newNode.paddedSize());
+    newNode.updateAncestorsSize(newNode.paddedSize(true), true);
   }
 
   /**
    * `removeChild` removes the given child.
+   * In this method, the child is physically removed from the tree.
    */
   removeChild(child: T) {
     if (this.isText) {
@@ -423,6 +452,9 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     }
 
     this._children.splice(offset, 1);
+    // NOTE(hackerwins): Decrease totalSize including removed nodes
+    // since this node is being purged (physically removed from tree).
+    child.updateAncestorsSize(-child.paddedSize(true), true);
     child.parent = undefined;
   }
 
@@ -447,18 +479,27 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
      */
     const clone = this.cloneElement(issueTimeTicket);
     this.parent!.insertAfterInternal(clone, this as any);
-    clone.updateAncestorsSize();
+    clone.updateAncestorsSize(clone.paddedSize());
+    clone.updateAncestorsSize(clone.paddedSize(true), true);
 
     const leftChildren = this.children.slice(0, offset);
     const rightChildren = this.children.slice(offset);
     this._children = leftChildren;
     clone._children = rightChildren;
-    this.size = this._children.reduce(
-      (acc, child) => acc + child.paddedSize,
+    this.visibleSize = this._children.reduce(
+      (acc, child) => acc + child.paddedSize(),
       0,
     );
-    clone.size = clone._children.reduce(
-      (acc, child) => acc + child.paddedSize,
+    this.totalSize = this._children.reduce(
+      (acc, child) => acc + child.paddedSize(true),
+      0,
+    );
+    clone.visibleSize = clone._children.reduce(
+      (acc, child) => acc + child.paddedSize(true),
+      0,
+    );
+    clone.totalSize = clone._children.reduce(
+      (acc, child) => acc + child.paddedSize(true),
       0,
     );
     for (const child of clone._children) {
@@ -507,11 +548,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
   /**
    * findOffset returns the offset of the given node in the children.
-   * It excludes the removed nodes.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
-  findOffset(node: T): number {
+  findOffset(node: T, includeRemoved: boolean = false): number {
     if (this.isText) {
       throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
+    }
+
+    if (includeRemoved) {
+      return this._children.indexOf(node);
     }
 
     if (node.isRemoved) {
@@ -621,6 +666,7 @@ function tokensBetween<T extends IndexTreeNode<T>>(
   from: number,
   to: number,
   callback: (token: TreeToken<T>, ended: boolean) => void,
+  includeRemoved: boolean = false,
 ) {
   if (from > to) {
     throw new YorkieError(
@@ -629,17 +675,17 @@ function tokensBetween<T extends IndexTreeNode<T>>(
     );
   }
 
-  if (from > root.size) {
+  const rootSize = includeRemoved ? root.totalSize : root.visibleSize;
+  if (from > rootSize) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
-      `from is out of range: ${from} > ${root.size}`,
+      `from is out of range: ${from} > ${rootSize}`,
     );
   }
-
-  if (to > root.size) {
+  if (to > rootSize) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
-      `to is out of range: ${to} > ${root.size}`,
+      `to is out of range: ${to} > ${rootSize}`,
     );
   }
 
@@ -648,9 +694,10 @@ function tokensBetween<T extends IndexTreeNode<T>>(
   }
 
   let pos = 0;
-  for (const child of root.children) {
+  const children = includeRemoved ? root._children : root.children;
+  for (const child of children) {
     // If the child is an element node, the size of the child.
-    if (from - child.paddedSize < pos && pos < to) {
+    if (from - child.paddedSize(includeRemoved) < pos && pos < to) {
       // If the child is an element node, the range of the child
       // is from - 1 to to - 1. Because the range of the element node is from
       // the open tag to the close tag.
@@ -659,8 +706,9 @@ function tokensBetween<T extends IndexTreeNode<T>>(
 
       // If the range spans outside the child,
       // the callback is called with the child.
+      const childSize = includeRemoved ? child.totalSize : child.visibleSize;
       const startContained = !child.isText && fromChild < 0;
-      const endContained = !child.isText && toChild > child.size;
+      const endContained = !child.isText && toChild > childSize;
       if (child.isText || startContained) {
         callback(
           [child, child.isText ? TokenType.Text : TokenType.Start],
@@ -670,14 +718,15 @@ function tokensBetween<T extends IndexTreeNode<T>>(
       tokensBetween(
         child,
         Math.max(0, fromChild),
-        Math.min(toChild, child.size),
+        Math.min(toChild, childSize),
         callback,
+        includeRemoved,
       );
       if (endContained) {
         callback([child, TokenType.End], endContained);
       }
     }
-    pos += child.paddedSize;
+    pos += child.paddedSize(includeRemoved);
   }
 }
 
@@ -717,10 +766,10 @@ function findTreePos<T extends IndexTreeNode<T>>(
   index: number,
   preferText = true,
 ): TreePos<T> {
-  if (index > node.size) {
+  if (index > node.visibleSize) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
-      `index is out of range: ${index} > ${node.size}`,
+      `index is out of range: ${index} > ${node.visibleSize}`,
     );
   }
 
@@ -735,7 +784,7 @@ function findTreePos<T extends IndexTreeNode<T>>(
   for (const child of node.children) {
     // The pos is in bothsides of the text node, we should traverse
     // inside of the text node if preferText is true.
-    if (preferText && child.isText && child.size >= index - pos) {
+    if (preferText && child.isText && child.visibleSize >= index - pos) {
       return findTreePos(child, index - pos, preferText);
     }
 
@@ -745,18 +794,18 @@ function findTreePos<T extends IndexTreeNode<T>>(
     }
 
     // The position is in rightside of the element node and preferText is false.
-    if (!preferText && child.paddedSize === index - pos) {
+    if (!preferText && child.paddedSize() === index - pos) {
       return { node, offset: offset + 1 };
     }
 
     // The position is in middle the element node.
-    if (child.paddedSize > index - pos) {
+    if (child.paddedSize() > index - pos) {
       // If we traverse inside of the element node, we should skip the open.
       const skipOpenSize = 1;
       return findTreePos(child, index - pos - skipOpenSize, preferText);
     }
 
-    pos += child.paddedSize;
+    pos += child.paddedSize();
     offset += 1;
   }
 
@@ -821,15 +870,15 @@ export function findLeftmost<T extends IndexTreeNode<T>>(node: T): T {
  * `findTextPos` returns the tree position of the given path element.
  */
 function findTextPos<T extends IndexTreeNode<T>>(node: T, pathElement: number) {
-  if (node.size < pathElement) {
+  if (node.visibleSize < pathElement) {
     throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
   }
 
   for (let i = 0; i < node.children.length; i++) {
     const child = node.children[i];
 
-    if (child.size < pathElement) {
-      pathElement -= child.size;
+    if (child.visibleSize < pathElement) {
+      pathElement -= child.visibleSize;
     } else {
       node = child;
 
@@ -852,13 +901,15 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
   /**
    * `tokensBetween` returns the tokens between the given range.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
   tokensBetween(
     from: number,
     to: number,
     callback: (token: TreeToken<T>, ended: boolean) => void,
+    includeRemoved: boolean = false,
   ): void {
-    tokensBetween<T>(this.root, from, to, callback);
+    tokensBetween<T>(this.root, from, to, callback, includeRemoved);
   }
 
   /**
@@ -978,7 +1029,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
    * `getSize` returns the size of the tree.
    */
   public get size(): number {
-    return this.root.size;
+    return this.root.visibleSize;
   }
 
   /**
@@ -989,7 +1040,7 @@ export class IndexTree<T extends IndexTreeNode<T>> {
     const { node, offset } = treePos;
 
     if (node.isText) {
-      if (node.size === offset) {
+      if (node.visibleSize === offset) {
         const nextSibling = node.nextSibling;
         if (nextSibling) {
           return nextSibling;
@@ -1010,8 +1061,9 @@ export class IndexTree<T extends IndexTreeNode<T>> {
 
   /**
    * `indexOf` returns the index of the given tree position.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
-  public indexOf(pos: TreePos<T>): number {
+  public indexOf(pos: TreePos<T>, includeRemoved: boolean = false): number {
     let { node } = pos;
     const { offset } = pos;
 
@@ -1021,26 +1073,26 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       size += offset;
 
       const parent = node.parent! as T;
-      const offsetOfNode = parent.findOffset(node);
+      const offsetOfNode = parent.findOffset(node, includeRemoved);
       if (offsetOfNode === -1) {
         throw new YorkieError(Code.ErrInvalidArgument, 'invalid pos');
       }
 
-      size += addSizeOfLeftSiblings(parent, offsetOfNode);
+      size += addSizeOfLeftSiblings(parent, offsetOfNode, includeRemoved);
 
       node = node.parent!;
     } else {
-      size += addSizeOfLeftSiblings(node, offset);
+      size += addSizeOfLeftSiblings(node, offset, includeRemoved);
     }
 
     while (node?.parent) {
       const parent = node.parent;
-      const offsetOfNode = parent.findOffset(node);
+      const offsetOfNode = parent.findOffset(node, includeRemoved);
       if (offsetOfNode === -1) {
         throw new YorkieError(Code.ErrInvalidArgument, 'invalid pos');
       }
 
-      size += addSizeOfLeftSiblings(parent, offsetOfNode);
+      size += addSizeOfLeftSiblings(parent, offsetOfNode, includeRemoved);
       depth++;
       node = node.parent;
     }
