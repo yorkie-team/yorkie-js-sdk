@@ -5239,6 +5239,91 @@ function subscribeDocs(
   return [ops1, ops2];
 }
 
+// Helper functions for TreeLWW tests
+function findNodesByType(
+  doc: Document<{ t: Tree }>,
+  nodeTypes: Array<{
+    type: string;
+    value?: string;
+    parentType?: string;
+    key?: string;
+  }>,
+): Map<string, CRDTTreeNode> {
+  const nodes = new Map<string, CRDTTreeNode>();
+
+  doc
+    .getRoot()
+    .t.getIndexTree()
+    .traverseAll((node) => {
+      for (const { type, value, parentType, key: customKey } of nodeTypes) {
+        // Use custom key if provided, otherwise generate based on type/value/parent
+        let key: string;
+        if (customKey) {
+          key = customKey;
+        } else if (value) {
+          key = `${type}-${value}`;
+        } else if (parentType) {
+          key = `${type}-parent-${parentType}`;
+        } else {
+          key = type;
+        }
+
+        if (node.type === type) {
+          if (value && node.value !== value) continue;
+          if (parentType && node.parent?.type !== parentType) continue;
+          if (!nodes.has(key)) {
+            nodes.set(key, node);
+          }
+        }
+      }
+    });
+
+  return nodes;
+}
+
+function assertNodesRemoved(
+  nodes: Map<string, CRDTTreeNode>,
+  expectations: Array<{
+    key: string;
+    shouldBeRemoved: boolean;
+  }>,
+): void {
+  for (const { key, shouldBeRemoved } of expectations) {
+    const node = nodes.get(key);
+    if (shouldBeRemoved) {
+      assert.isTrue(!!node?.removedAt, `${key} should be removed`);
+    } else {
+      assert.isFalse(!!node?.removedAt, `${key} should not be removed`);
+    }
+  }
+}
+
+function assertSameRemovedAt(
+  baseNode: CRDTTreeNode,
+  nodes: Map<string, CRDTTreeNode>,
+  keys: Array<string>,
+): void {
+  const baseRemovedAt = baseNode.removedAt!;
+  for (const key of keys) {
+    const node = nodes.get(key);
+    assert.isTrue(
+      baseRemovedAt.compare(node!.removedAt!) === 0,
+      `${key} should have same removedAt`,
+    );
+  }
+}
+
+function assertTreesMatch(
+  d1: Document<{ t: Tree }>,
+  d2: Document<{ t: Tree }>,
+  expectedXML?: string,
+): void {
+  assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+  if (expectedXML) {
+    assert.equal(d1.getRoot().t.toXML(), expectedXML);
+  }
+}
+
 describe('TreeLWW', () => {
   it('causal deletion preserves original timestamps', async function ({
     task,
@@ -5267,6 +5352,7 @@ describe('TreeLWW', () => {
         /*html*/ `<root><p><b>ab</b><i>cd</i><a>ef</a></p></root>`,
       );
 
+      // First deletion by c1
       d1.update(
         (r) => r.t.edit(5, 9, undefined, 0),
         'first deletion <i>cd</i> by c1',
@@ -5275,76 +5361,54 @@ describe('TreeLWW', () => {
       await c2.sync();
       await c1.sync();
 
-      // assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
-      assert.equal(
-        d1.getRoot().t.toXML(),
-        /*html*/ `<root><p><b>ab</b><a>ef</a></p></root>`,
-      );
-      assert.equal(
-        d2.getRoot().t.toXML(),
+      assertTreesMatch(
+        d1,
+        d2,
         /*html*/ `<root><p><b>ab</b><a>ef</a></p></root>`,
       );
 
+      // Second deletion by c2 (causal deletion)
       d2.update(
         (r) => r.t.edit(1, 9, undefined, 0),
         'second deletion <b>ab</b><a>ef</a> by c2',
       );
-
       await c1.sync();
       await c2.sync();
       await c1.sync();
 
-      let bNode1: CRDTTreeNode;
-      let iNode1: CRDTTreeNode;
-      let aNode1: CRDTTreeNode;
-      d1.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode1 = node;
-          } else if (node.type === 'i') {
-            iNode1 = node;
-          } else if (node.type === 'a') {
-            aNode1 = node;
-          }
-        });
+      // Find nodes in both documents
+      const nodes1 = findNodesByType(d1, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+      ]);
+      const nodes2 = findNodesByType(d2, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+      ]);
 
-      let bNode2: CRDTTreeNode;
-      let iNode2: CRDTTreeNode;
-      let aNode2: CRDTTreeNode;
-      d2.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode2 = node;
-          } else if (node.type === 'i') {
-            iNode2 = node;
-          } else if (node.type === 'a') {
-            aNode2 = node;
-          }
-        });
+      // Verify nodes exist
+      assert.isTrue(!!nodes1.get('b'));
+      assert.isFalse(!!nodes1.get('i'));
+      assert.isTrue(!!nodes1.get('a'));
+      assert.isTrue(!!nodes2.get('b'));
+      assert.isFalse(!!nodes2.get('i'));
+      assert.isTrue(!!nodes2.get('a'));
 
-      assert.isTrue(!!bNode1!);
-      assert.isFalse(!!iNode1!);
-      assert.isTrue(!!aNode1!);
-      assert.isTrue(!!bNode2!);
-      assert.isFalse(!!iNode2!);
-      assert.isTrue(!!aNode2!);
+      // Verify all remaining nodes are removed
+      const bNode2 = nodes2.get('b')!;
+      const aNode2 = nodes2.get('a')!;
 
-      const bRemovedAt1 = bNode1!.removedAt;
-      const aRemovedAt1 = aNode1!.removedAt;
-      const bRemovedAt2 = bNode2!.removedAt;
-      const aRemovedAt2 = aNode2!.removedAt;
+      assertNodesRemoved(nodes2, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+      ]);
 
-      assert.isTrue(!!bRemovedAt1!);
-      assert.isTrue(!!aRemovedAt1!);
-      assert.isTrue(!!bRemovedAt2!);
-      assert.isTrue(!!aRemovedAt2!);
+      // Causal deletion should preserve original timestamps
+      assert.isFalse(bNode2.removedAt!.after(aNode2.removedAt!));
 
-      assert.isFalse(bRemovedAt1!.after(bRemovedAt2!));
-
-      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<root><p></p></root>`);
+      assertTreesMatch(d1, d2, /*html*/ `<root><p></p></root>`);
     }, task.name);
   });
 
@@ -5375,13 +5439,13 @@ describe('TreeLWW', () => {
         /*html*/ `<root><p><b>ab</b><i>cd</i><a>ef</a></p></root>`,
       );
 
-      // c1 deletes i node
+      // c1 deletes i node (smaller range first)
       d1.update(
         (r) => r.t.edit(5, 9, undefined, 0),
         'first deletion <i>cd</i> by c1',
       );
 
-      // c2 deletes b and a nodes
+      // c2 deletes all nodes (larger range later)
       d2.update(
         (r) => r.t.edit(1, 13, undefined, 0),
         'second deletion <b>ab</b><i>cd</i><a>ef</a> by c2',
@@ -5392,130 +5456,61 @@ describe('TreeLWW', () => {
       await c2.sync();
       await c1.sync();
 
-      // c2 nodes (larger range) are deleted later, so LWW behavior should be working in c1 nodes
-      let bNode1: CRDTTreeNode;
-      let iNode1: CRDTTreeNode;
-      let aNode1: CRDTTreeNode;
-      let abTextNode1: CRDTTreeNode;
-      let cdTextNode1: CRDTTreeNode;
-      let efTextNode1: CRDTTreeNode;
-      d1.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode1 = node;
-          } else if (node.type === 'i') {
-            iNode1 = node;
-          } else if (node.type === 'a') {
-            aNode1 = node;
-          } else if (node.type === 'text' && node.value === 'ab') {
-            abTextNode1 = node;
-          } else if (node.type === 'text' && node.value === 'cd') {
-            cdTextNode1 = node;
-          } else if (node.type === 'text' && node.value === 'ef') {
-            efTextNode1 = node;
-          }
-        });
+      // Find all nodes in both documents
+      const nodes1 = findNodesByType(d1, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+        { type: 'text', value: 'ab' },
+        { type: 'text', value: 'cd' },
+        { type: 'text', value: 'ef' },
+      ]);
+      const nodes2 = findNodesByType(d2, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+        { type: 'text', value: 'ab' },
+        { type: 'text', value: 'cd' },
+        { type: 'text', value: 'ef' },
+      ]);
 
-      let bNode2: CRDTTreeNode;
-      let iNode2: CRDTTreeNode;
-      let aNode2: CRDTTreeNode;
-      let abTextNode2: CRDTTreeNode;
-      let cdTextNode2: CRDTTreeNode;
-      let efTextNode2: CRDTTreeNode;
-      d2.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode2 = node;
-          } else if (node.type === 'i') {
-            iNode2 = node;
-          } else if (node.type === 'a') {
-            aNode2 = node;
-          } else if (node.type === 'text' && node.value === 'ab') {
-            abTextNode2 = node;
-          } else if (node.type === 'text' && node.value === 'cd') {
-            cdTextNode2 = node;
-          } else if (node.type === 'text' && node.value === 'ef') {
-            efTextNode2 = node;
-          }
-        });
+      // Verify all nodes are removed in both documents
+      assertNodesRemoved(nodes1, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+        { key: 'text-ab', shouldBeRemoved: true },
+        { key: 'text-cd', shouldBeRemoved: true },
+        { key: 'text-ef', shouldBeRemoved: true },
+      ]);
+      assertNodesRemoved(nodes2, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+        { key: 'text-ab', shouldBeRemoved: true },
+        { key: 'text-cd', shouldBeRemoved: true },
+        { key: 'text-ef', shouldBeRemoved: true },
+      ]);
 
-      assert.isTrue(!!bNode1!.removedAt!, 'c1 b nodes should be removed');
-      assert.isTrue(!!iNode1!.removedAt!, 'c1 i nodes should be removed');
-      assert.isTrue(!!aNode1!.removedAt!, 'c1 a nodes should be removed');
-      assert.isTrue(!!bNode2!.removedAt!, 'c2 b nodes should be removed');
-      assert.isTrue(!!iNode2!.removedAt!, 'c2 i nodes should be removed');
-      assert.isTrue(!!aNode2!.removedAt!, 'c2 a nodes should be removed');
-      assert.isTrue(
-        !!abTextNode1!.removedAt!,
-        'c1 ab text node should be removed',
-      );
-      assert.isTrue(
-        !!cdTextNode1!.removedAt!,
-        'c1 cd text node should be removed',
-      );
-      assert.isTrue(
-        !!efTextNode1!.removedAt!,
-        'c1 ef text node should be removed',
-      );
-      assert.isTrue(
-        !!abTextNode2!.removedAt!,
-        'c2 ab text node should be removed',
-      );
-      assert.isTrue(
-        !!cdTextNode2!.removedAt!,
-        'c2 cd text node should be removed',
-      );
-      assert.isTrue(
-        !!efTextNode2!.removedAt!,
-        'c2 ef text node should be removed',
-      );
+      // LWW: larger range (c2) wins, so all nodes should have same removedAt
+      const bNode1 = nodes1.get('b')!;
+      assertSameRemovedAt(bNode1, nodes1, [
+        'i',
+        'a',
+        'text-ab',
+        'text-cd',
+        'text-ef',
+      ]);
+      assertSameRemovedAt(bNode1, nodes2, [
+        'b',
+        'i',
+        'a',
+        'text-ab',
+        'text-cd',
+        'text-ef',
+      ]);
 
-      const expectedRemovedAt = bNode1!.removedAt!;
-      assert.isTrue(
-        expectedRemovedAt.compare(iNode1!.removedAt!) === 0,
-        'c1 i nodes should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(aNode1!.removedAt!) === 0,
-        'c1 a nodes should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(iNode2!.removedAt!) === 0,
-        'c2 i nodes should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(aNode2!.removedAt!) === 0,
-        'c2 a nodes should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(abTextNode1!.removedAt!) === 0,
-        'c1 ab text node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(cdTextNode1!.removedAt!) === 0,
-        'c1 cd text node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(efTextNode1!.removedAt!) === 0,
-        'c1 ef text node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(abTextNode2!.removedAt!) === 0,
-        'c2 ab text node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(cdTextNode2!.removedAt!) === 0,
-        'c2 cd text node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(efTextNode2!.removedAt!) === 0,
-        'c2 ef text node should have same removedAt',
-      );
-
-      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ '<root><p></p></root>');
+      assertTreesMatch(d1, d2, /*html*/ '<root><p></p></root>');
     }, task.name);
   });
 
@@ -5546,12 +5541,12 @@ describe('TreeLWW', () => {
         /*html*/ `<root><p><b>ab</b><i>cd</i><a>ef</a></p></root>`,
       );
 
-      // c1 deletes b and a nodes
+      // c1 deletes all nodes (larger range first)
       d1.update((root) => {
         root.t.edit(1, 13, undefined, 0);
       }, 'first deletion <b>ab</b><i>cd</i><a>ef</a> by c1');
 
-      // c2 deletes i node
+      // c2 deletes i node (smaller range later)
       d2.update((root) => {
         root.t.edit(5, 9, undefined, 0);
       }, 'second deletion <i>cd</i> by c2');
@@ -5561,139 +5556,62 @@ describe('TreeLWW', () => {
       await c2.sync();
       await c1.sync();
 
-      // c2 nodes (smaller range) are deleted later, so LWW behavior should not be working in c2 nodes
-      let bNode1: CRDTTreeNode;
-      let iNode1: CRDTTreeNode;
-      let aNode1: CRDTTreeNode;
-      let abTextNode1: CRDTTreeNode;
-      let cdTextNode1: CRDTTreeNode;
-      let efTextNode1: CRDTTreeNode;
-      d1.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode1 = node;
-          } else if (node.type === 'i') {
-            iNode1 = node;
-          } else if (node.type === 'a') {
-            aNode1 = node;
-          } else if (node.type === 'text' && node.value === 'ab') {
-            abTextNode1 = node;
-          } else if (node.type === 'text' && node.value === 'cd') {
-            cdTextNode1 = node;
-          } else if (node.type === 'text' && node.value === 'ef') {
-            efTextNode1 = node;
-          }
-        });
+      // Find all nodes in both documents
+      const nodes1 = findNodesByType(d1, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+        { type: 'text', value: 'ab' },
+        { type: 'text', value: 'cd' },
+        { type: 'text', value: 'ef' },
+      ]);
+      const nodes2 = findNodesByType(d2, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+        { type: 'text', value: 'ab' },
+        { type: 'text', value: 'cd' },
+        { type: 'text', value: 'ef' },
+      ]);
 
-      let bNode2: CRDTTreeNode;
-      let iNode2: CRDTTreeNode;
-      let aNode2: CRDTTreeNode;
-      let abTextNode2: CRDTTreeNode;
-      let cdTextNode2: CRDTTreeNode;
-      let efTextNode2: CRDTTreeNode;
+      // Verify all nodes are removed
+      assertNodesRemoved(nodes1, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+        { key: 'text-ab', shouldBeRemoved: true },
+        { key: 'text-cd', shouldBeRemoved: true },
+        { key: 'text-ef', shouldBeRemoved: true },
+      ]);
+      assertNodesRemoved(nodes2, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+        { key: 'text-ab', shouldBeRemoved: true },
+        { key: 'text-cd', shouldBeRemoved: true },
+        { key: 'text-ef', shouldBeRemoved: true },
+      ]);
 
-      d2.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode2 = node;
-          } else if (node.type === 'i') {
-            iNode2 = node;
-          } else if (node.type === 'a') {
-            aNode2 = node;
-          } else if (node.type === 'text' && node.value === 'ab') {
-            abTextNode2 = node;
-          } else if (node.type === 'text' && node.value === 'cd') {
-            cdTextNode2 = node;
-          } else if (node.type === 'text' && node.value === 'ef') {
-            efTextNode2 = node;
-          }
-        });
-
-      assert.isTrue(!!bNode1!.removedAt!, 'c1 b nodes should be removed');
-      assert.isTrue(!!iNode1!.removedAt!, 'c1 i nodes should be removed');
-      assert.isTrue(!!aNode1!.removedAt!, 'c1 a nodes should be removed');
-      assert.isTrue(!!bNode2!.removedAt!, 'c2 b nodes should be removed');
-      assert.isTrue(!!iNode2!.removedAt!, 'c2 i nodes should be removed');
-      assert.isTrue(!!aNode2!.removedAt!, 'c2 a nodes should be removed');
-      assert.isTrue(
-        !!abTextNode1!.removedAt!,
-        'c1 ab text node should be removed',
-      );
-      assert.isTrue(
-        !!cdTextNode1!.removedAt!,
-        'c1 cd text node should be removed',
-      );
-      assert.isTrue(
-        !!efTextNode1!.removedAt!,
-        'c1 ef text node should be removed',
-      );
-      assert.isTrue(
-        !!abTextNode2!.removedAt!,
-        'c2 ab text node should be removed',
-      );
-      assert.isTrue(
-        !!cdTextNode2!.removedAt!,
-        'c2 cd text node should be removed',
-      );
-      assert.isTrue(
-        !!efTextNode2!.removedAt!,
-        'c2 ef text node should be removed',
-      );
-
-      const earlierExpectedRemovedAt = bNode1!.removedAt!;
-      const laterExpectedRemovedAt = iNode1!.removedAt!;
+      // Smaller range (c2) is deleted later, so it doesn't trigger LWW for non-overlapping nodes
+      const bNode1 = nodes1.get('b')!;
+      const iNode1 = nodes1.get('i')!;
+      const earlierExpectedRemovedAt = bNode1.removedAt!;
+      const laterExpectedRemovedAt = iNode1.removedAt!;
 
       assert.isTrue(
         laterExpectedRemovedAt.after(earlierExpectedRemovedAt),
         'c1 i node removedAt should be after c1 b node removedAt',
       );
 
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(iNode2!.removedAt!) === 0,
-        'c2 i node should have same earlier removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(cdTextNode1!.removedAt!) === 0,
-        'c1 cd text node should have same earlier removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(cdTextNode2!.removedAt!) === 0,
-        'c2 cd text node should have same earlier removedAt',
-      );
+      // Nodes deleted by c2 (smaller range) should have later timestamp
+      assertSameRemovedAt(iNode1, nodes1, ['text-cd']);
+      assertSameRemovedAt(iNode1, nodes2, ['i', 'text-cd']);
 
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(bNode2!.removedAt!) === 0,
-        'c2 b node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(aNode1!.removedAt!) === 0,
-        'c1 a node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(aNode2!.removedAt!) === 0,
-        'c2 a node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(abTextNode1!.removedAt!) === 0,
-        'c1 ab text node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(abTextNode2!.removedAt!) === 0,
-        'c2 ab text node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(efTextNode1!.removedAt!) === 0,
-        'c1 ef text node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(efTextNode2!.removedAt!) === 0,
-        'c2 ef text node should have same later removedAt',
-      );
+      // Nodes deleted by c1 but not in c2's range should have earlier timestamp
+      assertSameRemovedAt(bNode1, nodes1, ['a', 'text-ab', 'text-ef']);
+      assertSameRemovedAt(bNode1, nodes2, ['b', 'a', 'text-ab', 'text-ef']);
 
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ '<root><p></p></root>');
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ '<root><p></p></root>');
+      assertTreesMatch(d1, d2, /*html*/ '<root><p></p></root>');
     }, task.name);
   });
 
@@ -5729,148 +5647,71 @@ describe('TreeLWW', () => {
         root.t.edit(1, 9, undefined, 0);
       }, 'first deletion <b>ab</b><i>cd</i> by c1');
 
-      // c2 deletes i and a node
+      // c2 deletes i and a nodes (partial overlap)
       d2.update((root) => {
         root.t.edit(5, 13, undefined, 0);
       }, 'second deletion <i>cd</i><a>ef</a> by c2');
 
-      // After sync, c1 and c2 should have same tree
       await c1.sync();
       await c2.sync();
       await c1.sync();
 
-      // c2 nodes are deleted later, so LWW behavior should not be working in c1 partial overlap nodes
-      let bNode1: CRDTTreeNode;
-      let iNode1: CRDTTreeNode;
-      let aNode1: CRDTTreeNode;
-      let abTextNode1: CRDTTreeNode;
-      let cdTextNode1: CRDTTreeNode;
-      let efTextNode1: CRDTTreeNode;
-      d1.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode1 = node;
-          } else if (node.type === 'i') {
-            iNode1 = node;
-          } else if (node.type === 'a') {
-            aNode1 = node;
-          } else if (node.type === 'text' && node.value === 'ab') {
-            abTextNode1 = node;
-          } else if (node.type === 'text' && node.value === 'cd') {
-            cdTextNode1 = node;
-          } else if (node.type === 'text' && node.value === 'ef') {
-            efTextNode1 = node;
-          }
-        });
+      // Find all nodes in both documents
+      const nodes1 = findNodesByType(d1, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+        { type: 'text', value: 'ab' },
+        { type: 'text', value: 'cd' },
+        { type: 'text', value: 'ef' },
+      ]);
+      const nodes2 = findNodesByType(d2, [
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+        { type: 'text', value: 'ab' },
+        { type: 'text', value: 'cd' },
+        { type: 'text', value: 'ef' },
+      ]);
 
-      let bNode2: CRDTTreeNode;
-      let iNode2: CRDTTreeNode;
-      let aNode2: CRDTTreeNode;
-      let abTextNode2: CRDTTreeNode;
-      let cdTextNode2: CRDTTreeNode;
-      let efTextNode2: CRDTTreeNode;
-      d2.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'b') {
-            bNode2 = node;
-          } else if (node.type === 'i') {
-            iNode2 = node;
-          } else if (node.type === 'a') {
-            aNode2 = node;
-          } else if (node.type === 'text' && node.value === 'ab') {
-            abTextNode2 = node;
-          } else if (node.type === 'text' && node.value === 'cd') {
-            cdTextNode2 = node;
-          } else if (node.type === 'text' && node.value === 'ef') {
-            efTextNode2 = node;
-          }
-        });
+      // Verify all nodes are removed
+      assertNodesRemoved(nodes1, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+        { key: 'text-ab', shouldBeRemoved: true },
+        { key: 'text-cd', shouldBeRemoved: true },
+        { key: 'text-ef', shouldBeRemoved: true },
+      ]);
+      assertNodesRemoved(nodes2, [
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: true },
+        { key: 'text-ab', shouldBeRemoved: true },
+        { key: 'text-cd', shouldBeRemoved: true },
+        { key: 'text-ef', shouldBeRemoved: true },
+      ]);
 
-      assert.isTrue(!!bNode1!.removedAt!, 'c1 b nodes should be removed');
-      assert.isTrue(!!iNode1!.removedAt!, 'c1 i nodes should be removed');
-      assert.isTrue(!!aNode1!.removedAt!, 'c1 a nodes should be removed');
-      assert.isTrue(!!bNode2!.removedAt!, 'c2 b nodes should be removed');
-      assert.isTrue(!!iNode2!.removedAt!, 'c2 i nodes should be removed');
-      assert.isTrue(!!aNode2!.removedAt!, 'c2 a nodes should be removed');
-      assert.isTrue(
-        !!abTextNode1!.removedAt!,
-        'c1 ab text node should be removed',
-      );
-      assert.isTrue(
-        !!cdTextNode1!.removedAt!,
-        'c1 cd text node should be removed',
-      );
-      assert.isTrue(
-        !!efTextNode1!.removedAt!,
-        'c1 ef text node should be removed',
-      );
-      assert.isTrue(
-        !!abTextNode2!.removedAt!,
-        'c2 ab text node should be removed',
-      );
-      assert.isTrue(
-        !!cdTextNode2!.removedAt!,
-        'c2 cd text node should be removed',
-      );
-      assert.isTrue(
-        !!efTextNode2!.removedAt!,
-        'c2 ef text node should be removed',
-      );
-
-      const earlierExpectedRemovedAt = bNode1!.removedAt!;
-      const laterExpectedRemovedAt = iNode1!.removedAt!;
+      // Partial overlap: overlapping node (i) gets later timestamp, non-overlapping keep their original
+      const bNode1 = nodes1.get('b')!;
+      const iNode1 = nodes1.get('i')!;
+      const earlierExpectedRemovedAt = bNode1.removedAt!;
+      const laterExpectedRemovedAt = iNode1.removedAt!;
 
       assert.isTrue(
         laterExpectedRemovedAt.after(earlierExpectedRemovedAt),
         'c1 i node removedAt should be after c1 b node removedAt',
       );
 
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(aNode1!.removedAt!) === 0,
-        'c1 a node should have same later removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(aNode2!.removedAt!) === 0,
-        'c2 a node should have same later removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(iNode2!.removedAt!) === 0,
-        'c2 i node should have same later removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(cdTextNode1!.removedAt!) === 0,
-        'c1 cd text node should have same later removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(cdTextNode2!.removedAt!) === 0,
-        'c2 cd text node should have same later removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(efTextNode1!.removedAt!) === 0,
-        'c1 ef text node should have same later removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(efTextNode2!.removedAt!) === 0,
-        'c2 ef text node should have same later removedAt',
-      );
+      // Nodes in c2's range get later timestamp
+      assertSameRemovedAt(iNode1, nodes1, ['a', 'text-cd', 'text-ef']);
+      assertSameRemovedAt(iNode1, nodes2, ['i', 'a', 'text-cd', 'text-ef']);
 
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(bNode2!.removedAt!) === 0,
-        'c2 b node should have same earlier removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(abTextNode1!.removedAt!) === 0,
-        'c1 ab text node should have same later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(abTextNode2!.removedAt!) === 0,
-        'c2 ab text node should have same later removedAt',
-      );
+      // Nodes not in c2's range keep earlier timestamp
+      assertSameRemovedAt(bNode1, nodes1, ['text-ab']);
+      assertSameRemovedAt(bNode1, nodes2, ['b', 'text-ab']);
 
-      assert.equal(d1.getRoot().t.toXML(), /*html*/ '<root><p></p></root>');
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ '<root><p></p></root>');
+      assertTreesMatch(d1, d2, /*html*/ '<root><p></p></root>');
     }, task.name);
   });
 
@@ -5921,104 +5762,44 @@ describe('TreeLWW', () => {
       await c2.sync();
       await c1.sync();
 
-      // All nodes should be removed with c2's timestamp (ancestor deletion wins)
-      let outerPNode1: CRDTTreeNode;
-      let innerPNode1: CRDTTreeNode;
-      let bNode1: CRDTTreeNode;
-      let iNode1: CRDTTreeNode;
-      let aNode1: CRDTTreeNode;
-      d1.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'p' && node.parent?.type === 'root') {
-            outerPNode1 = node;
-          } else if (node.type === 'p' && node.parent?.type === 'p') {
-            innerPNode1 = node;
-          } else if (node.type === 'b') {
-            bNode1 = node;
-          } else if (node.type === 'i') {
-            iNode1 = node;
-          } else if (node.type === 'a') {
-            aNode1 = node;
-          }
-        });
+      // Find nodes with specific parent types using custom keys
+      const nodes1 = findNodesByType(d1, [
+        { type: 'p', parentType: 'root', key: 'outerP' },
+        { type: 'p', parentType: 'p', key: 'innerP' },
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+      ]);
+      const nodes2 = findNodesByType(d2, [
+        { type: 'p', parentType: 'root', key: 'outerP' },
+        { type: 'p', parentType: 'p', key: 'innerP' },
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+      ]);
 
-      let outerPNode2: CRDTTreeNode;
-      let innerPNode2: CRDTTreeNode;
-      let bNode2: CRDTTreeNode;
-      let iNode2: CRDTTreeNode;
-      let aNode2: CRDTTreeNode;
-      d2.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'p' && node.parent?.type === 'root') {
-            outerPNode2 = node;
-          } else if (node.type === 'p' && node.parent?.type === 'p') {
-            innerPNode2 = node;
-          } else if (node.type === 'b') {
-            bNode2 = node;
-          } else if (node.type === 'i') {
-            iNode2 = node;
-          } else if (node.type === 'a') {
-            aNode2 = node;
-          }
-        });
+      // Verify removal status (outer p should not be removed, others should be)
+      assertNodesRemoved(nodes1, [
+        { key: 'outerP', shouldBeRemoved: false },
+        { key: 'innerP', shouldBeRemoved: true },
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: false },
+      ]);
+      assertNodesRemoved(nodes2, [
+        { key: 'outerP', shouldBeRemoved: false },
+        { key: 'innerP', shouldBeRemoved: true },
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: false },
+      ]);
 
-      assert.isFalse(
-        !!outerPNode1!.removedAt!,
-        'c1 outer p node should not be removed',
-      );
-      assert.isTrue(
-        !!innerPNode1!.removedAt!,
-        'c1 inner p node should be removed',
-      );
-      assert.isTrue(!!bNode1!.removedAt!, 'c1 b node should be removed');
-      assert.isTrue(!!iNode1!.removedAt!, 'c1 i node should be removed');
-      assert.isFalse(!!aNode1!.removedAt!, 'c1 a node should not be removed');
-      assert.isFalse(
-        !!outerPNode2!.removedAt!,
-        'c2 outer p node should not be removed',
-      );
-      assert.isTrue(
-        !!innerPNode2!.removedAt!,
-        'c2 inner p node should be removed',
-      );
-      assert.isTrue(!!bNode2!.removedAt!, 'c2 b node should be removed');
-      assert.isTrue(!!iNode2!.removedAt!, 'c2 i node should be removed');
-      assert.isFalse(!!aNode2!.removedAt!, 'c2 a node should not be removed');
+      // Ancestor deletion (c2) wins, so all deleted nodes have same removedAt
+      const innerPNode1 = nodes1.get('innerP')!;
+      assertSameRemovedAt(innerPNode1, nodes1, ['b', 'i']);
+      assertSameRemovedAt(innerPNode1, nodes2, ['innerP', 'b', 'i']);
 
-      // All should have the same removedAt (from c2's ancestor deletion)
-      const expectedRemovedAt = innerPNode1!.removedAt!;
-
-      assert.isTrue(
-        expectedRemovedAt.compare(bNode1!.removedAt!) === 0,
-        'c1 b node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(iNode1!.removedAt!) === 0,
-        'c1 i node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(innerPNode2!.removedAt!) === 0,
-        'c2 inner p node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(bNode2!.removedAt!) === 0,
-        'c2 b node should have same removedAt',
-      );
-      assert.isTrue(
-        expectedRemovedAt.compare(iNode2!.removedAt!) === 0,
-        'c2 i node should have same removedAt',
-      );
-
-      assert.equal(
-        d1.getRoot().t.toXML(),
-        /*html*/ '<root><p><a>ef</a></p></root>',
-      );
-      assert.equal(
-        d2.getRoot().t.toXML(),
-        /*html*/ '<root><p><a>ef</a></p></root>',
-      );
+      assertTreesMatch(d1, d2, /*html*/ '<root><p><a>ef</a></p></root>');
     }, task.name);
   });
 
@@ -6069,111 +5850,63 @@ describe('TreeLWW', () => {
       await c2.sync();
       await c1.sync();
 
-      // All nodes should be removed with c1's timestamp (ancestor deletion wins)
+      // Find nodes with custom keys
+      const nodes1 = findNodesByType(d1, [
+        { type: 'p', parentType: 'root', key: 'outerP' },
+        { type: 'p', parentType: 'p', key: 'innerP' },
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+      ]);
+      const nodes2 = findNodesByType(d2, [
+        { type: 'p', parentType: 'root', key: 'outerP' },
+        { type: 'p', parentType: 'p', key: 'innerP' },
+        { type: 'b' },
+        { type: 'i' },
+        { type: 'a' },
+      ]);
 
-      let outerPNode1: CRDTTreeNode;
-      let innerPNode1: CRDTTreeNode;
-      let bNode1: CRDTTreeNode;
-      let iNode1: CRDTTreeNode;
-      let aNode1: CRDTTreeNode;
-      d1.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'p' && node.parent?.type === 'root') {
-            outerPNode1 = node;
-          } else if (node.type === 'p' && node.parent?.type === 'p') {
-            innerPNode1 = node;
-          } else if (node.type === 'b') {
-            bNode1 = node;
-          } else if (node.type === 'i') {
-            iNode1 = node;
-          } else if (node.type === 'a') {
-            aNode1 = node;
-          }
-        });
+      // Verify removal status
+      assertNodesRemoved(nodes1, [
+        { key: 'outerP', shouldBeRemoved: false },
+        { key: 'innerP', shouldBeRemoved: true },
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: false },
+      ]);
+      assertNodesRemoved(nodes2, [
+        { key: 'outerP', shouldBeRemoved: false },
+        { key: 'innerP', shouldBeRemoved: true },
+        { key: 'b', shouldBeRemoved: true },
+        { key: 'i', shouldBeRemoved: true },
+        { key: 'a', shouldBeRemoved: false },
+      ]);
 
-      let outerPNode2: CRDTTreeNode;
-      let innerPNode2: CRDTTreeNode;
-      let bNode2: CRDTTreeNode;
-      let iNode2: CRDTTreeNode;
-      let aNode2: CRDTTreeNode;
-      d2.getRoot()
-        .t.getIndexTree()
-        .traverseAll((node) => {
-          if (node.type === 'p' && node.parent?.type === 'root') {
-            outerPNode2 = node;
-          } else if (node.type === 'p' && node.parent?.type === 'p') {
-            innerPNode2 = node;
-          } else if (node.type === 'b') {
-            bNode2 = node;
-          } else if (node.type === 'i') {
-            iNode2 = node;
-          } else if (node.type === 'a') {
-            aNode2 = node;
-          }
-        });
+      // Ancestor deletion (c1) happens first, descendant deletion (c2) later
+      // So b node has later timestamp, but inner p and i have earlier timestamp
+      const innerPNode1 = nodes1.get('innerP')!;
+      const innerPNode2 = nodes2.get('innerP')!;
+      const bNode1 = nodes1.get('b')!;
+      const earlierExpectedRemovedAt = innerPNode1.removedAt!;
+      const laterExpectedRemovedAt = bNode1.removedAt!;
 
-      assert.isFalse(
-        !!outerPNode1!.removedAt!,
-        'c1 outer p node should not be removed',
-      );
-      assert.isTrue(
-        !!innerPNode1!.removedAt!,
-        'c1 inner p node should be removed',
-      );
-      assert.isTrue(!!bNode1!.removedAt!, 'c1 b node should be removed');
-      assert.isTrue(!!iNode1!.removedAt!, 'c1 i node should be removed');
-      assert.isFalse(!!aNode1!.removedAt!, 'c1 a node should not be removed');
-      assert.isFalse(
-        !!outerPNode2!.removedAt!,
-        'c2 outer p node should not be removed',
-      );
-      assert.isTrue(
-        !!innerPNode2!.removedAt!,
-        'c2 inner p node should be removed',
-      );
-      assert.isTrue(!!bNode2!.removedAt!, 'c2 b node should be removed');
-      assert.isTrue(!!iNode2!.removedAt!, 'c2 i node should be removed');
-      assert.isFalse(!!aNode2!.removedAt!, 'c2 a node should not be removed');
-
-      // b node should not have same removedAt
-      const earlierExpectedRemovedAt = innerPNode1!.removedAt!;
-      const laterExpectedRemovedAt = bNode1!.removedAt!;
       assert.isTrue(
         laterExpectedRemovedAt.after(earlierExpectedRemovedAt),
         'c1 b node removedAt should be after c1 inner p node removedAt',
       );
 
+      // Nodes in ancestor deletion range have earlier timestamp
+      assertSameRemovedAt(innerPNode1, nodes1, ['i']);
       assert.isTrue(
-        earlierExpectedRemovedAt.compare(innerPNode2!.removedAt!) === 0,
-        'c2 inner p node should have later removedAt',
+        earlierExpectedRemovedAt.compare(innerPNode2.removedAt!) === 0,
+        'c2 inner p node should have earlier removedAt',
       );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(iNode1!.removedAt!) === 0,
-        'c1 i node should have later removedAt',
-      );
-      assert.isTrue(
-        earlierExpectedRemovedAt.compare(iNode2!.removedAt!) === 0,
-        'c2 i node should have later removedAt',
-      );
+      assertSameRemovedAt(innerPNode1, nodes2, ['innerP', 'i']);
 
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(bNode1!.removedAt!) === 0,
-        'c1 b node should have earlier removedAt',
-      );
-      assert.isTrue(
-        laterExpectedRemovedAt.compare(bNode2!.removedAt!) === 0,
-        'c2 b node should have earlier removedAt',
-      );
+      // Descendant node has later timestamp
+      assertSameRemovedAt(bNode1, nodes2, ['b']);
 
-      assert.equal(
-        d1.getRoot().t.toXML(),
-        /*html*/ '<root><p><a>ef</a></p></root>',
-      );
-      assert.equal(
-        d2.getRoot().t.toXML(),
-        /*html*/ '<root><p><a>ef</a></p></root>',
-      );
+      assertTreesMatch(d1, d2, /*html*/ '<root><p><a>ef</a></p></root>');
     }, task.name);
   });
 });
