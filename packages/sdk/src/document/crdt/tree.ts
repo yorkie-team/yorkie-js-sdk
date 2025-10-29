@@ -75,7 +75,7 @@ export type TextNode = {
  */
 export type TreeNodeForTest = TreeNode & {
   children?: Array<TreeNodeForTest>;
-  size: number;
+  visibleSize: number;
   isRemoved: boolean;
 };
 
@@ -503,8 +503,8 @@ export class CRDTTreeNode
     const clone = new CRDTTreeNode(this.id, this.type);
     clone.removedAt = this.removedAt;
     clone._value = this._value;
-    clone.size = this.size;
-    clone.sizeIncludeTombstoneNodes = this.sizeIncludeTombstoneNodes;
+    clone.visibleSize = this.visibleSize;
+    clone.totalSize = this.totalSize;
     clone.attrs = this.attrs?.deepcopy();
     clone._children = this._children.map((child) => {
       const childClone = child.deepcopy();
@@ -542,8 +542,8 @@ export class CRDTTreeNode
     }
 
     this._value = v;
-    this.size = v.length;
-    this.sizeIncludeTombstoneNodes = v.length;
+    this.visibleSize = v.length;
+    this.totalSize = v.length;
   }
 
   /**
@@ -559,9 +559,9 @@ export class CRDTTreeNode
   remove(removedAt: TimeTicket): boolean {
     if (!this.removedAt) {
       this.removedAt = removedAt;
-      // Note(emplam27): Decrease ancestors' Length
-      // since this node is being removed (marked as tombstone, not purged).
-      this.updateAncestorsSize(-this.paddedSize);
+      // NOTE(hackerwins): Decrease only visibleSize because
+      // this node marked as tombstone, not purged.
+      this.updateAncestorsSize(-this.paddedSize());
       return true;
     }
 
@@ -714,7 +714,7 @@ export class CRDTTreeNode
     const dataSize = { data: 0, meta: 0 };
 
     if (this.isText) {
-      dataSize.data += this.size * 2;
+      dataSize.data += this.visibleSize * 2;
     }
 
     if (this.id) {
@@ -823,7 +823,7 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
     return {
       type: currentNode.type,
       value: currentNode.value,
-      size: currentNode.size,
+      visibleSize: currentNode.visibleSize,
       isRemoved: currentNode.isRemoved,
     } as TreeNodeForTest;
   }
@@ -831,7 +831,7 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
   return {
     type: node.type,
     children: node.children.map(toTestTreeNode),
-    size: node.size,
+    visibleSize: node.visibleSize,
     isRemoved: node.isRemoved,
   };
 }
@@ -1129,7 +1129,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
 
-    this.traverseInPosRangeIncludeTombstoneNodes(
+    this.traverseInPosRange(
       fromParent,
       fromLeft,
       toParent,
@@ -1187,6 +1187,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           tokensToBeRemoved.push([node, tokenType]);
         }
       },
+      true,
     );
 
     // NOTE(hackerwins): If concurrent deletion happens, we need to separate the
@@ -1503,7 +1504,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const nodeInfo: Devtools.TreeNodeInfo = {
         type: node.type,
         parent: parentNode?.id.toTestString(),
-        size: node.size,
+        size: node.visibleSize,
         id: node.id.toTestString(),
         removedAt: node.removedAt?.toTestString(),
         insPrev: node.insPrevID?.toTestString(),
@@ -1579,29 +1580,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `toIndex` converts the given CRDTTreeNodeID to the index of the tree.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
-  public toIndex(parentNode: CRDTTreeNode, leftNode: CRDTTreeNode): number {
-    const treePos = this.toTreePos(parentNode, leftNode);
-    if (!treePos) {
-      return -1;
-    }
-
-    return this.indexTree.indexOf(treePos);
-  }
-
-  /**
-   * `toIndexIncludeTombstoneNodes` converts the given CRDTTreeNodeID to the index of the tree including tombstone nodes.
-   */
-  public toIndexIncludeTombstoneNodes(
+  public toIndex(
     parentNode: CRDTTreeNode,
     leftNode: CRDTTreeNode,
+    includeRemoved: boolean = false,
   ): number {
-    const treePos = this.toTreePosIncludeTombstoneNodes(parentNode, leftNode);
+    const treePos = this.toTreePos(parentNode, leftNode, includeRemoved);
     if (!treePos) {
       return -1;
     }
 
-    return this.indexTree.indexOfIncludeTombstoneNodes(treePos);
+    return this.indexTree.indexOf(treePos, includeRemoved);
   }
 
   /**
@@ -1666,6 +1657,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `traverseInPosRange` traverses the tree in the given position range.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
   private traverseInPosRange(
     fromParent: CRDTTreeNode,
@@ -1673,46 +1665,35 @@ export class CRDTTree extends CRDTElement implements GCParent {
     toParent: CRDTTreeNode,
     toLeft: CRDTTreeNode,
     callback: (token: TreeToken<CRDTTreeNode>, ended: boolean) => void,
+    includeRemoved: boolean = false,
   ): void {
-    const fromIdx = this.toIndex(fromParent, fromLeft);
-    const toIdx = this.toIndex(toParent, toLeft);
-    this.indexTree.tokensBetween(fromIdx, toIdx, callback);
-  }
-
-  /**
-   * `traverseInPosRangeIncludeTombstoneNodes` traverses the tree in the given position range including tombstone nodes.
-   */
-  private traverseInPosRangeIncludeTombstoneNodes(
-    fromParent: CRDTTreeNode,
-    fromLeft: CRDTTreeNode,
-    toParent: CRDTTreeNode,
-    toLeft: CRDTTreeNode,
-    callback: (token: TreeToken<CRDTTreeNode>, ended: boolean) => void,
-  ): void {
-    const fromIdx = this.toIndexIncludeTombstoneNodes(fromParent, fromLeft);
-    const toIdx = this.toIndexIncludeTombstoneNodes(toParent, toLeft);
-    this.indexTree.tokensBetweenIncludeTombstoneNodes(fromIdx, toIdx, callback);
+    const fromIdx = this.toIndex(fromParent, fromLeft, includeRemoved);
+    const toIdx = this.toIndex(toParent, toLeft, includeRemoved);
+    this.indexTree.tokensBetween(fromIdx, toIdx, callback, includeRemoved);
   }
 
   /**
    * `toTreePos` converts the given nodes to the position of the IndexTree.
+   * If includeRemoved is true, it includes removed nodes in the calculation.
    */
   private toTreePos(
     parentNode: CRDTTreeNode,
     leftNode: CRDTTreeNode,
+    includeRemoved: boolean = false,
   ): TreePos<CRDTTreeNode> | undefined {
     if (!parentNode || !leftNode) {
       return;
     }
 
-    if (parentNode.isRemoved) {
+    if (!includeRemoved && parentNode.isRemoved) {
+      // If parentNode is removed, treePos is the position of its least alive ancestor.
       let childNode: CRDTTreeNode;
       while (parentNode.isRemoved) {
         childNode = parentNode;
         parentNode = childNode.parent!;
       }
 
-      const offset = parentNode.findOffset(childNode!);
+      const offset = parentNode.findOffset(childNode!, includeRemoved);
       return {
         node: parentNode,
         offset,
@@ -1726,51 +1707,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
       };
     }
 
-    let offset = parentNode.findOffset(leftNode);
-    if (!leftNode.isRemoved) {
+    // Find the closest existing leftSibling node.
+    let offset = parentNode.findOffset(leftNode, includeRemoved);
+    if (includeRemoved || !leftNode.isRemoved) {
       if (leftNode.isText) {
         return {
           node: leftNode,
-          offset: leftNode.paddedSize,
+          offset: leftNode.paddedSize(includeRemoved),
         };
       }
 
       offset++;
     }
-
-    return {
-      node: parentNode,
-      offset,
-    };
-  }
-
-  /**
-   * `toTreePos` converts the given nodes to the position of the IndexTree.
-   */
-  private toTreePosIncludeTombstoneNodes(
-    parentNode: CRDTTreeNode,
-    leftNode: CRDTTreeNode,
-  ): TreePos<CRDTTreeNode> | undefined {
-    if (!parentNode || !leftNode) {
-      return;
-    }
-
-    if (parentNode === leftNode) {
-      return {
-        node: parentNode,
-        offset: 0,
-      };
-    }
-
-    let offset = parentNode.findOffsetIncludeTombstoneNodes(leftNode);
-    if (leftNode.isText) {
-      return {
-        node: leftNode,
-        offset: leftNode.paddedSize,
-      };
-    }
-
-    offset++;
 
     return {
       node: parentNode,

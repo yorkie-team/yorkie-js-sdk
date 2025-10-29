@@ -1125,7 +1125,7 @@ function fromTreeNodes(
   }
 
   root.updateDescendantsSize();
-  root.updateDescendantsSizeIncludeTombstoneNodes();
+  root.updateDescendantsSize(true);
 
   // build CRDTTree from the root to construct the links between nodes.
   return CRDTTree.create(root, InitialTimeTicket).getRoot();

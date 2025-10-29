@@ -4401,9 +4401,12 @@ describe('Tree(edge cases)', () => {
       await c1.sync();
       await c2.sync();
 
-      const size = d1.getRoot().t.getIndexTree().getRoot().size;
+      const visibleSize = d1.getRoot().t.getIndexTree().getRoot().visibleSize;
 
-      assert.equal(d2.getRoot().t.getIndexTree().getRoot().size, size);
+      assert.equal(
+        d2.getRoot().t.getIndexTree().getRoot().visibleSize,
+        visibleSize,
+      );
     }, task.name);
   });
 
@@ -4477,18 +4480,18 @@ describe('Tree(edge cases)', () => {
       d1.getRoot()
         .t.getIndexTree()
         .traverseAll((node) => {
-          d1Nodes.push([toXML(node), node.size, node.isRemoved]);
+          d1Nodes.push([toXML(node), node.visibleSize, node.isRemoved]);
         });
       d2.getRoot()
         .t.getIndexTree()
         .traverseAll((node) => {
-          d2Nodes.push([toXML(node), node.size, node.isRemoved]);
+          d2Nodes.push([toXML(node), node.visibleSize, node.isRemoved]);
         });
       const sRoot = converter.bytesToObject(
         converter.objectToBytes(d1.getRootObject()),
       );
       (sRoot.get('t') as unknown as Tree).getIndexTree().traverseAll((node) => {
-        sNodes.push([toXML(node), node.size, node.isRemoved]);
+        sNodes.push([toXML(node), node.visibleSize, node.isRemoved]);
       });
       assert.deepEqual(d1Nodes, d2Nodes);
       assert.deepEqual(d1Nodes, sNodes);

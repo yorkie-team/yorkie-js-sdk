@@ -37,7 +37,7 @@ describe('CRDTTreeNode', function () {
     assert.equal(node.id, idT);
     assert.equal(node.type, 'text');
     assert.equal(node.value, 'hello');
-    assert.equal(node.size, 5);
+    assert.equal(node.visibleSize, 5);
     assert.equal(node.isText, true);
     assert.equal(node.isRemoved, false);
   });
@@ -46,13 +46,13 @@ describe('CRDTTreeNode', function () {
     const para = new CRDTTreeNode(idT, 'p', []);
     para.append(new CRDTTreeNode(idT, 'text', 'helloyorkie'));
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
-    assert.equal(para.size, 11);
+    assert.equal(para.visibleSize, 11);
     assert.equal(para.isText, false);
 
     const left = para.children[0];
     const [right] = left.splitText(5, 0);
     assert.equal(toXML(para), /*html*/ `<p>helloyorkie</p>`);
-    assert.equal(para.size, 11);
+    assert.equal(para.visibleSize, 11);
 
     assert.equal(left.value, 'hello');
     assert.equal(right!.value, 'yorkie');
@@ -91,7 +91,7 @@ describe('CRDTTree.Edit', function () {
     //       0
     // <root> </root>
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'r'), timeT());
-    assert.equal(t.getRoot().size, 0);
+    assert.equal(t.getRoot().visibleSize, 0);
     assert.equal(t.toXML(), /*html*/ `<r></r>`);
 
     //           1
@@ -104,7 +104,7 @@ describe('CRDTTree.Edit', function () {
       timeT,
     );
     assert.equal(t.toXML(), /*html*/ `<r><p></p></r>`);
-    assert.equal(t.getRoot().size, 2);
+    assert.equal(t.getRoot().visibleSize, 2);
     assert.deepEqual(changes1, [
       {
         actor: timeT().getActorID(),
@@ -127,7 +127,7 @@ describe('CRDTTree.Edit', function () {
       timeT,
     );
     assert.equal(t.toXML(), /*html*/ `<r><p>hello</p></r>`);
-    assert.equal(t.getRoot().size, 7);
+    assert.equal(t.getRoot().visibleSize, 7);
     assert.deepEqual(changes2, [
       {
         actor: timeT().getActorID(),
@@ -146,7 +146,7 @@ describe('CRDTTree.Edit', function () {
     p.insertAt(new CRDTTreeNode(posT(), 'text', 'world'), 0);
     const [changes3, , ,] = t.editT([7, 7], [p], 0, timeT(), timeT);
     assert.equal(t.toXML(), /*html*/ `<r><p>hello</p><p>world</p></r>`);
-    assert.equal(t.getRoot().size, 14);
+    assert.equal(t.getRoot().visibleSize, 14);
     assert.deepEqual(changes3, [
       {
         actor: timeT().getActorID(),
@@ -187,22 +187,32 @@ describe('CRDTTree.Edit', function () {
         {
           type: 'p',
           children: [
-            { type: 'text', value: 'hello', size: 5, isRemoved: false },
-            { type: 'text', value: '!', size: 1, isRemoved: false },
+            {
+              type: 'text',
+              value: 'hello',
+              visibleSize: 5,
+              isRemoved: false,
+            },
+            { type: 'text', value: '!', visibleSize: 1, isRemoved: false },
           ],
-          size: 6,
+          visibleSize: 6,
           isRemoved: false,
         } as TreeNodeForTest,
         {
           type: 'p',
           children: [
-            { type: 'text', value: 'world', size: 5, isRemoved: false },
+            {
+              type: 'text',
+              value: 'world',
+              visibleSize: 5,
+              isRemoved: false,
+            },
           ],
-          size: 5,
+          visibleSize: 5,
           isRemoved: false,
         } as TreeNodeForTest,
       ],
-      size: 15,
+      visibleSize: 15,
       isRemoved: false,
     });
 
@@ -309,9 +319,9 @@ describe('CRDTTree.Edit', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
     let treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 8);
-    assert.equal(treeNode.children![0].size, 2);
-    assert.equal(treeNode.children![0].children![0].size, 2);
+    assert.equal(treeNode.visibleSize, 8);
+    assert.equal(treeNode.children![0].visibleSize, 2);
+    assert.equal(treeNode.children![0].children![0].visibleSize, 2);
 
     // 02. delete b from first paragraph
     //       0   1 2    3   4 5 6    7
@@ -330,9 +340,9 @@ describe('CRDTTree.Edit', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>a</p><p>cd</p></root>`);
 
     treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 7);
-    assert.equal(treeNode.children![0].size, 1);
-    assert.equal(treeNode.children![0].children![0].size, 1);
+    assert.equal(treeNode.visibleSize, 7);
+    assert.equal(treeNode.children![0].visibleSize, 1);
+    assert.equal(treeNode.children![0].children![0].visibleSize, 1);
   });
 
   it('Can delete tree nodes with edit', function () {
@@ -415,9 +425,9 @@ describe('CRDTTree.Edit', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ab</p><p>cd</p></root>`);
 
     let treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 8);
-    assert.equal(treeNode.children![0].size, 2);
-    assert.equal(treeNode.children![0].children![0].size, 2);
+    assert.equal(treeNode.visibleSize, 8);
+    assert.equal(treeNode.children![0].visibleSize, 2);
+    assert.equal(treeNode.children![0].children![0].visibleSize, 2);
 
     // 02. delete the first paragraph
     //       0   1 2 3    4
@@ -436,9 +446,9 @@ describe('CRDTTree.Edit', function () {
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>cd</p></root>`);
 
     treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 4);
-    assert.equal(treeNode.children![0].size, 2);
-    assert.equal(treeNode.children![0].children![0].size, 2);
+    assert.equal(treeNode.visibleSize, 4);
+    assert.equal(treeNode.children![0].visibleSize, 2);
+    assert.equal(treeNode.children![0].children![0].visibleSize, 2);
 
     // 03. add a new paragraph
     //       0   1 2 3    4   5 6 7    8
@@ -481,9 +491,9 @@ describe('CRDTTree.Edit', function () {
     ]);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>ef</p><p>cd</p></root>`);
     treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 8);
-    assert.equal(treeNode.children![1].size, 2);
-    assert.equal(treeNode.children![1].children![0].size, 2);
+    assert.equal(treeNode.visibleSize, 8);
+    assert.equal(treeNode.children![1].visibleSize, 2);
+    assert.equal(treeNode.children![1].children![0].visibleSize, 2);
 
     // 04. delete all paragraph
     const [changes8, , ,] = tree.editT([0, 8], undefined, 0, timeT(), timeT);
@@ -499,7 +509,7 @@ describe('CRDTTree.Edit', function () {
     ]);
     assert.deepEqual(tree.toXML(), /*html*/ `<root></root>`);
     treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 0);
+    assert.equal(treeNode.visibleSize, 0);
     assert.equal(treeNode.children!.length, 0);
 
     // 05. add a new paragraph
@@ -541,9 +551,9 @@ describe('CRDTTree.Edit', function () {
     ]);
     assert.deepEqual(tree.toXML(), /*html*/ `<root><p>gh</p></root>`);
     treeNode = tree.toTestTreeNode();
-    assert.equal(treeNode.size, 4);
-    assert.equal(treeNode.children![0].size, 2);
-    assert.equal(treeNode.children![0].children![0].size, 2);
+    assert.equal(treeNode.visibleSize, 4);
+    assert.equal(treeNode.children![0].visibleSize, 2);
+    assert.equal(treeNode.children![0].children![0].visibleSize, 2);
   });
 
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
@@ -674,13 +684,18 @@ describe('CRDTTree.Split', function () {
         {
           type: 'p',
           children: [
-            { type: 'text', value: 'helloworld', size: 10, isRemoved: false },
+            {
+              type: 'text',
+              value: 'helloworld',
+              visibleSize: 10,
+              isRemoved: false,
+            },
           ],
-          size: 10,
+          visibleSize: 10,
           isRemoved: false,
         } as TreeNodeForTest,
       ],
-      size: 12,
+      visibleSize: 12,
       isRemoved: false,
     };
     assert.deepEqual(t.toTestTreeNode(), expectedIntial);
@@ -704,14 +719,24 @@ describe('CRDTTree.Split', function () {
         {
           type: 'p',
           children: [
-            { type: 'text', value: 'hello', size: 5, isRemoved: false },
-            { type: 'text', value: 'world', size: 5, isRemoved: false },
+            {
+              type: 'text',
+              value: 'hello',
+              visibleSize: 5,
+              isRemoved: false,
+            },
+            {
+              type: 'text',
+              value: 'world',
+              visibleSize: 5,
+              isRemoved: false,
+            },
           ],
-          size: 10,
+          visibleSize: 10,
           isRemoved: false,
         } as TreeNodeForTest,
       ],
-      size: 12,
+      visibleSize: 12,
       isRemoved: false,
     });
   });
@@ -1201,10 +1226,10 @@ describe('CRDTTree.Merge', function () {
     assert.deepEqual(t.toXML(), /*html*/ `<root><p>ad</p></root>`);
 
     const node = t.toTestTreeNode();
-    assert.equal(node.size, 4); // root
-    assert.equal(node.children![0].size, 2); // p
-    assert.equal(node.children![0].children![0].size, 1); // a
-    assert.equal(node.children![0].children![1].size, 1); // d
+    assert.equal(node.visibleSize, 4); // root
+    assert.equal(node.children![0].visibleSize, 2); // p
+    assert.equal(node.children![0].children![0].visibleSize, 1); // a
+    assert.equal(node.children![0].children![1].visibleSize, 1); // d
 
     // 03. insert a new text node at the start of the first paragraph.
     const [changes6, , ,] = t.editT(
