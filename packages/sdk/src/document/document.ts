@@ -1340,6 +1340,14 @@ export class Document<R, P extends Indexable = Indexable>
   }
 
   /**
+   * `getRootCRDT` returns the CRDTRoot for testing purposes.
+   * This method is intended for internal testing only.
+   */
+  public getRootCRDT(): CRDTRoot {
+    return this.root;
+  }
+
+  /**
    * `getGarbageLenFromClone` returns the length of elements should be purged from clone.
    */
   public getGarbageLenFromClone(): number {

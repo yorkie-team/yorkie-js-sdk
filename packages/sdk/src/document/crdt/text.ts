@@ -491,12 +491,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTText<A> {
-    const text = new CRDTText<A>(
+    const clone = new CRDTText<A>(
       this.rgaTreeSplit.deepcopy(),
       this.getCreatedAt(),
     );
-    text.remove(this.getRemovedAt());
-    return text;
+    clone.setRemovedAt(this.getRemovedAt());
+    clone.setMovedAt(this.getMovedAt());
+    return clone;
   }
 
   /**

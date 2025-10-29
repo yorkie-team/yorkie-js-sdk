@@ -208,9 +208,33 @@ export class ElementRHT {
     return node;
   }
 
+  /**
+   * `deepcopy` creates a deep copy of this ElementRHT.
+   */
+  public deepcopy(): ElementRHT {
+    const clone = ElementRHT.create();
+    for (const [, node] of this.nodeMapByCreatedAt) {
+      clone.nodeMapByCreatedAt.set(
+        node.getValue().getCreatedAt().toIDString(),
+        ElementRHTNode.of(node.getStrKey(), node.getValue().deepcopy()),
+      );
+    }
+
+    for (const [key, node] of this.nodeMapByKey) {
+      clone.nodeMapByKey.set(
+        key,
+        clone.nodeMapByCreatedAt.get(
+          node.getValue().getCreatedAt().toIDString(),
+        )!,
+      );
+    }
+
+    return clone;
+  }
+
   // eslint-disable-next-line jsdoc/require-jsdoc
   public *[Symbol.iterator](): IterableIterator<ElementRHTNode> {
-    for (const [, node] of this.nodeMapByKey) {
+    for (const [, node] of this.nodeMapByCreatedAt) {
       yield node;
     }
   }
