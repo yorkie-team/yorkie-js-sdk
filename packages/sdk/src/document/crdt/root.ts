@@ -395,4 +395,17 @@ export class CRDTRoot {
   public acc(diff: DataSize) {
     addDataSizes(this.docSize.live, diff);
   }
+
+  /**
+   * `getGCElementPairs` returns an iterator for all GC element pairs.
+   * This is similar to Go's GCElementPairMap() functionality.
+   */
+  public *getGCElementPairs(): IterableIterator<CRDTElementPair> {
+    for (const createdAt of this.gcElementSetByCreatedAt) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt);
+      if (pair) {
+        yield pair;
+      }
+    }
+  }
 }

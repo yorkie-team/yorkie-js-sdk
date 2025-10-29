@@ -1560,7 +1560,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public deepcopy(): CRDTTree {
     const root = this.getRoot();
-    return new CRDTTree(root.deepcopy(), this.getCreatedAt());
+    const tree = new CRDTTree(root.deepcopy(), this.getCreatedAt());
+    tree.setRemovedAt(this.getRemovedAt());
+    tree.setMovedAt(this.getMovedAt());
+    return tree;
   }
 
   /**

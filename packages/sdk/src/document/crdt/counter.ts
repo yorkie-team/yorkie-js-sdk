@@ -145,13 +145,14 @@ export class CRDTCounter extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): CRDTCounter {
-    const counter = CRDTCounter.create(
+    const clone = CRDTCounter.create(
       this.valueType,
       this.value,
       this.getCreatedAt(),
     );
-    counter.setMovedAt(this.getMovedAt());
-    return counter;
+    clone.setRemovedAt(this.getRemovedAt());
+    clone.setMovedAt(this.getMovedAt());
+    return clone;
   }
 
   /**

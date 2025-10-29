@@ -278,7 +278,8 @@ export class CRDTArray extends CRDTContainer {
         node.getValue().deepcopy(),
       );
     }
-    clone.remove(this.getRemovedAt());
+    clone.setRemovedAt(this.getRemovedAt());
+    clone.setMovedAt(this.getMovedAt());
     return clone;
   }
 }

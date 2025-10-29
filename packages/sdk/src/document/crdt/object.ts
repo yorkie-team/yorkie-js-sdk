@@ -185,13 +185,13 @@ export class CRDTObject extends CRDTContainer {
    * `toSortedJSON` returns the sorted JSON encoding of this object.
    */
   public toSortedJSON(): string {
-    const keys = Array<string>();
+    const keys = new Set<string>();
     for (const [key] of this) {
-      keys.push(key);
+      keys.add(key);
     }
 
     const json = [];
-    for (const key of keys.sort()) {
+    for (const key of Array.from(keys).sort()) {
       const node = this.memberNodes.get(key)?.getValue();
       json.push(`"${escapeString(key)}":${node!.toSortedJSON()}`);
     }
@@ -211,14 +211,9 @@ export class CRDTObject extends CRDTContainer {
    */
   public deepcopy(): CRDTObject {
     const clone = CRDTObject.create(this.getCreatedAt());
-    for (const node of this.memberNodes) {
-      clone.memberNodes.set(
-        node.getStrKey(),
-        node.getValue().deepcopy(),
-        this.getPositionedAt(),
-      );
-    }
-    clone.remove(this.getRemovedAt());
+    clone.memberNodes = this.memberNodes.deepcopy();
+    clone.setRemovedAt(this.getRemovedAt());
+    clone.setMovedAt(this.getMovedAt());
     return clone;
   }
 
@@ -244,14 +239,12 @@ export class CRDTObject extends CRDTContainer {
    * `[Symbol.iterator]` returns an iterator for the entries in this object.
    */
   public *[Symbol.iterator](): IterableIterator<[string, CRDTElement]> {
-    const keySet = new Set<string>();
     for (const node of this.memberNodes) {
-      if (!keySet.has(node.getStrKey())) {
-        keySet.add(node.getStrKey());
-        if (!node.isRemoved()) {
-          yield [node.getStrKey(), node.getValue()];
-        }
+      if (node.isRemoved()) {
+        continue;
       }
+
+      yield [node.getStrKey(), node.getValue()];
     }
   }
 }

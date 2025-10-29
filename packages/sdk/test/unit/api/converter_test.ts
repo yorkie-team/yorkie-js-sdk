@@ -17,8 +17,9 @@
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
-import { Counter, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
+import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -128,5 +129,46 @@ describe('Converter', function () {
       doc.getRoot().tree.toXML(),
       (obj.get('tree') as unknown as Tree).toXML(),
     );
+  });
+
+  it('object converting to bytes with gc elements test', function () {
+    const doc = new Document<{ o: { [key: string]: string } }>('test-doc');
+
+    doc.update((root) => {
+      root.o = {};
+      root.o['1'] = 'a';
+    });
+    assert.equal(doc.getRoot().o['1'], 'a');
+
+    doc.update((r) => (r.o['1'] = 'b'));
+    assert.equal(doc.getRoot().o['1'], 'b');
+
+    let foundGCElementWithValueA = false;
+    const root = doc.getRootCRDT();
+    for (const pair of root.getGCElementPairs()) {
+      if (pair.element instanceof Primitive) {
+        if (pair.element.getValue() === 'a') {
+          foundGCElementWithValueA = true;
+          break;
+        }
+      }
+    }
+    assert.isTrue(foundGCElementWithValueA);
+
+    const bytes = converter.objectToBytes(doc.getRootObject());
+    const obj = converter.bytesToObject(bytes);
+
+    foundGCElementWithValueA = false;
+    const newRoot = new CRDTRoot(obj);
+    for (const pair of newRoot.getGCElementPairs()) {
+      if (pair.element instanceof Primitive) {
+        if (pair.element.getValue() === 'a') {
+          foundGCElementWithValueA = true;
+          break;
+        }
+      }
+    }
+    assert.isTrue(foundGCElementWithValueA);
+    assert.equal(obj.toSortedJSON(), doc.getRootObject().toSortedJSON());
   });
 });
