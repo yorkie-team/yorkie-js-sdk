@@ -26,6 +26,11 @@ import {
   useConnection,
   createDocumentSelector,
 } from './DocumentProvider';
+import {
+  PresenceProvider,
+  usePresence,
+  usePresenceCount,
+} from './PresenceProvider';
 
 export type { Document, JSONArray, JSONObject };
 export {
@@ -37,6 +42,9 @@ export {
   useConnection,
   useYorkieDoc,
   createDocumentSelector,
+  PresenceProvider,
+  usePresence,
+  usePresenceCount,
 };
 
 export { shallowEqual } from './shallowEqual';

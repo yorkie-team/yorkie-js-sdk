@@ -1,0 +1,188 @@
+.room-view {
+  max-width: 800px;
+  width: 100%;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.room-view.error {
+  padding: 2rem;
+  text-align: center;
+}
+
+.room-view-header {
+  padding: 1.5rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.back-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-2px);
+}
+
+.room-view-content {
+  padding: 2rem;
+}
+
+.room-info {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.room-info h2 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.room-info p {
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.room-instructions {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+}
+
+.room-instructions h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.room-instructions ul {
+  list-style: none;
+  padding: 0;
+}
+
+.room-instructions li {
+  padding: 0.5rem 0;
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.room-demo-area {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.1) 0%,
+    rgba(118, 75, 162, 0.1) 100%
+  );
+  border-radius: 12px;
+  border: 2px solid rgba(102, 126, 234, 0.2);
+}
+
+.room-demo-area h3 {
+  color: #667eea;
+  margin-bottom: 0.75rem;
+  font-size: 1.3rem;
+}
+
+.room-demo-area p {
+  color: #555;
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+.room-demo-area code {
+  background: rgba(102, 126, 234, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  color: #764ba2;
+  font-weight: 600;
+}
+
+.demo-hint {
+  font-size: 0.9rem;
+  color: #777;
+  margin-top: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .room-view {
+    background: #1a1a1a;
+  }
+
+  .room-info h2 {
+    color: #fff;
+  }
+
+  .room-info p {
+    color: #aaa;
+  }
+
+  .room-instructions {
+    background: #2a2a2a;
+  }
+
+  .room-instructions h3 {
+    color: #fff;
+  }
+
+  .room-instructions li {
+    color: #ccc;
+  }
+
+  .room-demo-area {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(102, 126, 234, 0.3);
+  }
+
+  .room-demo-area p {
+    color: #ccc;
+  }
+
+  .room-demo-area code {
+    background: rgba(102, 126, 234, 0.2);
+    color: #a78bfa;
+  }
+
+  .demo-hint {
+    color: #999;
+  }
+}
+
+@media (max-width: 768px) {
+  .room-view-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .room-view-content {
+    padding: 1.5rem;
+  }
+
+  .room-info h2 {
+    font-size: 1.5rem;
+  }
+
+  .room-instructions,
+  .room-demo-area {
+    padding: 1rem;
+  }
+
+  .room-instructions h3,
+  .room-demo-area h3 {
+    font-size: 1.1rem;
+  }
+}
