@@ -94,7 +94,7 @@ export function useYorkiePresence(
         presenceRef.current = newPresence;
 
         // Subscribe to presence events
-        unsubscribe = newPresence.subscribe((event) => {
+        unsubscribe = newPresence.subscribe(() => {
           presenceStore.setState((state) => ({
             ...state,
             count: newPresence.getCount(),
