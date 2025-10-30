@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.35] - 2025-10-30
+
+### Added
+
+- Enhance presence with manual and realtime sync by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1096
+
+### Fixed
+
+- Fix removedAt timestamp handling for text deletions by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1094
+- Fix removedAt timestamp handling in tree deletions by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1097
+- Fix missing Tombstone nodes during ElementRHT encoding by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/1098
+
 ## [v0.6.34] - 2025-10-24
 
 ### Added
