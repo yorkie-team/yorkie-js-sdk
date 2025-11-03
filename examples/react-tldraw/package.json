@@ -12,15 +12,14 @@
     "@react-hook/throttle": "^2.2.0",
     "@tldraw/core": "^1.23.2",
     "@tldraw/tldraw": "1.26.3",
-    "lodash": "^4.17.21",
+    "@yorkie-js/sdk": "workspace:*",
+    "es-toolkit": "^1.41.0",
     "randomcolor": "^0.6.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "unique-names-generator": "^4.7.1",
-    "@yorkie-js/sdk": "workspace:*"
+    "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.198",
     "@types/randomcolor": "^0.5.5",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",

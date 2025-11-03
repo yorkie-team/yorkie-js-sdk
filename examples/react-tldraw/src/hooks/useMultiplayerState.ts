@@ -11,9 +11,9 @@ import { useThrottleCallback } from '@react-hook/throttle';
 import * as yorkie from '@yorkie-js/sdk';
 import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
-import _ from 'lodash';
 
 import type { YorkieDocType, YorkiePresenceType } from './types';
+import { isEqual } from 'es-toolkit';
 
 /**
  * Custom hook for managing multiplayer state in Tldraw using Yorkie
@@ -62,7 +62,7 @@ export function useMultiplayerState(roomId: string) {
   const getUpdatedPropertyList = useCallback(
     <T extends object>(source: T, target: T) => {
       return (Object.keys(source) as Array<keyof T>).filter(
-        (key) => !_.isEqual(source[key], target[key]),
+        (key) => !isEqual(source[key], target[key]),
       );
     },
     [],
