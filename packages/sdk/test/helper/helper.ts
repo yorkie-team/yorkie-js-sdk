@@ -84,7 +84,7 @@ export class EventCollector<E = string> {
           }
           return;
         }
-        setTimeout(doLoop, 0);
+        setTimeout(doLoop, 100);
       };
       doLoop();
     });

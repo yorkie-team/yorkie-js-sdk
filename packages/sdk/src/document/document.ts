@@ -85,21 +85,6 @@ import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 
 /**
- * `BroadcastOptions` are the options to create a new document.
- */
-export interface BroadcastOptions {
-  /**
-   * `error` is called when an error occurs.
-   */
-  error?: ErrorFn;
-
-  /**
-   * `maxRetries` is the maximum number of retries.
-   */
-  maxRetries?: number;
-}
-
-/**
  * `DocumentOptions` are the options to create a new document.
  */
 export interface DocumentOptions {
@@ -191,16 +176,6 @@ export enum DocEventType {
   PresenceChanged = 'presence-changed',
 
   /**
-   * `Broadcast` means that the broadcast event is received from the remote client.
-   */
-  Broadcast = 'broadcast',
-
-  /**
-   * `LocalBroadcast` means that the broadcast event is sent from the local client.
-   */
-  LocalBroadcast = 'local-broadcast',
-
-  /**
    * `AuthError` indicates an authorization failure in syncLoop or watchLoop.
    */
   AuthError = 'auth-error',
@@ -218,8 +193,6 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | LocalChangeEvent<T, P>
   | RemoteChangeEvent<T, P>
   | PresenceEvent<P>
-  | BroadcastEvent
-  | LocalBroadcastEvent
   | AuthErrorEvent;
 
 /**
@@ -374,23 +347,11 @@ export interface PresenceChangedEvent<P extends Indexable>
   value: { clientID: ActorID; presence: P };
 }
 
-export interface BroadcastEvent extends BaseDocEvent {
-  type: DocEventType.Broadcast;
-  value: { clientID: ActorID; topic: string; payload: Json };
-  options?: BroadcastOptions;
-}
-
-export interface LocalBroadcastEvent extends BaseDocEvent {
-  type: DocEventType.LocalBroadcast;
-  value: { topic: string; payload: any };
-  options?: BroadcastOptions;
-}
-
 export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
   value: {
     reason: string;
-    method: 'PushPull' | 'WatchDocument' | 'Broadcast';
+    method: 'PushPull' | 'WatchDocument';
   };
 }
 
@@ -404,8 +365,6 @@ type DocEventCallbackMap<P extends Indexable> = {
   connection: NextFn<ConnectionChangedEvent>;
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
-  broadcast: NextFn<BroadcastEvent>;
-  'local-broadcast': NextFn<LocalBroadcastEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
   all: NextFn<DocEvents<P>>;
 };
@@ -844,24 +803,6 @@ export class Document<R, P extends Indexable = Indexable>
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the broadcast event is received from the remote client.
-   */
-  public subscribe(
-    type: 'broadcast',
-    next: DocEventCallbackMap<P>['broadcast'],
-    error?: ErrorFn,
-  ): Unsubscribe;
-  /**
-   * `subscribe` registers a callback to subscribe to events on the document.
-   * The callback will be called when the local client sends a broadcast event.
-   */
-  public subscribe(
-    type: 'local-broadcast',
-    next: DocEventCallbackMap<P>['local-broadcast'],
-    error?: ErrorFn,
-  ): Unsubscribe;
-  /**
-   * `subscribe` registers a callback to subscribe to events on the document.
    * The callback will be called when the authentification error occurs.
    */
   public subscribe(
@@ -1010,30 +951,6 @@ export class Document<R, P extends Indexable = Indexable>
           arg3,
           arg4,
         );
-      }
-      if (arg1 === 'local-broadcast') {
-        const callback = arg2 as DocEventCallbackMap<P>['local-broadcast'];
-        return this.eventStream.subscribe((event) => {
-          for (const docEvent of event) {
-            if (docEvent.type !== DocEventType.LocalBroadcast) {
-              continue;
-            }
-
-            callback(docEvent);
-          }
-        }, arg3);
-      }
-      if (arg1 === 'broadcast') {
-        const callback = arg2 as DocEventCallbackMap<P>['broadcast'];
-        return this.eventStream.subscribe((event) => {
-          for (const docEvent of event) {
-            if (docEvent.type !== DocEventType.Broadcast) {
-              continue;
-            }
-
-            callback(docEvent);
-          }
-        }, arg3);
       }
       if (arg1 === 'auth-error') {
         const callback = arg2 as DocEventCallbackMap<P>['auth-error'];
@@ -1589,9 +1506,7 @@ export class Document<R, P extends Indexable = Indexable>
 
     if (resp.body.case === 'event') {
       const { type, publisher } = resp.body.value;
-      const events: Array<
-        WatchedEvent<P> | UnwatchedEvent<P> | BroadcastEvent
-      > = [];
+      const events: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
       if (type === PbDocEventType.DOCUMENT_WATCHED) {
         if (this.onlineClients.has(publisher) && this.hasPresence(publisher)) {
           return;
@@ -1620,20 +1535,6 @@ export class Document<R, P extends Indexable = Indexable>
             type: DocEventType.Unwatched,
             source: OpSource.Remote,
             value: { clientID: publisher, presence },
-          });
-        }
-      } else if (type === PbDocEventType.DOCUMENT_BROADCAST) {
-        if (resp.body.value.body) {
-          const { topic, payload } = resp.body.value.body;
-          const decoder = new TextDecoder();
-
-          events.push({
-            type: DocEventType.Broadcast,
-            value: {
-              clientID: publisher,
-              topic,
-              payload: JSON.parse(decoder.decode(payload)),
-            },
           });
         }
       }
@@ -1888,19 +1789,6 @@ export class Document<R, P extends Indexable = Indexable>
    */
   public getRedoStackForTest(): Array<Array<HistoryOperation<P>>> {
     return this.internalHistory.getRedoStackForTest();
-  }
-
-  /**
-   * `broadcast` the payload to the given topic.
-   */
-  public broadcast(topic: string, payload: Json, options?: BroadcastOptions) {
-    this.publish([
-      {
-        type: DocEventType.LocalBroadcast,
-        value: { topic, payload },
-        options,
-      },
-    ]);
   }
 
   /**

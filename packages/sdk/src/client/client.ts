@@ -27,7 +27,10 @@ import {
   WatchDocumentResponse,
   WatchPresenceResponse,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
-import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import {
+  DocEventType as PbDocEventType,
+  PresenceEvent_Type as PbPresenceEventType,
+} from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   converter,
   errorCodeOf,
@@ -50,11 +53,11 @@ import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
 import { validateSerializable } from '../util/validator';
-import { Json, BroadcastOptions } from '@yorkie-js/sdk/src/document/document';
 import {
   Presence,
   PresenceStatus,
   PresenceEventType,
+  BroadcastOptions,
 } from '@yorkie-js/sdk/src/presence/presence';
 import { Attachable } from './attachable';
 
@@ -503,7 +506,7 @@ export class Client {
     }
     if (doc.getStatus() !== DocStatus.Detached) {
       throw new YorkieError(
-        Code.ErrDocumentNotDetached,
+        Code.ErrNotDetached,
         `${doc.getKey()} is not detached`,
       );
     }
@@ -511,22 +514,7 @@ export class Client {
     doc.setActor(this.id!);
     doc.update((_, p) => p.set(opts.initialPresence || {}));
 
-    // 02. Subscribe local broadcast event.
-    const unsub = doc.subscribe('local-broadcast', async (event) => {
-      const { topic, payload } = event.value;
-      const errorFn = event.options?.error;
-      const options = event.options;
-
-      try {
-        await this.broadcast(doc.getKey(), topic, payload, options);
-      } catch (error: unknown) {
-        if (error instanceof Error) {
-          errorFn?.(error);
-        }
-      }
-    });
-
-    // 03. Attach the document to the client.
+    // 02. Attach the document to the client.
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
     return this.enqueueTask(async () => {
       try {
@@ -562,7 +550,6 @@ export class Client {
             doc,
             res.documentId,
             syncMode,
-            unsub,
           ),
         );
 
@@ -647,7 +634,7 @@ export class Client {
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.ErrDocumentNotAttached,
+        Code.ErrNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -709,7 +696,7 @@ export class Client {
     }
     if (presence.getStatus() !== PresenceStatus.Detached) {
       throw new YorkieError(
-        Code.ErrDocumentNotDetached,
+        Code.ErrNotDetached,
         `${presence.getKey()} is not detached`,
       );
     }
@@ -740,6 +727,20 @@ export class Client {
           res.presenceId,
           syncMode,
         );
+
+        // TODO(hackerwins): Unsubscribe when detaching presence.
+        presence.subscribe('local-broadcast', (event) => {
+          const { topic, payload, options } = event;
+          this.broadcast(presence.getKey(), topic, payload, options).catch(
+            (error) => {
+              if (options?.error) {
+                options.error(error);
+              }
+              logger.error(`[BC] c:"${this.getKey()}" failed: ${error}`);
+            },
+          );
+        });
+
         this.attachmentMap.set(presence.getKey(), attachment);
 
         // Start watching presence count changes only in realtime mode
@@ -774,7 +775,7 @@ export class Client {
     }
     if (!this.attachmentMap.has(presence.getKey())) {
       throw new YorkieError(
-        Code.ErrDocumentNotAttached,
+        Code.ErrNotAttached,
         `${presence.getKey()} is not attached`,
       );
     }
@@ -827,7 +828,7 @@ export class Client {
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.ErrDocumentNotAttached,
+        Code.ErrNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -897,7 +898,7 @@ export class Client {
       ) as Attachment<Presence>;
       if (!attachment) {
         throw new YorkieError(
-          Code.ErrDocumentNotAttached,
+          Code.ErrNotAttached,
           `${resource.getKey()} is not attached`,
         );
       }
@@ -915,7 +916,7 @@ export class Client {
       const attachment = this.attachmentMap.get(resource.getKey()) as Attachment<Document<R, P>>;
       if (!attachment) {
         throw new YorkieError(
-          Code.ErrDocumentNotAttached,
+          Code.ErrNotAttached,
           `${resource.getKey()} is not attached`,
         );
       }
@@ -967,7 +968,7 @@ export class Client {
     const attachment = this.attachmentMap.get(doc.getKey());
     if (!attachment) {
       throw new YorkieError(
-        Code.ErrDocumentNotAttached,
+        Code.ErrNotAttached,
         `${doc.getKey()} is not attached`,
       );
     }
@@ -1036,12 +1037,12 @@ export class Client {
   }
 
   /**
-   * `broadcast` broadcasts the given payload to the given topic.
+   * `broadcast` broadcasts the given payload to the given presence topic.
    */
-  public broadcast(
+  public async broadcast(
     key: Key,
     topic: string,
-    payload: Json,
+    payload: any,
     options?: BroadcastOptions,
   ): Promise<void> {
     if (!this.isActive()) {
@@ -1052,10 +1053,7 @@ export class Client {
     }
     const attachment = this.attachmentMap.get(key);
     if (!attachment) {
-      throw new YorkieError(
-        Code.ErrDocumentNotAttached,
-        `${key} is not attached`,
-      );
+      throw new YorkieError(Code.ErrNotAttached, `${key} is not attached`);
     }
 
     if (!validateSerializable(payload)) {
@@ -1085,7 +1083,7 @@ export class Client {
           await this.rpcClient.broadcast(
             {
               clientId: this.id!,
-              documentId: attachment.resourceID,
+              presenceKey: key,
               topic,
               payload: new TextEncoder().encode(JSON.stringify(payload)),
             },
@@ -1093,23 +1091,20 @@ export class Client {
           );
 
           logger.info(
-            `[BC] c:"${this.getKey()}" broadcasts d:"${key}" t:"${topic}"`,
+            `[BC] c:"${this.getKey()}" broadcasts p:"${key}" t:"${topic}"`,
           );
         } catch (err) {
           logger.error(`[BC] c:"${this.getKey()}" err:`, err);
 
           if (await this.handleConnectError(err)) {
+            // Publish auth-error event before handling the error
             if (isErrorCode(err, Code.ErrUnauthenticated)) {
-              if (attachment.resource instanceof Document) {
-                attachment.resource.publish([
-                  {
-                    type: DocEventType.AuthError,
-                    value: {
-                      reason: errorMetadataOf(err).reason,
-                      method: 'Broadcast',
-                    },
-                  },
-                ]);
+              if (attachment.resource instanceof Presence) {
+                attachment.resource.publish({
+                  type: PresenceEventType.AuthError,
+                  reason: errorMetadataOf(err).reason || 'unauthenticated',
+                  method: 'Broadcast',
+                });
               }
             }
 
@@ -1125,8 +1120,6 @@ export class Client {
               );
               throw err; // Stop retrying after maxRetries
             }
-          } else {
-            throw err; // Stop retrying if the error is not retryable
           }
         }
       });
@@ -1204,10 +1197,7 @@ export class Client {
   private async runWatchLoop(key: Key): Promise<void> {
     const attachment = this.attachmentMap.get(key);
     if (!attachment) {
-      throw new YorkieError(
-        Code.ErrDocumentNotAttached,
-        `${key} is not attached`,
-      );
+      throw new YorkieError(Code.ErrNotAttached, `${key} is not attached`);
     }
 
     this.conditions[ClientCondition.WatchLoop] = true;
@@ -1228,10 +1218,7 @@ export class Client {
         if (!this.attachmentMap.has(key)) {
           this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
-            new YorkieError(
-              Code.ErrDocumentNotAttached,
-              `${key} is not attached`,
-            ),
+            new YorkieError(Code.ErrNotAttached, `${key} is not attached`),
           );
         }
 
@@ -1446,20 +1433,44 @@ export class Client {
     attachment: Attachment<Presence>,
     resp: WatchPresenceResponse,
   ) {
+    const presence = attachment.resource;
+
     if (resp.body.case === 'initialized') {
       const { count, seq } = resp.body.value;
-      if (attachment.resource.updateCount(Number(count), Number(seq))) {
-        attachment.resource.publish({
+      if (presence.updateCount(Number(count), Number(seq))) {
+        presence.publish({
           type: PresenceEventType.Initialized,
           count: Number(count),
         });
       }
     } else if (resp.body.case === 'event') {
-      const { count, seq } = resp.body.value;
-      if (attachment.resource.updateCount(Number(count), Number(seq))) {
-        attachment.resource.publish({
+      const event = resp.body.value;
+
+      // Handle broadcast events
+      if (event.type === PbPresenceEventType.BROADCAST) {
+        const decoder = new TextDecoder();
+        try {
+          const payload = JSON.parse(decoder.decode(event.payload));
+          presence.publish({
+            type: PresenceEventType.Broadcast,
+            clientID: event.publisher,
+            topic: event.topic,
+            payload,
+          });
+        } catch (err) {
+          logger.error(
+            `[WP] c:"${this.getKey()}" failed to parse broadcast payload:`,
+            err,
+          );
+        }
+        return;
+      }
+
+      // Handle count change events
+      if (presence.updateCount(Number(event.count), Number(event.seq))) {
+        presence.publish({
           type: PresenceEventType.Changed,
-          count: Number(count),
+          count: Number(event.count),
         });
       }
     }
@@ -1509,7 +1520,6 @@ export class Client {
     if (attachment.resource instanceof Document) {
       attachment.resource.resetOnlineClients();
     }
-    attachment.unsubscribeBroadcastEvent?.();
     this.attachmentMap.delete(key);
   }
 

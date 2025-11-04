@@ -93,15 +93,6 @@ export const YorkieService = {
       kind: MethodKind.ServerStreaming,
     },
     /**
-     * @generated from rpc yorkie.v1.YorkieService.Broadcast
-     */
-    broadcast: {
-      name: "Broadcast",
-      I: BroadcastRequest,
-      O: BroadcastResponse,
-      kind: MethodKind.Unary,
-    },
-    /**
      * @generated from rpc yorkie.v1.YorkieService.AttachPresence
      */
     attachPresence: {
@@ -136,6 +127,15 @@ export const YorkieService = {
       I: WatchPresenceRequest,
       O: WatchPresenceResponse,
       kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.Broadcast
+     */
+    broadcast: {
+      name: "Broadcast",
+      I: BroadcastRequest,
+      O: BroadcastResponse,
+      kind: MethodKind.Unary,
     },
   }
 } as const;

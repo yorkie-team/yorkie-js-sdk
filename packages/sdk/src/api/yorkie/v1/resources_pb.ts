@@ -3071,6 +3071,21 @@ export class PresenceEvent extends Message<PresenceEvent> {
    */
   seq = protoInt64.zero;
 
+  /**
+   * @generated from field: string publisher = 4;
+   */
+  publisher = "";
+
+  /**
+   * @generated from field: string topic = 5;
+   */
+  topic = "";
+
+  /**
+   * @generated from field: bytes payload = 6;
+   */
+  payload = new Uint8Array(0);
+
   constructor(data?: PartialMessage<PresenceEvent>) {
     super();
     proto3.util.initPartial(data, this);
@@ -3082,6 +3097,9 @@ export class PresenceEvent extends Message<PresenceEvent> {
     { no: 1, name: "type", kind: "enum", T: proto3.getEnumType(PresenceEvent_Type) },
     { no: 2, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 3, name: "seq", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "publisher", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresenceEvent {
@@ -3114,11 +3132,17 @@ export enum PresenceEvent_Type {
    * @generated from enum value: TYPE_COUNT_CHANGED = 1;
    */
   COUNT_CHANGED = 1,
+
+  /**
+   * @generated from enum value: TYPE_BROADCAST = 2;
+   */
+  BROADCAST = 2,
 }
 // Retrieve enum metadata with: proto3.getEnumType(PresenceEvent_Type)
 proto3.util.setEnumType(PresenceEvent_Type, "yorkie.v1.PresenceEvent.Type", [
   { no: 0, name: "TYPE_UNSPECIFIED" },
   { no: 1, name: "TYPE_COUNT_CHANGED" },
+  { no: 2, name: "TYPE_BROADCAST" },
 ]);
 
 /**

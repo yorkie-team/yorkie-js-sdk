@@ -18,9 +18,11 @@ import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { Attachable } from '@yorkie-js/sdk/src/client/attachable';
 import {
   createObservable,
+  NextFn,
   Observer,
   Unsubscribe,
 } from '@yorkie-js/sdk/src/util/observable';
+import { Json } from '../yorkie';
 
 /**
  * Observable interface for subscribing to presence events.
@@ -50,6 +52,21 @@ export enum PresenceStatus {
 }
 
 /**
+ * `BroadcastOptions` are the options for broadcasting a message.
+ */
+export interface BroadcastOptions {
+  /**
+   * `error` is called when an error occurs.
+   */
+  error?: (error: Error) => void;
+
+  /**
+   * `maxRetries` is the maximum number of retries.
+   */
+  maxRetries?: number;
+}
+
+/**
  * `PresenceEventType` represents the type of presence event.
  */
 export enum PresenceEventType {
@@ -62,22 +79,92 @@ export enum PresenceEventType {
    * `Initialized` means that the presence watch has been initialized.
    */
   Initialized = 'initialized',
+
+  /**
+   * `Broadcast` means that a broadcast message has been received.
+   */
+  Broadcast = 'broadcast',
+
+  /**
+   * `LocalBroadcast` means that a broadcast message has been sent by the local client.
+   */
+  LocalBroadcast = 'local-broadcast',
+
+  /**
+   * `AuthError` means that an authentication error has occurred.
+   */
+  AuthError = 'auth-error',
 }
 
 /**
- * `PresenceEvent` represents an event that occurs in the presence.
+ * `PresenceCountEvent` represents a presence count change event.
  */
-export interface PresenceEvent {
+export interface PresenceCountEvent {
   /**
    * `type` is the type of the event.
    */
-  type: PresenceEventType;
+  type: PresenceEventType.Changed | PresenceEventType.Initialized;
 
   /**
    * `count` is the current count value.
    */
   count: number;
 }
+
+export interface BroadcastEvent {
+  type: PresenceEventType.Broadcast;
+  clientID: ActorID;
+  topic: string;
+  payload: Json;
+  options?: BroadcastOptions;
+}
+
+export interface LocalBroadcastEvent {
+  type: PresenceEventType.LocalBroadcast;
+  clientID: ActorID;
+  topic: string;
+  payload: Json;
+  options?: BroadcastOptions;
+}
+
+/**
+ * `PresenceAuthErrorEvent` represents an authentication error event.
+ */
+export interface AuthErrorEvent {
+  /**
+   * `type` is the type of the event.
+   */
+  type: PresenceEventType.AuthError;
+
+  /**
+   * `reason` is the reason for the authentication error.
+   */
+  reason: string;
+
+  /**
+   * `method` is the method that caused the authentication error.
+   */
+  method: string;
+}
+
+/**
+ * `PresenceEvent` represents an event that occurs in the presence.
+ */
+export type PresenceEvent =
+  | PresenceCountEvent
+  | BroadcastEvent
+  | LocalBroadcastEvent
+  | AuthErrorEvent;
+
+/**
+ * `PresenceEventCallbackMap` represents a map of event types to callbacks.
+ */
+export type PresenceEventCallbackMap = {
+  broadcast: NextFn<BroadcastEvent>;
+  'local-broadcast': NextFn<LocalBroadcastEvent>;
+  'auth-error': NextFn<AuthErrorEvent>;
+  all: NextFn<PresenceEvent>;
+};
 
 /**
  * `Presence` represents a lightweight presence counter for tracking online users.
@@ -195,11 +282,97 @@ export class Presence implements Observable<PresenceEvent>, Attachable {
   }
 
   /**
-   * `subscribe` registers an observer for presence events.
+   * `subscribe` registers a callback to subscribe to events on the presence.
+   * The callback will be called when the broadcast event is received from the remote client.
+   */
+  public subscribe(
+    type: 'broadcast',
+    next: PresenceEventCallbackMap['broadcast'],
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the presence.
+   * The callback will be called when the local client sends a broadcast event.
+   */
+  public subscribe(
+    type: 'local-broadcast',
+    next: PresenceEventCallbackMap['local-broadcast'],
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the presence.
+   * The callback will be called when an authentication error occurs.
+   */
+  public subscribe(
+    type: 'auth-error',
+    next: PresenceEventCallbackMap['auth-error'],
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to all events on the presence.
+   */
+  public subscribe(
+    type: 'all',
+    next: PresenceEventCallbackMap['all'],
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers an observer for all presence events.
    * Returns an unsubscribe function.
    */
-  public subscribe(observer: (event: PresenceEvent) => void): Unsubscribe {
-    return this.eventStream.subscribe(observer);
+  public subscribe(arg1: NextFn<PresenceEvent>): Unsubscribe;
+
+  /**
+   * `subscribe` implementation.
+   */
+  public subscribe(
+    arg1:
+      | 'broadcast'
+      | 'local-broadcast'
+      | 'auth-error'
+      | 'all'
+      | NextFn<PresenceEvent>,
+    arg2?:
+      | PresenceEventCallbackMap['broadcast']
+      | PresenceEventCallbackMap['local-broadcast']
+      | PresenceEventCallbackMap['auth-error']
+      | PresenceEventCallbackMap['all'],
+  ): Unsubscribe {
+    if (typeof arg1 === 'function') {
+      return this.eventStream.subscribe(arg1);
+    }
+
+    const type = arg1;
+    const callback = arg2 as NextFn<PresenceEvent>;
+
+    if (!callback) {
+      throw new Error(
+        'callback is required when subscribing to specific event type',
+      );
+    }
+
+    if (type === 'broadcast') {
+      return this.eventStream.subscribe((event) => {
+        if (event.type === PresenceEventType.Broadcast) {
+          (callback as PresenceEventCallbackMap['broadcast'])(event);
+        }
+      });
+    }
+
+    if (type === 'local-broadcast') {
+      return this.eventStream.subscribe((event) => {
+        if (event.type === PresenceEventType.LocalBroadcast) {
+          (callback as PresenceEventCallbackMap['local-broadcast'])(event);
+        }
+      });
+    }
+
+    if (type === 'auth-error') {
+      return this.eventStream.subscribe((event) => {
+        if (event.type === PresenceEventType.AuthError) {
+          (callback as PresenceEventCallbackMap['auth-error'])(event);
+        }
+      });
+    }
+
+    // type === 'all'
+    return this.eventStream.subscribe(callback);
   }
 
   /**
@@ -209,5 +382,30 @@ export class Presence implements Observable<PresenceEvent>, Attachable {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next(event);
     }
+  }
+
+  /**
+   * `broadcast` sends a message to all clients watching this presence.
+   */
+  public broadcast(
+    topic: string,
+    payload: any,
+    options?: BroadcastOptions,
+  ): void {
+    if (this.status !== PresenceStatus.Attached) {
+      throw new Error(`presence is not attached: ${this.status}`);
+    }
+
+    if (!this.actorID) {
+      throw new Error('actorID is not set');
+    }
+
+    this.publish({
+      type: PresenceEventType.LocalBroadcast,
+      clientID: this.actorID,
+      topic,
+      payload,
+      options,
+    });
   }
 }
