@@ -2,6 +2,7 @@ import { assert } from 'vitest';
 import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import { Client } from '@yorkie-js/sdk/src/client/client';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
+import { Presence } from '@yorkie-js/sdk/src/presence/presence';
 import { execSync } from 'child_process';
 
 export const testRPCAddr = process.env.TEST_RPC_ADDR || 'http://127.0.0.1:8080';
@@ -62,6 +63,36 @@ export async function withTwoClientsAndDocuments<
 
   await client1.detach(doc1);
   await client2.detach(doc2);
+
+  await client1.deactivate();
+  await client2.deactivate();
+}
+
+export async function withTwoClientsAndPresences(
+  callback: (
+    c1: Client,
+    p1: Presence,
+    c2: Client,
+    p2: Presence,
+  ) => Promise<void>,
+  title: string,
+): Promise<void> {
+  const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+  const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+  await client1.activate();
+  await client2.activate();
+
+  const presenceKey = `${toDocKey(title)}-${new Date().getTime()}`;
+  const presence1 = new yorkie.Presence(presenceKey);
+  const presence2 = new yorkie.Presence(presenceKey);
+
+  await client1.attach(presence1);
+  await client2.attach(presence2);
+
+  await callback(client1, presence1, client2, presence2);
+
+  await client1.detach(presence1);
+  await client2.detach(presence2);
 
   await client1.deactivate();
   await client2.deactivate();

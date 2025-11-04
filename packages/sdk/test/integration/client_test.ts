@@ -33,6 +33,7 @@ import {
   toDocKey,
   testRPCAddr,
   withTwoClientsAndDocuments,
+  withTwoClientsAndPresences,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
@@ -77,12 +78,12 @@ describe.sequential('Client', function () {
 
     await cli.attach(doc);
     expect(async () => cli.attach(doc)).rejects.toThrowErrorCode(
-      Code.ErrDocumentNotDetached,
+      Code.ErrNotDetached,
     );
 
     await cli.detach(doc);
     expect(async () => cli.detach(doc)).rejects.toThrowErrorCode(
-      Code.ErrDocumentNotAttached,
+      Code.ErrNotAttached,
     );
 
     await cli.deactivate();
@@ -878,14 +879,18 @@ describe.sequential('Client', function () {
     const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
-    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
-    await cli.attach(doc);
+    const presenceKey = toDocKey(`${task.name}-presence`);
+    const presence = new yorkie.Presence(presenceKey);
+    await cli.attach(presence);
 
     const broadcastTopic = 'test';
     const payload = { a: 1, b: '2' };
 
-    expect(async () => doc.broadcast(broadcastTopic, payload)).not.toThrow();
+    expect(async () =>
+      presence.broadcast(broadcastTopic, payload),
+    ).not.toThrow();
 
+    await cli.detach(presence);
     await cli.deactivate();
   });
 
@@ -896,8 +901,9 @@ describe.sequential('Client', function () {
     const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
-    const doc = new yorkie.Document<{ t: Text }>(toDocKey(`${task.name}`));
-    await cli.attach(doc);
+    const presenceKey = toDocKey(`${task.name}-presence`);
+    const presence = new yorkie.Presence(presenceKey);
+    await cli.attach(presence);
 
     // broadcast unserializable payload
 
@@ -911,254 +917,223 @@ describe.sequential('Client', function () {
 
     // @ts-ignore
     // Disable type checking for testing purposes
-    doc.broadcast(broadcastTopic, payload, {
+    presence.broadcast(broadcastTopic, payload, {
       error: errorHandler,
     });
 
     await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);
 
+    await cli.detach(presence);
     await cli.deactivate();
   });
 
   it('Should trigger the handler for a subscribed broadcast event', async ({
     task,
   }) => {
-    await withTwoClientsAndDocuments<{ t: Text }>(
-      async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, Json]>();
-        const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+      const eventCollector = new EventCollector<[string, Json]>();
+      const broadcastTopic = 'test';
+      const unsubscribe = p2.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic) {
             eventCollector.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        const payload = { a: 1, b: '2' };
-        d1.broadcast(broadcastTopic, payload);
-        await eventCollector.waitAndVerifyNthEvent(1, [
-          broadcastTopic,
-          payload,
-        ]);
+      const payload = { a: 1, b: '2' };
+      p1.broadcast(broadcastTopic, payload);
+      await eventCollector.waitAndVerifyNthEvent(1, [broadcastTopic, payload]);
 
-        assert.equal(eventCollector.getLength(), 1);
+      assert.equal(eventCollector.getLength(), 1);
 
-        unsubscribe();
-      },
-      task.name,
-      SyncMode.Realtime,
-    );
+      unsubscribe();
+    }, task.name);
   });
 
   it('Should not trigger the handler for an unsubscribed broadcast event', async ({
     task,
   }) => {
-    await withTwoClientsAndDocuments<{ t: Text }>(
-      async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, Json]>();
-        const broadcastTopic1 = 'test1';
-        const broadcastTopic2 = 'test2';
+    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+      const eventCollector = new EventCollector<[string, Json]>();
+      const broadcastTopic1 = 'test1';
+      const broadcastTopic2 = 'test2';
 
-        const unsubscribe = d2.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+      const unsubscribe = p2.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic1) {
             eventCollector.add([topic, payload]);
           } else if (topic === broadcastTopic2) {
             eventCollector.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        const payload = { a: 1, b: '2' };
-        d1.broadcast(broadcastTopic1, payload);
-        await eventCollector.waitAndVerifyNthEvent(1, [
-          broadcastTopic1,
-          payload,
-        ]);
+      const payload = { a: 1, b: '2' };
+      p1.broadcast(broadcastTopic1, payload);
+      await eventCollector.waitAndVerifyNthEvent(1, [broadcastTopic1, payload]);
 
-        assert.equal(eventCollector.getLength(), 1);
+      assert.equal(eventCollector.getLength(), 1);
 
-        unsubscribe();
-      },
-      task.name,
-      SyncMode.Realtime,
-    );
+      unsubscribe();
+    }, task.name);
   });
 
   it('Should not trigger the handler for a broadcast event after unsubscribing', async ({
     task,
   }) => {
-    await withTwoClientsAndDocuments<{ t: Text }>(
-      async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, Json]>();
-        const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+      const eventCollector = new EventCollector<[string, Json]>();
+      const broadcastTopic = 'test';
+      const unsubscribe = p2.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic) {
             eventCollector.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        const payload = { a: 1, b: '2' };
+      const payload = { a: 1, b: '2' };
 
-        d1.broadcast(broadcastTopic, payload);
-        await eventCollector.waitAndVerifyNthEvent(1, [
-          broadcastTopic,
-          payload,
-        ]);
+      p1.broadcast(broadcastTopic, payload);
+      await eventCollector.waitAndVerifyNthEvent(1, [broadcastTopic, payload]);
 
-        unsubscribe();
+      unsubscribe();
 
-        d1.broadcast(broadcastTopic, payload);
+      p1.broadcast(broadcastTopic, payload);
 
-        // Assuming that every subscriber can receive the broadcast event within 1000ms.
-        await new Promise((res) => setTimeout(res, 1000));
+      // Assuming that every subscriber can receive the broadcast event within 1000ms.
+      await new Promise((res) => setTimeout(res, 1000));
 
-        // No change in the number of calls
-        assert.equal(eventCollector.getLength(), 1);
-      },
-      task.name,
-      SyncMode.Realtime,
-    );
+      // No change in the number of calls
+      assert.equal(eventCollector.getLength(), 1);
+    }, task.name);
   });
 
   it('Should not trigger the handler for a broadcast event sent by the publisher to itself', async ({
     task,
   }) => {
-    await withTwoClientsAndDocuments<{ t: Text }>(
-      async (c1, d1, c2, d2) => {
-        const eventCollector1 = new EventCollector<[string, Json]>();
-        const eventCollector2 = new EventCollector<[string, Json]>();
-        const broadcastTopic = 'test';
-        const payload = { a: 1, b: '2' };
+    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+      const eventCollector1 = new EventCollector<[string, Json]>();
+      const eventCollector2 = new EventCollector<[string, Json]>();
+      const broadcastTopic = 'test';
+      const payload = { a: 1, b: '2' };
 
-        // Publisher subscribes to the broadcast event
-        const unsubscribe1 = d1.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+      // Publisher subscribes to the broadcast event
+      const unsubscribe1 = p1.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic) {
             eventCollector1.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        const unsubscribe2 = d2.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+      const unsubscribe2 = p2.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic) {
             eventCollector2.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        d1.broadcast(broadcastTopic, payload);
+      p1.broadcast(broadcastTopic, payload);
 
-        // Assuming that D2 takes longer to receive the broadcast event compared to D1
-        await eventCollector2.waitAndVerifyNthEvent(1, [
-          broadcastTopic,
-          payload,
-        ]);
+      // Assuming that p2 takes longer to receive the broadcast event compared to p1
+      await eventCollector2.waitAndVerifyNthEvent(1, [broadcastTopic, payload]);
 
-        unsubscribe1();
-        unsubscribe2();
+      unsubscribe1();
+      unsubscribe2();
 
-        assert.equal(eventCollector1.getLength(), 0);
-        assert.equal(eventCollector2.getLength(), 1);
-      },
-      task.name,
-      SyncMode.Realtime,
-    );
+      assert.equal(eventCollector1.getLength(), 0);
+      assert.equal(eventCollector2.getLength(), 1);
+    }, task.name);
   });
 
   it('Should retry broadcasting on network failure with retry option and succeeds when network is restored', async ({
     task,
   }) => {
-    await withTwoClientsAndDocuments<{ t: Text }>(
-      async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, Json]>();
-        const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+      const eventCollector = new EventCollector<[string, Json]>();
+      const broadcastTopic = 'test';
+      const unsubscribe = p2.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic) {
             eventCollector.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        // 01. Simulate Unknown error.
-        vi.stubGlobal('fetch', async () => {
-          throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
-        });
-        await new Promise((res) => setTimeout(res, 30));
+      // 01. Simulate Unknown error.
+      vi.stubGlobal('fetch', async () => {
+        throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
+      });
+      await new Promise((res) => setTimeout(res, 30));
 
-        const payload = { a: 1, b: '2' };
+      const payload = { a: 1, b: '2' };
 
-        d1.broadcast(broadcastTopic, payload);
+      p1.broadcast(broadcastTopic, payload);
 
-        // Failed to broadcast due to network failure
-        await new Promise((res) => setTimeout(res, 3000));
-        assert.equal(eventCollector.getLength(), 0);
+      // Failed to broadcast due to network failure
+      await new Promise((res) => setTimeout(res, 3000));
+      assert.equal(eventCollector.getLength(), 0);
 
-        // 02. Back to normal condition
-        vi.unstubAllGlobals();
+      // 02. Back to normal condition
+      vi.unstubAllGlobals();
 
-        await eventCollector.waitAndVerifyNthEvent(1, [
-          broadcastTopic,
-          payload,
-        ]);
+      await eventCollector.waitAndVerifyNthEvent(1, [broadcastTopic, payload]);
 
-        unsubscribe();
-      },
-      task.name,
-      SyncMode.Realtime,
-    );
+      unsubscribe();
+    }, task.name);
   });
 
   it('Should not retry broadcasting on network failure when maxRetries is set to zero', async ({
     task,
   }) => {
-    await withTwoClientsAndDocuments<{ t: Text }>(
-      async (c1, d1, c2, d2) => {
-        const eventCollector = new EventCollector<[string, any]>();
-        const eventCollector2 = new EventCollector<ConnectCode>();
-        const broadcastTopic = 'test';
-        const unsubscribe = d2.subscribe('broadcast', (event) => {
-          const { topic, payload } = event.value;
-
+    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+      const eventCollector = new EventCollector<[string, any]>();
+      const eventCollector2 = new EventCollector<ConnectCode>();
+      const broadcastTopic = 'test';
+      const unsubscribe = p2.subscribe((event) => {
+        if (event.type === 'broadcast') {
+          const { topic, payload } = event;
           if (topic === broadcastTopic) {
             eventCollector.add([topic, payload]);
           }
-        });
+        }
+      });
 
-        // 01. Simulate Unknown error.
-        vi.stubGlobal('fetch', async () => {
-          throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
-        });
+      // 01. Simulate Unknown error.
+      vi.stubGlobal('fetch', async () => {
+        throw new ConnectError('Failed to fetch', ConnectCode.Unknown);
+      });
 
-        await new Promise((res) => setTimeout(res, 30));
+      await new Promise((res) => setTimeout(res, 30));
 
-        const payload = { a: 1, b: '2' };
+      const payload = { a: 1, b: '2' };
 
-        const errorHandler = (error: Error) => {
-          if (error instanceof ConnectError) {
-            eventCollector2.add(error.code);
-          }
-        };
+      const errorHandler = (error: Error) => {
+        if (error instanceof ConnectError) {
+          eventCollector2.add(error.code);
+        }
+      };
 
-        d1.broadcast(broadcastTopic, payload, {
-          error: errorHandler,
-          maxRetries: 0,
-        });
+      p1.broadcast(broadcastTopic, payload, {
+        error: errorHandler,
+        maxRetries: 0,
+      });
 
-        // 02. Back to normal condition
-        vi.unstubAllGlobals();
+      // 02. Back to normal condition
+      vi.unstubAllGlobals();
 
-        await eventCollector2.waitAndVerifyNthEvent(1, ConnectCode.Unknown);
+      await eventCollector2.waitAndVerifyNthEvent(1, ConnectCode.Unknown);
 
-        unsubscribe();
-      },
-      task.name,
-      SyncMode.Realtime,
-    );
+      unsubscribe();
+    }, task.name);
   });
 });

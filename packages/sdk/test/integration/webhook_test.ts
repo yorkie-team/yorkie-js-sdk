@@ -163,15 +163,21 @@ describe('Auth Webhook', () => {
     await c1.attach(doc1);
     await c2.attach(doc2);
 
+    const presenceKey = `presence-${docKey}`;
+    const p1 = new yorkie.Presence(presenceKey);
+    const p2 = new yorkie.Presence(presenceKey);
+    await c1.attach(p1);
+    await c2.attach(p2);
+
     const eventCollector = new EventCollector();
     const topic = 'test';
     const payload = 'data';
-    const unsubscribe = doc2.subscribe('broadcast', (event) => {
-      if (event.value.topic === topic) {
-        eventCollector.add(event.value.payload as string);
+    const unsubscribe = p2.subscribe((event) => {
+      if (event.type === 'broadcast' && event.topic === topic) {
+        eventCollector.add(event.payload as string);
       }
     });
-    doc1.broadcast(topic, payload);
+    p1.broadcast(topic, payload);
     await eventCollector.waitAndVerifyNthEvent(1, payload);
 
     doc1.update((root) => {
@@ -181,6 +187,8 @@ describe('Auth Webhook', () => {
     await c2.sync(doc2);
     expect(doc2.toSortedJSON()).toBe('{"k1":"v1"}');
 
+    await c1.detach(p1);
+    await c2.detach(p2);
     await c1.detach(doc1);
     await c2.remove(doc2);
 
@@ -597,50 +605,49 @@ describe('Auth Webhook', () => {
       return `token-${Date.now()}`;
     });
     // client with token
-    const client = new yorkie.Client({
+    const c1 = new yorkie.Client({
       rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector,
       reconnectStreamDelay: 100,
     });
-
-    await client.activate();
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const doc = new yorkie.Document<{ k1: string }>(docKey);
-    await client.attach(doc);
-    const authErrorEventCollector = new EventCollector<{
-      reason: string;
-      method: string;
-    }>();
-    doc.subscribe('auth-error', (event) => {
-      authErrorEventCollector.add(event.value);
+    await c1.activate();
+    const presenceKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const p1 = new yorkie.Presence(presenceKey);
+    await c1.attach(p1);
+    const collector1 = new EventCollector<{ reason: string; method: string }>();
+    p1.subscribe((event) => {
+      if (event.type === 'auth-error') {
+        collector1.add({ reason: event.reason, method: event.method });
+      }
     });
 
     // Another client for verifying if the broadcast is working properly
-    const client2 = new yorkie.Client({
+    const c2 = new yorkie.Client({
       rpcAddr: testRPCAddr,
       apiKey,
       authTokenInjector: async () => {
         return `token-${Date.now() + 1000 * 60 * 60}`; // expire in 1 hour
       },
     });
-    await client2.activate();
-    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
-    await client2.attach(doc2);
-    const eventCollector = new EventCollector();
+    await c2.activate();
+    const p2 = new yorkie.Presence(presenceKey);
+    await c2.attach(p2);
+
+    const collector2 = new EventCollector();
     const topic = 'test';
     const payload = 'data';
-    const unsubscribe = doc2.subscribe('broadcast', (event) => {
-      if (event.value.topic === topic) {
-        eventCollector.add(event.value.payload as string);
+    const unsub2 = p2.subscribe((event) => {
+      if (event.type === 'broadcast' && event.topic === topic) {
+        collector2.add(event.payload as string);
       }
     });
 
     // retry broadcast
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
-    doc.broadcast(topic, payload);
-    await eventCollector.waitAndVerifyNthEvent(1, payload);
-    await authErrorEventCollector.waitFor({
+    p1.broadcast(topic, payload);
+    await collector2.waitAndVerifyNthEvent(1, payload);
+    await collector1.waitFor({
       reason: ExpiredTokenErrorMessage,
       method: 'Broadcast',
     });
@@ -648,8 +655,10 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).nthCalledWith(1);
     expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
 
-    unsubscribe();
-    await client.deactivate();
-    await client2.deactivate();
+    unsub2();
+    await c1.detach(p1);
+    await c2.detach(p2);
+    await c1.deactivate();
+    await c2.deactivate();
   });
 });

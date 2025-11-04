@@ -104,9 +104,16 @@ describe('Presence', function () {
     const p2 = new yorkie.Presence(presenceKey);
 
     // Track events on p1
-    const events: Array<{ type: string; count: number }> = [];
+    const events: Array<{ type: string; count?: number }> = [];
     p1.subscribe((event: yorkie.PresenceEvent) => {
-      events.push({ type: event.type, count: event.count });
+      events.push({
+        type: event.type,
+        count:
+          event.type === yorkie.PresenceEventType.Changed ||
+          event.type === yorkie.PresenceEventType.Initialized
+            ? event.count
+            : undefined,
+      });
     });
 
     // First client attaches

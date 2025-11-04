@@ -33,11 +33,11 @@ export enum Code {
   // ErrDummy is used to verify errors for testing purposes.
   ErrDummy = 'ErrDummy',
 
-  // ErrDocumentNotAttached is returned when the document is not attached.
-  ErrDocumentNotAttached = 'ErrDocumentNotAttached',
+  // ErrNotAttached is returned when the resource is not attached.
+  ErrNotAttached = 'ErrNotAttached',
 
-  // ErrDocumentNotDetached is returned when the document is not detached.
-  ErrDocumentNotDetached = 'ErrDocumentNotDetached',
+  // ErrNotDetached is returned when the resource is not detached.
+  ErrNotDetached = 'ErrNotDetached',
 
   // ErrDocumentRemoved is returned when the document is removed.
   ErrDocumentRemoved = 'ErrDocumentRemoved',

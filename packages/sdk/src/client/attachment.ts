@@ -15,7 +15,6 @@
  */
 
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
-import { Unsubscribe } from '@yorkie-js/sdk/src/util/observable';
 import { Attachable } from './attachable';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 
@@ -51,14 +50,11 @@ export class Attachment<R extends Attachable> {
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private watchAbortController?: AbortController;
 
-  unsubscribeBroadcastEvent?: Unsubscribe;
-
   constructor(
     reconnectStreamDelay: number,
     resource: R,
     resourceID: string,
     syncMode?: SyncMode,
-    unsubscribeBroadcastEvent?: Unsubscribe,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.resource = resource;
@@ -67,7 +63,6 @@ export class Attachment<R extends Attachable> {
     this.changeEventReceived = syncMode !== undefined ? false : undefined;
     this.lastHeartbeatTime = Date.now();
     this.cancelled = false;
-    this.unsubscribeBroadcastEvent = unsubscribeBroadcastEvent;
   }
 
   /**
