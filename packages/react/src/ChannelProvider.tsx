@@ -22,39 +22,39 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Client, Presence } from '@yorkie-js/sdk';
+import { Client, Channel } from '@yorkie-js/sdk';
 import { Store } from './createStore';
 import {
-  createPresenceStore,
-  PresenceContextType,
-} from './createPresenceStore';
+  createChannelStore as createChannelStore,
+  ChannelContextType as ChannelContextType,
+} from './createChannelStore';
 import { useSelector } from './useSelector';
 import { useYorkie } from './YorkieProvider';
 
 /**
- * `PresenceContext` is a context for sharing Presence store across components.
+ * `ChannelContext` is a context for sharing Channel store across components.
  */
-const PresenceContext = createContext<Store<PresenceContextType> | undefined>(
+const ChannelContext = createContext<Store<ChannelContextType> | undefined>(
   undefined,
 );
 
 /**
- * `useYorkiePresence` is a custom hook that initializes and manages a Yorkie Presence.
+ * `useYorkieChannel` is a custom hook that initializes and manages a Yorkie Channel.
  */
-export function useYorkiePresence(
+export function useYorkieChannel(
   client: Client | undefined,
   clientLoading: boolean,
   clientError: Error | undefined,
-  presenceKey: string,
+  channelKey: string,
   isRealtime: boolean,
-  presenceStore: Store<PresenceContextType>,
+  channelStore: Store<ChannelContextType>,
 ) {
-  const presenceRef = useRef<Presence | undefined>(undefined);
+  const channelRef = useRef<Channel | undefined>(undefined);
   const [didMount, setDidMount] = useState(false);
 
   // NOTE(hackerwins): In StrictMode, the component will call twice
-  // useEffect in development mode. To prevent attaching a presence
-  // twice, attach a presence after the mounting.
+  // useEffect in development mode. To prevent attaching a channel
+  // twice, attach a channel after the mounting.
   useEffect(() => {
     setDidMount(true);
   }, []);
@@ -62,7 +62,7 @@ export function useYorkiePresence(
   useEffect(() => {
     if (!didMount || clientLoading || clientError || !client) {
       if (clientError) {
-        presenceStore.setState((state) => ({
+        channelStore.setState((state) => ({
           ...state,
           error: clientError,
           loading: false,
@@ -74,50 +74,49 @@ export function useYorkiePresence(
     let unsubscribe: (() => void) | undefined;
 
     /**
-     * `attachPresence` attaches the presence to the client.
+     * `attachChannel` attaches the channel to the client.
      */
-    async function attachPresence() {
+    async function attachChannel() {
       if (!client || !client.isActive()) {
         return;
       }
 
-      presenceStore.setState((state) => ({
+      channelStore.setState((state) => ({
         ...state,
         loading: true,
         error: undefined,
       }));
 
       try {
-        const newPresence = new Presence(presenceKey);
-        await client.attach(newPresence, { isRealtime });
+        const newChannel = new Channel(channelKey);
+        await client.attach(newChannel, { isRealtime });
 
-        presenceRef.current = newPresence;
+        channelRef.current = newChannel;
 
-        // Subscribe to presence events
-        unsubscribe = newPresence.subscribe(() => {
-          presenceStore.setState((state) => ({
+        // Subscribe to channel events
+        unsubscribe = newChannel.subscribe(() => {
+          channelStore.setState((state) => ({
             ...state,
-            count: newPresence.getCount(),
+            count: newChannel.getPresenceCount(),
           }));
         });
 
-        presenceStore.setState({
-          presence: newPresence,
-          count: newPresence.getCount(),
+        channelStore.setState({
+          channel: newChannel,
+          count: newChannel.getPresenceCount(),
           loading: false,
           error: undefined,
         });
       } catch (e) {
-        presenceStore.setState((state) => ({
+        channelStore.setState((state) => ({
           ...state,
           loading: false,
-          error:
-            e instanceof Error ? e : new Error('Failed to attach presence'),
+          error: e instanceof Error ? e : new Error('Failed to attach channel'),
         }));
       }
     }
 
-    attachPresence();
+    attachChannel();
 
     return () => {
       if (unsubscribe) {
@@ -125,30 +124,30 @@ export function useYorkiePresence(
       }
 
       /**
-       * `detachPresence` detaches the presence from the client.
+       * `detachChannel` detaches the channel from the client.
        */
-      async function detachPresence() {
-        if (presenceRef.current && client?.isActive()) {
+      async function detachChannel() {
+        if (channelRef.current && client?.isActive()) {
           try {
-            await client.detach(presenceRef.current);
+            await client.detach(channelRef.current);
           } catch (e) {
-            console.error('Failed to detach presence:', e);
+            console.error('Failed to detach channel:', e);
           }
         }
       }
-      detachPresence();
+      detachChannel();
     };
-  }, [client, clientLoading, clientError, presenceKey, isRealtime, didMount]);
+  }, [client, clientLoading, clientError, channelKey, isRealtime, didMount]);
 }
 
 /**
- * `PresenceProviderProps` represents the props for PresenceProvider.
+ * `ChannelProviderProps` represents the props for ChannelProvider.
  */
-export type PresenceProviderProps = PropsWithChildren<{
+export type ChannelProviderProps = PropsWithChildren<{
   /**
-   * `presenceKey` is the key for the presence counter.
+   * `channelKey` is the key for the channel.
    */
-  presenceKey: string;
+  channelKey: string;
 
   /**
    * `isRealtime` determines the synchronization mode.
@@ -160,82 +159,82 @@ export type PresenceProviderProps = PropsWithChildren<{
 }>;
 
 /**
- * `PresenceProvider` is a component that provides Presence context to its children.
+ * `ChannelProvider` is a component that provides Channel context to its children.
  * It must be used within a YorkieProvider to access the client.
  *
  * @example
  * ```tsx
  * <YorkieProvider apiKey="..." rpcAddr="...">
- *   <PresenceProvider presenceKey="room-123" isRealtime={true}>
+ *   <ChannelProvider channelKey="room-123" isRealtime={true}>
  *     <ChatRoom />
- *   </PresenceProvider>
+ *   </ChannelProvider>
  * </YorkieProvider>
  * ```
  */
-export const PresenceProvider: React.FC<PresenceProviderProps> = ({
+export const ChannelProvider: React.FC<ChannelProviderProps> = ({
   children,
-  presenceKey,
+  channelKey,
   isRealtime = true,
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
 
-  const presenceStoreRef = useRef<Store<PresenceContextType> | undefined>(
+  const channelStoreRef = useRef<Store<ChannelContextType> | undefined>(
     undefined,
   );
 
-  if (!presenceStoreRef.current) {
-    presenceStoreRef.current = createPresenceStore({
-      presence: undefined,
+  if (!channelStoreRef.current) {
+    channelStoreRef.current = createChannelStore({
+      channel: undefined,
       count: 0,
       loading: true,
       error: undefined,
     });
   }
 
-  const presenceStore = presenceStoreRef.current;
+  const channelStore = channelStoreRef.current;
 
-  useYorkiePresence(
+  useYorkieChannel(
     client,
     clientLoading,
     clientError,
-    presenceKey,
+    channelKey,
     isRealtime,
-    presenceStore,
+    channelStore,
   );
 
   return (
-    <PresenceContext.Provider value={presenceStore}>
+    <ChannelContext.Provider value={channelStore}>
       {children}
-    </PresenceContext.Provider>
+    </ChannelContext.Provider>
   );
 };
 
 /**
- * `usePresenceStore` returns the Presence store from context.
- * It ensures that the hook is used within a PresenceProvider.
+ * `useChannelStore` returns the Channel store from context.
+ * It ensures that the hook is used within a ChannelProvider.
  *
  * @param hookName - Name of the hook calling this function (for error messages)
- * @returns The presence store
- * @throws Error if used outside of PresenceProvider
+ * @returns The channel store
+ * @throws Error if used outside of ChannelProvider
  */
-export const usePresenceStore = (hookName: string) => {
-  const presenceStore = useContext(PresenceContext);
-  if (!presenceStore) {
-    throw new Error(`${hookName} must be used within PresenceProvider`);
+export const useChannelStore = (hookName: string) => {
+  const channelStore = useContext(ChannelContext);
+  if (!channelStore) {
+    throw new Error(`${hookName} must be used within ChannelProvider`);
   }
-  return presenceStore;
+  return channelStore;
 };
 
 /**
- * `usePresence` is a custom hook that returns the presence state.
- * It must be used within a PresenceProvider.
+ * `useChannel` is a custom hook that returns the channel state.
+ * It must be used within a ChannelProvider.
  *
  * @returns An object containing count, loading, and error state
  *
  * @example
  * ```tsx
  * function ChatRoom() {
- *   const { count, loading, error } = usePresence();
+ *   const { count, loading, error } = useChannel();
  *
  *   if (loading) return <div>Loading...</div>;
  *   if (error) return <div>Error: {error.message}</div>;
@@ -244,11 +243,11 @@ export const usePresenceStore = (hookName: string) => {
  * }
  * ```
  */
-export const usePresence = () => {
-  const presenceStore = usePresenceStore('usePresence');
-  const count = useSelector(presenceStore, (state) => state.count);
-  const loading = useSelector(presenceStore, (state) => state.loading);
-  const error = useSelector(presenceStore, (state) => state.error);
+export const useChannel = () => {
+  const channelStore = useChannelStore('useChannel');
+  const count = useSelector(channelStore, (state) => state.count);
+  const loading = useSelector(channelStore, (state) => state.loading);
+  const error = useSelector(channelStore, (state) => state.error);
 
   return { count, loading, error };
 };
@@ -269,6 +268,6 @@ export const usePresence = () => {
  * ```
  */
 export const usePresenceCount = (): number => {
-  const presenceStore = usePresenceStore('usePresenceCount');
+  const presenceStore = useChannelStore('usePresenceCount');
   return useSelector(presenceStore, (state) => state.count);
 };

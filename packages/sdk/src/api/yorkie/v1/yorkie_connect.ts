@@ -18,7 +18,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ActivateClientRequest, ActivateClientResponse, AttachDocumentRequest, AttachDocumentResponse, AttachPresenceRequest, AttachPresenceResponse, BroadcastRequest, BroadcastResponse, DeactivateClientRequest, DeactivateClientResponse, DetachDocumentRequest, DetachDocumentResponse, DetachPresenceRequest, DetachPresenceResponse, PushPullChangesRequest, PushPullChangesResponse, RefreshPresenceRequest, RefreshPresenceResponse, RemoveDocumentRequest, RemoveDocumentResponse, WatchDocumentRequest, WatchDocumentResponse, WatchPresenceRequest, WatchPresenceResponse } from "./yorkie_pb";
+import { ActivateClientRequest, ActivateClientResponse, AttachChannelRequest, AttachChannelResponse, AttachDocumentRequest, AttachDocumentResponse, BroadcastRequest, BroadcastResponse, DeactivateClientRequest, DeactivateClientResponse, DetachChannelRequest, DetachChannelResponse, DetachDocumentRequest, DetachDocumentResponse, PushPullChangesRequest, PushPullChangesResponse, RefreshChannelRequest, RefreshChannelResponse, RemoveDocumentRequest, RemoveDocumentResponse, WatchChannelRequest, WatchChannelResponse, WatchDocumentRequest, WatchDocumentResponse } from "./yorkie_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -93,39 +93,39 @@ export const YorkieService = {
       kind: MethodKind.ServerStreaming,
     },
     /**
-     * @generated from rpc yorkie.v1.YorkieService.AttachPresence
+     * @generated from rpc yorkie.v1.YorkieService.AttachChannel
      */
-    attachPresence: {
-      name: "AttachPresence",
-      I: AttachPresenceRequest,
-      O: AttachPresenceResponse,
+    attachChannel: {
+      name: "AttachChannel",
+      I: AttachChannelRequest,
+      O: AttachChannelResponse,
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc yorkie.v1.YorkieService.DetachPresence
+     * @generated from rpc yorkie.v1.YorkieService.DetachChannel
      */
-    detachPresence: {
-      name: "DetachPresence",
-      I: DetachPresenceRequest,
-      O: DetachPresenceResponse,
+    detachChannel: {
+      name: "DetachChannel",
+      I: DetachChannelRequest,
+      O: DetachChannelResponse,
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc yorkie.v1.YorkieService.RefreshPresence
+     * @generated from rpc yorkie.v1.YorkieService.RefreshChannel
      */
-    refreshPresence: {
-      name: "RefreshPresence",
-      I: RefreshPresenceRequest,
-      O: RefreshPresenceResponse,
+    refreshChannel: {
+      name: "RefreshChannel",
+      I: RefreshChannelRequest,
+      O: RefreshChannelResponse,
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc yorkie.v1.YorkieService.WatchPresence
+     * @generated from rpc yorkie.v1.YorkieService.WatchChannel
      */
-    watchPresence: {
-      name: "WatchPresence",
-      I: WatchPresenceRequest,
-      O: WatchPresenceResponse,
+    watchChannel: {
+      name: "WatchChannel",
+      I: WatchChannelRequest,
+      O: WatchChannelResponse,
       kind: MethodKind.ServerStreaming,
     },
     /**

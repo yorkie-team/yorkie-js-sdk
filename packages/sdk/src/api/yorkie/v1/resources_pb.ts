@@ -3053,28 +3053,28 @@ export class DocEvent extends Message<DocEvent> {
 }
 
 /**
- * @generated from message yorkie.v1.PresenceEvent
+ * @generated from message yorkie.v1.ChannelEvent
  */
-export class PresenceEvent extends Message<PresenceEvent> {
+export class ChannelEvent extends Message<ChannelEvent> {
   /**
-   * @generated from field: yorkie.v1.PresenceEvent.Type type = 1;
+   * @generated from field: yorkie.v1.ChannelEvent.Type type = 1;
    */
-  type = PresenceEvent_Type.UNSPECIFIED;
+  type = ChannelEvent_Type.UNSPECIFIED;
 
   /**
-   * @generated from field: int64 count = 2;
+   * @generated from field: string publisher = 2;
+   */
+  publisher = "";
+
+  /**
+   * @generated from field: int64 count = 3;
    */
   count = protoInt64.zero;
 
   /**
-   * @generated from field: int64 seq = 3;
+   * @generated from field: int64 seq = 4;
    */
   seq = protoInt64.zero;
-
-  /**
-   * @generated from field: string publisher = 4;
-   */
-  publisher = "";
 
   /**
    * @generated from field: string topic = 5;
@@ -3086,62 +3086,62 @@ export class PresenceEvent extends Message<PresenceEvent> {
    */
   payload = new Uint8Array(0);
 
-  constructor(data?: PartialMessage<PresenceEvent>) {
+  constructor(data?: PartialMessage<ChannelEvent>) {
     super();
     proto3.util.initPartial(data, this);
   }
 
   static readonly runtime: typeof proto3 = proto3;
-  static readonly typeName = "yorkie.v1.PresenceEvent";
+  static readonly typeName = "yorkie.v1.ChannelEvent";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "type", kind: "enum", T: proto3.getEnumType(PresenceEvent_Type) },
-    { no: 2, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 3, name: "seq", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 4, name: "publisher", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1, name: "type", kind: "enum", T: proto3.getEnumType(ChannelEvent_Type) },
+    { no: 2, name: "publisher", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "seq", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 5, name: "topic", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "payload", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PresenceEvent {
-    return new PresenceEvent().fromBinary(bytes, options);
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChannelEvent {
+    return new ChannelEvent().fromBinary(bytes, options);
   }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): PresenceEvent {
-    return new PresenceEvent().fromJson(jsonValue, options);
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChannelEvent {
+    return new ChannelEvent().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PresenceEvent {
-    return new PresenceEvent().fromJsonString(jsonString, options);
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChannelEvent {
+    return new ChannelEvent().fromJsonString(jsonString, options);
   }
 
-  static equals(a: PresenceEvent | PlainMessage<PresenceEvent> | undefined, b: PresenceEvent | PlainMessage<PresenceEvent> | undefined): boolean {
-    return proto3.util.equals(PresenceEvent, a, b);
+  static equals(a: ChannelEvent | PlainMessage<ChannelEvent> | undefined, b: ChannelEvent | PlainMessage<ChannelEvent> | undefined): boolean {
+    return proto3.util.equals(ChannelEvent, a, b);
   }
 }
 
 /**
- * @generated from enum yorkie.v1.PresenceEvent.Type
+ * @generated from enum yorkie.v1.ChannelEvent.Type
  */
-export enum PresenceEvent_Type {
+export enum ChannelEvent_Type {
   /**
    * @generated from enum value: TYPE_UNSPECIFIED = 0;
    */
   UNSPECIFIED = 0,
 
   /**
-   * @generated from enum value: TYPE_COUNT_CHANGED = 1;
+   * @generated from enum value: TYPE_PRESENCE = 1;
    */
-  COUNT_CHANGED = 1,
+  PRESENCE = 1,
 
   /**
    * @generated from enum value: TYPE_BROADCAST = 2;
    */
   BROADCAST = 2,
 }
-// Retrieve enum metadata with: proto3.getEnumType(PresenceEvent_Type)
-proto3.util.setEnumType(PresenceEvent_Type, "yorkie.v1.PresenceEvent.Type", [
+// Retrieve enum metadata with: proto3.getEnumType(ChannelEvent_Type)
+proto3.util.setEnumType(ChannelEvent_Type, "yorkie.v1.ChannelEvent.Type", [
   { no: 0, name: "TYPE_UNSPECIFIED" },
-  { no: 1, name: "TYPE_COUNT_CHANGED" },
+  { no: 1, name: "TYPE_PRESENCE" },
   { no: 2, name: "TYPE_BROADCAST" },
 ]);
 

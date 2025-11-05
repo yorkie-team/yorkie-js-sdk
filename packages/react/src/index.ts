@@ -27,10 +27,10 @@ import {
   createDocumentSelector,
 } from './DocumentProvider';
 import {
-  PresenceProvider,
-  usePresence,
+  ChannelProvider,
+  useChannel,
   usePresenceCount,
-} from './PresenceProvider';
+} from './ChannelProvider';
 
 export type { Document, JSONArray, JSONObject };
 export {
@@ -42,8 +42,8 @@ export {
   useConnection,
   useYorkieDoc,
   createDocumentSelector,
-  PresenceProvider,
-  usePresence,
+  ChannelProvider,
+  useChannel,
   usePresenceCount,
 };
 

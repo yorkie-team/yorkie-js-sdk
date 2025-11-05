@@ -33,7 +33,7 @@ import {
   toDocKey,
   testRPCAddr,
   withTwoClientsAndDocuments,
-  withTwoClientsAndPresences,
+  withTwoClientsAndChannels,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
@@ -879,18 +879,18 @@ describe.sequential('Client', function () {
     const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
-    const presenceKey = toDocKey(`${task.name}-presence`);
-    const presence = new yorkie.Presence(presenceKey);
-    await cli.attach(presence);
+    const channelKey = toDocKey(`${task.name}-presence`);
+    const channel = new yorkie.Channel(channelKey);
+    await cli.attach(channel);
 
     const broadcastTopic = 'test';
     const payload = { a: 1, b: '2' };
 
     expect(async () =>
-      presence.broadcast(broadcastTopic, payload),
+      channel.broadcast(broadcastTopic, payload),
     ).not.toThrow();
 
-    await cli.detach(presence);
+    await cli.detach(channel);
     await cli.deactivate();
   });
 
@@ -901,9 +901,9 @@ describe.sequential('Client', function () {
     const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
 
-    const presenceKey = toDocKey(`${task.name}-presence`);
-    const presence = new yorkie.Presence(presenceKey);
-    await cli.attach(presence);
+    const channelKey = toDocKey(`${task.name}-presence`);
+    const channel = new yorkie.Channel(channelKey);
+    await cli.attach(channel);
 
     // broadcast unserializable payload
 
@@ -917,20 +917,20 @@ describe.sequential('Client', function () {
 
     // @ts-ignore
     // Disable type checking for testing purposes
-    presence.broadcast(broadcastTopic, payload, {
+    channel.broadcast(broadcastTopic, payload, {
       error: errorHandler,
     });
 
     await eventCollector.waitAndVerifyNthEvent(1, broadcastErrMessage);
 
-    await cli.detach(presence);
+    await cli.detach(channel);
     await cli.deactivate();
   });
 
   it('Should trigger the handler for a subscribed broadcast event', async ({
     task,
   }) => {
-    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+    await withTwoClientsAndChannels(async (c1, p1, c2, p2) => {
       const eventCollector = new EventCollector<[string, Json]>();
       const broadcastTopic = 'test';
       const unsubscribe = p2.subscribe((event) => {
@@ -955,7 +955,7 @@ describe.sequential('Client', function () {
   it('Should not trigger the handler for an unsubscribed broadcast event', async ({
     task,
   }) => {
-    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+    await withTwoClientsAndChannels(async (c1, p1, c2, p2) => {
       const eventCollector = new EventCollector<[string, Json]>();
       const broadcastTopic1 = 'test1';
       const broadcastTopic2 = 'test2';
@@ -984,7 +984,7 @@ describe.sequential('Client', function () {
   it('Should not trigger the handler for a broadcast event after unsubscribing', async ({
     task,
   }) => {
-    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+    await withTwoClientsAndChannels(async (c1, p1, c2, p2) => {
       const eventCollector = new EventCollector<[string, Json]>();
       const broadcastTopic = 'test';
       const unsubscribe = p2.subscribe((event) => {
@@ -1016,7 +1016,7 @@ describe.sequential('Client', function () {
   it('Should not trigger the handler for a broadcast event sent by the publisher to itself', async ({
     task,
   }) => {
-    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+    await withTwoClientsAndChannels(async (c1, p1, c2, p2) => {
       const eventCollector1 = new EventCollector<[string, Json]>();
       const eventCollector2 = new EventCollector<[string, Json]>();
       const broadcastTopic = 'test';
@@ -1057,7 +1057,7 @@ describe.sequential('Client', function () {
   it('Should retry broadcasting on network failure with retry option and succeeds when network is restored', async ({
     task,
   }) => {
-    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+    await withTwoClientsAndChannels(async (c1, p1, c2, p2) => {
       const eventCollector = new EventCollector<[string, Json]>();
       const broadcastTopic = 'test';
       const unsubscribe = p2.subscribe((event) => {
@@ -1095,7 +1095,7 @@ describe.sequential('Client', function () {
   it('Should not retry broadcasting on network failure when maxRetries is set to zero', async ({
     task,
   }) => {
-    await withTwoClientsAndPresences(async (c1, p1, c2, p2) => {
+    await withTwoClientsAndChannels(async (c1, p1, c2, p2) => {
       const eventCollector = new EventCollector<[string, any]>();
       const eventCollector2 = new EventCollector<ConnectCode>();
       const broadcastTopic = 'test';

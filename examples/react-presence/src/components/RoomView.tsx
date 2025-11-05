@@ -1,4 +1,4 @@
-import { PresenceProvider } from '@yorkie-js/react';
+import { ChannelProvider } from '@yorkie-js/react';
 import { ROOMS } from '../App';
 import PresenceCounter from './PresenceCounter';
 import './RoomView.css';
@@ -20,11 +20,11 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
     );
   }
 
-  // Generate a unique presence key for this room
-  const presenceKey = `room-${roomId}`;
+  // Generate a unique channel key for this room
+  const channelKey = `room-${roomId}`;
 
   return (
-    <PresenceProvider presenceKey={presenceKey} isRealtime={true}>
+    <ChannelProvider channelKey={channelKey} isRealtime={true}>
       <div className="room-view">
         <div className="room-view-header">
           <button className="back-button" onClick={onLeave}>
@@ -55,7 +55,7 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
             <h3>You're connected!</h3>
             <p>
               This is room <strong>{room.id}</strong> with presence key:{' '}
-              <code>{presenceKey}</code>
+              <code>{channelKey}</code>
             </p>
             <p className="demo-hint">
               Each room has its own presence key, allowing independent user
@@ -64,7 +64,7 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
           </div>
         </div>
       </div>
-    </PresenceProvider>
+    </ChannelProvider>
   );
 }
 
