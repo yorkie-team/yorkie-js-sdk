@@ -39,7 +39,7 @@
         rpcAddr: 'http://localhost:8080',
       });
 
-      let presence = null;
+      let channel = null;
       const events = [];
 
       const elements = {
@@ -90,24 +90,24 @@
         try {
           elements.joinBtn.disabled = true;
 
-          presence = new yorkie.Presence(roomId);
+          channel = new yorkie.Channel(roomId);
 
-          presence.subscribe((event) => {
-            console.log('Presence event:', event);
+          channel.subscribe((event) => {
+            console.log('Channel event:', event);
             updateCounter(event.count);
 
-            if (event.type === yorkie.PresenceEventType.Initialized) {
+            if (event.type === yorkie.ChannelEventType.Initialized) {
               addEvent(`✅ Joined room - ${event.count} user(s) online`);
-            } else if (event.type === yorkie.PresenceEventType.Changed) {
+            } else if (event.type === yorkie.ChannelEventType.Changed) {
               addEvent(`📊 Count updated - ${event.count} user(s) online`);
             }
           });
 
-          await client.attach(presence);
+          await client.attach(channel);
           updateStatus(true);
           elements.leaveBtn.disabled = false;
 
-          updateCounter(presence.getCount());
+          updateCounter(channel.getPresenceCount());
         } catch (error) {
           console.error('Failed to join room:', error);
           addEvent('❌ Failed to join room');
@@ -119,13 +119,15 @@
         try {
           elements.leaveBtn.disabled = true;
 
-          await client.detach(presence);
+          await client.detach(channel);
           updateStatus(false);
           elements.joinBtn.disabled = false;
 
-          addEvent(`👋 Left room - ${presence.getCount()} user(s) remaining`);
+          addEvent(
+            `👋 Left room - ${channel.getPresenceCount()} user(s) remaining`,
+          );
           updateCounter(0);
-          presence = null;
+          channel = null;
         } catch (error) {
           console.error('Failed to leave room:', error);
           addEvent('❌ Failed to leave room');

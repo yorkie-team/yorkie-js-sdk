@@ -1,9 +1,9 @@
-import { usePresence, usePresenceCount } from '@yorkie-js/react';
+import { useChannel, usePresenceCount } from '@yorkie-js/react';
 import { useEffect, useState } from 'react';
 import './PresenceCounter.css';
 
 function PresenceCounter() {
-  const { count, loading, error } = usePresence();
+  const { count, loading, error } = useChannel();
   const [prevCount, setPrevCount] = useState(0);
   const [isIncreasing, setIsIncreasing] = useState<boolean | null>(null);
 

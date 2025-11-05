@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { Presence } from '@yorkie-js/sdk';
+import { Channel } from '@yorkie-js/sdk';
 import { createStore, Store } from './createStore';
 
 /**
- * `PresenceContextType` represents the state of the Presence context.
+ * `ChannelContextType` represents the state of the Channel context.
  */
-export type PresenceContextType = {
+export type ChannelContextType = {
   /**
-   * `presence` is the Presence instance.
+   * `channel` is the Channel instance.
    */
-  presence: Presence | undefined;
+  channel: Channel | undefined;
 
   /**
    * `count` is the current online user count.
@@ -47,8 +47,8 @@ export type PresenceContextType = {
  * @param initialState - Initial state for the presence store
  * @returns Store instance for presence state management
  */
-export function createPresenceStore(
-  initialState: PresenceContextType,
-): Store<PresenceContextType> {
-  return createStore<PresenceContextType>(initialState);
+export function createChannelStore(
+  initialState: ChannelContextType,
+): Store<ChannelContextType> {
+  return createStore<ChannelContextType>(initialState);
 }

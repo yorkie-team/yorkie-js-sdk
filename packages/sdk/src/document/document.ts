@@ -72,7 +72,7 @@ import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import { DocPresence } from '@yorkie-js/sdk/src/document/presence/presence';
+import { Channel } from '@yorkie-js/sdk/src/document/presence/presence';
 import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
 import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
 import {
@@ -571,7 +571,7 @@ export class Document<R, P extends Indexable = Indexable>
    * `update` executes the given updater to update this document.
    */
   public update(
-    updater: (root: JSONObject<R>, presence: DocPresence<P>) => void,
+    updater: (root: JSONObject<R>, presence: Channel<P>) => void,
     message?: string,
   ): void {
     if (this.getStatus() === DocStatus.Removed) {
@@ -601,7 +601,7 @@ export class Document<R, P extends Indexable = Indexable>
       // NOTE(hackerwins): The updater should not be able to call undo/redo.
       // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
-      updater(proxy, new DocPresence(ctx, this.clone!.presences.get(actorID)!));
+      updater(proxy, new Channel(ctx, this.clone!.presences.get(actorID)!));
     } catch (err) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
@@ -1858,7 +1858,7 @@ export class Document<R, P extends Indexable = Indexable>
     for (const op of ops) {
       if (!(op instanceof Operation)) {
         // apply presence change to the context
-        const presence = new DocPresence<P>(
+        const presence = new Channel<P>(
           ctx,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
         );

@@ -34,7 +34,7 @@ export interface Observable<T> {
 /**
  * `PresenceStatus` represents the status of the presence.
  */
-export enum PresenceStatus {
+export enum ChannelStatus {
   /**
    * `Detached` means that the presence is not attached to the client.
    */
@@ -67,13 +67,13 @@ export interface BroadcastOptions {
 }
 
 /**
- * `PresenceEventType` represents the type of presence event.
+ * `ChannelEventType` represents the type of channel event.
  */
-export enum PresenceEventType {
+export enum ChannelEventType {
   /**
-   * `Changed` means that the presence count has changed.
+   * `Changed` means that the presence has changed.
    */
-  Changed = 'changed',
+  PresenceChanged = 'presence-changed',
 
   /**
    * `Initialized` means that the presence watch has been initialized.
@@ -97,13 +97,13 @@ export enum PresenceEventType {
 }
 
 /**
- * `PresenceCountEvent` represents a presence count change event.
+ * `PresenceEvent` represents a presence change event.
  */
-export interface PresenceCountEvent {
+export interface PresenceEvent {
   /**
    * `type` is the type of the event.
    */
-  type: PresenceEventType.Changed | PresenceEventType.Initialized;
+  type: ChannelEventType.PresenceChanged | ChannelEventType.Initialized;
 
   /**
    * `count` is the current count value.
@@ -112,7 +112,7 @@ export interface PresenceCountEvent {
 }
 
 export interface BroadcastEvent {
-  type: PresenceEventType.Broadcast;
+  type: ChannelEventType.Broadcast;
   clientID: ActorID;
   topic: string;
   payload: Json;
@@ -120,7 +120,7 @@ export interface BroadcastEvent {
 }
 
 export interface LocalBroadcastEvent {
-  type: PresenceEventType.LocalBroadcast;
+  type: ChannelEventType.LocalBroadcast;
   clientID: ActorID;
   topic: string;
   payload: Json;
@@ -128,13 +128,13 @@ export interface LocalBroadcastEvent {
 }
 
 /**
- * `PresenceAuthErrorEvent` represents an authentication error event.
+ * `AuthErrorEvent` represents an authentication error event.
  */
 export interface AuthErrorEvent {
   /**
    * `type` is the type of the event.
    */
-  type: PresenceEventType.AuthError;
+  type: ChannelEventType.AuthError;
 
   /**
    * `reason` is the reason for the authentication error.
@@ -148,113 +148,112 @@ export interface AuthErrorEvent {
 }
 
 /**
- * `PresenceEvent` represents an event that occurs in the presence.
+ * `ChannelEvent` represents an event that occurs in the channel.
  */
-export type PresenceEvent =
-  | PresenceCountEvent
+export type ChannelEvent =
+  | PresenceEvent
   | BroadcastEvent
   | LocalBroadcastEvent
   | AuthErrorEvent;
 
 /**
- * `PresenceEventCallbackMap` represents a map of event types to callbacks.
+ * `ChannelEventCallbackMap` represents a map of event types to callbacks.
  */
-export type PresenceEventCallbackMap = {
+export type ChannelEventCallbackMap = {
   broadcast: NextFn<BroadcastEvent>;
   'local-broadcast': NextFn<LocalBroadcastEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
-  all: NextFn<PresenceEvent>;
+  presence: NextFn<PresenceEvent>;
+  all: NextFn<ChannelEvent>;
 };
 
 /**
- * `Presence` represents a lightweight presence counter for tracking online users.
- * It provides real-time count updates through the watch stream.
- * It implements Attachable interface to be managed by Attachment.
+ * `Channel` represents a lightweight channel for presence and messaging.
  */
-export class Presence implements Observable<PresenceEvent>, Attachable {
+export class Channel implements Observable<ChannelEvent>, Attachable {
   private key: string;
-  private status: PresenceStatus;
+  private status: ChannelStatus;
   private actorID?: ActorID;
-  private presenceID?: string;
+  private sessionID?: string;
   private count: number;
   private seq: number;
 
-  private eventStream: Observable<PresenceEvent>;
-  private eventStreamObserver!: Observer<PresenceEvent>;
+  private eventStream: Observable<ChannelEvent>;
+  private eventStreamObserver!: Observer<ChannelEvent>;
 
   /**
-   * @param key - the key of the presence counter.
+   * @param key - the key of the channel.
    */
   constructor(key: string) {
     this.key = key;
-    this.status = PresenceStatus.Detached;
+    this.status = ChannelStatus.Detached;
     this.count = 0;
     this.seq = 0;
-    this.eventStream = createObservable<PresenceEvent>(
+    this.eventStream = createObservable<ChannelEvent>(
       (observer) => (this.eventStreamObserver = observer),
     );
   }
 
   /**
-   * `getKey` returns the key of this presence counter.
+   * `getKey` returns the key of this channel.
    */
   public getKey(): string {
     return this.key;
   }
 
   /**
-   * `getStatus` returns the status of this presence counter.
+   * `getStatus` returns the status of this channel.
    */
-  public getStatus(): PresenceStatus {
+  public getStatus(): ChannelStatus {
     return this.status;
   }
 
   /**
-   * `applyStatus` applies the presence status into this presence counter.
+   * `applyStatus` applies the channel status into this channel.
    */
-  public applyStatus(status: PresenceStatus): void {
+  public applyStatus(status: ChannelStatus): void {
     this.status = status;
   }
 
   /**
-   * `isAttached` returns whether this presence counter is attached or not.
+   * `isAttached` returns whether this channel is attached or not.
    */
   public isAttached(): boolean {
-    return this.status === PresenceStatus.Attached;
+    return this.status === ChannelStatus.Attached;
   }
 
   /**
-   * `getActorID` returns the actor ID of this presence counter.
+   * `getActorID` returns the actor ID of this channel.
    */
   public getActorID(): ActorID | undefined {
     return this.actorID;
   }
 
   /**
-   * `setActor` sets the actor ID into this presence counter.
+   * `setActor` sets the actor ID into this channel.
    */
   public setActor(actorID: ActorID): void {
     this.actorID = actorID;
   }
 
   /**
-   * `getPresenceID` returns the presence ID from the server.
+   * `getSessionID` returns the session ID from the server.
    */
-  public getPresenceID(): string | undefined {
-    return this.presenceID;
+  public getSessionID(): string | undefined {
+    return this.sessionID;
   }
 
   /**
-   * `setPresenceID` sets the presence ID from the server.
+   * `setSessionID` sets the session ID from the server.
    */
-  public setPresenceID(presenceID: string): void {
-    this.presenceID = presenceID;
+  public setSessionID(sessionID: string): void {
+    this.sessionID = sessionID;
   }
 
   /**
-   * `getCount` returns the current count value.
+   * `getPresenceCount` returns the current count value.
    */
-  public getCount(): number {
+  public getPresenceCount(): number {
     return this.count;
   }
 
@@ -274,49 +273,63 @@ export class Presence implements Observable<PresenceEvent>, Attachable {
   }
 
   /**
-   * `hasLocalChanges` returns whether this presence has local changes or not.
-   * Presence is server-managed, so it always returns false.
+   * `hasLocalChanges` returns whether this channel has local changes or not.
+   * Channel is server-managed, so it always returns false.
    */
   public hasLocalChanges(): boolean {
+    // NOTE(hackerwins): Consider to keep broadcast messages locally in the future.
     return false;
   }
 
   /**
-   * `subscribe` registers a callback to subscribe to events on the presence.
+   * `subscribe` registers a callback to subscribe to events on the channel.
    * The callback will be called when the broadcast event is received from the remote client.
    */
   public subscribe(
     type: 'broadcast',
-    next: PresenceEventCallbackMap['broadcast'],
+    next: ChannelEventCallbackMap['broadcast'],
   ): Unsubscribe;
   /**
-   * `subscribe` registers a callback to subscribe to events on the presence.
+   * `subscribe` registers a callback to subscribe to events on the channel.
    * The callback will be called when the local client sends a broadcast event.
    */
   public subscribe(
     type: 'local-broadcast',
-    next: PresenceEventCallbackMap['local-broadcast'],
+    next: ChannelEventCallbackMap['local-broadcast'],
   ): Unsubscribe;
   /**
-   * `subscribe` registers a callback to subscribe to events on the presence.
+   * `subscribe` registers a callback to subscribe to events on the channel.
    * The callback will be called when an authentication error occurs.
    */
   public subscribe(
     type: 'auth-error',
-    next: PresenceEventCallbackMap['auth-error'],
+    next: ChannelEventCallbackMap['auth-error'],
   ): Unsubscribe;
   /**
-   * `subscribe` registers a callback to subscribe to all events on the presence.
+   * `subscribe` registers a callback to subscribe to presence events on the channel.
+   * The callback will be called when the presence count changes.
+   */
+  public subscribe(
+    type: 'presence',
+    next: ChannelEventCallbackMap['presence'],
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to all events on the channel.
    */
   public subscribe(
     type: 'all',
-    next: PresenceEventCallbackMap['all'],
+    next: ChannelEventCallbackMap['all'],
   ): Unsubscribe;
   /**
-   * `subscribe` registers an observer for all presence events.
+   * `subscribe` registers a callback to subscribe to broadcast events for a specific topic.
+   * The callback will be called when a broadcast event with the matching topic is received.
+   */
+  public subscribe(topic: string, next: NextFn<BroadcastEvent>): Unsubscribe;
+  /**
+   * `subscribe` registers an observer for all channel events.
    * Returns an unsubscribe function.
    */
-  public subscribe(arg1: NextFn<PresenceEvent>): Unsubscribe;
+  public subscribe(arg1: NextFn<ChannelEvent>): Unsubscribe;
 
   /**
    * `subscribe` implementation.
@@ -326,74 +339,99 @@ export class Presence implements Observable<PresenceEvent>, Attachable {
       | 'broadcast'
       | 'local-broadcast'
       | 'auth-error'
+      | 'presence'
       | 'all'
-      | NextFn<PresenceEvent>,
+      | string
+      | NextFn<ChannelEvent>,
     arg2?:
-      | PresenceEventCallbackMap['broadcast']
-      | PresenceEventCallbackMap['local-broadcast']
-      | PresenceEventCallbackMap['auth-error']
-      | PresenceEventCallbackMap['all'],
+      | ChannelEventCallbackMap['broadcast']
+      | ChannelEventCallbackMap['local-broadcast']
+      | ChannelEventCallbackMap['auth-error']
+      | ChannelEventCallbackMap['presence']
+      | ChannelEventCallbackMap['all']
+      | NextFn<BroadcastEvent>,
   ): Unsubscribe {
     if (typeof arg1 === 'function') {
       return this.eventStream.subscribe(arg1);
     }
 
-    const type = arg1;
-    const callback = arg2 as NextFn<PresenceEvent>;
+    const typeOrTopic = arg1;
+    const callback = arg2;
 
     if (!callback) {
       throw new Error(
-        'callback is required when subscribing to specific event type',
+        'callback is required when subscribing to specific event type or topic',
       );
     }
 
-    if (type === 'broadcast') {
+    // Handle reserved event types
+    if (typeOrTopic === 'broadcast') {
       return this.eventStream.subscribe((event) => {
-        if (event.type === PresenceEventType.Broadcast) {
-          (callback as PresenceEventCallbackMap['broadcast'])(event);
+        if (event.type === ChannelEventType.Broadcast) {
+          (callback as ChannelEventCallbackMap['broadcast'])(event);
         }
       });
     }
 
-    if (type === 'local-broadcast') {
+    if (typeOrTopic === 'local-broadcast') {
       return this.eventStream.subscribe((event) => {
-        if (event.type === PresenceEventType.LocalBroadcast) {
-          (callback as PresenceEventCallbackMap['local-broadcast'])(event);
+        if (event.type === ChannelEventType.LocalBroadcast) {
+          (callback as ChannelEventCallbackMap['local-broadcast'])(event);
         }
       });
     }
 
-    if (type === 'auth-error') {
+    if (typeOrTopic === 'auth-error') {
       return this.eventStream.subscribe((event) => {
-        if (event.type === PresenceEventType.AuthError) {
-          (callback as PresenceEventCallbackMap['auth-error'])(event);
+        if (event.type === ChannelEventType.AuthError) {
+          (callback as ChannelEventCallbackMap['auth-error'])(event);
         }
       });
     }
 
-    // type === 'all'
-    return this.eventStream.subscribe(callback);
+    if (typeOrTopic === 'presence') {
+      return this.eventStream.subscribe((event) => {
+        if (
+          event.type === ChannelEventType.PresenceChanged ||
+          event.type === ChannelEventType.Initialized
+        ) {
+          (callback as ChannelEventCallbackMap['presence'])(event);
+        }
+      });
+    }
+
+    if (typeOrTopic === 'all') {
+      return this.eventStream.subscribe(callback as NextFn<ChannelEvent>);
+    }
+
+    // Handle topic-based subscription for broadcast events
+    const topic = typeOrTopic;
+    return this.eventStream.subscribe((event) => {
+      if (event.type === ChannelEventType.Broadcast && event.topic === topic) {
+        (callback as NextFn<BroadcastEvent>)(event);
+      }
+    });
   }
 
   /**
    * `publish` publishes an event to all registered handlers.
    */
-  public publish(event: PresenceEvent): void {
+  public publish(event: ChannelEvent): void {
     if (this.eventStreamObserver) {
       this.eventStreamObserver.next(event);
     }
   }
 
   /**
-   * `broadcast` sends a message to all clients watching this presence.
+   * `broadcast` sends a message to all clients watching this channel.
    */
   public broadcast(
     topic: string,
     payload: any,
     options?: BroadcastOptions,
   ): void {
-    if (this.status !== PresenceStatus.Attached) {
-      throw new Error(`presence is not attached: ${this.status}`);
+    if (this.status !== ChannelStatus.Attached) {
+      throw new Error(`channel is not attached: ${this.status}`);
     }
 
     if (!this.actorID) {
@@ -401,7 +439,7 @@ export class Presence implements Observable<PresenceEvent>, Attachable {
     }
 
     this.publish({
-      type: PresenceEventType.LocalBroadcast,
+      type: ChannelEventType.LocalBroadcast,
       clientID: this.actorID,
       topic,
       payload,

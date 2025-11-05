@@ -25,11 +25,11 @@ import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import { YorkieService } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_connect';
 import {
   WatchDocumentResponse,
-  WatchPresenceResponse,
+  WatchChannelResponse,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import {
   DocEventType as PbDocEventType,
-  PresenceEvent_Type as PbPresenceEventType,
+  ChannelEvent_Type as PbChannelEventType,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   converter,
@@ -54,15 +54,15 @@ import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_intercepto
 import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
 import { validateSerializable } from '../util/validator';
 import {
-  Presence,
-  PresenceStatus,
-  PresenceEventType,
+  Channel,
+  ChannelStatus,
+  ChannelEventType,
   BroadcastOptions,
-} from '@yorkie-js/sdk/src/presence/presence';
+} from '@yorkie-js/sdk/src/channel/channel';
 import { Attachable } from './attachable';
 
 /**
- * `Key` is a string representing the key of Document or Presence.
+ * `Key` is a string representing the key of Document or Channel.
  */
 type Key = string;
 
@@ -182,11 +182,11 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 
   /**
-   * `presenceHeartbeatInterval` is the interval of the presence heartbeat.
-   * The client sends a heartbeat to the server to refresh the presence TTL.
+   * `channelHeartbeatInterval` is the interval of the channel heartbeat.
+   * The client sends a heartbeat to the server to refresh the channel TTL.
    * The default value is `30000`(ms).
    */
-  presenceHeartbeatInterval?: number;
+  channelHeartbeatInterval?: number;
 
   /**
    * `userAgent` is the user agent of the client. It is used to identify the
@@ -244,11 +244,11 @@ export interface AttachOptions<R, P> {
 }
 
 /**
- * `AttachPresenceOptions` are user-settable options used when attaching presence.
+ * `AttachChannelOptions` are user-settable options used when attaching channels.
  */
-export interface AttachPresenceOptions {
+export interface AttachChannelOptions {
   /**
-   * `isRealtime` determines whether to automatically watch presence changes
+   * `isRealtime` determines whether to automatically watch channel changes
    * and send heartbeats. If false (manual mode), the client must call sync()
    * explicitly to refresh the TTL.
    * Default is true for backward compatibility.
@@ -264,7 +264,7 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
-  presenceHeartbeatInterval: 30000,
+  channelHeartbeatInterval: 30000,
 };
 
 /**
@@ -294,7 +294,7 @@ export class Client {
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
-  private presenceHeartbeatInterval: number;
+  private channelHeartbeatInterval: number;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -328,9 +328,9 @@ export class Client {
       opts.reconnectStreamDelay ?? DefaultClientOptions.reconnectStreamDelay;
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay ?? DefaultClientOptions.retrySyncLoopDelay;
-    this.presenceHeartbeatInterval =
-      opts.presenceHeartbeatInterval ??
-      DefaultClientOptions.presenceHeartbeatInterval;
+    this.channelHeartbeatInterval =
+      opts.channelHeartbeatInterval ??
+      DefaultClientOptions.channelHeartbeatInterval;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -457,7 +457,7 @@ export class Client {
   }
 
   /**
-   * `attach` attaches a Document or Presence to this client.
+   * `attach` attaches a Document or Channel to this client.
    * Overloaded to support both types.
    */
   public attach<R, P extends Indexable>(
@@ -466,24 +466,24 @@ export class Client {
   ): Promise<Document<R, P>>;
 
   /**
-   * `attach` attaches the given presence to this client. It tells the server that
-   * this client will track the presence.
+   * `attach` attaches the given channel to this client. It tells the server that
+   * this client will track the channel.
    */
   public attach(
-    resource: Presence,
-    opts?: AttachPresenceOptions,
-  ): Promise<Presence>;
+    resource: Channel,
+    opts?: AttachChannelOptions,
+  ): Promise<Channel>;
 
   /**
-   * `attach` attaches a Document or Presence to this client.
+   * `attach` attaches a Document or Channel to this client.
    * Overloaded to support both types.
    */
   public attach<R, P extends Indexable>(
-    resource: Document<R, P> | Presence,
-    opts?: AttachOptions<R, P> | AttachPresenceOptions,
-  ): Promise<Document<R, P> | Presence> {
-    if (resource instanceof Presence) {
-      return this.attachPresence(resource, opts as AttachPresenceOptions);
+    resource: Document<R, P> | Channel,
+    opts?: AttachOptions<R, P> | AttachChannelOptions,
+  ): Promise<Document<R, P> | Channel> {
+    if (resource instanceof Channel) {
+      return this.attachChannel(resource, opts as AttachChannelOptions);
     } else {
       return this.attachDocument(resource, opts as AttachOptions<R, P>);
     }
@@ -582,7 +582,7 @@ export class Client {
   }
 
   /**
-   * `detach` detaches a Document or Presence from this client.
+   * `detach` detaches a Document or Channel from this client.
    * Overloaded to support both types.
    */
   public detach<R, P extends Indexable>(
@@ -594,17 +594,17 @@ export class Client {
   ): Promise<Document<R, P>>;
 
   /**
-   * `detach` detaches the given presence from this client.
-   * It tells the server that this client will no longer track the presence.
+   * `detach` detaches the given channel from this client.
+   * It tells the server that this client will no longer track the channel.
    */
-  public detach(resource: Presence): Promise<Presence>;
+  public detach(resource: Channel): Promise<Channel>;
 
   /**
-   * `detach` detaches a Document or Presence from this client.
+   * `detach` detaches a Document or Channel from this client.
    */
   public detach(resource: any, opts?: any): Promise<any> {
-    if (resource instanceof Presence) {
-      return this.detachPresence(resource);
+    if (resource instanceof Channel) {
+      return this.detachChannel(resource);
     } else {
       return this.detachDocument(resource, opts);
     }
@@ -680,42 +680,42 @@ export class Client {
   }
 
   /**
-   * `attach` attaches the given presence counter to this client.
-   * It tells the server that this client will track the presence count.
+   * `attach` attaches the given channel to this client.
+   * It tells the server that this client will track the channel.
    */
-  public async attachPresence(
-    presence: Presence,
-    opts: AttachPresenceOptions = {},
-  ): Promise<Presence> {
-    // 01. Check if the client is ready to attach presence.
+  public async attachChannel(
+    channel: Channel,
+    opts: AttachChannelOptions = {},
+  ): Promise<Channel> {
+    // 01. Check if the client is ready to attach channel.
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
         `${this.key} is not active`,
       );
     }
-    if (presence.getStatus() !== PresenceStatus.Detached) {
+    if (channel.getStatus() !== ChannelStatus.Detached) {
       throw new YorkieError(
         Code.ErrNotDetached,
-        `${presence.getKey()} is not detached`,
+        `${channel.getKey()} is not detached`,
       );
     }
 
-    presence.setActor(this.id!);
+    channel.setActor(this.id!);
 
     const task = async () => {
       try {
-        const res = await this.rpcClient.attachPresence(
+        const res = await this.rpcClient.attachChannel(
           {
             clientId: this.id!,
-            presenceKey: presence.getKey(),
+            channelKey: channel.getKey(),
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${presence.getKey()}` } },
+          { headers: { 'x-shard-key': `${this.apiKey}/${channel.getKey()}` } },
         );
 
-        presence.setPresenceID(res.presenceId);
-        presence.updateCount(Number(res.count), 0);
-        presence.applyStatus(PresenceStatus.Attached);
+        channel.setSessionID(res.sessionId);
+        channel.updateCount(Number(res.count), 0);
+        channel.applyStatus(ChannelStatus.Attached);
 
         // Determine sync mode: default is Realtime for backward compatibility
         const syncMode =
@@ -723,15 +723,15 @@ export class Client {
 
         const attachment = new Attachment(
           this.reconnectStreamDelay,
-          presence,
-          res.presenceId,
+          channel,
+          res.sessionId,
           syncMode,
         );
 
-        // TODO(hackerwins): Unsubscribe when detaching presence.
-        presence.subscribe('local-broadcast', (event) => {
+        // TODO(hackerwins): Unsubscribe when detaching channel.
+        channel.subscribe('local-broadcast', (event) => {
           const { topic, payload, options } = event;
-          this.broadcast(presence.getKey(), topic, payload, options).catch(
+          this.broadcast(channel.getKey(), topic, payload, options).catch(
             (error) => {
               if (options?.error) {
                 options.error(error);
@@ -741,17 +741,17 @@ export class Client {
           );
         });
 
-        this.attachmentMap.set(presence.getKey(), attachment);
+        this.attachmentMap.set(channel.getKey(), attachment);
 
-        // Start watching presence count changes only in realtime mode
+        // Start watching channel changes only in realtime mode
         if (syncMode === SyncMode.Realtime) {
-          await this.runWatchLoop(presence.getKey());
+          await this.runWatchLoop(channel.getKey());
         }
 
         logger.info(
-          `[AP] c:"${this.getKey()}" attaches p:"${presence.getKey()}" mode:${syncMode} count:${presence.getCount()}`,
+          `[AP] c:"${this.getKey()}" attaches p:"${channel.getKey()}" mode:${syncMode} count:${channel.getPresenceCount()}`,
         );
-        return presence;
+        return channel;
       } catch (err) {
         logger.error(`[AP] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
@@ -763,44 +763,44 @@ export class Client {
   }
 
   /**
-   * `detachPresence` detaches the given presence counter from this client.
-   * It tells the server that this client will no longer track the presence count.
+   * `detachChannel` detaches the given channel from this client.
+   * It tells the server that this client will no longer track the channel.
    */
-  public async detachPresence(presence: Presence): Promise<Presence> {
+  public async detachChannel(channel: Channel): Promise<Channel> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
         `${this.key} is not active`,
       );
     }
-    if (!this.attachmentMap.has(presence.getKey())) {
+    if (!this.attachmentMap.has(channel.getKey())) {
       throw new YorkieError(
         Code.ErrNotAttached,
-        `${presence.getKey()} is not attached`,
+        `${channel.getKey()} is not attached`,
       );
     }
 
     const task = async () => {
       try {
-        const res = await this.rpcClient.detachPresence(
+        const res = await this.rpcClient.detachChannel(
           {
             clientId: this.id!,
-            presenceId: presence.getPresenceID()!,
-            presenceKey: presence.getKey(),
+            channelKey: channel.getKey(),
+            sessionId: channel.getSessionID()!,
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${presence.getKey()}` } },
+          { headers: { 'x-shard-key': `${this.apiKey}/${channel.getKey()}` } },
         );
 
-        presence.updateCount(Number(res.count), 0);
-        presence.applyStatus(PresenceStatus.Detached);
+        channel.updateCount(Number(res.count), 0);
+        channel.applyStatus(ChannelStatus.Detached);
 
         // Clean up watch stream and remove from attachment map
-        this.detachInternal(presence.getKey());
+        this.detachInternal(channel.getKey());
 
         logger.info(
-          `[DP] c:"${this.getKey()}" detaches p:"${presence.getKey()}" count:${presence.getCount()}`,
+          `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" count:${channel.getPresenceCount()}`,
         );
-        return presence;
+        return channel;
       } catch (err) {
         logger.error(`[DP] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
@@ -867,24 +867,24 @@ export class Client {
    * receives changes of the remote replica from the server then apply them to
    * local documents.
    *
-   * For Presence in manual mode, it refreshes the TTL by sending a heartbeat.
+   * For Channel in manual mode, it refreshes the TTL by sending a heartbeat.
    */
   public sync<R, P extends Indexable>(
     doc?: Document<R, P>,
   ): Promise<Array<Document<R, P>>>;
 
   /**
-   * `sync` refreshes the TTL of the given presence counter by sending a heartbeat.
-   * This is used for manual mode presence counters.
+   * `sync` refreshes the TTL of the given channel by sending a heartbeat.
+   * This is used for manual mode channel.
    */
-  public sync(presence: Presence): Promise<Presence>;
+  public sync(channel: Channel): Promise<Channel>;
 
   /**
-   * `sync` implementation that handles both Document and Presence.
+   * `sync` implementation that handles both Document and Channel.
    */
   public sync<R, P extends Indexable>(
-    resource?: Document<R, P> | Presence,
-  ): Promise<Array<Document<R, P>> | Presence> {
+    resource?: Document<R, P> | Channel,
+  ): Promise<Array<Document<R, P>> | Channel> {
     if (!this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
@@ -892,10 +892,10 @@ export class Client {
       );
     }
 
-    if (resource instanceof Presence) {
+    if (resource instanceof Channel) {
       const attachment = this.attachmentMap.get(
         resource.getKey(),
-      ) as Attachment<Presence>;
+      ) as Attachment<Channel>;
       if (!attachment) {
         throw new YorkieError(
           Code.ErrNotAttached,
@@ -908,7 +908,7 @@ export class Client {
           await this.handleConnectError(err);
           throw err;
         });
-      }) as Promise<Presence>;
+      }) as Promise<Channel>;
     }
 
     if (resource instanceof Document) {
@@ -1037,7 +1037,7 @@ export class Client {
   }
 
   /**
-   * `broadcast` broadcasts the given payload to the given presence topic.
+   * `broadcast` broadcasts the given payload to the given topic.
    */
   public async broadcast(
     key: Key,
@@ -1083,7 +1083,7 @@ export class Client {
           await this.rpcClient.broadcast(
             {
               clientId: this.id!,
-              presenceKey: key,
+              channelKey: key,
               topic,
               payload: new TextEncoder().encode(JSON.stringify(payload)),
             },
@@ -1099,9 +1099,9 @@ export class Client {
           if (await this.handleConnectError(err)) {
             // Publish auth-error event before handling the error
             if (isErrorCode(err, Code.ErrUnauthenticated)) {
-              if (attachment.resource instanceof Presence) {
+              if (attachment.resource instanceof Channel) {
                 attachment.resource.publish({
-                  type: PresenceEventType.AuthError,
+                  type: ChannelEventType.AuthError,
                   reason: errorMetadataOf(err).reason || 'unauthenticated',
                   method: 'Broadcast',
                 });
@@ -1144,7 +1144,7 @@ export class Client {
         await this.enqueueTask(async () => {
           const syncs: Array<any> = [];
           for (const [, attachment] of this.attachmentMap) {
-            if (!attachment.needSync(this.presenceHeartbeatInterval)) {
+            if (!attachment.needSync(this.channelHeartbeatInterval)) {
               continue;
             }
 
@@ -1191,7 +1191,7 @@ export class Client {
   }
 
   /**
-   * `runWatchLoop` runs the watch loop for the given resource (Document or Presence).
+   * `runWatchLoop` runs the watch loop for the given resource (Document or Channel).
    * The watch loop listens to the events of the given resource from the server.
    */
   private async runWatchLoop(key: Key): Promise<void> {
@@ -1232,9 +1232,9 @@ export class Client {
             ac,
             onDisconnect,
           );
-        } else if (attachment.resource instanceof Presence) {
-          return this.createPresenceWatchStream(
-            attachment as Attachment<Presence>,
+        } else if (attachment.resource instanceof Channel) {
+          return this.createChannelWatchStream(
+            attachment as Attachment<Channel>,
             key,
             ac,
             onDisconnect,
@@ -1361,19 +1361,19 @@ export class Client {
   }
 
   /**
-   * `createPresenceWatchStream` creates a watch stream for a Presence.
+   * `createChannelWatchStream` creates a watch stream for a Channel.
    * @internal
    */
-  private createPresenceWatchStream(
-    attachment: Attachment<Presence>,
+  private createChannelWatchStream(
+    attachment: Attachment<Channel>,
     key: Key,
     ac: AbortController,
     onDisconnect: () => void,
   ): Promise<[WatchStream, AbortController]> {
-    const stream = this.rpcClient.watchPresence(
+    const stream = this.rpcClient.watchChannel(
       {
         clientId: this.id!,
-        presenceKey: key,
+        channelKey: key,
       },
       {
         headers: { 'x-shard-key': `${this.apiKey}/${key}` },
@@ -1388,8 +1388,8 @@ export class Client {
         try {
           let isFirstResponse = true;
           for await (const resp of stream) {
-            // Parse protocol response and update presence
-            this.handleWatchPresenceResponse(attachment, resp);
+            // Parse protocol response and update channel
+            this.handleWatchChannelResponse(attachment, resp);
 
             // Resolve on first response to notify that the watch stream is ready
             if (isFirstResponse) {
@@ -1425,21 +1425,21 @@ export class Client {
   }
 
   /**
-   * `handleWatchPresenceResponse` handles the watch presence response from the server.
-   * This method parses the protocol buffer response and updates the presence counter.
+   * `handleWatchChannelResponse` handles the watch channel response from the server.
+   * This method parses the protocol buffer response and updates the channel.
    * @internal
    */
-  private handleWatchPresenceResponse(
-    attachment: Attachment<Presence>,
-    resp: WatchPresenceResponse,
+  private handleWatchChannelResponse(
+    attachment: Attachment<Channel>,
+    resp: WatchChannelResponse,
   ) {
-    const presence = attachment.resource;
+    const channel = attachment.resource;
 
     if (resp.body.case === 'initialized') {
       const { count, seq } = resp.body.value;
-      if (presence.updateCount(Number(count), Number(seq))) {
-        presence.publish({
-          type: PresenceEventType.Initialized,
+      if (channel.updateCount(Number(count), Number(seq))) {
+        channel.publish({
+          type: ChannelEventType.Initialized,
           count: Number(count),
         });
       }
@@ -1447,12 +1447,12 @@ export class Client {
       const event = resp.body.value;
 
       // Handle broadcast events
-      if (event.type === PbPresenceEventType.BROADCAST) {
+      if (event.type === PbChannelEventType.BROADCAST) {
         const decoder = new TextDecoder();
         try {
           const payload = JSON.parse(decoder.decode(event.payload));
-          presence.publish({
-            type: PresenceEventType.Broadcast,
+          channel.publish({
+            type: ChannelEventType.Broadcast,
             clientID: event.publisher,
             topic: event.topic,
             payload,
@@ -1467,9 +1467,9 @@ export class Client {
       }
 
       // Handle count change events
-      if (presence.updateCount(Number(event.count), Number(event.seq))) {
-        presence.publish({
-          type: PresenceEventType.Changed,
+      if (channel.updateCount(Number(event.count), Number(event.seq))) {
+        channel.publish({
+          type: ChannelEventType.PresenceChanged,
           count: Number(event.count),
         });
       }
@@ -1500,8 +1500,8 @@ export class Client {
       this.detachInternal(key);
       if (attachment.resource instanceof Document) {
         attachment.resource.applyStatus(DocStatus.Detached);
-      } else if (attachment.resource instanceof Presence) {
-        attachment.resource.applyStatus(PresenceStatus.Detached);
+      } else if (attachment.resource instanceof Channel) {
+        attachment.resource.applyStatus(ChannelStatus.Detached);
       }
     }
   }
@@ -1529,14 +1529,14 @@ export class Client {
   ): Promise<Attachable> {
     const { resource } = attachment;
 
-    // Handle Presence heartbeat
-    if (resource instanceof Presence) {
+    // Handle channel heartbeat
+    if (resource instanceof Channel) {
       try {
-        const res = await this.rpcClient.refreshPresence(
+        const res = await this.rpcClient.refreshChannel(
           {
             clientId: this.id!,
-            presenceId: resource.getPresenceID()!,
-            presenceKey: resource.getKey(),
+            channelKey: resource.getKey(),
+            sessionId: resource.getSessionID()!,
           },
           {
             headers: {

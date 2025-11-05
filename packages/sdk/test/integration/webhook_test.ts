@@ -163,21 +163,21 @@ describe('Auth Webhook', () => {
     await c1.attach(doc1);
     await c2.attach(doc2);
 
-    const presenceKey = `presence-${docKey}`;
-    const p1 = new yorkie.Presence(presenceKey);
-    const p2 = new yorkie.Presence(presenceKey);
-    await c1.attach(p1);
-    await c2.attach(p2);
+    const channelKey = `presence-${docKey}`;
+    const ch1 = new yorkie.Channel(channelKey);
+    const ch2 = new yorkie.Channel(channelKey);
+    await c1.attach(ch1);
+    await c2.attach(ch2);
 
     const eventCollector = new EventCollector();
     const topic = 'test';
     const payload = 'data';
-    const unsubscribe = p2.subscribe((event) => {
+    const unsubscribe = ch2.subscribe((event) => {
       if (event.type === 'broadcast' && event.topic === topic) {
         eventCollector.add(event.payload as string);
       }
     });
-    p1.broadcast(topic, payload);
+    ch1.broadcast(topic, payload);
     await eventCollector.waitAndVerifyNthEvent(1, payload);
 
     doc1.update((root) => {
@@ -187,8 +187,8 @@ describe('Auth Webhook', () => {
     await c2.sync(doc2);
     expect(doc2.toSortedJSON()).toBe('{"k1":"v1"}');
 
-    await c1.detach(p1);
-    await c2.detach(p2);
+    await c1.detach(ch1);
+    await c2.detach(ch2);
     await c1.detach(doc1);
     await c2.remove(doc2);
 
@@ -612,11 +612,11 @@ describe('Auth Webhook', () => {
       reconnectStreamDelay: 100,
     });
     await c1.activate();
-    const presenceKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const p1 = new yorkie.Presence(presenceKey);
-    await c1.attach(p1);
+    const channelKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const ch1 = new yorkie.Channel(channelKey);
+    await c1.attach(ch1);
     const collector1 = new EventCollector<{ reason: string; method: string }>();
-    p1.subscribe((event) => {
+    ch1.subscribe((event) => {
       if (event.type === 'auth-error') {
         collector1.add({ reason: event.reason, method: event.method });
       }
@@ -631,13 +631,13 @@ describe('Auth Webhook', () => {
       },
     });
     await c2.activate();
-    const p2 = new yorkie.Presence(presenceKey);
-    await c2.attach(p2);
+    const ch2 = new yorkie.Channel(channelKey);
+    await c2.attach(ch2);
 
     const collector2 = new EventCollector();
     const topic = 'test';
     const payload = 'data';
-    const unsub2 = p2.subscribe((event) => {
+    const unsub2 = ch2.subscribe((event) => {
       if (event.type === 'broadcast' && event.topic === topic) {
         collector2.add(event.payload as string);
       }
@@ -645,7 +645,7 @@ describe('Auth Webhook', () => {
 
     // retry broadcast
     await new Promise((res) => setTimeout(res, TokenExpirationMs));
-    p1.broadcast(topic, payload);
+    ch1.broadcast(topic, payload);
     await collector2.waitAndVerifyNthEvent(1, payload);
     await collector1.waitFor({
       reason: ExpiredTokenErrorMessage,
@@ -656,8 +656,8 @@ describe('Auth Webhook', () => {
     expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
 
     unsub2();
-    await c1.detach(p1);
-    await c2.detach(p2);
+    await c1.detach(ch1);
+    await c2.detach(ch2);
     await c1.deactivate();
     await c2.deactivate();
   });

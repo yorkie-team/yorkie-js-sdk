@@ -23,7 +23,7 @@ import React, {
 } from 'react';
 import {
   Document,
-  DocPresence,
+  Presence,
   Indexable,
   StreamConnectionStatus,
   Client,
@@ -128,9 +128,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           initialPresence: initialPresenceRef.current,
         });
 
-        const update = (
-          callback: (root: R, presence: DocPresence<P>) => void,
-        ) => {
+        const update = (callback: (root: R, presence: Presence<P>) => void) => {
           try {
             newDoc.update(callback);
           } catch (err) {
@@ -184,7 +182,7 @@ export type DocumentContextType<R, P extends Indexable = Indexable> = {
   root: R;
   presences: Array<{ clientID: string; presence: P }>;
   connection: StreamConnectionStatus;
-  update: (callback: (root: R, presence: DocPresence<P>) => void) => void;
+  update: (callback: (root: R, presence: Presence<P>) => void) => void;
   loading: boolean;
   error: Error | undefined;
 };
