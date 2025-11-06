@@ -1,6 +1,6 @@
 {
   "name": "@yorkie-js/schema",
-  "version": "0.6.35",
+  "version": "0.6.36",
   "description": "Yorkie Schema for Yorkie Document",
   "main": "./src/index.ts",
   "publishConfig": {
