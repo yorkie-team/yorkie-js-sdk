@@ -7,6 +7,18 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.36] - 2025-11-06
+
+### Added
+
+- Add PresenceProvider and related hooks by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1099
+
+### Changed
+
+- Replace lodash to es-toolkit for bundle size reduction by @witch-factory in https://github.com/yorkie-team/yorkie-js-sdk/pull/1101
+- Refactor broadcast handling in Presence by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1102
+- Rename Presence to Channel by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1103
+
 ## [v0.6.35] - 2025-10-30
 
 ### Added
