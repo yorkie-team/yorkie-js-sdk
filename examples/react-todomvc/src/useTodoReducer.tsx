@@ -12,7 +12,10 @@ export function useTodoReducer(initialRoot: { todos: JSONArray<Todo> }) {
       .toISOString()
       .substring(0, 10)
       .replace(/-/g, '')}`,
-    { initialRoot },
+    {
+      initialRoot,
+      rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+    },
   );
 
   const dispatch = useCallback(
