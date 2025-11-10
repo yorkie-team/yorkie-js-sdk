@@ -185,6 +185,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
    * @param key - the key of the channel.
    */
   constructor(key: string) {
+    this.validateChannelKey(key);
     this.key = key;
     this.status = ChannelStatus.Detached;
     this.count = 0;
@@ -194,11 +195,20 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
     );
   }
 
+  private static readonly channelKeyPathSeparator = '.';
+
   /**
    * `getKey` returns the key of this channel.
    */
   public getKey(): string {
     return this.key;
+  }
+
+  /**
+   * `getFirstKeyPath` returns the first key path to the presence count.
+   */
+  public getFirstKeyPath(): string {
+    return this.key.split(Channel.channelKeyPathSeparator)[0];
   }
 
   /**
@@ -445,5 +455,27 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
       payload,
       options,
     });
+  }
+
+  private validateChannelKey(key: string): void {
+    if (key.includes(' ')) {
+      throw new Error('channel key must not contain a whitespace');
+    }
+    if (key.startsWith(Channel.channelKeyPathSeparator)) {
+      throw new Error('channel key must not start with a period');
+    }
+    if (key.endsWith(Channel.channelKeyPathSeparator)) {
+      throw new Error('channel key must not end with a period');
+    }
+    if (
+      key.includes(
+        `${Channel.channelKeyPathSeparator}${Channel.channelKeyPathSeparator}`,
+      )
+    ) {
+      throw new Error('channel key path must not empty');
+    }
+    if (key.split(Channel.channelKeyPathSeparator).length === 0) {
+      throw new Error('channel key must have at least one key path');
+    }
   }
 }

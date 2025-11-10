@@ -710,7 +710,11 @@ export class Client {
             clientId: this.id!,
             channelKey: channel.getKey(),
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${channel.getKey()}` } },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
+            },
+          },
         );
 
         channel.setSessionID(res.sessionId);
@@ -788,7 +792,11 @@ export class Client {
             channelKey: channel.getKey(),
             sessionId: channel.getSessionID()!,
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${channel.getKey()}` } },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
+            },
+          },
         );
 
         channel.updateCount(Number(res.count), 0);
