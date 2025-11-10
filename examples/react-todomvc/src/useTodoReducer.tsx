@@ -4,19 +4,21 @@ import { JSONArray, useYorkieDoc } from '@yorkie-js/react';
 import { Todo } from './model';
 
 export function useTodoReducer(initialRoot: { todos: JSONArray<Todo> }) {
-  const { root, update, loading, error } = useYorkieDoc<{
-    todos: JSONArray<Todo>;
-  }>(
-    import.meta.env.VITE_YORKIE_API_KEY,
+  // Get document key from query string or use date-based key as fallback
+  const urlParams = new URLSearchParams(window.location.search);
+  const documentKey =
+    urlParams.get('key') ||
     `react-todomvc-${new Date()
       .toISOString()
       .substring(0, 10)
-      .replace(/-/g, '')}`,
-    {
-      initialRoot,
-      rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
-    },
-  );
+      .replace(/-/g, '')}`;
+
+  const { root, update, loading, error } = useYorkieDoc<{
+    todos: JSONArray<Todo>;
+  }>(import.meta.env.VITE_YORKIE_API_KEY, documentKey, {
+    initialRoot,
+    rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+  });
 
   const dispatch = useCallback(
     (action: TodoAction) => {
