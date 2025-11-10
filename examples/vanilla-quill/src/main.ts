@@ -16,10 +16,15 @@ type TextValueType = {
 const peersElem = document.getElementById('peers')!;
 const networkStatusElem = document.getElementById('network-status')!;
 const colorHash = new ColorHash();
-const documentKey = `vanilla-quill-${new Date()
-  .toISOString()
-  .substring(0, 10)
-  .replace(/-/g, '')}`;
+
+// Get document key from query string or use date-based key as fallback
+const params = new URLSearchParams(window.location.search);
+const documentKey =
+  params.get('key') ||
+  `vanilla-quill-${new Date()
+    .toISOString()
+    .substring(0, 10)
+    .replace(/-/g, '')}`;
 
 function toDeltaOperation<T extends TextValueType>(textValue: T): Op {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
