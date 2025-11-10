@@ -30,7 +30,6 @@ interface Entry<K, V> {
 class LLRBNode<K, V> {
   public key: K;
   public value: V;
-  public parent?: LLRBNode<K, V>;
   public left?: LLRBNode<K, V>;
   public right?: LLRBNode<K, V>;
   public isRed: boolean;
@@ -144,33 +143,21 @@ export class LLRBTree<K, V> {
    */
   public floorEntry(key: K): Entry<K, V> | undefined {
     let node = this.root;
+    let result: LLRBNode<K, V> | undefined = undefined;
+
     while (node) {
       const compare = this.comparator(key, node.key);
-      if (compare > 0) {
-        if (node.right) {
-          node.right.parent = node;
-          node = node.right;
-        } else {
-          return node;
-        }
-      } else if (compare < 0) {
-        if (node.left) {
-          node.left.parent = node;
-          node = node.left;
-        } else {
-          let parent = node.parent;
-          let childNode = node;
-          while (parent && childNode === parent.left) {
-            childNode = parent;
-            parent = parent.parent;
-          }
-          return parent!;
-        }
-      } else {
+      if (compare === 0) {
         return node;
+      } else if (compare < 0) {
+        node = node.left;
+      } else {
+        result = node;
+        node = node.right;
       }
     }
-    return;
+
+    return result;
   }
 
   /**

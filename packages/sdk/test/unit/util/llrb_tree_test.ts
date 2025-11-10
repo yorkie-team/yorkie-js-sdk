@@ -27,6 +27,30 @@ const arrays = [
   [9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
 ];
 
+function checkFloor(
+  tree: LLRBTree<number, number>,
+  arr: Array<number>,
+  loop: number,
+) {
+  for (let floorKey = 0; floorKey < loop; floorKey++) {
+    let expectedKey: number | undefined = undefined;
+    for (const v of arr) {
+      if (v <= floorKey) {
+        if (expectedKey === undefined || expectedKey <= v) {
+          expectedKey = v;
+        }
+      }
+    }
+    const resultEntry = tree.floorEntry(floorKey);
+
+    if (expectedKey === undefined) {
+      assert.isUndefined(resultEntry);
+    } else {
+      assert.equal(expectedKey, resultEntry!.key);
+    }
+  }
+}
+
 describe('LLRBTree', function () {
   it('Can put/remove while keeping order', function () {
     for (const array of arrays) {
@@ -62,6 +86,19 @@ describe('LLRBTree', function () {
 
       tree.remove(7);
       assert.equal(6, tree.floorEntry(8)!.value);
+    }
+  });
+
+  it('Can floor entry at each insertion step', function () {
+    for (const array of arrays) {
+      const testArr: Array<number> = [];
+      const tree = new LLRBTree<number, number>();
+      for (const value of array) {
+        checkFloor(tree, testArr, 10);
+        tree.put(value, value);
+        testArr.push(value);
+        checkFloor(tree, testArr, 10);
+      }
     }
   });
 });
