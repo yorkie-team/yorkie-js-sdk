@@ -1,11 +1,13 @@
+import { useEffect, useMemo } from 'react';
 import { ROOMS } from '../App';
 import './RoomSelector.css';
 
 interface RoomSelectorProps {
   onRoomSelect: (roomId: string) => void;
+  presences: { key: string, presenceCount: number }[];
 }
 
-function RoomSelector({ onRoomSelect }: RoomSelectorProps) {
+function RoomSelector({ onRoomSelect, presences }: RoomSelectorProps) {
   return (
     <div className="room-selector">
       <h2>Choose a Room</h2>
@@ -14,21 +16,23 @@ function RoomSelector({ onRoomSelect }: RoomSelectorProps) {
       </p>
 
       <div className="room-grid">
-        {ROOMS.map((room) => (
-          <button
+        {ROOMS.map((room) => {
+          const presenceCount = presences.find(p => p.key === room.key)?.presenceCount || 0;
+          return <button
             key={room.id}
             className="room-card"
             onClick={() => onRoomSelect(room.id)}
           >
             <div className="room-card-header">
               <h3>{room.name}</h3>
+              <span className="room-card-badge">{presenceCount} users</span>
             </div>
             <p className="room-card-description">{room.description}</p>
             <div className="room-card-action">
               <span>Join Room →</span>
             </div>
           </button>
-        ))}
+        })}
       </div>
 
       <div className="room-selector-tip">

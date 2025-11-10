@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { YorkieProvider } from '@yorkie-js/react';
 import RoomSelector from './components/RoomSelector';
 import RoomView from './components/RoomView';
@@ -6,15 +6,54 @@ import './App.css';
 
 // Available rooms with their metadata
 export const ROOMS = [
-  { id: 'general', name: '💬 General', description: 'General discussion' },
-  { id: 'dev', name: '💻 Development', description: 'Tech talk and coding' },
-  { id: 'random', name: '🎲 Random', description: 'Off-topic chat' },
-  { id: 'music', name: '🎵 Music', description: 'Share your favorite tunes' },
+  { id: 'general', name: '💬 General', description: 'General discussion', key: "room-general" },
+  { id: 'dev', name: '💻 Development', description: 'Tech talk and coding', key: "room-dev" },
+  { id: 'random', name: '🎲 Random', description: 'Off-topic chat', key: "room-random" },
+  { id: 'music', name: '🎵 Music', description: 'Share your favorite tunes', key: "room-music" },
 ];
 
 function App() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
+  const url = `${import.meta.env.VITE_YORKIE_API_ADDR}/yorkie.v1.AdminService/GetChannels`;
+  const [presences, setPresences] = useState<{ key: string, presenceCount: number }[]>([]);
+  
+  useEffect(() => {
+    // RoomSelector가 보일 때만 (currentRoom이 null일 때) fetchChannels 실행
+    if (currentRoom !== null) {
+      return;
+    }
 
+    const fetchChannels = async () => {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `API-Key ${import.meta.env.VITE_YORKIE_API_SECRET_KEY}`,
+          },
+          body: JSON.stringify({
+            channel_keys: ROOMS.map(room => room.key),
+            include_presence: false,
+          }),
+        });
+        const data = await response.json();
+        const newPresences = ROOMS.map(room => {
+          const presenceCount = data.channels?.find((ch: any) => ch.key === room.key)?.presenceCount ?? 0;
+          return {
+            key: room.key,
+            presenceCount: presenceCount,
+          };
+        });
+        
+        setPresences(newPresences);
+      } catch (error) {
+        console.error('Failed to fetch channels:', error);
+      }
+    };
+    
+    fetchChannels();
+  }, [currentRoom, url]);
+  
   return (
     <YorkieProvider
       apiKey={import.meta.env.VITE_YORKIE_API_KEY || ''}
@@ -33,7 +72,7 @@ function App() {
               onLeave={() => setCurrentRoom(null)}
             />
           ) : (
-            <RoomSelector onRoomSelect={setCurrentRoom} />
+            <RoomSelector onRoomSelect={setCurrentRoom} presences={presences} />
           )}
         </main>
 
