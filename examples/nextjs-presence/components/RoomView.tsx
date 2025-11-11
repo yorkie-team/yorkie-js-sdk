@@ -1,5 +1,7 @@
+'use client';
+
 import { ChannelProvider } from '@yorkie-js/react';
-import { ROOMS } from '../App';
+import { ROOMS } from '@/lib/rooms';
 import PresenceCounter from './PresenceCounter';
 import './RoomView.css';
 
@@ -52,7 +54,7 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
           </div>
 
           <div className="room-demo-area">
-            <h3>You're connected!</h3>
+            <h3>You&apos;re connected!</h3>
             <p>
               This is room <strong>{room.id}</strong> with presence key:{' '}
               <code>{channelKey}</code>

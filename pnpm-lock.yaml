@@ -36,6 +36,46 @@ importers:
         specifier: ^8.38.0
         version: 8.38.0(eslint@9.32.0(jiti@2.5.1))(typescript@5.8.2)
 
+  examples/nextjs-presence:
+    dependencies:
+      '@yorkie-js/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@yorkie-js/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      next:
+        specifier: 15.4.1
+        version: 15.4.1(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(sass@1.89.2)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+    devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3
+        version: 3.3.1
+      '@types/node':
+        specifier: ^20
+        version: 20.9.0
+      '@types/react':
+        specifier: ^19
+        version: 19.1.9
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.1.7(@types/react@19.1.9)
+      eslint:
+        specifier: ^9
+        version: 9.32.0(jiti@2.5.1)
+      eslint-config-next:
+        specifier: 15.4.1
+        version: 15.4.1(eslint@9.32.0(jiti@2.5.1))(typescript@5.3.3)
+      typescript:
+        specifier: ^5
+        version: 5.3.3
+
   examples/nextjs-quill:
     dependencies:
       '@yorkie-js/react':
@@ -10414,7 +10454,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
       srcset: 4.0.0
     transitivePeerDependencies:
       - '@parcel/core'
@@ -10483,7 +10523,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
@@ -10528,7 +10568,7 @@ snapshots:
       posthtml: 0.16.6
       posthtml-parser: 0.10.2
       posthtml-render: 3.0.0
-      semver: 7.7.1
+      semver: 7.7.2
     transitivePeerDependencies:
       - '@parcel/core'
 
