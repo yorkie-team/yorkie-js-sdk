@@ -7,6 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.37] - 2025-11-11
+
+### Added
+
+- Add rpcAddr to options in ReactTodoMVC by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1106
+- Add document key retrieval to use query string by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1108
+- Refine channel shard key and add GetChannels API example by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1109
+
+### Fixed
+
+- Add cancel watch stream test by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1105
+- Fix nil pointer dereference in LLRB Floor function by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1107
+
 ## [v0.6.36] - 2025-11-06
 
 ### Added
