@@ -4,24 +4,24 @@ export const ROOMS = [
     id: 'general',
     name: '💬 General',
     description: 'General discussion',
-    key: 'room-general',
+    key: 'room.general',
   },
   {
     id: 'dev',
     name: '💻 Development',
     description: 'Tech talk and coding',
-    key: 'room-dev',
+    key: 'room.dev',
   },
   {
     id: 'random',
     name: '🎲 Random',
     description: 'Off-topic chat',
-    key: 'room-random',
+    key: 'room.random',
   },
   {
     id: 'music',
     name: '🎵 Music',
     description: 'Share your favorite tunes',
-    key: 'room-music',
+    key: 'room.music',
   },
 ];

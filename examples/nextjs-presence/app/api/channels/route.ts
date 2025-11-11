@@ -9,7 +9,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { channel_keys, include_presence } = await request.json();
+    const { channel_keys, include_sub_path } = await request.json();
 
     const url = `${process.env.NEXT_PUBLIC_YORKIE_API_ADDR}/yorkie.v1.AdminService/GetChannels`;
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         channel_keys,
-        include_presence,
+        include_sub_path,
       }),
     });
 

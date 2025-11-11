@@ -26,12 +26,13 @@ function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            channel_keys: ROOMS.map((room) => room.key),
-            include_presence: true,
+            channel_keys: ["room", ...ROOMS.map(room => room.key)],
+            include_sub_path: true,
           }),
         });
         const data = await response.json();
-        const newPresences = ROOMS.map((room) => {
+        console.log(data);
+        const roomPresences = ROOMS.map((room) => {
           const presenceCount =
             data.channels?.find((ch: any) => ch.key === room.key)
               ?.presenceCount ?? 0;
@@ -40,8 +41,14 @@ function App() {
             presenceCount: presenceCount,
           };
         });
-
-        setPresences(newPresences);
+        
+        const roomChannel = data.channels?.find((ch: any) => ch.key === "room");
+        const totalPresence = {
+          key: "room",
+          presenceCount: roomChannel?.presenceCount ?? 0,
+        };
+        
+        setPresences([totalPresence, ...roomPresences]);
       } catch (error) {
         console.error('Failed to fetch channels:', error);
         // Fallback to zero presence counts on error (e.g., static hosting mode)
@@ -65,7 +72,9 @@ function App() {
     >
       <div className="app">
         <header className="app-header">
-          <h1>Yorkie Presence Rooms</h1>
+          <div className="app-header-title">
+            <h1>Yorkie Presence Rooms</h1>
+          </div>
           <p>Real-time user presence tracking across multiple rooms</p>
         </header>
 
