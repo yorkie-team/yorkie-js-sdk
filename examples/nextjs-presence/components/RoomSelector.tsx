@@ -7,11 +7,14 @@ interface RoomSelectorProps {
 }
 
 function RoomSelector({ onRoomSelect, presences }: RoomSelectorProps) {
-  const totalCount = presences.find((p: any) => p.key === "room")?.presenceCount ?? 0;
+  const totalCount =
+    presences.find((p) => p.key === 'room')?.presenceCount ?? 0;
   return (
     <div className="room-selector">
-      <h2>Choose a Room</h2>
-      <span className="room-selector-badge">{totalCount} users</span>
+      <h2>
+        Choose a Room
+        <span className="room-selector-badge">{totalCount} users</span>
+      </h2>
       <p className="room-selector-subtitle">
         Join a room to see who else is online
       </p>

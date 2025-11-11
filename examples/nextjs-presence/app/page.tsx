@@ -26,28 +26,27 @@ function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            channel_keys: ["room", ...ROOMS.map(room => room.key)],
+            channel_keys: ['room', ...ROOMS.map((room) => room.key)],
             include_sub_path: true,
           }),
         });
         const data = await response.json();
-        console.log(data);
         const roomPresences = ROOMS.map((room) => {
           const presenceCount =
-            data.channels?.find((ch: any) => ch.key === room.key)
-              ?.presenceCount ?? 0;
+            data.channels?.find((ch) => ch.key === room.key)?.presenceCount ??
+            0;
           return {
             key: room.key,
             presenceCount: presenceCount,
           };
         });
-        
-        const roomChannel = data.channels?.find((ch: any) => ch.key === "room");
+
+        const roomChannel = data.channels?.find((ch) => ch.key === 'room');
         const totalPresence = {
-          key: "room",
+          key: 'room',
           presenceCount: roomChannel?.presenceCount ?? 0,
         };
-        
+
         setPresences([totalPresence, ...roomPresences]);
       } catch (error) {
         console.error('Failed to fetch channels:', error);

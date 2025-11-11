@@ -461,6 +461,9 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
   }
 
   private validateChannelKey(key: string): void {
+    if (key === '') {
+      throw new Error('channel key must not be empty');
+    }
     if (key.includes(' ')) {
       throw new Error('channel key must not contain a whitespace');
     }
@@ -472,9 +475,6 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
     }
     if (key.includes(`${KeyPathSeparator}${KeyPathSeparator}`)) {
       throw new Error('channel key path must not empty');
-    }
-    if (key.split(KeyPathSeparator).length === 0) {
-      throw new Error('channel key must have at least one key path');
     }
   }
 }
