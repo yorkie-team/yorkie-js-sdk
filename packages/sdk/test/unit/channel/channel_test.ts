@@ -27,27 +27,13 @@ describe('Channel', function () {
     });
 
     // invalid keys
-    assert.throws(() => {
-      new yorkie.Channel('.');
-    });
-    assert.throws(() => {
-      new yorkie.Channel('........');
-    });
-    assert.throws(() => {
-      new yorkie.Channel('.test');
-    });
-    assert.throws(() => {
-      new yorkie.Channel('.test.');
-    });
-    assert.throws(() => {
-      new yorkie.Channel('test.');
-    });
-    assert.throws(() => {
-      new yorkie.Channel('test..test');
-    });
-    assert.throws(() => {
-      new yorkie.Channel('test. test');
-    });
+    assert.throws(() => new yorkie.Channel('.'));
+    assert.throws(() => new yorkie.Channel('........'));
+    assert.throws(() => new yorkie.Channel('.test'));
+    assert.throws(() => new yorkie.Channel('.test.'));
+    assert.throws(() => new yorkie.Channel('test.'));
+    assert.throws(() => new yorkie.Channel('test..test'));
+    assert.throws(() => new yorkie.Channel('test. test'));
   });
 
   it('should get first key path', function () {
