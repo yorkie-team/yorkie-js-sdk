@@ -710,7 +710,11 @@ export class Client {
             clientId: this.id!,
             channelKey: channel.getKey(),
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${channel.getKey()}` } },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
+            },
+          },
         );
 
         channel.setSessionID(res.sessionId);
@@ -788,7 +792,11 @@ export class Client {
             channelKey: channel.getKey(),
             sessionId: channel.getSessionID()!,
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${channel.getKey()}` } },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
+            },
+          },
         );
 
         channel.updateCount(Number(res.count), 0);
@@ -1063,6 +1071,8 @@ export class Client {
       );
     }
 
+    const ch = attachment.resource as Channel;
+
     const maxRetries =
       options?.maxRetries ?? DefaultBroadcastOptions.maxRetries;
     const maxBackoff = DefaultBroadcastOptions.maxBackoff;
@@ -1087,7 +1097,11 @@ export class Client {
               topic,
               payload: new TextEncoder().encode(JSON.stringify(payload)),
             },
-            { headers: { 'x-shard-key': `${this.apiKey}/${key}` } },
+            {
+              headers: {
+                'x-shard-key': `${this.apiKey}/${ch.getFirstKeyPath()}`,
+              },
+            },
           );
 
           logger.info(
@@ -1376,7 +1390,11 @@ export class Client {
         channelKey: key,
       },
       {
-        headers: { 'x-shard-key': `${this.apiKey}/${key}` },
+        headers: {
+          'x-shard-key': `${
+            this.apiKey
+          }/${attachment.resource.getFirstKeyPath()}`,
+        },
         signal: ac.signal,
       },
     );
@@ -1540,7 +1558,7 @@ export class Client {
           },
           {
             headers: {
-              'x-shard-key': `${this.apiKey}/${resource.getKey()}`,
+              'x-shard-key': `${this.apiKey}/${resource.getFirstKeyPath()}`,
             },
           },
         );

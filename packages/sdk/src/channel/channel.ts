@@ -168,6 +168,11 @@ export type ChannelEventCallbackMap = {
 };
 
 /**
+ * KeyPathSeparator is the separator for key paths in a channel key.
+ */
+const KeyPathSeparator = '.';
+
+/**
  * `Channel` represents a lightweight channel for presence and messaging.
  */
 export class Channel implements Observable<ChannelEvent>, Attachable {
@@ -185,6 +190,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
    * @param key - the key of the channel.
    */
   constructor(key: string) {
+    this.validateChannelKey(key);
     this.key = key;
     this.status = ChannelStatus.Detached;
     this.count = 0;
@@ -199,6 +205,13 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
    */
   public getKey(): string {
     return this.key;
+  }
+
+  /**
+   * `getFirstKeyPath` returns the first key path to the presence count.
+   */
+  public getFirstKeyPath(): string {
+    return this.key.split(KeyPathSeparator)[0];
   }
 
   /**
@@ -445,5 +458,23 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
       payload,
       options,
     });
+  }
+
+  private validateChannelKey(key: string): void {
+    if (key === '') {
+      throw new Error('channel key must not be empty');
+    }
+    if (key.includes(' ')) {
+      throw new Error('channel key must not contain a whitespace');
+    }
+    if (key.startsWith(KeyPathSeparator)) {
+      throw new Error('channel key must not start with a period');
+    }
+    if (key.endsWith(KeyPathSeparator)) {
+      throw new Error('channel key must not end with a period');
+    }
+    if (key.includes(`${KeyPathSeparator}${KeyPathSeparator}`)) {
+      throw new Error('channel key path must not empty');
+    }
   }
 }

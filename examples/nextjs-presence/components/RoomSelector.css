@@ -7,11 +7,38 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+.room-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
 .room-selector h2 {
   font-size: 2rem;
-  margin-bottom: 0.5rem;
-  text-align: center;
+  margin: 0;
   color: #333;
+}
+
+.room-selector-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: rgba(102, 126, 234, 0.15);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #667eea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  float: right;
 }
 
 .room-selector-subtitle {
@@ -38,6 +65,7 @@
   color: white;
   text-align: left;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 
 .room-card:hover {
@@ -49,10 +77,37 @@
   transform: translateY(-2px);
 }
 
+.room-card-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
 .room-card-header h3 {
   font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  margin: 0;
   font-weight: 600;
+  flex: 1;
+}
+
+.room-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
 }
 
 .room-card-description {
@@ -87,6 +142,12 @@
     color: #fff;
   }
 
+  .room-selector-badge {
+    background: rgba(102, 126, 234, 0.25);
+    border-color: rgba(102, 126, 234, 0.4);
+    color: #9db4ff;
+  }
+
   .room-selector-subtitle {
     color: #aaa;
   }
@@ -102,8 +163,19 @@
     padding: 1.5rem;
   }
 
+  .room-selector-header {
+    gap: 0.75rem;
+  }
+
   .room-selector h2 {
     font-size: 1.5rem;
+  }
+
+  .room-selector-badge {
+    font-size: 0.75rem;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
   }
 
   .room-grid {

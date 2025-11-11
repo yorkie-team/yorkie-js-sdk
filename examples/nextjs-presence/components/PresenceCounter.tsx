@@ -1,4 +1,6 @@
-import { useChannel, usePresenceCount } from '@yorkie-js/react';
+'use client';
+
+import { useChannel } from '@yorkie-js/react';
 import { useEffect, useState } from 'react';
 import './PresenceCounter.css';
 
@@ -72,7 +74,7 @@ function PresenceCounter() {
 
 // Alternative simpler component using only usePresenceCount hook
 export function SimplePresenceCounter() {
-  const count = usePresenceCount();
+  const count = useChannel().count;
 
   return (
     <div className="simple-counter">

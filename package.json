@@ -25,7 +25,7 @@
     "vuejs-kanban": "pnpm --filter=vuejs-kanban",
     "react-document-limit": "pnpm --filter=react-document-limit",
     "vanilla-document-limit": "pnpm --filter=vanilla-document-limit",
-    "react-presence": "pnpm --filter=react-presence"
+    "nextjs-presence": "pnpm --filter=nextjs-presence"
   },
   "keywords": [],
   "author": {
