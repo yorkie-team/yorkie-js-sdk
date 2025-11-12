@@ -26,15 +26,40 @@ const documentKey =
     .substring(0, 10)
     .replace(/-/g, '')}`;
 
-function toDeltaOperation<T extends TextValueType>(textValue: T): Op {
+// Filter out null values from attributes
+function filterNullAttrs(attributes?: Indexable): Indexable | undefined {
+  if (!attributes) return undefined;
+
+  const filtered: Indexable = {};
+  let hasNonNullValue = false;
+
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value !== null) {
+      filtered[key] = value;
+      hasNonNullValue = true;
+    }
+  }
+
+  return hasNonNullValue ? filtered : undefined;
+}
+
+function toDeltaOperation<T extends TextValueType>(
+  textValue: T,
+  filterNull: boolean = false,
+): Op {
   const { embed, ...restAttributes } = textValue.attributes ?? {};
   if (embed) {
-    return { insert: JSON.parse(embed.toString()), attributes: restAttributes };
+    return {
+      insert: JSON.parse(embed.toString()),
+      attributes: filterNull ? filterNullAttrs(restAttributes) : restAttributes,
+    };
   }
 
   return {
     insert: textValue.content || '',
-    attributes: textValue.attributes,
+    attributes: filterNull
+      ? filterNullAttrs(textValue.attributes)
+      : textValue.attributes,
   };
 }
 
@@ -257,7 +282,7 @@ async function main() {
         const retainFrom = from - prevTo;
         const retainTo = to - from;
 
-        const { insert, attributes } = toDeltaOperation(op.value!);
+        const { insert, attributes } = toDeltaOperation(op.value!, true);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
         if (retainFrom) {
@@ -279,7 +304,7 @@ async function main() {
         const to = op.to;
         const retainFrom = from - prevTo;
         const retainTo = to - from;
-        const { attributes } = toDeltaOperation(op.value!);
+        const { attributes } = toDeltaOperation(op.value!, false);
         console.log(
           `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
           'color: skyblue',
@@ -315,7 +340,7 @@ async function main() {
     const text = doc.getRoot().content;
 
     const delta = new Delta(
-      text.values().map((value) => toDeltaOperation(value)),
+      text.values().map((value) => toDeltaOperation(value, true)),
     );
     quill.setContents(delta, 'api');
   }
