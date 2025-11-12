@@ -76,6 +76,10 @@ importers:
         specifier: ^5
         version: 5.3.3
 
+  examples/nextjs-presence/dist: {}
+
+  examples/nextjs-presence/dist/types: {}
+
   examples/nextjs-quill:
     dependencies:
       '@yorkie-js/react':
