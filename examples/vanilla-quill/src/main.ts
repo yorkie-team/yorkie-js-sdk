@@ -177,22 +177,23 @@ async function main() {
       let from = 0,
         to = 0;
       console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
-      for (const op of delta.ops) {
-        if (op.attributes !== undefined || op.insert !== undefined) {
-          if (op.retain !== undefined && typeof op.retain === 'number') {
-            to = from + op.retain;
-          }
-          console.log(
-            `%c local: ${from}-${to}: ${op.insert} ${
-              op.attributes ? JSON.stringify(op.attributes) : '{}'
-            }`,
-            'color: green',
-          );
+      doc.update((root, presence) => {
+        for (const op of delta.ops) {
+          if (op.attributes !== undefined || op.insert !== undefined) {
+            if (op.retain !== undefined && typeof op.retain === 'number') {
+              to = from + op.retain;
+            }
+            console.log(
+              `%c local: ${from}-${to}: ${op.insert} ${
+                op.attributes ? JSON.stringify(op.attributes) : '{}'
+              }`,
+              'color: green',
+            );
 
-          doc.update((root, presence) => {
             let range;
             if (op.attributes !== undefined && op.insert === undefined) {
               root.content.setStyle(from, to, op.attributes as Indexable);
+              from = to;
             } else if (op.insert !== undefined) {
               if (to < from) {
                 to = from;
@@ -220,24 +221,24 @@ async function main() {
                 selection: root.content.indexRangeToPosRange(range),
               });
             }
-          }, `update style by ${client.getID()}`);
-        } else if (op.delete !== undefined) {
-          to = from + op.delete;
-          console.log(`%c local: ${from}-${to}: ''`, 'color: green');
+          } else if (op.delete !== undefined) {
+            to = from + op.delete;
+            console.log(`%c local: ${from}-${to}: ''`, 'color: green');
 
-          doc.update((root, presence) => {
             const range = root.content.edit(from, to, '');
             if (range) {
               presence.set({
                 selection: root.content.indexRangeToPosRange(range),
               });
             }
-          }, `update content by ${client.getID()}`);
-        } else if (op.retain !== undefined && typeof op.retain === 'number') {
-          from = to + op.retain;
-          to = from;
+            // After delete, 'to' should stay at 'from' since content was removed
+            to = from;
+          } else if (op.retain !== undefined && typeof op.retain === 'number') {
+            from = to + op.retain;
+            to = from;
+          }
         }
-      }
+      });
     })
     .on('selection-change', (range, _, source) => {
       if (!range) {
@@ -291,6 +292,7 @@ async function main() {
         if (retainTo) {
           deltaOperations.push({ delete: retainTo });
         }
+        const insertLength = typeof insert === 'string' ? insert.length : 0;
         if (insert) {
           const op: Op = { insert };
           if (attributes) {
@@ -298,7 +300,9 @@ async function main() {
           }
           deltaOperations.push(op);
         }
-        prevTo = to;
+        // Update prevTo considering the actual text change:
+        // from + length of inserted text (delete is already handled by retainTo)
+        prevTo = from + insertLength;
       } else if (op.type === 'style') {
         const from = op.from;
         const to = op.to;
