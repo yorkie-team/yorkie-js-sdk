@@ -28,7 +28,7 @@ const documentKey =
 
 // Filter out null values from attributes
 function filterNullAttrs(attributes?: Indexable): Indexable | undefined {
-  if (!attributes) return undefined;
+  if (!attributes) return;
 
   const filtered: Indexable = {};
   let hasNonNullValue = false;
@@ -342,7 +342,6 @@ async function main() {
   // 05. synchronize text of document and Quill.
   function syncText() {
     const text = doc.getRoot().content;
-
     const delta = new Delta(
       text.values().map((value) => toDeltaOperation(value, true)),
     );
