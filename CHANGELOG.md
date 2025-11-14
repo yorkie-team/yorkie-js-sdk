@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.38] - 2025-11-14
+
+### Changed
+
+- Bump up Quill to v2 by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1115
+
+### Fixed
+
+- Fix unexpected styles when refreshing Quill by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1112
+- Fix code-block escape in Quill by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1113
+
 ## [v0.6.37] - 2025-11-11
 
 ### Added
