@@ -22,7 +22,7 @@ export default function TodoTextInput({ onSave, placeholder }: TodoInputProps) {
         setText(e.target.value);
       }}
       onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
           onSave(text.trim());
           setText('');
         }
