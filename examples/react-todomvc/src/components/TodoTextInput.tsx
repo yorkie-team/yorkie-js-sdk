@@ -6,19 +6,6 @@ interface TodoInputProps {
   editing?: boolean;
 }
 
-const sanitize = (text: string) => {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#x27;',
-    '/': '&#x2F;',
-  };
-  const reg = /[&<>"'/]/gi;
-  return text.replace(reg, (match: string) => map[match as keyof typeof map]);
-};
-
 /**
  * `TodoTextInput` is a component that allows the user to input a text.
  */
@@ -35,8 +22,8 @@ export default function TodoTextInput({ onSave, placeholder }: TodoInputProps) {
         setText(e.target.value);
       }}
       onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-          onSave(sanitize(text.trim()));
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+          onSave(text.trim());
           setText('');
         }
       }}

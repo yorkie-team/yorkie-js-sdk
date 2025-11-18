@@ -152,19 +152,57 @@ async function main() {
     modules: {
       // Simplified toolbar: keep only core formatting features.
       // Add or remove items easily by editing this array.
-      toolbar: [
-        ['bold', 'italic', 'underline'],
-        [{ header: 1 }, { header: 2 }],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        ['blockquote', 'code-block'],
-        ['image', 'video'],
-        ['clean'],
-      ],
+      toolbar: {
+        container: [
+          ['bold', 'italic', 'underline'],
+          [{ header: 1 }, { header: 2 }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['blockquote', 'code-block'],
+          ['image', 'video'],
+          ['clean'],
+        ],
+        handlers: {
+          image: imageHandler,
+        },
+      },
       cursors: true,
     },
     theme: 'snow',
   });
   const cursors = quill.getModule('cursors') as QuillCursors;
+
+  // Custom image handler to check file size (max 1MB)
+  function imageHandler() {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const maxSize = 1 * 1024 * 1024; // 1MB in bytes
+      if (file.size > maxSize) {
+        alert(
+          `Image size is too large. (Max: 1MB)\nCurrent file size: ${(
+            file.size /
+            1024 /
+            1024
+          ).toFixed(2)}MB`,
+        );
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const range = quill.getSelection(true);
+        quill.insertEmbed(range.index, 'image', e.target?.result);
+        quill.setSelection(range.index + 1, 0);
+      };
+      reader.readAsDataURL(file);
+    };
+  }
 
   // 04. bind the document with the Quill.
   // 04-1. Quill to Document.
