@@ -197,8 +197,11 @@ async function main() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const range = quill.getSelection(true);
-        quill.insertEmbed(range.index, 'image', e.target?.result);
-        quill.setSelection(range.index + 1, 0);
+        const imageData = e.target?.result;
+
+        // Insert image in Quill editor first
+        quill.insertEmbed(range.index, 'image', imageData, 'user');
+        quill.setSelection(range.index + 1, 0, 'silent');
       };
       reader.readAsDataURL(file);
     };
