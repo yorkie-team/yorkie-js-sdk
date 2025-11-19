@@ -42,6 +42,8 @@ import { shallowEqual } from './shallowEqual';
  * @param docKey
  * @param initialRoot
  * @param initialPresence
+ * @param docStore
+ * @param docOpts
  * @returns
  */
 export function useYorkieDocument<R, P extends Indexable = Indexable>(
@@ -51,7 +53,8 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   docKey: string,
   initialRoot: R,
   initialPresence: P,
-  documentStore: Store<DocumentContextType<R, P>>,
+  enableDevtools: boolean,
+  docStore: Store<DocumentContextType<R, P>>,
 ) {
   const initialRootRef = useRef(initialRoot);
   const initialPresenceRef = useRef(initialPresence);
@@ -66,7 +69,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
 
   useEffect(() => {
     if (clientError) {
-      documentStore.setState((state) => ({
+      docStore.setState((state) => ({
         ...state,
         loading: false,
         error: clientError,
@@ -75,25 +78,25 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
     }
 
     if (!client || clientLoading || !didMount) {
-      documentStore.setState((state) => ({
+      docStore.setState((state) => ({
         ...state,
         loading: true,
       }));
       return;
     }
 
-    documentStore.setState((state) => ({
+    docStore.setState((state) => ({
       ...state,
       loading: true,
       error: undefined,
     }));
 
-    const newDoc = new Document<R, P>(docKey);
+    const newDoc = new Document<R, P>(docKey, { enableDevtools });
     const unsubs: Array<() => void> = [];
 
     unsubs.push(
       newDoc.subscribe(() => {
-        documentStore.setState((state) => ({
+        docStore.setState((state) => ({
           ...state,
           root: newDoc.getRoot(),
         }));
@@ -102,7 +105,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
 
     unsubs.push(
       newDoc.subscribe('presence', () => {
-        documentStore.setState((state) => ({
+        docStore.setState((state) => ({
           ...state,
           presences: newDoc.getPresences(),
         }));
@@ -111,7 +114,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
 
     unsubs.push(
       newDoc.subscribe('connection', (event) => {
-        documentStore.setState((state) => ({
+        docStore.setState((state) => ({
           ...state,
           connection: event.value,
         }));
@@ -132,7 +135,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           try {
             newDoc.update(callback);
           } catch (err) {
-            documentStore.setState((state) => ({
+            docStore.setState((state) => ({
               ...state,
               error:
                 err instanceof Error
@@ -142,7 +145,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           }
         };
 
-        documentStore.setState((state) => ({
+        docStore.setState((state) => ({
           ...state,
           doc: newDoc,
           root: newDoc.getRoot(),
@@ -150,13 +153,13 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           update,
         }));
       } catch (err) {
-        documentStore.setState((state) => ({
+        docStore.setState((state) => ({
           ...state,
           error:
             err instanceof Error ? err : new Error('Failed to attach document'),
         }));
       } finally {
-        documentStore.setState((state) => ({
+        docStore.setState((state) => ({
           ...state,
           loading: false,
         }));
@@ -174,7 +177,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [client, clientLoading, clientError, docKey, documentStore, didMount]);
+  }, [client, clientLoading, clientError, docKey, docStore, didMount]);
 }
 
 export type DocumentContextType<R, P extends Indexable = Indexable> = {
@@ -200,11 +203,13 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   docKey,
   initialRoot = {} as R,
   initialPresence = {} as P,
+  enableDevtools = false,
   children,
 }: {
   docKey: string;
   initialRoot?: R;
   initialPresence?: P;
+  enableDevtools?: boolean;
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
@@ -238,6 +243,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     docKey,
     initialRoot,
     initialPresence,
+    enableDevtools,
     documentStore,
   );
 

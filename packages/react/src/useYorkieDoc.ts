@@ -37,6 +37,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
   opts?: Omit<ClientOptions, 'apiKey'> & {
     initialRoot?: R;
     initialPresence?: P;
+    enableDevtools?: boolean;
   },
 ): {
   root: R;
@@ -88,6 +89,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     docKey,
     opts?.initialRoot ?? ({} as R),
     opts?.initialPresence ?? ({} as P),
+    opts?.enableDevtools ?? false,
     documentStore,
   );
 
