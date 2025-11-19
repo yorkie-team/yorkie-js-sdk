@@ -310,6 +310,21 @@ async function main() {
       }, `update selection by ${client.getID()}`);
     });
 
+  // Handle selection changes when mouse is released outside the editor
+  document.addEventListener('mouseup', () => {
+    const range = quill.getSelection();
+    if (range) {
+      doc.update((root, presence) => {
+        presence.set({
+          selection: root.content.indexRangeToPosRange([
+            range.index,
+            range.index + range.length,
+          ]),
+        });
+      }, `update selection by ${client.getID()}`);
+    }
+  });
+
   // 04-2. document to Quill(remote).
   function handleOperations(ops: Array<OpInfo>) {
     const deltaOperations = [];
