@@ -354,6 +354,7 @@
                           (typeof op.insert === 'string'
                             ? op.insert.length
                             : 1);
+                        to = from;
                       }
 
                       if (range) {
@@ -380,7 +381,7 @@
                       op.retain !== undefined &&
                       typeof op.retain === 'number'
                     ) {
-                      from = to + op.retain;
+                      from += op.retain;
                       to = from;
                     }
                   }

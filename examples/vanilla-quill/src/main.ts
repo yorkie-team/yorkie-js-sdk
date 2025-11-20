@@ -260,6 +260,7 @@ async function main() {
               }
               from =
                 to + (typeof op.insert === 'string' ? op.insert.length : 1);
+              to = from;
             }
 
             if (range) {
@@ -280,7 +281,7 @@ async function main() {
             // After delete, 'to' should stay at 'from' since content was removed
             to = from;
           } else if (op.retain !== undefined && typeof op.retain === 'number') {
-            from = to + op.retain;
+            from += op.retain;
             to = from;
           }
         }
