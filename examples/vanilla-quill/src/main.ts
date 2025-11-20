@@ -92,6 +92,11 @@ async function main() {
     },
   });
 
+  console.log(
+    `%c Document Key: ${documentKey}`,
+    'color: orange; font-weight: bold;',
+  );
+
   doc.update((root) => {
     if (!root.content) {
       root.content = new yorkie.Text();
@@ -330,25 +335,24 @@ async function main() {
 
   // 04-2. document to Quill(remote).
   function handleOperations(ops: Array<OpInfo>) {
-    const deltaOperations = [];
-    let prevTo = 0;
     for (const op of ops) {
       if (op.type === 'edit') {
         const from = op.from;
         const to = op.to;
-        const retainFrom = from - prevTo;
-        const retainTo = to - from;
-
         const { insert, attributes } = toDeltaOperation(op.value!, true);
         console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
-        if (retainFrom) {
-          deltaOperations.push({ retain: retainFrom });
+        const deltaOperations: Op[] = [];
+
+        if (from > 0) {
+          deltaOperations.push({ retain: from });
         }
-        if (retainTo) {
-          deltaOperations.push({ delete: retainTo });
+
+        const deleteLength = to - from;
+        if (deleteLength > 0) {
+          deltaOperations.push({ delete: deleteLength });
         }
-        const insertLength = typeof insert === 'string' ? insert.length : 0;
+
         if (insert) {
           const op: Op = { insert };
           if (attributes) {
@@ -356,42 +360,46 @@ async function main() {
           }
           deltaOperations.push(op);
         }
-        // Update prevTo considering the actual text change:
-        // from + length of inserted text (delete is already handled by retainTo)
-        prevTo = from + insertLength;
+
+        if (deltaOperations.length > 0) {
+          console.log(
+            `%c to quill: ${JSON.stringify(deltaOperations)}`,
+            'color: green',
+          );
+          const delta = new Delta(deltaOperations);
+          quill.updateContents(delta, 'api');
+        }
       } else if (op.type === 'style') {
         const from = op.from;
         const to = op.to;
-        const retainFrom = from - prevTo;
-        const retainTo = to - from;
         const { attributes } = toDeltaOperation(op.value!, false);
         console.log(
           `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
           'color: skyblue',
         );
 
-        if (retainFrom) {
-          deltaOperations.push({ retain: retainFrom });
-        }
         if (attributes) {
-          const op: Op = { attributes };
-          if (retainTo) {
-            op.retain = retainTo;
+          const deltaOperations: Op[] = [];
+
+          if (from > 0) {
+            deltaOperations.push({ retain: from });
           }
 
+          const op: Op = { attributes };
+          const retainLength = to - from;
+          if (retainLength > 0) {
+            op.retain = retainLength;
+          }
           deltaOperations.push(op);
-        }
-        prevTo = to;
-      }
-    }
 
-    if (deltaOperations.length) {
-      console.log(
-        `%c to quill: ${JSON.stringify(deltaOperations)}`,
-        'color: green',
-      );
-      const delta = new Delta(deltaOperations);
-      quill.updateContents(delta, 'api');
+          console.log(
+            `%c to quill: ${JSON.stringify(deltaOperations)}`,
+            'color: green',
+          );
+          const delta = new Delta(deltaOperations);
+          quill.updateContents(delta, 'api');
+        }
+      }
     }
   }
 
