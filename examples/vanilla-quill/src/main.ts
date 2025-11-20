@@ -152,6 +152,9 @@ async function main() {
   await client.sync();
 
   // 03. create an instance of Quill
+  // Track composition state to prevent selection updates during IME input
+  let isComposing = false;
+
   Quill.register('modules/cursors', QuillCursors);
   const quill = new Quill('#editor', {
     modules: {
@@ -213,6 +216,15 @@ async function main() {
   }
 
   // 04. bind the document with the Quill.
+  // Track composition events to prevent selection updates during IME input
+  const editorElement = quill.root;
+  editorElement.addEventListener('compositionstart', () => {
+    isComposing = true;
+  });
+  editorElement.addEventListener('compositionend', () => {
+    isComposing = false;
+  });
+
   // 04-1. Quill to Document.
   quill
     .on('text-change', (delta, _, source) => {
@@ -292,6 +304,12 @@ async function main() {
         return;
       }
 
+      // Ignore selection changes during composition (e.g., Korean IME input)
+      // to prevent cursor position from being broadcast incorrectly to other users
+      if (isComposing) {
+        return;
+      }
+
       // NOTE(chacha912): If the selection in the Quill editor does not match the range computed by yorkie,
       // additional updates are necessary. This condition addresses situations where Quill's selection behaves
       // differently, such as when inserting text before a range selection made by another user, causing
@@ -321,6 +339,11 @@ async function main() {
 
   // Handle selection changes when mouse is released outside the editor
   document.addEventListener('mouseup', () => {
+    // Ignore selection changes during composition
+    if (isComposing) {
+      return;
+    }
+
     const range = quill.getSelection();
     if (range) {
       doc.update((root, presence) => {

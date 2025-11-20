@@ -246,6 +246,9 @@
             });
 
             // 03. create an instance of Quill
+            // Track composition state to prevent selection updates during IME input
+            let isComposing = false;
+
             const editorElem = clientElem?.getElementsByClassName('editor')[0];
             Quill.register('modules/cursors', QuillCursors);
             const quill = new Quill(editorElem, {
@@ -292,6 +295,14 @@
             }
 
             // 04. bind the document with the Quill.
+            // Track composition events to prevent selection updates during IME input
+            quill.root.addEventListener('compositionstart', () => {
+              isComposing = true;
+            });
+            quill.root.addEventListener('compositionend', () => {
+              isComposing = false;
+            });
+
             // 04-1. Quill to Document.
             quill
               .on('text-change', (delta, _, source) => {
@@ -389,6 +400,12 @@
               })
               .on('selection-change', (range, _, source) => {
                 if (!range) {
+                  return;
+                }
+
+                // Ignore selection changes during composition (e.g., Korean IME input)
+                // to prevent cursor position from being broadcast incorrectly to other users
+                if (isComposing) {
                   return;
                 }
 
