@@ -18,6 +18,7 @@ export function useTodoReducer(initialRoot: { todos: JSONArray<Todo> }) {
   }>(import.meta.env.VITE_YORKIE_API_KEY, documentKey, {
     initialRoot,
     rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+    enableDevtools: true,
   });
 
   const dispatch = useCallback(

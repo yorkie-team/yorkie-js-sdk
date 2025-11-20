@@ -172,6 +172,7 @@ describe('useYorkieDoc', () => {
         'test-doc-key',
         {},
         {},
+        false,
         mockDocumentStore,
       );
     });
