@@ -28,9 +28,11 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
 
     case 'DELETED_TODO': {
       const { id } = action.payload;
-      root.todos = root.todos.filter(
-        (todo) => todo.id !== id,
-      ) as JSONArray<Todo>;
+      const index = root.todos.findIndex((todo) => todo.id === id);
+      if (index !== -1) {
+        const element = root.todos.getElementByIndex(index);
+        root.todos.deleteByID(element.getID());
+      }
       break;
     }
 
@@ -55,9 +57,17 @@ export function todoReducer(root: TodoRoot, action: TodoAction): void {
     }
 
     case 'CLEARED_COMPLETED': {
-      root.todos = root.todos.filter(
-        (todo) => !todo.completed,
-      ) as JSONArray<Todo>;
+      const indicesToDelete: Array<number> = [];
+      root.todos.forEach((todo, idx) => {
+        if (todo.completed) {
+          indicesToDelete.push(idx);
+        }
+      });
+
+      for (let i = indicesToDelete.length - 1; i >= 0; i--) {
+        const element = root.todos.getElementByIndex(indicesToDelete[i]);
+        root.todos.deleteByID(element.getID());
+      }
       break;
     }
 
