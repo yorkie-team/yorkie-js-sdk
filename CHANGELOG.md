@@ -7,6 +7,22 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.39] - 2025-11-27
+
+### Changed
+
+- Add enableDevtools option to useYorkieDoc by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1120
+
+### Fixed
+
+- Fix various issues that occur in examples by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1117
+- Handle selection changes on mouse release in Quill by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1118
+- Insert images in Quill editor with user attribution by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1119
+- Prevent minus retains of delta operations in Quill by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1121
+- Fix local range calculation in delta for Quill by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1122
+- Prevent selection updates during IME input in Quill by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1123
+- Use deleteByID instead of filter for todo deletion in react-todomvc by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/1124
+
 ## [v0.6.38] - 2025-11-14
 
 ### Changed
