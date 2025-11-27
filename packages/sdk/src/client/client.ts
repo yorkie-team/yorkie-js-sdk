@@ -37,6 +37,7 @@ import {
   errorMetadataOf,
   isErrorCode,
 } from '@yorkie-js/sdk/src/api/converter';
+import { RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
 import { uuid } from '@yorkie-js/sdk/src/util/uuid';
@@ -1042,6 +1043,161 @@ export class Client {
    */
   public getCondition(condition: ClientCondition): boolean {
     return this.conditions[condition];
+  }
+
+  /**
+   * `createRevision` creates a new revision for the given document.
+   */
+  public async createRevision<R, P extends Indexable>(
+    doc: Document<R, P>,
+    label: string,
+    description?: string,
+  ): Promise<RevisionSummary> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    const task = async () => {
+      try {
+        const res = await this.rpcClient.createRevision(
+          {
+            clientId: this.id!,
+            documentId: attachment.resourceID,
+            label,
+            description: description || '',
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        );
+
+        if (!res.revision) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            'revision is not returned',
+          );
+        }
+
+        logger.info(
+          `[CR] c:"${this.getKey()}" creates revision d:"${doc.getKey()}" l:"${label}"`,
+        );
+
+        return converter.toRevisionSummary(res.revision);
+      } catch (err) {
+        logger.error(`[CR] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `listRevisions` lists all revisions for the given document.
+   */
+  public async listRevisions<R, P extends Indexable>(
+    doc: Document<R, P>,
+    options?: {
+      pageSize?: number;
+      offset?: number;
+      isForward?: boolean;
+    },
+  ): Promise<Array<RevisionSummary>> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    const task = async () => {
+      try {
+        const res = await this.rpcClient.listRevisions(
+          {
+            projectId: '', // Will be filled by server from auth context
+            documentId: attachment.resourceID,
+            pageSize: options?.pageSize || 10,
+            offset: options?.offset || 0,
+            isForward: options?.isForward ?? false,
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        );
+
+        logger.info(
+          `[LR] c:"${this.getKey()}" lists revisions d:"${doc.getKey()}" count:${
+            res.revisions.length
+          }`,
+        );
+
+        return res.revisions.map(converter.toRevisionSummary);
+      } catch (err) {
+        logger.error(`[LR] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `restoreRevision` restores the document to the given revision.
+   */
+  public async restoreRevision<R, P extends Indexable>(
+    doc: Document<R, P>,
+    revisionId: string,
+  ): Promise<void> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    const task = async () => {
+      try {
+        await this.rpcClient.restoreRevision(
+          {
+            clientId: this.id!,
+            revisionId,
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        );
+
+        logger.info(
+          `[RR] c:"${this.getKey()}" restores revision d:"${doc.getKey()}" r:"${revisionId}"`,
+        );
+      } catch (err) {
+        logger.error(`[RR] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    return this.enqueueTask(task);
   }
 
   /**

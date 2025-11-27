@@ -18,7 +18,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ActivateClientRequest, ActivateClientResponse, AttachChannelRequest, AttachChannelResponse, AttachDocumentRequest, AttachDocumentResponse, BroadcastRequest, BroadcastResponse, DeactivateClientRequest, DeactivateClientResponse, DetachChannelRequest, DetachChannelResponse, DetachDocumentRequest, DetachDocumentResponse, PushPullChangesRequest, PushPullChangesResponse, RefreshChannelRequest, RefreshChannelResponse, RemoveDocumentRequest, RemoveDocumentResponse, WatchChannelRequest, WatchChannelResponse, WatchDocumentRequest, WatchDocumentResponse } from "./yorkie_pb";
+import { ActivateClientRequest, ActivateClientResponse, AttachChannelRequest, AttachChannelResponse, AttachDocumentRequest, AttachDocumentResponse, BroadcastRequest, BroadcastResponse, CreateRevisionRequest, CreateRevisionResponse, DeactivateClientRequest, DeactivateClientResponse, DetachChannelRequest, DetachChannelResponse, DetachDocumentRequest, DetachDocumentResponse, ListRevisionsRequest, ListRevisionsResponse, PushPullChangesRequest, PushPullChangesResponse, RefreshChannelRequest, RefreshChannelResponse, RemoveDocumentRequest, RemoveDocumentResponse, RestoreRevisionRequest, RestoreRevisionResponse, WatchChannelRequest, WatchChannelResponse, WatchDocumentRequest, WatchDocumentResponse } from "./yorkie_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -91,6 +91,33 @@ export const YorkieService = {
       I: WatchDocumentRequest,
       O: WatchDocumentResponse,
       kind: MethodKind.ServerStreaming,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.CreateRevision
+     */
+    createRevision: {
+      name: "CreateRevision",
+      I: CreateRevisionRequest,
+      O: CreateRevisionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.ListRevisions
+     */
+    listRevisions: {
+      name: "ListRevisions",
+      I: ListRevisionsRequest,
+      O: ListRevisionsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc yorkie.v1.YorkieService.RestoreRevision
+     */
+    restoreRevision: {
+      name: "RestoreRevision",
+      I: RestoreRevisionRequest,
+      O: RestoreRevisionResponse,
+      kind: MethodKind.Unary,
     },
     /**
      * @generated from rpc yorkie.v1.YorkieService.AttachChannel

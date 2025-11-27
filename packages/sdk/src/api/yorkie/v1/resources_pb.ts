@@ -2238,6 +2238,11 @@ export class Project extends Message<Project> {
   removeOnDetach = false;
 
   /**
+   * @generated from field: bool auto_revision_enabled = 27;
+   */
+  autoRevisionEnabled = false;
+
+  /**
    * @generated from field: repeated string allowed_origins = 14;
    */
   allowedOrigins: string[] = [];
@@ -2283,6 +2288,7 @@ export class Project extends Message<Project> {
     { no: 11, name: "max_attachments_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 15, name: "max_size_per_document", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 16, name: "remove_on_detach", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 27, name: "auto_revision_enabled", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 14, name: "allowed_origins", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 12, name: "created_at", kind: "message", T: Timestamp },
     { no: 13, name: "updated_at", kind: "message", T: Timestamp },
@@ -2453,6 +2459,11 @@ export class UpdatableProjectFields extends Message<UpdatableProjectFields> {
   removeOnDetach?: boolean;
 
   /**
+   * @generated from field: google.protobuf.BoolValue auto_revision_enabled = 22;
+   */
+  autoRevisionEnabled?: boolean;
+
+  /**
    * @generated from field: yorkie.v1.UpdatableProjectFields.AllowedOrigins allowed_origins = 9;
    */
   allowedOrigins?: UpdatableProjectFields_AllowedOrigins;
@@ -2485,6 +2496,7 @@ export class UpdatableProjectFields extends Message<UpdatableProjectFields> {
     { no: 8, name: "max_attachments_per_document", kind: "message", T: Int32Value },
     { no: 10, name: "max_size_per_document", kind: "message", T: Int32Value },
     { no: 11, name: "remove_on_detach", kind: "message", T: BoolValue },
+    { no: 22, name: "auto_revision_enabled", kind: "message", T: BoolValue },
     { no: 9, name: "allowed_origins", kind: "message", T: UpdatableProjectFields_AllowedOrigins },
   ]);
 
@@ -2816,6 +2828,49 @@ export class Presence extends Message<Presence> {
 
   static equals(a: Presence | PlainMessage<Presence> | undefined, b: Presence | PlainMessage<Presence> | undefined): boolean {
     return proto3.util.equals(Presence, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.ChannelSummary
+ */
+export class ChannelSummary extends Message<ChannelSummary> {
+  /**
+   * @generated from field: string key = 1;
+   */
+  key = "";
+
+  /**
+   * @generated from field: int32 presence_count = 2;
+   */
+  presenceCount = 0;
+
+  constructor(data?: PartialMessage<ChannelSummary>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.ChannelSummary";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "key", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "presence_count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ChannelSummary {
+    return new ChannelSummary().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ChannelSummary {
+    return new ChannelSummary().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ChannelSummary {
+    return new ChannelSummary().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ChannelSummary | PlainMessage<ChannelSummary> | undefined, b: ChannelSummary | PlainMessage<ChannelSummary> | undefined): boolean {
+    return proto3.util.equals(ChannelSummary, a, b);
   }
 }
 
@@ -3338,6 +3393,67 @@ export class Rule extends Message<Rule> {
 
   static equals(a: Rule | PlainMessage<Rule> | undefined, b: Rule | PlainMessage<Rule> | undefined): boolean {
     return proto3.util.equals(Rule, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.RevisionSummary
+ */
+export class RevisionSummary extends Message<RevisionSummary> {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id = "";
+
+  /**
+   * @generated from field: string label = 2;
+   */
+  label = "";
+
+  /**
+   * @generated from field: string description = 3;
+   */
+  description = "";
+
+  /**
+   * @generated from field: string snapshot = 4;
+   */
+  snapshot = "";
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 5;
+   */
+  createdAt?: Timestamp;
+
+  constructor(data?: PartialMessage<RevisionSummary>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.RevisionSummary";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "label", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "snapshot", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "created_at", kind: "message", T: Timestamp },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RevisionSummary {
+    return new RevisionSummary().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RevisionSummary {
+    return new RevisionSummary().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RevisionSummary {
+    return new RevisionSummary().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RevisionSummary | PlainMessage<RevisionSummary> | undefined, b: RevisionSummary | PlainMessage<RevisionSummary> | undefined): boolean {
+    return proto3.util.equals(RevisionSummary, a, b);
   }
 }
 

@@ -30,6 +30,7 @@ export {
   SyncMode,
   type ClientOptions,
 } from '@yorkie-js/sdk/src/client/client';
+export { type RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
 export {
   Channel,
   ChannelStatus,

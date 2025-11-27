@@ -100,6 +100,7 @@ import {
   Operation_TreeEdit as PbOperation_TreeEdit,
   Operation_TreeStyle as PbOperation_TreeStyle,
   Operation_ArraySet as PbOperation_ArraySet,
+  RevisionSummary as PbRevisionSummary,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
 import {
@@ -115,6 +116,7 @@ import { traverseAll } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 import { ArraySetOperation } from '../document/operation/array_set_operation';
+import { RevisionSummary } from './revision';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -804,6 +806,21 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     snapshot: pack.getSnapshot(),
     versionVector: toVersionVector(pack.getVersionVector()),
   });
+}
+
+/**
+ * `toRevisionSummary` converts a protobuf RevisionSummary to a RevisionSummary.
+ */
+export function toRevisionSummary(
+  pbRevision: PbRevisionSummary,
+): RevisionSummary {
+  return {
+    id: pbRevision.id,
+    label: pbRevision.label,
+    description: pbRevision.description,
+    snapshot: pbRevision.snapshot,
+    createdAt: pbRevision.createdAt?.toDate() || new Date(),
+  };
 }
 
 /**
@@ -1714,4 +1731,5 @@ export const converter = {
   versionVectorToHex,
   hexToVersionVector,
   fromSchemaRules,
+  toRevisionSummary,
 };
