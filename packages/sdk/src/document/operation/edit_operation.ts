@@ -18,7 +18,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
   OpInfo,
@@ -37,6 +37,7 @@ export class EditOperation extends Operation {
   private toPos: RGATreeSplitPos;
   private content: string;
   private attributes: Map<string, string>;
+  private isUndoOp: boolean | undefined;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -44,13 +45,15 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
+    isUndoOp?: boolean,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.content = content;
     this.attributes = attributes;
+    this.isUndoOp = isUndoOp;
   }
 
   /**
@@ -62,7 +65,8 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
+    isUndoOp?: boolean,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -71,6 +75,7 @@ export class EditOperation extends Operation {
       content,
       attributes,
       executedAt,
+      isUndoOp,
     );
   }
 
@@ -97,7 +102,7 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [changes, pairs, diff] = text.edit(
+    const [changes, pairs, diff, , removedValues] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -105,6 +110,10 @@ export class EditOperation extends Operation {
       versionVector,
     );
 
+    const reverseOp = this.toReverseOperation(
+      removedValues,
+      text.normalizePos(this.fromPos),
+    );
     root.acc(diff);
 
     for (const pair of pairs) {
@@ -121,7 +130,41 @@ export class EditOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OpInfo;
       }),
+      reverseOp,
     };
+  }
+
+  private toReverseOperation(
+    removedValues: Array<CRDTTextValue>,
+    normalizedFromPos: RGATreeSplitPos,
+  ): Operation {
+    // 1) Content
+    const restoredContent =
+      removedValues && removedValues.length !== 0
+        ? removedValues.map((v) => v.getContent()).join('')
+        : '';
+
+    // 2) Attribute
+    let restoredAttrs: Array<[string, string]> | undefined;
+    if (removedValues.length === 1) {
+      const attrsObj = removedValues[0].getAttributes();
+      if (attrsObj) {
+        restoredAttrs = Array.from(Object.entries(attrsObj as any));
+      }
+    }
+
+    return EditOperation.create(
+      this.getParentCreatedAt(),
+      normalizedFromPos,
+      RGATreeSplitPos.of(
+        normalizedFromPos.getID(),
+        normalizedFromPos.getRelativeOffset() + (this.content.length ?? 0),
+      ),
+      restoredContent,
+      restoredAttrs ? new Map(restoredAttrs) : new Map(),
+      undefined,
+      true,
+    );
   }
 
   /**
