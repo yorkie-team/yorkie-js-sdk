@@ -3,6 +3,7 @@ import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
 
 type TextOp = 'insert' | 'delete' | 'replace' | 'style';
 const ops: Array<TextOp> = ['insert', 'delete', 'replace'];
+// TODO(JOOHOJANG): We need to add 'style' operation and multi-client test
 
 /**
  * Operation Set 1
