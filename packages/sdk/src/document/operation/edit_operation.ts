@@ -168,6 +168,92 @@ export class EditOperation extends Operation {
   }
 
   /**
+   * `normalizePos` normalizes the position of the edit operation.
+   */
+  public normalizePos<A extends Indexable>(root: CRDTRoot): [number, number] {
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+
+    if (!parentObject) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
+    }
+
+    if (!(parentObject instanceof CRDTText)) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `only Text can normalize edit`,
+      );
+    }
+
+    const text = parentObject as CRDTText<A>;
+    const rangeFrom = text.normalizePos(this.fromPos).getRelativeOffset();
+    const rangeTo = text.normalizePos(this.toPos).getRelativeOffset();
+
+    return [rangeFrom, rangeTo];
+  }
+
+  /**
+   * `reconcileOperation` reconciles the edit operation with the new position.
+   */
+  public reconcileOperation(
+    rangeFrom: number,
+    rangeTo: number,
+    contentLength: number,
+  ): void {
+    if (!this.isUndoOp) {
+      return;
+    }
+    if (!Number.isInteger(rangeFrom) || !Number.isInteger(rangeTo)) {
+      return;
+    }
+    if (rangeFrom > rangeTo) {
+      return;
+    }
+
+    const rangeLen = rangeTo - rangeFrom;
+    const a = this.fromPos.getRelativeOffset();
+    const b = this.toPos.getRelativeOffset();
+
+    const apply = (na: number, nb: number) => {
+      this.fromPos = RGATreeSplitPos.of(this.fromPos.getID(), Math.max(0, na));
+      this.toPos = RGATreeSplitPos.of(this.toPos.getID(), Math.max(0, nb));
+    };
+
+    // Does not overlap
+    if (rangeTo <= a) {
+      apply(a - rangeLen + contentLength, b - rangeLen + contentLength);
+      return;
+    }
+    if (b <= rangeFrom) {
+      return;
+    }
+
+    // Fully overlap: contains
+    if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
+      apply(rangeFrom, rangeFrom);
+      return;
+    }
+    if (a <= rangeFrom && rangeTo <= b && a !== b) {
+      apply(a, b - rangeLen + contentLength);
+      return;
+    }
+
+    // overlap at the start
+    if (rangeFrom < a && a < rangeTo && rangeTo < b) {
+      apply(rangeFrom, rangeFrom + (b - rangeTo));
+      return;
+    }
+
+    // overlap at the end
+    if (a < rangeFrom && rangeFrom < b && b < rangeTo) {
+      apply(a, rangeFrom);
+      return;
+    }
+  }
+
+  /**
    * `getEffectedCreatedAt` returns the creation time of the effected element.
    */
   public getEffectedCreatedAt(): TimeTicket {

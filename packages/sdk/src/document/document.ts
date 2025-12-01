@@ -83,6 +83,7 @@ import { Rule } from '@yorkie-js/schema';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { EditOperation } from './operation/edit_operation';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -1444,6 +1445,17 @@ export class Document<
     }
 
     const { opInfos } = change.execute(this.root, this.presences, source);
+    for (const op of opInfos) {
+      if (op instanceof EditOperation) {
+        const [rangeFrom, rangeTo] = op.normalizePos(this.root);
+        this.internalHistory.reconcileTextEdit(
+          op.getParentCreatedAt(),
+          rangeFrom,
+          rangeTo,
+          op.getContent()?.length ?? 0,
+        );
+      }
+    }
     this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
