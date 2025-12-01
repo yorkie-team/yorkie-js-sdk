@@ -102,6 +102,12 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
+
+    if (this.isUndoOp) {
+      this.fromPos = text.refinePos(this.fromPos);
+      this.toPos = text.refinePos(this.toPos);
+    }
+
     const [changes, pairs, diff, , removedValues] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
@@ -146,6 +152,7 @@ export class EditOperation extends Operation {
 
     // 2) Attribute
     let restoredAttrs: Array<[string, string]> | undefined;
+
     if (removedValues.length === 1) {
       const attrsObj = removedValues[0].getAttributes();
       if (attrsObj) {
