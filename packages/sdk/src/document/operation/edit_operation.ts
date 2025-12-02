@@ -165,7 +165,7 @@ export class EditOperation extends Operation {
       normalizedFromPos,
       RGATreeSplitPos.of(
         normalizedFromPos.getID(),
-        normalizedFromPos.getRelativeOffset() + (this.content.length ?? 0),
+        normalizedFromPos.getRelativeOffset() + (this.content?.length ?? 0),
       ),
       restoredContent,
       restoredAttrs ? new Map(restoredAttrs) : new Map(),
