@@ -20,7 +20,7 @@
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
-import { ChangePack, ChannelEvent, DocEvent, Rule } from "./resources_pb";
+import { ChangePack, ChannelEvent, DocEvent, RevisionSummary, Rule } from "./resources_pb";
 
 /**
  * @generated from message yorkie.v1.ActivateClientRequest
@@ -677,6 +677,270 @@ export class PushPullChangesResponse extends Message<PushPullChangesResponse> {
 
   static equals(a: PushPullChangesResponse | PlainMessage<PushPullChangesResponse> | undefined, b: PushPullChangesResponse | PlainMessage<PushPullChangesResponse> | undefined): boolean {
     return proto3.util.equals(PushPullChangesResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.CreateRevisionRequest
+ */
+export class CreateRevisionRequest extends Message<CreateRevisionRequest> {
+  /**
+   * @generated from field: string client_id = 1;
+   */
+  clientId = "";
+
+  /**
+   * @generated from field: string document_id = 2;
+   */
+  documentId = "";
+
+  /**
+   * @generated from field: string label = 3;
+   */
+  label = "";
+
+  /**
+   * @generated from field: string description = 4;
+   */
+  description = "";
+
+  constructor(data?: PartialMessage<CreateRevisionRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.CreateRevisionRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "label", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateRevisionRequest {
+    return new CreateRevisionRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CreateRevisionRequest {
+    return new CreateRevisionRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CreateRevisionRequest {
+    return new CreateRevisionRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CreateRevisionRequest | PlainMessage<CreateRevisionRequest> | undefined, b: CreateRevisionRequest | PlainMessage<CreateRevisionRequest> | undefined): boolean {
+    return proto3.util.equals(CreateRevisionRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.CreateRevisionResponse
+ */
+export class CreateRevisionResponse extends Message<CreateRevisionResponse> {
+  /**
+   * @generated from field: yorkie.v1.RevisionSummary revision = 1;
+   */
+  revision?: RevisionSummary;
+
+  constructor(data?: PartialMessage<CreateRevisionResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.CreateRevisionResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "revision", kind: "message", T: RevisionSummary },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateRevisionResponse {
+    return new CreateRevisionResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CreateRevisionResponse {
+    return new CreateRevisionResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CreateRevisionResponse {
+    return new CreateRevisionResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: CreateRevisionResponse | PlainMessage<CreateRevisionResponse> | undefined, b: CreateRevisionResponse | PlainMessage<CreateRevisionResponse> | undefined): boolean {
+    return proto3.util.equals(CreateRevisionResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.ListRevisionsRequest
+ */
+export class ListRevisionsRequest extends Message<ListRevisionsRequest> {
+  /**
+   * @generated from field: string project_id = 1;
+   */
+  projectId = "";
+
+  /**
+   * @generated from field: string document_id = 2;
+   */
+  documentId = "";
+
+  /**
+   * @generated from field: int32 page_size = 3;
+   */
+  pageSize = 0;
+
+  /**
+   * @generated from field: int32 offset = 4;
+   */
+  offset = 0;
+
+  /**
+   * @generated from field: bool is_forward = 5;
+   */
+  isForward = false;
+
+  constructor(data?: PartialMessage<ListRevisionsRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.ListRevisionsRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "project_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "document_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "page_size", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 5, name: "is_forward", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListRevisionsRequest {
+    return new ListRevisionsRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListRevisionsRequest {
+    return new ListRevisionsRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListRevisionsRequest {
+    return new ListRevisionsRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListRevisionsRequest | PlainMessage<ListRevisionsRequest> | undefined, b: ListRevisionsRequest | PlainMessage<ListRevisionsRequest> | undefined): boolean {
+    return proto3.util.equals(ListRevisionsRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.ListRevisionsResponse
+ */
+export class ListRevisionsResponse extends Message<ListRevisionsResponse> {
+  /**
+   * @generated from field: repeated yorkie.v1.RevisionSummary revisions = 1;
+   */
+  revisions: RevisionSummary[] = [];
+
+  constructor(data?: PartialMessage<ListRevisionsResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.ListRevisionsResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "revisions", kind: "message", T: RevisionSummary, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListRevisionsResponse {
+    return new ListRevisionsResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListRevisionsResponse {
+    return new ListRevisionsResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListRevisionsResponse {
+    return new ListRevisionsResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: ListRevisionsResponse | PlainMessage<ListRevisionsResponse> | undefined, b: ListRevisionsResponse | PlainMessage<ListRevisionsResponse> | undefined): boolean {
+    return proto3.util.equals(ListRevisionsResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.RestoreRevisionRequest
+ */
+export class RestoreRevisionRequest extends Message<RestoreRevisionRequest> {
+  /**
+   * @generated from field: string client_id = 1;
+   */
+  clientId = "";
+
+  /**
+   * @generated from field: string revision_id = 2;
+   */
+  revisionId = "";
+
+  constructor(data?: PartialMessage<RestoreRevisionRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.RestoreRevisionRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "client_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "revision_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RestoreRevisionRequest {
+    return new RestoreRevisionRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RestoreRevisionRequest {
+    return new RestoreRevisionRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RestoreRevisionRequest {
+    return new RestoreRevisionRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RestoreRevisionRequest | PlainMessage<RestoreRevisionRequest> | undefined, b: RestoreRevisionRequest | PlainMessage<RestoreRevisionRequest> | undefined): boolean {
+    return proto3.util.equals(RestoreRevisionRequest, a, b);
+  }
+}
+
+/**
+ * @generated from message yorkie.v1.RestoreRevisionResponse
+ */
+export class RestoreRevisionResponse extends Message<RestoreRevisionResponse> {
+  constructor(data?: PartialMessage<RestoreRevisionResponse>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "yorkie.v1.RestoreRevisionResponse";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): RestoreRevisionResponse {
+    return new RestoreRevisionResponse().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): RestoreRevisionResponse {
+    return new RestoreRevisionResponse().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): RestoreRevisionResponse {
+    return new RestoreRevisionResponse().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: RestoreRevisionResponse | PlainMessage<RestoreRevisionResponse> | undefined, b: RestoreRevisionResponse | PlainMessage<RestoreRevisionResponse> | undefined): boolean {
+    return proto3.util.equals(RestoreRevisionResponse, a, b);
   }
 }
 
