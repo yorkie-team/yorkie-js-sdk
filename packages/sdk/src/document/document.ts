@@ -1444,10 +1444,15 @@ export class Document<
       }
     }
 
-    const { opInfos } = change.execute(this.root, this.presences, source);
-    for (const op of opInfos) {
+    const { opInfos, operations } = change.execute(
+      this.root,
+      this.presences,
+      source,
+    );
+    for (const op of operations) {
       if (op instanceof EditOperation) {
         const [from, to] = op.normalizePos(this.root);
+
         this.internalHistory.reconcileTextEdit(
           op.getParentCreatedAt(),
           from,
