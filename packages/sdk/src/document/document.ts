@@ -1336,6 +1336,7 @@ export class Document<
     // Afterward, we should publish a snapshot event with the latest
     // version of the document to ensure the user receives the most up-to-date snapshot.
     this.applyChanges(this.localChanges, OpSource.Local);
+    this.clearHistory();
     this.publish([
       {
         type: DocEventType.Snapshot,
@@ -1349,6 +1350,11 @@ export class Document<
         },
       },
     ]);
+  }
+
+  private clearHistory() {
+    this.internalHistory.clearRedo();
+    this.internalHistory.clearUndo();
   }
 
   /**

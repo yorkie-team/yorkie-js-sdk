@@ -100,6 +100,13 @@ export class History<P extends Indexable> {
   }
 
   /**
+   * `clearUndo` flushes remaining undo operations.
+   */
+  public clearUndo(): void {
+    this.undoStack = [];
+  }
+
+  /**
    * `getUndoStackForTest` returns the undo stack for test.
    */
   public getUndoStackForTest(): Array<Array<HistoryOperation<P>>> {
