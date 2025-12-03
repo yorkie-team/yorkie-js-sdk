@@ -21,7 +21,7 @@ async function main() {
   await client.activate();
 
   const params = new URLSearchParams(window.location.search);
-  const docKey = params.get('dockey') || `123z12321zz`;
+  const docKey = params.get('dockey') || `vanilla-codemirror6-${Date.now()}`;
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(
     docKey,
@@ -116,25 +116,27 @@ async function main() {
   });
   const cmUndoRedoKeymap = keymap.of([
     {
-      key: 'Mod-Shift-j',
+      key: 'Mod-z',
       run: () => {
+        // To check undo works properly
         console.log('undo');
         if (doc.history.canUndo()) {
           doc.history.undo();
-          return true;
+          
         }
-        return false;
+        return true;
       },
     },
     {
-      key: 'Mod-Shift-l',
+      key: 'Mod-Shift-z',
       run: () => {
+        // To check redo works properly
         console.log('redo');
         if (doc.history.canRedo()) {
           doc.history.redo();
-          return true;
+         
         }
-        return false;
+        return true;
       },
     },
   ]);
