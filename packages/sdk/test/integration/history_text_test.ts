@@ -6,9 +6,6 @@ type TextOp = 'insert' | 'delete' | 'replace' | 'style';
 const ops: Array<TextOp> = ['insert', 'delete', 'replace'];
 // TODO(JOOHOJANG): We need to add 'style' operation and multi-client test
 
-/**
- * Operation Set 1
- */
 function applyTextOp1(doc: Document<{ t: Text }>, op: TextOp) {
   doc.update((root) => {
     const t = root.t;
@@ -52,9 +49,6 @@ function applyTextOp1(doc: Document<{ t: Text }>, op: TextOp) {
   }, op);
 }
 
-/**
- * Operation Set 2
- */
 function applyTextOp2(doc: Document<{ t: Text }>, op: TextOp) {
   doc.update((root) => {
     const t = root.t;
@@ -220,6 +214,98 @@ describe('Text Undo - multi client', () => {
       });
     }
   }
+
+  it('should converge after overlapping edits are undone', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Text };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      const initialText = 'ABCDEFGHIJ';
+      d1.update((root) => {
+        root.t = new Text();
+        root.t.edit(0, 0, initialText);
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => {
+        root.t.edit(2, 6, 'XXXX');
+      }, 'c1 overlap edit');
+      // "ABCXXXXFGHIJ"
+      d2.update((root) => {
+        root.t.edit(4, 9, 'YYYYY');
+      }, 'c2 overlap edit');
+      // "ABCXXXXYYYYY"
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        d2.toSortedJSON(),
+        'Mismatch after overlap edits',
+      );
+      // "ABCXXXXYYYYY"
+      d2.history.undo();
+      d1.history.undo();
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.toSortedJSON(),
+        d2.toSortedJSON(),
+        'Mismatch after overlap undo',
+      );
+    }, task.name);
+  });
+
+  it('should converge after containing edits are undone', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Text };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      const initialText = 'ZYXWVUTSRQ';
+      d1.update((root) => {
+        root.t = new Text();
+        root.t.edit(0, 0, initialText);
+      }, 'init');
+
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => {
+        root.t.edit(2, 9, 'CONTAIN');
+      }, 'c1 outer edit');
+
+      d2.update((root) => {
+        root.t.edit(4, 6, 'in');
+      }, 'c2 inner edit');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.toSortedJSON(),
+        d2.toSortedJSON(),
+        'Mismatch after contain edits',
+      );
+
+      d2.history.undo();
+      d1.history.undo();
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.toSortedJSON(),
+        d2.toSortedJSON(),
+        'Mismatch after contain undo',
+      );
+    }, task.name);
+  });
 
   // TODO(JOOHOJANG): We need to test this after implementing style operation
   it.skip('should keep convergence when both clients style/undo/redo', async function ({
