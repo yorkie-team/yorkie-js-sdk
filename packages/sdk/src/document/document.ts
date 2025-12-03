@@ -1447,11 +1447,11 @@ export class Document<
     const { opInfos } = change.execute(this.root, this.presences, source);
     for (const op of opInfos) {
       if (op instanceof EditOperation) {
-        const [rangeFrom, rangeTo] = op.normalizePos(this.root);
+        const [from, to] = op.normalizePos(this.root);
         this.internalHistory.reconcileTextEdit(
           op.getParentCreatedAt(),
-          rangeFrom,
-          rangeTo,
+          from,
+          to,
           op.getContent()?.length ?? 0,
         );
       }
