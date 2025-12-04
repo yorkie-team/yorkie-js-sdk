@@ -21,10 +21,12 @@ async function main() {
   await client.activate();
 
   const params = new URLSearchParams(window.location.search);
-  const docKey = params.get('dockey') || `vanilla-codemirror6-${Date.now()}`;
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(
-    docKey,
+    `codemirror6-${new Date()
+      .toISOString()
+      .substring(0, 10)
+      .replace(/-/g, '')}`,
     {
       enableDevtools: true,
     },
@@ -47,8 +49,6 @@ async function main() {
       root.content = new yorkie.Text();
     }
   }, 'create content if not exists');
-
- 
 
   doc.subscribe('$.content', (event) => {
     if (event.type === 'remote-change' || event.source === 'undoredo') {
@@ -117,24 +117,24 @@ async function main() {
   const cmUndoRedoKeymap = keymap.of([
     {
       key: 'Mod-z',
+      preventDefault: true,
       run: () => {
         // To check undo works properly
         console.log('undo');
         if (doc.history.canUndo()) {
           doc.history.undo();
-          
         }
         return true;
       },
     },
     {
       key: 'Mod-Shift-z',
+      preventDefault: true,
       run: () => {
         // To check redo works properly
         console.log('redo');
         if (doc.history.canRedo()) {
           doc.history.redo();
-         
         }
         return true;
       },
@@ -142,34 +142,39 @@ async function main() {
   ]);
   const view = new EditorView({
     doc: '',
-    extensions: [basicSetup, fixedHeightTheme, updateListener, cmUndoRedoKeymap],
+    extensions: [
+      cmUndoRedoKeymap,
+      basicSetup,
+      fixedHeightTheme,
+      updateListener,
+    ],
     parent: editorParentElem,
   });
- // 02-2. subscribe document event.
- const syncText = () => {
-  const text = doc.getRoot().content;
-  const selection = doc.getMyPresence().selection;
-  const transactionSpec: TransactionSpec = {
-    changes: { from: 0, to: view.state.doc.length, insert: text.toString() },
-    annotations: [Transaction.remote.of(true)],
-  };
-
-  if (selection) {
-    // Restore the cursor position when the text is replaced.
-    const cursor = text.posRangeToIndexRange(selection);
-    transactionSpec['selection'] = {
-      anchor: cursor[0],
-      head: cursor[1],
+  // 02-2. subscribe document event.
+  const syncText = () => {
+    const text = doc.getRoot().content;
+    const selection = doc.getMyPresence().selection;
+    const transactionSpec: TransactionSpec = {
+      changes: { from: 0, to: view.state.doc.length, insert: text.toString() },
+      annotations: [Transaction.remote.of(true)],
     };
-  }
-  view.dispatch(transactionSpec);
-};
-doc.subscribe((event) => {
-  if (event.type === 'snapshot') {
-    // The text is replaced to snapshot and must be re-synced.
-    syncText();
-  }
-});
+
+    if (selection) {
+      // Restore the cursor position when the text is replaced.
+      const cursor = text.posRangeToIndexRange(selection);
+      transactionSpec['selection'] = {
+        anchor: cursor[0],
+        head: cursor[1],
+      };
+    }
+    view.dispatch(transactionSpec);
+  };
+  doc.subscribe((event) => {
+    if (event.type === 'snapshot') {
+      // The text is replaced to snapshot and must be re-synced.
+      syncText();
+    }
+  });
 
   // 03-3. define event handler that apply remote changes to local
   function handleOperations(operations: Array<OpInfo>) {
