@@ -105,7 +105,7 @@ describe('Revision', function () {
     await client.sync();
 
     // 04. Verify the document was modified
-    assert.equal(doc.toJSON(), '{"k1":"modified","k2":"v3"}');
+    assert.equal(doc.toSortedJSON(), '{"k1":"modified","k2":"v3"}');
 
     // 05. Restore to the revision
     await client.restoreRevision(doc, revision.id);
@@ -114,7 +114,7 @@ describe('Revision', function () {
     await client.sync();
 
     // 07. Verify the document was restored to the initial state
-    assert.equal(doc.toJSON(), '{"k1":"v1","k2":"v2"}');
+    assert.equal(doc.toSortedJSON(), '{"k1":"v1","k2":"v2"}');
 
     await client.detach(doc);
     await client.deactivate();
@@ -132,8 +132,8 @@ describe('Revision', function () {
       await c2.sync();
 
       // 02. Verify both clients have the same state
-      assert.equal(d1.toJSON(), '{"k1":"v1","k2":"v2"}');
-      assert.equal(d2.toJSON(), '{"k1":"v1","k2":"v2"}');
+      assert.equal(d1.toSortedJSON(), '{"k1":"v1","k2":"v2"}');
+      assert.equal(d2.toSortedJSON(), '{"k1":"v1","k2":"v2"}');
 
       // 03. Client1 creates a revision
       const revision = await c1.createRevision(d1, 'v1.0', 'Initial state');
@@ -148,8 +148,8 @@ describe('Revision', function () {
       await c2.sync();
 
       // 05. Verify both clients have the modified state
-      assert.equal(d1.toJSON(), '{"k1":"modified","k2":"v3"}');
-      assert.equal(d2.toJSON(), '{"k1":"modified","k2":"v3"}');
+      assert.equal(d1.toSortedJSON(), '{"k1":"modified","k2":"v3"}');
+      assert.equal(d2.toSortedJSON(), '{"k1":"modified","k2":"v3"}');
 
       // 06. Client1 restores to the revision
       await c1.restoreRevision(d1, revision.id);
@@ -159,8 +159,8 @@ describe('Revision', function () {
       await c2.sync();
 
       // 08. Verify both clients have been restored to the initial state
-      assert.equal(d1.toJSON(), '{"k1":"v1","k2":"v2"}');
-      assert.equal(d2.toJSON(), '{"k1":"v1","k2":"v2"}');
+      assert.equal(d1.toSortedJSON(), '{"k1":"v1","k2":"v2"}');
+      assert.equal(d2.toSortedJSON(), '{"k1":"v1","k2":"v2"}');
     }, task.name);
   });
 });

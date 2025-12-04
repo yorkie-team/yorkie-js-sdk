@@ -302,8 +302,10 @@ export type PresenceEvent<P extends Indexable = Indexable> =
  * `LocalChangeEvent` is an event that occurs when the document is changed
  * by local changes.
  */
-export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
-  extends BaseDocEvent {
+export interface LocalChangeEvent<
+  T = OpInfo,
+  P extends Indexable = Indexable,
+> extends BaseDocEvent {
   type: DocEventType.LocalChange;
   source: OpSource.Local | OpSource.UndoRedo;
   value: ChangeInfo<T>;
@@ -314,8 +316,10 @@ export interface LocalChangeEvent<T = OpInfo, P extends Indexable = Indexable>
  * `RemoteChangeEvent` is an event that occurs when the document is changed
  * by remote changes.
  */
-export interface RemoteChangeEvent<T = OpInfo, P extends Indexable = Indexable>
-  extends BaseDocEvent {
+export interface RemoteChangeEvent<
+  T = OpInfo,
+  P extends Indexable = Indexable,
+> extends BaseDocEvent {
   type: DocEventType.RemoteChange;
   source: OpSource.Remote;
   value: ChangeInfo<T>;
@@ -340,8 +344,9 @@ export interface UnwatchedEvent<P extends Indexable> extends BaseDocEvent {
   value: { clientID: ActorID; presence: P };
 }
 
-export interface PresenceChangedEvent<P extends Indexable>
-  extends BaseDocEvent {
+export interface PresenceChangedEvent<
+  P extends Indexable,
+> extends BaseDocEvent {
   type: DocEventType.PresenceChanged;
   source: OpSource;
   value: { clientID: ActorID; presence: P };
@@ -508,9 +513,10 @@ type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
  * of the application and edit it even while offline.
  * It implements Attachable interface to be managed by Attachment.
  */
-export class Document<R, P extends Indexable = Indexable>
-  implements Attachable
-{
+export class Document<
+  R,
+  P extends Indexable = Indexable,
+> implements Attachable {
   private key: string;
   private status: DocStatus;
   private opts: DocumentOptions;

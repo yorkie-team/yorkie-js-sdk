@@ -142,7 +142,13 @@ vi.mock('../../src/YorkieProvider', () => ({
 }));
 
 vi.mock('@yorkie-js/sdk', () => ({
-  Document: vi.fn(() => currentMockDocument),
+  Document: vi.fn(
+    class {
+      constructor() {
+        return currentMockDocument;
+      }
+    },
+  ),
   Client: vi.fn(() => currentMockClient),
   StreamConnectionStatus: {
     Connected: 'Connected',

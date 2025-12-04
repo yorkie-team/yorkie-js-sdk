@@ -208,12 +208,10 @@ export class Change<P extends Indexable> {
    */
   public toStruct(): ChangeStruct<P> {
     return {
-      changeID: converter.bytesToHex(
-        converter.toChangeID(this.getID()).toBinary(),
-      ),
+      changeID: converter.bytesToHex(converter.changeIDToBinary(this.getID())),
       message: this.getMessage(),
       operations: this.getOperations().map((op) =>
-        converter.bytesToHex(converter.toOperation(op).toBinary()),
+        converter.bytesToHex(converter.operationToBinary(op)),
       ),
       presenceChange: this.getPresenceChange(),
     };

@@ -33,16 +33,24 @@ const mockDocument = {
 };
 
 vi.mock('@yorkie-js/sdk', () => ({
-  Document: vi.fn(() => mockDocument),
+  Document: vi.fn(
+    class {
+      constructor() {
+        return mockDocument;
+      }
+    },
+  ),
   StreamConnectionStatus: {
     Connected: 'Connected',
     Disconnected: 'Disconnected',
   },
-  Client: vi.fn(() => ({
-    activate: vi.fn(),
-    deactivate: vi.fn(),
-    isActive: vi.fn(() => false),
-  })),
+  Client: vi.fn(
+    class {
+      activate = vi.fn();
+      deactivate = vi.fn();
+      isActive = vi.fn(() => false);
+    },
+  ),
 }));
 
 // Mock useYorkie hook directly
