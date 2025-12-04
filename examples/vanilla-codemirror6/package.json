@@ -9,12 +9,12 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "vite": "^5.0.12"
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
   },
   "dependencies": {
-    "@codemirror/state": "^6.4.1",
-    "codemirror": "^6.0.1",
-    "@yorkie-js/sdk": "workspace:*"
+    "@codemirror/state": "^6.5.2",
+    "@yorkie-js/sdk": "workspace:*",
+    "codemirror": "^6.0.2"
   }
 }

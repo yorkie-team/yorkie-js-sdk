@@ -12,7 +12,7 @@
     "@yorkie-js/sdk": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.3.3",
-    "vite": "^6.2.0"
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
   }
 }

@@ -22,8 +22,8 @@ import {
   Code as ConnectCode,
 } from '@connectrpc/connect';
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
-import { YorkieService } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_connect';
 import {
+  YorkieService,
   WatchDocumentResponse,
   WatchChannelResponse,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';

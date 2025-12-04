@@ -87,13 +87,13 @@ export default tseslint.config(
   globalIgnores([
     // common
     '**/dist/*',
+    '**/lib/*',
     // sdk
     'packages/sdk/src/api/yorkie/v1/yorkie_grpc_web_pb.d.ts',
     'packages/sdk/src/api/yorkie/v1/yorkie_pb.d.ts',
     'packages/sdk/src/api/yorkie/v1/resources_grpc_web_pb.d.ts',
     'packages/sdk/src/api/yorkie/v1/resources_pb.d.ts',
     'packages/sdk/test/vitest.d.ts',
-    'packages/sdk/lib',
     // examples
     'examples/**/*',
     // schema

@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "vite": "^5.0.12"
+    "vite": "^7.2.6"
   },
   "dependencies": {
     "@yorkie-js/sdk": "workspace:*"

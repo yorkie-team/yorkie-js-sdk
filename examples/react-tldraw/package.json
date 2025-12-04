@@ -13,19 +13,19 @@
     "@tldraw/core": "^1.23.2",
     "@tldraw/tldraw": "1.26.3",
     "@yorkie-js/sdk": "workspace:*",
-    "es-toolkit": "^1.41.0",
+    "es-toolkit": "^1.42.0",
     "randomcolor": "^0.6.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
-    "@types/randomcolor": "^0.5.5",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.2.1",
-    "typescript": "^5.3.3",
-    "vite": "^5.0.12",
-    "vite-tsconfig-paths": "^4.3.1"
+    "@types/randomcolor": "^0.5.9",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6",
+    "vite-tsconfig-paths": "^5.1.4"
   }
 }

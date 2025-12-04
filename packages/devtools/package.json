@@ -1,7 +1,7 @@
 {
   "name": "@yorkie-js/devtools",
   "displayName": "Yorkie Devtools",
-  "version": "0.6.40",
+  "version": "0.6.41",
   "description": "A browser extension that helps you debug Yorkie.",
   "homepage": "https://yorkie.dev/",
   "scripts": {
@@ -11,25 +11,25 @@
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {
-    "@microlink/react-json-view": "^1.23.0",
+    "@microlink/react-json-view": "^1.27.0",
     "@yorkie-js/sdk": "workspace:*",
-    "classnames": "^2.3.2",
+    "classnames": "^2.5.1",
     "plasmo": "0.90.5",
-    "prism-react-renderer": "^2.3.1",
-    "rc-slider": "^10.5.0",
-    "react": "18.2.0",
-    "react-arborist": "^3.4.0",
-    "react-dom": "18.2.0",
-    "react-resizable-layout": "^0.7.2",
+    "prism-react-renderer": "^2.4.1",
+    "rc-slider": "^11.1.9",
+    "react": "19.2.1",
+    "react-arborist": "^3.4.3",
+    "react-dom": "19.2.1",
+    "react-resizable-layout": "^0.7.3",
     "use-resize-observer": "^9.1.0"
   },
   "devDependencies": {
-    "@types/chrome": "0.0.251",
-    "@types/node": "20.9.0",
-    "@types/react": "18.2.0",
-    "@types/react-dom": "18.2.0",
-    "prettier": "3.0.3",
-    "typescript": "5.3.3"
+    "@types/chrome": "0.1.32",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "prettier": "3.7.4",
+    "typescript": "5.9.3"
   },
   "manifest": {
     "permissions": [
