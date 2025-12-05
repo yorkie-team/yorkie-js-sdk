@@ -7,9 +7,10 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+- Enhance YSON parsing with generic type support by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1137
 - Implement YSON module with parser and types by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1135
-- Bump up libs to the latest version by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1132
 - Add GetRevision for retrieving specific revisions by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1133
+- Bump up libs to the latest version by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1132
 
 ## [v0.6.40] - 2025-12-02
 
