@@ -3,6 +3,6 @@
 4:I[91512,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"MetadataBoundary"]
 5:"$Sreact.suspense"
 7:I[63062,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"IconMark"]
-0:{"buildId":"F9lGyjkkOLb5c16ddoP8G","rsc":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L2",null,{"children":"$@3"}],["$","div",null,{"hidden":true,"children":["$","$L4",null,{"children":["$","$5",null,{"name":"Next.Metadata","children":"$@6"}]}]}],null]}],"loading":null,"isPartial":false}
+0:{"buildId":"tn2JW5WEYEQTbU-8iSS2t","rsc":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L2",null,{"children":"$@3"}],["$","div",null,{"hidden":true,"children":["$","$L4",null,{"children":["$","$5",null,{"name":"Next.Metadata","children":"$@6"}]}]}],null]}],"loading":null,"isPartial":false}
 3:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
 6:[["$","title","0",{"children":"Next.js react-calendar example"}],["$","meta","1",{"name":"description","content":"example of yorkie-js-sdk with next.js & react-calendar"}],["$","link","2",{"rel":"icon","href":"./favicon.ico"}],["$","$L7","3",{}]]
