@@ -74,14 +74,14 @@ describe('YSON Parser', () => {
 
   describe('Type Guards', () => {
     it('isText should identify Text objects', () => {
-      const text: YSON.YSONText = { type: 'Text', nodes: [{ val: 'H' }] };
+      const text: YSON.Text = { type: 'Text', nodes: [{ val: 'H' }] };
       expect(YSON.isText(text)).toBe(true);
       expect(YSON.isText({ type: 'NotText' })).toBe(false);
       expect(YSON.isText('string')).toBe(false);
     });
 
     it('isTree should identify Tree objects', () => {
-      const tree: YSON.YSONTree = {
+      const tree: YSON.Tree = {
         type: 'Tree',
         root: { type: 'doc', children: [] },
       };
@@ -98,7 +98,7 @@ describe('YSON Parser', () => {
 
   describe('Utility Functions', () => {
     it('textToString should extract text', () => {
-      const text: YSON.YSONText = {
+      const text: YSON.Text = {
         type: 'Text',
         nodes: [
           { val: 'H' },
@@ -112,12 +112,12 @@ describe('YSON Parser', () => {
     });
 
     it('textToString should handle empty text', () => {
-      const text: YSON.YSONText = { type: 'Text', nodes: [] };
+      const text: YSON.Text = { type: 'Text', nodes: [] };
       expect(YSON.textToString(text)).toBe('');
     });
 
     it('treeToXML should convert tree to XML', () => {
-      const tree: YSON.YSONTree = {
+      const tree: YSON.Tree = {
         type: 'Tree',
         root: {
           type: 'doc',
@@ -257,6 +257,137 @@ describe('YSON Parser', () => {
       expect(YSON.isCounter(obj.counter)).toBe(true);
       expect(YSON.isText(obj.text)).toBe(true);
       expect(YSON.isTree(obj.tree)).toBe(true);
+    });
+  });
+
+  describe('Type Parameter', () => {
+    it('should infer type with type parameter', () => {
+      interface DocType {
+        content: YSON.Text;
+        title: string;
+      }
+
+      const yson =
+        '{"content":Text([{"val":"H"},{"val":"i"}]),"title":"Hello"}';
+      const result = YSON.parse<DocType>(yson);
+
+      // Type should be inferred as DocumentRoot
+      expect(result.title).toBe('Hello');
+      expect(result.content.type).toBe('Text');
+      expect(result.content.nodes).toHaveLength(2);
+    });
+
+    it('should work with nested type parameter', () => {
+      interface User {
+        name: string;
+        bio: YSON.Text;
+      }
+
+      interface Doc {
+        users: Array<User>;
+      }
+
+      const yson = '{"users":[{"name":"Alice","bio":Text([{"val":"A"}])}]}';
+      const result = YSON.parse<Doc>(yson);
+
+      expect(result.users[0].name).toBe('Alice');
+      expect(result.users[0].bio.type).toBe('Text');
+      expect(result.users[0].bio.nodes[0].val).toBe('A');
+    });
+
+    it('should work with Tree type parameter', () => {
+      interface TreeDoc {
+        content: YSON.Tree;
+      }
+
+      const yson =
+        '{"content":Tree({"type":"doc","children":[{"type":"p","children":[{"type":"text","value":"Hello"}]}]})}';
+      const result = YSON.parse<TreeDoc>(yson);
+
+      expect(result.content.type).toBe('Tree');
+      expect(result.content.root.type).toBe('doc');
+    });
+
+    it('should work with mixed YSON types', () => {
+      interface ComplexDoc {
+        text: YSON.Text;
+        tree: YSON.Tree;
+        counter: YSON.Counter;
+        timestamp: YSON.Date;
+      }
+
+      const yson = `{
+        "text": Text([{"val":"H"}]),
+        "tree": Tree({"type":"p","children":[]}),
+        "counter": Counter(Int(10)),
+        "timestamp": Date("2025-01-02T15:04:05.058Z")
+      }`;
+      const result = YSON.parse<ComplexDoc>(yson);
+
+      expect(result.text.type).toBe('Text');
+      expect(result.tree.type).toBe('Tree');
+      expect(result.counter.type).toBe('Counter');
+      expect(result.timestamp.type).toBe('Date');
+    });
+
+    it('should work without type parameter (default behavior)', () => {
+      const yson = '{"content":Text([{"val":"H"}])}';
+      const result = YSON.parse(yson);
+
+      // Should still work but type is YSONValue
+      expect(YSON.isObject(result)).toBe(true);
+    });
+
+    it('should handle primitive type parameter', () => {
+      const numberYson = '42';
+      const stringYson = '"hello"';
+      const boolYson = 'true';
+
+      const numResult = YSON.parse<number>(numberYson);
+      const strResult = YSON.parse<string>(stringYson);
+      const boolResult = YSON.parse<boolean>(boolYson);
+
+      expect(numResult).toBe(42);
+      expect(strResult).toBe('hello');
+      expect(boolResult).toBe(true);
+    });
+
+    it('should handle array type parameter', () => {
+      interface Item {
+        id: number;
+        text: YSON.Text;
+      }
+
+      const yson =
+        '[{"id":1,"text":Text([{"val":"A"}])},{"id":2,"text":Text([{"val":"B"}])}]';
+      const result = YSON.parse<Array<Item>>(yson);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe(1);
+      expect(result[0].text.nodes[0].val).toBe('A');
+      expect(result[1].id).toBe(2);
+      expect(result[1].text.nodes[0].val).toBe('B');
+    });
+
+    it('should handle optional properties with type parameter', () => {
+      interface Document {
+        title: string;
+        content?: YSON.Text;
+        metadata?: {
+          author: string;
+        };
+      }
+
+      const yson1 = '{"title":"Doc1","content":Text([{"val":"A"}])}';
+      const yson2 = '{"title":"Doc2"}';
+
+      const result1 = YSON.parse<Document>(yson1);
+      const result2 = YSON.parse<Document>(yson2);
+
+      expect(result1.title).toBe('Doc1');
+      expect(result1.content?.type).toBe('Text');
+      expect(result2.title).toBe('Doc2');
+      expect(result2.content).toBeUndefined();
     });
   });
 

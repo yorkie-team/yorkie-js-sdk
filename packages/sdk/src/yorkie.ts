@@ -140,6 +140,7 @@ export {
   type FullSDKToPanelMessage,
 } from '@yorkie-js/sdk/src/devtools/protocol';
 export { Devtools };
+export { YSON };
 
 /**
  * The top-level yorkie namespace with additional properties.

@@ -25,15 +25,15 @@
 
 export type {
   YSONValue,
-  YSONText,
-  YSONTree,
-  YSONTextNode,
-  YSONTreeNode,
-  YSONInt,
-  YSONLong,
-  YSONDate,
-  YSONBinData,
-  YSONCounter,
+  YSONText as Text,
+  YSONTree as Tree,
+  YSONTextNode as TextNode,
+  YSONTreeNode as TreeNode,
+  YSONInt as Int,
+  YSONLong as Long,
+  YSONDate as Date,
+  YSONBinData as BinData,
+  YSONCounter as Counter,
 } from './types';
 
 export {

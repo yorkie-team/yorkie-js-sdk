@@ -44,9 +44,13 @@ import type {
  * ```typescript
  * const data = parse('{"content":Text([{"val":"Hi"}])}');
  * // { content: { type: 'Text', nodes: [{ val: 'Hi' }] } }
+ *
+ * // With type parameter:
+ * const data = parse<{ content: YSONText }>('{"content":Text([{"val":"Hi"}])}');
+ * // data.content is now typed as YSONText
  * ```
  */
-export function parse(yson: string): YSONValue {
+export function parse<T = YSONValue>(yson: string): T {
   try {
     // Preprocess YSON string to handle special types
     const processed = preprocessYSON(yson);
@@ -55,7 +59,7 @@ export function parse(yson: string): YSONValue {
     const parsed = JSON.parse(processed);
 
     // Post-process to restore type information
-    return postprocessValue(parsed);
+    return postprocessValue(parsed) as T;
   } catch (err) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
