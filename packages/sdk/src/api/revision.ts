@@ -36,8 +36,14 @@ export interface RevisionSummary {
   description: string;
 
   /**
-   * `snapshot` is the serialized document content (JSON format) at this revision point.
-   * This contains only the pure data without CRDT metadata.
+   * `snapshot` is the serialized document content in YSON format at this revision point.
+   *
+   * Use `YSON.parse()` to convert this string to a typed JavaScript object:
+   *
+   * ```javascript
+   * import { YSON } from 'yorkie-js-sdk';
+   * const snapshot = YSON.parse(revision.snapshot);
+   * ```
    */
   snapshot: string;
 

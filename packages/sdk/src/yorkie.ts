@@ -22,6 +22,7 @@ import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { Channel, ChannelEventType } from '@yorkie-js/sdk/src/channel/channel';
+import * as YSON from '@yorkie-js/sdk/src/document/yson';
 
 export {
   Client,
@@ -155,8 +156,10 @@ export default {
   Text,
   Counter,
   Tree,
+  Devtools,
   Channel,
   ChannelEventType,
+  YSON,
   LogLevel,
   setLogLevel,
   IntType: CounterType.Int,
@@ -174,6 +177,7 @@ if (typeof globalThis !== 'undefined') {
     Tree,
     Channel,
     ChannelEventType,
+    YSON,
     LogLevel,
     setLogLevel,
     IntType: CounterType.Int,
