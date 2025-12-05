@@ -83,6 +83,7 @@ import { Rule } from '@yorkie-js/schema';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
+import { EditOperation } from './operation/edit_operation';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -1335,6 +1336,7 @@ export class Document<
     // Afterward, we should publish a snapshot event with the latest
     // version of the document to ensure the user receives the most up-to-date snapshot.
     this.applyChanges(this.localChanges, OpSource.Local);
+    this.clearHistory();
     this.publish([
       {
         type: DocEventType.Snapshot,
@@ -1348,6 +1350,11 @@ export class Document<
         },
       },
     ]);
+  }
+
+  private clearHistory() {
+    this.internalHistory.clearRedo();
+    this.internalHistory.clearUndo();
   }
 
   /**
@@ -1443,7 +1450,23 @@ export class Document<
       }
     }
 
-    const { opInfos } = change.execute(this.root, this.presences, source);
+    const { opInfos, operations } = change.execute(
+      this.root,
+      this.presences,
+      source,
+    );
+    for (const op of operations) {
+      if (op instanceof EditOperation) {
+        const [from, to] = op.normalizePos(this.root);
+
+        this.internalHistory.reconcileTextEdit(
+          op.getParentCreatedAt(),
+          from,
+          to,
+          op.getContent()?.length ?? 0,
+        );
+      }
+    }
     this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;

@@ -155,10 +155,12 @@ export class Change<P extends Indexable> {
     presences: Map<ActorID, P>,
     source: OpSource,
   ): {
+    operations: Array<Operation>;
     opInfos: Array<OpInfo>;
     reverseOps: Array<HistoryOperation<P>>;
   } {
     const changeOpInfos: Array<OpInfo> = [];
+    const changeOperations: Array<Operation> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
 
     for (const operation of this.operations) {
@@ -172,7 +174,7 @@ export class Change<P extends Indexable> {
       if (!executionResult) continue;
       const { opInfos, reverseOp } = executionResult;
       changeOpInfos.push(...opInfos);
-
+      changeOperations.push(operation);
       // TODO(hackerwins): This condition should be removed after implementing
       // all reverse operations.
       if (reverseOp) {
@@ -191,7 +193,7 @@ export class Change<P extends Indexable> {
       }
     }
 
-    return { opInfos: changeOpInfos, reverseOps };
+    return { operations: changeOperations, opInfos: changeOpInfos, reverseOps };
   }
 
   /**

@@ -18,7 +18,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
   OpInfo,
@@ -37,6 +37,7 @@ export class EditOperation extends Operation {
   private toPos: RGATreeSplitPos;
   private content: string;
   private attributes: Map<string, string>;
+  private isUndoOp: boolean | undefined;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -44,13 +45,15 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
+    isUndoOp?: boolean,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.content = content;
     this.attributes = attributes;
+    this.isUndoOp = isUndoOp;
   }
 
   /**
@@ -62,7 +65,8 @@ export class EditOperation extends Operation {
     toPos: RGATreeSplitPos,
     content: string,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
+    isUndoOp?: boolean,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -71,6 +75,7 @@ export class EditOperation extends Operation {
       content,
       attributes,
       executedAt,
+      isUndoOp,
     );
   }
 
@@ -97,7 +102,13 @@ export class EditOperation extends Operation {
     }
 
     const text = parentObject as CRDTText<A>;
-    const [changes, pairs, diff] = text.edit(
+
+    if (this.isUndoOp) {
+      this.fromPos = text.refinePos(this.fromPos);
+      this.toPos = text.refinePos(this.toPos);
+    }
+
+    const [changes, pairs, diff, , removedValues] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -105,6 +116,10 @@ export class EditOperation extends Operation {
       versionVector,
     );
 
+    const reverseOp = this.toReverseOperation(
+      removedValues,
+      text.normalizePos(this.fromPos),
+    );
     root.acc(diff);
 
     for (const pair of pairs) {
@@ -121,7 +136,128 @@ export class EditOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OpInfo;
       }),
+      reverseOp,
     };
+  }
+
+  private toReverseOperation(
+    removedValues: Array<CRDTTextValue>,
+    normalizedFromPos: RGATreeSplitPos,
+  ): Operation {
+    // 1) Content
+    const restoredContent =
+      removedValues && removedValues.length !== 0
+        ? removedValues.map((v) => v.getContent()).join('')
+        : '';
+
+    // 2) Attribute
+    let restoredAttrs: Array<[string, string]> | undefined;
+
+    if (removedValues.length === 1) {
+      const attrsObj = removedValues[0].getAttributes();
+      if (attrsObj) {
+        restoredAttrs = Array.from(Object.entries(attrsObj as any));
+      }
+    }
+
+    return EditOperation.create(
+      this.getParentCreatedAt(),
+      normalizedFromPos,
+      RGATreeSplitPos.of(
+        normalizedFromPos.getID(),
+        normalizedFromPos.getRelativeOffset() + (this.content?.length ?? 0),
+      ),
+      restoredContent,
+      restoredAttrs ? new Map(restoredAttrs) : new Map(),
+      undefined,
+      true,
+    );
+  }
+
+  /**
+   * `normalizePos` normalizes the position of the edit operation.
+   */
+  public normalizePos<A extends Indexable>(root: CRDTRoot): [number, number] {
+    const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+
+    if (!parentObject) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `fail to find ${this.getParentCreatedAt()}`,
+      );
+    }
+
+    if (!(parentObject instanceof CRDTText)) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `only Text can normalize edit`,
+      );
+    }
+
+    const text = parentObject as CRDTText<A>;
+    const rangeFrom = text.normalizePos(this.fromPos).getRelativeOffset();
+    const rangeTo = text.normalizePos(this.toPos).getRelativeOffset();
+
+    return [rangeFrom, rangeTo];
+  }
+
+  /**
+   * `reconcileOperation` reconciles the edit operation with the new position.
+   */
+  public reconcileOperation(
+    rangeFrom: number,
+    rangeTo: number,
+    contentLength: number,
+  ): void {
+    if (!this.isUndoOp) {
+      return;
+    }
+    if (!Number.isInteger(rangeFrom) || !Number.isInteger(rangeTo)) {
+      return;
+    }
+    if (rangeFrom > rangeTo) {
+      return;
+    }
+
+    const rangeLen = rangeTo - rangeFrom;
+    const a = this.fromPos.getRelativeOffset();
+    const b = this.toPos.getRelativeOffset();
+
+    const apply = (na: number, nb: number) => {
+      this.fromPos = RGATreeSplitPos.of(this.fromPos.getID(), Math.max(0, na));
+      this.toPos = RGATreeSplitPos.of(this.toPos.getID(), Math.max(0, nb));
+    };
+
+    // Does not overlap
+    if (rangeTo <= a) {
+      apply(a - rangeLen + contentLength, b - rangeLen + contentLength);
+      return;
+    }
+    if (b <= rangeFrom) {
+      return;
+    }
+
+    // Fully overlap: contains
+    if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
+      apply(rangeFrom, rangeFrom);
+      return;
+    }
+    if (a <= rangeFrom && rangeTo <= b && a !== b) {
+      apply(a, b - rangeLen + contentLength);
+      return;
+    }
+
+    // overlap at the start
+    if (rangeFrom < a && a < rangeTo && rangeTo < b) {
+      apply(rangeFrom, rangeFrom + (b - rangeTo));
+      return;
+    }
+
+    // overlap at the end
+    if (a < rangeFrom && rangeFrom < b && b < rangeTo) {
+      apply(a, rangeFrom);
+      return;
+    }
   }
 
   /**
