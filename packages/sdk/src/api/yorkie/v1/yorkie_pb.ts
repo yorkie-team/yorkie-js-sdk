@@ -27,7 +27,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file src/api/yorkie/v1/yorkie.proto.
  */
 export const file_src_api_yorkie_v1_yorkie: GenFile = /*@__PURE__*/
-  fileDesc("Ch5zcmMvYXBpL3lvcmtpZS92MS95b3JraWUucHJvdG8SCXlvcmtpZS52MSKeAQoVQWN0aXZhdGVDbGllbnRSZXF1ZXN0EhIKCmNsaWVudF9rZXkYASABKAkSQAoIbWV0YWRhdGEYAiADKAsyLi55b3JraWUudjEuQWN0aXZhdGVDbGllbnRSZXF1ZXN0Lk1ldGFkYXRhRW50cnkaLwoNTWV0YWRhdGFFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIisKFkFjdGl2YXRlQ2xpZW50UmVzcG9uc2USEQoJY2xpZW50X2lkGAEgASgJIkEKF0RlYWN0aXZhdGVDbGllbnRSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtzeW5jaHJvbm91cxgCIAEoCCIaChhEZWFjdGl2YXRlQ2xpZW50UmVzcG9uc2UiagoVQXR0YWNoRG9jdW1lbnRSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRIqCgtjaGFuZ2VfcGFjaxgCIAEoCzIVLnlvcmtpZS52MS5DaGFuZ2VQYWNrEhIKCnNjaGVtYV9rZXkYAyABKAkinwEKFkF0dGFjaERvY3VtZW50UmVzcG9uc2USEwoLZG9jdW1lbnRfaWQYASABKAkSKgoLY2hhbmdlX3BhY2sYAiABKAsyFS55b3JraWUudjEuQ2hhbmdlUGFjaxIdChVtYXhfc2l6ZV9wZXJfZG9jdW1lbnQYAyABKAUSJQoMc2NoZW1hX3J1bGVzGAQgAygLMg8ueW9ya2llLnYxLlJ1bGUiiwEKFURldGFjaERvY3VtZW50UmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLZG9jdW1lbnRfaWQYAiABKAkSKgoLY2hhbmdlX3BhY2sYAyABKAsyFS55b3JraWUudjEuQ2hhbmdlUGFjaxIeChZyZW1vdmVfaWZfbm90X2F0dGFjaGVkGAQgASgIIkQKFkRldGFjaERvY3VtZW50UmVzcG9uc2USKgoLY2hhbmdlX3BhY2sYAiABKAsyFS55b3JraWUudjEuQ2hhbmdlUGFjayI+ChRXYXRjaERvY3VtZW50UmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLZG9jdW1lbnRfaWQYAiABKAkitgEKFVdhdGNoRG9jdW1lbnRSZXNwb25zZRJJCg5pbml0aWFsaXphdGlvbhgBIAEoCzIvLnlvcmtpZS52MS5XYXRjaERvY3VtZW50UmVzcG9uc2UuSW5pdGlhbGl6YXRpb25IABIkCgVldmVudBgCIAEoCzITLnlvcmtpZS52MS5Eb2NFdmVudEgAGiQKDkluaXRpYWxpemF0aW9uEhIKCmNsaWVudF9pZHMYASADKAlCBgoEYm9keSJrChVSZW1vdmVEb2N1bWVudFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2RvY3VtZW50X2lkGAIgASgJEioKC2NoYW5nZV9wYWNrGAMgASgLMhUueW9ya2llLnYxLkNoYW5nZVBhY2siRAoWUmVtb3ZlRG9jdW1lbnRSZXNwb25zZRIqCgtjaGFuZ2VfcGFjaxgBIAEoCzIVLnlvcmtpZS52MS5DaGFuZ2VQYWNrIn8KFlB1c2hQdWxsQ2hhbmdlc1JlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2RvY3VtZW50X2lkGAIgASgJEioKC2NoYW5nZV9wYWNrGAMgASgLMhUueW9ya2llLnYxLkNoYW5nZVBhY2sSEQoJcHVzaF9vbmx5GAQgASgIIkUKF1B1c2hQdWxsQ2hhbmdlc1Jlc3BvbnNlEioKC2NoYW5nZV9wYWNrGAEgASgLMhUueW9ya2llLnYxLkNoYW5nZVBhY2siYwoVQ3JlYXRlUmV2aXNpb25SZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtkb2N1bWVudF9pZBgCIAEoCRINCgVsYWJlbBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCSJGChZDcmVhdGVSZXZpc2lvblJlc3BvbnNlEiwKCHJldmlzaW9uGAEgASgLMhoueW9ya2llLnYxLlJldmlzaW9uU3VtbWFyeSJ2ChRMaXN0UmV2aXNpb25zUmVxdWVzdBISCgpwcm9qZWN0X2lkGAEgASgJEhMKC2RvY3VtZW50X2lkGAIgASgJEhEKCXBhZ2Vfc2l6ZRgDIAEoBRIOCgZvZmZzZXQYBCABKAUSEgoKaXNfZm9yd2FyZBgFIAEoCCJGChVMaXN0UmV2aXNpb25zUmVzcG9uc2USLQoJcmV2aXNpb25zGAEgAygLMhoueW9ya2llLnYxLlJldmlzaW9uU3VtbWFyeSJAChZSZXN0b3JlUmV2aXNpb25SZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtyZXZpc2lvbl9pZBgCIAEoCSIZChdSZXN0b3JlUmV2aXNpb25SZXNwb25zZSI+ChRBdHRhY2hDaGFubmVsUmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLY2hhbm5lbF9rZXkYAiABKAkiOgoVQXR0YWNoQ2hhbm5lbFJlc3BvbnNlEhIKCnNlc3Npb25faWQYASABKAkSDQoFY291bnQYAiABKAMiUgoURGV0YWNoQ2hhbm5lbFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2NoYW5uZWxfa2V5GAIgASgJEhIKCnNlc3Npb25faWQYAyABKAkiJgoVRGV0YWNoQ2hhbm5lbFJlc3BvbnNlEg0KBWNvdW50GAEgASgDIlMKFVJlZnJlc2hDaGFubmVsUmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLY2hhbm5lbF9rZXkYAiABKAkSEgoKc2Vzc2lvbl9pZBgDIAEoCSInChZSZWZyZXNoQ2hhbm5lbFJlc3BvbnNlEg0KBWNvdW50GAEgASgDIj0KE1dhdGNoQ2hhbm5lbFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2NoYW5uZWxfa2V5GAIgASgJIoMBChRXYXRjaENoYW5uZWxSZXNwb25zZRI5Cgtpbml0aWFsaXplZBgBIAEoCzIiLnlvcmtpZS52MS5XYXRjaENoYW5uZWxJbml0aWFsaXplZEgAEigKBWV2ZW50GAIgASgLMhcueW9ya2llLnYxLkNoYW5uZWxFdmVudEgAQgYKBGJvZHkiNQoXV2F0Y2hDaGFubmVsSW5pdGlhbGl6ZWQSDQoFY291bnQYASABKAMSCwoDc2VxGAIgASgDIloKEEJyb2FkY2FzdFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2NoYW5uZWxfa2V5GAIgASgJEg0KBXRvcGljGAMgASgJEg8KB3BheWxvYWQYBCABKAwiEwoRQnJvYWRjYXN0UmVzcG9uc2UytQoKDVlvcmtpZVNlcnZpY2USVwoOQWN0aXZhdGVDbGllbnQSIC55b3JraWUudjEuQWN0aXZhdGVDbGllbnRSZXF1ZXN0GiEueW9ya2llLnYxLkFjdGl2YXRlQ2xpZW50UmVzcG9uc2UiABJdChBEZWFjdGl2YXRlQ2xpZW50EiIueW9ya2llLnYxLkRlYWN0aXZhdGVDbGllbnRSZXF1ZXN0GiMueW9ya2llLnYxLkRlYWN0aXZhdGVDbGllbnRSZXNwb25zZSIAElcKDkF0dGFjaERvY3VtZW50EiAueW9ya2llLnYxLkF0dGFjaERvY3VtZW50UmVxdWVzdBohLnlvcmtpZS52MS5BdHRhY2hEb2N1bWVudFJlc3BvbnNlIgASVwoORGV0YWNoRG9jdW1lbnQSIC55b3JraWUudjEuRGV0YWNoRG9jdW1lbnRSZXF1ZXN0GiEueW9ya2llLnYxLkRldGFjaERvY3VtZW50UmVzcG9uc2UiABJXCg5SZW1vdmVEb2N1bWVudBIgLnlvcmtpZS52MS5SZW1vdmVEb2N1bWVudFJlcXVlc3QaIS55b3JraWUudjEuUmVtb3ZlRG9jdW1lbnRSZXNwb25zZSIAEloKD1B1c2hQdWxsQ2hhbmdlcxIhLnlvcmtpZS52MS5QdXNoUHVsbENoYW5nZXNSZXF1ZXN0GiIueW9ya2llLnYxLlB1c2hQdWxsQ2hhbmdlc1Jlc3BvbnNlIgASVgoNV2F0Y2hEb2N1bWVudBIfLnlvcmtpZS52MS5XYXRjaERvY3VtZW50UmVxdWVzdBogLnlvcmtpZS52MS5XYXRjaERvY3VtZW50UmVzcG9uc2UiADABElcKDkNyZWF0ZVJldmlzaW9uEiAueW9ya2llLnYxLkNyZWF0ZVJldmlzaW9uUmVxdWVzdBohLnlvcmtpZS52MS5DcmVhdGVSZXZpc2lvblJlc3BvbnNlIgASVAoNTGlzdFJldmlzaW9ucxIfLnlvcmtpZS52MS5MaXN0UmV2aXNpb25zUmVxdWVzdBogLnlvcmtpZS52MS5MaXN0UmV2aXNpb25zUmVzcG9uc2UiABJaCg9SZXN0b3JlUmV2aXNpb24SIS55b3JraWUudjEuUmVzdG9yZVJldmlzaW9uUmVxdWVzdBoiLnlvcmtpZS52MS5SZXN0b3JlUmV2aXNpb25SZXNwb25zZSIAElQKDUF0dGFjaENoYW5uZWwSHy55b3JraWUudjEuQXR0YWNoQ2hhbm5lbFJlcXVlc3QaIC55b3JraWUudjEuQXR0YWNoQ2hhbm5lbFJlc3BvbnNlIgASVAoNRGV0YWNoQ2hhbm5lbBIfLnlvcmtpZS52MS5EZXRhY2hDaGFubmVsUmVxdWVzdBogLnlvcmtpZS52MS5EZXRhY2hDaGFubmVsUmVzcG9uc2UiABJXCg5SZWZyZXNoQ2hhbm5lbBIgLnlvcmtpZS52MS5SZWZyZXNoQ2hhbm5lbFJlcXVlc3QaIS55b3JraWUudjEuUmVmcmVzaENoYW5uZWxSZXNwb25zZSIAElMKDFdhdGNoQ2hhbm5lbBIeLnlvcmtpZS52MS5XYXRjaENoYW5uZWxSZXF1ZXN0Gh8ueW9ya2llLnYxLldhdGNoQ2hhbm5lbFJlc3BvbnNlIgAwARJICglCcm9hZGNhc3QSGy55b3JraWUudjEuQnJvYWRjYXN0UmVxdWVzdBocLnlvcmtpZS52MS5Ccm9hZGNhc3RSZXNwb25zZSIAQkUKEWRldi55b3JraWUuYXBpLnYxUAFaLmdpdGh1Yi5jb20veW9ya2llLXRlYW0veW9ya2llL2FwaS95b3JraWUvdjE7djFiBnByb3RvMw", [file_src_api_yorkie_v1_resources]);
+  fileDesc("Ch5zcmMvYXBpL3lvcmtpZS92MS95b3JraWUucHJvdG8SCXlvcmtpZS52MSKeAQoVQWN0aXZhdGVDbGllbnRSZXF1ZXN0EhIKCmNsaWVudF9rZXkYASABKAkSQAoIbWV0YWRhdGEYAiADKAsyLi55b3JraWUudjEuQWN0aXZhdGVDbGllbnRSZXF1ZXN0Lk1ldGFkYXRhRW50cnkaLwoNTWV0YWRhdGFFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBIisKFkFjdGl2YXRlQ2xpZW50UmVzcG9uc2USEQoJY2xpZW50X2lkGAEgASgJIkEKF0RlYWN0aXZhdGVDbGllbnRSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtzeW5jaHJvbm91cxgCIAEoCCIaChhEZWFjdGl2YXRlQ2xpZW50UmVzcG9uc2UiagoVQXR0YWNoRG9jdW1lbnRSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRIqCgtjaGFuZ2VfcGFjaxgCIAEoCzIVLnlvcmtpZS52MS5DaGFuZ2VQYWNrEhIKCnNjaGVtYV9rZXkYAyABKAkinwEKFkF0dGFjaERvY3VtZW50UmVzcG9uc2USEwoLZG9jdW1lbnRfaWQYASABKAkSKgoLY2hhbmdlX3BhY2sYAiABKAsyFS55b3JraWUudjEuQ2hhbmdlUGFjaxIdChVtYXhfc2l6ZV9wZXJfZG9jdW1lbnQYAyABKAUSJQoMc2NoZW1hX3J1bGVzGAQgAygLMg8ueW9ya2llLnYxLlJ1bGUiiwEKFURldGFjaERvY3VtZW50UmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLZG9jdW1lbnRfaWQYAiABKAkSKgoLY2hhbmdlX3BhY2sYAyABKAsyFS55b3JraWUudjEuQ2hhbmdlUGFjaxIeChZyZW1vdmVfaWZfbm90X2F0dGFjaGVkGAQgASgIIkQKFkRldGFjaERvY3VtZW50UmVzcG9uc2USKgoLY2hhbmdlX3BhY2sYAiABKAsyFS55b3JraWUudjEuQ2hhbmdlUGFjayI+ChRXYXRjaERvY3VtZW50UmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLZG9jdW1lbnRfaWQYAiABKAkitgEKFVdhdGNoRG9jdW1lbnRSZXNwb25zZRJJCg5pbml0aWFsaXphdGlvbhgBIAEoCzIvLnlvcmtpZS52MS5XYXRjaERvY3VtZW50UmVzcG9uc2UuSW5pdGlhbGl6YXRpb25IABIkCgVldmVudBgCIAEoCzITLnlvcmtpZS52MS5Eb2NFdmVudEgAGiQKDkluaXRpYWxpemF0aW9uEhIKCmNsaWVudF9pZHMYASADKAlCBgoEYm9keSJrChVSZW1vdmVEb2N1bWVudFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2RvY3VtZW50X2lkGAIgASgJEioKC2NoYW5nZV9wYWNrGAMgASgLMhUueW9ya2llLnYxLkNoYW5nZVBhY2siRAoWUmVtb3ZlRG9jdW1lbnRSZXNwb25zZRIqCgtjaGFuZ2VfcGFjaxgBIAEoCzIVLnlvcmtpZS52MS5DaGFuZ2VQYWNrIn8KFlB1c2hQdWxsQ2hhbmdlc1JlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2RvY3VtZW50X2lkGAIgASgJEioKC2NoYW5nZV9wYWNrGAMgASgLMhUueW9ya2llLnYxLkNoYW5nZVBhY2sSEQoJcHVzaF9vbmx5GAQgASgIIkUKF1B1c2hQdWxsQ2hhbmdlc1Jlc3BvbnNlEioKC2NoYW5nZV9wYWNrGAEgASgLMhUueW9ya2llLnYxLkNoYW5nZVBhY2siYwoVQ3JlYXRlUmV2aXNpb25SZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtkb2N1bWVudF9pZBgCIAEoCRINCgVsYWJlbBgDIAEoCRITCgtkZXNjcmlwdGlvbhgEIAEoCSJGChZDcmVhdGVSZXZpc2lvblJlc3BvbnNlEiwKCHJldmlzaW9uGAEgASgLMhoueW9ya2llLnYxLlJldmlzaW9uU3VtbWFyeSJRChJHZXRSZXZpc2lvblJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2RvY3VtZW50X2lkGAIgASgJEhMKC3JldmlzaW9uX2lkGAMgASgJIkMKE0dldFJldmlzaW9uUmVzcG9uc2USLAoIcmV2aXNpb24YASABKAsyGi55b3JraWUudjEuUmV2aXNpb25TdW1tYXJ5InUKFExpc3RSZXZpc2lvbnNSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtkb2N1bWVudF9pZBgCIAEoCRIRCglwYWdlX3NpemUYAyABKAUSDgoGb2Zmc2V0GAQgASgFEhIKCmlzX2ZvcndhcmQYBSABKAgiRgoVTGlzdFJldmlzaW9uc1Jlc3BvbnNlEi0KCXJldmlzaW9ucxgBIAMoCzIaLnlvcmtpZS52MS5SZXZpc2lvblN1bW1hcnkiVQoWUmVzdG9yZVJldmlzaW9uUmVxdWVzdBIRCgljbGllbnRfaWQYASABKAkSEwoLZG9jdW1lbnRfaWQYAiABKAkSEwoLcmV2aXNpb25faWQYBCABKAkiGQoXUmVzdG9yZVJldmlzaW9uUmVzcG9uc2UiPgoUQXR0YWNoQ2hhbm5lbFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2NoYW5uZWxfa2V5GAIgASgJIjoKFUF0dGFjaENoYW5uZWxSZXNwb25zZRISCgpzZXNzaW9uX2lkGAEgASgJEg0KBWNvdW50GAIgASgDIlIKFERldGFjaENoYW5uZWxSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtjaGFubmVsX2tleRgCIAEoCRISCgpzZXNzaW9uX2lkGAMgASgJIiYKFURldGFjaENoYW5uZWxSZXNwb25zZRINCgVjb3VudBgBIAEoAyJTChVSZWZyZXNoQ2hhbm5lbFJlcXVlc3QSEQoJY2xpZW50X2lkGAEgASgJEhMKC2NoYW5uZWxfa2V5GAIgASgJEhIKCnNlc3Npb25faWQYAyABKAkiJwoWUmVmcmVzaENoYW5uZWxSZXNwb25zZRINCgVjb3VudBgBIAEoAyI9ChNXYXRjaENoYW5uZWxSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtjaGFubmVsX2tleRgCIAEoCSKDAQoUV2F0Y2hDaGFubmVsUmVzcG9uc2USOQoLaW5pdGlhbGl6ZWQYASABKAsyIi55b3JraWUudjEuV2F0Y2hDaGFubmVsSW5pdGlhbGl6ZWRIABIoCgVldmVudBgCIAEoCzIXLnlvcmtpZS52MS5DaGFubmVsRXZlbnRIAEIGCgRib2R5IjUKF1dhdGNoQ2hhbm5lbEluaXRpYWxpemVkEg0KBWNvdW50GAEgASgDEgsKA3NlcRgCIAEoAyJaChBCcm9hZGNhc3RSZXF1ZXN0EhEKCWNsaWVudF9pZBgBIAEoCRITCgtjaGFubmVsX2tleRgCIAEoCRINCgV0b3BpYxgDIAEoCRIPCgdwYXlsb2FkGAQgASgMIhMKEUJyb2FkY2FzdFJlc3BvbnNlMoULCg1Zb3JraWVTZXJ2aWNlElcKDkFjdGl2YXRlQ2xpZW50EiAueW9ya2llLnYxLkFjdGl2YXRlQ2xpZW50UmVxdWVzdBohLnlvcmtpZS52MS5BY3RpdmF0ZUNsaWVudFJlc3BvbnNlIgASXQoQRGVhY3RpdmF0ZUNsaWVudBIiLnlvcmtpZS52MS5EZWFjdGl2YXRlQ2xpZW50UmVxdWVzdBojLnlvcmtpZS52MS5EZWFjdGl2YXRlQ2xpZW50UmVzcG9uc2UiABJXCg5BdHRhY2hEb2N1bWVudBIgLnlvcmtpZS52MS5BdHRhY2hEb2N1bWVudFJlcXVlc3QaIS55b3JraWUudjEuQXR0YWNoRG9jdW1lbnRSZXNwb25zZSIAElcKDkRldGFjaERvY3VtZW50EiAueW9ya2llLnYxLkRldGFjaERvY3VtZW50UmVxdWVzdBohLnlvcmtpZS52MS5EZXRhY2hEb2N1bWVudFJlc3BvbnNlIgASVwoOUmVtb3ZlRG9jdW1lbnQSIC55b3JraWUudjEuUmVtb3ZlRG9jdW1lbnRSZXF1ZXN0GiEueW9ya2llLnYxLlJlbW92ZURvY3VtZW50UmVzcG9uc2UiABJaCg9QdXNoUHVsbENoYW5nZXMSIS55b3JraWUudjEuUHVzaFB1bGxDaGFuZ2VzUmVxdWVzdBoiLnlvcmtpZS52MS5QdXNoUHVsbENoYW5nZXNSZXNwb25zZSIAElYKDVdhdGNoRG9jdW1lbnQSHy55b3JraWUudjEuV2F0Y2hEb2N1bWVudFJlcXVlc3QaIC55b3JraWUudjEuV2F0Y2hEb2N1bWVudFJlc3BvbnNlIgAwARJXCg5DcmVhdGVSZXZpc2lvbhIgLnlvcmtpZS52MS5DcmVhdGVSZXZpc2lvblJlcXVlc3QaIS55b3JraWUudjEuQ3JlYXRlUmV2aXNpb25SZXNwb25zZSIAEk4KC0dldFJldmlzaW9uEh0ueW9ya2llLnYxLkdldFJldmlzaW9uUmVxdWVzdBoeLnlvcmtpZS52MS5HZXRSZXZpc2lvblJlc3BvbnNlIgASVAoNTGlzdFJldmlzaW9ucxIfLnlvcmtpZS52MS5MaXN0UmV2aXNpb25zUmVxdWVzdBogLnlvcmtpZS52MS5MaXN0UmV2aXNpb25zUmVzcG9uc2UiABJaCg9SZXN0b3JlUmV2aXNpb24SIS55b3JraWUudjEuUmVzdG9yZVJldmlzaW9uUmVxdWVzdBoiLnlvcmtpZS52MS5SZXN0b3JlUmV2aXNpb25SZXNwb25zZSIAElQKDUF0dGFjaENoYW5uZWwSHy55b3JraWUudjEuQXR0YWNoQ2hhbm5lbFJlcXVlc3QaIC55b3JraWUudjEuQXR0YWNoQ2hhbm5lbFJlc3BvbnNlIgASVAoNRGV0YWNoQ2hhbm5lbBIfLnlvcmtpZS52MS5EZXRhY2hDaGFubmVsUmVxdWVzdBogLnlvcmtpZS52MS5EZXRhY2hDaGFubmVsUmVzcG9uc2UiABJXCg5SZWZyZXNoQ2hhbm5lbBIgLnlvcmtpZS52MS5SZWZyZXNoQ2hhbm5lbFJlcXVlc3QaIS55b3JraWUudjEuUmVmcmVzaENoYW5uZWxSZXNwb25zZSIAElMKDFdhdGNoQ2hhbm5lbBIeLnlvcmtpZS52MS5XYXRjaENoYW5uZWxSZXF1ZXN0Gh8ueW9ya2llLnYxLldhdGNoQ2hhbm5lbFJlc3BvbnNlIgAwARJICglCcm9hZGNhc3QSGy55b3JraWUudjEuQnJvYWRjYXN0UmVxdWVzdBocLnlvcmtpZS52MS5Ccm9hZGNhc3RSZXNwb25zZSIAQkUKEWRldi55b3JraWUuYXBpLnYxUAFaLmdpdGh1Yi5jb20veW9ya2llLXRlYW0veW9ya2llL2FwaS95b3JraWUvdjE7djFiBnByb3RvMw", [file_src_api_yorkie_v1_resources]);
 
 /**
  * @generated from message yorkie.v1.ActivateClientRequest
@@ -422,13 +422,57 @@ export const CreateRevisionResponseSchema: GenMessage<CreateRevisionResponse> = 
   messageDesc(file_src_api_yorkie_v1_yorkie, 15);
 
 /**
+ * @generated from message yorkie.v1.GetRevisionRequest
+ */
+export type GetRevisionRequest = Message<"yorkie.v1.GetRevisionRequest"> & {
+  /**
+   * @generated from field: string client_id = 1;
+   */
+  clientId: string;
+
+  /**
+   * @generated from field: string document_id = 2;
+   */
+  documentId: string;
+
+  /**
+   * @generated from field: string revision_id = 3;
+   */
+  revisionId: string;
+};
+
+/**
+ * Describes the message yorkie.v1.GetRevisionRequest.
+ * Use `create(GetRevisionRequestSchema)` to create a new message.
+ */
+export const GetRevisionRequestSchema: GenMessage<GetRevisionRequest> = /*@__PURE__*/
+  messageDesc(file_src_api_yorkie_v1_yorkie, 16);
+
+/**
+ * @generated from message yorkie.v1.GetRevisionResponse
+ */
+export type GetRevisionResponse = Message<"yorkie.v1.GetRevisionResponse"> & {
+  /**
+   * @generated from field: yorkie.v1.RevisionSummary revision = 1;
+   */
+  revision?: RevisionSummary;
+};
+
+/**
+ * Describes the message yorkie.v1.GetRevisionResponse.
+ * Use `create(GetRevisionResponseSchema)` to create a new message.
+ */
+export const GetRevisionResponseSchema: GenMessage<GetRevisionResponse> = /*@__PURE__*/
+  messageDesc(file_src_api_yorkie_v1_yorkie, 17);
+
+/**
  * @generated from message yorkie.v1.ListRevisionsRequest
  */
 export type ListRevisionsRequest = Message<"yorkie.v1.ListRevisionsRequest"> & {
   /**
-   * @generated from field: string project_id = 1;
+   * @generated from field: string client_id = 1;
    */
-  projectId: string;
+  clientId: string;
 
   /**
    * @generated from field: string document_id = 2;
@@ -456,7 +500,7 @@ export type ListRevisionsRequest = Message<"yorkie.v1.ListRevisionsRequest"> & {
  * Use `create(ListRevisionsRequestSchema)` to create a new message.
  */
 export const ListRevisionsRequestSchema: GenMessage<ListRevisionsRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 16);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 18);
 
 /**
  * @generated from message yorkie.v1.ListRevisionsResponse
@@ -473,7 +517,7 @@ export type ListRevisionsResponse = Message<"yorkie.v1.ListRevisionsResponse"> &
  * Use `create(ListRevisionsResponseSchema)` to create a new message.
  */
 export const ListRevisionsResponseSchema: GenMessage<ListRevisionsResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 17);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 19);
 
 /**
  * @generated from message yorkie.v1.RestoreRevisionRequest
@@ -485,7 +529,12 @@ export type RestoreRevisionRequest = Message<"yorkie.v1.RestoreRevisionRequest">
   clientId: string;
 
   /**
-   * @generated from field: string revision_id = 2;
+   * @generated from field: string document_id = 2;
+   */
+  documentId: string;
+
+  /**
+   * @generated from field: string revision_id = 4;
    */
   revisionId: string;
 };
@@ -495,7 +544,7 @@ export type RestoreRevisionRequest = Message<"yorkie.v1.RestoreRevisionRequest">
  * Use `create(RestoreRevisionRequestSchema)` to create a new message.
  */
 export const RestoreRevisionRequestSchema: GenMessage<RestoreRevisionRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 18);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 20);
 
 /**
  * @generated from message yorkie.v1.RestoreRevisionResponse
@@ -508,7 +557,7 @@ export type RestoreRevisionResponse = Message<"yorkie.v1.RestoreRevisionResponse
  * Use `create(RestoreRevisionResponseSchema)` to create a new message.
  */
 export const RestoreRevisionResponseSchema: GenMessage<RestoreRevisionResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 19);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 21);
 
 /**
  * @generated from message yorkie.v1.AttachChannelRequest
@@ -530,7 +579,7 @@ export type AttachChannelRequest = Message<"yorkie.v1.AttachChannelRequest"> & {
  * Use `create(AttachChannelRequestSchema)` to create a new message.
  */
 export const AttachChannelRequestSchema: GenMessage<AttachChannelRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 20);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 22);
 
 /**
  * @generated from message yorkie.v1.AttachChannelResponse
@@ -552,7 +601,7 @@ export type AttachChannelResponse = Message<"yorkie.v1.AttachChannelResponse"> &
  * Use `create(AttachChannelResponseSchema)` to create a new message.
  */
 export const AttachChannelResponseSchema: GenMessage<AttachChannelResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 21);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 23);
 
 /**
  * @generated from message yorkie.v1.DetachChannelRequest
@@ -579,7 +628,7 @@ export type DetachChannelRequest = Message<"yorkie.v1.DetachChannelRequest"> & {
  * Use `create(DetachChannelRequestSchema)` to create a new message.
  */
 export const DetachChannelRequestSchema: GenMessage<DetachChannelRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 22);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 24);
 
 /**
  * @generated from message yorkie.v1.DetachChannelResponse
@@ -596,7 +645,7 @@ export type DetachChannelResponse = Message<"yorkie.v1.DetachChannelResponse"> &
  * Use `create(DetachChannelResponseSchema)` to create a new message.
  */
 export const DetachChannelResponseSchema: GenMessage<DetachChannelResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 23);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 25);
 
 /**
  * @generated from message yorkie.v1.RefreshChannelRequest
@@ -623,7 +672,7 @@ export type RefreshChannelRequest = Message<"yorkie.v1.RefreshChannelRequest"> &
  * Use `create(RefreshChannelRequestSchema)` to create a new message.
  */
 export const RefreshChannelRequestSchema: GenMessage<RefreshChannelRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 24);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 26);
 
 /**
  * @generated from message yorkie.v1.RefreshChannelResponse
@@ -640,7 +689,7 @@ export type RefreshChannelResponse = Message<"yorkie.v1.RefreshChannelResponse">
  * Use `create(RefreshChannelResponseSchema)` to create a new message.
  */
 export const RefreshChannelResponseSchema: GenMessage<RefreshChannelResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 25);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 27);
 
 /**
  * @generated from message yorkie.v1.WatchChannelRequest
@@ -662,7 +711,7 @@ export type WatchChannelRequest = Message<"yorkie.v1.WatchChannelRequest"> & {
  * Use `create(WatchChannelRequestSchema)` to create a new message.
  */
 export const WatchChannelRequestSchema: GenMessage<WatchChannelRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 26);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 28);
 
 /**
  * @generated from message yorkie.v1.WatchChannelResponse
@@ -691,7 +740,7 @@ export type WatchChannelResponse = Message<"yorkie.v1.WatchChannelResponse"> & {
  * Use `create(WatchChannelResponseSchema)` to create a new message.
  */
 export const WatchChannelResponseSchema: GenMessage<WatchChannelResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 27);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 29);
 
 /**
  * @generated from message yorkie.v1.WatchChannelInitialized
@@ -713,7 +762,7 @@ export type WatchChannelInitialized = Message<"yorkie.v1.WatchChannelInitialized
  * Use `create(WatchChannelInitializedSchema)` to create a new message.
  */
 export const WatchChannelInitializedSchema: GenMessage<WatchChannelInitialized> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 28);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 30);
 
 /**
  * @generated from message yorkie.v1.BroadcastRequest
@@ -745,7 +794,7 @@ export type BroadcastRequest = Message<"yorkie.v1.BroadcastRequest"> & {
  * Use `create(BroadcastRequestSchema)` to create a new message.
  */
 export const BroadcastRequestSchema: GenMessage<BroadcastRequest> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 29);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 31);
 
 /**
  * @generated from message yorkie.v1.BroadcastResponse
@@ -758,7 +807,7 @@ export type BroadcastResponse = Message<"yorkie.v1.BroadcastResponse"> & {
  * Use `create(BroadcastResponseSchema)` to create a new message.
  */
 export const BroadcastResponseSchema: GenMessage<BroadcastResponse> = /*@__PURE__*/
-  messageDesc(file_src_api_yorkie_v1_yorkie, 30);
+  messageDesc(file_src_api_yorkie_v1_yorkie, 32);
 
 /**
  * Yorkie is a service that provides an API for SDKs.
@@ -829,6 +878,14 @@ export const YorkieService: GenService<{
     methodKind: "unary";
     input: typeof CreateRevisionRequestSchema;
     output: typeof CreateRevisionResponseSchema;
+  },
+  /**
+   * @generated from rpc yorkie.v1.YorkieService.GetRevision
+   */
+  getRevision: {
+    methodKind: "unary";
+    input: typeof GetRevisionRequestSchema;
+    output: typeof GetRevisionResponseSchema;
   },
   /**
    * @generated from rpc yorkie.v1.YorkieService.ListRevisions

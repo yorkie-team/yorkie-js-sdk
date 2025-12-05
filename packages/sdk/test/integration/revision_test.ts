@@ -77,6 +77,58 @@ describe('Revision', function () {
     await client.deactivate();
   });
 
+  it('Can get a specific revision by ID', async function ({ task }) {
+    type TestDoc = { k1: string; k2?: string; k3?: string };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<TestDoc>(docKey);
+
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await client.activate();
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+
+    // 01. Create initial state and revision
+    doc.update((root) => {
+      root.k1 = 'v1';
+      root.k2 = 'v2';
+    }, 'initial state');
+    await client.sync();
+
+    const rev1 = await client.createRevision(doc, 'v1.0', 'First revision');
+    assert.isNotNull(rev1);
+
+    // 02. Make more changes and create another revision
+    doc.update((root) => {
+      root.k2 = 'modified';
+      root.k3 = 'v3';
+    }, 'modify and add');
+    await client.sync();
+
+    const rev2 = await client.createRevision(doc, 'v2.0', 'Second revision');
+    assert.isNotNull(rev2);
+
+    // 03. Get the first revision by ID
+    const retRev1 = await client.getRevision(doc, rev1.id);
+    assert.isNotNull(retRev1);
+    assert.equal(retRev1.id, rev1.id);
+    assert.equal(retRev1.label, 'v1.0');
+    assert.equal(retRev1.description, 'First revision');
+    assert.equal(retRev1.snapshot, '{"k1":"v1","k2":"v2"}');
+
+    // 04. Get the second revision by ID
+    const retRev2 = await client.getRevision(doc, rev2.id);
+    assert.isNotNull(retRev2);
+    assert.equal(retRev2.id, rev2.id);
+    assert.equal(retRev2.label, 'v2.0');
+    assert.equal(retRev2.description, 'Second revision');
+    assert.equal(retRev2.snapshot, '{"k1":"v1","k2":"modified","k3":"v3"}');
+
+    // 05. Verify snapshots are different
+    assert.notEqual(retRev1.snapshot, retRev2.snapshot);
+
+    await client.detach(doc);
+    await client.deactivate();
+  });
+
   it('Can restore to a revision', async function ({ task }) {
     type TestDoc = { k1: string; k2?: string };
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);

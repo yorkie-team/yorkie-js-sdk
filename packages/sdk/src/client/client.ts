@@ -1130,7 +1130,7 @@ export class Client {
       try {
         const res = await this.rpcClient.listRevisions(
           {
-            projectId: '', // Will be filled by server from auth context
+            clientId: this.id!,
             documentId: attachment.resourceID,
             pageSize: options?.pageSize || 10,
             offset: options?.offset || 0,
@@ -1148,6 +1148,60 @@ export class Client {
         return res.revisions.map(converter.toRevisionSummary);
       } catch (err) {
         logger.error(`[LR] c:"${this.getKey()}" err :`, err);
+        await this.handleConnectError(err);
+        throw err;
+      }
+    };
+
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `getRevision` retrieves a specific revision by its ID with full snapshot data.
+   */
+  public async getRevision<R, P extends Indexable>(
+    doc: Document<R, P>,
+    revisionID: string,
+  ): Promise<RevisionSummary> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    const task = async () => {
+      try {
+        const res = await this.rpcClient.getRevision(
+          {
+            clientId: this.id!,
+            documentId: attachment.resourceID,
+            revisionId: revisionID,
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        );
+
+        if (!res.revision) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            'revision is not returned',
+          );
+        }
+
+        logger.info(
+          `[GR] c:"${this.getKey()}" gets revision d:"${doc.getKey()}" r:"${revisionID}"`,
+        );
+
+        return converter.toRevisionSummary(res.revision);
+      } catch (err) {
+        logger.error(`[GR] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
         throw err;
       }
@@ -1182,6 +1236,7 @@ export class Client {
         await this.rpcClient.restoreRevision(
           {
             clientId: this.id!,
+            documentId: attachment.resourceID,
             revisionId,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
