@@ -800,9 +800,25 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * absolute offset measured from the head `(0:0)` of the physical chain.
    */
   public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
-    const index = this.posToIndex(pos, true);
+    const node = this.findFloorNode(pos.getID());
+    if (!node) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be found: ${pos.getID().toTestString()}`,
+      );
+    }
 
-    return RGATreeSplitPos.of(this.getHead().getID(), index);
+    let total = pos.getRelativeOffset();
+    let curr = node;
+    let prev = node.getPrev();
+
+    while (prev) {
+      total += prev.getLength();
+      curr = prev;
+      prev = prev.getPrev();
+    }
+
+    return RGATreeSplitPos.of(curr.getID(), total);
   }
 
   /**
