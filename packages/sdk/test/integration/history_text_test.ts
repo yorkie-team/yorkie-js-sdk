@@ -10,18 +10,6 @@
  * │ ReconcileCase   │ {none, left, right, contained_by, contains,            │
  * │                 │  overlap_start, overlap_end, adjacent}                 │
  * └─────────────────┴────────────────────────────────────────────────────────┘
- *
- * ReconcileCase Diagram (undo range [a,b), remote range [from,to)):
- *   Case 1 (left):         [--remote--]        [--undo--]   → shift left
- *   Case 2 (right):        [--undo--]          [--remote--] → no change
- *   Case 3 (contained_by): [-------remote-------]           → collapse
- *                               [--undo--]
- *   Case 4 (contains):          [--remote--]                → adjust
- *                          [---------undo---------]
- *   Case 5 (overlap_start):[---remote---]                   → partial
- *                                [---undo---]
- *   Case 6 (overlap_end):       [---remote---]              → partial
- *                          [---undo---]
  */
 
 import { describe, it, assert } from 'vitest';
@@ -435,6 +423,19 @@ describe('Text History - multi client basic', () => {
   }
 });
 
+/**
+ * ReconcileCase Diagram (undo range [a,b), remote range [from,to)):
+ *   Case 1 (left):         [--remote--]        [--undo--]   → shift left
+ *   Case 2 (right):        [--undo--]          [--remote--] → no change
+ *   Case 3 (contained_by): [-------remote-------]           → collapse
+ *                               [--undo--]
+ *   Case 4 (contains):          [--remote--]                → adjust
+ *                          [---------undo---------]
+ *   Case 5 (overlap_start):[---remote---]                   → partial
+ *                                [---undo---]
+ *   Case 6 (overlap_end):       [---remote---]              → partial
+ *                          [---undo---]
+ */
 describe('Text History - reconcile cases', () => {
   it('Case 1 (left): remote edit LEFT of undo should shift position', async ({
     task,
@@ -459,6 +460,13 @@ describe('Text History - reconcile cases', () => {
 
       d1.history.undo();
       d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
       await c1.sync();
       await c2.sync();
       await c1.sync();
@@ -493,6 +501,13 @@ describe('Text History - reconcile cases', () => {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
 
@@ -519,6 +534,13 @@ describe('Text History - reconcile cases', () => {
 
       d1.history.undo();
       d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
       await c1.sync();
       await c2.sync();
       await c1.sync();
@@ -553,6 +575,13 @@ describe('Text History - reconcile cases', () => {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
 
@@ -579,6 +608,13 @@ describe('Text History - reconcile cases', () => {
 
       d1.history.undo();
       d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
       await c1.sync();
       await c2.sync();
       await c1.sync();
@@ -613,6 +649,13 @@ describe('Text History - reconcile cases', () => {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
 
@@ -637,6 +680,13 @@ describe('Text History - reconcile cases', () => {
 
       d1.history.undo();
       d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+
+      d1.history.redo();
+      d2.history.redo();
       await c1.sync();
       await c2.sync();
       await c1.sync();
