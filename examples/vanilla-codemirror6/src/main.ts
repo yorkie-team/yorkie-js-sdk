@@ -2,6 +2,7 @@ import type { EditOpInfo, OpInfo } from '@yorkie-js/sdk';
 import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { Transaction, TransactionSpec } from '@codemirror/state';
+import { keymap } from '@codemirror/view';
 import { network } from './network';
 import { displayLog, displayPeers } from './utils';
 import { YorkieDoc, YorkiePresence } from './type';
@@ -48,36 +49,13 @@ async function main() {
     }
   }, 'create content if not exists');
 
-  // 02-2. subscribe document event.
-  const syncText = () => {
-    const text = doc.getRoot().content;
-    const selection = doc.getMyPresence().selection;
-    const transactionSpec: TransactionSpec = {
-      changes: { from: 0, to: view.state.doc.length, insert: text.toString() },
-      annotations: [Transaction.remote.of(true)],
-    };
-
-    if (selection) {
-      // Restore the cursor position when the text is replaced.
-      const cursor = text.posRangeToIndexRange(selection);
-      transactionSpec['selection'] = {
-        anchor: cursor[0],
-        head: cursor[1],
-      };
-    }
-    view.dispatch(transactionSpec);
-  };
-  doc.subscribe((event) => {
-    if (event.type === 'snapshot') {
-      // The text is replaced to snapshot and must be re-synced.
-      syncText();
-    }
-  });
-
   doc.subscribe('$.content', (event) => {
     if (event.type === 'remote-change') {
       const { operations } = event.value;
-      handleOperations(operations);
+      handleOperations(operations, false);
+    } else if (event.source === 'undoredo') {
+      const { operations } = event.value;
+      handleOperations(operations, true);
     }
   });
 
@@ -87,7 +65,7 @@ async function main() {
   const updateListener = EditorView.updateListener.of((viewUpdate) => {
     if (viewUpdate.docChanged) {
       for (const tr of viewUpdate.transactions) {
-        const events = ['select', 'input', 'delete', 'move', 'undo', 'redo'];
+        const events = ['select', 'input', 'delete', 'move'];
         if (!events.map((event) => tr.isUserEvent(event)).some(Boolean)) {
           continue;
         }
@@ -138,21 +116,73 @@ async function main() {
   const fixedHeightTheme = EditorView.theme({
     '.cm-content, .cm-gutter': { minHeight: '210px' }, // ~10 lines (≈21px per line including padding)
   });
+  const cmUndoRedoKeymap = keymap.of([
+    {
+      key: 'Mod-z',
+      preventDefault: true,
+      run: () => {
+        if (doc.history.canUndo()) {
+          doc.history.undo();
+        }
+        return true;
+      },
+    },
+    {
+      key: 'Mod-Shift-z',
+      preventDefault: true,
+      run: () => {
+        if (doc.history.canRedo()) {
+          doc.history.redo();
+        }
+        return true;
+      },
+    },
+  ]);
   const view = new EditorView({
     doc: '',
-    extensions: [basicSetup, fixedHeightTheme, updateListener],
+    extensions: [
+      cmUndoRedoKeymap,
+      basicSetup,
+      fixedHeightTheme,
+      updateListener,
+    ],
     parent: editorParentElem,
+  });
+  // 02-2. subscribe document event.
+  const syncText = () => {
+    const text = doc.getRoot().content;
+    const selection = doc.getMyPresence().selection;
+    const transactionSpec: TransactionSpec = {
+      changes: { from: 0, to: view.state.doc.length, insert: text.toString() },
+      annotations: [Transaction.remote.of(true)],
+    };
+
+    if (selection) {
+      // Restore the cursor position when the text is replaced.
+      const cursor = text.posRangeToIndexRange(selection);
+      transactionSpec['selection'] = {
+        anchor: cursor[0],
+        head: cursor[1],
+      };
+    }
+    view.dispatch(transactionSpec);
+  };
+  doc.subscribe((event) => {
+    if (event.type === 'snapshot') {
+      // The text is replaced to snapshot and must be re-synced.
+      syncText();
+    }
   });
 
   // 03-3. define event handler that apply remote changes to local
-  function handleOperations(operations: Array<OpInfo>) {
+  function handleOperations(operations: Array<OpInfo>, moveCursor: boolean) {
     for (const op of operations) {
       if (op.type === 'edit') {
-        handleEditOp(op);
+        handleEditOp(op, moveCursor);
       }
     }
   }
-  function handleEditOp(op: EditOpInfo) {
+  function handleEditOp(op: EditOpInfo, moveCursor: boolean) {
     const changes = [
       {
         from: Math.max(0, op.from),
@@ -161,10 +191,21 @@ async function main() {
       },
     ];
 
-    view.dispatch({
+    const transactionSpec: TransactionSpec = {
       changes,
       annotations: [Transaction.remote.of(true)],
-    });
+    };
+
+    // Move cursor to the changed position for undo/redo
+    if (moveCursor) {
+      const newPosition = op.from + (op.value?.content?.length || 0);
+      transactionSpec.selection = {
+        anchor: newPosition,
+        head: newPosition,
+      };
+    }
+
+    view.dispatch(transactionSpec);
   }
 
   syncText();

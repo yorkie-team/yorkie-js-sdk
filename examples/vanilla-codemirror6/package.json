@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.4.1",
     "@yorkie-js/sdk": "workspace:*",
     "codemirror": "^6.0.2"
   }

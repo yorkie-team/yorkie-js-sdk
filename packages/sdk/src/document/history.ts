@@ -20,6 +20,7 @@ import { RemoveOperation } from './operation/remove_operation';
 import { MoveOperation } from './operation/move_operation';
 import { AddOperation } from './operation/add_operation';
 import { TimeTicket } from '../yorkie';
+import { EditOperation } from './operation/edit_operation';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -99,6 +100,13 @@ export class History<P extends Indexable> {
   }
 
   /**
+   * `clearUndo` flushes remaining undo operations.
+   */
+  public clearUndo(): void {
+    this.undoStack = [];
+  }
+
+  /**
    * `getUndoStackForTest` returns the undo stack for test.
    */
   public getUndoStackForTest(): Array<Array<HistoryOperation<P>>> {
@@ -127,6 +135,7 @@ export class History<P extends Indexable> {
     currCreatedAt: TimeTicket,
   ): void {
     const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      // TODO(hackerwins): Optimize by indexing operations.
       for (const ops of stack) {
         for (const op of ops) {
           if (
@@ -143,6 +152,33 @@ export class History<P extends Indexable> {
             op.getPrevCreatedAt() === prevCreatedAt
           ) {
             op.setPrevCreatedAt(currCreatedAt);
+          }
+        }
+      }
+    };
+    replace(this.undoStack);
+    replace(this.redoStack);
+  }
+
+  /**
+   * `reconcileTextEdit` reconciles the text edit operation.
+   * Scan both undo/redo stacks and replace the edit operation with the new position.
+   */
+  public reconcileTextEdit(
+    parentCreatedAt: TimeTicket,
+    rangeFrom: number,
+    rangeTo: number,
+    contentLength: number,
+  ): void {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      // TODO(hackerwins): Optimize by indexing operations.
+      for (const ops of stack) {
+        for (const op of ops) {
+          if (
+            op instanceof EditOperation &&
+            op.getParentCreatedAt().compare(parentCreatedAt) === 0
+          ) {
+            op.reconcileOperation(rangeFrom, rangeTo, contentLength);
           }
         }
       }
