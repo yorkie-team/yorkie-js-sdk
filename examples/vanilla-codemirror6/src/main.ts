@@ -50,9 +50,12 @@ async function main() {
   }, 'create content if not exists');
 
   doc.subscribe('$.content', (event) => {
-    if (event.type === 'remote-change' || event.source === 'undoredo') {
+    if (event.type === 'remote-change') {
       const { operations } = event.value;
-      handleOperations(operations);
+      handleOperations(operations, false);
+    } else if (event.source === 'undoredo') {
+      const { operations } = event.value;
+      handleOperations(operations, true);
     }
   });
 
@@ -118,8 +121,6 @@ async function main() {
       key: 'Mod-z',
       preventDefault: true,
       run: () => {
-        // To check undo works properly
-        console.log('undo');
         if (doc.history.canUndo()) {
           doc.history.undo();
         }
@@ -130,8 +131,6 @@ async function main() {
       key: 'Mod-Shift-z',
       preventDefault: true,
       run: () => {
-        // To check redo works properly
-        console.log('redo');
         if (doc.history.canRedo()) {
           doc.history.redo();
         }
@@ -176,14 +175,14 @@ async function main() {
   });
 
   // 03-3. define event handler that apply remote changes to local
-  function handleOperations(operations: Array<OpInfo>) {
+  function handleOperations(operations: Array<OpInfo>, moveCursor: boolean) {
     for (const op of operations) {
       if (op.type === 'edit') {
-        handleEditOp(op);
+        handleEditOp(op, moveCursor);
       }
     }
   }
-  function handleEditOp(op: EditOpInfo) {
+  function handleEditOp(op: EditOpInfo, moveCursor: boolean) {
     const changes = [
       {
         from: Math.max(0, op.from),
@@ -192,10 +191,21 @@ async function main() {
       },
     ];
 
-    view.dispatch({
+    const transactionSpec: TransactionSpec = {
       changes,
       annotations: [Transaction.remote.of(true)],
-    });
+    };
+
+    // Move cursor to the changed position for undo/redo
+    if (moveCursor) {
+      const newPosition = op.from + (op.value?.content?.length || 0);
+      transactionSpec.selection = {
+        anchor: newPosition,
+        head: newPosition,
+      };
+    }
+
+    view.dispatch(transactionSpec);
   }
 
   syncText();
