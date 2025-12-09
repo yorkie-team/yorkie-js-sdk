@@ -20,7 +20,6 @@ async function main() {
   });
   await client.activate();
 
-  const params = new URLSearchParams(window.location.search);
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(
     `codemirror6-${new Date()
