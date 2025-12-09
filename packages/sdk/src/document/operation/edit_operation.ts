@@ -142,33 +142,29 @@ export class EditOperation extends Operation {
 
   private toReverseOperation(
     removedValues: Array<CRDTTextValue>,
-    normalizedFromPos: RGATreeSplitPos,
+    fromPos: RGATreeSplitPos,
   ): Operation {
-    // 1) Content
-    const restoredContent =
-      removedValues && removedValues.length !== 0
-        ? removedValues.map((v) => v.getContent()).join('')
-        : '';
+    const content = removedValues?.length
+      ? removedValues.map((v) => v.getContent()).join('')
+      : '';
 
-    // 2) Attribute
-    let restoredAttrs: Array<[string, string]> | undefined;
-
+    let attrs: Array<[string, string]> | undefined;
     if (removedValues.length === 1) {
       const attrsObj = removedValues[0].getAttributes();
       if (attrsObj) {
-        restoredAttrs = Array.from(Object.entries(attrsObj as any));
+        attrs = Array.from(Object.entries(attrsObj as any));
       }
     }
 
     return EditOperation.create(
       this.getParentCreatedAt(),
-      normalizedFromPos,
+      fromPos,
       RGATreeSplitPos.of(
-        normalizedFromPos.getID(),
-        normalizedFromPos.getRelativeOffset() + (this.content?.length ?? 0),
+        fromPos.getID(),
+        fromPos.getRelativeOffset() + (this.content?.length ?? 0),
       ),
-      restoredContent,
-      restoredAttrs ? new Map(restoredAttrs) : new Map(),
+      content,
+      attrs ? new Map(attrs) : new Map(),
       undefined,
       true,
     );
@@ -202,60 +198,93 @@ export class EditOperation extends Operation {
   }
 
   /**
-   * `reconcileOperation` reconciles the edit operation with the new position.
+   * `reconcileOperation` reconciles the position when remote edits occur.
+   *
+   * @param remoteFrom - Start position of the remote edit
+   * @param remoteTo - End position of the remote edit
+   * @param contentLen - Length of content inserted by the remote edit
+   *
+   * @example
+   * // Text: "0123456789"
+   * // Undo range: [4, 6) (trying to restore "45")
+   * // Remote edit: delete [2, 4) and insert "XY"
+   * // Result: Undo range adjusted to [2, 4) to restore at correct position
    */
   public reconcileOperation(
-    rangeFrom: number,
-    rangeTo: number,
-    contentLength: number,
+    remoteFrom: number,
+    remoteTo: number,
+    contentLen: number,
   ): void {
     if (!this.isUndoOp) {
       return;
     }
-    if (!Number.isInteger(rangeFrom) || !Number.isInteger(rangeTo)) {
-      return;
-    }
-    if (rangeFrom > rangeTo) {
+    if (remoteFrom > remoteTo) {
       return;
     }
 
-    const rangeLen = rangeTo - rangeFrom;
-    const a = this.fromPos.getRelativeOffset();
-    const b = this.toPos.getRelativeOffset();
+    const remoteRangeLen = remoteTo - remoteFrom;
+    const localFrom = this.fromPos.getRelativeOffset();
+    const localTo = this.toPos.getRelativeOffset();
 
+    // Helper function to apply new position offsets
     const apply = (na: number, nb: number) => {
       this.fromPos = RGATreeSplitPos.of(this.fromPos.getID(), Math.max(0, na));
       this.toPos = RGATreeSplitPos.of(this.toPos.getID(), Math.max(0, nb));
     };
 
-    // Does not overlap
-    if (rangeTo <= a) {
-      apply(a - rangeLen + contentLength, b - rangeLen + contentLength);
-      return;
-    }
-    if (b <= rangeFrom) {
-      return;
-    }
-
-    // Fully overlap: contains
-    if (rangeFrom <= a && b <= rangeTo && rangeFrom !== rangeTo) {
-      apply(rangeFrom, rangeFrom);
-      return;
-    }
-    if (a <= rangeFrom && rangeTo <= b && a !== b) {
-      apply(a, b - rangeLen + contentLength);
+    // Case 1: Remote edit is to the left of undo range
+    // [--remote--]  [--undo--]
+    if (remoteTo <= localFrom) {
+      apply(
+        localFrom - remoteRangeLen + contentLen,
+        localTo - remoteRangeLen + contentLen,
+      );
       return;
     }
 
-    // overlap at the start
-    if (rangeFrom < a && a < rangeTo && rangeTo < b) {
-      apply(rangeFrom, rangeFrom + (b - rangeTo));
+    // Case 2: Remote edit is to the right of undo range
+    // [--undo--]  [--remote--]
+    if (localTo <= remoteFrom) {
       return;
     }
 
-    // overlap at the end
-    if (a < rangeFrom && rangeFrom < b && b < rangeTo) {
-      apply(a, rangeFrom);
+    // Case 3: Undo range is contained within remote range
+    // [-------remote-------]
+    //      [--undo--]
+    if (
+      remoteFrom <= localFrom &&
+      localTo <= remoteTo &&
+      remoteFrom !== remoteTo
+    ) {
+      apply(remoteFrom, remoteFrom);
+      return;
+    }
+
+    // Case 4: Remote range is contained within undo range
+    //      [--remote--]
+    // [---------undo---------]
+    if (
+      localFrom <= remoteFrom &&
+      remoteTo <= localTo &&
+      localFrom !== localTo
+    ) {
+      apply(localFrom, localTo - remoteRangeLen + contentLen);
+      return;
+    }
+
+    // Case 5: Remote range overlaps the start of undo range
+    // [---remote---]
+    //      [---undo---]
+    if (remoteFrom < localFrom && localFrom < remoteTo && remoteTo < localTo) {
+      apply(remoteFrom, remoteFrom + (localTo - remoteTo));
+      return;
+    }
+
+    // Case 6: Remote range overlaps the end of undo range
+    //      [---remote---]
+    // [---undo---]
+    if (localFrom < remoteFrom && remoteFrom < localTo && localTo < remoteTo) {
+      apply(localFrom, remoteFrom);
       return;
     }
   }

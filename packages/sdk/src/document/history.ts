@@ -135,6 +135,7 @@ export class History<P extends Indexable> {
     currCreatedAt: TimeTicket,
   ): void {
     const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      // TODO(hackerwins): Optimize by indexing operations.
       for (const ops of stack) {
         for (const op of ops) {
           if (
@@ -170,6 +171,7 @@ export class History<P extends Indexable> {
     contentLength: number,
   ): void {
     const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      // TODO(hackerwins): Optimize by indexing operations.
       for (const ops of stack) {
         for (const op of ops) {
           if (

@@ -1,3 +1,7 @@
+import { describe, it, assert } from 'vitest';
+import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
+import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
+
 /**
  * Test State Space:
  * ┌─────────────────┬────────────────────────────────────────────────────────┐
@@ -11,11 +15,6 @@
  * │                 │  overlap_start, overlap_end, adjacent}                 │
  * └─────────────────┴────────────────────────────────────────────────────────┘
  */
-
-import { describe, it, assert } from 'vitest';
-import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
-import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
-
 type TextOp = 'insert' | 'delete' | 'replace' | 'style';
 const ops: Array<TextOp> = ['insert', 'delete', 'replace'];
 
