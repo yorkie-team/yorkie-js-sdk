@@ -3,12 +3,12 @@ import './RoomSelector.css';
 
 interface RoomSelectorProps {
   onRoomSelect: (roomId: string) => void;
-  presences: { key: string; presenceCount: number }[];
+  sessions: { key: string; sessionCount: number }[];
 }
 
-function RoomSelector({ onRoomSelect, presences }: RoomSelectorProps) {
+function RoomSelector({ onRoomSelect, sessions }: RoomSelectorProps) {
   const totalCount =
-    presences.find((p) => p.key === 'room')?.presenceCount ?? 0;
+    sessions.find((p) => p.key === 'room')?.sessionCount ?? 0;
   return (
     <div className="room-selector">
       <h2>
@@ -21,8 +21,8 @@ function RoomSelector({ onRoomSelect, presences }: RoomSelectorProps) {
 
       <div className="room-grid">
         {ROOMS.map((room) => {
-          const presenceCount =
-            presences.find((p) => p.key === room.key)?.presenceCount || 0;
+          const sessionCount =
+            sessions.find((p) => p.key === room.key)?.sessionCount || 0;
           return (
             <button
               key={room.id}
@@ -31,7 +31,7 @@ function RoomSelector({ onRoomSelect, presences }: RoomSelectorProps) {
             >
               <div className="room-card-header">
                 <h3>{room.name}</h3>
-                <span className="room-card-badge">{presenceCount} users</span>
+                <span className="room-card-badge">{sessionCount} users</span>
               </div>
               <p className="room-card-description">{room.description}</p>
               <div className="room-card-action">

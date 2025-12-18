@@ -11,8 +11,10 @@ function PresenceCounter() {
 
   useEffect(() => {
     if (!loading && count !== prevCount) {
-      setIsIncreasing(count > prevCount);
-      setPrevCount(count);
+      setTimeout(() => {
+        setIsIncreasing(count > prevCount);
+        setPrevCount(count);
+      }, 0);
 
       // Clear the animation state after animation completes
       const timer = setTimeout(() => {
