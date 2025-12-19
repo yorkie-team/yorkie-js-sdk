@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.42] - 2025-12-19
+
+### Changed
+
+- Rename presence_count to session_count by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1142
+
 ## [v0.6.41] - 2025-12-09
 
 ### Added
