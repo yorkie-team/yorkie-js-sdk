@@ -9,8 +9,8 @@ import './App.css';
 
 function App() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
-  const [presences, setPresences] = useState<
-    { key: string; presenceCount: number }[]
+  const [sessions, setSessions] = useState<
+    { key: string; sessionCount: number }[]
   >([]);
 
   useEffect(() => {
@@ -31,31 +31,31 @@ function App() {
           }),
         });
         const data = await response.json();
-        const roomPresences = ROOMS.map((room) => {
-          const presenceCount =
-            data.channels?.find((ch) => ch.key === room.key)?.presenceCount ??
+        const roomSessions = ROOMS.map((room) => {
+          const sessionCount =
+            data.channels?.find((ch) => ch.key === room.key)?.sessionCount ??
             0;
           return {
             key: room.key,
-            presenceCount: presenceCount,
+            sessionCount: sessionCount,
           };
         });
 
         const roomChannel = data.channels?.find((ch) => ch.key === 'room');
-        const totalPresence = {
+        const totalSession = {
           key: 'room',
-          presenceCount: roomChannel?.presenceCount ?? 0,
+          sessionCount: roomChannel?.sessionCount ?? 0,
         };
 
-        setPresences([totalPresence, ...roomPresences]);
+        setSessions([totalSession, ...roomSessions]);
       } catch (error) {
         console.error('Failed to fetch channels:', error);
         // Fallback to zero presence counts on error (e.g., static hosting mode)
-        const fallbackPresences = ROOMS.map((room) => ({
+        const fallbackSessions = ROOMS.map((room) => ({
           key: room.key,
-          presenceCount: 0,
+          sessionCount: 0,
         }));
-        setPresences(fallbackPresences);
+        setSessions(fallbackSessions);
       }
     };
 
@@ -84,7 +84,7 @@ function App() {
               onLeave={() => setCurrentRoom(null)}
             />
           ) : (
-            <RoomSelector onRoomSelect={setCurrentRoom} presences={presences} />
+            <RoomSelector onRoomSelect={setCurrentRoom} sessions={sessions} />
           )}
         </main>
 
