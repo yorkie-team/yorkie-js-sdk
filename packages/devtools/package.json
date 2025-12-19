@@ -1,7 +1,7 @@
 {
   "name": "@yorkie-js/devtools",
   "displayName": "Yorkie Devtools",
-  "version": "0.6.41",
+  "version": "0.6.42",
   "description": "A browser extension that helps you debug Yorkie.",
   "homepage": "https://yorkie.dev/",
   "scripts": {
