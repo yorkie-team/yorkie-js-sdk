@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { YorkieProvider } from '@yorkie-js/react';
 import RoomSelector from '@/components/RoomSelector';
 import RoomView from '@/components/RoomView';
-import { ROOMS } from '@/lib/rooms';
+import { ROOMS, ROOM_CATEGORIES } from '@/lib/rooms';
 import './App.css';
 
 function App() {
@@ -20,34 +20,50 @@ function App() {
 
     const fetchChannels = async () => {
       try {
+        const categoryKeys = ROOM_CATEGORIES.map((category) => category.id);
         const response = await fetch('/api/channels', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            channel_keys: ['room', ...ROOMS.map((room) => room.key)],
+            channel_keys: [...categoryKeys, ...ROOMS.map((room) => room.key)],
             include_sub_path: true,
           }),
         });
         const data = await response.json();
         const roomSessions = ROOMS.map((room) => {
-          const sessionCount =
+          const roomSessionCount =
             data.channels?.find((ch) => ch.key === room.key)?.sessionCount ??
             0;
           return {
             key: room.key,
-            sessionCount: sessionCount,
+            sessionCount: roomSessionCount,
           };
         });
 
-        const roomChannel = data.channels?.find((ch) => ch.key === 'room');
+        const categorySessions = ROOM_CATEGORIES.map((category) => {
+          const categoryKey = `${category.id}`;
+          const categorySessionCount =
+            data.channels?.find((ch) => ch.key === categoryKey)
+              ?.sessionCount ?? 0;
+          return {
+            key: categoryKey,
+            sessionCount: categorySessionCount,
+          };
+        });
+
+        // Calculate total from all category sessionCounts
+        const totalSessionCount = categorySessions.reduce(
+          (acc, cat) => acc + cat.sessionCount,
+          0,
+        );
         const totalSession = {
-          key: 'room',
-          sessionCount: roomChannel?.sessionCount ?? 0,
+          key: 'total',
+          sessionCount: totalSessionCount,
         };
 
-        setSessions([totalSession, ...roomSessions]);
+        setSessions([totalSession, ...categorySessions, ...roomSessions]);
       } catch (error) {
         console.error('Failed to fetch channels:', error);
         // Fallback to zero presence counts on error (e.g., static hosting mode)
@@ -55,7 +71,19 @@ function App() {
           key: room.key,
           sessionCount: 0,
         }));
-        setSessions(fallbackSessions);
+        const fallbackCategorySessions = ROOM_CATEGORIES.map((category) => ({
+          key: category.id,
+          sessionCount: 0,
+        }));
+        const fallbackTotal = {
+          key: 'total',
+          sessionCount: 0,
+        };
+        setSessions([
+          fallbackTotal,
+          ...fallbackCategorySessions,
+          ...fallbackSessions,
+        ]);
       }
     };
 
