@@ -1,147 +1,67 @@
-// Available rooms with their metadata
-export const ROOMS = [
+// Room category definition
+export interface RoomCategory {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+}
+
+// Individual room definition
+export interface Room {
+  id: string;
+  name: string;
+  description: string;
+  key: string;
+  categoryId: string;
+}
+
+// Room categories
+export const ROOM_CATEGORIES: RoomCategory[] = [
   {
     id: 'general',
-    name: '💬 General',
+    name: 'General',
+    emoji: '💬',
     description: 'General discussion',
-    key: 'room.general',
   },
   {
-    id: 'dev',
-    name: '💻 Development',
+    id: 'development',
+    name: 'Development',
+    emoji: '💻',
     description: 'Tech talk and coding',
-    key: 'room.development',
   },
   {
     id: 'random',
-    name: '🎲 Random',
+    name: 'Random',
+    emoji: '🎲',
     description: 'Off-topic chat',
-    key: 'room.random',
   },
   {
     id: 'music',
-    name: '🎵 Music',
+    name: 'Music',
+    emoji: '🎵',
     description: 'Share your favorite tunes',
-    key: 'room.music',
-  },
-  {
-    id: 'general1',
-    name: '💬 General',
-    description: 'General discussion',
-    key: 'room.general1',
-  },
-  {
-    id: 'dev1',
-    name: '💻 Development',
-    description: 'Tech talk and coding',
-    key: 'room.development1',
-  },
-  {
-    id: 'random1',
-    name: '🎲 Random',
-    description: 'Off-topic chat',
-    key: 'room.random1',
-  },
-  {
-    id: 'music1',
-    name: '🎵 Music1',
-    description: 'Share your favorite tunes',
-    key: 'room.music1',
-  },
-  {
-    id: 'general2',
-    name: '💬 General2',
-    description: 'General discussion',
-    key: 'room.general2',
-  },
-  {
-    id: 'dev2',
-    name: '💻 Development2',
-    description: 'Tech talk and coding',
-    key: 'room.development2',
-  },
-  {
-    id: 'random2',
-    name: '🎲 Random2',
-    description: 'Off-topic chat',
-    key: 'room.random2',
-  },
-  {
-    id: 'music2',
-    name: '🎵 Music2',
-    description: 'Share your favorite tunes',
-    key: 'room.music2',
-  },
-  {
-    id: 'general3',
-    name: '💬 General3',
-    description: 'General discussion',
-    key: 'room.general3',
-  },
-  {
-    id: 'dev3',
-    name: '💻 Development3',
-    description: 'Tech talk and coding',
-    key: 'room.development3',
-  },
-  {
-    id: 'random3',
-    name: '🎲 Random3',
-    description: 'Off-topic chat',
-    key: 'room.random3',
-  },
-  {
-    id: 'music3',
-    name: '🎵 Music3',
-    description: 'Share your favorite tunes',
-    key: 'room.music3',
-  },
-  {
-    id: 'general4',
-    name: '💬 General4',
-    description: 'General discussion',
-    key: 'room.general4',
-  },
-  {
-    id: 'dev4',
-    name: '💻 Development4',
-    description: 'Tech talk and coding',
-    key: 'room.development4',
-  },
-  {
-    id: 'random4',
-    name: '🎲 Random4',
-    description: 'Off-topic chat',
-    key: 'room.random4',
-  },
-  {
-    id: 'music4',
-    name: '🎵 Music4',
-    description: 'Share your favorite tunes',
-    key: 'room.music4',
-  },
-  {
-    id: 'general5',
-    name: '💬 General5',
-    description: 'General discussion',
-    key: 'room.general5',
-  },
-  {
-    id: 'dev5',
-    name: '💻 Development5',
-    description: 'Tech talk and coding',
-    key: 'room.development5',
-  },
-  {
-    id: 'random5',
-    name: '🎲 Random5',
-    description: 'Off-topic chat',
-    key: 'room.random5',
-  },
-  {
-    id: 'music5',
-    name: '🎵 Music5',
-    description: 'Share your favorite tunes',
-    key: 'room.music5',
   },
 ];
+
+// Generate rooms with hierarchical structure
+const generateRooms = (): Room[] => {
+  const rooms: Room[] = [];
+  const roomsPerCategory = 4;
+
+  ROOM_CATEGORIES.forEach((category) => {
+    for (let i = 1; i <= roomsPerCategory; i++) {
+      rooms.push({
+        id: `${category.id}.${i}`,
+        name: `${category.emoji} ${category.name} #${i}`,
+        description: category.description,
+        key: `${category.id}.${i}`,
+        categoryId: category.id,
+      });
+    }
+  });
+
+  return rooms;
+};
+
+// Available rooms with hierarchical structure
+export const ROOMS = generateRooms();
