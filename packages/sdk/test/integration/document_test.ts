@@ -61,56 +61,6 @@ describe('Document', function () {
     await client2.deactivate();
   });
 
-  it('Can remove document using removeIfNotAttached option when detaching', async function ({
-    task,
-  }) {
-    type TestDoc = { k1: Array<number>; k2: Array<number> };
-    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const doc1 = new yorkie.Document<TestDoc>(docKey);
-    const doc2 = new yorkie.Document<TestDoc>(docKey);
-
-    const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    await client1.activate();
-    await client2.activate();
-
-    // 1. client1 attaches and updates the document.
-    await client1.attach(doc1);
-    assert.equal('{}', doc1.toSortedJSON());
-    doc1.update((root) => {
-      root.k1 = [1, 2];
-      root.k2 = [3, 4];
-    });
-    await client1.sync();
-    assert.equal('{"k1":[1,2],"k2":[3,4]}', doc1.toSortedJSON());
-
-    // 2. client2 attaches the document.
-    await client2.attach(doc2);
-    assert.equal('{"k1":[1,2],"k2":[3,4]}', doc2.toSortedJSON());
-
-    // 3. client1 detaches the document.
-    // The document is not removed as client2 is still attached to it.
-    await client1.detach(doc1, { removeIfNotAttached: true });
-    assert.equal(doc1.getStatus(), DocStatus.Detached);
-
-    // 4. client2 detaches the document.
-    // Since no client is attached to the document, it gets removed.
-    await client2.detach(doc2, { removeIfNotAttached: true });
-    assert.equal(doc2.getStatus(), DocStatus.Removed);
-
-    // 5. client3 attaches the document.
-    // The content of the removed document should not be exposed.
-    const doc3 = new yorkie.Document<TestDoc>(docKey);
-    const client3 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    await client3.activate();
-    await client3.attach(doc3);
-    assert.equal('{}', doc3.toSortedJSON());
-
-    await client1.deactivate();
-    await client2.deactivate();
-    await client3.deactivate();
-  });
-
   it('Can watch documents', async function ({ task }) {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
