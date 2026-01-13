@@ -589,7 +589,6 @@ export class Client {
   public detach<R, P extends Indexable>(
     resource: Document<R, P>,
     opts?: {
-      removeIfNotAttached?: boolean;
       keepalive?: boolean;
     },
   ): Promise<Document<R, P>>;
@@ -622,7 +621,6 @@ export class Client {
   private detachDocument<R, P extends Indexable>(
     doc: Document<R, P>,
     opts: {
-      removeIfNotAttached?: boolean;
       keepalive?: boolean;
     } = { keepalive: false },
   ): Promise<Document<R, P>> {
@@ -648,7 +646,6 @@ export class Client {
             clientId: this.id!,
             documentId: attachment.resourceID,
             changePack: converter.toChangePack(doc.createChangePack()),
-            removeIfNotAttached: opts.removeIfNotAttached ?? false,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
