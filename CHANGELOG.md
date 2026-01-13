@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.43] - 2026-01-13
+
+### Changed
+
+- Refactor room management with categories by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1145
+
 ## [v0.6.42] - 2025-12-19
 
 ### Changed
