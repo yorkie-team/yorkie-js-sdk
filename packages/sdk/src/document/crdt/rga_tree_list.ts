@@ -351,17 +351,8 @@ export class RGATreeList {
       return;
     }
 
-    const [node, offset] = this.nodeMapByIndex.find(idx);
-    let rgaNode = node as RGATreeListNode | undefined;
-
-    if ((idx === 0 && node === this.dummyHead) || offset > 0) {
-      do {
-        if (rgaNode) {
-          rgaNode = rgaNode.getNext();
-        }
-      } while (rgaNode && rgaNode.isRemoved());
-    }
-
+    const node = this.nodeMapByIndex.findForArray(idx);
+    const rgaNode = node as RGATreeListNode | undefined;
     return rgaNode;
   }
 

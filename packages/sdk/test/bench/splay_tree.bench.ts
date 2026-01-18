@@ -23,7 +23,7 @@ const benchmarkRandomAccess = (size: number) => {
     tree.insert(StringNode.create('A'));
   }
   for (let i = 0; i < 1000; i++) {
-    tree.find(Math.floor(Math.random() * i));
+    tree.findForText(Math.floor(Math.random() * i));
   }
 };
 
@@ -33,7 +33,7 @@ const stressTest = (size: number) => {
   for (let i = 0; i < size; i++) {
     const op = Math.floor(Math.random() * 3);
     if (op == 0) {
-      const node = tree.find(Math.floor(Math.random() * treeSize))[0];
+      const node = tree.findForText(Math.floor(Math.random() * treeSize))[0];
       if (node != undefined) {
         tree.insertAfter(node, StringNode.create('A'));
       } else {
@@ -41,9 +41,9 @@ const stressTest = (size: number) => {
       }
       treeSize++;
     } else if (op == 1) {
-      tree.find(Math.floor(Math.random() * treeSize));
+      tree.findForText(Math.floor(Math.random() * treeSize));
     } else {
-      const node = tree.find(Math.floor(Math.random() * treeSize))[0];
+      const node = tree.findForText(Math.floor(Math.random() * treeSize))[0];
       if (node != undefined) {
         tree.delete(node);
         treeSize--;
@@ -81,12 +81,12 @@ describe('splay_tree.edit', () => {
     };
     for (const i of editTrace.edits) {
       if (i[0] == 0 && i[0] != undefined) {
-        const node = tree.find(i[1] as number)[0];
+        const node = tree.findForText(i[1] as number)[0];
         if (node) {
           tree.insertAfter(node, StringNode.create(i[2] as string));
         }
       } else if (i[0] == 1) {
-        const nodeToDelete = tree.find(i[1] as number)[0];
+        const nodeToDelete = tree.findForText(i[1] as number)[0];
         if (nodeToDelete) {
           tree.delete(nodeToDelete);
         }

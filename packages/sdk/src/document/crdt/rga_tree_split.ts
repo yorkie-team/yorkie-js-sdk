@@ -678,7 +678,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `indexToPos` finds RGATreeSplitPos of given offset.
    */
   public indexToPos(idx: number): RGATreeSplitPos {
-    const [node, offset] = this.treeByIndex.find(idx);
+    const [node, offset] = this.treeByIndex.findForText(idx);
     const splitNode = node as RGATreeSplitNode<T>;
     return RGATreeSplitPos.of(splitNode.getID(), offset);
   }

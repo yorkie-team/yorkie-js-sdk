@@ -35,6 +35,24 @@ class StringNode extends SplayNode<string> {
   }
 }
 
+class ElementNode extends SplayNode<number> {
+  public removed: boolean = false;
+  constructor(value: number) {
+    super(value);
+  }
+
+  public static create(value: number): ElementNode {
+    return new ElementNode(value);
+  }
+
+  public getLength(): number {
+    if (this.removed) {
+      return 0;
+    }
+    return 1;
+  }
+}
+
 function makeSampleTree(): [SplayTree<string>, Array<StringNode>] {
   const tree = new SplayTree<string>();
   const nodes = new Array<StringNode>();
@@ -72,7 +90,7 @@ function sumOfWeight(
 }
 
 describe('SplayTree', function () {
-  it('Can insert values and splay them', function () {
+  it('Can insert text values and splay them', function () {
     const tree = new SplayTree<string>();
 
     const nodeA = tree.insert(StringNode.create('A2'));
@@ -92,7 +110,42 @@ describe('SplayTree', function () {
     assert.equal(tree.indexOf(nodeC), 5);
     assert.equal(tree.indexOf(nodeD), 9);
 
-    assert.deepEqual([undefined, 0], tree.find(-1));
+    assert.deepEqual([undefined, 0], tree.findForText(-1));
+    assert.deepEqual([nodeA, 1], tree.findForText(1));
+    assert.deepEqual([nodeC, 2], tree.findForText(7));
+    assert.deepEqual([nodeD, 2], tree.findForText(11));
+  });
+
+  it('Can insert, delete array values and splay them', function () {
+    const tree = new SplayTree<number>();
+
+    let node = tree.findForArray(0);
+    assert.isUndefined(node);
+
+    const nodeA = tree.insert(ElementNode.create(2)) as ElementNode;
+    assert.equal('[1,1]2', tree.toTestString());
+    const nodeB = tree.insert(ElementNode.create(3)) as ElementNode;
+    assert.equal('[1,1]2[2,1]3', tree.toTestString());
+    const nodeC = tree.insert(ElementNode.create(4)) as ElementNode;
+    assert.equal('[1,1]2[2,1]3[3,1]4', tree.toTestString());
+    const nodeD = tree.insert(ElementNode.create(5)) as ElementNode;
+    assert.equal('[1,1]2[2,1]3[3,1]4[4,1]5', tree.toTestString());
+
+    nodeB.removed = true;
+    tree.splayNode(nodeB);
+    assert.equal('[1,1]2[3,0]3[2,1]4[1,1]5', tree.toTestString());
+    assert.equal(tree.indexOf(nodeA), 0);
+    assert.equal(tree.indexOf(nodeC), 1);
+    assert.equal(tree.indexOf(nodeD), 2);
+
+    node = tree.findForArray(0);
+    assert.equal(node, nodeA);
+    node = tree.findForArray(1);
+    assert.equal(node, nodeC);
+    node = tree.findForArray(2);
+    assert.equal(node, nodeD);
+
+    assert.throws(() => tree.findForArray(3));
   });
 
   it('Can delete the given node', function () {

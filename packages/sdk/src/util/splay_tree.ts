@@ -183,9 +183,10 @@ export class SplayTree<V> {
   }
 
   /**
-   * `find` returns the Node and offset of the given index.
+   * `findForText` returns the Node and offset of the given position (cursor).
+   * Used for Text where cursor placed between characters.
    */
-  public find(pos: number): [SplayNode<V> | undefined, number] {
+  public findForText(pos: number): [SplayNode<V> | undefined, number] {
     if (!this.root || pos < 0) {
       return [undefined, 0];
     }
@@ -213,6 +214,39 @@ export class SplayTree<V> {
     }
     this.splayNode(node);
     return [node, pos];
+  }
+
+  /**
+   * `findForArray` returns the Node of the given position (index).
+   * Used for Array where index points to the element.
+   */
+  public findForArray(idx: number): SplayNode<V> | undefined {
+    if (!this.root) {
+      return undefined;
+    }
+    if (idx < 0 || idx >= this.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `out of index range: idx: ${idx}, length: ${this.length}`,
+      );
+    }
+
+    let node = this.root;
+    for (;;) {
+      if (node.hasLeft() && idx < node.getLeftWeight()) {
+        node = node.getLeft()!;
+      } else if (
+        node.hasRight() &&
+        node.getLeftWeight() + node.getLength() <= idx
+      ) {
+        idx -= node.getLeftWeight() + node.getLength();
+        node = node.getRight()!;
+      } else {
+        break;
+      }
+    }
+    this.splayNode(node);
+    return node;
   }
 
   /**
