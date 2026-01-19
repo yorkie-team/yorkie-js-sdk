@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.44] - 2026-01-19
+
+### Fixed
+
+- Fix SplayTree Find semantics for CRDT Array by @ggyuchive in https://github.com/yorkie-team/yorkie-js-sdk/pull/1150
+
 ## [v0.6.43] - 2026-01-13
 
 ### Changed
