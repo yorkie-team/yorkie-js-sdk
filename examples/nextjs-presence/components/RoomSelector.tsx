@@ -15,10 +15,10 @@ function RoomSelector({ onRoomSelect, sessions }: RoomSelectorProps) {
       <div className="room-selector-header">
         <div className="room-selector-title-wrapper">
           <h2>Choose a Room</h2>
-          <p>Join a room to see who else is online</p>
+          <p>Join a room to see live online sessions</p>
         </div>
         <div className="room-selector-badge-wrapper">
-          <span className="room-selector-badge">{totalCount} users</span>
+          <span className="room-selector-badge">{totalCount} online</span>
           <span className="room-selector-label">in total</span>
         </div>
       </div>
@@ -43,7 +43,7 @@ function RoomSelector({ onRoomSelect, sessions }: RoomSelectorProps) {
                 </div>
                 <div className="room-category-badge-wrapper">
                   <span className="room-category-badge">
-                    {categorySessionCount} users
+                    {categorySessionCount} online
                   </span>
                   <span className="room-category-label">in category</span>
                 </div>
@@ -64,7 +64,7 @@ function RoomSelector({ onRoomSelect, sessions }: RoomSelectorProps) {
                       <h3>{room.name}</h3>
                       <div className="room-card-badge-wrapper">
                         <span className="room-card-badge">
-                          {sessionCount} users
+                          {sessionCount} online
                         </span>
                         <span className="room-card-label">in room</span>
                       </div>
