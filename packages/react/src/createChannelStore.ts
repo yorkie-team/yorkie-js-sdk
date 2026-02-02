@@ -27,12 +27,13 @@ export type ChannelContextType = {
   channel: Channel | undefined;
 
   /**
-   * `count` is the current online user count.
+   * `sessionCount` is the current online session count.
+   * NOTE: This is session-based (e.g., multiple tabs can increase the count).
    */
-  count: number;
+  sessionCount: number;
 
   /**
-   * `loading` indicates whether the presence is being initialized.
+   * `loading` indicates whether the channel is being initialized.
    */
   loading: boolean;
 
@@ -43,9 +44,9 @@ export type ChannelContextType = {
 };
 
 /**
- * `createPresenceStore` creates a store for managing Presence state.
- * @param initialState - Initial state for the presence store
- * @returns Store instance for presence state management
+ * `createChannelStore` creates a store for managing Channel state.
+ * @param initialState - Initial state for the channel store
+ * @returns Store instance for channel state management
  */
 export function createChannelStore(
   initialState: ChannelContextType,

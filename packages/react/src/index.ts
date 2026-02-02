@@ -29,7 +29,7 @@ import {
 import {
   ChannelProvider,
   useChannel,
-  usePresenceCount,
+  useChannelSessionCount,
 } from './ChannelProvider';
 
 export type { Document, JSONArray, JSONObject };
@@ -44,7 +44,7 @@ export {
   createDocumentSelector,
   ChannelProvider,
   useChannel,
-  usePresenceCount,
+  useChannelSessionCount,
 };
 
 export { shallowEqual } from './shallowEqual';

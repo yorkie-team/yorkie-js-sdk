@@ -75,8 +75,8 @@ describe('Channel', function () {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Get presence count
-      const count1 = ch1.getPresenceCount();
-      const count2 = ch2.getPresenceCount();
+      const count1 = ch1.getSessionCount();
+      const count2 = ch2.getSessionCount();
 
       // Both channels should see at least 2 clients (themselves)
       assert.isAtLeast(count1, 2);
