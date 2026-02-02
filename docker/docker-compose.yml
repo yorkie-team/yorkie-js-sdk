@@ -1,11 +1,12 @@
 services:
   yorkie:
-    image: 'yorkieteam/yorkie:latest'
-    container_name: 'yorkie'
-    command: ['server', '--pprof-enabled']
+    image: "yorkieteam/yorkie:latest"
+    container_name: "yorkie"
+    command:
+      ["server", "--pprof-enabled", "--backend-disable-webhook-validation"]
     restart: always
     ports:
-      - '8080:8080'
-      - '8081:8081'
+      - "8080:8080"
+      - "8081:8081"
     extra_hosts:
-      - 'host.docker.internal:host-gateway'
+      - "host.docker.internal:host-gateway"
