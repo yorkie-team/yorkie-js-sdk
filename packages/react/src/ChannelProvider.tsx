@@ -97,13 +97,13 @@ export function useYorkieChannel(
         unsubscribe = newChannel.subscribe(() => {
           channelStore.setState((state) => ({
             ...state,
-            count: newChannel.getPresenceCount(),
+            sessionCount: newChannel.getSessionCount(),
           }));
         });
 
         channelStore.setState({
           channel: newChannel,
-          count: newChannel.getPresenceCount(),
+          sessionCount: newChannel.getSessionCount(),
           loading: false,
           error: undefined,
         });
@@ -185,7 +185,7 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
   if (!channelStoreRef.current) {
     channelStoreRef.current = createChannelStore({
       channel: undefined,
-      count: 0,
+      sessionCount: 0,
       loading: true,
       error: undefined,
     });
@@ -229,45 +229,45 @@ export const useChannelStore = (hookName: string) => {
  * `useChannel` is a custom hook that returns the channel state.
  * It must be used within a ChannelProvider.
  *
- * @returns An object containing count, loading, and error state
+ * @returns An object containing sessionCount, loading, and error state
  *
  * @example
  * ```tsx
  * function ChatRoom() {
- *   const { count, loading, error } = useChannel();
+ *   const { sessionCount, loading, error } = useChannel();
  *
  *   if (loading) return <div>Loading...</div>;
  *   if (error) return <div>Error: {error.message}</div>;
  *
- *   return <div>{count} users online</div>;
+ *   return <div>{sessionCount} online</div>;
  * }
  * ```
  */
 export const useChannel = () => {
   const channelStore = useChannelStore('useChannel');
-  const count = useSelector(channelStore, (state) => state.count);
+  const sessionCount = useSelector(channelStore, (state) => state.sessionCount);
   const loading = useSelector(channelStore, (state) => state.loading);
   const error = useSelector(channelStore, (state) => state.error);
 
-  return { count, loading, error };
+  return { sessionCount, loading, error };
 };
 
 /**
- * `usePresenceCount` is a custom hook that returns only the count value.
- * It must be used within a PresenceProvider.
- * This is a convenience hook for when you only need the count.
+ * `useChannelSessionCount` is a custom hook that returns only the session count value.
+ * It must be used within a ChannelProvider.
+ * This is a convenience hook for when you only need the session count.
  *
- * @returns The current online user count
+ * @returns The current online session count
  *
  * @example
  * ```tsx
  * function UserCounter() {
- *   const count = usePresenceCount();
- *   return <span>{count} users online</span>;
+ *   const count = useChannelSessionCount();
+ *   return <span>{count} online</span>;
  * }
  * ```
  */
-export const usePresenceCount = (): number => {
-  const presenceStore = useChannelStore('usePresenceCount');
-  return useSelector(presenceStore, (state) => state.count);
+export const useChannelSessionCount = (): number => {
+  const channelStore = useChannelStore('useChannelSessionCount');
+  return useSelector(channelStore, (state) => state.sessionCount);
 };

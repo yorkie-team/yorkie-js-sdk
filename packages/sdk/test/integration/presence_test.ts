@@ -15,7 +15,7 @@ describe('Presence', function () {
     assert.equal(channel.getKey(), channelKey);
     assert.equal(channel.getStatus(), 'detached');
     assert.isFalse(channel.isAttached());
-    assert.equal(channel.getPresenceCount(), 0);
+    assert.equal(channel.getSessionCount(), 0);
 
     // Attach presence counter
     await c1.attach(channel);
@@ -23,7 +23,7 @@ describe('Presence', function () {
     // Verify attached state
     assert.equal(channel.getStatus(), 'attached');
     assert.isTrue(channel.isAttached());
-    assert.equal(channel.getPresenceCount(), 1);
+    assert.equal(channel.getSessionCount(), 1);
 
     // Detach presence counter
     await c1.detach(channel);
@@ -53,36 +53,36 @@ describe('Presence', function () {
     // First client attaches
     await c1.attach(ch1);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getPresenceCount(), 1);
+    assert.equal(ch1.getSessionCount(), 1);
 
     // Second client attaches
     await c2.attach(ch2);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch2.getPresenceCount(), 2);
+    assert.equal(ch2.getSessionCount(), 2);
 
     // First client should receive the update
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getPresenceCount(), 2);
+    assert.equal(ch1.getSessionCount(), 2);
 
     // Third client attaches
     await c3.attach(ch3);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch3.getPresenceCount(), 3);
+    assert.equal(ch3.getSessionCount(), 3);
 
     // Wait for all clients to sync
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getPresenceCount(), 3);
-    assert.equal(ch2.getPresenceCount(), 3);
+    assert.equal(ch1.getSessionCount(), 3);
+    assert.equal(ch2.getSessionCount(), 3);
 
     // One client detaches
     await c2.detach(ch2);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch2.getPresenceCount(), 2);
+    assert.equal(ch2.getSessionCount(), 2);
 
     // Other clients should see the count decrease
     await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getPresenceCount(), 2);
-    assert.equal(ch3.getPresenceCount(), 2);
+    assert.equal(ch1.getSessionCount(), 2);
+    assert.equal(ch3.getSessionCount(), 2);
 
     // Cleanup
     await c1.detach(ch1);
@@ -160,19 +160,19 @@ describe('Presence', function () {
     await c2.attach(ch2);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
-    assert.equal(ch1.getPresenceCount(), 2);
-    assert.equal(ch2.getPresenceCount(), 2);
+    assert.equal(ch1.getSessionCount(), 2);
+    assert.equal(ch2.getSessionCount(), 2);
 
     // One detaches
     await c1.detach(ch1);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     // Detached channel should show updated count
-    assert.equal(ch1.getPresenceCount(), 1);
+    assert.equal(ch1.getSessionCount(), 1);
 
     // Other channels should also see the decrease
     await new Promise((resolve) => setTimeout(resolve, 300));
-    assert.equal(ch2.getPresenceCount(), 1);
+    assert.equal(ch2.getSessionCount(), 1);
 
     // Cleanup
     await c2.detach(ch2);
@@ -192,7 +192,7 @@ describe('Presence', function () {
 
     // Attach presence
     await c1.attach(channel);
-    assert.equal(channel.getPresenceCount(), 1);
+    assert.equal(channel.getSessionCount(), 1);
 
     // Wait for 3 heartbeat cycles (3 seconds)
     // The presence should still be active because heartbeat refreshes TTL
@@ -200,7 +200,7 @@ describe('Presence', function () {
 
     // Verify presence is still active
     assert.isTrue(channel.isAttached());
-    assert.equal(channel.getPresenceCount(), 1);
+    assert.equal(channel.getSessionCount(), 1);
 
     // Cleanup
     await c1.detach(channel);
@@ -221,29 +221,29 @@ describe('Presence', function () {
 
     // Attach client1 with manual sync mode (no watch stream)
     await c1.attach(ch1, { isRealtime: false });
-    assert.equal(ch1.getPresenceCount(), 1);
+    assert.equal(ch1.getSessionCount(), 1);
 
     // Attach client2 with manual sync mode
     await c2.attach(ch2, { isRealtime: false });
-    assert.equal(ch2.getPresenceCount(), 2);
+    assert.equal(ch2.getSessionCount(), 2);
 
     // In manual mode, p1's count doesn't update automatically
     // even though p2 was attached
     await new Promise((resolve) => setTimeout(resolve, 500));
-    assert.equal(ch1.getPresenceCount(), 1, 'p1 should still be 1');
+    assert.equal(ch1.getSessionCount(), 1, 'p1 should still be 1');
 
     // Must call sync() explicitly to refresh TTL and fetch latest count
     await c1.sync(ch1);
-    assert.equal(ch1.getPresenceCount(), 2, 'p1 should update to 2 after sync');
+    assert.equal(ch1.getSessionCount(), 2, 'p1 should update to 2 after sync');
 
     // Detach p2 and verify p1 doesn't auto-update
     await c2.detach(ch2);
     await new Promise((resolve) => setTimeout(resolve, 500));
-    assert.equal(ch1.getPresenceCount(), 2, 'p1 should still be 2');
+    assert.equal(ch1.getSessionCount(), 2, 'p1 should still be 2');
 
     // Sync to refresh TTL and fetch latest count after c2 detached
     await c1.sync(ch1);
-    assert.equal(ch1.getPresenceCount(), 1, 'p1 should update to 1 after sync');
+    assert.equal(ch1.getSessionCount(), 1, 'p1 should update to 1 after sync');
 
     // Cleanup
     await c1.detach(ch1);
@@ -267,41 +267,41 @@ describe('Presence', function () {
 
     // c1: Attach with realtime mode (default)
     await c1.attach(realtimeCh);
-    assert.equal(realtimeCh.getPresenceCount(), 1);
+    assert.equal(realtimeCh.getSessionCount(), 1);
 
     // c2: Attach with manual mode
     await c2.attach(manualCh, { isRealtime: false });
-    assert.equal(manualCh.getPresenceCount(), 2);
+    assert.equal(manualCh.getSessionCount(), 2);
 
     // c1's realtime presence should automatically receive the update
     await new Promise((resolve) => setTimeout(resolve, 500));
     assert.equal(
-      realtimeCh.getPresenceCount(),
+      realtimeCh.getSessionCount(),
       2,
       'realtime presence should auto-update',
     );
 
     // c2's manual presence doesn't receive updates
     assert.equal(
-      manualCh.getPresenceCount(),
+      manualCh.getSessionCount(),
       2,
       'manual presence should not auto-update',
     );
 
     // c3: Attach another client
     await c3.attach(thirdCh, { isRealtime: false });
-    assert.equal(thirdCh.getPresenceCount(), 3);
+    assert.equal(thirdCh.getSessionCount(), 3);
 
     // c1's realtime presence receives the update automatically
     await new Promise((resolve) => setTimeout(resolve, 500));
     assert.equal(
-      realtimeCh.getPresenceCount(),
+      realtimeCh.getSessionCount(),
       3,
       'realtime presence should be 3',
     );
 
     // c2's manual presence still doesn't update
-    assert.equal(manualCh.getPresenceCount(), 2, 'manual presence should be 2');
+    assert.equal(manualCh.getSessionCount(), 2, 'manual presence should be 2');
 
     // Cleanup
     await c1.detach(realtimeCh);

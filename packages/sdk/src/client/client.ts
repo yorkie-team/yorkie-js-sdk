@@ -716,7 +716,7 @@ export class Client {
         );
 
         channel.setSessionID(res.sessionId);
-        channel.updateCount(Number(res.count), 0);
+        channel.updateSessionCount(Number(res.sessionCount), 0);
         channel.applyStatus(ChannelStatus.Attached);
 
         // Determine sync mode: default is Realtime for backward compatibility
@@ -751,7 +751,7 @@ export class Client {
         }
 
         logger.info(
-          `[AP] c:"${this.getKey()}" attaches p:"${channel.getKey()}" mode:${syncMode} count:${channel.getPresenceCount()}`,
+          `[AP] c:"${this.getKey()}" attaches p:"${channel.getKey()}" mode:${syncMode} count:${channel.getSessionCount()}`,
         );
         return channel;
       } catch (err) {
@@ -797,14 +797,14 @@ export class Client {
           },
         );
 
-        channel.updateCount(Number(res.count), 0);
+        channel.updateSessionCount(Number(res.sessionCount), 0);
         channel.applyStatus(ChannelStatus.Detached);
 
         // Clean up watch stream and remove from attachment map
         this.detachInternal(channel.getKey());
 
         logger.info(
-          `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" count:${channel.getPresenceCount()}`,
+          `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" count:${channel.getSessionCount()}`,
         );
         return channel;
       } catch (err) {
@@ -1662,11 +1662,11 @@ export class Client {
     const channel = attachment.resource;
 
     if (resp.body.case === 'initialized') {
-      const { count, seq } = resp.body.value;
-      if (channel.updateCount(Number(count), Number(seq))) {
+      const { sessionCount, seq } = resp.body.value;
+      if (channel.updateSessionCount(Number(sessionCount), Number(seq))) {
         channel.publish({
           type: ChannelEventType.Initialized,
-          count: Number(count),
+          count: Number(sessionCount),
         });
       }
     } else if (resp.body.case === 'event') {
@@ -1693,10 +1693,15 @@ export class Client {
       }
 
       // Handle count change events
-      if (channel.updateCount(Number(event.count), Number(event.seq))) {
+      if (
+        channel.updateSessionCount(
+          Number(event.sessionCount),
+          Number(event.seq),
+        )
+      ) {
         channel.publish({
           type: ChannelEventType.PresenceChanged,
-          count: Number(event.count),
+          count: Number(event.sessionCount),
         });
       }
     }
@@ -1771,7 +1776,7 @@ export class Client {
           },
         );
 
-        resource.updateCount(Number(res.count), 0);
+        resource.updateSessionCount(Number(res.sessionCount), 0);
         attachment.updateHeartbeatTime();
 
         logger.debug(

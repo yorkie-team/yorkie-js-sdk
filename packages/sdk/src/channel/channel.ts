@@ -180,7 +180,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
   private status: ChannelStatus;
   private actorID?: ActorID;
   private sessionID?: string;
-  private count: number;
+  private sessionCount: number;
   private seq: number;
 
   private eventStream: Observable<ChannelEvent>;
@@ -193,7 +193,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
     this.validateChannelKey(key);
     this.key = key;
     this.status = ChannelStatus.Detached;
-    this.count = 0;
+    this.sessionCount = 0;
     this.seq = 0;
     this.eventStream = createObservable<ChannelEvent>(
       (observer) => (this.eventStreamObserver = observer),
@@ -264,20 +264,20 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
   }
 
   /**
-   * `getPresenceCount` returns the current count value.
+   * `getSessionCount` returns the current channel online session count value.
    */
-  public getPresenceCount(): number {
-    return this.count;
+  public getSessionCount(): number {
+    return this.sessionCount;
   }
 
   /**
-   * `updateCount` updates the count and sequence number if the sequence is newer.
+   * `updateSessionCount` updates the session count and sequence number if the sequence is newer.
    * Returns true if the count was updated, false if the update was ignored.
    */
-  public updateCount(count: number, seq: number): boolean {
+  public updateSessionCount(sessionCount: number, seq: number): boolean {
     // Always accept initialization (seq === 0)
     if (seq === 0 || seq > this.seq) {
-      this.count = count;
+      this.sessionCount = sessionCount;
       this.seq = seq;
       return true;
     }

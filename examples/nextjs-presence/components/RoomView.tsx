@@ -2,7 +2,7 @@
 
 import { ChannelProvider } from '@yorkie-js/react';
 import { ROOMS } from '@/lib/rooms';
-import PresenceCounter from './PresenceCounter';
+import SessionCounter from './SessionCounter';
 import './RoomView.css';
 
 interface RoomViewProps {
@@ -37,7 +37,7 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
             <p>{room.description}</p>
           </div>
 
-          <PresenceCounter />
+          <SessionCounter />
 
           <div className="room-instructions">
             <h3>Try it out!</h3>
@@ -53,11 +53,11 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
           <div className="room-demo-area">
             <h3>You&apos;re connected!</h3>
             <p>
-              This is room <strong>{room.id}</strong> with presence key:{' '}
+              This is room <strong>{room.id}</strong> with channel key:{' '}
               <code>{room.key}</code>
             </p>
             <p className="demo-hint">
-              Each room has its own presence key, allowing independent user
+              Each room has its own channel key, allowing independent session
               counting.
             </p>
           </div>

@@ -5,7 +5,7 @@ A Next.js application demonstrating real-time user presence tracking across mult
 ## 🚀 Features
 
 - **Multiple Rooms**: Switch between different chat rooms with independent presence tracking
-- **Real-time Updates**: See users join and leave in real-time
+- **Real-time Updates**: See sessions join and leave in real-time
 - **Secure API Handling**: Secret keys are handled server-side via Next.js API Routes
 - **Beautiful UI**: Modern gradient design with smooth animations
 - **Responsive**: Works great on desktop and mobile devices
@@ -92,11 +92,11 @@ pnpm build
 pnpm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in multiple browser windows to see presence tracking in action!
+Open [http://localhost:3000](http://localhost:3000) in multiple browser windows to see session counting in action!
 
 ## 📁 Project Structure
 
-```
+```text
 nextjs-presence/
 ├── app/
 │   ├── api/
@@ -111,8 +111,8 @@ nextjs-presence/
 │   ├── RoomSelector.css
 │   ├── RoomView.tsx              # Individual room view
 │   ├── RoomView.css
-│   ├── PresenceCounter.tsx       # Presence counter component
-│   └── PresenceCounter.css
+│   ├── SessionCounter.tsx        # Online session counter component
+│   └── SessionCounter.css
 ├── .env                          # Example env file
 ├── .env.production               # Production env template
 ├── package.json
@@ -126,8 +126,8 @@ nextjs-presence/
 2. **API Route**: Client fetches presence data from `/api/channels` (server-side)
 3. **Server Request**: API route uses secret key to call Yorkie Admin API
 4. **Real-time Connection**: Upon entering a room, client connects with `ChannelProvider`
-5. **Presence Tracking**: `useChannel` hook tracks real-time user count
-6. **Live Updates**: UI updates automatically as users join/leave
+5. **Presence Tracking**: `useChannel` hook tracks real-time session count
+6. **Live Updates**: UI updates automatically as sessions join/leave
 
 ## 🔑 Environment Variables
 
@@ -144,7 +144,7 @@ nextjs-presence/
 
 1. Open the app in multiple browser windows or tabs
 2. Select different rooms in each window
-3. Watch the presence counters update in real-time
+3. Watch the session counters update in real-time
 4. Try switching rooms to see independent tracking
 
 ## 📚 Learn More
