@@ -57,3 +57,10 @@ jobs:
         run: pnpm publish --filter=@yorkie-js/schema --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: MCP Build
+        run: pnpm mcp build
+      - name: MCP Publish
+        run: pnpm publish --filter=@yorkie-js/mcp --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

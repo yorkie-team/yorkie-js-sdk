@@ -1,4 +1,8 @@
 import { Resource } from '@modelcontextprotocol/sdk/types.js';
+import {
+  DocumentNotAttachedError,
+  InvalidResourceUriError,
+} from '../errors.js';
 import { YorkieManager } from '../yorkie-manager.js';
 
 /**
@@ -34,7 +38,7 @@ export async function readResource(
   const parsedUri = parseYorkieUri(uri);
 
   if (!parsedUri) {
-    throw new Error(`Invalid Yorkie URI: ${uri}`);
+    throw new InvalidResourceUriError(uri);
   }
 
   switch (parsedUri.type) {
@@ -42,9 +46,7 @@ export async function readResource(
       const content = manager.getDocumentContent(parsedUri.key);
 
       if (content === undefined) {
-        throw new Error(
-          `Document '${parsedUri.key}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(parsedUri.key);
       }
 
       return {
@@ -62,9 +64,7 @@ export async function readResource(
       const presences = manager.getDocumentPresences(parsedUri.key);
 
       if (presences === undefined) {
-        throw new Error(
-          `Document '${parsedUri.key}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(parsedUri.key);
       }
 
       return {
@@ -79,7 +79,7 @@ export async function readResource(
     }
 
     default:
-      throw new Error(`Unsupported resource type: ${uri}`);
+      throw new InvalidResourceUriError(uri);
   }
 }
 

@@ -1,5 +1,10 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import type { Indexable } from '@yorkie-js/sdk';
+import {
+  DocumentNotAttachedError,
+  UnknownToolError,
+  wrapError,
+} from '../errors.js';
 import { YorkieManager } from '../yorkie-manager.js';
 
 /**
@@ -223,12 +228,12 @@ export async function handleToolCall(
       ],
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const mcpError = wrapError(error);
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({ error: message }, null, 2),
+          text: JSON.stringify(mcpError.toJSON(), null, 2),
         },
       ],
     };
@@ -292,9 +297,7 @@ async function executeToolCall(
       const content = manager.getDocumentContent(documentKey);
 
       if (content === undefined) {
-        throw new Error(
-          `Document '${documentKey}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(documentKey);
       }
 
       return { documentKey, content };
@@ -314,9 +317,7 @@ async function executeToolCall(
       );
 
       if (!success) {
-        throw new Error(
-          `Document '${documentKey}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(documentKey);
       }
 
       return {
@@ -331,9 +332,7 @@ async function executeToolCall(
       const success = await manager.syncDocument(documentKey);
 
       if (!success) {
-        throw new Error(
-          `Document '${documentKey}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(documentKey);
       }
 
       return { success: true, documentKey };
@@ -345,9 +344,7 @@ async function executeToolCall(
       const presences = manager.getDocumentPresences(documentKey);
 
       if (presences === undefined) {
-        throw new Error(
-          `Document '${documentKey}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(documentKey);
       }
 
       return { documentKey, presences };
@@ -368,9 +365,7 @@ async function executeToolCall(
       );
 
       if (!result) {
-        throw new Error(
-          `Document '${documentKey}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(documentKey);
       }
 
       return { success: true, documentKey, ...result };
@@ -381,15 +376,16 @@ async function executeToolCall(
       const revisions = await manager.listRevisions(documentKey);
 
       if (revisions === undefined) {
-        throw new Error(
-          `Document '${documentKey}' not attached. Use yorkie_attach_document first.`,
-        );
+        throw new DocumentNotAttachedError(documentKey);
       }
 
       return { documentKey, revisions };
     }
 
     default:
-      throw new Error(`Unknown tool: ${toolName}`);
+      throw new UnknownToolError(
+        toolName,
+        tools.map((t) => t.name),
+      );
   }
 }

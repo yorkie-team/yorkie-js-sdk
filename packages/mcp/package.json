@@ -26,7 +26,11 @@
     "model-context-protocol",
     "collaborative",
     "crdt",
-    "realtime"
+    "realtime",
+    "claude",
+    "ai-assistant",
+    "llm",
+    "anthropic"
   ],
   "author": "Yorkie Team",
   "license": "Apache-2.0",

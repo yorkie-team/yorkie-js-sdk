@@ -69,5 +69,10 @@ jobs:
           pnpm schema build
           pnpm schema test
 
+      - name: Build and Test MCP
+        run: |
+          pnpm mcp build
+          pnpm mcp test
+
       - name: Run benchmark
         run: pnpm sdk test:bench

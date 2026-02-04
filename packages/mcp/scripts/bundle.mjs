@@ -1,3 +1,4 @@
+/* eslint-env node */
 import * as esbuild from 'esbuild';
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -34,4 +35,5 @@ const withShebang = content.startsWith('#!')
   : '#!/usr/bin/env node\n' + content;
 writeFileSync(outfile, withShebang);
 
+// eslint-disable-next-line no-undef
 console.log('Bundle created successfully');
