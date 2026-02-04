@@ -6,6 +6,7 @@ import {
   wrapError,
 } from '../errors.js';
 import { YorkieManager } from '../yorkie-manager.js';
+import { validateToolArgs, isValidToolName } from './validation.js';
 
 /**
  * Available MCP tools for Yorkie operations
@@ -246,12 +247,24 @@ export async function handleToolCall(
  * @param toolName - Name of the tool to execute
  * @param args - Arguments for the tool
  * @returns Tool execution result
+ * @throws UnknownToolError if tool name is not recognized
+ * @throws InvalidArgumentsError if arguments fail validation
  */
 async function executeToolCall(
   manager: YorkieManager,
   toolName: string,
   args: Record<string, unknown>,
 ): Promise<unknown> {
+  // Validate tool name and arguments
+  if (!isValidToolName(toolName)) {
+    throw new UnknownToolError(
+      toolName,
+      tools.map((t) => t.name),
+    );
+  }
+
+  const validatedArgs = validateToolArgs(toolName, args);
+
   switch (toolName) {
     // Client Management
     case 'yorkie_get_client_status':
@@ -269,7 +282,7 @@ async function executeToolCall(
 
     // Document Management
     case 'yorkie_attach_document': {
-      const { documentKey, initialRoot, syncMode } = args as {
+      const { documentKey, initialRoot, syncMode } = validatedArgs as {
         documentKey: string;
         initialRoot?: Indexable;
         syncMode?: 'realtime' | 'manual';
@@ -284,7 +297,7 @@ async function executeToolCall(
     }
 
     case 'yorkie_detach_document': {
-      const { documentKey } = args as { documentKey: string };
+      const { documentKey } = validatedArgs as { documentKey: string };
       const success = await manager.detachDocument(documentKey);
       return { success, documentKey };
     }
@@ -293,7 +306,7 @@ async function executeToolCall(
       return { documents: manager.listAttachedDocuments() };
 
     case 'yorkie_get_document': {
-      const { documentKey } = args as { documentKey: string };
+      const { documentKey } = validatedArgs as { documentKey: string };
       const content = manager.getDocumentContent(documentKey);
 
       if (content === undefined) {
@@ -304,7 +317,7 @@ async function executeToolCall(
     }
 
     case 'yorkie_update_document': {
-      const { documentKey, updates, message } = args as {
+      const { documentKey, updates, message } = validatedArgs as {
         documentKey: string;
         updates: Record<string, unknown>;
         message?: string;
@@ -328,7 +341,7 @@ async function executeToolCall(
     }
 
     case 'yorkie_sync_document': {
-      const { documentKey } = args as { documentKey: string };
+      const { documentKey } = validatedArgs as { documentKey: string };
       const success = await manager.syncDocument(documentKey);
 
       if (!success) {
@@ -340,7 +353,7 @@ async function executeToolCall(
 
     // Presence
     case 'yorkie_get_presences': {
-      const { documentKey } = args as { documentKey: string };
+      const { documentKey } = validatedArgs as { documentKey: string };
       const presences = manager.getDocumentPresences(documentKey);
 
       if (presences === undefined) {
@@ -352,7 +365,7 @@ async function executeToolCall(
 
     // Revisions
     case 'yorkie_create_revision': {
-      const { documentKey, label, description } = args as {
+      const { documentKey, label, description } = validatedArgs as {
         documentKey: string;
         label: string;
         description?: string;
@@ -372,7 +385,7 @@ async function executeToolCall(
     }
 
     case 'yorkie_list_revisions': {
-      const { documentKey } = args as { documentKey: string };
+      const { documentKey } = validatedArgs as { documentKey: string };
       const revisions = await manager.listRevisions(documentKey);
 
       if (revisions === undefined) {
@@ -383,6 +396,7 @@ async function executeToolCall(
     }
 
     default:
+      // This should never happen due to isValidToolName check above
       throw new UnknownToolError(
         toolName,
         tools.map((t) => t.name),

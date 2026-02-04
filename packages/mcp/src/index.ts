@@ -63,6 +63,22 @@ async function main() {
     return readResource(yorkieManager, uri);
   });
 
+  // Graceful shutdown handler
+  const shutdown = async (signal: string) => {
+    console.error(`\n${serverName}: Received ${signal}, shutting down...`);
+    try {
+      await yorkieManager.deactivate();
+      console.error(`${serverName}: Cleanup complete`);
+      process.exit(0);
+    } catch (error) {
+      console.error(`${serverName}: Error during shutdown:`, error);
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
   // Start the server
   const transport = new StdioServerTransport();
   await server.connect(transport);
