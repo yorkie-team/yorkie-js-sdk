@@ -1,21 +1,26 @@
 {
   "name": "@yorkie-js/mcp",
-  "version": "0.0.1",
+  "version": "0.6.44",
   "description": "MCP (Model Context Protocol) server for Yorkie collaborative editing",
   "type": "module",
   "bin": {
     "yorkie-mcp": "./dist/index.js"
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "typings": "./dist/index.d.ts"
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc && node scripts/bundle.mjs",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "lint": "eslint src --fix",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build"
@@ -32,17 +37,20 @@
     "llm",
     "anthropic"
   ],
-  "author": "Yorkie Team",
+  "author": {
+    "name": "hackerwins",
+    "email": "susukang98@gmail.com"
+  },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yorkie-team/yorkie-js-sdk.git",
+    "url": "git+https://github.com/yorkie-team/yorkie-js-sdk.git",
     "directory": "packages/mcp"
   },
   "bugs": {
     "url": "https://github.com/yorkie-team/yorkie-js-sdk/issues"
   },
-  "homepage": "https://yorkie.dev",
+  "homepage": "https://github.com/yorkie-team/yorkie-js-sdk#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@yorkie-js/sdk": "workspace:*",

@@ -12,7 +12,7 @@ import { tools, handleToolCall } from './tools/index.js';
 import { getResources, readResource } from './resources/index.js';
 
 const serverName = 'yorkie-mcp';
-const serverVersion = '0.0.1';
+const serverVersion = '0.6.44';
 
 /**
  * Main entry point for the MCP server.
