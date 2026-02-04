@@ -1,0 +1,56 @@
+{
+  "name": "@yorkie-js/mcp",
+  "version": "0.0.1",
+  "description": "MCP (Model Context Protocol) server for Yorkie collaborative editing",
+  "type": "module",
+  "bin": {
+    "yorkie-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/bundle.mjs",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "yorkie",
+    "mcp",
+    "model-context-protocol",
+    "collaborative",
+    "crdt",
+    "realtime"
+  ],
+  "author": "Yorkie Team",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yorkie-team/yorkie-js-sdk.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/yorkie-team/yorkie-js-sdk/issues"
+  },
+  "homepage": "https://yorkie.dev",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@yorkie-js/sdk": "workspace:*",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

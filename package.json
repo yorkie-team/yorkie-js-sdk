@@ -13,6 +13,7 @@
     "devtools": "pnpm --filter=@yorkie-js/devtools",
     "react": "pnpm --filter=@yorkie-js/react",
     "schema": "pnpm --filter=@yorkie-js/schema",
+    "mcp": "pnpm --filter=@yorkie-js/mcp",
     "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
     "vanilla-quill": "pnpm --filter=vanilla-quill",
     "vanilla-document-limit": "pnpm --filter=vanilla-document-limit",
