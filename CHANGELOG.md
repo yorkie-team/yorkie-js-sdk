@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.47] - 2026-02-06
+
+### Changed
+
+- Refactor channel terminology from presence to session by @emplam27 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1154
+
+### Fixed
+
+- Add backend-disable-webhook-validation to CI by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1155
+- Add NEXT_PUBLIC_BASE_PATH to production environment variables by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1158
+
 ## [v0.6.44] - 2026-01-19
 
 ### Fixed
