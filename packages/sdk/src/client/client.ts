@@ -61,6 +61,7 @@ import {
   BroadcastOptions,
 } from '@yorkie-js/sdk/src/channel/channel';
 import { Attachable } from './attachable';
+import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 
 /**
  * `Key` is a string representing the key of Document or Channel.
@@ -1509,77 +1510,56 @@ export class Client {
       attachment.changeEventReceived = true;
     }
 
-    return new Promise((resolve, reject) => {
-      const handleStream = async () => {
-        try {
-          for await (const resp of stream) {
-            this.handleWatchDocumentResponse(attachment, resp);
+    const resetAndPublishDisconnect = () => {
+      attachment.resource.resetOnlineClients();
+      attachment.resource.publish([
+        {
+          type: DocEventType.Initialized,
+          source: OpSource.Local,
+          value: attachment.resource.getPresences(),
+        },
+      ]);
+      attachment.resource.publish([
+        {
+          type: DocEventType.ConnectionChanged,
+          value: StreamConnectionStatus.Disconnected,
+        },
+      ]);
+    };
 
-            // NOTE(hackerwins): When the first response is received, we need to
-            // resolve the promise to notify that the watch stream is ready.
-            if (resp.body.case === 'initialization') {
-              resolve([stream, ac]);
-            }
-          }
-
-          // NOTE(hackerwins): If the stream ends normally (without error),
-          // we should clean up and trigger reconnection.
-          attachment.resource.resetOnlineClients();
-          attachment.resource.publish([
-            {
-              type: DocEventType.Initialized,
-              source: OpSource.Local,
-              value: attachment.resource.getPresences(),
-            },
-          ]);
-          attachment.resource.publish([
-            {
-              type: DocEventType.ConnectionChanged,
-              value: StreamConnectionStatus.Disconnected,
-            },
-          ]);
+    return runWatchStream(
+      {
+        stream,
+        ac,
+        isInit: (resp) => resp.body.case === 'initialization',
+        onResponse: (resp) =>
+          this.handleWatchDocumentResponse(attachment, resp),
+        onStreamEnd: () => {
+          resetAndPublishDisconnect();
           logger.debug(`[WD] c:"${this.getKey()}" unwatches (stream ended)`);
-          onDisconnect();
-        } catch (err) {
-          attachment.resource.resetOnlineClients();
-          attachment.resource.publish([
-            {
-              type: DocEventType.Initialized,
-              source: OpSource.Local,
-              value: attachment.resource.getPresences(),
-            },
-          ]);
-          attachment.resource.publish([
-            {
-              type: DocEventType.ConnectionChanged,
-              value: StreamConnectionStatus.Disconnected,
-            },
-          ]);
+        },
+        onError: (err) => {
+          resetAndPublishDisconnect();
           logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
-
-          if (await this.handleConnectError(err)) {
-            if (isErrorCode(err, Code.ErrUnauthenticated)) {
-              attachment.resource.publish([
-                {
-                  type: DocEventType.AuthError,
-                  value: {
-                    reason: errorMetadataOf(err).reason,
-                    method: 'WatchDocument',
-                  },
+          if (isErrorCode(err, Code.ErrUnauthenticated)) {
+            attachment.resource.publish([
+              {
+                type: DocEventType.AuthError,
+                value: {
+                  reason: errorMetadataOf(err).reason,
+                  method: 'WatchDocument',
                 },
-              ]);
-            }
-            onDisconnect();
-          } else {
-            this.conditions[ClientCondition.WatchLoop] = false;
+              },
+            ]);
           }
-
-          reject(err);
-        }
-      };
-
-      handleStream();
-    });
+        },
+        onDisconnect,
+      },
+      (err) => this.handleConnectError(err),
+      () => {
+        this.conditions[ClientCondition.WatchLoop] = false;
+      },
+    );
   }
 
   /**
@@ -1609,45 +1589,32 @@ export class Client {
 
     logger.info(`[WP] c:"${this.getKey()}" watches p:"${key}"`);
 
-    return new Promise((resolve, reject) => {
-      const handleStream = async () => {
-        try {
-          let isFirstResponse = true;
-          for await (const resp of stream) {
-            // Parse protocol response and update channel
-            this.handleWatchChannelResponse(attachment, resp);
-
-            // Resolve on first response to notify that the watch stream is ready
-            if (isFirstResponse) {
-              isFirstResponse = false;
-              resolve([stream, ac]);
-            }
-          }
-
-          // NOTE(hackerwins): If the stream ends normally (without error),
-          // we should trigger reconnection by calling onDisconnect.
+    return runWatchStream(
+      {
+        stream,
+        ac,
+        isInit: () => true, // Resolve on first response regardless of type
+        onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
+        onStreamEnd: () => {
           logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);
-          onDisconnect();
-        } catch (err) {
-          // Check if the error is due to abort
+        },
+        onError: (err) => {
+          logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" err:`, err);
+        },
+        onDisconnect,
+        shouldIgnoreError: (err) => {
           if (err instanceof Error && err.name === 'AbortError') {
             logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream aborted`);
-            return;
+            return true;
           }
-          logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" err:`, err);
-
-          if (await this.handleConnectError(err)) {
-            onDisconnect();
-          } else {
-            this.conditions[ClientCondition.WatchLoop] = false;
-          }
-
-          reject(err);
-        }
-      };
-
-      handleStream();
-    });
+          return false;
+        },
+      },
+      (err) => this.handleConnectError(err),
+      () => {
+        this.conditions[ClientCondition.WatchLoop] = false;
+      },
+    );
   }
 
   /**
