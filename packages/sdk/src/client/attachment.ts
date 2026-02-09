@@ -20,8 +20,7 @@ import { Document } from '@yorkie-js/sdk/src/document/document';
 
 /**
  * `WatchStream` represents a stream that watches the changes of a resource.
- * - For Document: AsyncIterable<WatchDocumentResponse>
- * - For Presence: AsyncIterable<WatchPresenceResponse>
+ * Uses the unified Watch RPC: AsyncIterable<WatchResponse>
  */
 export type WatchStream = AsyncIterable<unknown>;
 

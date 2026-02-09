@@ -50,7 +50,8 @@ const AllAuthWebhookMethods = [
   'DetachDocument',
   'RemoveDocument',
   'PushPull',
-  'WatchDocument',
+
+  'Watch',
   'Broadcast',
 ];
 
@@ -553,7 +554,7 @@ describe('Auth Webhook', () => {
     await c1.attach(doc);
     await authErrorEventCollector.waitFor({
       reason: ExpiredTokenErrorMessage,
-      method: 'WatchDocument',
+      method: 'Watch',
     });
     expect(authTokenInjector).toBeCalledTimes(2);
     expect(authTokenInjector).nthCalledWith(1);

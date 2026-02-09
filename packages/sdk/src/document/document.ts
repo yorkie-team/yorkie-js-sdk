@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import type { WatchDocumentResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
@@ -357,7 +356,7 @@ export interface AuthErrorEvent extends BaseDocEvent {
   type: DocEventType.AuthError;
   value: {
     reason: string;
-    method: 'PushPull' | 'WatchDocument';
+    method: 'PushPull' | 'Watch';
   };
 }
 
@@ -1508,69 +1507,67 @@ export class Document<
   }
 
   /**
-   * `applyWatchStream` applies the given watch stream response into this document.
+   * `applyWatchInit` applies the watch initialization with the given client IDs.
    */
-  public applyWatchStream(resp: WatchDocumentResponse) {
-    if (resp.body.case === 'initialization') {
-      const clientIDs = resp.body.value.clientIds;
-      const onlineClients: Set<ActorID> = new Set();
-      for (const clientID of clientIDs) {
-        if (clientID === this.changeID.getActorID()) {
-          continue;
-        }
-
-        onlineClients.add(clientID);
+  public applyWatchInit(clientIDs: Array<string>) {
+    const onlineClients: Set<ActorID> = new Set();
+    for (const clientID of clientIDs) {
+      if (clientID === this.changeID.getActorID()) {
+        continue;
       }
-      this.setOnlineClients(onlineClients);
 
-      this.publish([
-        {
-          type: DocEventType.Initialized,
-          source: OpSource.Local,
-          value: this.getPresences(),
-        },
-      ]);
-      return;
+      onlineClients.add(clientID);
+    }
+    this.setOnlineClients(onlineClients);
+
+    this.publish([
+      {
+        type: DocEventType.Initialized,
+        source: OpSource.Local,
+        value: this.getPresences(),
+      },
+    ]);
+  }
+
+  /**
+   * `applyDocEvent` applies the given doc event into this document.
+   */
+  public applyDocEvent(type: PbDocEventType, publisher: string) {
+    const events: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
+    if (type === PbDocEventType.DOCUMENT_WATCHED) {
+      if (this.onlineClients.has(publisher) && this.hasPresence(publisher)) {
+        return;
+      }
+
+      this.addOnlineClient(publisher);
+      // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
+      // unless we also know their initial presence data at this point.
+      if (this.hasPresence(publisher)) {
+        events.push({
+          type: DocEventType.Watched,
+          source: OpSource.Remote,
+          value: {
+            clientID: publisher,
+            presence: this.getPresence(publisher)!,
+          },
+        });
+      }
+    } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
+      const presence = this.getPresence(publisher);
+      this.removeOnlineClient(publisher);
+      // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
+      // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
+      if (presence) {
+        events.push({
+          type: DocEventType.Unwatched,
+          source: OpSource.Remote,
+          value: { clientID: publisher, presence },
+        });
+      }
     }
 
-    if (resp.body.case === 'event') {
-      const { type, publisher } = resp.body.value;
-      const events: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
-      if (type === PbDocEventType.DOCUMENT_WATCHED) {
-        if (this.onlineClients.has(publisher) && this.hasPresence(publisher)) {
-          return;
-        }
-
-        this.addOnlineClient(publisher);
-        // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
-        // unless we also know their initial presence data at this point.
-        if (this.hasPresence(publisher)) {
-          events.push({
-            type: DocEventType.Watched,
-            source: OpSource.Remote,
-            value: {
-              clientID: publisher,
-              presence: this.getPresence(publisher)!,
-            },
-          });
-        }
-      } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
-        const presence = this.getPresence(publisher);
-        this.removeOnlineClient(publisher);
-        // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
-        // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
-        if (presence) {
-          events.push({
-            type: DocEventType.Unwatched,
-            source: OpSource.Remote,
-            value: { clientID: publisher, presence },
-          });
-        }
-      }
-
-      if (events.length) {
-        this.publish(events);
-      }
+    if (events.length) {
+      this.publish(events);
     }
   }
 
