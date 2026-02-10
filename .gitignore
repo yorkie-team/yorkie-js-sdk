@@ -134,6 +134,7 @@ api-review
 
 # lib folder used by api-extractor
 packages/sdk/lib/
+packages/prosemirror/lib/
 
 .DS_Store
 

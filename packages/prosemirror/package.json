@@ -1,0 +1,44 @@
+{
+  "name": "@yorkie-js/prosemirror",
+  "version": "0.6.47",
+  "description": "ProseMirror binding for Yorkie collaborative editing",
+  "main": "./src/index.ts",
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/yorkie-js-prosemirror.js",
+    "typings": "./dist/yorkie-js-prosemirror.d.ts"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build --config vite.build.ts",
+    "preview": "vite preview",
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts --flag v10_config_lookup_from_file"
+  },
+  "dependencies": {
+    "@yorkie-js/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "prosemirror-model": "^1.20.0",
+    "prosemirror-state": "^1.4.0",
+    "prosemirror-view": "^1.30.0"
+  },
+  "devDependencies": {
+    "prosemirror-commands": "^1.6.2",
+    "prosemirror-example-setup": "^1.2.2",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.23.0",
+    "prosemirror-schema-basic": "^1.2.3",
+    "prosemirror-schema-list": "^1.4.1",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-transform": "^1.10.2",
+    "prosemirror-view": "^1.37.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6",
+    "vite-plugin-dts": "^4.5.4",
+    "vite-tsconfig-paths": "^5.1.4"
+  }
+}

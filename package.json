@@ -12,6 +12,7 @@
     "sdk": "pnpm --filter=@yorkie-js/sdk",
     "devtools": "pnpm --filter=@yorkie-js/devtools",
     "react": "pnpm --filter=@yorkie-js/react",
+    "prosemirror": "pnpm --filter=@yorkie-js/prosemirror",
     "schema": "pnpm --filter=@yorkie-js/schema",
     "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
     "vanilla-quill": "pnpm --filter=vanilla-quill",
