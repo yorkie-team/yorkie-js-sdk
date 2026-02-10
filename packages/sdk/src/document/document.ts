@@ -1520,6 +1520,16 @@ export class Document<
     }
     this.setOnlineClients(onlineClients);
 
+    // Prune presences for clients no longer online (except self).
+    for (const clientID of Array.from(this.presences.keys())) {
+      if (
+        clientID !== this.changeID.getActorID() &&
+        !onlineClients.has(clientID)
+      ) {
+        this.presences.delete(clientID);
+      }
+    }
+
     this.publish([
       {
         type: DocEventType.Initialized,
@@ -1555,6 +1565,7 @@ export class Document<
     } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
       const presence = this.getPresence(publisher);
       this.removeOnlineClient(publisher);
+      this.presences.delete(publisher);
       // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
       // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
       if (presence) {
