@@ -24,8 +24,7 @@ import {
 import { createGrpcWebTransport } from '@connectrpc/connect-web';
 import {
   YorkieService,
-  WatchDocumentResponse,
-  WatchChannelResponse,
+  WatchResponse,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import {
   DocEventType as PbDocEventType,
@@ -1484,10 +1483,17 @@ export class Client {
     ac: AbortController,
     onDisconnect: () => void,
   ): Promise<[WatchStream, AbortController]> {
-    const stream = this.rpcClient.watchDocument(
+    const stream = this.rpcClient.watch(
       {
         clientId: this.id!,
-        documentId: attachment.resourceID,
+        resources: [
+          {
+            resource: {
+              case: 'document',
+              value: { documentId: attachment.resourceID },
+            },
+          },
+        ],
       },
       {
         headers: { 'x-shard-key': `${this.apiKey}/${key}` },
@@ -1547,7 +1553,7 @@ export class Client {
                 type: DocEventType.AuthError,
                 value: {
                   reason: errorMetadataOf(err).reason,
-                  method: 'WatchDocument',
+                  method: 'Watch',
                 },
               },
             ]);
@@ -1572,10 +1578,17 @@ export class Client {
     ac: AbortController,
     onDisconnect: () => void,
   ): Promise<[WatchStream, AbortController]> {
-    const stream = this.rpcClient.watchChannel(
+    const stream = this.rpcClient.watch(
       {
         clientId: this.id!,
-        channelKey: key,
+        resources: [
+          {
+            resource: {
+              case: 'channel',
+              value: { channelKey: key },
+            },
+          },
+        ],
       },
       {
         headers: {
@@ -1593,7 +1606,7 @@ export class Client {
       {
         stream,
         ac,
-        isInit: () => true, // Resolve on first response regardless of type
+        isInit: (resp) => resp.body.case === 'initialization',
         onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
         onStreamEnd: () => {
           logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);
@@ -1624,71 +1637,98 @@ export class Client {
    */
   private handleWatchChannelResponse(
     attachment: Attachment<Channel>,
-    resp: WatchChannelResponse,
+    resp: WatchResponse,
   ) {
     const channel = attachment.resource;
 
-    if (resp.body.case === 'initialized') {
-      const { sessionCount, seq } = resp.body.value;
-      if (channel.updateSessionCount(Number(sessionCount), Number(seq))) {
-        channel.publish({
-          type: ChannelEventType.Initialized,
-          count: Number(sessionCount),
-        });
-      }
-    } else if (resp.body.case === 'event') {
-      const event = resp.body.value;
-
-      // Handle broadcast events
-      if (event.type === PbChannelEventType.BROADCAST) {
-        const decoder = new TextDecoder();
-        try {
-          const payload = JSON.parse(decoder.decode(event.payload));
-          channel.publish({
-            type: ChannelEventType.Broadcast,
-            clientID: event.publisher,
-            topic: event.topic,
-            payload,
-          });
-        } catch (err) {
-          logger.error(
-            `[WP] c:"${this.getKey()}" failed to parse broadcast payload:`,
-            err,
-          );
+    if (resp.body.case === 'initialization') {
+      for (const ri of resp.body.value.resourceInits) {
+        if (ri.init.case === 'channelInit') {
+          const { sessionCount, seq } = ri.init.value;
+          if (channel.updateSessionCount(Number(sessionCount), Number(seq))) {
+            channel.publish({
+              type: ChannelEventType.Initialized,
+              count: Number(sessionCount),
+            });
+          }
         }
-        return;
       }
+      return;
+    }
 
-      // Handle count change events
-      if (
-        channel.updateSessionCount(
-          Number(event.sessionCount),
-          Number(event.seq),
-        )
-      ) {
-        channel.publish({
-          type: ChannelEventType.PresenceChanged,
-          count: Number(event.sessionCount),
-        });
+    if (resp.body.case === 'event') {
+      const watchEvent = resp.body.value;
+      if (watchEvent.event.case === 'channelEvent') {
+        const event = watchEvent.event.value.event;
+        if (!event) return;
+
+        // Handle broadcast events
+        if (event.type === PbChannelEventType.BROADCAST) {
+          const decoder = new TextDecoder();
+          try {
+            const payload = JSON.parse(decoder.decode(event.payload));
+            channel.publish({
+              type: ChannelEventType.Broadcast,
+              clientID: event.publisher,
+              topic: event.topic,
+              payload,
+            });
+          } catch (err) {
+            logger.error(
+              `[WP] c:"${this.getKey()}" failed to parse broadcast payload:`,
+              err,
+            );
+          }
+          return;
+        }
+
+        // Handle count change events
+        if (
+          channel.updateSessionCount(
+            Number(event.sessionCount),
+            Number(event.seq),
+          )
+        ) {
+          channel.publish({
+            type: ChannelEventType.PresenceChanged,
+            count: Number(event.sessionCount),
+          });
+        }
       }
     }
   }
 
   private handleWatchDocumentResponse<R, P extends Indexable>(
     attachment: Attachment<Document<R, P>>,
-    resp: WatchDocumentResponse,
+    resp: WatchResponse,
   ) {
-    if (
-      resp.body.case === 'event' &&
-      resp.body.value.type === PbDocEventType.DOCUMENT_CHANGED
-    ) {
-      if (attachment.changeEventReceived !== undefined) {
-        attachment.changeEventReceived = true;
+    if (resp.body.case === 'initialization') {
+      for (const ri of resp.body.value.resourceInits) {
+        if (ri.init.case === 'documentInit') {
+          attachment.resource.applyWatchInit(ri.init.value.clientIds);
+        }
       }
       return;
     }
 
-    attachment.resource.applyWatchStream(resp);
+    if (resp.body.case === 'event') {
+      const watchEvent = resp.body.value;
+      if (watchEvent.event.case === 'docEvent') {
+        const docEvent = watchEvent.event.value;
+        if (docEvent.event?.type === PbDocEventType.DOCUMENT_CHANGED) {
+          if (attachment.changeEventReceived !== undefined) {
+            attachment.changeEventReceived = true;
+          }
+          return;
+        }
+        if (docEvent.event) {
+          attachment.resource.applyDocEvent(
+            docEvent.event.type,
+            docEvent.event.publisher,
+          );
+        }
+      }
+    }
   }
 
   private deactivateInternal() {

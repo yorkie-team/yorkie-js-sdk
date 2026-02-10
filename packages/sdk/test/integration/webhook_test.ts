@@ -50,7 +50,8 @@ const AllAuthWebhookMethods = [
   'DetachDocument',
   'RemoveDocument',
   'PushPull',
-  'WatchDocument',
+
+  'Watch',
   'Broadcast',
 ];
 
@@ -498,7 +499,7 @@ describe('Auth Webhook', () => {
         id: projectId,
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
-          auth_webhook_methods: { methods: ['WatchDocument'] },
+          auth_webhook_methods: { methods: ['Watch'] },
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -553,7 +554,7 @@ describe('Auth Webhook', () => {
     await c1.attach(doc);
     await authErrorEventCollector.waitFor({
       reason: ExpiredTokenErrorMessage,
-      method: 'WatchDocument',
+      method: 'Watch',
     });
     expect(authTokenInjector).toBeCalledTimes(2);
     expect(authTokenInjector).nthCalledWith(1);
