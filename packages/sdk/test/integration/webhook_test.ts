@@ -499,7 +499,7 @@ describe('Auth Webhook', () => {
         id: projectId,
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
-          auth_webhook_methods: { methods: ['WatchDocument'] },
+          auth_webhook_methods: { methods: ['Watch'] },
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },

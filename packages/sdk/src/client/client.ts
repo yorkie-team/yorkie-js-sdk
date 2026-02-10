@@ -1606,7 +1606,7 @@ export class Client {
       {
         stream,
         ac,
-        isInit: () => true, // Resolve on first response regardless of type
+        isInit: (resp) => resp.body.case === 'initialization',
         onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
         onStreamEnd: () => {
           logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);
