@@ -7,7 +7,6 @@ services:
         "server",
         "--mongo-connection-uri",
         "mongodb://mongo:27017",
-        "--backend-disable-webhook-validation",
       ]
     restart: always
     ports:

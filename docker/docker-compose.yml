@@ -3,7 +3,7 @@ services:
     image: "yorkieteam/yorkie:latest"
     container_name: "yorkie"
     command:
-      ["server", "--pprof-enabled", "--backend-disable-webhook-validation"]
+      ["server", "--pprof-enabled"]
     restart: always
     ports:
       - "8080:8080"
