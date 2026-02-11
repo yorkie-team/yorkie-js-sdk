@@ -1,4 +1,4 @@
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { Node } from 'prosemirror-model';
 import type { Schema } from 'prosemirror-model';
@@ -104,29 +104,27 @@ export function syncToPM(
     return;
   }
 
-  // Preserve selection position if possible
+  // Use a transaction to replace content, preserving plugin state (undo history, etc.)
   const oldSelection = view.state.selection;
-  const newState = EditorState.create({
-    doc: newDoc,
-    plugins: view.state.plugins,
-  });
+  const tr = view.state.tr.replaceWith(
+    0,
+    view.state.doc.content.size,
+    newDoc.content,
+  );
+  tr.setMeta('yorkie-remote', true);
+  tr.setMeta('addToHistory', false);
 
-  // Try to restore cursor near original position
-  const maxPos = newDoc.content.size;
+  // Restore selection near original position
+  const maxPos = tr.doc.content.size;
   const newFrom = Math.min(oldSelection.from, maxPos);
   const newTo = Math.min(oldSelection.to, maxPos);
-  let selection;
   try {
-    selection = TextSelection.create(newDoc, newFrom, newTo);
+    tr.setSelection(TextSelection.create(tr.doc, newFrom, newTo));
   } catch {
-    selection = TextSelection.create(newDoc, Math.min(1, maxPos));
+    tr.setSelection(TextSelection.create(tr.doc, Math.min(1, maxPos)));
   }
 
-  view.updateState(
-    newState.apply(
-      newState.tr.setSelection(selection).setMeta('yorkie-remote', true),
-    ),
-  );
+  view.dispatch(tr);
 }
 
 /**

@@ -20,6 +20,9 @@ const selectionMap = new Map<string, any>();
 function updateSelectionLayer(view: EditorView, tree: any, actor: string) {
   const { layer, fromPos, toPos } = selectionMap.get(actor)!;
   const [fromIndex, toIndex] = tree.posRangeToIndexRange([fromPos, toPos]);
+  // NOTE: fromIndex/toIndex are Yorkie flat indices, not PM positions.
+  // This works for this simple example (no marks), but for schemas with marks,
+  // use buildPositionMap + yorkieIdxToPmPos for correct conversion.
   const coords = view.coordsAtPos(Math.min(fromIndex, toIndex));
 
   layer.style.left = `${coords.left - 10}px`;
@@ -329,15 +332,7 @@ async function main() {
       treeNodeToDoc(JSON.parse(doc.getRoot().tree.toJSON())),
     ),
     plugins: [
-      ...exampleSetup({ schema: mySchema }).reduce(
-        (uniquePlugins: Array<any>, plugin: any) => {
-          if (!uniquePlugins.some((p: any) => p.key === plugin.key)) {
-            uniquePlugins.push(plugin);
-          }
-          return uniquePlugins;
-        },
-        [],
-      ),
+      ...exampleSetup({ schema: mySchema }),
       keymap({
         'Ctrl-b': toggleMark(mySchema.marks.shouting),
         'Ctrl-u': insertStar,
@@ -390,6 +385,9 @@ async function main() {
           if (stepType === 'replaceAround') {
             // TODO(hackerwins): replaceAround replaces the given range with given gap.
             // root.tree.move(from, to, gapFrom, gapTo);
+            console.warn(
+              `[yorkie] replaceAround step not yet supported — skipping (from=${from}, to=${to}). This may cause desync.`,
+            );
             continue;
           }
 

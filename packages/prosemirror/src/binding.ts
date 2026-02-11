@@ -105,10 +105,11 @@ export class YorkieProseMirrorBinding {
     this.unsubscribePresence?.();
     this.cursorManager?.destroy();
 
-    // Restore original dispatchTransaction
+    // Restore original dispatchTransaction via setProps (ProseMirror's API)
     if (this.originalDispatchTransaction) {
-      (this.view as any).props.dispatchTransaction =
-        this.originalDispatchTransaction;
+      (this.view as any).setProps({
+        dispatchTransaction: this.originalDispatchTransaction,
+      });
     }
   }
 

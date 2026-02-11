@@ -113,15 +113,7 @@ async function main() {
   // Create PM editor state
   const state = EditorState.create({
     doc: initialDoc,
-    plugins: exampleSetup({ schema: mySchema }).reduce(
-      (uniquePlugins: Array<any>, plugin: any) => {
-        if (!uniquePlugins.some((p: any) => p.key === plugin.key)) {
-          uniquePlugins.push(plugin);
-        }
-        return uniquePlugins;
-      },
-      [],
-    ),
+    plugins: exampleSetup({ schema: mySchema }),
   });
 
   // Create PM editor view
@@ -184,6 +176,12 @@ async function main() {
           } catch (e: any) {
             log('error', `Upstream sync failed: ${e.message}`);
             console.error(e);
+            // Re-sync from Yorkie to recover from diverged state
+            try {
+              syncToPM(view, root.tree, mySchema, elementToMark, log);
+            } catch (syncErr: any) {
+              log('error', `Recovery sync also failed: ${syncErr.message}`);
+            }
           } finally {
             isSyncing = false;
           }

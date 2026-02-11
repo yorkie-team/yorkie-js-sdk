@@ -39,7 +39,7 @@ const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
   },
 });
 
-await binding.initialize();
+binding.initialize();
 
 // When done:
 binding.destroy();
