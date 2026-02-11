@@ -16,7 +16,9 @@
     "dev": "vite",
     "build": "tsc && vite build --config vite.build.ts",
     "preview": "vite preview",
-    "lint": "eslint . --fix --max-warnings=0 --ext .ts --flag v10_config_lookup_from_file"
+    "lint": "eslint . --fix --max-warnings=0 --ext .ts --flag v10_config_lookup_from_file",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@yorkie-js/sdk": "workspace:*"
@@ -37,6 +39,7 @@
     "prosemirror-transform": "^1.10.2",
     "prosemirror-view": "^1.37.0",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.15",
     "vite": "^7.2.6",
     "vite-plugin-dts": "^4.5.4",
     "vite-tsconfig-paths": "^5.1.4"
