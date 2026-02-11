@@ -8,7 +8,7 @@
     "outDir": "./lib",
 
     /* Bundler mode */
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
@@ -19,6 +19,7 @@
     /* Paths */
     "baseUrl": ".",
     "paths": {
+      "@yorkie-js/sdk": ["../sdk/src/yorkie.ts"],
       "@yorkie-js/sdk/src/*": ["../../packages/sdk/src/*"]
     }
   },

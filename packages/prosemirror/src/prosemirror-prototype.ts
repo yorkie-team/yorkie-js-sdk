@@ -199,7 +199,9 @@ async function main() {
 
   // ---- Connect to Yorkie ----
   try {
-    const client = new yorkie.Client({ rpcAddr: 'http://localhost:8080' });
+    const client = new yorkie.Client({
+      rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR || 'http://localhost:8080',
+    });
     await client.activate();
 
     doc = new yorkie.Document('pm-prototype', {

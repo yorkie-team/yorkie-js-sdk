@@ -12,6 +12,7 @@ type CursorEntry = {
  * Manages remote cursor display overlays for collaborative editing.
  */
 export class CursorManager {
+  private enabled: boolean;
   private overlayElement: HTMLElement;
   private wrapperElement: HTMLElement | undefined;
   private colors: Array<string>;
@@ -19,6 +20,7 @@ export class CursorManager {
   private cursors = new Map<string, CursorEntry>();
 
   constructor(options: CursorOptions) {
+    this.enabled = options.enabled;
     this.overlayElement = options.overlayElement;
     this.wrapperElement = options.wrapperElement;
     this.colors = options.colors || defaultCursorColors;
@@ -28,13 +30,16 @@ export class CursorManager {
    * Create or update a cursor overlay for the given client.
    */
   displayCursor(view: EditorView, pmPos: number, clientID: string): void {
+    if (!this.enabled) return;
+
     if (!this.cursors.has(clientID)) {
-      const color = this.colors[this.nextColorIdx];
-      this.nextColorIdx = (this.nextColorIdx + 1) % this.colors.length;
+      const colors = this.colors.length > 0 ? this.colors : defaultCursorColors;
+      const color = colors[this.nextColorIdx % colors.length];
+      this.nextColorIdx = (this.nextColorIdx + 1) % colors.length;
 
       const layer = document.createElement('div');
       layer.className = 'username-layer';
-      layer.textContent = clientID.substr(-2);
+      layer.textContent = clientID.slice(-2);
       layer.style.position = 'absolute';
       layer.style.backgroundColor = color;
       layer.style.color = 'black';
@@ -56,6 +61,8 @@ export class CursorManager {
    * Reposition all remote cursors (e.g., after a doc rebuild).
    */
   repositionAll(view: EditorView): void {
+    if (!this.enabled) return;
+
     requestAnimationFrame(() => {
       for (const [, entry] of this.cursors) {
         this.positionCursorLayer(view, entry);

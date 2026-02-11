@@ -5,6 +5,10 @@ import { yorkieNodeSize, blockIndexToYorkieIndex } from './position';
 
 /**
  * Deep compare two Yorkie tree nodes for structural equality.
+ *
+ * Note: attribute comparison uses JSON.stringify, which is key-order-dependent.
+ * This is safe here because both sides are produced by the same `pmToYorkie`
+ * path, which always inserts keys in a consistent order.
  */
 export function yorkieNodesEqual(
   a: YorkieTreeJSON,
@@ -94,7 +98,7 @@ export function findTextDiffs(
     edits.push({
       from,
       to,
-      text: insertText || null,
+      text: insertText.length > 0 ? insertText : undefined,
     });
     return;
   }
@@ -136,7 +140,7 @@ export function tryIntraBlockDiff(
   // Apply edits in REVERSE order so indices don't shift
   for (let i = edits.length - 1; i >= 0; i--) {
     const { from, to, text } = edits[i];
-    if (text) {
+    if (text != null && text.length > 0) {
       tree.edit(from, to, { type: 'text', value: text });
     } else {
       tree.edit(from, to);

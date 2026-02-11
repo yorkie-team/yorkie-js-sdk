@@ -4,7 +4,6 @@ export type {
   YorkieTreeJSON,
   PMNodeJSON,
   PositionMap,
-  TextEdit,
   CursorOptions,
   YorkieProseMirrorOptions,
 } from './types';
@@ -21,21 +20,13 @@ export { pmToYorkie, yorkieToJSON } from './convert';
 
 // Position mapping
 export {
-  yorkieNodeSize,
-  blockIndexToYorkieIndex,
   buildPositionMap,
   pmPosToYorkieIdx,
   yorkieIdxToPmPos,
 } from './position';
 
-// Diffing & upstream sync
-export {
-  yorkieNodesEqual,
-  sameStructure,
-  findTextDiffs,
-  tryIntraBlockDiff,
-  syncToYorkie,
-} from './diff';
+// Upstream sync
+export { syncToYorkie } from './diff';
 
 // Downstream sync
 export type { DocDiff } from './sync';

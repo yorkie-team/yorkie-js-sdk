@@ -165,7 +165,7 @@ describe('diff', () => {
       assert.equal(edits.length, 1);
       assert.equal(edits[0].from, 5);
       assert.equal(edits[0].to, 11);
-      assert.isNull(edits[0].text);
+      assert.isUndefined(edits[0].text);
     });
 
     it('should detect a change in the middle', () => {
@@ -217,7 +217,7 @@ describe('diff', () => {
       assert.equal(edits.length, 1);
       assert.equal(edits[0].from, 0);
       assert.equal(edits[0].to, 5);
-      assert.isNull(edits[0].text);
+      assert.isUndefined(edits[0].text);
     });
   });
 

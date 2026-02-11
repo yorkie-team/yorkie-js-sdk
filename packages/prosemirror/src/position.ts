@@ -77,6 +77,12 @@ export function buildPositionMap(
     idx += yorkieNodeSize(child);
   }
 
+  if (pmPositions.length !== yorkieIndices.length) {
+    throw new Error(
+      `Position map mismatch: PM has ${pmPositions.length} chars, Yorkie has ${yorkieIndices.length} chars`,
+    );
+  }
+
   return { pmPositions, yorkieIndices };
 }
 

@@ -74,5 +74,5 @@ See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the co
 Thanks goes to these incredible people:
 
 <a href="https://github.com/yorkie-team/yorkie-js-sdk/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=yorkie-team/yorkie-js-sdk" />
+  <img src="https://contrib.rocks/image?repo=yorkie-team/yorkie-js-sdk" alt="Contributors" />
 </a>

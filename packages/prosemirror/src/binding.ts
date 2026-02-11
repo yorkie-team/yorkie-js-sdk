@@ -1,6 +1,6 @@
 import type { EditorView } from 'prosemirror-view';
 import type { Transaction } from 'prosemirror-state';
-import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
+import { Tree } from '@yorkie-js/sdk';
 import type { MarkMapping, YorkieProseMirrorOptions } from './types';
 import { defaultMarkMapping, invertMapping } from './defaults';
 import { pmToYorkie } from './convert';
@@ -72,14 +72,11 @@ export class YorkieProseMirrorBinding {
         this.onLog?.('local', `Initializing Yorkie tree: ${yorkieDoc.type}`);
         root[this.treePath] = new Tree(yorkieDoc as any);
       });
-    }
-
-    // If tree already existed (second client), load its state into PM
-    const existingTree = this.getTree();
-    if (existingTree) {
+    } else {
+      // Tree already existed (second client) — load its state into PM
       syncToPM(
         this.view,
-        existingTree,
+        tree,
         this.view.state.schema,
         this.elementToMarkMapping,
         this.onLog,
@@ -174,6 +171,14 @@ export class YorkieProseMirrorBinding {
             this.onLog?.(
               'error',
               `Upstream sync failed: ${(e as Error).message}`,
+            );
+            // Re-sync from Yorkie to recover from diverged state
+            syncToPM(
+              this.view,
+              root[this.treePath],
+              this.view.state.schema,
+              this.elementToMarkMapping,
+              this.onLog,
             );
           } finally {
             this.isSyncing = false;

@@ -2,6 +2,24 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { MarkMapping, YorkieTreeJSON, PMNodeJSON } from './types';
 
 /**
+ * Extract non-null attributes from a PM node as string key-value pairs.
+ */
+function serializeAttrs(
+  attrs: Record<string, unknown> | undefined,
+): Record<string, string> | undefined {
+  if (!attrs) return undefined;
+  const result: Record<string, string> = {};
+  let hasAttrs = false;
+  for (const [key, value] of Object.entries(attrs)) {
+    if (value != null) {
+      result[key] = String(value);
+      hasAttrs = true;
+    }
+  }
+  return hasAttrs ? result : undefined;
+}
+
+/**
  * Convert a ProseMirror Node to a Yorkie TreeNode JSON.
  * Marks on text nodes are expanded into inline wrapper elements.
  *
@@ -47,17 +65,8 @@ export function pmToYorkie(
   // Leaf nodes (hard_break, horizontal_rule, image, etc.)
   if (pmNode.isLeaf) {
     const result: YorkieTreeJSON = { type: pmNode.type.name, children: [] };
-    if (pmNode.attrs) {
-      const attrs: Record<string, string> = {};
-      let hasAttrs = false;
-      for (const [key, value] of Object.entries(pmNode.attrs)) {
-        if (value != null) {
-          attrs[key] = String(value);
-          hasAttrs = true;
-        }
-      }
-      if (hasAttrs) result.attributes = attrs;
-    }
+    const attrs = serializeAttrs(pmNode.attrs);
+    if (attrs) result.attributes = attrs;
     return result;
   }
 
@@ -86,17 +95,8 @@ export function pmToYorkie(
   };
 
   // Copy non-null node attributes (e.g., level for headings)
-  if (pmNode.attrs) {
-    const attrs: Record<string, string> = {};
-    let hasAttrs = false;
-    for (const [key, value] of Object.entries(pmNode.attrs)) {
-      if (value != null) {
-        attrs[key] = String(value);
-        hasAttrs = true;
-      }
-    }
-    if (hasAttrs) result.attributes = attrs;
-  }
+  const attrs = serializeAttrs(pmNode.attrs);
+  if (attrs) result.attributes = attrs;
 
   return result;
 }

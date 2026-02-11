@@ -48,7 +48,7 @@ function displayRemoteSelection(
 
     const layer = document.createElement('div');
     layer.className = 'username-layer';
-    layer.textContent = actor.substr(-2);
+    layer.textContent = actor.slice(-2);
     layer.style.position = 'absolute';
     layer.style.backgroundColor = color;
     layer.style.color = 'black';
@@ -194,7 +194,9 @@ function insertStar(state: EditorState, dispatch?: (tr: Transaction) => void) {
     return false;
   }
 
-  dispatch!(state.tr.replaceSelectionWith(type.create()));
+  if (dispatch) {
+    dispatch(state.tr.replaceSelectionWith(type.create()));
+  }
   return true;
 }
 
@@ -204,7 +206,7 @@ let view: EditorView;
  * `paintTransaction` renders the selected transaction details.
  */
 function paintTransaction(index?: number) {
-  const transaction = transactions[index || 0];
+  const transaction = transactions[index ?? 0];
 
   if (transaction) {
     if (transaction.type === 'selection') {
@@ -303,7 +305,9 @@ function paintData() {
  * main is the entry point of the example.
  */
 async function main() {
-  const client = new yorkie.Client({ rpcAddr: 'http://localhost:8080' });
+  const client = new yorkie.Client({
+    rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR || 'http://localhost:8080',
+  });
   await client.activate();
 
   // 01. Build yorkie.Text from ProseMirror doc.

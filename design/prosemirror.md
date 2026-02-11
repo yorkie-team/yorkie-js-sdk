@@ -30,7 +30,7 @@ title: prosemirror-binding
 The binding bridges two different document models:
 
 **ProseMirror**: Marks (bold, italic) are metadata on text nodes.
-```
+```text
 paragraph > [text("hello", marks=[strong]), text(" world")]
 ```
 

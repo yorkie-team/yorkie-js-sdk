@@ -23,12 +23,15 @@ export default defineConfig({
         'prosemirror-state',
         'prosemirror-view',
         'prosemirror-transform',
+        '@yorkie-js/sdk',
       ],
       output: {
         globals: {
           'prosemirror-model': 'ProsemirrorModel',
           'prosemirror-state': 'ProsemirrorState',
           'prosemirror-view': 'ProsemirrorView',
+          'prosemirror-transform': 'ProsemirrorTransform',
+          '@yorkie-js/sdk': 'YorkieSdk',
         },
       },
     },
