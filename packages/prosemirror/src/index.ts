@@ -38,7 +38,8 @@ export {
 } from './diff';
 
 // Downstream sync
-export { syncToPM } from './sync';
+export type { DocDiff } from './sync';
+export { syncToPM, syncToPMIncremental, diffDocs } from './sync';
 
 // Cursor
 export { CursorManager } from './cursor';

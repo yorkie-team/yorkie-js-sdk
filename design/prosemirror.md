@@ -61,7 +61,9 @@ PM positions and Yorkie flat indices diverge because marks create extra wrapper 
 
 #### Downstream Sync (Yorkie → PM)
 
-On remote changes, `syncToPM()` reconstructs the entire PM document from the Yorkie tree using `yorkieToJSON()` + `Node.fromJSON()`. This avoids the "multiple versions of prosemirror-model" error that can occur when constructing PM nodes programmatically in bundled environments.
+On remote changes, `syncToPMIncremental()` performs a block-level diff between the current PM document and the new state derived from the Yorkie tree, then dispatches a minimal transaction that only touches changed blocks. This preserves cursor position (via ProseMirror step mapping), undo history, and avoids a full DOM re-render. The `diffDocs()` utility compares top-level children using `Node.eq()` and computes PM positions by summing `nodeSize`, returning a `DocDiff` describing the replacement range.
+
+The full-rebuild `syncToPM()` is retained as a fallback (used on initialization and when incremental sync encounters an error). Both functions use `yorkieToJSON()` + `Node.fromJSON()` to avoid the "multiple versions of prosemirror-model" error that can occur when constructing PM nodes programmatically in bundled environments.
 
 ### API
 
@@ -69,14 +71,16 @@ On remote changes, `syncToPM()` reconstructs the entire PM document from the Yor
 
 ```typescript
 import {
-  pmToYorkie,        // PM Node → Yorkie tree JSON
-  yorkieToJSON,      // Yorkie tree JSON → PM-compatible JSON
-  syncToYorkie,      // Upstream sync orchestrator
-  syncToPM,          // Downstream sync (full doc rebuild)
-  buildPositionMap,  // Bidirectional position map
-  pmPosToYorkieIdx,  // PM position → Yorkie index
-  yorkieIdxToPmPos,  // Yorkie index → PM position
-  CursorManager,     // Remote cursor overlay manager
+  pmToYorkie,             // PM Node → Yorkie tree JSON
+  yorkieToJSON,           // Yorkie tree JSON → PM-compatible JSON
+  syncToYorkie,           // Upstream sync orchestrator
+  syncToPMIncremental,    // Downstream sync (incremental block-level diff)
+  syncToPM,               // Downstream sync fallback (full doc rebuild)
+  diffDocs,               // Block-level doc differ (returns DocDiff)
+  buildPositionMap,       // Bidirectional position map
+  pmPosToYorkieIdx,       // PM position → Yorkie index
+  yorkieIdxToPmPos,       // Yorkie index → PM position
+  CursorManager,          // Remote cursor overlay manager
 } from '@yorkie-js/prosemirror';
 ```
 
@@ -103,7 +107,7 @@ binding.destroy();    // Clean up
 
 | Risk | Mitigation |
 |---|---|
-| Full doc rebuild on remote changes may cause cursor jumps | `syncToPM` preserves selection position; future work can use incremental PM transactions |
+| Remote changes may cause cursor jumps | `syncToPMIncremental` dispatches minimal transactions so ProseMirror step mapping preserves cursor position; `syncToPM` (full rebuild) is only used on initialization and as an error fallback |
 | Position map is O(n) per character lookup | Acceptable for typical document sizes; can be optimized with binary search if needed |
 | Mark wrapper elements increase Yorkie tree size | Minimal overhead for typical documents; only affects formatted text spans |
 | Block-level replacement can overwrite concurrent edits in same block | Character-level diffing is used when possible; block replacement is only a fallback for structural changes |

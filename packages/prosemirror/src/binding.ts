@@ -5,7 +5,7 @@ import type { MarkMapping, YorkieProseMirrorOptions } from './types';
 import { defaultMarkMapping, invertMapping } from './defaults';
 import { pmToYorkie } from './convert';
 import { syncToYorkie } from './diff';
-import { syncToPM } from './sync';
+import { syncToPM, syncToPMIncremental } from './sync';
 import {
   buildPositionMap,
   pmPosToYorkieIdx,
@@ -200,7 +200,7 @@ export class YorkieProseMirrorBinding {
         );
         try {
           this.isSyncing = true;
-          syncToPM(
+          syncToPMIncremental(
             this.view,
             this.getTree(),
             this.view.state.schema,

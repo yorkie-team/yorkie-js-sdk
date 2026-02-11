@@ -12,6 +12,7 @@ import {
   pmToYorkie,
   syncToYorkie,
   syncToPM,
+  syncToPMIncremental,
   buildPositionMap,
   pmPosToYorkieIdx,
   yorkieIdxToPmPos,
@@ -239,7 +240,13 @@ async function main() {
         log('remote', `Received ${operations.length} remote operations`);
         try {
           isSyncing = true;
-          syncToPM(view, doc.getRoot().tree, mySchema, elementToMark, log);
+          syncToPMIncremental(
+            view,
+            doc.getRoot().tree,
+            mySchema,
+            elementToMark,
+            log,
+          );
         } catch (e: any) {
           log('error', `Downstream sync failed: ${e.message}`);
           console.error(e);

@@ -52,7 +52,9 @@ You can also use the individual sync functions directly:
 ```typescript
 import {
   syncToYorkie,
+  syncToPMIncremental,
   syncToPM,
+  diffDocs,
   buildPositionMap,
   pmPosToYorkieIdx,
   yorkieIdxToPmPos,
