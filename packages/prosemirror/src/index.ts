@@ -13,6 +13,7 @@ export {
   defaultMarkMapping,
   defaultCursorColors,
   invertMapping,
+  buildMarkMapping,
 } from './defaults';
 
 // Conversion

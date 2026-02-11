@@ -19,10 +19,10 @@
     /* Paths */
     "baseUrl": ".",
     "paths": {
+      "@yorkie-js/prosemirror": ["./src/index.ts"],
       "@yorkie-js/sdk": ["../sdk/src/yorkie.ts"],
       "@yorkie-js/sdk/src/*": ["../../packages/sdk/src/*"]
     }
   },
-  "include": ["src"],
-  "exclude": ["src/prosemirror-prototype.ts", "src/prosemirror-example.ts"]
+  "include": ["src", "examples"]
 }

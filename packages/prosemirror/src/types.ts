@@ -63,6 +63,8 @@ export type CursorOptions = {
 export type YorkieProseMirrorOptions = {
   /** Mark name mapping from PM to Yorkie element types. */
   markMapping?: MarkMapping;
+  /** Element name used to wrap bare text alongside mark elements. Defaults to `'span'`. */
+  wrapperElementName?: string;
   /** Remote cursor display configuration. */
   cursors?: CursorOptions;
   /** Callback for sync log messages. */

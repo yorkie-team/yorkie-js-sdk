@@ -14,9 +14,8 @@ export default defineConfig({
     },
   },
   server: {
-    open: true,
+    open: '/examples/',
     fs: {
-      // Allow serving files from the monorepo root so SDK sources can be imported.
       allow: ['../..'],
     },
   },

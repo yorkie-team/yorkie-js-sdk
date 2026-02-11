@@ -531,17 +531,19 @@ importers:
         version: 5.9.3
 
   packages/prosemirror:
-    dependencies:
+    devDependencies:
       '@yorkie-js/sdk':
         specifier: workspace:*
         version: link:../sdk
-    devDependencies:
       prosemirror-commands:
         specifier: ^1.6.2
         version: 1.7.1
       prosemirror-example-setup:
         specifier: ^1.2.2
         version: 1.2.3
+      prosemirror-history:
+        specifier: ^1.4.1
+        version: 1.5.0
       prosemirror-keymap:
         specifier: ^1.2.2
         version: 1.2.3
@@ -552,7 +554,7 @@ importers:
         specifier: ^1.2.3
         version: 1.2.4
       prosemirror-schema-list:
-        specifier: ^1.4.1
+        specifier: ^1.5.0
         version: 1.5.1
       prosemirror-state:
         specifier: ^1.4.3

@@ -2,7 +2,7 @@ import type { EditorView } from 'prosemirror-view';
 import type { Transaction } from 'prosemirror-state';
 import { Tree } from '@yorkie-js/sdk';
 import type { MarkMapping, YorkieProseMirrorOptions } from './types';
-import { defaultMarkMapping, invertMapping } from './defaults';
+import { buildMarkMapping, invertMapping } from './defaults';
 import { pmToYorkie } from './convert';
 import { syncToYorkie } from './diff';
 import { syncToPM, syncToPMIncremental } from './sync';
@@ -33,6 +33,7 @@ export class YorkieProseMirrorBinding {
   private treePath: string;
   private markMapping: MarkMapping;
   private elementToMarkMapping: Record<string, string>;
+  private wrapperElementName: string;
   private isSyncing = false;
   private cursorManager: CursorManager | undefined = undefined;
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
@@ -49,8 +50,10 @@ export class YorkieProseMirrorBinding {
     this.view = view;
     this.doc = doc;
     this.treePath = treePath;
-    this.markMapping = options.markMapping || defaultMarkMapping;
+    this.markMapping =
+      options.markMapping || buildMarkMapping(view.state.schema);
     this.elementToMarkMapping = invertMapping(this.markMapping);
+    this.wrapperElementName = options.wrapperElementName || 'span';
     this.onLog = options.onLog;
 
     if (options.cursors?.enabled) {
@@ -68,7 +71,11 @@ export class YorkieProseMirrorBinding {
     // If tree doesn't exist yet, create it from current PM doc
     if (!tree) {
       this.doc.update((root: any) => {
-        const yorkieDoc = pmToYorkie(this.view.state.doc, this.markMapping);
+        const yorkieDoc = pmToYorkie(
+          this.view.state.doc,
+          this.markMapping,
+          this.wrapperElementName,
+        );
         this.onLog?.('local', `Initializing Yorkie tree: ${yorkieDoc.type}`);
         root[this.treePath] = new Tree(yorkieDoc as any);
       });
@@ -80,6 +87,7 @@ export class YorkieProseMirrorBinding {
         this.view.state.schema,
         this.elementToMarkMapping,
         this.onLog,
+        this.wrapperElementName,
       );
       this.onLog?.('local', 'Loaded existing Yorkie tree into PM');
     }
@@ -154,6 +162,7 @@ export class YorkieProseMirrorBinding {
               newDoc,
               this.markMapping,
               this.onLog,
+              this.wrapperElementName,
             );
 
             // Sync cursor position after content edit
@@ -180,6 +189,7 @@ export class YorkieProseMirrorBinding {
               this.view.state.schema,
               this.elementToMarkMapping,
               this.onLog,
+              this.wrapperElementName,
             );
           } finally {
             this.isSyncing = false;
@@ -212,6 +222,7 @@ export class YorkieProseMirrorBinding {
             this.view.state.schema,
             this.elementToMarkMapping,
             this.onLog,
+            this.wrapperElementName,
           );
         } catch (e) {
           this.onLog?.(

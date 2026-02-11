@@ -14,8 +14,8 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build --config vite.build.ts",
     "preview": "vite preview",
+    "build": "tsc && vite build --config vite.build.ts",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts --flag v10_config_lookup_from_file",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -27,12 +27,14 @@
     "prosemirror-view": "^1.30.0"
   },
   "devDependencies": {
+    "@yorkie-js/sdk": "workspace:*",
     "prosemirror-commands": "^1.6.2",
     "prosemirror-example-setup": "^1.2.2",
+    "prosemirror-history": "^1.4.1",
     "prosemirror-keymap": "^1.2.2",
     "prosemirror-model": "^1.23.0",
     "prosemirror-schema-basic": "^1.2.3",
-    "prosemirror-schema-list": "^1.4.1",
+    "prosemirror-schema-list": "^1.5.0",
     "prosemirror-state": "^1.4.3",
     "prosemirror-transform": "^1.10.2",
     "prosemirror-view": "^1.37.0",

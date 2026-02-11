@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@yorkie-js/prosemirror Examples</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        max-width: 600px;
+        margin: 60px auto;
+        padding: 0 20px;
+        color: #333;
+      }
+      h1 { font-size: 24px; margin-bottom: 8px; }
+      p.desc { color: #666; margin-bottom: 32px; }
+      ul { list-style: none; padding: 0; }
+      li { margin-bottom: 16px; }
+      a {
+        display: block;
+        padding: 16px 20px;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #333;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      a:hover {
+        border-color: #999;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      }
+      a strong { display: block; font-size: 16px; margin-bottom: 4px; color: #111; }
+      a span { font-size: 13px; color: #888; }
+    </style>
+  </head>
+  <body>
+    <h1>@yorkie-js/prosemirror</h1>
+    <p class="desc">Collaborative editing examples. Requires a Yorkie server (<code>docker compose -f docker/docker-compose.yml up -d</code>).</p>
+    <ul>
+      <li>
+        <a href="basic.html">
+          <strong>Basic Example</strong>
+          <span>prosemirror-schema-basic with strong, em, code, link marks. Full toolbar via prosemirror-example-setup.</span>
+        </a>
+      </li>
+      <li>
+        <a href="custom-schema.html">
+          <strong>Custom Schema Example</strong>
+          <span>notegroup &gt; note nesting, star inline node, boring_paragraph, shouting mark. Tests buildMarkMapping().</span>
+        </a>
+      </li>
+    </ul>
+  </body>
+</html>

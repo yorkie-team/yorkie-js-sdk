@@ -317,7 +317,7 @@ describe('convert', () => {
         const node = yElem('heading', [yText('Title')], { level: '2' });
         const result = yorkieToJSON(node, elementToMarkMapping);
         const pmNode = result as { attrs: Record<string, unknown> };
-        assert.deepEqual(pmNode.attrs, { level: '2' });
+        assert.deepEqual(pmNode.attrs, { level: 2 });
       });
 
       it('should omit content when there are no children', () => {

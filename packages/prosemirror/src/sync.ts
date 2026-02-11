@@ -89,9 +89,15 @@ export function syncToPM(
   schema: Schema,
   elementToMarkMapping: Record<string, string>,
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
+  wrapperElementName: string = 'span',
 ): void {
   const treeJSON = JSON.parse(tree.toJSON());
-  const pmJSON = yorkieToJSON(treeJSON, elementToMarkMapping);
+  const pmJSON = yorkieToJSON(
+    treeJSON,
+    elementToMarkMapping,
+    [],
+    wrapperElementName,
+  );
 
   let newDoc;
   try {
@@ -144,10 +150,16 @@ export function syncToPMIncremental(
   schema: Schema,
   elementToMarkMapping: Record<string, string>,
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
+  wrapperElementName: string = 'span',
 ): void {
   try {
     const treeJSON = JSON.parse(tree.toJSON());
-    const pmJSON = yorkieToJSON(treeJSON, elementToMarkMapping);
+    const pmJSON = yorkieToJSON(
+      treeJSON,
+      elementToMarkMapping,
+      [],
+      wrapperElementName,
+    );
     const newDoc = Node.fromJSON(schema, pmJSON);
 
     const diff = diffDocs(view.state.doc, newDoc);
@@ -170,6 +182,13 @@ export function syncToPMIncremental(
       'error',
       `Incremental sync failed, falling back to full rebuild: ${(e as Error).message}`,
     );
-    syncToPM(view, tree, schema, elementToMarkMapping, onLog);
+    syncToPM(
+      view,
+      tree,
+      schema,
+      elementToMarkMapping,
+      onLog,
+      wrapperElementName,
+    );
   }
 }

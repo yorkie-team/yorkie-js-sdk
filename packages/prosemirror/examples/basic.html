@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Basic Example – @yorkie-js/prosemirror</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <div class="editor-pane">
+        <h1>Basic Example <a href="index.html">&larr; back</a></h1>
+        <p class="subtitle">prosemirror-schema-basic + lists &middot; strong, em, code, link marks</p>
+        <div id="status" class="status">Connecting...</div>
+        <div id="editor-wrapper" style="position: relative;">
+          <div id="editor"></div>
+          <div id="cursor-overlay"></div>
+        </div>
+      </div>
+      <div class="debug-pane">
+        <div class="debug-section">
+          <h3>ProseMirror JSON</h3>
+          <pre id="pm-json"></pre>
+        </div>
+        <div class="debug-section">
+          <h3>Yorkie XML</h3>
+          <pre id="yorkie-xml"></pre>
+        </div>
+        <div class="debug-section">
+          <h3>Log</h3>
+          <pre id="log"></pre>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="basic.ts"></script>
+  </body>
+</html>
