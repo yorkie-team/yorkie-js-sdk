@@ -1,3 +1,3 @@
 :HL["/yorkie-js-sdk/examples/nextjs-presence/_next/static/chunks/87709422a8022cce.css","style"]
 :HL["/yorkie-js-sdk/examples/nextjs-presence/_next/static/chunks/12bdb74cf97961b2.css","style"]
-0:{"buildId":"T7HLJfjynMlTQgOBEPFXn","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
+0:{"buildId":"j-C0aEPx23ywD8R-VY5SO","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
