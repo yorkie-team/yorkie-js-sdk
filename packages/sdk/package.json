@@ -53,7 +53,7 @@
     "@types/long": "^5.0.0",
     "@vitest/coverage-istanbul": "^4.0.15",
     "@vitest/coverage-v8": "^4.0.15",
-    "axios": "^1.13.2",
+    "axios": "^1.13.5",
     "express": "^5.2.1",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
