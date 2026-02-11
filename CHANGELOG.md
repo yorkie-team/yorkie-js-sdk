@@ -7,6 +7,21 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.48] - 2026-02-11
+
+### Added
+
+- Add @yorkie-js/prosemirror package with ProseMirror-Yorkie Tree bindings by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1163
+
+### Changed
+
+- Replace WatchDocument and WatchChannel with unified Watch RPC by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1161
+- Extract shared watch stream lifecycle into runWatchStream helper by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1160
+
+### Fixed
+
+- Remove --backend-disable-webhook-validation from docker-compose by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1162
+
 ## [v0.6.47] - 2026-02-06
 
 ### Changed
