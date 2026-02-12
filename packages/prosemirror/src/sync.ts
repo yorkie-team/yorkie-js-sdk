@@ -1,4 +1,5 @@
 import { TextSelection } from 'prosemirror-state';
+import type { Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { Node } from 'prosemirror-model';
 import type { Schema } from 'prosemirror-model';
@@ -153,16 +154,82 @@ export function buildDocFromYorkieTree(
 }
 
 /**
+ * Try to apply a character-level diff within a single block.
+ *
+ * When one block is replaced with one block of the same type, uses
+ * Fragment.findDiffStart/findDiffEnd to find the minimal changed range.
+ * This produces a precise ReplaceStep that ProseMirror's step mapping
+ * can correctly map cursors through, instead of replacing the whole block
+ * (which maps all interior cursors to the end of the replacement).
+ *
+ * Returns true if successful, false to fall back to block-level replacement.
+ */
+function tryIntraBlockDiff(
+  tr: Transaction,
+  diff: DocDiff,
+  oldDoc: Node,
+): boolean {
+  const { fromPos, newNodes } = diff;
+  if (newNodes.length !== 1) return false;
+
+  const newNode = newNodes[0];
+  const oldNode = oldDoc.nodeAt(fromPos);
+  if (!oldNode || oldNode.type !== newNode.type) return false;
+
+  // Find the first position where the block contents diverge
+  const start = oldNode.content.findDiffStart(newNode.content);
+  if (start == null) return false;
+
+  // Find where the contents stop diverging from the end
+  const end = oldNode.content.findDiffEnd(newNode.content);
+  if (!end) return false;
+
+  // Handle overlap between prefix match and suffix match.
+  // This happens for pure insertions where prefix + suffix > content length.
+  let { a: endA, b: endB } = end;
+  const overlap = start - Math.min(endA, endB);
+  if (overlap > 0) {
+    endA += overlap;
+    endB += overlap;
+  }
+
+  // Convert block-content-relative positions to document positions.
+  // fromPos points to the block node; fromPos + 1 is the start of its content.
+  const contentStart = fromPos + 1;
+  tr.replaceWith(
+    contentStart + start,
+    contentStart + endA,
+    newNode.content.cut(start, endB),
+  );
+
+  return true;
+}
+
+/**
  * Apply a pre-computed DocDiff to the ProseMirror view as a remote transaction.
+ *
+ * When a single block is changed, tries character-level diffing first so that
+ * ProseMirror's step mapping correctly preserves cursor positions within the
+ * block. Falls back to full block replacement for structural changes.
  */
 export function applyDocDiff(view: EditorView, diff: DocDiff): void {
-  const { fromPos, toPos, newNodes } = diff;
-  const tr = view.state.tr;
+  let tr = view.state.tr;
 
-  if (newNodes.length === 0) {
-    tr.delete(fromPos, toPos);
-  } else {
-    tr.replaceWith(fromPos, toPos, newNodes);
+  let applied = false;
+  try {
+    applied = tryIntraBlockDiff(tr, diff, view.state.doc);
+  } catch {
+    // Intra-block diff failed (e.g. invalid step), start fresh
+    tr = view.state.tr;
+  }
+
+  if (!applied) {
+    const { fromPos, toPos, newNodes } = diff;
+    if (newNodes.length === 0) {
+      tr.delete(fromPos, toPos);
+    } else {
+      tr.replaceWith(fromPos, toPos, newNodes);
+    }
   }
 
   tr.setMeta('yorkie-remote', true);
