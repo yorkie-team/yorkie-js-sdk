@@ -212,14 +212,14 @@ describe('applyDocDiff – intra-block cursor preservation', () => {
 
   it('should preserve cursor after text insertion before cursor', () => {
     // "hello world" → "hello beautiful world"
-    // Cursor at position 8 (between 'o' and 'r' in "world")
+    // Cursor at position 8 (between 'w' and 'o' in "world": "w|o-r-l-d")
     // After insert, cursor should shift to 18, not jump to end
     const oldDoc = doc(p('hello world'));
     const newDoc = doc(p('hello beautiful world'));
     const diff = diffDocs(oldDoc, newDoc)!;
 
     const view = createMockView(oldDoc);
-    // Place cursor at position 8 (inside "world": "w-o|r-l-d")
+    // Place cursor at position 8 (inside "world": "w|o-r-l-d")
     const tr = view.state.tr.setSelection(
       TextSelection.create(view.state.doc, 8),
     );
@@ -324,5 +324,21 @@ describe('applyDocDiff – intra-block cursor preservation', () => {
 
     assert.equal(view.state.selection.from, 3);
     assert.equal(view.state.doc.textContent, 'hello world');
+  });
+
+  it('should handle multi-block merge into single block correctly', () => {
+    // Two paragraphs merged into one — must not leave the second paragraph behind.
+    // This exercises the toPos guard: tryIntraBlockPMDiff must bail out because
+    // the diff covers two old blocks, not one.
+    const oldDoc = doc(p('aaa'), p('bbb'));
+    const newDoc = doc(p('aaabbb'));
+    const diff = diffDocs(oldDoc, newDoc)!;
+
+    const view = createMockView(oldDoc);
+    applyDocDiff(view as any, diff);
+
+    assert.isTrue(view.state.doc.eq(newDoc));
+    assert.equal(view.state.doc.childCount, 1);
+    assert.equal(view.state.doc.textContent, 'aaabbb');
   });
 });

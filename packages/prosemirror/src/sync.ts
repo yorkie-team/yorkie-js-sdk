@@ -164,17 +164,20 @@ export function buildDocFromYorkieTree(
  *
  * Returns true if successful, false to fall back to block-level replacement.
  */
-function tryIntraBlockDiff(
+function tryIntraBlockPMDiff(
   tr: Transaction,
   diff: DocDiff,
   oldDoc: Node,
 ): boolean {
-  const { fromPos, newNodes } = diff;
+  const { fromPos, toPos, newNodes } = diff;
   if (newNodes.length !== 1) return false;
 
   const newNode = newNodes[0];
   const oldNode = oldDoc.nodeAt(fromPos);
   if (!oldNode || oldNode.type !== newNode.type) return false;
+
+  // Ensure the diff covers exactly one old block
+  if (toPos - fromPos !== oldNode.nodeSize) return false;
 
   // Find the first position where the block contents diverge
   const start = oldNode.content.findDiffStart(newNode.content);
@@ -217,7 +220,7 @@ export function applyDocDiff(view: EditorView, diff: DocDiff): void {
 
   let applied = false;
   try {
-    applied = tryIntraBlockDiff(tr, diff, view.state.doc);
+    applied = tryIntraBlockPMDiff(tr, diff, view.state.doc);
   } catch {
     // Intra-block diff failed (e.g. invalid step), start fresh
     tr = view.state.tr;
