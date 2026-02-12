@@ -209,11 +209,50 @@ function tryIntraBlockPMDiff(
 }
 
 /**
+ * Find the document position corresponding to a text character offset
+ * from a starting position. Walks through text nodes counting characters,
+ * skipping block boundaries.
+ */
+function findPositionAtCharOffset(
+  doc: Node,
+  fromPos: number,
+  charOffset: number,
+): number {
+  if (charOffset === 0) return fromPos;
+
+  let remaining = charOffset;
+  let targetPos = fromPos;
+
+  doc.nodesBetween(fromPos, doc.content.size, (node, pos) => {
+    if (remaining <= 0) return false;
+    if (node.isText) {
+      const textStart = Math.max(pos, fromPos);
+      const available = pos + node.nodeSize - textStart;
+      if (remaining <= available) {
+        targetPos = textStart + remaining;
+        remaining = 0;
+        return false;
+      }
+      remaining -= available;
+      targetPos = pos + node.nodeSize;
+    }
+    return undefined;
+  });
+
+  return targetPos;
+}
+
+/**
  * Apply a pre-computed DocDiff to the ProseMirror view as a remote transaction.
  *
  * When a single block is changed, tries character-level diffing first so that
  * ProseMirror's step mapping correctly preserves cursor positions within the
  * block. Falls back to full block replacement for structural changes.
+ *
+ * For block-level replacements (splits, merges, type changes), ProseMirror's
+ * StepMap maps all interior positions to the end of the replacement. To
+ * preserve the cursor, we restore it by matching its text character offset
+ * in the new content.
  */
 export function applyDocDiff(view: EditorView, diff: DocDiff): void {
   let tr = view.state.tr;
@@ -232,6 +271,21 @@ export function applyDocDiff(view: EditorView, diff: DocDiff): void {
       tr.delete(fromPos, toPos);
     } else {
       tr.replaceWith(fromPos, toPos, newNodes);
+
+      // Block-level replacement maps all interior cursor positions to
+      // the end of the replacement (StepMap behavior). Restore the
+      // cursor by preserving its text character offset within the
+      // replaced range.
+      const selFrom = view.state.selection.from;
+      if (selFrom > fromPos && selFrom < toPos) {
+        const charOffset = view.state.doc.textBetween(fromPos, selFrom).length;
+        const newPos = findPositionAtCharOffset(tr.doc, fromPos, charOffset);
+        try {
+          tr.setSelection(TextSelection.create(tr.doc, newPos));
+        } catch {
+          // Position invalid, let the default step mapping stand
+        }
+      }
     }
   }
 

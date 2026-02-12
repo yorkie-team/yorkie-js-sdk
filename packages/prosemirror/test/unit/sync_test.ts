@@ -341,4 +341,68 @@ describe('applyDocDiff – intra-block cursor preservation', () => {
     assert.equal(view.state.doc.childCount, 1);
     assert.equal(view.state.doc.textContent, 'aaabbb');
   });
+
+  it('should preserve cursor during paragraph split', () => {
+    // "abcd" → "ab" + "cd" (Enter pressed between 'b' and 'c')
+    // Cursor at position 4 (between 'c' and 'd')
+    const oldDoc = doc(p('abcd'));
+    const newDoc = doc(p('ab'), p('cd'));
+    const diff = diffDocs(oldDoc, newDoc)!;
+
+    const view = createMockView(oldDoc);
+    const tr = view.state.tr.setSelection(
+      TextSelection.create(view.state.doc, 4),
+    );
+    view.dispatch(tr);
+    assert.equal(view.state.selection.from, 4);
+
+    applyDocDiff(view as any, diff);
+
+    // Cursor should be between 'c' and 'd' in second paragraph (position 6)
+    // <p>ab</p><p>cd</p>: 0:<p> 1:a 2:b 3:</p> 4:<p> 5:c 6:d 7:</p>
+    assert.equal(view.state.selection.from, 6);
+    assert.isTrue(view.state.doc.eq(newDoc));
+  });
+
+  it('should preserve cursor during paragraph merge', () => {
+    // "ab" + "cd" → "abcd" (Backspace at start of second paragraph)
+    // Cursor at position 6 (between 'c' and 'd' in second paragraph)
+    const oldDoc = doc(p('ab'), p('cd'));
+    const newDoc = doc(p('abcd'));
+    const diff = diffDocs(oldDoc, newDoc)!;
+
+    const view = createMockView(oldDoc);
+    const tr = view.state.tr.setSelection(
+      TextSelection.create(view.state.doc, 6),
+    );
+    view.dispatch(tr);
+    assert.equal(view.state.selection.from, 6);
+
+    applyDocDiff(view as any, diff);
+
+    // Cursor should be between 'c' and 'd' in merged paragraph (position 4)
+    assert.equal(view.state.selection.from, 4);
+    assert.isTrue(view.state.doc.eq(newDoc));
+  });
+
+  it('should preserve cursor at split point', () => {
+    // "abcd" → "ab" + "cd", cursor at position 3 (between 'b' and 'c')
+    // which is exactly where the split happens
+    const oldDoc = doc(p('abcd'));
+    const newDoc = doc(p('ab'), p('cd'));
+    const diff = diffDocs(oldDoc, newDoc)!;
+
+    const view = createMockView(oldDoc);
+    const tr = view.state.tr.setSelection(
+      TextSelection.create(view.state.doc, 3),
+    );
+    view.dispatch(tr);
+
+    applyDocDiff(view as any, diff);
+
+    // Cursor was after 'b' (2 text chars from start), should stay after 'b'
+    // in the first paragraph — position 3 in <p>ab</p><p>cd</p>
+    assert.equal(view.state.selection.from, 3);
+    assert.isTrue(view.state.doc.eq(newDoc));
+  });
 });
