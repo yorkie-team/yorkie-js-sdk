@@ -272,6 +272,19 @@ export class YorkieProseMirrorBinding {
           return;
         }
 
+        // Content changed — remap remote cursor positions through the mapping
+        if (this.cursorManager && transaction.steps.length) {
+          this.cursorManager.remapPositions(transaction.mapping);
+          for (const [id, sel] of this.remoteSelections) {
+            this.remoteSelections.set(id, {
+              ...sel,
+              from: transaction.mapping.map(sel.from),
+              to: transaction.mapping.map(sel.to),
+            });
+          }
+          this.cursorManager.repositionAll(this.view);
+        }
+
         // Content changed - sync to Yorkie
         const oldDoc = transaction.before;
         const newDoc = newState.doc;
