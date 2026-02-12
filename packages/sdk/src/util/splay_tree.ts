@@ -170,9 +170,13 @@ export abstract class SplayNode<V> {
  */
 export class SplayTree<V> {
   private root?: SplayNode<V>;
+  private static readonly SPLAY_THRESHOLD = 500;
+  private linearCount: number;
+  private firstNode?: SplayNode<V>;
 
   constructor(root?: SplayNode<V>) {
     this.root = root;
+    this.linearCount = 0;
   }
 
   /**
@@ -289,6 +293,18 @@ export class SplayTree<V> {
     if (!target) {
       this.root = newNode;
       return newNode;
+    }
+
+    if (target == this.root) {
+      this.linearCount++;
+      if (this.linearCount == 1) {
+        this.firstNode = newNode;
+      } else if (this.linearCount > SplayTree.SPLAY_THRESHOLD) {
+        this.splayNode(this.firstNode);
+        this.linearCount = 0;
+      }
+    } else {
+      this.linearCount = 0;
     }
 
     this.splayNode(target);
