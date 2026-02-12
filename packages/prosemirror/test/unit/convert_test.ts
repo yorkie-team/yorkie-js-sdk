@@ -338,6 +338,52 @@ describe('convert', () => {
         assert.equal(pmNode.content[0].type, 'text');
         assert.equal(pmNode.content[1].type, 'text');
       });
+
+      it('should merge adjacent plain text nodes from separate spans', () => {
+        // paragraph > [span>[text "ab"], span>[text "cd"]]
+        // Should produce one merged text node, not two
+        const node = yElem('paragraph', [
+          yElem('span', [yText('ab')]),
+          yElem('span', [yText('cd')]),
+        ]);
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const pmNode = result as {
+          content: Array<{ type: string; text: string }>;
+        };
+        assert.equal(pmNode.content.length, 1);
+        assert.equal(pmNode.content[0].type, 'text');
+        assert.equal(pmNode.content[0].text, 'abcd');
+      });
+
+      it('should not merge adjacent text nodes with different marks', () => {
+        // paragraph > [span>[text "plain"], strong>[text "bold"]]
+        const node = yElem('paragraph', [
+          yElem('span', [yText('plain')]),
+          yElem('strong', [yText('bold')]),
+        ]);
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const pmNode = result as {
+          content: Array<{ type: string; text: string }>;
+        };
+        assert.equal(pmNode.content.length, 2);
+        assert.equal(pmNode.content[0].text, 'plain');
+        assert.equal(pmNode.content[1].text, 'bold');
+      });
+
+      it('should merge multiple consecutive same-mark text nodes', () => {
+        // paragraph > [span>[text "a"], span>[text "b"], span>[text "c"]]
+        const node = yElem('paragraph', [
+          yElem('span', [yText('a')]),
+          yElem('span', [yText('b')]),
+          yElem('span', [yText('c')]),
+        ]);
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const pmNode = result as {
+          content: Array<{ type: string; text: string }>;
+        };
+        assert.equal(pmNode.content.length, 1);
+        assert.equal(pmNode.content[0].text, 'abc');
+      });
     });
   });
 

@@ -44,6 +44,64 @@ function serializeAttrs(
 }
 
 /**
+ * Check if two mark arrays are deeply equal (same mark types and attrs).
+ */
+function marksEqual(
+  a: Array<{ type: string; attrs?: Record<string, unknown> }> | undefined,
+  b: Array<{ type: string; attrs?: Record<string, unknown> }> | undefined,
+): boolean {
+  if (!a?.length && !b?.length) return true;
+  if (!a?.length || !b?.length) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].type !== b[i].type) return false;
+    const aAttrs = a[i].attrs;
+    const bAttrs = b[i].attrs;
+    if (!aAttrs && !bAttrs) continue;
+    if (!aAttrs || !bAttrs) return false;
+    const aKeys = Object.keys(aAttrs);
+    const bKeys = Object.keys(bAttrs);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (aAttrs[key] !== bAttrs[key]) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Merge adjacent text nodes with identical marks in a PM JSON content array.
+ *
+ * ProseMirror's `Fragment.fromJSON` uses `new Fragment()` directly (not
+ * `fromArray()`), so it does NOT auto-merge adjacent same-mark text nodes.
+ * Unmerged text nodes cause `Fragment.findDiffEnd` to produce non-minimal
+ * diffs (it compares one node pair at a time and can't match across text
+ * node boundaries), which breaks cursor position mapping during downstream
+ * sync.
+ */
+function mergeAdjacentTextNodes(nodes: Array<PMNodeJSON>): Array<PMNodeJSON> {
+  if (nodes.length <= 1) return nodes;
+  const result: Array<PMNodeJSON> = [nodes[0]];
+  for (let i = 1; i < nodes.length; i++) {
+    const prev = result[result.length - 1];
+    const curr = nodes[i];
+    if (
+      prev.type === 'text' &&
+      curr.type === 'text' &&
+      marksEqual(prev.marks, curr.marks)
+    ) {
+      result[result.length - 1] = {
+        ...prev,
+        text: (prev.text || '') + (curr.text || ''),
+      };
+    } else {
+      result.push(curr);
+    }
+  }
+  return result;
+}
+
+/**
  * Convert a ProseMirror Node to a Yorkie TreeNode JSON.
  * Marks on text nodes are expanded into inline wrapper elements.
  *
@@ -223,8 +281,15 @@ export function yorkieToJSON(
       children.push(converted);
     }
   }
-  if (children.length > 0) {
-    result.content = children;
+  // Merge adjacent text nodes with the same marks.
+  // Fragment.fromJSON uses `new Fragment()` directly (not fromArray),
+  // so it does NOT merge adjacent same-mark text nodes. Without this,
+  // the PM doc can have fragmented text nodes whose boundaries don't
+  // match the new doc from Yorkie, causing findDiffEnd to produce a
+  // non-minimal diff and breaking cursor position mapping.
+  const merged = mergeAdjacentTextNodes(children);
+  if (merged.length > 0) {
+    result.content = merged;
   }
 
   return result;
