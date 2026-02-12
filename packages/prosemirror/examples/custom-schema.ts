@@ -8,6 +8,7 @@ import { history, undo, redo } from 'prosemirror-history';
 import {
   YorkieProseMirrorBinding,
   buildMarkMapping,
+  remoteSelectionPlugin,
 } from '@yorkie-js/prosemirror';
 
 const pmJsonEl = document.getElementById('pm-json')!;
@@ -200,6 +201,7 @@ async function main() {
           'Mod-Shift-z': redo,
         }),
         keymap(baseKeymap),
+        remoteSelectionPlugin(),
         debugPanelPlugin(),
       ],
     });

@@ -36,5 +36,9 @@ export { syncToPM, syncToPMIncremental, diffDocs } from './sync';
 // Cursor
 export { CursorManager } from './cursor';
 
+// Remote selection decorations
+export type { RemoteSelection } from './selection-plugin';
+export { remoteSelectionPlugin, remoteSelectionsKey } from './selection-plugin';
+
 // Binding (main API)
 export { YorkieProseMirrorBinding } from './binding';

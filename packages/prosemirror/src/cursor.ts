@@ -31,8 +31,12 @@ export class CursorManager {
   /**
    * Create or update a cursor overlay for the given client.
    */
-  displayCursor(view: EditorView, pmPos: number, clientID: string): void {
-    if (!this.enabled) return;
+  displayCursor(
+    view: EditorView,
+    pmPos: number,
+    clientID: string,
+  ): string | undefined {
+    if (!this.enabled) return undefined;
 
     if (!this.cursors.has(clientID)) {
       const colors = this.colors.length > 0 ? this.colors : defaultCursorColors;
@@ -75,6 +79,8 @@ export class CursorManager {
     requestAnimationFrame(() => {
       this.positionCursorLayer(view, entry);
     });
+
+    return entry.color;
   }
 
   /**

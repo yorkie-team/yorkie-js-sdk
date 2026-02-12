@@ -434,6 +434,49 @@ importers:
         specifier: ^7.2.6
         version: 7.2.6(@types/node@24.10.1)(jiti@2.6.1)(less@4.4.2)(lightningcss@1.30.2)(sass@1.94.2)(yaml@2.8.2)
 
+  examples/vanilla-prosemirror:
+    dependencies:
+      '@yorkie-js/prosemirror':
+        specifier: workspace:*
+        version: link:../../packages/prosemirror
+      '@yorkie-js/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      prosemirror-commands:
+        specifier: ^1.6.2
+        version: 1.7.1
+      prosemirror-example-setup:
+        specifier: ^1.2.2
+        version: 1.2.3
+      prosemirror-history:
+        specifier: ^1.4.1
+        version: 1.5.0
+      prosemirror-keymap:
+        specifier: ^1.2.2
+        version: 1.2.3
+      prosemirror-model:
+        specifier: ^1.23.0
+        version: 1.25.4
+      prosemirror-schema-basic:
+        specifier: ^1.2.3
+        version: 1.2.4
+      prosemirror-schema-list:
+        specifier: ^1.5.0
+        version: 1.5.1
+      prosemirror-state:
+        specifier: ^1.4.3
+        version: 1.4.4
+      prosemirror-view:
+        specifier: ^1.37.0
+        version: 1.41.6
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^7.2.6
+        version: 7.2.6(@types/node@24.10.1)(jiti@2.6.1)(less@4.4.2)(lightningcss@1.30.2)(sass@1.94.2)(yaml@2.8.2)
+
   examples/vanilla-quill:
     dependencies:
       '@yorkie-js/sdk':

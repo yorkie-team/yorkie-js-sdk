@@ -12,6 +12,7 @@ import {
   yorkieIdxToPmPos,
 } from './position';
 import { CursorManager } from './cursor';
+import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
 
 /**
  * Primary user-facing API for binding a ProseMirror editor to a Yorkie document.
@@ -36,6 +37,7 @@ export class YorkieProseMirrorBinding {
   private wrapperElementName: string;
   private isSyncing = false;
   private cursorManager: CursorManager | undefined = undefined;
+  private remoteSelections = new Map<string, RemoteSelection>();
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   private originalDispatchTransaction: ((tr: Transaction) => void) | undefined;
   private unsubscribeDoc?: () => void;
@@ -253,8 +255,22 @@ export class YorkieProseMirrorBinding {
             ]);
             const treeJSON = JSON.parse(tree.toJSON());
             const map = buildPositionMap(this.view.state.doc, treeJSON);
-            const pmFrom = yorkieIdxToPmPos(map, Math.min(fromIdx, toIdx));
-            this.cursorManager!.displayCursor(this.view, pmFrom, clientID);
+            const pmFrom = yorkieIdxToPmPos(map, fromIdx);
+            const pmTo = yorkieIdxToPmPos(map, toIdx);
+            const color = this.cursorManager!.displayCursor(
+              this.view,
+              pmTo,
+              clientID,
+            );
+            if (color) {
+              this.remoteSelections.set(clientID, {
+                clientID,
+                from: pmFrom,
+                to: pmTo,
+                color,
+              });
+              this.dispatchSelectionDecorations();
+            }
           } catch (e) {
             this.onLog?.(
               'error',
@@ -262,9 +278,22 @@ export class YorkieProseMirrorBinding {
             );
           }
         }
+      } else if (event.type === 'unwatched') {
+        const { clientID } = event.value;
+        this.cursorManager!.removeCursor(clientID);
+        this.remoteSelections.delete(clientID);
+        this.dispatchSelectionDecorations();
       }
     });
     this.unsubscribePresence = unsubscribe;
+  }
+
+  private dispatchSelectionDecorations(): void {
+    const selections = Array.from(this.remoteSelections.values());
+    const tr = this.view.state.tr;
+    tr.setMeta(remoteSelectionsKey, selections);
+    tr.setMeta('yorkie-remote', true);
+    this.view.dispatch(tr);
   }
 
   private syncPresence(): void {

@@ -5,7 +5,10 @@ import { Schema } from 'prosemirror-model';
 import { schema as basicSchema } from 'prosemirror-schema-basic';
 import { addListNodes } from 'prosemirror-schema-list';
 import { exampleSetup } from 'prosemirror-example-setup';
-import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
+import {
+  YorkieProseMirrorBinding,
+  remoteSelectionPlugin,
+} from '@yorkie-js/prosemirror';
 
 // Extend basic schema with bullet_list, ordered_list, list_item
 const mySchema = new Schema({
@@ -149,7 +152,11 @@ async function main() {
     // 3. Create ProseMirror editor
     const state = EditorState.create({
       doc: initialDoc,
-      plugins: [...exampleSetup({ schema: mySchema }), debugPanelPlugin()],
+      plugins: [
+        ...exampleSetup({ schema: mySchema }),
+        remoteSelectionPlugin(),
+        debugPanelPlugin(),
+      ],
     });
 
     const view = new EditorView(editorEl, { state });
