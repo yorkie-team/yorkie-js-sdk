@@ -2,6 +2,30 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { MarkMapping, YorkieTreeJSON, PMNodeJSON } from './types';
 
 /**
+ * Coerce Yorkie string attributes back to their original types.
+ * Yorkie stores all attribute values as strings, so numeric-looking
+ * strings (e.g., "2" from heading level) must be converted back to numbers
+ * for ProseMirror's `Node.fromJSON` compatibility.
+ */
+function deserializeAttrs(
+  attrs: Record<string, string>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attrs)) {
+    if (/^-?\d+(\.\d+)?$/.test(value)) {
+      result[key] = Number(value);
+    } else if (value === 'true') {
+      result[key] = true;
+    } else if (value === 'false') {
+      result[key] = false;
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
  * Extract non-null attributes from a PM node as string key-value pairs.
  */
 function serializeAttrs(
@@ -29,6 +53,7 @@ function serializeAttrs(
 export function pmToYorkie(
   pmNode: PMNode,
   markMapping: MarkMapping,
+  wrapperElementName: string = 'span',
 ): YorkieTreeJSON {
   if (pmNode.isText) {
     let yorkieNode: YorkieTreeJSON = {
@@ -41,6 +66,12 @@ export function pmToYorkie(
     for (let i = marks.length - 1; i >= 0; i--) {
       const mark = marks[i];
       const elemType = markMapping[mark.type.name];
+      if (!elemType) {
+        console.warn(
+          `[yorkie-prosemirror] Mark "${mark.type.name}" has no mapping and will be dropped. ` +
+            `Use buildMarkMapping(schema) or provide a custom markMapping.`,
+        );
+      }
       if (elemType) {
         const wrapper: YorkieTreeJSON = {
           type: elemType,
@@ -73,7 +104,7 @@ export function pmToYorkie(
   // Element node with children
   const children: Array<YorkieTreeJSON> = [];
   pmNode.forEach((child) => {
-    children.push(pmToYorkie(child, markMapping));
+    children.push(pmToYorkie(child, markMapping, wrapperElementName));
   });
 
   // Yorkie constraint: a parent's children must be ALL text or ALL element.
@@ -84,7 +115,7 @@ export function pmToYorkie(
   if (hasText && hasElem) {
     for (let i = 0; i < children.length; i++) {
       if (children[i].type === 'text') {
-        children[i] = { type: 'span', children: [children[i]] };
+        children[i] = { type: wrapperElementName, children: [children[i]] };
       }
     }
   }
@@ -110,6 +141,7 @@ export function yorkieToJSON(
   yorkieNode: YorkieTreeJSON,
   elementToMarkMapping: Record<string, string>,
   markStack: Array<{ type: string; attrs?: Record<string, unknown> }> = [],
+  wrapperElementName: string = 'span',
 ): PMNodeJSON | Array<PMNodeJSON> {
   if (yorkieNode.type === 'text') {
     const result: PMNodeJSON = { type: 'text', text: yorkieNode.value };
@@ -119,11 +151,16 @@ export function yorkieToJSON(
     return result;
   }
 
-  // Unwrap <span> (neutral wrapper for bare text alongside mark elements)
-  if (yorkieNode.type === 'span') {
+  // Unwrap wrapper element (neutral wrapper for bare text alongside mark elements)
+  if (yorkieNode.type === wrapperElementName) {
     const flatChildren: Array<PMNodeJSON> = [];
     for (const child of yorkieNode.children || []) {
-      const result = yorkieToJSON(child, elementToMarkMapping, markStack);
+      const result = yorkieToJSON(
+        child,
+        elementToMarkMapping,
+        markStack,
+        wrapperElementName,
+      );
       if (Array.isArray(result)) {
         flatChildren.push(...result);
       } else {
@@ -143,13 +180,18 @@ export function yorkieToJSON(
       yorkieNode.attributes &&
       Object.keys(yorkieNode.attributes).length > 0
     ) {
-      markEntry.attrs = { ...yorkieNode.attributes };
+      markEntry.attrs = deserializeAttrs(yorkieNode.attributes);
     }
 
     const newMarkStack = [...markStack, markEntry];
     const flatChildren: Array<PMNodeJSON> = [];
     for (const child of yorkieNode.children || []) {
-      const result = yorkieToJSON(child, elementToMarkMapping, newMarkStack);
+      const result = yorkieToJSON(
+        child,
+        elementToMarkMapping,
+        newMarkStack,
+        wrapperElementName,
+      );
       if (Array.isArray(result)) {
         flatChildren.push(...result);
       } else {
@@ -163,13 +205,18 @@ export function yorkieToJSON(
   const result: PMNodeJSON = { type: yorkieNode.type };
 
   if (yorkieNode.attributes && Object.keys(yorkieNode.attributes).length > 0) {
-    result.attrs = { ...yorkieNode.attributes };
+    result.attrs = deserializeAttrs(yorkieNode.attributes);
   }
 
   // Process children, flattening any mark-unwrapped arrays
   const children: Array<PMNodeJSON> = [];
   for (const child of yorkieNode.children || []) {
-    const converted = yorkieToJSON(child, elementToMarkMapping, []);
+    const converted = yorkieToJSON(
+      child,
+      elementToMarkMapping,
+      [],
+      wrapperElementName,
+    );
     if (Array.isArray(converted)) {
       children.push(...converted);
     } else {

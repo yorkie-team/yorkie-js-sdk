@@ -4,7 +4,9 @@ import type { CursorOptions } from './types';
 
 type CursorEntry = {
   color: string;
-  layer: HTMLElement;
+  container: HTMLElement;
+  caret: HTMLElement;
+  label: HTMLElement;
   pmPos: number;
 };
 
@@ -29,24 +31,46 @@ export class CursorManager {
   /**
    * Create or update a cursor overlay for the given client.
    */
-  displayCursor(view: EditorView, pmPos: number, clientID: string): void {
-    if (!this.enabled) return;
+  displayCursor(
+    view: EditorView,
+    pmPos: number,
+    clientID: string,
+  ): string | undefined {
+    if (!this.enabled) return undefined;
 
     if (!this.cursors.has(clientID)) {
       const colors = this.colors.length > 0 ? this.colors : defaultCursorColors;
       const color = colors[this.nextColorIdx % colors.length];
       this.nextColorIdx = (this.nextColorIdx + 1) % colors.length;
 
-      const layer = document.createElement('div');
-      layer.className = 'username-layer';
-      layer.textContent = clientID.slice(-2);
-      layer.style.position = 'absolute';
-      layer.style.backgroundColor = color;
-      layer.style.color = 'black';
-      layer.style.zIndex = '10';
-      layer.style.pointerEvents = 'none';
-      this.cursors.set(clientID, { color, layer, pmPos });
-      this.overlayElement.appendChild(layer);
+      const container = document.createElement('div');
+      container.className = 'remote-cursor';
+      container.style.position = 'absolute';
+      container.style.pointerEvents = 'none';
+      container.style.zIndex = '10';
+
+      const caret = document.createElement('div');
+      caret.className = 'remote-cursor-caret';
+      caret.style.position = 'absolute';
+      caret.style.width = '2px';
+      caret.style.backgroundColor = color;
+      container.appendChild(caret);
+
+      const label = document.createElement('div');
+      label.className = 'remote-cursor-label';
+      label.textContent = clientID.slice(-2);
+      label.style.position = 'absolute';
+      label.style.backgroundColor = color;
+      label.style.color = 'white';
+      label.style.fontSize = '10px';
+      label.style.padding = '1px 4px';
+      label.style.borderRadius = '2px';
+      label.style.whiteSpace = 'nowrap';
+      label.style.lineHeight = '1.3';
+      container.appendChild(label);
+
+      this.cursors.set(clientID, { color, container, caret, label, pmPos });
+      this.overlayElement.appendChild(container);
     }
 
     const entry = this.cursors.get(clientID)!;
@@ -55,6 +79,8 @@ export class CursorManager {
     requestAnimationFrame(() => {
       this.positionCursorLayer(view, entry);
     });
+
+    return entry.color;
   }
 
   /**
@@ -76,7 +102,7 @@ export class CursorManager {
   removeCursor(clientID: string): void {
     const entry = this.cursors.get(clientID);
     if (entry) {
-      entry.layer.remove();
+      entry.container.remove();
       this.cursors.delete(clientID);
     }
   }
@@ -86,7 +112,7 @@ export class CursorManager {
    */
   destroy(): void {
     for (const [, entry] of this.cursors) {
-      entry.layer.remove();
+      entry.container.remove();
     }
     this.cursors.clear();
   }
@@ -104,9 +130,17 @@ export class CursorManager {
       const wrapperRect = wrapper.getBoundingClientRect();
       const left = coords.left - wrapperRect.left;
       const top = coords.top - wrapperRect.top;
+      const caretHeight = coords.bottom - coords.top;
 
-      entry.layer.style.left = `${left}px`;
-      entry.layer.style.top = `${top - 20}px`;
+      entry.container.style.left = `${left}px`;
+      entry.container.style.top = `${top}px`;
+
+      entry.caret.style.height = `${caretHeight}px`;
+      entry.caret.style.top = '0';
+      entry.caret.style.left = '0';
+
+      entry.label.style.left = '0';
+      entry.label.style.top = `${-entry.label.offsetHeight}px`;
     } catch {
       // Cursor positioning can fail during document transitions
     }

@@ -1,3 +1,4 @@
+import type { Schema } from 'prosemirror-model';
 import type { MarkMapping } from './types';
 
 /**
@@ -9,6 +10,25 @@ export const defaultMarkMapping: MarkMapping = {
   code: 'code',
   link: 'link',
 };
+
+/**
+ * Build a mark mapping by iterating over the schema's marks.
+ * Creates an identity mapping (mark name -> mark name) for each mark
+ * in the schema. Optional overrides can rename specific marks.
+ */
+export function buildMarkMapping(
+  schema: Schema,
+  overrides?: MarkMapping,
+): MarkMapping {
+  const mapping: MarkMapping = {};
+  for (const name in schema.marks) {
+    mapping[name] = name;
+  }
+  if (overrides) {
+    Object.assign(mapping, overrides);
+  }
+  return mapping;
+}
 
 /**
  * Invert a mark mapping (PM mark name -> Yorkie element type)

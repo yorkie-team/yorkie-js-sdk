@@ -16,6 +16,7 @@
     "schema": "pnpm --filter=@yorkie-js/schema",
     "vanilla-codemirror6": "pnpm --filter=vanilla-codemirror6",
     "vanilla-quill": "pnpm --filter=vanilla-quill",
+    "vanilla-prosemirror": "pnpm --filter=vanilla-prosemirror",
     "vanilla-document-limit": "pnpm --filter=vanilla-document-limit",
     "profile-stack": "pnpm --filter=profile-stack",
     "simultaneous-cursors": "pnpm --filter=simultaneous-cursors",

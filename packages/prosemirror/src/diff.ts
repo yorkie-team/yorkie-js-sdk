@@ -177,9 +177,10 @@ export function syncToYorkie(
   newDoc: PMNode,
   markMapping: MarkMapping,
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
+  wrapperElementName: string = 'span',
 ): void {
-  const oldYorkie = pmToYorkie(oldDoc, markMapping);
-  const newYorkie = pmToYorkie(newDoc, markMapping);
+  const oldYorkie = pmToYorkie(oldDoc, markMapping, wrapperElementName);
+  const newYorkie = pmToYorkie(newDoc, markMapping, wrapperElementName);
   const oldBlocks = oldYorkie.children || [];
   const newBlocks = newYorkie.children || [];
 

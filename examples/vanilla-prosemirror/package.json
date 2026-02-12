@@ -1,0 +1,28 @@
+{
+  "name": "vanilla-prosemirror",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6"
+  },
+  "dependencies": {
+    "@yorkie-js/sdk": "workspace:*",
+    "@yorkie-js/prosemirror": "workspace:*",
+    "prosemirror-commands": "^1.6.2",
+    "prosemirror-example-setup": "^1.2.2",
+    "prosemirror-history": "^1.4.1",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.23.0",
+    "prosemirror-schema-basic": "^1.2.3",
+    "prosemirror-schema-list": "^1.5.0",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-view": "^1.37.0"
+  }
+}
