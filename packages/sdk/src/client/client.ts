@@ -1560,6 +1560,13 @@ export class Client {
           }
         },
         onDisconnect,
+        shouldIgnoreError: (err) => {
+          if (err instanceof Error && err.name === 'AbortError') {
+            logger.debug(`[WD] c:"${this.getKey()}" stream aborted`);
+            return true;
+          }
+          return false;
+        },
       },
       (err) => this.handleConnectError(err),
       () => {
@@ -1899,7 +1906,7 @@ export class Client {
     // that the document has reached the maximum number of allowed subscriptions.
     // In this case, the client should retry the connection.
     if (errorCodeOf(err) === Code.ErrTooManySubscribers) {
-      logger.error(`[WD] c:"${this.getKey()}" err :`, err.rawMessage);
+      logger.warn(`[WD] c:"${this.getKey()}" err :`, err.rawMessage);
       return true;
     }
 

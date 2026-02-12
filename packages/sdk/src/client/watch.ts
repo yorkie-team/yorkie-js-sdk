@@ -63,8 +63,8 @@ export function runWatchStream<Resp>(
 
   return new Promise((resolve, reject) => {
     const handleStream = async () => {
+      let resolved = false;
       try {
-        let resolved = false;
         for await (const resp of stream) {
           onResponse(resp);
 
@@ -82,15 +82,20 @@ export function runWatchStream<Resp>(
           return;
         }
 
-        onError(err);
-
         if (await handleConnectError(err)) {
+          // Retryable error: treat like a normal stream end
+          // (disconnect event + silent reconnect).
+          onStreamEnd();
           onDisconnect();
+          if (!resolved) {
+            reject(err);
+          }
         } else {
+          // Non-retryable error: surface the error and stop.
+          onError(err);
           setWatchLoopInactive();
+          reject(err);
         }
-
-        reject(err);
       }
     };
 
