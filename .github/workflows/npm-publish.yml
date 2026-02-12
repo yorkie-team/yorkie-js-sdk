@@ -57,3 +57,10 @@ jobs:
         run: pnpm publish --filter=@yorkie-js/schema --no-git-checks --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: ProseMirror Build
+        run: pnpm prosemirror build
+      - name: ProseMirror Publish
+        run: pnpm publish --filter=@yorkie-js/prosemirror --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
