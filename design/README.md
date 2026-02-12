@@ -3,6 +3,7 @@
 ## Contents
 
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
+- [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 
 ## Maintaining the Document
 
