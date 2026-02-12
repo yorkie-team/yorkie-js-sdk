@@ -84,6 +84,16 @@ export class CursorManager {
   }
 
   /**
+   * Remap all stored cursor positions through a mapping (e.g., after a local edit).
+   */
+  remapPositions(mapping: { map(pos: number): number }): void {
+    if (!this.enabled) return;
+    for (const [, entry] of this.cursors) {
+      entry.pmPos = mapping.map(entry.pmPos);
+    }
+  }
+
+  /**
    * Reposition all remote cursors (e.g., after a doc rebuild).
    */
   repositionAll(view: EditorView): void {

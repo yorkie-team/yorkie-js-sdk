@@ -166,13 +166,13 @@ describe('position', () => {
       assert.equal(pmPosToYorkieIdx(map, 2), 2);
     });
 
-    it('should return the next yorkie index when PM position falls between entries', () => {
+    it('should return previous yorkie index + 1 when PM position falls between entries', () => {
       const map = {
         pmPositions: [1, 3, 5],
         yorkieIndices: [1, 5, 9],
       };
-      // pmPos 2 is between 1 and 3, so returns yorkieIndices for pmPos 3
-      assert.equal(pmPosToYorkieIdx(map, 2), 5);
+      // pmPos 2 is between 1 and 3, so returns yorkieIndices[0] + 1
+      assert.equal(pmPosToYorkieIdx(map, 2), 2);
     });
 
     it('should return last yorkie index + 1 when PM position is beyond all entries', () => {
@@ -189,6 +189,19 @@ describe('position', () => {
         yorkieIndices: [] as Array<number>,
       };
       assert.equal(pmPosToYorkieIdx(map, 5), 0);
+    });
+
+    it('should map end-of-block position to yorkie close tag, not next block', () => {
+      // doc(p('abcd'), p('abcd'))
+      // PM pos 5 = end of first paragraph, should NOT jump to second paragraph
+      const map = {
+        pmPositions: [1, 2, 3, 4, 7, 8, 9, 10],
+        yorkieIndices: [1, 2, 3, 4, 7, 8, 9, 10],
+      };
+      // pmPos 5 is after 'd' in first paragraph → yorkieIndices[3] + 1 = 5
+      assert.equal(pmPosToYorkieIdx(map, 5), 5);
+      // pmPos 6 is between paragraphs → still yorkieIndices[3] + 1 = 5
+      assert.equal(pmPosToYorkieIdx(map, 6), 5);
     });
 
     it('should handle PM position 0 (before first character)', () => {
@@ -210,13 +223,24 @@ describe('position', () => {
       assert.equal(yorkieIdxToPmPos(map, 2), 2);
     });
 
-    it('should return the next PM position when Yorkie index falls between entries', () => {
+    it('should return previous PM position + 1 when Yorkie index falls between entries', () => {
       const map = {
         pmPositions: [1, 3, 5],
         yorkieIndices: [1, 5, 9],
       };
-      // yorkieIdx 3 is between 1 and 5, returns pmPositions for yorkieIdx 5
-      assert.equal(yorkieIdxToPmPos(map, 3), 3);
+      // yorkieIdx 3 is between 1 and 5, returns pmPositions[0] + 1
+      assert.equal(yorkieIdxToPmPos(map, 3), 2);
+    });
+
+    it('should map yorkie close-tag index to end-of-block PM position, not next block', () => {
+      const map = {
+        pmPositions: [1, 2, 3, 4, 7, 8, 9, 10],
+        yorkieIndices: [1, 2, 3, 4, 7, 8, 9, 10],
+      };
+      // yorkieIdx 5 = close tag of first paragraph → pmPositions[3] + 1 = 5
+      assert.equal(yorkieIdxToPmPos(map, 5), 5);
+      // yorkieIdx 6 = open tag of second paragraph → still pmPositions[3] + 1 = 5
+      assert.equal(yorkieIdxToPmPos(map, 6), 5);
     });
 
     it('should return last PM position + 1 when Yorkie index is beyond all entries', () => {

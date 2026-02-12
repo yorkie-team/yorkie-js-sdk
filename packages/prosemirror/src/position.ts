@@ -95,6 +95,9 @@ export function pmPosToYorkieIdx(map: PositionMap, pmPos: number): number {
       return map.yorkieIndices[i];
     }
     if (map.pmPositions[i] > pmPos) {
+      if (i > 0) {
+        return map.yorkieIndices[i - 1] + 1;
+      }
       return map.yorkieIndices[i];
     }
   }
@@ -113,6 +116,9 @@ export function yorkieIdxToPmPos(map: PositionMap, yorkieIdx: number): number {
       return map.pmPositions[i];
     }
     if (map.yorkieIndices[i] > yorkieIdx) {
+      if (i > 0) {
+        return map.pmPositions[i - 1] + 1;
+      }
       return map.pmPositions[i];
     }
   }
