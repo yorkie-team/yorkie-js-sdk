@@ -31,7 +31,13 @@ export { syncToYorkie } from './diff';
 
 // Downstream sync
 export type { DocDiff } from './sync';
-export { syncToPM, syncToPMIncremental, diffDocs } from './sync';
+export {
+  syncToPM,
+  syncToPMIncremental,
+  diffDocs,
+  buildDocFromYorkieTree,
+  applyDocDiff,
+} from './sync';
 
 // Cursor
 export { CursorManager } from './cursor';
