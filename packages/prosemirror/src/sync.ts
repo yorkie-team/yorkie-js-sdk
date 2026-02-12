@@ -134,6 +134,43 @@ export function syncToPM(
 }
 
 /**
+ * Build a ProseMirror document from the current Yorkie tree state.
+ */
+export function buildDocFromYorkieTree(
+  tree: { toJSON(): string },
+  schema: Schema,
+  elementToMarkMapping: Record<string, string>,
+  wrapperElementName: string = 'span',
+): Node {
+  const treeJSON = JSON.parse(tree.toJSON());
+  const pmJSON = yorkieToJSON(
+    treeJSON,
+    elementToMarkMapping,
+    [],
+    wrapperElementName,
+  );
+  return Node.fromJSON(schema, pmJSON);
+}
+
+/**
+ * Apply a pre-computed DocDiff to the ProseMirror view as a remote transaction.
+ */
+export function applyDocDiff(view: EditorView, diff: DocDiff): void {
+  const { fromPos, toPos, newNodes } = diff;
+  const tr = view.state.tr;
+
+  if (newNodes.length === 0) {
+    tr.delete(fromPos, toPos);
+  } else {
+    tr.replaceWith(fromPos, toPos, newNodes);
+  }
+
+  tr.setMeta('yorkie-remote', true);
+  tr.setMeta('addToHistory', false);
+  view.dispatch(tr);
+}
+
+/**
  * Incrementally sync Yorkie remote changes to ProseMirror (downstream sync).
  *
  * Instead of rebuilding the entire EditorState, this function:
@@ -153,30 +190,17 @@ export function syncToPMIncremental(
   wrapperElementName: string = 'span',
 ): void {
   try {
-    const treeJSON = JSON.parse(tree.toJSON());
-    const pmJSON = yorkieToJSON(
-      treeJSON,
+    const newDoc = buildDocFromYorkieTree(
+      tree,
+      schema,
       elementToMarkMapping,
-      [],
       wrapperElementName,
     );
-    const newDoc = Node.fromJSON(schema, pmJSON);
 
     const diff = diffDocs(view.state.doc, newDoc);
     if (!diff) return; // No changes
 
-    const { fromPos, toPos, newNodes } = diff;
-    const tr = view.state.tr;
-
-    if (newNodes.length === 0) {
-      tr.delete(fromPos, toPos);
-    } else {
-      tr.replaceWith(fromPos, toPos, newNodes);
-    }
-
-    tr.setMeta('yorkie-remote', true);
-    tr.setMeta('addToHistory', false);
-    view.dispatch(tr);
+    applyDocDiff(view, diff);
   } catch (e) {
     onLog?.(
       'error',

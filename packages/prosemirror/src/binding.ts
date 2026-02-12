@@ -5,7 +5,14 @@ import type { MarkMapping, YorkieProseMirrorOptions } from './types';
 import { buildMarkMapping, invertMapping } from './defaults';
 import { pmToYorkie } from './convert';
 import { syncToYorkie } from './diff';
-import { syncToPM, syncToPMIncremental } from './sync';
+import {
+  syncToPM,
+  syncToPMIncremental,
+  buildDocFromYorkieTree,
+  diffDocs,
+  applyDocDiff,
+  type DocDiff,
+} from './sync';
 import {
   buildPositionMap,
   pmPosToYorkieIdx,
@@ -36,6 +43,10 @@ export class YorkieProseMirrorBinding {
   private elementToMarkMapping: Record<string, string>;
   private wrapperElementName: string;
   private isSyncing = false;
+  private isComposing = false;
+  private composingBlockRange: { from: number; to: number } | undefined =
+    undefined;
+  private hasPendingRemoteChanges = false;
   private cursorManager: CursorManager | undefined = undefined;
   private remoteSelections = new Map<string, RemoteSelection>();
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
@@ -103,6 +114,9 @@ export class YorkieProseMirrorBinding {
     // Subscribe to presence for cursor display
     this.setupPresenceSubscription();
 
+    // Track IME composition to defer remote updates
+    this.setupCompositionListeners();
+
     // Set initial presence
     this.syncPresence();
   }
@@ -114,6 +128,12 @@ export class YorkieProseMirrorBinding {
     this.unsubscribeDoc?.();
     this.unsubscribePresence?.();
     this.cursorManager?.destroy();
+    this.hasPendingRemoteChanges = false;
+    this.composingBlockRange = undefined;
+
+    const dom = this.view.dom;
+    dom.removeEventListener('compositionstart', this.onCompositionStart);
+    dom.removeEventListener('compositionend', this.onCompositionEnd);
 
     // Restore original dispatchTransaction via setProps (ProseMirror's API)
     if (this.originalDispatchTransaction) {
@@ -125,6 +145,107 @@ export class YorkieProseMirrorBinding {
 
   private getTree(): any {
     return this.doc.getRoot()[this.treePath];
+  }
+
+  private setupCompositionListeners(): void {
+    const dom = this.view.dom;
+    dom.addEventListener('compositionstart', this.onCompositionStart);
+    dom.addEventListener('compositionend', this.onCompositionEnd);
+  }
+
+  private onCompositionStart = (): void => {
+    this.isComposing = true;
+    this.composingBlockRange = this.getComposingBlockRange();
+  };
+
+  private onCompositionEnd = (): void => {
+    this.isComposing = false;
+    this.composingBlockRange = undefined;
+    this.flushPendingRemoteChanges();
+  };
+
+  /**
+   * Find the position range of the top-level block containing the selection.
+   */
+  private getComposingBlockRange(): { from: number; to: number } | undefined {
+    const { from } = this.view.state.selection;
+    const doc = this.view.state.doc;
+    let pos = 0;
+    for (let i = 0; i < doc.content.childCount; i++) {
+      const child = doc.content.child(i);
+      const end = pos + child.nodeSize;
+      if (from >= pos && from <= end) {
+        return { from: pos, to: end };
+      }
+      pos = end;
+    }
+    return undefined;
+  }
+
+  /**
+   * Check whether a block-level diff overlaps the block being composed.
+   */
+  private diffOverlapsComposingBlock(diff: DocDiff): boolean {
+    if (!this.composingBlockRange) return true;
+    return (
+      diff.fromPos < this.composingBlockRange.to &&
+      diff.toPos > this.composingBlockRange.from
+    );
+  }
+
+  /**
+   * Check whether any remote selection overlaps the block being composed.
+   */
+  private selectionsOverlapComposingBlock(): boolean {
+    if (!this.composingBlockRange) return true;
+    const { from, to } = this.composingBlockRange;
+    for (const sel of this.remoteSelections.values()) {
+      if (sel.from < to && sel.to > from) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Flush all deferred remote changes after composition ends.
+   */
+  private flushPendingRemoteChanges(): void {
+    if (!this.hasPendingRemoteChanges) return;
+    this.hasPendingRemoteChanges = false;
+
+    // Wait for the browser to finish processing the compositionend event
+    // and check that a new composition hasn't started immediately after.
+    requestAnimationFrame(() => {
+      if (this.isComposing) {
+        // A new composition started (e.g. user continued typing Korean).
+        // Re-defer until that composition ends.
+        this.hasPendingRemoteChanges = true;
+        return;
+      }
+
+      // Apply any accumulated remote content changes
+      try {
+        this.isSyncing = true;
+        syncToPMIncremental(
+          this.view,
+          this.getTree(),
+          this.view.state.schema,
+          this.elementToMarkMapping,
+          this.onLog,
+          this.wrapperElementName,
+        );
+      } catch (e) {
+        this.onLog?.(
+          'error',
+          `Deferred remote sync failed: ${(e as Error).message}`,
+        );
+      } finally {
+        this.isSyncing = false;
+      }
+      this.cursorManager?.repositionAll(this.view);
+
+      // Apply any deferred decoration updates
+      this.applySelectionDecorations();
+    });
   }
 
   private setupDispatchTransaction(): void {
@@ -210,34 +331,67 @@ export class YorkieProseMirrorBinding {
       const hasTreeOps = operations.some(
         (op: any) => op.type === 'tree-edit' || op.type === 'tree-style',
       );
+      if (!hasTreeOps) return;
 
-      if (hasTreeOps) {
-        this.onLog?.(
-          'remote',
-          `Received ${operations.length} remote operations`,
-        );
-        try {
-          this.isSyncing = true;
-          syncToPMIncremental(
-            this.view,
-            this.getTree(),
-            this.view.state.schema,
-            this.elementToMarkMapping,
-            this.onLog,
-            this.wrapperElementName,
-          );
-        } catch (e) {
-          this.onLog?.(
-            'error',
-            `Downstream sync failed: ${(e as Error).message}`,
-          );
-        } finally {
-          this.isSyncing = false;
-        }
-        this.cursorManager?.repositionAll(this.view);
+      this.onLog?.('remote', `Received ${operations.length} remote operations`);
+
+      // Not composing — apply immediately
+      if (!this.isComposing) {
+        this.applyRemoteTreeOps();
+        return;
       }
+
+      // During composition: check if the diff touches the composing block
+      try {
+        const newDoc = buildDocFromYorkieTree(
+          this.getTree(),
+          this.view.state.schema,
+          this.elementToMarkMapping,
+          this.wrapperElementName,
+        );
+        const diff = diffDocs(this.view.state.doc, newDoc);
+        if (!diff) return;
+
+        if (!this.diffOverlapsComposingBlock(diff)) {
+          // Safe: changes are in a different block — apply immediately
+          try {
+            this.isSyncing = true;
+            applyDocDiff(this.view, diff);
+            // Update composing block range in case positions shifted
+            this.composingBlockRange = this.getComposingBlockRange();
+          } finally {
+            this.isSyncing = false;
+          }
+          this.cursorManager?.repositionAll(this.view);
+          return;
+        }
+      } catch {
+        // On any error, fall through to defer
+      }
+
+      // Overlaps composing block or couldn't determine — defer
+      this.hasPendingRemoteChanges = true;
     });
     this.unsubscribeDoc = unsubscribe;
+  }
+
+  private applyRemoteTreeOps(): void {
+    try {
+      this.isSyncing = true;
+      syncToPMIncremental(
+        this.view,
+        this.getTree(),
+        this.view.state.schema,
+        this.elementToMarkMapping,
+        this.onLog,
+        this.wrapperElementName,
+      );
+    } catch (e) {
+      this.onLog?.('error', `Downstream sync failed: ${(e as Error).message}`);
+    } finally {
+      this.isSyncing = false;
+    }
+    this.cursorManager?.repositionAll(this.view);
   }
 
   private setupPresenceSubscription(): void {
@@ -289,6 +443,16 @@ export class YorkieProseMirrorBinding {
   }
 
   private dispatchSelectionDecorations(): void {
+    if (this.isComposing && this.selectionsOverlapComposingBlock()) {
+      // Defer: a remote selection decoration touches the composing block,
+      // which could insert <span> wrappers around the composing text node.
+      this.hasPendingRemoteChanges = true;
+      return;
+    }
+    this.applySelectionDecorations();
+  }
+
+  private applySelectionDecorations(): void {
     const selections = Array.from(this.remoteSelections.values());
     const tr = this.view.state.tr;
     tr.setMeta(remoteSelectionsKey, selections);
