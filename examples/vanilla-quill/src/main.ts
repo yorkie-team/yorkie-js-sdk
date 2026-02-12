@@ -359,6 +359,15 @@ async function main() {
 
   // 04-2. document to Quill(remote).
   function handleOperations(ops: Array<OpInfo>) {
+    const hasFocus = quill.hasFocus();
+
+    // On Safari, DOM mutations in a contenteditable element can steal focus
+    // from other iframes. Temporarily disable contenteditable for remote
+    // updates when this editor doesn't have focus.
+    if (!hasFocus) {
+      quill.root.setAttribute('contenteditable', 'false');
+    }
+
     for (const op of ops) {
       if (op.type === 'edit') {
         const from = op.from;
@@ -425,15 +434,28 @@ async function main() {
         }
       }
     }
+
+    if (!hasFocus) {
+      quill.root.setAttribute('contenteditable', 'true');
+    }
   }
 
   // 05. synchronize text of document and Quill.
   function syncText() {
+    const hasFocus = quill.hasFocus();
+    if (!hasFocus) {
+      quill.root.setAttribute('contenteditable', 'false');
+    }
+
     const text = doc.getRoot().content;
     const delta = new Delta(
       text.values().map((value) => toDeltaOperation(value, true)),
     );
     quill.setContents(delta, 'api');
+
+    if (!hasFocus) {
+      quill.root.setAttribute('contenteditable', 'true');
+    }
   }
 
   syncText();
