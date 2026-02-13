@@ -445,13 +445,18 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
         node.createPosRange(),
       );
+
+      const removedAttributes: Record<string, any> = {};
+      for (const key of attributesToRemove) {
+        removedAttributes[key] = null; // null signals attribute removal to editors (e.g., Quill)
+      }
       changes.push({
         type: TextChangeType.Style,
         actor: editedAt.getActorID(),
         from: fromIdx,
         to: toIdx,
         value: {
-          attributes: {} as A,
+          attributes: removedAttributes as A,
         },
       });
 
