@@ -232,7 +232,7 @@ async function main() {
 
   // 04-0. bind Yorkie undo/redo to keyboard shortcuts.
   editorElement.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
       if (e.shiftKey) {
         if (doc.history.canRedo()) {
           doc.history.redo();
@@ -392,7 +392,7 @@ async function main() {
       quill.root.setAttribute('contenteditable', 'false');
     }
 
-    let cursorPosition = 0;
+    let cursorPosition = -1;
     for (const op of ops) {
       if (op.type === 'edit') {
         const from = op.from;
@@ -471,7 +471,7 @@ async function main() {
     }
 
     // Move cursor to the changed position for undo/redo
-    if (moveCursor) {
+    if (moveCursor && cursorPosition >= 0) {
       quill.setSelection(cursorPosition, 0, 'api');
     }
 
