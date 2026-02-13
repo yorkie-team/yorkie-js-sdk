@@ -199,10 +199,17 @@ function tryIntraBlockPMDiff(
   // Convert block-content-relative positions to document positions.
   // fromPos points to the block node; fromPos + 1 is the start of its content.
   const contentStart = fromPos + 1;
-  tr.replaceWith(
+
+  // Use `Node.slice` + `tr.replace` instead of `content.cut` + `tr.replaceWith`.
+  // For deeply nested blocks (e.g. bullet_list > list_item > paragraph),
+  // `content.cut` returns a fragment with wrapper nodes (list_item, paragraph)
+  // that `replaceWith` would insert as new siblings. `Node.slice` computes
+  // the correct openStart/openEnd depths so `tr.replace` can match the
+  // wrappers against the existing structure and only insert the inner content.
+  tr.replace(
     contentStart + start,
     contentStart + endA,
-    newNode.content.cut(start, endB),
+    newNode.slice(start, endB),
   );
 
   return true;
