@@ -35,18 +35,21 @@ export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
   private attributes: Map<string, string>;
+  private attributesToRemove: Array<string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    attributesToRemove: Array<string>,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.attributes = attributes;
+    this.attributesToRemove = attributesToRemove;
   }
 
   /**
@@ -57,13 +60,34 @@ export class StyleOperation extends Operation {
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): StyleOperation {
     return new StyleOperation(
       parentCreatedAt,
       fromPos,
       toPos,
       attributes,
+      [],
+      executedAt,
+    );
+  }
+
+  /**
+   * `createRemoveStyleOperation` creates a new instance of StyleOperation for style removal.
+   */
+  public static createRemoveStyleOperation(
+    parentCreatedAt: TimeTicket,
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
+    attributesToRemove: Array<string>,
+    executedAt?: TimeTicket,
+  ): StyleOperation {
+    return new StyleOperation(
+      parentCreatedAt,
+      fromPos,
+      toPos,
+      new Map(),
+      attributesToRemove,
       executedAt,
     );
   }
@@ -90,7 +114,46 @@ export class StyleOperation extends Operation {
       );
     }
     const text = parentObject as CRDTText<A>;
-    const [pairs, diff, changes] = text.setStyle(
+
+    if (this.attributesToRemove.length > 0) {
+      const [pairs, diff, changes, prevAttributes] = text.removeStyle(
+        [this.fromPos, this.toPos],
+        this.attributesToRemove,
+        this.getExecutedAt(),
+        versionVector,
+      );
+
+      root.acc(diff);
+      for (const pair of pairs) {
+        root.registerGCPair(pair);
+      }
+
+      // Build reverse: set attributes back to their previous values
+      let reverseOp: Operation | undefined;
+      if (prevAttributes.size > 0) {
+        reverseOp = StyleOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          prevAttributes,
+        );
+      }
+
+      return {
+        opInfos: changes.map(({ from, to, value }) => {
+          return {
+            type: 'style',
+            from,
+            to,
+            value,
+            path: root.createPath(this.getParentCreatedAt()),
+          } as OpInfo;
+        }),
+        reverseOp,
+      };
+    }
+
+    const [pairs, diff, changes, prevAttributes, attrsToRemove] = text.setStyle(
       [this.fromPos, this.toPos],
       this.attributes ? Object.fromEntries(this.attributes) : {},
       this.getExecutedAt(),
@@ -103,6 +166,40 @@ export class StyleOperation extends Operation {
       root.registerGCPair(pair);
     }
 
+    // Build reverse operation
+    let reverseOp: Operation | undefined;
+    if (prevAttributes.size > 0 || attrsToRemove.length > 0) {
+      if (prevAttributes.size > 0 && attrsToRemove.length > 0) {
+        // Mixed case: some attrs existed (need setStyle), some didn't (need removeStyle)
+        // We use a setStyle reverse for the keys that had values, and let removeStyle
+        // handle the keys that didn't exist. For simplicity, we create a setStyle reverse
+        // with the previous values and an attributesToRemove for the new keys.
+        reverseOp = new StyleOperation(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          prevAttributes,
+          attrsToRemove,
+        );
+      } else if (attrsToRemove.length > 0) {
+        // All keys were new - reverse is to remove them
+        reverseOp = StyleOperation.createRemoveStyleOperation(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          attrsToRemove,
+        );
+      } else {
+        // All keys had previous values - reverse is to set them back
+        reverseOp = StyleOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          prevAttributes,
+        );
+      }
+    }
+
     return {
       opInfos: changes.map(({ from, to, value }) => {
         return {
@@ -113,6 +210,7 @@ export class StyleOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OpInfo;
       }),
+      reverseOp,
     };
   }
 
@@ -153,5 +251,12 @@ export class StyleOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes;
+  }
+
+  /**
+   * `getAttributesToRemove` returns the attributes to remove.
+   */
+  public getAttributesToRemove(): Array<string> {
+    return this.attributesToRemove;
   }
 }

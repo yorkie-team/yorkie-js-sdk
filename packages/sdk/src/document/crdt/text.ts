@@ -288,7 +288,13 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     attributes: Record<string, string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, DataSize, Array<TextChange<A>>] {
+  ): [
+    Array<GCPair>,
+    DataSize,
+    Array<TextChange<A>>,
+    Map<string, string>,
+    Array<string>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     // 01. split nodes with from and to
@@ -322,10 +328,27 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
+    // Capture previous attribute values from the first styled node for reverse op
+    const prevAttributes = new Map<string, string>();
+    const attributesToRemove: Array<string> = [];
+    let capturedPrev = false;
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
       if (node.isRemoved()) {
         continue;
+      }
+
+      if (!capturedPrev) {
+        for (const key of Object.keys(attributes)) {
+          const attrs = node.getValue().getAttrs();
+          if (attrs.has(key)) {
+            prevAttributes.set(key, attrs.get(key)!);
+          } else {
+            attributesToRemove.push(key);
+          }
+        }
+        capturedPrev = true;
       }
 
       const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
@@ -353,7 +376,94 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    return [pairs, diff, changes];
+    return [pairs, diff, changes, prevAttributes, attributesToRemove];
+  }
+
+  /**
+   * `removeStyle` removes the style attributes of the given range.
+   * Returns previous attribute values (from first styled node) for reverse operation.
+   */
+  public removeStyle(
+    range: RGATreeSplitPosRange,
+    attributesToRemove: Array<string>,
+    editedAt: TimeTicket,
+    versionVector?: VersionVector,
+  ): [Array<GCPair>, DataSize, Array<TextChange<A>>, Map<string, string>] {
+    const diff = { data: 0, meta: 0 };
+
+    // 01. split nodes with from and to
+    const [, diffTo, toRight] = this.rgaTreeSplit.findNodeWithSplit(
+      range[1],
+      editedAt,
+    );
+    const [, diffFrom, fromRight] = this.rgaTreeSplit.findNodeWithSplit(
+      range[0],
+      editedAt,
+    );
+
+    addDataSizes(diff, diffTo, diffFrom);
+
+    // 02. find nodes to remove style from
+    const changes: Array<TextChange<A>> = [];
+    const nodes = this.rgaTreeSplit.findBetween(fromRight, toRight);
+    const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
+
+    for (const node of nodes) {
+      const actorID = node.getCreatedAt().getActorID();
+      let clientLamportAtChange = MaxLamport;
+      if (versionVector != undefined) {
+        clientLamportAtChange = versionVector!.get(actorID)
+          ? versionVector!.get(actorID)!
+          : 0n;
+      }
+
+      if (node.canStyle(editedAt, clientLamportAtChange)) {
+        toBeStyleds.push(node);
+      }
+    }
+
+    // Capture previous attribute values from the first styled node for reverse op
+    const prevAttributes = new Map<string, string>();
+    let capturedPrev = false;
+
+    const pairs: Array<GCPair> = [];
+    for (const node of toBeStyleds) {
+      if (node.isRemoved()) {
+        continue;
+      }
+
+      if (!capturedPrev) {
+        for (const key of attributesToRemove) {
+          const attrs = node.getValue().getAttrs();
+          if (attrs.has(key)) {
+            prevAttributes.set(key, attrs.get(key)!);
+          }
+        }
+        capturedPrev = true;
+      }
+
+      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+        node.createPosRange(),
+      );
+      changes.push({
+        type: TextChangeType.Style,
+        actor: editedAt.getActorID(),
+        from: fromIdx,
+        to: toIdx,
+        value: {
+          attributes: {} as A,
+        },
+      });
+
+      for (const key of attributesToRemove) {
+        const gcNodes = node.getValue().getAttrs().remove(key, editedAt);
+        for (const rhtNode of gcNodes) {
+          pairs.push({ parent: node.getValue(), child: rhtNode });
+        }
+      }
+    }
+
+    return [pairs, diff, changes, prevAttributes];
   }
 
   /**
