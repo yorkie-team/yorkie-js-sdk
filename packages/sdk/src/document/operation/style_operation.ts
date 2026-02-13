@@ -17,6 +17,7 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
@@ -115,6 +116,13 @@ export class StyleOperation extends Operation {
     }
     const text = parentObject as CRDTText<A>;
 
+    const allPairs: Array<GCPair> = [];
+    const allChanges: Array<{ from: number; to: number; value?: unknown }> = [];
+    let allDiff = { data: 0, meta: 0 };
+    const reversePrevAttributes = new Map<string, string>();
+    const reverseAttrsToRemove: Array<string> = [];
+
+    // 01. Handle attributesToRemove (remove style attributes)
     if (this.attributesToRemove.length > 0) {
       const [pairs, diff, changes, prevAttributes] = text.removeStyle(
         [this.fromPos, this.toPos],
@@ -123,85 +131,78 @@ export class StyleOperation extends Operation {
         versionVector,
       );
 
-      root.acc(diff);
-      for (const pair of pairs) {
-        root.registerGCPair(pair);
-      }
-
-      // Build reverse: set attributes back to their previous values
-      let reverseOp: Operation | undefined;
-      if (prevAttributes.size > 0) {
-        reverseOp = StyleOperation.create(
-          this.getParentCreatedAt(),
-          this.fromPos,
-          this.toPos,
-          prevAttributes,
-        );
-      }
-
-      return {
-        opInfos: changes.map(({ from, to, value }) => {
-          return {
-            type: 'style',
-            from,
-            to,
-            value,
-            path: root.createPath(this.getParentCreatedAt()),
-          } as OpInfo;
-        }),
-        reverseOp,
+      allDiff = {
+        data: allDiff.data + diff.data,
+        meta: allDiff.meta + diff.meta,
       };
+      allPairs.push(...pairs);
+      allChanges.push(...changes);
+
+      // Capture previous values for reverse op
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
     }
 
-    const [pairs, diff, changes, prevAttributes, attrsToRemove] = text.setStyle(
-      [this.fromPos, this.toPos],
-      this.attributes ? Object.fromEntries(this.attributes) : {},
-      this.getExecutedAt(),
-      versionVector,
-    );
+    // 02. Handle attributes (set style attributes)
+    if (this.attributes.size > 0) {
+      const [pairs, diff, changes, prevAttributes, attrsToRemove] =
+        text.setStyle(
+          [this.fromPos, this.toPos],
+          Object.fromEntries(this.attributes),
+          this.getExecutedAt(),
+          versionVector,
+        );
 
-    root.acc(diff);
+      allDiff = {
+        data: allDiff.data + diff.data,
+        meta: allDiff.meta + diff.meta,
+      };
+      allPairs.push(...pairs);
+      allChanges.push(...changes);
 
-    for (const pair of pairs) {
+      // Capture previous values and new keys for reverse op
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+      reverseAttrsToRemove.push(...attrsToRemove);
+    }
+
+    root.acc(allDiff);
+    for (const pair of allPairs) {
       root.registerGCPair(pair);
     }
 
     // Build reverse operation
     let reverseOp: Operation | undefined;
-    if (prevAttributes.size > 0 || attrsToRemove.length > 0) {
-      if (prevAttributes.size > 0 && attrsToRemove.length > 0) {
-        // Mixed case: some attrs existed (need setStyle), some didn't (need removeStyle)
-        // We use a setStyle reverse for the keys that had values, and let removeStyle
-        // handle the keys that didn't exist. For simplicity, we create a setStyle reverse
-        // with the previous values and an attributesToRemove for the new keys.
+    if (reversePrevAttributes.size > 0 || reverseAttrsToRemove.length > 0) {
+      if (reversePrevAttributes.size > 0 && reverseAttrsToRemove.length > 0) {
         reverseOp = new StyleOperation(
           this.getParentCreatedAt(),
           this.fromPos,
           this.toPos,
-          prevAttributes,
-          attrsToRemove,
+          reversePrevAttributes,
+          reverseAttrsToRemove,
         );
-      } else if (attrsToRemove.length > 0) {
-        // All keys were new - reverse is to remove them
+      } else if (reverseAttrsToRemove.length > 0) {
         reverseOp = StyleOperation.createRemoveStyleOperation(
           this.getParentCreatedAt(),
           this.fromPos,
           this.toPos,
-          attrsToRemove,
+          reverseAttrsToRemove,
         );
       } else {
-        // All keys had previous values - reverse is to set them back
         reverseOp = StyleOperation.create(
           this.getParentCreatedAt(),
           this.fromPos,
           this.toPos,
-          prevAttributes,
+          reversePrevAttributes,
         );
       }
     }
 
     return {
-      opInfos: changes.map(({ from, to, value }) => {
+      opInfos: allChanges.map(({ from, to, value }) => {
         return {
           type: 'style',
           from,

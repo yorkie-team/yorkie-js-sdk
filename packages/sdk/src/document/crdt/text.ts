@@ -459,6 +459,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         const gcNodes = node.getValue().getAttrs().remove(key, editedAt);
         for (const rhtNode of gcNodes) {
           pairs.push({ parent: node.getValue(), child: rhtNode });
+          addDataSizes(diff, rhtNode.getDataSize());
         }
       }
     }
