@@ -115,6 +115,8 @@ async function main() {
   doc.subscribe('$.content', (event) => {
     if (event.type === 'remote-change') {
       handleOperations(event.value.operations);
+    } else if (event.source === 'undoredo') {
+      handleOperations(event.value.operations, true);
     }
     updateAllCursors();
   });
@@ -174,6 +176,9 @@ async function main() {
         },
       },
       cursors: true,
+      history: {
+        maxStack: 0, // Disable Quill's built-in undo/redo in favor of Yorkie's
+      },
     },
     theme: 'snow',
   });
@@ -223,6 +228,22 @@ async function main() {
   });
   editorElement.addEventListener('compositionend', () => {
     isComposing = false;
+  });
+
+  // 04-0. bind Yorkie undo/redo to keyboard shortcuts.
+  editorElement.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+      if (e.shiftKey) {
+        if (doc.history.canRedo()) {
+          doc.history.redo();
+        }
+      } else {
+        if (doc.history.canUndo()) {
+          doc.history.undo();
+        }
+      }
+      e.preventDefault();
+    }
   });
 
   // 04-1. Quill to Document.
@@ -357,8 +378,11 @@ async function main() {
     }
   });
 
-  // 04-2. document to Quill(remote).
-  function handleOperations(ops: Array<OpInfo>) {
+  // 04-2. document to Quill(remote and undo/redo).
+  function handleOperations(
+    ops: Array<OpInfo>,
+    moveCursor: boolean = false,
+  ) {
     const hasFocus = quill.hasFocus();
 
     // On Safari, DOM mutations in a contenteditable element can steal focus
@@ -368,6 +392,7 @@ async function main() {
       quill.root.setAttribute('contenteditable', 'false');
     }
 
+    let cursorPosition = -1;
     for (const op of ops) {
       if (op.type === 'edit') {
         const from = op.from;
@@ -402,6 +427,12 @@ async function main() {
           const delta = new Delta(deltaOperations);
           quill.updateContents(delta, 'api');
         }
+
+        if (moveCursor) {
+          const insertLength =
+            typeof insert === 'string' ? insert.length : insert ? 1 : 0;
+          cursorPosition = from + insertLength;
+        }
       } else if (op.type === 'style') {
         const from = op.from;
         const to = op.to;
@@ -432,7 +463,16 @@ async function main() {
           const delta = new Delta(deltaOperations);
           quill.updateContents(delta, 'api');
         }
+
+        if (moveCursor) {
+          cursorPosition = to;
+        }
       }
+    }
+
+    // Move cursor to the changed position for undo/redo
+    if (moveCursor && cursorPosition >= 0) {
+      quill.setSelection(cursorPosition, 0, 'api');
     }
 
     if (!hasFocus) {
