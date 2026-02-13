@@ -192,7 +192,7 @@ export class Text<A extends Indexable = Indexable> {
     }
 
     this.context.push(
-      new StyleOperation(
+      StyleOperation.create(
         this.text.getCreatedAt(),
         range[0],
         range[1],

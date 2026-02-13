@@ -121,8 +121,7 @@ describe('Text History - single client basic', () => {
     assert.equal(doc.history.canRedo(), false);
   });
 
-  // TODO(JOOHOJANG): Enable after implementing style operation
-  it.skip('should undo/redo style op', () => {
+  it('should undo/redo style op', () => {
     const doc = new Document<{ t: Text }>('test-doc');
     doc.update((root) => {
       root.t = new Text();
@@ -791,10 +790,7 @@ describe('Text History - multi client edge cases', () => {
     }, task.name);
   });
 
-  // TODO(JOOHOJANG): Enable after implementing style operation
-  it.skip('should converge with concurrent style operations', async ({
-    task,
-  }) => {
+  it('should converge with concurrent style operations', async ({ task }) => {
     type TestDoc = { t: Text };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {

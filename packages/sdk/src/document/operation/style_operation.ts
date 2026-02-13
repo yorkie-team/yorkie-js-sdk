@@ -17,6 +17,7 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
@@ -35,18 +36,21 @@ export class StyleOperation extends Operation {
   private fromPos: RGATreeSplitPos;
   private toPos: RGATreeSplitPos;
   private attributes: Map<string, string>;
+  private attributesToRemove: Array<string>;
 
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    attributesToRemove: Array<string>,
+    executedAt?: TimeTicket,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.attributes = attributes;
+    this.attributesToRemove = attributesToRemove;
   }
 
   /**
@@ -57,13 +61,34 @@ export class StyleOperation extends Operation {
     fromPos: RGATreeSplitPos,
     toPos: RGATreeSplitPos,
     attributes: Map<string, string>,
-    executedAt: TimeTicket,
+    executedAt?: TimeTicket,
   ): StyleOperation {
     return new StyleOperation(
       parentCreatedAt,
       fromPos,
       toPos,
       attributes,
+      [],
+      executedAt,
+    );
+  }
+
+  /**
+   * `createRemoveStyleOperation` creates a new instance of StyleOperation for style removal.
+   */
+  public static createRemoveStyleOperation(
+    parentCreatedAt: TimeTicket,
+    fromPos: RGATreeSplitPos,
+    toPos: RGATreeSplitPos,
+    attributesToRemove: Array<string>,
+    executedAt?: TimeTicket,
+  ): StyleOperation {
+    return new StyleOperation(
+      parentCreatedAt,
+      fromPos,
+      toPos,
+      new Map(),
+      attributesToRemove,
       executedAt,
     );
   }
@@ -90,21 +115,94 @@ export class StyleOperation extends Operation {
       );
     }
     const text = parentObject as CRDTText<A>;
-    const [pairs, diff, changes] = text.setStyle(
-      [this.fromPos, this.toPos],
-      this.attributes ? Object.fromEntries(this.attributes) : {},
-      this.getExecutedAt(),
-      versionVector,
-    );
 
-    root.acc(diff);
+    const allPairs: Array<GCPair> = [];
+    const allChanges: Array<{ from: number; to: number; value?: unknown }> = [];
+    let allDiff = { data: 0, meta: 0 };
+    const reversePrevAttributes = new Map<string, string>();
+    const reverseAttrsToRemove: Array<string> = [];
 
-    for (const pair of pairs) {
+    // 01. Handle attributesToRemove (remove style attributes)
+    if (this.attributesToRemove.length > 0) {
+      const [pairs, diff, changes, prevAttributes] = text.removeStyle(
+        [this.fromPos, this.toPos],
+        this.attributesToRemove,
+        this.getExecutedAt(),
+        versionVector,
+      );
+
+      allDiff = {
+        data: allDiff.data + diff.data,
+        meta: allDiff.meta + diff.meta,
+      };
+      allPairs.push(...pairs);
+      allChanges.push(...changes);
+
+      // Capture previous values for reverse op
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+    }
+
+    // 02. Handle attributes (set style attributes)
+    if (this.attributes.size > 0) {
+      const [pairs, diff, changes, prevAttributes, attrsToRemove] =
+        text.setStyle(
+          [this.fromPos, this.toPos],
+          Object.fromEntries(this.attributes),
+          this.getExecutedAt(),
+          versionVector,
+        );
+
+      allDiff = {
+        data: allDiff.data + diff.data,
+        meta: allDiff.meta + diff.meta,
+      };
+      allPairs.push(...pairs);
+      allChanges.push(...changes);
+
+      // Capture previous values and new keys for reverse op
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+      reverseAttrsToRemove.push(...attrsToRemove);
+    }
+
+    root.acc(allDiff);
+    for (const pair of allPairs) {
       root.registerGCPair(pair);
     }
 
+    // Build reverse operation
+    let reverseOp: Operation | undefined;
+    if (reversePrevAttributes.size > 0 || reverseAttrsToRemove.length > 0) {
+      if (reversePrevAttributes.size > 0 && reverseAttrsToRemove.length > 0) {
+        reverseOp = new StyleOperation(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          reversePrevAttributes,
+          reverseAttrsToRemove,
+        );
+      } else if (reverseAttrsToRemove.length > 0) {
+        reverseOp = StyleOperation.createRemoveStyleOperation(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          reverseAttrsToRemove,
+        );
+      } else {
+        reverseOp = StyleOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          reversePrevAttributes,
+        );
+      }
+    }
+
     return {
-      opInfos: changes.map(({ from, to, value }) => {
+      opInfos: allChanges.map(({ from, to, value }) => {
         return {
           type: 'style',
           from,
@@ -113,6 +211,7 @@ export class StyleOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OpInfo;
       }),
+      reverseOp,
     };
   }
 
@@ -153,5 +252,12 @@ export class StyleOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes;
+  }
+
+  /**
+   * `getAttributesToRemove` returns the attributes to remove.
+   */
+  public getAttributesToRemove(): Array<string> {
+    return this.attributesToRemove;
   }
 }

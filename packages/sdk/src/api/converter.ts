@@ -447,6 +447,11 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbStyleOperation.from = toTextNodePos(styleOperation.getFromPos());
     pbStyleOperation.to = toTextNodePos(styleOperation.getToPos());
+
+    const attributesToRemove = styleOperation.getAttributesToRemove();
+    if (attributesToRemove.length > 0) {
+      pbStyleOperation.attributesToRemove = attributesToRemove;
+    }
     const pbAttributes = pbStyleOperation.attributes;
     for (const [key, value] of styleOperation.getAttributes()) {
       pbAttributes[key] = value;
@@ -1294,15 +1299,18 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     );
   } else if (pbOperation.body.case === 'style') {
     const pbStyleOperation = pbOperation.body.value;
-    const attributes = new Map();
+    const attributes = new Map<string, string>();
     Object.entries(pbStyleOperation!.attributes).forEach(([key, value]) => {
       attributes.set(key, value);
     });
-    return StyleOperation.create(
+    const attributesToRemove = pbStyleOperation!.attributesToRemove ?? [];
+
+    return new StyleOperation(
       fromTimeTicket(pbStyleOperation!.parentCreatedAt)!,
       fromTextNodePos(pbStyleOperation!.from!),
       fromTextNodePos(pbStyleOperation!.to!),
       attributes,
+      attributesToRemove,
       fromTimeTicket(pbStyleOperation!.executedAt)!,
     );
   } else if (pbOperation.body.case === 'increase') {
