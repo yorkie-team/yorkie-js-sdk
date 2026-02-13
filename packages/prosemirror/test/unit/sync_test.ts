@@ -1,8 +1,11 @@
 import { describe, it, assert } from 'vitest';
 import { EditorState } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
+import { Schema } from 'prosemirror-model';
+import { schema as basicSchema } from 'prosemirror-schema-basic';
+import { addListNodes } from 'prosemirror-schema-list';
 import { diffDocs, applyDocDiff } from '../../src/sync';
-import { doc, p, strong, heading, testSchema } from './helpers';
+import { doc, p, strong, heading, blockquote, testSchema } from './helpers';
 
 describe('diffDocs', () => {
   it('should return undefined for identical docs', () => {
@@ -404,5 +407,72 @@ describe('applyDocDiff – intra-block cursor preservation', () => {
     // in the first paragraph — position 3 in <p>ab</p><p>cd</p>
     assert.equal(view.state.selection.from, 3);
     assert.isTrue(view.state.doc.eq(newDoc));
+  });
+
+  it('should handle text insertion in blockquote > paragraph (nested block)', () => {
+    // Regression: tryIntraBlockPMDiff used content.cut + replaceWith which
+    // produced wrapper nodes (blockquote > paragraph) for deeply nested
+    // changes. Using Node.slice + tr.replace computes correct open depths.
+    const oldDoc = doc(blockquote(p()));
+    const newDoc = doc(blockquote(p('a')));
+    const diff = diffDocs(oldDoc, newDoc)!;
+
+    const view = createMockView(oldDoc);
+    applyDocDiff(view as any, diff);
+
+    assert.isTrue(view.state.doc.eq(newDoc));
+    // Must have exactly 1 blockquote with 1 paragraph containing "a"
+    assert.equal(view.state.doc.childCount, 1);
+    assert.equal(view.state.doc.child(0).type.name, 'blockquote');
+    assert.equal(view.state.doc.child(0).childCount, 1);
+    assert.equal(view.state.doc.child(0).child(0).textContent, 'a');
+  });
+
+  it('should handle text insertion in bullet_list > list_item > paragraph', () => {
+    // This is the exact bug scenario: typing the first char into an empty
+    // paragraph nested inside a list. The old code inserted a list_item node
+    // inside the paragraph, creating a duplicate list item on the remote client.
+    const listSchema = new Schema({
+      nodes: addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block'),
+      marks: basicSchema.spec.marks,
+    });
+
+    const oldDoc = listSchema.node('doc', null, [
+      listSchema.node('bullet_list', null, [
+        listSchema.node('list_item', null, [
+          listSchema.node('paragraph', null),
+        ]),
+      ]),
+    ]);
+
+    const newDoc = listSchema.node('doc', null, [
+      listSchema.node('bullet_list', null, [
+        listSchema.node('list_item', null, [
+          listSchema.node('paragraph', null, [listSchema.text('a')]),
+        ]),
+      ]),
+    ]);
+
+    const diff = diffDocs(oldDoc, newDoc)!;
+    assert.isDefined(diff);
+
+    let currentState = EditorState.create({ doc: oldDoc, schema: listSchema });
+    const view = {
+      get state() {
+        return currentState;
+      },
+      dispatch(tr: any) {
+        currentState = currentState.apply(tr);
+      },
+    };
+
+    applyDocDiff(view as any, diff);
+
+    assert.isTrue(view.state.doc.eq(newDoc));
+    // Must have exactly 1 bullet_list with 1 list_item
+    const bulletList = view.state.doc.child(0);
+    assert.equal(bulletList.type.name, 'bullet_list');
+    assert.equal(bulletList.childCount, 1, 'should have 1 list_item, not 2');
+    assert.equal(bulletList.child(0).child(0).textContent, 'a');
   });
 });

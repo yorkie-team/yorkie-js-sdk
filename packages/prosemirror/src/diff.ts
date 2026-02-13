@@ -35,6 +35,11 @@ export function yorkieNodesEqual(
  * Compare two Yorkie tree nodes for structural equality,
  * ignoring text content. Used to determine if intra-block
  * character-level diffing is possible.
+ *
+ * Text containers (elements whose children are all text nodes, or
+ * that are empty) are considered structurally equivalent regardless
+ * of how many text children they have — the difference is purely
+ * text content that `findTextDiffs` can handle.
  */
 export function sameStructure(a: YorkieTreeJSON, b: YorkieTreeJSON): boolean {
   if (!a || !b) return false;
@@ -47,6 +52,16 @@ export function sameStructure(a: YorkieTreeJSON, b: YorkieTreeJSON): boolean {
 
   const aChildren = a.children || [];
   const bChildren = b.children || [];
+
+  // Text containers (all-text children or empty) differ only in text
+  // content, not structure — character-level diffing can handle them.
+  if (
+    aChildren.every((c) => c.type === 'text') &&
+    bChildren.every((c) => c.type === 'text')
+  ) {
+    return true;
+  }
+
   if (aChildren.length !== bChildren.length) return false;
   for (let i = 0; i < aChildren.length; i++) {
     if (!sameStructure(aChildren[i], bChildren[i])) return false;
@@ -55,8 +70,58 @@ export function sameStructure(a: YorkieTreeJSON, b: YorkieTreeJSON): boolean {
 }
 
 /**
+ * Compute a minimal text edit (insert/delete/replace) between two strings.
+ * Uses longest common prefix + suffix to find the changed range.
+ */
+function diffText(
+  oldText: string,
+  newText: string,
+  startIdx: number,
+  edits: Array<TextEdit>,
+): void {
+  if (oldText === newText) return;
+
+  // Find longest common prefix
+  let prefixLen = 0;
+  while (
+    prefixLen < oldText.length &&
+    prefixLen < newText.length &&
+    oldText[prefixLen] === newText[prefixLen]
+  ) {
+    prefixLen++;
+  }
+
+  // Find longest common suffix (not overlapping with prefix)
+  let oldEnd = oldText.length - 1;
+  let newEnd = newText.length - 1;
+  while (
+    oldEnd >= prefixLen &&
+    newEnd >= prefixLen &&
+    oldText[oldEnd] === newText[newEnd]
+  ) {
+    oldEnd--;
+    newEnd--;
+  }
+
+  const from = startIdx + prefixLen;
+  const to = startIdx + oldEnd + 1;
+  const insertText = newText.substring(prefixLen, newEnd + 1);
+
+  edits.push({
+    from,
+    to,
+    text: insertText.length > 0 ? insertText : undefined,
+  });
+}
+
+/**
  * Walk two structurally-identical Yorkie subtrees in parallel,
  * collecting character-level text diffs with their Yorkie flat indices.
+ *
+ * For text containers (elements with only text children, or empty),
+ * concatenates all text content and diffs as a single range. This
+ * handles the empty-to-non-empty paragraph case that previously
+ * forced a full block replacement.
  */
 export function findTextDiffs(
   oldNode: YorkieTreeJSON,
@@ -65,47 +130,23 @@ export function findTextDiffs(
   edits: Array<TextEdit>,
 ): void {
   if (oldNode.type === 'text') {
-    const oldText = oldNode.value || '';
-    const newText = newNode.value || '';
-    if (oldText === newText) return;
-
-    // Find longest common prefix
-    let prefixLen = 0;
-    while (
-      prefixLen < oldText.length &&
-      prefixLen < newText.length &&
-      oldText[prefixLen] === newText[prefixLen]
-    ) {
-      prefixLen++;
-    }
-
-    // Find longest common suffix (not overlapping with prefix)
-    let oldEnd = oldText.length - 1;
-    let newEnd = newText.length - 1;
-    while (
-      oldEnd >= prefixLen &&
-      newEnd >= prefixLen &&
-      oldText[oldEnd] === newText[newEnd]
-    ) {
-      oldEnd--;
-      newEnd--;
-    }
-
-    const from = currentIdx + prefixLen;
-    const to = currentIdx + oldEnd + 1;
-    const insertText = newText.substring(prefixLen, newEnd + 1);
-
-    edits.push({
-      from,
-      to,
-      text: insertText.length > 0 ? insertText : undefined,
-    });
+    diffText(oldNode.value || '', newNode.value || '', currentIdx, edits);
     return;
   }
 
   // Element node: recurse into children
   const oldChildren = oldNode.children || [];
   const newChildren = newNode.children || [];
+
+  // When child counts differ, both sides are text containers
+  // (guaranteed by sameStructure). Concatenate and diff as text.
+  if (oldChildren.length !== newChildren.length) {
+    const oldText = oldChildren.map((c) => c.value || '').join('');
+    const newText = newChildren.map((c) => c.value || '').join('');
+    diffText(oldText, newText, currentIdx + 1, edits);
+    return;
+  }
+
   let childIdx = currentIdx + 1; // +1 to skip element open tag
 
   for (let i = 0; i < oldChildren.length; i++) {

@@ -105,9 +105,18 @@ describe('diff', () => {
       assert.isTrue(sameStructure(a, b));
     });
 
-    it('should return false when child count differs', () => {
+    it('should return true when text child count differs (text containers)', () => {
       const a = yElem('p', [yText('a')]);
       const b = yElem('p', [yText('a'), yText('b')]);
+      assert.isTrue(sameStructure(a, b));
+    });
+
+    it('should return false when element child count differs', () => {
+      const a = yElem('p', [yElem('strong', [yText('a')])]);
+      const b = yElem('p', [
+        yElem('strong', [yText('a')]),
+        yElem('em', [yText('b')]),
+      ]);
       assert.isFalse(sameStructure(a, b));
     });
 
@@ -123,6 +132,33 @@ describe('diff', () => {
       ]);
       const b = yElem('blockquote', [
         yElem('p', [yElem('strong', [yText('zzz')])]),
+      ]);
+      assert.isTrue(sameStructure(a, b));
+    });
+
+    it('should return true for empty element vs element with text child', () => {
+      assert.isTrue(sameStructure(yElem('p', []), yElem('p', [yText('a')])));
+    });
+
+    it('should return true for element with text child vs empty element', () => {
+      assert.isTrue(sameStructure(yElem('p', [yText('a')]), yElem('p', [])));
+    });
+
+    it('should return false for empty element vs element with element child', () => {
+      assert.isFalse(
+        sameStructure(
+          yElem('p', []),
+          yElem('p', [yElem('strong', [yText('a')])]),
+        ),
+      );
+    });
+
+    it('should return true for nested empty-to-text transition', () => {
+      const a = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [])]),
+      ]);
+      const b = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [yText('a')])]),
       ]);
       assert.isTrue(sameStructure(a, b));
     });
@@ -219,6 +255,41 @@ describe('diff', () => {
       assert.equal(edits[0].to, 5);
       assert.isUndefined(edits[0].text);
     });
+
+    it('should detect insertion into empty element', () => {
+      const edits: Array<TextEdit> = [];
+      findTextDiffs(yElem('p', []), yElem('p', [yText('a')]), 0, edits);
+      assert.equal(edits.length, 1);
+      // Element open tag at 0, text position is 1
+      assert.equal(edits[0].from, 1);
+      assert.equal(edits[0].to, 1);
+      assert.equal(edits[0].text, 'a');
+    });
+
+    it('should detect deletion from element to empty', () => {
+      const edits: Array<TextEdit> = [];
+      findTextDiffs(yElem('p', [yText('abc')]), yElem('p', []), 0, edits);
+      assert.equal(edits.length, 1);
+      assert.equal(edits[0].from, 1);
+      assert.equal(edits[0].to, 4);
+      assert.isUndefined(edits[0].text);
+    });
+
+    it('should detect insertion into deeply nested empty element', () => {
+      const oldNode = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [])]),
+      ]);
+      const newNode = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [yText('a')])]),
+      ]);
+      const edits: Array<TextEdit> = [];
+      findTextDiffs(oldNode, newNode, 0, edits);
+      assert.equal(edits.length, 1);
+      // bullet_list open(0) > list_item open(1) > paragraph open(2) > text at 3
+      assert.equal(edits[0].from, 3);
+      assert.equal(edits[0].to, 3);
+      assert.equal(edits[0].text, 'a');
+    });
   });
 
   describe('tryIntraBlockDiff', () => {
@@ -312,6 +383,50 @@ describe('diff', () => {
       tryIntraBlockDiff(mockTree, oldBlock, newBlock, 0, onLog);
       assert.isTrue(onLog.mock.calls.length > 0);
       assert.equal(onLog.mock.calls[0][0], 'local');
+    });
+
+    it('should handle typing first char into empty nested paragraph', () => {
+      const editArgs: Array<[number, number, unknown]> = [];
+      const mockTree = {
+        edit(from: number, to: number, content?: YorkieTreeJSON) {
+          editArgs.push([from, to, content]);
+        },
+      };
+      // bullet_list > list_item > paragraph (empty -> 'a')
+      const oldBlock = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [])]),
+      ]);
+      const newBlock = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [yText('a')])]),
+      ]);
+      const result = tryIntraBlockDiff(mockTree, oldBlock, newBlock, 0);
+      assert.isTrue(result);
+      assert.equal(editArgs.length, 1);
+      // Insert at index 3 (after bullet_list/list_item/paragraph open tags)
+      assert.equal(editArgs[0][0], 3);
+      assert.equal(editArgs[0][1], 3);
+      assert.deepEqual(editArgs[0][2], { type: 'text', value: 'a' });
+    });
+
+    it('should handle deleting all text from nested paragraph', () => {
+      const editArgs: Array<[number, number, unknown]> = [];
+      const mockTree = {
+        edit(from: number, to: number, content?: YorkieTreeJSON) {
+          editArgs.push([from, to, content]);
+        },
+      };
+      const oldBlock = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [yText('abc')])]),
+      ]);
+      const newBlock = yElem('bullet_list', [
+        yElem('list_item', [yElem('paragraph', [])]),
+      ]);
+      const result = tryIntraBlockDiff(mockTree, oldBlock, newBlock, 0);
+      assert.isTrue(result);
+      assert.equal(editArgs.length, 1);
+      assert.equal(editArgs[0][0], 3);
+      assert.equal(editArgs[0][1], 6);
+      assert.isUndefined(editArgs[0][2]);
     });
   });
 
