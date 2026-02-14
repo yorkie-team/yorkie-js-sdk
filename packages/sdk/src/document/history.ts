@@ -21,6 +21,7 @@ import { MoveOperation } from './operation/move_operation';
 import { AddOperation } from './operation/add_operation';
 import { TimeTicket } from '../yorkie';
 import { EditOperation } from './operation/edit_operation';
+import { TreeEditOperation } from './operation/tree_edit_operation';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -179,6 +180,33 @@ export class History<P extends Indexable> {
             op.getParentCreatedAt().compare(parentCreatedAt) === 0
           ) {
             op.reconcileOperation(rangeFrom, rangeTo, contentLength);
+          }
+        }
+      }
+    };
+    replace(this.undoStack);
+    replace(this.redoStack);
+  }
+
+  /**
+   * `reconcileTreeEdit` reconciles the tree edit operation.
+   * Scan both undo/redo stacks and adjust tree edit operations
+   * when a remote edit modifies the same tree.
+   */
+  public reconcileTreeEdit(
+    parentCreatedAt: TimeTicket,
+    rangeFrom: number,
+    rangeTo: number,
+    contentSize: number,
+  ): void {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      for (const ops of stack) {
+        for (const op of ops) {
+          if (
+            op instanceof TreeEditOperation &&
+            op.getParentCreatedAt().compare(parentCreatedAt) === 0
+          ) {
+            op.reconcileOperation(rangeFrom, rangeTo, contentSize);
           }
         }
       }
