@@ -6,7 +6,7 @@ The Yorkie JavaScript SDK implements the client-side libraries.
 
 ## How to use JS SDK
 
-To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/js-sdk
+To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/sdks/js-sdk
 
 ## Contributing
 
