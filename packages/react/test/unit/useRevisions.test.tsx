@@ -51,6 +51,10 @@ const mockRevisions: Array<RevisionSummary> = [
   },
 ];
 
+/**
+ * Creates a mock document with subscribe, getRoot, getPresences, update,
+ * and applySnapshot methods for testing hooks that depend on a Yorkie document.
+ */
 const createMockDocument = () => {
   const unsubscribeFns = {
     document: vi.fn(),
@@ -82,6 +86,10 @@ const createMockDocument = () => {
   return mockDocument;
 };
 
+/**
+ * Creates a mock client with attach, detach, and revision management methods
+ * for testing hooks that depend on a Yorkie client.
+ */
 const createMockClient = () => {
   const mockClient = {
     attach: vi.fn().mockResolvedValue(undefined),
@@ -114,6 +122,8 @@ vi.mock('../../src/YorkieProvider', () => ({
 }));
 
 vi.mock('@yorkie-js/sdk', () => ({
+  // A JS constructor that returns an object overrides the default `new` instance,
+  // so `new Document(...)` will return `currentMockDocument` instead.
   Document: vi.fn(
     class {
       constructor() {
