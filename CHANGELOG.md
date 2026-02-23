@@ -7,6 +7,28 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.6.49] - 2026-02-23
+
+### Added
+
+- Add remote selection range display and vanilla-prosemirror example by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1166
+- Add fine-grained IME composition guard to prosemirror binding by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1167
+- Add undo/redo support for Text.Style operations by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1174
+- Add multi-user undo/redo support to vanilla-quill example by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1175
+- Add useRevisions hook to @yorkie-js/react for revision API by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1177
+
+### Changed
+
+- Return unwrapped primitive values from Array iterator by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1178
+
+### Fixed
+
+- Fix remote cursor jumping to next line via intra-block diffing by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1168
+- Fix cursor jump caused by text node fragmentation in downstream sync by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1169
+- Fix remote cursor not updating on local edits in prosemirror binding by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1170
+- Fix cursor focus jumping between editors on Safari by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1171
+- Fix duplicate list items in nested block sync by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1173
+
 ## [v0.6.48] - 2026-02-11
 
 ### Added
