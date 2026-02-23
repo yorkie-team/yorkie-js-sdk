@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import type { Document, JSONArray, JSONObject } from '@yorkie-js/sdk';
+import type {
+  Document,
+  JSONArray,
+  JSONObject,
+  RevisionSummary,
+} from '@yorkie-js/sdk';
 
 import { useYorkieDoc } from './useYorkieDoc';
 import { YorkieProvider } from './YorkieProvider';
@@ -24,6 +29,7 @@ import {
   useRoot,
   usePresences,
   useConnection,
+  useRevisions,
   createDocumentSelector,
 } from './DocumentProvider';
 import {
@@ -32,7 +38,7 @@ import {
   useChannelSessionCount,
 } from './ChannelProvider';
 
-export type { Document, JSONArray, JSONObject };
+export type { Document, JSONArray, JSONObject, RevisionSummary };
 export {
   YorkieProvider,
   DocumentProvider,
@@ -40,6 +46,7 @@ export {
   useRoot,
   usePresences,
   useConnection,
+  useRevisions,
   useYorkieDoc,
   createDocumentSelector,
   ChannelProvider,
