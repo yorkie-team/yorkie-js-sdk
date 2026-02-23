@@ -16,7 +16,6 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
-import { StreamConnectionStatus } from '@yorkie-js/sdk';
 import {
   DocumentProvider,
   useDocument,
@@ -62,23 +61,18 @@ const createMockDocument = () => {
   const mockDocument = {
     subscribe: vi
       .fn()
-      .mockImplementation(
-        (
-          eventTypeOrCallback?: string | (() => void),
-          callback?: () => void | ((event: any) => void),
-        ) => {
-          if (typeof eventTypeOrCallback === 'string') {
-            if (eventTypeOrCallback === 'presence') {
-              return unsubscribeFns.presence;
-            } else if (eventTypeOrCallback === 'connection') {
-              return unsubscribeFns.connection;
-            }
-            return () => {};
-          } else {
-            return unsubscribeFns.document;
+      .mockImplementation((eventTypeOrCallback?: string | (() => void)) => {
+        if (typeof eventTypeOrCallback === 'string') {
+          if (eventTypeOrCallback === 'presence') {
+            return unsubscribeFns.presence;
+          } else if (eventTypeOrCallback === 'connection') {
+            return unsubscribeFns.connection;
           }
-        },
-      ),
+          return () => {};
+        } else {
+          return unsubscribeFns.document;
+        }
+      }),
     getRoot: vi.fn(() => ({ counter: 0 })),
     getPresences: vi.fn(() => []),
     update: vi.fn(),
@@ -144,6 +138,9 @@ async function renderUseRevisions() {
     | undefined;
   let isLoading = true;
 
+  /**
+   * TestComponent is used to call useRevisions within the context of DocumentProvider.
+   */
   function TestComponent() {
     const { loading } = useDocument<TestDocumentRoot, TestPresence>();
     hookResult = useRevisions<TestDocumentRoot, TestPresence>();
@@ -307,21 +304,21 @@ describe('useRevisions', () => {
         expect(hookResult).toBeDefined();
       });
 
-      await expect(
-        hookResult!.createRevision('v1.0'),
-      ).rejects.toThrow('Client or document is not ready');
+      await expect(hookResult!.createRevision('v1.0')).rejects.toThrow(
+        'Client or document is not ready',
+      );
 
-      await expect(
-        hookResult!.listRevisions(),
-      ).rejects.toThrow('Client or document is not ready');
+      await expect(hookResult!.listRevisions()).rejects.toThrow(
+        'Client or document is not ready',
+      );
 
-      await expect(
-        hookResult!.getRevision('rev-1'),
-      ).rejects.toThrow('Client or document is not ready');
+      await expect(hookResult!.getRevision('rev-1')).rejects.toThrow(
+        'Client or document is not ready',
+      );
 
-      await expect(
-        hookResult!.restoreRevision('rev-1'),
-      ).rejects.toThrow('Client or document is not ready');
+      await expect(hookResult!.restoreRevision('rev-1')).rejects.toThrow(
+        'Client or document is not ready',
+      );
 
       currentMockClient = originalClient;
     });
