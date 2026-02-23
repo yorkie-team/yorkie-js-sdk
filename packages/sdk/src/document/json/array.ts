@@ -115,6 +115,11 @@ export type JSONArray<T> = {
   moveLast(id: TimeTicket): void;
 
   /**
+   * `elements` returns an iterator of wrapped elements including CRDT metadata.
+   */
+  elements(): IterableIterator<WrappedElement<T>>;
+
+  /**
    * `toTestString` returns a String containing the meta data of the node
    * for debugging purpose.
    */
@@ -324,6 +329,8 @@ export class ArrayProxy {
           return target.length;
         } else if (typeof method === 'symbol' && method === Symbol.iterator) {
           return ArrayProxy.iteratorInternal.bind(this, context, target);
+        } else if (method === 'elements') {
+          return ArrayProxy.wrappedIteratorInternal.bind(this, context, target);
         } else if (method === 'includes') {
           return (searchElement: JSONElement, fromIndex?: number): boolean => {
             return ArrayProxy.includes(
@@ -396,6 +403,16 @@ export class ArrayProxy {
 
   // eslint-disable-next-line jsdoc/require-jsdoc
   public static *iteratorInternal(
+    change: ChangeContext,
+    target: CRDTArray,
+  ): IterableIterator<JSONElement> {
+    for (const elem of target) {
+      yield toJSONElement(change, elem)!;
+    }
+  }
+
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  public static *wrappedIteratorInternal(
     change: ChangeContext,
     target: CRDTArray,
   ): IterableIterator<WrappedElement> {
