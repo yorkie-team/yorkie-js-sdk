@@ -16,6 +16,7 @@
 
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -27,6 +28,7 @@ import {
   Indexable,
   StreamConnectionStatus,
   Client,
+  RevisionSummary,
 } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
 import { createDocumentStore } from './createDocumentStore';
@@ -319,6 +321,66 @@ export const usePresences = <P extends Indexable = Indexable>() => {
 export const useConnection = () => {
   const documentStore = useDocumentStore('useConnection');
   return useSelector(documentStore, (store) => store.connection);
+};
+
+/**
+ * `useRevisions` is a custom hook that provides revision management methods
+ * for the current document. It wraps the client's revision API methods
+ * and automatically binds the current client and document.
+ * This hook must be used within a `DocumentProvider`.
+ */
+export const useRevisions = <R, P extends Indexable = Indexable>() => {
+  const { client } = useYorkie();
+  const documentStore = useDocumentStore('useRevisions');
+  const doc = useSelector(documentStore, (store) => store.doc) as
+    | Document<R, P>
+    | undefined;
+
+  const createRevision = useCallback(
+    async (label: string, description?: string): Promise<RevisionSummary> => {
+      if (!client || !doc) {
+        throw new Error('Client or document is not ready');
+      }
+      return client.createRevision(doc, label, description);
+    },
+    [client, doc],
+  );
+
+  const listRevisions = useCallback(
+    async (options?: {
+      pageSize?: number;
+      offset?: number;
+      isForward?: boolean;
+    }): Promise<Array<RevisionSummary>> => {
+      if (!client || !doc) {
+        throw new Error('Client or document is not ready');
+      }
+      return client.listRevisions(doc, options);
+    },
+    [client, doc],
+  );
+
+  const getRevision = useCallback(
+    async (revisionID: string): Promise<RevisionSummary> => {
+      if (!client || !doc) {
+        throw new Error('Client or document is not ready');
+      }
+      return client.getRevision(doc, revisionID);
+    },
+    [client, doc],
+  );
+
+  const restoreRevision = useCallback(
+    async (revisionID: string): Promise<void> => {
+      if (!client || !doc) {
+        throw new Error('Client or document is not ready');
+      }
+      return client.restoreRevision(doc, revisionID);
+    },
+    [client, doc],
+  );
+
+  return { createRevision, listRevisions, getRevision, restoreRevision };
 };
 
 /**

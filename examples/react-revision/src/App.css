@@ -1,0 +1,208 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  padding: 20px;
+}
+
+.app {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+h1 {
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.loading,
+.error {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+}
+
+.error {
+  color: #d32f2f;
+}
+
+.editor-container {
+  display: flex;
+  gap: 20px;
+}
+
+.editor-section {
+  flex: 1;
+}
+
+.editor {
+  width: 100%;
+  height: 400px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  outline: none;
+}
+
+.editor:focus {
+  border-color: #1976d2;
+}
+
+.revision-section {
+  width: 340px;
+  flex-shrink: 0;
+}
+
+.revision-panel {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.create-revision {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.create-revision input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.create-revision button {
+  padding: 8px 12px;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.create-revision button:disabled {
+  background: #bbb;
+  cursor: not-allowed;
+}
+
+.revision-list {
+  list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.revision-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.revision-info strong {
+  display: block;
+  font-size: 14px;
+}
+
+.revision-info p {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.revision-info small {
+  font-size: 11px;
+  color: #999;
+}
+
+.revision-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.revision-actions button {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.revision-actions button:hover {
+  background: #f0f0f0;
+}
+
+.revision-empty {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+  font-size: 13px;
+}
+
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.preview-modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.preview-modal h3 {
+  margin-bottom: 12px;
+}
+
+.preview-modal pre {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+
+.preview-modal button {
+  padding: 8px 16px;
+  background: #666;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
