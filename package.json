@@ -24,6 +24,7 @@
     "react-flow": "pnpm --filter=react-flow",
     "react-document-limit": "pnpm --filter=react-document-limit",
     "react-todomvc": "pnpm --filter=react-todomvc",
+    "react-revision": "pnpm --filter=react-revision",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
     "nextjs-todolist": "pnpm --filter=nextjs-todolist",
     "nextjs-presence": "pnpm --filter=nextjs-presence",
