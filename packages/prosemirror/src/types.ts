@@ -1,3 +1,5 @@
+import { SyncMode } from '@yorkie-js/sdk';
+
 /**
  * Maps ProseMirror mark type names to Yorkie element type names.
  * e.g., `{ strong: 'strong', em: 'em', code: 'code', link: 'link' }`
@@ -69,4 +71,8 @@ export type YorkieProseMirrorOptions = {
   cursors?: CursorOptions;
   /** Callback for sync log messages. */
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
+  /** Yorkie client instance used to pause/resume sync during IME composition. */
+  client?: {
+    changeSyncMode(doc: any, syncMode: SyncMode): Promise<any>;
+  };
 };

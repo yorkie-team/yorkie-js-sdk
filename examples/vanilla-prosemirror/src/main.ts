@@ -74,6 +74,7 @@ async function main() {
     const view = new EditorView(editorEl, { state });
 
     const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+      client,
       cursors: {
         enabled: true,
         overlayElement: cursorOverlayEl,
