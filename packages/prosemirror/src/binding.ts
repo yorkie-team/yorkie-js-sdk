@@ -1,6 +1,6 @@
 import type { EditorView } from 'prosemirror-view';
 import type { Transaction } from 'prosemirror-state';
-import { Tree } from '@yorkie-js/sdk';
+import { Tree, SyncMode } from '@yorkie-js/sdk';
 import type { MarkMapping, YorkieProseMirrorOptions } from './types';
 import { buildMarkMapping, invertMapping } from './defaults';
 import { pmToYorkie } from './convert';
@@ -42,8 +42,10 @@ export class YorkieProseMirrorBinding {
   private markMapping: MarkMapping;
   private elementToMarkMapping: Record<string, string>;
   private wrapperElementName: string;
+  private client?: { changeSyncMode(doc: any, syncMode: string): Promise<any> };
   private isSyncing = false;
   private isComposing = false;
+  private isSyncPaused = false;
   private composingBlockRange: { from: number; to: number } | undefined =
     undefined;
   private hasPendingRemoteChanges = false;
@@ -68,6 +70,7 @@ export class YorkieProseMirrorBinding {
     this.elementToMarkMapping = invertMapping(this.markMapping);
     this.wrapperElementName = options.wrapperElementName || 'span';
     this.onLog = options.onLog;
+    this.client = options.client;
 
     if (options.cursors?.enabled) {
       this.cursorManager = new CursorManager(options.cursors);
@@ -125,6 +128,7 @@ export class YorkieProseMirrorBinding {
    * Clean up all subscriptions and overrides.
    */
   destroy(): void {
+    this.resumeRemoteSync();
     this.unsubscribeDoc?.();
     this.unsubscribePresence?.();
     this.cursorManager?.destroy();
@@ -156,6 +160,7 @@ export class YorkieProseMirrorBinding {
   private onCompositionStart = (): void => {
     this.isComposing = true;
     this.composingBlockRange = this.getComposingBlockRange();
+    this.pauseRemoteSync();
   };
 
   private onCompositionEnd = (): void => {
@@ -180,6 +185,25 @@ export class YorkieProseMirrorBinding {
       pos = end;
     }
     return undefined;
+  }
+
+  private pauseRemoteSync(): void {
+    if (!this.client || this.isSyncPaused) return;
+    this.isSyncPaused = true;
+    this.client
+      .changeSyncMode(this.doc, SyncMode.RealtimeSyncOff)
+      .catch((e) => {
+        this.onLog?.('error', `Failed to pause sync: ${(e as Error).message}`);
+        this.isSyncPaused = false;
+      });
+  }
+
+  private resumeRemoteSync(): void {
+    if (!this.client || !this.isSyncPaused) return;
+    this.isSyncPaused = false;
+    this.client.changeSyncMode(this.doc, SyncMode.Realtime).catch((e) => {
+      this.onLog?.('error', `Failed to resume sync: ${(e as Error).message}`);
+    });
   }
 
   /**
@@ -209,7 +233,7 @@ export class YorkieProseMirrorBinding {
    * Flush all deferred remote changes after composition ends.
    */
   private flushPendingRemoteChanges(): void {
-    if (!this.hasPendingRemoteChanges) return;
+    if (!this.hasPendingRemoteChanges && !this.isSyncPaused) return;
     this.hasPendingRemoteChanges = false;
 
     // Wait for the browser to finish processing the compositionend event
@@ -221,6 +245,9 @@ export class YorkieProseMirrorBinding {
         this.hasPendingRemoteChanges = true;
         return;
       }
+
+      // Resume sync first so accumulated remote changes arrive
+      this.resumeRemoteSync();
 
       // Apply any accumulated remote content changes
       try {

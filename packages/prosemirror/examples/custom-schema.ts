@@ -210,6 +210,7 @@ async function main() {
 
     // 4. Create and initialize binding
     const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+      client,
       markMapping,
       cursors: {
         enabled: true,

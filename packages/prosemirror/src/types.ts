@@ -69,4 +69,8 @@ export type YorkieProseMirrorOptions = {
   cursors?: CursorOptions;
   /** Callback for sync log messages. */
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
+  /** Yorkie client instance used to pause/resume sync during IME composition. */
+  client?: {
+    changeSyncMode(doc: any, syncMode: string): Promise<any>;
+  };
 };
