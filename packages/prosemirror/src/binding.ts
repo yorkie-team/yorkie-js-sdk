@@ -42,10 +42,14 @@ export class YorkieProseMirrorBinding {
   private markMapping: MarkMapping;
   private elementToMarkMapping: Record<string, string>;
   private wrapperElementName: string;
-  private client?: { changeSyncMode(doc: any, syncMode: string): Promise<any> };
+  private client?: {
+    changeSyncMode(doc: any, syncMode: SyncMode): Promise<any>;
+  };
   private isSyncing = false;
   private isComposing = false;
   private isSyncPaused = false;
+  private desiredSyncMode: SyncMode = SyncMode.Realtime;
+  private syncModeChangeQueue: Promise<void> = Promise.resolve();
   private composingBlockRange: { from: number; to: number } | undefined =
     undefined;
   private hasPendingRemoteChanges = false;
@@ -187,23 +191,32 @@ export class YorkieProseMirrorBinding {
     return undefined;
   }
 
-  private pauseRemoteSync(): void {
-    if (!this.client || this.isSyncPaused) return;
-    this.isSyncPaused = true;
-    this.client
-      .changeSyncMode(this.doc, SyncMode.RealtimeSyncOff)
+  /**
+   * Serialize sync-mode transitions to prevent mode inversion when
+   * pause/resume are called in quick succession.
+   */
+  private setRemoteSyncMode(nextMode: SyncMode): void {
+    if (!this.client || this.desiredSyncMode === nextMode) return;
+    this.desiredSyncMode = nextMode;
+    this.syncModeChangeQueue = this.syncModeChangeQueue
+      .then(() => this.client!.changeSyncMode(this.doc, nextMode))
+      .then(() => {
+        this.isSyncPaused = nextMode === SyncMode.RealtimeSyncOff;
+      })
       .catch((e) => {
-        this.onLog?.('error', `Failed to pause sync: ${(e as Error).message}`);
-        this.isSyncPaused = false;
+        this.onLog?.(
+          'error',
+          `Failed to change sync mode: ${(e as Error).message}`,
+        );
       });
   }
 
+  private pauseRemoteSync(): void {
+    this.setRemoteSyncMode(SyncMode.RealtimeSyncOff);
+  }
+
   private resumeRemoteSync(): void {
-    if (!this.client || !this.isSyncPaused) return;
-    this.isSyncPaused = false;
-    this.client.changeSyncMode(this.doc, SyncMode.Realtime).catch((e) => {
-      this.onLog?.('error', `Failed to resume sync: ${(e as Error).message}`);
-    });
+    this.setRemoteSyncMode(SyncMode.Realtime);
   }
 
   /**
