@@ -204,6 +204,10 @@ export class YorkieProseMirrorBinding {
         this.isSyncPaused = nextMode === SyncMode.RealtimeSyncOff;
       })
       .catch((e) => {
+        // Revert desired mode to the last known effective state so callers can retry.
+        this.desiredSyncMode = this.isSyncPaused
+          ? SyncMode.RealtimeSyncOff
+          : SyncMode.Realtime;
         this.onLog?.(
           'error',
           `Failed to change sync mode: ${(e as Error).message}`,
