@@ -83,6 +83,7 @@ import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/rulese
 import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { EditOperation } from './operation/edit_operation';
+import { TreeEditOperation } from './operation/tree_edit_operation';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -1463,6 +1464,15 @@ export class Document<
           from,
           to,
           op.getContent()?.length ?? 0,
+        );
+      }
+      if (op instanceof TreeEditOperation) {
+        const [from, to] = op.normalizePos();
+        this.internalHistory.reconcileTreeEdit(
+          op.getParentCreatedAt(),
+          from,
+          to,
+          op.getContentSize(),
         );
       }
     }

@@ -30,6 +30,20 @@ import {
   OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
+
+/**
+ * `clearRemovedAt` clears the removedAt tombstone markers from a node
+ * and all its descendants, so they can be re-inserted as live nodes.
+ * Also resets visibleSize to totalSize since removal only decreases
+ * visibleSize of ancestors.
+ */
+function clearRemovedAt(node: CRDTTreeNode): void {
+  traverseAll(node, (n) => {
+    n.removedAt = undefined;
+    n.visibleSize = n.totalSize;
+  });
+}
 
 /**
  * `TreeEditOperation` is an operation representing Tree editing.
@@ -39,6 +53,11 @@ export class TreeEditOperation extends Operation {
   private toPos: CRDTTreePos;
   private contents: Array<CRDTTreeNode> | undefined;
   private splitLevel: number;
+  private isUndoOp?: boolean;
+  private fromIdx?: number;
+  private toIdx?: number;
+  private lastFromIdx?: number;
+  private lastToIdx?: number;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -47,12 +66,18 @@ export class TreeEditOperation extends Operation {
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
     executedAt: TimeTicket,
+    isUndoOp?: boolean,
+    fromIdx?: number,
+    toIdx?: number,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
     this.toPos = toPos;
     this.contents = contents;
     this.splitLevel = splitLevel;
+    this.isUndoOp = isUndoOp;
+    this.fromIdx = fromIdx;
+    this.toIdx = toIdx;
   }
 
   /**
@@ -65,6 +90,9 @@ export class TreeEditOperation extends Operation {
     contents: Array<CRDTTreeNode> | undefined,
     splitLevel: number,
     executedAt: TimeTicket,
+    isUndoOp?: boolean,
+    fromIdx?: number,
+    toIdx?: number,
   ): TreeEditOperation {
     return new TreeEditOperation(
       parentCreatedAt,
@@ -73,6 +101,9 @@ export class TreeEditOperation extends Operation {
       contents,
       splitLevel,
       executedAt,
+      isUndoOp,
+      fromIdx,
+      toIdx,
     );
   }
 
@@ -99,7 +130,22 @@ export class TreeEditOperation extends Operation {
     }
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
-    const [changes, pairs, diff] = tree.edit(
+
+    // For undo ops: convert stored integer indices to CRDTTreePos
+    if (
+      this.isUndoOp &&
+      this.fromIdx !== undefined &&
+      this.toIdx !== undefined
+    ) {
+      this.fromPos = tree.findPos(this.fromIdx);
+      if (this.fromIdx === this.toIdx) {
+        this.toPos = this.fromPos;
+      } else {
+        this.toPos = tree.findPos(this.toIdx);
+      }
+    }
+
+    const [changes, pairs, diff, removedNodes, preEditFromIdx] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
@@ -127,6 +173,22 @@ export class TreeEditOperation extends Operation {
       versionVector,
     );
 
+    // Store pre-edit from index (computed inside edit() after text-node splits
+    // but before deletions). Derive toIdx from removed nodes' visible sizes.
+    this.lastFromIdx = preEditFromIdx;
+    // For toIdx: fromIdx + total visible tokens of removed nodes
+    const removedSize = removedNodes.reduce(
+      (sum, node) => sum + node.paddedSize(),
+      0,
+    );
+    this.lastToIdx = preEditFromIdx + removedSize;
+
+    // Create reverse op (skip for splitLevel > 0 in Phase 1)
+    const reverseOp =
+      this.splitLevel === 0
+        ? this.toReverseOperation(tree, removedNodes, preEditFromIdx)
+        : undefined;
+
     root.acc(diff);
 
     for (const pair of pairs) {
@@ -148,7 +210,198 @@ export class TreeEditOperation extends Operation {
           } as OpInfo;
         },
       ),
+      reverseOp,
     };
+  }
+
+  /**
+   * `toReverseOperation` creates the reverse operation for undo.
+   *
+   * The reverse op stores both CRDTTreePos (for initial use) and integer
+   * indices (for reconciliation adjustment when remote edits arrive).
+   * At undo execution time, the integer indices take precedence and are
+   * converted to CRDTTreePos via tree.findPos().
+   *
+   * @param tree - The CRDTTree after the edit has been applied
+   * @param removedNodes - Nodes that were removed by this edit
+   * @param preEditFromIdx - The from index captured BEFORE the edit
+   */
+  private toReverseOperation(
+    tree: CRDTTree,
+    removedNodes: Array<CRDTTreeNode>,
+    preEditFromIdx: number,
+  ): Operation | undefined {
+    // Compute inserted content size (total tree index tokens)
+    const insertedContentSize = this.contents
+      ? this.contents.reduce((sum, node) => sum + node.paddedSize(), 0)
+      : 0;
+
+    // Guard: if the positions exceed the post-edit tree size,
+    // the edit was a no-op (e.g., concurrent parent deletion where inserted
+    // content was tombstoned). Skip reverse op.
+    const maxNeededIdx = preEditFromIdx + insertedContentSize;
+    if (maxNeededIdx > tree.getSize()) {
+      return undefined;
+    }
+
+    // Filter to top-level removed nodes (whose parent is NOT also removed)
+    const topLevelRemoved = removedNodes.filter(
+      (node) => !node.parent || !removedNodes.includes(node.parent),
+    );
+
+    // Deep copy for re-insertion on undo, clearing tombstone markers
+    const reverseContents =
+      topLevelRemoved.length > 0
+        ? topLevelRemoved.map((n) => {
+            const clone = n.deepcopy();
+            clearRemovedAt(clone);
+            return clone;
+          })
+        : undefined;
+
+    // Compute CRDTTreePos for the reverse range using findPos on the
+    // post-edit tree with the pre-edit from index.
+    const reverseFromPos = tree.findPos(preEditFromIdx);
+
+    let reverseToPos: CRDTTreePos;
+    if (insertedContentSize > 0) {
+      reverseToPos = tree.findPos(preEditFromIdx + insertedContentSize);
+    } else {
+      reverseToPos = reverseFromPos;
+    }
+
+    // Integer indices for the reverse op (used by reconciliation)
+    const reverseFromIdx = preEditFromIdx;
+    const reverseToIdx = preEditFromIdx + insertedContentSize;
+
+    return TreeEditOperation.create(
+      this.getParentCreatedAt(),
+      reverseFromPos,
+      reverseToPos,
+      reverseContents,
+      0, // splitLevel always 0
+      undefined!, // executedAt set during undo
+      true, // isUndoOp
+      reverseFromIdx,
+      reverseToIdx,
+    );
+  }
+
+  /**
+   * `normalizePos` returns the visible-index range of this operation.
+   * For undo ops, returns the stored (possibly reconciled) indices.
+   * For forward ops, returns the pre-edit indices captured during execute().
+   */
+  public normalizePos(): [number, number] {
+    if (
+      this.isUndoOp &&
+      this.fromIdx !== undefined &&
+      this.toIdx !== undefined
+    ) {
+      return [this.fromIdx, this.toIdx];
+    }
+
+    if (this.lastFromIdx !== undefined && this.lastToIdx !== undefined) {
+      return [this.lastFromIdx, this.lastToIdx];
+    }
+
+    // Fallback: no indices available
+    return [0, 0];
+  }
+
+  /**
+   * `reconcileOperation` adjusts this undo operation's integer indices
+   * when a remote edit modifies the same tree. Uses the same 6-case
+   * overlap logic as EditOperation.reconcileOperation for Text.
+   */
+  public reconcileOperation(
+    remoteFrom: number,
+    remoteTo: number,
+    contentLen: number,
+  ): void {
+    if (!this.isUndoOp) {
+      return;
+    }
+    if (this.fromIdx === undefined || this.toIdx === undefined) {
+      return;
+    }
+    if (remoteFrom > remoteTo) {
+      return;
+    }
+
+    const remoteRangeLen = remoteTo - remoteFrom;
+    const localFrom = this.fromIdx;
+    const localTo = this.toIdx;
+
+    const apply = (na: number, nb: number) => {
+      this.fromIdx = Math.max(0, na);
+      this.toIdx = Math.max(0, nb);
+    };
+
+    // Case 1: Remote edit is to the left of undo range
+    // [--remote--]  [--undo--]
+    if (remoteTo <= localFrom) {
+      apply(
+        localFrom - remoteRangeLen + contentLen,
+        localTo - remoteRangeLen + contentLen,
+      );
+      return;
+    }
+
+    // Case 2: Remote edit is to the right of undo range
+    // [--undo--]  [--remote--]
+    if (localTo <= remoteFrom) {
+      return;
+    }
+
+    // Case 3: Undo range is contained within remote range
+    // [-------remote-------]
+    //      [--undo--]
+    if (
+      remoteFrom <= localFrom &&
+      localTo <= remoteTo &&
+      remoteFrom !== remoteTo
+    ) {
+      apply(remoteFrom, remoteFrom);
+      return;
+    }
+
+    // Case 4: Remote range is contained within undo range
+    //      [--remote--]
+    // [---------undo---------]
+    if (
+      localFrom <= remoteFrom &&
+      remoteTo <= localTo &&
+      localFrom !== localTo
+    ) {
+      apply(localFrom, localTo - remoteRangeLen + contentLen);
+      return;
+    }
+
+    // Case 5: Remote range overlaps the start of undo range
+    // [---remote---]
+    //      [---undo---]
+    if (remoteFrom < localFrom && localFrom < remoteTo && remoteTo < localTo) {
+      apply(remoteFrom, remoteFrom + (localTo - remoteTo));
+      return;
+    }
+
+    // Case 6: Remote range overlaps the end of undo range
+    //      [---remote---]
+    // [---undo---]
+    if (localFrom < remoteFrom && remoteFrom < localTo && localTo < remoteTo) {
+      apply(localFrom, remoteFrom);
+      return;
+    }
+  }
+
+  /**
+   * `getContentSize` returns the total visible size of this operation's
+   * content (for reconciliation).
+   */
+  public getContentSize(): number {
+    if (!this.contents) return 0;
+    return this.contents.reduce((sum, node) => sum + node.paddedSize(), 0);
   }
 
   /**

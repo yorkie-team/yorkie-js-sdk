@@ -1107,7 +1107,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize] {
+  ): [Array<TreeChange>, Array<GCPair>, DataSize, Array<CRDTTreeNode>, number] {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
@@ -1285,7 +1285,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs, diff];
+    return [changes, pairs, diff, nodesToBeRemoved, fromIdx];
   }
 
   /**
@@ -1298,7 +1298,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: () => TimeTicket,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize] {
+  ): [Array<TreeChange>, Array<GCPair>, DataSize, Array<CRDTTreeNode>, number] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
     return this.edit(
