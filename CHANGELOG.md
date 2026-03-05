@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.0] - 2026-03-05
+
+### Added
+
+- Add undo/redo support for Tree.Edit operations (Phase 1) by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1176
+
+### Fixed
+
+- Fix Korean IME composition breakage by pausing sync during composition by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1179
+
 ## [v0.6.49] - 2026-02-23
 
 ### Added
