@@ -23,6 +23,8 @@ import {
   LiteralContext,
   PrimitiveTypeContext,
   PropertySignatureContext,
+  TreeNodeDefContext,
+  TreeNodePropContext,
   TypeAliasDeclarationContext,
   TypeReferenceContext,
   YorkieSchemaParser,
@@ -148,6 +150,8 @@ export class RulesetBuilder implements YorkieSchemaListener {
   private unionContext:
     | { values: Array<string | number | boolean> }
     | undefined = undefined;
+  private treeNodes: Array<TreeNodeRule> = [];
+  private currentTreeNodeProps: TreeNodeRule | undefined = undefined;
 
   /**
    * `enterTypeAliasDeclaration` is called when entering a type alias declaration.
@@ -201,8 +205,51 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterYorkieType` is called when entering a Yorkie type.
    */
   enterYorkieType(ctx: YorkieTypeContext) {
-    const yorkieType = ctx.text as YorkieType;
+    // When tree schema body is present, ctx.text includes the full
+    // `yorkie.Tree<{...}>` text. Extract just the base type name.
+    let typeText = ctx.text;
+    const angleBracketIndex = typeText.indexOf('<');
+    if (angleBracketIndex !== -1) {
+      typeText = typeText.substring(0, angleBracketIndex);
+    }
+    const yorkieType = typeText as YorkieType;
+
+    if (ctx.treeSchemaBody()) {
+      this.treeNodes = [];
+    }
+
     this.typeStack.push({ kind: 'yorkie', yorkieType });
+  }
+
+  /**
+   * `enterTreeNodeDef` is called when entering a tree node definition.
+   */
+  enterTreeNodeDef(ctx: TreeNodeDefContext) {
+    this.currentTreeNodeProps = {
+      nodeType: ctx.Identifier().text,
+      content: '',
+      marks: '',
+      group: '',
+    };
+  }
+
+  /**
+   * `exitTreeNodeDef` is called when exiting a tree node definition.
+   */
+  exitTreeNodeDef() {
+    this.treeNodes.push(this.currentTreeNodeProps!);
+    this.currentTreeNodeProps = undefined;
+  }
+
+  /**
+   * `enterTreeNodeProp` is called when entering a tree node property.
+   */
+  enterTreeNodeProp(ctx: TreeNodePropContext) {
+    const key = ctx.Identifier().text;
+    const value = ctx.StringLiteral().text.slice(1, -1); // Remove quotes
+    if (key === 'content') this.currentTreeNodeProps!.content = value;
+    else if (key === 'marks') this.currentTreeNodeProps!.marks = value;
+    else if (key === 'group') this.currentTreeNodeProps!.group = value;
   }
 
   /**
@@ -336,12 +383,15 @@ export class RulesetBuilder implements YorkieSchemaListener {
         });
         break;
 
-      case 'yorkie':
-        rules.push({
-          path,
-          type: typeDef.yorkieType,
-        });
+      case 'yorkie': {
+        const rule: YorkieTypeRule = { path, type: typeDef.yorkieType };
+        if (typeDef.yorkieType === 'yorkie.Tree' && this.treeNodes?.length) {
+          rule.treeNodes = [...this.treeNodes];
+          this.treeNodes = [];
+        }
+        rules.push(rule);
         break;
+      }
 
       case 'array': {
         const arrayRule: ArrayRule = {

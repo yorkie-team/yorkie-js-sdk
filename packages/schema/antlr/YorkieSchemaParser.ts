@@ -878,39 +878,16 @@ export class YorkieSchemaParser extends Parser {
 		this.enterRule(_localctx, 30, YorkieSchemaParser.RULE_treeSchemaBody);
 		let _la: number;
 		try {
-			let _alt: number;
 			this.enterOuterAlt(_localctx, 1);
 			{
-			this.state = 166;
-			this.treeNodeDef();
-			this.state = 171;
-			this._errHandler.sync(this);
-			_alt = this.interpreter.adaptivePredict(this._input, 16, this._ctx);
-			while (_alt !== 2 && _alt !== ATN.INVALID_ALT_NUMBER) {
-				if (_alt === 1) {
-					{
-					{
-					this.state = 167;
-					this.match(YorkieSchemaParser.T__28);
-					this.state = 168;
-					this.treeNodeDef();
-					}
-					}
-				}
-				this.state = 173;
-				this._errHandler.sync(this);
-				_alt = this.interpreter.adaptivePredict(this._input, 16, this._ctx);
-			}
-			this.state = 175;
-			this._errHandler.sync(this);
+			this.match(YorkieSchemaParser.T__19); // '{'
 			_la = this._input.LA(1);
-			if (_la === YorkieSchemaParser.T__28) {
-				{
-				this.state = 174;
-				this.match(YorkieSchemaParser.T__28);
-				}
+			while (_la === YorkieSchemaParser.Identifier) {
+				this.treeNodeDef();
+				this.match(YorkieSchemaParser.T__2); // ';'
+				_la = this._input.LA(1);
 			}
-
+			this.match(YorkieSchemaParser.T__20); // '}'
 			}
 		}
 		catch (re) {

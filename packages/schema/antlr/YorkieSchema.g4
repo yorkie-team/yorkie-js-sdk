@@ -82,7 +82,7 @@ yorkieType
     ;
 
 treeSchemaBody
-    : treeNodeDef (',' treeNodeDef)* ','?
+    : '{' (treeNodeDef ';')* '}'
     ;
 
 treeNodeDef
