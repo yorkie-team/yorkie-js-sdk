@@ -31,6 +31,7 @@ import { YorkieSchemaListener } from '../antlr/YorkieSchemaListener';
 import {
   TypeAliasDeclarationContext,
   TypeReferenceContext,
+  TreeNodeDefContext,
 } from '../antlr/YorkieSchemaParser';
 import { ParseTreeWalker } from 'antlr4ts/tree';
 
@@ -71,6 +72,7 @@ export type Diagnostic = {
 export class TypeCollectorListener implements YorkieSchemaListener {
   private symbol: string | undefined = undefined;
   private properties: Set<string> | undefined = undefined;
+  private treeNodeNames: Set<string> | undefined = undefined;
 
   public symbolMap: Map<string, TypeSymbol> = new Map();
   public referenceMap: Map<string, TypeReference> = new Map();
@@ -130,6 +132,38 @@ export class TypeCollectorListener implements YorkieSchemaListener {
     }
 
     this.properties?.add(typeName);
+  }
+
+  /**
+   * `enterTreeSchemaBody` is called when entering a tree schema body.
+   */
+  enterTreeSchemaBody() {
+    this.treeNodeNames = new Set();
+  }
+
+  /**
+   * `exitTreeSchemaBody` is called when exiting a tree schema body.
+   */
+  exitTreeSchemaBody() {
+    this.treeNodeNames = undefined;
+  }
+
+  /**
+   * `enterTreeNodeDef` is called when entering a tree node definition.
+   */
+  enterTreeNodeDef(ctx: TreeNodeDefContext) {
+    const nodeName = ctx.Identifier().text;
+    const { line, charPositionInLine } = ctx.Identifier().symbol;
+
+    if (this.treeNodeNames?.has(nodeName)) {
+      this.errors.push({
+        message: `Duplicate tree node type definition: ${nodeName}`,
+        line,
+        column: charPositionInLine,
+      });
+    }
+
+    this.treeNodeNames?.add(nodeName);
   }
 
   /**
