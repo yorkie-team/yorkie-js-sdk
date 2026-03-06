@@ -1552,12 +1552,20 @@ function fromElement(pbElement: PbJSONElement): CRDTElement {
  * `fromSchemaRules` converts the given Protobuf format to model format.
  */
 function fromSchemaRules(pbRules: Array<PbRule>): Array<Rule> {
-  // TODO(chacha912): Need to consider fields other than type and path.
   return pbRules.map((pbRule) => {
-    return {
+    const rule: Record<string, unknown> = {
       path: pbRule.path,
       type: pbRule.type,
-    } as Rule;
+    };
+    if (pbRule.treeNodes && pbRule.treeNodes.length > 0) {
+      rule.treeNodes = pbRule.treeNodes.map((tn) => ({
+        nodeType: tn.nodeType,
+        content: tn.content,
+        marks: tn.marks,
+        group: tn.group,
+      }));
+    }
+    return rule as Rule;
   });
 }
 

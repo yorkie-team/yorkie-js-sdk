@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tree Schema Example</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .tree-schema {
+        margin: 1rem;
+        font-family: monospace;
+      }
+      .tree-schema button {
+        margin: 4px;
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #f5f5f5;
+      }
+      .tree-schema button:hover {
+        background: #e0e0e0;
+      }
+      .tree-schema button.valid {
+        border-color: #4caf50;
+      }
+      .tree-schema button.invalid {
+        border-color: #f44336;
+      }
+      .error-holder {
+        color: red;
+        margin: 10px 1rem;
+        font-family: monospace;
+        white-space: pre-wrap;
+      }
+      .schema-info {
+        margin: 1rem;
+        padding: 12px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        white-space: pre;
+      }
+      #tree-xml {
+        margin: 1rem;
+        padding: 12px;
+        background: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div id="network-status"></div>
+      <div id="online-clients"></div>
+
+      <div class="schema-info">Schema: yorkie.Tree&lt;{
+  doc:       { content: "block+"; }
+  paragraph: { content: "text*"; marks: "bold italic"; group: "block"; }
+  heading:   { content: "text*"; marks: "bold";        group: "block"; }
+  text:      {}
+}&gt;</div>
+
+      <div class="tree-schema">
+        Valid operations:
+        <button class="valid" id="btn-add-paragraph">Add paragraph</button>
+        <button class="valid" id="btn-add-heading">Add heading</button>
+        <button class="valid" id="btn-edit-text">Edit first text</button>
+      </div>
+      <div class="tree-schema">
+        Invalid operations (schema violation):
+        <button class="invalid" id="btn-add-unknown">Add &lt;div&gt; node</button>
+        <button class="invalid" id="btn-text-under-doc">Add text under doc</button>
+      </div>
+
+      <div class="error-holder" id="error-holder"></div>
+      <div id="tree-xml"></div>
+      <pre style="white-space: pre-wrap" id="log-holder"></pre>
+    </div>
+    <script type="module">
+      import './src/yorkie.ts';
+      import Network from './devtool/network.js';
+
+      const statusHolder = document.getElementById('network-status');
+      const onlineClientsHolder = document.getElementById('online-clients');
+      const logHolder = document.getElementById('log-holder');
+      const errorHolder = document.getElementById('error-holder');
+      const treeXmlHolder = document.getElementById('tree-xml');
+
+      function displayOnlineClients(presences, myClientID) {
+        const usernames = [];
+        for (const { clientID, presence } of presences) {
+          usernames.push(
+            clientID === myClientID ? `<b>${clientID}</b>` : clientID,
+          );
+        }
+        onlineClientsHolder.innerHTML = JSON.stringify(usernames);
+      }
+
+      function updateTreeDisplay(doc) {
+        try {
+          const tree = doc.getRoot().content;
+          if (tree) {
+            treeXmlHolder.textContent = 'Tree XML: ' + tree.toXML();
+          }
+        } catch (e) {
+          // tree may not be ready
+        }
+        logHolder.innerHTML = JSON.stringify(doc.getRoot().toJS(), null, 2);
+      }
+
+      async function main() {
+        try {
+          const client = new yorkie.Client({
+            rpcAddr: 'http://localhost:8080',
+          });
+          await client.activate();
+
+          const doc = new yorkie.Document('tree-schema');
+          doc.subscribe('connection', new Network(statusHolder).statusListener);
+          doc.subscribe('presence', (event) => {
+            if (event.type === 'presence-changed') return;
+            displayOnlineClients(doc.getPresences(), client.getID());
+          });
+          doc.subscribe((event) => {
+            updateTreeDisplay(doc);
+          });
+
+          // Attach with tree schema.
+          // NOTE: The schema 'tree-test@1' must be created on the server
+          // beforehand with the matching TreeNodeRules.
+          await client.attach(doc, {
+            schema: 'tree-test@1',
+          });
+
+          // Initialize tree with valid structure: doc > paragraph > text
+          doc.update((root) => {
+            if (!root.content) {
+              root.content = new yorkie.Tree({
+                type: 'doc',
+                children: [
+                  {
+                    type: 'paragraph',
+                    children: [{ type: 'text', value: 'Hello, Tree Schema!' }],
+                  },
+                ],
+              });
+            }
+          }, 'initialize tree');
+
+          updateTreeDisplay(doc);
+
+          // ── Valid operations ──
+
+          document
+            .getElementById('btn-add-paragraph')
+            .addEventListener('click', () => {
+              try {
+                errorHolder.textContent = '';
+                doc.update((root) => {
+                  const tree = root.content;
+                  const size = tree.getSize();
+                  tree.edit(size, size, {
+                    type: 'paragraph',
+                    children: [{ type: 'text', value: 'New paragraph' }],
+                  });
+                });
+              } catch (e) {
+                errorHolder.textContent = e.message;
+              }
+            });
+
+          document
+            .getElementById('btn-add-heading')
+            .addEventListener('click', () => {
+              try {
+                errorHolder.textContent = '';
+                doc.update((root) => {
+                  const tree = root.content;
+                  tree.edit(0, 0, {
+                    type: 'heading',
+                    children: [{ type: 'text', value: 'New heading' }],
+                  });
+                });
+              } catch (e) {
+                errorHolder.textContent = e.message;
+              }
+            });
+
+          document
+            .getElementById('btn-edit-text')
+            .addEventListener('click', () => {
+              try {
+                errorHolder.textContent = '';
+                doc.update((root) => {
+                  const tree = root.content;
+                  tree.edit(2, 2, { type: 'text', value: ' [edited]' });
+                });
+              } catch (e) {
+                errorHolder.textContent = e.message;
+              }
+            });
+
+          // ── Invalid operations (schema violation) ──
+
+          document
+            .getElementById('btn-add-unknown')
+            .addEventListener('click', () => {
+              try {
+                errorHolder.textContent = '';
+                doc.update((root) => {
+                  const tree = root.content;
+                  tree.edit(0, 0, {
+                    type: 'div',
+                    children: [{ type: 'text', value: 'unknown node' }],
+                  });
+                });
+              } catch (e) {
+                errorHolder.textContent = e.message;
+              }
+            });
+
+          document
+            .getElementById('btn-text-under-doc')
+            .addEventListener('click', () => {
+              try {
+                errorHolder.textContent = '';
+                doc.update((root) => {
+                  const tree = root.content;
+                  tree.edit(0, 0, {
+                    type: 'text',
+                    value: 'text directly under doc',
+                  });
+                });
+              } catch (e) {
+                errorHolder.textContent = e.message;
+              }
+            });
+        } catch (e) {
+          console.error(e);
+          errorHolder.textContent = e.message;
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>
