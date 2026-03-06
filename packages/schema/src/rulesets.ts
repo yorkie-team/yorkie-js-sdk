@@ -85,8 +85,16 @@ export type ArrayRule = {
   };
 } & RuleBase;
 
+export type TreeNodeRule = {
+  nodeType: string;
+  content: string;
+  marks: string;
+  group: string;
+};
+
 export type YorkieTypeRule = {
   type: YorkieType;
+  treeNodes?: Array<TreeNodeRule>;
 } & RuleBase;
 
 export type EnumRule = {
