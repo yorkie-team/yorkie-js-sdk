@@ -219,7 +219,13 @@ export class RulesetBuilder implements YorkieSchemaListener {
       this.treeNodes = [];
     }
 
-    this.typeStack.push({ kind: 'yorkie', yorkieType });
+    // Mark that a tree schema body was explicitly provided (even if empty),
+    // so `yorkie.Tree<{}>` is distinguishable from plain `yorkie.Tree`.
+    this.typeStack.push({
+      kind: 'yorkie',
+      yorkieType,
+      treeNodes: ctx.treeSchemaBody() ? [] : undefined,
+    });
   }
 
   /**
@@ -227,9 +233,13 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * Captures collected treeNodes onto the type definition.
    */
   exitYorkieType() {
-    if (this.treeNodes.length > 0 && this.typeStack.length > 0) {
+    if (this.typeStack.length > 0) {
       const top = this.typeStack[this.typeStack.length - 1];
-      if (top.kind === 'yorkie' && top.yorkieType === 'yorkie.Tree') {
+      if (
+        top.kind === 'yorkie' &&
+        top.yorkieType === 'yorkie.Tree' &&
+        top.treeNodes !== undefined
+      ) {
         top.treeNodes = [...this.treeNodes];
       }
       this.treeNodes = [];
@@ -403,7 +413,10 @@ export class RulesetBuilder implements YorkieSchemaListener {
 
       case 'yorkie': {
         const rule: YorkieTypeRule = { path, type: typeDef.yorkieType };
-        if (typeDef.yorkieType === 'yorkie.Tree' && typeDef.treeNodes?.length) {
+        if (
+          typeDef.yorkieType === 'yorkie.Tree' &&
+          typeDef.treeNodes !== undefined
+        ) {
           rule.treeNodes = [...typeDef.treeNodes];
         }
         rules.push(rule);
