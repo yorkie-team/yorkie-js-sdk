@@ -26,9 +26,9 @@ import {
  */
 export type TreeNodeRuleInput = {
   nodeType: string;
-  content: string;
-  marks: string;
-  group: string;
+  content?: string;
+  marks?: string;
+  group?: string;
 };
 
 /**

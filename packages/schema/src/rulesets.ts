@@ -89,9 +89,9 @@ export type ArrayRule = {
 
 export type TreeNodeRule = {
   nodeType: string;
-  content: string;
-  marks: string;
-  group: string;
+  content?: string;
+  marks?: string;
+  group?: string;
 };
 
 export type YorkieTypeRule = {
@@ -250,12 +250,11 @@ export class RulesetBuilder implements YorkieSchemaListener {
    * `enterTreeNodeDef` is called when entering a tree node definition.
    */
   enterTreeNodeDef(ctx: TreeNodeDefContext) {
-    this.currentTreeNodeProps = {
-      nodeType: ctx.Identifier().text,
-      content: '',
-      marks: '',
-      group: '',
-    };
+    const nodeType = ctx.Identifier().text;
+    if (this.treeNodes.some((node) => node.nodeType === nodeType)) {
+      throw new Error(`Duplicate tree node definition: "${nodeType}"`);
+    }
+    this.currentTreeNodeProps = { nodeType };
   }
 
   /**
