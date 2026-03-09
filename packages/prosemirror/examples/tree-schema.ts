@@ -12,35 +12,12 @@ import {
 // This defines the schema that will be registered on the Yorkie server.
 // ProseMirror marks (strong, em, code) become element nodes in the Yorkie tree,
 // and bare text mixed with marks gets wrapped in <span> elements.
+//
+// The tree schema must be created server-side before running this example.
+// See: scripts/setup-tree-schema.ts
 const schemaName = 'pm-tree-schema';
 const schemaVersion = 2;
 const schemaKey = `${schemaName}@${schemaVersion}`;
-const schemaBody = 'type Document = {tree: yorkie.Tree;};';
-const treeNodeRules = [
-  { nodeType: 'doc', content: 'block+', marks: '', group: '' },
-  {
-    nodeType: 'paragraph',
-    content: '(text | span | strong | em | code)*',
-    marks: '',
-    group: 'block',
-  },
-  {
-    nodeType: 'heading',
-    content: '(text | span | strong | em)*',
-    marks: '',
-    group: 'block',
-  },
-  { nodeType: 'span', content: 'text*', marks: '', group: '' },
-  { nodeType: 'strong', content: '(text | em | code)*', marks: '', group: '' },
-  {
-    nodeType: 'em',
-    content: '(text | strong | code)*',
-    marks: '',
-    group: '',
-  },
-  { nodeType: 'code', content: 'text*', marks: '', group: '' },
-  { nodeType: 'text', content: '', marks: '', group: '' },
-];
 
 // ── ProseMirror Schema ─────────────────────────────────────────
 const mySchema = new Schema({
@@ -179,105 +156,29 @@ const initialDoc = mySchema.node('doc', null, [
   ]),
 ]);
 
-// ── Admin API helpers for schema setup ─────────────────────────
-
-/** Send a POST request to the Yorkie admin API. */
-async function adminPost(path: string, body: object, authHeader?: string) {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (authHeader) {
-    headers['authorization'] = authHeader;
-  }
-  const res = await fetch(`${rpcAddr}/${path}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let msg = text;
-    try {
-      msg = JSON.parse(text).message || text;
-    } catch {
-      // use raw text
-    }
-    throw new Error(msg);
-  }
-  return res.json();
-}
-
-/** Create the tree schema on the Yorkie server via admin API. */
-async function createSchemaOnServer(): Promise<void> {
-  const btn = document.getElementById('setup-btn') as HTMLButtonElement;
-  const resultEl = document.getElementById('setup-result')!;
-  btn.disabled = true;
-  btn.textContent = 'Creating...';
-  resultEl.textContent = '';
-
-  try {
-    // 1. Login to get admin token
-    const loginRes = await adminPost('yorkie.v1.AdminService/LogIn', {
-      username: 'admin',
-      password: 'admin',
-    });
-    const token = loginRes.token;
-
-    // 2. Get default project's secret key
-    const projRes = await adminPost(
-      'yorkie.v1.AdminService/GetProject',
-      { name: 'default' },
-      `Bearer ${token}`,
-    );
-    const secretKey = projRes.project.secretKey;
-
-    // 3. Create schema with project API key
-    await adminPost(
-      'yorkie.v1.AdminService/CreateSchema',
-      {
-        schema_name: schemaName,
-        schema_version: schemaVersion,
-        schema_body: schemaBody,
-        rules: [
-          {
-            path: '$.tree',
-            type: 'yorkie.Tree',
-            tree_nodes: treeNodeRules.map((r) => ({
-              node_type: r.nodeType,
-              content: r.content,
-              marks: r.marks,
-              group: r.group,
-            })),
-          },
-        ],
-      },
-      `API-Key ${secretKey}`,
-    );
-
-    resultEl.style.color = '#155724';
-    resultEl.textContent = `Schema "${schemaKey}" created successfully! Reloading...`;
-    setTimeout(() => window.location.reload(), 1000);
-  } catch (e) {
-    const msg = (e as Error).message;
-    if (msg.includes('already exists')) {
-      resultEl.style.color = '#155724';
-      resultEl.textContent = `Schema "${schemaKey}" already exists. Reloading...`;
-      setTimeout(() => window.location.reload(), 1000);
-    } else {
-      resultEl.style.color = '#721c24';
-      resultEl.textContent = `Failed: ${msg}`;
-      btn.disabled = false;
-      btn.textContent = 'Retry';
-    }
-  }
-}
+// ── Schema setup guide ──────────────────────────────────────────
+// Schema creation requires admin credentials and should NOT be done from
+// browser-side code. Use the setup script instead:
+//
+//   npx ts-node scripts/setup-tree-schema.ts
+//
+// Or create the schema via the Yorkie CLI / dashboard before running
+// this example.
 
 /** Display the schema setup guide when schema is not found. */
 function showSetupGuide(errorMsg: string) {
   setupEl.style.display = 'block';
   document.getElementById('setup-error-detail')!.textContent = errorMsg;
-  document.getElementById('setup-btn')!.addEventListener('click', () => {
-    createSchemaOnServer();
+
+  const btn = document.getElementById('setup-btn') as HTMLButtonElement;
+  btn.textContent = 'See Setup Instructions';
+  btn.addEventListener('click', () => {
+    const resultEl = document.getElementById('setup-result')!;
+    resultEl.style.color = '#856404';
+    resultEl.textContent =
+      `Schema "${schemaKey}" must be created server-side. ` +
+      `Run: npx ts-node scripts/setup-tree-schema.ts ` +
+      `or create it via the Yorkie dashboard.`;
   });
 }
 

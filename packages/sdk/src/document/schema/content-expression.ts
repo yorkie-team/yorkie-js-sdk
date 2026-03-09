@@ -44,7 +44,7 @@ function tokenize(expr: string): Array<Token> {
   const tokens: Array<Token> = [];
   let i = 0;
   while (i < expr.length) {
-    if (expr[i] === ' ') {
+    if (/\s/.test(expr[i])) {
       i++;
       continue;
     }
@@ -74,6 +74,10 @@ function tokenize(expr: string): Array<Token> {
       }
       if (name) {
         tokens.push({ type: 'name', value: name });
+      } else {
+        throw new Error(
+          `Unexpected character '${expr[i]}' at position ${i} in content expression`,
+        );
       }
     }
   }
@@ -155,10 +159,20 @@ function parseAtom(
   tokens: Array<Token>,
   pos: number,
 ): { expr: ContentExpr; pos: number } {
+  if (pos >= tokens.length) {
+    throw new Error('Unexpected end of content expression');
+  }
   if (tokens[pos].type === 'lparen') {
     const result = parseAlternatives(tokens, pos + 1);
-    // Skip the closing ')'
+    if (result.pos >= tokens.length || tokens[result.pos]?.type !== 'rparen') {
+      throw new Error('Unmatched parenthesis in content expression');
+    }
     return { expr: result.expr, pos: result.pos + 1 };
+  }
+  if (tokens[pos].type !== 'name') {
+    throw new Error(
+      `Expected node type name but got '${tokens[pos].value}' in content expression`,
+    );
   }
   return { expr: { type: 'node', nodeType: tokens[pos].value }, pos: pos + 1 };
 }
@@ -176,69 +190,90 @@ function parseAtom(
  *   - `"block+"` -> 1+ nodes from "block" group (resolved via groupResolver)
  */
 export function parseContentExpression(expr: string): ContentExpr {
-  const tokens = tokenize(expr.trim());
+  const trimmed = expr.trim();
+  if (trimmed.length === 0) {
+    return { type: 'sequence', children: [] };
+  }
+  const tokens = tokenize(trimmed);
   const result = parseAlternatives(tokens, 0);
+  if (result.pos < tokens.length) {
+    throw new Error(
+      `Unexpected token '${tokens[result.pos].value}' at position ${result.pos} in content expression`,
+    );
+  }
   return result.expr;
 }
 
 /**
- * `matchExpr` attempts to match child types starting at `pos` against
- * the given expression. Returns the new position after matching, or
- * `undefined` if matching fails.
+ * `matchExpr` attempts to match child types starting at any of the given
+ * positions against the expression. Returns the set of all reachable
+ * positions after matching, enabling backtracking for ambiguous expressions
+ * like `a* a`.
  */
 function matchExpr(
   expr: ContentExpr,
   types: Array<string>,
-  pos: number,
+  positions: Set<number>,
   resolver: (name: string) => Array<string>,
-): number | undefined {
+): Set<number> {
   switch (expr.type) {
     case 'node': {
       const allowed = resolver(expr.nodeType!);
-      if (pos < types.length && allowed.includes(types[pos])) {
-        return pos + 1;
+      const result = new Set<number>();
+      for (const pos of positions) {
+        if (pos < types.length && allowed.includes(types[pos])) {
+          result.add(pos + 1);
+        }
       }
-      return undefined;
+      return result;
     }
     case 'sequence': {
-      let current: number | undefined = pos;
+      let current = positions;
       for (const child of expr.children!) {
         current = matchExpr(child, types, current, resolver);
-        if (current === undefined) {
-          return undefined;
+        if (current.size === 0) {
+          return current;
         }
       }
       return current;
     }
     case 'alternative': {
+      const result = new Set<number>();
       for (const child of expr.children!) {
-        const result = matchExpr(child, types, pos, resolver);
-        if (result !== undefined) {
-          return result;
+        for (const pos of matchExpr(child, types, positions, resolver)) {
+          result.add(pos);
         }
       }
-      return undefined;
+      return result;
     }
     case 'repeat': {
       const min = expr.min ?? 0;
       const max = expr.max ?? Infinity;
-      let current = pos;
-      let count = 0;
-      while (count < max) {
-        const result = matchExpr(expr.children![0], types, current, resolver);
-        if (result === undefined || result === current) {
-          break;
+      // Collect all positions reachable with 0..max repetitions
+      let current = positions;
+      const reachable = new Set<number>();
+      if (min === 0) {
+        for (const p of current) reachable.add(p);
+      }
+      for (let count = 1; count <= max; count++) {
+        const next = matchExpr(expr.children![0], types, current, resolver);
+        // Remove positions we've already seen to avoid infinite loops
+        const newPositions = new Set<number>();
+        for (const p of next) {
+          if (!reachable.has(p) || count < min) {
+            newPositions.add(p);
+          }
         }
-        current = result;
-        count++;
+        if (newPositions.size === 0) break;
+        current = newPositions;
+        if (count >= min) {
+          for (const p of current) reachable.add(p);
+        }
       }
-      if (count < min) {
-        return undefined;
-      }
-      return current;
+      return reachable;
     }
   }
-  return undefined;
+  return new Set();
 }
 
 /**
@@ -254,15 +289,15 @@ export function matchContentExpression(
   childTypes: Array<string>,
   groupResolver: (name: string) => Array<string>,
 ): { valid: boolean; error?: string } {
-  const result = matchExpr(expr, childTypes, 0, groupResolver);
-  if (result === undefined) {
+  const positions = matchExpr(expr, childTypes, new Set([0]), groupResolver);
+  if (positions.has(childTypes.length)) {
+    return { valid: true };
+  }
+  if (positions.size === 0) {
     return { valid: false, error: 'Children do not match content expression' };
   }
-  if (result < childTypes.length) {
-    return {
-      valid: false,
-      error: `Unexpected child at position ${result}`,
-    };
-  }
-  return { valid: true };
+  return {
+    valid: false,
+    error: `Unexpected child at position ${Math.max(...positions)}`,
+  };
 }

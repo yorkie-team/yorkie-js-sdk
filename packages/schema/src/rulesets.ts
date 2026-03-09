@@ -113,6 +113,7 @@ type TypeDefinition =
   | {
       kind: 'yorkie';
       yorkieType: YorkieType;
+      treeNodes?: Array<TreeNodeRule>;
     }
   | {
       kind: 'object';
@@ -219,6 +220,20 @@ export class RulesetBuilder implements YorkieSchemaListener {
     }
 
     this.typeStack.push({ kind: 'yorkie', yorkieType });
+  }
+
+  /**
+   * `exitYorkieType` is called when exiting a Yorkie type.
+   * Captures collected treeNodes onto the type definition.
+   */
+  exitYorkieType() {
+    if (this.treeNodes.length > 0 && this.typeStack.length > 0) {
+      const top = this.typeStack[this.typeStack.length - 1];
+      if (top.kind === 'yorkie' && top.yorkieType === 'yorkie.Tree') {
+        top.treeNodes = [...this.treeNodes];
+      }
+      this.treeNodes = [];
+    }
   }
 
   /**
@@ -385,9 +400,8 @@ export class RulesetBuilder implements YorkieSchemaListener {
 
       case 'yorkie': {
         const rule: YorkieTypeRule = { path, type: typeDef.yorkieType };
-        if (typeDef.yorkieType === 'yorkie.Tree' && this.treeNodes?.length) {
-          rule.treeNodes = [...this.treeNodes];
-          this.treeNodes = [];
+        if (typeDef.yorkieType === 'yorkie.Tree' && typeDef.treeNodes?.length) {
+          rule.treeNodes = [...typeDef.treeNodes];
         }
         rules.push(rule);
         break;

@@ -100,11 +100,6 @@ function validateNode(
   ruleMap: Map<string, TreeNodeRuleInput>,
   resolver: (name: string) => Array<string>,
 ): TreeValidationResult {
-  // Skip text nodes - they are leaf nodes validated by their parent
-  if (node.isText) {
-    return { valid: true };
-  }
-
   // Check that the node type exists in the rules
   const rule = ruleMap.get(node.type);
   if (!rule) {
@@ -112,6 +107,12 @@ function validateNode(
       valid: false,
       error: `Unknown node type: "${node.type}"`,
     };
+  }
+
+  // Skip further validation for text nodes - they are leaf nodes validated
+  // by their parent's marks rule
+  if (node.isText) {
+    return { valid: true };
   }
 
   // Get non-removed children
@@ -127,8 +128,8 @@ function validateNode(
     }
   }
 
-  // Validate content expression if specified
-  if (rule.content) {
+  // Validate content expression (empty string means no children allowed)
+  if (rule.content !== undefined) {
     const childTypes = children.map((child) => child.type);
     const expr = parseContentExpression(rule.content);
     const result = matchContentExpression(expr, childTypes, resolver);
