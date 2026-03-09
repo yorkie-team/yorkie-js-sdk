@@ -69,6 +69,7 @@
         <button class="valid" id="btn-add-paragraph">Add paragraph</button>
         <button class="valid" id="btn-add-heading">Add heading</button>
         <button class="valid" id="btn-edit-text">Edit first text</button>
+        <button id="btn-reset">Reset tree</button>
       </div>
       <div class="tree-schema">
         Invalid operations (schema violation):
@@ -119,7 +120,9 @@
           });
           await client.activate();
 
-          const doc = new yorkie.Document('tree-schema');
+          const doc = new yorkie.Document('tree-schema', {
+            enableDevtools: true,
+          });
           doc.subscribe('connection', new Network(statusHolder).statusListener);
           doc.subscribe('presence', (event) => {
             if (event.type === 'presence-changed') return;
@@ -199,6 +202,29 @@
                   const tree = root.content;
                   tree.edit(2, 2, { type: 'text', value: ' [edited]' });
                 });
+              } catch (e) {
+                errorHolder.textContent = e.message;
+              }
+            });
+
+          document
+            .getElementById('btn-reset')
+            .addEventListener('click', () => {
+              try {
+                errorHolder.textContent = '';
+                doc.update((root) => {
+                  root.content = new yorkie.Tree({
+                    type: 'doc',
+                    children: [
+                      {
+                        type: 'paragraph',
+                        children: [
+                          { type: 'text', value: 'Hello, Tree Schema!' },
+                        ],
+                      },
+                    ],
+                  });
+                }, 'reset tree');
               } catch (e) {
                 errorHolder.textContent = e.message;
               }

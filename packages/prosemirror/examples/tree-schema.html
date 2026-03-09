@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tree Schema Example – @yorkie-js/prosemirror</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .schema-info {
+        margin: 0 0 12px;
+        padding: 10px 14px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre;
+        line-height: 1.6;
+      }
+      .setup-guide {
+        display: none;
+        margin: 16px 0;
+        padding: 16px 20px;
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 6px;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .setup-guide h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+        color: #856404;
+      }
+      .setup-guide p {
+        margin: 4px 0;
+        color: #664d03;
+      }
+      .setup-guide .error-detail {
+        margin: 8px 0;
+        padding: 8px 12px;
+        background: #f8d7da;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #842029;
+      }
+      .setup-guide button {
+        margin: 12px 0 8px;
+        padding: 8px 20px;
+        background: #0d6efd;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      .setup-guide button:hover {
+        background: #0b5ed7;
+      }
+      .setup-guide button:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+      }
+      .setup-result {
+        margin-top: 8px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <div class="editor-pane">
+        <h1>Tree Schema Example <a href="index.html">&larr; back</a></h1>
+        <p class="subtitle">
+          ProseMirror with Yorkie tree-level schema validation &middot;
+          paragraph, heading, strong, em marks
+        </p>
+        <div class="schema-info">Yorkie Schema: pm-tree-schema@2
+  doc:       { content: "block+" }
+  paragraph: { content: "(text | span | strong | em | code)*", group: "block" }
+  heading:   { content: "(text | span | strong | em)*",        group: "block" }
+  span:      { content: "text*" }
+  strong:    { content: "(text | em | code)*" }
+  em:        { content: "(text | strong | code)*" }
+  code:      { content: "text*" }
+  text:      {}</div>
+        <div id="status" class="status">Connecting...</div>
+        <div id="setup-guide" class="setup-guide">
+          <h3>Schema Setup Required</h3>
+          <p>
+            This example requires a tree schema registered on your Yorkie server.
+            The schema was not found:
+          </p>
+          <div id="setup-error-detail" class="error-detail"></div>
+          <p>
+            Click the button below to automatically create the schema.
+            This will log in as <code>admin</code>, fetch the default project key,
+            and register <code>pm-tree-schema@2</code>.
+          </p>
+          <button id="setup-btn">Create Schema</button>
+          <div id="setup-result" class="setup-result"></div>
+        </div>
+        <div id="editor-wrapper" style="position: relative">
+          <div id="editor"></div>
+          <div id="cursor-overlay"></div>
+        </div>
+      </div>
+      <div class="debug-pane">
+        <div class="debug-section">
+          <h3>ProseMirror JSON</h3>
+          <pre id="pm-json"></pre>
+        </div>
+        <div class="debug-section">
+          <h3>Yorkie XML</h3>
+          <pre id="yorkie-xml"></pre>
+        </div>
+        <div class="debug-section">
+          <h3>Log</h3>
+          <pre id="log"></pre>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="tree-schema.ts"></script>
+  </body>
+</html>
