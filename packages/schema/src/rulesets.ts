@@ -265,6 +265,9 @@ export class RulesetBuilder implements YorkieSchemaListener {
     if (key === 'content') this.currentTreeNodeProps!.content = value;
     else if (key === 'marks') this.currentTreeNodeProps!.marks = value;
     else if (key === 'group') this.currentTreeNodeProps!.group = value;
+    else {
+      throw new Error(`Unsupported tree node property: "${key}"`);
+    }
   }
 
   /**

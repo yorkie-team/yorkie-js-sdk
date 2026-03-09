@@ -341,7 +341,7 @@ describe('Schema:TreeSchema', () => {
       };
     `;
     const result = validate(schema);
-    expect(result.errors).to.have.length(0);
+    expect(result.errors).toHaveLength(0);
   });
 
   it('should validate tree schema with empty node definitions', () => {
@@ -354,7 +354,7 @@ describe('Schema:TreeSchema', () => {
       };
     `;
     const result = validate(schema);
-    expect(result.errors).to.have.length(0);
+    expect(result.errors).toHaveLength(0);
   });
 
   it('should detect duplicate node type definitions in tree schema', () => {
@@ -368,8 +368,8 @@ describe('Schema:TreeSchema', () => {
       };
     `;
     const result = validate(schema);
-    expect(result.errors.length).to.be.greaterThan(0);
-    expect(result.errors[0].message).to.contain('doc');
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0].message).toContain('doc');
   });
 
   it('should detect multiple duplicate node type definitions', () => {
@@ -384,7 +384,7 @@ describe('Schema:TreeSchema', () => {
       };
     `;
     const result = validate(schema);
-    expect(result.errors.length).to.be.greaterThan(1);
+    expect(result.errors.length).toBeGreaterThan(1);
   });
 
   it('should allow same node type names in different tree schemas', () => {
@@ -401,6 +401,6 @@ describe('Schema:TreeSchema', () => {
       };
     `;
     const result = validate(schema);
-    expect(result.errors).to.have.length(0);
+    expect(result.errors).toHaveLength(0);
   });
 });
