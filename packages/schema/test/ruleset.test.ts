@@ -340,14 +340,14 @@ describe('RulesetBuilder', () => {
         path: '$.content',
         type: 'yorkie.Tree',
         treeNodes: [
-          { nodeType: 'doc', content: 'paragraph+', marks: '', group: '' },
+          { nodeType: 'doc', content: 'paragraph+' },
           {
             nodeType: 'paragraph',
             content: 'text*',
             marks: 'bold italic',
             group: 'block',
           },
-          { nodeType: 'text', content: '', marks: '', group: '' },
+          { nodeType: 'text' },
         ],
       },
     ]);
