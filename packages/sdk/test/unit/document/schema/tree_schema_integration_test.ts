@@ -94,8 +94,8 @@ describe('Tree Schema Integration (full pipeline)', () => {
       // Verify specific node properties
       const docNode = yorkieRule.treeNodes!.find((n) => n.nodeType === 'doc')!;
       expect(docNode.content).toBe('paragraph+');
-      expect(docNode.marks).toBe('');
-      expect(docNode.group).toBe('');
+      expect(docNode.marks).toBeUndefined();
+      expect(docNode.group).toBeUndefined();
 
       const paraNode = yorkieRule.treeNodes!.find(
         (n) => n.nodeType === 'paragraph',
@@ -114,8 +114,8 @@ describe('Tree Schema Integration (full pipeline)', () => {
       const textNode = yorkieRule.treeNodes!.find(
         (n) => n.nodeType === 'text',
       )!;
-      expect(textNode.content).toBe('');
-      expect(textNode.marks).toBe('');
+      expect(textNode.content).toBeUndefined();
+      expect(textNode.marks).toBeUndefined();
     });
 
     it('should also produce an object rule for the root document', () => {
