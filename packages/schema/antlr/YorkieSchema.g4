@@ -78,7 +78,23 @@ yorkieType
     | 'yorkie.Array' typeArguments
     | 'yorkie.Counter' typeArguments?
     | 'yorkie.Text' typeArguments?
-    | 'yorkie.Tree' typeArguments?
+    | 'yorkie.Tree' ('<' treeSchemaBody '>')?
+    ;
+
+treeSchemaBody
+    : '{' (treeNodeDef ';')* '}'
+    ;
+
+treeNodeDef
+    : Identifier ':' '{' treeNodeProps? '}'
+    ;
+
+treeNodeProps
+    : treeNodeProp (';' treeNodeProp)* ';'?
+    ;
+
+treeNodeProp
+    : Identifier ':' StringLiteral
     ;
 
 typeReference

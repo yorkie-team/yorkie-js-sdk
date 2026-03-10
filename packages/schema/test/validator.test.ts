@@ -328,3 +328,79 @@ describe('Schema:Semantic', () => {
     expect(validate(schema).errors.length).toBe(0);
   });
 });
+
+describe('Schema:TreeSchema', () => {
+  it('should validate valid tree schema', () => {
+    const schema = `
+      type Document = {
+        content: yorkie.Tree<{
+          doc: { content: "paragraph+"; };
+          paragraph: { content: "text*"; group: "block"; };
+          text: {};
+        }>;
+      };
+    `;
+    const result = validate(schema);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('should validate tree schema with empty node definitions', () => {
+    const schema = `
+      type Document = {
+        content: yorkie.Tree<{
+          doc: {};
+          text: {};
+        }>;
+      };
+    `;
+    const result = validate(schema);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('should detect duplicate node type definitions in tree schema', () => {
+    const schema = `
+      type Document = {
+        content: yorkie.Tree<{
+          doc: { content: "paragraph+"; };
+          doc: { content: "text*"; };
+          text: {};
+        }>;
+      };
+    `;
+    const result = validate(schema);
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0].message).toContain('doc');
+  });
+
+  it('should detect multiple duplicate node type definitions', () => {
+    const schema = `
+      type Document = {
+        content: yorkie.Tree<{
+          doc: { content: "paragraph+"; };
+          text: {};
+          doc: { content: "text*"; };
+          text: {};
+        }>;
+      };
+    `;
+    const result = validate(schema);
+    expect(result.errors.length).toBeGreaterThan(1);
+  });
+
+  it('should allow same node type names in different tree schemas', () => {
+    const schema = `
+      type Document = {
+        tree1: yorkie.Tree<{
+          doc: { content: "paragraph+"; };
+          text: {};
+        }>;
+        tree2: yorkie.Tree<{
+          doc: { content: "text*"; };
+          text: {};
+        }>;
+      };
+    `;
+    const result = validate(schema);
+    expect(result.errors).toHaveLength(0);
+  });
+});

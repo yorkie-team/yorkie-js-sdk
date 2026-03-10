@@ -18,6 +18,10 @@ import { ObjectTypeContext } from "./YorkieSchemaParser";
 import { PropertySignatureContext } from "./YorkieSchemaParser";
 import { PropertyNameContext } from "./YorkieSchemaParser";
 import { YorkieTypeContext } from "./YorkieSchemaParser";
+import { TreeSchemaBodyContext } from "./YorkieSchemaParser";
+import { TreeNodeDefContext } from "./YorkieSchemaParser";
+import { TreeNodePropsContext } from "./YorkieSchemaParser";
+import { TreeNodePropContext } from "./YorkieSchemaParser";
 import { TypeReferenceContext } from "./YorkieSchemaParser";
 import { ParenthesizedTypeContext } from "./YorkieSchemaParser";
 import { TypeParametersContext } from "./YorkieSchemaParser";
@@ -196,6 +200,50 @@ export interface YorkieSchemaListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	exitYorkieType?: (ctx: YorkieTypeContext) => void;
+
+	/**
+	 * Enter a parse tree produced by `YorkieSchemaParser.treeSchemaBody`.
+	 * @param ctx the parse tree
+	 */
+	enterTreeSchemaBody?: (ctx: TreeSchemaBodyContext) => void;
+	/**
+	 * Exit a parse tree produced by `YorkieSchemaParser.treeSchemaBody`.
+	 * @param ctx the parse tree
+	 */
+	exitTreeSchemaBody?: (ctx: TreeSchemaBodyContext) => void;
+
+	/**
+	 * Enter a parse tree produced by `YorkieSchemaParser.treeNodeDef`.
+	 * @param ctx the parse tree
+	 */
+	enterTreeNodeDef?: (ctx: TreeNodeDefContext) => void;
+	/**
+	 * Exit a parse tree produced by `YorkieSchemaParser.treeNodeDef`.
+	 * @param ctx the parse tree
+	 */
+	exitTreeNodeDef?: (ctx: TreeNodeDefContext) => void;
+
+	/**
+	 * Enter a parse tree produced by `YorkieSchemaParser.treeNodeProps`.
+	 * @param ctx the parse tree
+	 */
+	enterTreeNodeProps?: (ctx: TreeNodePropsContext) => void;
+	/**
+	 * Exit a parse tree produced by `YorkieSchemaParser.treeNodeProps`.
+	 * @param ctx the parse tree
+	 */
+	exitTreeNodeProps?: (ctx: TreeNodePropsContext) => void;
+
+	/**
+	 * Enter a parse tree produced by `YorkieSchemaParser.treeNodeProp`.
+	 * @param ctx the parse tree
+	 */
+	enterTreeNodeProp?: (ctx: TreeNodePropContext) => void;
+	/**
+	 * Exit a parse tree produced by `YorkieSchemaParser.treeNodeProp`.
+	 * @param ctx the parse tree
+	 */
+	exitTreeNodeProp?: (ctx: TreeNodePropContext) => void;
 
 	/**
 	 * Enter a parse tree produced by `YorkieSchemaParser.typeReference`.

@@ -18,6 +18,10 @@ import { ObjectTypeContext } from "./YorkieSchemaParser";
 import { PropertySignatureContext } from "./YorkieSchemaParser";
 import { PropertyNameContext } from "./YorkieSchemaParser";
 import { YorkieTypeContext } from "./YorkieSchemaParser";
+import { TreeSchemaBodyContext } from "./YorkieSchemaParser";
+import { TreeNodeDefContext } from "./YorkieSchemaParser";
+import { TreeNodePropsContext } from "./YorkieSchemaParser";
+import { TreeNodePropContext } from "./YorkieSchemaParser";
 import { TypeReferenceContext } from "./YorkieSchemaParser";
 import { ParenthesizedTypeContext } from "./YorkieSchemaParser";
 import { TypeParametersContext } from "./YorkieSchemaParser";
@@ -139,6 +143,34 @@ export interface YorkieSchemaVisitor<Result> extends ParseTreeVisitor<Result> {
 	 * @return the visitor result
 	 */
 	visitYorkieType?: (ctx: YorkieTypeContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `YorkieSchemaParser.treeSchemaBody`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitTreeSchemaBody?: (ctx: TreeSchemaBodyContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `YorkieSchemaParser.treeNodeDef`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitTreeNodeDef?: (ctx: TreeNodeDefContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `YorkieSchemaParser.treeNodeProps`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitTreeNodeProps?: (ctx: TreeNodePropsContext) => Result;
+
+	/**
+	 * Visit a parse tree produced by `YorkieSchemaParser.treeNodeProp`.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	visitTreeNodeProp?: (ctx: TreeNodePropContext) => Result;
 
 	/**
 	 * Visit a parse tree produced by `YorkieSchemaParser.typeReference`.

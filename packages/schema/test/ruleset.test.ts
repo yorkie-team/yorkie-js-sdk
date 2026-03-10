@@ -323,6 +323,36 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
+  it('should handle yorkie.Tree with tree schema', () => {
+    const schema = `
+      type Document = {
+        content: yorkie.Tree<{
+          doc: { content: "paragraph+"; };
+          paragraph: { content: "text*"; marks: "bold italic"; group: "block"; };
+          text: {};
+        }>;
+      };
+    `;
+    const ruleset = buildRuleset(schema);
+    expect(ruleset).to.deep.equal([
+      { path: '$', type: 'object', properties: ['content'] },
+      {
+        path: '$.content',
+        type: 'yorkie.Tree',
+        treeNodes: [
+          { nodeType: 'doc', content: 'paragraph+' },
+          {
+            nodeType: 'paragraph',
+            content: 'text*',
+            marks: 'bold italic',
+            group: 'block',
+          },
+          { nodeType: 'text' },
+        ],
+      },
+    ]);
+  });
+
   it('should handle Yorkie types', () => {
     const schema = `
       type Document = {

@@ -20,6 +20,7 @@ import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
+import { validateTreeAgainstSchema } from '@yorkie-js/sdk/src/document/schema/tree-validator';
 import {
   Primitive,
   PrimitiveType,
@@ -134,7 +135,7 @@ function validateValue(value: any, rule: Rule): ValidationResult {
         };
       }
       break;
-    case 'yorkie.Tree':
+    case 'yorkie.Tree': {
       if (!(value instanceof CRDTTree)) {
         return {
           valid: false,
@@ -146,7 +147,20 @@ function validateValue(value: any, rule: Rule): ValidationResult {
           ],
         };
       }
+      if ('treeNodes' in rule && rule.treeNodes && rule.treeNodes.length > 0) {
+        const treeResult = validateTreeAgainstSchema(
+          value as CRDTTree,
+          rule.treeNodes,
+        );
+        if (!treeResult.valid) {
+          return {
+            valid: false,
+            errors: [{ path: rule.path, message: treeResult.error! }],
+          };
+        }
+      }
       break;
+    }
     case 'yorkie.Counter':
       if (!(value instanceof CRDTCounter)) {
         return {

@@ -463,6 +463,125 @@ describe('Document Schema', () => {
     await client.deactivate();
   });
 
+  it('should validate tree structure with tree node rules', async ({
+    task,
+  }) => {
+    // Create a schema with tree node rules
+    const loginResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/LogIn`,
+      { username: testAPIID, password: testAPIPW },
+    );
+    const adminToken = loginResponse.data.token;
+
+    const treeProjectName = `tree-schema-test-${time}`;
+    const createProjectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: treeProjectName },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+    const treeApiKey = createProjectResponse.data.project.publicKey;
+    const treeSecretKey = createProjectResponse.data.project.secretKey;
+
+    const treeSchemaName = `tree-schema-${time}`;
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateSchema`,
+      {
+        schemaName: treeSchemaName,
+        schemaVersion: 1,
+        schemaBody: 'type Document = {content: yorkie.Tree;};',
+        rules: [
+          {
+            path: '$.content',
+            type: 'yorkie.Tree',
+            tree_nodes: [
+              {
+                node_type: 'doc',
+                content: 'block+',
+                marks: '',
+                group: '',
+              },
+              {
+                node_type: 'paragraph',
+                content: 'text*',
+                marks: 'bold italic',
+                group: 'block',
+              },
+              {
+                node_type: 'heading',
+                content: 'text*',
+                marks: 'bold',
+                group: 'block',
+              },
+              { node_type: 'text', content: '', marks: '', group: '' },
+            ],
+          },
+        ],
+      },
+      { headers: { Authorization: `API-Key ${treeSecretKey}` } },
+    );
+
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey: treeApiKey,
+    });
+    await client.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ content: any }>(docKey);
+
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      schema: `${treeSchemaName}@1`,
+    });
+
+    // Valid: initialize tree with doc > paragraph > text
+    doc.update((root) => {
+      root.content = new yorkie.Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'paragraph',
+            children: [{ type: 'text', value: 'Hello' }],
+          },
+        ],
+      });
+    });
+    assert.isTrue(doc.toSortedJSON().includes('content'));
+
+    // Valid: add a heading before paragraph (position 0 = before first child of doc)
+    doc.update((root) => {
+      const tree = root.content;
+      tree.edit(0, 0, {
+        type: 'heading',
+        children: [{ type: 'text', value: 'Title' }],
+      });
+    });
+
+    // Invalid: add unknown node type "div" at doc level (position 0)
+    assert.throws(() => {
+      doc.update((root) => {
+        const tree = root.content;
+        tree.edit(0, 0, {
+          type: 'div',
+          children: [{ type: 'text', value: 'invalid' }],
+        });
+      });
+    }, YorkieError);
+
+    // Invalid: add text directly under doc (doc requires block+)
+    assert.throws(() => {
+      doc.update((root) => {
+        const tree = root.content;
+        tree.edit(0, 0, {
+          type: 'text',
+          value: 'text under doc',
+        });
+      });
+    }, YorkieError);
+
+    await client.deactivate();
+  });
+
   it('can update root only when document has attached schema', async ({
     task,
   }) => {
