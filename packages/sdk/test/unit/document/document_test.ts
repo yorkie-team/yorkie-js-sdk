@@ -22,6 +22,7 @@ import {
 } from '@yorkie-js/sdk/test/helper/helper';
 
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
+import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import yorkie, {
   JSONArray,
@@ -1518,5 +1519,61 @@ describe.sequential('Document', function () {
         DefaultSnapshotThreshold + 1,
       );
     }, task.name);
+  });
+
+  it('should retain presence after watch stream reconnection', function () {
+    // Simulate the scenario where a peer's watch stream disconnects and
+    // reconnects, verifying that their presence is preserved and correctly
+    // restored.
+    const doc = new Document<object, { name: string }>('test-doc');
+
+    // Manually inject presence for a peer (simulating prior sync).
+    const peerID = 'peer-client-id';
+    (doc as any).presences.set(peerID, { name: 'Alice' });
+    (doc as any).onlineClients.add(peerID);
+
+    // Verify the peer is visible before reconnection.
+    assert.equal(doc.hasPresence(peerID), true);
+    assert.equal(
+      doc.getOthersPresences().some((p) => p.clientID === peerID),
+      true,
+    );
+
+    // 01. Simulate watch stream reconnection where the peer is temporarily
+    // absent from the server's watcher list (their stream also dropped).
+    doc.applyWatchInit([]);
+
+    // The peer should not be visible via getPresences (filtered by onlineClients).
+    assert.equal(
+      doc.getOthersPresences().some((p) => p.clientID === peerID),
+      false,
+    );
+
+    // But the presence data should still be retained internally so that
+    // when the peer re-watches, the "watched" event fires correctly.
+    assert.equal(doc.hasPresence(peerID), true);
+
+    // 02. The peer's watch stream reconnects — server sends DOCUMENT_WATCHED.
+    const events: Array<any> = [];
+    const unsub = doc.subscribe('others', (event) => {
+      events.push(event);
+    });
+
+    doc.applyDocEvent(PbDocEventType.DOCUMENT_WATCHED, peerID);
+
+    // The peer should now be visible again with their original presence.
+    assert.equal(
+      doc.getOthersPresences().some((p) => p.clientID === peerID),
+      true,
+    );
+    const peerPresence = doc.getPresence(peerID);
+    assert.deepEqual(peerPresence, { name: 'Alice' });
+
+    // A "watched" event should have been emitted.
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, DocEventType.Watched);
+    assert.equal(events[0].value.clientID, peerID);
+
+    unsub();
   });
 });

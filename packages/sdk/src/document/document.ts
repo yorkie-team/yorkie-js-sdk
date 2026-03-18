@@ -1530,15 +1530,17 @@ export class Document<
     }
     this.setOnlineClients(onlineClients);
 
-    // Prune presences for clients no longer online (except self).
-    for (const clientID of Array.from(this.presences.keys())) {
-      if (
-        clientID !== this.changeID.getActorID() &&
-        !onlineClients.has(clientID)
-      ) {
-        this.presences.delete(clientID);
-      }
-    }
+    // NOTE(hackerwins): We intentionally do NOT prune presences for clients
+    // no longer in the online set. The presences map retains stale entries,
+    // but getPresences() / getOthersPresences() already filter by
+    // onlineClients, so stale data is never exposed to the caller.
+    //
+    // Keeping stale presences allows correct recovery when a client's watch
+    // stream reconnects: the server sends DOCUMENT_WATCHED, applyDocEvent
+    // checks hasPresence(publisher), and because the old presence is still
+    // in the map the "watched" event fires and the client becomes visible
+    // again. Previously, pruning here deleted the presence, causing
+    // hasPresence to return false and silently dropping the reconnected peer.
 
     this.publish([
       {
