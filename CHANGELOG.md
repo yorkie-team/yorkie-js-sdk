@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.1] - 2026-03-19
+
+### Added
+
+- Add tree-level schema validation and ProseMirror example by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1181
+
+### Fixed
+
+- Retain peer presence across watch stream reconnections by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1186
+
 ## [v0.7.0] - 2026-03-05
 
 ### Added
