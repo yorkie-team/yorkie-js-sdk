@@ -105,6 +105,10 @@ export class ElementRHT {
     if (!node || executedAt.after(node.getValue().getPositionedAt())) {
       this.nodeMapByKey.set(key, newNode);
       value.setMovedAt(executedAt);
+    } else if (!node.isRemoved()) {
+      // The new node loses the LWW conflict — mark it as removed
+      // so it doesn't appear as a duplicate in ownKeys iteration.
+      value.remove(node.getValue().getPositionedAt());
     }
     return removed;
   }
