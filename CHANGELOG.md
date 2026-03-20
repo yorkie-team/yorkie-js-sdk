@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.2] - 2026-03-20
+
+### Fixed
+
+- Fix ElementRHT.set() producing duplicate ownKeys on timestamp reversal by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1188
+
 ## [v0.7.1] - 2026-03-19
 
 ### Added
