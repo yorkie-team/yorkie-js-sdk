@@ -145,6 +145,12 @@ $ open http://0.0.0.0:9000/
 In order to format the code, we use [Husky](https://github.com/typicode/husky) to implement git hooks
 and [Prettier](https://github.com/prettier/prettier)
 
+To enable automatic commit message validation, run:
+
+```sh
+bash scripts/setup.sh
+```
+
 ### Format of the commit message
 
 We follow a rough convention for commit messages that is designed to answer two questions: what changed and why. The
