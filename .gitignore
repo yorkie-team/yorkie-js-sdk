@@ -120,8 +120,10 @@ tags
 dist/
 bundle/
 
-# Docs files
+# Docs files (generated API docs)
 docs/
+!docs/design/
+!docs/tasks/
 
 # ghpages
 ghpages/
