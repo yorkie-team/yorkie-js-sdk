@@ -26,6 +26,8 @@ TODAY=$(date +%Y-%m-%d)
 } > "$ACTIVE_DIR/README.md"
 echo "Updated $ACTIVE_DIR/README.md"
 
+mkdir -p "$ARCHIVE_DIR"
+
 # --- archive/README.md ---
 {
   echo "---"
@@ -41,7 +43,7 @@ echo "Updated $ACTIVE_DIR/README.md"
         month=$(basename "$month_dir")
         echo "## $year-$month"
         echo ""
-        for todo in "$month_dir"*-todo.md; do
+        for todo in "$month_dir"/*-todo.md; do
           [ -f "$todo" ] || continue
           slug=$(basename "$todo" -todo.md)
           title=$(head -1 "$todo" | sed 's/^# *//')

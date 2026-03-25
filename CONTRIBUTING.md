@@ -145,11 +145,8 @@ $ open http://0.0.0.0:9000/
 In order to format the code, we use [Husky](https://github.com/typicode/husky) to implement git hooks
 and [Prettier](https://github.com/prettier/prettier)
 
-To enable automatic commit message validation, run:
-
-```sh
-bash scripts/setup.sh
-```
+Commit message validation is handled by Husky (`.husky/commit-msg`),
+which is set up automatically when you run `pnpm install`.
 
 ### Format of the commit message
 

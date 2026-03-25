@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
+# Husky manages git hooks in this repo (.husky/).
+# Running 'pnpm install' triggers the 'prepare' script which sets
+# up Husky automatically. This script is a no-op here.
 
-git config core.hooksPath "$REPO_ROOT/.githooks"
-echo "Git hooks path set to .githooks/"
+echo "Husky manages git hooks in this repo."
+echo "Run 'pnpm install' to set up hooks automatically."
