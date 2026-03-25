@@ -1,11 +1,13 @@
-# Design Document
+# Design Documents
+
+New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 
 ## Contents
 
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 
-## Maintaining the Document
+## Guidelines
 
 For significant scope and complex new features, it is recommended to write a
 Design Document before starting any implementation work. On the other hand, we
@@ -22,5 +24,5 @@ While working on your design, writing code to prototype your functionality may
 be useful to refine your approach.
 
 Authoring Design document is also proceeded in the same
-[contribution flow](../CONTRIBUTING.md) as normal Pull Request such as function
-implementation or bug fixing.
+[contribution flow](../../CONTRIBUTING.md) as normal Pull Request such as
+function implementation or bug fixing.
