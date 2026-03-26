@@ -25,6 +25,12 @@ Always run before submitting:
 pnpm lint && pnpm sdk build && pnpm sdk test
 ```
 
+## Project Docs
+
+- **Design docs**: `docs/design/` for architectural context. New docs use [TEMPLATE.md](docs/design/TEMPLATE.md).
+- **Task tracking**: `docs/tasks/active/` for in-progress, `docs/tasks/archive/` for completed. Use `YYYYMMDD-<slug>-{todo,lessons}.md` pairs.
+- **Setup**: Husky manages git hooks. Run `pnpm install` to set up automatically.
+
 ## Packages
 
 - **`sdk`** (`@yorkie-js/sdk`) — Core: client, documents, CRDTs, protobuf API

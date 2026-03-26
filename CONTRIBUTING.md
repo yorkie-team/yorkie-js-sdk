@@ -145,6 +145,9 @@ $ open http://0.0.0.0:9000/
 In order to format the code, we use [Husky](https://github.com/typicode/husky) to implement git hooks
 and [Prettier](https://github.com/prettier/prettier)
 
+Commit message validation is handled by Husky (`.husky/commit-msg`),
+which is set up automatically when you run `pnpm install`.
+
 ### Format of the commit message
 
 We follow a rough convention for commit messages that is designed to answer two questions: what changed and why. The
