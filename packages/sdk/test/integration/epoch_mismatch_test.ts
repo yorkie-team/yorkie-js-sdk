@@ -26,14 +26,21 @@ import {
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import axios from 'axios';
 
-let adminToken: string;
+let projectSecretKey: string;
 
 beforeAll(async () => {
   const loginResponse = await axios.post(
     `${testRPCAddr}/yorkie.v1.AdminService/LogIn`,
     { username: testAPIID, password: testAPIPW },
   );
-  adminToken = loginResponse.data.token;
+  const adminToken = loginResponse.data.token;
+
+  const listResponse = await axios.post(
+    `${testRPCAddr}/yorkie.v1.AdminService/ListProjects`,
+    {},
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  projectSecretKey = listResponse.data.projects[0].secretKey;
 });
 
 // NOTE: This test requires a Yorkie server with epoch support (yorkie-team/yorkie#1714).
@@ -55,7 +62,7 @@ describe('Epoch Mismatch', () => {
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/CompactDocumentByAdmin`,
       { document_key: docKey, force: true },
-      { headers: { Authorization: `Bearer ${adminToken}` } },
+      { headers: { Authorization: `API-Key ${projectSecretKey}` } },
     );
 
     // Subscribe to epoch-mismatch event before syncing

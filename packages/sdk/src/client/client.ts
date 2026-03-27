@@ -930,6 +930,16 @@ export class Client {
         return this.syncInternal(attachment, SyncMode.Realtime).catch(
           async (err) => {
             logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+            if (isErrorCode(err, Code.ErrEpochMismatch)) {
+              attachment.resource.publish([
+                {
+                  type: DocEventType.EpochMismatch,
+                  value: {
+                    method: 'PushPull',
+                  },
+                },
+              ]);
+            }
             await this.handleConnectError(err);
             throw err;
           },
