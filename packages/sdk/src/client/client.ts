@@ -1389,6 +1389,17 @@ export class Client {
                   ]);
                 }
 
+                if (isErrorCode(e, Code.ErrEpochMismatch)) {
+                  attachment.resource.publish([
+                    {
+                      type: DocEventType.EpochMismatch,
+                      value: {
+                        method: 'PushPull',
+                      },
+                    },
+                  ]);
+                }
+
                 throw e;
               }),
             );
@@ -1907,6 +1918,13 @@ export class Client {
     // that the client has reached the maximum number of allowed attachments.
     // In this case, the client should remove some attachments.
     if (errorCodeOf(err) === Code.ErrTooManyAttachments) {
+      return false;
+    }
+
+    // NOTE(hackerwins): If the error is 'ErrEpochMismatch', it means the
+    // document has been compacted and the client's checkpoint is stale.
+    // The sync loop should stop, and the user must detach and reattach.
+    if (errorCodeOf(err) === Code.ErrEpochMismatch) {
       return false;
     }
 

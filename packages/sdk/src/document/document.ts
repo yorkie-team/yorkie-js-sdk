@@ -180,6 +180,12 @@ export enum DocEventType {
    * `AuthError` indicates an authorization failure in syncLoop or watchLoop.
    */
   AuthError = 'auth-error',
+
+  /**
+   * `EpochMismatch` indicates the document was compacted on the server
+   * and this client must detach and reattach to recover.
+   */
+  EpochMismatch = 'epoch-mismatch',
 }
 
 /**
@@ -194,7 +200,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | LocalChangeEvent<T, P>
   | RemoteChangeEvent<T, P>
   | PresenceEvent<P>
-  | AuthErrorEvent;
+  | AuthErrorEvent
+  | EpochMismatchEvent;
 
 /**
  * `DocEvents` represents document events that occur within
@@ -361,6 +368,13 @@ export interface AuthErrorEvent extends BaseDocEvent {
   };
 }
 
+export interface EpochMismatchEvent extends BaseDocEvent {
+  type: DocEventType.EpochMismatch;
+  value: {
+    method: 'PushPull';
+  };
+}
+
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
     LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P> | SnapshotEvent
@@ -372,6 +386,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   status: NextFn<StatusChangedEvent>;
   sync: NextFn<SyncStatusChangedEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
+  'epoch-mismatch': NextFn<EpochMismatchEvent>;
   all: NextFn<DocEvents<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -819,6 +834,15 @@ export class Document<
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when an epoch mismatch error occurs.
+   */
+  public subscribe(
+    type: 'epoch-mismatch',
+    next: DocEventCallbackMap<P>['epoch-mismatch'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -964,6 +988,18 @@ export class Document<
         return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.AuthError) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'epoch-mismatch') {
+        const callback = arg2 as DocEventCallbackMap<P>['epoch-mismatch'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.EpochMismatch) {
               continue;
             }
 
