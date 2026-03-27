@@ -76,8 +76,9 @@ describe('Epoch Mismatch', () => {
     // Sync should fail with epoch mismatch
     try {
       await client.sync(doc);
-    } catch {
-      // Expected: sync fails
+      expect.fail('sync should have thrown');
+    } catch (err) {
+      expect((err as Error).message).toContain('epoch mismatch');
     }
 
     await collector.waitAndVerifyNthEvent(1, DocEventType.EpochMismatch);
