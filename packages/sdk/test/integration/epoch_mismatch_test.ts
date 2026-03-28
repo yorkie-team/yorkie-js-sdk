@@ -40,7 +40,10 @@ beforeAll(async () => {
     {},
     { headers: { Authorization: `Bearer ${adminToken}` } },
   );
-  projectSecretKey = listResponse.data.projects[0].secretKey;
+  const defaultProject = listResponse.data.projects.find(
+    (p: { name: string }) => p.name === 'default',
+  );
+  projectSecretKey = defaultProject.secretKey;
 });
 
 // NOTE: This test requires a Yorkie server with epoch support (yorkie-team/yorkie#1714).
