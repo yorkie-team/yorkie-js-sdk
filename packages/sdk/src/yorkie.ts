@@ -56,6 +56,7 @@ export {
   type Json,
   type DocEvent,
   type DocEvents,
+  type EpochMismatchEvent,
   Document,
   type ChangeInfo,
 } from '@yorkie-js/sdk/src/document/document';

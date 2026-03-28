@@ -930,6 +930,16 @@ export class Client {
         return this.syncInternal(attachment, SyncMode.Realtime).catch(
           async (err) => {
             logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+            if (isErrorCode(err, Code.ErrEpochMismatch)) {
+              attachment.resource.publish([
+                {
+                  type: DocEventType.EpochMismatch,
+                  value: {
+                    method: 'PushPull',
+                  },
+                },
+              ]);
+            }
             await this.handleConnectError(err);
             throw err;
           },
@@ -1383,6 +1393,17 @@ export class Client {
                       type: DocEventType.AuthError,
                       value: {
                         reason: errorMetadataOf(e).reason,
+                        method: 'PushPull',
+                      },
+                    },
+                  ]);
+                }
+
+                if (isErrorCode(e, Code.ErrEpochMismatch)) {
+                  attachment.resource.publish([
+                    {
+                      type: DocEventType.EpochMismatch,
+                      value: {
                         method: 'PushPull',
                       },
                     },
@@ -1907,6 +1928,13 @@ export class Client {
     // that the client has reached the maximum number of allowed attachments.
     // In this case, the client should remove some attachments.
     if (errorCodeOf(err) === Code.ErrTooManyAttachments) {
+      return false;
+    }
+
+    // NOTE(hackerwins): If the error is 'ErrEpochMismatch', it means the
+    // document has been compacted and the client's checkpoint is stale.
+    // The sync loop should stop, and the user must detach and reattach.
+    if (errorCodeOf(err) === Code.ErrEpochMismatch) {
       return false;
     }
 
