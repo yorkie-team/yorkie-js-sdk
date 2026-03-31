@@ -21,6 +21,7 @@ import {
   CRDTTree,
   CRDTTreePos,
   TreeChange,
+  TreeChangeType,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   Operation,
@@ -209,14 +210,15 @@ export class TreeStyleOperation extends Operation {
     }
 
     return {
-      opInfos: changes!.map(({ from, to, value, fromPath, toPath }) => {
+      opInfos: changes!.map(({ from, to, value, fromPath, toPath, type }) => {
         return {
           type: 'tree-style',
           from,
           to,
-          value: this.attributes.size
-            ? { attributes: value }
-            : { attributesToRemove: value },
+          value:
+            type === TreeChangeType.RemoveStyle
+              ? { attributesToRemove: value }
+              : { attributes: value },
           fromPath,
           toPath,
           path: root.createPath(this.getParentCreatedAt()),
