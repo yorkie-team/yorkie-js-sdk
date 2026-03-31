@@ -6,6 +6,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
+- [Tree.Style Undo/Redo](tree-style-undo-redo.md): Add undo/redo support for Tree.Style operations
 
 ## Guidelines
 
