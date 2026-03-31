@@ -164,6 +164,62 @@ describe('Tree History - single client basic', () => {
     }, 'new edit');
     assert.equal(doc.history.canRedo(), false);
   });
+
+  it('should handle undo/redo with mixed char-level and block-level ops', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'x' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    // Step 1: Character-level insert
+    doc.update((root) => {
+      root.t.editByPath([0, 0], [0, 0], { type: 'text', value: 'asdf' });
+    }, 'type asdf');
+    assert.equal(xmlOf(doc), '<doc><p>asdfx</p></doc>');
+
+    // Step 2: Block-level replacement (replace 1 block with 2)
+    doc.update((root) => {
+      root.t.editBulkByPath(
+        [0],
+        [1],
+        [
+          { type: 'p', children: [{ type: 'text', value: 'asdf' }] },
+          { type: 'p', children: [{ type: 'text', value: 'x' }] },
+        ],
+      );
+    }, 'split block');
+    assert.equal(xmlOf(doc), '<doc><p>asdf</p><p>x</p></doc>');
+
+    // Step 3: Character-level insert in second block
+    doc.update((root) => {
+      root.t.editByPath([1, 0], [1, 0], { type: 'text', value: 'asdf' });
+    }, 'type in block 2');
+    assert.equal(xmlOf(doc), '<doc><p>asdf</p><p>asdfx</p></doc>');
+
+    // Step 4: Undo all 3 operations
+    doc.history.undo();
+    assert.equal(xmlOf(doc), '<doc><p>asdf</p><p>x</p></doc>');
+    doc.history.undo();
+    assert.equal(xmlOf(doc), '<doc><p>asdfx</p></doc>');
+    doc.history.undo();
+    assert.equal(xmlOf(doc), '<doc><p>x</p></doc>');
+
+    // Step 5: Redo all
+    doc.history.redo();
+    assert.equal(xmlOf(doc), '<doc><p>asdfx</p></doc>');
+    doc.history.redo();
+    assert.equal(xmlOf(doc), '<doc><p>asdf</p><p>x</p></doc>');
+    doc.history.redo();
+    assert.equal(xmlOf(doc), '<doc><p>asdf</p><p>asdfx</p></doc>');
+  });
 });
 
 // 2. Single Client - Chained Ops
