@@ -152,7 +152,7 @@ return { opInfos: ..., reverseOp };
 
 ### Step 4: Tests
 
-Add test cases in `test/integration/history_tree_test.ts`:
+Add test cases in `packages/sdk/test/integration/history_tree_test.ts`:
 
 1. **style undo/redo**: Apply bold → undo → verify bold removed → redo →
    verify bold restored
@@ -188,5 +188,5 @@ Add test cases in `test/integration/history_tree_test.ts`:
 
 ## Tasks
 
-Execution plan will be tracked in `docs/tasks/active/` when implementation
-begins.
+See [20260331-tree-style-undo-redo-todo.md](../tasks/active/20260331-tree-style-undo-redo-todo.md)
+for the execution checklist.
