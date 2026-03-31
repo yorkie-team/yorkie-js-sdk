@@ -121,36 +121,95 @@ export class TreeStyleOperation extends Operation {
     let changes: Array<TreeChange>;
     let pairs: Array<GCPair>;
     let diff = { data: 0, meta: 0 };
+    const reversePrevAttributes = new Map<string, string>();
+    const reverseAttrsToRemove: Array<string> = [];
 
-    if (this.attributes.size) {
+    if (this.attributesToRemove.length > 0) {
+      let prevAttributes: Map<string, string>;
+      [pairs, changes, diff, prevAttributes] = tree.removeStyle(
+        [this.fromPos, this.toPos],
+        this.attributesToRemove,
+        this.getExecutedAt(),
+        versionVector,
+      );
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+    }
+
+    if (this.attributes.size > 0) {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      [pairs, changes, diff] = tree.style(
+      const [
+        stylePairs,
+        styleChanges,
+        styleDiff,
+        stylePrevAttributes,
+        styleAttrsToRemove,
+      ] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
         versionVector,
       );
-    } else {
-      const attributesToRemove = this.attributesToRemove;
 
-      [pairs, changes, diff] = tree.removeStyle(
-        [this.fromPos, this.toPos],
-        attributesToRemove,
-        this.getExecutedAt(),
-        versionVector,
-      );
+      for (const [key, value] of stylePrevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+      reverseAttrsToRemove.push(...styleAttrsToRemove);
+
+      if (this.attributesToRemove.length > 0) {
+        pairs = [...pairs!, ...stylePairs];
+        changes = [...changes!, ...styleChanges];
+        diff = {
+          data: diff.data + styleDiff.data,
+          meta: diff.meta + styleDiff.meta,
+        };
+      } else {
+        pairs = stylePairs;
+        changes = styleChanges;
+        diff = styleDiff;
+      }
     }
 
     root.acc(diff);
 
-    for (const pair of pairs) {
+    for (const pair of pairs!) {
       root.registerGCPair(pair);
     }
 
+    // Build reverse operation
+    let reverseOp: Operation | undefined;
+    if (reversePrevAttributes.size > 0 && reverseAttrsToRemove.length > 0) {
+      reverseOp = new TreeStyleOperation(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        reversePrevAttributes,
+        reverseAttrsToRemove,
+        this.getExecutedAt(),
+      );
+    } else if (reverseAttrsToRemove.length > 0) {
+      reverseOp = TreeStyleOperation.createTreeRemoveStyleOperation(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        reverseAttrsToRemove,
+        this.getExecutedAt(),
+      );
+    } else if (reversePrevAttributes.size > 0) {
+      reverseOp = TreeStyleOperation.create(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        reversePrevAttributes,
+        this.getExecutedAt(),
+      );
+    }
+
     return {
-      opInfos: changes.map(({ from, to, value, fromPath, toPath }) => {
+      opInfos: changes!.map(({ from, to, value, fromPath, toPath }) => {
         return {
           type: 'tree-style',
           from,
@@ -163,6 +222,7 @@ export class TreeStyleOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OpInfo;
       }),
+      reverseOp,
     };
   }
 
