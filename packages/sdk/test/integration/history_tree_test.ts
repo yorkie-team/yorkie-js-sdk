@@ -1063,3 +1063,335 @@ describe('Tree History - multi client edge cases', () => {
     }, task.name);
   });
 });
+
+// 6. Tree.Style Undo/Redo
+describe('Tree History - style undo/redo', () => {
+  it('should undo/redo style change', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'hello' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    const before = xmlOf(doc);
+    assert.equal(before, '<doc><p>hello</p></doc>');
+
+    doc.update((root) => {
+      root.t.style(0, 7, { bold: 'true' });
+    }, 'style bold');
+    const after = xmlOf(doc);
+    assert.equal(after, '<doc><p bold="true">hello</p></doc>');
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), before, 'undo should remove bold');
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), after, 'redo should restore bold');
+  });
+
+  it('should undo/redo style overwrite', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            attributes: { color: 'red' },
+            children: [{ type: 'text', value: 'hello' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    const before = xmlOf(doc);
+    assert.equal(before, '<doc><p color="red">hello</p></doc>');
+
+    doc.update((root) => {
+      root.t.style(0, 7, { color: 'blue' });
+    }, 'change color');
+    const after = xmlOf(doc);
+    assert.equal(after, '<doc><p color="blue">hello</p></doc>');
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), before, 'undo should restore color=red');
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), after, 'redo should restore color=blue');
+  });
+
+  it('should undo/redo removeStyle', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            attributes: { bold: 'true' },
+            children: [{ type: 'text', value: 'hello' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    const before = xmlOf(doc);
+    assert.equal(before, '<doc><p bold="true">hello</p></doc>');
+
+    doc.update((root) => {
+      root.t.removeStyle(0, 7, ['bold']);
+    }, 'remove bold');
+    const after = xmlOf(doc);
+    assert.equal(after, '<doc><p>hello</p></doc>');
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), before, 'undo should restore bold');
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), after, 'redo should remove bold again');
+  });
+
+  it('should undo/redo style + removeStyle mixed', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            attributes: { bold: 'true' },
+            children: [{ type: 'text', value: 'hello' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    const s0 = xmlOf(doc);
+
+    doc.update((root) => {
+      root.t.style(0, 7, { italic: 'true' });
+    }, 'add italic');
+    const s1 = xmlOf(doc);
+
+    doc.update((root) => {
+      root.t.removeStyle(0, 7, ['bold']);
+    }, 'remove bold');
+    const s2 = xmlOf(doc);
+
+    // Undo removeStyle
+    doc.history.undo();
+    assert.equal(xmlOf(doc), s1, 'undo removeStyle');
+
+    // Undo style
+    doc.history.undo();
+    assert.equal(xmlOf(doc), s0, 'undo add italic');
+
+    // Redo both
+    doc.history.redo();
+    assert.equal(xmlOf(doc), s1, 'redo add italic');
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), s2, 'redo remove bold');
+  });
+
+  it('should handle undo-redo round trip multiple times for style', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'hello' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    const before = xmlOf(doc);
+    doc.update((root) => {
+      root.t.style(0, 7, { bold: 'true' });
+    }, 'style bold');
+    const after = xmlOf(doc);
+
+    for (let i = 0; i < 3; i++) {
+      doc.history.undo();
+      assert.equal(xmlOf(doc), before, `round ${i} undo`);
+      doc.history.redo();
+      assert.equal(xmlOf(doc), after, `round ${i} redo`);
+    }
+  });
+});
+
+// 7. Multi Client - Tree.Style Undo/Redo
+//
+// Initial tree: <doc><p>abc</p><p>def</p><p>ghi</p></doc>
+// Indices: p1=[0,5), p2=[5,10), p3=[10,15)
+//
+// Range relations tested:
+//   disjoint:  c1=[0,5)   c2=[10,15)  — no overlap
+//   same:      c1=[0,5)   c2=[0,5)    — identical range
+//   overlap:   c1=[0,10)  c2=[5,15)   — partial overlap at p2
+//   contains:  c1=[0,15)  c2=[5,10)   — c1 contains c2
+describe('Tree History - multi client style', () => {
+  type TestDoc = { t: Tree };
+
+  type StyleTestCase = {
+    name: string;
+    c1Op: (doc: Document<TestDoc>) => void;
+    c2Op: (doc: Document<TestDoc>) => void;
+    skipRedo?: boolean;
+    initWithBold?: boolean;
+  };
+
+  const cases: Array<StyleTestCase> = [
+    // --- style × style ---
+    {
+      name: 'same-range/different-keys',
+      c1Op: (d) => d.update((r) => r.t.style(0, 5, { bold: 'true' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.style(0, 5, { italic: 'true' }), 'c2'),
+    },
+    {
+      name: 'same-range/same-key',
+      c1Op: (d) => d.update((r) => r.t.style(0, 5, { color: 'red' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.style(0, 5, { color: 'blue' }), 'c2'),
+    },
+    {
+      name: 'overlap/different-keys',
+      c1Op: (d) => d.update((r) => r.t.style(0, 10, { bold: 'true' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.style(5, 15, { italic: 'true' }), 'c2'),
+    },
+    {
+      name: 'overlap/same-key',
+      c1Op: (d) => d.update((r) => r.t.style(0, 10, { color: 'red' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.style(5, 15, { color: 'blue' }), 'c2'),
+    },
+    {
+      name: 'disjoint/different-keys',
+      c1Op: (d) => d.update((r) => r.t.style(0, 5, { bold: 'true' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.style(10, 15, { italic: 'true' }), 'c2'),
+    },
+    {
+      name: 'contains/same-key',
+      c1Op: (d) => d.update((r) => r.t.style(0, 15, { color: 'red' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.style(5, 10, { color: 'blue' }), 'c2'),
+    },
+    // --- style × remove-style ---
+    // NOTE: These cases use initWithBold (p1 starts with bold="true")
+    // because removeStyle on a non-existent attribute is a no-op.
+    {
+      name: 'same-range/set-vs-remove',
+      c1Op: (d) => d.update((r) => r.t.style(0, 5, { bold: 'false' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.removeStyle(0, 5, ['bold']), 'c2'),
+      initWithBold: true,
+    },
+    {
+      name: 'overlap/set-vs-remove',
+      c1Op: (d) => d.update((r) => r.t.style(0, 10, { bold: 'false' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.removeStyle(5, 15, ['bold']), 'c2'),
+      initWithBold: true,
+    },
+    // --- style × edit ---
+    {
+      name: 'same-range/style-vs-delete',
+      c1Op: (d) => d.update((r) => r.t.style(0, 5, { bold: 'true' }), 'c1'),
+      c2Op: (d) => d.update((r) => r.t.edit(0, 5), 'c2'),
+      skipRedo: true, // style undo on deleted node produces no reverseOp
+    },
+    {
+      name: 'overlap/style-vs-insert',
+      c1Op: (d) => d.update((r) => r.t.style(0, 5, { bold: 'true' }), 'c1'),
+      c2Op: (d) =>
+        d.update((r) => r.t.edit(1, 1, { type: 'text', value: 'X' }), 'c2'),
+    },
+  ];
+
+  function initThreeParagraphs(doc: Document<TestDoc>, withBold?: boolean) {
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'abc' }],
+            ...(withBold ? { attributes: { bold: 'true' } } : {}),
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'def' }],
+            ...(withBold ? { attributes: { bold: 'true' } } : {}),
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ghi' }],
+            ...(withBold ? { attributes: { bold: 'true' } } : {}),
+          },
+        ],
+      });
+    }, 'init');
+  }
+
+  for (const tc of cases) {
+    it(`should converge after undo: ${tc.name}`, async ({ task }) => {
+      await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+        initThreeParagraphs(d1, tc.initWithBold);
+        await c1.sync();
+        await c2.sync();
+
+        tc.c1Op(d1);
+        tc.c2Op(d2);
+
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(xmlOf(d1), xmlOf(d2), 'after ops');
+
+        d1.history.undo();
+        d2.history.undo();
+
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(xmlOf(d1), xmlOf(d2), 'after undo');
+      }, task.name);
+    });
+
+    const redoIt = tc.skipRedo ? it.skip : it;
+    redoIt(`should converge after redo: ${tc.name}`, async ({ task }) => {
+      await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+        initThreeParagraphs(d1, tc.initWithBold);
+        await c1.sync();
+        await c2.sync();
+
+        tc.c1Op(d1);
+        tc.c2Op(d2);
+
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+
+        d1.history.undo();
+        d2.history.undo();
+
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+
+        d1.history.redo();
+        d2.history.redo();
+
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+        assert.equal(xmlOf(d1), xmlOf(d2), 'after redo');
+      }, task.name);
+    });
+  }
+});
