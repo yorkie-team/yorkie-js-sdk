@@ -15,12 +15,6 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 - Add epoch mismatch event for compaction recovery by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1193
 - Export Tree, Text and Counter from @yorkie-js/react package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1190
 
-## [v0.7.3-alpha] - 2026-03-23
-
-### Added
-
-- Export Tree, Text and Counter from @yorkie-js/react package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1190
-
 ## [v0.7.2] - 2026-03-20
 
 ### Fixed
