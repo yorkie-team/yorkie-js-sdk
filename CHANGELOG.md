@@ -7,10 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-## [v0.7.3-alpha] - 2026-03-23
+## [v0.7.3] - 2026-04-02
 
 ### Added
 
+- Add range-based styleByPath and removeStyleByPath for Tree by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1198
+- Add epoch mismatch event for compaction recovery by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1193
 - Export Tree, Text and Counter from @yorkie-js/react package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1190
 
 ## [v0.7.2] - 2026-03-20
