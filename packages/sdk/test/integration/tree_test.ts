@@ -2077,6 +2077,254 @@ describe('Tree.style', function () {
     await c2.deactivate();
     await c3.deactivate();
   });
+
+  it('Can style a range by path', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'a' }],
+            attributes: { weight: 'bold' },
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'b' }],
+          },
+        ],
+      });
+    });
+
+    doc.update((root) => {
+      root.t.styleByPath([0], [2], { color: 'red' });
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p color="red" weight="bold">a</p>` +
+        /*html*/ `<p color="red">b</p></doc>`,
+    );
+  });
+
+  it('Can style multiple elements across a range by path', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ab' }],
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'cd' }],
+          },
+        ],
+      });
+    });
+
+    doc.update((root) => {
+      root.t.styleByPath([0], [2], { bold: 'true' });
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p bold="true">ab</p><p bold="true">cd</p></doc>`,
+    );
+  });
+
+  it('Can style single element by path (backward compat)', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'hello' }],
+          },
+        ],
+      });
+    });
+
+    doc.update((root) => {
+      root.t.styleByPath([0], { bold: 'true' });
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p bold="true">hello</p></doc>`,
+    );
+  });
+
+  it('Can remove style by path', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'a' }],
+            attributes: { bold: 'true', italic: 'true' },
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'b' }],
+            attributes: { bold: 'true', italic: 'true' },
+          },
+        ],
+      });
+    });
+
+    doc.update((root) => {
+      root.t.removeStyleByPath([0], [2], ['italic']);
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p bold="true">a</p>` +
+        /*html*/ `<p bold="true">b</p></doc>`,
+    );
+  });
+
+  it('Can remove style from multiple elements across a range by path', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ab' }],
+            attributes: { bold: 'true' },
+          },
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'cd' }],
+            attributes: { bold: 'true' },
+          },
+        ],
+      });
+    });
+
+    doc.update((root) => {
+      root.t.removeStyleByPath([0], [2], ['bold']);
+    });
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p>ab</p><p>cd</p></doc>`,
+    );
+  });
+
+  it('Should throw on mismatched path lengths for range styleByPath', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'a' }],
+          },
+        ],
+      });
+    });
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root.t.styleByPath([0], [0, 0], { bold: 'true' });
+      });
+    });
+  });
+
+  it('Should throw on empty paths for styleByPath', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'a' }],
+          },
+        ],
+      });
+    });
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root.t.styleByPath([], [], { bold: 'true' });
+      });
+    });
+  });
+
+  it('Should throw on mismatched path lengths for removeStyleByPath', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'a' }],
+            attributes: { bold: 'true' },
+          },
+        ],
+      });
+    });
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root.t.removeStyleByPath([0], [0, 0], ['bold']);
+      });
+    });
+  });
+
+  it('Should throw on empty paths for removeStyleByPath', function ({ task }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'a' }],
+            attributes: { bold: 'true' },
+          },
+        ],
+      });
+    });
+
+    assert.throws(() => {
+      doc.update((root) => {
+        root.t.removeStyleByPath([], [], ['bold']);
+      });
+    });
+  });
 });
 
 describe('Tree.edit(concurrent overlapping range)', () => {

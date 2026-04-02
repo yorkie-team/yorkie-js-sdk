@@ -495,9 +495,32 @@ export class Tree {
   }
 
   /**
-   * `styleByPath` sets the attributes to the elements of the given path.
+   * `styleByPath` sets the attributes to the element at the given
+   * path.
    */
-  public styleByPath(path: Array<number>, attributes: { [key: string]: any }) {
+  public styleByPath(
+    path: Array<number>,
+    attributes: { [key: string]: any },
+  ): void;
+  /**
+   * `styleByPath` sets the attributes to the elements in the given
+   * path range.
+   */
+  public styleByPath(
+    fromPath: Array<number>,
+    toPath: Array<number>,
+    attributes: { [key: string]: any },
+  ): void;
+  /**
+   * `styleByPath` sets the attributes to the elements of the given
+   * path. When called with two paths, it styles the range between
+   * them.
+   */
+  public styleByPath(
+    fromPathOrPath: Array<number>,
+    toPathOrAttrs: Array<number> | { [key: string]: any },
+    maybeAttrs?: { [key: string]: any },
+  ): void {
     if (!this.context || !this.tree) {
       throw new YorkieError(
         Code.ErrNotInitialized,
@@ -505,13 +528,46 @@ export class Tree {
       );
     }
 
-    if (!path.length) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        'path should not be empty',
-      );
+    let fromPos: CRDTTreePos;
+    let toPos: CRDTTreePos;
+    let attributes: { [key: string]: any };
+
+    if (Array.isArray(toPathOrAttrs)) {
+      // Range mode: styleByPath(fromPath, toPath, attrs)
+      const fromPath = fromPathOrPath;
+      const toPath = toPathOrAttrs;
+      attributes = maybeAttrs!;
+
+      if (fromPath.length !== toPath.length) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'path length should be equal',
+        );
+      }
+      if (!fromPath.length || !toPath.length) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'path should not be empty',
+        );
+      }
+
+      fromPos = this.tree.pathToPos(fromPath);
+      toPos = this.tree.pathToPos(toPath);
+    } else {
+      // Single-path mode: styleByPath(path, attrs)
+      const path = fromPathOrPath;
+      attributes = toPathOrAttrs;
+
+      if (!path.length) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'path should not be empty',
+        );
+      }
+
+      [fromPos, toPos] = this.tree.pathToPosRange(path);
     }
-    const [fromPos, toPos] = this.tree.pathToPosRange(path);
+
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
@@ -604,6 +660,62 @@ export class Tree {
 
     const fromPos = this.tree.findPos(fromIdx);
     const toPos = this.tree.findPos(toIdx);
+    const ticket = this.context.issueTimeTicket();
+
+    const [pairs, , diff] = this.tree!.removeStyle(
+      [fromPos, toPos],
+      attributesToRemove,
+      ticket,
+    );
+
+    this.context!.acc(diff);
+
+    for (const pair of pairs) {
+      this.context!.registerGCPair(pair);
+    }
+
+    this.context.push(
+      TreeStyleOperation.createTreeRemoveStyleOperation(
+        this.tree.getCreatedAt(),
+        fromPos,
+        toPos,
+        attributesToRemove,
+        ticket,
+      ),
+    );
+  }
+
+  /**
+   * `removeStyleByPath` removes the attributes of the elements in
+   * the given path range.
+   */
+  public removeStyleByPath(
+    fromPath: Array<number>,
+    toPath: Array<number>,
+    attributesToRemove: Array<string>,
+  ): void {
+    if (!this.context || !this.tree) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Tree is not initialized yet',
+      );
+    }
+
+    if (fromPath.length !== toPath.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path length should be equal',
+      );
+    }
+    if (!fromPath.length || !toPath.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'path should not be empty',
+      );
+    }
+
+    const fromPos = this.tree.pathToPos(fromPath);
+    const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.issueTimeTicket();
 
     const [pairs, , diff] = this.tree!.removeStyle(
