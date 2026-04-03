@@ -1107,7 +1107,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize, Array<CRDTTreeNode>, number] {
+  ): [
+    Array<TreeChange>,
+    Array<GCPair>,
+    DataSize,
+    Array<CRDTTreeNode>,
+    number,
+    Set<string>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
@@ -1128,6 +1135,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
+    // Track nodes that were already tombstoned before this edit.
+    // These should not be resurrected when creating reverse operations.
+    const preTombstoned = new Set<string>();
 
     this.traverseInPosRange(
       fromParent,
@@ -1182,6 +1192,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
           // NOTE(hackerwins): If the node overlaps as an end token with the
           // range then we need to keep the node.
           if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
+            // Track nodes already tombstoned before this edit so the
+            // reverse operation does not accidentally resurrect them.
+            if (node.isRemoved) {
+              preTombstoned.add(node.id.toIDString());
+            }
             nodesToBeRemoved.push(node);
           }
           tokensToBeRemoved.push([node, tokenType]);
@@ -1285,7 +1300,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs, diff, nodesToBeRemoved, fromIdx];
+    return [changes, pairs, diff, nodesToBeRemoved, fromIdx, preTombstoned];
   }
 
   /**
@@ -1298,7 +1313,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: () => TimeTicket,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize, Array<CRDTTreeNode>, number] {
+  ): [
+    Array<TreeChange>,
+    Array<GCPair>,
+    DataSize,
+    Array<CRDTTreeNode>,
+    number,
+    Set<string>,
+  ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
     return this.edit(

@@ -35,14 +35,64 @@ import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
 /**
  * `clearRemovedAt` clears the removedAt tombstone markers from a node
  * and all its descendants, so they can be re-inserted as live nodes.
- * Also resets visibleSize to totalSize since removal only decreases
- * visibleSize of ancestors.
+ *
+ * If `preTombstoned` is provided, nodes whose IDs are in this set
+ * are physically removed from the clone tree — they were already
+ * tombstoned before the current edit and should not be resurrected.
  */
-function clearRemovedAt(node: CRDTTreeNode): void {
+function clearRemovedAt(node: CRDTTreeNode, preTombstoned?: Set<string>): void {
+  // First pass: remove pre-tombstoned children from the clone tree
+  if (preTombstoned && preTombstoned.size > 0) {
+    filterPreTombstoned(node, preTombstoned);
+  }
+
+  // Second pass: clear removedAt and recompute sizes on remaining nodes
   traverseAll(node, (n) => {
     n.removedAt = undefined;
-    n.visibleSize = n.totalSize;
   });
+  recomputeSizes(node);
+}
+
+/**
+ * `filterPreTombstoned` recursively removes children that were
+ * independently tombstoned before the current edit.
+ */
+function filterPreTombstoned(
+  node: CRDTTreeNode,
+  preTombstoned: Set<string>,
+): void {
+  if (node.isText) return;
+
+  // Recurse into children first (bottom-up)
+  for (const child of node._children) {
+    filterPreTombstoned(child, preTombstoned);
+  }
+
+  // Filter out pre-tombstoned children
+  node._children = node._children.filter(
+    (child) => !preTombstoned.has(child.id.toIDString()),
+  );
+}
+
+/**
+ * `recomputeSizes` recomputes visibleSize and totalSize for the node
+ * and all its descendants based on the current children.
+ */
+function recomputeSizes(node: CRDTTreeNode): void {
+  if (node.isText) {
+    const len = node.value.length;
+    node.visibleSize = len;
+    node.totalSize = len;
+    return;
+  }
+
+  for (const child of node._children) {
+    recomputeSizes(child);
+  }
+
+  const childSize = node._children.reduce((sum, c) => sum + c.paddedSize(), 0);
+  node.visibleSize = childSize;
+  node.totalSize = childSize;
 }
 
 /**
@@ -145,33 +195,34 @@ export class TreeEditOperation extends Operation {
       }
     }
 
-    const [changes, pairs, diff, removedNodes, preEditFromIdx] = tree.edit(
-      [this.fromPos, this.toPos],
-      this.contents?.map((content) => content.deepcopy()),
-      this.splitLevel,
-      editedAt,
-      /**
-       * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
-       * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
-       * incremented by one for each.
-       * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
-       * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
-       */
-      (() => {
-        let delimiter = editedAt.getDelimiter();
-        if (this.contents !== undefined) {
-          delimiter += this.contents.length;
-        }
-        const issueTimeTicket = () =>
-          TimeTicket.of(
-            editedAt.getLamport(),
-            ++delimiter,
-            editedAt.getActorID(),
-          );
-        return issueTimeTicket;
-      })(),
-      versionVector,
-    );
+    const [changes, pairs, diff, removedNodes, preEditFromIdx, preTombstoned] =
+      tree.edit(
+        [this.fromPos, this.toPos],
+        this.contents?.map((content) => content.deepcopy()),
+        this.splitLevel,
+        editedAt,
+        /**
+         * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
+         * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
+         * incremented by one for each.
+         * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
+         * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
+         */
+        (() => {
+          let delimiter = editedAt.getDelimiter();
+          if (this.contents !== undefined) {
+            delimiter += this.contents.length;
+          }
+          const issueTimeTicket = () =>
+            TimeTicket.of(
+              editedAt.getLamport(),
+              ++delimiter,
+              editedAt.getActorID(),
+            );
+          return issueTimeTicket;
+        })(),
+        versionVector,
+      );
 
     // Store pre-edit from index (computed inside edit() after text-node splits
     // but before deletions). Derive toIdx from removed nodes' visible sizes.
@@ -186,7 +237,12 @@ export class TreeEditOperation extends Operation {
     // Create reverse op (skip for splitLevel > 0 in Phase 1)
     const reverseOp =
       this.splitLevel === 0
-        ? this.toReverseOperation(tree, removedNodes, preEditFromIdx)
+        ? this.toReverseOperation(
+            tree,
+            removedNodes,
+            preEditFromIdx,
+            preTombstoned,
+          )
         : undefined;
 
     root.acc(diff);
@@ -230,6 +286,7 @@ export class TreeEditOperation extends Operation {
     tree: CRDTTree,
     removedNodes: Array<CRDTTreeNode>,
     preEditFromIdx: number,
+    preTombstoned: Set<string>,
   ): Operation | undefined {
     // Compute inserted content size (total tree index tokens)
     const insertedContentSize = this.contents
@@ -249,12 +306,14 @@ export class TreeEditOperation extends Operation {
       (node) => !node.parent || !removedNodes.includes(node.parent),
     );
 
-    // Deep copy for re-insertion on undo, clearing tombstone markers
+    // Deep copy for re-insertion on undo. Pass preTombstoned so that
+    // nodes independently removed by earlier operations (e.g., a char-level
+    // undo tombstones text inside a block) are not resurrected.
     const reverseContents =
       topLevelRemoved.length > 0
         ? topLevelRemoved.map((n) => {
             const clone = n.deepcopy();
-            clearRemovedAt(clone);
+            clearRemovedAt(clone, preTombstoned);
             return clone;
           })
         : undefined;
