@@ -60,7 +60,7 @@
     "typedoc": "^0.28.15",
     "typescript": "^5.9.3",
     "typescript-transform-paths": "^3.5.5",
-    "vite": "^7.2.6",
+    "vite": "^7.3.2",
     "vite-plugin-commonjs": "^0.10.4",
     "vite-plugin-dts": "^4.5.4",
     "vite-tsconfig-paths": "^5.1.4",
