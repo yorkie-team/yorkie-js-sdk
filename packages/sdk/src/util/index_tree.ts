@@ -448,7 +448,10 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     const offset = this._children.indexOf(child);
     if (offset === -1) {
-      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
+      // When a child has been detached by a prior merge operation,
+      // removeChild during GC purge may not find it. This is safe to
+      // skip since the child is already physically removed.
+      return;
     }
 
     this._children.splice(offset, 1);
