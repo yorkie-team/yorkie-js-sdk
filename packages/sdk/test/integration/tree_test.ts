@@ -4109,6 +4109,105 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       );
     }, task.name);
   });
+
+  it('side-by-side-merge-and-merge', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+            { type: 'p', children: [{ type: 'text', value: 'd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4)); // merge p1+p2
+      d2.update((r) => r.t.edit(8, 10)); // merge p3+p4
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('concurrent-delete-after-merge-with-nested-content', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'a' }] },
+              ],
+            },
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'b' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><b>a</b></p><p><b>b</b></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><b>a</b></p><p><b>b</b></p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(4, 6)); // merge p1+p2
+      d2.update((r) => r.t.edit(0, 10)); // delete everything
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><b>a</b><b>b</b></p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, task.name);
+  });
 });
 
 describe('Tree.edit(concurrent, complex cases)', () => {
