@@ -459,6 +459,28 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `detachChild` removes the given child from this node's children list
+   * and updates both visibleSize and totalSize. Unlike `removeChild` which
+   * is used for GC purge of tombstoned nodes, `detachChild` is used for
+   * moving alive nodes between parents.
+   */
+  detachChild(child: T) {
+    if (this.isText) {
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
+    }
+
+    const offset = this._children.indexOf(child);
+    if (offset === -1) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
+    }
+
+    this._children.splice(offset, 1);
+    child.updateAncestorsSize(-child.paddedSize());
+    child.updateAncestorsSize(-child.paddedSize(true), true);
+    child.parent = undefined;
+  }
+
+  /**
    * `splitElement` splits the given element at the given offset.
    */
   splitElement(

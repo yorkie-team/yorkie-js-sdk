@@ -2392,7 +2392,7 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-merge', async function ({ task }) {
+  it('overlapping-merge-and-merge', async function ({ task }) {
     // TODO(emplam27): skip this for LWW performance test. Fix this test later.
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -2429,9 +2429,7 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-delete-element-node', async function ({
-    task,
-  }) {
+  it('overlapping-merge-and-delete-element-node', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2460,7 +2458,7 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-delete-text-nodes', async function ({ task }) {
+  it('overlapping-merge-and-delete-text-nodes', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3097,9 +3095,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-merge-at-the-same-level', async function ({
-    task,
-  }) {
+  it('contained-merge-and-merge-at-the-same-level', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3135,7 +3131,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-insert', async function ({ task }) {
+  it('contained-merge-and-insert', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3193,7 +3189,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-delete-contents-in-merged-node', async function ({
+  it('contained-merge-and-delete-contents-in-merged-node', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
