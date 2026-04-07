@@ -926,12 +926,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
         if (realParent.mergedChildIDs && realParent.mergedChildIDs.length > 0) {
           const firstChild = this.findFloorNode(realParent.mergedChildIDs[0]);
           if (firstChild?.parent === mergeTarget) {
-            const offset = mergeTarget.findOffset(firstChild);
-            if (offset === 0) {
+            // Use allChildren consistently to avoid visible/total offset mismatch.
+            const allCh = mergeTarget.allChildren;
+            const offset = allCh.indexOf(firstChild);
+            if (offset <= 0) {
               return [[mergeTarget, mergeTarget], diff];
             }
-            const prevChild = mergeTarget.allChildren[offset - 1];
-            return [[mergeTarget, prevChild], diff];
+            return [[mergeTarget, allCh[offset - 1]], diff];
           }
         }
         return [[mergeTarget, mergeTarget], diff];
@@ -1245,9 +1246,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
                 }
                 if (!splitCreationKnown) {
                   nodesToBeRemoved.push(next);
-                  for (const child of next.allChildren) {
-                    nodesToBeRemoved.push(child);
-                  }
+                  // Cascade through the full subtree, not just immediate children.
+                  traverseAll(next, (n) => {
+                    if (n !== next) {
+                      nodesToBeRemoved.push(n);
+                    }
+                  });
                 }
                 if (!next.insNextID) break;
                 next = this.findFloorNode(next.insNextID);
@@ -1279,10 +1283,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03. Merge: move the nodes that are marked as moved.
     for (const node of toBeMovedToFromParents) {
       if (!node.removedAt) {
-        // Record child ID before detaching.
-        for (const src of toBeMergedNodes) {
-          if (!src.mergedChildIDs) src.mergedChildIDs = [];
-          src.mergedChildIDs.push(node.id);
+        // Record child ID on its actual source parent only.
+        if (node.parent) {
+          for (const src of toBeMergedNodes) {
+            if (src === node.parent) {
+              if (!src.mergedChildIDs) src.mergedChildIDs = [];
+              src.mergedChildIDs.push(node.id);
+              break;
+            }
+          }
         }
         // Detach from old parent to prevent ghost references.
         // Use try-catch because the child may already have been detached
@@ -1321,6 +1330,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
             if (child.isRemoved) {
               pairs.push({ parent: this, child });
             }
+            // Also tombstone descendants if the moved child is an element.
+            traverseAll(child, (n) => {
+              if (n !== child && !n.removedAt) {
+                n.remove(editedAt);
+                if (n.isRemoved) {
+                  pairs.push({ parent: this, child: n });
+                }
+              }
+            });
           }
         }
       }
