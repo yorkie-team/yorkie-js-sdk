@@ -448,12 +448,37 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     const offset = this._children.indexOf(child);
     if (offset === -1) {
-      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
+      // When a child has been detached by a prior merge operation,
+      // removeChild during GC purge may not find it. This is safe to
+      // skip since the child is already physically removed.
+      return;
     }
 
     this._children.splice(offset, 1);
     // NOTE(hackerwins): Decrease totalSize including removed nodes
     // since this node is being purged (physically removed from tree).
+    child.updateAncestorsSize(-child.paddedSize(true), true);
+    child.parent = undefined;
+  }
+
+  /**
+   * `detachChild` removes the given child from this node's children list
+   * and updates both visibleSize and totalSize. Unlike `removeChild` which
+   * is used for GC purge of tombstoned nodes, `detachChild` is used for
+   * moving alive nodes between parents.
+   */
+  detachChild(child: T) {
+    if (this.isText) {
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
+    }
+
+    const offset = this._children.indexOf(child);
+    if (offset === -1) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'child not found');
+    }
+
+    this._children.splice(offset, 1);
+    child.updateAncestorsSize(-child.paddedSize());
     child.updateAncestorsSize(-child.paddedSize(true), true);
     child.parent = undefined;
   }

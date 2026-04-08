@@ -447,6 +447,18 @@ export class CRDTTreeNode
    */
   insNextID?: CRDTTreeNodeID;
 
+  /**
+   * `mergedInto` is a runtime-only forwarding pointer set when this node
+   * is tombstoned by a merge. Records which parent received children.
+   */
+  mergedInto?: CRDTTreeNodeID;
+
+  /**
+   * `mergedChildIDs` records the IDs of children moved during merge.
+   * Used to propagate concurrent deletes to moved children.
+   */
+  mergedChildIDs?: Array<CRDTTreeNodeID>;
+
   _value = '';
 
   constructor(
@@ -906,6 +918,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const realParent =
       leftNode.parent && !isLeftMost ? leftNode.parent : parent;
 
+    // 02-1. If the parent has been tombstoned by a merge, redirect to the
+    // merge destination using the forwarding pointer.
+    if (realParent.isRemoved && isLeftMost && realParent.mergedInto) {
+      const mergeTarget = this.findFloorNode(realParent.mergedInto);
+      if (mergeTarget && !mergeTarget.isRemoved) {
+        if (realParent.mergedChildIDs && realParent.mergedChildIDs.length > 0) {
+          const firstChild = this.findFloorNode(realParent.mergedChildIDs[0]);
+          if (firstChild?.parent === mergeTarget) {
+            // Use allChildren consistently to avoid visible/total offset mismatch.
+            const allCh = mergeTarget.allChildren;
+            const offset = allCh.indexOf(firstChild);
+            if (offset <= 0) {
+              return [[mergeTarget, mergeTarget], diff];
+            }
+            return [[mergeTarget, allCh[offset - 1]], diff];
+          }
+        }
+        return [[mergeTarget, mergeTarget], diff];
+      }
+    }
+
     // 03. Split text node if the left node is a text node.
     if (leftNode.isText) {
       const [, splitedDiff] = leftNode.split(
@@ -1128,6 +1161,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const nodesToBeRemoved: Array<CRDTTreeNode> = [];
     const tokensToBeRemoved: Array<TreeToken<CRDTTreeNode>> = [];
     const toBeMovedToFromParents: Array<CRDTTreeNode> = [];
+    const toBeMergedNodes: Array<CRDTTreeNode> = [];
+    const preTombstoned = new Set<string>();
 
     this.traverseInPosRange(
       fromParent,
@@ -1138,14 +1173,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // NOTE(hackerwins): If the node overlaps as a start tag with the
         // range then we need to move the remaining children to fromParent.
         if (tokenType === TokenType.Start && !ended) {
-          // TODO(hackerwins): Define more clearly merge-able rules
-          // between two parents. For now, we only merge two parents are
-          // both element nodes having text children.
-          // e.g. <p>a|b</p><p>c|d</p> -> <p>a|d</p>
-          // if (!fromParent.hasTextChild() || !toParent.hasTextChild()) {
-          //   return;
-          // }
-
+          toBeMergedNodes.push(node);
           for (const child of node.children) {
             toBeMovedToFromParents.push(child);
           }
@@ -1175,14 +1203,60 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
+        // Do not cascade-delete children of merge-boundary nodes
+        // (toBeMergedNodes), because those children are moved rather than
+        // deleted.
         if (
           node.canDelete(editedAt, creationKnown, tombstoneKnown) ||
-          nodesToBeRemoved.includes(node.parent!)
+          (nodesToBeRemoved.includes(node.parent!) &&
+            !toBeMergedNodes.includes(node.parent!))
         ) {
           // NOTE(hackerwins): If the node overlaps as an end token with the
           // range then we need to keep the node.
           if (tokenType === TokenType.Text || tokenType === TokenType.Start) {
+            // Track nodes already tombstoned before this edit so the
+            // reverse operation does not accidentally resurrect them.
+            if (node.isRemoved) {
+              preTombstoned.add(node.id.toIDString());
+            }
             nodesToBeRemoved.push(node);
+
+            // Cascade delete to split siblings created by concurrent
+            // SplitElement. Only for element nodes.
+            if (
+              !node.isText &&
+              node.insNextID &&
+              !toBeMergedNodes.includes(node)
+            ) {
+              let next = this.findFloorNode(node.insNextID);
+              while (next) {
+                let splitCreationKnown = false;
+                if (isLocal) {
+                  splitCreationKnown = true;
+                } else {
+                  const vv = versionVector?.get(
+                    next.id.getCreatedAt().getActorID(),
+                  );
+                  if (
+                    vv !== undefined &&
+                    vv >= next.id.getCreatedAt().getLamport()
+                  ) {
+                    splitCreationKnown = true;
+                  }
+                }
+                if (!splitCreationKnown) {
+                  nodesToBeRemoved.push(next);
+                  // Cascade through the full subtree, not just immediate children.
+                  traverseAll(next, (n) => {
+                    if (n !== next) {
+                      nodesToBeRemoved.push(n);
+                    }
+                  });
+                }
+                if (!next.insNextID) break;
+                next = this.findFloorNode(next.insNextID);
+              }
+            }
           }
           tokensToBeRemoved.push([node, tokenType]);
         }
@@ -1209,7 +1283,64 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03. Merge: move the nodes that are marked as moved.
     for (const node of toBeMovedToFromParents) {
       if (!node.removedAt) {
+        // Record child ID on its actual source parent only.
+        if (node.parent) {
+          for (const src of toBeMergedNodes) {
+            if (src === node.parent) {
+              if (!src.mergedChildIDs) src.mergedChildIDs = [];
+              src.mergedChildIDs.push(node.id);
+              break;
+            }
+          }
+        }
+        // Detach from old parent to prevent ghost references.
+        // Use try-catch because the child may already have been detached
+        // by a concurrent operation (e.g., cascade delete of split sibling).
+        if (node.parent) {
+          try {
+            node.parent.detachChild(node);
+          } catch {
+            // Child already detached from parent, skip.
+          }
+        }
         fromParent.append(node);
+      }
+    }
+    // Set forwarding pointer on merge-source nodes.
+    for (const src of toBeMergedNodes) {
+      src.mergedInto = fromParent.id;
+    }
+
+    // 03-1. Propagate deletes to children moved by prior merges.
+    // When a merge-source node is fully deleted (not a merge boundary),
+    // its former children in the merge target should also be deleted.
+    // Skip when mergedInto points to fromParent (concurrent merge).
+    for (const node of nodesToBeRemoved) {
+      if (
+        node.mergedInto &&
+        node.mergedChildIDs &&
+        node.mergedChildIDs.length > 0 &&
+        !toBeMergedNodes.includes(node) &&
+        !node.mergedInto.equals(fromParent.id)
+      ) {
+        for (const childID of node.mergedChildIDs) {
+          const child = this.findFloorNode(childID);
+          if (child && !child.removedAt) {
+            child.remove(editedAt);
+            if (child.isRemoved) {
+              pairs.push({ parent: this, child });
+            }
+            // Also tombstone descendants if the moved child is an element.
+            traverseAll(child, (n) => {
+              if (n !== child && !n.removedAt) {
+                n.remove(editedAt);
+                if (n.isRemoved) {
+                  pairs.push({ parent: this, child: n });
+                }
+              }
+            });
+          }
+        }
       }
     }
 
@@ -1672,6 +1803,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): void {
     const fromIdx = this.toIndex(fromParent, fromLeft, includeRemoved);
     const toIdx = this.toIndex(toParent, toLeft, includeRemoved);
+    // When a concurrent merge redirects the to-position into an earlier
+    // part of the tree, the range becomes empty (prior merge handled it).
+    if (fromIdx > toIdx) {
+      return;
+    }
     this.indexTree.tokensBetween(fromIdx, toIdx, callback, includeRemoved);
   }
 

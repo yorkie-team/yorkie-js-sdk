@@ -2392,7 +2392,7 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-merge', async function ({ task }) {
+  it('overlapping-merge-and-merge', async function ({ task }) {
     // TODO(emplam27): skip this for LWW performance test. Fix this test later.
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
@@ -2429,9 +2429,7 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-delete-element-node', async function ({
-    task,
-  }) {
+  it('overlapping-merge-and-delete-element-node', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2460,7 +2458,7 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
-  it.skip('overlapping-merge-and-delete-text-nodes', async function ({ task }) {
+  it('overlapping-merge-and-delete-text-nodes', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -2992,7 +2990,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
 
   // TODO(JOOHOJANG): split operation's defect cause GC error.
   // remove this comment after implement split operation completely.
-  it.skip('contained-split-and-delete-contents-in-split-node', async function ({
+  it('contained-split-and-delete-contents-in-split-node', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3020,7 +3018,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-split-and-delete-the-whole-original-and-split-nodes', async function ({
+  it('contained-split-and-delete-the-whole-original-and-split-nodes', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3097,9 +3095,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-merge-at-the-same-level', async function ({
-    task,
-  }) {
+  it('contained-merge-and-merge-at-the-same-level', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3135,7 +3131,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-insert', async function ({ task }) {
+  it('contained-merge-and-insert', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3193,7 +3189,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-merge-and-delete-contents-in-merged-node', async function ({
+  it('contained-merge-and-delete-contents-in-merged-node', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -4111,6 +4107,145 @@ describe('Tree.edit(concurrent, side by side range)', () => {
         d2.getRoot().t.toXML(),
         /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
       );
+    }, task.name);
+  });
+
+  it('side-by-side-merge-and-merge', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'a' }] },
+            { type: 'p', children: [{ type: 'text', value: 'b' }] },
+            { type: 'p', children: [{ type: 'text', value: 'c' }] },
+            { type: 'p', children: [{ type: 'text', value: 'd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>c</p><p>d</p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(2, 4)); // merge p1+p2
+      d2.update((r) => r.t.edit(8, 10)); // merge p3+p4
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>c</p><p>d</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('concurrent-delete-after-merge-with-nested-content', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'a' }] },
+              ],
+            },
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'b' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><b>a</b></p><p><b>b</b></p></r>`,
+      );
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p><b>a</b></p><p><b>b</b></p></r>`,
+      );
+
+      d1.update((r) => r.t.edit(4, 6)); // merge p1+p2
+      d2.update((r) => r.t.edit(0, 10)); // delete everything
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><b>a</b><b>b</b></p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
+    }, task.name);
+  });
+  it('delete-starting-inside-merge-target', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ab' }],
+            },
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'c' }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), '<r><p>ab</p><p>c</p></r>');
+      assert.equal(d2.getRoot().t.toXML(), '<r><p>ab</p><p>c</p></r>');
+
+      // C1: merge p1+p2 (from after 'b' to before 'c', crossing boundary)
+      d1.update((r) => r.t.edit(3, 5));
+      // C2: delete from after 'b' through end of p2
+      d2.update((r) => r.t.edit(3, 7));
+      assert.equal(d1.getRoot().t.toXML(), '<r><p>abc</p></r>');
+      assert.equal(d2.getRoot().t.toXML(), '<r><p>ab</p></r>');
+
+      // After sync: merged children (text_c) should be deleted because
+      // C2's delete range covers them. Even though mergedInto == fromParent
+      // suppresses propagation, the children are in fromParent and reachable
+      // through normal traversal.
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), '<r><p>ab</p></r>');
+      assert.equal(d2.getRoot().t.toXML(), '<r><p>ab</p></r>');
     }, task.name);
   });
 });
