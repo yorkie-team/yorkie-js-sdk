@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '../yorkie';
+import { TimeTicket, VersionVector } from '../yorkie';
 import { Code, YorkieError } from './error';
 import {
   DataSize,
@@ -489,6 +489,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   splitElement(
     offset: number,
     issueTimeTicket: () => TimeTicket,
+    versionVector?: VersionVector,
   ): [T | undefined, DataSize] {
     const diff = { data: 0, meta: 0 };
 
@@ -511,15 +512,35 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     const left = allChildren.slice(0, offset);
     const right = allChildren.slice(offset);
 
-    // Fix 8: Keep merge-moved children in the original node instead of
-    // moving them to the split sibling.
+    // Fix 8: Keep merge-moved children in the original node when the
+    // merge is concurrent and the split boundary is not itself within
+    // merged content. If the boundary node has mergedFrom, the split
+    // is operating within merged content and all children move normally.
+    const boundaryIsMerged =
+      left.length > 0 &&
+      'mergedFrom' in left[left.length - 1] &&
+      (left[left.length - 1] as any).mergedFrom != null;
     const actualRight: Array<T> = [];
     for (const child of right) {
-      if ('mergedFrom' in child && (child as any).mergedFrom != null) {
-        left.push(child);
-      } else {
-        actualRight.push(child);
+      if (
+        !boundaryIsMerged &&
+        'mergedFrom' in child &&
+        (child as any).mergedFrom != null &&
+        'mergedAt' in child &&
+        (child as any).mergedAt != null
+      ) {
+        if (versionVector) {
+          const mergedAt = (child as any).mergedAt as TimeTicket;
+          if (!versionVector.afterOrEqual(mergedAt)) {
+            left.push(child);
+            continue;
+          }
+        } else {
+          left.push(child);
+          continue;
+        }
       }
+      actualRight.push(child);
     }
 
     this._children = left;

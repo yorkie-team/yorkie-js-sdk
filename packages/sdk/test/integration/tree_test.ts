@@ -3976,6 +3976,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
     }, task.name);
   });
 

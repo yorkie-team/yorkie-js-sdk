@@ -466,6 +466,13 @@ export class CRDTTreeNode
    */
   mergedFrom?: CRDTTreeNodeID;
 
+  /**
+   * `mergedAt` records when the merge operation occurred. Used with
+   * mergedFrom to check concurrency: the veto only applies when the
+   * editor's version vector does not cover this ticket.
+   */
+  mergedAt?: TimeTicket;
+
   _value = '';
 
   constructor(
@@ -625,10 +632,11 @@ export class CRDTTreeNode
     tree: CRDTTree,
     offset: number,
     issueTimeTicket?: () => TimeTicket,
+    versionVector?: VersionVector,
   ): [CRDTTreeNode | undefined, DataSize] {
     const [split, diff] = this.isText
       ? this.splitText(offset, this.id.getOffset())
-      : this.splitElement(offset, issueTimeTicket!);
+      : this.splitElement(offset, issueTimeTicket!, versionVector);
 
     if (split) {
       split.insPrevID = this.id;
@@ -1358,6 +1366,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // Record source parent for split-skip check (Fix 8).
         if (node.parent) {
           node.mergedFrom = node.parent.id;
+          node.mergedAt = editedAt;
         }
         // Record child ID on its actual source parent only.
         if (node.parent) {
@@ -1426,7 +1435,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
       let parent = fromParent;
       let left = fromLeft;
       while (splitCount < splitLevel) {
-        parent.split(this, parent.findOffset(left) + 1, issueTimeTicket);
+        parent.split(
+          this,
+          parent.findOffset(left) + 1,
+          issueTimeTicket,
+          versionVector,
+        );
         left = parent;
         parent = parent.parent!;
         splitCount++;
