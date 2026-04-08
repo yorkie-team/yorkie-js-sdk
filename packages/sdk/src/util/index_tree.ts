@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TimeTicket } from '../yorkie';
+import { TimeTicket, VersionVector } from '../yorkie';
 import { Code, YorkieError } from './error';
 import {
   DataSize,
@@ -489,6 +489,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   splitElement(
     offset: number,
     issueTimeTicket: () => TimeTicket,
+    versionVector?: VersionVector,
   ): [T | undefined, DataSize] {
     const diff = { data: 0, meta: 0 };
 
@@ -507,10 +508,43 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     clone.updateAncestorsSize(clone.paddedSize());
     clone.updateAncestorsSize(clone.paddedSize(true), true);
 
-    const leftChildren = this.children.slice(0, offset);
-    const rightChildren = this.children.slice(offset);
-    this._children = leftChildren;
-    clone._children = rightChildren;
+    const allChildren = this.children;
+    const left = allChildren.slice(0, offset);
+    const right = allChildren.slice(offset);
+
+    // Fix 8: Keep merge-moved children in the original node when the
+    // merge is concurrent and the split boundary is not itself within
+    // merged content. If the boundary node has mergedFrom, the split
+    // is operating within merged content and all children move normally.
+    const boundaryIsMerged =
+      left.length > 0 &&
+      'mergedFrom' in left[left.length - 1] &&
+      (left[left.length - 1] as any).mergedFrom != null;
+    const actualRight: Array<T> = [];
+    for (const child of right) {
+      if (
+        !boundaryIsMerged &&
+        'mergedFrom' in child &&
+        (child as any).mergedFrom != null &&
+        'mergedAt' in child &&
+        (child as any).mergedAt != null
+      ) {
+        // Only veto for remote operations (with versionVector) when the
+        // merge is concurrent. Local edits (no versionVector) always know
+        // about all prior operations, so never veto.
+        if (versionVector) {
+          const mergedAt = (child as any).mergedAt as TimeTicket;
+          if (!versionVector.afterOrEqual(mergedAt)) {
+            left.push(child);
+            continue;
+          }
+        }
+      }
+      actualRight.push(child);
+    }
+
+    this._children = left;
+    clone._children = actualRight;
     this.visibleSize = this._children.reduce(
       (acc, child) => acc + child.paddedSize(),
       0,

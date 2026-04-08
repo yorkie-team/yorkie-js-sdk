@@ -3943,10 +3943,9 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
-  it.skip('cascade-delete-across-parent-after-multi-level-split', async function ({
+  it('cascade-delete-across-parent-after-multi-level-split', async function ({
     task,
   }) {
-    // TODO(hackerwins): fix multi-level split + cross-boundary merge divergence
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3971,7 +3970,124 @@ describe('Tree.edit(concurrent, side by side range)', () => {
         d1.getRoot().t.toXML(),
         /*html*/ `<r><p><p>a</p></p><p><p>b</p><p>cd</p></p></r>`,
       );
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><p>cd</p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>cd</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
+    }, task.name);
+  });
+
+  it('sequential-merge-then-split', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      // d1: merge two paragraphs
+      d1.update((r) => r.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      // d2: split the merged content at ab|cd (sequential, knows about merge)
+      d2.update((r) => r.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('multi-level-split-with-concurrent-merge-and-text-split', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.edit(3, 3, undefined, 2));
+      d2.update((r) => r.t.edit(1, 6));
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  // When one client deletes text content and another concurrently splits
+  // the same paragraph, the delete range overlaps with the split boundary.
+  // This creates a convergence challenge because the split position
+  // resolves inside tombstoned content.
+  //
+  // Additionally, in the JS SDK, splitElement uses this.children (a
+  // visible-only getter) which drops tombstoned children from _children
+  // during reassignment. In Go, Children(true) preserves removed nodes.
+  // This structural difference could cause issues with GC and subsequent
+  // operations that reference tombstoned nodes by ID.
+  it.skip('split-with-concurrent-delete-overlapping-content', async function ({
+    task,
+  }) {
+    // TODO(hackerwins): fix concurrent delete + split convergence on
+    // overlapping content
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      // d1: delete "bc" (positions 2-4)
+      d1.update((r) => r.t.edit(2, 4));
+      // d2: split <p> at position 3 (between b and c) with splitLevel=1
+      d2.update((r) => r.t.edit(3, 3, undefined, 1));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ad</p></r>`);
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
 
       await c1.sync();
       await c2.sync();
