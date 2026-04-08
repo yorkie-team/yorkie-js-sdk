@@ -4208,6 +4208,46 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r></r>`);
     }, task.name);
   });
+  it('delete-starting-inside-merge-target', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ab' }],
+            },
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'c' }],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getRoot().t.toXML(), '<r><p>ab</p><p>c</p></r>');
+      assert.equal(d2.getRoot().t.toXML(), '<r><p>ab</p><p>c</p></r>');
+
+      // C1: merge p1+p2 (from after 'b' to before 'c', crossing boundary)
+      d1.update((r) => r.t.edit(3, 5));
+      // C2: delete from after 'b' through end of p2
+      d2.update((r) => r.t.edit(3, 7));
+      assert.equal(d1.getRoot().t.toXML(), '<r><p>abc</p></r>');
+      assert.equal(d2.getRoot().t.toXML(), '<r><p>ab</p></r>');
+
+      // After sync: merged children (text_c) should be deleted because
+      // C2's delete range covers them. Even though mergedInto == fromParent
+      // suppresses propagation, the children are in fromParent and reachable
+      // through normal traversal.
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), '<r><p>ab</p></r>');
+      assert.equal(d2.getRoot().t.toXML(), '<r><p>ab</p></r>');
+    }, task.name);
+  });
 });
 
 describe('Tree.edit(concurrent, complex cases)', () => {
