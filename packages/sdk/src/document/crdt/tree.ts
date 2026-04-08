@@ -459,6 +459,13 @@ export class CRDTTreeNode
    */
   mergedChildIDs?: Array<CRDTTreeNodeID>;
 
+  /**
+   * `mergedFrom` records the source parent ID before this node was moved
+   * during a merge. Used by splitElement to keep merge-moved children in
+   * the original node instead of moving them to the split sibling (Fix 8).
+   */
+  mergedFrom?: CRDTTreeNodeID;
+
   _value = '';
 
   constructor(
@@ -1348,6 +1355,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03. Merge: move the nodes that are marked as moved.
     for (const node of toBeMovedToFromParents) {
       if (!node.removedAt) {
+        // Record source parent for split-skip check (Fix 8).
+        if (node.parent) {
+          node.mergedFrom = node.parent.id;
+        }
         // Record child ID on its actual source parent only.
         if (node.parent) {
           for (const src of toBeMergedNodes) {

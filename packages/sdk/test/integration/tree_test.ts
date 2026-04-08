@@ -3943,10 +3943,9 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
-  it.skip('cascade-delete-across-parent-after-multi-level-split', async function ({
+  it('cascade-delete-across-parent-after-multi-level-split', async function ({
     task,
   }) {
-    // TODO(hackerwins): fix multi-level split + cross-boundary merge divergence
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3971,7 +3970,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
         d1.getRoot().t.toXML(),
         /*html*/ `<r><p><p>a</p></p><p><p>b</p><p>cd</p></p></r>`,
       );
-      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><p>cd</p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>cd</p></r>`);
 
       await c1.sync();
       await c2.sync();

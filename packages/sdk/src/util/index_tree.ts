@@ -507,10 +507,23 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     clone.updateAncestorsSize(clone.paddedSize());
     clone.updateAncestorsSize(clone.paddedSize(true), true);
 
-    const leftChildren = this.children.slice(0, offset);
-    const rightChildren = this.children.slice(offset);
-    this._children = leftChildren;
-    clone._children = rightChildren;
+    const allChildren = this.children;
+    const left = allChildren.slice(0, offset);
+    const right = allChildren.slice(offset);
+
+    // Fix 8: Keep merge-moved children in the original node instead of
+    // moving them to the split sibling.
+    const actualRight: Array<T> = [];
+    for (const child of right) {
+      if ('mergedFrom' in child && (child as any).mergedFrom != null) {
+        left.push(child);
+      } else {
+        actualRight.push(child);
+      }
+    }
+
+    this._children = left;
+    clone._children = actualRight;
     this.visibleSize = this._children.reduce(
       (acc, child) => acc + child.paddedSize(),
       0,
