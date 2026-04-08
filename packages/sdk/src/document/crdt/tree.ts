@@ -1020,16 +1020,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): [Array<GCPair>, Array<TreeChange>, DataSize] {
     const diff = { data: 0, meta: 0 };
 
-    const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
+    const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
-    const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
+    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
     );
 
     addDataSizes(diff, diffTo, diffFrom);
+
+    const fromLeft =
+      fromLeftRaw !== fromParent
+        ? this.advancePastUnknownSplitSiblings(fromLeftRaw, versionVector)
+        : fromLeftRaw;
+    const toLeft =
+      toLeftRaw !== toParent
+        ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
+        : toLeftRaw;
 
     const changes: Array<TreeChange> = [];
     const attrs: { [key: string]: any } = attributes
