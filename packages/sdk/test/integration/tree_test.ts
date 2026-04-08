@@ -2852,7 +2852,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-split-and-split-at-different-levels', async function ({
+  it('contained-split-and-split-at-different-levels', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3877,7 +3877,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
-  it.skip('side-by-side-split-and-insert', async function ({ task }) {
+  it('side-by-side-split-and-insert', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3911,7 +3911,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
-  it.skip('side-by-side-split-and-delete', async function ({ task }) {
+  it('side-by-side-split-and-delete', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({

@@ -885,6 +885,47 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `advancePastUnknownSplitSiblings` follows the insNextID chain of the
+   * given node, advancing past element-type split siblings that the editing
+   * client did not know about (not in versionVector).
+   */
+  private advancePastUnknownSplitSiblings(
+    node: CRDTTreeNode,
+    versionVector?: VersionVector,
+  ): CRDTTreeNode {
+    if (!versionVector || !node) {
+      return node;
+    }
+
+    let current = node;
+    while (current.insNextID) {
+      const next = this.findFloorNode(current.insNextID);
+      if (!next || next.isText) {
+        break;
+      }
+
+      // Stop if the sibling has been moved to a different parent
+      // (e.g., by a higher-level concurrent split).
+      if (next.parent !== current.parent) {
+        break;
+      }
+
+      const actorID = next.id.getCreatedAt().getActorID();
+      const knownLamport = versionVector.get(actorID);
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= next.id.getCreatedAt().getLamport()
+      ) {
+        break;
+      }
+
+      current = next;
+    }
+
+    return current;
+  }
+
+  /**
    * `registerNode` registers the given node to the tree.
    */
   public registerNode(node: CRDTTreeNode): void {
@@ -1144,16 +1185,31 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
-    const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
+    const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
-    const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
+    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
     );
 
     addDataSizes(diff, diffTo, diffFrom);
+
+    // 01-1. Advance past split siblings unknown to the editing client.
+    // When a concurrent SplitElement created siblings linked via insNextID,
+    // the editor's position was computed against the unsplit tree. Advance
+    // past siblings the editor could not have seen so that the range
+    // starts/ends after all concurrent split products.
+    // Skip when leftNode == parent (leftmost child position).
+    const fromLeft =
+      fromLeftRaw !== fromParent
+        ? this.advancePastUnknownSplitSiblings(fromLeftRaw, versionVector)
+        : fromLeftRaw;
+    const toLeft =
+      toLeftRaw !== toParent
+        ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
+        : toLeftRaw;
 
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const fromPath = this.toPath(fromParent, fromLeft);
