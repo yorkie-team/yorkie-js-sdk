@@ -3980,6 +3980,77 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
+  it('sequential-merge-then-split', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      // d1: merge two paragraphs
+      d1.update((r) => r.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      // d2: split the merged content at ab|cd (sequential, knows about merge)
+      d2.update((r) => r.t.edit(3, 3, undefined, 1));
+      assert.equal(
+        d2.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+    }, task.name);
+  });
+
+  it('multi-level-split-with-concurrent-merge-and-text-split', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.edit(3, 3, undefined, 2));
+      d2.update((r) => r.t.edit(1, 6));
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
   it('merge-with-concurrent-content-delete', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {

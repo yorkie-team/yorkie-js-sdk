@@ -529,15 +529,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
         'mergedAt' in child &&
         (child as any).mergedAt != null
       ) {
+        // Only veto for remote operations (with versionVector) when the
+        // merge is concurrent. Local edits (no versionVector) always know
+        // about all prior operations, so never veto.
         if (versionVector) {
           const mergedAt = (child as any).mergedAt as TimeTicket;
           if (!versionVector.afterOrEqual(mergedAt)) {
             left.push(child);
             continue;
           }
-        } else {
-          left.push(child);
-          continue;
         }
       }
       actualRight.push(child);
