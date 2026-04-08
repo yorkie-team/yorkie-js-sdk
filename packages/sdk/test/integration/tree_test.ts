@@ -2852,7 +2852,7 @@ describe('Tree.edit(concurrent, contained range)', () => {
     }, task.name);
   });
 
-  it.skip('contained-split-and-split-at-different-levels', async function ({
+  it('contained-split-and-split-at-different-levels', async function ({
     task,
   }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
@@ -3877,7 +3877,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
-  it.skip('side-by-side-split-and-insert', async function ({ task }) {
+  it('side-by-side-split-and-insert', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3911,7 +3911,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
-  it.skip('side-by-side-split-and-delete', async function ({ task }) {
+  it('side-by-side-split-and-delete', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -3940,6 +3940,99 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
       assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>b</p></r>`);
+    }, task.name);
+  });
+
+  it.skip('cascade-delete-across-parent-after-multi-level-split', async function ({
+    task,
+  }) {
+    // TODO(hackerwins): fix multi-level split + cross-boundary merge divergence
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.edit(3, 3, undefined, 2));
+      d2.update((r) => r.t.edit(1, 6));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p><p>a</p></p><p><p>b</p><p>cd</p></p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p><p>cd</p></p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
+  it('merge-with-concurrent-content-delete', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.edit(2, 3));
+      d2.update((r) => r.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>cd</p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>acd</p></r>`);
+    }, task.name);
+  });
+
+  it('merge-with-concurrent-full-content-delete-in-source', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.edit(5, 7));
+      d2.update((r) => r.t.edit(3, 5));
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p><p></p></r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>ab</p></r>`);
     }, task.name);
   });
 
