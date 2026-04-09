@@ -60,6 +60,53 @@ describe('CRDTTreeNode', function () {
     assert.deepEqual(right!.id, CRDTTreeNodeID.of(ITT, 5));
   });
 
+  it('splitText preserves mergedFrom and mergedAt', function () {
+    const para = new CRDTTreeNode(posT(), 'p', []);
+    const text = new CRDTTreeNode(posT(), 'text', 'abcd');
+    para.append(text);
+
+    // Simulate merge metadata set during merge step.
+    const sourceID = CRDTTreeNodeID.of(timeT(), 0);
+    const mergeTicket = timeT();
+    text.mergedFrom = sourceID;
+    text.mergedAt = mergeTicket;
+
+    // Split text at offset 2: "ab" | "cd"
+    const [right] = text.splitText(2, 0);
+    assert.isNotNull(right);
+    assert.equal(text.value, 'ab');
+    assert.equal(right!.value, 'cd');
+
+    // Right node should inherit mergedFrom and mergedAt from left.
+    assert.deepEqual(right!.mergedFrom, sourceID);
+    assert.deepEqual(right!.mergedAt, mergeTicket);
+  });
+
+  it('deepcopy preserves merge metadata', function () {
+    const para = new CRDTTreeNode(posT(), 'p', []);
+    const text = new CRDTTreeNode(posT(), 'text', 'hello');
+    para.append(text);
+
+    // Set merge metadata.
+    const targetID = CRDTTreeNodeID.of(timeT(), 0);
+    const sourceID = CRDTTreeNodeID.of(timeT(), 0);
+    const childID = CRDTTreeNodeID.of(timeT(), 0);
+    const mergeTicket = timeT();
+
+    para.mergedInto = targetID;
+    para.mergedChildIDs = [childID];
+    text.mergedFrom = sourceID;
+    text.mergedAt = mergeTicket;
+
+    const clone = para.deepcopy();
+    assert.deepEqual(clone.mergedInto, targetID);
+    assert.deepEqual(clone.mergedChildIDs, [childID]);
+
+    const clonedText = clone.allChildren[0];
+    assert.deepEqual(clonedText.mergedFrom, sourceID);
+    assert.deepEqual(clonedText.mergedAt, mergeTicket);
+  });
+
   it('Can convert to XML', function () {
     const text = new CRDTTreeNode(idT, 'text', 'hello');
     assert.equal(toXML(text), 'hello');

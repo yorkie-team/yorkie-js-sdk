@@ -539,6 +539,10 @@ export class CRDTTreeNode
     });
     clone.insPrevID = this.insPrevID;
     clone.insNextID = this.insNextID;
+    clone.mergedInto = this.mergedInto;
+    clone.mergedChildIDs = this.mergedChildIDs;
+    clone.mergedFrom = this.mergedFrom;
+    clone.mergedAt = this.mergedAt;
     return clone;
   }
 
@@ -603,13 +607,16 @@ export class CRDTTreeNode
    * `cloneText` clones this text node with the given offset.
    */
   cloneText(offset: number): CRDTTreeNode {
-    return new CRDTTreeNode(
+    const clone = new CRDTTreeNode(
       CRDTTreeNodeID.of(this.id.getCreatedAt(), offset),
       this.type,
       undefined,
       undefined,
       this.removedAt,
     );
+    clone.mergedFrom = this.mergedFrom;
+    clone.mergedAt = this.mergedAt;
+    return clone;
   }
 
   /**
@@ -1351,8 +1358,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
     for (const node of nodesToBeRemoved) {
-      node.remove(editedAt);
-      if (node.isRemoved) {
+      if (node.remove(editedAt)) {
         pairs.push({ parent: this, child: node });
       }
     }
@@ -1408,15 +1414,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
         for (const childID of node.mergedChildIDs) {
           const child = this.findFloorNode(childID);
           if (child && !child.removedAt) {
-            child.remove(editedAt);
-            if (child.isRemoved) {
+            if (child.remove(editedAt)) {
               pairs.push({ parent: this, child });
             }
             // Also tombstone descendants if the moved child is an element.
             traverseAll(child, (n) => {
               if (n !== child && !n.removedAt) {
-                n.remove(editedAt);
-                if (n.isRemoved) {
+                if (n.remove(editedAt)) {
                   pairs.push({ parent: this, child: n });
                 }
               }
