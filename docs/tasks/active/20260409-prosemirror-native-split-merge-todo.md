@@ -36,11 +36,10 @@ splitLevel)`, merges use boundary deletion `tree.edit(from, to)`.
 - [x] Two-client concurrent split + text input → convergence
 - [x] Two-client concurrent merge + text input → convergence
 - [x] Two-client concurrent split + split → convergence
-- [ ] Two-client concurrent split + merge → diverges at CRDT level (skipped,
-      not a binding issue)
+- [x] Two-client concurrent split + merge → convergence (fixed by PR #1206)
 
 ### Phase 4: Cleanup
 
 - [x] `pnpm lint && pnpm prosemirror build && pnpm prosemirror test` passes
-- [ ] `pnpm sdk test` passes (requires full test run)
+- [x] `pnpm sdk test` passes (141 tree tests confirmed)
 - [x] Update `docs/design/prosemirror.md` two-level diff section
