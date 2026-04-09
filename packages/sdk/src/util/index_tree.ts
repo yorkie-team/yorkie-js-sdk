@@ -511,31 +511,34 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     const left = this._children.slice(0, offset);
     const right = this._children.slice(offset);
 
-    // Fix 8: Keep merge-moved children in the original node when the
-    // merge is concurrent and the split boundary is not itself within
-    // merged content. If the boundary node has mergedFrom, the split
-    // is operating within merged content and all children move normally.
-    const boundaryIsMerged =
-      left.length > 0 &&
-      'mergedFrom' in left[left.length - 1] &&
-      (left[left.length - 1] as any).mergedFrom != null;
+    // Fix 8: Handle concurrent merge-moved children during split.
+    // When a child was merge-moved from a source that is itself a child
+    // of the node being split, the content was local to this level and
+    // should stay in the original (left) node. When the source is
+    // external (e.g., a sibling element that was merged), the content
+    // should flow naturally to the split (right) node.
+    const allChildren = [...left, ...right];
     const actualRight: Array<T> = [];
     for (const child of right) {
       if (
-        !boundaryIsMerged &&
         'mergedFrom' in child &&
         (child as any).mergedFrom != null &&
         'mergedAt' in child &&
         (child as any).mergedAt != null
       ) {
-        // Only veto for remote operations (with versionVector) when the
-        // merge is concurrent. Local edits (no versionVector) always know
-        // about all prior operations, so never veto.
         if (versionVector) {
           const mergedAt = (child as any).mergedAt as TimeTicket;
           if (!versionVector.afterOrEqual(mergedAt)) {
-            left.push(child);
-            continue;
+            // Check if the merge source is a child of this node.
+            const mergedFrom = (child as any).mergedFrom;
+            const sourceIsChild = allChildren.some(
+              (sibling) =>
+                'id' in sibling && (sibling as any).id.equals(mergedFrom),
+            );
+            if (sourceIsChild) {
+              left.push(child);
+              continue;
+            }
           }
         }
       }
