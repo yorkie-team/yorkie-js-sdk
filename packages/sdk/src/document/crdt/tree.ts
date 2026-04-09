@@ -787,6 +787,23 @@ export class CRDTTreeNode
 }
 
 /**
+ * `ticketKnown` returns true if the given ticket is causally known to the
+ * editor, i.e. the editor's version vector covers the ticket's lamport
+ * clock for the same actor. For local operations (undefined version vector),
+ * all tickets are considered known.
+ */
+function ticketKnown(
+  vv: VersionVector | undefined,
+  ticket: TimeTicket,
+): boolean {
+  if (vv === undefined) {
+    return true;
+  }
+  const l = vv.get(ticket.getActorID());
+  return l !== undefined && l >= ticket.getLamport();
+}
+
+/**
  * `toTreeNode` converts the given CRDTTreeNode to TreeNode.
  */
 function toTreeNode(node: CRDTTreeNode): TreeNode {
@@ -1257,21 +1274,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           // operations. The editor didn't know about this element,
           // so crossing into it is an artifact of a concurrent split,
           // not an intentional merge.
-          const isLocalOp = versionVector === undefined;
-          let elementKnown = false;
-          if (isLocalOp) {
-            elementKnown = true;
-          } else {
-            const elVV = versionVector.get(node.id.getCreatedAt().getActorID());
-            if (
-              elVV !== undefined &&
-              elVV >= node.id.getCreatedAt().getLamport()
-            ) {
-              elementKnown = true;
-            }
-          }
-
-          if (elementKnown) {
+          if (ticketKnown(versionVector, node.id.getCreatedAt())) {
             toBeMergedNodes.push(node);
             for (const child of node.children) {
               toBeMovedToFromParents.push(child);
@@ -1280,26 +1283,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
 
         // NOTE(sigmaith): Determine if the node's creation event was visible.
-        const isLocal = versionVector === undefined;
-
-        let creationKnown = false;
-        const createdAtVV = versionVector?.get(
-          node.id.getCreatedAt().getActorID(),
+        const creationKnown = ticketKnown(
+          versionVector,
+          node.id.getCreatedAt(),
         );
-        creationKnown =
-          isLocal ||
-          (createdAtVV !== undefined &&
-            createdAtVV >= node.id.getCreatedAt().getLamport());
 
         // NOTE(sigmaith): Determine if existing tombstone was already causally known.
-        let tombstoneKnown = false;
-        if (node.removedAt) {
-          const removedAtVV = versionVector?.get(node.removedAt.getActorID());
-          tombstoneKnown =
-            isLocal ||
-            (removedAtVV !== undefined &&
-              removedAtVV >= node.removedAt.getLamport());
-        }
+        const tombstoneKnown =
+          !!node.removedAt && ticketKnown(versionVector, node.removedAt);
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
@@ -1330,21 +1321,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
             ) {
               let next = this.findFloorNode(node.insNextID);
               while (next) {
-                let splitCreationKnown = false;
-                if (isLocal) {
-                  splitCreationKnown = true;
-                } else {
-                  const vv = versionVector?.get(
-                    next.id.getCreatedAt().getActorID(),
-                  );
-                  if (
-                    vv !== undefined &&
-                    vv >= next.id.getCreatedAt().getLamport()
-                  ) {
-                    splitCreationKnown = true;
-                  }
-                }
-                if (!splitCreationKnown) {
+                if (!ticketKnown(versionVector, next.id.getCreatedAt())) {
                   nodesToBeRemoved.push(next);
                   // Cascade through the full subtree, not just immediate children.
                   traverseAll(next, (n) => {
