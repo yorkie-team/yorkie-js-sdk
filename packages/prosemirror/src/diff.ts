@@ -1,7 +1,14 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import type { MarkMapping, YorkieTreeJSON, TextEdit } from './types';
 import { pmToYorkie } from './convert';
-import { yorkieNodeSize, blockIndexToYorkieIndex } from './position';
+import {
+  yorkieNodeSize,
+  blockIndexToYorkieIndex,
+  collectText,
+  findTextSplitOffset,
+  computeSplitLevel,
+  computeMergeBoundary,
+} from './position';
 
 /**
  * Deep compare two Yorkie tree nodes for structural equality.
@@ -204,10 +211,65 @@ export function tryIntraBlockDiff(
  *    do character-level diffing (best for concurrent editing)
  * 3. Otherwise, fall back to full block replacement
  */
+/**
+ * Detect a split: one old block became two or more new blocks with
+ * text content preserved. Returns the split char offset and splitLevel,
+ * or null if detection fails.
+ */
+export function detectSplit(
+  oldBlock: YorkieTreeJSON,
+  newBlocks: Array<YorkieTreeJSON>,
+): { charOffset: number; splitLevel: number } | undefined {
+  if (newBlocks.length < 2) return undefined;
+
+  const oldText = collectText(oldBlock);
+  const newText = newBlocks.map(collectText).join('');
+  if (oldText !== newText) return undefined;
+
+  // Find split point: text length of first new block
+  const charOffset = collectText(newBlocks[0]).length;
+  if (charOffset === 0 || charOffset === oldText.length) return undefined;
+
+  const splitLevel = computeSplitLevel(oldBlock, newBlocks);
+  if (splitLevel === 0) return undefined;
+
+  return { charOffset, splitLevel };
+}
+
+/**
+ * Detect a merge: two or more old blocks became one new block with
+ * text content preserved. Returns true if detected, false otherwise.
+ */
+export function detectMerge(
+  oldBlocks: Array<YorkieTreeJSON>,
+  newBlock: YorkieTreeJSON,
+): boolean {
+  if (oldBlocks.length < 2) return false;
+
+  const oldText = oldBlocks.map(collectText).join('');
+  const newText = collectText(newBlock);
+  return oldText === newText;
+}
+
+/**
+ * Sync a ProseMirror transaction to the Yorkie tree (upstream sync).
+ *
+ * Strategy:
+ * 1. Find which top-level blocks changed (by diffing Yorkie-format trees)
+ * 2. If exactly one block changed and its structure is the same,
+ *    do character-level diffing (best for concurrent editing)
+ * 3. Detect splits/merges and use native CRDT operations
+ * 4. Otherwise, fall back to full block replacement
+ */
 export function syncToYorkie(
   tree: {
     toJSON(): string;
-    edit(fromIdx: number, toIdx: number, content?: YorkieTreeJSON): void;
+    edit(
+      fromIdx: number,
+      toIdx: number,
+      content?: YorkieTreeJSON,
+      splitLevel?: number,
+    ): void;
     editBulk(
       fromIdx: number,
       toIdx: number,
@@ -276,11 +338,62 @@ export function syncToYorkie(
     }
     onLog?.(
       'local',
-      'Structure changed, falling back to full block replacement',
+      'Structure changed, falling through to split/merge detection',
     );
   }
 
-  // Full block replacement (for structural changes, splits, merges, etc.)
+  // SPLIT DETECTION: one old block → two or more new blocks
+  const oldCount = oldEndDiff - firstDiff + 1;
+  const newCount = newEndDiff - firstDiff + 1;
+
+  if (oldCount === 1 && newCount >= 2) {
+    const oldBlock = oldBlocks[firstDiff];
+    const changedNewBlocks = newBlocks.slice(firstDiff, newEndDiff + 1);
+    const split = detectSplit(oldBlock, changedNewBlocks);
+
+    if (split) {
+      const blockStartIdx = blockIndexToYorkieIndex(
+        currentYorkieBlocks,
+        firstDiff,
+      );
+      const splitIdx = findTextSplitOffset(
+        currentYorkieBlocks[firstDiff],
+        split.charOffset,
+        blockStartIdx,
+      );
+
+      if (splitIdx >= 0) {
+        tree.edit(splitIdx, splitIdx, undefined, split.splitLevel);
+        onLog?.(
+          'local',
+          `native-split: at idx ${splitIdx}, splitLevel=${split.splitLevel}`,
+        );
+        return;
+      }
+    }
+  }
+
+  // MERGE DETECTION: two or more old blocks → one new block
+  if (oldCount >= 2 && newCount === 1) {
+    const changedOldBlocks = oldBlocks.slice(firstDiff, oldEndDiff + 1);
+    const newBlock = newBlocks[firstDiff];
+
+    if (detectMerge(changedOldBlocks, newBlock)) {
+      // Apply boundary deletions right-to-left to avoid index shifts
+      for (let i = oldEndDiff; i > firstDiff; i--) {
+        const [bFrom, bTo] = computeMergeBoundary(
+          currentYorkieBlocks,
+          i - 1,
+          i,
+        );
+        tree.edit(bFrom, bTo);
+        onLog?.('local', `native-merge: boundary delete idx ${bFrom}-${bTo}`);
+      }
+      return;
+    }
+  }
+
+  // Full block replacement (fallback for structural changes)
   const yorkieFromIdx = blockIndexToYorkieIndex(currentYorkieBlocks, firstDiff);
   const yorkieToIdx = blockIndexToYorkieIndex(
     currentYorkieBlocks,

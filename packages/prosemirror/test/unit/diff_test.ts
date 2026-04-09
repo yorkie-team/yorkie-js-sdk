@@ -5,6 +5,8 @@ import {
   findTextDiffs,
   tryIntraBlockDiff,
   syncToYorkie,
+  detectSplit,
+  detectMerge,
 } from '../../src/diff';
 import { pmToYorkie } from '../../src/convert';
 import { defaultMarkMapping } from '../../src/defaults';
@@ -430,6 +432,116 @@ describe('diff', () => {
     });
   });
 
+  describe('detectSplit', () => {
+    it('should detect a simple paragraph split', () => {
+      const oldBlock = yElem('paragraph', [yText('abcd')]);
+      const newBlocks = [
+        yElem('paragraph', [yText('ab')]),
+        yElem('paragraph', [yText('cd')]),
+      ];
+      const result = detectSplit(oldBlock, newBlocks);
+      assert.isDefined(result);
+      assert.equal(result!.charOffset, 2);
+      assert.equal(result!.splitLevel, 1);
+    });
+
+    it('should detect a nested split (e.g., list item)', () => {
+      const oldBlock = yElem('list_item', [
+        yElem('paragraph', [yText('abcd')]),
+      ]);
+      const newBlocks = [
+        yElem('list_item', [yElem('paragraph', [yText('ab')])]),
+        yElem('list_item', [yElem('paragraph', [yText('cd')])]),
+      ];
+      const result = detectSplit(oldBlock, newBlocks);
+      assert.isDefined(result);
+      assert.equal(result!.charOffset, 2);
+      assert.equal(result!.splitLevel, 2);
+    });
+
+    it('should return null when text content changes', () => {
+      const oldBlock = yElem('paragraph', [yText('abcd')]);
+      const newBlocks = [
+        yElem('paragraph', [yText('ab')]),
+        yElem('paragraph', [yText('XY')]),
+      ];
+      const result = detectSplit(oldBlock, newBlocks);
+      assert.isUndefined(result);
+    });
+
+    it('should return null when block types differ', () => {
+      const oldBlock = yElem('paragraph', [yText('abcd')]);
+      const newBlocks = [
+        yElem('paragraph', [yText('ab')]),
+        yElem('heading', [yText('cd')]),
+      ];
+      const result = detectSplit(oldBlock, newBlocks);
+      assert.isUndefined(result);
+    });
+
+    it('should return null for fewer than 2 new blocks', () => {
+      const oldBlock = yElem('paragraph', [yText('abcd')]);
+      const result = detectSplit(oldBlock, [oldBlock]);
+      assert.isUndefined(result);
+    });
+
+    it('should return null when split point is at start', () => {
+      const oldBlock = yElem('paragraph', [yText('abcd')]);
+      const newBlocks = [
+        yElem('paragraph', []),
+        yElem('paragraph', [yText('abcd')]),
+      ];
+      const result = detectSplit(oldBlock, newBlocks);
+      assert.isUndefined(result);
+    });
+
+    it('should return null when split point is at end', () => {
+      const oldBlock = yElem('paragraph', [yText('abcd')]);
+      const newBlocks = [
+        yElem('paragraph', [yText('abcd')]),
+        yElem('paragraph', []),
+      ];
+      const result = detectSplit(oldBlock, newBlocks);
+      assert.isUndefined(result);
+    });
+  });
+
+  describe('detectMerge', () => {
+    it('should detect a simple paragraph merge', () => {
+      const oldBlocks = [
+        yElem('paragraph', [yText('ab')]),
+        yElem('paragraph', [yText('cd')]),
+      ];
+      const newBlock = yElem('paragraph', [yText('abcd')]);
+      assert.isTrue(detectMerge(oldBlocks, newBlock));
+    });
+
+    it('should detect a multi-block merge', () => {
+      const oldBlocks = [
+        yElem('paragraph', [yText('a')]),
+        yElem('paragraph', [yText('b')]),
+        yElem('paragraph', [yText('c')]),
+      ];
+      const newBlock = yElem('paragraph', [yText('abc')]);
+      assert.isTrue(detectMerge(oldBlocks, newBlock));
+    });
+
+    it('should return false when text content changes', () => {
+      const oldBlocks = [
+        yElem('paragraph', [yText('ab')]),
+        yElem('paragraph', [yText('cd')]),
+      ];
+      const newBlock = yElem('paragraph', [yText('abXd')]);
+      assert.isFalse(detectMerge(oldBlocks, newBlock));
+    });
+
+    it('should return false for fewer than 2 old blocks', () => {
+      const oldBlocks = [yElem('paragraph', [yText('ab')])];
+      const newBlock = yElem('paragraph', [yText('ab')]);
+      assert.isFalse(detectMerge(oldBlocks, newBlock));
+    });
+  });
+
   describe('syncToYorkie', () => {
     const markMapping = defaultMarkMapping;
 
@@ -517,6 +629,117 @@ describe('diff', () => {
       // Should use editBulk for 2 new blocks
       const bulkCall = calls.find((c) => c.method === 'editBulk');
       assert.isDefined(bulkCall);
+    });
+
+    it('should use native split for paragraph split', () => {
+      // <p>abcd</p> → <p>ab</p><p>cd</p>
+      const oldDoc = doc(p('abcd'));
+      const newDoc = doc(p('ab'), p('cd'));
+      const yorkieTree = pmToYorkie(oldDoc, markMapping);
+      const { tree, calls } = createMockTree(yorkieTree);
+      const onLog = vi.fn();
+
+      syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+      // Should be exactly one edit call with splitLevel
+      assert.equal(calls.length, 1);
+      const call = calls[0];
+      assert.equal(call.method, 'edit');
+      // args: [fromIdx, toIdx, undefined, splitLevel]
+      const [fromIdx, toIdx, content, splitLevel] = call.args as [
+        number,
+        number,
+        unknown,
+        number,
+      ];
+      assert.equal(fromIdx, toIdx); // split is a zero-width edit
+      assert.isUndefined(content);
+      assert.equal(splitLevel, 1);
+
+      assert.isTrue(
+        onLog.mock.calls.some((c: Array<unknown>) =>
+          (c[1] as string).includes('native-split'),
+        ),
+      );
+    });
+
+    it('should use native merge for paragraph merge', () => {
+      // <p>ab</p><p>cd</p> → <p>abcd</p>
+      const oldDoc = doc(p('ab'), p('cd'));
+      const newDoc = doc(p('abcd'));
+      const yorkieTree = pmToYorkie(oldDoc, markMapping);
+      const { tree, calls } = createMockTree(yorkieTree);
+      const onLog = vi.fn();
+
+      syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+      // Should be a single boundary deletion
+      assert.equal(calls.length, 1);
+      const call = calls[0];
+      assert.equal(call.method, 'edit');
+      const [fromIdx, toIdx, content] = call.args as [number, number, unknown];
+      // Boundary deletion: fromIdx < toIdx, no content
+      assert.isTrue(fromIdx < toIdx);
+      assert.isUndefined(content);
+
+      assert.isTrue(
+        onLog.mock.calls.some((c: Array<unknown>) =>
+          (c[1] as string).includes('native-merge'),
+        ),
+      );
+    });
+
+    it('should fall back to block replacement for split with text change', () => {
+      // <p>abcd</p> → <p>ab</p><p>XY</p> (text changed, not a pure split)
+      const oldDoc = doc(p('abcd'));
+      const newDoc = doc(p('ab'), p('XY'));
+      const yorkieTree = pmToYorkie(oldDoc, markMapping);
+      const { tree, calls } = createMockTree(yorkieTree);
+
+      syncToYorkie(tree, oldDoc, newDoc, markMapping);
+      // Should NOT use native split — editBulk or edit with content
+      const hasSplitLevel = calls.some(
+        (c) => c.args[3] != null && c.args[3] !== 0,
+      );
+      assert.isFalse(hasSplitLevel);
+    });
+
+    it('should fall back to block replacement for merge with text change', () => {
+      // <p>ab</p><p>cd</p> → <p>aXbcd</p> (text changed during merge)
+      const oldDoc = doc(p('ab'), p('cd'));
+      const newDoc = doc(p('aXbcd'));
+      const yorkieTree = pmToYorkie(oldDoc, markMapping);
+      const { tree, calls } = createMockTree(yorkieTree);
+
+      syncToYorkie(tree, oldDoc, newDoc, markMapping);
+      // It should fall back to block replacement (edit with content or editBulk)
+      assert.isTrue(calls.length > 0);
+      // Verify it's a block replacement, not a boundary delete
+      const hasContentCall = calls.some(
+        (c) => c.args[2] !== undefined || c.method === 'editBulk',
+      );
+      assert.isTrue(hasContentCall);
+    });
+
+    it('should use native merge for multi-block merge', () => {
+      // <p>a</p><p>b</p><p>c</p> → <p>abc</p>
+      const oldDoc = doc(p('a'), p('b'), p('c'));
+      const newDoc = doc(p('abc'));
+      const yorkieTree = pmToYorkie(oldDoc, markMapping);
+      const { tree, calls } = createMockTree(yorkieTree);
+      const onLog = vi.fn();
+
+      syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+      // Should have 2 boundary deletions (right-to-left)
+      assert.equal(calls.length, 2);
+      assert.isTrue(calls.every((c) => c.method === 'edit'));
+      // Both should be boundary deletions (fromIdx < toIdx, no content)
+      for (const call of calls) {
+        assert.isTrue((call.args[0] as number) < (call.args[1] as number));
+        assert.isUndefined(call.args[2]);
+      }
+      // First call should have higher indices (right-to-left)
+      assert.isTrue(
+        (calls[0].args[0] as number) > (calls[1].args[0] as number),
+      );
     });
   });
 });

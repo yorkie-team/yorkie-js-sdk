@@ -100,8 +100,16 @@ export function createMockTree(yorkieJSON: YorkieTreeJSON) {
         return JSON.stringify(yorkieJSON);
       },
       /** Record an edit call. */
-      edit(fromIdx: number, toIdx: number, content?: YorkieTreeJSON) {
-        calls.push({ method: 'edit', args: [fromIdx, toIdx, content] });
+      edit(
+        fromIdx: number,
+        toIdx: number,
+        content?: YorkieTreeJSON,
+        splitLevel?: number,
+      ) {
+        calls.push({
+          method: 'edit',
+          args: [fromIdx, toIdx, content, splitLevel],
+        });
       },
       /** Record a bulk edit call. */
       editBulk(

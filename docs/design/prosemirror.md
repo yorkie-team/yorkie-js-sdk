@@ -83,7 +83,8 @@ When the user edits in ProseMirror, `syncToYorkie()` uses a two-level diffing st
 
 1. **Block-level diff**: Compare top-level blocks to find which changed.
 2. **Character-level diff**: If exactly one block changed and its structure (element types, nesting) is identical, perform character-level diffing within that block using `findTextDiffs()`. This produces minimal `tree.edit()` calls, which is optimal for concurrent editing (two users typing in the same paragraph won't overwrite each other).
-3. **Full block replacement**: For structural changes (mark add/remove, paragraph splits/merges), replace the entire changed block range.
+3. **Native split/merge**: If the block count changes and text content is preserved, detect splits (1 block → 2+) and merges (2+ blocks → 1). Splits use `tree.edit(pos, pos, undefined, splitLevel)` with automatically computed `splitLevel`. Merges use boundary deletion `tree.edit(from, to)`. This enables the CRDT's concurrent split/merge convergence fixes (Fix 1–10). See [prosemirror-native-split-merge.md](prosemirror-native-split-merge.md) for details.
+4. **Full block replacement**: Fallback for structural changes that cannot be expressed as native operations (mark add/remove, type changes, combined edits).
 
 #### Position Mapper
 
@@ -205,4 +206,4 @@ Both sync directions include fallback paths:
 | IME composition broken by remote changes | Fine-grained composition guard defers only changes that overlap the composing block; non-overlapping changes apply immediately |
 | Position map is O(n) per character lookup | Acceptable for typical document sizes; can be optimized with binary search if needed |
 | Mark wrapper elements increase Yorkie tree size | Minimal overhead for typical documents; only affects formatted text spans |
-| Block-level replacement can overwrite concurrent edits in same block | Character-level diffing is used when possible; block replacement is only a fallback for structural changes |
+| Block-level replacement can overwrite concurrent edits in same block | Character-level diffing is used when possible; native split/merge preserves CRDT convergence; block replacement is only a fallback for non-decomposable structural changes |
