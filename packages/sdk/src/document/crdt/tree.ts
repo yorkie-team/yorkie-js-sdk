@@ -1253,9 +1253,29 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // NOTE(hackerwins): If the node overlaps as a start tag with the
         // range then we need to move the remaining children to fromParent.
         if (tokenType === TokenType.Start && !ended) {
-          toBeMergedNodes.push(node);
-          for (const child of node.children) {
-            toBeMovedToFromParents.push(child);
+          // Fix 9: Skip merge for elements created by concurrent
+          // operations. The editor didn't know about this element,
+          // so crossing into it is an artifact of a concurrent split,
+          // not an intentional merge.
+          const isLocalOp = versionVector === undefined;
+          let elementKnown = false;
+          if (isLocalOp) {
+            elementKnown = true;
+          } else {
+            const elVV = versionVector.get(node.id.getCreatedAt().getActorID());
+            if (
+              elVV !== undefined &&
+              elVV >= node.id.getCreatedAt().getLamport()
+            ) {
+              elementKnown = true;
+            }
+          }
+
+          if (elementKnown) {
+            toBeMergedNodes.push(node);
+            for (const child of node.children) {
+              toBeMovedToFromParents.push(child);
+            }
           }
         }
 

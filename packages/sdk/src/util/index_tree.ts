@@ -508,7 +508,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     clone.updateAncestorsSize(clone.paddedSize());
     clone.updateAncestorsSize(clone.paddedSize(true), true);
 
-    const allChildren = this.children;
+    const allChildren = this._children;
     const left = allChildren.slice(0, offset);
     const right = allChildren.slice(offset);
 
@@ -554,7 +554,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       0,
     );
     clone.visibleSize = clone._children.reduce(
-      (acc, child) => acc + child.paddedSize(true),
+      (acc, child) => acc + child.paddedSize(),
       0,
     );
     clone.totalSize = clone._children.reduce(
