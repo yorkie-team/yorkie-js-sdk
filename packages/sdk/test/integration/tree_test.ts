@@ -4201,6 +4201,44 @@ describe('Tree.edit(concurrent, side by side range)', () => {
     }, task.name);
   });
 
+  // Regression test for https://github.com/yorkie-team/yorkie/issues/1726
+  // When one client splits inside a block that the other client merges,
+  // replicas must converge.
+  it('contained-split-and-merge-same-block', async function ({ task }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>ab</p><p>cd</p></r>`,
+      );
+
+      // d1: split first paragraph at a|b
+      d1.update((r) => r.t.edit(2, 2, undefined, 1));
+      // d2: merge both paragraphs
+      d2.update((r) => r.t.edit(3, 5));
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        /*html*/ `<r><p>a</p><p>b</p><p>cd</p></r>`,
+      );
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r><p>abcd</p></r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
   it('side-by-side-merge-and-insert', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
