@@ -539,6 +539,10 @@ export class CRDTTreeNode
     });
     clone.insPrevID = this.insPrevID;
     clone.insNextID = this.insNextID;
+    clone.mergedInto = this.mergedInto;
+    clone.mergedChildIDs = this.mergedChildIDs;
+    clone.mergedFrom = this.mergedFrom;
+    clone.mergedAt = this.mergedAt;
     return clone;
   }
 
@@ -603,13 +607,16 @@ export class CRDTTreeNode
    * `cloneText` clones this text node with the given offset.
    */
   cloneText(offset: number): CRDTTreeNode {
-    return new CRDTTreeNode(
+    const clone = new CRDTTreeNode(
       CRDTTreeNodeID.of(this.id.getCreatedAt(), offset),
       this.type,
       undefined,
       undefined,
       this.removedAt,
     );
+    clone.mergedFrom = this.mergedFrom;
+    clone.mergedAt = this.mergedAt;
+    return clone;
   }
 
   /**
@@ -784,6 +791,23 @@ export class CRDTTreeNode
 
     return pairs;
   }
+}
+
+/**
+ * `ticketKnown` returns true if the given ticket is causally known to the
+ * editor, i.e. the editor's version vector covers the ticket's lamport
+ * clock for the same actor. For local operations (undefined version vector),
+ * all tickets are considered known.
+ */
+function ticketKnown(
+  vv: VersionVector | undefined,
+  ticket: TimeTicket,
+): boolean {
+  if (vv === undefined) {
+    return true;
+  }
+  const l = vv.get(ticket.getActorID());
+  return l !== undefined && l >= ticket.getLamport();
 }
 
 /**
@@ -1253,33 +1277,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // NOTE(hackerwins): If the node overlaps as a start tag with the
         // range then we need to move the remaining children to fromParent.
         if (tokenType === TokenType.Start && !ended) {
-          toBeMergedNodes.push(node);
-          for (const child of node.children) {
-            toBeMovedToFromParents.push(child);
+          // Fix 9: Skip merge for elements created by concurrent
+          // operations. The editor didn't know about this element,
+          // so crossing into it is an artifact of a concurrent split,
+          // not an intentional merge.
+          if (ticketKnown(versionVector, node.id.getCreatedAt())) {
+            toBeMergedNodes.push(node);
+            for (const child of node.children) {
+              toBeMovedToFromParents.push(child);
+            }
           }
         }
 
         // NOTE(sigmaith): Determine if the node's creation event was visible.
-        const isLocal = versionVector === undefined;
-
-        let creationKnown = false;
-        const createdAtVV = versionVector?.get(
-          node.id.getCreatedAt().getActorID(),
+        const creationKnown = ticketKnown(
+          versionVector,
+          node.id.getCreatedAt(),
         );
-        creationKnown =
-          isLocal ||
-          (createdAtVV !== undefined &&
-            createdAtVV >= node.id.getCreatedAt().getLamport());
 
         // NOTE(sigmaith): Determine if existing tombstone was already causally known.
-        let tombstoneKnown = false;
-        if (node.removedAt) {
-          const removedAtVV = versionVector?.get(node.removedAt.getActorID());
-          tombstoneKnown =
-            isLocal ||
-            (removedAtVV !== undefined &&
-              removedAtVV >= node.removedAt.getLamport());
-        }
+        const tombstoneKnown =
+          !!node.removedAt && ticketKnown(versionVector, node.removedAt);
 
         // NOTE(sejongk): If the node is removable or its parent is going to
         // be removed, then this node should be removed.
@@ -1310,21 +1328,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
             ) {
               let next = this.findFloorNode(node.insNextID);
               while (next) {
-                let splitCreationKnown = false;
-                if (isLocal) {
-                  splitCreationKnown = true;
-                } else {
-                  const vv = versionVector?.get(
-                    next.id.getCreatedAt().getActorID(),
-                  );
-                  if (
-                    vv !== undefined &&
-                    vv >= next.id.getCreatedAt().getLamport()
-                  ) {
-                    splitCreationKnown = true;
-                  }
-                }
-                if (!splitCreationKnown) {
+                if (!ticketKnown(versionVector, next.id.getCreatedAt())) {
                   nodesToBeRemoved.push(next);
                   // Cascade through the full subtree, not just immediate children.
                   traverseAll(next, (n) => {
@@ -1354,8 +1358,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
     for (const node of nodesToBeRemoved) {
-      node.remove(editedAt);
-      if (node.isRemoved) {
+      if (node.remove(editedAt)) {
         pairs.push({ parent: this, child: node });
       }
     }
@@ -1411,15 +1414,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
         for (const childID of node.mergedChildIDs) {
           const child = this.findFloorNode(childID);
           if (child && !child.removedAt) {
-            child.remove(editedAt);
-            if (child.isRemoved) {
+            if (child.remove(editedAt)) {
               pairs.push({ parent: this, child });
             }
             // Also tombstone descendants if the moved child is an element.
             traverseAll(child, (n) => {
               if (n !== child && !n.removedAt) {
-                n.remove(editedAt);
-                if (n.isRemoved) {
+                if (n.remove(editedAt)) {
                   pairs.push({ parent: this, child: n });
                 }
               }

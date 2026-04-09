@@ -508,9 +508,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     clone.updateAncestorsSize(clone.paddedSize());
     clone.updateAncestorsSize(clone.paddedSize(true), true);
 
-    const allChildren = this.children;
-    const left = allChildren.slice(0, offset);
-    const right = allChildren.slice(offset);
+    const left = this._children.slice(0, offset);
+    const right = this._children.slice(offset);
 
     // Fix 8: Keep merge-moved children in the original node when the
     // merge is concurrent and the split boundary is not itself within
@@ -554,7 +553,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       0,
     );
     clone.visibleSize = clone._children.reduce(
-      (acc, child) => acc + child.paddedSize(true),
+      (acc, child) => acc + child.paddedSize(),
       0,
     );
     clone.totalSize = clone._children.reduce(

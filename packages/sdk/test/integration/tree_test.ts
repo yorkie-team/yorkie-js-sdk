@@ -4061,11 +4061,10 @@ describe('Tree.edit(concurrent, side by side range)', () => {
   // during reassignment. In Go, Children(true) preserves removed nodes.
   // This structural difference could cause issues with GC and subsequent
   // operations that reference tombstoned nodes by ID.
-  it.skip('split-with-concurrent-delete-overlapping-content', async function ({
+  it('split-with-concurrent-delete-overlapping-content', async function ({
     task,
   }) {
-    // TODO(hackerwins): fix concurrent delete + split convergence on
-    // overlapping content
+    // Fixed by Fix 9: skip merge for concurrent elements in collectBetween.
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -4093,6 +4092,7 @@ describe('Tree.edit(concurrent, side by side range)', () => {
       await c2.sync();
       await c1.sync();
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>a</p><p>d</p></r>`);
     }, task.name);
   });
 
