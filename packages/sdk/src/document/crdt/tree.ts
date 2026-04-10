@@ -1020,6 +1020,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return false;
     }
 
+    // NOTE: Unlike advancePastUnknownSplitSiblings, we intentionally omit
+    // the parent-equality check. In multi-level splits (splitLevel>=2),
+    // the split sibling may have been moved to a different parent by the
+    // recursive ancestor split. The End-token guard must still fire because
+    // the node WAS split — insNextID is only set by SplitElement.
     const actorID = next.id.getCreatedAt().getActorID();
     const knownLamport = versionVector.get(actorID);
 
