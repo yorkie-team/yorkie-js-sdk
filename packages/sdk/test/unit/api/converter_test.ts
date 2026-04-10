@@ -20,6 +20,7 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -128,6 +129,71 @@ describe('Converter', function () {
     assert.equal(
       doc.getRoot().tree.toXML(),
       (obj.get('tree') as unknown as Tree).toXML(),
+    );
+  });
+
+  // Regression test for the snapshot-roundtrip convergence bug fixed by
+  // persisting `mergedFrom` and `mergedAt` on moved children. A tree
+  // that undergoes a merge and is then serialized via `objectToBytes`
+  // must deserialize with:
+  //   - `mergedFrom` and `mergedAt` preserved on moved children
+  //   - `mergedInto` reconstructed on the source parent by
+  //     `CRDTTree.rebuildMergeState` so the Fix 3 redirect can find it
+  //
+  // See: yorkie-team/yorkie PR #1729 for the Go-side fix and the
+  // underlying bug description.
+  it('should persist merge state across bytes roundtrip', function () {
+    const doc = new Document<{ t: Tree }>('test-doc');
+
+    // Build <root><p>a</p><p>b</p></root> and merge into <root><p>ab</p></root>.
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'root',
+        children: [
+          { type: 'p', children: [{ type: 'text', value: 'a' }] },
+          { type: 'p', children: [{ type: 'text', value: 'b' }] },
+        ],
+      });
+      root.t.edit(2, 4);
+    });
+    assert.equal(doc.getRoot().t.toXML(), '<root><p>ab</p></root>');
+
+    // Snapshot the root object and reconstruct. The fresh CRDTObject
+    // constructs its inner CRDTTree through the normal constructor,
+    // which triggers `rebuildMergeState`.
+    const bytes = converter.objectToBytes(doc.getRootObject());
+    const cloned = converter.bytesToObject(bytes);
+    const clonedTree = cloned.get('t') as unknown as CRDTTree;
+    assert.equal(clonedTree.toXML(), '<root><p>ab</p></root>');
+
+    // Find the moved child (the text node "b" that was moved from the
+    // tombstoned second <p> to the first <p>) and the source parent.
+    const rootNode = clonedTree.getRoot();
+    const firstP = rootNode.allChildren[0];
+    let movedChild: CRDTTreeNode | undefined;
+    for (const child of firstP.allChildren) {
+      if (child.mergedFrom) {
+        movedChild = child;
+        break;
+      }
+    }
+    assert.isDefined(movedChild, 'moved child should carry mergedFrom');
+    assert.isDefined(
+      movedChild!.mergedAt,
+      'moved child should carry mergedAt after roundtrip',
+    );
+
+    // The source parent (second <p>) is now tombstoned. rebuildMergeState
+    // must have set its mergedInto to the merge target (first <p>).
+    const sourceParent = rootNode.allChildren[1];
+    assert.isTrue(sourceParent.isRemoved, 'source parent should be tombstoned');
+    assert.isDefined(
+      sourceParent.mergedInto,
+      'rebuildMergeState should set mergedInto on tombstoned source',
+    );
+    assert.isTrue(
+      sourceParent.mergedInto!.equals(firstP.id),
+      'mergedInto should point at the merge target',
     );
   });
 

@@ -90,17 +90,14 @@ describe('CRDTTreeNode', function () {
     // Set merge metadata.
     const targetID = CRDTTreeNodeID.of(timeT(), 0);
     const sourceID = CRDTTreeNodeID.of(timeT(), 0);
-    const childID = CRDTTreeNodeID.of(timeT(), 0);
     const mergeTicket = timeT();
 
     para.mergedInto = targetID;
-    para.mergedChildIDs = [childID];
     text.mergedFrom = sourceID;
     text.mergedAt = mergeTicket;
 
     const clone = para.deepcopy();
     assert.deepEqual(clone.mergedInto, targetID);
-    assert.deepEqual(clone.mergedChildIDs, [childID]);
 
     const clonedText = clone.allChildren[0];
     assert.deepEqual(clonedText.mergedFrom, sourceID);
