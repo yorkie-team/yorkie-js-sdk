@@ -699,6 +699,13 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
       pbTreeNode.insNextId = toTreeNodeID(n.insNextID);
     }
 
+    if (n.mergedFrom) {
+      pbTreeNode.mergedFrom = toTreeNodeID(n.mergedFrom);
+    }
+    if (n.mergedAt) {
+      pbTreeNode.mergedAt = toTimeTicket(n.mergedAt);
+    }
+
     if (n.attrs) {
       pbTreeNode.attributes = toRHT(n.attrs);
     }
@@ -1241,6 +1248,14 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
 
   if (pbTreeNode.insNextId) {
     node.insNextID = fromTreeNodeID(pbTreeNode.insNextId);
+  }
+
+  if (pbTreeNode.mergedFrom) {
+    node.mergedFrom = fromTreeNodeID(pbTreeNode.mergedFrom);
+  }
+
+  if (pbTreeNode.mergedAt) {
+    node.mergedAt = fromTimeTicket(pbTreeNode.mergedAt);
   }
 
   node.removedAt = fromTimeTicket(pbTreeNode.removedAt);

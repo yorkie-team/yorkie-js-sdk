@@ -448,30 +448,30 @@ export class CRDTTreeNode
   insNextID?: CRDTTreeNodeID;
 
   /**
-   * `mergedInto` is a runtime-only forwarding pointer set when this node
-   * is tombstoned by a merge. Records which parent received children.
-   */
-  mergedInto?: CRDTTreeNodeID;
-
-  /**
-   * `mergedChildIDs` records the IDs of children moved during merge.
-   * Used to propagate concurrent deletes to moved children.
-   */
-  mergedChildIDs?: Array<CRDTTreeNodeID>;
-
-  /**
-   * `mergedFrom` records the source parent ID before this node was moved
-   * during a merge. Used by splitElement to keep merge-moved children in
-   * the original node instead of moving them to the split sibling (Fix 8).
+   * `mergedFrom` records the source parent's ID when this node was moved
+   * by a concurrent merge. Persisted in the snapshot encoding as the
+   * witness of the merge relationship.
    */
   mergedFrom?: CRDTTreeNodeID;
 
   /**
-   * `mergedAt` records when the merge operation occurred. Used with
-   * mergedFrom to check concurrency: the veto only applies when the
-   * editor's version vector does not cover this ticket.
+   * `mergedAt` records the immutable ticket of the merge operation.
+   * Persisted alongside `mergedFrom` because the source parent's
+   * `removedAt` may be overwritten by later LWW tombstones and thus
+   * cannot serve as the merge-time causal boundary for splitElement's
+   * Fix 8 version-vector check.
    */
   mergedAt?: TimeTicket;
+
+  /**
+   * `mergedInto` is a runtime cache set on the source parent pointing
+   * at the merge target. Set locally during merge execution and rebuilt
+   * from `mergedFrom` on snapshot load. Used for the fast
+   * "is this tombstoned parent a merge source?" check in
+   * `FindTreeNodesWithSplitText`; the alternative (scanning
+   * `nodeMapByID` on every position resolution) would be too expensive.
+   */
+  mergedInto?: CRDTTreeNodeID;
 
   _value = '';
 
@@ -539,10 +539,9 @@ export class CRDTTreeNode
     });
     clone.insPrevID = this.insPrevID;
     clone.insNextID = this.insNextID;
-    clone.mergedInto = this.mergedInto;
-    clone.mergedChildIDs = this.mergedChildIDs;
     clone.mergedFrom = this.mergedFrom;
     clone.mergedAt = this.mergedAt;
+    clone.mergedInto = this.mergedInto;
     return clone;
   }
 
@@ -902,6 +901,44 @@ export class CRDTTree extends CRDTElement implements GCParent {
     this.indexTree.traverseAll((node) => {
       this.nodeMapByID.put(node.id, node);
     });
+
+    // Rebuild runtime merge state from the persisted `mergedFrom`
+    // field. Only `mergedFrom` and `mergedAt` are written to the
+    // snapshot encoding; `mergedInto` is a cache reconstructed here
+    // so replicas loaded from a snapshot can still handle concurrent
+    // ops that target merged-away parents (Fix 3 redirect, Fix 5
+    // propagation, Fix 8 split skip).
+    this.rebuildMergeState();
+  }
+
+  /**
+   * `rebuildMergeState` reconstructs the `mergedInto` cache on source
+   * parents from the persisted `mergedFrom` field on moved children.
+   * For snapshots written before `mergedAt` was added to the proto,
+   * it also falls back to the source's `removedAt` — an approximation
+   * that may be wrong if the source was later overwritten by a
+   * concurrent delete, but this is the best we can do without the
+   * persisted merge ticket.
+   */
+  private rebuildMergeState(): void {
+    this.indexTree.traverseAll((node) => {
+      if (!node.mergedFrom || !node.parent) {
+        return;
+      }
+      const src = this.findFloorNode(node.mergedFrom);
+      if (!src) {
+        return;
+      }
+
+      // Back-compat: older snapshots lack mergedAt on moved children.
+      if (!node.mergedAt && src.removedAt) {
+        node.mergedAt = src.removedAt;
+      }
+
+      if (!src.mergedInto) {
+        src.mergedInto = node.parent.id;
+      }
+    });
   }
 
   /**
@@ -999,22 +1036,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
       leftNode.parent && !isLeftMost ? leftNode.parent : parent;
 
     // 02-1. If the parent has been tombstoned by a merge, redirect to the
-    // merge destination using the forwarding pointer.
+    // merge destination using the forwarding pointer. The insertion
+    // boundary is the first child in the target whose `mergedFrom`
+    // points back at the tombstoned parent (i.e. the first child moved
+    // by the merge, in target child order).
     if (realParent.isRemoved && isLeftMost && realParent.mergedInto) {
       const mergeTarget = this.findFloorNode(realParent.mergedInto);
       if (mergeTarget && !mergeTarget.isRemoved) {
-        if (realParent.mergedChildIDs && realParent.mergedChildIDs.length > 0) {
-          const firstChild = this.findFloorNode(realParent.mergedChildIDs[0]);
-          if (firstChild?.parent === mergeTarget) {
-            // Use allChildren consistently to avoid visible/total offset mismatch.
-            const allCh = mergeTarget.allChildren;
-            const offset = allCh.indexOf(firstChild);
-            if (offset <= 0) {
-              return [[mergeTarget, mergeTarget], diff];
-            }
-            return [[mergeTarget, allCh[offset - 1]], diff];
+        const allCh = mergeTarget.allChildren;
+        for (let i = 0; i < allCh.length; i++) {
+          const targetChild = allCh[i];
+          if (
+            !targetChild.mergedFrom ||
+            !targetChild.mergedFrom.equals(realParent.id)
+          ) {
+            continue;
           }
+          if (i === 0) {
+            return [[mergeTarget, mergeTarget], diff];
+          }
+          return [[mergeTarget, allCh[i - 1]], diff];
         }
+        // Fallback: insert at leftmost of merge target.
         return [[mergeTarget, mergeTarget], diff];
       }
     }
@@ -1363,23 +1406,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    // 03. Merge: move the nodes that are marked as moved.
+    // 03. Merge: move the nodes that are marked as moved. Only
+    // `mergedFrom` and `mergedAt` are written on the moved child —
+    // both are persisted in the snapshot encoding. `mergedAt` must be
+    // captured explicitly here (not read from source.removedAt at use
+    // time) because the source's `removedAt` is mutated by LWW when a
+    // later concurrent tombstone targets the same node.
     for (const node of toBeMovedToFromParents) {
       if (!node.removedAt) {
-        // Record source parent for split-skip check (Fix 8).
         if (node.parent) {
           node.mergedFrom = node.parent.id;
           node.mergedAt = editedAt;
-        }
-        // Record child ID on its actual source parent only.
-        if (node.parent) {
-          for (const src of toBeMergedNodes) {
-            if (src === node.parent) {
-              if (!src.mergedChildIDs) src.mergedChildIDs = [];
-              src.mergedChildIDs.push(node.id);
-              break;
-            }
-          }
         }
         // Detach from old parent to prevent ghost references.
         // Use try-catch because the child may already have been detached
@@ -1394,7 +1431,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         fromParent.append(node);
       }
     }
-    // Set forwarding pointer on merge-source nodes.
+    // Set forwarding pointer on merge-source nodes. This is a runtime
+    // cache rebuilt from `mergedFrom` on snapshot load.
     for (const src of toBeMergedNodes) {
       src.mergedInto = fromParent.id;
     }
@@ -1402,31 +1440,42 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03-1. Propagate deletes to children moved by prior merges.
     // When a merge-source node is fully deleted (not a merge boundary),
     // its former children in the merge target should also be deleted.
-    // Skip when mergedInto points to fromParent (concurrent merge).
+    // Skip when `mergedInto` points to `fromParent` (concurrent merge).
+    // The list of moved children is recomputed on the fly from the
+    // merge target's children filtered by `mergedFrom`.
     for (const node of nodesToBeRemoved) {
       if (
-        node.mergedInto &&
-        node.mergedChildIDs &&
-        node.mergedChildIDs.length > 0 &&
-        !toBeMergedNodes.includes(node) &&
-        !node.mergedInto.equals(fromParent.id)
+        !node.mergedInto ||
+        toBeMergedNodes.includes(node) ||
+        node.mergedInto.equals(fromParent.id)
       ) {
-        for (const childID of node.mergedChildIDs) {
-          const child = this.findFloorNode(childID);
-          if (child && !child.removedAt) {
-            if (child.remove(editedAt)) {
-              pairs.push({ parent: this, child });
-            }
-            // Also tombstone descendants if the moved child is an element.
-            traverseAll(child, (n) => {
-              if (n !== child && !n.removedAt) {
-                if (n.remove(editedAt)) {
-                  pairs.push({ parent: this, child: n });
-                }
-              }
-            });
-          }
+        continue;
+      }
+      const mergeTarget = this.findFloorNode(node.mergedInto);
+      if (!mergeTarget) {
+        continue;
+      }
+      for (const targetChild of mergeTarget.allChildren) {
+        if (
+          !targetChild.mergedFrom ||
+          !targetChild.mergedFrom.equals(node.id)
+        ) {
+          continue;
         }
+        if (targetChild.removedAt) {
+          continue;
+        }
+        if (targetChild.remove(editedAt)) {
+          pairs.push({ parent: this, child: targetChild });
+        }
+        // Also tombstone descendants if the moved child is an element.
+        traverseAll(targetChild, (n) => {
+          if (n !== targetChild && !n.removedAt) {
+            if (n.remove(editedAt)) {
+              pairs.push({ parent: this, child: n });
+            }
+          }
+        });
       }
     }
 
