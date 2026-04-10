@@ -1002,6 +1002,34 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `hasUnknownSplitSibling` checks whether the given element node has a
+   * split sibling (via insNextID) whose creation the editor did not know
+   * about. Used to prevent styling via End tokens when a concurrent split
+   * extended the range into the split sibling.
+   */
+  private hasUnknownSplitSibling(
+    node: CRDTTreeNode,
+    versionVector: VersionVector,
+  ): boolean {
+    if (!node.insNextID) {
+      return false;
+    }
+
+    const next = this.findFloorNode(node.insNextID);
+    if (!next || next.isText) {
+      return false;
+    }
+
+    const actorID = next.id.getCreatedAt().getActorID();
+    const knownLamport = versionVector.get(actorID);
+
+    return (
+      knownLamport === undefined ||
+      knownLamport < next.id.getCreatedAt().getLamport()
+    );
+  }
+
+  /**
    * `registerNode` registers the given node to the tree.
    */
   public registerNode(node: CRDTTreeNode): void {
@@ -1142,6 +1170,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
 
         if (node.canStyle(editedAt, clientLamportAtChange) && attributes) {
+          // Skip styling via End token when the node has an unknown
+          // split sibling. The End token is in the range only because
+          // a concurrent split extended the range into the sibling.
+          if (
+            tokenType === TokenType.End &&
+            versionVector !== undefined &&
+            this.hasUnknownSplitSibling(node, versionVector)
+          ) {
+            return;
+          }
+
           const updatedAttrPairs = node.setAttrs(attributes, editedAt);
           const affectedAttrs = updatedAttrPairs.reduce(
             (acc: { [key: string]: string }, [, curr]) => {
@@ -1218,7 +1257,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       fromLeft,
       toParent,
       toLeft,
-      ([node]) => {
+      ([node, tokenType]) => {
         const actorID = node.getCreatedAt().getActorID();
         let clientLamportAtChange = MaxLamport; // Local edit
         if (versionVector != undefined) {
@@ -1231,6 +1270,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
           node.canStyle(editedAt, clientLamportAtChange) &&
           attributesToRemove
         ) {
+          // Skip styling via End token when the node has an unknown
+          // split sibling. The End token is in the range only because
+          // a concurrent split extended the range into the sibling.
+          if (
+            tokenType === TokenType.End &&
+            versionVector !== undefined &&
+            this.hasUnknownSplitSibling(node, versionVector)
+          ) {
+            return;
+          }
           if (!node.attrs) {
             node.attrs = new RHT();
           }
