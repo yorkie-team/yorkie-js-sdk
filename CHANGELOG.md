@@ -7,7 +7,7 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-## [v0.7.4] - 2026-04-09
+## [v0.7.4] - 2026-04-11
 
 ### Added
 
@@ -15,6 +15,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ### Fixed
 
+- Fix tree style divergence on concurrent split via End-token guard by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1211
+- Mirror tree merge snapshot encoding fix from Go SDK by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1210
 - Fix SplitElement divergence on concurrent split inside merge range by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1206
 - Fix split + delete divergence and splitElement tombstone handling by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1205
 - Fix multi-level split + merge divergence via mergedFrom by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1204
