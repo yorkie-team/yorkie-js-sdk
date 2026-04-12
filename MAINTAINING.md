@@ -4,7 +4,15 @@
 
 ### 1. Update the version number.
 
-- Update `version` in [package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/sdk/package.json#L3).
+Update `version` in **all** publishable packages. All packages must be bumped together to keep versions in sync:
+
+- [packages/sdk/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/sdk/package.json#L3)
+- [packages/react/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/react/package.json#L3)
+- [packages/schema/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/schema/package.json#L3)
+- [packages/prosemirror/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/prosemirror/package.json#L3)
+- [packages/devtools/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/devtools/package.json#L4)
+
+> **Note:** The [npm-publish workflow](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/.github/workflows/npm-publish.yml) publishes sdk, react, schema, and prosemirror on every release. If a package version is not bumped, npm publish will fail with a version conflict.
 
 ### 2. Write changelog of this version in [CHANGELOG.md](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/CHANGELOG.md).
 
