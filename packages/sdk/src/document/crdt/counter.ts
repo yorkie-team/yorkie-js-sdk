@@ -352,8 +352,15 @@ export class CRDTCounter extends CRDTElement {
 
   /**
    * `increase` increases numeric data.
+   * Dedup counters must use increaseDedup() instead.
    */
   public increase(v: Primitive): CRDTCounter {
+    if (this.isDedup()) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter requires actor, use increaseDedup()',
+      );
+    }
     /**
      * `checkNumericType` checks if the given target is a numeric type.
      */
@@ -367,10 +374,7 @@ export class CRDTCounter extends CRDTElement {
     checkNumericType(this);
     checkNumericType(v);
 
-    if (
-      this.valueType === CounterType.Long ||
-      this.valueType === CounterType.LongDedup
-    ) {
+    if (this.valueType === CounterType.Long) {
       this.value = (this.value as Long).add(v.getValue() as number | Long);
     } else {
       if (v.getType() === PrimitiveType.Long) {
