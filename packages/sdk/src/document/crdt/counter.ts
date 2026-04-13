@@ -300,8 +300,7 @@ export class CRDTCounter extends CRDTElement {
     }
     const val = v.getValue();
     const isUnit =
-      this.valueType === CounterType.Long ||
-      this.valueType === CounterType.LongDedup
+      v.getType() === PrimitiveType.Long
         ? (val as Long).equals(Long.ONE)
         : val === 1;
     if (!isUnit) {
