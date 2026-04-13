@@ -91,7 +91,7 @@ export class Counter {
       );
     }
 
-    if (options?.actor && this.counter.getIsDedup()) {
+    if (options?.actor && this.counter.isDedup()) {
       this.counter.increaseDedup(value, options.actor);
       this.context.push(
         IncreaseOperation.create(
