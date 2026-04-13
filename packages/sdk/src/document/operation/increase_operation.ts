@@ -99,7 +99,9 @@ export class IncreaseOperation extends Operation {
           value: value.getValue() as number,
         },
       ],
-      reverseOp: this.toReverseOperation(),
+      // Dedup counters do not support undo/redo because HLL cannot
+      // remove an actor once added.
+      reverseOp: this.actor ? undefined : this.toReverseOperation(),
     };
   }
 

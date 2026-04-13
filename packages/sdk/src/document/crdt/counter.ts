@@ -259,8 +259,10 @@ export class CRDTCounter extends CRDTElement {
    */
   public setDedup(dedup: boolean): void {
     this.isDedup = dedup;
-    if (dedup && !this.hll) {
-      this.hll = new HLL();
+    if (dedup) {
+      this.hll ??= new HLL();
+    } else {
+      this.hll = undefined;
     }
   }
 
@@ -281,6 +283,23 @@ export class CRDTCounter extends CRDTElement {
     }
     if (!this.isNumericType() || !v.isNumericType()) {
       throw new TypeError(`Unsupported type of value: ${typeof v.getValue()}`);
+    }
+    if (!actor) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter requires actor',
+      );
+    }
+    const val = v.getValue();
+    const isUnit =
+      this.valueType === CounterType.Long
+        ? (val as Long).equals(Long.ONE)
+        : val === 1;
+    if (!isUnit) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter only supports increment by 1',
+      );
     }
     if (this.hll.add(actor)) {
       this.recomputeValue();
