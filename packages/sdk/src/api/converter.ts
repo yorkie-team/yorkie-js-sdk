@@ -469,6 +469,7 @@ function toOperation(operation: Operation): PbOperation {
     pbIncreaseOperation.executedAt = toTimeTicket(
       increaseOperation.getExecutedAt(),
     );
+    pbIncreaseOperation.actor = increaseOperation.getActor();
     pbOperation.body.case = 'increase';
     pbOperation.body.value = pbIncreaseOperation;
   } else if (operation instanceof TreeEditOperation) {
@@ -798,6 +799,8 @@ function toCounter(counter: CRDTCounter): PbJSONElement {
         createdAt: toTimeTicket(counter.getCreatedAt()),
         movedAt: toTimeTicket(counter.getMovedAt()),
         removedAt: toTimeTicket(counter.getRemovedAt()),
+        isDedup: counter.getIsDedup(),
+        hllRegisters: counter.hllBytes() || new Uint8Array(),
       }),
     },
   });
@@ -1334,6 +1337,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       fromTimeTicket(pbIncreaseOperation!.parentCreatedAt)!,
       fromElementSimple(pbIncreaseOperation!.value!),
       fromTimeTicket(pbIncreaseOperation!.executedAt)!,
+      pbIncreaseOperation!.actor || undefined,
     );
   } else if (pbOperation.body.case === 'treeEdit') {
     const pbTreeEditOperation = pbOperation.body.value;
@@ -1531,6 +1535,12 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   );
   counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
   counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
+  if (pbCounter.isDedup) {
+    counter.setDedup(true);
+    if (pbCounter.hllRegisters.length > 0) {
+      counter.restoreHLL(pbCounter.hllRegisters);
+    }
+  }
   return counter;
 }
 
