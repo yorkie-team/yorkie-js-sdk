@@ -35,14 +35,17 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
  */
 export class IncreaseOperation extends Operation {
   private value: CRDTElement;
+  private actor: string;
 
   constructor(
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
     executedAt?: TimeTicket,
+    actor?: string,
   ) {
     super(parentCreatedAt, executedAt);
     this.value = value;
+    this.actor = actor || '';
   }
 
   /**
@@ -52,8 +55,16 @@ export class IncreaseOperation extends Operation {
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
     executedAt?: TimeTicket,
+    actor?: string,
   ): IncreaseOperation {
-    return new IncreaseOperation(parentCreatedAt, value, executedAt);
+    return new IncreaseOperation(parentCreatedAt, value, executedAt, actor);
+  }
+
+  /**
+   * `getActor` returns the actor ID associated with this operation.
+   */
+  public getActor(): string {
+    return this.actor;
   }
 
   /**
@@ -75,7 +86,11 @@ export class IncreaseOperation extends Operation {
     }
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
-    counter.increase(value);
+    if (this.actor && counter.getIsDedup()) {
+      counter.increaseDedup(value, this.actor);
+    } else {
+      counter.increase(value);
+    }
     return {
       opInfos: [
         {

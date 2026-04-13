@@ -25,6 +25,7 @@ import {
 import { removeDecimal } from '@yorkie-js/sdk/src/util/number';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { HLL } from '@yorkie-js/sdk/src/document/crdt/hll';
 
 export enum CounterType {
   Int,
@@ -40,6 +41,8 @@ export type CounterValue = number | Long;
 export class CRDTCounter extends CRDTElement {
   private valueType: CounterType;
   private value: CounterValue;
+  private isDedup: boolean = false;
+  private hll?: HLL;
 
   constructor(
     valueType: CounterType,
@@ -152,6 +155,10 @@ export class CRDTCounter extends CRDTElement {
     );
     clone.setRemovedAt(this.getRemovedAt());
     clone.setMovedAt(this.getMovedAt());
+    if (this.isDedup && this.hll) {
+      clone.setDedup(true);
+      clone.restoreHLL(this.hll.toBytes());
+    }
     return clone;
   }
 
@@ -243,6 +250,72 @@ export class CRDTCounter extends CRDTElement {
           Code.ErrUnimplemented,
           `unimplemented type: ${this.valueType}`,
         );
+    }
+  }
+
+  /**
+   * `setDedup` enables or disables dedup mode. When enabled, an HLL is created
+   * to track unique actors.
+   */
+  public setDedup(dedup: boolean): void {
+    this.isDedup = dedup;
+    if (dedup && !this.hll) {
+      this.hll = new HLL();
+    }
+  }
+
+  /**
+   * `getIsDedup` returns whether dedup mode is enabled.
+   */
+  public getIsDedup(): boolean {
+    return this.isDedup;
+  }
+
+  /**
+   * `increaseDedup` increases the counter using HLL-based dedup.
+   * Only updates the value if the actor is new (not seen before).
+   */
+  public increaseDedup(v: Primitive, actor: string): CRDTCounter {
+    if (!this.isDedup || !this.hll) {
+      return this.increase(v);
+    }
+    if (!this.isNumericType() || !v.isNumericType()) {
+      throw new TypeError(`Unsupported type of value: ${typeof v.getValue()}`);
+    }
+    if (this.hll.add(actor)) {
+      this.recomputeValue();
+    }
+    return this;
+  }
+
+  /**
+   * `hllBytes` returns the HLL register bytes, or undefined if not in dedup mode.
+   */
+  public hllBytes(): Uint8Array | undefined {
+    return this.hll?.toBytes();
+  }
+
+  /**
+   * `restoreHLL` restores the HLL state from serialized bytes.
+   */
+  public restoreHLL(data: Uint8Array): void {
+    if (!this.hll) {
+      this.hll = new HLL();
+    }
+    this.hll.restore(data);
+    this.recomputeValue();
+  }
+
+  /**
+   * `recomputeValue` updates the counter value from the HLL cardinality estimate.
+   */
+  private recomputeValue(): void {
+    if (!this.hll) return;
+    const count = this.hll.count();
+    if (this.valueType === CounterType.Int) {
+      this.value = count;
+    } else {
+      this.value = Long.fromNumber(count);
     }
   }
 

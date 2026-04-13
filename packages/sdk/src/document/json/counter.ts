@@ -72,9 +72,10 @@ export class Counter {
   }
 
   /**
-   * `increase` increases numeric data.
+   * `increase` increases numeric data. When options.actor is provided and the
+   * counter is in dedup mode, the increase is deduplicated by actor ID.
    */
-  public increase(v: number | Long): Counter {
+  public increase(v: number | Long, options?: { actor: string }): Counter {
     if (!this.context || !this.counter) {
       throw new YorkieError(
         Code.ErrNotInitialized,
@@ -90,10 +91,22 @@ export class Counter {
       );
     }
 
-    this.counter.increase(value);
-    this.context.push(
-      IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
-    );
+    if (options?.actor && this.counter.getIsDedup()) {
+      this.counter.increaseDedup(value, options.actor);
+      this.context.push(
+        IncreaseOperation.create(
+          this.counter.getCreatedAt(),
+          value,
+          ticket,
+          options.actor,
+        ),
+      );
+    } else {
+      this.counter.increase(value);
+      this.context.push(
+        IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
+      );
+    }
 
     return this;
   }
