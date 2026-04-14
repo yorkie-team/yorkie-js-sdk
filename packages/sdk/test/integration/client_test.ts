@@ -67,6 +67,20 @@ describe.sequential('Client', function () {
     assert.isFalse(clientWithoutKey.isActive());
   });
 
+  it('Can activate with gRPC-Web transport', async function ({ task }) {
+    const clientKey = `${task.name}-${new Date().getTime()}`;
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key: clientKey,
+      useGrpcWebTransport: true,
+    });
+    assert.isFalse(client.isActive());
+    await client.activate();
+    assert.isTrue(client.isActive());
+    await client.deactivate();
+    assert.isFalse(client.isActive());
+  });
+
   it('Can attach/detach document', async function ({ task }) {
     const cli = new yorkie.Client({ rpcAddr: testRPCAddr });
     await cli.activate();
