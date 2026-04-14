@@ -8,7 +8,6 @@ import {
   testRPCAddr,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import yorkie, { Counter, SyncMode } from '@yorkie-js/sdk/src/yorkie';
-import Long from 'long';
 
 describe('Counter', function () {
   it('can be increased by Counter type', function ({ task }) {
@@ -115,13 +114,13 @@ describe('Counter', function () {
     assert.equal(`{"age":-2147483648}`, doc.toSortedJSON());
 
     doc.update((root) => {
-      root.age = new Counter(Long.fromString('9223372036854775807'));
+      root.age = new Counter(9223372036854775807n);
       root.age.increase(1);
     });
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
 
     doc.update((root) => {
-      root.age = new Counter(Long.fromString('9223372036854775808'));
+      root.age = new Counter(9223372036854775808n);
     });
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
   });
@@ -132,13 +131,13 @@ describe('Counter', function () {
 
     doc.update((root) => {
       root.cnt = new Counter(0);
-      root.longCnt = new Counter(Long.fromString('0'));
+      root.longCnt = new Counter(0n);
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
 
     doc.update((root) => {
       root.cnt.increase(1.5);
-      root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+      root.longCnt.increase(9223372036854775807n); // 2^63-1
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":1,"longCnt":9223372036854775807}`);
 
@@ -186,14 +185,14 @@ describe('Counter', function () {
 
     doc.update((root) => {
       root.cnt = new Counter(0);
-      root.longCnt = new Counter(Long.fromString('0'));
+      root.longCnt = new Counter(0n);
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
     states.push(doc.toSortedJSON());
 
     doc.update((root) => {
       root.cnt.increase(2147483647); // 2^31-1
-      root.longCnt.increase(Long.fromString('9223372036854775807')); // 2^63-1
+      root.longCnt.increase(9223372036854775807n); // 2^63-1
     });
     assert.equal(
       doc.toSortedJSON(),
@@ -203,7 +202,7 @@ describe('Counter', function () {
 
     doc.update((root) => {
       root.cnt.increase(1); // overflow
-      root.longCnt.increase(Long.fromString('1')); // overflow
+      root.longCnt.increase(1n); // overflow
     });
     assert.equal(
       doc.toSortedJSON(),

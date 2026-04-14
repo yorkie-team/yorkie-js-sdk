@@ -15,7 +15,50 @@
  */
 
 /**
- `removeDecimal` returns a number with the decimal part removed.
+ * `removeDecimal` returns a number with the decimal part removed.
  */
 export const removeDecimal = (number: number) =>
   number < 0 ? Math.ceil(number) : Math.floor(number);
+
+/**
+ * `bigintToBytesLE` converts a signed 64-bit bigint to 8 bytes (little-endian).
+ */
+export function bigintToBytesLE(value: bigint): Uint8Array {
+  const buf = new Uint8Array(8);
+  // Interpret as unsigned 64-bit to handle negative values correctly.
+  let v = BigInt.asUintN(64, value);
+  for (let i = 0; i < 8; i++) {
+    buf[i] = Number(v & 0xffn);
+    v >>= 8n;
+  }
+  return buf;
+}
+
+/**
+ * `bigintFromBytesLE` reads a signed 64-bit bigint from 8 bytes (little-endian).
+ */
+export function bigintFromBytesLE(bytes: Uint8Array): bigint {
+  let v = 0n;
+  for (let i = 7; i >= 0; i--) {
+    v = (v << 8n) | BigInt(bytes[i]);
+  }
+  return BigInt.asIntN(64, v);
+}
+
+/**
+ * `bigintFromBytesLEUnsigned` reads an unsigned 64-bit bigint from 8 bytes (little-endian).
+ */
+export function bigintFromBytesLEUnsigned(bytes: Uint8Array): bigint {
+  let v = 0n;
+  for (let i = 7; i >= 0; i--) {
+    v = (v << 8n) | BigInt(bytes[i]);
+  }
+  return v;
+}
+
+/**
+ * `bigintToInt32` truncates a bigint to a signed 32-bit integer.
+ */
+export function bigintToInt32(value: bigint): number {
+  return Number(BigInt.asIntN(32, value));
+}

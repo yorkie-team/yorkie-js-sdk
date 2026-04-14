@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { describe, it, assert } from 'vitest';
 import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import {
@@ -46,7 +45,7 @@ describe('Primitive', function () {
     },
     {
       type: PrimitiveType.Long,
-      value: Long.MAX_VALUE,
+      value: 9223372036854775807n,
     },
     {
       type: PrimitiveType.Bytes,

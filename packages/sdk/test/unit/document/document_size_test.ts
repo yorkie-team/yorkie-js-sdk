@@ -1,5 +1,4 @@
 import { describe, it, assert } from 'vitest';
-import Long from 'long';
 import {
   Counter,
   Document,
@@ -60,7 +59,7 @@ describe('Document Size', () => {
       k0: null;
       k1: boolean;
       k2: number;
-      k3: Long;
+      k3: bigint;
       k4: number;
       k5: string;
       k6: Uint8Array;
@@ -79,7 +78,7 @@ describe('Document Size', () => {
     doc.update((root) => (root['k2'] = 2147483647));
     assert.deepEqual(doc.getDocSize().live, { data: 16, meta: 168 });
 
-    doc.update((root) => (root['k3'] = Long.MAX_VALUE));
+    doc.update((root) => (root['k3'] = 9223372036854775807n));
     assert.deepEqual(doc.getDocSize().live, { data: 24, meta: 216 });
 
     doc.update((root) => (root['k4'] = 1.79));

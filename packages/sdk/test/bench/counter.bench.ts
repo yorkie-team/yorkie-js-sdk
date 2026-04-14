@@ -1,5 +1,4 @@
 import { Document, Counter } from '@yorkie-js/sdk/src/yorkie';
-import Long from 'long';
 import { describe, bench, assert } from 'vitest';
 
 const benchmarkCounter = (size: number) => {
@@ -31,7 +30,7 @@ describe('Counter', () => {
     });
     assert.equal('{"age":128}', doc.toJSON());
     doc.update((root) => {
-      root.price = new Counter(Long.fromNumber(9000000000000000000));
+      root.price = new Counter(BigInt('9000000000000000000'));
       root.price.increase(long);
       root.price.increase(double);
       root.price.increase(float);

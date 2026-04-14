@@ -16,7 +16,6 @@
 
 import { describe, it, assert } from 'vitest';
 import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
-import Long from 'long';
 import {
   CounterType,
   CRDTCounter,
@@ -26,14 +25,10 @@ import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 describe('Counter', function () {
   it('Can increase numeric data of Counter', function () {
     const double = CRDTCounter.create(CounterType.Int, 10, InitialTimeTicket);
-    const long = CRDTCounter.create(
-      CounterType.Long,
-      Long.fromString('100'),
-      InitialTimeTicket,
-    );
+    const long = CRDTCounter.create(CounterType.Long, 100n, InitialTimeTicket);
 
     const doubleOperand = Primitive.of(10, InitialTimeTicket);
-    const longOperand = Primitive.of(Long.fromString('100'), InitialTimeTicket);
+    const longOperand = Primitive.of(100n, InitialTimeTicket);
 
     double.increase(doubleOperand);
     double.increase(longOperand);
@@ -41,7 +36,7 @@ describe('Counter', function () {
 
     long.increase(doubleOperand);
     long.increase(longOperand);
-    assert.equal((long.getValue() as Long).toNumber(), 210);
+    assert.equal(Number(long.getValue() as bigint), 210);
 
     // error process test
     function errorTest(counter: CRDTCounter, operand: Primitive): void {
@@ -68,11 +63,11 @@ describe('Counter', function () {
     errorTest(double, date);
 
     assert.equal(double.getValue(), 120);
-    assert.equal((long.getValue() as Long).toNumber(), 210);
+    assert.equal(Number(long.getValue() as bigint), 210);
 
     // subtraction test
     const negative = Primitive.of(-50, InitialTimeTicket);
-    const negativeLong = Primitive.of(Long.fromNumber(-100), InitialTimeTicket);
+    const negativeLong = Primitive.of(BigInt(-100), InitialTimeTicket);
     double.increase(negative);
     double.increase(negativeLong);
     assert.equal(double.getValue(), -30);

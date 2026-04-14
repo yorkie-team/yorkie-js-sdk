@@ -24,7 +24,6 @@ import {
 } from '@yorkie-js/sdk/src/document/document';
 import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
-import Long from 'long';
 
 describe('Document', function () {
   afterEach(() => {
@@ -1172,7 +1171,7 @@ describe('Document', function () {
         },
         {
           name: 'long',
-          input: Long.MAX_VALUE,
+          input: 9223372036854775807n,
           expectedJSON: `{"long":9223372036854775807}`,
         },
         {
@@ -1214,7 +1213,7 @@ describe('Document', function () {
             null?: null;
             boolean?: boolean;
             number?: number;
-            long?: Long;
+            long?: bigint;
             object?: { k: string };
             array?: Array<JSONElement>;
             bytes?: Uint8Array;

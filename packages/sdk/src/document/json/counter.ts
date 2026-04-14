@@ -18,7 +18,6 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
-import Long from 'long';
 import {
   CounterType,
   CRDTCounter,
@@ -32,11 +31,11 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
  */
 class BaseCounter {
   protected valueType: CounterType;
-  protected value: number | Long;
+  protected value: number | bigint;
   protected context?: ChangeContext;
   protected counter?: CRDTCounter;
 
-  constructor(valueType: CounterType, value: number | Long) {
+  constructor(valueType: CounterType, value: number | bigint) {
     this.valueType = valueType;
     this.value = value;
   }
@@ -99,26 +98,26 @@ class BaseCounter {
  * ```typescript
  * // Type is inferred from value:
  * root.count = new Counter(0);           // Int
- * root.count = new Counter(Long.ZERO);   // Long
+ * root.count = new Counter(0n);           // Long
  * ```
  */
 export class Counter extends BaseCounter {
-  constructor(value: number | Long) {
-    const type = value instanceof Long ? CounterType.Long : CounterType.Int;
+  constructor(value: number | bigint) {
+    const type = typeof value === 'bigint' ? CounterType.Long : CounterType.Int;
     super(type, value);
   }
 
   /**
    * `getValue` returns the value of this counter.
    */
-  public getValue(): number | Long {
+  public getValue(): number | bigint {
     return this.value;
   }
 
   /**
    * `increase` increases numeric data.
    */
-  public increase(v: number | Long): Counter {
+  public increase(v: number | bigint): Counter {
     this.ensureInitialized();
 
     const ticket = this.context!.issueTimeTicket();
