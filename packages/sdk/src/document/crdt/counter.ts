@@ -53,8 +53,13 @@ export class CRDTCounter extends CRDTElement {
     super(createdAt);
     this.valueType = valueType;
     switch (valueType) {
-      case CounterType.Int:
       case CounterType.IntDedup:
+        this.value = 0;
+        break;
+      case CounterType.LongDedup:
+        this.value = Long.ZERO;
+        break;
+      case CounterType.Int:
         if (typeof value === 'number') {
           if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
             this.value = Long.fromNumber(value).toInt();
@@ -66,7 +71,6 @@ export class CRDTCounter extends CRDTElement {
         }
         break;
       case CounterType.Long:
-      case CounterType.LongDedup:
         if (typeof value === 'number') {
           this.value = Long.fromNumber(value);
         } else {
@@ -120,11 +124,14 @@ export class CRDTCounter extends CRDTElement {
    * `getDataSize` returns the data usage of this element.
    */
   public getDataSize(): DataSize {
-    const data =
+    let data =
       this.valueType === CounterType.Int ||
       this.valueType === CounterType.IntDedup
         ? 4
         : 8;
+    if (this.isDedup() && this.hll) {
+      data += this.hll.toBytes().length;
+    }
     return {
       data,
       meta: this.getMetaUsage(),

@@ -86,7 +86,13 @@ export class IncreaseOperation extends Operation {
     }
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
-    if (this.actor && counter.isDedup()) {
+    if (counter.isDedup()) {
+      if (!this.actor) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'dedup counter requires actor',
+        );
+      }
       counter.increaseDedup(value, this.actor);
     } else {
       counter.increase(value);
