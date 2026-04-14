@@ -72,14 +72,19 @@ export class Counter {
   }
 
   /**
-   * `increase` increases numeric data. When options.actor is provided and the
-   * counter is in dedup mode, the increase is deduplicated by actor ID.
+   * `increase` increases numeric data. Only valid for normal (non-dedup) counters.
    */
-  public increase(v: number | Long, options?: { actor: string }): Counter {
+  public increase(v: number | Long): Counter {
     if (!this.context || !this.counter) {
       throw new YorkieError(
         Code.ErrNotInitialized,
         'Counter is not initialized yet',
+      );
+    }
+    if (this.counter.isDedup()) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter does not support increase(), use add(actor)',
       );
     }
 
@@ -91,31 +96,55 @@ export class Counter {
       );
     }
 
-    if (this.counter.isDedup() && !options?.actor) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        'dedup counter requires actor: use increase(1, { actor })',
-      );
-    }
-
-    if (options?.actor && this.counter.isDedup()) {
-      this.counter.increaseDedup(value, options.actor);
-      this.context.push(
-        IncreaseOperation.create(
-          this.counter.getCreatedAt(),
-          value,
-          ticket,
-          options.actor,
-        ),
-      );
-    } else {
-      this.counter.increase(value);
-      this.context.push(
-        IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
-      );
-    }
+    this.counter.increase(value);
+    this.context.push(
+      IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
+    );
 
     return this;
+  }
+
+  /**
+   * `add` records a unique actor in the dedup counter. If the actor has
+   * already been counted, the call is ignored. Only valid for dedup counters.
+   */
+  public add(actor: string): Counter {
+    if (!this.context || !this.counter) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Counter is not initialized yet',
+      );
+    }
+    if (!this.counter.isDedup()) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'add() is only supported on dedup counters',
+      );
+    }
+    if (!actor) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'actor is required');
+    }
+
+    const ticket = this.context.issueTimeTicket();
+    const value = Primitive.of(1, ticket);
+    this.counter.increaseDedup(value, actor);
+    this.context.push(
+      IncreaseOperation.create(
+        this.counter.getCreatedAt(),
+        value,
+        ticket,
+        actor,
+      ),
+    );
+
+    return this;
+  }
+
+  /**
+   * `isDedup` returns whether this counter is a dedup counter.
+   */
+  public isDedup(): boolean {
+    return this.counter?.isDedup() ?? false;
   }
 
   /**
@@ -130,5 +159,23 @@ export class Counter {
     }
 
     return this.counter.toJSForTest();
+  }
+}
+
+/**
+ * `DedupCounter` is a Counter that uses HyperLogLog to count unique actors.
+ * Use `add(actor)` to record a unique visitor. Provides approximate counts
+ * with ~2% error rate.
+ *
+ * ```typescript
+ * doc.update((root) => {
+ *   root.uv = new yorkie.DedupCounter();
+ *   root.uv.add(userId);
+ * });
+ * ```
+ */
+export class DedupCounter extends Counter {
+  constructor() {
+    super(CounterType.IntDedup, 0);
   }
 }
