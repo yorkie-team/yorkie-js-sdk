@@ -93,8 +93,14 @@ export class HLL {
 
   /**
    * `restore` restores the HLL registers from a byte array.
+   * Throws if the data length does not match the register count.
    */
   public restore(data: Uint8Array): void {
+    if (data.length !== hllRegisterCount) {
+      throw new Error(
+        `invalid HLL register payload: got ${data.length} bytes, want ${hllRegisterCount}`,
+      );
+    }
     this.registers.set(data);
   }
 }

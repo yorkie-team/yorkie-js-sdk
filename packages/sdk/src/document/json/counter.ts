@@ -91,6 +91,13 @@ export class Counter {
       );
     }
 
+    if (this.counter.isDedup() && !options?.actor) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter requires actor: use increase(1, { actor })',
+      );
+    }
+
     if (options?.actor && this.counter.isDedup()) {
       this.counter.increaseDedup(value, options.actor);
       this.context.push(
