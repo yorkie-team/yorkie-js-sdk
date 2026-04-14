@@ -21,7 +21,10 @@ import {
   ConnectError,
   Code as ConnectCode,
 } from '@connectrpc/connect';
-import { createGrpcWebTransport } from '@connectrpc/connect-web';
+import {
+  createConnectTransport,
+  createGrpcWebTransport,
+} from '@connectrpc/connect-web';
 import {
   YorkieService,
   WatchResponse,
@@ -194,6 +197,13 @@ export interface ClientOptions {
    * client.
    */
   userAgent?: string;
+
+  /**
+   * `useGrpcWebTransport` determines the transport protocol.
+   * If true, uses gRPC-Web transport for backward compatibility.
+   * If false (default), uses Connect Protocol transport.
+   */
+  useGrpcWebTransport?: boolean;
 }
 
 /**
@@ -336,23 +346,24 @@ export class Client {
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
 
+    const transportOptions = {
+      baseUrl: rpcAddr,
+      interceptors: [authInterceptor, createMetricInterceptor(opts?.userAgent)],
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        return fetch(input as RequestInfo, {
+          ...init,
+          keepalive: this.keepalive,
+        });
+      },
+    };
+
     // Here we make the client itself, combining the service
     // definition with the transport.
     this.rpcClient = createConnectClient(
       YorkieService,
-      createGrpcWebTransport({
-        baseUrl: rpcAddr,
-        interceptors: [
-          authInterceptor,
-          createMetricInterceptor(opts?.userAgent),
-        ],
-        fetch: (input, init) => {
-          return fetch(input as RequestInfo, {
-            ...init,
-            keepalive: this.keepalive,
-          });
-        },
-      }),
+      opts.useGrpcWebTransport
+        ? createGrpcWebTransport(transportOptions)
+        : createConnectTransport(transportOptions),
     );
     this.taskQueue = [];
   }
