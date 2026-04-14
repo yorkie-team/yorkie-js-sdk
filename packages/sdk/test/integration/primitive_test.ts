@@ -1,5 +1,4 @@
 import { describe, it, assert } from 'vitest';
-import Long from 'long';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { InitialCheckpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
@@ -50,7 +49,7 @@ describe('Primitive', function () {
       k0: null;
       k1: boolean;
       k2: number;
-      k3: Long;
+      k3: bigint;
       k4: number;
       k5: string;
       k6: Uint8Array;
@@ -61,7 +60,7 @@ describe('Primitive', function () {
         root['k0'] = null;
         root['k1'] = true;
         root['k2'] = 2147483647;
-        root['k3'] = Long.MAX_VALUE;
+        root['k3'] = 9223372036854775807n;
         root['k4'] = 1.79;
         root['k5'] = '4';
         root['k6'] = new Uint8Array([65, 66]);

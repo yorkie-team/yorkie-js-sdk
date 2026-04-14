@@ -1,8 +1,6 @@
 import { describe, it, assert } from 'vitest';
-import Long from 'long';
 import {
   Counter,
-  CounterType,
   Document,
   JSONObject,
   Text,
@@ -61,7 +59,7 @@ describe('Document Size', () => {
       k0: null;
       k1: boolean;
       k2: number;
-      k3: Long;
+      k3: bigint;
       k4: number;
       k5: string;
       k6: Uint8Array;
@@ -80,7 +78,7 @@ describe('Document Size', () => {
     doc.update((root) => (root['k2'] = 2147483647));
     assert.deepEqual(doc.getDocSize().live, { data: 16, meta: 168 });
 
-    doc.update((root) => (root['k3'] = Long.MAX_VALUE));
+    doc.update((root) => (root['k3'] = 9223372036854775807n));
     assert.deepEqual(doc.getDocSize().live, { data: 24, meta: 216 });
 
     doc.update((root) => (root['k4'] = 1.79));
@@ -116,7 +114,7 @@ describe('Document Size', () => {
 
   it('counter test', function () {
     const doc = new Document<{ counter: Counter }>('test-doc');
-    doc.update((root) => (root.counter = new Counter(CounterType.Int, 0)));
+    doc.update((root) => (root.counter = new Counter(0)));
     assert.deepEqual(doc.getDocSize().live, { data: 4, meta: 72 });
   });
 
@@ -243,7 +241,7 @@ describe('Document Size', () => {
 
   it('deep copy test', function () {
     const doc = new Document<{ counter: Counter }>('test-doc');
-    doc.update((root) => (root.counter = new Counter(CounterType.Int, 0)));
+    doc.update((root) => (root.counter = new Counter(0)));
     const clone = doc.getClone()!.root.deepcopy();
     assert.deepEqual(doc.getDocSize(), clone.getDocSize());
   });
@@ -252,7 +250,7 @@ describe('Document Size', () => {
     const doc = new Document<{ arr: Array<Counter> }>('test-doc');
 
     doc.update((root) => (root['arr'] = []));
-    doc.update((root) => root['arr'].push(new Counter(CounterType.Int, 0)));
+    doc.update((root) => root['arr'].push(new Counter(0)));
 
     const clone = doc.getClone()!.root.deepcopy();
     assert.deepEqual(clone.getDocSize(), doc.getDocSize());

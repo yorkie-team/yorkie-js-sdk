@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { describe, it, expect } from 'vitest';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
@@ -55,7 +54,7 @@ describe('ruleset-validator', () => {
       root.field2 = true;
       root.field3 = 123;
       root.field4 = 123.456;
-      root.field5 = Long.MAX_VALUE;
+      root.field5 = 9223372036854775807n;
       root.field6 = 'test';
       root.field7 = new Date();
       root.field8 = new Uint8Array([1, 2, 3]);
@@ -67,7 +66,7 @@ describe('ruleset-validator', () => {
       root.field1 = false;
       root.field2 = 123;
       root.field3 = 123.456;
-      root.field4 = Long.MAX_VALUE;
+      root.field4 = 9223372036854775807n;
       root.field5 = 'test';
       root.field6 = new Date();
       root.field7 = new Uint8Array([1, 2, 3]);
@@ -266,7 +265,7 @@ describe('ruleset-validator', () => {
     doc.update((root) => {
       root.text = new yorkie.Text();
       root.tree = new yorkie.Tree({ type: 'doc', children: [] });
-      root.counter = new yorkie.Counter(yorkie.IntType, 0);
+      root.counter = new yorkie.Counter(0);
     });
     let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
     expect(result.valid).to.eq(true);

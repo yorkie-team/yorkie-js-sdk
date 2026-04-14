@@ -16,13 +16,17 @@
 
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
-import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   Primitive,
   PrimitiveType,
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
-import { removeDecimal } from '@yorkie-js/sdk/src/util/number';
+import {
+  removeDecimal,
+  bigintFromBytesLE,
+  bigintToBytesLE,
+  bigintToInt32,
+} from '@yorkie-js/sdk/src/util/number';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 import { HLL } from '@yorkie-js/sdk/src/document/crdt/hll';
@@ -33,7 +37,7 @@ export enum CounterType {
   IntDedup,
 }
 
-export type CounterValue = number | Long;
+export type CounterValue = number | bigint;
 
 /**
  * `CRDTCounter` is a CRDT implementation of a counter. It is used to represent
@@ -58,19 +62,19 @@ export class CRDTCounter extends CRDTElement {
       case CounterType.Int:
         if (typeof value === 'number') {
           if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
-            this.value = Long.fromNumber(value).toInt();
+            this.value = bigintToInt32(BigInt(value));
           } else {
             this.value = removeDecimal(value);
           }
         } else {
-          this.value = value.toInt();
+          this.value = bigintToInt32(value);
         }
         break;
       case CounterType.Long:
         if (typeof value === 'number') {
-          this.value = Long.fromNumber(value);
+          this.value = BigInt.asIntN(64, BigInt(Math.trunc(value)));
         } else {
-          this.value = value;
+          this.value = BigInt.asIntN(64, value);
         }
         break;
       default:
@@ -94,6 +98,7 @@ export class CRDTCounter extends CRDTElement {
   ): CRDTCounter {
     return new CRDTCounter(valueType, value, createdAt);
   }
+
   /**
    * `valueFromBytes` parses the given bytes into value.
    */
@@ -106,7 +111,7 @@ export class CRDTCounter extends CRDTElement {
       case CounterType.IntDedup:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
       case CounterType.Long:
-        return Long.fromBytesLE(Array.from(bytes));
+        return bigintFromBytesLE(bytes);
       default:
         throw new YorkieError(
           Code.ErrUnimplemented,
@@ -187,12 +192,8 @@ export class CRDTCounter extends CRDTElement {
    */
   public static getCounterType(value: CounterValue): CounterType | undefined {
     switch (typeof value) {
-      case 'object':
-        if (value instanceof Long) {
-          return CounterType.Long;
-        } else {
-          return;
-        }
+      case 'bigint':
+        return CounterType.Long;
       case 'number':
         if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
           return CounterType.Long;
@@ -203,6 +204,7 @@ export class CRDTCounter extends CRDTElement {
         return;
     }
   }
+
   /**
    * `isSupport` check if there is a counter type of given value.
    */
@@ -259,9 +261,7 @@ export class CRDTCounter extends CRDTElement {
         ]);
       }
       case CounterType.Long: {
-        const longVal = this.value as Long;
-        const longToBytes = longVal.toBytesLE();
-        return Uint8Array.from(longToBytes);
+        return bigintToBytesLE(this.value as bigint);
       }
       default:
         throw new YorkieError(
@@ -296,10 +296,7 @@ export class CRDTCounter extends CRDTElement {
       );
     }
     const val = v.getValue();
-    const isUnit =
-      v.getType() === PrimitiveType.Long
-        ? (val as Long).equals(Long.ONE)
-        : val === 1;
+    const isUnit = v.getType() === PrimitiveType.Long ? val === 1n : val === 1;
     if (!isUnit) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
@@ -349,6 +346,7 @@ export class CRDTCounter extends CRDTElement {
         'dedup counter requires actor, use increaseDedup()',
       );
     }
+
     /**
      * `checkNumericType` checks if the given target is a numeric type.
      */
@@ -363,14 +361,21 @@ export class CRDTCounter extends CRDTElement {
     checkNumericType(v);
 
     if (this.valueType === CounterType.Long) {
-      this.value = (this.value as Long).add(v.getValue() as number | Long);
+      const delta =
+        typeof v.getValue() === 'bigint'
+          ? (v.getValue() as bigint)
+          : BigInt(Math.trunc(v.getValue() as number));
+      this.value = BigInt.asIntN(64, (this.value as bigint) + delta);
     } else {
       if (v.getType() === PrimitiveType.Long) {
-        this.value = (this.value as number) + (v.getValue() as Long).toInt();
+        this.value =
+          (this.value as number) + bigintToInt32(v.getValue() as bigint);
       } else {
-        this.value = Long.fromNumber(
-          (this.value as number) + removeDecimal(v.getValue() as number),
-        ).toInt();
+        this.value = bigintToInt32(
+          BigInt(
+            (this.value as number) + removeDecimal(v.getValue() as number),
+          ),
+        );
       }
     }
 

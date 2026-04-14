@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-import Long from 'long';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import {
+  bigintToBytesLE,
+  bigintFromBytesLE,
+  bigintFromBytesLEUnsigned,
+} from '@yorkie-js/sdk/src/util/number';
 
 export enum PrimitiveType {
   Null,
@@ -39,7 +43,7 @@ export enum PrimitiveType {
  */
 export type PrimitiveValue =
   // eslint-disable-next-line @typescript-eslint/no-restricted-types
-  null | boolean | number | Long | string | Uint8Array | Date;
+  null | boolean | number | bigint | string | Uint8Array | Date;
 
 /**
  * `Primitive` represents primitive data type including logical clock.
@@ -86,11 +90,11 @@ export class Primitive extends CRDTElement {
       case PrimitiveType.String:
         return new TextDecoder('utf-8').decode(bytes);
       case PrimitiveType.Long:
-        return Long.fromBytesLE(Array.from(bytes));
+        return bigintFromBytesLE(bytes);
       case PrimitiveType.Bytes:
         return bytes;
       case PrimitiveType.Date:
-        return new Date(Long.fromBytesLE(Array.from(bytes), true).toNumber());
+        return new Date(Number(bigintFromBytesLEUnsigned(bytes)));
       default:
         throw new YorkieError(
           Code.ErrUnimplemented,
@@ -204,13 +208,13 @@ export class Primitive extends CRDTElement {
         } else {
           return PrimitiveType.Double;
         }
+      case 'bigint':
+        return PrimitiveType.Long;
       case 'string':
         return PrimitiveType.String;
       case 'object':
         if (value === null) {
           return PrimitiveType.Null;
-        } else if (value instanceof Long) {
-          return PrimitiveType.Long;
         } else if (value instanceof Uint8Array) {
           return PrimitiveType.Bytes;
         } else if (value instanceof Date) {
@@ -290,9 +294,7 @@ export class Primitive extends CRDTElement {
         return new TextEncoder().encode(this.value as string);
       }
       case PrimitiveType.Long: {
-        const longVal = this.value as Long;
-        const longToBytes = longVal.toBytesLE();
-        return Uint8Array.from(longToBytes);
+        return bigintToBytesLE(this.value as bigint);
       }
       case PrimitiveType.Bytes: {
         const bytesVal = this.value as Uint8Array;
@@ -300,11 +302,7 @@ export class Primitive extends CRDTElement {
       }
       case PrimitiveType.Date: {
         const dateVal = this.value as Date;
-        const dateToBytes = Long.fromNumber(
-          dateVal.getTime(),
-          true,
-        ).toBytesLE();
-        return Uint8Array.from(dateToBytes);
+        return bigintToBytesLE(BigInt(dateVal.getTime()));
       }
       default:
         throw new YorkieError(

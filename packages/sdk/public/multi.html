@@ -115,7 +115,7 @@
 
           doc.update((root) => {
             if (!root.counter) {
-              root.counter = new yorkie.Counter(yorkie.IntType, 0);
+              root.counter = new yorkie.Counter(0);
               root.todos = [];
               root.content = new yorkie.Text();
               root.content.edit(0, 0, '\n');

@@ -58,7 +58,7 @@
           // 03. initialize document properties
           doc.update((root) => {
             if (!root.counter) {
-              root.counter = new yorkie.Counter(yorkie.IntType, 0);
+              root.counter = new yorkie.Counter(0);
             }
           }, 'create counter if not exists');
 

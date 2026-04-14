@@ -736,9 +736,6 @@ importers:
       '@yorkie-js/schema':
         specifier: workspace:*
         version: link:../schema
-      long:
-        specifier: ^5.3.2
-        version: 5.3.2
     devDependencies:
       '@buf/googleapis_googleapis.bufbuild_es':
         specifier: 2.10.1-20251126203132-004180b77378.1
@@ -755,9 +752,6 @@ importers:
       '@types/google-protobuf':
         specifier: ^3.15.12
         version: 3.15.12
-      '@types/long':
-        specifier: ^5.0.0
-        version: 5.0.0
       '@vitest/coverage-istanbul':
         specifier: ^4.0.15
         version: 4.0.15(vitest@4.0.15(@types/node@24.10.1)(jiti@2.6.1)(jsdom@27.2.0)(less@4.4.2)(lightningcss@1.30.2)(sass@1.94.2)(yaml@2.8.2))
@@ -3768,10 +3762,6 @@ packages:
   '@types/lodash@4.17.21':
     resolution: {integrity: sha512-FOvQ0YPD5NOfPgMzJihoT+Za5pdkDJWcbpuj1DjaKZIr/gxodQjY/uWEFlTNqW2ugXHUiL8lRQgw63dzKHZdeQ==}
 
-  '@types/long@5.0.0':
-    resolution: {integrity: sha512-eQs9RsucA/LNjnMoJvWG/nXa7Pot/RbBzilF/QRIU/xRl+0ApxrSUFsV5lmf01SvSlqMzJ7Zwxe440wmz2SJGA==}
-    deprecated: This is a stub types definition. long provides its own type definitions, so you do not need this installed.
-
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
 
@@ -6157,9 +6147,6 @@ packages:
   log-update@6.1.0:
     resolution: {integrity: sha512-9ie8ItPR6tjY5uYJh8K/Zrv/RMZ5VOlOWvtZdEHYSTFKZfIBPQa9tOAEeAWhd+AnIneLJ22w5fjOYtoutpWq5w==}
     engines: {node: '>=18'}
-
-  long@5.3.2:
-    resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
 
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
@@ -11288,10 +11275,6 @@ snapshots:
 
   '@types/lodash@4.17.21': {}
 
-  '@types/long@5.0.0':
-    dependencies:
-      long: 5.3.2
-
   '@types/node@24.10.1':
     dependencies:
       undici-types: 7.16.0
@@ -14029,8 +14012,6 @@ snapshots:
       slice-ansi: 7.1.2
       strip-ansi: 7.1.2
       wrap-ansi: 9.0.2
-
-  long@5.3.2: {}
 
   loose-envify@1.4.0:
     dependencies:

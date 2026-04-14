@@ -22,7 +22,6 @@ import {
   Counter,
   DedupCounter,
 } from '@yorkie-js/sdk/src/document/json/counter';
-import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { Channel, ChannelEventType } from '@yorkie-js/sdk/src/channel/channel';
 import * as YSON from '@yorkie-js/sdk/src/document/yson';
@@ -171,8 +170,6 @@ export default {
   YSON,
   LogLevel,
   setLogLevel,
-  IntType: CounterType.Int,
-  LongType: CounterType.Long,
 };
 
 // TODO(hackerwins): Remove this when we have a better way to expose the API.
@@ -190,7 +187,5 @@ if (typeof globalThis !== 'undefined') {
     YSON,
     LogLevel,
     setLogLevel,
-    IntType: CounterType.Int,
-    LongType: CounterType.Long,
   };
 }

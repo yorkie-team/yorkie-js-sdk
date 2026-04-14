@@ -6,7 +6,6 @@ import yorkie, {
   SyncMode,
   Tree,
   JSONElement,
-  CounterType,
 } from '@yorkie-js/sdk/src/yorkie';
 import {
   testRPCAddr,
@@ -25,7 +24,6 @@ import {
 } from '@yorkie-js/sdk/src/document/document';
 import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { YorkieError } from '@yorkie-js/sdk/src/util/error';
-import Long from 'long';
 
 describe('Document', function () {
   afterEach(() => {
@@ -143,7 +141,7 @@ describe('Document', function () {
     });
 
     d1.update((root) => {
-      root.counter = new yorkie.Counter(yorkie.IntType, 100);
+      root.counter = new yorkie.Counter(100);
       root.todos = ['todo1', 'todo2', 'todo3'] as JSONArray<string>;
       root.content = new yorkie.Text();
       root.content.edit(0, 0, 'hello world', {
@@ -262,7 +260,7 @@ describe('Document', function () {
     });
 
     d2.update((root) => {
-      root.counter = new yorkie.Counter(yorkie.IntType, 0);
+      root.counter = new yorkie.Counter(0);
       root.todos = ['todo1', 'todo2'];
     });
     await eventCollector.waitAndVerifyNthEvent(1, [
@@ -875,7 +873,7 @@ describe('Document', function () {
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc = new yorkie.Document<TestDoc>(docKey);
       doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
+        root.counter = new Counter(100);
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
@@ -909,7 +907,7 @@ describe('Document', function () {
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc = new yorkie.Document<TestDoc>(docKey);
       doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
+        root.counter = new Counter(100);
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
@@ -969,7 +967,7 @@ describe('Document', function () {
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc = new yorkie.Document<TestDoc>(docKey);
       doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 100);
+        root.counter = new Counter(100);
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
@@ -1002,7 +1000,7 @@ describe('Document', function () {
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc = new yorkie.Document<TestDoc>(docKey);
       doc.update((root) => {
-        root.counter = new Counter(yorkie.IntType, 0);
+        root.counter = new Counter(0);
       }, 'init counter');
       assert.equal(doc.toSortedJSON(), '{"counter":0}');
 
@@ -1060,7 +1058,7 @@ describe('Document', function () {
       const doc1 = new yorkie.Document(docKey);
       await c1.attach(doc1, {
         initialRoot: {
-          counter: new Counter(CounterType.Int, 0),
+          counter: new Counter(0),
           content: { x: 1, y: 1 },
         },
       });
@@ -1074,7 +1072,7 @@ describe('Document', function () {
       const doc2 = new yorkie.Document(docKey);
       await c2.attach(doc2, {
         initialRoot: {
-          counter: new Counter(CounterType.Int, 1),
+          counter: new Counter(1),
           content: { x: 1, y: 2 },
           new: { k: 'v' },
         },
@@ -1153,7 +1151,7 @@ describe('Document', function () {
         },
         {
           name: 'counter',
-          input: new Counter(CounterType.Int, 1),
+          input: new Counter(1),
           expectedJSON: `{"counter":1}`,
         },
         {
@@ -1173,7 +1171,7 @@ describe('Document', function () {
         },
         {
           name: 'long',
-          input: Long.MAX_VALUE,
+          input: 9223372036854775807n,
           expectedJSON: `{"long":9223372036854775807}`,
         },
         {
@@ -1215,7 +1213,7 @@ describe('Document', function () {
             null?: null;
             boolean?: boolean;
             number?: number;
-            long?: Long;
+            long?: bigint;
             object?: { k: string };
             array?: Array<JSONElement>;
             bytes?: Uint8Array;
