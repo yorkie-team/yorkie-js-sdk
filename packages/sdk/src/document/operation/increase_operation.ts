@@ -35,14 +35,17 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
  */
 export class IncreaseOperation extends Operation {
   private value: CRDTElement;
+  private actor: string;
 
   constructor(
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
     executedAt?: TimeTicket,
+    actor?: string,
   ) {
     super(parentCreatedAt, executedAt);
     this.value = value;
+    this.actor = actor || '';
   }
 
   /**
@@ -52,8 +55,16 @@ export class IncreaseOperation extends Operation {
     parentCreatedAt: TimeTicket,
     value: CRDTElement,
     executedAt?: TimeTicket,
+    actor?: string,
   ): IncreaseOperation {
-    return new IncreaseOperation(parentCreatedAt, value, executedAt);
+    return new IncreaseOperation(parentCreatedAt, value, executedAt, actor);
+  }
+
+  /**
+   * `getActor` returns the actor ID associated with this operation.
+   */
+  public getActor(): string {
+    return this.actor;
   }
 
   /**
@@ -75,7 +86,17 @@ export class IncreaseOperation extends Operation {
     }
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
-    counter.increase(value);
+    if (counter.isDedup()) {
+      if (!this.actor) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'dedup counter requires actor',
+        );
+      }
+      counter.increaseDedup(value, this.actor);
+    } else {
+      counter.increase(value);
+    }
     return {
       opInfos: [
         {
@@ -84,7 +105,9 @@ export class IncreaseOperation extends Operation {
           value: value.getValue() as number,
         },
       ],
-      reverseOp: this.toReverseOperation(),
+      // Dedup counters do not support undo/redo because HLL cannot
+      // remove an actor once added.
+      reverseOp: this.actor ? undefined : this.toReverseOperation(),
     };
   }
 

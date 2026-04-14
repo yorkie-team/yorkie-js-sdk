@@ -25,10 +25,12 @@ import {
 import { removeDecimal } from '@yorkie-js/sdk/src/util/number';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { HLL } from '@yorkie-js/sdk/src/document/crdt/hll';
 
 export enum CounterType {
   Int,
   Long,
+  IntDedup,
 }
 
 export type CounterValue = number | Long;
@@ -40,6 +42,7 @@ export type CounterValue = number | Long;
 export class CRDTCounter extends CRDTElement {
   private valueType: CounterType;
   private value: CounterValue;
+  private hll?: HLL;
 
   constructor(
     valueType: CounterType,
@@ -49,6 +52,9 @@ export class CRDTCounter extends CRDTElement {
     super(createdAt);
     this.valueType = valueType;
     switch (valueType) {
+      case CounterType.IntDedup:
+        this.value = 0;
+        break;
       case CounterType.Int:
         if (typeof value === 'number') {
           if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
@@ -73,6 +79,9 @@ export class CRDTCounter extends CRDTElement {
           `unimplemented type: ${valueType}`,
         );
     }
+    if (this.isDedup()) {
+      this.hll ??= new HLL();
+    }
   }
 
   /**
@@ -94,6 +103,7 @@ export class CRDTCounter extends CRDTElement {
   ): CounterValue {
     switch (counterType) {
       case CounterType.Int:
+      case CounterType.IntDedup:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
       case CounterType.Long:
         return Long.fromBytesLE(Array.from(bytes));
@@ -109,7 +119,14 @@ export class CRDTCounter extends CRDTElement {
    * `getDataSize` returns the data usage of this element.
    */
   public getDataSize(): DataSize {
-    const data = this.valueType === CounterType.Int ? 4 : 8;
+    let data =
+      this.valueType === CounterType.Int ||
+      this.valueType === CounterType.IntDedup
+        ? 4
+        : 8;
+    if (this.isDedup() && this.hll) {
+      data += this.hll.toBytes().length;
+    }
     return {
       data,
       meta: this.getMetaUsage(),
@@ -152,6 +169,9 @@ export class CRDTCounter extends CRDTElement {
     );
     clone.setRemovedAt(this.getRemovedAt());
     clone.setMovedAt(this.getMovedAt());
+    if (this.isDedup() && this.hll) {
+      clone.restoreHLL(this.hll.toBytes());
+    }
     return clone;
   }
 
@@ -202,7 +222,11 @@ export class CRDTCounter extends CRDTElement {
    */
   public isNumericType(): boolean {
     const t = this.valueType;
-    return t === CounterType.Int || t === CounterType.Long;
+    return (
+      t === CounterType.Int ||
+      t === CounterType.Long ||
+      t === CounterType.IntDedup
+    );
   }
 
   /**
@@ -224,7 +248,8 @@ export class CRDTCounter extends CRDTElement {
    */
   public toBytes(): Uint8Array {
     switch (this.valueType) {
-      case CounterType.Int: {
+      case CounterType.Int:
+      case CounterType.IntDedup: {
         const intVal = this.value as number;
         return new Uint8Array([
           intVal & 0xff,
@@ -247,9 +272,83 @@ export class CRDTCounter extends CRDTElement {
   }
 
   /**
+   * `isDedup` returns whether dedup mode is enabled (derived from ValueType).
+   */
+  public isDedup(): boolean {
+    return this.valueType === CounterType.IntDedup;
+  }
+
+  /**
+   * `increaseDedup` increases the counter using HLL-based dedup.
+   * Only updates the value if the actor is new (not seen before).
+   */
+  public increaseDedup(v: Primitive, actor: string): CRDTCounter {
+    if (!this.isDedup() || !this.hll) {
+      return this.increase(v);
+    }
+    if (!this.isNumericType() || !v.isNumericType()) {
+      throw new TypeError(`Unsupported type of value: ${typeof v.getValue()}`);
+    }
+    if (!actor) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter requires actor',
+      );
+    }
+    const val = v.getValue();
+    const isUnit =
+      v.getType() === PrimitiveType.Long
+        ? (val as Long).equals(Long.ONE)
+        : val === 1;
+    if (!isUnit) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter only supports increment by 1',
+      );
+    }
+    if (this.hll.add(actor)) {
+      this.recomputeValue();
+    }
+    return this;
+  }
+
+  /**
+   * `hllBytes` returns the HLL register bytes, or undefined if not in dedup mode.
+   */
+  public hllBytes(): Uint8Array | undefined {
+    return this.hll?.toBytes();
+  }
+
+  /**
+   * `restoreHLL` restores the HLL state from serialized bytes.
+   */
+  public restoreHLL(data: Uint8Array): void {
+    if (!this.hll) {
+      this.hll = new HLL();
+    }
+    this.hll.restore(data);
+    this.recomputeValue();
+  }
+
+  /**
+   * `recomputeValue` updates the counter value from the HLL cardinality estimate.
+   */
+  private recomputeValue(): void {
+    if (!this.hll) return;
+    this.value = this.hll.count();
+  }
+
+  /**
    * `increase` increases numeric data.
+   * Dedup counters must use increaseDedup() instead.
    */
   public increase(v: Primitive): CRDTCounter {
+    if (this.isDedup()) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'dedup counter requires actor, use increaseDedup()',
+      );
+    }
     /**
      * `checkNumericType` checks if the given target is a numeric type.
      */

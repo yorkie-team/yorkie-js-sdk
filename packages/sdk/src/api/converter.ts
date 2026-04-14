@@ -270,6 +270,8 @@ function toCounterType(valueType: CounterType): PbValueType {
       return PbValueType.INTEGER_CNT;
     case CounterType.Long:
       return PbValueType.LONG_CNT;
+    case CounterType.IntDedup:
+      return PbValueType.INTEGER_DEDUP_CNT;
     default:
       throw new YorkieError(
         Code.ErrInvalidType,
@@ -469,6 +471,7 @@ function toOperation(operation: Operation): PbOperation {
     pbIncreaseOperation.executedAt = toTimeTicket(
       increaseOperation.getExecutedAt(),
     );
+    pbIncreaseOperation.actor = increaseOperation.getActor();
     pbOperation.body.case = 'increase';
     pbOperation.body.value = pbIncreaseOperation;
   } else if (operation instanceof TreeEditOperation) {
@@ -798,6 +801,7 @@ function toCounter(counter: CRDTCounter): PbJSONElement {
         createdAt: toTimeTicket(counter.getCreatedAt()),
         movedAt: toTimeTicket(counter.getMovedAt()),
         removedAt: toTimeTicket(counter.getRemovedAt()),
+        hllRegisters: counter.hllBytes() || new Uint8Array(),
       }),
     },
   });
@@ -1045,6 +1049,8 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.Int;
     case PbValueType.LONG_CNT:
       return CounterType.Long;
+    case PbValueType.INTEGER_DEDUP_CNT:
+      return CounterType.IntDedup;
   }
   throw new YorkieError(
     Code.ErrUnimplemented,
@@ -1091,6 +1097,7 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
       );
     case PbValueType.INTEGER_CNT:
     case PbValueType.LONG_CNT:
+    case PbValueType.INTEGER_DEDUP_CNT:
       return CRDTCounter.create(
         fromCounterType(pbElementSimple.type),
         CRDTCounter.valueFromBytes(
@@ -1334,6 +1341,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       fromTimeTicket(pbIncreaseOperation!.parentCreatedAt)!,
       fromElementSimple(pbIncreaseOperation!.value!),
       fromTimeTicket(pbIncreaseOperation!.executedAt)!,
+      pbIncreaseOperation!.actor || undefined,
     );
   } else if (pbOperation.body.case === 'treeEdit') {
     const pbTreeEditOperation = pbOperation.body.value;
@@ -1531,6 +1539,9 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   );
   counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
   counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
+  if (counter.isDedup() && pbCounter.hllRegisters.length > 0) {
+    counter.restoreHLL(pbCounter.hllRegisters);
+  }
   return counter;
 }
 

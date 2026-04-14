@@ -18,7 +18,10 @@ import { Client } from '@yorkie-js/sdk/src/client/client';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
-import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+import {
+  Counter,
+  DedupCounter,
+} from '@yorkie-js/sdk/src/document/json/counter';
 import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { Channel, ChannelEventType } from '@yorkie-js/sdk/src/channel/channel';
@@ -106,7 +109,10 @@ export {
 } from '@yorkie-js/sdk/src/document/json/element';
 export { type JSONObject } from '@yorkie-js/sdk/src/document/json/object';
 export { type JSONArray } from '@yorkie-js/sdk/src/document/json/array';
-export { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+export {
+  Counter,
+  DedupCounter,
+} from '@yorkie-js/sdk/src/document/json/counter';
 export {
   CounterType,
   type CounterValue,
@@ -157,6 +163,7 @@ export default {
   Primitive,
   Text,
   Counter,
+  DedupCounter,
   Tree,
   Devtools,
   Channel,
@@ -176,6 +183,7 @@ if (typeof globalThis !== 'undefined') {
     Primitive,
     Text,
     Counter,
+    DedupCounter,
     Tree,
     Channel,
     ChannelEventType,
