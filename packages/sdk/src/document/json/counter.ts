@@ -27,13 +27,14 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
- * `Counter` is a custom data type that is used to counter.
+ * `BaseCounter` is an internal base that holds the shared state and
+ * initialization logic for Counter and DedupCounter. Not exported.
  */
-export class Counter {
-  private valueType: CounterType;
-  private value: number | Long;
-  private context?: ChangeContext;
-  private counter?: CRDTCounter;
+class BaseCounter {
+  protected valueType: CounterType;
+  protected value: number | Long;
+  protected context?: ChangeContext;
+  protected counter?: CRDTCounter;
 
   constructor(valueType: CounterType, value: number | Long) {
     this.valueType = valueType;
@@ -41,7 +42,7 @@ export class Counter {
   }
 
   /**
-   * `initialize` initialize this text with context and internal text.
+   * `initialize` links this proxy to a ChangeContext and CRDTCounter.
    */
   public initialize(context: ChangeContext, counter: CRDTCounter): void {
     this.valueType = counter.getValueType();
@@ -51,17 +52,10 @@ export class Counter {
   }
 
   /**
-   * `getID` returns the ID of this text.
+   * `getID` returns the ID of this counter.
    */
   public getID(): TimeTicket {
     return this.counter!.getID();
-  }
-
-  /**
-   * `getValue` returns the value of this counter;
-   */
-  public getValue(): number | Long {
-    return this.value;
   }
 
   /**
@@ -69,82 +63,6 @@ export class Counter {
    */
   public getValueType(): CounterType {
     return this.valueType;
-  }
-
-  /**
-   * `increase` increases numeric data. Only valid for normal (non-dedup) counters.
-   */
-  public increase(v: number | Long): Counter {
-    if (!this.context || !this.counter) {
-      throw new YorkieError(
-        Code.ErrNotInitialized,
-        'Counter is not initialized yet',
-      );
-    }
-    if (this.counter.isDedup()) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        'dedup counter does not support increase(), use add(actor)',
-      );
-    }
-
-    const ticket = this.context.issueTimeTicket();
-    const value = Primitive.of(v, ticket);
-    if (!value.isNumericType()) {
-      throw new TypeError(
-        `Unsupported type of value: ${typeof value.getValue()}`,
-      );
-    }
-
-    this.counter.increase(value);
-    this.context.push(
-      IncreaseOperation.create(this.counter.getCreatedAt(), value, ticket),
-    );
-
-    return this;
-  }
-
-  /**
-   * `add` records a unique actor in the dedup counter. If the actor has
-   * already been counted, the call is ignored. Only valid for dedup counters.
-   */
-  public add(actor: string): Counter {
-    if (!this.context || !this.counter) {
-      throw new YorkieError(
-        Code.ErrNotInitialized,
-        'Counter is not initialized yet',
-      );
-    }
-    if (!this.counter.isDedup()) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        'add() is only supported on dedup counters',
-      );
-    }
-    if (!actor) {
-      throw new YorkieError(Code.ErrInvalidArgument, 'actor is required');
-    }
-
-    const ticket = this.context.issueTimeTicket();
-    const value = Primitive.of(1, ticket);
-    this.counter.increaseDedup(value, actor);
-    this.context.push(
-      IncreaseOperation.create(
-        this.counter.getCreatedAt(),
-        value,
-        ticket,
-        actor,
-      ),
-    );
-
-    return this;
-  }
-
-  /**
-   * `isDedup` returns whether this counter is a dedup counter.
-   */
-  public isDedup(): boolean {
-    return this.counter?.isDedup() ?? false;
   }
 
   /**
@@ -160,6 +78,64 @@ export class Counter {
 
     return this.counter.toJSForTest();
   }
+
+  /**
+   * `ensureInitialized` throws if this counter has not been initialized.
+   */
+  protected ensureInitialized(): void {
+    if (!this.context || !this.counter) {
+      throw new YorkieError(
+        Code.ErrNotInitialized,
+        'Counter is not initialized yet',
+      );
+    }
+  }
+}
+
+/**
+ * `Counter` is a numeric counter that supports `increase()`.
+ * For counting unique actors, use `DedupCounter` instead.
+ *
+ * ```typescript
+ * // Type is inferred from value:
+ * root.count = new Counter(0);           // Int
+ * root.count = new Counter(Long.ZERO);   // Long
+ * ```
+ */
+export class Counter extends BaseCounter {
+  constructor(value: number | Long) {
+    const type = value instanceof Long ? CounterType.Long : CounterType.Int;
+    super(type, value);
+  }
+
+  /**
+   * `getValue` returns the value of this counter.
+   */
+  public getValue(): number | Long {
+    return this.value;
+  }
+
+  /**
+   * `increase` increases numeric data.
+   */
+  public increase(v: number | Long): Counter {
+    this.ensureInitialized();
+
+    const ticket = this.context!.issueTimeTicket();
+    const value = Primitive.of(v, ticket);
+    if (!value.isNumericType()) {
+      throw new TypeError(
+        `Unsupported type of value: ${typeof value.getValue()}`,
+      );
+    }
+
+    this.counter!.increase(value);
+    this.context!.push(
+      IncreaseOperation.create(this.counter!.getCreatedAt(), value, ticket),
+    );
+
+    return this;
+  }
 }
 
 /**
@@ -174,8 +150,49 @@ export class Counter {
  * });
  * ```
  */
-export class DedupCounter extends Counter {
+export class DedupCounter extends BaseCounter {
   constructor() {
     super(CounterType.IntDedup, 0);
   }
+
+  /**
+   * `getValue` returns the value of this counter. Always a number since
+   * DedupCounter only supports IntDedup.
+   */
+  public getValue(): number {
+    return this.value as number;
+  }
+
+  /**
+   * `add` records a unique actor in the dedup counter. If the actor has
+   * already been counted, the call is ignored.
+   */
+  public add(actor: string): DedupCounter {
+    this.ensureInitialized();
+    if (!actor) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'actor is required');
+    }
+
+    const ticket = this.context!.issueTimeTicket();
+    const value = Primitive.of(1, ticket);
+    this.counter!.increaseDedup(value, actor);
+    this.context!.push(
+      IncreaseOperation.create(
+        this.counter!.getCreatedAt(),
+        value,
+        ticket,
+        actor,
+      ),
+    );
+
+    return this;
+  }
+}
+
+/**
+ * `isCounter` returns true if the value is a Counter or DedupCounter.
+ * Used internally to detect counter instances during document updates.
+ */
+export function isCounter(value: unknown): value is Counter | DedupCounter {
+  return value instanceof Counter || value instanceof DedupCounter;
 }

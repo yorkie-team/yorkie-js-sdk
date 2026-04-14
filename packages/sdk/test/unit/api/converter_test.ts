@@ -18,7 +18,6 @@ import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
-import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
 
@@ -74,7 +73,7 @@ describe('Converter', function () {
         italic: false,
         color: 'red',
       });
-      root.k4 = new Counter(CounterType.Int, 0);
+      root.k4 = new Counter(0);
       root.k4.increase(1).increase(2).increase(3);
     });
 

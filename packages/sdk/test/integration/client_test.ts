@@ -520,7 +520,7 @@ describe.sequential('Client', function () {
     // 02. cli update the document with creating a counter
     //     and sync with push-pull mode: CP(1, 1) -> CP(2, 2)
     d1.update((root) => {
-      root.counter = new yorkie.Counter(yorkie.IntType, 0);
+      root.counter = new yorkie.Counter(0);
     });
 
     let checkpoint = d1.getCheckpoint();
@@ -841,7 +841,7 @@ describe.sequential('Client', function () {
   }) => {
     type TestDoc = { counter: Counter };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
-      d1.update((r) => (r.counter = new Counter(yorkie.IntType, 0)));
+      d1.update((r) => (r.counter = new Counter(0)));
       await c1.sync();
       await c2.sync();
 

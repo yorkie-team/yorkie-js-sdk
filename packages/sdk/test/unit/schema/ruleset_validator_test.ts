@@ -266,7 +266,7 @@ describe('ruleset-validator', () => {
     doc.update((root) => {
       root.text = new yorkie.Text();
       root.tree = new yorkie.Tree({ type: 'doc', children: [] });
-      root.counter = new yorkie.Counter(yorkie.IntType, 0);
+      root.counter = new yorkie.Counter(0);
     });
     let result = validateYorkieRuleset(doc.getRootObject(), ruleset);
     expect(result.valid).to.eq(true);

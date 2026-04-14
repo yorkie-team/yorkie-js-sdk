@@ -7,11 +7,7 @@ import {
   toDocKey,
   testRPCAddr,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
-import yorkie, {
-  Counter,
-  CounterType,
-  SyncMode,
-} from '@yorkie-js/sdk/src/yorkie';
+import yorkie, { Counter, SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import Long from 'long';
 
 describe('Counter', function () {
@@ -24,8 +20,8 @@ describe('Counter', function () {
 
     doc.update((root) => {
       root.k1 = {};
-      root.k1.age = new Counter(CounterType.Int, 1);
-      root.k1.length = new Counter(CounterType.Int, 10.5);
+      root.k1.age = new Counter(1);
+      root.k1.length = new Counter(10.5);
       root.k1.age.increase(5);
       root.k1.length.increase(3.5);
     });
@@ -60,11 +56,11 @@ describe('Counter', function () {
     type TestDoc = { age: Counter; length: Counter };
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.age = new Counter(CounterType.Int, 0);
+        root.age = new Counter(0);
       });
       d1.update((root) => {
         root.age.increase(1).increase(2);
-        root.length = new Counter(CounterType.Int, 10);
+        root.length = new Counter(10);
       });
 
       await c1.sync();
@@ -80,9 +76,9 @@ describe('Counter', function () {
       height: Counter;
     }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
-        root.age = new Counter(CounterType.Int, 0);
-        root.width = new Counter(CounterType.Int, 0);
-        root.height = new Counter(CounterType.Int, 0);
+        root.age = new Counter(0);
+        root.width = new Counter(0);
+        root.height = new Counter(0);
       });
       await c1.sync();
       await c2.sync();
@@ -94,7 +90,7 @@ describe('Counter', function () {
       });
       d2.update((root) => {
         root.age.increase(3.14).increase(2);
-        root.width = new Counter(CounterType.Int, 2.5);
+        root.width = new Counter(2.5);
       });
       await c1.sync();
       await c2.sync();
@@ -108,30 +104,24 @@ describe('Counter', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<{ age: Counter }>(docKey);
     doc.update((root) => {
-      root.age = new Counter(CounterType.Int, 2147483647);
+      root.age = new Counter(2147483647);
       root.age.increase(1);
     });
     assert.equal(`{"age":-2147483648}`, doc.toSortedJSON());
 
     doc.update((root) => {
-      root.age = new Counter(CounterType.Int, 2147483648);
+      root.age = new Counter(2147483648);
     });
     assert.equal(`{"age":-2147483648}`, doc.toSortedJSON());
 
     doc.update((root) => {
-      root.age = new Counter(
-        CounterType.Long,
-        Long.fromString('9223372036854775807'),
-      );
+      root.age = new Counter(Long.fromString('9223372036854775807'));
       root.age.increase(1);
     });
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
 
     doc.update((root) => {
-      root.age = new Counter(
-        CounterType.Long,
-        Long.fromString('9223372036854775808'),
-      );
+      root.age = new Counter(Long.fromString('9223372036854775808'));
     });
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
   });
@@ -141,8 +131,8 @@ describe('Counter', function () {
     const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);
 
     doc.update((root) => {
-      root.cnt = new Counter(CounterType.Int, 0);
-      root.longCnt = new Counter(CounterType.Long, Long.fromString('0'));
+      root.cnt = new Counter(0);
+      root.longCnt = new Counter(Long.fromString('0'));
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
 
@@ -170,7 +160,7 @@ describe('Counter', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<TestDoc>(docKey);
     doc.update((root) => {
-      root.counter = new Counter(CounterType.Int, 100);
+      root.counter = new Counter(100);
     }, 'init counter');
     assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
@@ -195,8 +185,8 @@ describe('Counter', function () {
     const states: Array<string> = [];
 
     doc.update((root) => {
-      root.cnt = new Counter(CounterType.Int, 0);
-      root.longCnt = new Counter(CounterType.Long, Long.fromString('0'));
+      root.cnt = new Counter(0);
+      root.longCnt = new Counter(Long.fromString('0'));
     });
     assert.equal(doc.toSortedJSON(), `{"cnt":0,"longCnt":0}`);
     states.push(doc.toSortedJSON());
@@ -237,7 +227,7 @@ describe('Counter', function () {
 
     await client1.attach(doc1, { syncMode: SyncMode.Manual });
     doc1.update((root) => {
-      root.counter = new Counter(yorkie.IntType, 100);
+      root.counter = new Counter(100);
     }, 'init counter');
     await client1.sync();
     assert.equal(doc1.toSortedJSON(), '{"counter":100}');

@@ -23,10 +23,7 @@ import {
   PrimitiveValue,
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
-import {
-  CounterType,
-  CRDTCounter,
-} from '@yorkie-js/sdk/src/document/crdt/counter';
+import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { RGATreeSplit } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
@@ -42,7 +39,11 @@ import {
   ArrayProxy,
 } from '@yorkie-js/sdk/src/document/json/array';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
-import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
+import {
+  Counter,
+  DedupCounter,
+  isCounter,
+} from '@yorkie-js/sdk/src/document/json/counter';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { Indexable } from '../document';
 
@@ -65,6 +66,7 @@ export type WrappedElement<T = unknown, A extends Indexable = Indexable> =
   | JSONArray<T>
   | Text<A>
   | Counter
+  | DedupCounter
   | Tree;
 
 /**
@@ -77,6 +79,7 @@ export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | JSONArray<T>
   | Text<A>
   | Counter
+  | DedupCounter
   | Tree;
 
 /**
@@ -97,7 +100,12 @@ export function toWrappedElement(
   } else if (elem instanceof CRDTText) {
     return new Text(context, elem);
   } else if (elem instanceof CRDTCounter) {
-    const counter = new Counter(CounterType.Int, 0);
+    if (elem.isDedup()) {
+      const counter = new DedupCounter();
+      counter.initialize(context, elem);
+      return counter;
+    }
+    const counter = new Counter(0);
     counter.initialize(context, elem);
     return counter;
   } else if (elem instanceof CRDTTree) {
@@ -144,7 +152,7 @@ export function buildCRDTElement(
     if (value instanceof Text) {
       element = CRDTText.create(RGATreeSplit.create(), createdAt);
       value.initialize(context, element as CRDTText);
-    } else if (value instanceof Counter) {
+    } else if (isCounter(value)) {
       element = CRDTCounter.create(
         value.getValueType(),
         value.getValue(),

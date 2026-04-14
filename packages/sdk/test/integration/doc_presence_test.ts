@@ -611,7 +611,7 @@ describe('Undo/Redo', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<TestDoc, Presence>(docKey);
     doc.update((root) => {
-      root.counter = new Counter(yorkie.IntType, 100);
+      root.counter = new Counter(100);
     }, 'init counter');
 
     const client = new yorkie.Client({ rpcAddr: testRPCAddr });
