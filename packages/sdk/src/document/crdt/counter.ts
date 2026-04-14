@@ -72,9 +72,9 @@ export class CRDTCounter extends CRDTElement {
         break;
       case CounterType.Long:
         if (typeof value === 'number') {
-          this.value = BigInt(Math.trunc(value));
+          this.value = BigInt.asIntN(64, BigInt(Math.trunc(value)));
         } else {
-          this.value = value;
+          this.value = BigInt.asIntN(64, value);
         }
         break;
       default:
