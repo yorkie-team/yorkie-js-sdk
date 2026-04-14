@@ -272,8 +272,6 @@ function toCounterType(valueType: CounterType): PbValueType {
       return PbValueType.LONG_CNT;
     case CounterType.IntDedup:
       return PbValueType.INTEGER_DEDUP_CNT;
-    case CounterType.LongDedup:
-      return PbValueType.LONG_DEDUP_CNT;
     default:
       throw new YorkieError(
         Code.ErrInvalidType,
@@ -1053,8 +1051,6 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
       return CounterType.Long;
     case PbValueType.INTEGER_DEDUP_CNT:
       return CounterType.IntDedup;
-    case PbValueType.LONG_DEDUP_CNT:
-      return CounterType.LongDedup;
   }
   throw new YorkieError(
     Code.ErrUnimplemented,
@@ -1102,7 +1098,6 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
     case PbValueType.INTEGER_CNT:
     case PbValueType.LONG_CNT:
     case PbValueType.INTEGER_DEDUP_CNT:
-    case PbValueType.LONG_DEDUP_CNT:
       return CRDTCounter.create(
         fromCounterType(pbElementSimple.type),
         CRDTCounter.valueFromBytes(

@@ -31,7 +31,6 @@ export enum CounterType {
   Int,
   Long,
   IntDedup,
-  LongDedup,
 }
 
 export type CounterValue = number | Long;
@@ -55,9 +54,6 @@ export class CRDTCounter extends CRDTElement {
     switch (valueType) {
       case CounterType.IntDedup:
         this.value = 0;
-        break;
-      case CounterType.LongDedup:
-        this.value = Long.ZERO;
         break;
       case CounterType.Int:
         if (typeof value === 'number') {
@@ -110,7 +106,6 @@ export class CRDTCounter extends CRDTElement {
       case CounterType.IntDedup:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
       case CounterType.Long:
-      case CounterType.LongDedup:
         return Long.fromBytesLE(Array.from(bytes));
       default:
         throw new YorkieError(
@@ -230,8 +225,7 @@ export class CRDTCounter extends CRDTElement {
     return (
       t === CounterType.Int ||
       t === CounterType.Long ||
-      t === CounterType.IntDedup ||
-      t === CounterType.LongDedup
+      t === CounterType.IntDedup
     );
   }
 
@@ -264,8 +258,7 @@ export class CRDTCounter extends CRDTElement {
           (intVal >> 24) & 0xff,
         ]);
       }
-      case CounterType.Long:
-      case CounterType.LongDedup: {
+      case CounterType.Long: {
         const longVal = this.value as Long;
         const longToBytes = longVal.toBytesLE();
         return Uint8Array.from(longToBytes);
@@ -282,10 +275,7 @@ export class CRDTCounter extends CRDTElement {
    * `isDedup` returns whether dedup mode is enabled (derived from ValueType).
    */
   public isDedup(): boolean {
-    return (
-      this.valueType === CounterType.IntDedup ||
-      this.valueType === CounterType.LongDedup
-    );
+    return this.valueType === CounterType.IntDedup;
   }
 
   /**
@@ -345,15 +335,7 @@ export class CRDTCounter extends CRDTElement {
    */
   private recomputeValue(): void {
     if (!this.hll) return;
-    const count = this.hll.count();
-    if (
-      this.valueType === CounterType.Int ||
-      this.valueType === CounterType.IntDedup
-    ) {
-      this.value = count;
-    } else {
-      this.value = Long.fromNumber(count);
-    }
+    this.value = this.hll.count();
   }
 
   /**
