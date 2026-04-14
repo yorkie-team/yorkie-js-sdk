@@ -44,7 +44,8 @@ export class HLL {
     const hash = xxhash64(value);
     const idx = Number(hash >> BigInt(64 - hllPrecision));
     const remaining =
-      (hash << BigInt(hllPrecision)) | (1n << BigInt(hllPrecision - 1));
+      ((hash << BigInt(hllPrecision)) & mask64) |
+      (1n << BigInt(hllPrecision - 1));
     const rho = countLeadingZeros64(remaining) + 1;
     if (rho > this.registers[idx]) {
       this.registers[idx] = rho;
