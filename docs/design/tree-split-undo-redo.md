@@ -136,6 +136,79 @@ Only `tree_edit_operation.ts` is modified:
 | **Split-aware reverse** (store splitLevel in reverse, execute merge on undo) | Merge is just boundary deletion. Same result as approach A but adds a new reverse op variant for no benefit. |
 | **Support splitLevel=2 simultaneously** | Forward convergence fails for L2 concurrent splits. Fix forward first, then add undo. |
 
+### Test Strategy: Table-Driven
+
+Follow the existing `history_tree_test.ts` pattern of declaring a test
+state space and iterating over combinations.
+
+#### Test State Space
+
+```
+┌─────────────────┬─────────────────────────────────────────────────┐
+│ Variable        │ Domain                                          │
+├─────────────────┼─────────────────────────────────────────────────┤
+│ SplitPosition   │ {front, middle, back}                           │
+│ Action          │ {undo, undo-redo, undo-redo-undo}               │
+│ ClientCount     │ {1, 2}                                          │
+│ ChainOp         │ {split-only, split+insert-text, split+delete,   │
+│                 │  insert-text+split}                              │
+│ RemoteOp        │ {insert-text, delete-text, insert-element}      │
+│ RemotePosition  │ {before-split, after-split, different-element}  │
+└─────────────────┴─────────────────────────────────────────────────┘
+```
+
+#### Test Sections
+
+**Section A: Single-client split undo/redo (table-driven)**
+
+```typescript
+type SplitPos = 'front' | 'middle' | 'back';
+const splitPositions: SplitPos[] = ['front', 'middle', 'back'];
+
+for (const pos of splitPositions) {
+  it(`should undo split at ${pos}`, ...);
+  it(`should redo split at ${pos}`, ...);
+  it(`should undo-redo-undo split at ${pos}`, ...);
+}
+```
+
+- Initial tree: `<doc><p>ABCD</p></doc>`
+- front: `edit(1, 1, undefined, 1)` → `<doc><p></p><p>ABCD</p></doc>`
+- middle: `edit(3, 3, undefined, 1)` → `<doc><p>AB</p><p>CD</p></doc>`
+- back: `edit(5, 5, undefined, 1)` → `<doc><p>ABCD</p><p></p></doc>`
+
+**Section B: Single-client chained ops (table-driven)**
+
+```typescript
+type SplitChainOp = 'split' | 'insert-text' | 'delete-text';
+for (const op1 of splitChainOps) {
+  for (const op2 of splitChainOps) {
+    it(`should undo chain: ${op1} → ${op2}`, ...);
+  }
+}
+```
+
+Snapshot-based verification: record XML after each op, undo in reverse
+order checking each snapshot, redo forward checking each snapshot.
+
+**Section C: Multi-client convergence (table-driven)**
+
+```typescript
+for (const remoteOp of ['insert-text', 'delete-text', 'insert-element']) {
+  for (const remotePos of ['before-split', 'after-split', 'different-element']) {
+    it(`should converge: split + remote ${remoteOp} at ${remotePos}`, ...);
+  }
+}
+```
+
+Uses `withTwoClientsAndDocuments`. d1 splits, d2 does remote op,
+sync, d1 undoes, sync again, assert convergence.
+
+**Section D: Edge cases (explicit)**
+
+- Empty paragraph undo (front/back split)
+- Concurrent parent deletion → undo is no-op
+
 ## Tasks
 
 Implementation plan to be created separately.
