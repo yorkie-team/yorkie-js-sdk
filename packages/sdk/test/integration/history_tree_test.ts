@@ -480,6 +480,113 @@ describe('Tree History - single client split/merge', () => {
   });
 });
 
+// 4b. Single Client - Split Undo/Redo (splitLevel=1, table-driven)
+describe('Tree History - single client split L1 undo/redo', () => {
+  type SplitPos = 'front' | 'middle' | 'back';
+  const splitCases: Array<{
+    pos: SplitPos;
+    splitIdx: number;
+    afterXML: string;
+  }> = [
+    {
+      pos: 'front',
+      splitIdx: 1,
+      afterXML: '<doc><p></p><p>ABCD</p></doc>',
+    },
+    {
+      pos: 'middle',
+      splitIdx: 3,
+      afterXML: '<doc><p>AB</p><p>CD</p></doc>',
+    },
+    {
+      pos: 'back',
+      splitIdx: 5,
+      afterXML: '<doc><p>ABCD</p><p></p></doc>',
+    },
+  ];
+
+  const beforeXML = '<doc><p>ABCD</p></doc>';
+
+  for (const { pos, splitIdx, afterXML } of splitCases) {
+    it(`should undo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+          ],
+        });
+      }, 'init');
+      assert.equal(xmlOf(doc), beforeXML);
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 1);
+      }, `split at ${pos}`);
+      assert.equal(xmlOf(doc), afterXML);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), beforeXML, `undo split at ${pos} failed`);
+    });
+
+    it(`should undo-redo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+          ],
+        });
+      }, 'init');
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 1);
+      }, `split at ${pos}`);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), beforeXML);
+
+      doc.history.redo();
+      assert.equal(xmlOf(doc), afterXML, `redo split at ${pos} failed`);
+    });
+
+    it(`should undo-redo-undo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+          ],
+        });
+      }, 'init');
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 1);
+      }, `split at ${pos}`);
+
+      doc.history.undo();
+      doc.history.redo();
+      doc.history.undo();
+      assert.equal(
+        xmlOf(doc),
+        beforeXML,
+        `undo-redo-undo split at ${pos} failed`,
+      );
+    });
+  }
+});
+
 // 5. Multi Client - Basic
 describe('Tree History - multi client basic', () => {
   const multiOps: Array<TreeOp> = [
