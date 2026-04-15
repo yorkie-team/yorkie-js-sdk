@@ -683,7 +683,87 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  describe.skip('concurrently-split-split-test', async () => {
+  describe('concurrently-split-split-test (splitLevel=1)', async () => {
+    const initialTree = new Tree({
+      type: 'r',
+      children: [
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'p',
+                  children: [
+                    { type: 'p', children: [{ type: 'text', value: 'abcd' }] },
+                    { type: 'p', children: [{ type: 'text', value: 'efgh' }] },
+                  ],
+                },
+                { type: 'p', children: [{ type: 'text', value: 'ijkl' }] },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    const initialXML = `<r><p><p><p><p>abcd</p><p>efgh</p></p><p>ijkl</p></p></p></r>`;
+
+    const rangesArr = [
+      // equal-single-element: <p>abcd</p>
+      makeTwoRanges(3, 6, 9, 3, 6, 9, `equal-single`),
+      // equal-multiple-element: <p>abcd</p><p>efgh</p>
+      makeTwoRanges(3, 9, 15, 3, 9, 15, `equal-multiple`),
+      // A contains B same level: <p>abcd</p><p>efgh</p> - <p>efgh</p>
+      makeTwoRanges(3, 9, 15, 9, 12, 15, `A contains B same level`),
+      // A contains B multiple level: <p><p>abcd</p><p>efgh</p></p><p>ijkl</p> - <p>efgh</p>
+      makeTwoRanges(2, 16, 22, 9, 12, 15, `A contains B multiple level`),
+      // side by side
+      makeTwoRanges(3, 6, 9, 9, 12, 15, `B is next to A`),
+    ];
+
+    const splitL1Operations: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-front-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeOneQuarter,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-one-quarter-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeThreeQuarter,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-three-quarter-1`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-back-1`,
+      ),
+    ];
+
+    await runTestConcurrency(
+      'concurrently-split-split-test',
+      initialTree,
+      initialXML,
+      rangesArr,
+      splitL1Operations,
+      splitL1Operations,
+    );
+  });
+
+  describe.skip('concurrently-split-split-test (splitLevel>=2)', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -791,7 +871,141 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  describe.skip('concurrently-split-edit-test', async () => {
+  describe('concurrently-split-edit-test (splitLevel=1)', async () => {
+    const initialTree = new Tree({
+      type: 'r',
+      children: [
+        {
+          type: 'p',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'abcd' }],
+                  attributes: { italic: 'a' },
+                },
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'efgh' }],
+                  attributes: { italic: 'a' },
+                },
+              ],
+            },
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ijkl' }],
+              attributes: { italic: 'a' },
+            },
+          ],
+        },
+      ],
+    });
+    const initialXML = `<r><p><p><p italic="a">abcd</p><p italic="a">efgh</p></p><p italic="a">ijkl</p></p></r>`;
+    const content: TreeNode = { type: 'i', children: [] };
+
+    const rangesArr = [
+      // equal: <p>ab'cd</p>
+      makeTwoRanges(2, 5, 8, 2, 5, 8, `equal`),
+      // A contains B: <p>ab'cd</p> - bc
+      makeTwoRanges(2, 5, 8, 4, 5, 6, `A contains B`),
+      // B contains A: <p>ab'cd</p> - <p>abcd</p><p>efgh</p>
+      makeTwoRanges(2, 5, 8, 2, 8, 14, `B contains A`),
+      // left node(text): <p>ab'cd</p> - ab
+      makeTwoRanges(2, 5, 8, 3, 4, 5, `left node(text)`),
+      // right node(text): <p>ab'cd</p> - cd
+      makeTwoRanges(2, 5, 8, 5, 6, 7, `right node(text)`),
+      // left node(element): <p>abcd</p>'<p>efgh</p> - <p>abcd</p>
+      makeTwoRanges(2, 8, 14, 2, 5, 8, `left node(element)`),
+      // right node(element): <p>abcd</p>'<p>efgh</p> - <p>efgh</p>
+      makeTwoRanges(2, 8, 14, 8, 11, 14, `right node(element)`),
+      // A -> B: <p>ab'cd</p> - <p>efgh</p>
+      makeTwoRanges(2, 5, 8, 8, 11, 14, `A -> B`),
+      // B -> A: <p>ef'gh</p> - <p>abcd</p>
+      makeTwoRanges(8, 11, 14, 2, 5, 8, `B -> A`),
+    ];
+
+    const splitL1Operations: Array<EditOperationType> = [
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.SplitUpdate,
+        undefined,
+        1,
+        `split-1`,
+      ),
+    ];
+
+    const editOperations: Array<OperationInterface> = [
+      new EditOperationType(
+        RangeSelector.RangeFront,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `insertFront`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeMiddle,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `insertMiddle`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeBack,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `insertBack`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        content,
+        0,
+        `replace`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.EditUpdate,
+        undefined,
+        0,
+        `delete`,
+      ),
+      new EditOperationType(
+        RangeSelector.RangeAll,
+        EditOpCode.MergeUpdate,
+        undefined,
+        0,
+        `merge`,
+      ),
+      new StyleOperationType(
+        RangeSelector.RangeAll,
+        StyleOpCode.StyleSet,
+        'bold',
+        'aa',
+        `style`,
+      ),
+      new StyleOperationType(
+        RangeSelector.RangeAll,
+        StyleOpCode.StyleRemove,
+        'italic',
+        '',
+        `remove-style`,
+      ),
+    ];
+
+    await runTestConcurrency(
+      'concurrently-split-edit-test',
+      initialTree,
+      initialXML,
+      rangesArr,
+      splitL1Operations,
+      editOperations,
+    );
+  });
+
+  describe.skip('concurrently-split-edit-test (splitLevel>=2)', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
