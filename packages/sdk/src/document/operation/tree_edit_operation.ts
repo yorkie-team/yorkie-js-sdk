@@ -58,6 +58,13 @@ export class TreeEditOperation extends Operation {
   private toIdx?: number;
   private lastFromIdx?: number;
   private lastToIdx?: number;
+  /**
+   * `redoSplitLevel` is set on boundary-deletion undo ops that were generated
+   * to reverse a split. When this op executes (as undo), `toReverseOperation`
+   * uses this value to generate a proper split op for redo, rather than
+   * re-inserting the raw tombstoned boundary nodes as content.
+   */
+  private redoSplitLevel?: number;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -183,11 +190,13 @@ export class TreeEditOperation extends Operation {
     );
     this.lastToIdx = preEditFromIdx + removedSize;
 
-    // Create reverse op (skip for splitLevel > 0 in Phase 1)
-    const reverseOp =
-      this.splitLevel === 0
-        ? this.toReverseOperation(tree, removedNodes, preEditFromIdx)
-        : undefined;
+    // Create reverse op for undo
+    let reverseOp: Operation | undefined;
+    if (this.splitLevel === 0) {
+      reverseOp = this.toReverseOperation(tree, removedNodes, preEditFromIdx);
+    } else {
+      reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
+    }
 
     root.acc(diff);
 
@@ -231,6 +240,27 @@ export class TreeEditOperation extends Operation {
     removedNodes: Array<CRDTTreeNode>,
     preEditFromIdx: number,
   ): Operation | undefined {
+    // Special case: this op is a boundary-deletion that was the undo of a
+    // split. Its redo should re-split, not re-insert the tombstoned boundary
+    // nodes as raw content.
+    if (this.redoSplitLevel !== undefined && this.redoSplitLevel > 0) {
+      // After the boundary deletion has been applied, the merged position is
+      // preEditFromIdx. We re-split there.
+      const splitRedoFromPos = tree.findPos(preEditFromIdx);
+      const splitRedoOp = TreeEditOperation.create(
+        this.getParentCreatedAt(),
+        splitRedoFromPos,
+        splitRedoFromPos,
+        undefined, // no inserted content
+        this.redoSplitLevel,
+        undefined!, // executedAt assigned at redo time
+        true, // isUndoOp (treated as undo/redo op)
+        preEditFromIdx,
+        preEditFromIdx,
+      );
+      return splitRedoOp;
+    }
+
     // Compute inserted content size (total tree index tokens)
     const insertedContentSize = this.contents
       ? this.contents.reduce((sum, node) => sum + node.paddedSize(), 0)
@@ -285,6 +315,52 @@ export class TreeEditOperation extends Operation {
       reverseFromIdx,
       reverseToIdx,
     );
+  }
+
+  /**
+   * `toSplitReverseOperation` creates the reverse operation for a split edit.
+   *
+   * A split creates element boundaries (close + open tags). The reverse
+   * is a boundary deletion: a splitLevel=0 edit that removes those tokens,
+   * merging the split elements back together.
+   *
+   * boundarySize = 2 * splitLevel (each level creates 1 close + 1 open tag)
+   *
+   * @param tree - The CRDTTree after the split has been applied
+   * @param preEditFromIdx - The from index captured BEFORE the split
+   */
+  private toSplitReverseOperation(
+    tree: CRDTTree,
+    preEditFromIdx: number,
+  ): Operation | undefined {
+    const boundarySize = 2 * this.splitLevel;
+    const reverseFromIdx = preEditFromIdx;
+    const reverseToIdx = preEditFromIdx + boundarySize;
+
+    // Guard: if indices exceed tree size, the split was a no-op
+    // (e.g., concurrent parent deletion tombstoned the split result).
+    if (reverseToIdx > tree.getSize()) {
+      return undefined;
+    }
+
+    const reverseFromPos = tree.findPos(reverseFromIdx);
+    const reverseToPos = tree.findPos(reverseToIdx);
+
+    const boundaryDeletionOp = TreeEditOperation.create(
+      this.getParentCreatedAt(),
+      reverseFromPos,
+      reverseToPos,
+      undefined, // no content — this is a deletion
+      0, // splitLevel=0: boundary deletion
+      undefined!, // executedAt assigned at undo time
+      true, // isUndoOp
+      reverseFromIdx,
+      reverseToIdx,
+    );
+    // Tag this op so that its own reverse (the redo) is regenerated as a
+    // proper split rather than a raw node re-insertion.
+    boundaryDeletionOp.redoSplitLevel = this.splitLevel;
+    return boundaryDeletionOp;
   }
 
   /**
