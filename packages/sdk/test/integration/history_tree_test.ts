@@ -1200,7 +1200,7 @@ describe('Tree History - single client split L1 chained ops', () => {
     for (const op2 of chainOps) {
       // TODO(yorkie-team): Skip chains where split is mixed with
       // other ops. Tombstoned nodes cause merge-redirect position
-      // collapse, making boundary deletion a no-op. See #ISSUE.
+      // collapse, making boundary deletion a no-op. See #1220.
       const hasMixedSplit = op1 === 'split' ? op2 !== 'split' : op2 === 'split';
       const testFn = hasMixedSplit ? it.skip : it;
       testFn(`should undo chain: ${op1} → ${op2}`, () => {
