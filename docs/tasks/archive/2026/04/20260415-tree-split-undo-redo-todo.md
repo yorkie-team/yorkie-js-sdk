@@ -1,6 +1,8 @@
+**Created**: 2026-04-15
+
 # Tree Split Undo/Redo (splitLevel=1) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 
 **Goal:** Enable undo/redo for Tree.Edit splitLevel=1 operations by generating boundary-deletion reverse ops.
 
@@ -17,7 +19,7 @@
 **Files:**
 - Modify: `packages/sdk/test/integration/history_tree_test.ts`
 
-- [ ] **Step 1: Add the split undo/redo test section**
+- [x]**Step 1: Add the split undo/redo test section**
 
 Append after the existing "Tree History - single client split/merge" describe block (line ~481):
 
@@ -130,7 +132,7 @@ describe('Tree History - single client split L1 undo/redo', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x]**Step 2: Run tests to verify they fail**
 
 Run: `pnpm sdk test test/integration/history_tree_test.ts`
 
@@ -138,7 +140,7 @@ Expected: 9 new tests fail (3 positions × 3 actions). The `undo` call
 has no effect because `reverseOp` is `undefined` for splitLevel=1, so
 `afterXML` persists instead of reverting to `beforeXML`.
 
-- [ ] **Step 3: Commit failing tests**
+- [x]**Step 3: Commit failing tests**
 
 ```bash
 git add packages/sdk/test/integration/history_tree_test.ts
@@ -156,7 +158,7 @@ because reverse ops are not generated for splitLevel > 0."
 **Files:**
 - Modify: `packages/sdk/src/document/operation/tree_edit_operation.ts`
 
-- [ ] **Step 1: Add `toSplitReverseOperation` method**
+- [x]**Step 1: Add `toSplitReverseOperation` method**
 
 Add this method after the existing `toReverseOperation` method (after line ~288):
 
@@ -204,7 +206,7 @@ Add this method after the existing `toReverseOperation` method (after line ~288)
   }
 ```
 
-- [ ] **Step 2: Update `execute()` to call the new method**
+- [x]**Step 2: Update `execute()` to call the new method**
 
 Replace lines 186-190:
 
@@ -228,19 +230,19 @@ With:
     }
 ```
 
-- [ ] **Step 3: Run tests to verify Task 1 tests pass**
+- [x]**Step 3: Run tests to verify Task 1 tests pass**
 
 Run: `pnpm sdk test test/integration/history_tree_test.ts`
 
 Expected: All 9 new split undo/redo tests pass. All existing tests still pass.
 
-- [ ] **Step 4: Run full test suite**
+- [x]**Step 4: Run full test suite**
 
 Run: `pnpm lint && pnpm sdk build && pnpm sdk test`
 
 Expected: Clean lint, successful build, all tests pass.
 
-- [ ] **Step 5: Commit implementation**
+- [x]**Step 5: Commit implementation**
 
 ```bash
 git add packages/sdk/src/document/operation/tree_edit_operation.ts
@@ -261,7 +263,7 @@ reverse via the existing toReverseOperation path."
 **Files:**
 - Modify: `packages/sdk/test/integration/history_tree_test.ts`
 
-- [ ] **Step 1: Add chained ops test section**
+- [x]**Step 1: Add chained ops test section**
 
 Append after the Section A describe block:
 
@@ -334,14 +336,14 @@ describe('Tree History - single client split L1 chained ops', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests**
+- [x]**Step 2: Run tests**
 
 Run: `pnpm sdk test test/integration/history_tree_test.ts`
 
 Expected: All 9 chained ops tests pass (3×3 combinations). The
 implementation from Task 2 already handles split reverse ops.
 
-- [ ] **Step 3: Commit**
+- [x]**Step 3: Commit**
 
 ```bash
 git add packages/sdk/test/integration/history_tree_test.ts
@@ -358,7 +360,7 @@ Snapshot-based undo/redo verification at each step."
 **Files:**
 - Modify: `packages/sdk/test/integration/history_tree_test.ts`
 
-- [ ] **Step 1: Add multi-client convergence test section**
+- [x]**Step 1: Add multi-client convergence test section**
 
 Append after the Section B describe block:
 
@@ -514,7 +516,7 @@ describe('Tree History - multi client split L1 convergence', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests**
+- [x]**Step 2: Run tests**
 
 Run: `pnpm sdk test test/integration/history_tree_test.ts`
 
@@ -522,7 +524,7 @@ Expected: All 9 multi-client convergence tests pass (3 ops × 3 positions).
 These are all non-overlapping cases (Cases 1-2), which are already
 supported by reconciliation.
 
-- [ ] **Step 3: Commit**
+- [x]**Step 3: Commit**
 
 ```bash
 git add packages/sdk/test/integration/history_tree_test.ts
@@ -541,7 +543,7 @@ reconciliation."
 **Files:**
 - Modify: `packages/sdk/test/integration/history_tree_test.ts`
 
-- [ ] **Step 1: Add edge case tests**
+- [x]**Step 1: Add edge case tests**
 
 Append after the Section C describe block:
 
@@ -633,19 +635,19 @@ describe('Tree History - split L1 edge cases', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests**
+- [x]**Step 2: Run tests**
 
 Run: `pnpm sdk test test/integration/history_tree_test.ts`
 
 Expected: All 3 edge case tests pass.
 
-- [ ] **Step 3: Run full test suite**
+- [x]**Step 3: Run full test suite**
 
 Run: `pnpm lint && pnpm sdk build && pnpm sdk test`
 
 Expected: Clean lint, successful build, all tests pass.
 
-- [ ] **Step 4: Commit**
+- [x]**Step 4: Commit**
 
 ```bash
 git add packages/sdk/test/integration/history_tree_test.ts
