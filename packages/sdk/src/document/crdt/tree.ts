@@ -1541,7 +1541,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       while (splitCount < splitLevel) {
         parent.split(
           this,
-          parent.findOffset(left) + 1,
+          parent.findOffset(left, true) + 1,
           issueTimeTicket,
           versionVector,
         );
