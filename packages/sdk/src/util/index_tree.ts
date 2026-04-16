@@ -548,7 +548,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     this._children = left;
     clone._children = actualRight;
     this.visibleSize = this._children.reduce(
-      (acc, child) => acc + child.paddedSize(),
+      (acc, child) => acc + (child.isRemoved ? 0 : child.paddedSize()),
       0,
     );
     this.totalSize = this._children.reduce(
@@ -556,7 +556,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       0,
     );
     clone.visibleSize = clone._children.reduce(
-      (acc, child) => acc + child.paddedSize(),
+      (acc, child) => acc + (child.isRemoved ? 0 : child.paddedSize()),
       0,
     );
     clone.totalSize = clone._children.reduce(

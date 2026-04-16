@@ -480,6 +480,113 @@ describe('Tree History - single client split/merge', () => {
   });
 });
 
+// 4b. Single Client - Split Undo/Redo (splitLevel=1, table-driven)
+describe('Tree History - single client split L1 undo/redo', () => {
+  type SplitPos = 'front' | 'middle' | 'back';
+  const splitCases: Array<{
+    pos: SplitPos;
+    splitIdx: number;
+    afterXML: string;
+  }> = [
+    {
+      pos: 'front',
+      splitIdx: 1,
+      afterXML: '<doc><p></p><p>ABCD</p></doc>',
+    },
+    {
+      pos: 'middle',
+      splitIdx: 3,
+      afterXML: '<doc><p>AB</p><p>CD</p></doc>',
+    },
+    {
+      pos: 'back',
+      splitIdx: 5,
+      afterXML: '<doc><p>ABCD</p><p></p></doc>',
+    },
+  ];
+
+  const beforeXML = '<doc><p>ABCD</p></doc>';
+
+  for (const { pos, splitIdx, afterXML } of splitCases) {
+    it(`should undo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+          ],
+        });
+      }, 'init');
+      assert.equal(xmlOf(doc), beforeXML);
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 1);
+      }, `split at ${pos}`);
+      assert.equal(xmlOf(doc), afterXML);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), beforeXML, `undo split at ${pos} failed`);
+    });
+
+    it(`should undo-redo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+          ],
+        });
+      }, 'init');
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 1);
+      }, `split at ${pos}`);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), beforeXML);
+
+      doc.history.redo();
+      assert.equal(xmlOf(doc), afterXML, `redo split at ${pos} failed`);
+    });
+
+    it(`should undo-redo-undo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+          ],
+        });
+      }, 'init');
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 1);
+      }, `split at ${pos}`);
+
+      doc.history.undo();
+      doc.history.redo();
+      doc.history.undo();
+      assert.equal(
+        xmlOf(doc),
+        beforeXML,
+        `undo-redo-undo split at ${pos} failed`,
+      );
+    });
+  }
+});
+
 // 5. Multi Client - Basic
 describe('Tree History - multi client basic', () => {
   const multiOps: Array<TreeOp> = [
@@ -1061,5 +1168,289 @@ describe('Tree History - multi client edge cases', () => {
       await c1.sync();
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
+  });
+});
+
+// 4c. Single Client - Split chained with other ops (table-driven)
+describe('Tree History - single client split L1 chained ops', () => {
+  type SplitChainOp = 'split' | 'insert-text' | 'delete-text';
+  const chainOps: Array<SplitChainOp> = ['split', 'insert-text', 'delete-text'];
+
+  // Uses path-based ops for position safety after structural changes
+  const applyChainOp = (doc: Document<{ t: Tree }>, op: SplitChainOp) => {
+    doc.update((root) => {
+      switch (op) {
+        case 'split':
+          // Split first <p> at offset 2 (between 2nd and 3rd char)
+          root.t.editByPath([0, 2], [0, 2], undefined, 1);
+          break;
+        case 'insert-text':
+          // Insert 'X' at start of first <p>
+          root.t.editByPath([0, 0], [0, 0], { type: 'text', value: 'X' });
+          break;
+        case 'delete-text':
+          // Delete first char of first <p>
+          root.t.edit(1, 2);
+          break;
+      }
+    }, op);
+  };
+
+  for (const op1 of chainOps) {
+    for (const op2 of chainOps) {
+      it(`should undo chain: ${op1} → ${op2}`, () => {
+        const doc = new Document<{ t: Tree }>('test-doc');
+        doc.update((root) => {
+          root.t = new Tree({
+            type: 'doc',
+            children: [
+              {
+                type: 'p',
+                children: [{ type: 'text', value: 'ABCD' }],
+              },
+            ],
+          });
+        }, 'init');
+
+        const s0 = xmlOf(doc);
+        applyChainOp(doc, op1);
+        const s1 = xmlOf(doc);
+        applyChainOp(doc, op2);
+        const s2 = xmlOf(doc);
+
+        // Undo: s2 → s1 → s0
+        doc.history.undo();
+        assert.equal(xmlOf(doc), s1, `undo ${op2} failed`);
+        doc.history.undo();
+        assert.equal(xmlOf(doc), s0, `undo ${op1} failed`);
+
+        // Redo: s0 → s1 → s2
+        doc.history.redo();
+        assert.equal(xmlOf(doc), s1, `redo ${op1} failed`);
+        doc.history.redo();
+        assert.equal(xmlOf(doc), s2, `redo ${op2} failed`);
+      });
+    }
+  }
+});
+
+// 4d. Multi Client - Split undo convergence (table-driven)
+describe('Tree History - multi client split L1 convergence', () => {
+  type RemoteOp = 'insert-text' | 'delete-text' | 'insert-element';
+  type RemotePos = 'before-split' | 'after-split' | 'different-element';
+
+  const remoteOps: Array<RemoteOp> = [
+    'insert-text',
+    'delete-text',
+    'insert-element',
+  ];
+  const remotePositions: Array<RemotePos> = [
+    'before-split',
+    'after-split',
+    'different-element',
+  ];
+
+  // Initial tree: <doc><p>ABCD</p><p>EFGH</p></doc>
+  // d1 splits first <p> at middle: <doc><p>AB</p><p>CD</p><p>EFGH</p></doc>
+  // d2 does remote op at various positions
+
+  const applyRemoteOp = (
+    doc: Document<{ t: Tree }>,
+    op: RemoteOp,
+    pos: RemotePos,
+  ) => {
+    doc.update((root) => {
+      switch (op) {
+        case 'insert-text':
+          switch (pos) {
+            case 'before-split':
+              root.t.edit(1, 1, { type: 'text', value: 'X' });
+              break;
+            case 'after-split':
+              root.t.edit(5, 5, { type: 'text', value: 'X' });
+              break;
+            case 'different-element':
+              root.t.edit(7, 7, { type: 'text', value: 'X' });
+              break;
+          }
+          break;
+        case 'delete-text':
+          switch (pos) {
+            case 'before-split':
+              root.t.edit(1, 2);
+              break;
+            case 'after-split':
+              root.t.edit(4, 5);
+              break;
+            case 'different-element':
+              root.t.edit(7, 8);
+              break;
+          }
+          break;
+        case 'insert-element':
+          switch (pos) {
+            case 'before-split':
+              root.t.edit(0, 0, {
+                type: 'p',
+                children: [{ type: 'text', value: 'NEW' }],
+              });
+              break;
+            case 'after-split':
+              root.t.edit(6, 6, {
+                type: 'p',
+                children: [{ type: 'text', value: 'NEW' }],
+              });
+              break;
+            case 'different-element':
+              root.t.edit(12, 12, {
+                type: 'p',
+                children: [{ type: 'text', value: 'NEW' }],
+              });
+              break;
+          }
+          break;
+      }
+    }, `remote ${op} at ${pos}`);
+  };
+
+  for (const remoteOp of remoteOps) {
+    for (const remotePos of remotePositions) {
+      it(`should converge: split + remote ${remoteOp} at ${remotePos}`, async ({
+        task,
+      }) => {
+        type TestDoc = { t: Tree };
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          d1.update((root) => {
+            root.t = new Tree({
+              type: 'doc',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'EFGH' }],
+                },
+              ],
+            });
+          }, 'init');
+          await c1.sync();
+          await c2.sync();
+
+          // d1: split first <p> at middle (between B and C)
+          d1.update((root) => {
+            root.t.edit(3, 3, undefined, 1);
+          }, 'split');
+
+          // d2: remote operation
+          applyRemoteOp(d2, remoteOp, remotePos);
+
+          // Sync both directions
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // d1: undo the split
+          d1.history.undo();
+
+          // Sync again
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // Assert convergence
+          assert.equal(
+            d1.getRoot().t.toXML(),
+            d2.getRoot().t.toXML(),
+            `divergence: split + ${remoteOp} at ${remotePos}`,
+          );
+        }, task.name);
+      });
+    }
+  }
+});
+
+// 4e. Edge cases for split undo/redo
+describe('Tree History - split L1 edge cases', () => {
+  it('should undo front split with empty paragraph', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'AB' }],
+          },
+        ],
+      });
+    }, 'init');
+    const before = xmlOf(doc);
+
+    doc.update((root) => {
+      root.t.edit(1, 1, undefined, 1);
+    }, 'front split');
+    assert.equal(xmlOf(doc), '<doc><p></p><p>AB</p></doc>');
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), before);
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), '<doc><p></p><p>AB</p></doc>');
+  });
+
+  it('should undo back split with empty paragraph', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'AB' }],
+          },
+        ],
+      });
+    }, 'init');
+    const before = xmlOf(doc);
+
+    doc.update((root) => {
+      root.t.edit(3, 3, undefined, 1);
+    }, 'back split');
+    assert.equal(xmlOf(doc), '<doc><p>AB</p><p></p></doc>');
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), before);
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), '<doc><p>AB</p><p></p></doc>');
+  });
+
+  it('should clear redo stack when new edit is made after split undo', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [{ type: 'text', value: 'ABCD' }],
+          },
+        ],
+      });
+    }, 'init');
+
+    doc.update((root) => {
+      root.t.edit(3, 3, undefined, 1);
+    }, 'split');
+
+    doc.history.undo();
+    assert.equal(doc.history.canRedo(), true);
+
+    doc.update((root) => {
+      root.t.edit(1, 1, { type: 'text', value: 'Z' });
+    }, 'new edit');
+    assert.equal(doc.history.canRedo(), false);
   });
 });

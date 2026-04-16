@@ -27,7 +27,7 @@ splitLevel)`, merges use boundary deletion `tree.edit(from, to)`.
 - [x] Add `computeMergeBoundary(blocks, fromBlockIdx, toBlockIdx)` in `position.ts`
 - [x] Integrate into `syncToYorkie()`: merge detection with right-to-left
       boundary deletion for multi-block merges
-- [ ] Handle merge + text change: two-pass approach (deferred — currently falls
+- [x] Handle merge + text change: two-pass approach (deferred — currently falls
       back to block replacement)
 - [x] Unit tests: single merge, multi-block merge, text change fallback
 
