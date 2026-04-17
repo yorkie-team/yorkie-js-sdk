@@ -1601,3 +1601,106 @@ describe('Tree History - tree style undo/redo', () => {
     assert.equal(xmlOf(doc), s2, 'redo edit failed');
   });
 });
+
+// 6. Multi-client Tree Style Undo Convergence (table-driven)
+describe('Tree History - multi client style undo convergence', () => {
+  type LocalStyleOp = 'set-bold' | 'set-italic' | 'remove-bold';
+  type RemoteStyleOp = 'set-color' | 'set-bold' | 'remove-bold';
+  type Target = 'same-element' | 'different-element';
+
+  const localOps: Array<LocalStyleOp> = [
+    'set-bold',
+    'set-italic',
+    'remove-bold',
+  ];
+  const remoteOps: Array<RemoteStyleOp> = [
+    'set-color',
+    'set-bold',
+    'remove-bold',
+  ];
+  const targets: Array<Target> = ['same-element', 'different-element'];
+
+  for (const localOp of localOps) {
+    for (const remoteOp of remoteOps) {
+      for (const target of targets) {
+        it(`should converge: local ${localOp} + remote ${remoteOp} on ${target}`, async ({
+          task,
+        }) => {
+          type TestDoc = { t: Tree };
+          await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+            // Setup: <doc><p bold="true">AB</p><p>CD</p></doc>
+            d1.update((root) => {
+              root.t = new Tree({
+                type: 'doc',
+                children: [
+                  {
+                    type: 'p',
+                    attributes: { bold: 'true' },
+                    children: [{ type: 'text', value: 'AB' }],
+                  },
+                  {
+                    type: 'p',
+                    children: [{ type: 'text', value: 'CD' }],
+                  },
+                ],
+              });
+            }, 'init');
+            await c1.sync();
+            await c2.sync();
+
+            // d1: local style op on first <p>
+            d1.update((root) => {
+              switch (localOp) {
+                case 'set-bold':
+                  root.t.style(0, 1, { bold: 'true' });
+                  break;
+                case 'set-italic':
+                  root.t.style(0, 1, { italic: 'true' });
+                  break;
+                case 'remove-bold':
+                  root.t.removeStyle(0, 1, ['bold']);
+                  break;
+              }
+            }, 'local style');
+
+            // d2: remote style op
+            d2.update((root) => {
+              const idx = target === 'same-element' ? 0 : 3;
+              const toIdx = target === 'same-element' ? 1 : 4;
+              switch (remoteOp) {
+                case 'set-color':
+                  root.t.style(idx, toIdx, { color: 'red' });
+                  break;
+                case 'set-bold':
+                  root.t.style(idx, toIdx, { bold: 'true' });
+                  break;
+                case 'remove-bold':
+                  root.t.removeStyle(idx, toIdx, ['bold']);
+                  break;
+              }
+            }, 'remote style');
+
+            // Sync
+            await c1.sync();
+            await c2.sync();
+            await c1.sync();
+
+            // d1: undo local style
+            d1.history.undo();
+
+            // Sync again
+            await c1.sync();
+            await c2.sync();
+            await c1.sync();
+
+            assert.equal(
+              d1.getRoot().t.toXML(),
+              d2.getRoot().t.toXML(),
+              `divergence: ${localOp} + ${remoteOp} on ${target}`,
+            );
+          }, task.name);
+        });
+      }
+    }
+  }
+});
