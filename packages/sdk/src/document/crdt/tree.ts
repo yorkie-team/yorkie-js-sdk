@@ -1959,6 +1959,36 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `posToIndex` converts a CRDTTreePos to a visible index in the tree.
+   * This is the inverse of `findPos`: findPos(idx) → pos, posToIndex(pos) → idx.
+   */
+  public posToIndex(pos: CRDTTreePos): number {
+    const [[parent, left]] = this.findNodesAndSplitText(pos);
+    return this.toIndex(parent, left);
+  }
+
+  /**
+   * `refineTreePos` remaps a stored CRDTTreePos to the current tree state.
+   * Analogous to Text's `refinePos()` — handles concurrent text node splits
+   * and merges that may have changed the node structure since the pos was stored.
+   */
+  public refineTreePos(pos: CRDTTreePos): CRDTTreePos {
+    const [[parent, left]] = this.findNodesAndSplitText(pos);
+    // If the left sibling is tombstoned, keep the original CRDTTreePos.
+    // The CRDT node ID is still valid and tree.edit can resolve it
+    // correctly. Converting through toTreePos + fromTreePos corrupts
+    // the offset for removed siblings.
+    if (left.isRemoved) {
+      return pos;
+    }
+    const treePos = this.toTreePos(parent, left);
+    if (!treePos) {
+      return pos;
+    }
+    return CRDTTreePos.fromTreePos(treePos);
+  }
+
+  /**
    * `indexToPath` converts the given tree index to path.
    */
   public indexToPath(index: number): Array<number> {

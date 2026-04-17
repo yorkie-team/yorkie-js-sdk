@@ -138,18 +138,12 @@ export class TreeEditOperation extends Operation {
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
 
-    // For undo ops: convert stored integer indices to CRDTTreePos
-    if (
-      this.isUndoOp &&
-      this.fromIdx !== undefined &&
-      this.toIdx !== undefined
-    ) {
-      this.fromPos = tree.findPos(this.fromIdx);
-      if (this.fromIdx === this.toIdx) {
-        this.toPos = this.fromPos;
-      } else {
-        this.toPos = tree.findPos(this.toIdx);
-      }
+    // For undo ops: refine stored CRDTTreePos to current tree state.
+    // CRDTTreePos is the source of truth (not integer indices), matching
+    // Text's refinePos() pattern for symmetric position resolution.
+    if (this.isUndoOp) {
+      this.fromPos = tree.refineTreePos(this.fromPos);
+      this.toPos = tree.refineTreePos(this.toPos);
     }
 
     const [changes, pairs, diff, removedNodes, preEditFromIdx] = tree.edit(
@@ -372,13 +366,14 @@ export class TreeEditOperation extends Operation {
    * For undo ops, returns the stored (possibly reconciled) indices.
    * For forward ops, returns the pre-edit indices captured during execute().
    */
-  public normalizePos(): [number, number] {
-    if (
-      this.isUndoOp &&
-      this.fromIdx !== undefined &&
-      this.toIdx !== undefined
-    ) {
-      return [this.fromIdx, this.toIdx];
+  public normalizePos(root: CRDTRoot): [number, number] {
+    if (this.isUndoOp) {
+      const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
+      if (parentObject instanceof CRDTTree) {
+        const tree = parentObject as CRDTTree;
+        return [tree.posToIndex(this.fromPos), tree.posToIndex(this.toPos)];
+      }
+      return [0, 0];
     }
 
     if (this.lastFromIdx !== undefined && this.lastToIdx !== undefined) {
@@ -390,89 +385,37 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
-   * `reconcileOperation` adjusts this undo operation's integer indices
-   * when a remote edit modifies the same tree. Uses the same 6-case
-   * overlap logic as EditOperation.reconcileOperation for Text.
+   * `reconcileOperation` is intentionally a no-op for Tree undo ops.
+   *
+   * Tree undo ops use CRDTTreePos as source of truth for execution.
+   * Unlike Text's RGA chain where normalizePos returns absolute offsets
+   * that are symmetric across clients, Tree's visible integer indices
+   * can map to different CRDT nodes on different clients (because
+   * concurrent inserts between the leftSibling and target change what
+   * node occupies a given index). This makes the 6-case integer-based
+   * reconciliation produce incorrect overlap detection.
+   *
+   * CRDTTreePos (parentID, leftSiblingID) directly identifies the
+   * position regardless of concurrent edits. refineTreePos at execution
+   * time handles tombstoned siblings by preserving the original position.
+   * No integer adjustment is needed.
+   *
+   * @param root - unused, kept for interface compatibility
+   * @param remoteFrom - unused
+   * @param remoteTo - unused
+   * @param contentLen - unused
    */
   public reconcileOperation(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    root: CRDTRoot,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     remoteFrom: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     remoteTo: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     contentLen: number,
   ): void {
-    if (!this.isUndoOp) {
-      return;
-    }
-    if (this.fromIdx === undefined || this.toIdx === undefined) {
-      return;
-    }
-    if (remoteFrom > remoteTo) {
-      return;
-    }
-
-    const remoteRangeLen = remoteTo - remoteFrom;
-    const localFrom = this.fromIdx;
-    const localTo = this.toIdx;
-
-    const apply = (na: number, nb: number) => {
-      this.fromIdx = Math.max(0, na);
-      this.toIdx = Math.max(0, nb);
-    };
-
-    // Case 1: Remote edit is to the left of undo range
-    // [--remote--]  [--undo--]
-    if (remoteTo <= localFrom) {
-      apply(
-        localFrom - remoteRangeLen + contentLen,
-        localTo - remoteRangeLen + contentLen,
-      );
-      return;
-    }
-
-    // Case 2: Remote edit is to the right of undo range
-    // [--undo--]  [--remote--]
-    if (localTo <= remoteFrom) {
-      return;
-    }
-
-    // Case 3: Undo range is contained within remote range
-    // [-------remote-------]
-    //      [--undo--]
-    if (
-      remoteFrom <= localFrom &&
-      localTo <= remoteTo &&
-      remoteFrom !== remoteTo
-    ) {
-      apply(remoteFrom, remoteFrom);
-      return;
-    }
-
-    // Case 4: Remote range is contained within undo range
-    //      [--remote--]
-    // [---------undo---------]
-    if (
-      localFrom <= remoteFrom &&
-      remoteTo <= localTo &&
-      localFrom !== localTo
-    ) {
-      apply(localFrom, localTo - remoteRangeLen + contentLen);
-      return;
-    }
-
-    // Case 5: Remote range overlaps the start of undo range
-    // [---remote---]
-    //      [---undo---]
-    if (remoteFrom < localFrom && localFrom < remoteTo && remoteTo < localTo) {
-      apply(remoteFrom, remoteFrom + (localTo - remoteTo));
-      return;
-    }
-
-    // Case 6: Remote range overlaps the end of undo range
-    //      [---remote---]
-    // [---undo---]
-    if (localFrom < remoteFrom && remoteFrom < localTo && localTo < remoteTo) {
-      apply(localFrom, remoteFrom);
-      return;
-    }
+    // No-op: see JSDoc above.
   }
 
   /**

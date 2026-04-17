@@ -1503,8 +1503,12 @@ export class Document<
         );
       }
       if (op instanceof TreeEditOperation) {
-        const [from, to] = op.normalizePos();
+        // Tree undo reconciliation is disabled: CRDTTreePos handles
+        // position resolution via refineTreePos at execution time.
+        // See reconcileOperation comment for details.
+        const [from, to] = op.normalizePos(this.root);
         this.internalHistory.reconcileTreeEdit(
+          this.root,
           op.getParentCreatedAt(),
           from,
           to,

@@ -632,9 +632,7 @@ describe('Tree History - multi client basic', () => {
         }, task.name);
       });
 
-      // TODO(Phase 2): Some redo combos with adjacent/overlapping ranges diverge
-      const skipRedo = op1 === 'insert-text' && op2 === 'delete-text';
-      const redoIt = skipRedo ? it.skip : it;
+      const redoIt = it;
       redoIt(`should converge after redo: ${op1}-${op2}`, async ({ task }) => {
         type TestDoc = { t: Tree };
         await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {

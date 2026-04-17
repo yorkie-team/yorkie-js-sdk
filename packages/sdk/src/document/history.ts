@@ -22,6 +22,7 @@ import { AddOperation } from './operation/add_operation';
 import { TimeTicket } from '../yorkie';
 import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
+import { CRDTRoot } from './crdt/root';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -194,6 +195,7 @@ export class History<P extends Indexable> {
    * when a remote edit modifies the same tree.
    */
   public reconcileTreeEdit(
+    root: CRDTRoot,
     parentCreatedAt: TimeTicket,
     rangeFrom: number,
     rangeTo: number,
@@ -206,7 +208,7 @@ export class History<P extends Indexable> {
             op instanceof TreeEditOperation &&
             op.getParentCreatedAt().compare(parentCreatedAt) === 0
           ) {
-            op.reconcileOperation(rangeFrom, rangeTo, contentSize);
+            op.reconcileOperation(root, rangeFrom, rangeTo, contentSize);
           }
         }
       }
