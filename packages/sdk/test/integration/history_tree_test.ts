@@ -1704,3 +1704,189 @@ describe('Tree History - multi client style undo convergence', () => {
     }
   }
 });
+
+// 7. Multi-client Style vs Edit/Split mixed convergence (table-driven)
+describe('Tree History - multi client style vs edit/split convergence', () => {
+  type LocalStyleOp = 'set-bold' | 'set-italic' | 'remove-bold';
+  type RemoteEditOp =
+    | 'insert-text'
+    | 'delete-text'
+    | 'insert-element'
+    | 'split-l1';
+
+  const localOps: Array<LocalStyleOp> = [
+    'set-bold',
+    'set-italic',
+    'remove-bold',
+  ];
+  const remoteOps: Array<RemoteEditOp> = [
+    'insert-text',
+    'delete-text',
+    'insert-element',
+    'split-l1',
+  ];
+
+  for (const localOp of localOps) {
+    for (const remoteOp of remoteOps) {
+      it(`should converge: local style(${localOp}) + remote edit(${remoteOp})`, async ({
+        task,
+      }) => {
+        type TestDoc = { t: Tree };
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          // Setup: <doc><p bold="true">ABCD</p><p>EFGH</p></doc>
+          d1.update((root) => {
+            root.t = new Tree({
+              type: 'doc',
+              children: [
+                {
+                  type: 'p',
+                  attributes: { bold: 'true' },
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'EFGH' }],
+                },
+              ],
+            });
+          }, 'init');
+          await c1.sync();
+          await c2.sync();
+
+          // d1: local style on first <p>
+          d1.update((root) => {
+            switch (localOp) {
+              case 'set-bold':
+                root.t.style(0, 1, { bold: 'true' });
+                break;
+              case 'set-italic':
+                root.t.style(0, 1, { italic: 'true' });
+                break;
+              case 'remove-bold':
+                root.t.removeStyle(0, 1, ['bold']);
+                break;
+            }
+          }, 'local style');
+
+          // d2: remote edit
+          d2.update((root) => {
+            switch (remoteOp) {
+              case 'insert-text':
+                root.t.edit(1, 1, { type: 'text', value: 'X' });
+                break;
+              case 'delete-text':
+                root.t.edit(1, 2);
+                break;
+              case 'insert-element':
+                root.t.edit(6, 6, {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'NEW' }],
+                });
+                break;
+              case 'split-l1':
+                root.t.edit(3, 3, undefined, 1);
+                break;
+            }
+          }, 'remote edit');
+
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // d1: undo style
+          d1.history.undo();
+
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          assert.equal(
+            d1.getRoot().t.toXML(),
+            d2.getRoot().t.toXML(),
+            `divergence: style(${localOp}) + edit(${remoteOp})`,
+          );
+        }, task.name);
+      });
+
+      // Reverse direction: local edit, remote style, undo edit
+      it(`should converge: local edit(${remoteOp}) + remote style(${localOp})`, async ({
+        task,
+      }) => {
+        type TestDoc = { t: Tree };
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          d1.update((root) => {
+            root.t = new Tree({
+              type: 'doc',
+              children: [
+                {
+                  type: 'p',
+                  attributes: { bold: 'true' },
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'EFGH' }],
+                },
+              ],
+            });
+          }, 'init');
+          await c1.sync();
+          await c2.sync();
+
+          // d1: local edit
+          d1.update((root) => {
+            switch (remoteOp) {
+              case 'insert-text':
+                root.t.edit(1, 1, { type: 'text', value: 'X' });
+                break;
+              case 'delete-text':
+                root.t.edit(1, 2);
+                break;
+              case 'insert-element':
+                root.t.edit(6, 6, {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'NEW' }],
+                });
+                break;
+              case 'split-l1':
+                root.t.edit(3, 3, undefined, 1);
+                break;
+            }
+          }, 'local edit');
+
+          // d2: remote style
+          d2.update((root) => {
+            switch (localOp) {
+              case 'set-bold':
+                root.t.style(0, 1, { bold: 'true' });
+                break;
+              case 'set-italic':
+                root.t.style(0, 1, { italic: 'true' });
+                break;
+              case 'remove-bold':
+                root.t.removeStyle(0, 1, ['bold']);
+                break;
+            }
+          }, 'remote style');
+
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // d1: undo edit
+          d1.history.undo();
+
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          assert.equal(
+            d1.getRoot().t.toXML(),
+            d2.getRoot().t.toXML(),
+            `divergence: edit(${remoteOp}) + style(${localOp})`,
+          );
+        }, task.name);
+      });
+    }
+  }
+});
