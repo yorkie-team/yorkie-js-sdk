@@ -1132,7 +1132,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TreeChange>, DataSize] {
+  ): [
+    Array<GCPair>,
+    Array<TreeChange>,
+    DataSize,
+    Map<string, string>,
+    Array<string>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
@@ -1160,6 +1166,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
       ? parseObjectValues(attributes)
       : {};
     const pairs: Array<GCPair> = [];
+    const prevAttributes = new Map<string, string>();
+    const newAttrKeys: Array<string> = [];
+    let capturedPrev = false;
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -1184,6 +1193,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
             this.hasUnknownSplitSibling(node, versionVector)
           ) {
             return;
+          }
+
+          // Capture previous attribute values from first styled node
+          // for reverse operation (undo).
+          if (!capturedPrev) {
+            for (const key of Object.keys(attributes)) {
+              if (node.attrs?.has(key)) {
+                prevAttributes.set(key, node.attrs.get(key)!);
+              } else {
+                newAttrKeys.push(key);
+              }
+            }
+            capturedPrev = true;
           }
 
           const updatedAttrPairs = node.setAttrs(attributes, editedAt);
@@ -1230,7 +1252,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
-    return [pairs, changes, diff];
+    return [pairs, changes, diff, prevAttributes, newAttrKeys];
   }
 
   /**
@@ -1241,7 +1263,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TreeChange>, DataSize] {
+  ): [Array<GCPair>, Array<TreeChange>, DataSize, Map<string, string>] {
     const diff = { data: 0, meta: 0 };
 
     const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
@@ -1257,6 +1279,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
+    const prevAttributes = new Map<string, string>();
+    let capturedPrev = false;
     this.traverseInPosRange(
       fromParent,
       fromLeft,
@@ -1289,6 +1313,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
             node.attrs = new RHT();
           }
 
+          // Capture previous attribute values from first styled node
+          // for reverse operation (undo).
+          if (!capturedPrev) {
+            for (const key of attributesToRemove) {
+              if (node.attrs.has(key)) {
+                prevAttributes.set(key, node.attrs.get(key)!);
+              }
+            }
+            capturedPrev = true;
+          }
+
           for (const value of attributesToRemove) {
             const nodesTobeRemoved = node.attrs.remove(value, editedAt);
             for (const rhtNode of nodesTobeRemoved) {
@@ -1312,7 +1347,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
-    return [pairs, changes, diff];
+    return [pairs, changes, diff, prevAttributes];
   }
 
   /**

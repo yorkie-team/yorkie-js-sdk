@@ -1454,3 +1454,150 @@ describe('Tree History - split L1 edge cases', () => {
     assert.equal(doc.history.canRedo(), false);
   });
 });
+
+// 5. Tree Style Undo/Redo (table-driven)
+describe('Tree History - tree style undo/redo', () => {
+  type StyleOp = 'set-bold' | 'set-italic' | 'set-color' | 'remove-bold';
+
+  const styleOps: Array<StyleOp> = [
+    'set-bold',
+    'set-italic',
+    'set-color',
+    'remove-bold',
+  ];
+
+  const makeTree = () =>
+    new Tree({
+      type: 'doc',
+      children: [
+        {
+          type: 'p',
+          attributes: { bold: 'true' },
+          children: [{ type: 'text', value: 'AB' }],
+        },
+        {
+          type: 'p',
+          children: [{ type: 'text', value: 'CD' }],
+        },
+      ],
+    });
+
+  const applyStyleOp = (doc: Document<{ t: Tree }>, op: StyleOp) => {
+    doc.update((root) => {
+      switch (op) {
+        case 'set-bold':
+          root.t.style(0, 1, { bold: 'true' });
+          break;
+        case 'set-italic':
+          root.t.style(0, 1, { italic: 'true' });
+          break;
+        case 'set-color':
+          root.t.style(3, 4, { color: 'red' });
+          break;
+        case 'remove-bold':
+          root.t.removeStyle(0, 1, ['bold']);
+          break;
+      }
+    }, op);
+  };
+
+  // 5a. Single-client style undo/redo
+  for (const op of styleOps) {
+    it(`should undo/redo: ${op}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = makeTree();
+      }, 'init');
+
+      const s0 = xmlOf(doc);
+      applyStyleOp(doc, op);
+      const s1 = xmlOf(doc);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), s0, `undo ${op} failed`);
+
+      doc.history.redo();
+      assert.equal(xmlOf(doc), s1, `redo ${op} failed`);
+    });
+  }
+
+  // 5b. Chained style ops (skip combos where second op is a no-op:
+  // remove-bold after remove-bold doesn't push to undo stack since
+  // the attribute is already removed).
+  for (const op1 of styleOps) {
+    for (const op2 of styleOps) {
+      if (op1 === 'remove-bold' && op2 === 'remove-bold') continue;
+      it(`should undo chain: ${op1} → ${op2}`, () => {
+        const doc = new Document<{ t: Tree }>('test-doc');
+        doc.update((root) => {
+          root.t = makeTree();
+        }, 'init');
+
+        const s0 = xmlOf(doc);
+        applyStyleOp(doc, op1);
+        const s1 = xmlOf(doc);
+        applyStyleOp(doc, op2);
+        const s2 = xmlOf(doc);
+
+        doc.history.undo();
+        assert.equal(xmlOf(doc), s1, `undo ${op2} failed`);
+        doc.history.undo();
+        assert.equal(xmlOf(doc), s0, `undo ${op1} failed`);
+
+        doc.history.redo();
+        assert.equal(xmlOf(doc), s1, `redo ${op1} failed`);
+        doc.history.redo();
+        assert.equal(xmlOf(doc), s2, `redo ${op2} failed`);
+      });
+    }
+  }
+
+  // 5c. Style + edit mixed chains
+  it('should undo style after edit', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = makeTree();
+    }, 'init');
+
+    const s0 = xmlOf(doc);
+    doc.update((root) => {
+      root.t.edit(1, 1, { type: 'text', value: 'X' });
+    }, 'insert');
+    const s1 = xmlOf(doc);
+    applyStyleOp(doc, 'set-italic');
+    const s2 = xmlOf(doc);
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), s1, 'undo style failed');
+    doc.history.undo();
+    assert.equal(xmlOf(doc), s0, 'undo edit failed');
+    doc.history.redo();
+    assert.equal(xmlOf(doc), s1, 'redo edit failed');
+    doc.history.redo();
+    assert.equal(xmlOf(doc), s2, 'redo style failed');
+  });
+
+  it('should undo edit after style', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = makeTree();
+    }, 'init');
+
+    const s0 = xmlOf(doc);
+    applyStyleOp(doc, 'set-italic');
+    const s1 = xmlOf(doc);
+    doc.update((root) => {
+      root.t.edit(1, 1, { type: 'text', value: 'X' });
+    }, 'insert');
+    const s2 = xmlOf(doc);
+
+    doc.history.undo();
+    assert.equal(xmlOf(doc), s1, 'undo edit failed');
+    doc.history.undo();
+    assert.equal(xmlOf(doc), s0, 'undo style failed');
+    doc.history.redo();
+    assert.equal(xmlOf(doc), s1, 'redo style failed');
+    doc.history.redo();
+    assert.equal(xmlOf(doc), s2, 'redo edit failed');
+  });
+});
