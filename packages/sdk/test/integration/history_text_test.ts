@@ -691,6 +691,87 @@ describe('Text History - reconcile cases', () => {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
+
+  // Correctness tests: overlapping deletes + both undo produces duplicate
+  // content. Both clients converge (same wrong state), but the content
+  // is incorrect — deleted characters are re-inserted twice because each
+  // client's undo deep-copies and re-inserts its own removed content,
+  // creating duplicate nodes for the overlapping range.
+  //
+  // This is a fundamental limitation of the deep-copy re-insert undo
+  // mechanism. Fixing it requires either:
+  // - Resurrect (un-tombstone) instead of re-insert, or
+  // - Node-ID-based overlap detection to suppress redundant re-inserts
+  it.skip('Case 3 correctness: both undo of overlapping deletes should restore original', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Text };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Text();
+        root.t.edit(0, 0, '0123456789');
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1: delete [4,6) = "45", d2: delete [2,8) = "234567"
+      d1.update((root) => root.t.edit(4, 6, ''), 'd1 delete');
+      d2.update((root) => root.t.edit(2, 8, ''), 'd2 delete larger');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // Both undo → should fully restore "0123456789"
+      d1.history.undo();
+      d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      const d1Text = d1.getRoot().t.toString();
+      const d2Text = d2.getRoot().t.toString();
+      assert.equal(d1Text, d2Text, 'convergence');
+      assert.equal(d1Text, '0123456789', 'content correctness after undo');
+    }, task.name);
+  });
+
+  // Same issue as Case 3: overlapping range produces duplicate content.
+  // Case 5: d1 delete [4,8)="4567", d2 delete [2,6)="2345"
+  // After both undo: "45" appears twice → "012345456789"
+  it.skip('Case 5 correctness: both undo of partially overlapping deletes should restore original', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Text };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Text();
+        root.t.edit(0, 0, '0123456789');
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1: delete [4,8) = "4567", d2: delete [2,6) = "2345" (overlap at "45")
+      d1.update((root) => root.t.edit(4, 8, ''), 'd1 delete');
+      d2.update((root) => root.t.edit(2, 6, ''), 'd2 overlap start');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // Both undo → should fully restore "0123456789"
+      d1.history.undo();
+      d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      const d1Text = d1.getRoot().t.toString();
+      const d2Text = d2.getRoot().t.toString();
+      assert.equal(d1Text, d2Text, 'convergence');
+      assert.equal(d1Text, '0123456789', 'content correctness after undo');
+    }, task.name);
+  });
 });
 
 describe('Text History - multi client edge cases', () => {
