@@ -121,32 +121,75 @@ export class TreeStyleOperation extends Operation {
     let changes: Array<TreeChange>;
     let pairs: Array<GCPair>;
     let diff = { data: 0, meta: 0 };
+    const reversePrevAttributes = new Map<string, string>();
+    const reverseAttrsToRemove: Array<string> = [];
 
     if (this.attributes.size) {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      [pairs, changes, diff] = tree.style(
+      let prevAttributes: Map<string, string>;
+      let newAttrKeys: Array<string>;
+      [pairs, changes, diff, prevAttributes, newAttrKeys] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
         versionVector,
       );
+
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+      reverseAttrsToRemove.push(...newAttrKeys);
     } else {
       const attributesToRemove = this.attributesToRemove;
 
-      [pairs, changes, diff] = tree.removeStyle(
+      let prevAttributes: Map<string, string>;
+      [pairs, changes, diff, prevAttributes] = tree.removeStyle(
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),
         versionVector,
       );
+
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
     }
 
     root.acc(diff);
 
     for (const pair of pairs) {
       root.registerGCPair(pair);
+    }
+
+    // Build reverse operation for undo.
+    let reverseOp: Operation | undefined;
+    if (reversePrevAttributes.size > 0 && reverseAttrsToRemove.length > 0) {
+      reverseOp = new TreeStyleOperation(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        reversePrevAttributes,
+        reverseAttrsToRemove,
+        undefined!,
+      );
+    } else if (reverseAttrsToRemove.length > 0) {
+      reverseOp = TreeStyleOperation.createTreeRemoveStyleOperation(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        reverseAttrsToRemove,
+        undefined!,
+      );
+    } else if (reversePrevAttributes.size > 0) {
+      reverseOp = TreeStyleOperation.create(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        reversePrevAttributes,
+        undefined!,
+      );
     }
 
     return {
@@ -163,6 +206,7 @@ export class TreeStyleOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         } as OpInfo;
       }),
+      reverseOp,
     };
   }
 
