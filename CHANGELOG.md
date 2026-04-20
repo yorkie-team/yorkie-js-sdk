@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.5] - 2026-04-20
+
+### Added
+
+- Add Counter dedup mode with HyperLogLog for UV measurement by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1215
+- Enable splitLevel=1 concurrent tests and add split undo/redo by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1219
+- Add undo/redo support for TreeStyleOperation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1221
+- Add content correctness tests for overlapping undo by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1222
+
+### Changed
+
+- Simplify Counter interface and replace long with bigint by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1216
+- Switch default transport from gRPC-Web to Connect Protocol by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1218
+
 ## [v0.7.4] - 2026-04-11
 
 ### Added
