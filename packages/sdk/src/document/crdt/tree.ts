@@ -626,7 +626,7 @@ export class CRDTTreeNode
       CRDTTreeNodeID.of(issueTimeTicket(), 0),
       this.type,
       undefined,
-      undefined,
+      this.attrs?.deepcopy(),
       this.removedAt,
     );
   }

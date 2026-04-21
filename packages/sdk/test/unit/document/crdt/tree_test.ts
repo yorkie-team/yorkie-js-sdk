@@ -949,6 +949,33 @@ describe('CRDTTree.Split', function () {
     assert.equal(t.getSize(), 6);
   });
 
+  it('Can split element nodes with attributes', function () {
+    //       0   1 2 3 4 5 6 7 8 9 10 11    12
+    // <root> <p> h e l l o w o r l  d  </p>  </root>
+    const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    const pNode = new CRDTTreeNode(posT(), 'p');
+    pNode.setAttrs({ bold: 'true' }, MTT);
+    t.editT([0, 0], [pNode], 0, timeT(), timeT);
+    t.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'helloworld')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(
+      t.toXML(),
+      /*html*/ `<root><p bold="true">helloworld</p></root>`,
+    );
+
+    // Split at position 6 (after 'hello'), splitLevel 1.
+    t.editT([6, 6], undefined, 1, timeT(), timeT);
+    assert.deepEqual(
+      t.toXML(),
+      /*html*/ `<root><p bold="true">hello</p><p bold="true">world</p></root>`,
+    );
+  });
+
   it('Can split element nodes multi-level', function () {
     //       0   1   2 3 4    5    6
     // <root> <p> <b> a b </b> </p> </root>
