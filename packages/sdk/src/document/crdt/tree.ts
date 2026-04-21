@@ -1248,6 +1248,57 @@ export class CRDTTree extends CRDTElement implements GCParent {
               addDataSizes(diff, curr.getDataSize());
             }
           }
+
+          // Propagate style to unknown split siblings so that a
+          // style operation whose range was determined before the
+          // split also covers the right part of the split.
+          if (tokenType === TokenType.Start && versionVector !== undefined) {
+            let current: CRDTTreeNode = node;
+            while (current.insNextID) {
+              const next = this.findFloorNode(current.insNextID);
+              if (!next || next.isText) {
+                break;
+              }
+              if (ticketKnown(versionVector, next.id.getCreatedAt())) {
+                break;
+              }
+              const siblingPairs = next.setAttrs(attributes, editedAt);
+              const siblingAffectedAttrs = siblingPairs.reduce(
+                (acc: { [key: string]: string }, [, curr]) => {
+                  if (curr) {
+                    acc[curr.getKey()] = attrs[curr.getKey()];
+                  }
+                  return acc;
+                },
+                {},
+              );
+              if (Object.keys(siblingAffectedAttrs).length > 0) {
+                const parentOfNext = next.parent!;
+                const previousNext = next.prevSibling || parentOfNext;
+                changes.push({
+                  type: TreeChangeType.Style,
+                  from: this.toIndex(parentOfNext, previousNext),
+                  to: this.toIndex(next, next),
+                  fromPath: this.toPath(parentOfNext, previousNext),
+                  toPath: this.toPath(next, next),
+                  actor: editedAt.getActorID(),
+                  value: siblingAffectedAttrs,
+                });
+              }
+              for (const [prev] of siblingPairs) {
+                if (prev) {
+                  pairs.push({ parent: next, child: prev });
+                }
+              }
+              for (const [key] of Object.entries(attrs)) {
+                const curr = next.attrs?.getNodeMapByKey().get(key);
+                if (curr !== undefined) {
+                  addDataSizes(diff, curr.getDataSize());
+                }
+              }
+              current = next;
+            }
+          }
         }
       },
     );
@@ -1343,6 +1394,45 @@ export class CRDTTree extends CRDTElement implements GCParent {
             toPath: this.toPath(node, node),
             value: attributesToRemove,
           });
+
+          // Propagate remove-style to unknown split siblings.
+          if (tokenType === TokenType.Start && versionVector !== undefined) {
+            let current: CRDTTreeNode = node;
+            while (current.insNextID) {
+              const next = this.findFloorNode(current.insNextID);
+              if (!next || next.isText) {
+                break;
+              }
+              if (ticketKnown(versionVector, next.id.getCreatedAt())) {
+                break;
+              }
+              if (!next.attrs) {
+                next.attrs = new RHT();
+              }
+              let removedAny = false;
+              for (const value of attributesToRemove) {
+                const nodesTobeRemoved = next.attrs.remove(value, editedAt);
+                removedAny = removedAny || nodesTobeRemoved.length > 0;
+                for (const rhtNode of nodesTobeRemoved) {
+                  pairs.push({ parent: next, child: rhtNode });
+                }
+              }
+              if (removedAny) {
+                const parentOfNext = next.parent!;
+                const previousNext = next.prevSibling || parentOfNext;
+                changes.push({
+                  actor: editedAt.getActorID()!,
+                  type: TreeChangeType.RemoveStyle,
+                  from: this.toIndex(parentOfNext, previousNext),
+                  to: this.toIndex(next, next),
+                  fromPath: this.toPath(parentOfNext, previousNext),
+                  toPath: this.toPath(next, next),
+                  value: attributesToRemove,
+                });
+              }
+              current = next;
+            }
+          }
         }
       },
     );

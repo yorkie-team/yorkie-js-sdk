@@ -30,8 +30,7 @@ describe('Node Size', () => {
     assert.equal(toXML(rightElem!), '<p>world</p>');
   });
 
-  it.skip('split tree node with attribute test', () => {
-    // TODO(raararaara): We need to check if the attributes are copied correctly when splitting elements.
+  it('split tree node with attribute test', () => {
     const attributes = new RHT();
     attributes.set('bold', 'true', ITT);
 
