@@ -70,4 +70,15 @@ describe('Primitive', function () {
       assert.deepEqual(valFromBytes, value);
     }
   });
+
+  it('toJSON for Bytes and Date', function () {
+    const bytes = Primitive.of(new Uint8Array([65, 66]), InitialTimeTicket);
+    assert.equal(bytes.toJSON(), '"QUI="');
+
+    const date = Primitive.of(
+      new Date('1995-12-17T03:24:00.000Z'),
+      InitialTimeTicket,
+    );
+    assert.equal(date.toJSON(), '"1995-12-17T03:24:00.000Z"');
+  });
 });
