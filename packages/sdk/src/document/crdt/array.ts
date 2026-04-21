@@ -309,12 +309,28 @@ export class CRDTArray extends CRDTContainer {
     const clone = CRDTArray.create(this.getCreatedAt());
     for (const node of this.elements) {
       if (!node.getElementEntry()) {
+        // Dead position node (abandoned by a move).
+        const removedAt = node.getRemovedAt();
+        if (removedAt) {
+          clone.elements.addDeadPosition(
+            node.getPositionCreatedAt(),
+            removedAt,
+          );
+        }
         continue;
       }
-      clone.elements.insertAfter(
-        clone.getLastCreatedAt(),
-        node.getValue().deepcopy(),
-      );
+
+      const value = node.getValue().deepcopy();
+      const posMovedAt = node.getPositionMovedAt();
+      if (posMovedAt) {
+        clone.elements.addMovedElement(
+          value,
+          node.getPositionCreatedAt(),
+          posMovedAt,
+        );
+      } else {
+        clone.elements.insertAfter(clone.getLastCreatedAt(), value);
+      }
     }
     clone.setRemovedAt(this.getRemovedAt());
     clone.setMovedAt(this.getMovedAt());
