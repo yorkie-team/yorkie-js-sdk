@@ -1189,7 +1189,7 @@ describe('Document', function () {
         {
           name: 'bytes',
           input: new Uint8Array([1, 2]),
-          expectedJSON: `{"bytes":1,2}`,
+          expectedJSON: `{"bytes":"AQI="}`,
         },
         // {
         //   name: 'Date',
