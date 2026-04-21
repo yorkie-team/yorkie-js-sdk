@@ -466,7 +466,7 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
-    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    const deadNode = target.moveAfter(prevCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -475,6 +475,12 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
@@ -498,7 +504,7 @@ export class ArrayProxy {
     } catch {
       posCreatedAt = prevCreatedAt;
     }
-    target.moveAfter(posCreatedAt, createdAt, ticket);
+    const deadNode = target.moveAfter(posCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -507,6 +513,12 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
@@ -554,7 +566,7 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const head = target.getHead();
-    target.moveAfter(head.getCreatedAt(), createdAt, ticket);
+    const deadNode = target.moveAfter(head.getCreatedAt(), createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -563,6 +575,12 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
@@ -576,10 +594,16 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const last = target.getLastCreatedAt();
-    target.moveAfter(last, createdAt, ticket);
+    const deadNode = target.moveAfter(last, createdAt, ticket);
     context.push(
       MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
