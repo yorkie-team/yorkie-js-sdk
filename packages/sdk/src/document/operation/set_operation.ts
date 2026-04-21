@@ -106,6 +106,9 @@ export class SetOperation extends Operation {
     if (removed) {
       root.registerRemovedElement(removed);
     }
+    if (value.getRemovedAt()) {
+      root.registerRemovedElement(value);
+    }
 
     return {
       opInfos: [

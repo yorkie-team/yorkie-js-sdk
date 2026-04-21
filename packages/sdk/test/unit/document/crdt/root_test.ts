@@ -5,13 +5,18 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
 import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 import { ArrayProxy } from '@yorkie-js/sdk/src/document/json/array';
-import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
-import { MaxTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import {
+  InitialTimeTicket,
+  MaxTimeTicket,
+  TimeTicket,
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { RGATreeSplit } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Text } from '@yorkie-js/sdk/src/yorkie';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
@@ -133,5 +138,46 @@ describe('ROOT', function () {
     assert.equal(2, root.garbageCollect(maxVectorOf([])));
     assert.equal('[0:00:0:0 ][1:00:3:0 Yorkie]', text.toTestString());
     assert.equal(0, root.getGarbageLen());
+  });
+
+  it('should register LWW-losing element in GC set on Set conflict', function () {
+    const root = new CRDTRoot(
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
+    );
+
+    const actorA = '000000000000000000000001';
+    const actorB = '000000000000000000000002';
+
+    // actorB > actorA, so actorB wins LWW when lamport is equal.
+    const ticketA = TimeTicket.of(1n, 0, actorA);
+    const ticketB = TimeTicket.of(1n, 0, actorB);
+
+    // First Set: actorA sets "key" = 1.
+    const valueA = Primitive.of(1, ticketA);
+    const setA = SetOperation.create('key', valueA, InitialTimeTicket, ticketA);
+    setA.execute(root, OpSource.Remote);
+    assert.equal(0, root.getGarbageLen());
+
+    // Second Set: actorB sets "key" = 2 (actorB wins, actorA is removed).
+    const valueB = Primitive.of(2, ticketB);
+    const setB = SetOperation.create('key', valueB, InitialTimeTicket, ticketB);
+    setB.execute(root, OpSource.Remote);
+    assert.equal(1, root.getGarbageLen());
+    assert.equal('{"key":2}', root.getObject().toJSON());
+
+    // Third Set: actorA sets "key" = 3 (actorA loses to actorB's value).
+    const ticketA2 = TimeTicket.of(1n, 1, actorA);
+    const valueA2 = Primitive.of(3, ticketA2);
+    const setA2 = SetOperation.create(
+      'key',
+      valueA2,
+      InitialTimeTicket,
+      ticketA2,
+    );
+    setA2.execute(root, OpSource.Remote);
+    // valueA2 should also be registered as garbage (it lost LWW to valueB).
+    // Before the fix, this was 1 because the LWW loser was not registered.
+    assert.equal(2, root.getGarbageLen());
+    assert.equal('{"key":2}', root.getObject().toJSON());
   });
 });
