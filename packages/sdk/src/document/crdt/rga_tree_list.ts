@@ -592,22 +592,11 @@ export class RGATreeList implements GCParent {
   }
 
   /**
-   * `getPrevCreatedAt` returns a creation time of the previous node.
-   * This is the legacy API that returns element identity. For move
-   * operations, use findPrevCreatedAt.
+   * `getPrevCreatedAt` returns the position node's createdAt of the
+   * previous element. Delegates to findPrevCreatedAt.
    */
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
-    const entry = this.elementMapByCreatedAt.get(createdAt.toIDString());
-    if (entry) {
-      return this.findPrevCreatedAt(createdAt);
-    }
-
-    // Fall back to nodeMapByCreatedAt for backward compatibility.
-    let node = this.nodeMapByCreatedAt.get(createdAt.toIDString());
-    do {
-      node = node!.getPrev()!;
-    } while (this.dummyHead !== node && node.isRemoved());
-    return node.getPositionCreatedAt();
+    return this.findPrevCreatedAt(createdAt);
   }
 
   /**
