@@ -24,7 +24,8 @@ import {
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
- * `MoveOperation` is an operation representing moving an element to an Array.
+ * `MoveOperation` is an operation representing moving an element to
+ * an Array.
  */
 export class MoveOperation extends Operation {
   private prevCreatedAt: TimeTicket;
@@ -79,7 +80,19 @@ export class MoveOperation extends Operation {
     const reverseOp = this.toReverseOperation(array);
 
     const previousIndex = Number(array.subPathOf(this.createdAt));
-    array.moveAfter(this.prevCreatedAt, this.createdAt, this.getExecutedAt());
+    const deadNode = array.moveAfter(
+      this.prevCreatedAt,
+      this.createdAt,
+      this.getExecutedAt(),
+    );
+
+    if (deadNode) {
+      root.registerGCPair({
+        parent: array.getRGATreeList(),
+        child: deadNode,
+      });
+    }
+
     const index = Number(array.subPathOf(this.createdAt));
     return {
       opInfos: [
@@ -96,7 +109,8 @@ export class MoveOperation extends Operation {
 
   private toReverseOperation(array: CRDTArray): Operation {
     const preservePrevCreatedAt = array.getPrevCreatedAt(this.createdAt);
-    // NOTE(KMSstudio): executedAt is assigned just before execution, when Document.undo() is called.
+    // NOTE(KMSstudio): executedAt is assigned just before execution,
+    // when Document.undo() is called.
     return MoveOperation.create(
       this.getParentCreatedAt(),
       preservePrevCreatedAt,
@@ -105,7 +119,8 @@ export class MoveOperation extends Operation {
   }
 
   /**
-   * `getEffectedCreatedAt` returns the creation time of the effected element.
+   * `getEffectedCreatedAt` returns the creation time of the
+   * effected element.
    */
   public getEffectedCreatedAt(): TimeTicket {
     return this.createdAt;
@@ -119,7 +134,8 @@ export class MoveOperation extends Operation {
   }
 
   /**
-   * `getPrevCreatedAt` returns the creation time of previous element.
+   * `getPrevCreatedAt` returns the creation time of previous
+   * element.
    */
   public getPrevCreatedAt(): TimeTicket {
     return this.prevCreatedAt;
@@ -133,7 +149,8 @@ export class MoveOperation extends Operation {
   }
 
   /**
-   * `setPrevCreatedAt` sets the creation time of the previous element.
+   * `setPrevCreatedAt` sets the creation time of the previous
+   * element.
    */
   public setPrevCreatedAt(createdAt: TimeTicket) {
     this.prevCreatedAt = createdAt;

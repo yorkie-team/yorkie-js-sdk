@@ -238,10 +238,17 @@ export class ArrayProxy {
             prevID: TimeTicket,
             value: any,
           ): WrappedElement | undefined => {
+            // Convert element identity to position identity.
+            let posCreatedAt: TimeTicket;
+            try {
+              posCreatedAt = target.posCreatedAt(prevID);
+            } catch {
+              posCreatedAt = prevID;
+            }
             const inserted = ArrayProxy.insertAfterInternal(
               context,
               target,
-              prevID,
+              posCreatedAt,
               value,
             );
             return toWrappedElement(context, inserted);
@@ -466,7 +473,7 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
-    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    const deadNode = target.moveAfter(prevCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -475,11 +482,18 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
    * `moveAfterInternal` moves the given `createdAt` element
-   * after the specific element.
+   * after the specific element. Converts element identity to
+   * position identity for the prevCreatedAt.
    */
   public static moveAfterInternal(
     context: ChangeContext,
@@ -488,20 +502,35 @@ export class ArrayProxy {
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
+    // Convert element identity to position node identity.
+    // Fall back to prevCreatedAt if not found in elementMap
+    // (e.g., LastCreatedAt returns a position identity directly).
+    let posCreatedAt: TimeTicket;
+    try {
+      posCreatedAt = target.posCreatedAt(prevCreatedAt);
+    } catch {
+      posCreatedAt = prevCreatedAt;
+    }
+    const deadNode = target.moveAfter(posCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
-        prevCreatedAt,
+        posCreatedAt,
         createdAt,
         ticket,
       ),
     );
-    target.moveAfter(prevCreatedAt, createdAt, ticket);
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
-   * `moveAfterByIndexInternal` moves the given element to its new position
-   * after the given previous element.
+   * `moveAfterByIndexInternal` moves the given element to its new
+   * position after the given previous element.
    */
   public static moveAfterByIndexInternal(
     context: ChangeContext,
@@ -544,7 +573,7 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const head = target.getHead();
-    target.moveAfter(head.getCreatedAt(), createdAt, ticket);
+    const deadNode = target.moveAfter(head.getCreatedAt(), createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -553,6 +582,12 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
@@ -566,14 +601,21 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const last = target.getLastCreatedAt();
-    target.moveAfter(last, createdAt, ticket);
+    const deadNode = target.moveAfter(last, createdAt, ticket);
     context.push(
       MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );
+    if (deadNode) {
+      context.registerGCPair({
+        parent: target.getRGATreeList(),
+        child: deadNode,
+      });
+    }
   }
 
   /**
-   * `insertAfterInternal` inserts the value after the previously created element.
+   * `insertAfterInternal` inserts the value after the previously
+   * created element.
    */
   public static insertAfterInternal(
     context: ChangeContext,
@@ -612,12 +654,15 @@ export class ArrayProxy {
         `index out of bounds: ${index}`,
       );
     }
-    ArrayProxy.insertAfterInternal(
-      context,
-      target,
-      prevElem.getCreatedAt(),
-      value,
-    );
+
+    // Convert element identity to position identity for the anchor.
+    let posCreatedAt: TimeTicket;
+    try {
+      posCreatedAt = target.posCreatedAt(prevElem.getCreatedAt());
+    } catch {
+      posCreatedAt = prevElem.getCreatedAt();
+    }
+    ArrayProxy.insertAfterInternal(context, target, posCreatedAt, value);
     return target;
   }
 
@@ -763,8 +808,18 @@ export class ArrayProxy {
       }
     }
     if (items) {
-      let previousID =
-        from === 0 ? target.getHead().getID() : target.get(from - 1)!.getID();
+      let previousID: TimeTicket;
+      if (from === 0) {
+        previousID = target.getHead().getID();
+      } else {
+        // Convert element identity to position identity for the anchor.
+        const elemID = target.get(from - 1)!.getID();
+        try {
+          previousID = target.posCreatedAt(elemID);
+        } catch {
+          previousID = elemID;
+        }
+      }
       for (const item of items) {
         const newElem = ArrayProxy.insertAfterInternal(
           context,
