@@ -19,7 +19,10 @@ import {
   CRDTContainer,
   CRDTElement,
 } from '@yorkie-js/sdk/src/document/crdt/element';
-import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
+import {
+  RGATreeList,
+  RGATreeListNode,
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
@@ -78,14 +81,15 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `moveAfter` moves the given `createdAt` element after the `prevCreatedAt`.
+   * `moveAfter` moves the given `createdAt` element after the
+   * `prevCreatedAt`. Returns the dead position node for GC.
    */
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
     executedAt: TimeTicket,
-  ): void {
-    this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
+  ): RGATreeListNode | undefined {
+    return this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
   }
 
   /**
@@ -119,10 +123,20 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `getPrevCreatedAt` returns the creation time of the previous node.
+   * `getPrevCreatedAt` returns the creation time of the previous
+   * node.
    */
   public getPrevCreatedAt(createdAt: TimeTicket): TimeTicket {
     return this.elements.getPrevCreatedAt(createdAt);
+  }
+
+  /**
+   * `posCreatedAt` returns the createdAt of the position node
+   * currently holding the element. Used to convert element identity
+   * to position identity for moves.
+   */
+  public posCreatedAt(elemCreatedAt: TimeTicket): TimeTicket {
+    return this.elements.posCreatedAt(elemCreatedAt);
   }
 
   /**
@@ -143,7 +157,8 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `set` sets the given element at the given position of the creation time.
+   * `set` sets the given element at the given position of the
+   * creation time.
    */
   public set(
     createdAt: TimeTicket,
@@ -168,19 +183,20 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `[Symbol.iterator]` returns an iterator for the elements in this array.
+   * `[Symbol.iterator]` returns an iterator for the elements in
+   * this array.
    */
   public *[Symbol.iterator](): IterableIterator<CRDTElement> {
     for (const node of this.elements) {
-      if (!node.isRemoved()) {
+      if (node.getElementEntry() && !node.isRemoved()) {
         yield node.getValue();
       }
     }
   }
 
   /**
-   * `toTestString` returns a String containing the meta data of this value
-   * for debugging purpose.
+   * `toTestString` returns a String containing the meta data of
+   * this value for debugging purpose.
    */
   public toTestString(): string {
     return this.elements.toTestString();
@@ -193,6 +209,9 @@ export class CRDTArray extends CRDTContainer {
     callback: (elem: CRDTElement, parent: CRDTContainer) => boolean,
   ): void {
     for (const node of this.elements) {
+      if (!node.getElementEntry()) {
+        continue;
+      }
       const element = node.getValue();
       if (callback(element, this)) {
         return;
@@ -261,10 +280,26 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `getElements` returns an array of elements contained in this RGATreeList.
+   * `getElements` returns the underlying RGATreeList.
    */
   public getElements(): RGATreeList {
     return this.elements;
+  }
+
+  /**
+   * `getRGATreeList` returns the underlying RGATreeList (GCParent
+   * for dead positions).
+   */
+  public getRGATreeList(): RGATreeList {
+    return this.elements;
+  }
+
+  /**
+   * `getAllRGANodes` returns all RGA nodes including dead position
+   * nodes.
+   */
+  public getAllRGANodes(): Array<RGATreeListNode> {
+    return this.elements.allNodes();
   }
 
   /**
@@ -273,6 +308,9 @@ export class CRDTArray extends CRDTContainer {
   public deepcopy(): CRDTArray {
     const clone = CRDTArray.create(this.getCreatedAt());
     for (const node of this.elements) {
+      if (!node.getElementEntry()) {
+        continue;
+      }
       clone.elements.insertAfter(
         clone.getLastCreatedAt(),
         node.getValue().deepcopy(),

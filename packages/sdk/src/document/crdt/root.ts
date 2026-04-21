@@ -27,6 +27,7 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
 import {
@@ -120,6 +121,17 @@ export class CRDTRoot {
       if (elem instanceof CRDTText || elem instanceof CRDTTree) {
         for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
+        }
+      }
+      if (elem instanceof CRDTArray) {
+        // Register dead position nodes for GC.
+        for (const node of elem.getAllRGANodes()) {
+          if (!node.getElementEntry() && node.getRemovedAt()) {
+            this.registerGCPair({
+              parent: elem.getRGATreeList(),
+              child: node,
+            });
+          }
         }
       }
       return false;

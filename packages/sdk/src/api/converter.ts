@@ -596,15 +596,30 @@ function toRHTNodes(rht: ElementRHT): Array<PbRHTNode> {
 
 /**
  * `toRGANodes` converts the given model to Protobuf format.
+ * Includes both live element nodes and dead position nodes.
  */
-function toRGANodes(rgaTreeList: RGATreeList): Array<PbRGANode> {
+function toRGANodes(arr: CRDTArray): Array<PbRGANode> {
   const pbRGANodes = [];
-  for (const rgaTreeListNode of rgaTreeList) {
-    pbRGANodes.push(
-      create(PbRGANodeSchema, {
-        element: toElement(rgaTreeListNode.getValue()),
-      }),
-    );
+  for (const rgaNode of arr.getAllRGANodes()) {
+    if (!rgaNode.getElementEntry()) {
+      // Dead position node (abandoned by a move).
+      pbRGANodes.push(
+        create(PbRGANodeSchema, {
+          positionCreatedAt: toTimeTicket(rgaNode.getPositionCreatedAt()),
+          positionRemovedAt: toTimeTicket(rgaNode.getRemovedAt()),
+        }),
+      );
+      continue;
+    }
+
+    const pbNode = create(PbRGANodeSchema, {
+      element: toElement(rgaNode.getValue()),
+    });
+    if (rgaNode.getPositionMovedAt()) {
+      pbNode.positionMovedAt = toTimeTicket(rgaNode.getPositionMovedAt());
+      pbNode.positionCreatedAt = toTimeTicket(rgaNode.getPositionCreatedAt());
+    }
+    pbRGANodes.push(pbNode);
   }
 
   return pbRGANodes;
@@ -744,7 +759,7 @@ function toArray(arr: CRDTArray): PbJSONElement {
     body: {
       case: 'jsonArray',
       value: create(PbJSONElement_JSONArraySchema, {
-        nodes: toRGANodes(arr.getElements()),
+        nodes: toRGANodes(arr),
         createdAt: toTimeTicket(arr.getCreatedAt()),
         movedAt: toTimeTicket(arr.getMovedAt()),
         removedAt: toTimeTicket(arr.getRemovedAt()),
@@ -1476,7 +1491,23 @@ function fromObject(pbObject: PbJSONElement_JSONObject): CRDTObject {
 function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
   const rgaTreeList = new RGATreeList();
   for (const pbRGANode of pbArray.nodes) {
-    rgaTreeList.insert(fromElement(pbRGANode.element!));
+    if (!pbRGANode.element) {
+      // Dead position node (abandoned by a move).
+      const posCreatedAt = fromTimeTicket(pbRGANode.positionCreatedAt)!;
+      const posRemovedAt = fromTimeTicket(pbRGANode.positionRemovedAt)!;
+      rgaTreeList.addDeadPosition(posCreatedAt, posRemovedAt);
+      continue;
+    }
+
+    const elem = fromElement(pbRGANode.element);
+    const posMovedAt = fromTimeTicket(pbRGANode.positionMovedAt);
+
+    if (posMovedAt) {
+      const posCreatedAt = fromTimeTicket(pbRGANode.positionCreatedAt)!;
+      rgaTreeList.addMovedElement(elem, posCreatedAt, posMovedAt);
+    } else {
+      rgaTreeList.insert(elem);
+    }
   }
 
   const arr = new CRDTArray(fromTimeTicket(pbArray.createdAt)!, rgaTreeList);

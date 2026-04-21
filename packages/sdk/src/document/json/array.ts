@@ -479,7 +479,8 @@ export class ArrayProxy {
 
   /**
    * `moveAfterInternal` moves the given `createdAt` element
-   * after the specific element.
+   * after the specific element. Converts element identity to
+   * position identity for the prevCreatedAt.
    */
   public static moveAfterInternal(
     context: ChangeContext,
@@ -488,20 +489,22 @@ export class ArrayProxy {
     createdAt: TimeTicket,
   ): void {
     const ticket = context.issueTimeTicket();
+    // Convert element identity to position node identity.
+    const posCreatedAt = target.posCreatedAt(prevCreatedAt);
+    target.moveAfter(posCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
-        prevCreatedAt,
+        posCreatedAt,
         createdAt,
         ticket,
       ),
     );
-    target.moveAfter(prevCreatedAt, createdAt, ticket);
   }
 
   /**
-   * `moveAfterByIndexInternal` moves the given element to its new position
-   * after the given previous element.
+   * `moveAfterByIndexInternal` moves the given element to its new
+   * position after the given previous element.
    */
   public static moveAfterByIndexInternal(
     context: ChangeContext,
@@ -573,7 +576,8 @@ export class ArrayProxy {
   }
 
   /**
-   * `insertAfterInternal` inserts the value after the previously created element.
+   * `insertAfterInternal` inserts the value after the previously
+   * created element.
    */
   public static insertAfterInternal(
     context: ChangeContext,
