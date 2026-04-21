@@ -152,9 +152,14 @@ export class Primitive extends CRDTElement {
     if (this.valueType === PrimitiveType.String) {
       return `"${escapeString(this.value as string)}"`;
     }
+    if (this.valueType === PrimitiveType.Bytes) {
+      const bytes = this.value as Uint8Array;
+      return `"${btoa(String.fromCharCode(...bytes))}"`;
+    }
+    if (this.valueType === PrimitiveType.Date) {
+      return `"${(this.value as Date).toISOString()}"`;
+    }
 
-    // TODO(hackerwins): We need to consider the case where the value is
-    // a byte array and a date.
     return `${this.value}`;
   }
 
