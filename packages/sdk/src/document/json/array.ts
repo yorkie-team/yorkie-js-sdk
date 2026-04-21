@@ -490,7 +490,14 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     // Convert element identity to position node identity.
-    const posCreatedAt = target.posCreatedAt(prevCreatedAt);
+    // Fall back to prevCreatedAt if not found in elementMap
+    // (e.g., LastCreatedAt returns a position identity directly).
+    let posCreatedAt: TimeTicket;
+    try {
+      posCreatedAt = target.posCreatedAt(prevCreatedAt);
+    } catch {
+      posCreatedAt = prevCreatedAt;
+    }
     target.moveAfter(posCreatedAt, createdAt, ticket);
     context.push(
       MoveOperation.create(

@@ -1493,6 +1493,12 @@ function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
   for (const pbRGANode of pbArray.nodes) {
     if (!pbRGANode.element) {
       // Dead position node (abandoned by a move).
+      if (!pbRGANode.positionCreatedAt || !pbRGANode.positionRemovedAt) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'dead RGA position node missing position timestamps',
+        );
+      }
       const posCreatedAt = fromTimeTicket(pbRGANode.positionCreatedAt)!;
       const posRemovedAt = fromTimeTicket(pbRGANode.positionRemovedAt)!;
       rgaTreeList.addDeadPosition(posCreatedAt, posRemovedAt);
@@ -1503,6 +1509,12 @@ function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
     const posMovedAt = fromTimeTicket(pbRGANode.positionMovedAt);
 
     if (posMovedAt) {
+      if (!pbRGANode.positionCreatedAt) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'moved RGA node missing position_created_at',
+        );
+      }
       const posCreatedAt = fromTimeTicket(pbRGANode.positionCreatedAt)!;
       rgaTreeList.addMovedElement(elem, posCreatedAt, posMovedAt);
     } else {
