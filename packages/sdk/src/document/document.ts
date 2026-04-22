@@ -669,6 +669,13 @@ export class Document<
         logger.trivial(`trying to update a local change: ${this.toJSON()}`);
       }
 
+      const prev = {
+        hadPresence: this.presences.has(actorID),
+        wasOnline: this.status === DocStatus.Attached,
+        presence: this.presences.has(actorID)
+          ? deepcopy(this.presences.get(actorID)!)
+          : undefined,
+      };
       const change = ctx.toChange();
       const { opInfos, reverseOps } = change.execute(
         this.root,
@@ -724,14 +731,14 @@ export class Document<
         });
       }
       if (change.hasPresenceChange()) {
-        event.push({
-          type: DocEventType.PresenceChanged,
-          source: OpSource.Local,
-          value: {
-            clientID: actorID,
-            presence: this.getPresence(actorID)!,
-          },
-        });
+        const presenceEvent = this.reconcilePresence(
+          actorID,
+          prev,
+          OpSource.Local,
+        );
+        if (presenceEvent) {
+          event.push(presenceEvent);
+        }
       }
 
       this.publish(event);
