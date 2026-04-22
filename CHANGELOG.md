@@ -7,6 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.6] - 2026-04-23
+
+### Added
+
+- Implement toJSON for Bytes and Date primitive types by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1225
+
+### Changed
+
+- Unify presence event emission with reconcilePresence by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1229
+- Prevent race conditions between sync loop and detach/deactivate by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1228
+- Copy attributes to split node in cloneElement by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1224
+
+### Fixed
+
+- Apply array-move-convergence with LWW position register by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1227
+- Register LWW-losing element in GC set on Set conflict by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1226
+
 ## [v0.7.5] - 2026-04-20
 
 ### Added
