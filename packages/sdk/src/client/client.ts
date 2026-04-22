@@ -312,6 +312,7 @@ export class Client {
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
   private keepalive = false;
+  private deactivating = false;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -395,6 +396,7 @@ export class Client {
 
         this.id = res.clientId;
         this.status = ClientStatus.Activated;
+        this.deactivating = false;
         this.runSyncLoop();
 
         logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
@@ -431,6 +433,9 @@ export class Client {
       return Promise.resolve();
     }
 
+    // Mark as deactivating immediately so the sync loop exits early.
+    this.deactivating = true;
+
     const task = async () => {
       try {
         await this.rpcClient.deactivateClient(
@@ -444,6 +449,7 @@ export class Client {
         logger.info(`[DC] c"${this.getKey()}" deactivated`);
       } catch (err) {
         logger.error(`[DC] c:"${this.getKey()}" err :`, err);
+        this.deactivating = false;
         await this.handleConnectError(err);
         throw err;
       }
@@ -650,8 +656,14 @@ export class Client {
     }
     doc.update((_, p) => p.clear());
 
+    // Mark as detaching immediately so the sync loop skips this document.
+    attachment.markDetaching();
+
     const task = async () => {
       try {
+        // Wait for any in-progress sync to finish before detaching.
+        await attachment.waitForSyncComplete();
+
         const res = await this.rpcClient.detachDocument(
           {
             clientId: this.id!,
@@ -673,6 +685,7 @@ export class Client {
         return doc;
       } catch (err) {
         logger.error(`[DD] c:"${this.getKey()}" err :`, err);
+        attachment.resetDetaching();
         await this.handleConnectError(err);
         throw err;
       }
@@ -1377,7 +1390,7 @@ export class Client {
    */
   private runSyncLoop(): void {
     const doLoop = async (): Promise<void> => {
-      if (!this.isActive()) {
+      if (!this.isActive() || this.deactivating) {
         logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`);
         this.conditions[ClientCondition.SyncLoop] = false;
         return;
@@ -1387,7 +1400,17 @@ export class Client {
         await this.enqueueTask(async () => {
           const syncs: Array<any> = [];
           for (const [, attachment] of this.attachmentMap) {
+            // Stop syncing if client is being deactivated.
+            if (this.deactivating) {
+              break;
+            }
+
             if (!attachment.needSync(this.channelHeartbeatInterval)) {
+              continue;
+            }
+
+            // Skip documents that are being detached.
+            if (attachment.isDetaching()) {
               continue;
             }
 
@@ -1396,8 +1419,12 @@ export class Client {
               attachment.changeEventReceived = false;
             }
 
-            syncs.push(
-              this.syncInternal(attachment, attachment.syncMode!).catch((e) => {
+            const syncPromise = this.syncInternal(
+              attachment,
+              attachment.syncMode!,
+            )
+              .then(() => {})
+              .catch((e) => {
                 if (isErrorCode(e, Code.ErrUnauthenticated)) {
                   attachment.resource.publish([
                     {
@@ -1422,14 +1449,26 @@ export class Client {
                 }
 
                 throw e;
-              }),
-            );
+              })
+              .finally(() => {
+                attachment.clearSyncPromise();
+              });
+
+            attachment.setSyncPromise(syncPromise);
+            syncs.push(syncPromise);
           }
 
           await Promise.all(syncs);
           setTimeout(doLoop, this.syncLoopDuration);
         });
       } catch (err) {
+        // If the client is deactivating, suppress sync errors from
+        // in-flight RPCs and stop the sync loop quietly.
+        if (this.deactivating) {
+          this.conditions[ClientCondition.SyncLoop] = false;
+          return;
+        }
+
         logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
         if (await this.handleConnectError(err)) {
           setTimeout(doLoop, this.retrySyncLoopDelay);
