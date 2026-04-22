@@ -920,4 +920,35 @@ describe.sequential('Client', function () {
     await c1.deactivate();
     await c2.deactivate();
   });
+
+  it('Should not produce document not attached error on detach during sync', async function ({
+    task,
+  }) {
+    // Use a short sync loop to increase the chance of overlap.
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      syncLoopDuration: 50,
+      reconnectStreamDelay: 1000,
+    });
+    await c1.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ key: string }>(docKey);
+    await c1.attach(doc, { syncMode: SyncMode.Realtime });
+
+    // Make a local change so the sync loop has something to push.
+    doc.update((root) => {
+      root.key = 'value';
+    });
+
+    // Detach immediately — the sync loop may be trying to sync concurrently.
+    // Before the fix, this could cause "document not attached" from the server
+    // if the sync RPC arrives after the detach RPC is processed.
+    await c1.detach(doc);
+
+    // Verify the document is properly detached without errors.
+    assert.equal(doc.getStatus(), 'detached');
+
+    await c1.deactivate();
+  });
 });

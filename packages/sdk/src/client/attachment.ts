@@ -48,6 +48,8 @@ export class Attachment<R extends Attachable> {
   private watchStream?: WatchStream;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
   private watchAbortController?: AbortController;
+  private syncPromise?: Promise<void>;
+  private _detaching = false;
 
   constructor(
     reconnectStreamDelay: number,
@@ -155,6 +157,56 @@ export class Attachment<R extends Attachable> {
     };
 
     await doLoop();
+  }
+
+  /**
+   * `markDetaching` marks this attachment as being in the process of detaching.
+   * Once marked, the sync loop will skip this attachment.
+   */
+  public markDetaching(): void {
+    this._detaching = true;
+  }
+
+  /**
+   * `isDetaching` returns whether this attachment is being detached.
+   */
+  public isDetaching(): boolean {
+    return this._detaching;
+  }
+
+  /**
+   * `resetDetaching` resets the detaching flag so the attachment can resume
+   * syncing. Used when a detach RPC fails and the document remains attached.
+   */
+  public resetDetaching(): void {
+    this._detaching = false;
+  }
+
+  /**
+   * `setSyncPromise` sets the in-progress sync promise for this attachment.
+   */
+  public setSyncPromise(promise: Promise<void>): void {
+    this.syncPromise = promise;
+  }
+
+  /**
+   * `clearSyncPromise` clears the in-progress sync promise.
+   */
+  public clearSyncPromise(): void {
+    this.syncPromise = undefined;
+  }
+
+  /**
+   * `waitForSyncComplete` waits for any in-progress sync to complete.
+   */
+  public async waitForSyncComplete(): Promise<void> {
+    if (this.syncPromise) {
+      try {
+        await this.syncPromise;
+      } catch {
+        // Ignore sync errors — we just need it to finish
+      }
+    }
   }
 
   /**
