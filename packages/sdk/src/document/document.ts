@@ -1599,10 +1599,24 @@ export class Document<
    * `applyStatus` applies the document status into this document.
    */
   public applyStatus(status: DocStatus) {
+    const actorID = this.changeID.getActorID();
+    const prev = {
+      hadPresence: this.presences.has(actorID),
+      wasOnline: this.status === DocStatus.Attached,
+      presence: this.presences.has(actorID)
+        ? deepcopy(this.presences.get(actorID)!)
+        : undefined,
+    };
+
     this.status = status;
 
     if (status === DocStatus.Detached) {
       this.setActor(InitialActorID);
+    }
+
+    const event = this.reconcilePresence(actorID, prev, OpSource.Local);
+    if (event) {
+      this.publish([event]);
     }
 
     this.publish([
