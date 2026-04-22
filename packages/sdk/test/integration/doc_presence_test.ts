@@ -3,6 +3,7 @@ import yorkie, {
   DocEvent,
   DocEventType,
   Counter,
+  OpSource,
   SyncMode,
   StreamConnectionStatus,
 } from '@yorkie-js/sdk/src/yorkie';
@@ -876,6 +877,7 @@ describe('Undo/Redo', function () {
 
     await events1.waitAndVerifyNthEvent(1, {
       type: DocEventType.PresenceChanged,
+      source: OpSource.Local,
       value: { clientID: c1ID, presence: { key: 'val1' } },
     });
 

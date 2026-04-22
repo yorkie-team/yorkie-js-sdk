@@ -1759,6 +1759,71 @@ export class Document<
   }
 
   /**
+   * `reconcilePresence` compares the previous and current state of a client's
+   * presence/online status and returns the appropriate event to emit.
+   *
+   * For remote clients, "online" means the client is in onlineClients.
+   * For self, "online" means the document status is Attached.
+   *
+   * State transition table:
+   *   (!hadP || !wasOn) → (hasP && isOn)  : watched (remote) or presence-changed (self)
+   *   (hadP && wasOn)   → (hasP && isOn)  : presence-changed
+   *   (hadP && wasOn)   → (!hasP || !isOn): unwatched (remote only)
+   *   otherwise                           : no event (waiting)
+   */
+  private reconcilePresence(
+    actorID: ActorID,
+    prev: { hadPresence: boolean; wasOnline: boolean; presence?: P },
+    source: OpSource,
+  ): WatchedEvent<P> | UnwatchedEvent<P> | PresenceChangedEvent<P> | undefined {
+    const isSelf = actorID === this.changeID.getActorID();
+    const hasPresence = this.presences.has(actorID);
+    const isOnline = isSelf
+      ? this.status === DocStatus.Attached
+      : this.onlineClients.has(actorID);
+
+    if (!hasPresence || !isOnline) {
+      // Transitioned from ready → not ready: unwatched (remote only)
+      if (prev.hadPresence && prev.wasOnline && !isSelf) {
+        return {
+          type: DocEventType.Unwatched,
+          source: OpSource.Remote,
+          value: {
+            clientID: actorID,
+            presence: prev.presence!,
+          },
+        };
+      }
+      return undefined;
+    }
+
+    const presence = deepcopy(this.presences.get(actorID)!);
+
+    if (!prev.hadPresence || !prev.wasOnline) {
+      // Transitioned from not-ready → ready
+      if (isSelf) {
+        return {
+          type: DocEventType.PresenceChanged,
+          source,
+          value: { clientID: actorID, presence },
+        };
+      }
+      return {
+        type: DocEventType.Watched,
+        source: OpSource.Remote,
+        value: { clientID: actorID, presence },
+      };
+    }
+
+    // Both were ready and still are: presence value changed
+    return {
+      type: DocEventType.PresenceChanged,
+      source,
+      value: { clientID: actorID, presence },
+    };
+  }
+
+  /**
    * `hasPresence` returns whether the given clientID has a presence or not.
    */
   public hasPresence(clientID: ActorID): boolean {
