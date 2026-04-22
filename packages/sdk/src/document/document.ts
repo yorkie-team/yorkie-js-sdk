@@ -2019,6 +2019,14 @@ export class Document<
     const change = ctx.toChange();
     change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
+    const actorID = this.changeID.getActorID();
+    const prev = {
+      hadPresence: this.presences.has(actorID),
+      wasOnline: this.status === DocStatus.Attached,
+      presence: this.presences.has(actorID)
+        ? deepcopy(this.presences.get(actorID)!)
+        : undefined,
+    };
     const { opInfos, reverseOps } = change.execute(
       this.root,
       this.presences,
@@ -2045,7 +2053,6 @@ export class Document<
 
     this.localChanges.push(change);
     this.changeID = ctx.getNextID();
-    const actorID = this.changeID.getActorID();
     const events: DocEvents<P> = [];
     if (opInfos.length) {
       events.push({
@@ -2062,14 +2069,14 @@ export class Document<
       });
     }
     if (change.hasPresenceChange()) {
-      events.push({
-        type: DocEventType.PresenceChanged,
-        source: OpSource.UndoRedo,
-        value: {
-          clientID: actorID,
-          presence: this.getPresence(actorID)!,
-        },
-      });
+      const presenceEvent = this.reconcilePresence(
+        actorID,
+        prev,
+        OpSource.UndoRedo,
+      );
+      if (presenceEvent) {
+        events.push(presenceEvent);
+      }
     }
     this.publish(events);
   }
