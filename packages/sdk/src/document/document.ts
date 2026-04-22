@@ -1571,42 +1571,27 @@ export class Document<
    * `applyDocEvent` applies the given doc event into this document.
    */
   public applyDocEvent(type: PbDocEventType, publisher: string) {
-    const events: Array<WatchedEvent<P> | UnwatchedEvent<P>> = [];
+    const prev = {
+      hadPresence: this.presences.has(publisher),
+      wasOnline: this.onlineClients.has(publisher),
+      presence: this.presences.has(publisher)
+        ? deepcopy(this.presences.get(publisher)!)
+        : undefined,
+    };
+
     if (type === PbDocEventType.DOCUMENT_WATCHED) {
       if (this.onlineClients.has(publisher) && this.hasPresence(publisher)) {
         return;
       }
-
       this.addOnlineClient(publisher);
-      // NOTE(chacha912): We added to onlineClients, but we won't trigger watched event
-      // unless we also know their initial presence data at this point.
-      if (this.hasPresence(publisher)) {
-        events.push({
-          type: DocEventType.Watched,
-          source: OpSource.Remote,
-          value: {
-            clientID: publisher,
-            presence: this.getPresence(publisher)!,
-          },
-        });
-      }
     } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
-      const presence = this.getPresence(publisher);
       this.removeOnlineClient(publisher);
       this.presences.delete(publisher);
-      // NOTE(chacha912): There is no presence, when PresenceChange(clear) is applied before unwatching.
-      // In that case, the 'unwatched' event is triggered while handling the PresenceChange.
-      if (presence) {
-        events.push({
-          type: DocEventType.Unwatched,
-          source: OpSource.Remote,
-          value: { clientID: publisher, presence },
-        });
-      }
     }
 
-    if (events.length) {
-      this.publish(events);
+    const event = this.reconcilePresence(publisher, prev, OpSource.Remote);
+    if (event) {
+      this.publish([event]);
     }
   }
 
