@@ -549,6 +549,7 @@ export class Document<
   private internalHistory: History<P>;
   private isUpdating: boolean;
   private onlineClients: Set<ActorID>;
+  private detachedActors: Map<string, bigint>;
 
   private eventStream: Observable<DocEvents<P>>;
   private eventStreamObserver!: Observer<DocEvents<P>>;
@@ -572,6 +573,7 @@ export class Document<
     this.root = CRDTRoot.create();
     this.presences = new Map();
     this.onlineClients = new Set();
+    this.detachedActors = new Map();
     this.internalHistory = new History();
     this.isUpdating = false;
 
@@ -1088,13 +1090,41 @@ export class Document<
   }
 
   /**
+   * `augmentVV` augments the given version vector with detached actors'
+   * lamport values for correct causality detection and GC.
+   */
+  private augmentVV(vv: VersionVector): void {
+    for (const [actorID, lamport] of this.detachedActors) {
+      if (!vv.has(actorID)) {
+        vv.set(actorID, lamport);
+      }
+    }
+  }
+
+  /**
+   * `addDetachedActors` stores detached actors and removes them from VV.
+   */
+  private addDetachedActors(actors: Map<string, bigint>): void {
+    for (const [actorID, lamport] of actors) {
+      this.detachedActors.set(actorID, lamport);
+      this.changeID.getVersionVector().unset(actorID);
+    }
+  }
+
+  /**
    * `applyChangePack` applies the given change pack into this document.
    * 1. Remove local changes applied to server.
    * 2. Update the checkpoint.
    * 3. Do Garbage collection.
    */
   public applyChangePack(pack: ChangePack<P>): void {
-    // 01. Apply snapshot or changes to the root object.
+    // 01. Process detached actors from server signal.
+    const detachedActors = pack.getDetachedActors();
+    if (detachedActors.size > 0) {
+      this.addDetachedActors(detachedActors);
+    }
+
+    // 02. Apply snapshot or changes to the root object.
     if (pack.hasSnapshot()) {
       this.applySnapshot(
         pack.getCheckpoint().getServerSeq(),
@@ -1107,15 +1137,17 @@ export class Document<
       this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
     }
 
-    // 02. Update the checkpoint.
+    // 03. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
-    // 03. Do Garbage collection.
+    // 04. Do Garbage collection with augmented VV.
     if (!pack.hasSnapshot()) {
-      this.garbageCollect(pack.getVersionVector()!);
+      const gcVV = pack.getVersionVector()!.deepcopy();
+      this.augmentVV(gcVV);
+      this.garbageCollect(gcVV);
     }
 
-    // 04. Update the status.
+    // 05. Update the status.
     if (pack.getIsRemoved()) {
       this.applyStatus(DocStatus.Removed);
     }
@@ -1361,9 +1393,11 @@ export class Document<
     snapshot?: Uint8Array,
     clientSeq: number = -1,
   ) {
-    const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
+    const { root, presences, detachedActors } =
+      converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
+    this.detachedActors = detachedActors;
     this.changeID = this.changeID.setClocks(
       snapshotVector.maxLamport(),
       snapshotVector,
@@ -1439,6 +1473,12 @@ export class Document<
    * `applyChange` applies the given change into this document.
    */
   public applyChange(change: Change<P>, source: OpSource) {
+    // Augment change VV with detached actors for causality detection.
+    const changeVV = change.getID().getVersionVector();
+    if (source === OpSource.Remote && changeVV) {
+      this.augmentVV(changeVV);
+    }
+
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -1482,6 +1522,14 @@ export class Document<
         );
       }
     }
+
+    // Remove augmented entries before clock sync to prevent VV pollution.
+    if (source === OpSource.Remote && changeVV) {
+      for (const [actorID] of this.detachedActors) {
+        changeVV.unset(actorID);
+      }
+    }
+
     this.changeID = this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;

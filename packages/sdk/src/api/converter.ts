@@ -869,6 +869,12 @@ function toElement(element: CRDTElement): PbJSONElement {
  * `toChangePack` converts the given model to Protobuf format.
  */
 function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
+  const pbDetachedActors: { [key: string]: bigint } = {};
+  for (const [actorID, lamport] of pack.getDetachedActors()) {
+    const base64ActorID = uint8ArrayToBase64(toUint8Array(actorID));
+    pbDetachedActors[base64ActorID] = lamport;
+  }
+
   return create(PbChangePackSchema, {
     documentKey: pack.getDocumentKey(),
     checkpoint: toCheckpoint(pack.getCheckpoint()),
@@ -876,6 +882,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
     versionVector: toVersionVector(pack.getVersionVector()),
+    detachedActors: pbDetachedActors,
   });
 }
 
@@ -1459,6 +1466,14 @@ function fromCheckpoint(pbCheckpoint: PbCheckpoint): Checkpoint {
 function fromChangePack<P extends Indexable>(
   pbPack: PbChangePack,
 ): ChangePack<P> {
+  const detachedActors = new Map<string, bigint>();
+  if (pbPack.detachedActors) {
+    for (const [key, value] of Object.entries(pbPack.detachedActors)) {
+      const hexKey = bytesToHex(base64ToUint8Array(key));
+      detachedActors.set(hexKey, BigInt(value.toString()));
+    }
+  }
+
   return ChangePack.create<P>(
     pbPack.documentKey!,
     fromCheckpoint(pbPack.checkpoint!),
@@ -1466,6 +1481,7 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
+    detachedActors,
   );
 }
 
@@ -1646,18 +1662,29 @@ function bytesToSnapshot<P extends Indexable>(
 ): {
   root: CRDTObject;
   presences: Map<ActorID, P>;
+  detachedActors: Map<string, bigint>;
 } {
   if (!bytes) {
     return {
       root: CRDTObject.create(InitialTimeTicket),
       presences: new Map(),
+      detachedActors: new Map(),
     };
   }
 
   const snapshot = fromBinary(PbSnapshotSchema, bytes);
+  const detachedActors = new Map<string, bigint>();
+  if (snapshot.detachedActors) {
+    for (const [key, value] of Object.entries(snapshot.detachedActors)) {
+      const hexKey = bytesToHex(base64ToUint8Array(key));
+      detachedActors.set(hexKey, BigInt(value.toString()));
+    }
+  }
+
   return {
     root: fromElement(snapshot.root!) as CRDTObject,
     presences: fromPresences<P>(snapshot.presences),
+    detachedActors,
   };
 }
 

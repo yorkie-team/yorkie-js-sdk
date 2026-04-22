@@ -50,6 +50,12 @@ export class ChangePack<P extends Indexable> {
    */
   private versionVector?: VersionVector;
 
+  /**
+   * `detachedActors` is a map of actor IDs to their last known lamport
+   * timestamps for actors that have been detached from the document.
+   */
+  private detachedActors: Map<string, bigint>;
+
   constructor(
     key: string,
     checkpoint: Checkpoint,
@@ -57,6 +63,7 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
+    detachedActors?: Map<string, bigint>,
   ) {
     this.documentKey = key;
     this.checkpoint = checkpoint;
@@ -64,6 +71,7 @@ export class ChangePack<P extends Indexable> {
     this.changes = changes;
     this.snapshot = snapshot;
     this.versionVector = versionVector;
+    this.detachedActors = detachedActors ?? new Map();
   }
   /**
    * `create` creates a new instance of ChangePack.
@@ -75,6 +83,7 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
+    detachedActors?: Map<string, bigint>,
   ): ChangePack<P> {
     return new ChangePack<P>(
       key,
@@ -83,6 +92,7 @@ export class ChangePack<P extends Indexable> {
       changes,
       versionVector,
       snapshot,
+      detachedActors,
     );
   }
 
@@ -147,5 +157,12 @@ export class ChangePack<P extends Indexable> {
    */
   public getVersionVector(): VersionVector | undefined {
     return this.versionVector;
+  }
+
+  /**
+   * `getDetachedActors` returns the detached actors of this pack.
+   */
+  public getDetachedActors(): Map<string, bigint> {
+    return this.detachedActors;
   }
 }
