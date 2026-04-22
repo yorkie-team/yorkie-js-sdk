@@ -1095,7 +1095,8 @@ export class Document<
    */
   private augmentVV(vv: VersionVector): void {
     for (const [actorID, lamport] of this.detachedActors) {
-      if (!vv.has(actorID)) {
+      const existing = vv.get(actorID);
+      if (existing === undefined || existing < lamport) {
         vv.set(actorID, lamport);
       }
     }
