@@ -1,6 +1,6 @@
 {
   "name": "@yorkie-js/prosemirror",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "ProseMirror binding for Yorkie collaborative editing",
   "main": "./src/index.ts",
   "publishConfig": {
