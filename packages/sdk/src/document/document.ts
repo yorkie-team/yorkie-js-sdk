@@ -1444,54 +1444,17 @@ export class Document<
 
     const events: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
-    if (change.hasPresenceChange() && this.onlineClients.has(actorID)) {
-      const presenceChange = change.getPresenceChange()!;
-      switch (presenceChange.type) {
-        case PresenceChangeType.Put:
-          // NOTE(chacha912): When the user exists in onlineClients, but
-          // their presence was initially absent, we can consider that we have
-          // received their initial presence, so trigger the 'watched' event.
 
-          events.push(
-            this.presences.has(actorID)
-              ? {
-                  type: DocEventType.PresenceChanged,
-                  source,
-                  value: {
-                    clientID: actorID,
-                    presence: presenceChange.presence,
-                  },
-                }
-              : {
-                  type: DocEventType.Watched,
-                  source: OpSource.Remote,
-                  value: {
-                    clientID: actorID,
-                    presence: presenceChange.presence,
-                  },
-                },
-          );
-          break;
-        case PresenceChangeType.Clear:
-          // NOTE(chacha912): When the user exists in onlineClients, but
-          // PresenceChange(clear) is received, we can consider it as detachment
-          // occurring before unwatching.
-          // Detached user is no longer participating in the document, we remove
-          // them from the online clients and trigger the 'unwatched' event.
-          events.push({
-            type: DocEventType.Unwatched,
-            source: OpSource.Remote,
-            value: {
-              clientID: actorID,
-              presence: this.getPresence(actorID)!,
-            },
-          });
-          this.removeOnlineClient(actorID);
-          break;
-        default:
-          break;
-      }
-    }
+    // Capture prev state before execute updates this.presences
+    const prev = change.hasPresenceChange()
+      ? {
+          hadPresence: this.presences.has(actorID),
+          wasOnline: this.onlineClients.has(actorID),
+          presence: this.presences.has(actorID)
+            ? deepcopy(this.presences.get(actorID)!)
+            : undefined,
+        }
+      : undefined;
 
     const { opInfos, operations } = change.execute(
       this.root,
@@ -1549,6 +1512,16 @@ export class Document<
               rawChange,
             },
       );
+    }
+    if (prev && change.hasPresenceChange()) {
+      const presenceChange = change.getPresenceChange()!;
+      if (presenceChange.type === PresenceChangeType.Clear) {
+        this.removeOnlineClient(actorID);
+      }
+      const presenceEvent = this.reconcilePresence(actorID, prev, source);
+      if (presenceEvent) {
+        events.push(presenceEvent);
+      }
     }
     // DocEvent should be emitted synchronously with applying changes.
     // This is because 3rd party model should be synced with the Document
