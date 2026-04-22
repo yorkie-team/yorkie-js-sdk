@@ -856,4 +856,30 @@ describe('Undo/Redo', function () {
 
     await client.deactivate();
   });
+
+  it('Should emit presence-changed event with initial presence value on attach', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    const c1ID = c1.getID()!;
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    type PresenceType = { key: string };
+    const doc1 = new yorkie.Document<object, PresenceType>(docKey);
+    const events1 = new EventCollector<DocEvent>();
+    const unsub1 = doc1.subscribe('presence', (event) => events1.add(event));
+
+    await c1.attach(doc1, {
+      initialPresence: { key: 'val1' },
+    });
+
+    await events1.waitAndVerifyNthEvent(1, {
+      type: DocEventType.PresenceChanged,
+      value: { clientID: c1ID, presence: { key: 'val1' } },
+    });
+
+    unsub1();
+    await c1.deactivate();
+  });
 });
