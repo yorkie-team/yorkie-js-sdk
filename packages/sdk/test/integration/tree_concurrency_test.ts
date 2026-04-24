@@ -763,10 +763,7 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  // TODO(yorkie-team): 68 of 400 tests fail for splitLevel>=2 forward
-  // convergence. Split/merge with nested elements has unresolved offset
-  // and merge-redirect issues. Tracked in design doc tree-split-undo-redo.md.
-  describe.skip('concurrently-split-split-test (splitLevel>=2)', async () => {
+  describe('concurrently-split-split-test (splitLevel>=2)', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
@@ -1008,9 +1005,7 @@ describe('Tree.concurrency', () => {
     );
   });
 
-  // TODO(yorkie-team): splitLevel>=2 split×edit tests fail due to the same
-  // nested element issues as the split×split suite above.
-  describe.skip('concurrently-split-edit-test (splitLevel>=2)', async () => {
+  describe('concurrently-split-edit-test (splitLevel>=2)', async () => {
     const initialTree = new Tree({
       type: 'r',
       children: [
