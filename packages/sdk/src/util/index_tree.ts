@@ -545,6 +545,37 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       actualRight.push(child);
     }
 
+    // Fix 16: Move concurrent inserts at the split boundary to the left.
+    // A concurrent insert placed between the split boundary and the next
+    // original child was positioned relative to the pre-split child order.
+    // Its CRDT position (after a left-partition child) means it should
+    // stay in the left partition.
+    if (versionVector) {
+      const movedToLeft: Array<T> = [];
+      const remaining: Array<T> = [];
+      let boundaryReached = false;
+      for (const child of actualRight) {
+        if (!boundaryReached) {
+          const actorID = (child as any).id.getCreatedAt().getActorID();
+          const knownLamport = versionVector.get(actorID);
+          if (
+            knownLamport === undefined ||
+            knownLamport < (child as any).id.getCreatedAt().getLamport()
+          ) {
+            movedToLeft.push(child);
+            continue;
+          }
+        }
+        boundaryReached = true;
+        remaining.push(child);
+      }
+      if (movedToLeft.length > 0) {
+        left.push(...movedToLeft);
+        actualRight.length = 0;
+        actualRight.push(...remaining);
+      }
+    }
+
     this._children = left;
     clone._children = actualRight;
     this.visibleSize = this._children.reduce(

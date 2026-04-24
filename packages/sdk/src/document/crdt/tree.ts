@@ -968,6 +968,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private advancePastUnknownSplitSiblings(
     node: CRDTTreeNode,
     versionVector?: VersionVector,
+    relaxParentCheck = false,
   ): CRDTTreeNode {
     if (!versionVector || !node) {
       return node;
@@ -980,9 +981,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
-      // Stop if the sibling has been moved to a different parent
-      // (e.g., by a higher-level concurrent split).
-      if (next.parent !== current.parent) {
+      // Skip parent check when relaxParentCheck is true — at ancestor
+      // iterations of the split loop, a concurrent recursive split may
+      // have moved the sibling to a different parent. InsNextID is only
+      // set by splitElement, so its existence is sufficient evidence
+      // of a split sibling (same rationale as hasUnknownSplitSibling).
+      if (!relaxParentCheck && next.parent !== current.parent) {
         break;
       }
 
@@ -1662,16 +1666,57 @@ export class CRDTTree extends CRDTElement implements GCParent {
     if (splitLevel > 0) {
       let splitCount = 0;
       let parent = fromParent;
-      let left = fromLeft;
+      let left: CRDTTreeNode = fromLeft;
       while (splitCount < splitLevel) {
+        // Fix 13: Advance past unknown element split siblings at the
+        // current ancestor level with relaxed parent check.
+        if (left !== parent) {
+          left = this.advancePastUnknownSplitSiblings(
+            left,
+            versionVector,
+            true,
+          );
+          // If the advance moved left to a node under a different
+          // parent, update parent to match.
+          if (left.parent && left.parent !== parent) {
+            parent = left.parent as CRDTTreeNode;
+          }
+        }
+
         parent.split(
           this,
           parent.findOffset(left, true) + 1,
           issueTimeTicket,
           versionVector,
         );
+
+        // Fix 15: After Split(), advance left to the just-created split
+        // sibling so the next iteration's offset places all current-level
+        // split products on the left side of the ancestor split.
+        // Only during concurrent replay (versionVector non-nil).
+        // Only advance when the split sibling was created by a concurrent
+        // operation (unknown to the editing client). If it was created by
+        // this operation, its lamport is in the versionVector and we use
+        // the normal left=parent path.
+        if (versionVector && parent.insNextID) {
+          const splitSibling = this.findFloorNode(parent.insNextID);
+          if (splitSibling && !splitSibling.isText) {
+            const actorID = splitSibling.id.getCreatedAt().getActorID();
+            const knownLamport = versionVector.get(actorID);
+            if (
+              knownLamport === undefined ||
+              knownLamport < splitSibling.id.getCreatedAt().getLamport()
+            ) {
+              left = splitSibling;
+              parent = left.parent! as CRDTTreeNode;
+              splitCount++;
+              continue;
+            }
+          }
+        }
+
         left = parent;
-        parent = parent.parent!;
+        parent = parent.parent! as CRDTTreeNode;
         splitCount++;
       }
       changes.push({
