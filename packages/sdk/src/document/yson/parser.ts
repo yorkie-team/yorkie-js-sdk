@@ -79,17 +79,18 @@ export function parse<T = YSONValue>(yson: string): T {
  * - `Long(64)` → `{"__yson_type":"Long","__yson_data":64}`
  * - `Date("...")` → `{"__yson_type":"Date","__yson_data":"..."}`
  * - `BinData("...")` → `{"__yson_type":"BinData","__yson_data":"..."}`
+ * - `DedupCounter(Int(15),"b64")` → `{"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"b64"}`
  * - `Counter(Int(10))` → `{"__yson_type":"Counter","__yson_data":{"__yson_type":"Int","__yson_data":10}}`
  */
 function preprocessYSON(yson: string): string {
   let result = yson;
 
   // Handle DedupCounter first (compound structure incompatible with general replacements)
-  // DedupCounter(Int(15),"base64...") → {"__yson_type":"DedupCounter","__yson_value":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"base64..."}
+  // DedupCounter(Int(15),"base64...") → {"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"base64..."}
   result = result.replace(
     /DedupCounter\(Int\((-?\d+)\),"([^"]+)"\)/g,
     (_, value, registers) => {
-      return `{"__yson_type":"DedupCounter","__yson_value":{"__yson_type":"Int","__yson_data":${value}},"__yson_registers":"${registers}"}`;
+      return `{"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":${value}},"__yson_registers":"${registers}"}`;
     },
   );
 
@@ -183,10 +184,10 @@ function postprocessValue(value: any): YSONValue {
 
   if (
     value.__yson_type === 'DedupCounter' &&
-    typeof value.__yson_value === 'object' &&
+    typeof value.__yson_data === 'object' &&
     typeof value.__yson_registers === 'string'
   ) {
-    const counterValue = postprocessValue(value.__yson_value);
+    const counterValue = postprocessValue(value.__yson_data);
     if (
       typeof counterValue === 'object' &&
       counterValue !== null &&
