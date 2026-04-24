@@ -545,17 +545,25 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       actualRight.push(child);
     }
 
-    // Fix 16: Move concurrent inserts at the split boundary to the left.
-    // A concurrent insert placed between the split boundary and the next
-    // original child was positioned relative to the pre-split child order.
-    // Its CRDT position (after a left-partition child) means it should
-    // stay in the left partition.
+    // §7.3 Boundary Insert Migration: Move concurrent inserts at the
+    // split boundary to the left. Element split siblings (with insPrevID)
+    // are skipped — they are split products handled by §7.4.
     if (versionVector) {
       const movedToLeft: Array<T> = [];
       const remaining: Array<T> = [];
       let boundaryReached = false;
       for (const child of actualRight) {
         if (!boundaryReached) {
+          // Skip element split siblings — they are split products,
+          // not concurrent inserts. Text split siblings have
+          // deterministic IDs and act as normal boundary markers.
+          if (
+            (child as any).insPrevID !== undefined &&
+            !(child as any).isText
+          ) {
+            remaining.push(child);
+            continue;
+          }
           const actorID = (child as any).id.getCreatedAt().getActorID();
           const knownLamport = versionVector.get(actorID);
           if (

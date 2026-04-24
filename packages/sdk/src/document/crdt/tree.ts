@@ -647,9 +647,26 @@ export class CRDTTreeNode
     if (split) {
       split.insPrevID = this.id;
       if (this.insNextID) {
-        const insNext = tree.findFloorNode(this.insNextID)!;
-        insNext.insPrevID = split.id;
+        const insNext = tree.findFloorNode(this.insNextID);
         split.insNextID = this.insNextID;
+
+        if (insNext) {
+          insNext.insPrevID = split.id;
+
+          // §7.4 Empty Sibling Re-Parenting: When the existing
+          // InsNext sibling is in a different parent (due to a prior
+          // parent-level split), move the new empty split sibling to
+          // that parent. VV-independent for clone/root consistency.
+          if (
+            !this.isText &&
+            insNext.parent &&
+            insNext.parent !== split.parent &&
+            split.allChildren.length === 0
+          ) {
+            split.parent!.detachChild(split);
+            insNext.parent.insertBefore(split, insNext);
+          }
+        }
       }
       this.insNextID = split.id;
       tree.registerNode(split);
@@ -969,6 +986,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     node: CRDTTreeNode,
     versionVector?: VersionVector,
     relaxParentCheck = false,
+    skipActorID?: string,
   ): CRDTTreeNode {
     if (!versionVector || !node) {
       return node;
@@ -981,16 +999,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
-      // Skip parent check when relaxParentCheck is true — at ancestor
-      // iterations of the split loop, a concurrent recursive split may
-      // have moved the sibling to a different parent. InsNextID is only
-      // set by splitElement, so its existence is sufficient evidence
-      // of a split sibling (same rationale as hasUnknownSplitSibling).
+      // §7.5: Skip parent check when relaxParentCheck is true — at
+      // ancestor iterations of the split loop, a concurrent recursive
+      // split may have moved the sibling to a different parent.
       if (!relaxParentCheck && next.parent !== current.parent) {
         break;
       }
 
       const actorID = next.id.getCreatedAt().getActorID();
+
+      // §7.7: Stop at siblings created by the current operation's
+      // actor. They are our own split products, not concurrent ones.
+      if (skipActorID !== undefined && actorID === skipActorID) {
+        break;
+      }
+
       const knownLamport = versionVector.get(actorID);
       if (
         knownLamport !== undefined &&
@@ -1485,6 +1508,30 @@ export class CRDTTree extends CRDTElement implements GCParent {
         ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
         : toLeftRaw;
 
+    // Phase 3: Range Narrowing — when fromLeft and toLeft are in
+    // different parents (due to a concurrent element split), follow
+    // fromLeft's insNextID chain to find a split sibling in toParent
+    // and narrow the traversal range. The original fromParent/fromLeft
+    // are preserved for merge, split, and insert steps.
+    // VV-independent for clone/root consistency.
+    let collectFromParent: CRDTTreeNode = fromParent;
+    let collectFromLeft: CRDTTreeNode = fromLeft;
+    if (fromLeft !== fromParent && fromParent !== toParent) {
+      let current: CRDTTreeNode = fromLeft;
+      while (current.insNextID) {
+        const next = this.findFloorNode(current.insNextID);
+        if (!next || next.isText) {
+          break;
+        }
+        if (next.parent && next.parent === toParent) {
+          collectFromLeft = next;
+          collectFromParent = toParent;
+          break;
+        }
+        current = next;
+      }
+    }
+
     const fromIdx = this.toIndex(fromParent, fromLeft);
     const fromPath = this.toPath(fromParent, fromLeft);
 
@@ -1495,8 +1542,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const preTombstoned = new Set<string>();
 
     this.traverseInPosRange(
-      fromParent,
-      fromLeft,
+      collectFromParent,
+      collectFromLeft,
       toParent,
       toLeft,
       ([node, tokenType], ended) => {
@@ -1668,13 +1715,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
       let parent = fromParent;
       let left: CRDTTreeNode = fromLeft;
       while (splitCount < splitLevel) {
-        // Fix 13: Advance past unknown element split siblings at the
-        // current ancestor level with relaxed parent check.
+        // §7.5 Per-Iteration Advance: advance past unknown element
+        // split siblings at the current ancestor level. skipActorID
+        // (§7.7) prevents advancing past own split products.
         if (left !== parent) {
           left = this.advancePastUnknownSplitSiblings(
             left,
             versionVector,
             true,
+            editedAt.getActorID(),
           );
           // If the advance moved left to a node under a different
           // parent, update parent to match.
@@ -1685,35 +1734,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
         parent.split(
           this,
-          parent.findOffset(left, true) + 1,
+          left !== parent ? parent.findOffset(left, true) + 1 : 0,
           issueTimeTicket,
           versionVector,
         );
-
-        // Fix 15: After Split(), advance left to the just-created split
-        // sibling so the next iteration's offset places all current-level
-        // split products on the left side of the ancestor split.
-        // Only during concurrent replay (versionVector non-nil).
-        // Only advance when the split sibling was created by a concurrent
-        // operation (unknown to the editing client). If it was created by
-        // this operation, its lamport is in the versionVector and we use
-        // the normal left=parent path.
-        if (versionVector && parent.insNextID) {
-          const splitSibling = this.findFloorNode(parent.insNextID);
-          if (splitSibling && !splitSibling.isText) {
-            const actorID = splitSibling.id.getCreatedAt().getActorID();
-            const knownLamport = versionVector.get(actorID);
-            if (
-              knownLamport === undefined ||
-              knownLamport < splitSibling.id.getCreatedAt().getLamport()
-            ) {
-              left = splitSibling;
-              parent = left.parent! as CRDTTreeNode;
-              splitCount++;
-              continue;
-            }
-          }
-        }
 
         left = parent;
         parent = parent.parent! as CRDTTreeNode;
