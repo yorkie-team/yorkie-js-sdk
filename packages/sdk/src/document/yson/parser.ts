@@ -26,6 +26,7 @@ import type {
   YSONDate,
   YSONBinData,
   YSONCounter,
+  YSONDedupCounter,
 } from './types';
 
 /**
@@ -83,7 +84,16 @@ export function parse<T = YSONValue>(yson: string): T {
 function preprocessYSON(yson: string): string {
   let result = yson;
 
-  // Handle Counter type first (as it may contain Int/Long)
+  // Handle DedupCounter first (compound structure incompatible with general replacements)
+  // DedupCounter(Int(15),"base64...") → {"__yson_type":"DedupCounter","__yson_value":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"base64..."}
+  result = result.replace(
+    /DedupCounter\(Int\((-?\d+)\),"([^"]+)"\)/g,
+    (_, value, registers) => {
+      return `{"__yson_type":"DedupCounter","__yson_value":{"__yson_type":"Int","__yson_data":${value}},"__yson_registers":"${registers}"}`;
+    },
+  );
+
+  // Handle Counter type (as it may contain Int/Long)
   // Counter(Int(10)) → {"__yson_type":"Counter","__yson_data":{"__yson_type":"Int","__yson_data":10}}
   result = result.replace(
     /Counter\((Int|Long)\((-?\d+)\)\)/g,
@@ -169,6 +179,30 @@ function postprocessValue(value: any): YSONValue {
       type: 'BinData',
       value: value.__yson_data,
     } as YSONBinData;
+  }
+
+  if (
+    value.__yson_type === 'DedupCounter' &&
+    typeof value.__yson_value === 'object' &&
+    typeof value.__yson_registers === 'string'
+  ) {
+    const counterValue = postprocessValue(value.__yson_value);
+    if (
+      typeof counterValue === 'object' &&
+      counterValue !== null &&
+      'type' in counterValue &&
+      counterValue.type === 'Int'
+    ) {
+      return {
+        type: 'DedupCounter',
+        value: counterValue as YSONInt,
+        registers: value.__yson_registers,
+      } as YSONDedupCounter;
+    }
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      'DedupCounter must contain Int',
+    );
   }
 
   if (

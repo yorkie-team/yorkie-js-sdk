@@ -34,6 +34,7 @@ export type {
   YSONDate as Date,
   YSONBinData as BinData,
   YSONCounter as Counter,
+  YSONDedupCounter as DedupCounter,
 } from './types';
 
 export {
@@ -44,6 +45,7 @@ export {
   isDate,
   isBinData,
   isCounter,
+  isDedupCounter,
   isObject,
 } from './types';
 
