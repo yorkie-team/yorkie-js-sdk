@@ -227,6 +227,71 @@ describe('YSON Parser', () => {
     });
   });
 
+  describe('DedupCounter Type', () => {
+    it('should parse DedupCounter with Int and HLL registers', () => {
+      const result = YSON.parse('{"value":DedupCounter(Int(15),"AQIDBA==")}');
+      const obj = result as { value: YSON.YSONValue };
+
+      expect(YSON.isDedupCounter(obj.value)).toBe(true);
+      if (YSON.isDedupCounter(obj.value)) {
+        expect(obj.value.type).toBe('DedupCounter');
+        expect(YSON.isInt(obj.value.value)).toBe(true);
+        expect(obj.value.value.value).toBe(15);
+        expect(obj.value.registers).toBe('AQIDBA==');
+      }
+    });
+
+    it('should parse DedupCounter with zero value', () => {
+      const result = YSON.parse('{"value":DedupCounter(Int(0),"AAAA")}');
+      const obj = result as { value: YSON.YSONValue };
+
+      if (YSON.isDedupCounter(obj.value)) {
+        expect(obj.value.value.value).toBe(0);
+        expect(obj.value.registers).toBe('AAAA');
+      }
+    });
+
+    it('should parse DedupCounter alongside other types', () => {
+      const yson =
+        '{"counter":Counter(Int(10)),"dedup":DedupCounter(Int(5),"dGVzdA==")}';
+      const result = YSON.parse(yson);
+      const obj = result as any;
+
+      expect(YSON.isCounter(obj.counter)).toBe(true);
+      expect(YSON.isDedupCounter(obj.dedup)).toBe(true);
+      if (YSON.isDedupCounter(obj.dedup)) {
+        expect(obj.dedup.value.value).toBe(5);
+        expect(obj.dedup.registers).toBe('dGVzdA==');
+      }
+    });
+
+    it('isDedupCounter should not match Counter', () => {
+      const counter: YSON.Counter = {
+        type: 'Counter',
+        value: { type: 'Int', value: 10 },
+      };
+      expect(YSON.isDedupCounter(counter)).toBe(false);
+    });
+
+    it('isCounter should not match DedupCounter', () => {
+      const dedup: YSON.DedupCounter = {
+        type: 'DedupCounter',
+        value: { type: 'Int', value: 5 },
+        registers: 'AAAA',
+      };
+      expect(YSON.isCounter(dedup)).toBe(false);
+    });
+
+    it('isObject should not match DedupCounter', () => {
+      const dedup: YSON.DedupCounter = {
+        type: 'DedupCounter',
+        value: { type: 'Int', value: 5 },
+        registers: 'AAAA',
+      };
+      expect(YSON.isObject(dedup)).toBe(false);
+    });
+  });
+
   describe('Complex Document', () => {
     it('should parse document with all types', () => {
       const yson = `{
@@ -239,6 +304,7 @@ describe('YSON Parser', () => {
         "bytes": BinData("AQID"),
         "date": Date("2025-01-02T15:04:05.058Z"),
         "counter": Counter(Int(10)),
+        "dedup": DedupCounter(Int(3),"AQID"),
         "text": Text([{"val":"Hello"}]),
         "tree": Tree({"type":"p","children":[{"type":"text","value":"Hello World"}]})
       }`;
@@ -255,6 +321,7 @@ describe('YSON Parser', () => {
       expect(YSON.isBinData(obj.bytes)).toBe(true);
       expect(YSON.isDate(obj.date)).toBe(true);
       expect(YSON.isCounter(obj.counter)).toBe(true);
+      expect(YSON.isDedupCounter(obj.dedup)).toBe(true);
       expect(YSON.isText(obj.text)).toBe(true);
       expect(YSON.isTree(obj.tree)).toBe(true);
     });

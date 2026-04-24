@@ -168,6 +168,21 @@ export interface YSONCounter {
 }
 
 /**
+ * `YSONDedupCounter` represents a DedupCounter CRDT that uses HyperLogLog
+ * to count unique actors.
+ *
+ * @example
+ * ```typescript
+ * { type: 'DedupCounter', value: { type: 'Int', value: 15 }, registers: 'AQID...' }
+ * ```
+ */
+export interface YSONDedupCounter {
+  type: 'DedupCounter';
+  value: YSONInt;
+  registers: string;
+}
+
+/**
  * `YSONValue` represents any valid YSON value.
  *
  * Can be:
@@ -189,6 +204,7 @@ export type YSONValue =
   | YSONDate
   | YSONBinData
   | YSONCounter
+  | YSONDedupCounter
   | { [key: string]: YSONValue }
   | Array<YSONValue>;
 
@@ -277,6 +293,19 @@ export function isCounter(value: any): value is YSONCounter {
 }
 
 /**
+ * `isDedupCounter` checks if a value is a YSONDedupCounter object.
+ */
+export function isDedupCounter(value: any): value is YSONDedupCounter {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    value.type === 'DedupCounter' &&
+    typeof value.value === 'object' &&
+    typeof value.registers === 'string'
+  );
+}
+
+/**
  * `isObject` checks if a value is a plain YSON object (not a special type).
  */
 export function isObject(value: any): value is { [key: string]: YSONValue } {
@@ -290,6 +319,7 @@ export function isObject(value: any): value is { [key: string]: YSONValue } {
     !isLong(value) &&
     !isDate(value) &&
     !isBinData(value) &&
-    !isCounter(value)
+    !isCounter(value) &&
+    !isDedupCounter(value)
   );
 }
