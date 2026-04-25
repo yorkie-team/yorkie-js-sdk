@@ -4,9 +4,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend Tree split undo/redo from splitLevel=1 to splitLevel≥2 by relaxing the L1-only guard and adding L2 single-client tests.
+**Goal:** Extend Tree split undo/redo from splitLevel=1 to splitLevel≥2 with single-client and multi-client convergence tests.
 
-**Architecture:** `toSplitReverseOperation` already supports any splitLevel via `boundarySize = 2 * splitLevel`. The only code change is relaxing `isPureL1Split` (splitLevel === 1) to `isPureSplit` (splitLevel > 0). Main work is L2 test coverage: Section E (basic undo/redo) and Section F (chained ops).
+**Architecture:** `toSplitReverseOperation` already supports any splitLevel via `boundarySize = 2 * splitLevel`. The only code change is relaxing `isPureL1Split` (splitLevel === 1) to `isPureSplit` (splitLevel > 0). Tests cover single-client (Sections E-F) and multi-client (Sections G-H).
+
+**Status:** All tasks complete. PR: #1234
 
 **Tech Stack:** TypeScript, Vitest, yorkie-js-sdk CRDT internals
 
@@ -353,9 +355,49 @@ And update the Remaining Work table — change the splitLevel≥2 row:
 | LOW | splitLevel≥2 multi-client undo/redo | Single-client done. Multi-client deferred until single-client is validated. |
 ```
 
-- [ ] **Step 3: Commit the design doc update**
+- [x] **Step 3: Commit the design doc update**
 
 ```bash
 git add 03_projects/yorkie/docs/design/undo-redo.md
 git commit -m "Update undo-redo.md: mark split L2 single-client as done"
 ```
+
+---
+
+### Task 5: Add multi-client L2 convergence tests (Section G)
+
+**Files:**
+- Modify: `packages/sdk/test/integration/history_tree_test.ts`
+
+- [x] **Step 1: Add table-driven undo convergence tests**
+
+9 tests: `insert-text`, `delete-text`, `insert-element` × `before-split`,
+`after-split`, `different-element`. Initial tree:
+`<doc><div><p>ABCD</p></div><div><p>EFGH</p></div></doc>`.
+d1 splits at index 4 with `splitLevel=2`. d2 does remote op. Sync, undo, sync, assert convergence.
+
+- [x] **Step 2: Add table-driven redo convergence tests**
+
+9 tests: same matrix. d1 splits, d2 does remote op, sync, undo, sync,
+redo, sync, assert convergence.
+
+- [x] **Step 3: Run tests and commit**
+
+All 18 tests pass. Committed in `f302f69c6` and `1dd5017b4`.
+
+---
+
+### Task 6: Add multi-client L2 edge cases (Section H)
+
+**Files:**
+- Modify: `packages/sdk/test/integration/history_tree_test.ts`
+
+- [x] **Step 1: Add front/back L2 split undo with remote insert**
+
+2 tests: front split (`edit(2,2,undefined,2)`) and back split
+(`edit(4,4,undefined,2)`) with concurrent remote text insert. Assert
+convergence after undo.
+
+- [x] **Step 2: Run full suite and commit**
+
+198 passed, 6 skipped. Committed in `f302f69c6`.

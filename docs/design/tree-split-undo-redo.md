@@ -216,11 +216,19 @@ after structural changes. 8 tests pass, 1 skipped (`split-l2 →
 split-l2` chain — consecutive L2 splits produce tombstone structure
 that breaks boundary-deletion reverse op).
 
-**Sections G–H: Multi-client L2 (deferred)**
+**Section G: Multi-client L2 convergence (table-driven, done)**
 
-Multi-client convergence and edge cases for L2 follow the same pattern
-as Sections C–D but with the L2 initial tree. Deferred to a follow-up
-after single-client L2 is validated.
+Same pattern as Section C but with the L2 initial tree
+`<doc><div><p>ABCD</p></div><div><p>EFGH</p></div></doc>`. d1 splits
+at middle (index 4) with `splitLevel=2`. Remote ops use L2 indices.
+
+- Undo convergence: 9 tests (3 remote ops × 3 positions)
+- Redo convergence: 9 tests (same matrix, undo → sync → redo → sync)
+
+**Section H: Multi-client L2 edge cases (done)**
+
+- Front L2 split undo with concurrent remote insert (1 test)
+- Back L2 split undo with concurrent remote insert (1 test)
 
 ## Tasks
 
