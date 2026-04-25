@@ -1656,6 +1656,282 @@ describe('Tree History - single client split L2 chained ops', () => {
   }
 });
 
+// 4h. Multi Client - Split L2 undo convergence (table-driven)
+describe('Tree History - multi client split L2 convergence', () => {
+  type RemoteOp = 'insert-text' | 'delete-text' | 'insert-element';
+  type RemotePos = 'before-split' | 'after-split' | 'different-element';
+
+  const remoteOps: Array<RemoteOp> = [
+    'insert-text',
+    'delete-text',
+    'insert-element',
+  ];
+  const remotePositions: Array<RemotePos> = [
+    'before-split',
+    'after-split',
+    'different-element',
+  ];
+
+  // Initial tree: <doc><div><p>ABCD</p></div><div><p>EFGH</p></div></doc>
+  // Index layout:
+  // <doc>  <div>  <p>  A  B  C  D  </p>  </div>  <div>  <p>  E  F  G  H  </p>  </div>
+  //   0      1     2   3  4  5  6    7      8       9     10  11 12 13 14   15     16
+  //
+  // d1 splits first <div><p> at middle (after B) with splitLevel=2:
+  //   <doc><div><p>AB</p></div><div><p>CD</p></div><div><p>EFGH</p></div></doc>
+  // d2 does remote op at various positions
+
+  const applyRemoteOp = (
+    doc: Document<{ t: Tree }>,
+    op: RemoteOp,
+    pos: RemotePos,
+  ) => {
+    doc.update((root) => {
+      switch (op) {
+        case 'insert-text':
+          switch (pos) {
+            case 'before-split':
+              root.t.edit(3, 3, { type: 'text', value: 'X' });
+              break;
+            case 'after-split':
+              root.t.edit(6, 6, { type: 'text', value: 'X' });
+              break;
+            case 'different-element':
+              root.t.edit(11, 11, { type: 'text', value: 'X' });
+              break;
+          }
+          break;
+        case 'delete-text':
+          switch (pos) {
+            case 'before-split':
+              root.t.edit(2, 3);
+              break;
+            case 'after-split':
+              root.t.edit(5, 6);
+              break;
+            case 'different-element':
+              root.t.edit(10, 11);
+              break;
+          }
+          break;
+        case 'insert-element':
+          switch (pos) {
+            case 'before-split':
+              root.t.edit(0, 0, {
+                type: 'div',
+                children: [
+                  {
+                    type: 'p',
+                    children: [{ type: 'text', value: 'NEW' }],
+                  },
+                ],
+              });
+              break;
+            case 'after-split':
+              root.t.edit(8, 8, {
+                type: 'div',
+                children: [
+                  {
+                    type: 'p',
+                    children: [{ type: 'text', value: 'NEW' }],
+                  },
+                ],
+              });
+              break;
+            case 'different-element':
+              root.t.edit(16, 16, {
+                type: 'div',
+                children: [
+                  {
+                    type: 'p',
+                    children: [{ type: 'text', value: 'NEW' }],
+                  },
+                ],
+              });
+              break;
+          }
+          break;
+      }
+    }, `remote ${op} at ${pos}`);
+  };
+
+  for (const remoteOp of remoteOps) {
+    for (const remotePos of remotePositions) {
+      it(`should converge: split L2 + remote ${remoteOp} at ${remotePos}`, async ({
+        task,
+      }) => {
+        type TestDoc = { t: Tree };
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          d1.update((root) => {
+            root.t = new Tree({
+              type: 'doc',
+              children: [
+                {
+                  type: 'div',
+                  children: [
+                    {
+                      type: 'p',
+                      children: [{ type: 'text', value: 'ABCD' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'div',
+                  children: [
+                    {
+                      type: 'p',
+                      children: [{ type: 'text', value: 'EFGH' }],
+                    },
+                  ],
+                },
+              ],
+            });
+          }, 'init');
+          await c1.sync();
+          await c2.sync();
+
+          // d1: split first <div><p> at middle (between B and C)
+          d1.update((root) => {
+            root.t.edit(4, 4, undefined, 2);
+          }, 'split');
+
+          // d2: remote operation
+          applyRemoteOp(d2, remoteOp, remotePos);
+
+          // Sync both directions
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // d1: undo the split
+          d1.history.undo();
+
+          // Sync again
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // Assert convergence
+          assert.equal(
+            d1.getRoot().t.toXML(),
+            d2.getRoot().t.toXML(),
+            `divergence: split L2 + ${remoteOp} at ${remotePos}`,
+          );
+        }, task.name);
+      });
+    }
+  }
+});
+
+// 4i. Multi Client - Split L2 edge cases
+describe('Tree History - multi client split L2 edge cases', () => {
+  it('should converge: undo L2 front split with remote insert', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Tree };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'AB' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1: front split → <doc><div><p></p></div><div><p>AB</p></div></doc>
+      d1.update((root) => {
+        root.t.edit(2, 2, undefined, 2);
+      }, 'front split');
+
+      // d2: insert text in the same element
+      d2.update((root) => {
+        root.t.edit(3, 3, { type: 'text', value: 'X' });
+      }, 'insert X');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // d1: undo the front split
+      d1.history.undo();
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        d2.getRoot().t.toXML(),
+        'divergence: undo front L2 split with remote insert',
+      );
+    }, task.name);
+  });
+
+  it('should converge: undo L2 back split with remote insert', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Tree };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'AB' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1: back split → <doc><div><p>AB</p></div><div><p></p></div></doc>
+      d1.update((root) => {
+        root.t.edit(4, 4, undefined, 2);
+      }, 'back split');
+
+      // d2: insert text in the same element
+      d2.update((root) => {
+        root.t.edit(2, 2, { type: 'text', value: 'X' });
+      }, 'insert X');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // d1: undo the back split
+      d1.history.undo();
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        d2.getRoot().t.toXML(),
+        'divergence: undo back L2 split with remote insert',
+      );
+    }, task.name);
+  });
+});
+
 // 5. Tree Style Undo/Redo (table-driven)
 describe('Tree History - tree style undo/redo', () => {
   type StyleOp = 'set-bold' | 'set-italic' | 'set-color' | 'remove-bold';
