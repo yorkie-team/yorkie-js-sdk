@@ -21,7 +21,7 @@
 **Files:**
 - Modify: `packages/sdk/test/integration/history_tree_test.ts` (after line ~1456, after L1 edge cases)
 
-- [ ] **Step 1: Add a single L2 split undo test**
+- [x] **Step 1: Add a single L2 split undo test**
 
 Append after the "Tree History - split L1 edge cases" describe block:
 
@@ -152,12 +152,12 @@ describe('Tree History - single client split L2 undo/redo', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `cd packages/sdk && npx vitest run test/integration/history_tree_test.ts -t "single client split L2"`
 Expected: FAIL — `undo()` is a no-op because the `isPureL1Split` guard blocks splitLevel=2.
 
-- [ ] **Step 3: Commit failing tests**
+- [x] **Step 3: Commit failing tests**
 
 ```bash
 git add packages/sdk/test/integration/history_tree_test.ts
@@ -176,7 +176,7 @@ relaxes this guard to support splitLevel>0."
 - Modify: `packages/sdk/src/document/operation/tree_edit_operation.ts:195-201`
 - Modify: `packages/sdk/src/document/crdt/tree.ts:~660` (§7.4 tombstone guard — discovered during implementation)
 
-- [ ] **Step 1: Change the guard from L1-only to any splitLevel**
+- [x] **Step 1: Change the guard from L1-only to any splitLevel**
 
 In `tree_edit_operation.ts`, change lines 195-201:
 
@@ -204,17 +204,17 @@ if (this.splitLevel === 0) {
 }
 ```
 
-- [ ] **Step 2: Run L2 tests to verify they pass**
+- [x] **Step 2: Run L2 tests to verify they pass**
 
 Run: `cd packages/sdk && npx vitest run test/integration/history_tree_test.ts -t "single client split L2"`
 Expected: PASS — all 9 tests (3 positions × 3 actions).
 
-- [ ] **Step 3: Run all L1 tests to verify no regression**
+- [x] **Step 3: Run all L1 tests to verify no regression**
 
 Run: `cd packages/sdk && npx vitest run test/integration/history_tree_test.ts -t "split L1"`
 Expected: PASS — all existing L1 tests still pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/sdk/src/document/operation/tree_edit_operation.ts
@@ -232,7 +232,7 @@ isPureL1Split (splitLevel === 1) → isPureSplit (splitLevel > 0)."
 **Files:**
 - Modify: `packages/sdk/test/integration/history_tree_test.ts` (after Section E describe block)
 
-- [ ] **Step 1: Add the L2 chained ops test section**
+- [x] **Step 1: Add the L2 chained ops test section**
 
 Append after the Section E describe block:
 
@@ -309,17 +309,17 @@ describe('Tree History - single client split L2 chained ops', () => {
 });
 ```
 
-- [ ] **Step 2: Run the chained ops tests**
+- [x] **Step 2: Run the chained ops tests**
 
 Run: `cd packages/sdk && npx vitest run test/integration/history_tree_test.ts -t "single client split L2 chained"`
 Expected: PASS — all 9 tests (3 × 3 chain combinations).
 
-- [ ] **Step 3: Run the full history_tree_test suite**
+- [x] **Step 3: Run the full history_tree_test suite**
 
 Run: `cd packages/sdk && npx vitest run test/integration/history_tree_test.ts`
 Expected: PASS — all existing + new tests pass. No regressions.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/sdk/test/integration/history_tree_test.ts
@@ -336,12 +336,12 @@ combinations with snapshot-based undo/redo verification."
 **Files:**
 - Modify: `docs/design/undo-redo.md` (in yorkie repo, not yorkie-js-sdk — update via second-brain submodule)
 
-- [ ] **Step 1: Run lint**
+- [x] **Step 1: Run lint**
 
 Run: `cd packages/sdk && npx eslint test/integration/history_tree_test.ts src/document/operation/tree_edit_operation.ts`
 Expected: No warnings or errors. Fix any lint issues before proceeding.
 
-- [ ] **Step 2: Update undo-redo.md Current Status table**
+- [x] **Step 2: Update undo-redo.md Current Status table**
 
 In `03_projects/yorkie/docs/design/undo-redo.md`, update the Completed table to add:
 
