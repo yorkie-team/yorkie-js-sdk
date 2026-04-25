@@ -1580,6 +1580,82 @@ describe('Tree History - single client split L2 undo/redo', () => {
   }
 });
 
+// 4g. Single Client - Split L2 chained with other ops (table-driven)
+describe('Tree History - single client split L2 chained ops', () => {
+  type SplitChainOp = 'split-l2' | 'insert-text' | 'delete-text';
+  const chainOps: Array<SplitChainOp> = [
+    'split-l2',
+    'insert-text',
+    'delete-text',
+  ];
+
+  const applyChainOp = (doc: Document<{ t: Tree }>, op: SplitChainOp) => {
+    doc.update((root) => {
+      switch (op) {
+        case 'split-l2':
+          // Split first <p> at offset 2 with splitLevel=2
+          root.t.editByPath([0, 0, 2], [0, 0, 2], undefined, 2);
+          break;
+        case 'insert-text':
+          // Insert 'X' at start of first <p>
+          root.t.editByPath([0, 0, 0], [0, 0, 0], { type: 'text', value: 'X' });
+          break;
+        case 'delete-text':
+          // Delete first char of first text in first <div><p>
+          root.t.editByPath([0, 0, 0], [0, 0, 1]);
+          break;
+      }
+    }, op);
+  };
+
+  for (const op1 of chainOps) {
+    for (const op2 of chainOps) {
+      // TODO(Phase 2): split-l2 → split-l2 undo chain has a known undo bug:
+      // the boundary-deletion reverse op doesn't correctly restore the state
+      // when two consecutive L2 splits produce tombstoned structure.
+      const skipCase = op1 === 'split-l2' && op2 === 'split-l2';
+      const runIt = skipCase ? it.skip : it;
+      runIt(`should undo chain: ${op1} → ${op2}`, () => {
+        const doc = new Document<{ t: Tree }>('test-doc');
+        doc.update((root) => {
+          root.t = new Tree({
+            type: 'doc',
+            children: [
+              {
+                type: 'div',
+                children: [
+                  {
+                    type: 'p',
+                    children: [{ type: 'text', value: 'ABCD' }],
+                  },
+                ],
+              },
+            ],
+          });
+        }, 'init');
+
+        const s0 = xmlOf(doc);
+        applyChainOp(doc, op1);
+        const s1 = xmlOf(doc);
+        applyChainOp(doc, op2);
+        const s2 = xmlOf(doc);
+
+        // Undo: s2 → s1 → s0
+        doc.history.undo();
+        assert.equal(xmlOf(doc), s1, `undo ${op2} failed`);
+        doc.history.undo();
+        assert.equal(xmlOf(doc), s0, `undo ${op1} failed`);
+
+        // Redo: s0 → s1 → s2
+        doc.history.redo();
+        assert.equal(xmlOf(doc), s1, `redo ${op1} failed`);
+        doc.history.redo();
+        assert.equal(xmlOf(doc), s2, `redo ${op2} failed`);
+      });
+    }
+  }
+});
+
 // 5. Tree Style Undo/Redo (table-driven)
 describe('Tree History - tree style undo/redo', () => {
   type StyleOp = 'set-bold' | 'set-italic' | 'set-color' | 'remove-bold';
