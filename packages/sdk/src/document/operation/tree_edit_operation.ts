@@ -192,13 +192,13 @@ export class TreeEditOperation extends Operation {
 
     // Create reverse op for undo
     let reverseOp: Operation | undefined;
-    const isPureL1Split =
-      this.splitLevel === 1 &&
+    const isPureSplit =
+      this.splitLevel > 0 &&
       !this.contents?.length &&
       removedNodes.length === 0;
     if (this.splitLevel === 0) {
       reverseOp = this.toReverseOperation(tree, removedNodes, preEditFromIdx);
-    } else if (isPureL1Split) {
+    } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
     }
 
