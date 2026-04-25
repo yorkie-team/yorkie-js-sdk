@@ -1455,6 +1455,131 @@ describe('Tree History - split L1 edge cases', () => {
   });
 });
 
+// 4f. Single Client - Split Undo/Redo (splitLevel=2, table-driven)
+describe('Tree History - single client split L2 undo/redo', () => {
+  type SplitPos = 'front' | 'middle' | 'back';
+  const l2SplitCases: Array<{
+    pos: SplitPos;
+    splitIdx: number;
+    afterXML: string;
+  }> = [
+    {
+      pos: 'front',
+      splitIdx: 2,
+      afterXML: '<doc><div><p></p></div><div><p>ABCD</p></div></doc>',
+    },
+    {
+      pos: 'middle',
+      splitIdx: 4,
+      afterXML: '<doc><div><p>AB</p></div><div><p>CD</p></div></doc>',
+    },
+    {
+      pos: 'back',
+      splitIdx: 6,
+      afterXML: '<doc><div><p>ABCD</p></div><div><p></p></div></doc>',
+    },
+  ];
+
+  // Tree index layout:
+  // <doc>  <div>  <p>  A  B  C  D  </p>  </div>  </doc>
+  //   0      1     2   3  4  5  6    7      8
+  const beforeXML = '<doc><div><p>ABCD</p></div></doc>';
+
+  for (const { pos, splitIdx, afterXML } of l2SplitCases) {
+    it(`should undo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      assert.equal(xmlOf(doc), beforeXML);
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 2);
+      }, `split at ${pos}`);
+      assert.equal(xmlOf(doc), afterXML);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), beforeXML, `undo split at ${pos} failed`);
+    });
+
+    it(`should undo-redo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 2);
+      }, `split at ${pos}`);
+
+      doc.history.undo();
+      assert.equal(xmlOf(doc), beforeXML);
+
+      doc.history.redo();
+      assert.equal(xmlOf(doc), afterXML, `redo split at ${pos} failed`);
+    });
+
+    it(`should undo-redo-undo split at ${pos}`, () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+
+      doc.update((root) => {
+        root.t.edit(splitIdx, splitIdx, undefined, 2);
+      }, `split at ${pos}`);
+
+      doc.history.undo();
+      doc.history.redo();
+      doc.history.undo();
+      assert.equal(
+        xmlOf(doc),
+        beforeXML,
+        `undo-redo-undo split at ${pos} failed`,
+      );
+    });
+  }
+});
+
 // 5. Tree Style Undo/Redo (table-driven)
 describe('Tree History - tree style undo/redo', () => {
   type StyleOp = 'set-bold' | 'set-italic' | 'set-color' | 'remove-bold';
