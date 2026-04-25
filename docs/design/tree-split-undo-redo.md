@@ -1,10 +1,10 @@
 ---
 created: 2026-04-15
-updated: 2026-04-15
+updated: 2026-04-25
 tags: [tree, undo-redo, split]
 ---
 
-# Tree Split Undo/Redo (splitLevel=1)
+# Tree Split Undo/Redo (splitLevel≥1)
 
 ## Problem
 
@@ -25,16 +25,13 @@ const reverseOp =
 
 ### Goals
 
-- Generate reverse operations for `splitLevel=1` split edits.
+- Generate reverse operations for `splitLevel≥1` split edits.
 - Support single-client undo/redo cycle: split → undo → redo.
 - Support 2-client concurrent scenarios where remote edits do not
   overlap with the split boundary (reconciliation Cases 1-2).
 
 ### Non-Goals
 
-- `splitLevel >= 2` undo/redo — forward convergence fails for L2
-  concurrent operations (68/320 tests fail). Deferred until L2 forward
-  convergence is fixed.
 - Overlapping range reconciliation Cases 3-6 — existing Phase 2 scope,
   unchanged by this work.
 - New operation types or protocol changes.
@@ -43,17 +40,22 @@ const reverseOp =
 
 ### Reverse Operation: Boundary Deletion
 
-A split creates new element boundaries without removing any nodes:
+A split creates new element boundaries without removing any nodes.
+The boundary size is `2 * splitLevel` tokens (one close + one open tag
+per level):
 
 ```
-splitLevel=1: <p>ab|cd</p>  →  <p>ab</p><p>cd</p>   (2 boundary tokens)
+splitLevel=1: <p>ab|cd</p>  →  <p>ab</p><p>cd</p>          (2 boundary tokens)
+splitLevel=2: <div><p>ab|cd</p></div>
+            → <div><p>ab</p></div><div><p>cd</p></div>      (4 boundary tokens)
 ```
 
 The reverse is a boundary deletion — a `splitLevel=0` edit that removes
 the boundary tokens, merging the split elements back:
 
 ```
-reverse: edit(fromIdx, fromIdx + 2, undefined, 0)   // delete 2 boundary tokens
+L1 reverse: edit(fromIdx, fromIdx + 2, undefined, 0)   // delete 2 boundary tokens
+L2 reverse: edit(fromIdx, fromIdx + 4, undefined, 0)   // delete 4 boundary tokens
 ```
 
 The reverse op is a standard `TreeEditOperation` with `isUndoOp=true`,
@@ -86,19 +88,23 @@ generation.
 
 Only `tree_edit_operation.ts` is modified:
 
-1. **Remove the `splitLevel === 0` guard** in `execute()` and replace
-   with a branch: call `toReverseOperation` for `splitLevel=0`, call a
-   new `toSplitReverseOperation` for `splitLevel > 0`.
+1. **L1 (done):** Replaced the `splitLevel === 0` guard in `execute()`
+   with a branch: `toReverseOperation` for `splitLevel=0`,
+   `toSplitReverseOperation` for `splitLevel > 0`. Added the
+   `toSplitReverseOperation` method with generic `boundarySize = 2 *
+   this.splitLevel`.
 
-2. **Add `toSplitReverseOperation` method** that:
-   - Computes `boundarySize = 2 * this.splitLevel` (for L1, this is 2)
-   - Guards against `fromIdx + boundarySize > tree.getSize()` (concurrent
-     parent deletion → no-op)
-   - Returns `TreeEditOperation.create(parentCreatedAt, fromPos,
-     tree.findPos(fromIdx + boundarySize), undefined, 0, executedAt,
-     isUndoOp=true, fromIdx, fromIdx + boundarySize)`
+2. **L2 (done):** Relaxed the `isPureL1Split` guard (`splitLevel
+   === 1`) to `isPureSplit` (`splitLevel > 0`). The
+   `toSplitReverseOperation` method already handles any splitLevel via
+   the `boundarySize` formula — no method changes needed.
 
-3. **No changes to**: `history.ts`, `document.ts`, `reconcileOperation`,
+3. **L2 bugfix:** Added `!insNext.isRemoved` guard to §7.4 Empty
+   Sibling Re-Parenting in `tree.ts`. Without this, L2 redo at back
+   position re-parents into a tombstoned element, making the split
+   sibling invisible.
+
+4. **No changes to**: `history.ts`, `document.ts`, `reconcileOperation`,
    or any other file.
 
 ### Edge Cases
@@ -107,6 +113,8 @@ Only `tree_edit_operation.ts` is modified:
 |------|----------|
 | Front split (`<p>\|ab</p>` → `<p></p><p>ab</p>`) | Undo deletes 2 boundary tokens, merges empty element back |
 | Back split (`<p>ab\|</p>` → `<p>ab</p><p></p>`) | Same — boundary deletion merges trailing empty element |
+| L2 front split (`<div><p>\|ab</p></div>`) | Undo deletes 4 boundary tokens, merges both levels back |
+| L2 back split (`<div><p>ab\|</p></div>`) | Same — 4 boundary tokens removed |
 | Concurrent parent deletion | `fromIdx + boundarySize > tree.getSize()` guard → undo is no-op |
 | Concurrent insert into split result (non-overlapping) | Reconciliation Cases 1-2 shift indices correctly |
 | Concurrent insert into split boundary (overlapping) | Out of scope — Cases 3-6, existing Phase 2 skip |
@@ -115,7 +123,8 @@ Only `tree_edit_operation.ts` is modified:
 
 | Risk | Mitigation |
 |------|------------|
-| Boundary size assumption (`2 * splitLevel`) may be wrong if concurrent edits insert nodes between split boundaries | Only L1 is in scope; L1 concurrent split already converges (152 tests passing). Reconciliation Cases 1-2 handle non-overlapping shifts. |
+| Boundary size assumption (`2 * splitLevel`) may be wrong if concurrent edits insert nodes between split boundaries | L1 concurrent split converges (152 tests passing). L2 forward convergence now also passes. Reconciliation Cases 1-2 handle non-overlapping shifts. |
+| L2 boundary deletion removes 4 tokens — more structural change than L1 | Same merge path as L1, just applied twice. Verify with L2-specific tests (front/middle/back). |
 | Merge semantics on undo may differ from original pre-split state (e.g., `mergedFrom`/`mergedAt` metadata) | Boundary deletion triggers standard CRDTTree merge path, same as user-initiated merge. Verify in tests. |
 | Redo re-inserts deep-copied boundary nodes — node IDs may conflict with GC | Existing `splitLevel=0` redo path already handles this. No new risk. |
 
@@ -124,8 +133,9 @@ Only `tree_edit_operation.ts` is modified:
 | Decision | Reason |
 |----------|--------|
 | Boundary deletion as reverse | Reverse op is `splitLevel=0`, reuses all existing reconciliation and redo infrastructure. Simplest approach. |
-| `splitLevel=1` only | L2 forward convergence is broken (68 test failures). Enabling undo on broken forward ops adds risk. |
-| Single file change | Split reverse is a small extension to `toReverseOperation`. No architectural changes needed. |
+| L1 first, L2 after forward fix | L2 forward convergence was broken when L1 undo was implemented. Now fixed, so L2 undo can proceed. |
+| L2 single-client tests first | Validate the boundary-deletion mechanism works for 4 tokens before adding multi-client complexity. |
+| Single file change (guard only for L2) | `toSplitReverseOperation` already supports any splitLevel. Only the guard needs relaxing. |
 | `boundarySize = 2 * splitLevel` | Each split level creates one close tag + one open tag = 2 tree index tokens per level. |
 
 ## Alternatives Considered
@@ -134,7 +144,6 @@ Only `tree_edit_operation.ts` is modified:
 |-------------|---------|
 | **Content-based reverse** (deep-copy original node, delete split result, re-insert original) | Concurrent edits to split result would be lost. Dangerous in collaborative environment. |
 | **Split-aware reverse** (store splitLevel in reverse, execute merge on undo) | Merge is just boundary deletion. Same result as approach A but adds a new reverse op variant for no benefit. |
-| **Support splitLevel=2 simultaneously** | Forward convergence fails for L2 concurrent splits. Fix forward first, then add undo. |
 
 ### Test Strategy: Table-Driven
 
@@ -157,58 +166,70 @@ state space and iterating over combinations.
 └─────────────────┴─────────────────────────────────────────────────┘
 ```
 
-#### Test Sections
+#### L1 Test Sections (done)
 
 **Section A: Single-client split undo/redo (table-driven)**
 
-```typescript
-type SplitPos = 'front' | 'middle' | 'back';
-const splitPositions: SplitPos[] = ['front', 'middle', 'back'];
-
-for (const pos of splitPositions) {
-  it(`should undo split at ${pos}`, ...);
-  it(`should redo split at ${pos}`, ...);
-  it(`should undo-redo-undo split at ${pos}`, ...);
-}
-```
-
 - Initial tree: `<doc><p>ABCD</p></doc>`
-- front: `edit(1, 1, undefined, 1)` → `<doc><p></p><p>ABCD</p></doc>`
-- middle: `edit(3, 3, undefined, 1)` → `<doc><p>AB</p><p>CD</p></doc>`
-- back: `edit(5, 5, undefined, 1)` → `<doc><p>ABCD</p><p></p></doc>`
+- front/middle/back × undo, undo-redo, undo-redo-undo = 9 tests
 
 **Section B: Single-client chained ops (table-driven)**
 
-```typescript
-type SplitChainOp = 'split' | 'insert-text' | 'delete-text';
-for (const op1 of splitChainOps) {
-  for (const op2 of splitChainOps) {
-    it(`should undo chain: ${op1} → ${op2}`, ...);
-  }
-}
-```
-
-Snapshot-based verification: record XML after each op, undo in reverse
-order checking each snapshot, redo forward checking each snapshot.
+- split, insert-text, delete-text combinations = 9 tests
+- Snapshot-based verification
 
 **Section C: Multi-client convergence (table-driven)**
 
-```typescript
-for (const remoteOp of ['insert-text', 'delete-text', 'insert-element']) {
-  for (const remotePos of ['before-split', 'after-split', 'different-element']) {
-    it(`should converge: split + remote ${remoteOp} at ${remotePos}`, ...);
-  }
-}
-```
-
-Uses `withTwoClientsAndDocuments`. d1 splits, d2 does remote op,
-sync, d1 undoes, sync again, assert convergence.
+- remote op × remote position = 9 tests
+- Uses `withTwoClientsAndDocuments`
 
 **Section D: Edge cases (explicit)**
 
 - Empty paragraph undo (front/back split)
 - Concurrent parent deletion → undo is no-op
 
+#### L2 Test Sections (done — single-client)
+
+**Section E: Single-client split L2 undo/redo (table-driven)**
+
+Initial tree: `<doc><div><p>ABCD</p></div></doc>` (2 nesting levels
+above text). Split with `splitLevel=2` creates 4 boundary tokens.
+
+Tree index layout:
+
+```
+<doc>  <div>  <p>  A  B  C  D  </p>  </div>  </doc>
+  0      1     2   3  4  5  6    7      8
+```
+
+- front: `edit(2, 2, undefined, 2)` — split at `<p>` open
+- middle: `edit(4, 4, undefined, 2)` — split between B and C
+- back: `edit(6, 6, undefined, 2)` — split at `</p>` close
+
+Each position × {undo, undo-redo, undo-redo-undo} = 9 tests.
+
+**Section F: Single-client L2 chained ops (table-driven)**
+
+Same snapshot-based pattern as Section B, but using `splitLevel=2`
+splits. The `applyChainOp` uses `editByPath` for position safety
+after structural changes. 8 tests pass, 1 skipped (`split-l2 →
+split-l2` chain — consecutive L2 splits produce tombstone structure
+that breaks boundary-deletion reverse op).
+
+**Section G: Multi-client L2 convergence (table-driven, done)**
+
+Same pattern as Section C but with the L2 initial tree
+`<doc><div><p>ABCD</p></div><div><p>EFGH</p></div></doc>`. d1 splits
+at middle (index 4) with `splitLevel=2`. Remote ops use L2 indices.
+
+- Undo convergence: 9 tests (3 remote ops × 3 positions)
+- Redo convergence: 9 tests (same matrix, undo → sync → redo → sync)
+
+**Section H: Multi-client L2 edge cases (done)**
+
+- Front L2 split undo with concurrent remote insert (1 test)
+- Back L2 split undo with concurrent remote insert (1 test)
+
 ## Tasks
 
-Implementation plan to be created separately.
+Implementation plan: `docs/tasks/active/20260425-tree-split-l2-undo-redo-todo.md`

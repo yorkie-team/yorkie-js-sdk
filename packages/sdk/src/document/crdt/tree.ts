@@ -657,9 +657,13 @@ export class CRDTTreeNode
           // InsNext sibling is in a different parent (due to a prior
           // parent-level split), move the new empty split sibling to
           // that parent. VV-independent for clone/root consistency.
+          // Skip when insNext has been tombstoned (e.g. by an undo
+          // boundary deletion): re-parenting into a removed element
+          // would make the new split sibling invisible.
           if (
             !this.isText &&
             insNext.parent &&
+            !insNext.isRemoved &&
             insNext.parent !== split.parent &&
             split.allChildren.length === 0
           ) {
