@@ -1453,6 +1453,58 @@ describe('Tree History - split L1 edge cases', () => {
     }, 'new edit');
     assert.equal(doc.history.canRedo(), false);
   });
+
+  it('should handle undo after concurrent parent deletion (L1)', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Tree };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'ABCD' }],
+            },
+            {
+              type: 'p',
+              children: [{ type: 'text', value: 'EFGH' }],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1: split first <p> at middle
+      d1.update((root) => {
+        root.t.edit(3, 3, undefined, 1);
+      }, 'split');
+
+      // d2: delete the first <p> entirely
+      d2.update((root) => {
+        root.t.edit(0, 6);
+      }, 'delete parent');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // d1: undo the split — parent is deleted, should be no-op
+      d1.history.undo();
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        d2.getRoot().t.toXML(),
+        'divergence after undo with concurrent parent deletion (L1)',
+      );
+    }, task.name);
+  });
 });
 
 // 4f. Single Client - Split Undo/Redo (splitLevel=2, table-driven)
@@ -1610,7 +1662,7 @@ describe('Tree History - single client split L2 chained ops', () => {
 
   for (const op1 of chainOps) {
     for (const op2 of chainOps) {
-      // TODO(Phase 2): split-l2 → split-l2 undo chain has a known undo bug:
+      // TODO(#1235): split-l2 → split-l2 undo chain has a known undo bug:
       // the boundary-deletion reverse op doesn't correctly restore the state
       // when two consecutive L2 splits produce tombstoned structure.
       const skipCase = op1 === 'split-l2' && op2 === 'split-l2';
@@ -1997,6 +2049,69 @@ describe('Tree History - multi client split L2 edge cases', () => {
         d1.getRoot().t.toXML(),
         d2.getRoot().t.toXML(),
         'divergence: undo back L2 split with remote insert',
+      );
+    }, task.name);
+  });
+
+  it('should handle undo after concurrent parent deletion (L2)', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Tree };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'ABCD' }],
+                },
+              ],
+            },
+            {
+              type: 'div',
+              children: [
+                {
+                  type: 'p',
+                  children: [{ type: 'text', value: 'EFGH' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1: split first <div><p> at middle with splitLevel=2
+      d1.update((root) => {
+        root.t.edit(4, 4, undefined, 2);
+      }, 'split');
+
+      // d2: delete the first <div> entirely
+      // <div><p>ABCD</p></div> spans index 0-8
+      d2.update((root) => {
+        root.t.edit(0, 8);
+      }, 'delete parent');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // d1: undo the split — parent is deleted, should be no-op
+      d1.history.undo();
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        d2.getRoot().t.toXML(),
+        'divergence after undo with concurrent parent deletion (L2)',
       );
     }, task.name);
   });
