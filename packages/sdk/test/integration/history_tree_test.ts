@@ -1821,6 +1821,76 @@ describe('Tree History - multi client split L2 convergence', () => {
       });
     }
   }
+
+  for (const remoteOp of remoteOps) {
+    for (const remotePos of remotePositions) {
+      it(`should converge after redo: split L2 + remote ${remoteOp} at ${remotePos}`, async ({
+        task,
+      }) => {
+        type TestDoc = { t: Tree };
+        await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+          d1.update((root) => {
+            root.t = new Tree({
+              type: 'doc',
+              children: [
+                {
+                  type: 'div',
+                  children: [
+                    {
+                      type: 'p',
+                      children: [{ type: 'text', value: 'ABCD' }],
+                    },
+                  ],
+                },
+                {
+                  type: 'div',
+                  children: [
+                    {
+                      type: 'p',
+                      children: [{ type: 'text', value: 'EFGH' }],
+                    },
+                  ],
+                },
+              ],
+            });
+          }, 'init');
+          await c1.sync();
+          await c2.sync();
+
+          // d1: split first <div><p> at middle (between B and C)
+          d1.update((root) => {
+            root.t.edit(4, 4, undefined, 2);
+          }, 'split');
+
+          // d2: remote operation
+          applyRemoteOp(d2, remoteOp, remotePos);
+
+          // Sync both directions
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // d1: undo then redo
+          d1.history.undo();
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          d1.history.redo();
+          await c1.sync();
+          await c2.sync();
+          await c1.sync();
+
+          // Assert convergence after redo
+          assert.equal(
+            d1.getRoot().t.toXML(),
+            d2.getRoot().t.toXML(),
+            `redo divergence: split L2 + ${remoteOp} at ${remotePos}`,
+          );
+        }, task.name);
+      });
+    }
+  }
 });
 
 // 4i. Multi Client - Split L2 edge cases
