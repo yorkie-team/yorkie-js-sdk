@@ -1488,7 +1488,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     DataSize,
     Array<CRDTTreeNode>,
     number,
-    Map<string, CRDTTreeNode>,
+    number,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -1645,13 +1645,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       editedAt,
     );
 
-    // 01-2. Deep-copy merged nodes BEFORE children are moved (step 03).
-    // After step 03 detaches children, the originals become empty shells.
-    // The undo system needs the full copies to restore element boundaries.
-    const mergedNodeCopies = new Map<string, CRDTTreeNode>();
-    for (const node of toBeMergedNodes) {
-      mergedNodeCopies.set(node.id.toIDString(), node.deepcopy());
-    }
+    // 01-2. Count merged nodes before children are moved (step 03).
+    // The undo system uses this count to generate a split reverse op
+    // instead of re-inserting empty shells.
+    const mergeLevel = toBeMergedNodes.length;
 
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
@@ -1829,7 +1826,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs, diff, nodesToBeRemoved, fromIdx, mergedNodeCopies];
+    return [changes, pairs, diff, nodesToBeRemoved, fromIdx, mergeLevel];
   }
 
   /**
@@ -1848,7 +1845,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     DataSize,
     Array<CRDTTreeNode>,
     number,
-    Map<string, CRDTTreeNode>,
+    number,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
