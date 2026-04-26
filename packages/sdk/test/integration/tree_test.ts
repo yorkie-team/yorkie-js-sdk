@@ -513,7 +513,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content by split', function ({ task }) {
+  it('Can split content using editByPath with splitLevel', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -552,25 +552,25 @@ describe('Tree', () => {
         /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 0, 0, 2]);
+      root.t.editByPath([0, 0, 0, 2], [0, 0, 0, 2], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 0, 1]);
+      root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 2, 0, 4]);
+      root.t.editByPath([0, 2, 0, 4], [0, 2, 0, 4], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn><tn></tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 2, 1]);
+      root.t.editByPath([0, 2, 1], [0, 2, 1], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p><p><tn></tn></p></tc></doc>`,
@@ -578,7 +578,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content by merge', function ({ task }) {
+  it('Can merge content using editByPath', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -617,13 +617,13 @@ describe('Tree', () => {
         /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.mergeByPath([0, 1]);
+      root.t.editByPath([0, 0, 1], [0, 1, 0]);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>1234</tn><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.mergeByPath([0, 0, 1]);
+      root.t.editByPath([0, 0, 0, 4], [0, 0, 1, 0]);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12345678</tn></p></tc></doc>`,
@@ -734,7 +734,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can sync its split with other clients', async function ({ task }) {
+  it('Can sync editByPath split with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -778,7 +778,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.splitByPath([0, 0, 0, 2]);
+        root.t.editByPath([0, 0, 0, 2], [0, 0, 0, 2], undefined, 1);
       });
 
       await c1.sync();
@@ -794,7 +794,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.splitByPath([0, 0, 1]);
+        root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1);
       });
 
       await c1.sync();
@@ -811,7 +811,7 @@ describe('Tree', () => {
     }, task.name);
   });
 
-  it('Can sync its merge with other clients', async function ({ task }) {
+  it('Can sync editByPath merge with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -855,7 +855,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.mergeByPath([0, 1]);
+        root.t.editByPath([0, 0, 1], [0, 1, 0]);
       });
 
       await c1.sync();
@@ -871,7 +871,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.mergeByPath([0, 0, 1]);
+        root.t.editByPath([0, 0, 0, 4], [0, 0, 1, 0]);
       });
 
       await c1.sync();
