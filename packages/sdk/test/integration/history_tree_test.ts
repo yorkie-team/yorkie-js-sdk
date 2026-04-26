@@ -363,7 +363,7 @@ describe('Tree History - single client edge cases', () => {
 
 // 4. Single Client - Split/Merge
 describe('Tree History - single client split/merge', () => {
-  it('should undo splitByPath', () => {
+  it('should undo editByPath split', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
@@ -381,7 +381,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(before, '<doc><p>ABCD</p></doc>');
 
     doc.update((root) => {
-      root.t.splitByPath([0, 2]);
+      root.t.editByPath([0, 2], [0, 2], undefined, 1);
     }, 'split');
     const after = xmlOf(doc);
     assert.equal(after, '<doc><p>AB</p><p>CD</p></doc>');
@@ -390,7 +390,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(xmlOf(doc), before);
   });
 
-  it('should redo splitByPath', () => {
+  it('should redo editByPath split', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
@@ -406,7 +406,7 @@ describe('Tree History - single client split/merge', () => {
 
     const before = xmlOf(doc);
     doc.update((root) => {
-      root.t.splitByPath([0, 2]);
+      root.t.editByPath([0, 2], [0, 2], undefined, 1);
     }, 'split');
     const after = xmlOf(doc);
 
@@ -417,20 +417,14 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(xmlOf(doc), after);
   });
 
-  it('should undo mergeByPath', () => {
+  it('should undo editByPath merge', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
         type: 'doc',
         children: [
-          {
-            type: 'p',
-            children: [{ type: 'text', value: 'AB' }],
-          },
-          {
-            type: 'p',
-            children: [{ type: 'text', value: 'CD' }],
-          },
+          { type: 'p', children: [{ type: 'text', value: 'AB' }] },
+          { type: 'p', children: [{ type: 'text', value: 'CD' }] },
         ],
       });
     }, 'init');
@@ -439,7 +433,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(before, '<doc><p>AB</p><p>CD</p></doc>');
 
     doc.update((root) => {
-      root.t.mergeByPath([1]);
+      root.t.editByPath([0, 2], [1, 0]);
     }, 'merge');
     const after = xmlOf(doc);
     assert.equal(after, '<doc><p>ABCD</p></doc>');
@@ -448,7 +442,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(xmlOf(doc), before);
   });
 
-  it('should redo mergeByPath', () => {
+  it('should redo editByPath merge', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
@@ -468,7 +462,7 @@ describe('Tree History - single client split/merge', () => {
 
     const before = xmlOf(doc);
     doc.update((root) => {
-      root.t.mergeByPath([1]);
+      root.t.editByPath([0, 2], [1, 0]);
     }, 'merge');
     const after = xmlOf(doc);
 

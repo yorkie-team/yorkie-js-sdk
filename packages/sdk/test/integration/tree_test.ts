@@ -513,7 +513,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content by split', function ({ task }) {
+  it('Can split content using editByPath with splitLevel', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -552,25 +552,25 @@ describe('Tree', () => {
         /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 0, 0, 2]);
+      root.t.editByPath([0, 0, 0, 2], [0, 0, 0, 2], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 0, 1]);
+      root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 2, 0, 4]);
+      root.t.editByPath([0, 2, 0, 4], [0, 2, 0, 4], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn><tn></tn></p></tc></doc>`,
       );
 
-      root.t.splitByPath([0, 2, 1]);
+      root.t.editByPath([0, 2, 1], [0, 2, 1], undefined, 1);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12</tn></p><p><tn>34</tn></p><p><tn>5678</tn></p><p><tn></tn></p></tc></doc>`,
@@ -578,7 +578,7 @@ describe('Tree', () => {
     });
   });
 
-  it('Can edit its content by merge', function ({ task }) {
+  it('Can merge content using editByPath', function ({ task }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new yorkie.Document<{ t: Tree }>(key);
 
@@ -617,13 +617,13 @@ describe('Tree', () => {
         /*html*/ `<doc><tc><p><tn>1234</tn></p><p><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.mergeByPath([0, 1]);
+      root.t.editByPath([0, 0, 1], [0, 1, 0]);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>1234</tn><tn>5678</tn></p></tc></doc>`,
       );
 
-      root.t.mergeByPath([0, 0, 1]);
+      root.t.editByPath([0, 0, 0, 4], [0, 0, 1, 0]);
       assert.equal(
         root.t.toXML(),
         /*html*/ `<doc><tc><p><tn>12345678</tn></p></tc></doc>`,
@@ -631,7 +631,110 @@ describe('Tree', () => {
     });
   });
 
-  it('Can sync its split with other clients', async function ({ task }) {
+  it('Can merge blocks using editByPath (wafflebase pattern)', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    // Reproduce the wafflebase docs tree structure:
+    // <doc><block><inline>as</inline></block><block><inline>df</inline></block></doc>
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'block',
+            children: [
+              {
+                type: 'inline',
+                children: [{ type: 'text', value: 'as' }],
+              },
+            ],
+          },
+          {
+            type: 'block',
+            children: [
+              {
+                type: 'inline',
+                children: [{ type: 'text', value: 'df' }],
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline></block><block><inline>df</inline></block></doc>`,
+      );
+
+      // Wafflebase mergeBlock call: editByPath([blockPath, inlineCount], [nextPath, 0])
+      // This deletes the boundary between two blocks to merge them.
+      root.t.editByPath([0, 1], [1, 0]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline><inline>df</inline></block></doc>`,
+      );
+    });
+  });
+
+  it('Can split then merge blocks using editByPath (wafflebase backspace bug)', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    // Reproduce wafflebase docs editor: split a paragraph then merge it
+    // back via backspace. The merge uses editByPath to delete the boundary
+    // between the two blocks created by split (splitLevel=2).
+    //
+    // Root cause: CRDTTree.edit() Phase 3 "Range Narrowing" follows the
+    // insNextID chain from fromLeft (inline[0]) to its split sibling
+    // (inline[1] in block[1]), narrowing the collection range to an empty
+    // range inside block[1]. The traversal finds nothing to delete, so the
+    // merge is a no-op.
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'block',
+            children: [
+              {
+                type: 'inline',
+                children: [{ type: 'text', value: 'asdf' }],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>asdf</inline></block></doc>`,
+      );
+    });
+
+    // Split at offset 2 with splitLevel=2 (Enter key after "as")
+    doc.update((root) => {
+      root.t.editByPath([0, 0, 2], [0, 0, 2], undefined, 2);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline></block><block><inline>df</inline></block></doc>`,
+      );
+    });
+
+    // Merge via backspace at start of second block
+    doc.update((root) => {
+      root.t.editByPath([0, 1], [1, 0]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline><inline>df</inline></block></doc>`,
+      );
+    });
+  });
+
+  it('Can sync editByPath split with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -675,7 +778,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.splitByPath([0, 0, 0, 2]);
+        root.t.editByPath([0, 0, 0, 2], [0, 0, 0, 2], undefined, 1);
       });
 
       await c1.sync();
@@ -691,7 +794,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.splitByPath([0, 0, 1]);
+        root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1);
       });
 
       await c1.sync();
@@ -708,7 +811,7 @@ describe('Tree', () => {
     }, task.name);
   });
 
-  it('Can sync its merge with other clients', async function ({ task }) {
+  it('Can sync editByPath merge with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
         root.t = new Tree({
@@ -752,7 +855,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.mergeByPath([0, 1]);
+        root.t.editByPath([0, 0, 1], [0, 1, 0]);
       });
 
       await c1.sync();
@@ -768,7 +871,7 @@ describe('Tree', () => {
       );
 
       d1.update((root) => {
-        root.t.mergeByPath([0, 0, 1]);
+        root.t.editByPath([0, 0, 0, 4], [0, 0, 1, 0]);
       });
 
       await c1.sync();

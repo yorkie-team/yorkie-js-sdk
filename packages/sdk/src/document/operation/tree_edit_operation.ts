@@ -152,33 +152,34 @@ export class TreeEditOperation extends Operation {
       }
     }
 
-    const [changes, pairs, diff, removedNodes, preEditFromIdx] = tree.edit(
-      [this.fromPos, this.toPos],
-      this.contents?.map((content) => content.deepcopy()),
-      this.splitLevel,
-      editedAt,
-      /**
-       * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
-       * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
-       * incremented by one for each.
-       * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
-       * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
-       */
-      (() => {
-        let delimiter = editedAt.getDelimiter();
-        if (this.contents !== undefined) {
-          delimiter += this.contents.length;
-        }
-        const issueTimeTicket = () =>
-          TimeTicket.of(
-            editedAt.getLamport(),
-            ++delimiter,
-            editedAt.getActorID(),
-          );
-        return issueTimeTicket;
-      })(),
-      versionVector,
-    );
+    const [changes, pairs, diff, removedNodes, preEditFromIdx, mergeLevel] =
+      tree.edit(
+        [this.fromPos, this.toPos],
+        this.contents?.map((content) => content.deepcopy()),
+        this.splitLevel,
+        editedAt,
+        /**
+         * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
+         * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
+         * incremented by one for each.
+         * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
+         * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
+         */
+        (() => {
+          let delimiter = editedAt.getDelimiter();
+          if (this.contents !== undefined) {
+            delimiter += this.contents.length;
+          }
+          const issueTimeTicket = () =>
+            TimeTicket.of(
+              editedAt.getLamport(),
+              ++delimiter,
+              editedAt.getActorID(),
+            );
+          return issueTimeTicket;
+        })(),
+        versionVector,
+      );
 
     // Store pre-edit from index (computed inside edit() after text-node splits
     // but before deletions). Derive toIdx from removed nodes' visible sizes.
@@ -197,7 +198,12 @@ export class TreeEditOperation extends Operation {
       !this.contents?.length &&
       removedNodes.length === 0;
     if (this.splitLevel === 0) {
-      reverseOp = this.toReverseOperation(tree, removedNodes, preEditFromIdx);
+      reverseOp = this.toReverseOperation(
+        tree,
+        removedNodes,
+        preEditFromIdx,
+        mergeLevel,
+      );
     } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
     }
@@ -243,6 +249,7 @@ export class TreeEditOperation extends Operation {
     tree: CRDTTree,
     removedNodes: Array<CRDTTreeNode>,
     preEditFromIdx: number,
+    mergeLevel?: number,
   ): Operation | undefined {
     // Special case: this op is a boundary-deletion that was the undo of a
     // split. Its redo should re-split, not re-insert the tombstoned boundary
@@ -263,6 +270,25 @@ export class TreeEditOperation extends Operation {
         preEditFromIdx,
       );
       return splitRedoOp;
+    }
+
+    // Cross-boundary merge: the reverse is a split, not content re-insertion.
+    // A merge deletes element boundaries (e.g., </p><p>), moving children
+    // into the target. The undo re-creates those boundaries via split.
+    if (mergeLevel && mergeLevel > 0) {
+      const splitFromPos = tree.findPos(preEditFromIdx);
+      const splitUndoOp = TreeEditOperation.create(
+        this.getParentCreatedAt(),
+        splitFromPos,
+        splitFromPos,
+        undefined, // no inserted content — split creates boundaries
+        mergeLevel, // splitLevel = number of merged boundaries
+        undefined!, // executedAt assigned at undo time
+        true, // isUndoOp
+        preEditFromIdx,
+        preEditFromIdx,
+      );
+      return splitUndoOp;
     }
 
     // Compute inserted content size (total tree index tokens)
