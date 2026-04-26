@@ -1528,8 +1528,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
           break;
         }
         if (next.parent && next.parent === toParent) {
-          collectFromLeft = next;
-          collectFromParent = toParent;
+          // Skip narrowing when toLeft === toParent (leftmost child
+          // position, offset 0). The narrowed collectFromLeft would be
+          // a child at offset >= 1, producing a backwards range that
+          // suppresses the intended merge.
+          if (toLeft !== toParent) {
+            collectFromLeft = next;
+            collectFromParent = toParent;
+          }
           break;
         }
         current = next;
