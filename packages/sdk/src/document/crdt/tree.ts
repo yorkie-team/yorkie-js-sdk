@@ -1482,7 +1482,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     editedAt: TimeTicket,
     issueTimeTicket: (() => TimeTicket) | undefined,
     versionVector?: VersionVector,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize, Array<CRDTTreeNode>, number] {
+  ): [
+    Array<TreeChange>,
+    Array<GCPair>,
+    DataSize,
+    Array<CRDTTreeNode>,
+    number,
+    Map<string, CRDTTreeNode>,
+  ] {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
@@ -1637,6 +1644,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       tokensToBeRemoved,
       editedAt,
     );
+
+    // 01-2. Deep-copy merged nodes BEFORE children are moved (step 03).
+    // After step 03 detaches children, the originals become empty shells.
+    // The undo system needs the full copies to restore element boundaries.
+    const mergedNodeCopies = new Map<string, CRDTTreeNode>();
+    for (const node of toBeMergedNodes) {
+      mergedNodeCopies.set(node.id.toIDString(), node.deepcopy());
+    }
 
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
@@ -1814,7 +1829,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs, diff, nodesToBeRemoved, fromIdx];
+    return [changes, pairs, diff, nodesToBeRemoved, fromIdx, mergedNodeCopies];
   }
 
   /**
@@ -1827,7 +1842,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     splitLevel: number,
     editedAt: TimeTicket,
     issueTimeTicket: () => TimeTicket,
-  ): [Array<TreeChange>, Array<GCPair>, DataSize, Array<CRDTTreeNode>, number] {
+  ): [
+    Array<TreeChange>,
+    Array<GCPair>,
+    DataSize,
+    Array<CRDTTreeNode>,
+    number,
+    Map<string, CRDTTreeNode>,
+  ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
     return this.edit(

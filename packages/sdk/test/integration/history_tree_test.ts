@@ -417,7 +417,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(xmlOf(doc), after);
   });
 
-  it('should undo mergeByPath', () => {
+  it('should undo editByPath merge', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
@@ -433,7 +433,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(before, '<doc><p>AB</p><p>CD</p></doc>');
 
     doc.update((root) => {
-      root.t.mergeByPath([1]);
+      root.t.editByPath([0, 2], [1, 0]);
     }, 'merge');
     const after = xmlOf(doc);
     assert.equal(after, '<doc><p>ABCD</p></doc>');
@@ -442,7 +442,7 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(xmlOf(doc), before);
   });
 
-  it('should redo mergeByPath', () => {
+  it('should redo editByPath merge', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
@@ -462,7 +462,7 @@ describe('Tree History - single client split/merge', () => {
 
     const before = xmlOf(doc);
     doc.update((root) => {
-      root.t.mergeByPath([1]);
+      root.t.editByPath([0, 2], [1, 0]);
     }, 'merge');
     const after = xmlOf(doc);
 
