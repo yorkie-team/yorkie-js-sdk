@@ -631,6 +631,109 @@ describe('Tree', () => {
     });
   });
 
+  it('Can merge blocks using editByPath (wafflebase pattern)', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    // Reproduce the wafflebase docs tree structure:
+    // <doc><block><inline>as</inline></block><block><inline>df</inline></block></doc>
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'block',
+            children: [
+              {
+                type: 'inline',
+                children: [{ type: 'text', value: 'as' }],
+              },
+            ],
+          },
+          {
+            type: 'block',
+            children: [
+              {
+                type: 'inline',
+                children: [{ type: 'text', value: 'df' }],
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline></block><block><inline>df</inline></block></doc>`,
+      );
+
+      // Wafflebase mergeBlock call: editByPath([blockPath, inlineCount], [nextPath, 0])
+      // This deletes the boundary between two blocks to merge them.
+      root.t.editByPath([0, 1], [1, 0]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline><inline>df</inline></block></doc>`,
+      );
+    });
+  });
+
+  it('Can split then merge blocks using editByPath (wafflebase backspace bug)', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    // Reproduce wafflebase docs editor: split a paragraph then merge it
+    // back via backspace. The merge uses editByPath to delete the boundary
+    // between the two blocks created by split (splitLevel=2).
+    //
+    // Root cause: CRDTTree.edit() Phase 3 "Range Narrowing" follows the
+    // insNextID chain from fromLeft (inline[0]) to its split sibling
+    // (inline[1] in block[1]), narrowing the collection range to an empty
+    // range inside block[1]. The traversal finds nothing to delete, so the
+    // merge is a no-op.
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'block',
+            children: [
+              {
+                type: 'inline',
+                children: [{ type: 'text', value: 'asdf' }],
+              },
+            ],
+          },
+        ],
+      });
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>asdf</inline></block></doc>`,
+      );
+    });
+
+    // Split at offset 2 with splitLevel=2 (Enter key after "as")
+    doc.update((root) => {
+      root.t.editByPath([0, 0, 2], [0, 0, 2], undefined, 2);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline></block><block><inline>df</inline></block></doc>`,
+      );
+    });
+
+    // Merge via backspace at start of second block
+    doc.update((root) => {
+      root.t.editByPath([0, 1], [1, 0]);
+      assert.equal(
+        root.t.toXML(),
+        /*html*/ `<doc><block><inline>as</inline><inline>df</inline></block></doc>`,
+      );
+    });
+  });
+
   it('Can sync its split with other clients', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {
