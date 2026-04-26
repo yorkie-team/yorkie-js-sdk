@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.7] - 2026-04-26
+
+### Added
+
+- Support splitLevel>=2 undo/redo with multi-client convergence by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1234
+- Add DedupCounter parse support in YSON by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1232
+
+### Fixed
+
+- Port splitLevel>=2 convergence fixes from Go server by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1233
+
 ## [v0.7.6] - 2026-04-23
 
 ### Added
