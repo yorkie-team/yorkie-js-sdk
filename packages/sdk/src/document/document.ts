@@ -1973,10 +1973,7 @@ export class Document<
       : this.internalHistory.popRedo();
 
     if (!ops) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        `There is no operation to be ${isUndo ? 'undone' : 'redone'}`,
-      );
+      return;
     }
 
     this.ensureClone();

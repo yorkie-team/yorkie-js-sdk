@@ -943,21 +943,9 @@ describe('Document', function () {
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
       const doc = new yorkie.Document<TestDoc>(docKey);
 
-      assert.throws(
-        () => {
-          doc.history.undo();
-        },
-        Error,
-        'There is no operation to be undone',
-      );
-
-      assert.throws(
-        () => {
-          doc.history.redo();
-        },
-        Error,
-        'There is no operation to be redone',
-      );
+      // Calling undo/redo with empty stacks should be a no-op
+      doc.history.undo();
+      doc.history.redo();
     });
 
     it('update() that contains undo/redo must throw error', async function ({
@@ -1015,32 +1003,12 @@ describe('Document', function () {
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
 
       for (let i = 0; i < 100; i++) {
-        if (i < 50) {
-          doc.history.undo();
-        } else {
-          assert.throws(
-            () => {
-              doc.history.undo();
-            },
-            Error,
-            'There is no operation to be undone',
-          );
-        }
+        doc.history.undo();
       }
       assert.equal(doc.toSortedJSON(), '{"counter":50}');
 
       for (let i = 0; i < 100; i++) {
-        if (i < 50) {
-          doc.history.redo();
-        } else {
-          assert.throws(
-            () => {
-              doc.history.redo();
-            },
-            Error,
-            'There is no operation to be redone',
-          );
-        }
+        doc.history.redo();
       }
       assert.equal(doc.toSortedJSON(), '{"counter":100}');
     });
