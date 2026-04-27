@@ -1395,7 +1395,12 @@ export class Document<
     ]);
   }
 
-  private clearHistory() {
+  /**
+   * `clearHistory` flushes both undo and redo stacks. This is used
+   * after applying a snapshot or initialRoot so that setup operations
+   * are not reachable via undo.
+   */
+  public clearHistory() {
     this.internalHistory.clearRedo();
     this.internalHistory.clearUndo();
   }
@@ -1968,10 +1973,7 @@ export class Document<
       : this.internalHistory.popRedo();
 
     if (!ops) {
-      throw new YorkieError(
-        Code.ErrRefused,
-        `There is no operation to be ${isUndo ? 'undone' : 'redone'}`,
-      );
+      return;
     }
 
     this.ensureClone();

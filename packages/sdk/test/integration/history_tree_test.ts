@@ -1,6 +1,10 @@
 import { describe, it, assert } from 'vitest';
-import { Document, Tree } from '@yorkie-js/sdk/src/yorkie';
-import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
+import yorkie, { Document, Tree } from '@yorkie-js/sdk/src/yorkie';
+import {
+  testRPCAddr,
+  toDocKey,
+  withTwoClientsAndDocuments,
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 
 /**
  * Test State Space:
@@ -2545,4 +2549,79 @@ describe('Tree History - multi client style vs edit/split convergence', () => {
       });
     }
   }
+});
+
+// Verify: attach clears undo stack so initialRoot cannot be undone.
+//
+// Previously, creating a tree via client.attach({ initialRoot }) left the
+// creation on the undo stack. Typing characters and undoing more times
+// than characters typed could revert the tree creation, destroying the doc.
+describe('Tree History - undo past initial tree via initialRoot', () => {
+  it('should not allow undoing past initialRoot after attach', async function ({
+    task,
+  }) {
+    type DocType = { content: Tree };
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<DocType>(docKey);
+
+    // Attach with initialRoot containing a Tree (like wafflebase ensureTree)
+    await c1.attach(doc, {
+      initialRoot: {
+        content: new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'block',
+              attributes: { id: 'block-1' },
+              children: [{ type: 'inline', children: [] }],
+            },
+          ],
+        }),
+      },
+    });
+
+    const initialXml = doc.getRoot().content.toXML();
+
+    // After attach, the undo stack should be empty — initialRoot is
+    // not an undoable user action.
+    assert.equal(
+      doc.getUndoStackForTest().length,
+      0,
+      'undo stack should be empty after attach',
+    );
+    assert.equal(doc.history.canUndo(), false);
+
+    // Insert 4 characters one by one (like typing "asdf")
+    for (const ch of ['a', 's', 'd', 'f']) {
+      doc.update((root) => {
+        root.content.editByPath([0, 0, 0], [0, 0, 0], {
+          type: 'text',
+          value: ch,
+        });
+      }, `type '${ch}'`);
+    }
+
+    // Undo 4 times — should revert each character
+    for (let i = 0; i < 4; i++) {
+      assert.equal(doc.history.canUndo(), true);
+      doc.history.undo();
+    }
+    assert.equal(doc.getRoot().content.toXML(), initialXml);
+
+    // 5th undo — should be blocked, tree stays intact
+    assert.equal(
+      doc.history.canUndo(),
+      false,
+      'should not be able to undo past initialRoot',
+    );
+    assert.equal(
+      doc.getRoot().content.toXML(),
+      initialXml,
+      'tree should remain intact',
+    );
+
+    await c1.deactivate();
+  });
 });
