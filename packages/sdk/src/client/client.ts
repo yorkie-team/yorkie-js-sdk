@@ -590,6 +590,10 @@ export class Client {
           });
         }
 
+        // Clear undo/redo stacks so that initialRoot setup operations
+        // are not reachable via undo.
+        doc.clearHistory();
+
         return doc;
       } catch (err) {
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
