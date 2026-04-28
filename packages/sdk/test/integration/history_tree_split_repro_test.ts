@@ -37,8 +37,8 @@ function summarizeOp(op: Operation | undefined): string {
   return `[${parts.length}] ${parts.join(' | ')}`;
 }
 
-function topRedoTreeEdit<P extends { [k: string]: unknown }>(
-  doc: Document<{ t: Tree }, P>,
+function topRedoTreeEdit(
+  doc: Document<{ t: Tree }>,
 ): TreeEditOperation | undefined {
   const stack = doc.getRedoStackForTest() as Array<Array<unknown>>;
   if (stack.length === 0) return undefined;

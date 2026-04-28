@@ -1855,6 +1855,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<CRDTTreeNode>,
     number,
     number,
+    Set<string>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
