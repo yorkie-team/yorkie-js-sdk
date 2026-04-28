@@ -33,19 +33,6 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
 
 /**
- * `cloneJustRemoved` deep-copies `node` while restricting descendants
- * to those that were tombstoned by `byTicket` or are still live.
- * Descendants tombstoned by earlier operations are dropped from the
- * clone, so the resulting reverseOp's `contents` carries only the
- * subtree this edit actually removed. Without this filter, redo
- * would serialize and revive the user's previously-deleted
- * descendants, leading to content accumulation across undo/redo
- * cycles.
- *
- * Matching nodes also have their `removedAt` cleared so the redo
- * re-inserts them as live.
- */
-/**
  * `cloneAndDropPreTombstoned` deep-copies `node` and drops descendants
  * whose ID is in `preTombstoned` — i.e., descendants that were already
  * tombstoned before this edit ran. Those descendants represent the
