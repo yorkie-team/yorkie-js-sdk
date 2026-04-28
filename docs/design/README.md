@@ -7,7 +7,6 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 - [ProseMirror Native Split/Merge](prosemirror-native-split-merge.md): Use Tree.Edit splitLevel and boundary deletion for splits and merges instead of block replacement
-- [Tree Split Undo/Redo](tree-split-undo-redo.md): Undo/redo support for Tree.Edit splitLevel=1 via boundary deletion reverse ops
 
 ## Guidelines
 

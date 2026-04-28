@@ -1489,6 +1489,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<CRDTTreeNode>,
     number,
     number,
+    Set<string>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -1826,7 +1827,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
-    return [changes, pairs, diff, nodesToBeRemoved, fromIdx, mergeLevel];
+    return [
+      changes,
+      pairs,
+      diff,
+      nodesToBeRemoved,
+      fromIdx,
+      mergeLevel,
+      preTombstoned,
+    ];
   }
 
   /**

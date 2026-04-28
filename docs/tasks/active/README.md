@@ -1,7 +1,7 @@
 ---
-updated: 2026-04-22
+updated: 2026-04-28
 ---
 
 # Active Tasks
 
-(none)
+- [[20260425-tree-split-level2-undo-redo-todo]] — Tree Split Level>=2 Undo/Redo Implementation Plan
