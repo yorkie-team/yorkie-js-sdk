@@ -39,13 +39,13 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.1",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.4",
     "eslint-plugin-jsdoc": "^61.4.1",
     "eslint-plugin-prettier": "^5.5.4",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
+    "lint-staged": "^16.4.0",
     "only-allow": "^1.2.2",
-    "typescript-eslint": "^8.48.1"
+    "typescript-eslint": "^8.59.1"
   },
   "pnpm": {
     "overrides": {
