@@ -8,7 +8,7 @@ To get started using Yorkie React SDK, see: https://yorkie.dev/docs/getting-star
 
 ## Contributing
 
-See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+See [CONTRIBUTING](../../CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
 ## Contributors ✨
 
