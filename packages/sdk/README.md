@@ -10,7 +10,7 @@ To get started using Yorkie JavaScript SDK, see: https://yorkie.dev/docs/js-sdk
 
 ## Contributing
 
-See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+See [CONTRIBUTING](../../CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
 ## Contributors ✨
 

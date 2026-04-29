@@ -2,7 +2,7 @@
 
 # ProseMirror native split/merge
 
-Design: [prosemirror-native-split-merge.md](../../design/prosemirror-native-split-merge.md)
+Design: [prosemirror-native-split-merge.md](../../../../design/prosemirror-native-split-merge.md)
 
 ## Summary
 

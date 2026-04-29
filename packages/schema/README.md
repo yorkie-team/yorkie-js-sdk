@@ -4,7 +4,7 @@ Yorkie Schema is a library that provides a schema definition and validation for 
 
 ## Contributing
 
-See [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+See [CONTRIBUTING](../../CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
 ## Contributors ✨
 
