@@ -26,7 +26,7 @@ matching descendants from the deep-copied subtree.
 ### Task 1: Reproduce in SDK
 
 **Files:**
-- Add: `packages/sdk/test/integration/history_tree_split_repro_test.ts`
+- Add: `packages/sdk/test/integration/history_tree_split_test.ts`
 
 - [x] **Step 1: Mirror the production scenario.** Insert
       `<doc><p><inline></inline></p></doc>`, add a sibling `<p><inline></inline></p>`,

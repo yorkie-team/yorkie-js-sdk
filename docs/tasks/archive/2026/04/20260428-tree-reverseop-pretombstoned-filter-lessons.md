@@ -8,7 +8,7 @@
 |------|--------|
 | `packages/sdk/src/document/operation/tree_edit_operation.ts` | Replaced `clearRemovedAt` (which `traverseAll`-cleared every descendant) with `cloneAndDropPreTombstoned` that drops descendants matching the `preTombstoned` set before clearing `removedAt` on survivors. Plumbed `preTombstoned: Set<string>` through `toReverseOperation`'s signature. |
 | `packages/sdk/src/document/crdt/tree.ts` | Exposed the existing `preTombstoned` set in `editT`'s return tuple. The set was already populated inside `editT` (with a comment explaining the intent) but never returned — the infrastructure was half-implemented. |
-| `packages/sdk/test/integration/history_tree_split_repro_test.ts` | Single-it regression test that asserts the redoStack-top `contents` size is constant across 4 type-undo-undo-redo cycles. |
+| `packages/sdk/test/integration/history_tree_split_test.ts` | Single-it regression test that asserts the redoStack-top `contents` size is constant across 4 type-undo-undo-redo cycles. |
 
 No changes to `history.ts`, `document.ts`, `reconcileOperation`, or any
 other file. The Go server has no reverseOp generation logic, so no
@@ -88,6 +88,6 @@ over time. The cross-SDK design lives at
 single-client chained (B), multi-client convergence (C), edge cases
 (D), L2 single-client (E), L2 chained (F, 1 skip on consecutive L2
 splits), L2 multi-client (G, 18 tests), L2 multi-client edge cases
-(H). The new `history_tree_split_repro_test.ts` is a single-it
+(H). The new `history_tree_split_test.ts` is a single-it
 regression for descendant filtering, separate from the table-driven
 matrix.
