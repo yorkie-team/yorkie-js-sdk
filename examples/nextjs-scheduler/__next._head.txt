@@ -1,8 +1,6 @@
 1:"$Sreact.fragment"
-2:I[91512,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"ViewportBoundary"]
-4:I[91512,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"MetadataBoundary"]
-5:"$Sreact.suspense"
-7:I[63062,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"IconMark"]
-0:{"buildId":"Fcsejq22yzRlRxSymNi9a","rsc":["$","$1","h",{"children":[null,["$","$L2",null,{"children":"$@3"}],["$","div",null,{"hidden":true,"children":["$","$L4",null,{"children":["$","$5",null,{"name":"Next.Metadata","children":"$@6"}]}]}],null]}],"loading":null,"isPartial":false}
-3:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
-6:[["$","title","0",{"children":"Next.js react-calendar example"}],["$","meta","1",{"name":"description","content":"example of yorkie-js-sdk with next.js & react-calendar"}],["$","link","2",{"rel":"icon","href":"./favicon.ico"}],["$","$L7","3",{}]]
+2:I[93351,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js"],"ViewportBoundary"]
+3:I[93351,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js"],"MetadataBoundary"]
+4:"$Sreact.suspense"
+5:I[1342,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js"],"IconMark"]
+0:{"rsc":["$","$1","h",{"children":[null,["$","$L2",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L3",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Next.js react-calendar example"}],["$","meta","1",{"name":"description","content":"example of yorkie-js-sdk with next.js & react-calendar"}],["$","link","2",{"rel":"icon","href":"./favicon.ico"}],["$","$L5","3",{}]]}]}]}],null]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"f7mmZFH5k_vL_Qa_idvFa"}

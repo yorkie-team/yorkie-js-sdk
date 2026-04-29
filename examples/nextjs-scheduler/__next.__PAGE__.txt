@@ -1,10 +1,10 @@
 1:"$Sreact.fragment"
-2:I[26741,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"ClientPageRoot"]
-3:I[18959,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/d9acbc1cd9bfb1b3.js","/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/e605c146e273482d.js"],"default"]
-6:I[91512,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/2db99115d08a2000.js"],"OutletBoundary"]
+2:I[37746,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js"],"ClientPageRoot"]
+3:I[18959,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js","/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/14tedjyl2ez9l.js"],"default"]
+6:I[93351,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js"],"OutletBoundary"]
 7:"$Sreact.suspense"
-:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/bb84a7622793406f.css","style"]
-0:{"buildId":"Fcsejq22yzRlRxSymNi9a","rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/bb84a7622793406f.css","precedence":"next"}],["$","script","script-0",{"src":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/d9acbc1cd9bfb1b3.js","async":true}],["$","script","script-1",{"src":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/e605c146e273482d.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"loading":null,"isPartial":false}
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/025drh32w8nx7.css","style"]
+0:{"rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","link","0",{"rel":"stylesheet","href":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/025drh32w8nx7.css","precedence":"next"}],["$","script","script-0",{"src":"/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/14tedjyl2ez9l.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"f7mmZFH5k_vL_Qa_idvFa"}
 4:{}
 5:"$0:rsc:props:children:0:props:serverProvidedParams:params"
 8:null
