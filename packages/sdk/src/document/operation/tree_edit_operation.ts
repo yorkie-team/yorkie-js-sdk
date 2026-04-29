@@ -33,16 +33,60 @@ import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
 
 /**
- * `clearRemovedAt` clears the removedAt tombstone markers from a node
- * and all its descendants, so they can be re-inserted as live nodes.
- * Also resets visibleSize to totalSize since removal only decreases
- * visibleSize of ancestors.
+ * `cloneAndDropPreTombstoned` deep-copies `node` and drops descendants
+ * whose ID is in `preTombstoned` — i.e., descendants that were already
+ * tombstoned before this edit ran. Those descendants represent the
+ * user's earlier delete intent and must not be resurrected by undoing
+ * this edit.
+ *
+ * For nodes kept in the clone, `removedAt` is cleared so the redo
+ * re-inserts them as live.
  */
-function clearRemovedAt(node: CRDTTreeNode): void {
-  traverseAll(node, (n) => {
+function cloneAndDropPreTombstoned(
+  node: CRDTTreeNode,
+  preTombstoned: Set<string>,
+): CRDTTreeNode {
+  const clone = node.deepcopy();
+  filterChildren(clone, preTombstoned);
+  // Post-order: clear tombstone on every survivor and recompute size from
+  // its (already-resized) children. The deepcopy carried the original
+  // node's size; after `filterChildren` dropped descendants, that size
+  // is stale and must be recomputed bottom-up. Element nodes derive size
+  // from children's `paddedSize`; text nodes use their value length.
+  traverseAll(clone, (n) => {
     n.removedAt = undefined;
-    n.visibleSize = n.totalSize;
+    if (n.isText) {
+      n.visibleSize = n.value.length;
+      n.totalSize = n.value.length;
+      return;
+    }
+    let size = 0;
+    for (const child of n._children) size += child.paddedSize();
+    n.visibleSize = size;
+    n.totalSize = size;
   });
+  return clone;
+}
+
+/**
+ * `filterChildren` walks `node._children` and drops descendants whose
+ * IDs are in `preTombstoned`. Used by `cloneAndDropPreTombstoned` to
+ * keep only nodes that this edit actually transitioned from visible
+ * to tombstoned.
+ */
+function filterChildren(node: CRDTTreeNode, preTombstoned: Set<string>): void {
+  const all = node._children;
+  if (!all) return;
+  const kept: Array<CRDTTreeNode> = [];
+  for (const child of all) {
+    if (preTombstoned.has(child.id.toIDString())) {
+      // Already tombstoned before this edit — drop from reverseOp.
+      continue;
+    }
+    filterChildren(child, preTombstoned);
+    kept.push(child);
+  }
+  node._children = kept;
 }
 
 /**
@@ -152,34 +196,41 @@ export class TreeEditOperation extends Operation {
       }
     }
 
-    const [changes, pairs, diff, removedNodes, preEditFromIdx, mergeLevel] =
-      tree.edit(
-        [this.fromPos, this.toPos],
-        this.contents?.map((content) => content.deepcopy()),
-        this.splitLevel,
-        editedAt,
-        /**
-         * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
-         * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
-         * incremented by one for each.
-         * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
-         * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
-         */
-        (() => {
-          let delimiter = editedAt.getDelimiter();
-          if (this.contents !== undefined) {
-            delimiter += this.contents.length;
-          }
-          const issueTimeTicket = () =>
-            TimeTicket.of(
-              editedAt.getLamport(),
-              ++delimiter,
-              editedAt.getActorID(),
-            );
-          return issueTimeTicket;
-        })(),
-        versionVector,
-      );
+    const [
+      changes,
+      pairs,
+      diff,
+      removedNodes,
+      preEditFromIdx,
+      mergeLevel,
+      preTombstoned,
+    ] = tree.edit(
+      [this.fromPos, this.toPos],
+      this.contents?.map((content) => content.deepcopy()),
+      this.splitLevel,
+      editedAt,
+      /**
+       * TODO(sejongk): When splitting element nodes, a new nodeID is assigned with a different timeTicket.
+       * In the same change context, the timeTickets share the same lamport and actorID but have different delimiters,
+       * incremented by one for each.
+       * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
+       * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
+       */
+      (() => {
+        let delimiter = editedAt.getDelimiter();
+        if (this.contents !== undefined) {
+          delimiter += this.contents.length;
+        }
+        const issueTimeTicket = () =>
+          TimeTicket.of(
+            editedAt.getLamport(),
+            ++delimiter,
+            editedAt.getActorID(),
+          );
+        return issueTimeTicket;
+      })(),
+      versionVector,
+    );
 
     // Store pre-edit from index (computed inside edit() after text-node splits
     // but before deletions). Derive toIdx from removed nodes' visible sizes.
@@ -202,6 +253,7 @@ export class TreeEditOperation extends Operation {
         tree,
         removedNodes,
         preEditFromIdx,
+        preTombstoned,
         mergeLevel,
       );
     } else if (isPureSplit) {
@@ -249,6 +301,7 @@ export class TreeEditOperation extends Operation {
     tree: CRDTTree,
     removedNodes: Array<CRDTTreeNode>,
     preEditFromIdx: number,
+    preTombstoned: Set<string>,
     mergeLevel?: number,
   ): Operation | undefined {
     // Special case: this op is a boundary-deletion that was the undo of a
@@ -304,19 +357,26 @@ export class TreeEditOperation extends Operation {
       return undefined;
     }
 
-    // Filter to top-level removed nodes (whose parent is NOT also removed)
+    // Filter to top-level removed nodes (whose parent is NOT also removed).
+    // Also exclude nodes that were already tombstoned before this edit ran:
+    // those represent the user's earlier delete intent and must not be
+    // resurrected by a parent-level undo, even at the root of `topLevelRemoved`.
     const topLevelRemoved = removedNodes.filter(
-      (node) => !node.parent || !removedNodes.includes(node.parent),
+      (node) =>
+        !preTombstoned.has(node.id.toIDString()) &&
+        (!node.parent || !removedNodes.includes(node.parent)),
     );
 
-    // Deep copy for re-insertion on undo, clearing tombstone markers
+    // Deep copy for re-insertion on undo, but drop descendants that
+    // were already tombstoned before this edit. Without this filter,
+    // undoing a parent delete would resurrect the user's earlier
+    // independent deletes — causing accumulation across undo/redo
+    // cycles in nested-edit scenarios.
     const reverseContents =
       topLevelRemoved.length > 0
-        ? topLevelRemoved.map((n) => {
-            const clone = n.deepcopy();
-            clearRemovedAt(clone);
-            return clone;
-          })
+        ? topLevelRemoved.map((n) =>
+            cloneAndDropPreTombstoned(n, preTombstoned),
+          )
         : undefined;
 
     // Compute CRDTTreePos for the reverse range using findPos on the
