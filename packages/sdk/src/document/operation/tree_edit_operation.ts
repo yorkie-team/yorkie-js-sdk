@@ -48,11 +48,22 @@ function cloneAndDropPreTombstoned(
 ): CRDTTreeNode {
   const clone = node.deepcopy();
   filterChildren(clone, preTombstoned);
-  // Clear tombstone on every node that survived the filter — survivors
-  // are exactly the nodes this edit just tombstoned.
+  // Post-order: clear tombstone on every survivor and recompute size from
+  // its (already-resized) children. The deepcopy carried the original
+  // node's size; after `filterChildren` dropped descendants, that size
+  // is stale and must be recomputed bottom-up. Element nodes derive size
+  // from children's `paddedSize`; text nodes use their value length.
   traverseAll(clone, (n) => {
     n.removedAt = undefined;
-    n.visibleSize = n.totalSize;
+    if (n.isText) {
+      n.visibleSize = n.value.length;
+      n.totalSize = n.value.length;
+      return;
+    }
+    let size = 0;
+    for (const child of n._children) size += child.paddedSize();
+    n.visibleSize = size;
+    n.totalSize = size;
   });
   return clone;
 }
@@ -242,7 +253,6 @@ export class TreeEditOperation extends Operation {
         tree,
         removedNodes,
         preEditFromIdx,
-        editedAt,
         preTombstoned,
         mergeLevel,
       );
@@ -291,7 +301,6 @@ export class TreeEditOperation extends Operation {
     tree: CRDTTree,
     removedNodes: Array<CRDTTreeNode>,
     preEditFromIdx: number,
-    editedAt: TimeTicket,
     preTombstoned: Set<string>,
     mergeLevel?: number,
   ): Operation | undefined {
@@ -348,9 +357,14 @@ export class TreeEditOperation extends Operation {
       return undefined;
     }
 
-    // Filter to top-level removed nodes (whose parent is NOT also removed)
+    // Filter to top-level removed nodes (whose parent is NOT also removed).
+    // Also exclude nodes that were already tombstoned before this edit ran:
+    // those represent the user's earlier delete intent and must not be
+    // resurrected by a parent-level undo, even at the root of `topLevelRemoved`.
     const topLevelRemoved = removedNodes.filter(
-      (node) => !node.parent || !removedNodes.includes(node.parent),
+      (node) =>
+        !preTombstoned.has(node.id.toIDString()) &&
+        (!node.parent || !removedNodes.includes(node.parent)),
     );
 
     // Deep copy for re-insertion on undo, but drop descendants that
