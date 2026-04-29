@@ -129,6 +129,97 @@ describe('split-redo accumulation: minimal repro', () => {
     );
     expect(redoOpSizes).toStrictEqual(Array(numCycles).fill(redoOpSizes[0]));
   });
+
+  // Regression for `cloneAndDropPreTombstoned` recomputing parent
+  // `visibleSize` / `totalSize` after `filterChildren` drops descendants.
+  // Without the recomputation, an element node carries stale sizes from
+  // the deepcopy that include the dropped tombstoned descendants. The
+  // wire payload itself does not encode sizes, but local index
+  // calculations (e.g. `findPos`) rely on these fields, so a stale
+  // total can shift positions on subsequent edits.
+  //
+  // For each surviving element node in `reverseContents`, assert
+  // `totalSize === sum(child.paddedSize())`.
+  it('reverseOp contents have consistent sizes after pre-tombstoned filtering', () => {
+    const doc = initDoc();
+    insertSiblingBlock(doc);
+
+    for (const ch of 'asdf') typeInSecondBlock(doc, ch);
+    for (let i = 0; i < 4; i++) doc.history.undo();
+    doc.history.undo();
+
+    const redoTop = topRedoTreeEdit(doc);
+    expect(redoTop).toBeDefined();
+    const contents = redoTop!.getContents() ?? [];
+    expect(contents.length).toBeGreaterThan(0);
+
+    const violations: Array<string> = [];
+    for (const root of contents) {
+      traverseAll(root, (n) => {
+        if (n.isText) return;
+        const expected = n._children.reduce(
+          (acc, child) => acc + child.paddedSize(),
+          0,
+        );
+        if (n.totalSize !== expected || n.visibleSize !== expected) {
+          violations.push(
+            `${n.type}: totalSize=${n.totalSize} visibleSize=${n.visibleSize} ` +
+              `expected=${expected} (children=${n._children.length})`,
+          );
+        }
+      });
+    }
+    expect(violations).toStrictEqual([]);
+  });
+
+  // After running through the type-undo-undo-redo cycle the inserted
+  // block must remain editable, with new typing landing at the correct
+  // position. A stale `totalSize` on the cloned inline would shift
+  // `findPos` results and cause the next character to land out of
+  // place. End-to-end check: type "x" after redo and verify the tree
+  // shape.
+  it('typing after redo lands at the correct position', () => {
+    const doc = initDoc();
+    insertSiblingBlock(doc);
+
+    for (const ch of 'asdf') typeInSecondBlock(doc, ch);
+    for (let i = 0; i < 4; i++) doc.history.undo();
+    doc.history.undo();
+    expect(doc.getRoot().t.toXML()).toBe('<doc><p><inline></inline></p></doc>');
+
+    doc.history.redo();
+    expect(doc.getRoot().t.toXML()).toBe(
+      '<doc><p><inline></inline></p><p><inline></inline></p></doc>',
+    );
+
+    typeInSecondBlock(doc, 'x');
+    expect(doc.getRoot().t.toXML()).toBe(
+      '<doc><p><inline></inline></p><p><inline>x</inline></p></doc>',
+    );
+  });
+
+  // Multi-cycle compounded scenario: 3 full cycles then resume editing
+  // in the inserted block. Catches accumulation bugs where redoOp
+  // contents carry over more than the immediate undo's worth of nodes.
+  it('three cycles then resume editing yields the expected tree', () => {
+    const doc = initDoc();
+    insertSiblingBlock(doc);
+
+    for (let cycle = 0; cycle < 3; cycle++) {
+      for (const ch of 'asdf') typeInSecondBlock(doc, ch);
+      for (let i = 0; i < 4; i++) doc.history.undo();
+      doc.history.undo();
+      doc.history.redo();
+      expect(doc.getRoot().t.toXML()).toBe(
+        '<doc><p><inline></inline></p><p><inline></inline></p></doc>',
+      );
+    }
+
+    typeInSecondBlock(doc, 'z');
+    expect(doc.getRoot().t.toXML()).toBe(
+      '<doc><p><inline></inline></p><p><inline>z</inline></p></doc>',
+    );
+  });
 });
 
 void yorkie;
