@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@yorkie-js/sdk": "workspace:*",
-    "next": "16.0.7",
+    "next": "16.2.3",
     "react": "19.2.1",
     "react-calendar": "^6.0.0",
     "react-dom": "19.2.1"
@@ -19,7 +19,7 @@
     "@types/node": "24.10.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
-    "eslint-config-next": "^16.0.7",
+    "eslint-config-next": "16.2.3",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.7.4",
     "typescript": "5.9.3"

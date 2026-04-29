@@ -27,7 +27,7 @@
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": "^20.19.0 || >=22.12.0",
     "npm": ">=7.1.0",
     "pnpm": ">=9.6.0"
   },
@@ -52,14 +52,14 @@
     "@types/google-protobuf": "^3.15.12",
     "@vitest/coverage-istanbul": "^4.0.15",
     "@vitest/coverage-v8": "^4.0.15",
-    "axios": "^1.13.2",
+    "axios": "^1.15.2",
     "express": "^5.2.1",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.15",
     "typescript": "^5.9.3",
     "typescript-transform-paths": "^3.5.5",
-    "vite": "^7.2.6",
+    "vite": "^7.3.2",
     "vite-plugin-commonjs": "^0.10.4",
     "vite-plugin-dts": "^4.5.4",
     "vite-tsconfig-paths": "^5.1.4",
