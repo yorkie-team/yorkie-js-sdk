@@ -27,7 +27,7 @@
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": "^20.19.0 || >=22.12.0",
     "npm": ">=7.1.0",
     "pnpm": ">=9.6.0"
   },
