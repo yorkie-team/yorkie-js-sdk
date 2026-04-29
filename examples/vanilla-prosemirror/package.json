@@ -10,11 +10,11 @@
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.3.2"
   },
   "dependencies": {
-    "@yorkie-js/sdk": "workspace:*",
     "@yorkie-js/prosemirror": "workspace:*",
+    "@yorkie-js/sdk": "workspace:*",
     "prosemirror-commands": "^1.6.2",
     "prosemirror-example-setup": "^1.2.2",
     "prosemirror-history": "^1.4.1",
