@@ -1,5 +1,5 @@
 1:"$Sreact.fragment"
 2:I[93351,["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/097p.v~azg22c.js"],"OutletBoundary"]
 3:"$Sreact.suspense"
-0:{"rsc":["$","$1","c",{"children":[["$","h1",null,{"children":"404 not found"}],null,["$","$L2",null,{"children":["$","$3",null,{"name":"Next.MetadataOutlet","children":"$@4"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"f7mmZFH5k_vL_Qa_idvFa"}
+0:{"rsc":["$","$1","c",{"children":[["$","h1",null,{"children":"404 not found"}],null,["$","$L2",null,{"children":["$","$3",null,{"name":"Next.MetadataOutlet","children":"$@4"}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"ZKM8GfVYtiiWwuL4A5u2w"}
 4:null

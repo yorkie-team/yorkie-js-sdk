@@ -1,3 +1,3 @@
 :HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/13tp-rds2hn4..css","style"]
 :HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/025drh32w8nx7.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"f7mmZFH5k_vL_Qa_idvFa"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}},"staleTime":300,"buildId":"ZKM8GfVYtiiWwuL4A5u2w"}
