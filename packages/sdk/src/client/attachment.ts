@@ -42,6 +42,7 @@ export class Attachment<R extends Attachable> {
   syncMode?: SyncMode;
   changeEventReceived?: boolean;
   lastHeartbeatTime: number;
+  public pollTimer?: ReturnType<typeof setTimeout>;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
@@ -93,22 +94,15 @@ export class Attachment<R extends Attachable> {
   }
 
   /**
-   * `needSync` determines if the attachment needs sync.
-   * This includes both document sync and presence heartbeat.
+   * `needSync` determines if the attachment needs sync via the sync loop.
+   * Only Document resources participate in the sync loop. Channel resources
+   * have their own refresh polling loop and are not synced here.
    */
-  public needSync(heartbeatInterval: number): boolean {
-    // For Document: check if realtime sync is needed
+  public needSync(): boolean {
     if (this.resource instanceof Document) {
       return this.needRealtimeSync();
     }
-
-    // For Presence in Manual mode: never auto-sync
-    if (this.syncMode === SyncMode.Manual) {
-      return false;
-    }
-
-    // For Presence in Realtime mode: check if heartbeat is needed
-    return Date.now() - this.lastHeartbeatTime >= heartbeatInterval;
+    return false;
   }
 
   /**
@@ -210,7 +204,7 @@ export class Attachment<R extends Attachable> {
   }
 
   /**
-   * `cancelWatchStream` cancels the watch stream.
+   * `cancelWatchStream` cancels the watch stream and any active polling.
    */
   public cancelWatchStream(): void {
     this.cancelled = true;
@@ -222,5 +216,10 @@ export class Attachment<R extends Attachable> {
     }
     clearTimeout(this.watchLoopTimerID);
     this.watchLoopTimerID = undefined;
+
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = undefined;
+    }
   }
 }

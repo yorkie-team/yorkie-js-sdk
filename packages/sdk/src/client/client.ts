@@ -29,10 +29,7 @@ import {
   YorkieService,
   WatchResponse,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
-import {
-  DocEventType as PbDocEventType,
-  ChannelEvent_Type as PbChannelEventType,
-} from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   converter,
   errorCodeOf,
@@ -186,11 +183,11 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 
   /**
-   * `channelHeartbeatInterval` is the interval of the channel heartbeat.
-   * The client sends a heartbeat to the server to refresh the channel TTL.
-   * The default value is `30000`(ms).
+   * `channelPollInterval` is the base interval (ms) for the channel refresh
+   * polling loop. The actual interval has plus or minus 20 percent jitter
+   * applied. The default value is `3000`(ms).
    */
-  channelHeartbeatInterval?: number;
+  channelPollInterval?: number;
 
   /**
    * `userAgent` is the user agent of the client. It is used to identify the
@@ -275,7 +272,7 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
-  channelHeartbeatInterval: 30000,
+  channelPollInterval: 3000,
 };
 
 /**
@@ -305,7 +302,7 @@ export class Client {
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
-  private channelHeartbeatInterval: number;
+  private channelPollInterval: number;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -340,9 +337,8 @@ export class Client {
       opts.reconnectStreamDelay ?? DefaultClientOptions.reconnectStreamDelay;
     this.retrySyncLoopDelay =
       opts.retrySyncLoopDelay ?? DefaultClientOptions.retrySyncLoopDelay;
-    this.channelHeartbeatInterval =
-      opts.channelHeartbeatInterval ??
-      DefaultClientOptions.channelHeartbeatInterval;
+    this.channelPollInterval =
+      opts.channelPollInterval ?? DefaultClientOptions.channelPollInterval;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -773,9 +769,9 @@ export class Client {
 
         this.attachmentMap.set(channel.getKey(), attachment);
 
-        // Start watching channel changes only in realtime mode
+        // Start polling channel refresh only in realtime mode
         if (syncMode === SyncMode.Realtime) {
-          await this.runWatchLoop(channel.getKey());
+          this.runChannelRefreshLoop(channel.getKey());
         }
 
         logger.info(
@@ -937,7 +933,7 @@ export class Client {
         );
       }
       return this.enqueueTask(async () => {
-        return this.syncInternal(attachment).catch(async (err) => {
+        return this.refreshChannelOnce(attachment).catch(async (err) => {
           logger.error(`[SY] c:"${this.getKey()}" err :`, err);
           await this.handleConnectError(err);
           throw err;
@@ -1409,7 +1405,7 @@ export class Client {
               break;
             }
 
-            if (!attachment.needSync(this.channelHeartbeatInterval)) {
+            if (!attachment.needSync()) {
               continue;
             }
 
@@ -1529,13 +1525,6 @@ export class Client {
             ac,
             onDisconnect,
           );
-        } else if (attachment.resource instanceof Channel) {
-          return this.createChannelWatchStream(
-            attachment as Attachment<Channel>,
-            key,
-            ac,
-            onDisconnect,
-          );
         }
 
         return Promise.reject(
@@ -1644,133 +1633,85 @@ export class Client {
   }
 
   /**
-   * `createChannelWatchStream` creates a watch stream for a Channel.
-   * @internal
+   * `refreshChannelOnce` performs a single refreshChannel RPC for the given
+   * Channel attachment and fans out the resulting session_count. Used by
+   * the manual `sync(channel)` API.
    */
-  private createChannelWatchStream(
+  private async refreshChannelOnce(
     attachment: Attachment<Channel>,
-    key: Key,
-    ac: AbortController,
-    onDisconnect: () => void,
-  ): Promise<[WatchStream, AbortController]> {
-    const stream = this.rpcClient.watch(
-      {
-        clientId: this.id!,
-        resources: [
-          {
-            resource: {
-              case: 'channel',
-              value: { channelKey: key },
-            },
+  ): Promise<Channel> {
+    const channel = attachment.resource;
+    try {
+      const res = await this.rpcClient.refreshChannel(
+        {
+          clientId: this.id!,
+          channelKey: channel.getKey(),
+          sessionId: channel.getSessionID()!,
+        },
+        {
+          headers: {
+            'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
           },
-        ],
-      },
-      {
-        headers: {
-          'x-shard-key': `${
-            this.apiKey
-          }/${attachment.resource.getFirstKeyPath()}`,
         },
-        signal: ac.signal,
-      },
-    );
-
-    logger.info(`[WP] c:"${this.getKey()}" watches p:"${key}"`);
-
-    return runWatchStream(
-      {
-        stream,
-        ac,
-        isInit: (resp) => resp.body.case === 'initialization',
-        onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
-        onStreamEnd: () => {
-          logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);
-        },
-        onError: (err) => {
-          logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" err:`, err);
-        },
-        onDisconnect,
-        shouldIgnoreError: (err) => {
-          if (err instanceof Error && err.name === 'AbortError') {
-            logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream aborted`);
-            return true;
-          }
-          return false;
-        },
-      },
-      (err) => this.handleConnectError(err),
-      () => {
-        this.conditions[ClientCondition.WatchLoop] = false;
-      },
-    );
+      );
+      channel.updateSessionCount(Number(res.sessionCount), 0);
+      attachment.updateHeartbeatTime();
+      logger.debug(
+        `[RP] c:"${this.getKey()}" refreshes ch:"${channel.getKey()}" mode:${attachment.syncMode}`,
+      );
+    } catch (err) {
+      logger.error(`[RP] c:"${this.getKey()}" err :`, err);
+      throw err;
+    }
+    return channel;
   }
 
   /**
-   * `handleWatchChannelResponse` handles the watch channel response from the server.
-   * This method parses the protocol buffer response and updates the channel.
-   * @internal
+   * `runChannelRefreshLoop` polls refreshChannel periodically for the given
+   * Channel attachment. Refreshes the session TTL on the server and fans
+   * out the latest session_count to listeners.
    */
-  private handleWatchChannelResponse(
-    attachment: Attachment<Channel>,
-    resp: WatchResponse,
-  ) {
+  private runChannelRefreshLoop(key: Key): void {
+    const attachment = this.attachmentMap.get(key);
+    if (!attachment || !(attachment.resource instanceof Channel)) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${key} is not attached as Channel`,
+      );
+    }
     const channel = attachment.resource;
+    const baseInterval = this.channelPollInterval;
+    const jitter = () => baseInterval * (1 + (Math.random() * 0.4 - 0.2));
 
-    if (resp.body.case === 'initialization') {
-      for (const ri of resp.body.value.resourceInits) {
-        if (ri.init.case === 'channelInit') {
-          const { sessionCount, seq } = ri.init.value;
-          if (channel.updateSessionCount(Number(sessionCount), Number(seq))) {
-            channel.publish({
-              type: ChannelEventType.Initialized,
-              count: Number(sessionCount),
-            });
-          }
-        }
+    const tick = async (): Promise<void> => {
+      if (!this.isActive() || !this.attachmentMap.has(key)) return;
+      try {
+        const res = await this.rpcClient.refreshChannel(
+          {
+            clientId: this.id!,
+            channelKey: channel.getKey(),
+            sessionId: channel.getSessionID()!,
+          },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
+            },
+          },
+        );
+        channel.updateSessionCount(Number(res.sessionCount), 0);
+        attachment.updateHeartbeatTime();
+        logger.debug(
+          `[CR] c:"${this.getKey()}" refreshes ch:"${channel.getKey()}"`,
+        );
+      } catch (err) {
+        logger.error(`[CR] c:"${this.getKey()}" channel refresh failed`, err);
+        // continue: transient failures should not stop the loop
       }
-      return;
-    }
-
-    if (resp.body.case === 'event') {
-      const watchEvent = resp.body.value;
-      if (watchEvent.event.case === 'channelEvent') {
-        const event = watchEvent.event.value.event;
-        if (!event) return;
-
-        // Handle broadcast events
-        if (event.type === PbChannelEventType.BROADCAST) {
-          const decoder = new TextDecoder();
-          try {
-            const payload = JSON.parse(decoder.decode(event.payload));
-            channel.publish({
-              type: ChannelEventType.Broadcast,
-              clientID: event.publisher,
-              topic: event.topic,
-              payload,
-            });
-          } catch (err) {
-            logger.error(
-              `[WP] c:"${this.getKey()}" failed to parse broadcast payload:`,
-              err,
-            );
-          }
-          return;
-        }
-
-        // Handle count change events
-        if (
-          channel.updateSessionCount(
-            Number(event.sessionCount),
-            Number(event.seq),
-          )
-        ) {
-          channel.publish({
-            type: ChannelEventType.PresenceChanged,
-            count: Number(event.sessionCount),
-          });
-        }
+      if (this.attachmentMap.has(key)) {
+        attachment.pollTimer = setTimeout(tick, jitter());
       }
-    }
+    };
+    tick();
   }
 
   private handleWatchDocumentResponse<R, P extends Indexable>(
@@ -1841,37 +1782,6 @@ export class Client {
     syncMode?: SyncMode,
   ): Promise<Attachable> {
     const { resource } = attachment;
-
-    // Handle channel heartbeat
-    if (resource instanceof Channel) {
-      try {
-        const res = await this.rpcClient.refreshChannel(
-          {
-            clientId: this.id!,
-            channelKey: resource.getKey(),
-            sessionId: resource.getSessionID()!,
-          },
-          {
-            headers: {
-              'x-shard-key': `${this.apiKey}/${resource.getFirstKeyPath()}`,
-            },
-          },
-        );
-
-        resource.updateSessionCount(Number(res.sessionCount), 0);
-        attachment.updateHeartbeatTime();
-
-        logger.debug(
-          `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}" mode:${
-            attachment.syncMode
-          }`,
-        );
-      } catch (err) {
-        logger.error(`[RP] c:"${this.getKey()}" err :`, err);
-        throw err;
-      }
-      return resource;
-    }
 
     // Handle Document sync
     const doc = resource as Document<R, P>;

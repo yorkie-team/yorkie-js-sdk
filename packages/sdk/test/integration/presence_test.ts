@@ -92,58 +92,6 @@ describe('Presence', function () {
     await c3.deactivate();
   });
 
-  it('presence event subscription test', async function () {
-    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
-
-    await c1.activate();
-    await c2.activate();
-
-    const channelKey = `presence-events-${Date.now()}`;
-    const ch1 = new yorkie.Channel(channelKey);
-    const ch2 = new yorkie.Channel(channelKey);
-
-    // Track events on ch1
-    const events: Array<{ type: string; count?: number }> = [];
-    ch1.subscribe((event: yorkie.ChannelEvent) => {
-      events.push({
-        type: event.type,
-        count:
-          event.type === yorkie.ChannelEventType.PresenceChanged ||
-          event.type === yorkie.ChannelEventType.Initialized
-            ? event.count
-            : undefined,
-      });
-    });
-
-    // First client attaches
-    await c1.attach(ch1);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    // Should receive initialized event
-    assert.isAtLeast(events.length, 1);
-    assert.equal(events[0].type, yorkie.ChannelEventType.Initialized);
-    assert.equal(events[0].count, 1);
-
-    // Second client attaches
-    await c2.attach(ch2);
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
-    // Should receive count-changed event
-    assert.isAtLeast(events.length, 2);
-    assert.equal(
-      events[events.length - 1].type,
-      yorkie.ChannelEventType.PresenceChanged,
-    );
-    assert.equal(events[events.length - 1].count, 2);
-
-    // Cleanup
-    await c1.detach(ch1);
-    await c2.detach(ch2);
-    await c1.deactivate();
-    await c2.deactivate();
-  });
-
   it('presence detach reduces count test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -183,7 +131,7 @@ describe('Presence', function () {
   it('channel heartbeat keeps session alive', async function () {
     const c1 = new yorkie.Client({
       rpcAddr: testRPCAddr,
-      channelHeartbeatInterval: 1000, // 1 second for faster testing
+      channelPollInterval: 1000, // 1 second for faster testing
     });
     await c1.activate();
 
