@@ -1,146 +1,218 @@
 import { describe, it, assert } from 'vitest';
-import { EventCollector } from '@yorkie-js/sdk/test/helper/helper';
-import { withTwoClientsAndChannels } from '@yorkie-js/sdk/test/integration/integration_helper';
+import yorkie from '@yorkie-js/sdk/src/yorkie';
+import {
+  toDocKey,
+  testRPCAddr,
+} from '@yorkie-js/sdk/test/integration/integration_helper';
+
+/**
+ * `waitUntil` polls the predicate until it returns true or the deadline
+ * passes. Returns the elapsed time so tests can assert on convergence speed.
+ */
+async function waitUntil(
+  predicate: () => boolean,
+  timeoutMs: number,
+  pollMs = 20,
+): Promise<number> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error(
+        `waitUntil: predicate did not become true within ${timeoutMs}ms`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+  return Date.now() - start;
+}
 
 describe('Channel', function () {
-  it('should subscribe to specific topic for broadcast events', async function ({
+  it('starts polling on attach and converges session count', async function ({
     task,
   }) {
-    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      const chatCollector = new EventCollector<any>();
-      const notificationCollector = new EventCollector<any>();
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    await c1.activate();
+    await c2.activate();
 
-      // Subscribe to 'chat' topic
-      const unsubChat = ch2.subscribe('chat', (event) => {
-        chatCollector.add(event.payload);
-      });
+    const key = `${toDocKey(task.name)}-${Date.now()}`;
+    const ch1 = new yorkie.Channel(key);
+    const ch2 = new yorkie.Channel(key);
 
-      // Subscribe to 'notification' topic
-      const unsubNotification = ch2.subscribe('notification', (event) => {
-        notificationCollector.add(event.payload);
-      });
+    await c1.attach(ch1);
+    assert.isTrue(ch1.isAttached(), 'ch1 must be attached after attach()');
+    assert.equal(ch1.getSessionCount(), 1, 'initial session count is 1');
 
-      // Broadcast to 'chat' topic
-      ch1.broadcast('chat', { message: 'Hello, world!' });
-      await chatCollector.waitAndVerifyNthEvent(1, {
-        message: 'Hello, world!',
-      });
+    await c2.attach(ch2);
 
-      // Broadcast to 'notification' topic
-      ch1.broadcast('notification', { alert: 'New message' });
-      await notificationCollector.waitAndVerifyNthEvent(1, {
-        alert: 'New message',
-      });
+    // c1's polling loop must pick up c2's session within a few polls.
+    await waitUntil(() => ch1.getSessionCount() === 2, 2000);
+    assert.equal(ch1.getSessionCount(), 2);
 
-      // Verify chat collector only received chat messages
-      assert.equal(chatCollector.getLength(), 1);
-      assert.equal(notificationCollector.getLength(), 1);
-
-      unsubChat();
-      unsubNotification();
-    }, task.name);
+    await c1.detach(ch1);
+    await c2.detach(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
   });
 
-  it('should subscribe to presence events', async function ({ task }) {
-    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      const presenceCollector = new EventCollector<any>();
-
-      // Subscribe to 'presence' events
-      const unsubPresence = ch2.subscribe('presence', (event) => {
-        presenceCollector.add(event.count);
-      });
-
-      // Wait for presence events (at least 1)
-      await new Promise((resolve) => {
-        const checkPresence = () => {
-          if (presenceCollector.getLength() > 0) {
-            resolve(true);
-          } else {
-            setTimeout(checkPresence, 100);
-          }
-        };
-        checkPresence();
-      });
-
-      // Verify we received presence count
-      assert.isAbove(presenceCollector.getLength(), 0);
-
-      unsubPresence();
-    }, task.name);
-  });
-
-  it('should get presence count', async function ({ task }) {
-    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      // Wait a bit for presence to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Get presence count
-      const count1 = ch1.getSessionCount();
-      const count2 = ch2.getSessionCount();
-
-      // Both channels should see at least 2 clients (themselves)
-      assert.isAtLeast(count1, 2);
-      assert.isAtLeast(count2, 2);
-      assert.equal(count1, count2);
-    }, task.name);
-  });
-
-  it('should support legacy broadcast subscription', async function ({ task }) {
-    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      const eventCollector = new EventCollector<string>();
-      const topic = 'test-topic';
-
-      // Legacy way: subscribe to all broadcast events and filter by topic
-      const unsubscribe = ch2.subscribe('broadcast', (event) => {
-        if (event.topic === topic) {
-          eventCollector.add(event.payload as string);
-        }
-      });
-
-      ch1.broadcast(topic, 'test-data');
-      await eventCollector.waitAndVerifyNthEvent(1, 'test-data');
-
-      unsubscribe();
-    }, task.name);
-  });
-
-  it('should mix topic-based and type-based subscriptions', async function ({
+  it('stops polling on detach (no further session count updates)', async function ({
     task,
   }) {
-    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      const chatCollector = new EventCollector<any>();
-      const allBroadcastCollector = new EventCollector<any>();
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    await c1.activate();
+    await c2.activate();
 
-      // Topic-based subscription
-      const unsubChat = ch2.subscribe('chat', (event) => {
-        chatCollector.add(event.payload);
-      });
+    const key = `${toDocKey(task.name)}-${Date.now()}`;
+    const ch1 = new yorkie.Channel(key);
+    const ch2 = new yorkie.Channel(key);
 
-      // Type-based subscription (all broadcasts)
-      const unsubAll = ch2.subscribe('broadcast', (event) => {
-        allBroadcastCollector.add(
-          `${event.topic}:${JSON.stringify(event.payload)}`,
-        );
-      });
+    await c1.attach(ch1);
+    await c2.attach(ch2);
+    await waitUntil(() => ch1.getSessionCount() === 2, 2000);
 
-      // Broadcast to 'chat' topic
-      ch1.broadcast('chat', 'message1');
-      await chatCollector.waitAndVerifyNthEvent(1, 'message1');
+    await c1.detach(ch1);
+    assert.isFalse(ch1.isAttached(), 'ch1 must be detached');
+    const countAtDetach = ch1.getSessionCount();
 
-      // Broadcast to 'notification' topic
-      ch1.broadcast('notification', 'message2');
+    // c2 stays attached; the server-side count would still be 1, but ch1's
+    // local count must not change after detach because polling stopped.
+    await new Promise((r) => setTimeout(r, 500)); // ~5 polling intervals
+    assert.equal(
+      ch1.getSessionCount(),
+      countAtDetach,
+      'session count must not change after detach (poll loop stopped)',
+    );
 
-      // Wait a bit for all events to be processed
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    await c2.detach(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
 
-      // Chat collector should only have chat messages
-      assert.equal(chatCollector.getLength(), 1);
+  it('re-attach after detach starts a fresh polling loop', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    await c1.activate();
+    await c2.activate();
 
-      // All broadcast collector should have both
-      assert.equal(allBroadcastCollector.getLength(), 2);
+    const key = `${toDocKey(task.name)}-${Date.now()}`;
+    const ch1a = new yorkie.Channel(key);
+    const ch1b = new yorkie.Channel(key);
+    const ch2 = new yorkie.Channel(key);
 
-      unsubChat();
-      unsubAll();
-    }, task.name);
+    await c1.attach(ch1a);
+    await c2.attach(ch2);
+    await waitUntil(() => ch1a.getSessionCount() === 2, 2000);
+
+    await c1.detach(ch1a);
+    await c1.attach(ch1b);
+    assert.isTrue(ch1b.isAttached(), 'fresh channel must be attached');
+
+    // New polling loop on ch1b must converge.
+    await waitUntil(() => ch1b.getSessionCount() === 2, 2000);
+    assert.equal(ch1b.getSessionCount(), 2);
+
+    await c1.detach(ch1b);
+    await c2.detach(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('multiple channels on the same client poll independently', async function ({
+    task,
+  }) {
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    await c1.activate();
+    await c2.activate();
+
+    const stamp = Date.now();
+    const keyA = `${toDocKey(task.name)}-a-${stamp}`;
+    const keyB = `${toDocKey(task.name)}-b-${stamp}`;
+    const chA1 = new yorkie.Channel(keyA);
+    const chA2 = new yorkie.Channel(keyA);
+    const chB1 = new yorkie.Channel(keyB);
+
+    await c1.attach(chA1);
+    await c1.attach(chB1);
+    await c2.attach(chA2);
+
+    // chA1 is shared with c2 — must converge to 2.
+    await waitUntil(() => chA1.getSessionCount() === 2, 2000);
+    assert.equal(chA1.getSessionCount(), 2);
+
+    // chB1 has no peer — must stay at 1.
+    assert.equal(
+      chB1.getSessionCount(),
+      1,
+      'unshared channel must remain at session count 1',
+    );
+
+    await c1.detach(chA1);
+    await c1.detach(chB1);
+    await c2.detach(chA2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('respects custom channelPollInterval option', async function ({ task }) {
+    // Short interval (60ms ± 20% jitter = 48-72ms) means session count
+    // must converge well under the 3000ms default poll interval.
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 60,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 60,
+    });
+    await c1.activate();
+    await c2.activate();
+
+    const key = `${toDocKey(task.name)}-${Date.now()}`;
+    const ch1 = new yorkie.Channel(key);
+    const ch2 = new yorkie.Channel(key);
+
+    await c1.attach(ch1);
+    await c2.attach(ch2);
+
+    const elapsed = await waitUntil(() => ch1.getSessionCount() === 2, 800);
+    assert.equal(ch1.getSessionCount(), 2);
+    assert.isBelow(
+      elapsed,
+      800,
+      'short channelPollInterval must converge faster than default',
+    );
+
+    await c1.detach(ch1);
+    await c2.detach(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
   });
 });
