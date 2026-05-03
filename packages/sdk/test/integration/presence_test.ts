@@ -36,9 +36,18 @@ describe('Presence', function () {
   });
 
   it('multiple clients presence counter test', async function () {
-    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c3 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
 
     await c1.activate();
     await c2.activate();
@@ -93,8 +102,14 @@ describe('Presence', function () {
   });
 
   it('presence detach reduces count test', async function () {
-    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
 
     await c1.activate();
     await c2.activate();
@@ -200,9 +215,18 @@ describe('Presence', function () {
   });
 
   it('presence realtime vs manual mode comparison test', async function () {
-    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
-    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
+    const c3 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      channelPollInterval: 100,
+    });
 
     await c1.activate();
     await c2.activate();
