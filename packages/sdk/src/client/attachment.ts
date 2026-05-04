@@ -226,6 +226,9 @@ export class Attachment<R extends Attachable> {
   /**
    * `resetCancelled` clears the cancelled flag so the watch loop can run again
    * after a previous cancellation (e.g., after changeSyncMode back to Realtime).
+   * Caller must invoke `runWatchLoop` immediately after to claim the stream slot;
+   * `doLoop`'s `if (this.watchStream)` guard prevents double-stream creation if a
+   * delayed `onDisconnect` callback from the previously-cancelled stream races.
    */
   public resetCancelled(): void {
     this.cancelled = false;

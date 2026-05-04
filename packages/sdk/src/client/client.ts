@@ -968,12 +968,14 @@ export class Client {
       return doc;
     }
 
-    attachment.changeSyncMode(syncMode);
-
-    // Tear down stream if leaving a stream-using mode.
+    // Tear down stream first if leaving a stream-using mode (prevents the
+    // sync loop from observing an inconsistent mode while the stream is
+    // still live).
     if (syncMode === SyncMode.Manual || syncMode === SyncMode.Polling) {
       attachment.cancelWatchStream();
     }
+
+    attachment.changeSyncMode(syncMode);
 
     // NOTE(hackerwins): In non-pushpull mode, the client does not receive
     // change events from the server. Therefore, we need to set
@@ -990,6 +992,9 @@ export class Client {
         syncMode === SyncMode.Polling ? DefaultPollingIntervalMs : 0;
     }
 
+    // RealtimePushOnly and RealtimeSyncOff retain the watch stream, so
+    // no restart is needed when transitioning between them and Realtime.
+    // Only Manual and Polling are stream-less modes.
     // Start watch stream if entering a stream-using mode from a stream-less one.
     if (
       (prevSyncMode === SyncMode.Manual || prevSyncMode === SyncMode.Polling) &&
