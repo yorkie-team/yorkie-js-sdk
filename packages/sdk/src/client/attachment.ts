@@ -42,6 +42,8 @@ export class Attachment<R extends Attachable> {
   syncMode?: SyncMode;
   changeEventReceived?: boolean;
   lastHeartbeatTime: number;
+  pollInterval: number;
+  pollIntervalPinned: boolean;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
@@ -56,6 +58,8 @@ export class Attachment<R extends Attachable> {
     resource: R,
     resourceID: string,
     syncMode?: SyncMode,
+    pollInterval: number = 0,
+    pollIntervalPinned: boolean = false,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.resource = resource;
@@ -63,6 +67,8 @@ export class Attachment<R extends Attachable> {
     this.syncMode = syncMode;
     this.changeEventReceived = syncMode !== undefined ? false : undefined;
     this.lastHeartbeatTime = Date.now();
+    this.pollInterval = pollInterval;
+    this.pollIntervalPinned = pollIntervalPinned;
     this.cancelled = false;
   }
 
