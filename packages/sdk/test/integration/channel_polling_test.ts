@@ -105,4 +105,40 @@ describe('Channel Polling', function () {
     await c.detach(ch);
     await c.deactivate();
   });
+
+  it('Polling channel does not receive broadcast events', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+
+    const ch1 = new Channel(channelKey);
+    const ch2 = new Channel(channelKey);
+
+    // c2 is Polling — should not receive broadcast.
+    await c2.attachChannel(ch2, {
+      syncMode: SyncMode.Polling,
+      channelHeartbeatInterval: 200,
+    });
+    await c1.attachChannel(ch1, { syncMode: SyncMode.Realtime });
+
+    let received = false;
+    ch2.subscribe('chat', () => {
+      received = true;
+    });
+
+    ch1.broadcast('chat', { msg: 'hello' });
+    await new Promise((r) => setTimeout(r, 500));
+
+    assert.isFalse(received);
+
+    await c1.detach(ch1);
+    await c2.detach(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
 });
