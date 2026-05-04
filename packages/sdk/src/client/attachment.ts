@@ -108,13 +108,16 @@ export class Attachment<R extends Attachable> {
       return this.needRealtimeSync();
     }
 
-    // For Presence in Manual mode: never auto-sync
+    // For Channel in Manual mode: never auto-sync
     if (this.syncMode === SyncMode.Manual) {
       return false;
     }
 
-    // For Presence in Realtime mode: check if heartbeat is needed
-    return Date.now() - this.lastHeartbeatTime >= heartbeatInterval;
+    // For Channel in Realtime or Polling mode: heartbeat at the
+    // attachment's own interval (falls back to client-level value if zero).
+    const interval =
+      this.pollInterval > 0 ? this.pollInterval : heartbeatInterval;
+    return Date.now() - this.lastHeartbeatTime >= interval;
   }
 
   /**

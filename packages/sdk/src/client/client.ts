@@ -269,12 +269,32 @@ export interface AttachOptions<R, P> {
  */
 export interface AttachChannelOptions {
   /**
+   * `syncMode` selects how the channel keeps presence in sync with the server.
+   * - `SyncMode.Realtime` (default): open a watch stream and run the heartbeat.
+   *   Required to receive broadcast events.
+   * - `SyncMode.Polling`: heartbeat-only. No watch stream is opened. Polling
+   *   refreshes TTL and brings the latest sessionCount.
+   * - `SyncMode.Manual`: no automatic activity. Caller must invoke sync().
+   *
+   * If both `syncMode` and `isRealtime` are set, `syncMode` wins.
+   */
+  syncMode?: SyncMode;
+
+  /**
    * `isRealtime` determines whether to automatically watch channel changes
    * and send heartbeats. If false (manual mode), the client must call sync()
    * explicitly to refresh the TTL.
    * Default is true for backward compatibility.
+   * @deprecated Use `syncMode` instead. Kept for back-compat.
    */
   isRealtime?: boolean;
+
+  /**
+   * `channelHeartbeatInterval` overrides the heartbeat interval (ms) for this
+   * attachment. If unset, mode-specific defaults apply: Polling=3000,
+   * Realtime=30000.
+   */
+  channelHeartbeatInterval?: number;
 }
 
 /**
@@ -757,15 +777,32 @@ export class Client {
         channel.updateSessionCount(Number(res.sessionCount), 0);
         channel.applyStatus(ChannelStatus.Attached);
 
-        // Determine sync mode: default is Realtime for backward compatibility
-        const syncMode =
-          opts.isRealtime !== false ? SyncMode.Realtime : SyncMode.Manual;
+        // Resolve syncMode (explicit > legacy isRealtime > default Realtime).
+        let syncMode: SyncMode;
+        if (opts.syncMode !== undefined) {
+          syncMode = opts.syncMode;
+        } else if (opts.isRealtime !== undefined) {
+          syncMode = opts.isRealtime ? SyncMode.Realtime : SyncMode.Manual;
+        } else {
+          syncMode = SyncMode.Realtime;
+        }
+
+        // Resolve heartbeat interval. Mode-specific defaults: polling=3000,
+        // realtime=client-level channelHeartbeatInterval (default 30000).
+        const pollIntervalPinned = opts.channelHeartbeatInterval !== undefined;
+        const pollInterval = pollIntervalPinned
+          ? opts.channelHeartbeatInterval!
+          : syncMode === SyncMode.Polling
+            ? 3000
+            : this.channelHeartbeatInterval;
 
         const attachment = new Attachment(
           this.reconnectStreamDelay,
           channel,
           res.sessionId,
           syncMode,
+          pollInterval,
+          pollIntervalPinned,
         );
 
         // TODO(hackerwins): Unsubscribe when detaching channel.
@@ -783,7 +820,9 @@ export class Client {
 
         this.attachmentMap.set(channel.getKey(), attachment);
 
-        // Start watching channel changes only in realtime mode
+        // Realtime: open watch stream + heartbeat (driven by sync loop).
+        // Polling: heartbeat only, sync loop drives RefreshChannel via syncInternal.
+        // Manual: nothing.
         if (syncMode === SyncMode.Realtime) {
           await this.runWatchLoop(channel.getKey());
         }

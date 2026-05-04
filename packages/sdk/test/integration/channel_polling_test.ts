@@ -1,0 +1,77 @@
+/*
+ * Copyright 2025 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { describe, it, assert } from 'vitest';
+import yorkie, { SyncMode, Channel } from '@yorkie-js/sdk/src/yorkie';
+import {
+  toDocKey,
+  testRPCAddr,
+} from '@yorkie-js/sdk/test/integration/integration_helper';
+
+describe('Channel Polling', function () {
+  it('Polling mode reflects sessionCount via heartbeat without a watch stream', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+
+    const ch1 = new Channel(channelKey);
+    const ch2 = new Channel(channelKey);
+
+    // c1 attaches in Polling mode with a 200ms heartbeat for fast test.
+    await c1.attachChannel(ch1, {
+      syncMode: SyncMode.Polling,
+      channelHeartbeatInterval: 200,
+    });
+    await c2.attachChannel(ch2);
+
+    // Wait for at least one polling tick.
+    await new Promise((r) => setTimeout(r, 500));
+
+    assert.isAtLeast(ch1.getSessionCount(), 2);
+    assert.isAtLeast(ch2.getSessionCount(), 2);
+
+    await c1.detachChannel(ch1);
+    await c2.detachChannel(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('Polling mode does not open a watch stream', async function ({ task }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+    let watchCalled = false;
+    const origWatch = (c as any).rpcClient.watch.bind((c as any).rpcClient);
+    (c as any).rpcClient.watch = (...args: Array<any>) => {
+      watchCalled = true;
+      return origWatch(...args);
+    };
+
+    await c.attachChannel(ch, { syncMode: SyncMode.Polling });
+    await new Promise((r) => setTimeout(r, 100));
+    assert.isFalse(watchCalled);
+
+    await c.detachChannel(ch);
+    await c.deactivate();
+  });
+});
