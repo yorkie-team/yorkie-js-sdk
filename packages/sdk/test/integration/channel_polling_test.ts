@@ -141,4 +141,67 @@ describe('Channel Polling', function () {
     await c1.deactivate();
     await c2.deactivate();
   });
+
+  it('Legacy isRealtime: true keeps Realtime mode (no behavior change)', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+
+    const ch1 = new Channel(channelKey);
+    const ch2 = new Channel(channelKey);
+
+    await c1.attachChannel(ch1, { isRealtime: true });
+    await c2.attachChannel(ch2, { isRealtime: true });
+
+    let received: any = null;
+    ch2.subscribe('chat', (event) => {
+      received = event.payload;
+    });
+
+    ch1.broadcast('chat', { msg: 'legacy' });
+    // Wait long enough for stream to deliver.
+    await new Promise((r) => setTimeout(r, 500));
+
+    assert.deepEqual(received, { msg: 'legacy' });
+
+    await c1.detach(ch1);
+    await c2.detach(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
+  it('syncMode wins when both syncMode and isRealtime are set', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+
+    // Conflicting options: syncMode says Polling, isRealtime says true.
+    let watchCalled = false;
+    const origWatch = (c as any).rpcClient.watch.bind((c as any).rpcClient);
+    (c as any).rpcClient.watch = (...args: Array<any>) => {
+      watchCalled = true;
+      return origWatch(...args);
+    };
+
+    await c.attachChannel(ch, {
+      syncMode: SyncMode.Polling,
+      isRealtime: true,
+    });
+
+    await new Promise((r) => setTimeout(r, 100));
+    assert.isFalse(watchCalled);
+
+    await c.detach(ch);
+    await c.deactivate();
+  });
 });
