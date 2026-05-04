@@ -921,6 +921,32 @@ export class Client {
   public async changeSyncMode<R, P extends Indexable>(
     doc: Document<R, P>,
     syncMode: SyncMode,
+  ): Promise<Document<R, P>>;
+
+  /**
+   * `changeSyncMode` changes the synchronization mode of the given channel.
+   */
+  public async changeSyncMode(
+    channel: Channel,
+    syncMode: SyncMode,
+  ): Promise<Channel>;
+
+  /**
+   * `changeSyncMode` changes the synchronization mode of the given resource.
+   */
+  public async changeSyncMode(
+    resource: Document<any, any> | Channel,
+    syncMode: SyncMode,
+  ): Promise<Document<any, any> | Channel> {
+    if (resource instanceof Channel) {
+      return this.changeChannelSyncMode(resource, syncMode);
+    }
+    return this.changeDocumentSyncMode(resource, syncMode);
+  }
+
+  private async changeDocumentSyncMode<R, P extends Indexable>(
+    doc: Document<R, P>,
+    syncMode: SyncMode,
   ): Promise<Document<R, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
@@ -944,26 +970,87 @@ export class Client {
 
     attachment.changeSyncMode(syncMode);
 
-    // realtime to manual
-    if (syncMode === SyncMode.Manual) {
+    // Tear down stream if leaving a stream-using mode.
+    if (syncMode === SyncMode.Manual || syncMode === SyncMode.Polling) {
       attachment.cancelWatchStream();
-      return doc;
     }
 
-    // NOTE(hackerwins): In non-pushpull mode, the client does not receive change events
-    // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
-    // to sync the local and remote changes. This has limitations in that unnecessary
-    // syncs occur if the client and server do not have any changes.
+    // NOTE(hackerwins): In non-pushpull mode, the client does not receive
+    // change events from the server. Therefore, we need to set
+    // `changeEventReceived` to true to sync the local and remote changes.
+    // This has limitations in that unnecessary syncs occur if the client
+    // and server do not have any changes.
     if (syncMode === SyncMode.Realtime) {
       attachment.changeEventReceived = true;
     }
 
-    // manual to realtime
-    if (prevSyncMode === SyncMode.Manual) {
+    // Recompute interval default if the user did not pin it.
+    if (!attachment.pollIntervalPinned) {
+      attachment.pollInterval =
+        syncMode === SyncMode.Polling ? DefaultPollingIntervalMs : 0;
+    }
+
+    // Start watch stream if entering a stream-using mode from a stream-less one.
+    if (
+      (prevSyncMode === SyncMode.Manual || prevSyncMode === SyncMode.Polling) &&
+      syncMode !== SyncMode.Manual &&
+      syncMode !== SyncMode.Polling
+    ) {
+      attachment.resetCancelled();
       await this.runWatchLoop(doc.getKey());
     }
 
     return doc;
+  }
+
+  private async changeChannelSyncMode(
+    channel: Channel,
+    syncMode: SyncMode,
+  ): Promise<Channel> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+
+    const attachment = this.attachmentMap.get(channel.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${channel.getKey()} is not attached`,
+      );
+    }
+
+    const prevSyncMode = attachment.syncMode;
+    if (prevSyncMode === syncMode) {
+      return channel;
+    }
+
+    // Tear down stream if leaving Realtime.
+    if (prevSyncMode === SyncMode.Realtime) {
+      attachment.cancelWatchStream();
+    }
+
+    attachment.changeSyncMode(syncMode);
+
+    // Recompute interval default if the user did not pin it.
+    if (!attachment.pollIntervalPinned) {
+      attachment.pollInterval =
+        syncMode === SyncMode.Polling
+          ? DefaultPollingIntervalMs
+          : syncMode === SyncMode.Realtime
+            ? this.channelHeartbeatInterval
+            : 0;
+    }
+
+    // Start watch stream if entering Realtime.
+    if (syncMode === SyncMode.Realtime) {
+      attachment.resetCancelled();
+      await this.runWatchLoop(channel.getKey());
+    }
+
+    return channel;
   }
 
   /**

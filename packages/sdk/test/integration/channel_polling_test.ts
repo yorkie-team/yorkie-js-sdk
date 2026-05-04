@@ -74,4 +74,35 @@ describe('Channel Polling', function () {
     await c.detachChannel(ch);
     await c.deactivate();
   });
+
+  it('changeSyncMode transitions Realtime ↔ Polling for channels', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+    // Do NOT pin channelHeartbeatInterval — we want changeSyncMode to
+    // re-resolve the default (Polling → 3000) so we can verify that path.
+    await c.attachChannel(ch, { syncMode: SyncMode.Realtime });
+
+    // Switch to Polling. Default re-resolves to 3000 (because pinned=false).
+    await c.changeSyncMode(ch, SyncMode.Polling);
+    const att = (c as any).attachmentMap.get(ch.getKey());
+    assert.equal(att.pollInterval, 3000);
+    // Override to a fast interval so the test runs quickly.
+    att.pollInterval = 200;
+
+    await new Promise((r) => setTimeout(r, 500));
+    const beforeSwitch = ch.getSessionCount();
+    assert.isAtLeast(beforeSwitch, 1);
+
+    // Switch back to Realtime.
+    await c.changeSyncMode(ch, SyncMode.Realtime);
+
+    await c.detach(ch);
+    await c.deactivate();
+  });
 });

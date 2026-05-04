@@ -224,6 +224,14 @@ export class Attachment<R extends Attachable> {
   }
 
   /**
+   * `resetCancelled` clears the cancelled flag so the watch loop can run again
+   * after a previous cancellation (e.g., after changeSyncMode back to Realtime).
+   */
+  public resetCancelled(): void {
+    this.cancelled = false;
+  }
+
+  /**
    * `cancelWatchStream` cancels the watch stream.
    */
   public cancelWatchStream(): void {
