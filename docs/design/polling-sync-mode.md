@@ -147,7 +147,7 @@ attachChannel(ch, opts)
   create Attachment(syncMode, interval)
   branch:
     Realtime → runWatchLoop(key)         // existing
-    Polling  → runHeartbeatLoop(key)     // NEW
+    Polling  → (no stream)                // sync loop's needSync handles it
     Manual   → nothing
 ```
 
@@ -164,12 +164,12 @@ attach(doc, opts)
     Manual              → nothing
 ```
 
-`runHeartbeatLoop` is new and channel-only. It loops while the
-attachment is alive, sleeps for `heartbeatInterval`, calls
-`RefreshChannel`, and applies `sessionCount` / `seq` to the local
-channel. Errors are logged and the loop continues on the next tick;
-permanent errors (auth failure, etc.) break the loop and trigger
-existing error-handling paths.
+Both Channel and Document Polling rely on the existing `runSyncLoop`
+that already drives all attachments. `Attachment.needSync()` returns
+`true` at the per-attachment polling interval, and `syncInternal()`
+already dispatches the right RPC by resource type — `RefreshChannel`
+for channels (returning `sessionCount` / `seq`), `PushPullChanges` for
+documents. No dedicated heartbeat loop is added.
 
 Document `Polling` reuses the existing sync loop. `needSync()` gains a
 `Polling` branch that returns `true` when
