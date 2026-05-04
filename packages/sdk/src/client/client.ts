@@ -258,6 +258,12 @@ export interface AttachOptions<R, P> {
   syncMode?: SyncMode;
 
   /**
+   * `documentPollInterval` (ms) — only used when `syncMode` is `Polling`.
+   * Default: 3000.
+   */
+  documentPollInterval?: number;
+
+  /**
    * `schema` is the schema of the document. It is used to validate the
    * document.
    */
@@ -296,6 +302,13 @@ export interface AttachChannelOptions {
    */
   channelHeartbeatInterval?: number;
 }
+
+/**
+ * `DefaultPollingIntervalMs` is the default heartbeat / poll interval
+ * (ms) when `SyncMode.Polling` is in effect and the user has not set an
+ * explicit interval.
+ */
+const DefaultPollingIntervalMs = 3000;
 
 /**
  * `DefaultClientOptions` is the default options for Client.
@@ -564,6 +577,12 @@ export class Client {
 
     // 02. Attach the document to the client.
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
+    const pollIntervalPinned = opts.documentPollInterval !== undefined;
+    const pollInterval = pollIntervalPinned
+      ? opts.documentPollInterval!
+      : syncMode === SyncMode.Polling
+        ? DefaultPollingIntervalMs
+        : 0;
     return this.enqueueTask(async () => {
       try {
         const res = await this.rpcClient.attachDocument(
@@ -598,10 +617,12 @@ export class Client {
             doc,
             res.documentId,
             syncMode,
+            pollInterval,
+            pollIntervalPinned,
           ),
         );
 
-        if (syncMode !== SyncMode.Manual) {
+        if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
           await this.runWatchLoop(doc.getKey());
         }
 
@@ -793,7 +814,7 @@ export class Client {
         const pollInterval = pollIntervalPinned
           ? opts.channelHeartbeatInterval!
           : syncMode === SyncMode.Polling
-            ? 3000
+            ? DefaultPollingIntervalMs
             : this.channelHeartbeatInterval;
 
         const attachment = new Attachment(
@@ -1951,6 +1972,7 @@ export class Client {
       }
 
       doc.applyChangePack(respPack);
+      attachment.updateHeartbeatTime();
       attachment.resource.publish([
         {
           type: DocEventType.SyncStatusChanged,

@@ -92,6 +92,11 @@ export class Attachment<R extends Attachable> {
       return this.resource.hasLocalChanges();
     }
 
+    if (this.syncMode === SyncMode.Polling) {
+      // Time-based: pull at every poll interval, regardless of local changes.
+      return Date.now() - this.lastHeartbeatTime >= this.pollInterval;
+    }
+
     return (
       this.syncMode !== SyncMode.Manual &&
       (this.resource.hasLocalChanges() || (this.changeEventReceived ?? false))
