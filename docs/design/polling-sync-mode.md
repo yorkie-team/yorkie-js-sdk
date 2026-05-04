@@ -134,7 +134,7 @@ interval = opts.documentPollInterval ?? 3000        // document, polling only
 If the user explicitly sets the interval, it is preserved across mode
 transitions. Otherwise, mode-specific defaults are reapplied on
 `changeSyncMode`. `Attachment` tracks this with a
-`heartbeatIntervalPinned: boolean` flag.
+`pollIntervalPinned: boolean` flag.
 
 ### SDK internal flow
 
