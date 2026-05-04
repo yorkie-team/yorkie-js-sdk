@@ -71,7 +71,8 @@ import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 type Key = string;
 
 /**
- * `SyncMode` defines synchronization modes for the PushPullChanges API.
+ * `SyncMode` defines synchronization modes for the PushPullChanges API
+ * (documents) and the RefreshChannel heartbeat (channels).
  */
 export enum SyncMode {
   /**
@@ -94,6 +95,15 @@ export enum SyncMode {
    * but the watch stream is kept active.
    */
   RealtimeSyncOff = 'realtime-syncoff',
+
+  /**
+   * `Polling` mode runs the sync loop without opening a watch stream.
+   * - For Channel: heartbeat refreshes TTL and brings sessionCount.
+   * - For Document: PushPullChanges runs at the polling interval. Remote
+   *   changes arrive on the next tick (latency = interval). Not suitable
+   *   for collaborative editing — use Realtime for that.
+   */
+  Polling = 'polling',
 }
 
 /**
