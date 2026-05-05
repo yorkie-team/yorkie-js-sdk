@@ -42,6 +42,8 @@ export class Attachment<R extends Attachable> {
   syncMode?: SyncMode;
   changeEventReceived?: boolean;
   lastHeartbeatTime: number;
+  pollInterval: number;
+  pollIntervalPinned: boolean;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
@@ -56,6 +58,8 @@ export class Attachment<R extends Attachable> {
     resource: R,
     resourceID: string,
     syncMode?: SyncMode,
+    pollInterval: number = 0,
+    pollIntervalPinned: boolean = false,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.resource = resource;
@@ -63,6 +67,8 @@ export class Attachment<R extends Attachable> {
     this.syncMode = syncMode;
     this.changeEventReceived = syncMode !== undefined ? false : undefined;
     this.lastHeartbeatTime = Date.now();
+    this.pollInterval = pollInterval;
+    this.pollIntervalPinned = pollIntervalPinned;
     this.cancelled = false;
   }
 
@@ -86,6 +92,11 @@ export class Attachment<R extends Attachable> {
       return this.resource.hasLocalChanges();
     }
 
+    if (this.syncMode === SyncMode.Polling) {
+      // Time-based: pull at every poll interval, regardless of local changes.
+      return Date.now() - this.lastHeartbeatTime >= this.pollInterval;
+    }
+
     return (
       this.syncMode !== SyncMode.Manual &&
       (this.resource.hasLocalChanges() || (this.changeEventReceived ?? false))
@@ -102,13 +113,16 @@ export class Attachment<R extends Attachable> {
       return this.needRealtimeSync();
     }
 
-    // For Presence in Manual mode: never auto-sync
+    // For Channel in Manual mode: never auto-sync
     if (this.syncMode === SyncMode.Manual) {
       return false;
     }
 
-    // For Presence in Realtime mode: check if heartbeat is needed
-    return Date.now() - this.lastHeartbeatTime >= heartbeatInterval;
+    // For Channel in Realtime or Polling mode: heartbeat at the
+    // attachment's own interval (falls back to client-level value if zero).
+    const interval =
+      this.pollInterval > 0 ? this.pollInterval : heartbeatInterval;
+    return Date.now() - this.lastHeartbeatTime >= interval;
   }
 
   /**
@@ -207,6 +221,17 @@ export class Attachment<R extends Attachable> {
         // Ignore sync errors — we just need it to finish
       }
     }
+  }
+
+  /**
+   * `resetCancelled` clears the cancelled flag so the watch loop can run again
+   * after a previous cancellation (e.g., after changeSyncMode back to Realtime).
+   * Caller must invoke `runWatchLoop` immediately after to claim the stream slot;
+   * `doLoop`'s `if (this.watchStream)` guard prevents double-stream creation if a
+   * delayed `onDisconnect` callback from the previously-cancelled stream races.
+   */
+  public resetCancelled(): void {
+    this.cancelled = false;
   }
 
   /**

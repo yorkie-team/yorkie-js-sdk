@@ -1,8 +1,12 @@
 ---
-updated: 2026-04-28
+updated: 2026-05-04
 ---
 
 # Archived Tasks
+
+## 2026-05
+
+- [20260504-polling-sync-mode-todo](2026/05/20260504-polling-sync-mode-todo.md) / [lessons](2026/05/20260504-polling-sync-mode-lessons.md) — Polling Sync Mode Implementation Plan
 
 ## 2026-04
 

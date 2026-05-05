@@ -5,6 +5,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 ## Contents
 
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
+- [Polling Sync Mode](polling-sync-mode.md): Stream-less `SyncMode.Polling` for Channel and Document, opt-in alternative to watch streams
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 - [ProseMirror Native Split/Merge](prosemirror-native-split-merge.md): Use Tree.Edit splitLevel and boundary deletion for splits and merges instead of block replacement
 

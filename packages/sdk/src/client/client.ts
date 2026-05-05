@@ -71,7 +71,8 @@ import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 type Key = string;
 
 /**
- * `SyncMode` defines synchronization modes for the PushPullChanges API.
+ * `SyncMode` defines synchronization modes for the PushPullChanges API
+ * (documents) and the RefreshChannel heartbeat (channels).
  */
 export enum SyncMode {
   /**
@@ -94,6 +95,15 @@ export enum SyncMode {
    * but the watch stream is kept active.
    */
   RealtimeSyncOff = 'realtime-syncoff',
+
+  /**
+   * `Polling` mode runs the sync loop without opening a watch stream.
+   * - For Channel: heartbeat refreshes TTL and brings sessionCount.
+   * - For Document: PushPullChanges runs at the polling interval. Remote
+   *   changes arrive on the next tick (latency = interval). Not suitable
+   *   for collaborative editing — use Realtime for that.
+   */
+  Polling = 'polling',
 }
 
 /**
@@ -248,6 +258,12 @@ export interface AttachOptions<R, P> {
   syncMode?: SyncMode;
 
   /**
+   * `documentPollInterval` (ms) — only used when `syncMode` is `Polling`.
+   * Default: 3000.
+   */
+  documentPollInterval?: number;
+
+  /**
    * `schema` is the schema of the document. It is used to validate the
    * document.
    */
@@ -259,13 +275,40 @@ export interface AttachOptions<R, P> {
  */
 export interface AttachChannelOptions {
   /**
+   * `syncMode` selects how the channel keeps presence in sync with the server.
+   * - `SyncMode.Realtime` (default): open a watch stream and run the heartbeat.
+   *   Required to receive broadcast events.
+   * - `SyncMode.Polling`: heartbeat-only. No watch stream is opened. Polling
+   *   refreshes TTL and brings the latest sessionCount.
+   * - `SyncMode.Manual`: no automatic activity. Caller must invoke sync().
+   *
+   * If both `syncMode` and `isRealtime` are set, `syncMode` wins.
+   */
+  syncMode?: SyncMode;
+
+  /**
    * `isRealtime` determines whether to automatically watch channel changes
    * and send heartbeats. If false (manual mode), the client must call sync()
    * explicitly to refresh the TTL.
    * Default is true for backward compatibility.
+   * @deprecated Use `syncMode` instead. Kept for back-compat.
    */
   isRealtime?: boolean;
+
+  /**
+   * `channelHeartbeatInterval` overrides the heartbeat interval (ms) for this
+   * attachment. If unset, mode-specific defaults apply: Polling=3000,
+   * Realtime=30000.
+   */
+  channelHeartbeatInterval?: number;
 }
+
+/**
+ * `DefaultPollingIntervalMs` is the default heartbeat / poll interval
+ * (ms) when `SyncMode.Polling` is in effect and the user has not set an
+ * explicit interval.
+ */
+const DefaultPollingIntervalMs = 3000;
 
 /**
  * `DefaultClientOptions` is the default options for Client.
@@ -534,6 +577,21 @@ export class Client {
 
     // 02. Attach the document to the client.
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
+    if (
+      opts.documentPollInterval !== undefined &&
+      opts.documentPollInterval <= 0
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'documentPollInterval must be greater than 0',
+      );
+    }
+    const pollIntervalPinned = opts.documentPollInterval !== undefined;
+    const pollInterval = pollIntervalPinned
+      ? opts.documentPollInterval!
+      : syncMode === SyncMode.Polling
+        ? DefaultPollingIntervalMs
+        : 0;
     return this.enqueueTask(async () => {
       try {
         const res = await this.rpcClient.attachDocument(
@@ -568,10 +626,12 @@ export class Client {
             doc,
             res.documentId,
             syncMode,
+            pollInterval,
+            pollIntervalPinned,
           ),
         );
 
-        if (syncMode !== SyncMode.Manual) {
+        if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
           await this.runWatchLoop(doc.getKey());
         }
 
@@ -747,15 +807,44 @@ export class Client {
         channel.updateSessionCount(Number(res.sessionCount), 0);
         channel.applyStatus(ChannelStatus.Attached);
 
-        // Determine sync mode: default is Realtime for backward compatibility
-        const syncMode =
-          opts.isRealtime !== false ? SyncMode.Realtime : SyncMode.Manual;
+        // Resolve syncMode (explicit > legacy isRealtime > default Realtime).
+        let syncMode: SyncMode;
+        if (opts.syncMode !== undefined) {
+          syncMode = opts.syncMode;
+        } else if (opts.isRealtime !== undefined) {
+          syncMode = opts.isRealtime ? SyncMode.Realtime : SyncMode.Manual;
+        } else {
+          syncMode = SyncMode.Realtime;
+        }
+
+        this.assertValidChannelSyncMode(syncMode);
+
+        if (
+          opts.channelHeartbeatInterval !== undefined &&
+          opts.channelHeartbeatInterval <= 0
+        ) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            'channelHeartbeatInterval must be greater than 0',
+          );
+        }
+
+        // Resolve heartbeat interval. Mode-specific defaults: polling=3000,
+        // realtime=client-level channelHeartbeatInterval (default 30000).
+        const pollIntervalPinned = opts.channelHeartbeatInterval !== undefined;
+        const pollInterval = pollIntervalPinned
+          ? opts.channelHeartbeatInterval!
+          : syncMode === SyncMode.Polling
+            ? DefaultPollingIntervalMs
+            : this.channelHeartbeatInterval;
 
         const attachment = new Attachment(
           this.reconnectStreamDelay,
           channel,
           res.sessionId,
           syncMode,
+          pollInterval,
+          pollIntervalPinned,
         );
 
         // TODO(hackerwins): Unsubscribe when detaching channel.
@@ -773,7 +862,9 @@ export class Client {
 
         this.attachmentMap.set(channel.getKey(), attachment);
 
-        // Start watching channel changes only in realtime mode
+        // Realtime: open watch stream + heartbeat (driven by sync loop).
+        // Polling: heartbeat only, sync loop drives RefreshChannel via syncInternal.
+        // Manual: nothing.
         if (syncMode === SyncMode.Realtime) {
           await this.runWatchLoop(channel.getKey());
         }
@@ -851,6 +942,34 @@ export class Client {
   public async changeSyncMode<R, P extends Indexable>(
     doc: Document<R, P>,
     syncMode: SyncMode,
+  ): Promise<Document<R, P>>;
+
+  /**
+   * `changeSyncMode` changes the synchronization mode of the given channel.
+   */
+  public async changeSyncMode(
+    channel: Channel,
+    syncMode: SyncMode,
+  ): Promise<Channel>;
+
+  /**
+   * `changeSyncMode` changes the synchronization mode of the given resource.
+   */
+  public async changeSyncMode(
+    resource: Document<any, any> | Channel,
+    syncMode: SyncMode,
+  ): Promise<Document<any, any> | Channel> {
+    return this.enqueueTask(async () => {
+      if (resource instanceof Channel) {
+        return this.changeChannelSyncMode(resource, syncMode);
+      }
+      return this.changeDocumentSyncMode(resource, syncMode);
+    });
+  }
+
+  private async changeDocumentSyncMode<R, P extends Indexable>(
+    doc: Document<R, P>,
+    syncMode: SyncMode,
   ): Promise<Document<R, P>> {
     if (!this.isActive()) {
       throw new YorkieError(
@@ -872,28 +991,113 @@ export class Client {
       return doc;
     }
 
-    attachment.changeSyncMode(syncMode);
-
-    // realtime to manual
-    if (syncMode === SyncMode.Manual) {
+    // Tear down stream first if leaving a stream-using mode (prevents the
+    // sync loop from observing an inconsistent mode while the stream is
+    // still live).
+    if (syncMode === SyncMode.Manual || syncMode === SyncMode.Polling) {
       attachment.cancelWatchStream();
-      return doc;
     }
 
-    // NOTE(hackerwins): In non-pushpull mode, the client does not receive change events
-    // from the server. Therefore, we need to set `remoteChangeEventReceived` to true
-    // to sync the local and remote changes. This has limitations in that unnecessary
-    // syncs occur if the client and server do not have any changes.
+    attachment.changeSyncMode(syncMode);
+
+    // NOTE(hackerwins): In non-pushpull mode, the client does not receive
+    // change events from the server. Therefore, we need to set
+    // `changeEventReceived` to true to sync the local and remote changes.
+    // This has limitations in that unnecessary syncs occur if the client
+    // and server do not have any changes.
     if (syncMode === SyncMode.Realtime) {
       attachment.changeEventReceived = true;
     }
 
-    // manual to realtime
-    if (prevSyncMode === SyncMode.Manual) {
+    // Recompute interval default if the user did not pin it.
+    if (!attachment.pollIntervalPinned) {
+      attachment.pollInterval =
+        syncMode === SyncMode.Polling ? DefaultPollingIntervalMs : 0;
+    }
+
+    // RealtimePushOnly and RealtimeSyncOff retain the watch stream, so
+    // no restart is needed when transitioning between them and Realtime.
+    // Only Manual and Polling are stream-less modes.
+    // Start watch stream if entering a stream-using mode from a stream-less one.
+    if (
+      (prevSyncMode === SyncMode.Manual || prevSyncMode === SyncMode.Polling) &&
+      syncMode !== SyncMode.Manual &&
+      syncMode !== SyncMode.Polling
+    ) {
+      attachment.resetCancelled();
       await this.runWatchLoop(doc.getKey());
     }
 
     return doc;
+  }
+
+  /**
+   * `assertValidChannelSyncMode` rejects sync modes that are not valid for
+   * channels. `RealtimePushOnly` and `RealtimeSyncOff` are document-only.
+   */
+  private assertValidChannelSyncMode(syncMode: SyncMode): void {
+    if (
+      syncMode !== SyncMode.Manual &&
+      syncMode !== SyncMode.Realtime &&
+      syncMode !== SyncMode.Polling
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `invalid channel sync mode: ${syncMode}`,
+      );
+    }
+  }
+
+  private async changeChannelSyncMode(
+    channel: Channel,
+    syncMode: SyncMode,
+  ): Promise<Channel> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+
+    const attachment = this.attachmentMap.get(channel.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${channel.getKey()} is not attached`,
+      );
+    }
+
+    const prevSyncMode = attachment.syncMode;
+    if (prevSyncMode === syncMode) {
+      return channel;
+    }
+
+    this.assertValidChannelSyncMode(syncMode);
+
+    // Tear down stream if leaving Realtime.
+    if (prevSyncMode === SyncMode.Realtime) {
+      attachment.cancelWatchStream();
+    }
+
+    attachment.changeSyncMode(syncMode);
+
+    // Recompute interval default if the user did not pin it.
+    if (!attachment.pollIntervalPinned) {
+      attachment.pollInterval =
+        syncMode === SyncMode.Polling
+          ? DefaultPollingIntervalMs
+          : syncMode === SyncMode.Realtime
+            ? this.channelHeartbeatInterval
+            : 0;
+    }
+
+    // Start watch stream if entering Realtime.
+    if (syncMode === SyncMode.Realtime) {
+      attachment.resetCancelled();
+      await this.runWatchLoop(channel.getKey());
+    }
+
+    return channel;
   }
 
   /**
@@ -1902,6 +2106,7 @@ export class Client {
       }
 
       doc.applyChangePack(respPack);
+      attachment.updateHeartbeatTime();
       attachment.resource.publish([
         {
           type: DocEventType.SyncStatusChanged,
