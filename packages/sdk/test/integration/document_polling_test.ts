@@ -58,4 +58,46 @@ describe('Document Polling', function () {
     await c1.deactivate();
     await c2.deactivate();
   });
+
+  it('changeSyncMode transitions Polling → Realtime for documents', async function ({
+    task,
+  }) {
+    const docKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+
+    const d1 = new yorkie.Document<{ k?: string }>(docKey);
+    const d2 = new yorkie.Document<{ k?: string }>(docKey);
+
+    // c1 starts in Polling mode with a slow interval (proves Realtime
+    // path is what delivers the change, not the polling tick).
+    await c1.attach(d1, {
+      syncMode: SyncMode.Polling,
+      documentPollInterval: 5000,
+    });
+    await c2.attach(d2);
+
+    // Switch c1 to Realtime — should open a watch stream.
+    await c1.changeSyncMode(d1, SyncMode.Realtime);
+
+    // c2 makes a change.
+    d2.update((root) => {
+      root.k = 'rt';
+    });
+    await c2.sync();
+
+    // Realtime should deliver well within 1s (much faster than the 5s
+    // polling interval that's still configured).
+    await new Promise((r) => setTimeout(r, 800));
+
+    assert.equal(d1.getRoot().k, 'rt');
+
+    await c1.detach(d1);
+    await c2.detach(d2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
 });

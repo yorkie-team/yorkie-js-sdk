@@ -32,6 +32,8 @@ export {
   ClientCondition,
   SyncMode,
   type ClientOptions,
+  type AttachOptions,
+  type AttachChannelOptions,
 } from '@yorkie-js/sdk/src/client/client';
 export { type RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
 export {
