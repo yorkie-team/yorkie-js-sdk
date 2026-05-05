@@ -78,8 +78,11 @@ export enum SyncMode {
 implementation-internal:
 
 - **Channel**: heartbeat loop calls `RefreshChannel` at
-  `channelHeartbeatInterval`. Response carries `sessionCount` and
-  `seq`, applied to the channel's local state.
+  `channelHeartbeatInterval`. The response's `sessionCount` is applied
+  to the channel's local state (with `seq=0`, matching the existing
+  `attachChannel` / `detachChannel` pattern). The server-side `seq` is
+  applied only via the watch-stream path, so polling does not advance
+  the channel's stream sequence.
 - **Document**: existing sync loop's `needSync()` returns `true` at
   `documentPollInterval` boundaries, causing periodic
   `PushPullChanges` calls. Remote changes arrive on the next tick;
@@ -240,7 +243,7 @@ v0.7.x server and vice versa. Rolling deploy is safe.
 | User picks `Polling` for collaborative document editing and reports lag as a bug.    | JSDoc on `Polling` enum value explicitly states unsuitability for collaborative editing. Migration guide includes the same note. |
 | Polling document client is invisible to other watchers, surprising users who expect `DocWatched` events. | JSDoc and migration guide call this out as a known limitation with a recommendation to use Realtime for presence-aware document collaboration. |
 | Sync loop processes a Polling attachment after detach.                               | `runSyncLoop` iterates `attachmentMap` per tick; `detachInternal` removes the entry before the next iteration. In-flight RPCs are guarded by the `isActive()` / `deactivating` checks at the top of every loop iteration. |
-| Mode transition partial failure leaves the attachment in an inconsistent state.       | Tear-down is wrapped in try/finally; if start-up throws, the attachment ends up in a clean Manual-equivalent state. Existing `enqueueTask` serialization prevents concurrent transitions. |
+| Mode transition partial failure leaves the attachment in an inconsistent state.       | `changeSyncMode` runs through `enqueueTask`, so concurrent transitions cannot interleave. Stream-creation errors inside `runWatchLoop` are caught and retried by the existing reconnect timer; only pre-condition failures (client deactivated, attachment already removed) propagate, and those surface to the caller for explicit handling rather than silently leaving a half-transitioned state. The mode field itself is not rolled back on those rare failures — recovery is by user retry. |
 | Channel polling default 3s overwhelms server when many channels are attached at once.| Default of 3s validated by 20K skew benchmark on 8-core pod (CPU idle). Apps with extreme channel counts can override `channelHeartbeatInterval`. |
 | `SyncMode.Polling` enum value may be passed for documents in places that lack runtime checks. | `changeDocumentSyncMode` and document attach paths validate the mode at runtime; invalid combinations throw with a clear error. |
 
