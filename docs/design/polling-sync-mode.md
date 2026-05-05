@@ -125,7 +125,7 @@ Heartbeat plays different roles per mode, so defaults differ:
 
 Resolution at attach time:
 
-```
+```text
 interval = opts.channelHeartbeatInterval ??
            (syncMode === Polling ? 3000 : 30000)   // channel
 interval = opts.documentPollInterval ?? 3000        // document, polling only
@@ -140,7 +140,7 @@ transitions. Otherwise, mode-specific defaults are reapplied on
 
 Channel attach:
 
-```
+```text
 attachChannel(ch, opts)
   resolve syncMode, interval, pinned-flag
   rpcClient.attachChannel(...)
@@ -153,7 +153,7 @@ attachChannel(ch, opts)
 
 Document attach:
 
-```
+```text
 attach(doc, opts)
   resolve syncMode, pollInterval (if Polling)
   rpcClient.attachDocument(...)

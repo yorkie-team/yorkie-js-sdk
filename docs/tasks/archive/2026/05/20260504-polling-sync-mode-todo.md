@@ -14,7 +14,7 @@
 
 ---
 
-### Task 1: Add `Polling` to `SyncMode` enum
+## Task 1: Add `Polling` to `SyncMode` enum
 
 **Files:**
 - Modify: `packages/sdk/src/client/client.ts:73-97` — add new enum member with JSDoc
@@ -76,7 +76,7 @@ git commit -m "Add SyncMode.Polling enum value"
 
 ---
 
-### Task 2: Add per-attachment polling interval on `Attachment`
+## Task 2: Add per-attachment polling interval on `Attachment`
 
 **Files:**
 - Modify: `packages/sdk/src/client/attachment.ts:39-67` — add `pollInterval` field and constructor parameter
@@ -138,7 +138,7 @@ git commit -m "Add pollInterval and pollIntervalPinned fields to Attachment"
 
 ---
 
-### Task 3: Wire `Polling` into channel attach (no stream, heartbeat 3s default)
+## Task 3: Wire `Polling` into channel attach (no stream, heartbeat 3s default)
 
 **Files:**
 - Modify: `packages/sdk/src/client/client.ts:258-268` — extend `AttachChannelOptions` with `syncMode`
@@ -355,7 +355,7 @@ git commit -m "Support SyncMode.Polling for channels"
 
 ---
 
-### Task 4: Wire `Polling` into document attach
+## Task 4: Wire `Polling` into document attach
 
 **Files:**
 - Modify: `packages/sdk/src/client/client.ts:248` (and `AttachOptions`) — add `documentPollInterval`
@@ -563,7 +563,7 @@ git commit -m "Support SyncMode.Polling for documents"
 
 ---
 
-### Task 5: `changeSyncMode` — accept Channel and handle transitions
+## Task 5: `changeSyncMode` — accept Channel and handle transitions
 
 **Files:**
 - Modify: `packages/sdk/src/client/client.ts:849-897` — overload to accept Channel, dispatch to private helpers
@@ -780,7 +780,7 @@ git commit -m "Overload changeSyncMode to handle Channel and Polling transitions
 
 ---
 
-### Task 6: Integration test — Polling channel does not receive broadcast
+## Task 6: Integration test — Polling channel does not receive broadcast
 
 **Files:**
 - Modify: `packages/sdk/test/integration/channel_polling_test.ts` — append broadcast isolation test
@@ -842,7 +842,7 @@ git commit -m "Verify Polling channel does not receive broadcast"
 
 ---
 
-### Task 7: Backward compatibility test — `isRealtime` still works
+## Task 7: Backward compatibility test — `isRealtime` still works
 
 **Files:**
 - Modify: `packages/sdk/test/integration/channel_polling_test.ts` — append legacy test
@@ -931,7 +931,7 @@ git commit -m "Verify isRealtime back-compat and syncMode precedence"
 
 ---
 
-### Task 8: Run full SDK test suite for regression
+## Task 8: Run full SDK test suite for regression
 
 **Files:** none modified — verification only.
 
@@ -972,7 +972,7 @@ git commit -m "Fix regression in <test name>"
 
 ---
 
-### Task 9: Move task file to archive
+## Task 9: Move task file to archive
 
 **Files:**
 - Move: `docs/tasks/active/20260504-polling-sync-mode-todo.md` → `docs/tasks/archive/2026/05/`
