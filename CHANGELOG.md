@@ -7,6 +7,23 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.8] - 2026-05-05
+
+### Added
+
+- Add SyncMode.Polling for Channel and Document by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1243
+
+### Changed
+
+- Drop isRealtime from core SDK, keep it as React-only prop by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1245
+- Bump dependencies to fix 25 Dependabot security alerts by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1240
+
+### Fixed
+
+- Filter pre-tombstoned descendants in tree reverseOp by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1239
+- Clear history after attach and make undo/redo no-op on empty stack by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1238
+- Fix editByPath split-then-merge and cross-boundary merge undo by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1237
+
 ## [v0.7.7] - 2026-04-26
 
 ### Added
