@@ -94,12 +94,11 @@ and was not introduced by this branch.
 ## Next Step (Out of Scope, Tracked)
 
 The design doc's primary acceptance criterion for the broader rollout is
-the 200 K even-mode benchmark using
-`web-media-tool/devops/docs/benchmarks/scenarios/presence/v075-even-200k.yaml`,
-configured to run with `syncMode: 'polling'` (3 s default). That run
-determines pod sizing and validates that the SDK change actually clears
-the bottleneck in production-shaped traffic. It requires the k6
-infrastructure and is out of scope for this SDK PR.
+a 200 K even-mode k6 benchmark configured to run with
+`syncMode: 'polling'` (3 s default). That run determines pod sizing and
+validates that the SDK change clears the bottleneck in production-shaped
+traffic. It requires the k6 infrastructure and is out of scope for this
+SDK PR.
 
 ## Commit Trail
 
