@@ -112,10 +112,11 @@ client.attachChannel(channel, { syncMode: SyncMode.Polling });
 client.attach(doc, { syncMode: SyncMode.Polling });
 ```
 
-`isRealtime` continues to map `true → Realtime`, `false → Manual` for
-back-compat. If both `syncMode` and `isRealtime` are provided,
-`syncMode` wins. No runtime warning is emitted; the JSDoc marks
-`isRealtime` as `@deprecated` for IDE hints only.
+`isRealtime` continues to map `true → Realtime`, `false → Manual`. It
+is not deprecated — for the existing two-state choice it remains a
+valid and concise way to opt in. `syncMode` is required only when the
+new `Polling` mode is wanted. If both options are provided, `syncMode`
+wins.
 
 ### Heartbeat / interval defaults
 
@@ -255,7 +256,7 @@ v0.7.x server and vice versa. Rolling deploy is safe.
 | Default mode stays `Realtime` for both resources.                                           | Avoids breaking apps that subscribe to broadcast or rely on real-time document sync. Polling is a deliberate, explicit optimization. |
 | Channel polling default interval is 3s; Realtime is 30s.                                    | In Polling mode the heartbeat carries `sessionCount`, so freshness matters. In Realtime, the stream pushes presence and the heartbeat is only TTL maintenance. |
 | Both Channel and Document polling reuse the existing sync loop.                             | `runSyncLoop` already drives both channel `RefreshChannel` and document `PushPullChanges` via `attachment.needSync()`. Polling adds a time-based branch to `needSync` / `needRealtimeSync` rather than spinning a parallel loop, avoiding two scheduling sources. |
-| `isRealtime` retained without runtime warning.                                              | Behavior unchanged for legacy callers. Deprecation noise has costs and the team chose to skip it. JSDoc `@deprecated` is enough for IDE feedback. |
+| `isRealtime` is retained as a non-deprecated alternative.                                   | `isRealtime` and `syncMode` cover different scopes: `isRealtime` is the original two-state toggle (Realtime/Manual), `syncMode` adds the new `Polling` value. Either works for the original choice; only `syncMode` can express Polling. JSDoc points users to `syncMode` when they want Polling instead of marking `isRealtime` deprecated. |
 | No adaptive polling in v1.                                                                  | Threshold values would be guesswork without production `sessionCount` distribution data. Static 3s already validated. Revisit after running 200K. |
 | No server-side changes.                                                                     | Existing server already handles unary RefreshChannel and PushPullChanges paths. Validated by production 20K benchmark. |
 

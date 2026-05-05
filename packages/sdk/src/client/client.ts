@@ -287,11 +287,16 @@ export interface AttachChannelOptions {
   syncMode?: SyncMode;
 
   /**
-   * `isRealtime` determines whether to automatically watch channel changes
-   * and send heartbeats. If false (manual mode), the client must call sync()
-   * explicitly to refresh the TTL.
-   * Default is true for backward compatibility.
-   * @deprecated Use `syncMode` instead. Kept for back-compat.
+   * `isRealtime` controls whether the SDK opens a watch stream and sends
+   * heartbeats automatically. Default is true.
+   * - `true`: equivalent to `syncMode: SyncMode.Realtime`.
+   * - `false`: equivalent to `syncMode: SyncMode.Manual` — caller must
+   *   invoke `sync()` to refresh the TTL.
+   *
+   * For the new `Polling` mode (recommended for large channels where
+   * broadcast is not needed), use `syncMode: SyncMode.Polling` directly.
+   *
+   * If both `syncMode` and `isRealtime` are set, `syncMode` wins.
    */
   isRealtime?: boolean;
 
