@@ -577,6 +577,15 @@ export class Client {
 
     // 02. Attach the document to the client.
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
+    if (
+      opts.documentPollInterval !== undefined &&
+      opts.documentPollInterval <= 0
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'documentPollInterval must be greater than 0',
+      );
+    }
     const pollIntervalPinned = opts.documentPollInterval !== undefined;
     const pollInterval = pollIntervalPinned
       ? opts.documentPollInterval!
@@ -808,6 +817,18 @@ export class Client {
           syncMode = SyncMode.Realtime;
         }
 
+        this.assertValidChannelSyncMode(syncMode);
+
+        if (
+          opts.channelHeartbeatInterval !== undefined &&
+          opts.channelHeartbeatInterval <= 0
+        ) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            'channelHeartbeatInterval must be greater than 0',
+          );
+        }
+
         // Resolve heartbeat interval. Mode-specific defaults: polling=3000,
         // realtime=client-level channelHeartbeatInterval (default 30000).
         const pollIntervalPinned = opts.channelHeartbeatInterval !== undefined;
@@ -938,10 +959,12 @@ export class Client {
     resource: Document<any, any> | Channel,
     syncMode: SyncMode,
   ): Promise<Document<any, any> | Channel> {
-    if (resource instanceof Channel) {
-      return this.changeChannelSyncMode(resource, syncMode);
-    }
-    return this.changeDocumentSyncMode(resource, syncMode);
+    return this.enqueueTask(async () => {
+      if (resource instanceof Channel) {
+        return this.changeChannelSyncMode(resource, syncMode);
+      }
+      return this.changeDocumentSyncMode(resource, syncMode);
+    });
   }
 
   private async changeDocumentSyncMode<R, P extends Indexable>(
@@ -1008,6 +1031,23 @@ export class Client {
     return doc;
   }
 
+  /**
+   * `assertValidChannelSyncMode` rejects sync modes that are not valid for
+   * channels. `RealtimePushOnly` and `RealtimeSyncOff` are document-only.
+   */
+  private assertValidChannelSyncMode(syncMode: SyncMode): void {
+    if (
+      syncMode !== SyncMode.Manual &&
+      syncMode !== SyncMode.Realtime &&
+      syncMode !== SyncMode.Polling
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `invalid channel sync mode: ${syncMode}`,
+      );
+    }
+  }
+
   private async changeChannelSyncMode(
     channel: Channel,
     syncMode: SyncMode,
@@ -1031,6 +1071,8 @@ export class Client {
     if (prevSyncMode === syncMode) {
       return channel;
     }
+
+    this.assertValidChannelSyncMode(syncMode);
 
     // Tear down stream if leaving Realtime.
     if (prevSyncMode === SyncMode.Realtime) {

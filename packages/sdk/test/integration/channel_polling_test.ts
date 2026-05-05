@@ -16,10 +16,12 @@
 
 import { describe, it, assert } from 'vitest';
 import yorkie, { SyncMode, Channel } from '@yorkie-js/sdk/src/yorkie';
+import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   toDocKey,
   testRPCAddr,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
+import { assertThrowsAsync } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('Channel Polling', function () {
   it('Polling mode reflects sessionCount via heartbeat without a watch stream', async function ({
@@ -203,5 +205,88 @@ describe('Channel Polling', function () {
 
     await c.detach(ch);
     await c.deactivate();
+  });
+
+  it('attachChannel rejects RealtimePushOnly with ErrInvalidArgument', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+    try {
+      await assertThrowsAsync(
+        () => c.attachChannel(ch, { syncMode: SyncMode.RealtimePushOnly }),
+        YorkieError,
+        'invalid channel sync mode',
+      );
+    } finally {
+      await c.deactivate();
+    }
+  });
+
+  it('attachChannel rejects RealtimeSyncOff with ErrInvalidArgument', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+    try {
+      await assertThrowsAsync(
+        () => c.attachChannel(ch, { syncMode: SyncMode.RealtimeSyncOff }),
+        YorkieError,
+        'invalid channel sync mode',
+      );
+    } finally {
+      await c.deactivate();
+    }
+  });
+
+  it('changeSyncMode rejects RealtimePushOnly for channels', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+    await c.attachChannel(ch, { syncMode: SyncMode.Realtime });
+
+    try {
+      await assertThrowsAsync(
+        () => c.changeSyncMode(ch, SyncMode.RealtimePushOnly),
+        YorkieError,
+        'invalid channel sync mode',
+      );
+    } finally {
+      await c.detach(ch);
+      await c.deactivate();
+    }
+  });
+
+  it('attachChannel rejects channelHeartbeatInterval: 0', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const ch = new Channel(channelKey);
+    try {
+      await assertThrowsAsync(
+        () => c.attachChannel(ch, { channelHeartbeatInterval: 0 }),
+        YorkieError,
+        'channelHeartbeatInterval must be greater than 0',
+      );
+    } finally {
+      await c.deactivate();
+    }
   });
 });

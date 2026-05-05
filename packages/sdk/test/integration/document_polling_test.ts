@@ -16,10 +16,12 @@
 
 import { describe, it, assert } from 'vitest';
 import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
+import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   toDocKey,
   testRPCAddr,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
+import { assertThrowsAsync } from '@yorkie-js/sdk/test/helper/helper';
 
 describe('Document Polling', function () {
   it('Polling document receives remote changes within poll interval', async function ({
@@ -99,5 +101,25 @@ describe('Document Polling', function () {
     await c2.detach(d2);
     await c1.deactivate();
     await c2.deactivate();
+  });
+
+  it('attach rejects documentPollInterval: 0 with ErrInvalidArgument', async function ({
+    task,
+  }) {
+    const docKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c.activate();
+
+    const d = new yorkie.Document<{ k?: string }>(docKey);
+    try {
+      await assertThrowsAsync(
+        () => c.attach(d, { documentPollInterval: 0 }),
+        YorkieError,
+        'documentPollInterval must be greater than 0',
+      );
+    } finally {
+      await c.deactivate();
+    }
   });
 });
