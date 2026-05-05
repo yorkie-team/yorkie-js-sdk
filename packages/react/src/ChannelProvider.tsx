@@ -167,9 +167,8 @@ export type ChannelProviderProps = PropsWithChildren<{
    * - `false`: equivalent to `syncMode={SyncMode.Manual}`.
    *
    * Use `syncMode` directly when you want `SyncMode.Polling`, which this
-   * boolean prop cannot express.
-   *
-   * @default true
+   * boolean prop cannot express. When neither prop is set, the channel
+   * falls back to `SyncMode.Realtime`.
    */
   isRealtime?: boolean;
 }>;
@@ -180,12 +179,17 @@ export type ChannelProviderProps = PropsWithChildren<{
  *
  * @example
  * ```tsx
+ * import yorkie, { SyncMode } from '@yorkie-js/sdk';
+ *
  * <YorkieProvider apiKey="..." rpcAddr="...">
- *   <ChannelProvider channelKey="room-123" isRealtime={true}>
+ *   <ChannelProvider channelKey="room-123" syncMode={SyncMode.Realtime}>
  *     <ChatRoom />
  *   </ChannelProvider>
  * </YorkieProvider>
  * ```
+ *
+ * The boolean `isRealtime` prop is also accepted as a shortcut for
+ * the Realtime/Manual choice (`true` → Realtime, `false` → Manual).
  */
 export const ChannelProvider: React.FC<ChannelProviderProps> = ({
   children,
