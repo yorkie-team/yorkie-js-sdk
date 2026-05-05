@@ -20,7 +20,7 @@ import type {
   JSONObject,
   RevisionSummary,
 } from '@yorkie-js/sdk';
-import { Tree, Text, Counter } from '@yorkie-js/sdk';
+import { Tree, Text, Counter, SyncMode } from '@yorkie-js/sdk';
 
 import { useYorkieDoc } from './useYorkieDoc';
 import { YorkieProvider } from './YorkieProvider';
@@ -44,6 +44,7 @@ export {
   Tree,
   Text,
   Counter,
+  SyncMode,
   YorkieProvider,
   DocumentProvider,
   useDocument,

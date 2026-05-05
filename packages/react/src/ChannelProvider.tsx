@@ -179,7 +179,7 @@ export type ChannelProviderProps = PropsWithChildren<{
  *
  * @example
  * ```tsx
- * import yorkie, { SyncMode } from '@yorkie-js/sdk';
+ * import { ChannelProvider, SyncMode } from '@yorkie-js/react';
  *
  * <YorkieProvider apiKey="..." rpcAddr="...">
  *   <ChannelProvider channelKey="room-123" syncMode={SyncMode.Realtime}>
