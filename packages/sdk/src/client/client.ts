@@ -276,24 +276,15 @@ export interface AttachOptions<R, P> {
 export interface AttachChannelOptions {
   /**
    * `syncMode` selects how the channel keeps presence in sync with the server.
-   * - `SyncMode.Realtime` (default): open a watch stream and run the heartbeat.
-   *   Required to receive broadcast events.
-   * - `SyncMode.Polling`: heartbeat-only. No watch stream is opened. Polling
-   *   refreshes TTL and brings the latest sessionCount.
-   * - `SyncMode.Manual`: no automatic activity. Caller must invoke sync().
-   *
-   * If both `syncMode` and `isRealtime` are set, `syncMode` wins.
+   * Default is `SyncMode.Realtime`.
+   * - `SyncMode.Realtime`: open a watch stream and run the heartbeat. Required
+   *   to receive broadcast events.
+   * - `SyncMode.Polling`: heartbeat-only. No watch stream is opened. The
+   *   heartbeat refreshes TTL and brings the latest sessionCount. Recommended
+   *   for large channels where broadcast is not needed.
+   * - `SyncMode.Manual`: no automatic activity. Caller must invoke `sync()`.
    */
   syncMode?: SyncMode;
-
-  /**
-   * `isRealtime` determines whether to automatically watch channel changes
-   * and send heartbeats. If false (manual mode), the client must call sync()
-   * explicitly to refresh the TTL.
-   * Default is true for backward compatibility.
-   * @deprecated Use `syncMode` instead. Kept for back-compat.
-   */
-  isRealtime?: boolean;
 
   /**
    * `channelHeartbeatInterval` overrides the heartbeat interval (ms) for this
@@ -807,16 +798,7 @@ export class Client {
         channel.updateSessionCount(Number(res.sessionCount), 0);
         channel.applyStatus(ChannelStatus.Attached);
 
-        // Resolve syncMode (explicit > legacy isRealtime > default Realtime).
-        let syncMode: SyncMode;
-        if (opts.syncMode !== undefined) {
-          syncMode = opts.syncMode;
-        } else if (opts.isRealtime !== undefined) {
-          syncMode = opts.isRealtime ? SyncMode.Realtime : SyncMode.Manual;
-        } else {
-          syncMode = SyncMode.Realtime;
-        }
-
+        const syncMode = opts.syncMode ?? SyncMode.Realtime;
         this.assertValidChannelSyncMode(syncMode);
 
         if (

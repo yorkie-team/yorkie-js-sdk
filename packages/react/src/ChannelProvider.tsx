@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Client, Channel } from '@yorkie-js/sdk';
+import { Client, Channel, SyncMode } from '@yorkie-js/sdk';
 import { Store } from './createStore';
 import {
   createChannelStore as createChannelStore,
@@ -46,7 +46,7 @@ export function useYorkieChannel(
   clientLoading: boolean,
   clientError: Error | undefined,
   channelKey: string,
-  isRealtime: boolean,
+  syncMode: SyncMode,
   channelStore: Store<ChannelContextType>,
 ) {
   const channelRef = useRef<Channel | undefined>(undefined);
@@ -89,7 +89,7 @@ export function useYorkieChannel(
 
       try {
         const newChannel = new Channel(channelKey);
-        await client.attach(newChannel, { isRealtime });
+        await client.attach(newChannel, { syncMode });
 
         channelRef.current = newChannel;
 
@@ -137,7 +137,7 @@ export function useYorkieChannel(
       }
       detachChannel();
     };
-  }, [client, clientLoading, clientError, channelKey, isRealtime, didMount]);
+  }, [client, clientLoading, clientError, channelKey, syncMode, didMount]);
 }
 
 /**
@@ -150,9 +150,25 @@ export type ChannelProviderProps = PropsWithChildren<{
   channelKey: string;
 
   /**
-   * `isRealtime` determines the synchronization mode.
-   * - true: Realtime mode (automatic updates via watch stream)
-   * - false: Manual mode (requires manual sync)
+   * `syncMode` selects how the channel keeps presence in sync with the server.
+   * - `SyncMode.Realtime` (default): open a watch stream and run the
+   *   heartbeat. Required to receive broadcast events.
+   * - `SyncMode.Polling`: heartbeat-only. No watch stream is opened.
+   *   Recommended for large channels where broadcast is not needed.
+   * - `SyncMode.Manual`: no automatic activity.
+   *
+   * If `isRealtime` is also set, `syncMode` wins.
+   */
+  syncMode?: SyncMode;
+
+  /**
+   * `isRealtime` is a convenience prop covering only Realtime/Manual.
+   * - `true`: equivalent to `syncMode={SyncMode.Realtime}`.
+   * - `false`: equivalent to `syncMode={SyncMode.Manual}`.
+   *
+   * Use `syncMode` directly when you want `SyncMode.Polling`, which this
+   * boolean prop cannot express.
+   *
    * @default true
    */
   isRealtime?: boolean;
@@ -174,7 +190,8 @@ export type ChannelProviderProps = PropsWithChildren<{
 export const ChannelProvider: React.FC<ChannelProviderProps> = ({
   children,
   channelKey,
-  isRealtime = true,
+  syncMode,
+  isRealtime,
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
 
@@ -193,12 +210,17 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
 
   const channelStore = channelStoreRef.current;
 
+  // Resolve syncMode: explicit syncMode wins, then isRealtime, else Realtime.
+  const resolvedSyncMode: SyncMode =
+    syncMode ??
+    (isRealtime === false ? SyncMode.Manual : SyncMode.Realtime);
+
   useYorkieChannel(
     client,
     clientLoading,
     clientError,
     channelKey,
-    isRealtime,
+    resolvedSyncMode,
     channelStore,
   );
 

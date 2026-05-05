@@ -220,11 +220,11 @@ describe('Presence', function () {
     const ch2 = new yorkie.Channel(channelKey);
 
     // Attach client1 with manual sync mode (no watch stream)
-    await c1.attach(ch1, { isRealtime: false });
+    await c1.attach(ch1, { syncMode: yorkie.SyncMode.Manual });
     assert.equal(ch1.getSessionCount(), 1);
 
     // Attach client2 with manual sync mode
-    await c2.attach(ch2, { isRealtime: false });
+    await c2.attach(ch2, { syncMode: yorkie.SyncMode.Manual });
     assert.equal(ch2.getSessionCount(), 2);
 
     // In manual mode, p1's count doesn't update automatically
@@ -270,7 +270,7 @@ describe('Presence', function () {
     assert.equal(realtimeCh.getSessionCount(), 1);
 
     // c2: Attach with manual mode
-    await c2.attach(manualCh, { isRealtime: false });
+    await c2.attach(manualCh, { syncMode: yorkie.SyncMode.Manual });
     assert.equal(manualCh.getSessionCount(), 2);
 
     // c1's realtime presence should automatically receive the update
@@ -289,7 +289,7 @@ describe('Presence', function () {
     );
 
     // c3: Attach another client
-    await c3.attach(thirdCh, { isRealtime: false });
+    await c3.attach(thirdCh, { syncMode: yorkie.SyncMode.Manual });
     assert.equal(thirdCh.getSessionCount(), 3);
 
     // c1's realtime presence receives the update automatically
