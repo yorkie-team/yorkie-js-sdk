@@ -23,7 +23,7 @@ function RoomView({ roomId, onLeave }: RoomViewProps) {
   }
 
   return (
-    <ChannelProvider channelKey={room.key} isRealtime={true}>
+    <ChannelProvider channelKey={room.key}>
       <div className="room-view">
         <div className="room-view-header">
           <button className="back-button" onClick={onLeave}>
