@@ -183,11 +183,15 @@ overload for `Channel`, dispatching internally to
 
 Channel transition matrix:
 
-| from \ to    | Realtime                      | Polling                       | Manual              |
-|--------------|-------------------------------|-------------------------------|---------------------|
-| Realtime     | —                             | cancelWatchStream → runHeartbeatLoop | cancelWatchStream  |
-| Polling      | stopHeartbeatLoop → runWatchLoop | —                          | stopHeartbeatLoop   |
-| Manual       | runWatchLoop                   | runHeartbeatLoop              | —                   |
+| from \ to    | Realtime                  | Polling                                  | Manual              |
+|--------------|---------------------------|------------------------------------------|---------------------|
+| Realtime     | —                         | cancelWatchStream (sync loop polls)      | cancelWatchStream   |
+| Polling      | runWatchLoop              | —                                        | (sync loop stops)   |
+| Manual       | runWatchLoop              | (sync loop starts polling)               | —                   |
+
+`(sync loop polls)` and similar entries mean no extra action is needed:
+the existing `runSyncLoop` reads `attachment.needSync()`, which begins
+or stops returning `true` based on the new mode and pollInterval.
 
 Document transition matrix:
 
@@ -235,7 +239,7 @@ v0.7.x server and vice versa. Rolling deploy is safe.
 |--------------------------------------------------------------------------------------|------------|
 | User picks `Polling` for collaborative document editing and reports lag as a bug.    | JSDoc on `Polling` enum value explicitly states unsuitability for collaborative editing. Migration guide includes the same note. |
 | Polling document client is invisible to other watchers, surprising users who expect `DocWatched` events. | JSDoc and migration guide call this out as a known limitation with a recommendation to use Realtime for presence-aware document collaboration. |
-| Heartbeat loop leaks on detach during in-flight RPC.                                 | Loop checks `attachmentMap.has(key)` and `isActive()` after every sleep and after every RPC return. Detach path removes the key first; loop exits at the next check. |
+| Sync loop processes a Polling attachment after detach.                               | `runSyncLoop` iterates `attachmentMap` per tick; `detachInternal` removes the entry before the next iteration. In-flight RPCs are guarded by the `isActive()` / `deactivating` checks at the top of every loop iteration. |
 | Mode transition partial failure leaves the attachment in an inconsistent state.       | Tear-down is wrapped in try/finally; if start-up throws, the attachment ends up in a clean Manual-equivalent state. Existing `enqueueTask` serialization prevents concurrent transitions. |
 | Channel polling default 3s overwhelms server when many channels are attached at once.| Default of 3s validated by 20K skew benchmark on 8-core pod (CPU idle). Apps with extreme channel counts can override `channelHeartbeatInterval`. |
 | `SyncMode.Polling` enum value may be passed for documents in places that lack runtime checks. | `changeDocumentSyncMode` and document attach paths validate the mode at runtime; invalid combinations throw with a clear error. |
@@ -247,8 +251,7 @@ v0.7.x server and vice versa. Rolling deploy is safe.
 | One `Polling` value covers both Channel and Document.                                       | Symmetric API surface; users learn one mental model. Internal implementations differ but the contract is uniform. |
 | Default mode stays `Realtime` for both resources.                                           | Avoids breaking apps that subscribe to broadcast or rely on real-time document sync. Polling is a deliberate, explicit optimization. |
 | Channel polling default interval is 3s; Realtime is 30s.                                    | In Polling mode the heartbeat carries `sessionCount`, so freshness matters. In Realtime, the stream pushes presence and the heartbeat is only TTL maintenance. |
-| Document polling reuses the existing sync loop.                                             | The sync loop already runs every `syncLoopDuration` and decides via `needSync()`. Adding a time-based branch is smaller than running a parallel loop and avoids two scheduling sources. |
-| Channel polling uses a dedicated heartbeat loop (not shared with documents).                | Channels have no equivalent of the document sync loop; a small focused loop is the simplest fit. Asymmetric internal implementation, symmetric public API. |
+| Both Channel and Document polling reuse the existing sync loop.                             | `runSyncLoop` already drives both channel `RefreshChannel` and document `PushPullChanges` via `attachment.needSync()`. Polling adds a time-based branch to `needSync` / `needRealtimeSync` rather than spinning a parallel loop, avoiding two scheduling sources. |
 | `isRealtime` retained without runtime warning.                                              | Behavior unchanged for legacy callers. Deprecation noise has costs and the team chose to skip it. JSDoc `@deprecated` is enough for IDE feedback. |
 | No adaptive polling in v1.                                                                  | Threshold values would be guesswork without production `sessionCount` distribution data. Static 3s already validated. Revisit after running 200K. |
 | No server-side changes.                                                                     | Existing server already handles unary RefreshChannel and PushPullChanges paths. Validated by production 20K benchmark. |
