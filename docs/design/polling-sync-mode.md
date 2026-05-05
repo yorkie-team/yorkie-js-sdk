@@ -26,11 +26,11 @@ worth this cost: `sessionCount` is documented as approximate, so the
 similar reasoning applies — receiving CRDT changes within a few seconds
 is fine.
 
-The SDK currently offers two channel modes (`Realtime`, `Manual` via
-`isRealtime`) and four document modes (`Realtime`, `RealtimePushOnly`,
-`RealtimeSyncOff`, `Manual`), all of which open a watch stream in the
-non-Manual cases. There is no mode that runs the heartbeat or sync loop
-without a stream.
+The SDK currently offers two channel modes (`Realtime`, `Manual`) and
+four document modes (`Realtime`, `RealtimePushOnly`, `RealtimeSyncOff`,
+`Manual`), all of which open a watch stream in the non-Manual cases.
+There is no mode that runs the heartbeat or sync loop without a
+stream.
 
 ### Goals
 
@@ -93,7 +93,6 @@ implementation-internal:
 ```ts
 export interface AttachChannelOptions {
   syncMode?: SyncMode;                      // default: Realtime
-  isRealtime?: boolean;                     // legacy; ignored if syncMode is set
   channelHeartbeatInterval?: number;        // default: polling=3000, realtime=30000
 }
 
@@ -112,10 +111,12 @@ client.attachChannel(channel, { syncMode: SyncMode.Polling });
 client.attach(doc, { syncMode: SyncMode.Polling });
 ```
 
-`isRealtime` continues to map `true → Realtime`, `false → Manual` for
-back-compat. If both `syncMode` and `isRealtime` are provided,
-`syncMode` wins. No runtime warning is emitted; the JSDoc marks
-`isRealtime` as `@deprecated` for IDE hints only.
+The legacy `isRealtime` boolean has been removed from
+`AttachChannelOptions`. Use `syncMode: SyncMode.Realtime` (or the
+default) and `syncMode: SyncMode.Manual` for the cases it covered. The
+React SDK's `<ChannelProvider>` keeps `isRealtime` as a convenience
+prop and translates internally to `syncMode`, so React consumers do
+not need code changes for the original two-state choice.
 
 ### Heartbeat / interval defaults
 
@@ -221,20 +222,26 @@ existing server code without modification.
 
 ### Compatibility
 
-No breaking changes. `Realtime` remains the default for both
-resources. All existing call sites are unaffected.
+`Realtime` remains the default for both resources. Direct callers of
+`attachChannel(ch, { isRealtime: ... })` must migrate to `syncMode`.
+The React SDK's `<ChannelProvider isRealtime={...}>` continues to
+work because `ChannelProvider` translates `isRealtime` into `syncMode`
+internally; React consumers do not need code changes for the original
+two-state choice.
 
 | Call pattern                                       | Behavior after change |
 |----------------------------------------------------|----------------------|
 | `attachChannel(ch)`                                | unchanged (Realtime)  |
-| `attachChannel(ch, { isRealtime: true })`          | unchanged             |
-| `attachChannel(ch, { isRealtime: false })`         | unchanged (Manual)    |
+| `attachChannel(ch, { isRealtime: true })`          | **REMOVED** — use `{ syncMode: Realtime }` (or omit) |
+| `attachChannel(ch, { isRealtime: false })`         | **REMOVED** — use `{ syncMode: Manual }` |
 | `attachChannel(ch, { syncMode: Polling })`         | NEW                   |
 | `attach(doc)`                                      | unchanged (Realtime)  |
 | `attach(doc, { syncMode: Polling })`               | NEW                   |
+| `<ChannelProvider isRealtime={...}>` (React)       | unchanged             |
+| `<ChannelProvider syncMode={...}>` (React)         | NEW                   |
 
-Server-client wire format is unchanged, so a v0.8 SDK works against a
-v0.7.x server and vice versa. Rolling deploy is safe.
+Server-client wire format is unchanged, so the new SDK works against
+a v0.7.x server and vice versa. Rolling deploy is safe.
 
 ### Risks and Mitigation
 
@@ -255,7 +262,7 @@ v0.7.x server and vice versa. Rolling deploy is safe.
 | Default mode stays `Realtime` for both resources.                                           | Avoids breaking apps that subscribe to broadcast or rely on real-time document sync. Polling is a deliberate, explicit optimization. |
 | Channel polling default interval is 3s; Realtime is 30s.                                    | In Polling mode the heartbeat carries `sessionCount`, so freshness matters. In Realtime, the stream pushes presence and the heartbeat is only TTL maintenance. |
 | Both Channel and Document polling reuse the existing sync loop.                             | `runSyncLoop` already drives both channel `RefreshChannel` and document `PushPullChanges` via `attachment.needSync()`. Polling adds a time-based branch to `needSync` / `needRealtimeSync` rather than spinning a parallel loop, avoiding two scheduling sources. |
-| `isRealtime` retained without runtime warning.                                              | Behavior unchanged for legacy callers. Deprecation noise has costs and the team chose to skip it. JSDoc `@deprecated` is enough for IDE feedback. |
+| `isRealtime` removed from core SDK; React SDK keeps it as a convenience prop translated to `syncMode`. | `isRealtime` and `syncMode` covered different scopes (boolean two-state vs three-state enum). Keeping both in the core API meant docs had to explain when to use which, while only `syncMode` could express the new `Polling` mode. Removal in the core gives one canonical option there; the React layer keeps `isRealtime` because that prop is widely used in templates and the boolean form is concise for the original Realtime/Manual choice. |
 | No adaptive polling in v1.                                                                  | Threshold values would be guesswork without production `sessionCount` distribution data. Static 3s already validated. Revisit after running 200K. |
 | No server-side changes.                                                                     | Existing server already handles unary RefreshChannel and PushPullChanges paths. Validated by production 20K benchmark. |
 
