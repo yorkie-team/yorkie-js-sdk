@@ -29,6 +29,7 @@ import {
   StreamConnectionStatus,
   Client,
   RevisionSummary,
+  SyncMode,
 } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
 import { createDocumentStore } from './createDocumentStore';
@@ -56,6 +57,8 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   initialRoot: R,
   initialPresence: P,
   enableDevtools: boolean,
+  syncMode: SyncMode | undefined,
+  documentPollInterval: number | undefined,
   docStore: Store<DocumentContextType<R, P>>,
 ) {
   const initialRootRef = useRef(initialRoot);
@@ -131,6 +134,8 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         await client?.attach(newDoc, {
           initialRoot: initialRootRef.current,
           initialPresence: initialPresenceRef.current,
+          syncMode,
+          documentPollInterval,
         });
 
         const update = (callback: (root: R, presence: Presence<P>) => void) => {
@@ -179,7 +184,16 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
         unsub();
       }
     };
-  }, [client, clientLoading, clientError, docKey, docStore, didMount]);
+  }, [
+    client,
+    clientLoading,
+    clientError,
+    docKey,
+    docStore,
+    didMount,
+    syncMode,
+    documentPollInterval,
+  ]);
 }
 
 export type DocumentContextType<R, P extends Indexable = Indexable> = {
@@ -206,12 +220,24 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   initialRoot = {} as R,
   initialPresence = {} as P,
   enableDevtools = false,
+  syncMode,
+  documentPollInterval,
   children,
 }: {
   docKey: string;
   initialRoot?: R;
   initialPresence?: P;
   enableDevtools?: boolean;
+  /**
+   * `syncMode` defines the synchronization mode of the document.
+   * Defaults to `SyncMode.Realtime`.
+   */
+  syncMode?: SyncMode;
+  /**
+   * `documentPollInterval` (ms) — only used when `syncMode` is `Polling`.
+   * Default: 3000. Applied at attach time.
+   */
+  documentPollInterval?: number;
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
@@ -246,6 +272,8 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     initialRoot,
     initialPresence,
     enableDevtools,
+    syncMode,
+    documentPollInterval,
     documentStore,
   );
 

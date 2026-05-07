@@ -19,6 +19,7 @@ import {
   Indexable,
   Presence,
   StreamConnectionStatus,
+  SyncMode,
 } from '@yorkie-js/sdk';
 import pkg from '../package.json';
 import { useYorkieClient } from './YorkieProvider';
@@ -38,6 +39,8 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     initialRoot?: R;
     initialPresence?: P;
     enableDevtools?: boolean;
+    syncMode?: SyncMode;
+    documentPollInterval?: number;
   },
 ): {
   root: R;
@@ -90,6 +93,8 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     opts?.initialRoot ?? ({} as R),
     opts?.initialPresence ?? ({} as P),
     opts?.enableDevtools ?? false,
+    opts?.syncMode,
+    opts?.documentPollInterval,
     documentStore,
   );
 

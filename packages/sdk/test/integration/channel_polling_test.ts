@@ -77,6 +77,45 @@ describe('Channel Polling', function () {
     await c.deactivate();
   });
 
+  it('Polling notifies subscribers when sessionCount changes', async function ({
+    task,
+  }) {
+    const channelKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+
+    const ch1 = new Channel(channelKey);
+    await c1.attachChannel(ch1, {
+      syncMode: SyncMode.Polling,
+      channelHeartbeatInterval: 200,
+    });
+
+    const observed: Array<number> = [];
+    const unsub = ch1.subscribe('presence', (event) => {
+      observed.push(event.count);
+    });
+
+    // Second client joins; the first client is in Polling mode and should
+    // observe the count change via its heartbeat refresh, not a watch event.
+    const ch2 = new Channel(channelKey);
+    await c2.attachChannel(ch2);
+
+    // Wait for at least one poll tick to deliver the new count.
+    await new Promise((r) => setTimeout(r, 600));
+
+    assert.isAtLeast(observed.length, 1);
+    assert.isAtLeast(observed[observed.length - 1], 2);
+
+    unsub();
+    await c1.detachChannel(ch1);
+    await c2.detachChannel(ch2);
+    await c1.deactivate();
+    await c2.deactivate();
+  });
+
   it('changeSyncMode transitions Realtime ↔ Polling for channels', async function ({
     task,
   }) {
