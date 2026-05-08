@@ -91,12 +91,12 @@ export default function App() {
       <YorkieProvider {...yorkieOpts}>
         <div className="panels">
           <ChannelPanel
-            channelKey={sessionKey}
+            channelKey={`${sessionKey}-ch`}
             syncMode={channelMode}
             channelHeartbeatInterval={channelInterval}
           />
           <DocumentPanel
-            docKey={sessionKey}
+            docKey={`${sessionKey}-doc`}
             syncMode={documentMode}
             documentPollInterval={documentInterval}
           />
