@@ -148,3 +148,4 @@ packages/prosemirror/lib/
 
 # npm
 **/package-lock.json
+.superpowers/
