@@ -1,0 +1,88 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #fafafa;
+  color: #1a1a1a;
+}
+.app { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.app h1 { margin: 0 0 4px; font-size: 22px; }
+.app .lede { margin: 0 0 20px; color: #666; font-size: 14px; }
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.controls fieldset {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 8px 14px 12px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.controls legend { font-size: 12px; color: #888; padding: 0 4px; }
+.controls label { font-size: 13px; color: #444; display: flex; gap: 6px; align-items: center; }
+.controls select, .controls input {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.panel {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 16px;
+}
+.panel h2 { margin: 0 0 12px; font-size: 16px; }
+.panel .meta { font-size: 12px; color: #777; margin-bottom: 12px; }
+.panel .stat { font-size: 28px; font-weight: 600; }
+.panel .stat-label { font-size: 12px; color: #888; }
+
+.log {
+  margin-top: 12px;
+  background: #0f1115;
+  color: #cfe;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  height: 160px;
+  overflow-y: auto;
+}
+.log .line { white-space: pre-wrap; }
+.log .ts { color: #888; }
+
+button {
+  font: inherit;
+  padding: 6px 12px;
+  border: 1px solid #1a73e8;
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button.secondary { background: #fff; color: #1a73e8; }
+button + button { margin-left: 8px; }
+
+input.kv-input {
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+}
+
+.callout {
+  background: #fff8e1;
+  border: 1px solid #f1d27a;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}

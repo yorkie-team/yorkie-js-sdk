@@ -47,6 +47,7 @@ export function useYorkieChannel(
   clientError: Error | undefined,
   channelKey: string,
   syncMode: SyncMode,
+  channelHeartbeatInterval: number | undefined,
   channelStore: Store<ChannelContextType>,
 ) {
   const channelRef = useRef<Channel | undefined>(undefined);
@@ -89,7 +90,7 @@ export function useYorkieChannel(
 
       try {
         const newChannel = new Channel(channelKey);
-        await client.attach(newChannel, { syncMode });
+        await client.attach(newChannel, { syncMode, channelHeartbeatInterval });
 
         channelRef.current = newChannel;
 
@@ -137,7 +138,15 @@ export function useYorkieChannel(
       }
       detachChannel();
     };
-  }, [client, clientLoading, clientError, channelKey, syncMode, didMount]);
+  }, [
+    client,
+    clientLoading,
+    clientError,
+    channelKey,
+    syncMode,
+    channelHeartbeatInterval,
+    didMount,
+  ]);
 }
 
 /**
@@ -171,6 +180,12 @@ export type ChannelProviderProps = PropsWithChildren<{
    * falls back to `SyncMode.Realtime`.
    */
   isRealtime?: boolean;
+
+  /**
+   * `channelHeartbeatInterval` overrides the heartbeat interval (ms).
+   * Applied at attach time. Defaults: Polling=3000, Realtime=30000.
+   */
+  channelHeartbeatInterval?: number;
 }>;
 
 /**
@@ -196,6 +211,7 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
   channelKey,
   syncMode,
   isRealtime,
+  channelHeartbeatInterval,
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
 
@@ -216,8 +232,7 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
 
   // Resolve syncMode: explicit syncMode wins, then isRealtime, else Realtime.
   const resolvedSyncMode: SyncMode =
-    syncMode ??
-    (isRealtime === false ? SyncMode.Manual : SyncMode.Realtime);
+    syncMode ?? (isRealtime === false ? SyncMode.Manual : SyncMode.Realtime);
 
   useYorkieChannel(
     client,
@@ -225,6 +240,7 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
     clientError,
     channelKey,
     resolvedSyncMode,
+    channelHeartbeatInterval,
     channelStore,
   );
 

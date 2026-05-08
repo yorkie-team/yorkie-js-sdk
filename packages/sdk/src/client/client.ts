@@ -2044,7 +2044,15 @@ export class Client {
           },
         );
 
-        resource.updateSessionCount(Number(res.sessionCount), 0);
+        const prevCount = resource.getSessionCount();
+        if (resource.updateSessionCount(Number(res.sessionCount), 0)) {
+          if (resource.getSessionCount() !== prevCount) {
+            resource.publish({
+              type: ChannelEventType.PresenceChanged,
+              count: resource.getSessionCount(),
+            });
+          }
+        }
         attachment.updateHeartbeatTime();
 
         logger.debug(
