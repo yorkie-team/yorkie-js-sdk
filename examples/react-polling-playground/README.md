@@ -8,9 +8,9 @@ currently watching that stock.
 
 Imagine a trading site that wants to show "how many people are watching this
 stock right now" — useful for surfacing hot tickers. One stock = one channel.
-Opening this playground attaches every listed stock's channel via heartbeat
-polling, so a new tab bumps every viewer count and the top three stocks light
-up.
+The leaderboard is a static directory: the list itself attaches no channels
+and shows no per-row count. Click a ticker to enter its room, where the
+heartbeat-driven `sessionCount` is displayed.
 
 ## Run
 
@@ -29,22 +29,24 @@ VITE_YORKIE_API_KEY= \
 pnpm dev
 ```
 
-Open the printed URL in two tabs (with the same `?key=`) and watch the live
-viewer counts converge across tabs at the chosen polling interval.
+Open the printed URL in two tabs (with the same `?key=`). Enter the same
+stock in both to see the count rise; send them into different stocks to see
+each room hold `1`.
 
 ## Controls
 
 - **Sync mode** — toggle between `Polling` (heartbeat-only) and `Realtime`
   (watch stream + heartbeat) to compare convergence behavior.
-- **Heartbeat (ms)** — applied at attach time. Changing it re-attaches every
-  channel.
+- **Heartbeat (ms)** — applied at attach time. While viewing a stock,
+  changing it re-attaches that room's channel.
 
 ## Notes
 
-- `channelHeartbeatInterval` is applied at attach. The Leaderboard re-mounts
-  when it changes (via the `key` prop on the parent), which is fine for a
+- `channelHeartbeatInterval` is applied at attach. The `<ChannelProvider>`
+  inside the stock detail view re-mounts when `syncMode` or
+  `heartbeatInterval` changes (via its `key` prop), which is fine for a
   demo — production code should call `client.changeSyncMode(...)` for live
   transitions.
 - Polling channels do not receive broadcast events; this is by design.
-- Each browser tab counts as one session per stock channel. So with two tabs
-  open you'll see `2 watching` on every row.
+- Each browser tab counts as one session per stock channel. With two tabs
+  in the same stock you'll see `2 watching` inside that room.

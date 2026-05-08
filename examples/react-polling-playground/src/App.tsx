@@ -7,10 +7,7 @@ import { STOCKS } from './stocks';
 const initialParams = new URLSearchParams(window.location.search);
 const sessionKey =
   initialParams.get('key') ||
-  `trending-${new Date()
-    .toISOString()
-    .substring(0, 10)
-    .replace(/-/g, '')}`;
+  `trending-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`;
 
 function readSelectedStock(): string | null {
   const params = new URLSearchParams(window.location.search);
@@ -19,12 +16,28 @@ function readSelectedStock(): string | null {
   return STOCKS.some((s) => s.ticker === ticker) ? ticker : null;
 }
 
+const MIN_HEARTBEAT_MS = 500;
+const DEFAULT_HEARTBEAT_MS = 2000;
+
 export default function App() {
   const [syncMode, setSyncMode] = useState<SyncMode>(SyncMode.Polling);
-  const [heartbeat, setHeartbeat] = useState<number>(2000);
+  const [heartbeat, setHeartbeat] = useState<number>(DEFAULT_HEARTBEAT_MS);
+  const [heartbeatDraft, setHeartbeatDraft] = useState<string>(
+    String(DEFAULT_HEARTBEAT_MS),
+  );
   const [selectedTicker, setSelectedTicker] = useState<string | null>(
     readSelectedStock,
   );
+
+  const commitHeartbeat = useCallback(() => {
+    const next = Number(heartbeatDraft);
+    if (Number.isFinite(next) && next >= MIN_HEARTBEAT_MS) {
+      setHeartbeat(next);
+      setHeartbeatDraft(String(next));
+    } else {
+      setHeartbeatDraft(String(heartbeat));
+    }
+  }, [heartbeatDraft, heartbeat]);
 
   useEffect(() => {
     const onPop = () => setSelectedTicker(readSelectedStock());
@@ -78,10 +91,14 @@ export default function App() {
           <span className="control-label">Heartbeat (ms)</span>
           <input
             type="number"
-            min={500}
+            min={MIN_HEARTBEAT_MS}
             step={500}
-            value={heartbeat}
-            onChange={(e) => setHeartbeat(Number(e.target.value))}
+            value={heartbeatDraft}
+            onChange={(e) => setHeartbeatDraft(e.target.value)}
+            onBlur={commitHeartbeat}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitHeartbeat();
+            }}
           />
         </label>
         <div className="session-tag">
