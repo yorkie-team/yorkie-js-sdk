@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { YorkieProvider, SyncMode } from '@yorkie-js/react';
 import Leaderboard from './Leaderboard';
-import StockDetail from './StockDetail';
+import StockDetail, {
+  type SubView,
+  type ProviderPosition,
+} from './StockDetail';
 import { STOCKS } from './stocks';
+
+const SUB_VIEWS: ReadonlyArray<SubView> = ['overview', 'activity'];
 
 const initialParams = new URLSearchParams(window.location.search);
 const sessionKey =
@@ -14,6 +19,13 @@ function readSelectedStock(): string | null {
   const ticker = params.get('stock');
   if (!ticker) return null;
   return STOCKS.some((s) => s.ticker === ticker) ? ticker : null;
+}
+
+function readSubView(): SubView {
+  const seg = window.location.pathname.split('/').filter(Boolean).pop() ?? '';
+  return (SUB_VIEWS as ReadonlyArray<string>).includes(seg)
+    ? (seg as SubView)
+    : 'overview';
 }
 
 const MIN_HEARTBEAT_MS = 500;
@@ -28,6 +40,9 @@ export default function App() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(
     readSelectedStock,
   );
+  const [subView, setSubView] = useState<SubView>(readSubView);
+  const [providerPosition, setProviderPosition] =
+    useState<ProviderPosition>('inside');
 
   const commitHeartbeat = useCallback(() => {
     const next = Number(heartbeatDraft);
@@ -40,18 +55,31 @@ export default function App() {
   }, [heartbeatDraft, heartbeat]);
 
   useEffect(() => {
-    const onPop = () => setSelectedTicker(readSelectedStock());
+    const onPop = () => {
+      setSelectedTicker(readSelectedStock());
+      setSubView(readSubView());
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const navigate = useCallback((ticker: string | null) => {
+  const navigateRoom = useCallback((ticker: string | null) => {
     const params = new URLSearchParams(window.location.search);
     if (ticker) params.set('stock', ticker);
     else params.delete('stock');
-    const next = `${window.location.pathname}?${params.toString()}`;
-    window.history.pushState({}, '', next);
+    const path = ticker ? '/overview' : '/';
+    const query = params.toString();
+    window.history.pushState({}, '', query ? `${path}?${query}` : path);
     setSelectedTicker(ticker);
+    setSubView('overview');
+  }, []);
+
+  const navigateSubView = useCallback((view: SubView) => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.toString();
+    const next = `/${view}${query ? `?${query}` : ''}`;
+    window.history.pushState({}, '', next);
+    setSubView(view);
   }, []);
 
   const apiKey = import.meta.env.VITE_YORKIE_API_KEY ?? '';
@@ -68,11 +96,10 @@ export default function App() {
       <header>
         <h1>📈 Live Stock Rooms</h1>
         <p className="lede">
-          Each stock is its own room (Yorkie Channel). Click a ticker to enter
-          and see how many people are watching it right now via{' '}
-          <code>SyncMode.Polling</code>. Open another tab on the same stock to
-          watch the count rise; pick a different stock to see the previous
-          room's count drop.
+          Each stock is its own room (Yorkie Channel). Inside a room, navigate
+          between sub-paths (<code>/overview</code> ↔ <code>/activity</code>)
+          and toggle the <code>ChannelProvider</code> position to see how its
+          placement affects the session count.
         </p>
       </header>
 
@@ -101,6 +128,18 @@ export default function App() {
             }}
           />
         </label>
+        <label>
+          <span className="control-label">Provider position</span>
+          <select
+            value={providerPosition}
+            onChange={(e) =>
+              setProviderPosition(e.target.value as ProviderPosition)
+            }
+          >
+            <option value="inside">Inside sub-route (flickers)</option>
+            <option value="outside">Outside sub-route (stable)</option>
+          </select>
+        </label>
         <div className="session-tag">
           session <code>{sessionKey}</code>
         </div>
@@ -113,18 +152,23 @@ export default function App() {
             syncMode={syncMode}
             heartbeatInterval={heartbeat}
             channelKey={`${sessionKey}-${selectedStock.ticker}`}
-            onBack={() => navigate(null)}
+            subView={subView}
+            providerPosition={providerPosition}
+            onChangeSubView={navigateSubView}
+            onBack={() => navigateRoom(null)}
           />
         ) : (
-          <Leaderboard onSelect={(ticker) => navigate(ticker)} />
+          <Leaderboard onSelect={(ticker) => navigateRoom(ticker)} />
         )}
       </YorkieProvider>
 
       <footer>
-        Tip: open this URL in two tabs with the same <code>?key=</code>. Send
-        them into the same stock to see <code>2 watching</code>; send them into
-        different stocks to see each room hold <code>1</code>. The list itself
-        attaches no channels — counts only exist inside a stock room.
+        Tip: open this URL in two tabs with the same <code>?key=</code>. Enter
+        the same stock in both. In one tab, keep clicking between{' '}
+        <code>/overview</code> and <code>/activity</code>. With{' '}
+        <code>Provider position: inside</code> the other tab will see the count
+        blink to <code>0</code> right after each navigation, then recover.
+        Switch to <code>outside</code> and the blink disappears.
       </footer>
     </div>
   );
