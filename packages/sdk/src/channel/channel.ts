@@ -179,6 +179,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
   private key: string;
   private status: ChannelStatus;
   private actorID?: ActorID;
+  private clientID?: string;
   private sessionID?: string;
   private sessionCount: number;
   private seq: number;
@@ -261,6 +262,22 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
    */
   public setSessionID(sessionID: string): void {
     this.sessionID = sessionID;
+  }
+
+  /**
+   * `getClientID` returns the server-issued client ID for this channel.
+   * Populated by the first RefreshChannel call (which activates the client
+   * and attaches it in a single round trip).
+   */
+  public getClientID(): string | undefined {
+    return this.clientID;
+  }
+
+  /**
+   * `setClientID` sets the server-issued client ID for this channel.
+   */
+  public setClientID(clientID: string): void {
+    this.clientID = clientID;
   }
 
   /**

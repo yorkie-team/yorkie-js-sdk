@@ -292,6 +292,19 @@ export interface AttachChannelOptions {
    * Realtime=30000.
    */
   channelHeartbeatInterval?: number;
+
+  /**
+   * `readOnly` attaches the session to the channel but excludes it from the
+   * reported `sessionCount`. The session still receives broadcasts and
+   * channel events; the flag only affects count accounting. Use this when a
+   * client wants to *display* the count without contributing to it (e.g. a
+   * "join writers (N writing)" button on a surrounding page).
+   *
+   * The flag is read at attach time only. To switch modes, detach and
+   * re-attach with a different value — typically driven by a route change
+   * that remounts the provider.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -782,10 +795,21 @@ export class Client {
 
     const task = async () => {
       try {
-        const res = await this.rpcClient.attachChannel(
+        // First-call RefreshChannel: an empty session_id signals the server
+        // to attach to the channel + refresh in one round trip. If this
+        // Client has already been activated (this.id set), reuse that
+        // client_id so the server's Attach idempotency check works across
+        // ChannelProvider remounts. Otherwise pass client_key and the server
+        // will activate-then-attach in one go.
+        const alreadyActivated = !!this.id;
+        const res = await this.rpcClient.refreshChannel(
           {
-            clientId: this.id!,
+            clientId: alreadyActivated ? this.id! : '',
             channelKey: channel.getKey(),
+            sessionId: '',
+            clientKey: alreadyActivated ? '' : this.key,
+            metadata: alreadyActivated ? {} : this.metadata,
+            readOnly: opts.readOnly ?? false,
           },
           {
             headers: {
@@ -794,6 +818,7 @@ export class Client {
           },
         );
 
+        channel.setClientID(res.clientId);
         channel.setSessionID(res.sessionId);
         channel.updateSessionCount(Number(res.sessionCount), 0);
         channel.applyStatus(ChannelStatus.Attached);
@@ -885,27 +910,19 @@ export class Client {
 
     const task = async () => {
       try {
-        const res = await this.rpcClient.detachChannel(
-          {
-            clientId: this.id!,
-            channelKey: channel.getKey(),
-            sessionId: channel.getSessionID()!,
-          },
-          {
-            headers: {
-              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
-            },
-          },
-        );
-
-        channel.updateSessionCount(Number(res.sessionCount), 0);
+        // No explicit DetachChannel RPC: in the collapsed channel lifecycle
+        // (everything goes through RefreshChannel), detach happens implicitly
+        // by stopping the heartbeat and letting the server's TTL reap the
+        // session. The trade-off is up to `channelSessionTTL` of lag before
+        // other clients see the count drop; in exchange the channel surface
+        // is a single RPC.
         channel.applyStatus(ChannelStatus.Detached);
 
         // Clean up watch stream and remove from attachment map
         this.detachInternal(channel.getKey());
 
         logger.info(
-          `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" count:${channel.getSessionCount()}`,
+          `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" (ttl-based)`,
         );
         return channel;
       } catch (err) {
@@ -2031,9 +2048,12 @@ export class Client {
     // Handle channel heartbeat
     if (resource instanceof Channel) {
       try {
+        // Heartbeat path: non-empty session_id tells the server to refresh
+        // TTL and return the latest count. The clientId here is the one
+        // issued by the first-call refreshChannel, stored per-channel.
         const res = await this.rpcClient.refreshChannel(
           {
-            clientId: this.id!,
+            clientId: resource.getClientID()!,
             channelKey: resource.getKey(),
             sessionId: resource.getSessionID()!,
           },

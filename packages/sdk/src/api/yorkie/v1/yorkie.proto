@@ -17,7 +17,7 @@ syntax = "proto3";
 
 package yorkie.v1;
 
-import "src/api/yorkie/v1/resources.proto";
+import "yorkie/v1/resources.proto";
 
 option go_package = "github.com/yorkie-team/yorkie/api/yorkie/v1;v1";
 
@@ -282,10 +282,26 @@ message RefreshChannelRequest {
   string client_id = 1;
   string channel_key = 2;
   string session_id = 3;
+  // client_key and metadata are used only on the first call (when session_id
+  // is empty). The server activates the client and attaches it to the channel
+  // before refreshing, collapsing ActivateClient + AttachChannel + RefreshChannel
+  // into a single round trip.
+  string client_key = 4;
+  map<string, string> metadata = 5;
+  // read_only is meaningful only on the first call (session_id empty). When
+  // true, the resulting session is attached to the channel but excluded from
+  // session_count reported to all clients. Read-only sessions still receive
+  // broadcasts and channel events; the flag only affects count accounting.
+  bool read_only = 6;
 }
 
 message RefreshChannelResponse {
   int64 session_count = 1;
+  // client_id and session_id are populated only when the request was a
+  // first-call (i.e. session_id was empty). Subsequent heartbeats leave
+  // these empty.
+  string client_id = 2;
+  string session_id = 3;
 }
 
 message BroadcastRequest {

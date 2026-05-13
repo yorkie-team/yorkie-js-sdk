@@ -4,6 +4,7 @@ import type { Stock } from './stocks';
 
 export type SubView = 'overview' | 'activity';
 export type ProviderPosition = 'inside' | 'outside';
+export type LogSource = SubView | 'writers';
 
 type AttachState = 'attaching' | 'ok' | 'error';
 
@@ -11,7 +12,7 @@ type LogEntry = {
   t: number;
   n: number;
   state: AttachState;
-  source: SubView;
+  source: LogSource;
   err?: string;
 };
 
@@ -20,10 +21,12 @@ type Props = {
   syncMode: SyncMode;
   heartbeatInterval: number;
   channelKey: string;
+  writersChannelKey: string;
   subView: SubView;
   providerPosition: ProviderPosition;
   onChangeSubView: (view: SubView) => void;
   onBack: () => void;
+  onCompose: () => void;
 };
 
 const TABS: ReadonlyArray<SubView> = ['overview', 'activity'];
@@ -33,10 +36,12 @@ export default function StockDetail({
   syncMode,
   heartbeatInterval,
   channelKey,
+  writersChannelKey,
   subView,
   providerPosition,
   onChangeSubView,
   onBack,
+  onCompose,
 }: Props) {
   const providerKey = `${channelKey}-${syncMode}-${heartbeatInterval}`;
   const providerProps = {
@@ -47,7 +52,7 @@ export default function StockDetail({
 
   const [log, setLog] = useState<Array<LogEntry>>([]);
   const handleSessionEvent = useCallback(
-    (n: number, state: AttachState, source: SubView, err?: string) => {
+    (n: number, state: AttachState, source: LogSource, err?: string) => {
       setLog((prev) => {
         const next = [...prev, { t: Date.now(), n, state, source, err }];
         return next.length > 24 ? next.slice(-24) : next;
@@ -110,6 +115,21 @@ export default function StockDetail({
         </>
       )}
 
+      {/* Sibling read-only attach to a global writers channel: shows the count
+          of users currently composing without counting this viewer. */}
+      <ChannelProvider
+        key={`${writersChannelKey}-${syncMode}-${heartbeatInterval}-ro`}
+        channelKey={writersChannelKey}
+        syncMode={syncMode}
+        channelHeartbeatInterval={heartbeatInterval}
+        readOnly
+      >
+        <WritersCallToAction
+          onCompose={onCompose}
+          onSession={handleSessionEvent}
+        />
+      </ChannelProvider>
+
       <SessionLogPanel log={log} onClear={() => setLog([])} />
     </div>
   );
@@ -120,7 +140,7 @@ type CardProps = {
   onSession: (
     n: number,
     state: AttachState,
-    source: SubView,
+    source: LogSource,
     err?: string,
   ) => void;
 };
@@ -177,6 +197,42 @@ function SessionCountCard({
       </div>
       {error && <p className="detail-hint">error: {error.message}</p>}
     </div>
+  );
+}
+
+function WritersCallToAction({
+  onCompose,
+  onSession,
+}: {
+  onCompose: () => void;
+  onSession: CardProps['onSession'];
+}) {
+  const { sessionCount, loading, error } = useChannel();
+  const state: AttachState = error ? 'error' : loading ? 'attaching' : 'ok';
+
+  const lastRef = useRef<{ n: number; state: AttachState } | null>(null);
+  useEffect(() => {
+    const cur = { n: sessionCount, state };
+    const last = lastRef.current;
+    if (!last || last.n !== cur.n || last.state !== cur.state) {
+      lastRef.current = cur;
+      onSession(sessionCount, state, 'writers', error?.message);
+    }
+  }, [sessionCount, state, error, onSession]);
+
+  const label = loading
+    ? '…'
+    : error
+      ? '—'
+      : sessionCount.toLocaleString();
+  return (
+    <button className="writer-cta" onClick={onCompose}>
+      <span className="writer-cta-icon">✏️</span>
+      <span className="writer-cta-label">Write a post</span>
+      <span className="writer-cta-count" title="people writing right now">
+        {label} writing
+      </span>
+    </button>
   );
 }
 

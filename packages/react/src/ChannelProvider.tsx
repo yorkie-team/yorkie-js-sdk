@@ -48,6 +48,7 @@ export function useYorkieChannel(
   channelKey: string,
   syncMode: SyncMode,
   channelHeartbeatInterval: number | undefined,
+  readOnly: boolean,
   channelStore: Store<ChannelContextType>,
 ) {
   const channelRef = useRef<Channel | undefined>(undefined);
@@ -90,7 +91,11 @@ export function useYorkieChannel(
 
       try {
         const newChannel = new Channel(channelKey);
-        await client.attach(newChannel, { syncMode, channelHeartbeatInterval });
+        await client.attach(newChannel, {
+          syncMode,
+          channelHeartbeatInterval,
+          readOnly,
+        });
 
         channelRef.current = newChannel;
 
@@ -145,6 +150,7 @@ export function useYorkieChannel(
     channelKey,
     syncMode,
     channelHeartbeatInterval,
+    readOnly,
     didMount,
   ]);
 }
@@ -186,6 +192,17 @@ export type ChannelProviderProps = PropsWithChildren<{
    * Applied at attach time. Defaults: Polling=3000, Realtime=30000.
    */
   channelHeartbeatInterval?: number;
+
+  /**
+   * `readOnly` attaches without contributing to the channel's session_count.
+   * The session still receives broadcasts and channel events; the flag only
+   * affects count accounting. Useful for a surrounding page that displays
+   * "N writing" without counting the viewer themselves.
+   *
+   * Read at attach time only. To switch between read-only and participant,
+   * remount the provider (typically driven by a route change).
+   */
+  readOnly?: boolean;
 }>;
 
 /**
@@ -212,6 +229,7 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
   syncMode,
   isRealtime,
   channelHeartbeatInterval,
+  readOnly = false,
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
 
@@ -241,6 +259,7 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
     channelKey,
     resolvedSyncMode,
     channelHeartbeatInterval,
+    readOnly,
     channelStore,
   );
 

@@ -3,7 +3,7 @@ inputs:
   - directory: src/api
 plugins:
   - local: protoc-gen-es
-    out: .
+    out: src/api
     include_imports: true
     opt:
       - target=ts
