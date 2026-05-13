@@ -142,32 +142,25 @@ function WritersPeekCTA({
   channelKey: string;
   onCompose: () => void;
 }) {
-  const [pollEnabled, setPollEnabled] = useState(true);
-  const [snapshot, setSnapshot] = useState<number | null>(null);
-  const [showSnapshot, setShowSnapshot] = useState(true);
+  // One-shot peek by default: fetches once on mount, never polls.
+  const { sessionCount, loading, error } = usePeekChannel(channelKey);
+  const [visible, setVisible] = useState(true);
 
-  // usePeekChannel polls until a successful read, then we disable it.
-  // This expresses "snapshot at entry" using a polling hook — the hook
-  // also fits ongoing-display cases just by leaving pollEnabled true.
-  const { sessionCount, loading, error } = usePeekChannel(channelKey, {
-    enabled: pollEnabled,
-  });
-
+  // Hide the count badge 3 seconds after the first successful fetch.
   useEffect(() => {
-    if (loading || error || !pollEnabled || snapshot !== null) return;
-    setSnapshot(sessionCount);
-    setPollEnabled(false);
-    const timer = setTimeout(() => setShowSnapshot(false), PEEK_SHOW_MS);
+    if (loading || error) return;
+    const timer = setTimeout(() => setVisible(false), PEEK_SHOW_MS);
     return () => clearTimeout(timer);
-  }, [loading, error, pollEnabled, sessionCount, snapshot]);
+  }, [loading, error]);
 
+  const showCount = visible && !loading && !error;
   return (
     <button className="writer-cta" onClick={onCompose}>
       <span className="writer-cta-icon">✏️</span>
       <span className="writer-cta-label">Write a post</span>
-      {showSnapshot && snapshot !== null && (
+      {showCount && (
         <span className="writer-cta-count" title="people writing at page entry">
-          {snapshot.toLocaleString()} writing
+          {sessionCount.toLocaleString()} writing
         </span>
       )}
     </button>

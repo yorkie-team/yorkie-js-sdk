@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useYorkie } from './YorkieProvider';
 
 /**
@@ -22,14 +22,16 @@ import { useYorkie } from './YorkieProvider';
  */
 export interface UsePeekChannelOptions {
   /**
-   * `pollInterval` is the cadence (ms) at which to re-read the count.
-   * Default: 3000.
+   * `pollInterval` opts the hook into continuous polling at the given
+   * cadence (ms). When unset, the hook fetches once on mount and stops —
+   * this matches the common "snapshot at entry" pattern. Use polling only
+   * when the UI genuinely needs a live-updating count.
    */
   pollInterval?: number;
 
   /**
-   * `enabled` toggles polling on/off. When false, polling stops and the
-   * hook holds the last value. Default: true.
+   * `enabled` toggles execution. When false, the hook does not fetch and
+   * holds the last value. Default: true.
    */
   enabled?: boolean;
 }
@@ -38,27 +40,68 @@ export interface UsePeekChannelOptions {
  * `UsePeekChannelResult` is the state exposed by `usePeekChannel`.
  */
 export interface UsePeekChannelResult {
+  /**
+   * `sessionCount` is the most recently fetched count. Starts at 0 before
+   * the first successful fetch; gate display on `loading` if 0-vs-unfetched
+   * matters in your UI.
+   */
   sessionCount: number;
+
+  /**
+   * `loading` is true before the first successful fetch (or while a
+   * `refetch()` is in flight). Becomes false on success or error.
+   */
   loading: boolean;
+
+  /**
+   * `error` holds the last error from a fetch, if any.
+   */
   error?: Error;
+
+  /**
+   * `refetch` issues a peek immediately, ignoring `pollInterval`. Useful on
+   * button clicks or after user actions that may have changed the count.
+   */
+  refetch: () => Promise<void>;
 }
 
 /**
  * `usePeekChannel` reads a channel's current session count without joining
- * the channel. The caller polls on the configured cadence; no Session is
- * created on the server and no broadcasts are received.
+ * the channel. By default it fetches once on mount; pass `pollInterval` to
+ * opt into continuous polling. The caller does not create a Session on the
+ * server, does not receive broadcasts, and does not contribute to the
+ * channel's count.
  *
  * Prefer this over `<ChannelProvider readOnly>` when many viewers need to
  * display a count and only a few become real participants — e.g. a global
  * "N people writing" badge shown on every surrounding page.
  *
- * @example
+ * @example One-shot (snapshot at entry)
  * ```tsx
  * function WritersBadge() {
+ *   const { sessionCount, loading } = usePeekChannel('post-writers');
+ *   if (loading) return null;
+ *   return <span>{sessionCount} writing</span>;
+ * }
+ * ```
+ *
+ * @example Continuous polling
+ * ```tsx
+ * function LiveCounter() {
  *   const { sessionCount } = usePeekChannel('post-writers', {
- *     pollInterval: 2000,
+ *     pollInterval: 3000,
  *   });
  *   return <span>{sessionCount} writing</span>;
+ * }
+ * ```
+ *
+ * @example Imperative refetch
+ * ```tsx
+ * function WithRefresh() {
+ *   const { sessionCount, refetch } = usePeekChannel('post-writers');
+ *   return (
+ *     <button onClick={() => refetch()}>{sessionCount} (refresh)</button>
+ *   );
  * }
  * ```
  */
@@ -67,12 +110,28 @@ export function usePeekChannel(
   opts: UsePeekChannelOptions = {},
 ): UsePeekChannelResult {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
-  const pollInterval = opts.pollInterval ?? 3000;
-  const enabled = opts.enabled !== false;
+  const { pollInterval, enabled = true } = opts;
 
   const [sessionCount, setSessionCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | undefined>(clientError);
+
+  // Latest channelKey captured for refetch. Avoids closing over stale prop.
+  const channelKeyRef = useRef(channelKey);
+  channelKeyRef.current = channelKey;
+
+  const peekOnce = useCallback(async () => {
+    if (!client || !client.isActive()) return;
+    try {
+      const count = await client.peekChannel(channelKeyRef.current);
+      setSessionCount(count);
+      setError(undefined);
+    } catch (e) {
+      setError(e instanceof Error ? e : new Error(String(e)));
+    } finally {
+      setLoading(false);
+    }
+  }, [client]);
 
   useEffect(() => {
     if (clientError) {
@@ -85,26 +144,27 @@ export function usePeekChannel(
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const tick = async () => {
+    setLoading(true);
+
+    const run = async () => {
       if (cancelled || !client.isActive()) return;
       try {
         const count = await client.peekChannel(channelKey);
         if (cancelled) return;
         setSessionCount(count);
         setError(undefined);
-        setLoading(false);
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e : new Error(String(e)));
-        setLoading(false);
       } finally {
-        if (!cancelled) {
-          timer = setTimeout(tick, pollInterval);
-        }
+        if (!cancelled) setLoading(false);
+      }
+      if (!cancelled && pollInterval !== undefined && pollInterval > 0) {
+        timer = setTimeout(run, pollInterval);
       }
     };
 
-    tick();
+    run();
 
     return () => {
       cancelled = true;
@@ -112,5 +172,5 @@ export function usePeekChannel(
     };
   }, [client, clientLoading, clientError, channelKey, pollInterval, enabled]);
 
-  return { sessionCount, loading, error };
+  return { sessionCount, loading, error, refetch: peekOnce };
 }
