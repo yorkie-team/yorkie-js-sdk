@@ -5,7 +5,10 @@ import StockDetail, {
   type SubView,
   type ProviderPosition,
 } from './StockDetail';
+import WritePostPage from './WritePostPage';
 import { STOCKS } from './stocks';
+
+type View = 'leaderboard' | 'stock' | 'write';
 
 const SUB_VIEWS: ReadonlyArray<SubView> = ['overview', 'activity'];
 
@@ -19,6 +22,12 @@ function readSelectedStock(): string | null {
   const ticker = params.get('stock');
   if (!ticker) return null;
   return STOCKS.some((s) => s.ticker === ticker) ? ticker : null;
+}
+
+function readView(): View {
+  const seg = window.location.pathname.split('/').filter(Boolean).pop() ?? '';
+  if (seg === 'write') return 'write';
+  return readSelectedStock() ? 'stock' : 'leaderboard';
 }
 
 function readSubView(): SubView {
@@ -40,6 +49,7 @@ export default function App() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(
     readSelectedStock,
   );
+  const [view, setView] = useState<View>(readView);
   const [subView, setSubView] = useState<SubView>(readSubView);
   const [providerPosition, setProviderPosition] =
     useState<ProviderPosition>('inside');
@@ -57,30 +67,52 @@ export default function App() {
   useEffect(() => {
     const onPop = () => {
       setSelectedTicker(readSelectedStock());
+      setView(readView());
       setSubView(readSubView());
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const navigateRoom = useCallback((ticker: string | null) => {
+  const goLeaderboard = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    if (ticker) params.set('stock', ticker);
-    else params.delete('stock');
-    const path = ticker ? '/overview' : '/';
+    params.delete('stock');
     const query = params.toString();
-    window.history.pushState({}, '', query ? `${path}?${query}` : path);
-    setSelectedTicker(ticker);
+    window.history.pushState({}, '', query ? `/?${query}` : '/');
+    setSelectedTicker(null);
+    setView('leaderboard');
     setSubView('overview');
   }, []);
 
-  const navigateSubView = useCallback((view: SubView) => {
+  const goStock = useCallback((ticker: string) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set('stock', ticker);
+    const query = params.toString();
+    window.history.pushState({}, '', `/overview?${query}`);
+    setSelectedTicker(ticker);
+    setView('stock');
+    setSubView('overview');
+  }, []);
+
+  const navigateSubView = useCallback((next: SubView) => {
     const params = new URLSearchParams(window.location.search);
     const query = params.toString();
-    const next = `/${view}${query ? `?${query}` : ''}`;
-    window.history.pushState({}, '', next);
-    setSubView(view);
+    window.history.pushState({}, '', `/${next}${query ? `?${query}` : ''}`);
+    setSubView(next);
   }, []);
+
+  const goWrite = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    window.history.pushState({}, '', `/write?${params.toString()}`);
+    setView('write');
+  }, []);
+
+  const backFromWrite = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.toString();
+    window.history.pushState({}, '', `/${subView}${query ? `?${query}` : ''}`);
+    setView('stock');
+  }, [subView]);
 
   const apiKey = import.meta.env.VITE_YORKIE_API_KEY ?? '';
   const rpcAddr =
@@ -91,6 +123,8 @@ export default function App() {
     ? (STOCKS.find((s) => s.ticker === selectedTicker) ?? null)
     : null;
 
+  const writersChannelKey = `${sessionKey}-writers`;
+
   return (
     <div className="app">
       <header>
@@ -98,8 +132,9 @@ export default function App() {
         <p className="lede">
           Each stock is its own room (Yorkie Channel). Inside a room, navigate
           between sub-paths (<code>/overview</code> ↔ <code>/activity</code>)
-          and toggle the <code>ChannelProvider</code> position to see how its
-          placement affects the session count.
+          to test <code>ChannelProvider</code> position behavior. The "Write a
+          post" badge reads a separate global <code>writers</code> channel via{' '}
+          <code>usePeekChannel</code> — one RPC at page entry, no attach.
         </p>
       </header>
 
@@ -146,29 +181,39 @@ export default function App() {
       </div>
 
       <YorkieProvider {...yorkieOpts}>
-        {selectedStock ? (
+        {view === 'write' && selectedStock ? (
+          <WritePostPage
+            stock={selectedStock}
+            writersChannelKey={writersChannelKey}
+            syncMode={syncMode}
+            heartbeatInterval={heartbeat}
+            onBack={backFromWrite}
+          />
+        ) : selectedStock ? (
           <StockDetail
             stock={selectedStock}
             syncMode={syncMode}
             heartbeatInterval={heartbeat}
             channelKey={`${sessionKey}-${selectedStock.ticker}`}
+            writersChannelKey={writersChannelKey}
             subView={subView}
             providerPosition={providerPosition}
             onChangeSubView={navigateSubView}
-            onBack={() => navigateRoom(null)}
+            onBack={goLeaderboard}
+            onCompose={goWrite}
           />
         ) : (
-          <Leaderboard onSelect={(ticker) => navigateRoom(ticker)} />
+          <Leaderboard onSelect={(ticker) => goStock(ticker)} />
         )}
       </YorkieProvider>
 
       <footer>
-        Tip: open this URL in two tabs with the same <code>?key=</code>. Enter
-        the same stock in both. In one tab, keep clicking between{' '}
-        <code>/overview</code> and <code>/activity</code>. With{' '}
-        <code>Provider position: inside</code> the other tab will see the count
-        blink to <code>0</code> right after each navigation, then recover.
-        Switch to <code>outside</code> and the blink disappears.
+        Tip: open one tab on a stock page, another tab → /write. The stock tab
+        peeks the writers channel once on entry; the count badge shows for 3
+        seconds, then hides. Click "Write a post" on the stock tab to enter
+        the composer — that tab attaches to the writers channel as a
+        participant. Other stock pages opened *after* will see the higher
+        count on their initial peek.
       </footer>
     </div>
   );

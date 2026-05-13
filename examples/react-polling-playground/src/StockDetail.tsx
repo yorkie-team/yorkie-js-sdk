@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChannelProvider, SyncMode, useChannel } from '@yorkie-js/react';
+import {
+  ChannelProvider,
+  SyncMode,
+  useChannel,
+  usePeekChannel,
+} from '@yorkie-js/react';
 import type { Stock } from './stocks';
 
 export type SubView = 'overview' | 'activity';
@@ -20,10 +25,12 @@ type Props = {
   syncMode: SyncMode;
   heartbeatInterval: number;
   channelKey: string;
+  writersChannelKey: string;
   subView: SubView;
   providerPosition: ProviderPosition;
   onChangeSubView: (view: SubView) => void;
   onBack: () => void;
+  onCompose: () => void;
 };
 
 const TABS: ReadonlyArray<SubView> = ['overview', 'activity'];
@@ -33,10 +40,12 @@ export default function StockDetail({
   syncMode,
   heartbeatInterval,
   channelKey,
+  writersChannelKey,
   subView,
   providerPosition,
   onChangeSubView,
   onBack,
+  onCompose,
 }: Props) {
   const providerKey = `${channelKey}-${syncMode}-${heartbeatInterval}`;
   const providerProps = {
@@ -110,8 +119,58 @@ export default function StockDetail({
         </>
       )}
 
+      {/* PeekChannel-based CTA: reads the writers channel count once at
+          page entry without attaching, displays the snapshot for 3 seconds,
+          then hides it. The viewer never becomes a member of the channel —
+          even at high concurrency this stays O(1 RPC per page view). */}
+      <WritersPeekCTA
+        channelKey={writersChannelKey}
+        onCompose={onCompose}
+      />
+
       <SessionLogPanel log={log} onClear={() => setLog([])} />
     </div>
+  );
+}
+
+const PEEK_SHOW_MS = 3000;
+
+function WritersPeekCTA({
+  channelKey,
+  onCompose,
+}: {
+  channelKey: string;
+  onCompose: () => void;
+}) {
+  const [pollEnabled, setPollEnabled] = useState(true);
+  const [snapshot, setSnapshot] = useState<number | null>(null);
+  const [showSnapshot, setShowSnapshot] = useState(true);
+
+  // usePeekChannel polls until a successful read, then we disable it.
+  // This expresses "snapshot at entry" using a polling hook — the hook
+  // also fits ongoing-display cases just by leaving pollEnabled true.
+  const { sessionCount, loading, error } = usePeekChannel(channelKey, {
+    enabled: pollEnabled,
+  });
+
+  useEffect(() => {
+    if (loading || error || !pollEnabled || snapshot !== null) return;
+    setSnapshot(sessionCount);
+    setPollEnabled(false);
+    const timer = setTimeout(() => setShowSnapshot(false), PEEK_SHOW_MS);
+    return () => clearTimeout(timer);
+  }, [loading, error, pollEnabled, sessionCount, snapshot]);
+
+  return (
+    <button className="writer-cta" onClick={onCompose}>
+      <span className="writer-cta-icon">✏️</span>
+      <span className="writer-cta-label">Write a post</span>
+      {showSnapshot && snapshot !== null && (
+        <span className="writer-cta-count" title="people writing at page entry">
+          {snapshot.toLocaleString()} writing
+        </span>
+      )}
+    </button>
   );
 }
 
