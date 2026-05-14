@@ -218,7 +218,7 @@ describe('Auth Webhook', () => {
     unsubscribe();
     await c1.deactivate();
     await c2.deactivate();
-  });
+  }, 15000);
 
   it('should return unauthenticated error for client with empty token (401)', async () => {
     // client without token
@@ -685,5 +685,5 @@ describe('Auth Webhook', () => {
     await c2.detach(ch2);
     await c1.deactivate();
     await c2.deactivate();
-  });
+  }, 15000);
 });

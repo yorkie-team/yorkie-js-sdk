@@ -78,6 +78,7 @@ describe('Presence', function () {
     await c1.deactivate();
   });
 
+  // 45s: waits up to ~25s for cross-peer count drops via TTL reclamation.
   it('multiple clients presence counter test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -131,7 +132,7 @@ describe('Presence', function () {
     await c1.deactivate();
     await c2.deactivate();
     await c3.deactivate();
-  });
+  }, 45000);
 
   it('presence event subscription test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -190,8 +191,10 @@ describe('Presence', function () {
     await c2.detach(ch2);
     await c1.deactivate();
     await c2.deactivate();
-  });
+  }, 15000);
 
+  // 45s: cross-peer count drop after detach goes through the server's
+  // 15s TTL + ~10s cleanup interval.
   it('presence detach reduces count test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -222,8 +225,9 @@ describe('Presence', function () {
     await c2.detach(ch2);
     await c1.deactivate();
     await c2.deactivate();
-  });
+  }, 45000);
 
+  // 30s: includes a 3.5s sleep across heartbeat cycles + waitForAttached.
   it('channel heartbeat keeps session alive', async function () {
     const c1 = new yorkie.Client({
       rpcAddr: testRPCAddr,
@@ -250,8 +254,10 @@ describe('Presence', function () {
     // Cleanup
     await c1.detach(channel);
     await c1.deactivate();
-  });
+  }, 30000);
 
+  // 60s: includes a 25s poll-sync loop after a manual-mode peer detaches
+  // (the server reclaims the orphaned session via TTL).
   it('presence manual sync mode test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -311,8 +317,9 @@ describe('Presence', function () {
     await c1.detach(ch1);
     await c1.deactivate();
     await c2.deactivate();
-  });
+  }, 60000);
 
+  // 30s: realtime peer needs up to ~8s per cross-mode count transition.
   it('presence realtime vs manual mode comparison test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -376,5 +383,5 @@ describe('Presence', function () {
     await c1.deactivate();
     await c2.deactivate();
     await c3.deactivate();
-  });
+  }, 30000);
 });

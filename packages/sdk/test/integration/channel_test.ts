@@ -47,32 +47,34 @@ describe('Channel', function () {
   });
 
   it('should subscribe to presence events', async function ({ task }) {
-    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      const presenceCollector = new EventCollector<any>();
+    // Subscribe ON the channel object *before* attaching so the first
+    // PresenceChanged from the initial RefreshChannel response is caught.
+    // Under the RefreshChannel-only lifecycle the initial presence event
+    // fires inside `attach()`'s first-heartbeat path — a subscriber
+    // registered after attach (as in the pre-PR layout) would miss it
+    // and wait forever for a count change that never comes.
+    const channelKey = `${toDocKey(task.name)}-${Date.now()}`;
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await client.activate();
 
-      // Subscribe to 'presence' events
-      const unsubPresence = ch2.subscribe('presence', (event) => {
-        presenceCollector.add(event.count);
-      });
+    const channel = new yorkie.Channel(channelKey);
+    const presenceCollector = new EventCollector<any>();
+    const unsubPresence = channel.subscribe('presence', (event) => {
+      presenceCollector.add(event.count);
+    });
 
-      // Wait for presence events (at least 1)
-      await new Promise((resolve) => {
-        const checkPresence = () => {
-          if (presenceCollector.getLength() > 0) {
-            resolve(true);
-          } else {
-            setTimeout(checkPresence, 100);
-          }
-        };
-        checkPresence();
-      });
+    await client.attach(channel);
+    await waitFor(() => presenceCollector.getLength() > 0, {
+      timeout: 10000,
+      message: 'no presence event received within timeout',
+    });
 
-      // Verify we received presence count
-      assert.isAbove(presenceCollector.getLength(), 0);
+    assert.isAbove(presenceCollector.getLength(), 0);
+    unsubPresence();
 
-      unsubPresence();
-    }, task.name);
-  });
+    await client.detach(channel);
+    await client.deactivate();
+  }, 15000);
 
   it('should get presence count', async function ({ task }) {
     await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
