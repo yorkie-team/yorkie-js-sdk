@@ -170,6 +170,20 @@ describe('Channel', function () {
 
     await client.detach(channel);
   });
+
+  it('peers see count drop after detach within TTL window', async ({
+    task,
+  }) => {
+    await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
+      await waitFor(
+        () => ch1.getSessionCount() === 2 && ch2.getSessionCount() === 2,
+      );
+      await c2.detach(ch2);
+      // TTL is 15 s on the server; allow up to 20 s for c1's heartbeat to
+      // observe the lower count.
+      await waitFor(() => ch1.getSessionCount() === 1, { timeout: 20000 });
+    }, task.name);
+  });
 });
 
 async function waitFor(

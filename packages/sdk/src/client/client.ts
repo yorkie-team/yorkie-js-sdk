@@ -853,12 +853,6 @@ export class Client {
    * It tells the server that this client will no longer track the channel.
    */
   public async detachChannel(channel: Channel): Promise<Channel> {
-    if (!this.isActive()) {
-      throw new YorkieError(
-        Code.ErrClientNotActivated,
-        `${this.key} is not active`,
-      );
-    }
     if (!this.attachmentMap.has(channel.getKey())) {
       throw new YorkieError(
         Code.ErrNotAttached,
@@ -867,35 +861,15 @@ export class Client {
     }
 
     const task = async () => {
-      try {
-        const res = await this.rpcClient.detachChannel(
-          {
-            clientId: this.id!,
-            channelKey: channel.getKey(),
-            sessionId: channel.getSessionID()!,
-          },
-          {
-            headers: {
-              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
-            },
-          },
-        );
+      // No DetachChannel RPC: the server reclaims the session via TTL.
+      // We only need local cleanup.
+      channel.applyStatus(ChannelStatus.Detached);
+      this.detachInternal(channel.getKey());
 
-        channel.updateSessionCount(Number(res.sessionCount), 0);
-        channel.applyStatus(ChannelStatus.Detached);
-
-        // Clean up watch stream and remove from attachment map
-        this.detachInternal(channel.getKey());
-
-        logger.info(
-          `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" count:${channel.getSessionCount()}`,
-        );
-        return channel;
-      } catch (err) {
-        logger.error(`[DP] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
-        throw err;
-      }
+      logger.info(
+        `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" (local)`,
+      );
+      return channel;
     };
 
     return this.enqueueTask(task);
