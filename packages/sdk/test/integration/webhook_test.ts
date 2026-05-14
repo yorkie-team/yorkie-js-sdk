@@ -218,7 +218,9 @@ describe('Auth Webhook', () => {
     unsubscribe();
     await c1.deactivate();
     await c2.deactivate();
-  }, 30000);
+    // 60s: every RPC pays an extra round trip to the auth webhook on top of
+    // istanbul coverage overhead; the test exercises ~12 RPCs end-to-end.
+  }, 60000);
 
   it('should return unauthenticated error for client with empty token (401)', async () => {
     // client without token

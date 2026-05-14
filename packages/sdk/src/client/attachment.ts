@@ -49,6 +49,14 @@ export class Attachment<R extends Attachable> {
   lastHeartbeatTime: number;
   pollInterval: number;
   pollIntervalPinned: boolean;
+  /**
+   * `unsubscribeLocalBroadcast` is set by `attachChannel` when it forwards
+   * a Channel's `local-broadcast` events to the RPC client, and consumed
+   * by `detachInternal` so the subscription does not survive a detach.
+   * Without this, re-attaching a channel accumulates duplicate handlers
+   * on each attach cycle.
+   */
+  unsubscribeLocalBroadcast?: () => void;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;

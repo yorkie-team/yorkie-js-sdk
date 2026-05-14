@@ -815,16 +815,21 @@ export class Client {
         pollIntervalPinned,
       );
 
-      // Forward local broadcast events to the RPC client.
-      channel.subscribe('local-broadcast', (event) => {
-        const { topic, payload, options } = event;
-        this.broadcast(channel.getKey(), topic, payload, options).catch(
-          (error) => {
-            if (options?.error) options.error(error);
-            logger.error(`[BC] c:"${this.getKey()}" failed: ${error}`);
-          },
-        );
-      });
+      // Forward local broadcast events to the RPC client. Capture the
+      // unsubscribe so `detachInternal` can tear it down — otherwise
+      // re-attaching the same channel accumulates duplicate handlers.
+      attachment.unsubscribeLocalBroadcast = channel.subscribe(
+        'local-broadcast',
+        (event) => {
+          const { topic, payload, options } = event;
+          this.broadcast(channel.getKey(), topic, payload, options).catch(
+            (error) => {
+              if (options?.error) options.error(error);
+              logger.error(`[BC] c:"${this.getKey()}" failed: ${error}`);
+            },
+          );
+        },
+      );
 
       this.attachmentMap.set(channel.getKey(), attachment);
 
@@ -849,12 +854,24 @@ export class Client {
    * It tells the server that this client will no longer track the channel.
    */
   public async detachChannel(channel: Channel): Promise<Channel> {
-    if (!this.attachmentMap.has(channel.getKey())) {
+    const attachment = this.attachmentMap.get(channel.getKey()) as
+      | Attachment<Channel>
+      | undefined;
+    if (!attachment) {
       throw new YorkieError(
         Code.ErrNotAttached,
         `${channel.getKey()} is not attached`,
       );
     }
+
+    // Mark the attachment as detaching so the sync loop's
+    // `attachment.isDetaching()` guard skips it, and wait for any
+    // in-flight RefreshChannel to finish before tearing down. Without
+    // this, a concurrent first-call refresh would land on a detached
+    // channel and emit a PresenceChanged event after the user has
+    // detached — and would even re-create the session on the server.
+    attachment.markDetaching();
+    await attachment.waitForSyncComplete();
 
     const task = async () => {
       // No DetachChannel RPC: the server reclaims the session via TTL.
@@ -1985,6 +2002,13 @@ export class Client {
     }
 
     attachment.cancelWatchStream();
+    // Tear down the `local-broadcast` subscription installed by
+    // attachChannel, if any. Without this a re-attach would stack
+    // duplicate handlers on the same channel.
+    if (attachment.unsubscribeLocalBroadcast) {
+      attachment.unsubscribeLocalBroadcast();
+      attachment.unsubscribeLocalBroadcast = undefined;
+    }
     if (attachment.resource instanceof Document) {
       attachment.resource.resetOnlineClients();
     }
@@ -2025,18 +2049,23 @@ export class Client {
             this.status = ClientStatus.Activated;
             resource.setActor(res.clientId);
           }
+          // Defer the Attached transition until a real session_id arrives.
+          // If the server replies with empty `sessionId` (protocol drift,
+          // partial response) the channel stays Detached and the next tick
+          // re-enters the first-call branch instead of flapping through
+          // an Attached state with no session.
           if (res.sessionId) {
             resource.setSessionID(res.sessionId);
             attachment.resourceID = res.sessionId;
+            resource.applyStatus(ChannelStatus.Attached);
           }
-          resource.applyStatus(ChannelStatus.Attached);
 
           // Realtime channels need a watch stream; open it now that
-          // this.id is populated. Other sync modes don't use the stream.
-          if (
-            attachment.syncMode === SyncMode.Realtime &&
-            !this.conditions[ClientCondition.WatchLoop]
-          ) {
+          // this.id is populated. `runWatchLoop` is idempotent against
+          // re-entry via `attachment.watchStream`, so no global flag check
+          // is needed (and using a global flag would silently block any
+          // subsequent attachment from opening its own stream).
+          if (attachment.syncMode === SyncMode.Realtime) {
             this.runWatchLoop(resource.getKey()).catch((err) => {
               logger.error(
                 `[WP] c:"${this.getKey()}" failed to start watch for p:"${resource.getKey()}":`,
