@@ -2,6 +2,48 @@ import { describe, it, assert } from 'vitest';
 import * as yorkie from '@yorkie-js/sdk/src/yorkie';
 import { testRPCAddr } from '@yorkie-js/sdk/test/integration/integration_helper';
 
+/**
+ * `waitForAttached` blocks until the channel's first RefreshChannel heartbeat
+ * has populated the server-issued session_id and flipped status to Attached.
+ * `client.attach(channel)` returns before this happens under the
+ * RefreshChannel-only lifecycle.
+ */
+async function waitForAttached(
+  channel: yorkie.Channel,
+  { timeout = 8000 } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (!channel.isAttached() || !channel.getSessionID()) {
+    if (Date.now() > deadline) {
+      throw new Error(
+        `waitForAttached: ${channel.getKey()} did not attach (status=${channel.getStatus()}, sid=${channel.getSessionID() || 'empty'})`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+/**
+ * `waitForCount` polls `channel.getSessionCount()` until it matches `expected`
+ * or `timeout` elapses. Used for peer-visibility checks that rely on the
+ * server's TTL-based session reclamation + the next heartbeat.
+ */
+async function waitForCount(
+  channel: yorkie.Channel,
+  expected: number,
+  { timeout = 25000 } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (channel.getSessionCount() !== expected) {
+    if (Date.now() > deadline) {
+      throw new Error(
+        `waitForCount: ${channel.getKey()} got ${channel.getSessionCount()}, expected ${expected}`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 describe('Presence', function () {
   it('single client presence counter test', async function () {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
@@ -17,8 +59,9 @@ describe('Presence', function () {
     assert.isFalse(channel.isAttached());
     assert.equal(channel.getSessionCount(), 0);
 
-    // Attach presence counter
+    // Attach presence counter (returns before server-side attach completes)
     await c1.attach(channel);
+    await waitForAttached(channel);
 
     // Verify attached state
     assert.equal(channel.getStatus(), 'attached');
@@ -52,37 +95,35 @@ describe('Presence', function () {
 
     // First client attaches
     await c1.attach(ch1);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await waitForAttached(ch1);
     assert.equal(ch1.getSessionCount(), 1);
 
     // Second client attaches
     await c2.attach(ch2);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await waitForAttached(ch2);
     assert.equal(ch2.getSessionCount(), 2);
 
-    // First client should receive the update
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getSessionCount(), 2);
+    // First client should receive the update via Realtime watch stream
+    await waitForCount(ch1, 2, { timeout: 8000 });
 
     // Third client attaches
     await c3.attach(ch3);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await waitForAttached(ch3);
     assert.equal(ch3.getSessionCount(), 3);
 
-    // Wait for all clients to sync
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getSessionCount(), 3);
-    assert.equal(ch2.getSessionCount(), 3);
+    // Wait for the other Realtime peers to observe count=3
+    await waitForCount(ch1, 3, { timeout: 8000 });
+    await waitForCount(ch2, 3, { timeout: 8000 });
 
-    // One client detaches
+    // One client detaches (local-only under the new lifecycle; peers learn
+    // about it via the server's TTL-driven session reclamation + the next
+    // heartbeat). Don't assert on ch2's own count — it's detached and
+    // carries the last-seen value.
     await c2.detach(ch2);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch2.getSessionCount(), 2);
 
-    // Other clients should see the count decrease
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    assert.equal(ch1.getSessionCount(), 2);
-    assert.equal(ch3.getSessionCount(), 2);
+    // Other clients should see the count decrease within the TTL window
+    await waitForCount(ch1, 2);
+    await waitForCount(ch3, 2);
 
     // Cleanup
     await c1.detach(ch1);
@@ -118,24 +159,31 @@ describe('Presence', function () {
 
     // First client attaches
     await c1.attach(ch1);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await waitForAttached(ch1);
 
-    // Should receive initialized event
+    // Under the RefreshChannel-only lifecycle the first heartbeat fires
+    // before the watch stream opens, so the first event is a
+    // `PresenceChanged` from the heartbeat response. (Previously it was
+    // `Initialized` from the watch stream's initial resourceInits batch.)
     assert.isAtLeast(events.length, 1);
-    assert.equal(events[0].type, yorkie.ChannelEventType.Initialized);
-    assert.equal(events[0].count, 1);
+    const firstEvent = events[0];
+    assert.oneOf(firstEvent.type, [
+      yorkie.ChannelEventType.PresenceChanged,
+      yorkie.ChannelEventType.Initialized,
+    ]);
+    assert.equal(firstEvent.count, 1);
 
     // Second client attaches
     await c2.attach(ch2);
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await waitForAttached(ch2);
+    await waitForCount(ch1, 2, { timeout: 8000 });
 
-    // Should receive count-changed event
-    assert.isAtLeast(events.length, 2);
-    assert.equal(
-      events[events.length - 1].type,
-      yorkie.ChannelEventType.PresenceChanged,
+    // Should have observed the count transition to 2
+    const presenceEvents = events.filter(
+      (e) => e.type === yorkie.ChannelEventType.PresenceChanged,
     );
-    assert.equal(events[events.length - 1].count, 2);
+    assert.isAtLeast(presenceEvents.length, 1);
+    assert.equal(presenceEvents[presenceEvents.length - 1].count, 2);
 
     // Cleanup
     await c1.detach(ch1);
@@ -158,21 +206,17 @@ describe('Presence', function () {
     // Both attach
     await c1.attach(ch1);
     await c2.attach(ch2);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await waitForAttached(ch1);
+    await waitForAttached(ch2);
+    await waitForCount(ch1, 2, { timeout: 8000 });
+    await waitForCount(ch2, 2, { timeout: 8000 });
 
-    assert.equal(ch1.getSessionCount(), 2);
-    assert.equal(ch2.getSessionCount(), 2);
-
-    // One detaches
+    // One detaches (local-only; peers learn via TTL + heartbeat)
     await c1.detach(ch1);
-    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // Detached channel should show updated count
-    assert.equal(ch1.getSessionCount(), 1);
-
-    // Other channels should also see the decrease
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    assert.equal(ch2.getSessionCount(), 1);
+    // Other channels should see the decrease once the server reclaims
+    // c1's session and ch2's next heartbeat returns the updated count.
+    await waitForCount(ch2, 1);
 
     // Cleanup
     await c2.detach(ch2);
@@ -192,6 +236,7 @@ describe('Presence', function () {
 
     // Attach presence
     await c1.attach(channel);
+    await waitForAttached(channel);
     assert.equal(channel.getSessionCount(), 1);
 
     // Wait for 3 heartbeat cycles (3 seconds)
@@ -219,12 +264,16 @@ describe('Presence', function () {
     const ch1 = new yorkie.Channel(channelKey);
     const ch2 = new yorkie.Channel(channelKey);
 
-    // Attach client1 with manual sync mode (no watch stream)
+    // Attach client1 with manual sync mode (no watch stream). Manual mode
+    // does not auto-refresh, so we must call sync() once to trigger the
+    // first RefreshChannel and populate sessionCount.
     await c1.attach(ch1, { syncMode: yorkie.SyncMode.Manual });
+    await c1.sync(ch1);
     assert.equal(ch1.getSessionCount(), 1);
 
     // Attach client2 with manual sync mode
     await c2.attach(ch2, { syncMode: yorkie.SyncMode.Manual });
+    await c2.sync(ch2);
     assert.equal(ch2.getSessionCount(), 2);
 
     // In manual mode, p1's count doesn't update automatically
@@ -241,9 +290,22 @@ describe('Presence', function () {
     await new Promise((resolve) => setTimeout(resolve, 500));
     assert.equal(ch1.getSessionCount(), 2, 'p1 should still be 2');
 
-    // Sync to refresh TTL and fetch latest count after c2 detached
-    await c1.sync(ch1);
-    assert.equal(ch1.getSessionCount(), 1, 'p1 should update to 1 after sync');
+    // Under the RefreshChannel-only lifecycle, `c2.detach(ch2)` is purely
+    // local — the server reclaims c2's session only after its TTL elapses
+    // (~15s). A single `c1.sync(ch1)` right after detach still observes 2.
+    // Poll-sync until the server count drops to 1.
+    const dropDeadline = Date.now() + 25000;
+    while (ch1.getSessionCount() !== 1) {
+      if (Date.now() > dropDeadline) {
+        throw new Error(
+          `manual-mode peer did not observe count drop within TTL window (got ${ch1.getSessionCount()})`,
+        );
+      }
+      await c1.sync(ch1);
+      if (ch1.getSessionCount() === 1) break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    assert.equal(ch1.getSessionCount(), 1, 'p1 eventually observes 1');
 
     // Cleanup
     await c1.detach(ch1);
@@ -267,14 +329,17 @@ describe('Presence', function () {
 
     // c1: Attach with realtime mode (default)
     await c1.attach(realtimeCh);
+    await waitForAttached(realtimeCh);
     assert.equal(realtimeCh.getSessionCount(), 1);
 
-    // c2: Attach with manual mode
+    // c2: Attach with manual mode. Manual mode skips auto-refresh; need an
+    // explicit sync() to populate sessionCount and complete first-call.
     await c2.attach(manualCh, { syncMode: yorkie.SyncMode.Manual });
+    await c2.sync(manualCh);
     assert.equal(manualCh.getSessionCount(), 2);
 
     // c1's realtime presence should automatically receive the update
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await waitForCount(realtimeCh, 2, { timeout: 8000 });
     assert.equal(
       realtimeCh.getSessionCount(),
       2,
@@ -288,12 +353,13 @@ describe('Presence', function () {
       'manual presence should not auto-update',
     );
 
-    // c3: Attach another client
+    // c3: Attach another client (manual mode)
     await c3.attach(thirdCh, { syncMode: yorkie.SyncMode.Manual });
+    await c3.sync(thirdCh);
     assert.equal(thirdCh.getSessionCount(), 3);
 
     // c1's realtime presence receives the update automatically
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await waitForCount(realtimeCh, 3, { timeout: 8000 });
     assert.equal(
       realtimeCh.getSessionCount(),
       3,
