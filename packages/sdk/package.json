@@ -1,6 +1,6 @@
 {
   "name": "@yorkie-js/sdk",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "Yorkie JS SDK",
   "main": "./src/yorkie.ts",
   "publishConfig": {
