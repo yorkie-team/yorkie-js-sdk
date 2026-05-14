@@ -120,16 +120,28 @@ export function usePeekChannel(
   const channelKeyRef = useRef(channelKey);
   channelKeyRef.current = channelKey;
 
+  // Track mount state so imperative refetch() does not setState after unmount.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const peekOnce = useCallback(async () => {
     if (!client || !client.isActive()) return;
+    if (mountedRef.current) setLoading(true);
     try {
       const count = await client.peekChannel(channelKeyRef.current);
+      if (!mountedRef.current) return;
       setSessionCount(count);
       setError(undefined);
     } catch (e) {
+      if (!mountedRef.current) return;
       setError(e instanceof Error ? e : new Error(String(e)));
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, [client]);
 
@@ -139,12 +151,18 @@ export function usePeekChannel(
       setLoading(false);
       return;
     }
-    if (clientLoading || !client || !enabled) return;
+    // Mark loading before the early-return guards so a stale sessionCount
+    // from a previous channelKey is not shown while the client is still
+    // initializing; the !enabled branch resets it below.
+    setLoading(true);
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+    if (clientLoading || !client) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-
-    setLoading(true);
 
     const run = async () => {
       if (cancelled || !client.isActive()) return;
