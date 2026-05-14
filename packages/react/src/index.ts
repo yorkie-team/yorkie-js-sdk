@@ -38,8 +38,13 @@ import {
   useChannel,
   useChannelSessionCount,
 } from './ChannelProvider';
+import { usePeekChannel } from './usePeekChannel';
 
 export type { Document, JSONArray, JSONObject, RevisionSummary };
+export type {
+  UsePeekChannelOptions,
+  UsePeekChannelResult,
+} from './usePeekChannel';
 export {
   Tree,
   Text,
@@ -57,6 +62,7 @@ export {
   ChannelProvider,
   useChannel,
   useChannelSessionCount,
+  usePeekChannel,
 };
 
 export { shallowEqual } from './shallowEqual';

@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChannelProvider, SyncMode, useChannel } from '@yorkie-js/react';
+import {
+  ChannelProvider,
+  SyncMode,
+  useChannel,
+  usePeekChannel,
+} from '@yorkie-js/react';
 import type { Stock } from './stocks';
 
 export type SubView = 'overview' | 'activity';
@@ -20,10 +25,12 @@ type Props = {
   syncMode: SyncMode;
   heartbeatInterval: number;
   channelKey: string;
+  writersChannelKey: string;
   subView: SubView;
   providerPosition: ProviderPosition;
   onChangeSubView: (view: SubView) => void;
   onBack: () => void;
+  onCompose: () => void;
 };
 
 const TABS: ReadonlyArray<SubView> = ['overview', 'activity'];
@@ -33,10 +40,12 @@ export default function StockDetail({
   syncMode,
   heartbeatInterval,
   channelKey,
+  writersChannelKey,
   subView,
   providerPosition,
   onChangeSubView,
   onBack,
+  onCompose,
 }: Props) {
   const providerKey = `${channelKey}-${syncMode}-${heartbeatInterval}`;
   const providerProps = {
@@ -110,8 +119,51 @@ export default function StockDetail({
         </>
       )}
 
+      {/* PeekChannel-based CTA: reads the writers channel count once at
+          page entry without attaching, displays the snapshot for 3 seconds,
+          then hides it. The viewer never becomes a member of the channel —
+          even at high concurrency this stays O(1 RPC per page view). */}
+      <WritersPeekCTA
+        channelKey={writersChannelKey}
+        onCompose={onCompose}
+      />
+
       <SessionLogPanel log={log} onClear={() => setLog([])} />
     </div>
+  );
+}
+
+const PEEK_SHOW_MS = 3000;
+
+function WritersPeekCTA({
+  channelKey,
+  onCompose,
+}: {
+  channelKey: string;
+  onCompose: () => void;
+}) {
+  // One-shot peek by default: fetches once on mount, never polls.
+  const { sessionCount, loading, error } = usePeekChannel(channelKey);
+  const [visible, setVisible] = useState(true);
+
+  // Hide the count badge 3 seconds after the first successful fetch.
+  useEffect(() => {
+    if (loading || error) return;
+    const timer = setTimeout(() => setVisible(false), PEEK_SHOW_MS);
+    return () => clearTimeout(timer);
+  }, [loading, error]);
+
+  const showCount = visible && !loading && !error;
+  return (
+    <button className="writer-cta" onClick={onCompose}>
+      <span className="writer-cta-icon">✏️</span>
+      <span className="writer-cta-label">Write a post</span>
+      {showCount && (
+        <span className="writer-cta-count" title="people writing at page entry">
+          {sessionCount.toLocaleString()} writing
+        </span>
+      )}
+    </button>
   );
 }
 

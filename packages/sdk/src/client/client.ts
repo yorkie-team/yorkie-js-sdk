@@ -1477,6 +1477,38 @@ export class Client {
   }
 
   /**
+   * `peekChannel` reads the current session count of a channel without
+   * creating a session on the server. Use this when the caller only needs
+   * to display the count (e.g. "N people writing") without contributing to
+   * it and without receiving broadcasts.
+   *
+   * Unlike `attach({ readOnly: true })`, this does not occupy a `Session`
+   * entry on the server, does not generate heartbeat RPCs, and does not
+   * subscribe to channel events. Polling is the caller's responsibility.
+   */
+  public async peekChannel(channelKey: string): Promise<number> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+
+    return this.enqueueTask(async () => {
+      const firstKeyPath = channelKey.split('.')[0];
+      const res = await this.rpcClient.peekChannel(
+        { channelKey },
+        {
+          headers: {
+            'x-shard-key': `${this.apiKey}/${firstKeyPath}`,
+          },
+        },
+      );
+      return Number(res.sessionCount);
+    });
+  }
+
+  /**
    * `broadcast` broadcasts the given payload to the given topic.
    */
   public async broadcast(
