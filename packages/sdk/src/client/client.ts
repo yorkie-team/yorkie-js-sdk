@@ -2044,10 +2044,16 @@ export class Client {
 
         if (isFirstCall) {
           // Server has just activated the client and attached the channel.
-          if (res.clientId) {
+          // Only adopt the server-issued client_id when we don't already
+          // have one. If the client was already activated (e.g. via
+          // `client.activate()` or a previous channel's first-call), keep
+          // our existing id so prior document attachments stay valid.
+          if (res.clientId && !this.id) {
             this.id = res.clientId;
             this.status = ClientStatus.Activated;
             resource.setActor(res.clientId);
+          } else if (this.id) {
+            resource.setActor(this.id);
           }
           // Defer the Attached transition until a real session_id arrives.
           // If the server replies with empty `sessionId` (protocol drift,
