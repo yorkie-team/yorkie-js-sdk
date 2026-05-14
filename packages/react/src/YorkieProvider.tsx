@@ -39,8 +39,15 @@ const YorkieContext = createContext<YorkieContextType>({
 
 /**
  * `useYorkieClient` is a custom hook that initializes a Yorkie client.
+ *
+ * When `activate` is true (default) the client is activated against the
+ * server on mount and deactivated on unmount — required for Document use
+ * cases. Set `activate` to false for channel-only apps: the SDK now
+ * lazy-attaches the client on the first RefreshChannel heartbeat, so
+ * skipping the explicit activate/deactivate round trips removes two
+ * unused RPCs per page load.
  */
-export function useYorkieClient(opts: ClientOptions) {
+export function useYorkieClient(opts: ClientOptions, activate: boolean = true) {
   const [client, setClient] = useState<Client | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | undefined>(undefined);
@@ -67,7 +74,9 @@ export function useYorkieClient(opts: ClientOptions) {
 
       try {
         const newClient = new Client(opts);
-        await newClient.activate();
+        if (activate) {
+          await newClient.activate();
+        }
         setClient(newClient);
       } catch (e) {
         setError(
@@ -80,23 +89,37 @@ export function useYorkieClient(opts: ClientOptions) {
     activateClient();
 
     return () => {
-      if (client?.isActive()) {
+      if (activate && client?.isActive()) {
         client.deactivate({ keepalive: true });
       }
     };
-  }, [opts.apiKey, opts.rpcAddr, didMount]);
+  }, [opts.apiKey, opts.rpcAddr, didMount, activate]);
 
   return { client, loading, error };
 }
 
 /**
+ * `YorkieProviderProps` extends `ClientOptions` with provider-level options.
+ *
+ * - `activate` (default `true`): whether to call `client.activate()` on mount
+ *   and `client.deactivate()` on unmount. Set to `false` for apps that only
+ *   use Channels — under the RefreshChannel-only lifecycle the SDK
+ *   lazy-attaches the client on the first heartbeat, so explicit activate
+ *   round trips become unnecessary. Document use cases (`useDocument`,
+ *   `useYorkieDoc`) still require activation, so leave this `true` if any
+ *   descendant attaches a document.
+ */
+export type YorkieProviderProps = ClientOptions & {
+  activate?: boolean;
+};
+
+/**
  * `YorkieProvider` is a component that provides the Yorkie client to its children.
  * It initializes the Yorkie client with the given API key and RPC address.
  */
-export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
-  children,
-  ...opts
-}) => {
+export const YorkieProvider: React.FC<
+  PropsWithChildren<YorkieProviderProps>
+> = ({ children, activate = true, ...opts }) => {
   // NOTE(hackerwins): useMemo is used to prevent re-creating the client
   // when the component re-renders. If the apiKey or rpcAddr changes,
   // the client will be re-created.
@@ -106,7 +129,7 @@ export const YorkieProvider: React.FC<PropsWithChildren<ClientOptions>> = ({
       ...opts,
     };
   }, [opts.apiKey, opts.rpcAddr]);
-  const { client, loading, error } = useYorkieClient(clientOpts);
+  const { client, loading, error } = useYorkieClient(clientOpts, activate);
 
   return (
     <YorkieContext.Provider value={{ client, loading, error }}>

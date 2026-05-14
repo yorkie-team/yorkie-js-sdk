@@ -78,7 +78,10 @@ export function useYorkieChannel(
      * `attachChannel` attaches the channel to the client.
      */
     async function attachChannel() {
-      if (!client || !client.isActive()) {
+      // No `isActive()` gate: channels can attach on inactive clients under
+      // the RefreshChannel-only lifecycle. The first heartbeat lazy-attaches
+      // the client (and the channel) to the server.
+      if (!client) {
         return;
       }
 
@@ -94,20 +97,26 @@ export function useYorkieChannel(
 
         channelRef.current = newChannel;
 
-        // Subscribe to channel events
+        // Subscribe to channel events. `client.attach(channel)` now returns
+        // before the first RefreshChannel heartbeat, so `sessionCount` and
+        // the Attached status only become valid after the server's first
+        // response. Keep `loading: true` until that happens, then flip it
+        // along with the populated sessionCount on the same event so the
+        // UI never sees a transient `loading: false, sessionCount: 0`.
         unsubscribe = newChannel.subscribe(() => {
+          const ready = newChannel.isAttached() && !!newChannel.getSessionID();
           channelStore.setState((state) => ({
             ...state,
             sessionCount: newChannel.getSessionCount(),
+            ...(ready && state.loading ? { loading: false } : {}),
           }));
         });
 
-        channelStore.setState({
+        channelStore.setState((state) => ({
+          ...state,
           channel: newChannel,
-          sessionCount: newChannel.getSessionCount(),
-          loading: false,
           error: undefined,
-        });
+        }));
       } catch (e) {
         channelStore.setState((state) => ({
           ...state,
@@ -125,10 +134,12 @@ export function useYorkieChannel(
       }
 
       /**
-       * `detachChannel` detaches the channel from the client.
+       * `detachChannel` detaches the channel from the client. Channels can
+       * be detached on inactive clients — detach is local cleanup only and
+       * the server reclaims the session via TTL.
        */
       async function detachChannel() {
-        if (channelRef.current && client?.isActive()) {
+        if (channelRef.current && client) {
           try {
             await client.detach(channelRef.current);
           } catch (e) {
