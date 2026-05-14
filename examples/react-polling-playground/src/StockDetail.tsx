@@ -212,7 +212,7 @@ function SessionCountCard({
   subLabel: SubView;
   onSession: CardProps['onSession'];
 }) {
-  const { sessionCount, loading, error } = useChannel();
+  const { sessionCount, loading, error, detach } = useChannel();
   const flag = stock.market === 'KR' ? '🇰🇷' : '🇺🇸';
   const state: AttachState = error ? 'error' : loading ? 'attaching' : 'ok';
 
@@ -225,6 +225,12 @@ function SessionCountCard({
       onSession(sessionCount, state, subLabel, error?.message);
     }
   }, [sessionCount, state, error, subLabel, onSession]);
+
+  const [detached, setDetached] = useState(false);
+  const handleDetach = useCallback(async () => {
+    await detach();
+    setDetached(true);
+  }, [detach]);
 
   return (
     <div className="detail-card">
@@ -248,6 +254,20 @@ function SessionCountCard({
           <strong>useChannel().error fired:</strong> {error.message}
         </p>
       )}
+      <div className="detach-controls">
+        <button
+          className="detach-button"
+          onClick={handleDetach}
+          disabled={detached}
+        >
+          {detached ? '✋ detached' : '🛑 detach channel'}
+        </button>
+        <small className="detach-hint">
+          Calls <code>useChannel().detach()</code> — removes the channel from
+          the SDK's <code>attachmentMap</code> so no further RefreshChannel
+          RPCs fire. Server reclaims the session after TTL.
+        </small>
+      </div>
     </div>
   );
 }

@@ -142,10 +142,32 @@ export function useYorkieChannel(
           }));
         });
 
+        // Expose an idempotent detach so consumers can permanently stop a
+        // channel from inside the tree (e.g. on `error`) without unmounting
+        // the surrounding `<ChannelProvider>`. Calling `isAttached()` here
+        // would be wrong — `client.attach(channel)` is local-only under the
+        // RefreshChannel-only lifecycle, so the status stays `Detached`
+        // until the first heartbeat lands; an `isAttached()` gate would
+        // skip the call and leak the attachment entry. Instead, dispatch
+        // unconditionally and swallow `ErrNotAttached` from duplicate /
+        // post-unmount calls.
+        const detach = async () => {
+          if (!client) return;
+          try {
+            await client.detach(newChannel);
+          } catch (err) {
+            if (err instanceof Error && /not attached/i.test(err.message)) {
+              return;
+            }
+            throw err;
+          }
+        };
+
         channelStore.setState((state) => ({
           ...state,
           channel: newChannel,
           error: undefined,
+          detach,
         }));
       } catch (e) {
         channelStore.setState((state) => ({
@@ -167,12 +189,19 @@ export function useYorkieChannel(
        * `detachChannel` detaches the channel from the client. Channels can
        * be detached on inactive clients — detach is local cleanup only and
        * the server reclaims the session via TTL.
+       *
+       * Idempotent against the consumer-facing `detach` exposed via
+       * `useChannel()`: if the consumer detached first, `client.detach`
+       * throws `ErrNotAttached`, which we swallow as a normal cleanup race.
        */
       async function detachChannel() {
         if (channelRef.current && client) {
           try {
             await client.detach(channelRef.current);
           } catch (e) {
+            if (e instanceof Error && /not attached/i.test(e.message)) {
+              return;
+            }
             console.error('Failed to detach channel:', e);
           }
         }
@@ -266,6 +295,9 @@ export const ChannelProvider: React.FC<ChannelProviderProps> = ({
       sessionCount: 0,
       loading: true,
       error: undefined,
+      // Placeholder until `useYorkieChannel` wires up the real detach.
+      // Pre-attach calls are a no-op rather than a throw.
+      detach: async () => {},
     });
   }
 
@@ -312,7 +344,8 @@ export const useChannelStore = (hookName: string) => {
  * `useChannel` is a custom hook that returns the channel state.
  * It must be used within a ChannelProvider.
  *
- * @returns An object containing sessionCount, loading, and error state
+ * @returns An object containing sessionCount, loading, error state and
+ *          a `detach` function for permanently stopping the channel.
  *
  * @example
  * ```tsx
@@ -331,8 +364,9 @@ export const useChannel = () => {
   const sessionCount = useSelector(channelStore, (state) => state.sessionCount);
   const loading = useSelector(channelStore, (state) => state.loading);
   const error = useSelector(channelStore, (state) => state.error);
+  const detach = useSelector(channelStore, (state) => state.detach);
 
-  return { sessionCount, loading, error };
+  return { sessionCount, loading, error, detach };
 };
 
 /**

@@ -41,6 +41,15 @@ export type ChannelContextType = {
    * `error` contains any error that occurred during initialization.
    */
   error: Error | undefined;
+
+  /**
+   * `detach` tears the channel down on demand — useful when a consumer
+   * decides that the channel should be permanently stopped (e.g. after
+   * observing `error` from `useChannel()`). Idempotent: a second call,
+   * or a call after `ChannelProvider` has already unmounted and cleaned
+   * up, resolves silently instead of throwing.
+   */
+  detach: () => Promise<void>;
 };
 
 /**
