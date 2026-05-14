@@ -71,7 +71,10 @@ export class Attachment<R extends Attachable> {
     this.resourceID = resourceID;
     this.syncMode = syncMode;
     this.changeEventReceived = syncMode !== undefined ? false : undefined;
-    this.lastHeartbeatTime = Date.now();
+    // Initialize to 0 so `needSync`/`needRealtimeSync` return true on the
+    // very first tick. Otherwise the first heartbeat is delayed by one full
+    // poll interval — channels would show stale sessionCount until then.
+    this.lastHeartbeatTime = 0;
     this.pollInterval = pollInterval;
     this.pollIntervalPinned = pollIntervalPinned;
     this.cancelled = false;
