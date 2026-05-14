@@ -179,11 +179,11 @@ describe('Channel', function () {
         () => ch1.getSessionCount() === 2 && ch2.getSessionCount() === 2,
       );
       await c2.detach(ch2);
-      // TTL is 15 s on the server; allow up to 20 s for c1's heartbeat to
-      // observe the lower count.
-      await waitFor(() => ch1.getSessionCount() === 1, { timeout: 20000 });
+      // TTL is 15 s and the server's cleanup interval is 10 s, so it can
+      // take up to ~25 s before c1's heartbeat sees the lower count.
+      await waitFor(() => ch1.getSessionCount() === 1, { timeout: 30000 });
     }, task.name);
-  });
+  }, 45000);
 
   it('recovers transparently when the server forgets the session', async function ({
     task,
@@ -191,25 +191,26 @@ describe('Channel', function () {
     const client = new yorkie.Client({ rpcAddr: testRPCAddr });
     const channel = new yorkie.Channel(`${toDocKey(task.name)}-${Date.now()}`);
     await client.attach(channel);
-    await waitFor(() => !!channel.getSessionID());
+    await waitFor(() => !!channel.getSessionID(), { timeout: 10000 });
 
     // Simulate server-side expiry by overwriting the channel's session_id
-    // with a known-bad value. The next refresh tick should receive
-    // ErrSessionNotFound and silently re-attach.
-    channel.setSessionID('does-not-exist');
+    // with a syntactically valid but unknown ID. The next refresh tick
+    // should receive ErrSessionNotFound and silently re-attach.
+    channel.setSessionID('000000000000000000000000');
 
     await waitFor(
       () =>
-        !!channel.getSessionID() && channel.getSessionID() !== 'does-not-exist',
+        !!channel.getSessionID() &&
+        channel.getSessionID() !== '000000000000000000000000',
       {
-        timeout: 10000,
+        timeout: 15000,
         message: 'session was not re-issued after forced expiry',
       },
     );
 
-    assert.notStrictEqual(channel.getSessionID(), 'does-not-exist');
+    assert.notStrictEqual(channel.getSessionID(), '000000000000000000000000');
     await client.detach(channel);
-  });
+  }, 30000);
 });
 
 async function waitFor(

@@ -95,8 +95,10 @@ export async function withTwoClientsAndChannels(
 
   await callback(client1, ch1, client2, ch2);
 
-  await client1.detach(ch1);
-  await client2.detach(ch2);
+  // Callers may have already detached the channels; only detach if still
+  // attached on this client.
+  if (ch1.isAttached()) await client1.detach(ch1);
+  if (ch2.isAttached()) await client2.detach(ch2);
 
   // Channel-only clients are never explicitly activated, so they have
   // nothing to deactivate. If a test activated them, deactivate is the
