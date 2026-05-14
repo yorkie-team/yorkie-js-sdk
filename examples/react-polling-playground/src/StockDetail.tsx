@@ -102,17 +102,11 @@ export default function StockDetail({
         <>
           {tabHeader}
           {subView === 'overview' ? (
-            <ChannelProvider
-              key={`${providerKey}-overview`}
-              {...providerProps}
-            >
+            <ChannelProvider key={`${providerKey}-overview`} {...providerProps}>
               <OverviewBody stock={stock} onSession={handleSessionEvent} />
             </ChannelProvider>
           ) : (
-            <ChannelProvider
-              key={`${providerKey}-activity`}
-              {...providerProps}
-            >
+            <ChannelProvider key={`${providerKey}-activity`} {...providerProps}>
               <ActivityBody stock={stock} onSession={handleSessionEvent} />
             </ChannelProvider>
           )}
@@ -123,10 +117,7 @@ export default function StockDetail({
           page entry without attaching, displays the snapshot for 3 seconds,
           then hides it. The viewer never becomes a member of the channel —
           even at high concurrency this stays O(1 RPC per page view). */}
-      <WritersPeekCTA
-        channelKey={writersChannelKey}
-        onCompose={onCompose}
-      />
+      <WritersPeekCTA channelKey={writersChannelKey} onCompose={onCompose} />
 
       <SessionLogPanel log={log} onClear={() => setLog([])} />
     </div>
@@ -221,7 +212,9 @@ function SessionCountCard({
       </div>
       <div className="detail-ticker">{stock.ticker}</div>
       <div className="detail-count">
-        <span className="big-num">{sessionCount.toLocaleString()}</span>
+        <span className="big-num">
+          {state === 'attaching' ? '—' : sessionCount.toLocaleString()}
+        </span>
         <span className="big-label">
           people watching{' '}
           <span className={`state-badge state-${state}`}>{state}</span>
@@ -253,9 +246,7 @@ function SessionLogPanel({
         <ul>
           {log.map((entry, i) => (
             <li key={i}>
-              <code>
-                {new Date(entry.t).toISOString().substring(11, 23)}
-              </code>{' '}
+              <code>{new Date(entry.t).toISOString().substring(11, 23)}</code>{' '}
               <span className="log-source">/{entry.source}</span>{' '}
               <span className={`state-badge state-${entry.state}`}>
                 {entry.state}
