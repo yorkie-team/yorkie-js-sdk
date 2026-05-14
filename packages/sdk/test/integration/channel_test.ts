@@ -1,6 +1,11 @@
 import { describe, it, assert } from 'vitest';
+import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { EventCollector } from '@yorkie-js/sdk/test/helper/helper';
-import { withTwoClientsAndChannels } from '@yorkie-js/sdk/test/integration/integration_helper';
+import {
+  withTwoClientsAndChannels,
+  testRPCAddr,
+  toDocKey,
+} from '@yorkie-js/sdk/test/integration/integration_helper';
 
 describe('Channel', function () {
   it('should subscribe to specific topic for broadcast events', async function ({
@@ -143,4 +148,37 @@ describe('Channel', function () {
       unsubAll();
     }, task.name);
   });
+
+  it('can attach a channel without activating the client', async function () {
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const channel = new yorkie.Channel(
+      `${toDocKey('can attach a channel without activating the client')}-${Date.now()}`,
+    );
+
+    // No client.activate() call here.
+    await client.attach(channel);
+
+    // Within ~heartbeat interval the channel becomes attached and gets a
+    // session_id from the server.
+    await waitFor(() => channel.isAttached() && !!channel.getSessionID(), {
+      timeout: 8000,
+      message: 'channel did not finish first-call attach',
+    });
+
+    assert.isString(channel.getSessionID());
+    assert.notStrictEqual(channel.getSessionID(), '');
+
+    await client.detach(channel);
+  });
 });
+
+async function waitFor(
+  pred: () => boolean,
+  { timeout = 5000, interval = 100, message = 'waitFor timeout' } = {},
+): Promise<void> {
+  const start = Date.now();
+  while (!pred()) {
+    if (Date.now() - start > timeout) throw new Error(message);
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}

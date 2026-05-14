@@ -774,13 +774,6 @@ export class Client {
     channel: Channel,
     opts: AttachChannelOptions = {},
   ): Promise<Channel> {
-    // 01. Check if the client is ready to attach channel.
-    if (!this.isActive()) {
-      throw new YorkieError(
-        Code.ErrClientNotActivated,
-        `${this.key} is not active`,
-      );
-    }
     if (channel.getStatus() !== ChannelStatus.Detached) {
       throw new YorkieError(
         Code.ErrNotDetached,
@@ -788,89 +781,68 @@ export class Client {
       );
     }
 
-    channel.setActor(this.id!);
+    const syncMode = opts.syncMode ?? SyncMode.Realtime;
+    this.assertValidChannelSyncMode(syncMode);
+
+    if (
+      opts.channelHeartbeatInterval !== undefined &&
+      opts.channelHeartbeatInterval <= 0
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'channelHeartbeatInterval must be greater than 0',
+      );
+    }
+
+    const pollIntervalPinned = opts.channelHeartbeatInterval !== undefined;
+    const pollInterval =
+      opts.channelHeartbeatInterval ?? this.channelHeartbeatInterval;
 
     const task = async () => {
-      try {
-        const res = await this.rpcClient.attachChannel(
-          {
-            clientId: this.id!,
-            channelKey: channel.getKey(),
-          },
-          {
-            headers: {
-              'x-shard-key': `${this.apiKey}/${channel.getFirstKeyPath()}`,
-            },
-          },
-        );
-
-        channel.setSessionID(res.sessionId);
-        channel.updateSessionCount(Number(res.sessionCount), 0);
-        channel.applyStatus(ChannelStatus.Attached);
-
-        const syncMode = opts.syncMode ?? SyncMode.Realtime;
-        this.assertValidChannelSyncMode(syncMode);
-
-        if (
-          opts.channelHeartbeatInterval !== undefined &&
-          opts.channelHeartbeatInterval <= 0
-        ) {
-          throw new YorkieError(
-            Code.ErrInvalidArgument,
-            'channelHeartbeatInterval must be greater than 0',
-          );
-        }
-
-        // Resolve heartbeat interval. Mode-specific defaults: polling=3000,
-        // realtime=client-level channelHeartbeatInterval (default 30000).
-        // TODO(Task 5): rewrite attachChannel to use DefaultChannelHeartbeatMs.
-        const pollIntervalPinned = opts.channelHeartbeatInterval !== undefined;
-        const pollInterval = pollIntervalPinned
-          ? opts.channelHeartbeatInterval!
-          : syncMode === SyncMode.Polling
-            ? DefaultDocumentPollIntervalMs
-            : this.channelHeartbeatInterval;
-
-        const attachment = new Attachment(
-          this.reconnectStreamDelay,
-          channel,
-          res.sessionId,
-          syncMode,
-          pollInterval,
-          pollIntervalPinned,
-        );
-
-        // TODO(hackerwins): Unsubscribe when detaching channel.
-        channel.subscribe('local-broadcast', (event) => {
-          const { topic, payload, options } = event;
-          this.broadcast(channel.getKey(), topic, payload, options).catch(
-            (error) => {
-              if (options?.error) {
-                options.error(error);
-              }
-              logger.error(`[BC] c:"${this.getKey()}" failed: ${error}`);
-            },
-          );
-        });
-
-        this.attachmentMap.set(channel.getKey(), attachment);
-
-        // Realtime: open watch stream + heartbeat (driven by sync loop).
-        // Polling: heartbeat only, sync loop drives RefreshChannel via syncInternal.
-        // Manual: nothing.
-        if (syncMode === SyncMode.Realtime) {
-          await this.runWatchLoop(channel.getKey());
-        }
-
-        logger.info(
-          `[AP] c:"${this.getKey()}" attaches p:"${channel.getKey()}" mode:${syncMode} count:${channel.getSessionCount()}`,
-        );
-        return channel;
-      } catch (err) {
-        logger.error(`[AP] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
-        throw err;
+      // Channel gets its actor ID from the first refresh response. If the
+      // client was already activated (or another channel has triggered the
+      // first refresh), propagate the existing id.
+      if (this.id) {
+        channel.setActor(this.id);
       }
+
+      const attachment = new Attachment<Channel>(
+        this.reconnectStreamDelay,
+        channel,
+        '', // sessionID populated on first refresh response
+        syncMode,
+        pollInterval,
+        pollIntervalPinned,
+      );
+
+      // Forward local broadcast events to the RPC client.
+      channel.subscribe('local-broadcast', (event) => {
+        const { topic, payload, options } = event;
+        this.broadcast(channel.getKey(), topic, payload, options).catch(
+          (error) => {
+            if (options?.error) options.error(error);
+            logger.error(`[BC] c:"${this.getKey()}" failed: ${error}`);
+          },
+        );
+      });
+
+      this.attachmentMap.set(channel.getKey(), attachment);
+
+      // Make sure the sync loop is running so the first refresh fires.
+      if (!this.conditions[ClientCondition.SyncLoop]) {
+        this.runSyncLoop();
+      }
+
+      // Realtime: open the watch stream now (the watch stream uses the
+      // channel key, not session_id, so it's safe before the first refresh).
+      if (syncMode === SyncMode.Realtime) {
+        await this.runWatchLoop(channel.getKey());
+      }
+
+      logger.info(
+        `[AP] c:"${this.getKey()}" attaches p:"${channel.getKey()}" mode:${syncMode}`,
+      );
+      return channel;
     };
 
     return this.enqueueTask(task);
