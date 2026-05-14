@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.9] - 2026-05-14
+
+### Added
+
+- Add PeekChannel client + usePeekChannel React hook by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1256
+
+### Fixed
+
+- Fix Polling channel subscriber notification, expose polling via React by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1247
+
 ## [v0.7.8] - 2026-05-05
 
 ### Added
