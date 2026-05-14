@@ -39,6 +39,11 @@ export enum Code {
   // ErrNotDetached is returned when the resource is not detached.
   ErrNotDetached = 'ErrNotDetached',
 
+  // ErrSessionNotFound is returned when the server no longer recognises a
+  // channel session_id (e.g. reclaimed after TTL). Callers should treat this
+  // as "session expired" and retry as a first-call (empty session_id).
+  ErrSessionNotFound = 'ErrSessionNotFound',
+
   // ErrDocumentRemoved is returned when the document is removed.
   ErrDocumentRemoved = 'ErrDocumentRemoved',
 
