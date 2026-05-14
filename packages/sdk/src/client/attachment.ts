@@ -38,6 +38,11 @@ export type WatchStreamCreator = (
  */
 export class Attachment<R extends Attachable> {
   resource: R;
+  /**
+   * For Documents: the document's resourceID, available at attach time.
+   * For Channels: the server-issued session_id. Starts empty and is
+   * populated after the first `RefreshChannel` first-call response.
+   */
   resourceID: string;
   syncMode?: SyncMode;
   changeEventReceived?: boolean;
@@ -56,7 +61,7 @@ export class Attachment<R extends Attachable> {
   constructor(
     reconnectStreamDelay: number,
     resource: R,
-    resourceID: string,
+    resourceID: string = '',
     syncMode?: SyncMode,
     pollInterval: number = 0,
     pollIntervalPinned: boolean = false,
