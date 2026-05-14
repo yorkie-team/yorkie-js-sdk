@@ -1494,16 +1494,18 @@ export class Client {
       );
     }
 
-    const firstKeyPath = channelKey.split('.')[0];
-    const res = await this.rpcClient.peekChannel(
-      { channelKey },
-      {
-        headers: {
-          'x-shard-key': `${this.apiKey}/${firstKeyPath}`,
+    return this.enqueueTask(async () => {
+      const firstKeyPath = channelKey.split('.')[0];
+      const res = await this.rpcClient.peekChannel(
+        { channelKey },
+        {
+          headers: {
+            'x-shard-key': `${this.apiKey}/${firstKeyPath}`,
+          },
         },
-      },
-    );
-    return Number(res.sessionCount);
+      );
+      return Number(res.sessionCount);
+    });
   }
 
   /**
