@@ -217,6 +217,47 @@ footer {
   line-height: 1.6;
 }
 
+.detail-error {
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  border-radius: 8px;
+  color: #ff7b72;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detail-error small {
+  display: block;
+  margin-top: 6px;
+  color: #ffa198;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.writer-cta-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.writer-cta-count-error {
+  background: rgba(248, 81, 73, 0.18) !important;
+  color: #ff7b72 !important;
+}
+
+.writer-cta-error-detail {
+  margin: 0;
+  padding: 8px 12px;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  border-radius: 6px;
+  color: #ff7b72;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .tab-bar {
   display: flex;
   gap: 4px;

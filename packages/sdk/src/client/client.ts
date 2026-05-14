@@ -2107,6 +2107,16 @@ export class Client {
           attachment.resourceID = '';
           return resource;
         }
+
+        // Surface the failure to channel subscribers so React layers can
+        // render an error state. Any subsequent successful event implies
+        // recovery — there is no separate "recovered" event.
+        resource.publish({
+          type: ChannelEventType.SyncError,
+          error: err,
+          method: 'RefreshChannel',
+        });
+
         logger.error(`[RP] c:"${this.getKey()}" err :`, err);
         throw err;
       }

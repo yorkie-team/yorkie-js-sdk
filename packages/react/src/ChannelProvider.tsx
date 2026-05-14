@@ -22,7 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Client, Channel, SyncMode } from '@yorkie-js/sdk';
+import { Client, Channel, ChannelEventType, SyncMode } from '@yorkie-js/sdk';
 import { Store } from './createStore';
 import {
   createChannelStore as createChannelStore,
@@ -93,7 +93,10 @@ export function useYorkieChannel(
 
       try {
         const newChannel = new Channel(channelKey);
-        await client.attach(newChannel, { syncMode, channelHeartbeatInterval });
+        await client.attach(newChannel, {
+          syncMode,
+          channelHeartbeatInterval,
+        });
 
         channelRef.current = newChannel;
 
@@ -103,11 +106,38 @@ export function useYorkieChannel(
         // response. Keep `loading: true` until that happens, then flip it
         // along with the populated sessionCount on the same event so the
         // UI never sees a transient `loading: false, sessionCount: 0`.
-        unsubscribe = newChannel.subscribe(() => {
+        //
+        // SyncError / AuthError events from the SDK populate `error` so
+        // consumers can render an error state via the same hook return.
+        // Any successful event (PresenceChanged / Initialized / Broadcast)
+        // implies recovery — clear `error` so transient hiccups disappear
+        // from the UI without a manual reset.
+        unsubscribe = newChannel.subscribe((event) => {
+          if (
+            event.type === ChannelEventType.SyncError ||
+            event.type === ChannelEventType.AuthError
+          ) {
+            const nextError =
+              event.type === ChannelEventType.SyncError
+                ? event.error instanceof Error
+                  ? event.error
+                  : new Error(String(event.error))
+                : new Error(
+                    `auth error during ${event.method}: ${event.reason}`,
+                  );
+            channelStore.setState((state) => ({
+              ...state,
+              loading: false,
+              error: nextError,
+            }));
+            return;
+          }
+
           const ready = newChannel.isAttached() && !!newChannel.getSessionID();
           channelStore.setState((state) => ({
             ...state,
             sessionCount: newChannel.getSessionCount(),
+            ...(state.error ? { error: undefined } : {}),
             ...(ready && state.loading ? { loading: false } : {}),
           }));
         });

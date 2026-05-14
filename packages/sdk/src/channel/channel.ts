@@ -94,6 +94,15 @@ export enum ChannelEventType {
    * `AuthError` means that an authentication error has occurred.
    */
   AuthError = 'auth-error',
+
+  /**
+   * `SyncError` means that a non-recoverable sync (RefreshChannel) error
+   * occurred. Subscribers can use this to render an error state in the UI
+   * without polling internal SDK state. The SDK still retries via its sync
+   * loop, so subsequent successful events (PresenceChanged/Initialized) can
+   * be treated as recovery.
+   */
+  SyncError = 'sync-error',
 }
 
 /**
@@ -148,13 +157,36 @@ export interface AuthErrorEvent {
 }
 
 /**
+ * `SyncErrorEvent` represents a non-recoverable sync (RefreshChannel) error.
+ * It carries the underlying error object so subscribers can inspect codes
+ * (e.g. via `isErrorCode`) without losing the original Error.
+ */
+export interface SyncErrorEvent {
+  /**
+   * `type` is the type of the event.
+   */
+  type: ChannelEventType.SyncError;
+
+  /**
+   * `error` is the underlying error thrown by the RPC call.
+   */
+  error: unknown;
+
+  /**
+   * `method` is the RPC method that failed (e.g. `RefreshChannel`).
+   */
+  method: string;
+}
+
+/**
  * `ChannelEvent` represents an event that occurs in the channel.
  */
 export type ChannelEvent =
   | PresenceEvent
   | BroadcastEvent
   | LocalBroadcastEvent
-  | AuthErrorEvent;
+  | AuthErrorEvent
+  | SyncErrorEvent;
 
 /**
  * `ChannelEventCallbackMap` represents a map of event types to callbacks.
@@ -163,6 +195,7 @@ export type ChannelEventCallbackMap = {
   broadcast: NextFn<BroadcastEvent>;
   'local-broadcast': NextFn<LocalBroadcastEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
+  'sync-error': NextFn<SyncErrorEvent>;
   presence: NextFn<PresenceEvent>;
   all: NextFn<ChannelEvent>;
 };
@@ -319,6 +352,15 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
     next: ChannelEventCallbackMap['auth-error'],
   ): Unsubscribe;
   /**
+   * `subscribe` registers a callback to subscribe to non-recoverable sync
+   * (RefreshChannel) errors. Subsequent successful events on the channel
+   * imply recovery — there is no separate "recovered" event.
+   */
+  public subscribe(
+    type: 'sync-error',
+    next: ChannelEventCallbackMap['sync-error'],
+  ): Unsubscribe;
+  /**
    * `subscribe` registers a callback to subscribe to presence events on the channel.
    * The callback will be called when the presence count changes.
    */
@@ -352,6 +394,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
       | 'broadcast'
       | 'local-broadcast'
       | 'auth-error'
+      | 'sync-error'
       | 'presence'
       | 'all'
       | string
@@ -360,6 +403,7 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
       | ChannelEventCallbackMap['broadcast']
       | ChannelEventCallbackMap['local-broadcast']
       | ChannelEventCallbackMap['auth-error']
+      | ChannelEventCallbackMap['sync-error']
       | ChannelEventCallbackMap['presence']
       | ChannelEventCallbackMap['all']
       | NextFn<BroadcastEvent>,
@@ -398,6 +442,14 @@ export class Channel implements Observable<ChannelEvent>, Attachable {
       return this.eventStream.subscribe((event) => {
         if (event.type === ChannelEventType.AuthError) {
           (callback as ChannelEventCallbackMap['auth-error'])(event);
+        }
+      });
+    }
+
+    if (typeOrTopic === 'sync-error') {
+      return this.eventStream.subscribe((event) => {
+        if (event.type === ChannelEventType.SyncError) {
+          (callback as ChannelEventCallbackMap['sync-error'])(event);
         }
       });
     }
