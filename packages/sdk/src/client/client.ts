@@ -829,14 +829,10 @@ export class Client {
       this.attachmentMap.set(channel.getKey(), attachment);
 
       // Make sure the sync loop is running so the first refresh fires.
+      // The watch stream is opened later by syncInternal once the first
+      // refresh response populates this.id (the watch RPC requires it).
       if (!this.conditions[ClientCondition.SyncLoop]) {
         this.runSyncLoop();
-      }
-
-      // Realtime: open the watch stream now (the watch stream uses the
-      // channel key, not session_id, so it's safe before the first refresh).
-      if (syncMode === SyncMode.Realtime) {
-        await this.runWatchLoop(channel.getKey());
       }
 
       logger.info(
@@ -1565,8 +1561,16 @@ export class Client {
    */
   private runSyncLoop(): void {
     const doLoop = async (): Promise<void> => {
-      if (!this.isActive() || this.deactivating) {
-        logger.debug(`[SL] c:"${this.getKey()}" exit sync loop`);
+      if (this.deactivating) {
+        logger.debug(`[SL] c:"${this.getKey()}" exit sync loop (deactivating)`);
+        this.conditions[ClientCondition.SyncLoop] = false;
+        return;
+      }
+      // Stop the loop only when nothing remains to sync. A channel-only client
+      // has no `Activated` status until the first refresh succeeds, but its
+      // attachment is enough to keep ticking.
+      if (!this.isActive() && this.attachmentMap.size === 0) {
+        logger.debug(`[SL] c:"${this.getKey()}" exit sync loop (idle)`);
         this.conditions[ClientCondition.SyncLoop] = false;
         return;
       }
@@ -2015,12 +2019,17 @@ export class Client {
 
     // Handle channel heartbeat
     if (resource instanceof Channel) {
+      const isFirstCall = !resource.getSessionID();
       try {
         const res = await this.rpcClient.refreshChannel(
           {
-            clientId: this.id!,
+            clientId: this.id ?? '',
             channelKey: resource.getKey(),
-            sessionId: resource.getSessionID()!,
+            sessionId: resource.getSessionID() ?? '',
+            // First-call only — these fields are ignored by the server
+            // once a session_id is established.
+            clientKey: isFirstCall ? this.key : '',
+            metadata: isFirstCall ? this.metadata : {},
           },
           {
             headers: {
@@ -2028,6 +2037,34 @@ export class Client {
             },
           },
         );
+
+        if (isFirstCall) {
+          // Server has just activated the client and attached the channel.
+          if (res.clientId) {
+            this.id = res.clientId;
+            this.status = ClientStatus.Activated;
+            resource.setActor(res.clientId);
+          }
+          if (res.sessionId) {
+            resource.setSessionID(res.sessionId);
+            attachment.resourceID = res.sessionId;
+          }
+          resource.applyStatus(ChannelStatus.Attached);
+
+          // Realtime channels need a watch stream; open it now that
+          // this.id is populated. Other sync modes don't use the stream.
+          if (
+            attachment.syncMode === SyncMode.Realtime &&
+            !this.conditions[ClientCondition.WatchLoop]
+          ) {
+            this.runWatchLoop(resource.getKey()).catch((err) => {
+              logger.error(
+                `[WP] c:"${this.getKey()}" failed to start watch for p:"${resource.getKey()}":`,
+                err,
+              );
+            });
+          }
+        }
 
         const prevCount = resource.getSessionCount();
         if (resource.updateSessionCount(Number(res.sessionCount), 0)) {
@@ -2041,11 +2078,20 @@ export class Client {
         attachment.updateHeartbeatTime();
 
         logger.debug(
-          `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}" mode:${
-            attachment.syncMode
-          }`,
+          `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}" mode:${attachment.syncMode}`,
         );
       } catch (err) {
+        if (isErrorCode(err, Code.ErrSessionNotFound)) {
+          // Server has reclaimed our session (TTL expiry, restart, etc.).
+          // Clear local sessionID so the next tick re-enters the first-call
+          // branch and re-attaches transparently. Do not surface to caller.
+          logger.info(
+            `[RP] c:"${this.getKey()}" session expired for p:"${resource.getKey()}", re-attaching`,
+          );
+          resource.setSessionID('');
+          attachment.resourceID = '';
+          return resource;
+        }
         logger.error(`[RP] c:"${this.getKey()}" err :`, err);
         throw err;
       }

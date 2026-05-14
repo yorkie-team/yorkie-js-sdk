@@ -74,8 +74,6 @@ export async function withTwoClientsAndChannels(
 ): Promise<void> {
   const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
   const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
-  await client1.activate();
-  await client2.activate();
 
   const channelKey = `${toDocKey(title)}-${new Date().getTime()}`;
   const ch1 = new yorkie.Channel(channelKey);
@@ -84,13 +82,25 @@ export async function withTwoClientsAndChannels(
   await client1.attach(ch1);
   await client2.attach(ch2);
 
+  // Wait for the first-call heartbeat to attach both channels.
+  const deadline = Date.now() + 10000;
+  while (!ch1.isAttached() || !ch2.isAttached()) {
+    if (Date.now() > deadline) {
+      throw new Error(
+        'withTwoClientsAndChannels: channels did not attach in time',
+      );
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
   await callback(client1, ch1, client2, ch2);
 
   await client1.detach(ch1);
   await client2.detach(ch2);
 
-  await client1.deactivate();
-  await client2.deactivate();
+  // Channel-only clients are never explicitly activated, so they have
+  // nothing to deactivate. If a test activated them, deactivate is the
+  // test's responsibility.
 }
 
 export function assertUndoRedo<T, P extends Indexable>(

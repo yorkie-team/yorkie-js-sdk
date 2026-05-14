@@ -184,6 +184,32 @@ describe('Channel', function () {
       await waitFor(() => ch1.getSessionCount() === 1, { timeout: 20000 });
     }, task.name);
   });
+
+  it('recovers transparently when the server forgets the session', async function ({
+    task,
+  }) {
+    const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const channel = new yorkie.Channel(`${toDocKey(task.name)}-${Date.now()}`);
+    await client.attach(channel);
+    await waitFor(() => !!channel.getSessionID());
+
+    // Simulate server-side expiry by overwriting the channel's session_id
+    // with a known-bad value. The next refresh tick should receive
+    // ErrSessionNotFound and silently re-attach.
+    channel.setSessionID('does-not-exist');
+
+    await waitFor(
+      () =>
+        !!channel.getSessionID() && channel.getSessionID() !== 'does-not-exist',
+      {
+        timeout: 10000,
+        message: 'session was not re-issued after forced expiry',
+      },
+    );
+
+    assert.notStrictEqual(channel.getSessionID(), 'does-not-exist');
+    await client.detach(channel);
+  });
 });
 
 async function waitFor(
