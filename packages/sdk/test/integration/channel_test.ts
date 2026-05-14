@@ -211,8 +211,25 @@ describe('Channel', function () {
     assert.notStrictEqual(channel.getSessionID(), '000000000000000000000000');
     await client.detach(channel);
   }, 30000);
+
+  it('peekChannel works without client.activate()', async ({ task }) => {
+    const channelKey = `${toDocKey(task.name)}-${Date.now()}`;
+    const writer = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const writerChannel = new yorkie.Channel(channelKey);
+    await writer.attach(writerChannel);
+    await waitFor(() => !!writerChannel.getSessionID(), { timeout: 10000 });
+
+    const peeker = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const count = await peeker.peekChannel(channelKey);
+    assert.strictEqual(count, 1);
+
+    await writer.detach(writerChannel);
+  });
 });
 
+/**
+ * `waitFor` polls `pred` until it returns truthy or `timeout` elapses.
+ */
 async function waitFor(
   pred: () => boolean,
   { timeout = 5000, interval = 100, message = 'waitFor timeout' } = {},

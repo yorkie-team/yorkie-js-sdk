@@ -987,13 +987,6 @@ export class Client {
     channel: Channel,
     syncMode: SyncMode,
   ): Promise<Channel> {
-    if (!this.isActive()) {
-      throw new YorkieError(
-        Code.ErrClientNotActivated,
-        `${this.key} is not active`,
-      );
-    }
-
     const attachment = this.attachmentMap.get(channel.getKey());
     if (!attachment) {
       throw new YorkieError(
@@ -1054,7 +1047,7 @@ export class Client {
   public sync<R, P extends Indexable>(
     resource?: Document<R, P> | Channel,
   ): Promise<Array<Document<R, P>> | Channel> {
-    if (!this.isActive()) {
+    if (!(resource instanceof Channel) && !this.isActive()) {
       throw new YorkieError(
         Code.ErrClientNotActivated,
         `${this.key} is not active`,
@@ -1436,13 +1429,6 @@ export class Client {
    * subscribe to channel events. Polling is the caller's responsibility.
    */
   public async peekChannel(channelKey: string): Promise<number> {
-    if (!this.isActive()) {
-      throw new YorkieError(
-        Code.ErrClientNotActivated,
-        `${this.key} is not active`,
-      );
-    }
-
     return this.enqueueTask(async () => {
       const firstKeyPath = channelKey.split('.')[0];
       const res = await this.rpcClient.peekChannel(
@@ -1466,12 +1452,6 @@ export class Client {
     payload: any,
     options?: BroadcastOptions,
   ): Promise<void> {
-    if (!this.isActive()) {
-      throw new YorkieError(
-        Code.ErrClientNotActivated,
-        `${this.key} is not active`,
-      );
-    }
     const attachment = this.attachmentMap.get(key);
     if (!attachment) {
       throw new YorkieError(Code.ErrNotAttached, `${key} is not attached`);
