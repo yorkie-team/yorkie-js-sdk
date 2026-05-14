@@ -196,9 +196,11 @@ export interface ClientOptions {
   reconnectStreamDelay?: number;
 
   /**
-   * `channelHeartbeatInterval` is the interval of the channel heartbeat.
-   * The client sends a heartbeat to the server to refresh the channel TTL.
-   * The default value is `30000`(ms).
+   * `channelHeartbeatInterval` is the interval of the channel heartbeat (ms).
+   * The client sends a `RefreshChannel` heartbeat to refresh the channel
+   * session TTL. The default value is `5000` (ms) — co-tuned to the server's
+   * `ChannelSessionTTL` (15 s) at TTL/3. Values larger than the server TTL
+   * risk premature session expiry.
    */
   channelHeartbeatInterval?: number;
 
@@ -287,19 +289,27 @@ export interface AttachChannelOptions {
   syncMode?: SyncMode;
 
   /**
-   * `channelHeartbeatInterval` overrides the heartbeat interval (ms) for this
-   * attachment. If unset, mode-specific defaults apply: Polling=3000,
-   * Realtime=30000.
+   * `channelHeartbeatInterval` overrides the heartbeat interval (ms) for
+   * this attachment. If unset, the client-level default
+   * (`ClientOptions.channelHeartbeatInterval`, default 5000 ms) applies
+   * to both Realtime and Polling modes.
    */
   channelHeartbeatInterval?: number;
 }
 
 /**
- * `DefaultPollingIntervalMs` is the default heartbeat / poll interval
- * (ms) when `SyncMode.Polling` is in effect and the user has not set an
- * explicit interval.
+ * `DefaultDocumentPollIntervalMs` is the default poll interval (ms) for
+ * `SyncMode.Polling` documents when the user has not set an explicit
+ * `documentPollInterval`.
  */
-const DefaultPollingIntervalMs = 3000;
+const DefaultDocumentPollIntervalMs = 3000;
+
+/**
+ * `DefaultChannelHeartbeatMs` is the default heartbeat interval for both
+ * Realtime and Polling channel modes. Co-tuned to the server's
+ * `ChannelSessionTTL` (15 s) at TTL/3.
+ */
+const DefaultChannelHeartbeatMs = 5000;
 
 /**
  * `DefaultClientOptions` is the default options for Client.
@@ -309,7 +319,7 @@ const DefaultClientOptions = {
   syncLoopDuration: 50,
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
-  channelHeartbeatInterval: 30000,
+  channelHeartbeatInterval: DefaultChannelHeartbeatMs,
 };
 
 /**
@@ -581,7 +591,7 @@ export class Client {
     const pollInterval = pollIntervalPinned
       ? opts.documentPollInterval!
       : syncMode === SyncMode.Polling
-        ? DefaultPollingIntervalMs
+        ? DefaultDocumentPollIntervalMs
         : 0;
     return this.enqueueTask(async () => {
       try {
@@ -813,11 +823,12 @@ export class Client {
 
         // Resolve heartbeat interval. Mode-specific defaults: polling=3000,
         // realtime=client-level channelHeartbeatInterval (default 30000).
+        // TODO(Task 5): rewrite attachChannel to use DefaultChannelHeartbeatMs.
         const pollIntervalPinned = opts.channelHeartbeatInterval !== undefined;
         const pollInterval = pollIntervalPinned
           ? opts.channelHeartbeatInterval!
           : syncMode === SyncMode.Polling
-            ? DefaultPollingIntervalMs
+            ? DefaultDocumentPollIntervalMs
             : this.channelHeartbeatInterval;
 
         const attachment = new Attachment(
@@ -994,7 +1005,7 @@ export class Client {
     // Recompute interval default if the user did not pin it.
     if (!attachment.pollIntervalPinned) {
       attachment.pollInterval =
-        syncMode === SyncMode.Polling ? DefaultPollingIntervalMs : 0;
+        syncMode === SyncMode.Polling ? DefaultDocumentPollIntervalMs : 0;
     }
 
     // RealtimePushOnly and RealtimeSyncOff retain the watch stream, so
@@ -1066,11 +1077,7 @@ export class Client {
     // Recompute interval default if the user did not pin it.
     if (!attachment.pollIntervalPinned) {
       attachment.pollInterval =
-        syncMode === SyncMode.Polling
-          ? DefaultPollingIntervalMs
-          : syncMode === SyncMode.Realtime
-            ? this.channelHeartbeatInterval
-            : 0;
+        syncMode === SyncMode.Manual ? 0 : this.channelHeartbeatInterval;
     }
 
     // Start watch stream if entering Realtime.
