@@ -7,6 +7,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+- Channel lifecycle via RefreshChannel only by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1258
+
 ## [v0.7.9] - 2026-05-14
 
 ### Added
