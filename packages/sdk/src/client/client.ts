@@ -2043,6 +2043,12 @@ export class Client {
         );
 
         if (isFirstCall) {
+          // Drop late first-call responses that arrive after `deactivate()`
+          // started, so we don't resurrect `this.id`/`this.status` that
+          // deactivate is about to clear.
+          if (this.deactivating || attachment.isDetaching()) {
+            return resource;
+          }
           // Server has just activated the client and attached the channel.
           // Only adopt the server-issued client_id when we don't already
           // have one. If the client was already activated (e.g. via
