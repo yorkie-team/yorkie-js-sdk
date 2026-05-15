@@ -109,9 +109,10 @@ export function useYorkieChannel(
         //
         // SyncError / AuthError events from the SDK populate `error` so
         // consumers can render an error state via the same hook return.
-        // Any successful event (PresenceChanged / Initialized / Broadcast)
-        // implies recovery — clear `error` so transient hiccups disappear
-        // from the UI without a manual reset.
+        // Server-confirmed events (PresenceChanged / Initialized / remote
+        // Broadcast) clear `error` because they prove the channel is
+        // healthy again. LocalBroadcast is purely local and does not
+        // imply recovery — exclude it explicitly.
         unsubscribe = newChannel.subscribe((event) => {
           if (
             event.type === ChannelEventType.SyncError ||
@@ -133,11 +134,15 @@ export function useYorkieChannel(
             return;
           }
 
+          const recovers =
+            event.type === ChannelEventType.PresenceChanged ||
+            event.type === ChannelEventType.Initialized ||
+            event.type === ChannelEventType.Broadcast;
           const ready = newChannel.isAttached() && !!newChannel.getSessionID();
           channelStore.setState((state) => ({
             ...state,
             sessionCount: newChannel.getSessionCount(),
-            ...(state.error ? { error: undefined } : {}),
+            ...(recovers && state.error ? { error: undefined } : {}),
             ...(ready && state.loading ? { loading: false } : {}),
           }));
         });
