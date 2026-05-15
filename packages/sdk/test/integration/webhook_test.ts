@@ -136,7 +136,11 @@ describe('Auth Webhook', () => {
     const projectId = projectResponse.data.project.id;
     apiKey = projectResponse.data.project.publicKey;
 
-    // Update project with webhook url
+    // Update project with webhook url.
+    // max_retries=0 and request_timeout=1s keep failing webhook calls
+    // fast when the container cannot reach the host webhook server,
+    // so the suite does not hang on the server's ~60s default retry
+    // budget.
     await axios.post(
       `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
       {
@@ -144,6 +148,8 @@ describe('Auth Webhook', () => {
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: AllAuthWebhookMethods },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -394,6 +400,8 @@ describe('Auth Webhook', () => {
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: ['RemoveDocument'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -454,6 +462,8 @@ describe('Auth Webhook', () => {
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: ['PushPull'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -524,6 +534,8 @@ describe('Auth Webhook', () => {
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: ['Watch'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -617,6 +629,8 @@ describe('Auth Webhook', () => {
         fields: {
           auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
           auth_webhook_methods: { methods: ['Broadcast'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
         },
       },
       { headers: { Authorization: `Bearer ${adminToken}` } },
