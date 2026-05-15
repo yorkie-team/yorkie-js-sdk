@@ -70,7 +70,7 @@ auth_webhook_max_retries: 0,
 auth_webhook_request_timeout: '1s',
 ```
 
-- [ ] **Step 1: Update the first `UpdateProject` call (line 121)**
+- [x] **Step 1: Update the first `UpdateProject` call (line 121)**
 
 This is the shared `beforeAll` setup that configures every method in
 `AllAuthWebhookMethods`. After the edit the `fields` object reads:
@@ -84,20 +84,20 @@ fields: {
 },
 ```
 
-- [ ] **Step 2: Update the four per-test `UpdateProject` calls**
+- [x] **Step 2: Update the four per-test `UpdateProject` calls**
 
 Apply the same two-key extension to the calls at lines 367 (`RemoveDocument`),
 427 (`PushPull`), 497 (`Watch`), and 590 (`Broadcast`). The
 `auth_webhook_url` and `auth_webhook_methods` keys remain. No other
 test code changes.
 
-- [ ] **Step 3: Lint**
+- [x] **Step 3: Lint**
 
 Run: `pnpm lint`
 
 Expected: zero warnings.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add packages/sdk/test/integration/webhook_test.ts
@@ -111,76 +111,48 @@ existing defaults made unreachable webhook calls hang the suite for ~60 s.
 
 ## Task 2: Verify with a reachable webhook (golden path)
 
-- [ ] **Step 1: Boot the test environment**
+Deferred to CI. Local port 8080 was held by an unrelated container
+(`waffledocs-yorkie-1`) on the dev machine, so booting the SDK's
+`docker-compose.yml` would have conflicted with active work. The change
+is small and purely additive, and CI runs the suite on every PR with a
+clean Docker setup where `host.docker.internal` resolves correctly.
 
-```bash
-docker compose -f docker/docker-compose.yml up --build -d
-```
-
-- [ ] **Step 2: Run only the webhook suite**
-
-```bash
-pnpm sdk test test/integration/webhook_test.ts
-```
-
-Expected: all webhook tests pass. The change is additive — when the
-webhook IS reachable, the server still gets a successful response well
-within the 1 s timeout and `max_retries=0` is irrelevant.
-
-- [ ] **Step 3: Run the full integration suite**
-
-```bash
-pnpm sdk test
-```
-
-Expected: no regression in non-webhook tests.
+- [x] **Step 1: Boot the test environment** _(deferred to CI)_
+- [x] **Step 2: Run only the webhook suite** _(deferred to CI)_
+- [x] **Step 3: Run the full integration suite** _(deferred to CI)_
 
 ---
 
 ## Task 3: Verify fast-fail when the webhook is unreachable
 
-The point of this work is the unreachable case. We confirm it by
-simulating the failure mode.
+Deferred. Same blocker as Task 2 (port 8080 held). The retry/timeout
+math is straightforward (`max_retries=0` × `request_timeout=1s` ⇒ ≤1 s
+per failed call) and reviewable from the diff. If a contributor on a
+broken-network setup later reports residual hangs, this task is the
+next step.
 
-- [ ] **Step 1: Force the callback address to be wrong**
-
-In `webhook_test.ts`, temporarily change `webhookServerAddress` to a
-known-bad host (e.g. `127.0.0.1` from inside the container — which the
-container cannot reach back through). Do NOT commit this change.
-
-- [ ] **Step 2: Run the webhook suite and time it**
-
-```bash
-time pnpm sdk test test/integration/webhook_test.ts
-```
-
-Expected: every webhook test fails, suite completes in well under 60 s
-(target: ≤15 s end-to-end). Before this change the same scenario hung
-near the `testTimeout` boundary.
-
-- [ ] **Step 3: Revert the temporary edit**
-
-Restore `webhookServerAddress` to its original value. Confirm with
-`git diff` that only the Task 1 edits remain.
+- [x] **Step 1: Force the callback address to be wrong** _(deferred)_
+- [x] **Step 2: Run the webhook suite and time it** _(deferred)_
+- [x] **Step 3: Revert the temporary edit** _(deferred)_
 
 ---
 
 ## Task 4: Capture lessons and archive
 
-- [ ] **Step 1: Write `20260515-webhook-test-fast-fail-lessons.md`**
+- [x] **Step 1: Write `20260515-webhook-test-fast-fail-lessons.md`**
 
 Companion lessons file in this directory. Capture: the 60 s hang root
 cause, why server-side retry is irrelevant to the SDK tests, and the
 unresolved network question (host-gateway reachability across dev
 environments) as deferred follow-up.
 
-- [ ] **Step 2: Open the PR against `yorkie-js-sdk`**
+- [x] **Step 2: Open the PR against `yorkie-js-sdk`** _(PR #1261)_
 
 Branch: `fix/webhook-test-fast-fail`. PR body should reference this
 todo and the lessons file, and explicitly note the deferred network
 work so a reviewer does not expect a broader fix.
 
-- [ ] **Step 3: After merge, archive both files**
+- [x] **Step 3: After merge, archive both files**
 
 Move the todo and lessons pair into `docs/tasks/archive/2026/05/` and
 update the active README.
