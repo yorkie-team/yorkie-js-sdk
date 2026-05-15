@@ -217,6 +217,84 @@ footer {
   line-height: 1.6;
 }
 
+.detail-error {
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  border-radius: 8px;
+  color: #ff7b72;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.detail-error small {
+  display: block;
+  margin-top: 6px;
+  color: #ffa198;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.detach-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #30363d;
+}
+
+.detach-button {
+  align-self: flex-start;
+  padding: 6px 12px;
+  background: #30363d;
+  border: 1px solid #6e7681;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.detach-button:hover:not(:disabled) {
+  background: rgba(248, 81, 73, 0.18);
+  border-color: #ff7b72;
+  color: #ff7b72;
+}
+
+.detach-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.detach-hint {
+  color: #6e7681;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.writer-cta-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.writer-cta-count-error {
+  background: rgba(248, 81, 73, 0.18) !important;
+  color: #ff7b72 !important;
+}
+
+.writer-cta-error-detail {
+  margin: 0;
+  padding: 8px 12px;
+  background: rgba(248, 81, 73, 0.12);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  border-radius: 6px;
+  color: #ff7b72;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .tab-bar {
   display: flex;
   gap: 4px;

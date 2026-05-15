@@ -20,6 +20,7 @@ import yorkie, {
   SyncMode,
   DocSyncStatus,
   DocEventType,
+  Channel,
 } from '@yorkie-js/sdk/src/yorkie';
 import {
   assertThrowsAsync,
@@ -35,6 +36,25 @@ import {
 import { ConnectError } from '@connectrpc/connect';
 import axios from 'axios';
 import express from 'express';
+
+/**
+ * `waitForAttached` blocks until the channel's first RefreshChannel heartbeat
+ * has flipped status to Attached.
+ */
+async function waitForAttached(
+  channel: Channel,
+  { timeout = 8000 } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (!channel.isAttached() || !channel.getSessionID()) {
+    if (Date.now() > deadline) {
+      throw new Error(
+        `waitForAttached: ${channel.getKey()} did not attach (status=${channel.getStatus()})`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 
 const webhookServer = express();
 const webhookServerPort = 3004;
@@ -169,6 +189,8 @@ describe('Auth Webhook', () => {
     const ch2 = new yorkie.Channel(channelKey);
     await c1.attach(ch1);
     await c2.attach(ch2);
+    await waitForAttached(ch1);
+    await waitForAttached(ch2);
 
     const eventCollector = new EventCollector();
     const topic = 'test';
@@ -196,7 +218,9 @@ describe('Auth Webhook', () => {
     unsubscribe();
     await c1.deactivate();
     await c2.deactivate();
-  });
+    // 60s: every RPC pays an extra round trip to the auth webhook on top of
+    // istanbul coverage overhead; the test exercises ~12 RPCs end-to-end.
+  }, 60000);
 
   it('should return unauthenticated error for client with empty token (401)', async () => {
     // client without token
@@ -634,6 +658,8 @@ describe('Auth Webhook', () => {
     await c2.activate();
     const ch2 = new yorkie.Channel(channelKey);
     await c2.attach(ch2);
+    await waitForAttached(ch1);
+    await waitForAttached(ch2);
 
     const collector2 = new EventCollector();
     const topic = 'test';
@@ -661,5 +687,5 @@ describe('Auth Webhook', () => {
     await c2.detach(ch2);
     await c1.deactivate();
     await c2.deactivate();
-  });
+  }, 15000);
 });

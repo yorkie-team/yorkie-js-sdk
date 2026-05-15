@@ -38,12 +38,25 @@ export type WatchStreamCreator = (
  */
 export class Attachment<R extends Attachable> {
   resource: R;
+  /**
+   * For Documents: the document's resourceID, available at attach time.
+   * For Channels: the server-issued session_id. Starts empty and is
+   * populated after the first `RefreshChannel` first-call response.
+   */
   resourceID: string;
   syncMode?: SyncMode;
   changeEventReceived?: boolean;
   lastHeartbeatTime: number;
   pollInterval: number;
   pollIntervalPinned: boolean;
+  /**
+   * `unsubscribeLocalBroadcast` is set by `attachChannel` when it forwards
+   * a Channel's `local-broadcast` events to the RPC client, and consumed
+   * by `detachInternal` so the subscription does not survive a detach.
+   * Without this, re-attaching a channel accumulates duplicate handlers
+   * on each attach cycle.
+   */
+  unsubscribeLocalBroadcast?: () => void;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
@@ -56,7 +69,7 @@ export class Attachment<R extends Attachable> {
   constructor(
     reconnectStreamDelay: number,
     resource: R,
-    resourceID: string,
+    resourceID: string = '',
     syncMode?: SyncMode,
     pollInterval: number = 0,
     pollIntervalPinned: boolean = false,
@@ -66,7 +79,10 @@ export class Attachment<R extends Attachable> {
     this.resourceID = resourceID;
     this.syncMode = syncMode;
     this.changeEventReceived = syncMode !== undefined ? false : undefined;
-    this.lastHeartbeatTime = Date.now();
+    // Initialize to 0 so `needSync`/`needRealtimeSync` return true on the
+    // very first tick. Otherwise the first heartbeat is delayed by one full
+    // poll interval — channels would show stale sessionCount until then.
+    this.lastHeartbeatTime = 0;
     this.pollInterval = pollInterval;
     this.pollIntervalPinned = pollIntervalPinned;
     this.cancelled = false;

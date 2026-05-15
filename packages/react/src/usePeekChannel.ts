@@ -130,7 +130,10 @@ export function usePeekChannel(
   }, []);
 
   const peekOnce = useCallback(async () => {
-    if (!client || !client.isActive()) return;
+    // No `isActive()` gate: peekChannel is stateless on the server and does
+    // not require `client.activate()`. Channel-only apps that opt out of
+    // activation via `<YorkieProvider activate={false}>` should still peek.
+    if (!client) return;
     if (mountedRef.current) setLoading(true);
     try {
       const count = await client.peekChannel(channelKeyRef.current);
@@ -165,7 +168,7 @@ export function usePeekChannel(
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     const run = async () => {
-      if (cancelled || !client.isActive()) return;
+      if (cancelled) return;
       try {
         const count = await client.peekChannel(channelKey);
         if (cancelled) return;

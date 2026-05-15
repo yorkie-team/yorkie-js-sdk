@@ -129,10 +129,13 @@ describe('Channel Polling', function () {
     // re-resolve the default (Polling → 3000) so we can verify that path.
     await c.attachChannel(ch, { syncMode: SyncMode.Realtime });
 
-    // Switch to Polling. Default re-resolves to 3000 (because pinned=false).
+    // Switch to Polling. Default re-resolves to the client-level
+    // `channelHeartbeatInterval` (5000ms by default). Pre-PR this branch
+    // returned 3000 only for Polling, but the RefreshChannel-only design
+    // uses one heartbeat cadence shared by Realtime and Polling.
     await c.changeSyncMode(ch, SyncMode.Polling);
     const att = (c as any).attachmentMap.get(ch.getKey());
-    assert.equal(att.pollInterval, 3000);
+    assert.equal(att.pollInterval, 5000);
     // Override to a fast interval so the test runs quickly.
     att.pollInterval = 200;
 
@@ -166,6 +169,18 @@ describe('Channel Polling', function () {
       channelHeartbeatInterval: 200,
     });
     await c1.attachChannel(ch1, { syncMode: SyncMode.Realtime });
+
+    // `attachChannel` no longer attaches synchronously; the channel reaches
+    // Attached state only after the first RefreshChannel response. Wait
+    // for both channels before broadcasting — otherwise `Channel.broadcast`
+    // throws "channel is not attached".
+    const deadline = Date.now() + 5000;
+    while (!ch1.isAttached() || !ch2.isAttached()) {
+      if (Date.now() > deadline) {
+        throw new Error('channels did not attach in time');
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
 
     let received = false;
     ch2.subscribe('chat', () => {

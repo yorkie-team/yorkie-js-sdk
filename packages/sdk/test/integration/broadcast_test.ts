@@ -16,7 +16,7 @@
 
 import { describe, it, assert, vi, afterEach, expect } from 'vitest';
 
-import yorkie from '@yorkie-js/sdk/src/yorkie';
+import yorkie, { Channel } from '@yorkie-js/sdk/src/yorkie';
 import { EventCollector } from '@yorkie-js/sdk/test/helper/helper';
 import {
   toDocKey,
@@ -25,6 +25,26 @@ import {
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { Json } from '@yorkie-js/sdk/src/document/document';
+
+/**
+ * `waitForAttached` waits until the channel's first RefreshChannel heartbeat
+ * has flipped status to Attached. `client.attach(channel)` returns before
+ * this happens under the RefreshChannel-only lifecycle.
+ */
+async function waitForAttached(
+  channel: Channel,
+  { timeout = 8000 } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeout;
+  while (!channel.isAttached() || !channel.getSessionID()) {
+    if (Date.now() > deadline) {
+      throw new Error(
+        `waitForAttached: ${channel.getKey()} did not attach (status=${channel.getStatus()})`,
+      );
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
 
 describe.sequential('Channel', function () {
   afterEach(() => {
@@ -40,6 +60,7 @@ describe.sequential('Channel', function () {
     const channelKey = toDocKey(`${task.name}-presence`);
     const channel = new yorkie.Channel(channelKey);
     await cli.attach(channel);
+    await waitForAttached(channel);
 
     const broadcastTopic = 'test';
     const payload = { a: 1, b: '2' };
@@ -62,6 +83,7 @@ describe.sequential('Channel', function () {
     const channelKey = toDocKey(`${task.name}-presence`);
     const channel = new yorkie.Channel(channelKey);
     await cli.attach(channel);
+    await waitForAttached(channel);
 
     // broadcast unserializable payload
 

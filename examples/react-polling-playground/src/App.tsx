@@ -180,7 +180,10 @@ export default function App() {
         </div>
       </div>
 
-      <YorkieProvider {...yorkieOpts}>
+      {/* This playground only attaches Channels (no Documents), so we
+          opt out of the eager activate/deactivate round trips. The SDK
+          lazy-attaches the client on the first RefreshChannel heartbeat. */}
+      <YorkieProvider {...yorkieOpts} activate={false}>
         {view === 'write' && selectedStock ? (
           <WritePostPage
             stock={selectedStock}

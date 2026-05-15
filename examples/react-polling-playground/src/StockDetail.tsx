@@ -102,17 +102,11 @@ export default function StockDetail({
         <>
           {tabHeader}
           {subView === 'overview' ? (
-            <ChannelProvider
-              key={`${providerKey}-overview`}
-              {...providerProps}
-            >
+            <ChannelProvider key={`${providerKey}-overview`} {...providerProps}>
               <OverviewBody stock={stock} onSession={handleSessionEvent} />
             </ChannelProvider>
           ) : (
-            <ChannelProvider
-              key={`${providerKey}-activity`}
-              {...providerProps}
-            >
+            <ChannelProvider key={`${providerKey}-activity`} {...providerProps}>
               <ActivityBody stock={stock} onSession={handleSessionEvent} />
             </ChannelProvider>
           )}
@@ -123,10 +117,7 @@ export default function StockDetail({
           page entry without attaching, displays the snapshot for 3 seconds,
           then hides it. The viewer never becomes a member of the channel —
           even at high concurrency this stays O(1 RPC per page view). */}
-      <WritersPeekCTA
-        channelKey={writersChannelKey}
-        onCompose={onCompose}
-      />
+      <WritersPeekCTA channelKey={writersChannelKey} onCompose={onCompose} />
 
       <SessionLogPanel log={log} onClear={() => setLog([])} />
     </div>
@@ -155,15 +146,38 @@ function WritersPeekCTA({
 
   const showCount = visible && !loading && !error;
   return (
-    <button className="writer-cta" onClick={onCompose}>
-      <span className="writer-cta-icon">✏️</span>
-      <span className="writer-cta-label">Write a post</span>
-      {showCount && (
-        <span className="writer-cta-count" title="people writing at page entry">
-          {sessionCount.toLocaleString()} writing
-        </span>
+    <div className="writer-cta-wrap">
+      <button className="writer-cta" onClick={onCompose}>
+        <span className="writer-cta-icon">✏️</span>
+        <span className="writer-cta-label">Write a post</span>
+        {showCount && (
+          <span
+            className="writer-cta-count"
+            title="people writing at page entry"
+          >
+            {sessionCount.toLocaleString()} writing
+          </span>
+        )}
+        {loading && !error && (
+          <span className="writer-cta-count" title="peek in flight">
+            … peeking
+          </span>
+        )}
+        {error && (
+          <span
+            className="writer-cta-count writer-cta-count-error"
+            title={error.message}
+          >
+            peek error
+          </span>
+        )}
+      </button>
+      {error && (
+        <p className="writer-cta-error-detail">
+          <strong>usePeekChannel().error fired:</strong> {error.message}
+        </p>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -198,7 +212,7 @@ function SessionCountCard({
   subLabel: SubView;
   onSession: CardProps['onSession'];
 }) {
-  const { sessionCount, loading, error } = useChannel();
+  const { sessionCount, loading, error, detach } = useChannel();
   const flag = stock.market === 'KR' ? '🇰🇷' : '🇺🇸';
   const state: AttachState = error ? 'error' : loading ? 'attaching' : 'ok';
 
@@ -212,6 +226,12 @@ function SessionCountCard({
     }
   }, [sessionCount, state, error, subLabel, onSession]);
 
+  const [detached, setDetached] = useState(false);
+  const handleDetach = useCallback(async () => {
+    await detach();
+    setDetached(true);
+  }, [detach]);
+
   return (
     <div className="detail-card">
       <div className="detail-meta">
@@ -221,13 +241,33 @@ function SessionCountCard({
       </div>
       <div className="detail-ticker">{stock.ticker}</div>
       <div className="detail-count">
-        <span className="big-num">{sessionCount.toLocaleString()}</span>
+        <span className="big-num">
+          {state === 'ok' ? sessionCount.toLocaleString() : '—'}
+        </span>
         <span className="big-label">
           people watching{' '}
           <span className={`state-badge state-${state}`}>{state}</span>
         </span>
       </div>
-      {error && <p className="detail-hint">error: {error.message}</p>}
+      {error && (
+        <p className="detail-error">
+          <strong>useChannel().error fired:</strong> {error.message}
+        </p>
+      )}
+      <div className="detach-controls">
+        <button
+          className="detach-button"
+          onClick={handleDetach}
+          disabled={detached}
+        >
+          {detached ? '✋ detached' : '🛑 detach channel'}
+        </button>
+        <small className="detach-hint">
+          Calls <code>useChannel().detach()</code> — removes the channel from
+          the SDK's <code>attachmentMap</code> so no further RefreshChannel
+          RPCs fire. Server reclaims the session after TTL.
+        </small>
+      </div>
     </div>
   );
 }
@@ -253,9 +293,7 @@ function SessionLogPanel({
         <ul>
           {log.map((entry, i) => (
             <li key={i}>
-              <code>
-                {new Date(entry.t).toISOString().substring(11, 23)}
-              </code>{' '}
+              <code>{new Date(entry.t).toISOString().substring(11, 23)}</code>{' '}
               <span className="log-source">/{entry.source}</span>{' '}
               <span className={`state-badge state-${entry.state}`}>
                 {entry.state}
