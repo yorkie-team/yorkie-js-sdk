@@ -528,8 +528,9 @@ export class Client {
   ): Promise<Document<R, P>>;
 
   /**
-   * `attach` attaches the given channel to this client. It tells the server that
-   * this client will track the channel.
+   * `attach` attaches the given channel to this client. The channel is
+   * registered locally and the server is notified on the next RefreshChannel
+   * heartbeat.
    */
   public attach(
     resource: Channel,
@@ -676,8 +677,9 @@ export class Client {
   ): Promise<Document<R, P>>;
 
   /**
-   * `detach` detaches the given channel from this client.
-   * It tells the server that this client will no longer track the channel.
+   * `detach` detaches the given channel from this client. The detach is a
+   * local cleanup; the server reclaims the session via TTL when heartbeats
+   * stop.
    */
   public detach(resource: Channel): Promise<Channel>;
 
@@ -767,8 +769,9 @@ export class Client {
   }
 
   /**
-   * `attach` attaches the given channel to this client.
-   * It tells the server that this client will track the channel.
+   * `attachChannel` attaches the given channel to this client. The channel is
+   * registered locally and the server is notified on the next RefreshChannel
+   * heartbeat.
    */
   public async attachChannel(
     channel: Channel,
@@ -850,8 +853,9 @@ export class Client {
   }
 
   /**
-   * `detachChannel` detaches the given channel from this client.
-   * It tells the server that this client will no longer track the channel.
+   * `detachChannel` detaches the given channel from this client. The detach
+   * is a local cleanup; the server reclaims the session via TTL when
+   * heartbeats stop.
    */
   public async detachChannel(channel: Channel): Promise<Channel> {
     const attachment = this.attachmentMap.get(channel.getKey()) as
