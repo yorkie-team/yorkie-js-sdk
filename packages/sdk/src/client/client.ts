@@ -2117,6 +2117,20 @@ export class Client {
           attachment.resourceID = '';
           return resource;
         }
+
+        // Surface the failure to channel subscribers so React layers can
+        // render an error state. Any subsequent successful event implies
+        // recovery — there is no separate "recovered" event. Skip the
+        // publish during teardown so a spurious error badge doesn't flash
+        // on the way out (mirrors the deactivate guard in the success path).
+        if (!this.deactivating && !attachment.isDetaching()) {
+          resource.publish({
+            type: ChannelEventType.SyncError,
+            error: err,
+            method: 'RefreshChannel',
+          });
+        }
+
         logger.error(`[RP] c:"${this.getKey()}" err :`, err);
         throw err;
       }
