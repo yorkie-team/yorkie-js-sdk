@@ -395,10 +395,65 @@ export class Client {
       baseUrl: rpcAddr,
       interceptors: [authInterceptor, createMetricInterceptor(opts?.userAgent)],
       fetch: (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        // Server-streaming RPCs (Watch/WatchDocument/WatchChannel) need the
+        // caller's signal active for the response body's full lifetime so
+        // user-initiated cancellation can reach the underlying connection.
+        if (/\/yorkie\.v1\.YorkieService\/Watch/.test(url)) {
+          return fetch(input as RequestInfo, {
+            ...init,
+            keepalive: this.keepalive,
+          });
+        }
+
+        // For unary RPCs, @connectrpc/connect calls AbortController.abort()
+        // on its per-call signal as cleanup after the call completes — even
+        // on success. In browsers that stray abort surfaces as an
+        // "Uncaught (in promise) AbortError: The user aborted a request."
+        // tied to the (already-finished) fetch's body stream and gets picked
+        // up by global error trackers once per call. Decouple our underlying
+        // fetch from the caller's signal once the response is in hand so the
+        // post-success cleanup abort does not propagate. Aborts that arrive
+        // before the response settles still cancel the fetch via the
+        // forwarding listener.
+        const callerSignal =
+          init?.signal ?? (input instanceof Request ? input.signal : undefined);
+        const innerAC = new AbortController();
+        let onCallerAbort: (() => void) | undefined;
+        if (callerSignal) {
+          if (callerSignal.aborted) {
+            innerAC.abort(callerSignal.reason);
+          } else {
+            onCallerAbort = () => innerAC.abort(callerSignal.reason);
+            callerSignal.addEventListener('abort', onCallerAbort);
+          }
+        }
+        const detach = () => {
+          if (callerSignal && onCallerAbort) {
+            callerSignal.removeEventListener('abort', onCallerAbort);
+          }
+        };
+
         return fetch(input as RequestInfo, {
           ...init,
+          signal: innerAC.signal,
           keepalive: this.keepalive,
-        });
+        }).then(
+          (res) => {
+            detach();
+            return res;
+          },
+          (err) => {
+            detach();
+            throw err;
+          },
+        );
       },
     };
 
