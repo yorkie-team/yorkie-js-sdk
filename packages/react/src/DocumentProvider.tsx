@@ -59,6 +59,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   enableDevtools: boolean,
   syncMode: SyncMode | undefined,
   documentPollInterval: number | undefined,
+  disableGC: boolean | undefined,
   docStore: Store<DocumentContextType<R, P>>,
 ) {
   const initialRootRef = useRef(initialRoot);
@@ -136,6 +137,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           initialPresence: initialPresenceRef.current,
           syncMode,
           documentPollInterval,
+          disableGC,
         });
 
         const update = (callback: (root: R, presence: Presence<P>) => void) => {
@@ -193,6 +195,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
     didMount,
     syncMode,
     documentPollInterval,
+    disableGC,
   ]);
 }
 
@@ -222,6 +225,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   enableDevtools = false,
   syncMode,
   documentPollInterval,
+  disableGC,
   children,
 }: {
   docKey: string;
@@ -238,6 +242,13 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
    * Default: 3000. Applied at attach time.
    */
   documentPollInterval?: number;
+  /**
+   * `disableGC` declares that this attachment will not produce or consume
+   * tombstones. Use only with Counter or primitive workloads; misuse on a
+   * document that uses Tree, Text, or Array deletions leads to undefined
+   * GC behavior on this client.
+   */
+  disableGC?: boolean;
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
@@ -274,6 +285,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     enableDevtools,
     syncMode,
     documentPollInterval,
+    disableGC,
     documentStore,
   );
 

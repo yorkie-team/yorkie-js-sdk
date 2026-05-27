@@ -41,6 +41,13 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     enableDevtools?: boolean;
     syncMode?: SyncMode;
     documentPollInterval?: number;
+    /**
+     * `disableGC` declares that this attachment will not produce or consume
+     * tombstones. Use only with Counter or primitive workloads; misuse on a
+     * document that uses Tree, Text, or Array deletions leads to undefined
+     * GC behavior on this client.
+     */
+    disableGC?: boolean;
   },
 ): {
   root: R;
@@ -95,6 +102,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     opts?.enableDevtools ?? false,
     opts?.syncMode,
     opts?.documentPollInterval,
+    opts?.disableGC,
     documentStore,
   );
 
