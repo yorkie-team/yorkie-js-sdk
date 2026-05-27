@@ -270,6 +270,18 @@ export interface AttachOptions<R, P> {
    * document.
    */
   schema?: string;
+
+  /**
+   * `disableGC` declares that this attachment will not produce or consume
+   * tombstones. The server skips minVV tracking and omits the response
+   * VersionVector for this client. Use only with Counter or primitive
+   * workloads; misuse on a document that uses Tree, Text, or Array
+   * deletions leads to undefined GC behavior on this client.
+   *
+   * This option controls the wire contract with the server. It is
+   * distinct from any local-only GC toggle on the Document.
+   */
+  disableGC?: boolean;
 }
 
 /**
@@ -656,6 +668,7 @@ export class Client {
             clientId: this.id!,
             changePack: converter.toChangePack(doc.createChangePack()),
             schemaKey: opts.schema,
+            disableGc: opts.disableGC ?? false,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
@@ -685,6 +698,7 @@ export class Client {
             syncMode,
             pollInterval,
             pollIntervalPinned,
+            opts.disableGC ?? false,
           ),
         );
 
@@ -2204,6 +2218,7 @@ export class Client {
           documentId: docID,
           changePack: converter.toChangePack(reqPack),
           pushOnly: syncMode === SyncMode.RealtimePushOnly,
+          disableGc: attachment.disableGC,
         },
         { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
       );
