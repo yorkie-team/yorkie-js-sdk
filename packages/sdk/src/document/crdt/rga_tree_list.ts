@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-import { SplayNode, SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
+import {
+  TreeList,
+  TreeListNode,
+  TreeListValue,
+} from '@yorkie-js/sdk/src/util/treelist';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -45,10 +49,8 @@ export class ElementEntry {
  * `RGATreeListNode` is a position slot in the RGA linked list.
  * When `elementEntry` is undefined, it is a dead slot abandoned by a move.
  */
-export class RGATreeListNode
-  extends SplayNode<CRDTElement | undefined>
-  implements GCChild
-{
+export class RGATreeListNode implements GCChild, TreeListValue {
+  public indexNode!: TreeListNode<RGATreeListNode>;
   private _elementEntry?: ElementEntry;
   private _createdAt: TimeTicket;
   private _removedAt?: TimeTicket;
@@ -56,10 +58,7 @@ export class RGATreeListNode
   private prev?: RGATreeListNode;
   private next?: RGATreeListNode;
 
-  constructor(elem: CRDTElement | undefined, createdAt: TimeTicket) {
-    // SplayNode requires a value; we pass undefined for bare position
-    // nodes. getLength() controls splay weight.
-    super(elem);
+  private constructor(createdAt: TimeTicket) {
     this._createdAt = createdAt;
   }
 
@@ -68,9 +67,10 @@ export class RGATreeListNode
    */
   public static createWithElement(elem: CRDTElement): RGATreeListNode {
     const entry = new ElementEntry(elem);
-    const node = new RGATreeListNode(elem, elem.getCreatedAt());
-    entry.positionNode = node;
+    const node = new RGATreeListNode(elem.getCreatedAt());
     node._elementEntry = entry;
+    entry.positionNode = node;
+    node.indexNode = new TreeListNode(node);
     return node;
   }
 
@@ -79,7 +79,9 @@ export class RGATreeListNode
    * (used for move).
    */
   public static createBarePosition(createdAt: TimeTicket): RGATreeListNode {
-    return new RGATreeListNode(undefined, createdAt);
+    const node = new RGATreeListNode(createdAt);
+    node.indexNode = new TreeListNode(node);
+    return node;
   }
 
   /**
@@ -164,14 +166,14 @@ export class RGATreeListNode
   }
 
   /**
-   * `getLength` returns the length of this node.
-   * Dead nodes (no element) return 0, removed elements return 0.
+   * `toString` returns a string representation of this node's value, used by
+   * TreeList for debugging.
    */
-  public getLength(): number {
-    if (!this._elementEntry || this.isRemoved()) {
-      return 0;
+  public toString(): string {
+    if (!this._elementEntry) {
+      return '';
     }
-    return 1;
+    return this._elementEntry.elem.toJSON();
   }
 
   /**
@@ -192,12 +194,7 @@ export class RGATreeListNode
    * `getValue` returns the element value.
    */
   public getValue(): CRDTElement {
-    if (!this._elementEntry) {
-      // Should not be called on dead position nodes in normal usage.
-      // Return the super value for compatibility.
-      return this.value as CRDTElement;
-    }
-    return this._elementEntry.elem;
+    return this._elementEntry!.elem;
   }
 
   /**
@@ -292,7 +289,7 @@ export class RGATreeListNode
 export class RGATreeList implements GCParent {
   private dummyHead: RGATreeListNode;
   private last: RGATreeListNode;
-  private nodeMapByIndex: SplayTree<CRDTElement | undefined>;
+  private nodeMapByIndex: TreeList<RGATreeListNode>;
   private nodeMapByCreatedAt: Map<string, RGATreeListNode>;
   private elementMapByCreatedAt: Map<string, ElementEntry>;
 
@@ -301,11 +298,12 @@ export class RGATreeList implements GCParent {
     dummyValue.setRemovedAt(InitialTimeTicket);
     this.dummyHead = RGATreeListNode.createWithElement(dummyValue);
     this.last = this.dummyHead;
-    this.nodeMapByIndex = new SplayTree();
+    this.nodeMapByIndex = new TreeList<RGATreeListNode>(
+      this.dummyHead.indexNode,
+    );
     this.nodeMapByCreatedAt = new Map();
     this.elementMapByCreatedAt = new Map();
 
-    this.nodeMapByIndex.insert(this.dummyHead);
     this.nodeMapByCreatedAt.set(
       this.dummyHead.getCreatedAt().toIDString(),
       this.dummyHead,
@@ -349,7 +347,7 @@ export class RGATreeList implements GCParent {
     }
 
     node.release();
-    this.nodeMapByIndex.delete(node);
+    this.nodeMapByIndex.delete(node.indexNode);
     this.nodeMapByCreatedAt.delete(node.getPositionCreatedAt().toIDString());
   }
 
@@ -384,7 +382,7 @@ export class RGATreeList implements GCParent {
       this.last = newNode;
     }
 
-    this.nodeMapByIndex.insertAfter(prevNode, newNode);
+    this.nodeMapByIndex.insertAfter(prevNode.indexNode, newNode.indexNode);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
     this.elementMapByCreatedAt.set(
       value.getCreatedAt().toIDString(),
@@ -418,7 +416,7 @@ export class RGATreeList implements GCParent {
       this.last = newNode;
     }
 
-    this.nodeMapByIndex.insertAfter(prevNode, newNode);
+    this.nodeMapByIndex.insertAfter(prevNode.indexNode, newNode.indexNode);
     this.nodeMapByCreatedAt.set(executedAt.toIDString(), newNode);
     return newNode;
   }
@@ -458,7 +456,7 @@ export class RGATreeList implements GCParent {
 
       const deadPosNode = this.insertPositionAfter(prevCreatedAt, executedAt);
       deadPosNode.setRemovedAt(executedAt);
-      this.nodeMapByIndex.splayNode(deadPosNode);
+      this.nodeMapByIndex.updateWeight(deadPosNode.indexNode);
       return deadPosNode;
     }
 
@@ -469,7 +467,7 @@ export class RGATreeList implements GCParent {
     const oldPosNode = entry.positionNode;
     oldPosNode.setElementEntry(undefined);
     oldPosNode.setRemovedAt(executedAt);
-    this.nodeMapByIndex.splayNode(oldPosNode);
+    this.nodeMapByIndex.updateWeight(oldPosNode.indexNode);
 
     // Attach element to new position.
     newPosNode.setElementEntry(entry);
@@ -477,7 +475,7 @@ export class RGATreeList implements GCParent {
     entry.posMovedAt = executedAt;
     entry.elem.setMovedAt(executedAt);
 
-    this.nodeMapByIndex.splayNode(newPosNode);
+    this.nodeMapByIndex.updateWeight(newPosNode.indexNode);
 
     return oldPosNode;
   }
@@ -513,9 +511,9 @@ export class RGATreeList implements GCParent {
       if (!node) {
         return;
       }
-      return String(this.nodeMapByIndex.indexOf(node));
+      return String(this.nodeMapByIndex.indexOf(node.indexNode));
     }
-    return String(this.nodeMapByIndex.indexOf(entry.positionNode));
+    return String(this.nodeMapByIndex.indexOf(entry.positionNode.indexNode));
   }
 
   /**
@@ -557,8 +555,7 @@ export class RGATreeList implements GCParent {
       return;
     }
 
-    const node = this.nodeMapByIndex.findForArray(idx);
-    return node as RGATreeListNode | undefined;
+    return this.nodeMapByIndex.find(idx).getValue();
   }
 
   /**
@@ -614,7 +611,7 @@ export class RGATreeList implements GCParent {
     const node = entry.positionNode;
     const alreadyRemoved = node.isRemoved();
     if (entry.elem.remove(editedAt) && !alreadyRemoved) {
-      this.nodeMapByIndex.splayNode(node);
+      this.nodeMapByIndex.updateWeight(node.indexNode);
     }
     return entry.elem;
   }
@@ -651,7 +648,7 @@ export class RGATreeList implements GCParent {
     }
 
     if (node.remove(editedAt)) {
-      this.nodeMapByIndex.splayNode(node);
+      this.nodeMapByIndex.updateWeight(node.indexNode);
     }
     return node.getValue();
   }
@@ -708,7 +705,7 @@ export class RGATreeList implements GCParent {
     const prevNode = this.last;
     RGATreeListNode.insertNodeAfter(prevNode, node);
     this.last = node;
-    this.nodeMapByIndex.insertAfter(prevNode, node);
+    this.nodeMapByIndex.insertAfter(prevNode.indexNode, node.indexNode);
     this.nodeMapByCreatedAt.set(posCreatedAt.toIDString(), node);
   }
 
@@ -732,7 +729,7 @@ export class RGATreeList implements GCParent {
     RGATreeListNode.insertNodeAfter(prevNode, node);
     this.last = node;
 
-    this.nodeMapByIndex.insertAfter(prevNode, node);
+    this.nodeMapByIndex.insertAfter(prevNode.indexNode, node.indexNode);
     this.nodeMapByCreatedAt.set(posCreatedAt.toIDString(), node);
     this.elementMapByCreatedAt.set(elem.getCreatedAt().toIDString(), entry);
   }
