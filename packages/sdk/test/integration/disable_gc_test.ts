@@ -37,20 +37,21 @@ describe('disableGC attach option', function () {
 
     const c = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c.activate();
-    await c.attach(doc, {
-      syncMode: SyncMode.Manual,
-      disableGC: true,
-    });
+    try {
+      await c.attach(doc, {
+        syncMode: SyncMode.Manual,
+        disableGC: true,
+      });
 
-    doc.update((root) => {
-      root.counter = new Counter(0);
-      root.counter.increase(1);
-    });
-    await c.sync();
-    assert.equal(doc.getRoot().counter.getValue(), 1);
-
-    await c.detach(doc);
-    await c.deactivate();
+      doc.update((root) => {
+        root.counter = new Counter(0);
+        root.counter.increase(1);
+      });
+      await c.sync();
+      assert.equal(doc.getRoot().counter.getValue(), 1);
+    } finally {
+      await c.deactivate();
+    }
   });
 
   it('Mixed opt-in and opt-out clients converge on the Counter value', async function ({
@@ -64,32 +65,31 @@ describe('disableGC attach option', function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
+    try {
+      await c1.attach(d1, { syncMode: SyncMode.Manual });
+      d1.update((root) => {
+        root.counter = new Counter(0);
+      });
+      await c1.sync();
 
-    await c1.attach(d1, { syncMode: SyncMode.Manual });
-    d1.update((root) => {
-      root.counter = new Counter(0);
-    });
-    await c1.sync();
+      await c2.attach(d2, {
+        syncMode: SyncMode.Manual,
+        disableGC: true,
+      });
 
-    await c2.attach(d2, {
-      syncMode: SyncMode.Manual,
-      disableGC: true,
-    });
+      d1.update((root) => root.counter.increase(1));
+      d2.update((root) => root.counter.increase(1));
 
-    d1.update((root) => root.counter.increase(1));
-    d2.update((root) => root.counter.increase(1));
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
 
-    await c1.sync();
-    await c2.sync();
-    await c1.sync();
-
-    assert.equal(d1.getRoot().counter.getValue(), 2);
-    assert.equal(d2.getRoot().counter.getValue(), 2);
-
-    await c1.detach(d1);
-    await c2.detach(d2);
-    await c1.deactivate();
-    await c2.deactivate();
+      assert.equal(d1.getRoot().counter.getValue(), 2);
+      assert.equal(d2.getRoot().counter.getValue(), 2);
+    } finally {
+      await c1.deactivate();
+      await c2.deactivate();
+    }
   });
 
   it('Re-attach without disableGC restores normal sync behavior', async function ({
@@ -98,26 +98,26 @@ describe('disableGC attach option', function () {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const c = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c.activate();
+    try {
+      // First attach: opt-out.
+      const d1 = new yorkie.Document<{ counter: Counter }>(docKey);
+      await c.attach(d1, { syncMode: SyncMode.Manual, disableGC: true });
+      d1.update((root) => {
+        root.counter = new Counter(0);
+        root.counter.increase(1);
+      });
+      await c.sync();
+      await c.detach(d1);
 
-    // First attach: opt-out.
-    const d1 = new yorkie.Document<{ counter: Counter }>(docKey);
-    await c.attach(d1, { syncMode: SyncMode.Manual, disableGC: true });
-    d1.update((root) => {
-      root.counter = new Counter(0);
-      root.counter.increase(1);
-    });
-    await c.sync();
-    await c.detach(d1);
-
-    // Re-attach without the option. The SDK reads the flag from the
-    // attachment, so this PushPull omits disableGC.
-    const d2 = new yorkie.Document<{ counter: Counter }>(docKey);
-    await c.attach(d2, { syncMode: SyncMode.Manual });
-    d2.update((root) => root.counter.increase(1));
-    await c.sync();
-    assert.equal(d2.getRoot().counter.getValue(), 2);
-
-    await c.detach(d2);
-    await c.deactivate();
+      // Re-attach without the option. The SDK reads the flag from the
+      // attachment, so this PushPull omits disableGC.
+      const d2 = new yorkie.Document<{ counter: Counter }>(docKey);
+      await c.attach(d2, { syncMode: SyncMode.Manual });
+      d2.update((root) => root.counter.increase(1));
+      await c.sync();
+      assert.equal(d2.getRoot().counter.getValue(), 2);
+    } finally {
+      await c.deactivate();
+    }
   });
 });
