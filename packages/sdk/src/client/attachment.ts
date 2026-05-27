@@ -50,6 +50,13 @@ export class Attachment<R extends Attachable> {
   pollInterval: number;
   pollIntervalPinned: boolean;
   /**
+   * `disableGC` is set when the document was attached with
+   * `{ disableGC: true }`. The client sets the matching wire field on
+   * every PushPullChanges so the server can skip minVV tracking and
+   * omit the response VersionVector. Documents only.
+   */
+  disableGC: boolean;
+  /**
    * `unsubscribeLocalBroadcast` is set by `attachChannel` when it forwards
    * a Channel's `local-broadcast` events to the RPC client, and consumed
    * by `detachInternal` so the subscription does not survive a detach.
@@ -73,6 +80,7 @@ export class Attachment<R extends Attachable> {
     syncMode?: SyncMode,
     pollInterval: number = 0,
     pollIntervalPinned: boolean = false,
+    disableGC: boolean = false,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.resource = resource;
@@ -85,6 +93,7 @@ export class Attachment<R extends Attachable> {
     this.lastHeartbeatTime = 0;
     this.pollInterval = pollInterval;
     this.pollIntervalPinned = pollIntervalPinned;
+    this.disableGC = disableGC;
     this.cancelled = false;
   }
 
