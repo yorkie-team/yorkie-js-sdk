@@ -7,8 +7,19 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.10] - 2026-05-27
+
+### Added
+
+- Add disableGC attach option by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1265
+
+### Changed
+
 - Channel lifecycle via RefreshChannel only by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1258
-- Silence post-success cleanup AbortError from connect-rpc unary calls by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1263
+
+### Fixed
+
+- Silence post-success cleanup AbortError from connect-rpc unary calls by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1263
 
 ## [v0.7.9] - 2026-05-14
 
