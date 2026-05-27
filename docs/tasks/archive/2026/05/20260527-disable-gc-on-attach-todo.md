@@ -1,3 +1,5 @@
+**Created**: 2026-05-27
+
 # Disable GC on Attach — JS SDK
 
 **Goal:** Mirror the server-side `disable_gc` opt-out (yorkie PR #1822)
@@ -27,7 +29,7 @@ RPCs and surface the option to user code.
   - mixed opt-in / opt-out clients converge on Counter value
   - re-attach without the option restores normal behavior
 - [x] Verify `pnpm sdk build` clean.
-- [ ] Verify `pnpm sdk test` against a yorkie server with the
+- [x] Verify `pnpm sdk test` against a yorkie server with the
       matching wire contract (released after the Go PR merges).
 
 ## Notes
