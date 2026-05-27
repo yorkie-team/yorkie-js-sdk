@@ -175,6 +175,7 @@ describe('useYorkieDoc', () => {
         false,
         undefined,
         undefined,
+        undefined,
         mockDocumentStore,
       );
     });
