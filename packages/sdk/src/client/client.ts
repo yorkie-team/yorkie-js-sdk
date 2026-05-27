@@ -682,6 +682,10 @@ export class Client {
         }
 
         const pack = converter.fromChangePack<P>(res.changePack!);
+        // Record the opt-out decision before applying the attach response
+        // so the first applyChangePack already routes remote changes
+        // through the lamport-only sync path.
+        doc.setDisableGC(opts.disableGC ?? false);
         doc.applyChangePack(pack);
 
         if (doc.getStatus() === DocStatus.Removed) {
