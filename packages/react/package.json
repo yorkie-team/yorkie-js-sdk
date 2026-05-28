@@ -1,6 +1,6 @@
 {
   "name": "@yorkie-js/react",
-  "version": "0.7.10",
+  "version": "0.7.11-rc",
   "description": "A set of hooks and providers for Yorkie JS SDK",
   "main": "./src/index.ts",
   "publishConfig": {
