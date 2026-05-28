@@ -188,9 +188,10 @@ export class CRDTArray extends CRDTContainer {
    */
   public *[Symbol.iterator](): IterableIterator<CRDTElement> {
     for (const node of this.elements) {
-      if (node.getElementEntry() && !node.isRemoved()) {
-        yield node.getValue();
+      if (node.isRemoved()) {
+        continue;
       }
+      yield node.getValue();
     }
   }
 
