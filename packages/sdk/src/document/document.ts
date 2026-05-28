@@ -553,6 +553,13 @@ export class Document<
   private eventStream: Observable<DocEvents<P>>;
   private eventStreamObserver!: Observer<DocEvents<P>>;
 
+  // `disableGC`, when true, declares that this document does not produce or
+  // consume tombstones (see disable-gc-on-attach in the server repo). It is
+  // set by the client on Attach and consumed by applyChange to skip merging
+  // remote actors' version vectors into changeID, keeping each subsequent
+  // local Change's VV at O(1) for high-fan-out Counter workloads.
+  private disableGC: boolean;
+
   /**
    * `history` is exposed to the user to manage undo/redo operations.
    */
@@ -568,6 +575,7 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.disableGC = false;
 
     this.root = CRDTRoot.create();
     this.presences = new Map();
@@ -1191,6 +1199,15 @@ export class Document<
   }
 
   /**
+   * `setDisableGC` records whether this document participates in GC. The
+   * client calls this on attach so subsequent applyChange runs use the
+   * lamport-only sync path.
+   */
+  public setDisableGC(disableGC: boolean): void {
+    this.disableGC = disableGC;
+  }
+
+  /**
    * `isEnableDevtools` returns whether devtools is enabled or not.
    */
   public isEnableDevtools(): boolean {
@@ -1487,7 +1504,9 @@ export class Document<
         );
       }
     }
-    this.changeID = this.changeID.syncClocks(change.getID());
+    this.changeID = this.disableGC
+      ? this.changeID.syncLamport(change.getID())
+      : this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       events.push(

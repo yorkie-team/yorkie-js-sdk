@@ -130,6 +130,30 @@ export class ChangeID {
   }
 
   /**
+   * `syncLamport` advances the lamport clock against the given ID without
+   * merging its version vector into the receiver's. It is the counterpart
+   * of `syncClocks` for attachments that have opted out of GC participation
+   * (see docs/design/disable-gc-on-attach.md in the server repo): the
+   * receiver does not need other actors' entries in its VV because it
+   * never produces or consumes tombstones, and dropping them keeps each
+   * subsequent local Change's VV at O(1) instead of O(num_actors).
+   * Lamport must still advance so that TimeTickets produced locally
+   * remain ordered against remote operations.
+   */
+  public syncLamport(other: ChangeID): ChangeID {
+    if (!other.hasClocks()) {
+      return this;
+    }
+
+    const lamport =
+      other.lamport > this.lamport ? other.lamport + 1n : this.lamport + 1n;
+
+    const vector = this.versionVector.deepcopy();
+    vector.set(this.actor, lamport);
+    return new ChangeID(this.clientSeq, lamport, this.actor, vector);
+  }
+
+  /**
    * `setClocks` sets the given clocks to this ID. This is used when the snapshot
    * is given from the server.
    */
