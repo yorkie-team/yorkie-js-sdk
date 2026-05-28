@@ -7,6 +7,9 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+- Expose disableGC attach option in React package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1268
+- Stop accumulating per-Change VV under disableGC by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1270
+
 ## [v0.7.10] - 2026-05-27
 
 ### Added
