@@ -661,10 +661,15 @@ export class RGATreeList implements GCParent {
   }
 
   /**
-   * `getLast` returns the value of last elements.
+   * `getLast` returns the value of last elements. Skips bare position nodes
+   * (created by moveAfter/addDeadPosition) that have no element.
    */
   public getLast(): CRDTElement {
-    return this.last.getValue();
+    let node: RGATreeListNode = this.last;
+    while (!node.getElementEntry() && node !== this.dummyHead) {
+      node = node.getPrev()!;
+    }
+    return node.getValue();
   }
 
   /**
