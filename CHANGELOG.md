@@ -7,8 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.11] - 2026-06-01
+
+### Added
+
 - Expose disableGC attach option in React package by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1268
+
+### Changed
+
+- Introduce treelist to optimize random access in Array by @ggyuchive in https://github.com/yorkie-team/yorkie-js-sdk/pull/1269
+
+### Fixed
+
 - Stop accumulating per-Change VV under disableGC by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1270
+- Skip bare position nodes in RGATreeList.getLast by @ggyuchive in https://github.com/yorkie-team/yorkie-js-sdk/pull/1272
 
 ## [v0.7.10] - 2026-05-27
 
