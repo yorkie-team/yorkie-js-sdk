@@ -23,7 +23,9 @@ export function TopicView({ topicId }: { topicId: string }) {
 
     // attach already pulled the snapshot. This sync pushes our +1
     // (and pulls any concurrent +1s that landed in the meantime).
-    void client.sync(doc);
+    client.sync(doc).catch((err) => {
+      console.error('Failed to sync page-view counter:', err);
+    });
   }, [loading, client, doc, update]);
 
   const topic = TOPICS.find((t) => t.id === topicId);

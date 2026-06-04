@@ -80,29 +80,32 @@ const docKey = useMemo(() => buildPvDocKey(topicId!), [topicId]);
 `TopicView.tsx`
 
 ```tsx
-const { root, update, loading, error } = useDocument<{ counter?: Counter }>();
+const { doc, root, update, loading, error } = useDocument<{ counter?: Counter }>();
 const { client } = useYorkie();
 const incrementedRef = useRef(false);
 
 useEffect(() => {
-  if (loading || !client || incrementedRef.current) return;
+  if (loading || !client || !doc || incrementedRef.current) return;
   incrementedRef.current = true;
   update((r) => {
-    if (!r.counter) r.counter = new Counter(IntegerCnt, 0);
+    if (!r.counter) r.counter = new Counter(0);
     r.counter.increase(1);
   });
-  void client.sync(/* doc */);
-}, [loading, client, update]);
+  client.sync(doc).catch((err) => {
+    console.error('Failed to sync page-view counter:', err);
+  });
+}, [loading, client, doc, update]);
 ```
 
 Import `Counter` from `@yorkie-js/react`, not `@yorkie-js/sdk`
 (dual-package hazard — `.increase()` fails at runtime otherwise).
 
-## Open implementation questions
+## Resolved during implementation
 
-- Does `useDocument` return the `Document` instance, or do we need a
-  separate hook / ref-based access to pass to `client.sync(doc)`?
-  Verify when implementing; flow on the wire is the same regardless.
+- `useDocument` exposes the `Document` instance directly as `doc` on its
+  return value, so `client.sync(doc)` works without a separate ref/hook.
+- `Counter` is constructed with a single value argument (e.g.
+  `new Counter(0)`); the type is inferred from the value.
 
 ## RPC behavior (for README)
 
