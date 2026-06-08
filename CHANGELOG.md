@@ -7,6 +7,8 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+- Export useYorkie from React package by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1276
+
 ## [v0.7.11] - 2026-06-01
 
 ### Added
