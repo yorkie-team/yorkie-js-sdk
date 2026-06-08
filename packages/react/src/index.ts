@@ -23,7 +23,7 @@ import type {
 import { Tree, Text, Counter, SyncMode } from '@yorkie-js/sdk';
 
 import { useYorkieDoc } from './useYorkieDoc';
-import { YorkieProvider } from './YorkieProvider';
+import { YorkieProvider, useYorkie } from './YorkieProvider';
 import {
   DocumentProvider,
   useDocument,
@@ -51,6 +51,7 @@ export {
   Counter,
   SyncMode,
   YorkieProvider,
+  useYorkie,
   DocumentProvider,
   useDocument,
   useRoot,
