@@ -31,6 +31,7 @@ import {
   usePresences,
   useConnection,
   useRevisions,
+  useRemoveDocument,
   createDocumentSelector,
 } from './DocumentProvider';
 import {
@@ -58,6 +59,7 @@ export {
   usePresences,
   useConnection,
   useRevisions,
+  useRemoveDocument,
   useYorkieDoc,
   createDocumentSelector,
   ChannelProvider,
