@@ -282,6 +282,17 @@ export interface AttachOptions<R, P> {
    * distinct from any local-only GC toggle on the Document.
    */
   disableGC?: boolean;
+
+  /**
+   * `excludePresence` asks the server to omit the presence map from the
+   * snapshot returned for this attach (and from subsequent snapshot
+   * fallbacks on PushPullChanges). Use for workloads that do not read
+   * presence (e.g. view counters) but still pay the cost of an
+   * accumulated presence map. The DB-side snapshot store and the
+   * in-memory presence cache are unchanged; only the response payload
+   * is trimmed.
+   */
+  excludePresence?: boolean;
 }
 
 /**
@@ -669,6 +680,7 @@ export class Client {
             changePack: converter.toChangePack(doc.createChangePack()),
             schemaKey: opts.schema,
             disableGc: opts.disableGC ?? false,
+            excludePresence: opts.excludePresence ?? false,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
@@ -703,6 +715,7 @@ export class Client {
             pollInterval,
             pollIntervalPinned,
             opts.disableGC ?? false,
+            opts.excludePresence ?? false,
           ),
         );
 
@@ -2223,6 +2236,7 @@ export class Client {
           changePack: converter.toChangePack(reqPack),
           pushOnly: syncMode === SyncMode.RealtimePushOnly,
           disableGc: attachment.disableGC,
+          excludePresence: attachment.excludePresence,
         },
         { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
       );

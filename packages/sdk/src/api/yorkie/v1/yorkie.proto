@@ -77,6 +77,12 @@ message AttachDocumentRequest {
   // VersionVector for this client. Use only with Counter / primitive
   // workloads; misuse leads to undefined GC behavior on this client.
   bool disable_gc = 4;
+  // exclude_presence makes the server omit the presence map from the
+  // response snapshot for this attach. Use for workloads that do not read
+  // presence (e.g. Document Counter / view counters) but still pay the
+  // cost of an accumulated presence map. DB and in-memory caches are
+  // unchanged; only the response payload is trimmed.
+  bool exclude_presence = 5;
 }
 
 message AttachDocumentResponse {
@@ -221,6 +227,12 @@ message PushPullChangesRequest {
   // VersionVector. Clients that attached with disableGC=true must keep
   // setting this on every subsequent PushPullChanges.
   bool disable_gc = 5;
+  // exclude_presence makes the server omit the presence map from the
+  // response snapshot when this PushPull falls back to the snapshot
+  // path (size beyond snapshot_threshold). Clients that attached with
+  // excludePresence=true should keep setting this on every subsequent
+  // PushPullChanges so the snapshot fallback path stays consistent.
+  bool exclude_presence = 6;
 }
 
 message PushPullChangesResponse {

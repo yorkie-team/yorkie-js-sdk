@@ -57,6 +57,13 @@ export class Attachment<R extends Attachable> {
    */
   disableGC: boolean;
   /**
+   * `excludePresence` is set when the document was attached with
+   * `{ excludePresence: true }`. The client re-sends the matching wire
+   * field on every PushPullChanges so the snapshot fallback path also
+   * omits the presence map from the response payload. Documents only.
+   */
+  excludePresence: boolean;
+  /**
    * `unsubscribeLocalBroadcast` is set by `attachChannel` when it forwards
    * a Channel's `local-broadcast` events to the RPC client, and consumed
    * by `detachInternal` so the subscription does not survive a detach.
@@ -81,6 +88,7 @@ export class Attachment<R extends Attachable> {
     pollInterval: number = 0,
     pollIntervalPinned: boolean = false,
     disableGC: boolean = false,
+    excludePresence: boolean = false,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.resource = resource;
@@ -94,6 +102,7 @@ export class Attachment<R extends Attachable> {
     this.pollInterval = pollInterval;
     this.pollIntervalPinned = pollIntervalPinned;
     this.disableGC = disableGC;
+    this.excludePresence = excludePresence;
     this.cancelled = false;
   }
 
