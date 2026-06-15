@@ -560,6 +560,14 @@ export class Document<
   // local Change's VV at O(1) for high-fan-out Counter workloads.
   private disableGC: boolean;
 
+  // `enablePresence` mirrors the per-project setting received from the
+  // server in the AttachDocumentResponse. When false the presence
+  // Channel proxy returned by `update` becomes a local-only no-op so
+  // the SDK does not emit PresenceChange components in change packs.
+  // The server enforces the setting regardless; this is an SDK-side
+  // shortcut for cooperating callers. Defaults to true (enabled).
+  private enablePresence: boolean;
+
   /**
    * `history` is exposed to the user to manage undo/redo operations.
    */
@@ -576,6 +584,7 @@ export class Document<
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
     this.disableGC = false;
+    this.enablePresence = true;
 
     this.root = CRDTRoot.create();
     this.presences = new Map();
@@ -631,7 +640,12 @@ export class Document<
       // NOTE(hackerwins): The updater should not be able to call undo/redo.
       // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
-      updater(proxy, new Channel(ctx, this.clone!.presences.get(actorID)!));
+      updater(
+        proxy,
+        new Channel(ctx, this.clone!.presences.get(actorID)!, {
+          enabled: this.enablePresence,
+        }),
+      );
     } catch (err) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
@@ -1205,6 +1219,26 @@ export class Document<
    */
   public setDisableGC(disableGC: boolean): void {
     this.disableGC = disableGC;
+  }
+
+  /**
+   * `setEnablePresence` records the project-level EnablePresence
+   * setting received from the server in the AttachDocumentResponse.
+   * When false the presence Channel proxy returned by `update`
+   * becomes a no-op so the SDK does not emit PresenceChange
+   * components. The server enforces the setting regardless.
+   */
+  public setEnablePresence(enabled: boolean): void {
+    this.enablePresence = enabled;
+  }
+
+  /**
+   * `isEnablePresence` reports whether the document is allowed to emit
+   * presence changes. Defaults to true; set false by the client after
+   * an attach response from a project with presence disabled.
+   */
+  public isEnablePresence(): boolean {
+    return this.enablePresence;
   }
 
   /**

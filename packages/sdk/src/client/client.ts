@@ -686,6 +686,13 @@ export class Client {
         // so the first applyChangePack already routes remote changes
         // through the lamport-only sync path.
         doc.setDisableGC(opts.disableGC ?? false);
+        // Record the project-level EnablePresence setting from the
+        // attach response so subsequent `doc.update((root, p) => …)`
+        // calls become local-only no-ops on the presence side when the
+        // project has presence disabled. The server enforces the
+        // setting regardless; this is an SDK-side shortcut. Default
+        // true preserves existing behavior.
+        doc.setEnablePresence(res.enablePresence ?? true);
         doc.applyChangePack(pack);
 
         if (doc.getStatus() === DocStatus.Removed) {

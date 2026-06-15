@@ -20,14 +20,29 @@ import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 import { PresenceChangeType } from './change';
 /**
  * `Presence` represents a proxy for the Presence to be manipulated from the outside.
+ *
+ * When the document's enclosing project has `EnablePresence=false`,
+ * `set` and `clear` become local-only no-ops: no `PresenceChange` is
+ * attached to the context, so the resulting Change carries no presence
+ * component and the server has nothing presence-shaped to drop. This
+ * mirrors the server-side enforcement for cooperating SDKs; the server
+ * still strips presence on its own for any caller that misses this
+ * guard. See docs/design/presenceless-project-mode.md in the server
+ * repository.
  */
 export class Channel<P extends Indexable> {
   private context: ChangeContext;
   private presence: P;
+  private enabled: boolean;
 
-  constructor(changeContext: ChangeContext, presence: P) {
+  constructor(
+    changeContext: ChangeContext,
+    presence: P,
+    options?: { enabled?: boolean },
+  ) {
     this.context = changeContext;
     this.presence = presence;
+    this.enabled = options?.enabled !== false;
   }
 
   /**
@@ -36,6 +51,13 @@ export class Channel<P extends Indexable> {
   public set(presence: Partial<P>, option?: { addToHistory: boolean }) {
     for (const key of Object.keys(presence)) {
       this.presence[key as keyof P] = presence[key]!;
+    }
+
+    if (!this.enabled) {
+      // Presence is disabled for this project: skip emitting any
+      // PresenceChange. The local clone presence map is still updated
+      // for symmetry, but no PUT change reaches the change pack.
+      return;
     }
 
     this.context.setPresenceChange({
@@ -58,6 +80,12 @@ export class Channel<P extends Indexable> {
    */
   public clear() {
     this.presence = {} as P;
+
+    if (!this.enabled) {
+      // Presence disabled — drop CLEAR too. Without a corresponding
+      // PUT having been emitted there is nothing to clear remotely.
+      return;
+    }
 
     this.context.setPresenceChange({
       type: PresenceChangeType.Clear,

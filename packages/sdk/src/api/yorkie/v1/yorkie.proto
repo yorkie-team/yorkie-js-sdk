@@ -84,6 +84,10 @@ message AttachDocumentResponse {
   ChangePack change_pack = 2;
   int32 max_size_per_document = 3;
   repeated Rule schema_rules = 4;
+  // enable_presence mirrors the project-level setting so the SDK can
+  // skip emitting empty PUT presence changes (and guard local presence
+  // APIs) when the project has presence disabled. Default true.
+  bool enable_presence = 5;
 }
 
 message DetachDocumentRequest {
