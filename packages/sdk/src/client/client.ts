@@ -370,6 +370,12 @@ export class Client {
   private keepalive = false;
   private deactivating = false;
 
+  // Handlers registered on `activate()` to fire `deactivate({keepalive:true})`
+  // when the host page is going away. We retain references so they can be
+  // removed on `deactivateInternal()` and so the events do not stack up across
+  // multiple activate/deactivate cycles.
+  private unloadHandlers?: () => void;
+
   /**
    * @param rpcAddr - the address of the RPC server.
    * @param opts - the options of the client.
@@ -512,13 +518,30 @@ export class Client {
 
         logger.info(`[AC] c:"${this.getKey()}" activated, id:"${this.id}"`);
 
-        // NOTE(hackerwins): Set up beforeunload event to deactivate the client
-        // when the page is being unloaded.
-        if (typeof window !== 'undefined') {
-          window.addEventListener('beforeunload', async () => {
-            await this.deactivate({ keepalive: true });
-          });
-        }
+        // NOTE(hackerwins): Hook page-lifecycle events so the client signals
+        // graceful deactivation when the host page is going away. We prefer
+        // `pagehide` to `beforeunload` because:
+        //  - `pagehide` fires reliably on mobile browsers (incl. iOS Safari)
+        //    when a tab is backgrounded into the bfcache or terminated by
+        //    the OS — cases where `beforeunload` is often skipped.
+        //  - `pagehide` also fires on regular unload, so it covers the same
+        //    desktop case `beforeunload` did.
+        // We still keep a `beforeunload` listener as belt-and-suspenders for
+        // older/edge browsers that emit it but not `pagehide`. Both paths
+        // route through `deactivate({keepalive:true})`, which is idempotent
+        // so duplicate firing is harmless.
+        //
+        // We do NOT listen on `visibilitychange` (hidden): a plain tab switch
+        // would tear the client down and force a re-attach on return — a
+        // behavior change users don't expect. `pagehide` is scoped to the
+        // page actually leaving.
+        //
+        // We also do NOT use `navigator.sendBeacon`. Connect-RPC requests
+        // require custom headers (`x-shard-key`, the auth interceptor's
+        // `Authorization`/api key, etc.) which `sendBeacon` cannot attach.
+        // `fetch({keepalive:true})`, which `deactivate()` already uses, is
+        // the supported escape hatch for unload-time delivery.
+        this.registerUnloadHandlers();
       } catch (err) {
         logger.error(`[AC] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
@@ -544,7 +567,16 @@ export class Client {
       return Promise.resolve();
     }
 
-    // Mark as deactivating immediately so the sync loop exits early.
+    // Idempotency guard: a deactivate is already in flight (e.g. user code
+    // called deactivate() and `pagehide` then fired). Skip to avoid a second
+    // RPC + log noise. The in-flight call will move status to Deactivated.
+    if (this.deactivating) {
+      return Promise.resolve();
+    }
+
+    // Mark as deactivating immediately so the sync loop exits early and so
+    // overlapping calls (e.g. `pagehide` after a manual `deactivate()`) are
+    // short-circuited by the guard above.
     this.deactivating = true;
 
     const task = async () => {
@@ -2055,8 +2087,49 @@ export class Client {
     }
   }
 
+  /**
+   * `registerUnloadHandlers` wires up page-lifecycle listeners that trigger
+   * a `deactivate({keepalive:true})` when the host page is going away. The
+   * handler reference is retained so it can be torn down on
+   * `deactivateInternal()`. Safe to call from non-browser contexts (no-op).
+   */
+  private registerUnloadHandlers() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    // If a previous activate cycle's handler is still attached (e.g. the
+    // caller activated without deactivating first), tear it down before
+    // registering a fresh one. Avoids stacking duplicate listeners.
+    if (this.unloadHandlers) {
+      this.unloadHandlers();
+      this.unloadHandlers = undefined;
+    }
+
+    const fire = () => {
+      // Fire-and-forget. `deactivate()` is idempotent; if both `pagehide`
+      // and `beforeunload` fire (some browsers do), the second call returns
+      // a resolved promise without issuing another RPC.
+      void this.deactivate({ keepalive: true });
+    };
+
+    // `pagehide` is the modern, mobile-friendly equivalent of `unload`.
+    // `beforeunload` is kept for older browsers that may not emit `pagehide`.
+    window.addEventListener('pagehide', fire);
+    window.addEventListener('beforeunload', fire);
+
+    this.unloadHandlers = () => {
+      window.removeEventListener('pagehide', fire);
+      window.removeEventListener('beforeunload', fire);
+    };
+  }
+
   private deactivateInternal() {
     this.status = ClientStatus.Deactivated;
+
+    if (this.unloadHandlers) {
+      this.unloadHandlers();
+      this.unloadHandlers = undefined;
+    }
 
     for (const [key, attachment] of this.attachmentMap) {
       this.detachInternal(key);
