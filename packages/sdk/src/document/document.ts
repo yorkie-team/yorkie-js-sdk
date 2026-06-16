@@ -672,6 +672,25 @@ export class Document<
       this.isUpdating = false;
     }
 
+    // Silently drop any presence change recorded by the updater when the
+    // document was attached presenceless. The server is authoritative —
+    // it strips presence on PushPull entry and never emits presence on
+    // watch events for these documents — but dropping locally avoids the
+    // wasted enqueue, a redundant LocalChange event with no payload, and
+    // a stale history entry. The warning is emitted at most once per
+    // document instance so high-frequency callers don't spam the console.
+    if (this.disablePresence && ctx.hasPresenceChange()) {
+      ctx.dropPresenceChange();
+      ctx.clearReversePresence();
+      if (!this.presenceDropWarned) {
+        this.presenceDropWarned = true;
+        logger.warn(
+          `[Document] "${this.key}" was attached with disablePresence=true; ` +
+            `presence updates from Document.update are silently dropped.`,
+        );
+      }
+    }
+
     const rules = this.getSchemaRules();
     if (!ctx.isPresenceOnlyChange() && rules.length) {
       const result = validateYorkieRuleset(this.clone?.root.getObject(), rules);
