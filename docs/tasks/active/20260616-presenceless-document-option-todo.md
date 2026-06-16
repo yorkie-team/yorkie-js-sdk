@@ -26,73 +26,89 @@ repo and is not duplicated here.
 - [ ] Sync `yorkie.proto` from the canonical yorkie repo after the
       Go PR merges — adds `bool disable_presence = 5` on
       `AttachDocumentRequest` and `AttachDocumentResponse`.
+      *Pending — TODO(yorkie/disable_presence) markers in client.ts
+      flag the call sites to activate.*
 - [ ] Regenerate `yorkie_pb.ts` via `pnpm sdk build:proto`. Do not
       hand-edit the generated file.
+      *Pending — paired with the proto sync above.*
 
 ### SDK option surface
 
-- [ ] Add `disablePresence?: boolean` to `DocumentOptions`
+- [x] Add `disablePresence?: boolean` to `DocumentOptions`
       (`packages/sdk/src/document/document.ts`).
-- [ ] Add `disablePresence?: boolean` to `AttachOptions`
+- [x] Add `disablePresence?: boolean` to `AttachOptions`
       (`packages/sdk/src/client/client.ts`).
-- [ ] Store the server-fixated value on `Document` with
+- [x] Store the server-fixated value on `Document` with
       `setDisablePresence(boolean)` and `isPresenceDisabled()`
       accessors. Mirror the `setDisableGC` / `getDisableGC` shape that
       already exists on `Document`.
-- [ ] Store the server-fixated value on `Attachment`
+- [x] Store the server-fixated value on `Attachment`
       (`packages/sdk/src/client/attachment.ts`) for devtools /
       debugging visibility. `pushPullChanges` does **not** read it —
       the wire field is request-only, response-driven.
+      *Constructor takes the new arg; client passes `false` until the
+      proto sync surfaces `res.disablePresence`.*
 
 ### attachDocument flow
 
-- [ ] Resolve the effective option at attach time:
+- [x] Resolve the effective option at attach time:
       `opts.disablePresence ?? doc.isPresenceDisabled() ?? false`.
-- [ ] Skip the initial `doc.update((_, p) => p.set(opts.initialPresence))`
+- [x] Skip the initial `doc.update((_, p) => p.set(opts.initialPresence))`
       call when the resolved option is true (an opt-in client has no
       reason to push presence on attach).
 - [ ] Send `disablePresence` on the `attachDocument` RPC payload.
+      *TODO(yorkie/disable_presence) at the request-builder site.
+      Activate once the proto field lands.*
 - [ ] After the response: call `doc.setDisablePresence(res.disablePresence)`
       **before** `doc.applyChangePack(pack)` so any subsequent
       `Document.update` invocation sees the gating state already set.
+      *Currently `doc.setDisablePresence(resolvedDisablePresence)` —
+      the local-resolved value is wired in the correct place; replace
+      with `res.disablePresence` once the proto field is available.*
 - [ ] Construct the `Attachment` with the server-fixated value, not
       the local option.
+      *Currently `false` placeholder for the Attachment field.
+      `Document.disablePresence` already carries the gating state.
+      Activate `res.disablePresence` once the proto field is
+      available.*
 
 ### Document.update gating
 
-- [ ] Add `hasPresenceChange()`, `dropPresenceChange()`, and
+- [x] Add `hasPresenceChange()`, `dropPresenceChange()`, and
       `clearReversePresence()` accessors on `ChangeContext`
       (`packages/sdk/src/document/change/context.ts`).
-- [ ] Inside `Document.update`, after the user callback runs and
+- [x] Inside `Document.update`, after the user callback runs and
       before schema validation: if `this.disablePresence &&
       ctx.hasPresenceChange()`, call `ctx.dropPresenceChange()` plus
       `ctx.clearReversePresence()` and emit a `logger.warn` once per
       document. A subsequent `ctx.hasChange()` returns false naturally
       when no operations remain, so the empty `Change` does not
       enqueue.
-- [ ] `Document.subscribe('presence', ...)` is left untouched — the
+- [x] `Document.subscribe('presence', ...)` is left untouched — the
       server never emits presence on watch events for these documents,
       so the natural empty stream is the gate.
 
 ### React SDK wiring
 
-- [ ] Add `disablePresence?: boolean` prop to `DocumentProvider`
+- [x] Add `disablePresence?: boolean` prop to `DocumentProvider`
       (`packages/react/src/DocumentProvider.tsx`).
-- [ ] Pass it through `useYorkieDocument` into both the
+- [x] Pass it through `useYorkieDocument` into both the
       `new Document(key, { disablePresence })` constructor and the
       `client.attach(newDoc, { disablePresence, ... })` call.
-- [ ] Add `disablePresence` to the `useEffect` deps that own document
+- [x] Add `disablePresence` to the `useEffect` deps that own document
       lifetime, matching the `disableGC` pattern.
 
 ### Tests
 
-- [ ] Add unit coverage under `packages/sdk/test/unit/document/`:
+- [x] Add unit coverage under `packages/sdk/test/unit/document/`:
       `DocumentOptions.disablePresence` round-trips through
       `Document.isPresenceDisabled`; `Document.update(p.set)` on a
       presenceless document drops the presence change, preserves
       operations on a mixed change, and warns once per document;
       `setDisablePresence` flip after construction takes effect on
       the next `update`.
+      *Implemented in `packages/sdk/test/unit/document/
+      disable_presence_test.ts` (9 cases, all passing).*
 - [ ] Add an integration test under
       `packages/sdk/test/integration/disable_presence_test.ts`
       covering:
@@ -105,9 +121,12 @@ repo and is not duplicated here.
     client subscribed to `'presence'`
   - re-attach with the opposite option still observes the
     fixated server value
-- [ ] Verify `pnpm sdk build` clean.
+  *Deferred — depends on the proto sync and a yorkie server that
+  ships `disable_presence` end-to-end.*
+- [x] Verify `pnpm sdk build` clean.
 - [ ] Verify `pnpm sdk test` against a yorkie server built from the
       matching Go PR (or the released version after the Go PR merges).
+      *Deferred — paired with the integration test above.*
 
 ### PR
 
