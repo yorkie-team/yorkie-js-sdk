@@ -20,6 +20,8 @@ import { StreamConnectionStatus } from '@yorkie-js/sdk';
 import {
   createDocumentSelector,
   DocumentProvider,
+  useDocument,
+  useRemoveDocument,
 } from '../../src/DocumentProvider';
 import type { Indexable } from '@yorkie-js/sdk';
 
@@ -114,7 +116,11 @@ const createMockDocument = () => {
 
 const createMockClient = () => {
   const mockClient = {
+    // Rejects by default so existing tests keep their "attach fails →
+    // error state" behavior; the removal tests override it to resolve.
+    attach: vi.fn().mockRejectedValue(new Error('attach not mocked')),
     detach: vi.fn(),
+    remove: vi.fn().mockResolvedValue(undefined),
     has: vi.fn(() => true),
     isActive: vi.fn(() => true),
   };
@@ -444,6 +450,89 @@ describe('Integration Test', () => {
       });
 
       expect(screen.queryByTestId('counter')).toBeNull();
+    });
+  });
+
+  describe('useRemoveDocument', () => {
+    it('removes the document via client.remove and skips the unmount detach', async () => {
+      // A client whose attach resolves, so the store gets the document.
+      // After removal the document is detached internally, so `has`
+      // returns false and the cleanup effect must not detach again.
+      currentMockClient = {
+        ...createMockClient(),
+        attach: vi.fn().mockResolvedValue(undefined),
+        remove: vi.fn().mockResolvedValue(undefined),
+        has: vi.fn(() => false),
+      };
+
+      let removeFn: (() => Promise<void>) | undefined;
+
+      function TestComponent() {
+        const { doc } = useDocument<TestDocumentRoot, TestPresence>();
+        removeFn = useRemoveDocument<TestDocumentRoot, TestPresence>();
+        // The hook reads the doc from the store, so wait for `doc` to be
+        // set before calling remove.
+        return <div data-testid="ready">{doc ? 'ready' : 'loading'}</div>;
+      }
+
+      const { unmount } = render(
+        <DocumentProvider
+          docKey="test-doc"
+          initialRoot={{ counter: 0, user: { name: 'John', age: 25 } }}
+          initialPresence={{ user: { id: 'user1', name: 'John' } }}
+        >
+          <TestComponent />
+        </DocumentProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('ready')).toHaveTextContent('ready');
+      });
+
+      await act(async () => {
+        await removeFn!();
+      });
+
+      expect(currentMockClient.remove).toHaveBeenCalledTimes(1);
+      expect(currentMockClient.remove).toHaveBeenCalledWith(
+        currentMockDocument,
+      );
+
+      unmount();
+      expect(currentMockClient.detach).not.toHaveBeenCalled();
+    });
+
+    it('rejects when called before the document is attached', async () => {
+      // attach rejects, so the store never receives a document and the
+      // hook must reject rather than silently issue no removal RPC.
+      currentMockClient = {
+        ...createMockClient(),
+        attach: vi.fn().mockRejectedValue(new Error('attach failed')),
+        remove: vi.fn().mockResolvedValue(undefined),
+      };
+
+      let removeFn: (() => Promise<void>) | undefined;
+
+      function TestComponent() {
+        removeFn = useRemoveDocument<TestDocumentRoot, TestPresence>();
+        return <div data-testid="ready">ready</div>;
+      }
+
+      render(
+        <DocumentProvider
+          docKey="test-doc"
+          initialRoot={{ counter: 0, user: { name: 'John', age: 25 } }}
+          initialPresence={{ user: { id: 'user1', name: 'John' } }}
+        >
+          <TestComponent />
+        </DocumentProvider>,
+      );
+
+      await waitFor(() => {
+        expect(removeFn).toBeTypeOf('function');
+      });
+      await expect(removeFn!()).rejects.toThrow('not ready');
+      expect(currentMockClient.remove).not.toHaveBeenCalled();
     });
   });
 });

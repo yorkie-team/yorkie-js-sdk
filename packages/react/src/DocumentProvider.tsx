@@ -424,6 +424,29 @@ export const useRevisions = <R, P extends Indexable = Indexable>() => {
 };
 
 /**
+ * `useRemoveDocument` returns a function that removes the current document
+ * from the server via `client.remove` (as opposed to `client.detach`).
+ * After it resolves the document is gone for every client and the key can
+ * be reattached as a fresh document. The returned function rejects until
+ * the document is attached, and the removal error is propagated to the
+ * caller. This hook must be used within a `DocumentProvider`.
+ */
+export const useRemoveDocument = <R, P extends Indexable = Indexable>() => {
+  const { client } = useYorkie();
+  const documentStore = useDocumentStore('useRemoveDocument');
+  const doc = useSelector(documentStore, (store) => store.doc) as
+    | Document<R, P>
+    | undefined;
+
+  return useCallback(async (): Promise<void> => {
+    if (!client || !doc) {
+      throw new Error('Client or document is not ready');
+    }
+    await client.remove(doc);
+  }, [client, doc]);
+};
+
+/**
  * `useDocumentStore` is a custom hook that returns the document store.
  * It also ensures that the hook is used within a `DocumentProvider`.
  */
