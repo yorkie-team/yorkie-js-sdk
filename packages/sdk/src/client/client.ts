@@ -282,6 +282,21 @@ export interface AttachOptions<R, P> {
    * distinct from any local-only GC toggle on the Document.
    */
   disableGC?: boolean;
+
+  /**
+   * `disablePresence` declares that this document does not use presence.
+   * The first client to attach a document sets the persisted server-side
+   * flag — subsequent attaches inherit the fixated value regardless of
+   * what they pass. The client uses the server response to gate
+   * `Document.update`'s presence emits (silently dropped) and skips the
+   * initial `presence.set(opts.initialPresence)` emitted on attach.
+   *
+   * If omitted, the resolved value is `doc.isPresenceDisabled()` (the
+   * value seeded from `DocumentOptions.disablePresence`, then overwritten
+   * by any previous attach response on the same Document instance), with
+   * a final fallback of `false`.
+   */
+  disablePresence?: boolean;
 }
 
 /**

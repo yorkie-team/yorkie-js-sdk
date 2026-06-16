@@ -57,6 +57,14 @@ export class Attachment<R extends Attachable> {
    */
   disableGC: boolean;
   /**
+   * `disablePresence` mirrors the server-fixated value returned by the
+   * attach response. `pushPullChanges` does **not** read this — the
+   * `disable_presence` wire field is request-only (set on the first
+   * attach, ignored thereafter on the server side). Carried here for
+   * devtools / debugging visibility. Documents only.
+   */
+  disablePresence: boolean;
+  /**
    * `unsubscribeLocalBroadcast` is set by `attachChannel` when it forwards
    * a Channel's `local-broadcast` events to the RPC client, and consumed
    * by `detachInternal` so the subscription does not survive a detach.
@@ -81,6 +89,7 @@ export class Attachment<R extends Attachable> {
     pollInterval: number = 0,
     pollIntervalPinned: boolean = false,
     disableGC: boolean = false,
+    disablePresence: boolean = false,
   ) {
     this.reconnectStreamDelay = reconnectStreamDelay;
     this.resource = resource;
@@ -94,6 +103,7 @@ export class Attachment<R extends Attachable> {
     this.pollInterval = pollInterval;
     this.pollIntervalPinned = pollIntervalPinned;
     this.disableGC = disableGC;
+    this.disablePresence = disablePresence;
     this.cancelled = false;
   }
 

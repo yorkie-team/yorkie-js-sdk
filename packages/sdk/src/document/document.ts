@@ -95,6 +95,18 @@ export interface DocumentOptions {
   disableGC?: boolean;
 
   /**
+   * `disablePresence` declares that this document does not use presence.
+   * When true, `Document.update`'s `presence.set` calls are silently
+   * dropped and the server strips any presence that nonetheless reaches
+   * it. The option is server-fixated on first attach — once a document
+   * is created presenceless, subsequent attaches observe `true` from the
+   * attach response regardless of the local option value. Use for
+   * counter-only or other presence-free workloads where the per-client
+   * presence map would otherwise leak memory in long-lived documents.
+   */
+  disablePresence?: boolean;
+
+  /**
    * `enableDevtools` enables devtools if true.
    */
   enableDevtools?: boolean;
@@ -560,6 +572,19 @@ export class Document<
   // local Change's VV at O(1) for high-fan-out Counter workloads.
   private disableGC: boolean;
 
+  // `disablePresence`, when true, declares that this document does not use
+  // presence. The client sets it from the local option on construction and
+  // overwrites it from the server-fixated value in the attach response. While
+  // true, `Document.update`'s `presence.set` calls are silently dropped on
+  // the way out (server enforcement is authoritative for the wire side).
+  private disablePresence: boolean;
+
+  // `presenceDropWarned` ensures the silent-drop warning emitted by
+  // `Document.update` for opt-in documents fires only once per document
+  // lifetime. Otherwise long-lived counter-only documents would spam the
+  // console on every well-meaning `presence.set` call.
+  private presenceDropWarned: boolean;
+
   /**
    * `history` is exposed to the user to manage undo/redo operations.
    */
@@ -576,6 +601,11 @@ export class Document<
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
     this.disableGC = false;
+    // Seed from the local option so the gate already works before the first
+    // attach response lands (e.g. a unit test that constructs a Document with
+    // `{ disablePresence: true }` and calls `update` immediately).
+    this.disablePresence = !!opts?.disablePresence;
+    this.presenceDropWarned = false;
 
     this.root = CRDTRoot.create();
     this.presences = new Map();
@@ -1205,6 +1235,26 @@ export class Document<
    */
   public setDisableGC(disableGC: boolean): void {
     this.disableGC = disableGC;
+  }
+
+  /**
+   * `setDisablePresence` records the server-fixated presence-disabled state
+   * of this document. The client calls this on attach (before
+   * `applyChangePack`) so any subsequent `Document.update` invocation sees
+   * the gating state already settled. Flipping the flag at runtime is
+   * supported: the next `update` honours the new value.
+   */
+  public setDisablePresence(disablePresence: boolean): void {
+    this.disablePresence = disablePresence;
+  }
+
+  /**
+   * `isPresenceDisabled` returns the current presence-disabled state of
+   * this document. Reflects the server-fixated value once attached;
+   * before attach it reflects the local construction option.
+   */
+  public isPresenceDisabled(): boolean {
+    return this.disablePresence;
   }
 
   /**
