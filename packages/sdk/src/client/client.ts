@@ -696,15 +696,7 @@ export class Client {
             changePack: converter.toChangePack(doc.createChangePack()),
             schemaKey: opts.schema,
             disableGc: opts.disableGC ?? false,
-            // TODO(yorkie/disable_presence): once the proto field
-            // `disable_presence = 5` lands on AttachDocumentRequest (yorkie
-            // PR pending), forward the resolved value here:
-            //   disablePresence: resolvedDisablePresence,
-            // The local-side gate already honours `resolvedDisablePresence`
-            // (we skipped the initial presence push above), so behaviour
-            // observable from this client is correct before the wire field
-            // is wired up. Server enforcement is what makes the option
-            // sticky across clients.
+            disablePresence: resolvedDisablePresence,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
@@ -722,16 +714,7 @@ export class Client {
         // so the first applyChangePack already routes remote changes
         // through the lamport-only sync path.
         doc.setDisableGC(opts.disableGC ?? false);
-        // TODO(yorkie/disable_presence): once the proto field
-        // `disable_presence = 5` lands on AttachDocumentResponse, replace
-        // the local fallback with the server-fixated value:
-        //   doc.setDisablePresence(res.disablePresence);
-        // Until then, fall back to the locally-resolved value so the
-        // single-client path still gates correctly. The second client
-        // attaching to a presenceless document will not learn the
-        // fixated state until the wire is in place; that case relies on
-        // server-side strip (already authoritative on PushPull entry).
-        doc.setDisablePresence(resolvedDisablePresence);
+        doc.setDisablePresence(res.disablePresence);
         doc.applyChangePack(pack);
 
         if (doc.getStatus() === DocStatus.Removed) {
@@ -749,14 +732,7 @@ export class Client {
             pollInterval,
             pollIntervalPinned,
             opts.disableGC ?? false,
-            // TODO(yorkie/disable_presence): replace `false` with
-            // `res.disablePresence` once the proto field lands on
-            // AttachDocumentResponse. The Document instance already
-            // carries the locally-resolved value via
-            // `doc.setDisablePresence(...)` above for gating; this
-            // Attachment field is for devtools/debugging visibility
-            // only and stays `false` until the wire is synced.
-            false,
+            res.disablePresence,
           ),
         );
 
