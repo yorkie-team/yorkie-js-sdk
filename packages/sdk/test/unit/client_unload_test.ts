@@ -64,4 +64,44 @@ describe('Client beforeunload registration', () => {
 
     expect(client.isActive()).toBe(true);
   });
+
+  it('treats explicit deactivateOnUnload: true the same as the default', async () => {
+    const spy = vi.spyOn(window, 'addEventListener');
+    const client = makeClient({ deactivateOnUnload: true });
+    await client.activate();
+    expect(countBeforeUnloadListeners(spy)).toBe(1);
+  });
+
+  it('invokes deactivate when beforeunload fires under the default', async () => {
+    const client = makeClient();
+    const deactivateSpy = vi
+      .spyOn(client, 'deactivate')
+      .mockResolvedValue(undefined);
+    await client.activate();
+
+    window.dispatchEvent(new Event('beforeunload'));
+
+    expect(deactivateSpy).toHaveBeenCalledTimes(1);
+    expect(deactivateSpy).toHaveBeenCalledWith({ keepalive: true });
+  });
+
+  it('swallows a rejected deactivate from the beforeunload handler', async () => {
+    const client = makeClient();
+    vi.spyOn(client, 'deactivate').mockRejectedValue(
+      new TypeError('Failed to fetch'),
+    );
+
+    const unhandled = vi.fn();
+    window.addEventListener('unhandledrejection', unhandled);
+
+    await client.activate();
+    window.dispatchEvent(new Event('beforeunload'));
+
+    // Flush microtasks so the catch handler attached inside the listener runs.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(unhandled).not.toHaveBeenCalled();
+    window.removeEventListener('unhandledrejection', unhandled);
+  });
 });
