@@ -22,18 +22,11 @@ import {
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 /**
- * End-to-end coverage for the disablePresence Document option paired with
- * yorkie-team/yorkie#1841. The wire send/receive call sites in client.ts
- * are currently parked behind TODO(yorkie/disable_presence); these tests
- * are left in a failing state intentionally so the gap is visible on the
- * PR until the server PR merges and a release ships disable_presence
- * end-to-end. CI red here is the explicit "do not merge this PR until
- * the server release lands" signal — it is not a regression in the
- * committed SDK code.
- *
- * Once the server side is released and the TODO markers are flipped to
- * forward DisablePresence over the wire, these assertions should start
- * passing and the file becomes a normal integration test.
+ * End-to-end coverage for the disablePresence Document option paired
+ * with the server side shipped in yorkie-team/yorkie#1841. The wire
+ * send/receive call sites in client.ts are active; these cases verify
+ * the full attach → fixate → strip contract against the yorkie image
+ * CI runs.
  */
 describe('disablePresence attach option', function () {
   it('First attach fixates disable_presence on DocInfo', async function ({
@@ -144,9 +137,9 @@ describe('disablePresence attach option', function () {
       // accumulation that bloated AttachDocument responses was always
       // the presence-data payload, not the actor count.
       for (const entry of dOwner.getPresences()) {
-        assert.deepEqual(
-          entry.presence,
-          {},
+        assert.equal(
+          Object.keys(entry.presence).length,
+          0,
           `presenceless doc must surface no presence content; got ${JSON.stringify(entry.presence)} for ${entry.clientID}`,
         );
       }
