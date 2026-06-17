@@ -130,11 +130,15 @@ repo and is not duplicated here.
 
 ### PR
 
-- [ ] Open after the yorkie PR merges so the integration test can run
-      against the released wire contract.
-- [ ] Title: `Add disablePresence option to attach` (≤70 chars).
-      Body links the yorkie PR and the devops task that drove this
-      (`devops/docs/tasks/active/20260612-insurance-car-presence-leak-todo.md`).
+- [ ] Open in parallel with yorkie-team/yorkie#1841 so reviewers can
+      react to the SDK surface, callback gating, and React wiring
+      without waiting on the server release. Wire send/receive call
+      sites stay parked behind `TODO(yorkie/disable_presence)` until
+      the server PR merges and `pnpm sdk build:proto` picks up the new
+      field.
+- [ ] Title: `Add disablePresence option for presence-free Documents`
+      (≤70 chars). Body links yorkie-team/yorkie#1841 and explains the
+      parked TODOs.
 
 ## Notes
 
@@ -151,8 +155,7 @@ repo and is not duplicated here.
 - `pushPullChanges` carries no `disable_presence` field by design.
   Server reads the persisted `DocInfo.DisablePresence` on every call,
   so re-sending it would be redundant and would invite drift.
-- Insurance `/car` adoption ships as a one-line change in the
-  customer-side `DocumentProvider` once the package is released. The
-  daily document-key rotation (`insurance-web.car.intro.YYYY-MM-DD`)
-  cuts new documents over to the opt-in path naturally; existing
-  documents stay on the default and age out.
+- Application adoption is a one-line change on `DocumentProvider`
+  once the package is released. Apps that already rotate the document
+  key on a schedule cut new documents over to the opt-in path
+  naturally; existing documents stay on the default and age out.
