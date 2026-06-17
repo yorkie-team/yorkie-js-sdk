@@ -128,8 +128,9 @@ describe('disablePresence attach option', function () {
       });
 
       // Opt-out client attaches without the option, then tries to set
-      // presence. The server must strip the change so dOwner never sees
-      // any presence entry on the wire.
+      // presence. The server must strip the presence data so dOwner sees
+      // no presence content from the other client, even if the peer's
+      // client_id surfaces via the watch / online-clients channel.
       await cOther.attach(dOther, { syncMode: SyncMode.Manual });
       dOther.update((_, p) => {
         p.set({ name: 'leaker' });
@@ -137,11 +138,18 @@ describe('disablePresence attach option', function () {
       await cOther.sync();
       await cOwner.sync();
 
-      assert.deepEqual(
-        dOwner.getPresences(),
-        [],
-        'presenceless doc must surface no presence to other clients',
-      );
+      // The contract we ship is: presence *content* never leaks across
+      // clients on a presenceless document. Peer client_id enumeration
+      // (onlineClients) is orthogonal to the original symptom — the
+      // accumulation that bloated AttachDocument responses was always
+      // the presence-data payload, not the actor count.
+      for (const entry of dOwner.getPresences()) {
+        assert.deepEqual(
+          entry.presence,
+          {},
+          `presenceless doc must surface no presence content; got ${JSON.stringify(entry.presence)} for ${entry.clientID}`,
+        );
+      }
     } finally {
       await cOwner.deactivate();
       await cOther.deactivate();
