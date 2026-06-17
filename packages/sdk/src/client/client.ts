@@ -216,6 +216,21 @@ export interface ClientOptions {
    * If false (default), uses Connect Protocol transport.
    */
   useGrpcWebTransport?: boolean;
+
+  /**
+   * `deactivateOnUnload` controls whether the client registers a
+   * `beforeunload` listener during `activate()` that deactivates the client
+   * when the page is unloaded. The default value is `true`.
+   *
+   * Setting this to `false` skips the listener registration. This is useful
+   * for apps that don't need GC or presence cleanup on unload (for example,
+   * `disableGC` documents without collaboration): the unload-time
+   * deactivate becomes pure overhead and its `fetch({ keepalive: true })`
+   * request can reject mid-flight during hard navigation, surfacing as an
+   * unhandled `[unknown]` `ConnectError`. The server reaps the stale
+   * client after its `clientDeactivateThreshold`, so opting out is safe.
+   */
+  deactivateOnUnload?: boolean;
 }
 
 /**
@@ -332,6 +347,7 @@ const DefaultClientOptions = {
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
   channelHeartbeatInterval: DefaultChannelHeartbeatMs,
+  deactivateOnUnload: true,
 };
 
 /**
@@ -362,6 +378,7 @@ export class Client {
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
   private channelHeartbeatInterval: number;
+  private deactivateOnUnload: boolean;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -399,6 +416,8 @@ export class Client {
     this.channelHeartbeatInterval =
       opts.channelHeartbeatInterval ??
       DefaultClientOptions.channelHeartbeatInterval;
+    this.deactivateOnUnload =
+      opts.deactivateOnUnload ?? DefaultClientOptions.deactivateOnUnload;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -514,7 +533,7 @@ export class Client {
 
         // NOTE(hackerwins): Set up beforeunload event to deactivate the client
         // when the page is being unloaded.
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && this.deactivateOnUnload) {
           window.addEventListener('beforeunload', async () => {
             await this.deactivate({ keepalive: true });
           });
