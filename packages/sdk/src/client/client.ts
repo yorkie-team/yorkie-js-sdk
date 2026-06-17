@@ -534,8 +534,13 @@ export class Client {
         // NOTE(hackerwins): Set up beforeunload event to deactivate the client
         // when the page is being unloaded.
         if (typeof window !== 'undefined' && this.deactivateOnUnload) {
-          window.addEventListener('beforeunload', async () => {
-            await this.deactivate({ keepalive: true });
+          window.addEventListener('beforeunload', () => {
+            void this.deactivate({ keepalive: true }).catch((err) => {
+              logger.debug(
+                `[DC] c:"${this.getKey()}" beforeunload deactivate failed:`,
+                err,
+              );
+            });
           });
         }
       } catch (err) {
