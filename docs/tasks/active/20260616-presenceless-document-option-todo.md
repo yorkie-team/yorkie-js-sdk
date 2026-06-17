@@ -130,13 +130,12 @@ repo and is not duplicated here.
 
 ### PR
 
-- [ ] Open in parallel with yorkie-team/yorkie#1841 so reviewers can
-      react to the SDK surface, callback gating, and React wiring
-      without waiting on the server release. Wire send/receive call
-      sites stay parked behind `TODO(yorkie/disable_presence)` until
-      the server PR merges and `pnpm sdk build:proto` picks up the new
+- [x] Open in parallel with yorkie-team/yorkie#1841 — opened as
+      yorkie-team/yorkie-js-sdk#1285. Wire send/receive call sites
+      stay parked behind `TODO(yorkie/disable_presence)` until the
+      server PR merges and `pnpm sdk build:proto` picks up the new
       field.
-- [ ] Title: `Add disablePresence option for presence-free Documents`
+- [x] Title: `Add disablePresence option for presence-free Documents`
       (≤70 chars). Body links yorkie-team/yorkie#1841 and explains the
       parked TODOs.
 
