@@ -6,6 +6,13 @@ page-view (PV) counter.
 ## Pattern
 
 - `DocumentProvider` with `syncMode={SyncMode.Manual}` and `disableGC`
+- `YorkieProvider` with `deactivateOnUnload={false}` — skips the
+  `beforeunload`/unmount-time `DeactivateClient` round trip. With
+  `disableGC` and no collaboration cleanup needed, the unload-time
+  deactivate is pure overhead and its `fetch({ keepalive: true })`
+  can reject mid-navigation, surfacing as an unhandled
+  `[unknown] ConnectError`. Server housekeeping reaps the stale
+  client after `clientDeactivateThreshold`.
 - Document key follows `pv-{topicId}-{YYYYMMDD}`, so a fresh document is
   used every 24 hours
 - On topic-page mount, the client runs `counter.increase(1)` once and

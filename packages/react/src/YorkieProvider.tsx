@@ -89,7 +89,7 @@ export function useYorkieClient(opts: ClientOptions, activate: boolean = true) {
     activateClient();
 
     return () => {
-      if (activate && client?.isActive()) {
+      if (activate && client?.isActive() && opts.deactivateOnUnload !== false) {
         client.deactivate({ keepalive: true });
       }
     };

@@ -21,7 +21,7 @@ export default function App() {
           hours.
         </p>
       </header>
-      <YorkieProvider {...yorkieOpts}>
+      <YorkieProvider {...yorkieOpts} deactivateOnUnload={false}>
         {topicId === null ? (
           <Home onSelect={setTopicId} />
         ) : (
