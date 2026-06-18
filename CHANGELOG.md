@@ -7,7 +7,14 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
-- Export useYorkie from React package by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1276
+## [v0.7.12] - 2026-06-18
+
+### Added
+
+- Add disablePresence option for presence-free Documents by @raararaara in https://github.com/yorkie-team/yorkie-js-sdk/pull/1285
+- Add deactivateOnUnload option to client by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1284
+- Expose document removal through the React SDK by @ggyuchive in https://github.com/yorkie-team/yorkie-js-sdk/pull/1283
+- Add react-page-view-counter example and export useYorkie from React package by @JOOHOJANG in https://github.com/yorkie-team/yorkie-js-sdk/pull/1276
 
 ## [v0.7.11] - 2026-06-01
 
