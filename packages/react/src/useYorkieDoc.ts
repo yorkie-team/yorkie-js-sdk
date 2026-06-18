@@ -48,6 +48,13 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
      * GC behavior on this client.
      */
     disableGC?: boolean;
+    /**
+     * `disablePresence` declares that this document does not use presence.
+     * Forwarded to both `new Document(...)` and `client.attach(...)`. The
+     * server fixates the value on first attach — subsequent attaches
+     * inherit the server's value regardless of what this option carries.
+     */
+    disablePresence?: boolean;
   },
 ): {
   root: R;
@@ -103,6 +110,7 @@ export function useYorkieDoc<R, P extends Indexable = Indexable>(
     opts?.syncMode,
     opts?.documentPollInterval,
     opts?.disableGC,
+    opts?.disablePresence,
     documentStore,
   );
 

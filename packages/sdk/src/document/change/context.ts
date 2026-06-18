@@ -170,6 +170,27 @@ export class ChangeContext<P extends Indexable = Indexable> {
   }
 
   /**
+   * `hasPresenceChange` returns whether a presence change was registered
+   * during this context. Used by `Document.update` to detect a presence
+   * emit when the document was attached with `disablePresence: true`.
+   */
+  public hasPresenceChange(): boolean {
+    return this.presenceChange !== undefined;
+  }
+
+  /**
+   * `dropPresenceChange` clears any presence change registered during
+   * this context. Used by `Document.update` to silently drop presence
+   * emits on documents attached with `disablePresence: true`. After
+   * dropping, the change carries only its operations (if any); when
+   * the context was presence-only the resulting `hasChange()` returns
+   * false and no `Change` is enqueued.
+   */
+  public dropPresenceChange(): void {
+    this.presenceChange = undefined;
+  }
+
+  /**
    * `setReversePresence` registers the previous presence to undo presence updates.
    */
   public setReversePresence(
@@ -196,6 +217,17 @@ export class ChangeContext<P extends Indexable = Indexable> {
       reversePresence[key as keyof P] = this.previousPresence[key as keyof P];
     }
     return reversePresence;
+  }
+
+  /**
+   * `clearReversePresence` discards any reverse-presence keys recorded
+   * during this context. Used by `Document.update` alongside
+   * `dropPresenceChange` for documents attached with
+   * `disablePresence: true`, so the dropped presence emit does not push
+   * a no-op undo entry onto the history stack.
+   */
+  public clearReversePresence(): void {
+    this.reversePresenceKeys.clear();
   }
 
   /**

@@ -297,6 +297,21 @@ export interface AttachOptions<R, P> {
    * distinct from any local-only GC toggle on the Document.
    */
   disableGC?: boolean;
+
+  /**
+   * `disablePresence` declares that this document does not use presence.
+   * The first client to attach a document sets the persisted server-side
+   * flag — subsequent attaches inherit the fixated value regardless of
+   * what they pass. The client uses the server response to gate
+   * `Document.update`'s presence emits (silently dropped) and skips the
+   * initial `presence.set(opts.initialPresence)` emitted on attach.
+   *
+   * If omitted, the resolved value is `doc.isPresenceDisabled()` (the
+   * value seeded from `DocumentOptions.disablePresence`, then overwritten
+   * by any previous attach response on the same Document instance), with
+   * a final fallback of `false`.
+   */
+  disablePresence?: boolean;
 }
 
 /**
@@ -666,7 +681,19 @@ export class Client {
     }
 
     doc.setActor(this.id!);
-    doc.update((_, p) => p.set(opts.initialPresence || {}));
+    // Resolve the effective presence-disabled state at attach time. The
+    // local option wins; absent that, the Document's seeded value (from
+    // construction or a prior attach response on this instance) is used;
+    // final fallback is `false`. The server is authoritative — the
+    // attach response overwrites this with the fixated value — so this
+    // is purely a local pre-attach decision controlling whether to push
+    // the initial presence and (once the wire field lands) what to send
+    // on the request.
+    const resolvedDisablePresence =
+      opts.disablePresence ?? doc.isPresenceDisabled() ?? false;
+    if (!resolvedDisablePresence) {
+      doc.update((_, p) => p.set(opts.initialPresence || {}));
+    }
 
     // 02. Attach the document to the client.
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
@@ -693,6 +720,7 @@ export class Client {
             changePack: converter.toChangePack(doc.createChangePack()),
             schemaKey: opts.schema,
             disableGc: opts.disableGC ?? false,
+            disablePresence: resolvedDisablePresence,
           },
           { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
         );
@@ -710,6 +738,7 @@ export class Client {
         // so the first applyChangePack already routes remote changes
         // through the lamport-only sync path.
         doc.setDisableGC(opts.disableGC ?? false);
+        doc.setDisablePresence(res.disablePresence);
         doc.applyChangePack(pack);
 
         if (doc.getStatus() === DocStatus.Removed) {
@@ -727,6 +756,7 @@ export class Client {
             pollInterval,
             pollIntervalPinned,
             opts.disableGC ?? false,
+            res.disablePresence,
           ),
         );
 

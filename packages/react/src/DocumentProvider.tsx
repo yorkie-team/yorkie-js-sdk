@@ -60,6 +60,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
   syncMode: SyncMode | undefined,
   documentPollInterval: number | undefined,
   disableGC: boolean | undefined,
+  disablePresence: boolean | undefined,
   docStore: Store<DocumentContextType<R, P>>,
 ) {
   const initialRootRef = useRef(initialRoot);
@@ -97,7 +98,10 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
       error: undefined,
     }));
 
-    const newDoc = new Document<R, P>(docKey, { enableDevtools });
+    const newDoc = new Document<R, P>(docKey, {
+      enableDevtools,
+      disablePresence,
+    });
     const unsubs: Array<() => void> = [];
 
     unsubs.push(
@@ -138,6 +142,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
           syncMode,
           documentPollInterval,
           disableGC,
+          disablePresence,
         });
 
         const update = (callback: (root: R, presence: Presence<P>) => void) => {
@@ -196,6 +201,7 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
     syncMode,
     documentPollInterval,
     disableGC,
+    disablePresence,
   ]);
 }
 
@@ -226,6 +232,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
   syncMode,
   documentPollInterval,
   disableGC,
+  disablePresence,
   children,
 }: {
   docKey: string;
@@ -249,6 +256,15 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
    * GC behavior on this client.
    */
   disableGC?: boolean;
+  /**
+   * `disablePresence` declares that this document does not use presence.
+   * Forwarded to both `new Document(...)` and `client.attach(...)`. The
+   * server fixates the value on first attach — subsequent attaches
+   * inherit the server's value regardless of what this prop carries.
+   * Useful for counter-only documents where the per-client presence
+   * map would otherwise leak memory.
+   */
+  disablePresence?: boolean;
   children?: React.ReactNode;
 }) => {
   const { client, loading: clientLoading, error: clientError } = useYorkie();
@@ -286,6 +302,7 @@ export const DocumentProvider = <R, P extends Indexable = Indexable>({
     syncMode,
     documentPollInterval,
     disableGC,
+    disablePresence,
     documentStore,
   );
 
