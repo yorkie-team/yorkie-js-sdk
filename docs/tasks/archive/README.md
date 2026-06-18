@@ -1,8 +1,13 @@
 ---
-updated: 2026-05-27
+updated: 2026-06-18
 ---
 
 # Archived Tasks
+
+## 2026-06
+
+- [[20260604-pv-counter-example-todo]] — ---
+- [[20260616-presenceless-document-option-todo]] — **Created**: 2026-06-16
 
 ## 2026-05
 
