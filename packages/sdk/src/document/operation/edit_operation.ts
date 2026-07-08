@@ -17,7 +17,10 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
-import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import {
+  RGATreeSplitPos,
+  RestoreSpan,
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
@@ -27,6 +30,12 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+
+/**
+ * `RestoreMode` selects the identity-preserving path for undo/redo of
+ * pure deletions: 'restore' revives spans, 'retombstone' re-deletes them.
+ */
+export type RestoreMode = 'restore' | 'retombstone';
 
 /**
  * `EditOperation` is an operation representing editing Text. Most of the same as
@@ -39,6 +48,9 @@ export class EditOperation extends Operation {
   private attributes: Map<string, string>;
   private isUndoOp: boolean | undefined;
 
+  private restoreSpans?: Array<RestoreSpan<CRDTTextValue>>;
+  private restoreMode?: RestoreMode;
+
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
@@ -47,6 +59,8 @@ export class EditOperation extends Operation {
     attributes: Map<string, string>,
     executedAt?: TimeTicket,
     isUndoOp?: boolean,
+    restoreSpans?: Array<RestoreSpan<CRDTTextValue>>,
+    restoreMode?: RestoreMode,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -54,6 +68,8 @@ export class EditOperation extends Operation {
     this.content = content;
     this.attributes = attributes;
     this.isUndoOp = isUndoOp;
+    this.restoreSpans = restoreSpans;
+    this.restoreMode = restoreMode;
   }
 
   /**
@@ -67,6 +83,8 @@ export class EditOperation extends Operation {
     attributes: Map<string, string>,
     executedAt?: TimeTicket,
     isUndoOp?: boolean,
+    restoreSpans?: Array<RestoreSpan<CRDTTextValue>>,
+    restoreMode?: RestoreMode,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -76,6 +94,8 @@ export class EditOperation extends Operation {
       attributes,
       executedAt,
       isUndoOp,
+      restoreSpans,
+      restoreMode,
     );
   }
 
@@ -103,12 +123,60 @@ export class EditOperation extends Operation {
 
     const text = parentObject as CRDTText<A>;
 
+    if (this.restoreSpans && this.restoreMode === 'restore') {
+      const [untombstoned] = text.restore(
+        this.restoreSpans,
+        this.getExecutedAt(),
+        this.fromPos,
+      );
+      for (const node of untombstoned) {
+        root.unregisterGCPair({ parent: text.getRGATreeSplit(), child: node });
+      }
+      return {
+        // TODO(prototype): emit proper OpInfos so editors receive change events.
+        opInfos: [],
+        reverseOp: EditOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          '',
+          new Map(),
+          undefined,
+          true,
+          this.restoreSpans,
+          'retombstone',
+        ),
+      };
+    }
+
+    if (this.restoreSpans && this.restoreMode === 'retombstone') {
+      const pairs = text.retombstone(this.restoreSpans, this.getExecutedAt());
+      for (const pair of pairs) {
+        root.registerGCPair(pair);
+      }
+      return {
+        // TODO(prototype): emit proper OpInfos so editors receive change events.
+        opInfos: [],
+        reverseOp: EditOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          '',
+          new Map(),
+          undefined,
+          true,
+          this.restoreSpans,
+          'restore',
+        ),
+      };
+    }
+
     if (this.isUndoOp) {
       this.fromPos = text.refinePos(this.fromPos);
       this.toPos = text.refinePos(this.toPos);
     }
 
-    const [changes, pairs, diff, , removedValues] = text.edit(
+    const [changes, pairs, diff, , removedValues, removedSpans] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -119,6 +187,7 @@ export class EditOperation extends Operation {
     const reverseOp = this.toReverseOperation(
       removedValues,
       text.normalizePos(this.fromPos),
+      removedSpans,
     );
     root.acc(diff);
 
@@ -143,7 +212,23 @@ export class EditOperation extends Operation {
   private toReverseOperation(
     removedValues: Array<CRDTTextValue>,
     fromPos: RGATreeSplitPos,
+    removedSpans: Array<RestoreSpan<CRDTTextValue>>,
   ): Operation {
+    if (!this.content?.length && removedSpans.length) {
+      // Pure deletion → identity-preserving restore instead of copy re-insert.
+      return EditOperation.create(
+        this.getParentCreatedAt(),
+        fromPos,
+        fromPos,
+        '',
+        new Map(),
+        undefined,
+        true,
+        removedSpans,
+        'restore',
+      );
+    }
+
     const content = removedValues?.length
       ? removedValues.map((v) => v.getContent()).join('')
       : '';
@@ -215,6 +300,9 @@ export class EditOperation extends Operation {
     remoteTo: number,
     contentLen: number,
   ): void {
+    if (this.restoreSpans) {
+      return; // identity-addressed; index reconciliation must not touch it
+    }
     if (!this.isUndoOp) {
       return;
     }
