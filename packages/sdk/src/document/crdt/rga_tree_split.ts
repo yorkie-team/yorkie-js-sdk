@@ -40,7 +40,7 @@ export interface ValueChange<T> {
   value?: T;
 }
 
-interface RGATreeSplitValue {
+export interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
   getDataSize(): DataSize;
@@ -246,6 +246,19 @@ export class RGATreeSplitPos {
 }
 
 export type RGATreeSplitPosRange = [RGATreeSplitPos, RGATreeSplitPos];
+
+/**
+ * `RestoreSpan` identifies a run of characters from a single original
+ * insertion: the absolute-offset interval [start, end) of the insertion
+ * created at `createdAt`. `value` is a deep copy of the removed content,
+ * carried so that purged nodes can be recreated (GC-safe).
+ */
+export type RestoreSpan<T extends RGATreeSplitValue> = {
+  createdAt: TimeTicket;
+  start: number;
+  end: number;
+  value: T;
+};
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
@@ -610,6 +623,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     DataSize,
     Array<ValueChange<T>>,
     Array<T>,
+    Array<RestoreSpan<T>>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -666,12 +680,281 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // 04. add removed node
     const pairs: Array<GCPair> = [];
     const removedValues: Array<T> = [];
+    const removedSpans: Array<RestoreSpan<T>> = []; // NEW
     for (const [, removedNode] of removedNodes) {
       pairs.push({ parent: this, child: removedNode });
       removedValues.push(removedNode.getValue());
+      // NEW: capture split-invariant character identities. substring(0)
+      // deep-copies the value so later splits of the tombstone cannot
+      // mutate the captured content.
+      removedSpans.push({
+        createdAt: removedNode.getCreatedAt(),
+        start: removedNode.getID().getOffset(),
+        end: removedNode.getID().getOffset() + removedNode.getContentLength(),
+        value: removedNode.getValue().substring(0) as T,
+      });
     }
 
-    return [caretPos, pairs, diff, changes, removedValues];
+    return [caretPos, pairs, diff, changes, removedValues, removedSpans];
+  }
+
+  /**
+   * `restore` re-establishes the characters described by `spans` under
+   * their ORIGINAL identities. For each span, per overlapping region:
+   *   - live piece exists       → skip (idempotent; another undo restored it)
+   *   - tombstoned piece exists → clear removedAt (un-tombstone)
+   *   - no piece exists (GC'd)  → recreate a node with the original ID
+   *
+   * Returns [untombstonedNodes, recreatedNodes]. The caller must
+   * unregister GC pairs for `untombstonedNodes`.
+   */
+  public restore(
+    spans: Array<RestoreSpan<T>>,
+    executedAt: TimeTicket,
+    fallbackAnchor?: RGATreeSplitPos,
+  ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T>>] {
+    const untombstoned: Array<RGATreeSplitNode<T>> = [];
+    const recreated: Array<RGATreeSplitNode<T>> = [];
+
+    for (const span of spans) {
+      const pieces = this.findPiecesOverlapping(
+        span.createdAt,
+        span.start,
+        span.end,
+      );
+
+      let cursor = span.start;
+      let pieceIdx = 0;
+      while (cursor < span.end) {
+        const piece = pieces[pieceIdx];
+        const pieceStart = piece ? piece.getID().getOffset() : Infinity;
+        const pieceEnd = piece
+          ? pieceStart + piece.getContentLength()
+          : Infinity;
+
+        if (piece && pieceStart <= cursor) {
+          // Covered by an existing piece.
+          const overlapEnd = Math.min(pieceEnd, span.end);
+          if (piece.isRemoved()) {
+            const target = this.isolateRange(piece, cursor, overlapEnd);
+            target.setRemovedAt(undefined);
+            // Repair splay weights on the path to root (length 0 → len).
+            this.treeByIndex.splayNode(target);
+            untombstoned.push(target);
+          }
+          cursor = overlapEnd;
+          if (overlapEnd >= pieceEnd) {
+            pieceIdx++;
+          }
+        } else {
+          // Gap: recreate [cursor, gapEnd) with its original ID.
+          const gapEnd = Math.min(pieceStart, span.end);
+          const value = span.value.substring(
+            cursor - span.start,
+            gapEnd - span.start,
+          ) as T;
+          const newNode = RGATreeSplitNode.create(
+            RGATreeSplitNodeID.of(span.createdAt, cursor),
+            value,
+          );
+          const prev = this.findRestoreAnchor(
+            span.createdAt,
+            cursor,
+            gapEnd,
+            executedAt,
+            fallbackAnchor,
+          );
+          this.insertAfter(prev, newNode);
+          recreated.push(newNode);
+          cursor = gapEnd;
+        }
+      }
+    }
+
+    return [untombstoned, recreated];
+  }
+
+  /**
+   * `retombstone` re-deletes the characters described by `spans` (redo of
+   * an identity-preserving undo). Only live pieces are affected; already
+   * removed or purged regions are skipped (idempotent).
+   *
+   * Returns GCPairs for the newly tombstoned nodes.
+   */
+  public retombstone(
+    spans: Array<RestoreSpan<T>>,
+    executedAt: TimeTicket,
+  ): Array<GCPair> {
+    const pairs: Array<GCPair> = [];
+
+    for (const span of spans) {
+      const pieces = this.findPiecesOverlapping(
+        span.createdAt,
+        span.start,
+        span.end,
+      );
+      for (const piece of pieces) {
+        if (piece.isRemoved()) {
+          continue;
+        }
+        const pieceStart = piece.getID().getOffset();
+        const pieceEnd = pieceStart + piece.getContentLength();
+        const target = this.isolateRange(
+          piece,
+          Math.max(pieceStart, span.start),
+          Math.min(pieceEnd, span.end),
+        );
+        target.remove(executedAt);
+        this.treeByIndex.splayNode(target);
+        pairs.push({ parent: this, child: target });
+      }
+    }
+
+    return pairs;
+  }
+
+  /**
+   * `findPiecesOverlapping` collects existing nodes (live or tombstoned)
+   * belonging to the insertion `createdAt` that overlap the absolute-offset
+   * interval [start, end), in ascending offset order. Works by descending
+   * floorEntry probes over treeByID.
+   */
+  private findPiecesOverlapping(
+    createdAt: TimeTicket,
+    start: number,
+    end: number,
+  ): Array<RGATreeSplitNode<T>> {
+    const pieces: Array<RGATreeSplitNode<T>> = [];
+    let probe = end - 1;
+
+    while (probe >= 0) {
+      const key = RGATreeSplitNodeID.of(createdAt, probe);
+      const entry = this.treeByID.floorEntry(key);
+      if (!entry || !entry.key.hasSameCreatedAt(key)) {
+        break;
+      }
+      const node = entry.value;
+      const nodeStart = node.getID().getOffset();
+      const nodeEnd = nodeStart + node.getContentLength();
+      if (nodeEnd <= start) {
+        break;
+      }
+      if (nodeStart < end && nodeEnd > start) {
+        pieces.push(node);
+      }
+      if (nodeStart <= start) {
+        break;
+      }
+      probe = nodeStart - 1;
+    }
+
+    return pieces.reverse();
+  }
+
+  /**
+   * `findPieceCovering` returns the node of insertion `createdAt` whose
+   * absolute-offset range covers `offset`, if present.
+   */
+  private findPieceCovering(
+    createdAt: TimeTicket,
+    offset: number,
+  ): RGATreeSplitNode<T> | undefined {
+    const key = RGATreeSplitNodeID.of(createdAt, offset);
+    const entry = this.treeByID.floorEntry(key);
+    if (!entry || !entry.key.hasSameCreatedAt(key)) {
+      return;
+    }
+    const node = entry.value;
+    const nodeStart = node.getID().getOffset();
+    const nodeEnd = nodeStart + node.getContentLength();
+    if (nodeStart <= offset && offset < nodeEnd) {
+      return node;
+    }
+    return;
+  }
+
+  /**
+   * `findRestoreAnchor` returns the physical node to insert a recreated
+   * fragment [gapStart, gapEnd) of insertion `createdAt` AFTER.
+   *
+   * Resolution ladder (all rules key on op-carried data + ID lookups only):
+   *  (a) a piece covering gapEnd exists → directly before it
+   *      (originally-adjacent successor; exact original slot)
+   *  (b) nearest surviving piece of the same insertion left of gapStart
+   *      → directly after it
+   *  (c) rightmost surviving piece of the same insertion (must be right
+   *      of the gap) → directly before it
+   *  (d) the operation's fallback anchor (refined) — same exposure as the
+   *      current implementation's fromPos; see design-doc caveat
+   *  (e) head (deterministic last resort)
+   */
+  private findRestoreAnchor(
+    createdAt: TimeTicket,
+    gapStart: number,
+    gapEnd: number,
+    executedAt: TimeTicket,
+    fallbackAnchor?: RGATreeSplitPos,
+  ): RGATreeSplitNode<T> {
+    const succ = this.findPieceCovering(createdAt, gapEnd);
+    if (succ) {
+      return succ.getPrev()!;
+    }
+
+    if (gapStart > 0) {
+      const key = RGATreeSplitNodeID.of(createdAt, gapStart - 1);
+      const entry = this.treeByID.floorEntry(key);
+      if (entry && entry.key.hasSameCreatedAt(key)) {
+        return entry.value;
+      }
+    }
+
+    const rightmostKey = RGATreeSplitNodeID.of(
+      createdAt,
+      Number.MAX_SAFE_INTEGER,
+    );
+    const rightmost = this.treeByID.floorEntry(rightmostKey);
+    if (
+      rightmost &&
+      rightmost.key.hasSameCreatedAt(rightmostKey) &&
+      rightmost.value.getID().getOffset() >= gapEnd
+    ) {
+      return rightmost.value.getPrev()!;
+    }
+
+    if (fallbackAnchor) {
+      try {
+        const refined = this.refinePos(fallbackAnchor);
+        const [left] = this.findNodeWithSplit(refined, executedAt);
+        return left;
+      } catch {
+        // anchor fully purged — fall through to (e)
+      }
+    }
+
+    return this.head;
+  }
+
+  /**
+   * `isolateRange` splits `piece` so that a node exactly covering the
+   * absolute-offset interval [from, to) exists, and returns it.
+   * Requires: pieceStart <= from < to <= pieceEnd.
+   */
+  private isolateRange(
+    piece: RGATreeSplitNode<T>,
+    from: number,
+    to: number,
+  ): RGATreeSplitNode<T> {
+    let node = piece;
+    const nodeStart = node.getID().getOffset();
+    if (from > nodeStart) {
+      const [right] = this.splitNode(node, from - nodeStart);
+      node = right as RGATreeSplitNode<T>;
+    }
+    const newStart = node.getID().getOffset();
+    if (to < newStart + node.getContentLength()) {
+      this.splitNode(node, to - newStart);
+    }
+    return node;
   }
 
   /**
