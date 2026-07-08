@@ -1570,4 +1570,32 @@ describe.sequential('Document', function () {
 
     unsub();
   });
+
+  it('should undo/redo deletion via identity-preserving restore', function () {
+    const doc = new Document<{ text: Text }>('test-doc');
+
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, '0123456789');
+    });
+    assert.equal(doc.getRoot().text.toString(), '0123456789');
+
+    // Delete "45" — the reverse op should carry restore spans, not a copy.
+    doc.update((root) => {
+      root.text.edit(4, 6, '');
+    });
+    assert.equal(doc.getRoot().text.toString(), '01236789');
+
+    // Undo revives the original nodes (un-tombstone), not new copies.
+    doc.history.undo();
+    assert.equal(doc.getRoot().text.toString(), '0123456789');
+
+    // Redo re-tombstones exactly those nodes.
+    doc.history.redo();
+    assert.equal(doc.getRoot().text.toString(), '01236789');
+
+    // Undo again — the restore/retombstone cycle must be stable.
+    doc.history.undo();
+    assert.equal(doc.getRoot().text.toString(), '0123456789');
+  });
 });
