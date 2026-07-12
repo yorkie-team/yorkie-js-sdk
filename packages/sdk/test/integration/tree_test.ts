@@ -5388,6 +5388,79 @@ describe('Tree(edge cases)', () => {
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });
+
+  it('Can edit with splitLevel walking past root without throwing', function ({
+    task,
+  }) {
+    const key = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ t: Tree }>(key);
+
+    type Seed = { name: string; tree: any; length: number };
+    const seeds: Array<Seed> = [
+      // <doc><p>x</p></doc>
+      {
+        name: 'shallow',
+        tree: {
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'x' }] }],
+        },
+        length: 3,
+      },
+      // <doc><p>x</p><p>y</p></doc>
+      {
+        name: 'twoP',
+        tree: {
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'x' }] },
+            { type: 'p', children: [{ type: 'text', value: 'y' }] },
+          ],
+        },
+        length: 6,
+      },
+      // <doc><p><b>x</b></p></doc>
+      {
+        name: 'deep',
+        tree: {
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'b', children: [{ type: 'text', value: 'x' }] },
+              ],
+            },
+          ],
+        },
+        length: 5,
+      },
+      // <doc><p></p></doc>
+      {
+        name: 'emptyP',
+        tree: { type: 'doc', children: [{ type: 'p', children: [] }] },
+        length: 2,
+      },
+    ];
+
+    for (const seed of seeds) {
+      for (let pos = 0; pos <= seed.length; pos++) {
+        for (const sl of [1, 2]) {
+          const step = new yorkie.Document<{ t: Tree }>(
+            `${key}-${seed.name}-${pos}-${sl}`,
+          );
+          step.update((root) => {
+            root.t = new Tree(seed.tree);
+          });
+          step.update((root) =>
+            root.t.edit(pos, pos, { type: 'text', value: 'a' }, sl),
+          );
+        }
+      }
+    }
+    doc.update((root) => {
+      root.t = new Tree({ type: 'doc', children: [] });
+    });
+  });
 });
 
 describe('TreeChange', () => {
