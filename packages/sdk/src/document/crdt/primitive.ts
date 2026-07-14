@@ -15,6 +15,7 @@
  */
 
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
@@ -56,7 +57,14 @@ export class Primitive extends CRDTElement {
   constructor(value: PrimitiveValue, createdAt: TimeTicket) {
     super(createdAt);
     this.valueType = Primitive.getPrimitiveType(value)!;
-    this.value = value === undefined ? null : value;
+    if (this.valueType === PrimitiveType.Long && typeof value === 'number') {
+      logger.warn(
+        `number exceeds int32 range and will be stored as Long (bigint): ${value}`,
+      );
+      this.value = BigInt(value);
+    } else {
+      this.value = value === undefined ? null : value;
+    }
   }
 
   /**
@@ -209,10 +217,12 @@ export class Primitive extends CRDTElement {
         return PrimitiveType.Boolean;
       case 'number':
         if (this.isInteger(value)) {
+          if (value > Math.pow(2, 31) - 1 || value < -Math.pow(2, 31)) {
+            return PrimitiveType.Long;
+          }
           return PrimitiveType.Integer;
-        } else {
-          return PrimitiveType.Double;
         }
+        return PrimitiveType.Double;
       case 'bigint':
         return PrimitiveType.Long;
       case 'string':
