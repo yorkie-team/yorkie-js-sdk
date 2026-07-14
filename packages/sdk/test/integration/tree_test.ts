@@ -5393,7 +5393,6 @@ describe('Tree(edge cases)', () => {
     task,
   }) {
     const key = toDocKey(`${task.name}-${new Date().getTime()}`);
-    const doc = new yorkie.Document<{ t: Tree }>(key);
 
     type Seed = { name: string; tree: any; length: number };
     const seeds: Array<Seed> = [
@@ -5451,15 +5450,20 @@ describe('Tree(edge cases)', () => {
           step.update((root) => {
             root.t = new Tree(seed.tree);
           });
+          const sizeBefore = step.getRoot().t.getSize();
           step.update((root) =>
             root.t.edit(pos, pos, { type: 'text', value: 'a' }, sl),
           );
+
+          // The edit must not just avoid throwing — it must produce a valid
+          // tree that actually contains the inserted text.
+          const label = `${seed.name} pos=${pos} sl=${sl}`;
+          const tree = step.getRoot().t;
+          assert.isAbove(tree.getSize(), sizeBefore, label);
+          assert.include(tree.toXML(), 'a', label);
         }
       }
     }
-    doc.update((root) => {
-      root.t = new Tree({ type: 'doc', children: [] });
-    });
   });
 });
 
