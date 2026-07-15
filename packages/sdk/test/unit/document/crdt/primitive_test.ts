@@ -83,7 +83,7 @@ describe('Primitive', function () {
   });
 
   it('should create a Long primitive when a number exceeds int32 range', function () {
-    const INT32MAX = 2147483647;
+    const INT32MAX = Math.pow(2, 31) - 1;
     const largeNumber = INT32MAX + 1;
     const primitiveLarge = Primitive.of(largeNumber, InitialTimeTicket);
     assert.equal(primitiveLarge.getType(), PrimitiveType.Long);
@@ -91,7 +91,7 @@ describe('Primitive', function () {
   });
 
   it('should create a Long primitive when a number is less than int32 range', function () {
-    const INT32MIN = -2147483648;
+    const INT32MIN = -Math.pow(2, 31);
     const smallNumber = INT32MIN - 1;
     const primitiveSmall = Primitive.of(smallNumber, InitialTimeTicket);
     assert.equal(primitiveSmall.getType(), PrimitiveType.Long);
@@ -99,7 +99,7 @@ describe('Primitive', function () {
   });
 
   it('should round-trip a promoted Long through toBytes/valueFromBytes', function () {
-    const INT32MAX = 2147483647;
+    const INT32MAX = Math.pow(2, 31) - 1;
     const largeNumber = INT32MAX + 1;
     const primitive = Primitive.of(largeNumber, InitialTimeTicket);
     const restored = Primitive.valueFromBytes(
