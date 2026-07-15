@@ -119,6 +119,12 @@ describe('GC tombstone-split leak', () => {
 
     assert.equal(d1.getGarbageLen(), 0);
     assert.equal(d2.getGarbageLen(), 0);
+
+    // docSize must also stay symmetric: born-dead pieces were never live,
+    // so registering them must not move sizes out of docSize.live, and a
+    // full GC must drain docSize.gc to zero on both replicas.
+    assert.deepEqual(d2.getDocSize(), d1.getDocSize());
+    assert.deepEqual(d1.getDocSize().gc, { data: 0, meta: 0 });
   });
 
   it('registers GC pairs for tree tombstones after snapshot round-trip', () => {
@@ -140,6 +146,12 @@ describe('GC tombstone-split leak', () => {
     const purgedRebuilt = rebuilt.garbageCollect(maxVectorOf([A1, A2]));
     assert.equal(purgedRebuilt, purgedLive);
     assert.equal(rebuilt.getGarbageLen(), 0);
+
+    // The rebuilt root counts tombstones straight into docSize.gc (they
+    // were never in its docSize.live), so a full GC must drain gc to zero
+    // without pushing live negative.
+    assert.deepEqual(rebuilt.getDocSize().gc, { data: 0, meta: 0 });
+    assert.deepEqual(rebuilt.getDocSize().live, d2.getDocSize().live);
   });
 });
 
@@ -209,6 +221,10 @@ describe('GC tombstone-split leak (Text)', () => {
     assert.equal(countTextTombstones(d2), 0);
     assert.equal(d1.getGarbageLen(), 0);
     assert.equal(d2.getGarbageLen(), 0);
+
+    // Same docSize invariants as the tree case.
+    assert.deepEqual(d2.getDocSize(), d1.getDocSize());
+    assert.deepEqual(d1.getDocSize().gc, { data: 0, meta: 0 });
   });
 
   it('keeps GC registration when a newer concurrent delete overwrites a tombstone', () => {

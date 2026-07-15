@@ -1026,14 +1026,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     this.treeByIndex.updateWeight(splitNode);
     this.insertAfter(node, splitNode);
 
-    // NOTE: A piece split off an already-tombstoned node inherits
-    // `removedAt` without going through `remove()`, so no GC pair is
-    // created for it in the normal deletion path. Buffer one here so it
-    // can be purged; otherwise it stays in the list forever.
-    if (splitNode.isRemoved()) {
-      this.pendingGCPairs.push({ parent: this, child: splitNode });
-    }
-
     const insNext = node.getInsNext();
     if (insNext) {
       insNext.setInsPrev(splitNode);
@@ -1046,6 +1038,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // the split operation.
     addDataSizes(diff, node.getDataSize(), splitNode.getDataSize());
     subDataSize(diff, prvSize);
+
+    // NOTE: A piece split off an already-tombstoned node inherits
+    // `removedAt` without going through `remove()`, so no GC pair is
+    // created for it in the normal deletion path. Buffer one here so it
+    // can be purged; otherwise it stays in the list forever. The piece
+    // was never live, so the net-new size created by the split goes
+    // straight to docSize.gc when the pair is registered; report a zero
+    // diff to the caller (which accounts diffs to docSize.live).
+    if (splitNode.isRemoved()) {
+      this.pendingGCPairs.push({
+        parent: this,
+        child: splitNode,
+        gcOnlySize: diff,
+      });
+      return [splitNode, { data: 0, meta: 0 }];
+    }
 
     return [splitNode, diff];
   }
