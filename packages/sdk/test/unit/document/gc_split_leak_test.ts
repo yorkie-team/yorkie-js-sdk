@@ -155,45 +155,59 @@ describe('GC tombstone-split leak', () => {
     assert.deepEqual(rebuilt.getDocSize().live, d2.getDocSize().live);
   });
 
-  it('registers GC pairs for pieces split off a tombstone during a read-path range conversion', () => {
-    const d1 = new Document<{ t: Tree }>('test-doc');
-    const d2 = new Document<{ t: Tree }>('test-doc');
-    d1.setActor(A1);
-    d2.setActor(A2);
+  // Each range-conversion wrapper must independently drain the pending GC
+  // pairs. Run every method against its own freshly tombstoned tree — the
+  // first conversion splits the tombstone, so sharing one tree would leave
+  // later conversions with nothing to split and never exercise their drain.
+  const conversions: Array<
+    (tree: Tree, range: ReturnType<Tree['indexRangeToPosRange']>) => void
+  > = [
+    (tree, range) => tree.posRangeToIndexRange(range),
+    (tree, range) => tree.posRangeToPathRange(range),
+  ];
 
-    d1.update((root) => {
-      root.t = new Tree({
-        type: 'doc',
-        children: [{ type: 'p', children: [{ type: 'text', value: 'hello' }] }],
+  for (const [i, convert] of conversions.entries()) {
+    it(`registers GC pairs split during read-path range conversion #${i}`, () => {
+      const d1 = new Document<{ t: Tree }>('test-doc');
+      const d2 = new Document<{ t: Tree }>('test-doc');
+      d1.setActor(A1);
+      d2.setActor(A2);
+
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
       });
+      crossSync(d1, d2);
+
+      // Capture a selection that points into the middle of "hello", as a
+      // stored cursor/selection would.
+      const selection = d1.getRoot().t.indexRangeToPosRange([2, 4]);
+
+      // A peer deletes the whole <p>, tombstoning "hello" on d1.
+      d2.update((root) => root.t.edit(0, 7));
+      crossSync(d1, d2);
+
+      // Resolving the stored selection now lands inside the tombstoned text
+      // and splits it — a read path that emits no operation. The born-removed
+      // pieces must still be registered so a later GC can purge them.
+      convert(d1.getRoot().t, selection);
+
+      d1.garbageCollect(maxVectorOf([A1, A2]));
+
+      // After GC the clone tree (mutated by the read-path split) and the
+      // document root must hold the same physical nodes. A born-removed piece
+      // that never registered a GC pair would linger in the clone's node map,
+      // making it larger. Before the fix the clone kept the leaked piece(s).
+      const cloneTree = d1.getCloneRoot()!.get('t') as unknown as CRDTTree;
+      const rootTree = d1.getRootObject().get('t') as unknown as CRDTTree;
+      assert.equal(cloneTree.getNodeSize(), rootTree.getNodeSize());
+      assert.equal(d1.getGarbageLenFromClone(), 0);
     });
-    crossSync(d1, d2);
-
-    // Capture a selection that points into the middle of "hello", as a
-    // stored cursor/selection would.
-    const selection = d1.getRoot().t.indexRangeToPosRange([2, 4]);
-
-    // A peer deletes the whole <p>, tombstoning "hello" on d1.
-    d2.update((root) => root.t.edit(0, 7));
-    crossSync(d1, d2);
-
-    // Resolving the stored selection now lands inside the tombstoned text
-    // and splits it — a read path that emits no operation. The born-removed
-    // pieces must still be registered so a later GC can purge them.
-    d1.getRoot().t.posRangeToIndexRange(selection);
-    d1.getRoot().t.posRangeToPathRange(selection);
-
-    d1.garbageCollect(maxVectorOf([A1, A2]));
-
-    // After GC the clone tree (mutated by the read-path split) and the
-    // document root must hold the same physical nodes. A born-removed piece
-    // that never registered a GC pair would linger in the clone's node map,
-    // making it larger. Before the fix the clone kept the leaked piece(s).
-    const cloneTree = d1.getCloneRoot()!.get('t') as unknown as CRDTTree;
-    const rootTree = d1.getRootObject().get('t') as unknown as CRDTTree;
-    assert.equal(cloneTree.getNodeSize(), rootTree.getNodeSize());
-    assert.equal(d1.getGarbageLenFromClone(), 0);
-  });
+  }
 });
 
 type TextDoc = { k: Text };
