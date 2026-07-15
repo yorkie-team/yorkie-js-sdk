@@ -1092,7 +1092,9 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToIndexRange(posRange);
+    const indexRange = this.tree.posRangeToIndexRange(posRange);
+    this.registerPendingGCPairs();
+    return indexRange;
   }
 
   /**
@@ -1113,6 +1115,23 @@ export class Tree {
       CRDTTreePos.fromStruct(range[1]),
     ];
 
-    return this.tree.posRangeToPathRange(posRange);
+    const pathRange = this.tree.posRangeToPathRange(posRange);
+    this.registerPendingGCPairs();
+    return pathRange;
+  }
+
+  /**
+   * `registerPendingGCPairs` registers with the root any GC pairs the tree
+   * buffered while resolving a position. `posRangeToIndexRange` and
+   * `posRangeToPathRange` split text nodes to locate a position; when the
+   * position lands inside a tombstoned node the split produces a
+   * born-removed piece. Unlike edit/style/removeStyle, these read-path
+   * conversions emit no operation, so the buffered pairs would otherwise
+   * never reach the root and the piece would leak (invisible to GC).
+   */
+  private registerPendingGCPairs(): void {
+    for (const pair of this.tree!.drainPendingGCPairs()) {
+      this.context!.registerGCPair(pair);
+    }
   }
 }

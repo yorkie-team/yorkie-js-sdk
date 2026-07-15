@@ -4,6 +4,7 @@ import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
@@ -153,6 +154,46 @@ describe('GC tombstone-split leak', () => {
     assert.deepEqual(rebuilt.getDocSize().gc, { data: 0, meta: 0 });
     assert.deepEqual(rebuilt.getDocSize().live, d2.getDocSize().live);
   });
+
+  it('registers GC pairs for pieces split off a tombstone during a read-path range conversion', () => {
+    const d1 = new Document<{ t: Tree }>('test-doc');
+    const d2 = new Document<{ t: Tree }>('test-doc');
+    d1.setActor(A1);
+    d2.setActor(A2);
+
+    d1.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'hello' }] }],
+      });
+    });
+    crossSync(d1, d2);
+
+    // Capture a selection that points into the middle of "hello", as a
+    // stored cursor/selection would.
+    const selection = d1.getRoot().t.indexRangeToPosRange([2, 4]);
+
+    // A peer deletes the whole <p>, tombstoning "hello" on d1.
+    d2.update((root) => root.t.edit(0, 7));
+    crossSync(d1, d2);
+
+    // Resolving the stored selection now lands inside the tombstoned text
+    // and splits it — a read path that emits no operation. The born-removed
+    // pieces must still be registered so a later GC can purge them.
+    d1.getRoot().t.posRangeToIndexRange(selection);
+    d1.getRoot().t.posRangeToPathRange(selection);
+
+    d1.garbageCollect(maxVectorOf([A1, A2]));
+
+    // After GC the clone tree (mutated by the read-path split) and the
+    // document root must hold the same physical nodes. A born-removed piece
+    // that never registered a GC pair would linger in the clone's node map,
+    // making it larger. Before the fix the clone kept the leaked piece(s).
+    const cloneTree = d1.getCloneRoot()!.get('t') as unknown as CRDTTree;
+    const rootTree = d1.getRootObject().get('t') as unknown as CRDTTree;
+    assert.equal(cloneTree.getNodeSize(), rootTree.getNodeSize());
+    assert.equal(d1.getGarbageLenFromClone(), 0);
+  });
 });
 
 type TextDoc = { k: Text };
@@ -173,6 +214,10 @@ function countTextTombstones(doc: Document<TextDoc>): number {
   return count;
 }
 
+/**
+ * `buildTextReplicas` creates two in-process replicas that share a Text
+ * field seeded with "abcdef" and already converged.
+ */
 function buildTextReplicas(): [Document<TextDoc>, Document<TextDoc>] {
   const d1 = new Document<TextDoc>('test-doc');
   const d2 = new Document<TextDoc>('test-doc');
