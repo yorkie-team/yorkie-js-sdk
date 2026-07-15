@@ -674,6 +674,14 @@ export class CRDTTreeNode
       }
       this.insNextID = split.id;
       tree.registerNode(split);
+
+      // NOTE: A piece split off an already-tombstoned node inherits
+      // `removedAt` without going through `remove()`, so no GC pair is
+      // created for it in the normal deletion path. Register it here so
+      // it can be purged; otherwise it stays in the tree forever.
+      if (split.removedAt) {
+        tree.registerPendingGCPair(split);
+      }
     }
     return [split, diff];
   }
@@ -914,10 +922,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByID: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
 
+  /**
+   * `pendingGCPairs` buffers GC pairs for nodes that were created
+   * already-tombstoned by splitting a removed node. Such pieces inherit
+   * `removedAt` without ever passing through `remove()`, so they would
+   * otherwise never be registered for GC. `edit` and `style` drain this
+   * buffer into their returned GC pairs.
+   */
+  private pendingGCPairs: Array<GCPair>;
+
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
+    this.pendingGCPairs = [];
 
     this.indexTree.traverseAll((node) => {
       this.nodeMapByID.put(node.id, node);
@@ -1070,6 +1088,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public registerNode(node: CRDTTreeNode): void {
     this.nodeMapByID.put(node.id, node);
+  }
+
+  /**
+   * `registerPendingGCPair` buffers a GC pair for a node that was born
+   * tombstoned (split off an already-removed node). The pair is picked up
+   * by the next `edit` or `style` call via `drainPendingGCPairs`.
+   */
+  public registerPendingGCPair(node: CRDTTreeNode): void {
+    this.pendingGCPairs.push({ parent: this, child: node });
+  }
+
+  /**
+   * `drainPendingGCPairs` returns the buffered GC pairs and clears the
+   * buffer.
+   */
+  public drainPendingGCPairs(): Array<GCPair> {
+    const pairs = this.pendingGCPairs;
+    this.pendingGCPairs = [];
+    return pairs;
   }
 
   /**
@@ -1334,6 +1371,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
+    pairs.push(...this.drainPendingGCPairs());
+
     return [pairs, changes, diff, prevAttributes, newAttrKeys];
   }
 
@@ -1467,6 +1506,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
       },
     );
+
+    pairs.push(...this.drainPendingGCPairs());
 
     return [pairs, changes, diff, prevAttributes];
   }
@@ -1827,6 +1868,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
+    pairs.push(...this.drainPendingGCPairs());
+
     return [
       changes,
       pairs,
@@ -1921,7 +1964,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
-    this.indexTree.traverse((node) => {
+    // NOTE: `traverse` only visits visible children, which never includes
+    // removed nodes. `traverseAll` is required to register tombstones
+    // (including pieces split off a tombstoned node) after snapshot load.
+    this.indexTree.traverseAll((node) => {
       if (node.getRemovedAt()) {
         pairs.push({ parent: this, child: node });
       }
