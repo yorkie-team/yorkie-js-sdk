@@ -376,6 +376,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
+    pairs.push(...this.rgaTreeSplit.drainPendingGCPairs());
+
     return [pairs, diff, changes, prevAttributes, attributesToRemove];
   }
 
@@ -468,6 +470,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         }
       }
     }
+
+    pairs.push(...this.rgaTreeSplit.drainPendingGCPairs());
 
     return [pairs, diff, changes, prevAttributes];
   }

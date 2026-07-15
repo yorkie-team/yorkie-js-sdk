@@ -2,7 +2,8 @@ import { describe, it, assert } from 'vitest';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 import { Document } from '@yorkie-js/sdk/src/document/document';
-import { Tree } from '@yorkie-js/sdk/src/yorkie';
+import { Text, Tree } from '@yorkie-js/sdk/src/yorkie';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
@@ -139,5 +140,102 @@ describe('GC tombstone-split leak', () => {
     const purgedRebuilt = rebuilt.garbageCollect(maxVectorOf([A1, A2]));
     assert.equal(purgedRebuilt, purgedLive);
     assert.equal(rebuilt.getGarbageLen(), 0);
+  });
+});
+
+type TextDoc = { k: Text };
+
+/**
+ * Counts tombstoned nodes still physically present in the text's RGATreeSplit.
+ * After a full-vector garbage collection this must be zero; any remainder is
+ * a node that was never registered (or was toggle-unregistered) for GC.
+ */
+function countTextTombstones(doc: Document<TextDoc>): number {
+  const text = doc.getRootObject().get('k') as CRDTText;
+  let count = 0;
+  for (const node of text.getRGATreeSplit()) {
+    if (node.isRemoved()) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function buildTextReplicas(): [Document<TextDoc>, Document<TextDoc>] {
+  const d1 = new Document<TextDoc>('test-doc');
+  const d2 = new Document<TextDoc>('test-doc');
+  d1.setActor(A1);
+  d2.setActor(A2);
+
+  d1.update((root) => {
+    root.k = new Text();
+    root.k.edit(0, 0, 'abcdef');
+  });
+  crossSync(d1, d2);
+
+  return [d1, d2];
+}
+
+// Same class of leak in the Text CRDT: RGATreeSplitNode.split() copies
+// `removedAt` into the new piece, so pieces split off an already-tombstoned
+// text node are born removed without passing through remove() and miss GC
+// pair registration. Additionally, a concurrent delete that overwrites an
+// existing tombstone (LWW) used to re-push a GC pair for it, and
+// CRDTRoot.registerGCPair's toggle semantics then deleted the existing
+// registration.
+describe('GC tombstone-split leak (Text)', () => {
+  it('purges pieces split off a tombstoned text node', () => {
+    const [d1, d2] = buildTextReplicas();
+
+    // d1 tombstones the whole node; d2 concurrently deletes a middle slice.
+    // When d2's delete arrives at d1, it splits d1's tombstone into three
+    // pieces; the piece after the deleted range is born dead and used to
+    // get no GC pair.
+    d1.update((root) => root.k.edit(0, 6, ''));
+    d2.update((root) => root.k.edit(2, 4, ''));
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().k.toString(), '');
+    assert.equal(d2.getRoot().k.toString(), '');
+
+    const purged1 = d1.garbageCollect(maxVectorOf([A1, A2]));
+    const purged2 = d2.garbageCollect(maxVectorOf([A1, A2]));
+    assert.equal(
+      purged1,
+      purged2,
+      `asymmetric purge for identical state: d1=${purged1} d2=${purged2}`,
+    );
+    assert.equal(countTextTombstones(d1), 0);
+    assert.equal(countTextTombstones(d2), 0);
+    assert.equal(d1.getGarbageLen(), 0);
+    assert.equal(d2.getGarbageLen(), 0);
+  });
+
+  it('keeps GC registration when a newer concurrent delete overwrites a tombstone', () => {
+    const [d1, d2] = buildTextReplicas();
+
+    // Bump d1's lamport so its whole-range delete is newer than d2's slice
+    // delete. When d1's delete arrives at d2, canRemove() allows the LWW
+    // overwrite of d2's own tombstone; re-pushing a GC pair for that node
+    // used to toggle-unregister it.
+    d1.update((root) => root.k.edit(6, 6, '!'));
+    d1.update((root) => root.k.edit(0, 7, ''));
+    d2.update((root) => root.k.edit(2, 4, ''));
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().k.toString(), '');
+    assert.equal(d2.getRoot().k.toString(), '');
+
+    const purged1 = d1.garbageCollect(maxVectorOf([A1, A2]));
+    const purged2 = d2.garbageCollect(maxVectorOf([A1, A2]));
+    assert.equal(
+      purged1,
+      purged2,
+      `asymmetric purge for identical state: d1=${purged1} d2=${purged2}`,
+    );
+    assert.equal(countTextTombstones(d1), 0);
+    assert.equal(countTextTombstones(d2), 0);
+    assert.equal(d1.getGarbageLen(), 0);
+    assert.equal(d2.getGarbageLen(), 0);
   });
 });
