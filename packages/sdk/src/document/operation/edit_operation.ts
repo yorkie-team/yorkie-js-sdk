@@ -422,4 +422,19 @@ export class EditOperation extends Operation {
   public getAttributes(): Map<string, string> {
     return this.attributes || new Map();
   }
+
+  /**
+   * `getRestoreSpans` returns the identity-preserving restore payload, if
+   * this is a restore/retombstone operation.
+   */
+  public getRestoreSpans(): Array<RestoreSpan<CRDTTextValue>> | undefined {
+    return this.restoreSpans;
+  }
+
+  /**
+   * `getRestoreMode` returns the identity-preserving mode of this Edit.
+   */
+  public getRestoreMode(): RestoreMode | undefined {
+    return this.restoreMode;
+  }
 }
