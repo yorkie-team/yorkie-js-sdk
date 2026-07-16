@@ -124,7 +124,7 @@ export class EditOperation extends Operation {
     const text = parentObject as CRDTText<A>;
 
     if (this.restoreSpans && this.restoreMode === 'restore') {
-      const [untombstoned] = text.restore(
+      const [untombstoned, , changes] = text.restore(
         this.restoreSpans,
         this.getExecutedAt(),
         this.fromPos,
@@ -133,8 +133,15 @@ export class EditOperation extends Operation {
         root.unregisterGCPair({ parent: text.getRGATreeSplit(), child: node });
       }
       return {
-        // TODO(prototype): emit proper OpInfos so editors receive change events.
-        opInfos: [],
+        opInfos: changes.map(({ from, to, value }) => {
+          return {
+            type: 'edit',
+            from,
+            to,
+            value,
+            path: root.createPath(this.getParentCreatedAt()),
+          } as OpInfo;
+        }),
         reverseOp: EditOperation.create(
           this.getParentCreatedAt(),
           this.fromPos,
@@ -150,13 +157,23 @@ export class EditOperation extends Operation {
     }
 
     if (this.restoreSpans && this.restoreMode === 'retombstone') {
-      const pairs = text.retombstone(this.restoreSpans, this.getExecutedAt());
+      const [pairs, changes] = text.retombstone(
+        this.restoreSpans,
+        this.getExecutedAt(),
+      );
       for (const pair of pairs) {
         root.registerGCPair(pair);
       }
       return {
-        // TODO(prototype): emit proper OpInfos so editors receive change events.
-        opInfos: [],
+        opInfos: changes.map(({ from, to, value }) => {
+          return {
+            type: 'edit',
+            from,
+            to,
+            value,
+            path: root.createPath(this.getParentCreatedAt()),
+          } as OpInfo;
+        }),
         reverseOp: EditOperation.create(
           this.getParentCreatedAt(),
           this.fromPos,

@@ -705,14 +705,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    *   - tombstoned piece exists → clear removedAt (un-tombstone)
    *   - no piece exists (GC'd)  → recreate a node with the original ID
    *
-   * Returns [untombstonedNodes, recreatedNodes]. The caller must
-   * unregister GC pairs for `untombstonedNodes`.
+   * Returns [untombstonedNodes, recreatedNodes, changes]. The caller must
+   * unregister GC pairs for `untombstonedNodes`. `changes` describes the
+   * revived content as insertions (ascending index) so editor bindings and
+   * remote sync can be driven the same way as a normal edit.
    */
   public restore(
     spans: Array<RestoreSpan<T>>,
     executedAt: TimeTicket,
     fallbackAnchor?: RGATreeSplitPos,
-  ): [Array<RGATreeSplitNode<T>>, Array<RGATreeSplitNode<T>>] {
+  ): [
+    Array<RGATreeSplitNode<T>>,
+    Array<RGATreeSplitNode<T>>,
+    Array<ValueChange<T>>,
+  ] {
     const untombstoned: Array<RGATreeSplitNode<T>> = [];
     const recreated: Array<RGATreeSplitNode<T>> = [];
 
@@ -771,7 +777,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       }
     }
 
-    return [untombstoned, recreated];
+    // Revived nodes are now live; report each as an insertion at its final
+    // index. Ascending order keeps the indices valid when applied in
+    // sequence (each earlier insertion is already present).
+    const changes: Array<ValueChange<T>> = [];
+    for (const node of [...untombstoned, ...recreated]) {
+      const [from] = this.findIndexesFromRange(node.createPosRange());
+      changes.push({
+        actor: executedAt.getActorID(),
+        from,
+        to: from,
+        value: node.getValue(),
+      });
+    }
+    changes.sort((a, b) => a.from - b.from);
+
+    return [untombstoned, recreated, changes];
   }
 
   /**
@@ -779,13 +800,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * an identity-preserving undo). Only live pieces are affected; already
    * removed or purged regions are skipped (idempotent).
    *
-   * Returns GCPairs for the newly tombstoned nodes.
+   * Returns [pairs, changes]: GCPairs for the newly tombstoned nodes, and
+   * the removed regions as deletions so editor bindings and remote sync can
+   * be driven the same way as a normal edit. Indices are captured before
+   * each removal, so applying them in emission order stays consistent.
    */
   public retombstone(
     spans: Array<RestoreSpan<T>>,
     executedAt: TimeTicket,
-  ): Array<GCPair> {
+  ): [Array<GCPair>, Array<ValueChange<T>>] {
     const pairs: Array<GCPair> = [];
+    const changes: Array<ValueChange<T>> = [];
 
     for (const span of spans) {
       const pieces = this.findPiecesOverlapping(
@@ -804,13 +829,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           Math.max(pieceStart, span.start),
           Math.min(pieceEnd, span.end),
         );
+        // Capture the visible range while `target` is still live.
+        const [from, to] = this.findIndexesFromRange(target.createPosRange());
         target.remove(executedAt);
         this.treeByIndex.splayNode(target);
         pairs.push({ parent: this, child: target });
+        if (from < to) {
+          changes.push({ actor: executedAt.getActorID(), from, to });
+        }
       }
     }
 
-    return pairs;
+    return [pairs, changes];
   }
 
   /**

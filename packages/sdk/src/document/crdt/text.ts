@@ -294,8 +294,14 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   ): [
     Array<RGATreeSplitNode<CRDTTextValue>>,
     Array<RGATreeSplitNode<CRDTTextValue>>,
+    Array<TextChange<A>>,
   ] {
-    return this.rgaTreeSplit.restore(spans, executedAt, fallbackAnchor);
+    const [untombstoned, recreated, valueChanges] = this.rgaTreeSplit.restore(
+      spans,
+      executedAt,
+      fallbackAnchor,
+    );
+    return [untombstoned, recreated, this.toTextChanges(valueChanges)];
   }
 
   /**
@@ -304,8 +310,34 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   public retombstone(
     spans: Array<RestoreSpan<CRDTTextValue>>,
     executedAt: TimeTicket,
-  ): Array<GCPair> {
-    return this.rgaTreeSplit.retombstone(spans, executedAt);
+  ): [Array<GCPair>, Array<TextChange<A>>] {
+    const [pairs, valueChanges] = this.rgaTreeSplit.retombstone(
+      spans,
+      executedAt,
+    );
+    return [pairs, this.toTextChanges(valueChanges)];
+  }
+
+  /**
+   * `toTextChanges` wraps raw RGATreeSplit value changes into `TextChange`s,
+   * mirroring the mapping used by `edit`.
+   */
+  private toTextChanges(
+    valueChanges: Array<ValueChange<CRDTTextValue>>,
+  ): Array<TextChange<A>> {
+    return valueChanges.map((change) => ({
+      ...change,
+      value: change.value
+        ? {
+            attributes: parseObjectValues<A>(change.value.getAttributes()),
+            content: change.value.getContent(),
+          }
+        : {
+            attributes: undefined,
+            content: '',
+          },
+      type: TextChangeType.Content,
+    }));
   }
 
   /**
