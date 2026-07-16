@@ -391,9 +391,11 @@ export class CRDTRoot {
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (!removedAt) {
-        // Node was revived but its pair was not unregistered; drop the
-        // stale entry so the registerGCPair toggle can't be tripped later.
-        this.gcPairMap.delete(pair.child.toIDString());
+        // Node was revived but its pair was not unregistered. Reverse the
+        // GC accounting (gc → live) and drop the stale entry via
+        // unregisterGCPair so the registerGCPair toggle can't be tripped
+        // later and docSize.gc/live stay consistent.
+        this.unregisterGCPair(pair);
         continue;
       }
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
