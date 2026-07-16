@@ -723,10 +723,23 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    *   - tombstoned piece exists → clear removedAt (un-tombstone)
    *   - no piece exists (GC'd)  → recreate a node with the original ID
    *
-   * Returns [untombstonedNodes, recreatedNodes, changes]. The caller must
-   * unregister GC pairs for `untombstonedNodes`. `changes` describes the
-   * revived content as insertions (ascending index) so editor bindings and
-   * remote sync can be driven the same way as a normal edit.
+   * Returns [untombstonedNodes, recreatedNodes, changes, liveDiff,
+   * pendingGCPairs]. `changes` describes the revived content as insertions
+   * (ascending index) so editor bindings and remote sync can be driven
+   * the same way as a normal edit.
+   *
+   * The caller must, in order: (1) register every pair in `pendingGCPairs`
+   * — these are fragments `splitNode` buffered while isolating a target
+   * range out of a larger tombstoned piece (see `drainPendingGCPairs`);
+   * (2) unregister GC pairs for `untombstonedNodes`. Registering first is
+   * required for `untombstonedNodes` entries whose node was itself one of
+   * those split-born fragments (a target isolated from the interior of a
+   * tombstone) — such a node was never registered under its own id, so
+   * step (1) creates the entry that step (2) then correctly walks from gc
+   * back to live; entries that remain tombstoned (siblings of the
+   * restored target) simply stay registered. Finally, `root.acc(liveDiff)`
+   * accounts the size of any nodes recreated from scratch (the GC'd-away
+   * case), which `splitNode`'s buffering does not cover.
    */
   public restore(
     spans: Array<RestoreSpan<T>>,
@@ -736,9 +749,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     Array<RGATreeSplitNode<T>>,
     Array<RGATreeSplitNode<T>>,
     Array<ValueChange<T>>,
+    DataSize,
+    Array<GCPair>,
   ] {
     const untombstoned: Array<RGATreeSplitNode<T>> = [];
     const recreated: Array<RGATreeSplitNode<T>> = [];
+    const liveDiff = { data: 0, meta: 0 };
 
     for (const span of spans) {
       const pieces = this.findPiecesOverlapping(
@@ -760,7 +776,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           // Covered by an existing piece.
           const overlapEnd = Math.min(pieceEnd, span.end);
           if (piece.isRemoved()) {
-            const target = this.isolateRange(piece, cursor, overlapEnd);
+            const [target] = this.isolateRange(piece, cursor, overlapEnd);
             target.setRemovedAt(undefined);
             // Repair splay weights on the path to root (length 0 → len).
             this.treeByIndex.splayNode(target);
@@ -781,6 +797,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             RGATreeSplitNodeID.of(span.createdAt, cursor),
             value,
           );
+          addDataSizes(liveDiff, newNode.getDataSize());
           const prev = this.findRestoreAnchor(
             span.createdAt,
             cursor,
@@ -794,6 +811,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         }
       }
     }
+
+    const pendingGCPairs = this.drainPendingGCPairs();
 
     // Revived nodes are now live; report each as an insertion at its final
     // index. Ascending order keeps the indices valid when applied in
@@ -810,7 +829,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
     changes.sort((a, b) => a.from - b.from);
 
-    return [untombstoned, recreated, changes];
+    return [untombstoned, recreated, changes, liveDiff, pendingGCPairs];
   }
 
   /**
@@ -818,17 +837,23 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * an identity-preserving undo). Only live pieces are affected; already
    * removed or purged regions are skipped (idempotent).
    *
-   * Returns [pairs, changes]: GCPairs for the newly tombstoned nodes, and
-   * the removed regions as deletions so editor bindings and remote sync can
-   * be driven the same way as a normal edit. Indices are captured before
-   * each removal, so applying them in emission order stays consistent.
+   * Returns [pairs, changes, diff]: GCPairs for the newly tombstoned
+   * nodes, the removed regions as deletions so editor bindings and remote
+   * sync can be driven the same way as a normal edit, and the
+   * metadata-size overhead from splitting the (live) pieces to isolate the
+   * target range. The caller must `root.acc(diff)` before registering
+   * `pairs`, mirroring how a normal edit's boundary splits are accounted
+   * before its resulting tombstones are registered. Indices are captured
+   * before each removal, so applying them in emission order stays
+   * consistent.
    */
   public retombstone(
     spans: Array<RestoreSpan<T>>,
     executedAt: TimeTicket,
-  ): [Array<GCPair>, Array<ValueChange<T>>] {
+  ): [Array<GCPair>, Array<ValueChange<T>>, DataSize] {
     const pairs: Array<GCPair> = [];
     const changes: Array<ValueChange<T>> = [];
+    const diff = { data: 0, meta: 0 };
 
     for (const span of spans) {
       const pieces = this.findPiecesOverlapping(
@@ -842,11 +867,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         }
         const pieceStart = piece.getID().getOffset();
         const pieceEnd = pieceStart + piece.getContentLength();
-        const target = this.isolateRange(
+        const [target, splitDiff] = this.isolateRange(
           piece,
           Math.max(pieceStart, span.start),
           Math.min(pieceEnd, span.end),
         );
+        // `piece` was live, so the split overhead belongs to the live
+        // bucket, same as a normal edit's boundary splits.
+        addDataSizes(diff, splitDiff);
         // Capture the visible range while `target` is still live.
         const [from, to] = this.findIndexesFromRange(target.createPosRange());
         target.remove(executedAt);
@@ -858,7 +886,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       }
     }
 
-    return [pairs, changes];
+    // Defensive: retombstone only ever isolates live pieces, so splitNode
+    // never buffers anything here — drain anyway to stay consistent with
+    // every other caller of isolateRange/splitNode.
+    pairs.push(...this.drainPendingGCPairs());
+
+    return [pairs, changes, diff];
   }
 
   /**
@@ -984,25 +1017,37 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
   /**
    * `isolateRange` splits `piece` so that a node exactly covering the
-   * absolute-offset interval [from, to) exists, and returns it.
+   * absolute-offset interval [from, to) exists, and returns it along with
+   * the net metadata-size overhead the split(s) introduced.
+   *
+   * When `piece` is live, this overhead is a normal live-bucket cost (same
+   * as any other boundary split) and the caller should `root.acc` it.
+   * When `piece` is tombstoned, `splitNode` itself buffers the overhead of
+   * any born-removed fragment via `pendingGCPairs` (see `drainPendingGCPairs`),
+   * so the returned diff is zero in that case — the caller must still
+   * drain and register those pairs.
+   *
    * Requires: pieceStart <= from < to <= pieceEnd.
    */
   private isolateRange(
     piece: RGATreeSplitNode<T>,
     from: number,
     to: number,
-  ): RGATreeSplitNode<T> {
+  ): [RGATreeSplitNode<T>, DataSize] {
+    const diff = { data: 0, meta: 0 };
     let node = piece;
     const nodeStart = node.getID().getOffset();
     if (from > nodeStart) {
-      const [right] = this.splitNode(node, from - nodeStart);
+      const [right, splitDiff] = this.splitNode(node, from - nodeStart);
+      addDataSizes(diff, splitDiff);
       node = right as RGATreeSplitNode<T>;
     }
     const newStart = node.getID().getOffset();
     if (to < newStart + node.getContentLength()) {
-      this.splitNode(node, to - newStart);
+      const [, splitDiff] = this.splitNode(node, to - newStart);
+      addDataSizes(diff, splitDiff);
     }
-    return node;
+    return [node, diff];
   }
 
   /**

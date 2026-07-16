@@ -295,13 +295,18 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     Array<RGATreeSplitNode<CRDTTextValue>>,
     Array<RGATreeSplitNode<CRDTTextValue>>,
     Array<TextChange<A>>,
+    DataSize,
+    Array<GCPair>,
   ] {
-    const [untombstoned, recreated, valueChanges] = this.rgaTreeSplit.restore(
-      spans,
-      executedAt,
-      fallbackAnchor,
-    );
-    return [untombstoned, recreated, this.toTextChanges(valueChanges)];
+    const [untombstoned, recreated, valueChanges, liveDiff, pendingGCPairs] =
+      this.rgaTreeSplit.restore(spans, executedAt, fallbackAnchor);
+    return [
+      untombstoned,
+      recreated,
+      this.toTextChanges(valueChanges),
+      liveDiff,
+      pendingGCPairs,
+    ];
   }
 
   /**
@@ -310,12 +315,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   public retombstone(
     spans: Array<RestoreSpan<CRDTTextValue>>,
     executedAt: TimeTicket,
-  ): [Array<GCPair>, Array<TextChange<A>>] {
-    const [pairs, valueChanges] = this.rgaTreeSplit.retombstone(
+  ): [Array<GCPair>, Array<TextChange<A>>, DataSize] {
+    const [pairs, valueChanges, diff] = this.rgaTreeSplit.retombstone(
       spans,
       executedAt,
     );
-    return [pairs, this.toTextChanges(valueChanges)];
+    return [pairs, this.toTextChanges(valueChanges), diff];
   }
 
   /**

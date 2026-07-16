@@ -124,14 +124,24 @@ export class EditOperation extends Operation {
     const text = parentObject as CRDTText<A>;
 
     if (this.restoreSpans && this.restoreMode === 'restore') {
-      const [untombstoned, , changes] = text.restore(
+      const [untombstoned, , changes, liveDiff, pendingGCPairs] = text.restore(
         this.restoreSpans,
         this.getExecutedAt(),
         this.fromPos,
       );
+      // Register first: a `pendingGCPairs` entry whose child ended up in
+      // `untombstoned` was never registered under its own id (it was born
+      // by splitting a larger tombstone), so the unregister loop below can
+      // only walk its size from gc back to live if it's registered here
+      // first. Entries whose child stays tombstoned simply remain
+      // registered afterward.
+      for (const pair of pendingGCPairs) {
+        root.registerGCPair(pair);
+      }
       for (const node of untombstoned) {
         root.unregisterGCPair({ parent: text.getRGATreeSplit(), child: node });
       }
+      root.acc(liveDiff);
       return {
         opInfos: changes.map(({ from, to, value }) => {
           return {
@@ -157,10 +167,11 @@ export class EditOperation extends Operation {
     }
 
     if (this.restoreSpans && this.restoreMode === 'retombstone') {
-      const [pairs, changes] = text.retombstone(
+      const [pairs, changes, diff] = text.retombstone(
         this.restoreSpans,
         this.getExecutedAt(),
       );
+      root.acc(diff);
       for (const pair of pairs) {
         root.registerGCPair(pair);
       }
@@ -317,12 +328,16 @@ export class EditOperation extends Operation {
     remoteTo: number,
     contentLen: number,
   ): void {
-    if (this.restoreSpans) {
-      return; // identity-addressed; index reconciliation must not touch it
-    }
     if (!this.isUndoOp) {
       return;
     }
+    // NOTE: restoreSpans ops address content by identity (createdAt +
+    // offset), so `fromPos`/`toPos` are never used to locate the restored
+    // range itself. But `fromPos` is also passed as the fallback anchor for
+    // when every related piece has been GC'd (see findRestoreAnchor), so it
+    // still needs to track concurrent remote edits like any other undo
+    // position — only the identity payload (`restoreSpans`) must stay
+    // untouched, which the reconciliation below never reads.
     if (remoteFrom > remoteTo) {
       return;
     }
