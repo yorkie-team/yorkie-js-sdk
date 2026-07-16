@@ -1571,6 +1571,24 @@ describe.sequential('Document', function () {
     unsub();
   });
 
+  // `idOfNode` extracts the node id (createdAt:offset) of the piece whose
+  // value is `value` from RGATreeSplit.toTestString(). Live nodes render as
+  // `[<id> <value>]`, tombstoned nodes as `{<id> <value>}`. Identity-
+  // preserving restore must reuse the SAME id; a copy-based undo would mint
+  // a new id from the undo op's timestamp.
+  function idOfNode(
+    structure: string,
+    value: string,
+    removed: boolean,
+  ): string | undefined {
+    const open = removed ? '\\{' : '\\[';
+    const close = removed ? '\\}' : '\\]';
+    const m = structure.match(
+      new RegExp(`${open}([^ }\\]]+) ${value}${close}`),
+    );
+    return m ? m[1] : undefined;
+  }
+
   it('should undo/redo deletion via identity-preserving restore', function () {
     const doc = new Document<{ text: Text }>('test-doc');
 
@@ -1586,16 +1604,110 @@ describe.sequential('Document', function () {
     });
     assert.equal(doc.getRoot().text.toString(), '01236789');
 
-    // Undo revives the original nodes (un-tombstone), not new copies.
+    // Capture the tombstoned "45" node's identity before undo.
+    const deletedId = idOfNode(doc.getRoot().text.toTestString(), '45', true);
+    assert.isDefined(deletedId);
+
+    // Undo revives the ORIGINAL node (un-tombstone), not a new copy: the
+    // same id must now be live.
     doc.history.undo();
     assert.equal(doc.getRoot().text.toString(), '0123456789');
+    assert.include(
+      doc.getRoot().text.toTestString(),
+      `[${deletedId} 45]`,
+      'undo must revive the same node id, not insert a copy',
+    );
 
-    // Redo re-tombstones exactly those nodes.
+    // Redo re-tombstones exactly that node (same id).
     doc.history.redo();
     assert.equal(doc.getRoot().text.toString(), '01236789');
+    assert.include(doc.getRoot().text.toTestString(), `{${deletedId} 45}`);
 
     // Undo again — the restore/retombstone cycle must be stable.
     doc.history.undo();
     assert.equal(doc.getRoot().text.toString(), '0123456789');
+    assert.include(doc.getRoot().text.toTestString(), `[${deletedId} 45]`);
+  });
+
+  it('should recreate original node identities after GC on undo', function () {
+    const doc = new Document<{ text: Text }>('test-doc');
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, '0123456789');
+    });
+
+    // Two deletions that overlap the same original insertion node leave two
+    // tombstoned spans "12" and "45".
+    doc.update((root) => root.text.edit(4, 6, '')); // delete "45"
+    doc.update((root) => root.text.edit(1, 3, '')); // "01236789" -> "036789"
+    assert.equal(doc.getRoot().text.toString(), '036789');
+
+    const id45 = idOfNode(doc.getRoot().text.toTestString(), '45', true);
+    const id12 = idOfNode(doc.getRoot().text.toTestString(), '12', true);
+    assert.isDefined(id45);
+    assert.isDefined(id12);
+
+    // Garbage-collect: both tombstones are purged from the tree, so undo can
+    // no longer un-tombstone — it must RECREATE the nodes under their
+    // original ids via the gap-recreate path.
+    const purged = doc.garbageCollect(
+      maxVectorOf([doc.getChangeID().getActorID()]),
+    );
+    assert.equal(purged, 2);
+    assert.equal(doc.getGarbageLen(), 0);
+    assert.notInclude(doc.getRoot().text.toTestString(), `${id45} 45`);
+    assert.notInclude(doc.getRoot().text.toTestString(), `${id12} 12`);
+
+    // Undo restores "12" (reverse order), then "45" — both under their
+    // ORIGINAL identities, not fresh copies.
+    doc.history.undo();
+    assert.equal(doc.getRoot().text.toString(), '01236789');
+    assert.include(doc.getRoot().text.toTestString(), `[${id12} 12]`);
+
+    doc.history.undo();
+    assert.equal(doc.getRoot().text.toString(), '0123456789');
+    assert.include(doc.getRoot().text.toTestString(), `[${id12} 12]`);
+    assert.include(doc.getRoot().text.toTestString(), `[${id45} 45]`);
+  });
+
+  it('should emit opInfos for identity-preserving undo/redo', function () {
+    // Empty opInfos silently suppress remote propagation of the undo/redo
+    // change (Document.performRedoUndo skips localChanges.push when there is
+    // no applied op), so restore/retombstone must report the content change.
+    const doc = new Document<{ text: Text }>('test-doc');
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, '0123456789');
+    });
+    doc.update((root) => root.text.edit(4, 6, ''));
+
+    const ops: Array<{ from: number; to: number; content?: string }> = [];
+    const unsub = doc.subscribe((event) => {
+      if (event.type === DocEventType.LocalChange) {
+        for (const op of event.value.operations) {
+          const edit = op as OpInfo & {
+            from: number;
+            to: number;
+            value?: { content: string };
+          };
+          ops.push({
+            from: edit.from,
+            to: edit.to,
+            content: edit.value?.content,
+          });
+        }
+      }
+    });
+
+    // Undo (restore) reports an insertion of "45" at index 4.
+    doc.history.undo();
+    assert.deepEqual(ops, [{ from: 4, to: 4, content: '45' }]);
+
+    // Redo (retombstone) reports a deletion of [4, 6).
+    ops.length = 0;
+    doc.history.redo();
+    assert.deepEqual(ops, [{ from: 4, to: 6, content: '' }]);
+
+    unsub();
   });
 });
