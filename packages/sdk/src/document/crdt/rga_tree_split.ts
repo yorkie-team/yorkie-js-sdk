@@ -585,10 +585,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   private treeByIndex: SplayTree<T>;
   private treeByID: LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>>;
 
+  /**
+   * `pendingGCPairs` buffers GC pairs for nodes that were created
+   * already-tombstoned by splitting a removed node. Such pieces inherit
+   * `removedAt` without ever passing through `remove()`, so they would
+   * otherwise never be registered for GC. Callers that split nodes
+   * (`edit`, `CRDTText.setStyle`, `CRDTText.removeStyle`) drain this
+   * buffer into their returned GC pairs.
+   */
+  private pendingGCPairs: Array<GCPair>;
+
   constructor() {
     this.head = RGATreeSplitNode.create(InitialRGATreeSplitNodeID);
     this.treeByIndex = new SplayTree();
     this.treeByID = new LLRBTree(RGATreeSplitNode.createComparator());
+    this.pendingGCPairs = [];
 
     this.treeByIndex.insert(this.head);
     this.treeByID.put(this.head.getID(), this.head);
@@ -641,7 +652,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     // 02. delete between from and to
     const nodesToDelete = this.findBetween(fromRight, toRight);
-    const [changes, removedNodes] = this.deleteNodes(
+    const [changes, removedNodes, alreadyRemovedIDs] = this.deleteNodes(
       nodesToDelete,
       editedAt,
       versionVector,
@@ -681,8 +692,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const pairs: Array<GCPair> = [];
     const removedValues: Array<T> = [];
     const removedSpans: Array<RestoreSpan<T>> = []; // NEW
-    for (const [, removedNode] of removedNodes) {
-      pairs.push({ parent: this, child: removedNode });
+    for (const [id, removedNode] of removedNodes) {
+      // NOTE: Nodes that were already tombstoned keep their existing GC
+      // pair (the pair reads `removedAt` from the node at collection
+      // time); re-registering would toggle the pair off and leak the node.
+      if (!alreadyRemovedIDs.has(id)) {
+        pairs.push({ parent: this, child: removedNode });
+      }
       removedValues.push(removedNode.getValue());
       // NEW: capture split-invariant character identities. substring(0)
       // deep-copies the value so later splits of the tombstone cannot
@@ -694,6 +710,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         value: removedNode.getValue().substring(0) as T,
       });
     }
+
+    pairs.push(...this.drainPendingGCPairs());
 
     return [caretPos, pairs, diff, changes, removedValues, removedSpans];
   }
@@ -1334,16 +1352,42 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     addDataSizes(diff, node.getDataSize(), splitNode.getDataSize());
     subDataSize(diff, prvSize);
 
+    // NOTE: A piece split off an already-tombstoned node inherits
+    // `removedAt` without going through `remove()`, so no GC pair is
+    // created for it in the normal deletion path. Buffer one here so it
+    // can be purged; otherwise it stays in the list forever. The piece
+    // was never live, so the net-new size created by the split goes
+    // straight to docSize.gc when the pair is registered; report a zero
+    // diff to the caller (which accounts diffs to docSize.live).
+    if (splitNode.isRemoved()) {
+      this.pendingGCPairs.push({
+        parent: this,
+        child: splitNode,
+        gcOnlySize: diff,
+      });
+      return [splitNode, { data: 0, meta: 0 }];
+    }
+
     return [splitNode, diff];
+  }
+
+  /**
+   * `drainPendingGCPairs` returns the GC pairs buffered for born-tombstoned
+   * split pieces and clears the buffer.
+   */
+  public drainPendingGCPairs(): Array<GCPair> {
+    const pairs = this.pendingGCPairs;
+    this.pendingGCPairs = [];
+    return pairs;
   }
 
   private deleteNodes(
     candidates: Array<RGATreeSplitNode<T>>,
     editedAt: TimeTicket,
     vector?: VersionVector,
-  ): [Array<ValueChange<T>>, Map<string, RGATreeSplitNode<T>>] {
+  ): [Array<ValueChange<T>>, Map<string, RGATreeSplitNode<T>>, Set<string>] {
     if (!candidates.length) {
-      return [[], new Map()];
+      return [[], new Map(), new Set()];
     }
 
     const isLocal = vector === undefined || vector.size() === 0;
@@ -1388,17 +1432,25 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // 02. Create value changes with previous indexes before deletion.
     const changes = this.makeChanges(nodesToKeep, editedAt);
 
-    // 03. Mark tombstones for removal.
+    // 03. Mark tombstones for removal. Nodes that were already removed
+    // (concurrent LWW overwrite of an existing tombstone) are tracked
+    // separately: they already have a registered GC pair, and registering
+    // a second one would toggle-unregister the first.
     const removedNodes = new Map();
+    const alreadyRemovedIDs = new Set<string>();
     for (const node of nodesToRemove) {
-      removedNodes.set(node.getID().toIDString(), node);
+      const id = node.getID().toIDString();
+      if (node.isRemoved()) {
+        alreadyRemovedIDs.add(id);
+      }
+      removedNodes.set(id, node);
       node.remove(editedAt);
     }
 
     // 04. Clear the index tree of the given deletion boundaries.
     this.deleteIndexNodes(nodesToKeep);
 
-    return [changes, removedNodes];
+    return [changes, removedNodes, alreadyRemovedIDs];
   }
 
   /**

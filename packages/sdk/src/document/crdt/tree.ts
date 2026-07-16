@@ -674,6 +674,18 @@ export class CRDTTreeNode
       }
       this.insNextID = split.id;
       tree.registerNode(split);
+
+      // NOTE: A piece split off an already-tombstoned node inherits
+      // `removedAt` without going through `remove()`, so no GC pair is
+      // created for it in the normal deletion path. Register it here so
+      // it can be purged; otherwise it stays in the tree forever.
+      // The piece was never live, so its size goes straight to docSize.gc
+      // when the pair is registered; report a zero diff to the caller
+      // (which accounts diffs to docSize.live).
+      if (split.removedAt) {
+        tree.registerPendingGCPair(split, diff);
+        return [split, { data: 0, meta: 0 }];
+      }
     }
     return [split, diff];
   }
@@ -803,9 +815,16 @@ export class CRDTTreeNode
       return pairs;
     }
 
+    // NOTE: Only called when a root is built from a snapshot. Removed
+    // attribute nodes are skipped by `getDataSize`, so they were never
+    // counted into docSize.live — hence `gcOnlySize`.
     for (const node of this.attrs) {
       if (node.getRemovedAt()) {
-        pairs.push({ parent: this, child: node });
+        pairs.push({
+          parent: this,
+          child: node,
+          gcOnlySize: node.getDataSize(),
+        });
       }
     }
 
@@ -914,10 +933,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private indexTree: IndexTree<CRDTTreeNode>;
   private nodeMapByID: LLRBTree<CRDTTreeNodeID, CRDTTreeNode>;
 
+  /**
+   * `pendingGCPairs` buffers GC pairs for nodes that were created
+   * already-tombstoned by splitting a removed node. Such pieces inherit
+   * `removedAt` without ever passing through `remove()`, so they would
+   * otherwise never be registered for GC. `edit` and `style` drain this
+   * buffer into their returned GC pairs.
+   */
+  private pendingGCPairs: Array<GCPair>;
+
   constructor(root: CRDTTreeNode, createdAt: TimeTicket) {
     super(createdAt);
     this.indexTree = new IndexTree<CRDTTreeNode>(root);
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
+    this.pendingGCPairs = [];
 
     this.indexTree.traverseAll((node) => {
       this.nodeMapByID.put(node.id, node);
@@ -1070,6 +1099,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public registerNode(node: CRDTTreeNode): void {
     this.nodeMapByID.put(node.id, node);
+  }
+
+  /**
+   * `registerPendingGCPair` buffers a GC pair for a node that was born
+   * tombstoned (split off an already-removed node). The pair is picked up
+   * by the next `edit` or `style` call via `drainPendingGCPairs`. `size`
+   * is the net-new size created by the split; it is accounted to
+   * docSize.gc at registration since the node was never live.
+   */
+  public registerPendingGCPair(node: CRDTTreeNode, size: DataSize): void {
+    this.pendingGCPairs.push({ parent: this, child: node, gcOnlySize: size });
+  }
+
+  /**
+   * `drainPendingGCPairs` returns the buffered GC pairs and clears the
+   * buffer.
+   */
+  public drainPendingGCPairs(): Array<GCPair> {
+    const pairs = this.pendingGCPairs;
+    this.pendingGCPairs = [];
+    return pairs;
   }
 
   /**
@@ -1334,6 +1384,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       },
     );
 
+    pairs.push(...this.drainPendingGCPairs());
+
     return [pairs, changes, diff, prevAttributes, newAttrKeys];
   }
 
@@ -1467,6 +1519,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
       },
     );
+
+    pairs.push(...this.drainPendingGCPairs());
 
     return [pairs, changes, diff, prevAttributes];
   }
@@ -1827,6 +1881,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
 
+    pairs.push(...this.drainPendingGCPairs());
+
     return [
       changes,
       pairs,
@@ -1921,9 +1977,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
-    this.indexTree.traverse((node) => {
+    // NOTE: `traverse` only visits visible children, which never includes
+    // removed nodes. `traverseAll` is required to register tombstones
+    // (including pieces split off a tombstoned node) after snapshot load.
+    // These pairs carry `gcOnlySize` because `getDataSize` of the freshly
+    // built root only counted visible nodes into docSize.live.
+    this.indexTree.traverseAll((node) => {
       if (node.getRemovedAt()) {
-        pairs.push({ parent: this, child: node });
+        pairs.push({
+          parent: this,
+          child: node,
+          gcOnlySize: node.getDataSize(),
+        });
       }
 
       for (const p of node.getGCPairs()) {

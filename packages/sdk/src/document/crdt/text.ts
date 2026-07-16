@@ -442,6 +442,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
+    pairs.push(...this.rgaTreeSplit.drainPendingGCPairs());
+
     return [pairs, diff, changes, prevAttributes, attributesToRemove];
   }
 
@@ -534,6 +536,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         }
       }
     }
+
+    pairs.push(...this.rgaTreeSplit.drainPendingGCPairs());
 
     return [pairs, diff, changes, prevAttributes];
   }
@@ -720,14 +724,26 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * `getGCPairs` returns the pairs of GC.
    */
   public getGCPairs(): Array<GCPair> {
-    const pairs = [];
+    const pairs: Array<GCPair> = [];
+    // NOTE: Only called when a root is built from a snapshot, where
+    // docSize.live counted visible nodes only. Tombstoned nodes (and the
+    // attribute tombstones inside them) were never part of live, so their
+    // pairs carry `gcOnlySize`. Attribute tombstones of visible nodes ARE
+    // counted in live (getDataSize does not skip them), so their pairs use
+    // the normal live→gc accounting.
     for (const node of this.rgaTreeSplit) {
       if (node.getRemovedAt()) {
-        pairs.push({ parent: this.rgaTreeSplit, child: node });
+        pairs.push({
+          parent: this.rgaTreeSplit,
+          child: node,
+          gcOnlySize: node.getDataSize(),
+        });
       }
 
       for (const p of node.getValue().getGCPairs()) {
-        pairs.push(p);
+        pairs.push(
+          node.getRemovedAt() ? { ...p, gcOnlySize: p.child.getDataSize() } : p,
+        );
       }
     }
 

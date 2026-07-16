@@ -24,6 +24,17 @@ import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 export type GCPair = {
   parent: GCParent;
   child: GCChild;
+
+  /**
+   * `gcOnlySize` is set when the child's size was never counted in
+   * `docSize.live`: a piece born removed by splitting an already-tombstoned
+   * node, or a tombstone registered by the full scan when a root is built
+   * from a snapshot (live only counts visible nodes there). When present,
+   * `registerGCPair` adds this size to `docSize.gc` and leaves
+   * `docSize.live` untouched, instead of moving the child's size from live
+   * to gc.
+   */
+  gcOnlySize?: DataSize;
 };
 
 /**
