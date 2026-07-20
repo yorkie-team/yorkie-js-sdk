@@ -108,4 +108,49 @@ describe('Restore span converter', function () {
     assert.isUndefined(restored.getRestoreSpans());
     assert.equal(restored.getContent(), 'hi');
   });
+
+  it('decodes to a harmless no-op for peers that ignore restore fields', function () {
+    // Mixed-version interop contract: a restore/undo op carries its content
+    // only in restoreSpans; its base Edit fields are a zero-width,
+    // empty-content edit (from === to, content === ''). A peer or server
+    // without restore support drops the unknown restore fields and applies
+    // just the base edit — which inserts nothing and deletes nothing. So a
+    // restore op reaching an old node CANNOT duplicate or corrupt content
+    // (there is no inline content to re-insert); at worst the old node does
+    // not perform the restore and stays diverged until upgraded. This pins
+    // that wire contract so a future change can't quietly start emitting
+    // inline content on the restore path.
+    const op = EditOperation.create(
+      InitialTimeTicket,
+      pos,
+      pos,
+      '',
+      new Map(),
+      executedAt,
+      true,
+      [span(4, 6, '45')],
+      'restore',
+    );
+
+    const pbOp = converter.toOperation(op);
+    assert.equal(pbOp.body.case, 'edit');
+    const pbEdit = pbOp.body.value as { content: string };
+    assert.equal(
+      pbEdit.content,
+      '',
+      'restore ops carry no inline content for an old peer to re-insert',
+    );
+
+    const restored = converter.bytesToOperation(
+      converter.operationToBinary(op),
+    ) as EditOperation;
+    assert.isTrue(
+      restored.getFromPos().equals(restored.getToPos()),
+      'restore ops are zero-width, so an old peer deletes nothing either',
+    );
+    assert.equal(restored.getContent(), '');
+    // A new peer still receives the full identity payload.
+    assert.equal(restored.getRestoreMode(), 'restore');
+    assert.equal(restored.getRestoreSpans()!.length, 1);
+  });
 });
