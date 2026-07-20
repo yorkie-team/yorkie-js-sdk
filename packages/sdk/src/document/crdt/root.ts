@@ -276,6 +276,16 @@ export class CRDTRoot {
 
     this.gcPairMap.set(pair.child.toIDString(), pair);
 
+    if (pair.gcOnlySize) {
+      // NOTE: The child's size was never counted in docSize.live (it was
+      // born removed, or it was registered by the snapshot-load scan where
+      // live only counts visible nodes), so there is nothing to move out
+      // of live. Only the given size is added to gc; purge subtracts the
+      // child's size from gc as usual.
+      addDataSizes(this.docSize.gc, pair.gcOnlySize);
+      return;
+    }
+
     const size = this.gcPairMap
       .get(pair.child.toIDString())!
       .child.getDataSize();
