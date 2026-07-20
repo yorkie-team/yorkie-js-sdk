@@ -92,6 +92,34 @@ describe('Restore span converter', function () {
     assert.equal(restored.getRestoreSpans()!.length, 1);
   });
 
+  it('round-trips the companion retombstone_spans of a replace reverse', function () {
+    // The reverse of a replace revives the removed content (restoreSpans) and
+    // re-removes the inserted content (retombstoneSpans), both by identity.
+    // Both span sets must survive the wire or a peer/server diverges.
+    const op = EditOperation.create(
+      InitialTimeTicket,
+      pos,
+      pos,
+      '',
+      new Map(),
+      executedAt,
+      true,
+      [span(2, 4, 'CD')], // restore (revive the removed "CD")
+      'restore',
+      [span(0, 2, '12')], // retombstone (re-remove the inserted "12")
+    );
+
+    const restored = converter.bytesToOperation(
+      converter.operationToBinary(op),
+    ) as EditOperation;
+    assert.equal(restored.getRestoreMode(), 'restore');
+    assert.equal(restored.getRestoreSpans()!.length, 1);
+    assert.equal(restored.getRestoreSpans()![0].value.getContent(), 'CD');
+    assert.equal(restored.getRetombstoneSpans()!.length, 1);
+    assert.equal(restored.getRetombstoneSpans()![0].value.getContent(), '12');
+    assert.isTrue(restored.getRetombstoneSpans()![0].createdAt.equals(seed));
+  });
+
   it('leaves ordinary edits without a restore payload', function () {
     const op = EditOperation.create(
       InitialTimeTicket,
