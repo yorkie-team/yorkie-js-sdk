@@ -1809,6 +1809,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
         }
 
+        if (!parent.parent) {
+          break;
+        }
+
         parent.split(
           this,
           left !== parent ? parent.findOffset(left, true) + 1 : 0,
