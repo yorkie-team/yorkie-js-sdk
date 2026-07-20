@@ -262,13 +262,15 @@ export class EditOperation extends Operation {
     fromPos: RGATreeSplitPos,
     removedSpans: Array<RestoreSpan<CRDTTextValue>>,
   ): Operation {
-    if (removedSpans.length) {
-      // The edit removed content (pure deletion or replace). Reverse it by
-      // identity: revive the removed spans, and — for a replace — re-remove
-      // the content this edit inserted (`retombstoneSpans`) by identity too,
-      // rather than copy-reinserting the removed text as a fresh node. A
-      // fresh node would sort ahead of an as-yet-unrevived neighbour and
-      // corrupt order across chained undo/redo (e.g. delete-then-replace).
+    if (removedSpans.length || this.content?.length) {
+      // Reverse any edit by identity: revive what it removed (restoreSpans)
+      // and re-remove what it inserted (retombstoneSpans), both by original
+      // identity, rather than copy-reinserting or position-deleting. A fresh
+      // copy-reinserted node sorts ahead of an as-yet-unrevived neighbour and
+      // corrupts order across chained undo/redo; a position-based delete of
+      // the inserted range reconciles onto the wrong node under a concurrent
+      // remote edit (e.g. two clients concurrently insert and delete, then
+      // undo). Identity addressing avoids both.
       let insertedSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
       if (this.content?.length) {
         const value = CRDTTextValue.create(this.content);
@@ -289,7 +291,7 @@ export class EditOperation extends Operation {
         new Map(),
         undefined,
         true,
-        removedSpans,
+        removedSpans.length ? removedSpans : undefined,
         'restore',
         insertedSpans,
       );
