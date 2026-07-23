@@ -7,6 +7,17 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.13] - 2026-07-23
+
+### Added
+
+- Identity-preserving restore for Text undo/redo by @harrykim8672 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1293
+
+### Fixed
+
+- Register GC pairs for pieces split off tombstoned nodes by @harrykim8672 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1292
+- Prevent panic when splitLevel walks past the tree root by @ggyuchive in https://github.com/yorkie-team/yorkie-js-sdk/pull/1289
+
 ## [v0.7.12] - 2026-06-18
 
 ### Added
