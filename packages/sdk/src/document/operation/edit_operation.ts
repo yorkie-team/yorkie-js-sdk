@@ -17,7 +17,10 @@
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
-import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import {
+  RGATreeSplitPos,
+  RestoreSpan,
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
   Operation,
@@ -27,6 +30,13 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { addDataSizes, DataSize } from '@yorkie-js/sdk/src/util/resource';
+
+/**
+ * `RestoreMode` selects the identity-preserving path for undo/redo of
+ * pure deletions: 'restore' revives spans, 'retombstone' re-deletes them.
+ */
+export type RestoreMode = 'restore' | 'retombstone';
 
 /**
  * `EditOperation` is an operation representing editing Text. Most of the same as
@@ -39,6 +49,19 @@ export class EditOperation extends Operation {
   private attributes: Map<string, string>;
   private isUndoOp: boolean | undefined;
 
+  private restoreSpans?: Array<RestoreSpan<CRDTTextValue>>;
+  private restoreMode?: RestoreMode;
+  // `retombstoneSpans` is the companion span set for an identity-preserving
+  // reverse op. `restoreSpans` describes content the reversed edit removed;
+  // `retombstoneSpans` describes content the reversed edit inserted (non-empty
+  // only for the reverse of a replace). `restoreMode` picks the direction:
+  // 'restore' revives restoreSpans and re-removes retombstoneSpans; a
+  // 'retombstone' op (the redo) does the opposite. Reversing an edit that both
+  // inserts and deletes as two identity operations — rather than
+  // copy-reinserting the deleted text as a fresh node — keeps a later revived
+  // neighbour in its original relative order.
+  private retombstoneSpans?: Array<RestoreSpan<CRDTTextValue>>;
+
   constructor(
     parentCreatedAt: TimeTicket,
     fromPos: RGATreeSplitPos,
@@ -47,6 +70,9 @@ export class EditOperation extends Operation {
     attributes: Map<string, string>,
     executedAt?: TimeTicket,
     isUndoOp?: boolean,
+    restoreSpans?: Array<RestoreSpan<CRDTTextValue>>,
+    restoreMode?: RestoreMode,
+    retombstoneSpans?: Array<RestoreSpan<CRDTTextValue>>,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -54,6 +80,9 @@ export class EditOperation extends Operation {
     this.content = content;
     this.attributes = attributes;
     this.isUndoOp = isUndoOp;
+    this.restoreSpans = restoreSpans;
+    this.restoreMode = restoreMode;
+    this.retombstoneSpans = retombstoneSpans;
   }
 
   /**
@@ -67,6 +96,9 @@ export class EditOperation extends Operation {
     attributes: Map<string, string>,
     executedAt?: TimeTicket,
     isUndoOp?: boolean,
+    restoreSpans?: Array<RestoreSpan<CRDTTextValue>>,
+    restoreMode?: RestoreMode,
+    retombstoneSpans?: Array<RestoreSpan<CRDTTextValue>>,
   ): EditOperation {
     return new EditOperation(
       parentCreatedAt,
@@ -76,6 +108,9 @@ export class EditOperation extends Operation {
       attributes,
       executedAt,
       isUndoOp,
+      restoreSpans,
+      restoreMode,
+      retombstoneSpans,
     );
   }
 
@@ -103,12 +138,93 @@ export class EditOperation extends Operation {
 
     const text = parentObject as CRDTText<A>;
 
+    if (this.restoreSpans || this.retombstoneSpans) {
+      // Identity-preserving reverse op. `restoreMode` picks the direction:
+      // an undo ('restore') revives `restoreSpans` and re-removes
+      // `retombstoneSpans`; the redo ('retombstone') does the opposite. Both
+      // sets are revived/removed by their original identity, never re-inserted
+      // as fresh nodes, so relative order is preserved across chained undo.
+      const isRetombstone = this.restoreMode === 'retombstone';
+      const toRestore =
+        (isRetombstone ? this.retombstoneSpans : this.restoreSpans) ?? [];
+      const toRetombstone =
+        (isRetombstone ? this.restoreSpans : this.retombstoneSpans) ?? [];
+
+      const opInfos: Array<OpInfo> = [];
+      const totalDiff: DataSize = { data: 0, meta: 0 };
+      const toOpInfo = (c: { from: number; to: number; value?: unknown }) =>
+        ({
+          type: 'edit',
+          from: c.from,
+          to: c.to,
+          value: c.value,
+          path: root.createPath(this.getParentCreatedAt()),
+        }) as OpInfo;
+
+      // 1. Remove the content the reversed edit inserted (by identity).
+      if (toRetombstone.length) {
+        const [pairs, changes, diff] = text.retombstone(
+          toRetombstone,
+          this.getExecutedAt(),
+        );
+        addDataSizes(totalDiff, diff);
+        for (const pair of pairs) {
+          root.registerGCPair(pair);
+        }
+        for (const c of changes) {
+          opInfos.push(toOpInfo(c));
+        }
+      }
+
+      // 2. Revive the content the reversed edit removed (by identity).
+      if (toRestore.length) {
+        const [untombstoned, , changes, liveDiff, pendingGCPairs] =
+          text.restore(toRestore, this.getExecutedAt(), this.fromPos);
+        // Register first: a `pendingGCPairs` entry whose child ended up in
+        // `untombstoned` was never registered under its own id (it was born
+        // by splitting a larger tombstone), so the unregister loop below can
+        // only walk its size from gc back to live if it's registered here
+        // first.
+        for (const pair of pendingGCPairs) {
+          root.registerGCPair(pair);
+        }
+        for (const node of untombstoned) {
+          root.unregisterGCPair({
+            parent: text.getRGATreeSplit(),
+            child: node,
+          });
+        }
+        addDataSizes(totalDiff, liveDiff);
+        for (const c of changes) {
+          opInfos.push(toOpInfo(c));
+        }
+      }
+
+      root.acc(totalDiff);
+      return {
+        opInfos,
+        // Reverse keeps the same span sets and flips the direction.
+        reverseOp: EditOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          '',
+          new Map(),
+          undefined,
+          true,
+          this.restoreSpans,
+          isRetombstone ? 'restore' : 'retombstone',
+          this.retombstoneSpans,
+        ),
+      };
+    }
+
     if (this.isUndoOp) {
       this.fromPos = text.refinePos(this.fromPos);
       this.toPos = text.refinePos(this.toPos);
     }
 
-    const [changes, pairs, diff, , removedValues] = text.edit(
+    const [changes, pairs, diff, , removedValues, removedSpans] = text.edit(
       [this.fromPos, this.toPos],
       this.content,
       this.getExecutedAt(),
@@ -119,6 +235,7 @@ export class EditOperation extends Operation {
     const reverseOp = this.toReverseOperation(
       removedValues,
       text.normalizePos(this.fromPos),
+      removedSpans,
     );
     root.acc(diff);
 
@@ -143,7 +260,43 @@ export class EditOperation extends Operation {
   private toReverseOperation(
     removedValues: Array<CRDTTextValue>,
     fromPos: RGATreeSplitPos,
+    removedSpans: Array<RestoreSpan<CRDTTextValue>>,
   ): Operation {
+    if (removedSpans.length || this.content?.length) {
+      // Reverse any edit by identity: revive what it removed (restoreSpans)
+      // and re-remove what it inserted (retombstoneSpans), both by original
+      // identity, rather than copy-reinserting or position-deleting. A fresh
+      // copy-reinserted node sorts ahead of an as-yet-unrevived neighbour and
+      // corrupts order across chained undo/redo; a position-based delete of
+      // the inserted range reconciles onto the wrong node under a concurrent
+      // remote edit (e.g. two clients concurrently insert and delete, then
+      // undo). Identity addressing avoids both.
+      let insertedSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
+      if (this.content?.length) {
+        const value = CRDTTextValue.create(this.content);
+        insertedSpans = [
+          {
+            createdAt: this.getExecutedAt(),
+            start: 0,
+            end: value.length,
+            value,
+          },
+        ];
+      }
+      return EditOperation.create(
+        this.getParentCreatedAt(),
+        fromPos,
+        fromPos,
+        '',
+        new Map(),
+        undefined,
+        true,
+        removedSpans.length ? removedSpans : undefined,
+        'restore',
+        insertedSpans,
+      );
+    }
+
     const content = removedValues?.length
       ? removedValues.map((v) => v.getContent()).join('')
       : '';
@@ -218,6 +371,13 @@ export class EditOperation extends Operation {
     if (!this.isUndoOp) {
       return;
     }
+    // NOTE: restoreSpans ops address content by identity (createdAt +
+    // offset), so `fromPos`/`toPos` are never used to locate the restored
+    // range itself. But `fromPos` is also passed as the fallback anchor for
+    // when every related piece has been GC'd (see findRestoreAnchor), so it
+    // still needs to track concurrent remote edits like any other undo
+    // position — only the identity payload (`restoreSpans`) must stay
+    // untouched, which the reconciliation below never reads.
     if (remoteFrom > remoteTo) {
       return;
     }
@@ -333,5 +493,28 @@ export class EditOperation extends Operation {
    */
   public getAttributes(): Map<string, string> {
     return this.attributes || new Map();
+  }
+
+  /**
+   * `getRestoreSpans` returns the identity-preserving restore payload, if
+   * this is a restore/retombstone operation.
+   */
+  public getRestoreSpans(): Array<RestoreSpan<CRDTTextValue>> | undefined {
+    return this.restoreSpans;
+  }
+
+  /**
+   * `getRestoreMode` returns the identity-preserving mode of this Edit.
+   */
+  public getRestoreMode(): RestoreMode | undefined {
+    return this.restoreMode;
+  }
+
+  /**
+   * `getRetombstoneSpans` returns the companion span set (content the reversed
+   * edit inserted) for an identity-preserving reverse op, if any.
+   */
+  public getRetombstoneSpans(): Array<RestoreSpan<CRDTTextValue>> | undefined {
+    return this.retombstoneSpans;
   }
 }

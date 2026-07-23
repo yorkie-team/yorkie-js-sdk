@@ -28,6 +28,7 @@ import {
   RGATreeSplitNodeID,
   RGATreeSplitPos,
   RGATreeSplitPosRange,
+  RestoreSpan,
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
@@ -246,6 +247,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     DataSize,
     RGATreeSplitPosRange,
     Array<CRDTTextValue>,
+    Array<RestoreSpan<CRDTTextValue>>,
   ] {
     const crdtTextValue = content ? CRDTTextValue.create(content) : undefined;
     if (crdtTextValue && attributes) {
@@ -254,7 +256,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
     }
 
-    const [caretPos, pairs, diff, valueChanges, removedValues] =
+    const [caretPos, pairs, diff, valueChanges, removedValues, removedSpans] =
       this.rgaTreeSplit.edit(range, editedAt, crdtTextValue, versionVector);
 
     const changes: Array<TextChange<A>> = valueChanges.map((change) => ({
@@ -271,7 +273,76 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       type: TextChangeType.Content,
     }));
 
-    return [changes, pairs, diff, [caretPos, caretPos], removedValues];
+    return [
+      changes,
+      pairs,
+      diff,
+      [caretPos, caretPos],
+      removedValues,
+      removedSpans,
+    ];
+  }
+
+  /**
+   * `restore` re-establishes removed characters under their original
+   * identities (identity-preserving undo of a deletion).
+   */
+  public restore(
+    spans: Array<RestoreSpan<CRDTTextValue>>,
+    executedAt: TimeTicket,
+    fallbackAnchor?: RGATreeSplitPos,
+  ): [
+    Array<RGATreeSplitNode<CRDTTextValue>>,
+    Array<RGATreeSplitNode<CRDTTextValue>>,
+    Array<TextChange<A>>,
+    DataSize,
+    Array<GCPair>,
+  ] {
+    const [untombstoned, recreated, valueChanges, liveDiff, pendingGCPairs] =
+      this.rgaTreeSplit.restore(spans, executedAt, fallbackAnchor);
+    return [
+      untombstoned,
+      recreated,
+      this.toTextChanges(valueChanges),
+      liveDiff,
+      pendingGCPairs,
+    ];
+  }
+
+  /**
+   * `retombstone` re-deletes previously restored characters (redo).
+   */
+  public retombstone(
+    spans: Array<RestoreSpan<CRDTTextValue>>,
+    executedAt: TimeTicket,
+  ): [Array<GCPair>, Array<TextChange<A>>, DataSize] {
+    const [pairs, valueChanges, diff] = this.rgaTreeSplit.retombstone(
+      spans,
+      executedAt,
+    );
+    return [pairs, this.toTextChanges(valueChanges), diff];
+  }
+
+  /**
+   * `toTextChanges` wraps raw RGATreeSplit value changes into `TextChange`s,
+   * mirroring the mapping used by `edit`.
+   */
+  private toTextChanges(
+    valueChanges: Array<ValueChange<CRDTTextValue>>,
+  ): Array<TextChange<A>> {
+    return valueChanges.map((change) => ({
+      ...change,
+      value: change.value
+        ? {
+            attributes: parseObjectValues<A>(change.value.getAttributes()),
+            content: change.value.getContent(),
+          }
+        : {
+            attributes: undefined,
+            content: '',
+          },
+      type: TextChangeType.Content,
+    }));
   }
 
   /**

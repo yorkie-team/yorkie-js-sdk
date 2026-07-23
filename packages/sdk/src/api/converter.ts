@@ -54,6 +54,7 @@ import {
   RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
+  RestoreSpan,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
@@ -129,6 +130,9 @@ import {
   Operation_TreeEditSchema as PbOperation_TreeEditSchema,
   Operation_TreeStyleSchema as PbOperation_TreeStyleSchema,
   Operation_ArraySetSchema as PbOperation_ArraySetSchema,
+  RestoreSpanSchema as PbRestoreSpanSchema,
+  RestoreSpan as PbRestoreSpan,
+  RestoreMode as PbRestoreMode,
   RevisionSummary as PbRevisionSummary,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
@@ -439,6 +443,31 @@ function toOperation(operation: Operation): PbOperation {
       pbAttributes[key] = value;
     }
     pbEditOperation.executedAt = toTimeTicket(editOperation.getExecutedAt());
+    const toPbSpan = (span: RestoreSpan<CRDTTextValue>) => {
+      const pbSpan = create(PbRestoreSpanSchema);
+      pbSpan.createdAt = toTimeTicket(span.createdAt);
+      pbSpan.start = span.start;
+      pbSpan.end = span.end;
+      pbSpan.content = span.value.getContent();
+      const pbSpanAttrs = pbSpan.attributes;
+      for (const [key, value] of Object.entries(span.value.getAttributes())) {
+        pbSpanAttrs[key] = value;
+      }
+      return pbSpan;
+    };
+    const restoreSpans = editOperation.getRestoreSpans();
+    const retombstoneSpans = editOperation.getRetombstoneSpans();
+    if (
+      (restoreSpans && restoreSpans.length) ||
+      (retombstoneSpans && retombstoneSpans.length)
+    ) {
+      pbEditOperation.restoreSpans = (restoreSpans ?? []).map(toPbSpan);
+      pbEditOperation.retombstoneSpans = (retombstoneSpans ?? []).map(toPbSpan);
+      pbEditOperation.restoreMode =
+        editOperation.getRestoreMode() === 'retombstone'
+          ? PbRestoreMode.RETOMBSTONE
+          : PbRestoreMode.RESTORE;
+    }
     pbOperation.body.case = 'edit';
     pbOperation.body.value = pbEditOperation;
   } else if (operation instanceof StyleOperation) {
@@ -1326,13 +1355,46 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     Object.entries(pbEditOperation!.attributes).forEach(([key, value]) => {
       attributes.set(key, value);
     });
+    const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
+
+    const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
+      const value = CRDTTextValue.create(pbSpan.content);
+      for (const [key, attr] of Object.entries(pbSpan.attributes)) {
+        value.setAttr(key, attr, executedAt);
+      }
+      return {
+        createdAt: fromTimeTicket(pbSpan.createdAt)!,
+        start: pbSpan.start,
+        end: pbSpan.end,
+        value,
+      };
+    };
+    let restoreSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
+    let retombstoneSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
+    let restoreMode: 'restore' | 'retombstone' | undefined;
+    if (
+      pbEditOperation!.restoreSpans.length ||
+      pbEditOperation!.retombstoneSpans.length
+    ) {
+      restoreSpans = pbEditOperation!.restoreSpans.map(fromPbSpan);
+      retombstoneSpans = pbEditOperation!.retombstoneSpans.map(fromPbSpan);
+      restoreMode =
+        pbEditOperation!.restoreMode === PbRestoreMode.RETOMBSTONE
+          ? 'retombstone'
+          : 'restore';
+    }
+
     return EditOperation.create(
       fromTimeTicket(pbEditOperation!.parentCreatedAt)!,
       fromTextNodePos(pbEditOperation!.from!),
       fromTextNodePos(pbEditOperation!.to!),
       pbEditOperation!.content,
       attributes,
-      fromTimeTicket(pbEditOperation!.executedAt)!,
+      executedAt,
+      restoreMode ? true : undefined,
+      restoreSpans,
+      restoreMode,
+      retombstoneSpans,
     );
   } else if (pbOperation.body.case === 'style') {
     const pbStyleOperation = pbOperation.body.value;

@@ -302,6 +302,33 @@ export class CRDTRoot {
   }
 
   /**
+   * `unregisterGCPair` removes the given pair from the hash table. Called
+   * when a tombstoned node is revived (un-tombstoned) by an
+   * identity-preserving undo, so that a later re-registration (redo) is
+   * not swallowed by the toggle in `registerGCPair`.
+   *
+   * NOTE: must be called AFTER the node's removedAt has been cleared, so
+   * `getDataSize()` no longer includes the tombstone ticket.
+   */
+  public unregisterGCPair(pair: GCPair): void {
+    const registered = this.gcPairMap.get(pair.child.toIDString());
+    if (!registered) {
+      return;
+    }
+
+    this.gcPairMap.delete(pair.child.toIDString());
+
+    // Mirror registerGCPair's accounting: move the node's size back from
+    // gc to live, and drop the tombstone ticket counted at register time.
+    const size = pair.child.getDataSize();
+    subDataSize(this.docSize.gc, size);
+    addDataSizes(this.docSize.live, size);
+    if (!(pair.child instanceof RHTNode)) {
+      this.docSize.gc.meta -= TimeTicketSize;
+    }
+  }
+
+  /**
    * `getElementMapSize` returns the size of element map.
    */
   public getElementMapSize(): number {
@@ -373,6 +400,14 @@ export class CRDTRoot {
 
     for (const [, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
+      if (!removedAt) {
+        // Node was revived but its pair was not unregistered. Reverse the
+        // GC accounting (gc → live) and drop the stale entry via
+        // unregisterGCPair so the registerGCPair toggle can't be tripped
+        // later and docSize.gc/live stay consistent.
+        this.unregisterGCPair(pair);
+        continue;
+      }
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
         pair.parent.purge(pair.child);
 
