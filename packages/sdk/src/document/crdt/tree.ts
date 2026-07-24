@@ -426,6 +426,30 @@ type TreeNodePair = [CRDTTreeNode, CRDTTreeNode];
 export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
 
 /**
+ * `TreeRestoreSpan` identifies a node this edit transitioned
+ * visible → tombstoned, for identity-preserving Tree undo/redo. For text
+ * nodes the span is the absolute-offset interval [id.offset, id.offset +
+ * length) of the original insertion (split-invariant); for element nodes it
+ * is the whole node. `value`/`attrs` are deep-copied so a GC-purged node can
+ * be recreated. `leftSiblingID`/`rightSiblingID` are the deleted run's
+ * external boundary anchors captured at tombstone time — redundant on
+ * purpose: since a run's spans are carried together, restore can rebuild the
+ * run's internal order from the op itself and needs only ONE surviving
+ * boundary to place it (id-order is not sibling-order in a tree).
+ */
+export type TreeRestoreSpan = {
+  id: CRDTTreeNodeID;
+  nodeType: string;
+  isText: boolean;
+  length: number; // text length; 0 for elements
+  value?: string; // text content copy
+  attrs?: RHT; // element attribute snapshot
+  parentID?: CRDTTreeNodeID;
+  leftSiblingID?: CRDTTreeNodeID; // undefined → was first child
+  rightSiblingID?: CRDTTreeNodeID; // undefined → was last child
+};
+
+/**
  * `CRDTTreeNode` is a node of CRDTTree. It includes the logical clock and
  * links to other nodes to resolve conflicts.
  */
@@ -600,6 +624,19 @@ export class CRDTTreeNode
       this.removedAt = removedAt;
     }
     return false;
+  }
+
+  /**
+   * `unremove` clears the tombstone of this node (identity-preserving
+   * restore). Mirrors `remove()`'s ancestor-size bookkeeping so the node
+   * becomes visible again in place.
+   */
+  unremove(): void {
+    if (!this.removedAt) {
+      return;
+    }
+    this.removedAt = undefined;
+    this.updateAncestorsSize(this.paddedSize());
   }
 
   /**
@@ -1544,6 +1581,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     number,
     Set<string>,
+    Array<TreeRestoreSpan>,
+    Array<TreeRestoreSpan>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -1704,14 +1743,55 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // The undo system uses this count to generate a split reverse op
     // instead of re-inserting empty shells.
     const mergeLevel = toBeMergedNodes.length;
+    // Track how many GC pairs exist right after the plain-delete loop; if the
+    // merge phases (steps 03/03-1) add more, this edit involved merge-child
+    // propagation and its captured spans are NOT a complete description of the
+    // deletion — the op layer then falls back to the copy-reinsert reverse.
+    let deletePairCount = 0;
 
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
+    const removedSpans: Array<TreeRestoreSpan> = [];
+    // Captured in the insert phase: identity spans of the nodes this edit
+    // inserts, so an undo re-removes them by identity (not by index, which
+    // would clobber concurrently-restored content) and a redo revives them.
+    const insertedSpans: Array<TreeRestoreSpan> = [];
     for (const node of nodesToBeRemoved) {
       if (node.remove(editedAt)) {
         pairs.push({ parent: this, child: node });
+        // Identity-preserving undo: capture one span per node THIS edit
+        // transitioned visible → tombstoned. `remove()` returning true is
+        // exactly that transition, so pre-tombstoned nodes and LWW overwrites
+        // are excluded automatically. `nodesToBeRemoved` is in traversal
+        // order → parents precede children, which `restore()` relies on when
+        // recreating purged subtrees.
+        const parent = node.parent as CRDTTreeNode | undefined;
+        let leftSiblingID: CRDTTreeNodeID | undefined;
+        let rightSiblingID: CRDTTreeNodeID | undefined;
+        if (parent) {
+          const siblings = parent.allChildren;
+          const idx = siblings.indexOf(node);
+          if (idx > 0) {
+            leftSiblingID = this.leftAnchorID(siblings[idx - 1]);
+          }
+          if (idx >= 0 && idx < siblings.length - 1) {
+            rightSiblingID = siblings[idx + 1].id;
+          }
+        }
+        removedSpans.push({
+          id: node.id,
+          nodeType: node.type,
+          isText: node.isText,
+          length: node.isText ? node.value.length : 0,
+          value: node.isText ? node.value : undefined,
+          attrs: node.attrs?.deepcopy(),
+          parentID: parent?.id,
+          leftSiblingID,
+          rightSiblingID,
+        });
       }
     }
+    deletePairCount = pairs.length;
 
     // 03. Merge: move the nodes that are marked as moved. Only
     // `mergedFrom` and `mergedAt` are written on the moved child —
@@ -1861,6 +1941,31 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
 
           this.nodeMapByID.put(node.id, node);
+
+          // Capture this inserted node's identity span (parent-before-child
+          // via traverseAll) for identity-preserving insert undo/redo.
+          const p = node.parent as CRDTTreeNode | undefined;
+          let leftSiblingID: CRDTTreeNodeID | undefined;
+          let rightSiblingID: CRDTTreeNodeID | undefined;
+          if (p) {
+            const sibs = p.allChildren;
+            const idx = sibs.indexOf(node);
+            if (idx > 0) leftSiblingID = this.leftAnchorID(sibs[idx - 1]);
+            if (idx >= 0 && idx < sibs.length - 1) {
+              rightSiblingID = sibs[idx + 1].id;
+            }
+          }
+          insertedSpans.push({
+            id: node.id,
+            nodeType: node.type,
+            isText: node.isText,
+            length: node.isText ? node.value.length : 0,
+            value: node.isText ? node.value : undefined,
+            attrs: node.attrs?.deepcopy(),
+            parentID: p?.id,
+            leftSiblingID,
+            rightSiblingID,
+          });
         });
 
         if (!content.isRemoved) {
@@ -1887,6 +1992,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     pairs.push(...this.drainPendingGCPairs());
 
+    // Identity-preserving restore only covers plain deletions. If this edit
+    // merged nodes or its merge propagation removed extra nodes, the captured
+    // spans don't fully describe the deletion → signal the op layer (empty
+    // spans) to keep the copy-reinsert reverse.
+    const spansComplete = mergeLevel === 0 && pairs.length === deletePairCount;
+
     return [
       changes,
       pairs,
@@ -1895,6 +2006,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
       fromIdx,
       mergeLevel,
       preTombstoned,
+      spansComplete ? removedSpans : [],
+      // `traverseAll` is post-order (children before parent), so reverse to get
+      // parent-before-child — the order `restore()` needs to recreate a purged
+      // subtree top-down (a child's recreate resolves its parent by identity).
+      spansComplete ? insertedSpans.reverse() : [],
     ];
   }
 
@@ -1916,6 +2032,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     number,
     Set<string>,
+    Array<TreeRestoreSpan>,
+    Array<TreeRestoreSpan>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
@@ -1962,18 +2080,299 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const insPrevID = node.insPrevID;
     const insNextID = node.insNextID;
 
+    // NOTE: findFloorNode may return undefined when the insertion neighbor was
+    // already purged (restore/recreate reorders GC so a neighbor can be
+    // collected first). Guard both derefs rather than assuming survival.
     if (insPrevID) {
-      const insPrev = this.findFloorNode(insPrevID)!;
-      insPrev.insNextID = insNextID;
+      const insPrev = this.findFloorNode(insPrevID);
+      if (insPrev) {
+        insPrev.insNextID = insNextID;
+      }
     }
 
     if (insNextID) {
-      const insNext = this.findFloorNode(insNextID)!;
-      insNext.insPrevID = insPrevID;
+      const insNext = this.findFloorNode(insNextID);
+      if (insNext) {
+        insNext.insPrevID = insPrevID;
+      }
     }
 
     node.insPrevID = undefined;
     node.insNextID = undefined;
+  }
+
+  /**
+   * `restore` re-establishes the nodes described by `spans` under their
+   * ORIGINAL identities (identity-preserving Tree undo): live → skip
+   * (idempotent), tombstoned → unremove in place, purged → recreate. Spans
+   * must be in parent-before-child order (`edit()` captures them that way).
+   * Returns `[untombstoned, recreated]`; the caller unregisters GC pairs for
+   * the un-tombstoned nodes.
+   */
+  public restore(
+    spans: Array<TreeRestoreSpan>,
+  ): [Array<CRDTTreeNode>, Array<CRDTTreeNode>] {
+    const untombstoned: Array<CRDTTreeNode> = [];
+    const recreated: Array<CRDTTreeNode> = [];
+
+    for (const span of spans) {
+      if (!span.isText) {
+        const node = this.findFloorNode(span.id);
+        if (node && node.id.equals(span.id)) {
+          if (node.isRemoved) {
+            node.unremove();
+            untombstoned.push(node);
+          }
+          continue;
+        }
+        const created = this.recreateFromSpan(
+          span,
+          span.id.getOffset(),
+          span.length,
+        );
+        if (created) {
+          recreated.push(created);
+        }
+        continue;
+      }
+
+      // Text: surviving pieces may be split finer than the span.
+      const start = span.id.getOffset();
+      const end = start + span.length;
+      const pieces = this.findPiecesOverlapping(
+        span.id.getCreatedAt(),
+        start,
+        end,
+      );
+
+      let cursor = start;
+      let pieceIdx = 0;
+      while (cursor < end) {
+        const piece = pieces[pieceIdx];
+        const pieceStart = piece ? piece.id.getOffset() : Infinity;
+        const pieceEnd = piece ? pieceStart + piece.value.length : Infinity;
+
+        if (piece && pieceStart <= cursor) {
+          if (pieceEnd > end) {
+            // Piece wider than the span. Under causal delivery the forward
+            // delete split at span boundaries on every replica before its
+            // undo could arrive, so this is not expected; skip conservatively
+            // rather than un-tombstone beyond the span.
+            break;
+          }
+          if (piece.isRemoved) {
+            piece.unremove();
+            untombstoned.push(piece);
+          }
+          cursor = Math.min(pieceEnd, end);
+          if (cursor >= pieceEnd) pieceIdx++;
+        } else {
+          const gapEnd = Math.min(pieceStart, end);
+          const created = this.recreateFromSpan(span, cursor, gapEnd - cursor);
+          if (created) {
+            recreated.push(created);
+          }
+          cursor = gapEnd;
+        }
+      }
+    }
+    return [untombstoned, recreated];
+  }
+
+  /**
+   * `retombstone` re-deletes the nodes described by `spans` (redo of an
+   * identity-preserving undo). Live pieces only; idempotent. Returns GC pairs
+   * for the newly tombstoned nodes.
+   */
+  public retombstone(
+    spans: Array<TreeRestoreSpan>,
+    executedAt: TimeTicket,
+  ): Array<GCPair> {
+    const pairs: Array<GCPair> = [];
+    for (const span of spans) {
+      const start = span.id.getOffset();
+      const end = start + Math.max(span.length, 1);
+      const pieces = span.isText
+        ? this.findPiecesOverlapping(span.id.getCreatedAt(), start, end)
+        : [this.findFloorNode(span.id)].filter(
+            (n): n is CRDTTreeNode => !!n && n.id.equals(span.id),
+          );
+      for (const piece of pieces) {
+        if (piece.isRemoved) continue;
+        if (
+          piece.isText &&
+          piece.id.getOffset() + piece.value.length > start + span.length
+        ) {
+          // Piece wider than the span; skip (see restore()).
+          continue;
+        }
+        if (piece.remove(executedAt)) {
+          pairs.push({ parent: this, child: piece });
+        }
+      }
+    }
+    return pairs;
+  }
+
+  /**
+   * `findPiecesOverlapping` collects surviving pieces (live or tombstoned) of
+   * the text insertion `createdAt` overlapping [start, end), in ascending
+   * offset order, via descending floorEntry probes.
+   */
+  private findPiecesOverlapping(
+    createdAt: TimeTicket,
+    start: number,
+    end: number,
+  ): Array<CRDTTreeNode> {
+    const pieces: Array<CRDTTreeNode> = [];
+    let probe = end - 1;
+    while (probe >= 0) {
+      const node = this.findFloorNode(CRDTTreeNodeID.of(createdAt, probe));
+      if (!node || !node.isText) break;
+      const nodeStart = node.id.getOffset();
+      const nodeEnd = nodeStart + node.value.length;
+      if (nodeEnd <= start) break;
+      if (nodeStart < end && nodeEnd > start) pieces.push(node);
+      if (nodeStart <= start) break;
+      probe = nodeStart - 1;
+    }
+    return pieces.reverse();
+  }
+
+  /**
+   * `recreateFromSpan` rebuilds a purged node (or purged text sub-range)
+   * under its original identity and attaches it. Anchor ladder, each rung
+   * doing floor-lookup + parent-identity check:
+   *   (a) same-insertion successor/predecessor piece (text) → exact slot;
+   *   (b) captured left boundary sibling still under this parent → after it;
+   *   (c) captured right boundary sibling still under this parent → before it;
+   *   (d) deterministic id-order fallback: insert among the parent's current
+   *       children at the first position whose id compares greater than the
+   *       node's id (pure function of ids → identical on every replica).
+   * Parent genuinely absent → skip (B1): the node stays unplaced/invisible;
+   * convergent, because every replica resolves parent-absent identically.
+   */
+  private recreateFromSpan(
+    span: TreeRestoreSpan,
+    offset: number,
+    length: number,
+  ): CRDTTreeNode | undefined {
+    const parent = span.parentID
+      ? this.findFloorNode(span.parentID)
+      : undefined;
+    if (!parent || (span.parentID && !parent.id.equals(span.parentID))) {
+      // B1: parent gone (purged, and not part of this undo's spans). Leave
+      // the node unplaced; a later parent-restore will bring it back.
+      return;
+    }
+
+    const node = span.isText
+      ? new CRDTTreeNode(
+          CRDTTreeNodeID.of(span.id.getCreatedAt(), offset),
+          span.nodeType,
+          span.value!.substring(
+            offset - span.id.getOffset(),
+            offset - span.id.getOffset() + length,
+          ),
+        )
+      : new CRDTTreeNode(
+          span.id,
+          span.nodeType,
+          undefined,
+          span.attrs?.deepcopy(),
+        );
+
+    const siblings = parent.allChildren;
+
+    // (a) same-insertion successor / predecessor piece (text): exact slot.
+    if (span.isText) {
+      const succ = this.findFloorNode(
+        CRDTTreeNodeID.of(span.id.getCreatedAt(), offset + length),
+      );
+      if (
+        succ &&
+        succ.isText &&
+        succ.parent === parent &&
+        succ.id.getOffset() === offset + length
+      ) {
+        parent.insertAt(node, siblings.indexOf(succ));
+        this.nodeMapByID.put(node.id, node);
+        return node;
+      }
+      if (offset > span.id.getOffset() || offset > 0) {
+        const pred = this.findFloorNode(
+          CRDTTreeNodeID.of(span.id.getCreatedAt(), offset - 1),
+        );
+        if (pred && pred.isText && pred.parent === parent) {
+          parent.insertAfter(node, pred);
+          this.nodeMapByID.put(node.id, node);
+          return node;
+        }
+      }
+    }
+
+    // (b) captured left boundary sibling, if it still exists under this parent.
+    if (span.leftSiblingID) {
+      const left = this.findFloorNode(span.leftSiblingID);
+      if (left && left.parent === parent) {
+        parent.insertAfter(node, left);
+        this.nodeMapByID.put(node.id, node);
+        return node;
+      }
+    }
+
+    // (c) captured right boundary sibling (redundant anchor): insert before it.
+    if (span.rightSiblingID) {
+      const right = this.findFloorNode(span.rightSiblingID);
+      if (right && right.parent === parent) {
+        const rightIdx = siblings.indexOf(right);
+        parent.insertAt(node, rightIdx);
+        this.nodeMapByID.put(node.id, node);
+        return node;
+      }
+    }
+
+    // (d) deterministic id-order fallback: first slot whose child id > node id.
+    let insertIdx = siblings.length;
+    for (let i = 0; i < siblings.length; i++) {
+      if (this.compareNodeID(siblings[i].id, node.id) > 0) {
+        insertIdx = i;
+        break;
+      }
+    }
+    parent.insertAt(node, insertIdx);
+    this.nodeMapByID.put(node.id, node);
+    return node;
+  }
+
+  /**
+   * `leftAnchorID` returns the id to store as a restore span's left-sibling
+   * anchor. For a text node the anchor is its LAST character's offset, not its
+   * start: a concurrent delete may later split the left neighbor, and only the
+   * last-char offset floor-resolves to the rightmost fragment (the true left
+   * neighbor of the restored node). For elements (never split by offset) the
+   * node's own id is exact. Right-sibling anchors always use the start offset,
+   * which floor-resolves to the leftmost fragment — the true right neighbor.
+   */
+  private leftAnchorID(sibling: CRDTTreeNode): CRDTTreeNodeID {
+    if (!sibling.isText) {
+      return sibling.id;
+    }
+    return CRDTTreeNodeID.of(
+      sibling.id.getCreatedAt(),
+      sibling.id.getOffset() + sibling.value.length - 1,
+    );
+  }
+
+  /**
+   * `compareNodeID` totally orders two ids: createdAt (lamport, then actorID)
+   * then offset. Used by the deterministic id-order restore fallback so a
+   * recreated node lands in the same slot on every replica.
+   */
+  private compareNodeID(a: CRDTTreeNodeID, b: CRDTTreeNodeID): number {
+    const c = a.getCreatedAt().compare(b.getCreatedAt());
+    if (c !== 0) return c;
+    return a.getOffset() - b.getOffset();
   }
 
   /**
