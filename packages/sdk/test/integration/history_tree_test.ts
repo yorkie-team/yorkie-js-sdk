@@ -5,6 +5,7 @@ import {
   toDocKey,
   withTwoClientsAndDocuments,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
+import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 /**
  * Test State Space:
@@ -1454,5 +1455,123 @@ describe('Tree History - undo past initial tree via initialRoot', () => {
     );
 
     await c1.deactivate();
+  });
+});
+
+// 7. Multi Client - GC symmetry & anchor fallback
+describe('Tree History - GC symmetry and anchor fallback', () => {
+  // Identity-preserving restore must converge AND leave both replicas with an
+  // identical garbage set: divergent tombstones would purge asymmetrically and
+  // drift docSize. This exercises the full undo→redo→GC cycle over concurrent
+  // overlapping deletes (contained_by) and asserts both replicas purge the same
+  // count down to zero.
+  it('converges and purges symmetrically after undo/redo of concurrent deletes', async ({
+    task,
+  }) => {
+    type TestDoc = { t: Tree };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: '0123456789' }] },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d2's deleted range sits strictly inside d1's (contained_by).
+      d1.update((root) => root.t.edit(2, 8), 'd1 delete [2,8)'); // "234567"
+      d2.update((root) => root.t.edit(4, 6), 'd2 delete [4,6)'); // "45"
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'after ops');
+
+      d1.history.undo();
+      d2.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'after undo');
+
+      d1.history.redo();
+      d2.history.redo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'after redo');
+
+      // GC symmetry: with a version vector both replicas fully know, each must
+      // purge the same tombstones and end with an empty garbage set.
+      const vv = maxVectorOf([c1.getID()!, c2.getID()!]);
+      const purged1 = d1.garbageCollect(vv);
+      const purged2 = d2.garbageCollect(vv);
+      assert.equal(purged1, purged2, 'both replicas purge the same node count');
+      assert.equal(d1.getGarbageLen(), 0, 'd1 garbage drained');
+      assert.equal(d2.getGarbageLen(), 0, 'd2 garbage drained');
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'converged after GC');
+    }, task.name);
+  });
+
+  // Redo of a deletion after its tombstones were GC-purged forces the recreate
+  // path (nodes are gone, so restore must rebuild them from the carried spans
+  // and re-anchor). Both replicas must recreate identically and converge.
+  it('recreates a purged subtree on redo and converges', async ({ task }) => {
+    type TestDoc = { t: Tree };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'hello' }] },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      // d1 deletes the whole <p>hello</p>; sync so both replicas tombstone it.
+      d1.update((root) => root.t.edit(0, 7), 'd1 delete subtree');
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'after delete');
+
+      // Undo revives it; sync; then purge with a full vector so the (now again
+      // deleted-then-revived) tombstones are physically removed on both.
+      d1.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      const vv = maxVectorOf([c1.getID()!, c2.getID()!]);
+      d1.garbageCollect(vv);
+      d2.garbageCollect(vv);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'after undo + GC');
+
+      // Redo re-deletes; undo once more must recreate from spans and converge.
+      d1.history.redo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      d1.garbageCollect(vv);
+      d2.garbageCollect(vv);
+
+      d1.history.undo();
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(
+        d1.toSortedJSON(),
+        d2.toSortedJSON(),
+        'converged after recreate',
+      );
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p>hello</p></doc>',
+        'purged subtree recreated under original identity',
+      );
+    }, task.name);
   });
 });
