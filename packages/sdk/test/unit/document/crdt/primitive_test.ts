@@ -81,4 +81,31 @@ describe('Primitive', function () {
     );
     assert.equal(date.toJSON(), '"1995-12-17T03:24:00.000Z"');
   });
+
+  it('should create a Long primitive when a number exceeds int32 range', function () {
+    const INT32MAX = Math.pow(2, 31) - 1;
+    const largeNumber = INT32MAX + 1;
+    const primitiveLarge = Primitive.of(largeNumber, InitialTimeTicket);
+    assert.equal(primitiveLarge.getType(), PrimitiveType.Long);
+    assert.equal(primitiveLarge.getValue(), BigInt(largeNumber));
+  });
+
+  it('should create a Long primitive when a number is less than int32 range', function () {
+    const INT32MIN = -Math.pow(2, 31);
+    const smallNumber = INT32MIN - 1;
+    const primitiveSmall = Primitive.of(smallNumber, InitialTimeTicket);
+    assert.equal(primitiveSmall.getType(), PrimitiveType.Long);
+    assert.equal(primitiveSmall.getValue(), BigInt(smallNumber));
+  });
+
+  it('should round-trip a promoted Long through toBytes/valueFromBytes', function () {
+    const INT32MAX = Math.pow(2, 31) - 1;
+    const largeNumber = INT32MAX + 1;
+    const primitive = Primitive.of(largeNumber, InitialTimeTicket);
+    const restored = Primitive.valueFromBytes(
+      PrimitiveType.Long,
+      primitive.toBytes(),
+    );
+    assert.equal(restored, BigInt(largeNumber));
+  });
 });
