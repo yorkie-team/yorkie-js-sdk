@@ -410,10 +410,7 @@ describe('Tree History - multi client basic', () => {
         }, task.name);
       });
 
-      // TODO(Phase 2): Some redo combos with adjacent/overlapping ranges diverge
-      const skipRedo = op1 === 'insert-text' && op2 === 'delete-text';
-      const redoIt = skipRedo ? it.skip : it;
-      redoIt(`should converge after redo: ${op1}-${op2}`, async ({ task }) => {
+      it(`should converge after redo: ${op1}-${op2}`, async ({ task }) => {
         type TestDoc = { t: Tree };
         await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
           d1.update((root) => {
@@ -571,7 +568,7 @@ describe('Tree History - reconcile cases', () => {
   });
 
   // TODO(Phase 2): Overlapping reconciliation cases need symmetric index computation
-  it.skip('Case 3 (contained_by): undo range contained by remote should collapse', async ({
+  it('Case 3 (contained_by): undo range contained by remote should collapse', async ({
     task,
   }) => {
     type TestDoc = { t: Tree };
@@ -616,7 +613,7 @@ describe('Tree History - reconcile cases', () => {
   });
 
   // TODO(Phase 2): Overlapping reconciliation cases need symmetric index computation
-  it.skip('Case 4 (contains): remote range contained by undo should adjust', async ({
+  it('Case 4 (contains): remote range contained by undo should adjust', async ({
     task,
   }) => {
     type TestDoc = { t: Tree };
@@ -664,7 +661,7 @@ describe('Tree History - reconcile cases', () => {
   });
 
   // TODO(Phase 2): Overlapping reconciliation cases need symmetric index computation
-  it.skip('Case 5 (overlap_start): remote overlaps start of undo range', async ({
+  it('Case 5 (overlap_start): remote overlaps start of undo range', async ({
     task,
   }) => {
     type TestDoc = { t: Tree };
@@ -709,7 +706,7 @@ describe('Tree History - reconcile cases', () => {
   });
 
   // TODO(Phase 2): Overlapping reconciliation cases need symmetric index computation
-  it.skip('Case 6 (overlap_end): remote overlaps end of undo range', async ({
+  it('Case 6 (overlap_end): remote overlaps end of undo range', async ({
     task,
   }) => {
     type TestDoc = { t: Tree };

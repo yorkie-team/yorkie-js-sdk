@@ -1582,6 +1582,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     Set<string>,
     Array<TreeRestoreSpan>,
+    Array<TreeRestoreSpan>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -1751,6 +1752,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
     const removedSpans: Array<TreeRestoreSpan> = [];
+    // Captured in the insert phase: identity spans of the nodes this edit
+    // inserts, so an undo re-removes them by identity (not by index, which
+    // would clobber concurrently-restored content) and a redo revives them.
+    const insertedSpans: Array<TreeRestoreSpan> = [];
     for (const node of nodesToBeRemoved) {
       if (node.remove(editedAt)) {
         pairs.push({ parent: this, child: node });
@@ -1767,7 +1772,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const siblings = parent.allChildren;
           const idx = siblings.indexOf(node);
           if (idx > 0) {
-            leftSiblingID = siblings[idx - 1].id;
+            leftSiblingID = this.leftAnchorID(siblings[idx - 1]);
           }
           if (idx >= 0 && idx < siblings.length - 1) {
             rightSiblingID = siblings[idx + 1].id;
@@ -1936,6 +1941,31 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
 
           this.nodeMapByID.put(node.id, node);
+
+          // Capture this inserted node's identity span (parent-before-child
+          // via traverseAll) for identity-preserving insert undo/redo.
+          const p = node.parent as CRDTTreeNode | undefined;
+          let leftSiblingID: CRDTTreeNodeID | undefined;
+          let rightSiblingID: CRDTTreeNodeID | undefined;
+          if (p) {
+            const sibs = p.allChildren;
+            const idx = sibs.indexOf(node);
+            if (idx > 0) leftSiblingID = this.leftAnchorID(sibs[idx - 1]);
+            if (idx >= 0 && idx < sibs.length - 1) {
+              rightSiblingID = sibs[idx + 1].id;
+            }
+          }
+          insertedSpans.push({
+            id: node.id,
+            nodeType: node.type,
+            isText: node.isText,
+            length: node.isText ? node.value.length : 0,
+            value: node.isText ? node.value : undefined,
+            attrs: node.attrs?.deepcopy(),
+            parentID: p?.id,
+            leftSiblingID,
+            rightSiblingID,
+          });
         });
 
         if (!content.isRemoved) {
@@ -1977,6 +2007,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       mergeLevel,
       preTombstoned,
       spansComplete ? removedSpans : [],
+      // `traverseAll` is post-order (children before parent), so reverse to get
+      // parent-before-child — the order `restore()` needs to recreate a purged
+      // subtree top-down (a child's recreate resolves its parent by identity).
+      spansComplete ? insertedSpans.reverse() : [],
     ];
   }
 
@@ -1998,6 +2032,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     number,
     Set<string>,
+    Array<TreeRestoreSpan>,
     Array<TreeRestoreSpan>,
   ] {
     const fromPos = this.findPos(range[0]);
@@ -2308,6 +2343,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
     parent.insertAt(node, insertIdx);
     this.nodeMapByID.put(node.id, node);
     return node;
+  }
+
+  /**
+   * `leftAnchorID` returns the id to store as a restore span's left-sibling
+   * anchor. For a text node the anchor is its LAST character's offset, not its
+   * start: a concurrent delete may later split the left neighbor, and only the
+   * last-char offset floor-resolves to the rightmost fragment (the true left
+   * neighbor of the restored node). For elements (never split by offset) the
+   * node's own id is exact. Right-sibling anchors always use the start offset,
+   * which floor-resolves to the leftmost fragment — the true right neighbor.
+   */
+  private leftAnchorID(sibling: CRDTTreeNode): CRDTTreeNodeID {
+    if (!sibling.isText) {
+      return sibling.id;
+    }
+    return CRDTTreeNodeID.of(
+      sibling.id.getCreatedAt(),
+      sibling.id.getOffset() + sibling.value.length - 1,
+    );
   }
 
   /**

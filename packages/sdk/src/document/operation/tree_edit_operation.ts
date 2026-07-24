@@ -314,6 +314,7 @@ export class TreeEditOperation extends Operation {
       mergeLevel,
       preTombstoned,
       removedSpans,
+      insertedSpans,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -366,6 +367,7 @@ export class TreeEditOperation extends Operation {
         preTombstoned,
         mergeLevel,
         removedSpans,
+        insertedSpans,
       );
     } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
@@ -415,13 +417,18 @@ export class TreeEditOperation extends Operation {
     preTombstoned: Set<string>,
     mergeLevel?: number,
     removedSpans?: Array<TreeRestoreSpan>,
+    insertedSpans?: Array<TreeRestoreSpan>,
   ): Operation | undefined {
-    // Identity-preserving restore: a plain deletion (no inserted content) with
-    // a complete span set reverses by reviving the ORIGINAL nodes, not by
-    // copy-reinserting fresh ones. edit() only returns non-empty spans when the
-    // deletion was merge/split-free (spansComplete), so this never fires for
-    // the merge/split cases handled below.
-    if (!this.contents?.length && removedSpans && removedSpans.length > 0) {
+    // Identity-preserving reverse: reverse an edit by reviving the nodes it
+    // removed (restoreSpans) AND re-removing the nodes it inserted
+    // (retombstoneSpans), both by ORIGINAL identity instead of copy-reinsert.
+    // edit() only fills these spans when the edit was merge/split-free
+    // (spansComplete), so this never fires for the merge/split cases below; the
+    // redoSplitLevel guard keeps a split's own boundary-deletion undo on the
+    // re-split path (its deletion would otherwise fill removedSpans here).
+    const hasRemoved = !!removedSpans && removedSpans.length > 0;
+    const hasInserted = !!insertedSpans && insertedSpans.length > 0;
+    if (this.redoSplitLevel === undefined && (hasRemoved || hasInserted)) {
       return TreeEditOperation.create(
         this.getParentCreatedAt(),
         this.fromPos,
@@ -432,9 +439,9 @@ export class TreeEditOperation extends Operation {
         true,
         preEditFromIdx,
         preEditFromIdx,
-        removedSpans,
+        removedSpans ?? [],
         'restore',
-        undefined,
+        insertedSpans ?? [],
       );
     }
 
