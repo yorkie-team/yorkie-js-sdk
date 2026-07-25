@@ -15,10 +15,16 @@ export interface ClientAndDocument<T, P extends Indexable = Indexable> {
   document: Document<T, P>;
 }
 
-export type TwoClientsAndDocuments<
+export type ClientsAndDocuments<
   T,
   P extends Indexable = Indexable,
-> = readonly [ClientAndDocument<T, P>, ClientAndDocument<T, P>];
+> = ReadonlyArray<ClientAndDocument<T, P>>;
+
+function assertValidClientCount(clientCount: number): void {
+  if (!Number.isInteger(clientCount) || clientCount < 2) {
+    throw new Error('PBT requires at least two clients');
+  }
+}
 
 async function cleanupClientAndDocument<T, P extends Indexable>(
   pair: ClientAndDocument<T, P>,
@@ -47,39 +53,44 @@ async function cleanupClientAndDocument<T, P extends Indexable>(
   return errors;
 }
 
-export async function withTwoClientsAndDocumentsForPBT<
+export async function withClientsAndDocumentsForPBT<
   T,
   P extends Indexable = Indexable,
 >(
-  callback: (pairs: TwoClientsAndDocuments<T, P>) => Promise<void>,
+  clientCount: number,
+  callback: (pairs: ClientsAndDocuments<T, P>) => Promise<void>,
   title: string,
 ): Promise<void> {
-  const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-  const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+  assertValidClientCount(clientCount);
+
+  const clients = Array.from(
+    { length: clientCount },
+    () => new yorkie.Client({ rpcAddr: testRPCAddr }),
+  );
   // Leave room for the UUID suffix in the compact document keys used by tests.
-  const docKey = `${toDocKey(title).substring(0, 80)}-${client1.getKey()}`;
-  const doc1 = new yorkie.Document<T, P>(docKey);
-  const doc2 = new yorkie.Document<T, P>(docKey);
-  const pairs = [
-    { client: client1, document: doc1 },
-    { client: client2, document: doc2 },
-  ] as const;
+  const docKey = `${toDocKey(title).substring(0, 80)}-${clients[0].getKey()}`;
+  const pairs: ClientsAndDocuments<T, P> = clients.map((client) => ({
+    client,
+    document: new yorkie.Document<T, P>(docKey),
+  }));
 
   let operationFailed = false;
   let operationError: unknown;
 
   try {
-    await client1.activate();
-    await client2.activate();
-    await client1.attach(doc1, { syncMode: SyncMode.Manual });
-    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    for (const pair of pairs) {
+      await pair.client.activate();
+      await pair.client.attach(pair.document, {
+        syncMode: SyncMode.Manual,
+      });
+    }
     await callback(pairs);
   } catch (error) {
     operationFailed = true;
     operationError = error;
   }
 
-  // Clean up both pairs independently without replacing a property failure.
+  // Clean up all pairs independently without replacing a property failure.
   const cleanupErrors = (
     await Promise.all(pairs.map(cleanupClientAndDocument))
   ).flat();
@@ -95,11 +106,17 @@ export async function withTwoClientsAndDocumentsForPBT<
   }
 }
 
-export async function runTwoClientFinalSync<T, P extends Indexable = Indexable>(
-  pairs: TwoClientsAndDocuments<T, P>,
+export async function runFinalSyncForPBT<T, P extends Indexable = Indexable>(
+  pairs: ClientsAndDocuments<T, P>,
 ): Promise<void> {
-  // The last sync lets the first client receive changes uploaded by the second.
-  await pairs[0].client.sync();
-  await pairs[1].client.sync();
-  await pairs[0].client.sync();
+  assertValidClientCount(pairs.length);
+
+  for (const pair of pairs) {
+    await pair.client.sync();
+  }
+
+  // The last client receives all preceding changes during the first pass.
+  for (const pair of pairs.slice(0, -1)) {
+    await pair.client.sync();
+  }
 }
