@@ -3,7 +3,7 @@ import { DocStatus, Indexable } from '@yorkie-js/sdk/src/document/document';
 import {
   ClientsAndDocuments,
   withClientsAndDocumentsForPBT,
-} from '@yorkie-js/sdk/test/integration/pbt_helper';
+} from '@yorkie-js/sdk/test/crdt_pbt/helper';
 
 describe('PBT helper', function () {
   it('cleans up clients without replacing the property error', async function ({

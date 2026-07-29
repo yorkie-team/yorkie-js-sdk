@@ -2,10 +2,13 @@ import { assert, describe, it } from 'vitest';
 import fc from 'fast-check';
 import { Counter } from '@yorkie-js/sdk/src/yorkie';
 import {
+  assertParametersForPBT,
   ClientsAndDocuments,
   runFinalSyncForPBT,
+  testPBTClientCounts,
+  testTimeoutForPBT,
   withClientsAndDocumentsForPBT,
-} from '@yorkie-js/sdk/test/integration/pbt_helper';
+} from '@yorkie-js/sdk/test/crdt_pbt/helper';
 
 type CounterDocument = { counter: Counter };
 type ClientIndex = number;
@@ -114,18 +117,25 @@ async function runCounterTrace(
 }
 
 describe('Counter property-based tests', function () {
-  for (const clientCount of [2, 3]) {
-    it(`converges across ${clientCount} clients`, async function ({ task }) {
-      await fc.assert(
-        fc.asyncProperty(counterTraceArbitrary(clientCount), async (trace) => {
-          await withClientsAndDocumentsForPBT<CounterDocument>(
-            clientCount,
-            (pairs) => runCounterTrace(pairs, trace),
-            task.name,
-          );
-        }),
-        { numRuns: 20 },
-      );
-    });
+  for (const clientCount of testPBTClientCounts) {
+    it(
+      `converges across ${clientCount} clients`,
+      { timeout: testTimeoutForPBT(clientCount) },
+      async function ({ task }) {
+        await fc.assert(
+          fc.asyncProperty(
+            counterTraceArbitrary(clientCount),
+            async (trace) => {
+              await withClientsAndDocumentsForPBT<CounterDocument>(
+                clientCount,
+                (pairs) => runCounterTrace(pairs, trace),
+                task.name,
+              );
+            },
+          ),
+          assertParametersForPBT(),
+        );
+      },
+    );
   }
 });

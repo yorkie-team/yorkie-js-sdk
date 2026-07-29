@@ -1,3 +1,4 @@
+import fc from 'fast-check';
 import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import { Client } from '@yorkie-js/sdk/src/client/client';
 import {
@@ -9,6 +10,71 @@ import {
   testRPCAddr,
   toDocKey,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
+
+function parseInteger(
+  name: string,
+  value: string | undefined,
+): number | undefined {
+  if (value === undefined || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`${name} must be an integer: ${value}`);
+  }
+  return parsed;
+}
+
+function parsePositiveInteger(
+  name: string,
+  value: string | undefined,
+): number | undefined {
+  const parsed = parseInteger(name, value);
+  if (parsed !== undefined && parsed < 1) {
+    throw new Error(`${name} must be a positive integer: ${value}`);
+  }
+  return parsed;
+}
+
+// `TEST_PBT_SEED` reproduces a failed run; `TEST_PBT_NUM_RUNS` and
+// `TEST_PBT_CLIENT_COUNTS` (comma-separated) let CI widen combinations.
+export const testPBTSeed = parseInteger(
+  'TEST_PBT_SEED',
+  process.env.TEST_PBT_SEED,
+);
+export const testPBTNumRuns =
+  parsePositiveInteger('TEST_PBT_NUM_RUNS', process.env.TEST_PBT_NUM_RUNS) ??
+  20;
+export const testPBTClientCounts = (process.env.TEST_PBT_CLIENT_COUNTS ?? '2,3')
+  .split(',')
+  .map((count) => {
+    const parsed = parsePositiveInteger('TEST_PBT_CLIENT_COUNTS', count.trim());
+    if (parsed === undefined || parsed < 2) {
+      throw new Error(
+        `TEST_PBT_CLIENT_COUNTS entries must be integers >= 2: ${count}`,
+      );
+    }
+    return parsed;
+  });
+
+export function assertParametersForPBT<T>(): fc.Parameters<T> {
+  const parameters: fc.Parameters<T> = { numRuns: testPBTNumRuns };
+  if (testPBTSeed !== undefined) {
+    parameters.seed = testPBTSeed;
+  }
+  return parameters;
+}
+
+/**
+ * `testTimeoutForPBT` scales the per-test timeout with the run count since
+ * widened PBT runs can exceed the 5s CI `testTimeout`.
+ */
+export function testTimeoutForPBT(clientCount: number): number {
+  if (process.env.CI !== 'true') {
+    return Infinity;
+  }
+  return Math.max(10_000, testPBTNumRuns * clientCount * 500);
+}
 
 export interface ClientAndDocument<T, P extends Indexable = Indexable> {
   client: Client;
