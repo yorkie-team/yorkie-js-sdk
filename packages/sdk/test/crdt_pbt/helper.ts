@@ -36,12 +36,10 @@ function parsePositiveInteger(
   return parsed;
 }
 
-// `TEST_PBT_SEED` reproduces a failed run; `TEST_PBT_NUM_RUNS` and
-// `TEST_PBT_CLIENT_COUNTS` (comma-separated) let CI widen combinations.
-export const testPBTSeed = parseInteger(
-  'TEST_PBT_SEED',
-  process.env.TEST_PBT_SEED,
-);
+// The pinned seed keeps local and CI runs identical; `TEST_PBT_*` overrides
+// are for replaying a failure or exploring wider combinations.
+export const testPBTSeed =
+  parseInteger('TEST_PBT_SEED', process.env.TEST_PBT_SEED) ?? 0x5eed;
 export const testPBTNumRuns =
   parsePositiveInteger('TEST_PBT_NUM_RUNS', process.env.TEST_PBT_NUM_RUNS) ??
   20;
@@ -58,11 +56,7 @@ export const testPBTClientCounts = (process.env.TEST_PBT_CLIENT_COUNTS ?? '2,3')
   });
 
 export function assertParametersForPBT<T>(): fc.Parameters<T> {
-  const parameters: fc.Parameters<T> = { numRuns: testPBTNumRuns };
-  if (testPBTSeed !== undefined) {
-    parameters.seed = testPBTSeed;
-  }
-  return parameters;
+  return { numRuns: testPBTNumRuns, seed: testPBTSeed };
 }
 
 /**
