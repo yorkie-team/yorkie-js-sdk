@@ -1628,7 +1628,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
           // not an intentional merge.
           if (ticketKnown(versionVector, node.id.getCreatedAt())) {
             toBeMergedNodes.push(node);
-            for (const child of node.children) {
+            // Include removed children (allChildren) so tombstones move
+            // with the merge and survive as RGA anchors; a concurrent
+            // insert referencing one then resolves in the merge target
+            // and orders via the RGA tie-break.
+            for (const child of node.allChildren) {
               toBeMovedToFromParents.push(child);
             }
           }
@@ -1720,23 +1724,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // time) because the source's `removedAt` is mutated by LWW when a
     // later concurrent tombstone targets the same node.
     for (const node of toBeMovedToFromParents) {
-      if (!node.removedAt) {
-        if (node.parent) {
-          node.mergedFrom = node.parent.id;
-          node.mergedAt = editedAt;
-        }
-        // Detach from old parent to prevent ghost references.
-        // Use try-catch because the child may already have been detached
-        // by a concurrent operation (e.g., cascade delete of split sibling).
-        if (node.parent) {
-          try {
-            node.parent.detachChild(node);
-          } catch {
-            // Child already detached from parent, skip.
-          }
-        }
-        fromParent.append(node);
+      // A moved child must have a source parent to record; skip otherwise
+      // rather than append an untracked node (a node without `mergedFrom`
+      // is invisible to the merge-delete propagation and rebuild logic).
+      if (!node.parent) {
+        continue;
       }
+      // Tombstoned children are moved too (kept removed): they stay as RGA
+      // anchors so a concurrent insert referencing one resolves in the
+      // merge target and orders via the RGA tie-break, converging with the
+      // replica that inserted before the merge. `moveChild` keeps the size
+      // accounting correct for both live and tombstoned children
+      // (visible-neutral for the latter), so index positions stay correct.
+      node.mergedFrom = node.parent.id;
+      node.mergedAt = editedAt;
+      fromParent.moveChild(node);
     }
     // Set forwarding pointer on merge-source nodes. This is a runtime
     // cache rebuilt from `mergedFrom` on snapshot load.

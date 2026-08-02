@@ -484,6 +484,46 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
   }
 
   /**
+   * `moveChild` detaches the given child from its current parent (if any)
+   * and appends it to this node, preserving both size dimensions on both
+   * parents. Unlike `detachChild` followed by `append`, it is correct for
+   * tombstoned children: a removed node contributes no visibleSize to
+   * either parent (removal already excluded it from its ancestors), so only
+   * the include-removed totalSize is relocated. It is used by merge to move
+   * tombstones as RGA anchors without corrupting index positions.
+   */
+  moveChild(child: T): void {
+    if (this.isText) {
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
+    }
+
+    const removed = child.isRemoved;
+
+    if (child.parent) {
+      const offset = child.parent._children.indexOf(child);
+      // The child may already have been spliced out of its parent's list
+      // by a concurrent operation (e.g. cascade delete of a split
+      // sibling), which already reconciled the old ancestors' size. In
+      // that case only re-parent; otherwise detach with size accounting.
+      if (offset !== -1) {
+        child.parent._children.splice(offset, 1);
+        if (!removed) {
+          child.updateAncestorsSize(-child.paddedSize());
+        }
+        child.updateAncestorsSize(-child.paddedSize(true), true);
+      }
+      child.parent = undefined;
+    }
+
+    this._children.push(child);
+    child.parent = this as any;
+    if (!removed) {
+      child.updateAncestorsSize(child.paddedSize());
+    }
+    child.updateAncestorsSize(child.paddedSize(true), true);
+  }
+
+  /**
    * `splitElement` splits the given element at the given offset.
    */
   splitElement(
