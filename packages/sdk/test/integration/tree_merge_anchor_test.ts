@@ -82,27 +82,29 @@ describe('Tree.Edit concurrent insert into a merged range', () => {
     await c2.sync();
     await c3.sync();
 
-    // c1 and c2 insert distinct elements at the same index 6; c3 removes
-    // the range [0, 6) that the inserts anchor into.
-    d1.update((root) => root.tree.edit(6, 6, { type: 'i', children: [] }));
-    d2.update((root) => root.tree.edit(6, 6, { type: 'b', children: [] }));
-    d3.update((root) => root.tree.edit(0, 6));
+    try {
+      // c1 and c2 insert distinct elements at the same index 6; c3 removes
+      // the range [0, 6) that the inserts anchor into.
+      d1.update((root) => root.tree.edit(6, 6, { type: 'i', children: [] }));
+      d2.update((root) => root.tree.edit(6, 6, { type: 'b', children: [] }));
+      d3.update((root) => root.tree.edit(0, 6));
 
-    // Full sync so every replica sees every operation.
-    for (let i = 0; i < 3; i++) {
-      await c1.sync();
-      await c2.sync();
-      await c3.sync();
+      // Full sync so every replica sees every operation.
+      for (let i = 0; i < 3; i++) {
+        await c1.sync();
+        await c2.sync();
+        await c3.sync();
+      }
+
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
+    } finally {
+      await c1.detach(d1);
+      await c2.detach(d2);
+      await c3.detach(d3);
+      await c1.deactivate();
+      await c2.deactivate();
+      await c3.deactivate();
     }
-
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
-
-    await c1.detach(d1);
-    await c2.detach(d2);
-    await c3.detach(d3);
-    await c1.deactivate();
-    await c2.deactivate();
-    await c3.deactivate();
   });
 });
