@@ -73,4 +73,24 @@ describe('Primitive', function () {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
+
+  it('should sync out-of-int32 integers without truncation', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ ts: number | bigint }>(
+      async (c1, d1, c2, d2) => {
+        d1.update((root) => {
+          root['ts'] = Math.pow(2, 31);
+        });
+
+        await c1.sync();
+        await c2.sync();
+
+        assert.equal(d1.toSortedJSON(), '{"ts":2147483648}');
+        assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+        assert.equal(typeof d2.getRoot().ts, 'bigint');
+      },
+      task.name,
+    );
+  });
 });
