@@ -600,6 +600,42 @@ describe('CRDTTree.Edit', function () {
     assert.equal(treeNode.children![0].children![0].visibleSize, 2);
   });
 
+  it('merge moves an element tombstone with correct length accounting', function () {
+    // 01. Create <root><p>ab</p><p><b></b>cd</p></root>.
+    //       0   1 2 3    4   5   6    7 8 9    10
+    // <root> <p> a b </p> <p> <b> </b> c d </p>  </root>
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ab')],
+      0,
+      timeT(),
+      timeT,
+    );
+    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT([5, 5], [new CRDTTreeNode(posT(), 'b')], 0, timeT(), timeT);
+    tree.editT(
+      [7, 7],
+      [new CRDTTreeNode(posT(), 'text', 'cd')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(tree.toXML(), `<root><p>ab</p><p><b></b>cd</p></root>`);
+
+    // 02. Delete b, the second paragraph's open tag, the <b></b> element and
+    // c, merging the paragraph. The <b></b> element becomes a tombstone moved
+    // into the first paragraph. Its padding must not inflate the visible size
+    // of the (surviving) first paragraph.
+    tree.editT([2, 8], undefined, 0, timeT(), timeT);
+    assert.deepEqual(tree.toXML(), `<root><p>ad</p></root>`);
+
+    const treeNode = tree.toTestTreeNode();
+    assert.equal(treeNode.visibleSize, 4);
+    assert.equal(treeNode.children![0].visibleSize, 2);
+  });
+
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
 
