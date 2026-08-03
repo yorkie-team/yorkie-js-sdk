@@ -2238,11 +2238,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
         const pieceEnd = piece ? pieceStart + piece.value.length : Infinity;
 
         if (piece && pieceStart <= cursor) {
-          if (pieceEnd > end) {
-            // Piece wider than the span. Under causal delivery the forward
-            // delete split at span boundaries on every replica before its
-            // undo could arrive, so this is not expected; skip conservatively
-            // rather than un-tombstone beyond the span.
+          if (pieceStart < start || pieceEnd > end) {
+            // Piece straddles a span boundary. Under causal delivery the
+            // forward delete split at span boundaries on every replica before
+            // its undo could arrive, so this is not expected; skip
+            // conservatively rather than un-tombstone beyond the span. Mirrors
+            // the guard in retombstone() so undo/redo stay symmetric.
             break;
           }
           if (piece.isRemoved) {
@@ -2286,9 +2287,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
         if (piece.isRemoved) continue;
         if (
           piece.isText &&
-          piece.id.getOffset() + piece.value.length > start + span.length
+          (piece.id.getOffset() < start ||
+            piece.id.getOffset() + piece.value.length > end)
         ) {
-          // Piece wider than the span; skip (see restore()).
+          // Piece straddles a span boundary (same clamped `end` as
+          // findPiecesOverlapping); skip so we never re-tombstone content
+          // outside the span. Mirrors the guard in restore().
           continue;
         }
         if (piece.remove(executedAt)) {
