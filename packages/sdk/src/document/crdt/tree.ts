@@ -1783,26 +1783,24 @@ export class CRDTTree extends CRDTElement implements GCParent {
         node.mergedAt = editedAt;
       }
       dest.moveChild(node);
-    }
-    // Point every merge-source's forwarding pointer at the resolved
-    // destination. This runtime cache is rebuilt from `mergedFrom` on
-    // snapshot load. Direct sources are in `toBeMergedNodes`; transitive
-    // sources (a prior merge's source whose children were just relocated
-    // again) are recovered from the moved children's preserved `mergedFrom`,
-    // path-compressing their pointer from the now-removed intermediate to
-    // the final target. Both derive `mergedInto == child's new parent`, the
-    // same rule `rebuildMergeState` uses.
-    for (const src of toBeMergedNodes) {
-      src.mergedInto = dest.id;
-    }
-    for (const node of toBeMovedToFromParents) {
-      if (!node.mergedFrom) {
-        continue;
-      }
-      const src = this.findFloorNode(node.mergedFrom);
+      // Point this child's original source at the resolved destination,
+      // path-compressing a transitive source (a prior merge whose children
+      // were just relocated again) from the now-removed intermediate to the
+      // final target. This runtime cache is rebuilt from `mergedFrom` on
+      // snapshot load. Deriving `mergedInto` from a *moved* child — one that
+      // had a parent above — mirrors `rebuildMergeState`, which likewise
+      // skips parentless children, so runtime and snapshot agree. (A
+      // parentless child, detached by a concurrent split cascade, is
+      // `continue`d above and must not repoint its source here.)
+      const src = this.findFloorNode(node.mergedFrom!);
       if (src) {
         src.mergedInto = dest.id;
       }
+    }
+    // Direct sources with no moved child of their own (e.g. an already-emptied
+    // source) still forward to the resolved destination.
+    for (const src of toBeMergedNodes) {
+      src.mergedInto = dest.id;
     }
 
     // 03-1. Propagate deletes to children moved by prior merges.
