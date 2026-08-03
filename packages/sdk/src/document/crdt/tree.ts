@@ -1792,15 +1792,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // skips parentless children, so runtime and snapshot agree. (A
       // parentless child, detached by a concurrent split cascade, is
       // `continue`d above and must not repoint its source here.)
+      //
+      // `mergedInto` is set solely from moved children (never from the
+      // merge-source list directly), so it is set only when
+      // `rebuildMergeState` can reconstruct it — a source with no moved child
+      // of its own (e.g. an intermediate that only relayed another source's
+      // children) is left unset on both paths, keeping runtime and snapshot
+      // consistent.
       const src = this.findFloorNode(node.mergedFrom!);
       if (src) {
         src.mergedInto = dest.id;
       }
-    }
-    // Direct sources with no moved child of their own (e.g. an already-emptied
-    // source) still forward to the resolved destination.
-    for (const src of toBeMergedNodes) {
-      src.mergedInto = dest.id;
     }
 
     // 03-1. Propagate deletes to children moved by prior merges.
