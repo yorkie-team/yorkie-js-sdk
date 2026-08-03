@@ -636,6 +636,53 @@ describe('CRDTTree.Edit', function () {
     assert.equal(treeNode.children![0].visibleSize, 2);
   });
 
+  it('resolves a range boundary right after the merge-source tombstone', function () {
+    // 01. Create <root><p>ab</p><p>cd</p></root>.
+    //       0   1 2 3    4   5 6 7     8
+    // <root> <p> a b </p> <p> c d </p>  </root>
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ab')],
+      0,
+      timeT(),
+      timeT,
+    );
+    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [5, 5],
+      [new CRDTTreeNode(posT(), 'text', 'cd')],
+      0,
+      timeT(),
+      timeT,
+    );
+    assert.deepEqual(tree.toXML(), `<root><p>ab</p><p>cd</p></root>`);
+
+    // 02. Capture the leftmost position inside the second paragraph, then
+    // merge the second paragraph into the first.
+    const pos = tree.findPos(5);
+    tree.editT([3, 5], undefined, 0, timeT(), timeT);
+    assert.deepEqual(tree.toXML(), `<root><p>abcd</p></root>`);
+
+    // 03. An insert boundary resolves into the merge target before the
+    // moved children, while a range boundary resolves right after the
+    // merge-source tombstone, leaving the moved children outside.
+    const [[insertParent, insertLeft]] = tree.findNodesAndSplitText(
+      pos,
+      timeT(),
+    );
+    assert.equal(tree.toIndex(insertParent, insertLeft), 3);
+
+    const [[rangeParent, rangeLeft]] = tree.findNodesAndSplitText(
+      pos,
+      timeT(),
+      'range',
+    );
+    assert.equal(rangeLeft.isRemoved, true);
+    assert.equal(tree.toIndex(rangeParent, rangeLeft), 6);
+  });
+
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
     const t = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
 
