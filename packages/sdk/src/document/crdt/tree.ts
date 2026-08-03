@@ -1011,6 +1011,30 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `resolveMergeTarget` follows the `mergedInto` forwarding chain from the
+   * given node while the current node is a merge-away tombstone, returning
+   * the final live target. When a merge lands on a parent that a prior
+   * concurrent merge already merged away (a chained merge P->Q->R, applied
+   * Q->R before this P->Q), the children must flow to that parent's final
+   * destination so the merge chain stays flat (P->R, not P->Q) and both
+   * replicas converge. The seen set guards against cycles from a concurrent
+   * mutual merge.
+   */
+  private resolveMergeTarget(node: CRDTTreeNode): CRDTTreeNode {
+    let target = node;
+    const seen = new Set<CRDTTreeNode>([target]);
+    while (target.isRemoved && target.mergedInto) {
+      const next = this.findFloorNode(target.mergedInto);
+      if (!next || seen.has(next)) {
+        break;
+      }
+      seen.add(next);
+      target = next;
+    }
+    return target;
+  }
+
+  /**
    * `advancePastUnknownSplitSiblings` follows the insNextID chain of the
    * given node, advancing past element-type split siblings that the editing
    * client did not know about (not in versionVector).
@@ -1723,6 +1747,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // captured explicitly here (not read from source.removedAt at use
     // time) because the source's `removedAt` is mutated by LWW when a
     // later concurrent tombstone targets the same node.
+    //
+    // §6.3 Chained-Merge Flattening (Fix 20): a merge chain P->Q->R is
+    // kept flat so runtime state matches what `rebuildMergeState` derives
+    // from a snapshot (which can only ever represent the compressed chain,
+    // because it records one `mergedFrom` pointer per child and reads the
+    // child's final physical parent). The destination is resolved through
+    // `resolveMergeTarget`, so children merged into an already-merged-away
+    // parent forward to the final live target instead of piling up under
+    // the removed intermediate.
+    const dest = this.resolveMergeTarget(fromParent);
     for (const node of toBeMovedToFromParents) {
       // A moved child must have a source parent to record; skip otherwise
       // rather than append an untracked node (a node without `mergedFrom`
@@ -1736,27 +1770,55 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // replica that inserted before the merge. `moveChild` keeps the size
       // accounting correct for both live and tombstoned children
       // (visible-neutral for the latter), so index positions stay correct.
-      node.mergedFrom = node.parent.id;
-      node.mergedAt = editedAt;
-      fromParent.moveChild(node);
+      //
+      // `mergedFrom` and `mergedAt` are stamped together, only on the
+      // first move, so a child carried through a chained merge keeps its
+      // original source P and the original P->Q merge ticket (Fix 20).
+      // Stamping `mergedAt` on every move would diverge: a replica that
+      // applied P->Q then Q->R would record the Q->R ticket, while a
+      // replica where Q was already merged records the P->Q ticket on the
+      // single forwarded move.
+      if (!node.mergedFrom) {
+        node.mergedFrom = node.parent.id;
+        node.mergedAt = editedAt;
+      }
+      dest.moveChild(node);
     }
-    // Set forwarding pointer on merge-source nodes. This is a runtime
-    // cache rebuilt from `mergedFrom` on snapshot load.
+    // Point every merge-source's forwarding pointer at the resolved
+    // destination. This runtime cache is rebuilt from `mergedFrom` on
+    // snapshot load. Direct sources are in `toBeMergedNodes`; transitive
+    // sources (a prior merge's source whose children were just relocated
+    // again) are recovered from the moved children's preserved `mergedFrom`,
+    // path-compressing their pointer from the now-removed intermediate to
+    // the final target. Both derive `mergedInto == child's new parent`, the
+    // same rule `rebuildMergeState` uses.
     for (const src of toBeMergedNodes) {
-      src.mergedInto = fromParent.id;
+      src.mergedInto = dest.id;
+    }
+    for (const node of toBeMovedToFromParents) {
+      if (!node.mergedFrom) {
+        continue;
+      }
+      const src = this.findFloorNode(node.mergedFrom);
+      if (src) {
+        src.mergedInto = dest.id;
+      }
     }
 
     // 03-1. Propagate deletes to children moved by prior merges.
     // When a merge-source node is fully deleted (not a merge boundary),
     // its former children in the merge target should also be deleted.
-    // Skip when `mergedInto` points to `fromParent` (concurrent merge).
-    // The list of moved children is recomputed on the fly from the
-    // merge target's children filtered by `mergedFrom`.
+    // Skip when `mergedInto` points to the merge destination (concurrent
+    // merge). Compare against the resolved `dest`, not `fromParent`: the
+    // forwarding pointers above point at the flattened target (§6.3), so a
+    // chained merge (dest !== fromParent) must recognize a concurrent-merge
+    // boundary by `dest`. The list of moved children is recomputed on the
+    // fly from the merge target's children filtered by `mergedFrom`.
     for (const node of nodesToBeRemoved) {
       if (
         !node.mergedInto ||
         toBeMergedNodes.includes(node) ||
-        node.mergedInto.equals(fromParent.id)
+        node.mergedInto.equals(dest.id)
       ) {
         continue;
       }
