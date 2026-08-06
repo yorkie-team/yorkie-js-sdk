@@ -756,6 +756,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const recreated: Array<RGATreeSplitNode<T>> = [];
     const liveDiff = { data: 0, meta: 0 };
 
+    // The last node placed at the current cursor (un-tombstoned or recreated),
+    // in document order. When a recreated fragment has no surviving same-
+    // insertion anchor, chaining after this keeps a multi-fragment run in
+    // left-to-right order instead of each fragment prepending at the same fixed
+    // fallback anchor — which would rebuild the run reversed. Spans arrive in
+    // document order, so this is always the recreated fragment's left neighbour.
+    let chainAnchor: RGATreeSplitNode<T> | undefined;
     for (const span of spans) {
       const pieces = this.findPiecesOverlapping(
         span.createdAt,
@@ -781,6 +788,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             // Repair splay weights on the path to root (length 0 → len).
             this.treeByIndex.splayNode(target);
             untombstoned.push(target);
+            chainAnchor = target;
+          } else {
+            chainAnchor = piece;
           }
           cursor = overlapEnd;
           if (overlapEnd >= pieceEnd) {
@@ -804,9 +814,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             gapEnd,
             executedAt,
             fallbackAnchor,
+            chainAnchor,
           );
           this.insertAfter(prev, newNode);
           recreated.push(newNode);
+          chainAnchor = newNode;
           cursor = gapEnd;
         }
       }
@@ -965,9 +977,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    *      → directly after it
    *  (c) rightmost surviving piece of the same insertion (must be right
    *      of the gap) → directly before it
-   *  (d) the operation's fallback anchor (refined) — same exposure as the
+   *  (d) chain anchor: the previously placed fragment of this same restore
+   *      (document order) → after it, so a purged multi-fragment run is
+   *      rebuilt left-to-right rather than reversed
+   *  (e) the operation's fallback anchor (refined) — same exposure as the
    *      current implementation's fromPos; see design-doc caveat
-   *  (e) head (deterministic last resort)
+   *  (f) head (deterministic last resort)
    */
   private findRestoreAnchor(
     createdAt: TimeTicket,
@@ -975,6 +990,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     gapEnd: number,
     executedAt: TimeTicket,
     fallbackAnchor?: RGATreeSplitPos,
+    chainAnchor?: RGATreeSplitNode<T>,
   ): RGATreeSplitNode<T> {
     const succ = this.findPieceCovering(createdAt, gapEnd);
     if (succ) {
@@ -1000,6 +1016,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       rightmost.value.getID().getOffset() >= gapEnd
     ) {
       return rightmost.value.getPrev()!;
+    }
+
+    // (d) No surviving piece of this insertion anchors the fragment. When the
+    // whole run was purged, every fragment lands here; anchoring after the
+    // fragment placed just before it (document order) keeps the run forward.
+    if (chainAnchor) {
+      return chainAnchor;
     }
 
     if (fallbackAnchor) {
