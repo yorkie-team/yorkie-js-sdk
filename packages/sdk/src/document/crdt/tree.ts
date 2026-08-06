@@ -1156,10 +1156,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    *
    * If `editedAt` is given, then it is used to find the appropriate left node
    * for concurrent insertion.
+   *
+   * `boundary` selects how a position inside a merged-away parent resolves:
+   * `insert` places it at the insertion boundary in the merge target (before
+   * the first moved child, so RGA ordering breaks ties), while `range` places
+   * it right after the merge-source tombstone so a style range neither grows
+   * over nor shrinks past nodes concurrently inserted at that anchor.
    */
   public findNodesAndSplitText(
     pos: CRDTTreePos,
     editedAt?: TimeTicket,
+    boundary: 'insert' | 'range' = 'insert',
   ): [TreeNodePair, DataSize] {
     let diff = { data: 0, meta: 0 };
 
@@ -1179,6 +1186,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // points back at the tombstoned parent (i.e. the first child moved
     // by the merge, in target child order).
     if (realParent.isRemoved && isLeftMost && realParent.mergedInto) {
+      // §9.3 Range Boundary at Merged-Away Anchors: a range boundary
+      // resolves to the position right after the merge-source tombstone,
+      // not the insertion boundary below. The insertion boundary sits
+      // before the first moved child, so it would extend a style range
+      // over nodes concurrently inserted between the tombstone and the
+      // moved children — nodes the styling client saw outside its range
+      // (after the then-live parent).
+      if (boundary === 'range' && realParent.parent) {
+        return [[realParent.parent as CRDTTreeNode, realParent], diff];
+      }
       const mergeTarget = this.findFloorNode(realParent.mergedInto);
       if (mergeTarget && !mergeTarget.isRemoved) {
         const allCh = mergeTarget.allChildren;
@@ -1249,10 +1266,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
+      'range',
     );
     const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
+      'range',
     );
 
     addDataSizes(diff, diffTo, diffFrom);
@@ -1427,10 +1446,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
+      'range',
     );
     const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
+      'range',
     );
 
     addDataSizes(diff, diffTo, diffFrom);
