@@ -15,7 +15,9 @@
  */
 
 import { describe, it, assert } from 'vitest';
+import { fromBinary, toBinary } from '@bufbuild/protobuf';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { OperationSchema as PbOperationSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
 import {
   CRDTTreeNodeID,
@@ -147,5 +149,51 @@ describe('Tree restore span converter', function () {
     ) as TreeEditOperation;
     assert.isUndefined(restored.getRestoreMode());
     assert.isUndefined(restored.getRestoreSpans());
+  });
+
+  // A span addresses content by insertion identity, so every node ID it
+  // carries needs a created_at. fromTreeNodeID asserts the ticket is present
+  // with a non-null assertion, so a missing one does not throw there: it
+  // silently yields a CRDTTreeNodeID whose createdAt is undefined, which only
+  // surfaces much later inside the restore path. Reject it at the boundary,
+  // matching the server's fromTreeRestoreSpans.
+  describe('rejects a span with a missing created_at', function () {
+    // Round-trip a valid op down to protobuf, blank one created_at, and feed
+    // the re-encoded bytes back in, the way a malformed peer would.
+    const decodeWithout = (
+      blank: (span: {
+        id?: { createdAt?: unknown };
+        parentId?: { createdAt?: unknown };
+        leftSiblingId?: { createdAt?: unknown };
+        rightSiblingId?: { createdAt?: unknown };
+      }) => void,
+    ) => {
+      const op = create([elemSpan], 'restore', []);
+      const pb = fromBinary(PbOperationSchema, converter.operationToBinary(op));
+      const pbSpan = (pb.body.value as { restoreSpans: Array<unknown> })
+        .restoreSpans[0];
+      blank(pbSpan as never);
+      return () => converter.bytesToOperation(toBinary(PbOperationSchema, pb));
+    };
+
+    it('on the span id', function () {
+      assert.throws(decodeWithout((s) => (s.id!.createdAt = undefined)));
+    });
+
+    it('on the parent id', function () {
+      assert.throws(decodeWithout((s) => (s.parentId!.createdAt = undefined)));
+    });
+
+    it('on the left sibling id', function () {
+      assert.throws(
+        decodeWithout((s) => (s.leftSiblingId!.createdAt = undefined)),
+      );
+    });
+
+    it('on the right sibling id', function () {
+      assert.throws(
+        decodeWithout((s) => (s.rightSiblingId!.createdAt = undefined)),
+      );
+    });
   });
 });

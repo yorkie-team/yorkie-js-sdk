@@ -406,11 +406,22 @@ function toPbTreeRestoreSpan(span: TreeRestoreSpan): PbTreeRestoreSpan {
 
 /**
  * `fromPbTreeRestoreSpan` converts a Protobuf TreeRestoreSpan to model format.
- * A span addresses content by insertion identity, so a missing `id` is
- * malformed and rejected (parity with the Text restore span read path).
+ * A span addresses content by insertion identity, so every node ID it carries
+ * is malformed without a `createdAt` and is rejected here. `fromTreeNodeID`
+ * non-null asserts the ticket, so a missing one would not fail there: it would
+ * yield a CRDTTreeNodeID whose createdAt is undefined and only surface deep in
+ * the restore path. Mirrors the server's `fromTreeRestoreSpans`.
  */
 function fromPbTreeRestoreSpan(pbSpan: PbTreeRestoreSpan): TreeRestoreSpan {
-  if (!pbSpan.id || (pbSpan.parentId && !pbSpan.parentId.createdAt)) {
+  const anchors = [
+    pbSpan.parentId,
+    pbSpan.leftSiblingId,
+    pbSpan.rightSiblingId,
+  ];
+  if (
+    !pbSpan.id?.createdAt ||
+    anchors.some((anchor) => anchor && !anchor.createdAt)
+  ) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
       'malformed tree restore span: missing created_at',
