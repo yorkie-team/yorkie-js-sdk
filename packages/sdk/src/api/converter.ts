@@ -133,6 +133,8 @@ import {
   RestoreSpanSchema as PbRestoreSpanSchema,
   RestoreSpan as PbRestoreSpan,
   RestoreMode as PbRestoreMode,
+  TreeRestoreSpanSchema as PbTreeRestoreSpanSchema,
+  TreeRestoreSpan as PbTreeRestoreSpan,
   RevisionSummary as PbRevisionSummary,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
@@ -144,6 +146,7 @@ import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreeNodeID,
+  TreeRestoreSpan,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { traverseAll } from '../util/index_tree';
 import { TreeStyleOperation } from '../document/operation/tree_style_operation';
@@ -375,6 +378,79 @@ function toTreeNodeID(treeNodeID: CRDTTreeNodeID): PbTreeNodeID {
 }
 
 /**
+ * `toPbTreeRestoreSpan` converts a TreeRestoreSpan to Protobuf format.
+ */
+function toPbTreeRestoreSpan(span: TreeRestoreSpan): PbTreeRestoreSpan {
+  const pbSpan = create(PbTreeRestoreSpanSchema);
+  pbSpan.id = toTreeNodeID(span.id);
+  pbSpan.nodeType = span.nodeType;
+  pbSpan.isText = span.isText;
+  pbSpan.length = span.length;
+  if (span.value !== undefined) {
+    pbSpan.value = span.value;
+  }
+  if (span.attrs) {
+    pbSpan.attributes = toRHT(span.attrs);
+  }
+  if (span.parentID) {
+    pbSpan.parentId = toTreeNodeID(span.parentID);
+  }
+  if (span.leftSiblingID) {
+    pbSpan.leftSiblingId = toTreeNodeID(span.leftSiblingID);
+  }
+  if (span.rightSiblingID) {
+    pbSpan.rightSiblingId = toTreeNodeID(span.rightSiblingID);
+  }
+  return pbSpan;
+}
+
+/**
+ * `fromPbTreeRestoreSpan` converts a Protobuf TreeRestoreSpan to model format.
+ * A span addresses content by insertion identity, so every node ID it carries
+ * is malformed without a `createdAt`, and the attribute snapshot is malformed
+ * without an `updatedAt`. Both are rejected here because the decoders below
+ * non-null assert those tickets: `fromTreeNodeID` would yield a
+ * CRDTTreeNodeID with an undefined createdAt and `fromRHT` an RHT node with an
+ * undefined updatedAt, neither failing until deep inside the restore path.
+ * Mirrors the server's `fromTreeRestoreSpans`.
+ */
+function fromPbTreeRestoreSpan(pbSpan: PbTreeRestoreSpan): TreeRestoreSpan {
+  const anchors = [
+    pbSpan.parentId,
+    pbSpan.leftSiblingId,
+    pbSpan.rightSiblingId,
+  ];
+  if (
+    !pbSpan.id?.createdAt ||
+    anchors.some((anchor) => anchor && !anchor.createdAt) ||
+    Object.values(pbSpan.attributes).some((attr) => !attr.updatedAt)
+  ) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      'malformed tree restore span: missing timestamp',
+    );
+  }
+  return {
+    id: fromTreeNodeID(pbSpan.id),
+    nodeType: pbSpan.nodeType,
+    isText: pbSpan.isText,
+    length: pbSpan.length,
+    value: pbSpan.isText ? pbSpan.value : undefined,
+    attrs:
+      Object.keys(pbSpan.attributes).length > 0
+        ? fromRHT(pbSpan.attributes)
+        : undefined,
+    parentID: pbSpan.parentId ? fromTreeNodeID(pbSpan.parentId) : undefined,
+    leftSiblingID: pbSpan.leftSiblingId
+      ? fromTreeNodeID(pbSpan.leftSiblingId)
+      : undefined,
+    rightSiblingID: pbSpan.rightSiblingId
+      ? fromTreeNodeID(pbSpan.rightSiblingId)
+      : undefined,
+  };
+}
+
+/**
  * `toOperation` converts the given model to Protobuf format.
  */
 function toOperation(operation: Operation): PbOperation {
@@ -519,6 +595,23 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeEditOperation.executedAt = toTimeTicket(
       treeEditOperation.getExecutedAt(),
     );
+    const treeRestoreSpans = treeEditOperation.getRestoreSpans();
+    const treeRetombstoneSpans = treeEditOperation.getRetombstoneSpans();
+    if (
+      (treeRestoreSpans && treeRestoreSpans.length) ||
+      (treeRetombstoneSpans && treeRetombstoneSpans.length)
+    ) {
+      pbTreeEditOperation.restoreSpans = (treeRestoreSpans ?? []).map(
+        toPbTreeRestoreSpan,
+      );
+      pbTreeEditOperation.retombstoneSpans = (treeRetombstoneSpans ?? []).map(
+        toPbTreeRestoreSpan,
+      );
+      pbTreeEditOperation.restoreMode =
+        treeEditOperation.getRestoreMode() === 'retombstone'
+          ? PbRestoreMode.RETOMBSTONE
+          : PbRestoreMode.RESTORE;
+    }
     pbOperation.body.case = 'treeEdit';
     pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
@@ -1422,6 +1515,24 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     );
   } else if (pbOperation.body.case === 'treeEdit') {
     const pbTreeEditOperation = pbOperation.body.value;
+    let treeRestoreSpans: Array<TreeRestoreSpan> | undefined;
+    let treeRetombstoneSpans: Array<TreeRestoreSpan> | undefined;
+    let treeRestoreMode: 'restore' | 'retombstone' | undefined;
+    if (
+      pbTreeEditOperation!.restoreSpans.length ||
+      pbTreeEditOperation!.retombstoneSpans.length
+    ) {
+      treeRestoreSpans = pbTreeEditOperation!.restoreSpans.map(
+        fromPbTreeRestoreSpan,
+      );
+      treeRetombstoneSpans = pbTreeEditOperation!.retombstoneSpans.map(
+        fromPbTreeRestoreSpan,
+      );
+      treeRestoreMode =
+        pbTreeEditOperation!.restoreMode === PbRestoreMode.RETOMBSTONE
+          ? 'retombstone'
+          : 'restore';
+    }
     return TreeEditOperation.create(
       fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
       fromTreePos(pbTreeEditOperation!.from!),
@@ -1429,6 +1540,12 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
       pbTreeEditOperation!.splitLevel,
       fromTimeTicket(pbTreeEditOperation!.executedAt)!,
+      treeRestoreMode ? true : undefined,
+      undefined,
+      undefined,
+      treeRestoreSpans,
+      treeRestoreMode,
+      treeRetombstoneSpans,
     );
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;

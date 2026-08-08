@@ -21,8 +21,10 @@ import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreePos,
+  TreeRestoreSpan,
   toXML,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { RestoreMode } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import {
   Operation,
   OpInfo,
@@ -31,6 +33,7 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
+import { addDataSizes } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `cloneAndDropPreTombstoned` deep-copies `node` and drops descendants
@@ -109,6 +112,15 @@ export class TreeEditOperation extends Operation {
    * re-inserting the raw tombstoned boundary nodes as content.
    */
   private redoSplitLevel?: number;
+  // Identity-preserving Tree undo/redo (mirrors EditOperation): a reverse op
+  // carries the deleted nodes' spans and a mode. `restore` revives
+  // `restoreSpans` and re-removes `retombstoneSpans`; `retombstone` (the redo)
+  // does the opposite. Nodes are revived/removed by original identity, never
+  // copy-reinserted, so concurrent undos converge. Empty/undefined for
+  // ordinary edits and for the copy-reinsert reverse of merge/split edits.
+  private restoreSpans?: Array<TreeRestoreSpan>;
+  private restoreMode?: RestoreMode;
+  private retombstoneSpans?: Array<TreeRestoreSpan>;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -120,6 +132,9 @@ export class TreeEditOperation extends Operation {
     isUndoOp?: boolean,
     fromIdx?: number,
     toIdx?: number,
+    restoreSpans?: Array<TreeRestoreSpan>,
+    restoreMode?: RestoreMode,
+    retombstoneSpans?: Array<TreeRestoreSpan>,
   ) {
     super(parentCreatedAt, executedAt);
     this.fromPos = fromPos;
@@ -129,6 +144,9 @@ export class TreeEditOperation extends Operation {
     this.isUndoOp = isUndoOp;
     this.fromIdx = fromIdx;
     this.toIdx = toIdx;
+    this.restoreSpans = restoreSpans;
+    this.restoreMode = restoreMode;
+    this.retombstoneSpans = retombstoneSpans;
   }
 
   /**
@@ -144,6 +162,9 @@ export class TreeEditOperation extends Operation {
     isUndoOp?: boolean,
     fromIdx?: number,
     toIdx?: number,
+    restoreSpans?: Array<TreeRestoreSpan>,
+    restoreMode?: RestoreMode,
+    retombstoneSpans?: Array<TreeRestoreSpan>,
   ): TreeEditOperation {
     return new TreeEditOperation(
       parentCreatedAt,
@@ -155,7 +176,31 @@ export class TreeEditOperation extends Operation {
       isUndoOp,
       fromIdx,
       toIdx,
+      restoreSpans,
+      restoreMode,
+      retombstoneSpans,
     );
+  }
+
+  /**
+   * `getRestoreSpans` returns the identity-preserving restore payload, if any.
+   */
+  public getRestoreSpans(): Array<TreeRestoreSpan> | undefined {
+    return this.restoreSpans;
+  }
+
+  /**
+   * `getRestoreMode` returns the identity-preserving mode of this op.
+   */
+  public getRestoreMode(): RestoreMode | undefined {
+    return this.restoreMode;
+  }
+
+  /**
+   * `getRetombstoneSpans` returns the companion span set, if any.
+   */
+  public getRetombstoneSpans(): Array<TreeRestoreSpan> | undefined {
+    return this.retombstoneSpans;
   }
 
   /**
@@ -182,6 +227,70 @@ export class TreeEditOperation extends Operation {
     const editedAt = this.getExecutedAt();
     const tree = parentObject as CRDTTree;
 
+    // Identity-preserving restore/retombstone path (mirrors EditOperation).
+    // `restoreMode` selects direction; an undo ('restore') revives
+    // restoreSpans and re-removes retombstoneSpans, the redo ('retombstone')
+    // does the opposite. Nodes move by identity, never copy-reinsert.
+    if (this.restoreSpans || this.retombstoneSpans) {
+      const isRetombstone = this.restoreMode === 'retombstone';
+      const toRestore =
+        (isRetombstone ? this.retombstoneSpans : this.restoreSpans) ?? [];
+      const toRetombstone =
+        (isRetombstone ? this.restoreSpans : this.retombstoneSpans) ?? [];
+
+      const diff = { data: 0, meta: 0 };
+      // 1. Re-remove (retombstone) by identity.
+      for (const pair of tree.retombstone(toRetombstone, editedAt)) {
+        root.registerGCPair(pair);
+      }
+      // 2. Revive (restore) by identity: un-tombstoned nodes move gc->live via
+      // unregisterGCPair (must be after removedAt is cleared, which restore
+      // does); recreated nodes are brand new, so add their size to live.
+      const [untombstoned, recreated] = tree.restore(toRestore);
+      for (const node of untombstoned) {
+        root.unregisterGCPair({ parent: tree, child: node });
+      }
+      for (const node of recreated) {
+        addDataSizes(diff, node.getDataSize());
+      }
+      root.acc(diff);
+
+      // opInfos must be non-empty or Document.executeUndoRedo drops the undo
+      // change from localChanges (it never propagates to peers). Exact from/to
+      // for editor integration is best-effort here; positions are follow-up.
+      const opInfos: Array<OpInfo> = [
+        {
+          type: 'tree-edit',
+          path: root.createPath(this.getParentCreatedAt()),
+          from: this.fromIdx ?? 0,
+          to: this.toIdx ?? this.fromIdx ?? 0,
+          value: [],
+          splitLevel: 0,
+          fromPath: [],
+          toPath: [],
+        } as OpInfo,
+      ];
+
+      return {
+        opInfos,
+        // Reverse keeps the same span sets and flips the direction.
+        reverseOp: TreeEditOperation.create(
+          this.getParentCreatedAt(),
+          this.fromPos,
+          this.toPos,
+          undefined,
+          0,
+          undefined!, // executedAt assigned at (re)undo time
+          true,
+          this.fromIdx,
+          this.toIdx,
+          this.restoreSpans,
+          isRetombstone ? 'restore' : 'retombstone',
+          this.retombstoneSpans,
+        ),
+      };
+    }
+
     // For undo ops: convert stored integer indices to CRDTTreePos
     if (
       this.isUndoOp &&
@@ -204,6 +313,8 @@ export class TreeEditOperation extends Operation {
       preEditFromIdx,
       mergeLevel,
       preTombstoned,
+      removedSpans,
+      insertedSpans,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -255,6 +366,8 @@ export class TreeEditOperation extends Operation {
         preEditFromIdx,
         preTombstoned,
         mergeLevel,
+        removedSpans,
+        insertedSpans,
       );
     } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
@@ -303,7 +416,35 @@ export class TreeEditOperation extends Operation {
     preEditFromIdx: number,
     preTombstoned: Set<string>,
     mergeLevel?: number,
+    removedSpans?: Array<TreeRestoreSpan>,
+    insertedSpans?: Array<TreeRestoreSpan>,
   ): Operation | undefined {
+    // Identity-preserving reverse: reverse an edit by reviving the nodes it
+    // removed (restoreSpans) AND re-removing the nodes it inserted
+    // (retombstoneSpans), both by ORIGINAL identity instead of copy-reinsert.
+    // edit() only fills these spans when the edit was merge/split-free
+    // (spansComplete), so this never fires for the merge/split cases below; the
+    // redoSplitLevel guard keeps a split's own boundary-deletion undo on the
+    // re-split path (its deletion would otherwise fill removedSpans here).
+    const hasRemoved = !!removedSpans && removedSpans.length > 0;
+    const hasInserted = !!insertedSpans && insertedSpans.length > 0;
+    if (this.redoSplitLevel === undefined && (hasRemoved || hasInserted)) {
+      return TreeEditOperation.create(
+        this.getParentCreatedAt(),
+        this.fromPos,
+        this.toPos,
+        undefined,
+        0,
+        undefined!, // executedAt assigned at undo time
+        true,
+        preEditFromIdx,
+        preEditFromIdx,
+        removedSpans ?? [],
+        'restore',
+        insertedSpans ?? [],
+      );
+    }
+
     // Special case: this op is a boundary-deletion that was the undo of a
     // split. Its redo should re-split, not re-insert the tombstoned boundary
     // nodes as raw content.
@@ -486,6 +627,12 @@ export class TreeEditOperation extends Operation {
     contentLen: number,
   ): void {
     if (!this.isUndoOp) {
+      return;
+    }
+    // Identity-addressed restore/retombstone ops locate their nodes by
+    // TreeNodeID, not by index, so index reconciliation must not touch them
+    // (mirrors EditOperation for Text).
+    if (this.restoreSpans || this.retombstoneSpans) {
       return;
     }
     if (this.fromIdx === undefined || this.toIdx === undefined) {

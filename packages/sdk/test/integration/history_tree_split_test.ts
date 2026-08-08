@@ -2,7 +2,6 @@ import { describe, it, assert, expect } from 'vitest';
 import yorkie, { Document, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
-import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
 import type { Operation } from '@yorkie-js/sdk/src/document/operation/operation';
 
 /**
@@ -28,21 +27,24 @@ function topRedoTreeEdit(
   }
   return undefined;
 }
+// Renders a reverse op's identity payload. Reverse ops address nodes by
+// identity rather than carrying a subtree copy, so this reads the span sets
+// rather than `contents`.
 function summarizeOp(op: Operation | undefined): string {
   if (!(op instanceof TreeEditOperation)) return '<not-tree-edit>';
-  const contents = op.getContents();
-  if (!contents || contents.length === 0) return '(empty)';
-  const parts: Array<string> = [];
-  for (const root of contents) {
-    traverseAll(root, (n) => {
-      const created = n.id.getCreatedAt();
-      const id = `L${created.getLamport()}/${created.getDelimiter()}`;
-      const removed = n.removedAt ? `(R@L${n.removedAt.getLamport()})` : '';
-      const val = n.isText ? `:"${n.value}"` : '';
-      parts.push(`${n.type}${val}@${id}${removed}`);
-    });
-  }
-  return `[${parts.length}] ${parts.join(' | ')}`;
+  const restore = op.getRestoreSpans() ?? [];
+  const retombstone = op.getRetombstoneSpans() ?? [];
+  const spans = [...restore, ...retombstone];
+  if (spans.length === 0) return '(empty)';
+  const parts = spans.map((s) => {
+    const val = s.isText ? `:"${s.value ?? ''}"` : '';
+    return `${s.nodeType}${val}@${s.id.toIDString()}`;
+  });
+  return (
+    `${op.getRestoreMode() ?? '?'} ` +
+    `[restore:${restore.length} retombstone:${retombstone.length}] ` +
+    parts.join(' | ')
+  );
 }
 function initDoc(): Document<{ t: Tree }> {
   const doc = new Document<{ t: Tree }>('split-repro');
@@ -1249,31 +1251,61 @@ describe('Tree History - multi client split L2 edge cases', () => {
 });
 
 // 5. Single Client - reverseOp pre-tombstoned descendant filtering
+//
+// A reverse op used to carry a deep copy of the affected subtree in
+// `contents`, and these tests asserted on that copy. Reverse ops now address
+// nodes by identity instead (`restoreSpans` / `retombstoneSpans`), so
+// `contents` is deliberately empty on that path. The invariants below are the
+// same ones, restated against the span payload: it must not accumulate nodes
+// that were already tombstoned before the reversed edit.
 describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
-  it('should not accumulate reverseOp contents across redo cycles', () => {
+  // Whichever span set the reverse op carries; an undo of an insert fills
+  // retombstoneSpans, an undo of a delete fills restoreSpans.
+  function reversePayload(op: TreeEditOperation | undefined) {
+    return [
+      ...(op?.getRestoreSpans() ?? []),
+      ...(op?.getRetombstoneSpans() ?? []),
+    ];
+  }
+
+  // An ordered, identity-bearing description of a reverse payload. Comparing
+  // sizes alone would not notice a return to copy-reinsert, which can emit the
+  // same number of spans while minting a fresh identity every cycle -- exactly
+  // the regression identity-preserving restore exists to prevent.
+  function fingerprint(op: TreeEditOperation | undefined): Array<string> {
+    return reversePayload(op).map((s) =>
+      [
+        s.id.toIDString(),
+        s.parentID?.toIDString() ?? '-',
+        s.nodeType,
+        s.length,
+        s.value ?? '',
+      ].join('/'),
+    );
+  }
+
+  it('should not accumulate reverseOp payload across redo cycles', () => {
     const doc = initDoc();
     insertSiblingBlock(doc);
 
     const numCycles = 4;
-    const redoOpSizes: Array<number> = [];
+    const fingerprints: Array<Array<string>> = [];
 
     for (let cycle = 0; cycle < numCycles; cycle++) {
       // Type "asdf" in the inserted block.
       for (const ch of 'asdf') typeInSecondBlock(doc, ch);
 
-      // Undo each char.
+      // Undo each char. These four text nodes are now tombstoned, so the
+      // block-insert's reverse op must not mention them.
       for (let i = 0; i < 4; i++) doc.history.undo();
 
       // Undo the block-insert. After this, redoStack's top is the op
-      // that the next history.redo() will execute. That op's
-      // `contents` is the wire payload observed in production.
+      // that the next history.redo() will execute. Its span payload is
+      // what goes over the wire in production.
       doc.history.undo();
 
       const redoTop = topRedoTreeEdit(doc);
-      let count = 0;
-      const contents = redoTop?.getContents() ?? [];
-      for (const root of contents) traverseAll(root, () => count++);
-      redoOpSizes.push(count);
+      fingerprints.push(fingerprint(redoTop));
 
       process.stdout.write(
         `cycle ${cycle}: redoStack top = ${summarizeOp(redoTop)}\n`,
@@ -1283,10 +1315,13 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
       doc.history.redo();
     }
 
-    expect(redoOpSizes).toStrictEqual(Array(numCycles).fill(redoOpSizes[0]));
+    // Non-zero matters as much as constant: an all-empty payload would
+    // satisfy "identical across cycles" while carrying nothing at all.
+    expect(fingerprints[0].length).toBeGreaterThan(0);
+    expect(fingerprints).toStrictEqual(Array(numCycles).fill(fingerprints[0]));
   });
 
-  it('should produce reverseContents with consistent sizes', () => {
+  it('should produce a reverse payload that omits pre-tombstoned nodes', () => {
     const doc = initDoc();
     insertSiblingBlock(doc);
 
@@ -1296,31 +1331,73 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
 
     const redoTop = topRedoTreeEdit(doc);
     expect(redoTop).toBeDefined();
-    const contents = redoTop!.getContents() ?? [];
-    expect(contents.length).toBeGreaterThan(0);
+    const spans = reversePayload(redoTop);
+    expect(spans.length).toBeGreaterThan(0);
 
-    // For each surviving element node in `reverseContents`, the
-    // post-filter `totalSize` must equal the sum of its children's
-    // `paddedSize`. Without bottom-up recomputation the deepcopy
-    // carries the live tree's stale total, which includes the
-    // descendants that were just dropped from `_children`.
+    // The reversed edit inserted <p><inline></inline></p> and nothing else.
+    // The four characters were tombstoned by their own undos beforehand, so
+    // including them here would be the accumulation bug this suite guards.
+    expect(spans.map((s) => s.nodeType)).toStrictEqual(['p', 'inline']);
+    expect(spans.some((s) => s.isText)).toBe(false);
+
     const violations: Array<string> = [];
-    for (const root of contents) {
-      traverseAll(root, (n) => {
-        if (n.isText) return;
-        const expected = n._children.reduce(
-          (acc, child) => acc + child.paddedSize(),
-          0,
+    const seen = new Set<string>();
+    for (const [i, span] of spans.entries()) {
+      const key = span.id.toIDString();
+
+      // A repeated identity means the same node was collected twice.
+      if (seen.has(key))
+        violations.push(`${span.nodeType}: duplicate id ${key}`);
+      seen.add(key);
+
+      // Every span needs a parent anchor; without one the server's
+      // recreateFromSpan silently skips the node (the B1 rule).
+      if (!span.parentID) violations.push(`${span.nodeType}: missing parentID`);
+
+      // Parent before child, which is what CRDTTree.restore requires in
+      // order to rebuild a purged subtree top-down.
+      const parentKey = span.parentID?.toIDString();
+      const parentIdx = spans.findIndex((s) => s.id.toIDString() === parentKey);
+      if (parentIdx > i) {
+        violations.push(`${span.nodeType}: parent span comes after the child`);
+      }
+
+      // `length` is recorded as `node.value.length`, i.e. UTF-16 code units,
+      // and restore()/retombstone() use it as a string index boundary. Code
+      // points would disagree on anything outside the BMP.
+      const expected = span.isText ? (span.value ?? '').length : 0;
+      if (span.length !== expected) {
+        violations.push(
+          `${span.nodeType}: length=${span.length} expected=${expected}`,
         );
-        if (n.totalSize !== expected || n.visibleSize !== expected) {
-          violations.push(
-            `${n.type}: totalSize=${n.totalSize} visibleSize=${n.visibleSize} ` +
-              `expected=${expected} (children=${n._children.length})`,
-          );
-        }
-      });
+      }
     }
     expect(violations).toStrictEqual([]);
+  });
+
+  // The span length above is only exercised by text spans, and every text
+  // node in the scenario above is pre-tombstoned out of the payload. Undoing
+  // a surrogate-pair insert is the case where code points and code units
+  // diverge, so it is the one that pins the unit.
+  it('should record text span length in UTF-16 code units', () => {
+    const doc = initDoc();
+    insertSiblingBlock(doc);
+
+    // U+20BB7, a single code point that occupies two UTF-16 code units.
+    const astral = '𠮷';
+    expect(Array.from(astral).length).toBe(1);
+    expect(astral.length).toBe(2);
+
+    doc.update((root) => {
+      root.t.editByPath([1, 0, 0], [1, 0, 0], { type: 'text', value: astral });
+    }, 'type-astral');
+    doc.history.undo();
+
+    const spans = reversePayload(topRedoTreeEdit(doc));
+    const textSpans = spans.filter((s) => s.isText);
+    expect(textSpans.length).toBe(1);
+    expect(textSpans[0].value).toBe(astral);
+    expect(textSpans[0].length).toBe(astral.length);
   });
 
   it('should allow typing at the correct position after redo', () => {
