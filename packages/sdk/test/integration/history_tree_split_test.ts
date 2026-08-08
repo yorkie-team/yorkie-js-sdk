@@ -1268,12 +1268,28 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
     ];
   }
 
+  // An ordered, identity-bearing description of a reverse payload. Comparing
+  // sizes alone would not notice a return to copy-reinsert, which can emit the
+  // same number of spans while minting a fresh identity every cycle -- exactly
+  // the regression identity-preserving restore exists to prevent.
+  function fingerprint(op: TreeEditOperation | undefined): Array<string> {
+    return reversePayload(op).map((s) =>
+      [
+        s.id.toIDString(),
+        s.parentID?.toIDString() ?? '-',
+        s.nodeType,
+        s.length,
+        s.value ?? '',
+      ].join('/'),
+    );
+  }
+
   it('should not accumulate reverseOp payload across redo cycles', () => {
     const doc = initDoc();
     insertSiblingBlock(doc);
 
     const numCycles = 4;
-    const redoOpSizes: Array<number> = [];
+    const fingerprints: Array<Array<string>> = [];
 
     for (let cycle = 0; cycle < numCycles; cycle++) {
       // Type "asdf" in the inserted block.
@@ -1289,7 +1305,7 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
       doc.history.undo();
 
       const redoTop = topRedoTreeEdit(doc);
-      redoOpSizes.push(reversePayload(redoTop).length);
+      fingerprints.push(fingerprint(redoTop));
 
       process.stdout.write(
         `cycle ${cycle}: redoStack top = ${summarizeOp(redoTop)}\n`,
@@ -1300,9 +1316,9 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
     }
 
     // Non-zero matters as much as constant: an all-empty payload would
-    // satisfy "constant" while carrying nothing at all.
-    expect(redoOpSizes[0]).toBeGreaterThan(0);
-    expect(redoOpSizes).toStrictEqual(Array(numCycles).fill(redoOpSizes[0]));
+    // satisfy "identical across cycles" while carrying nothing at all.
+    expect(fingerprints[0].length).toBeGreaterThan(0);
+    expect(fingerprints).toStrictEqual(Array(numCycles).fill(fingerprints[0]));
   });
 
   it('should produce a reverse payload that omits pre-tombstoned nodes', () => {
@@ -1346,8 +1362,10 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
         violations.push(`${span.nodeType}: parent span comes after the child`);
       }
 
-      // length is the UTF-16 length of value for text, 0 for elements.
-      const expected = span.isText ? Array.from(span.value ?? '').length : 0;
+      // `length` is recorded as `node.value.length`, i.e. UTF-16 code units,
+      // and restore()/retombstone() use it as a string index boundary. Code
+      // points would disagree on anything outside the BMP.
+      const expected = span.isText ? (span.value ?? '').length : 0;
       if (span.length !== expected) {
         violations.push(
           `${span.nodeType}: length=${span.length} expected=${expected}`,
@@ -1355,6 +1373,31 @@ describe('Tree History - single client reverseOp pre-tombstoned filter', () => {
       }
     }
     expect(violations).toStrictEqual([]);
+  });
+
+  // The span length above is only exercised by text spans, and every text
+  // node in the scenario above is pre-tombstoned out of the payload. Undoing
+  // a surrogate-pair insert is the case where code points and code units
+  // diverge, so it is the one that pins the unit.
+  it('should record text span length in UTF-16 code units', () => {
+    const doc = initDoc();
+    insertSiblingBlock(doc);
+
+    // U+20BB7, a single code point that occupies two UTF-16 code units.
+    const astral = '𠮷';
+    expect(Array.from(astral).length).toBe(1);
+    expect(astral.length).toBe(2);
+
+    doc.update((root) => {
+      root.t.editByPath([1, 0, 0], [1, 0, 0], { type: 'text', value: astral });
+    }, 'type-astral');
+    doc.history.undo();
+
+    const spans = reversePayload(topRedoTreeEdit(doc));
+    const textSpans = spans.filter((s) => s.isText);
+    expect(textSpans.length).toBe(1);
+    expect(textSpans[0].value).toBe(astral);
+    expect(textSpans[0].length).toBe(astral.length);
   });
 
   it('should allow typing at the correct position after redo', () => {

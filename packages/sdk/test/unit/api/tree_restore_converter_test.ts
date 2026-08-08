@@ -166,6 +166,7 @@ describe('Tree restore span converter', function () {
         parentId?: { createdAt?: unknown };
         leftSiblingId?: { createdAt?: unknown };
         rightSiblingId?: { createdAt?: unknown };
+        attributes?: Record<string, { updatedAt?: unknown }>;
       }) => void,
     ) => {
       const op = create([elemSpan], 'restore', []);
@@ -193,6 +194,15 @@ describe('Tree restore span converter', function () {
     it('on the right sibling id', function () {
       assert.throws(
         decodeWithout((s) => (s.rightSiblingId!.createdAt = undefined)),
+      );
+    });
+
+    // An element span also carries an attribute snapshot, and fromRHT hides a
+    // missing timestamp the same way fromTreeNodeID hid a missing created_at:
+    // it non-null asserts, yielding an RHT node whose updatedAt is undefined.
+    it('on an attribute updatedAt', function () {
+      assert.throws(
+        decodeWithout((s) => (s.attributes!['bold'].updatedAt = undefined)),
       );
     });
   });

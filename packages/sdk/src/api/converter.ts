@@ -407,10 +407,12 @@ function toPbTreeRestoreSpan(span: TreeRestoreSpan): PbTreeRestoreSpan {
 /**
  * `fromPbTreeRestoreSpan` converts a Protobuf TreeRestoreSpan to model format.
  * A span addresses content by insertion identity, so every node ID it carries
- * is malformed without a `createdAt` and is rejected here. `fromTreeNodeID`
- * non-null asserts the ticket, so a missing one would not fail there: it would
- * yield a CRDTTreeNodeID whose createdAt is undefined and only surface deep in
- * the restore path. Mirrors the server's `fromTreeRestoreSpans`.
+ * is malformed without a `createdAt`, and the attribute snapshot is malformed
+ * without an `updatedAt`. Both are rejected here because the decoders below
+ * non-null assert those tickets: `fromTreeNodeID` would yield a
+ * CRDTTreeNodeID with an undefined createdAt and `fromRHT` an RHT node with an
+ * undefined updatedAt, neither failing until deep inside the restore path.
+ * Mirrors the server's `fromTreeRestoreSpans`.
  */
 function fromPbTreeRestoreSpan(pbSpan: PbTreeRestoreSpan): TreeRestoreSpan {
   const anchors = [
@@ -420,11 +422,12 @@ function fromPbTreeRestoreSpan(pbSpan: PbTreeRestoreSpan): TreeRestoreSpan {
   ];
   if (
     !pbSpan.id?.createdAt ||
-    anchors.some((anchor) => anchor && !anchor.createdAt)
+    anchors.some((anchor) => anchor && !anchor.createdAt) ||
+    Object.values(pbSpan.attributes).some((attr) => !attr.updatedAt)
   ) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
-      'malformed tree restore span: missing created_at',
+      'malformed tree restore span: missing timestamp',
     );
   }
   return {
