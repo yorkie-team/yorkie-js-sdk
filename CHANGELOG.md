@@ -7,6 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.14] - 2026-08-09
+
+### Added
+
+- Add identity-preserving restore for Tree undo/redo by @harrykim8672 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1297
+
+### Fixed
+
+- Recreate purged text runs in order on restore, not reversed by @harrykim8672 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1310
+- Keep style ranges from crossing a concurrent merge anchor by @Nahee-Park in https://github.com/yorkie-team/yorkie-js-sdk/pull/1309
+- Flatten chained merge to converge an anchored concurrent insert by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1305
+- Move tombstones with merge to preserve tree RGA anchors by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1303
+- Promote out-of-int32 integers to Long in Primitive by @gnujoow in https://github.com/yorkie-team/yorkie-js-sdk/pull/1291
+
 ## [v0.7.13] - 2026-07-23
 
 ### Added
