@@ -79,13 +79,14 @@ describe('Counter', function () {
 });
 
 it('Can wrap around Int counter when increased by an out-of-int32 Long', function () {
-  // int32 최대값은 2147483647. 그 경계를 넘는 Long을 더하면
-  // Go SDK의 int32 산술과 동일하게 wrap 되어야 한다.
+  // Adding a Long beyond int32 range must wrap, like the Go SDK.
   const counter = CRDTCounter.create(CounterType.Int, 0, InitialTimeTicket);
   const outOfInt32 = Primitive.of(BigInt(2147483648), InitialTimeTicket); // 2^31
-
   counter.increase(outOfInt32);
-
-  // wrap 되어 -2147483648이 되어야 한다 (수정 전에는 2147483648로 발산)
   assert.equal(counter.getValue(), -2147483648);
+
+  // Nonzero base: old behavior returns -2147483649, fixed returns 2147483647.
+  const counter2 = CRDTCounter.create(CounterType.Int, -1, InitialTimeTicket);
+  counter2.increase(Primitive.of(BigInt(2147483648), InitialTimeTicket));
+  assert.equal(counter2.getValue(), 2147483647);
 });
