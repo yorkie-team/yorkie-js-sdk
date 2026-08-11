@@ -125,6 +125,30 @@ describe('Counter', function () {
     assert.equal(`{"age":-9223372036854775808}`, doc.toSortedJSON());
   });
 
+  it('Can handle increase operation with out-of-int32 Long', async function ({
+    task,
+  }) {
+    type TestDoc = { age: Counter };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.age = new Counter(1);
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((root) => {
+        root.age.increase(5_000_000_000n);
+      });
+      await c1.sync();
+      await c2.sync();
+
+      // 1 + 5_000_000_000 wraps to 705032705 under int32 arithmetic,
+      // which is what the Go SDK computes.
+      assert.equal(`{"age":705032705}`, d1.toSortedJSON());
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
   it('can get proper reverse operations', function ({ task }) {
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const doc = new Document<{ cnt: Counter; longCnt: Counter }>(docKey);

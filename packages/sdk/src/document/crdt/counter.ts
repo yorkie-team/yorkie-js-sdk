@@ -368,8 +368,9 @@ export class CRDTCounter extends CRDTElement {
       this.value = BigInt.asIntN(64, (this.value as bigint) + delta);
     } else {
       if (v.getType() === PrimitiveType.Long) {
-        this.value =
-          (this.value as number) + bigintToInt32(v.getValue() as bigint);
+        this.value = bigintToInt32(
+          BigInt(this.value as number) + (v.getValue() as bigint),
+        );
       } else {
         this.value = bigintToInt32(
           BigInt(
