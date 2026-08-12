@@ -239,17 +239,32 @@ export class TreeEditOperation extends Operation {
         (isRetombstone ? this.restoreSpans : this.retombstoneSpans) ?? [];
 
       const diff = { data: 0, meta: 0 };
-      // 1. Re-remove (retombstone) by identity.
-      for (const pair of tree.retombstone(toRetombstone, editedAt)) {
+      // 1. Re-remove (retombstone) by identity. Isolating a straddling piece
+      // splits it (live-split overhead accounted to `diff`).
+      const [retombstonePairs, retombstoneDiff] = tree.retombstone(
+        toRetombstone,
+        editedAt,
+      );
+      addDataSizes(diff, retombstoneDiff);
+      for (const pair of retombstonePairs) {
         root.registerGCPair(pair);
       }
-      // 2. Revive (restore) by identity: un-tombstoned nodes move gc->live via
-      // unregisterGCPair (must be after removedAt is cleared, which restore
-      // does); recreated nodes are brand new, so add their size to live.
-      const [untombstoned, recreated] = tree.restore(toRestore);
+      // 2. Revive (restore) by identity. Isolating a range out of a straddling
+      // piece can split off born-removed remainders as pending GC pairs;
+      // register them FIRST so a split-born un-tombstoned target is walked
+      // gc->live correctly by the unregister below (mirrors the Text path).
+      // Un-tombstoned nodes move gc->live via unregisterGCPair (after removedAt
+      // is cleared, which restore does); recreated nodes are brand new, so add
+      // their size to live, plus any live-split overhead.
+      const [untombstoned, recreated, restorePairs, restoreDiff] =
+        tree.restore(toRestore);
+      for (const pair of restorePairs) {
+        root.registerGCPair(pair);
+      }
       for (const node of untombstoned) {
         root.unregisterGCPair({ parent: tree, child: node });
       }
+      addDataSizes(diff, restoreDiff);
       for (const node of recreated) {
         addDataSizes(diff, node.getDataSize());
       }

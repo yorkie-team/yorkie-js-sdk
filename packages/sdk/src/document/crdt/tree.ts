@@ -2196,9 +2196,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public restore(
     spans: Array<TreeRestoreSpan>,
-  ): [Array<CRDTTreeNode>, Array<CRDTTreeNode>] {
+  ): [Array<CRDTTreeNode>, Array<CRDTTreeNode>, Array<GCPair>, DataSize] {
     const untombstoned: Array<CRDTTreeNode> = [];
     const recreated: Array<CRDTTreeNode> = [];
+    const diff: DataSize = { data: 0, meta: 0 };
 
     for (const span of spans) {
       if (!span.isText) {
@@ -2221,7 +2222,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
         continue;
       }
 
-      // Text: surviving pieces may be split finer than the span.
+      // Text: pieces may be split finer than the span, and a concurrent op or
+      // a post-GC recreate can leave pieces whose boundaries straddle it.
+      // Isolate the exact [start, end) sub-range out of every overlapping
+      // piece — splitting at the span boundaries, live or removed — so all
+      // replicas converge on identical text-node segmentation (the tree
+      // analogue of RGATreeSplit.isolateRange). Then revive the removed parts
+      // and recreate the purged gaps.
       const start = span.id.getOffset();
       const end = start + span.length;
       const pieces = this.findPiecesOverlapping(
@@ -2238,20 +2245,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
         const pieceEnd = piece ? pieceStart + piece.value.length : Infinity;
 
         if (piece && pieceStart <= cursor) {
-          if (pieceStart < start || pieceEnd > end) {
-            // Piece straddles a span boundary. Under causal delivery the
-            // forward delete split at span boundaries on every replica before
-            // its undo could arrive, so this is not expected; skip
-            // conservatively rather than un-tombstone beyond the span. Mirrors
-            // the guard in retombstone() so undo/redo stay symmetric.
-            break;
+          const overlapEnd = Math.min(pieceEnd, end);
+          const target = this.isolateTextRange(piece, cursor, overlapEnd, diff);
+          if (target.isRemoved) {
+            target.unremove();
+            untombstoned.push(target);
           }
-          if (piece.isRemoved) {
-            piece.unremove();
-            untombstoned.push(piece);
-          }
-          cursor = Math.min(pieceEnd, end);
-          if (cursor >= pieceEnd) pieceIdx++;
+          cursor = overlapEnd;
+          if (overlapEnd >= pieceEnd) pieceIdx++;
         } else {
           const gapEnd = Math.min(pieceStart, end);
           const created = this.recreateFromSpan(span, cursor, gapEnd - cursor);
@@ -2262,19 +2263,58 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
       }
     }
-    return [untombstoned, recreated];
+
+    // Splitting a removed straddler buffers born-removed remainders as pending
+    // GC pairs (see CRDTTreeNode.split). The caller registers these BEFORE
+    // unregistering the un-tombstoned targets, so a target that was itself a
+    // split-born piece is walked gc->live correctly (mirrors the Text path).
+    const pairs = this.drainPendingGCPairs();
+    return [untombstoned, recreated, pairs, diff];
+  }
+
+  /**
+   * `isolateTextRange` splits `piece` so that a node exactly covering the
+   * absolute-offset interval [from, to) of its insertion exists, and returns
+   * it. Splitting at the caller's boundaries — rather than skipping a piece
+   * that straddles them — is what lets concurrent restores converge on the
+   * same text-node segmentation across replicas (the tree analogue of
+   * RGATreeSplit.isolateRange). A live split's metadata overhead is added to
+   * `diff`; a removed split buffers a pending GC pair internally (contributing
+   * zero here). Requires pieceStart <= from < to <= pieceEnd.
+   */
+  private isolateTextRange(
+    piece: CRDTTreeNode,
+    from: number,
+    to: number,
+    diff: DataSize,
+  ): CRDTTreeNode {
+    let node = piece;
+    if (from > node.id.getOffset()) {
+      const [right, splitDiff] = node.split(this, from - node.id.getOffset());
+      addDataSizes(diff, splitDiff);
+      node = right!;
+    }
+    if (to < node.id.getOffset() + node.value.length) {
+      const [, splitDiff] = node.split(this, to - node.id.getOffset());
+      addDataSizes(diff, splitDiff);
+    }
+    return node;
   }
 
   /**
    * `retombstone` re-deletes the nodes described by `spans` (redo of an
-   * identity-preserving undo). Live pieces only; idempotent. Returns GC pairs
-   * for the newly tombstoned nodes.
+   * identity-preserving undo). Live pieces only; idempotent. A piece that
+   * straddles a span boundary is split at that boundary so only the in-span
+   * range is re-removed (symmetric with restore's isolate, so undo/redo stay
+   * mirror images and segmentation stays convergent). Returns the GC pairs for
+   * the newly tombstoned nodes and the live-split metadata overhead.
    */
   public retombstone(
     spans: Array<TreeRestoreSpan>,
     executedAt: TimeTicket,
-  ): Array<GCPair> {
+  ): [Array<GCPair>, DataSize] {
     const pairs: Array<GCPair> = [];
+    const diff: DataSize = { data: 0, meta: 0 };
     for (const span of spans) {
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
@@ -2285,22 +2325,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
           );
       for (const piece of pieces) {
         if (piece.isRemoved) continue;
-        if (
-          piece.isText &&
-          (piece.id.getOffset() < start ||
-            piece.id.getOffset() + piece.value.length > end)
-        ) {
-          // Piece straddles a span boundary (same clamped `end` as
-          // findPiecesOverlapping); skip so we never re-tombstone content
-          // outside the span. Mirrors the guard in restore().
-          continue;
+        let target = piece;
+        if (piece.isText) {
+          const from = Math.max(piece.id.getOffset(), start);
+          const to = Math.min(piece.id.getOffset() + piece.value.length, end);
+          target = this.isolateTextRange(piece, from, to, diff);
         }
-        if (piece.remove(executedAt)) {
-          pairs.push({ parent: this, child: piece });
+        if (target.remove(executedAt)) {
+          pairs.push({ parent: this, child: target });
         }
       }
     }
-    return pairs;
+    return [pairs, diff];
   }
 
   /**
