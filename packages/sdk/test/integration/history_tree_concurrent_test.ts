@@ -13,6 +13,13 @@ import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/inte
  */
 type TestDoc = { t: Tree };
 
+/**
+ * `settle` runs several push/pull rounds on both clients so their changes are
+ * fully exchanged and each replica's min-synced version vector advances far
+ * enough for GC to purge the tombstones. Two `settle` calls back to back are
+ * used before an undo to guarantee the deleted nodes are actually purged, so
+ * restore exercises the recreate path.
+ */
 async function settle(c1: any, c2: any) {
   for (let i = 0; i < 3; i++) {
     await c1.sync();
@@ -20,6 +27,7 @@ async function settle(c1: any, c2: any) {
   }
 }
 
+/** `initFlat` seeds `d` with `<doc><p>0123456789</p></doc>`. */
 function initFlat(d: any) {
   d.update((r: any) => {
     r.t = new Tree({
@@ -57,6 +65,7 @@ describe('Tree History - concurrent overlapping undo after GC', () => {
         initFlat(d1);
         await c1.sync();
         await c2.sync();
+        const initial = d1.getRoot().t.toXML();
 
         d1.update((r) => r.t.edit(r1[0], r1[1]), 'd1 delete');
         d2.update((r) => r.t.edit(r2[0], r2[1]), 'd2 delete');
@@ -64,10 +73,19 @@ describe('Tree History - concurrent overlapping undo after GC', () => {
         await settle(c1, c2); // let GC purge the tombstones
         conv(d1, d2, 'after deletes');
 
+        // Both undos revive both deleted runs by identity, restoring the
+        // pre-delete visible content on both replicas. (The internal text-node
+        // segmentation may be finer than the original — isolate splits at the
+        // span boundaries — but both replicas agree, which `conv` checks.)
         d1.history.undo();
         d2.history.undo();
         await settle(c1, c2);
         conv(d1, d2, 'after undo');
+        assert.equal(
+          d1.getRoot().t.toXML(),
+          initial,
+          'undo restores the initial visible content',
+        );
       }, task.name);
     });
 
@@ -78,21 +96,35 @@ describe('Tree History - concurrent overlapping undo after GC', () => {
         initFlat(d1);
         await c1.sync();
         await c2.sync();
+        const initial = d1.getRoot().t.toXML();
 
         d1.update((r) => r.t.edit(r1[0], r1[1]), 'd1 delete');
         d2.update((r) => r.t.edit(r2[0], r2[1]), 'd2 delete');
         await settle(c1, c2);
         await settle(c1, c2);
+        const afterDeletes = d1.getRoot().t.toXML();
 
         d1.history.undo();
         d2.history.undo();
         await settle(c1, c2);
         conv(d1, d2, 'after undo');
+        assert.equal(
+          d1.getRoot().t.toXML(),
+          initial,
+          'undo restores the initial visible content',
+        );
 
+        // Both redos re-remove both runs by identity, back to the converged
+        // post-delete state.
         d1.history.redo();
         d2.history.redo();
         await settle(c1, c2);
         conv(d1, d2, 'after redo');
+        assert.equal(
+          d1.getRoot().t.toXML(),
+          afterDeletes,
+          'redo restores the post-delete visible content',
+        );
       }, task.name);
     });
   }

@@ -2191,8 +2191,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * ORIGINAL identities (identity-preserving Tree undo): live → skip
    * (idempotent), tombstoned → unremove in place, purged → recreate. Spans
    * must be in parent-before-child order (`edit()` captures them that way).
-   * Returns `[untombstoned, recreated]`; the caller unregisters GC pairs for
-   * the un-tombstoned nodes.
+   *
+   * Returns `[untombstoned, recreated, pairs, diff]`:
+   * - `untombstoned`: nodes revived in place (caller unregisters their GC pairs);
+   * - `recreated`: brand-new nodes rebuilt for purged ranges (caller adds their
+   *   size to Live);
+   * - `pairs`: pending GC pairs for born-removed remainders split off a removed
+   *   straddler (caller registers them BEFORE unregistering the untombstoned);
+   * - `diff`: the metadata overhead of splitting live straddlers (caller `acc`s
+   *   it to Live).
    */
   public restore(
     spans: Array<TreeRestoreSpan>,
