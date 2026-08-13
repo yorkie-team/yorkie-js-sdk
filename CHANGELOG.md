@@ -7,6 +7,13 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.15] - 2026-08-13
+
+### Fixed
+
+- Make Tree restore split-aware for concurrent overlapping undo by @harrykim8672 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1315
+- Wrap Int counter result in both increase branches by @hyunji1117 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1312
+
 ## [v0.7.14] - 2026-08-09
 
 ### Added
