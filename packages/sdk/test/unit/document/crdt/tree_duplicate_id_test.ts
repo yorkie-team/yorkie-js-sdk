@@ -323,6 +323,14 @@ describe('CRDTTree with a duplicated node id', function () {
       'the copy is not inserted',
     );
 
+    // The undo stack shifts its stored indices by this size when a remote
+    // edit arrives, so it has to match what the tree accepted.
+    assert.equal(
+      op.getContentSize(),
+      0,
+      'an edit whose content was dropped inserted nothing',
+    );
+
     // Redoing must not delete a neighbour that this edit never inserted.
     if (reverseOp) {
       const redo = reverseOp as TreeEditOperation;

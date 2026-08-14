@@ -105,6 +105,7 @@ export class TreeEditOperation extends Operation {
   private toIdx?: number;
   private lastFromIdx?: number;
   private lastToIdx?: number;
+  private insertedContentSize?: number;
   /**
    * `redoSplitLevel` is set on boundary-deletion undo ops that were generated
    * to reverse a split. When this op executes (as undo), `toReverseOperation`
@@ -329,6 +330,9 @@ export class TreeEditOperation extends Operation {
     const insertedContents = contents
       ? tree.dropDuplicateContents(contents, editedAt)
       : undefined;
+    this.insertedContentSize = insertedContents
+      ? insertedContents.reduce((sum, node) => sum + node.paddedSize(), 0)
+      : 0;
 
     const [
       changes,
@@ -512,10 +516,10 @@ export class TreeEditOperation extends Operation {
       return splitUndoOp;
     }
 
-    // Compute inserted content size (total tree index tokens). This counts
-    // what the tree accepted, not what the operation carried: content whose ID
-    // was already in the tree is dropped, and a reverse range covering it
-    // would delete a neighbour on redo.
+    // Inserted content size in tree index tokens, counting what the tree
+    // accepted rather than what this operation carried: content whose ID was
+    // already in the tree is dropped, and a reverse range covering it would
+    // delete a neighbour on redo.
     const insertedContentSize = insertedContents
       ? insertedContents.reduce((sum, node) => sum + node.paddedSize(), 0)
       : 0;
@@ -741,8 +745,16 @@ export class TreeEditOperation extends Operation {
   /**
    * `getContentSize` returns the total visible size of this operation's
    * content (for reconciliation).
+   *
+   * Once the operation has run, this is the size the tree accepted: content
+   * whose ID was already in the tree is dropped, and the undo stack shifts its
+   * stored indices by this size, so counting the dropped copy would move every
+   * index in the stack past content that was never inserted.
    */
   public getContentSize(): number {
+    if (this.insertedContentSize !== undefined) {
+      return this.insertedContentSize;
+    }
     if (!this.contents) return 0;
     return this.contents.reduce((sum, node) => sum + node.paddedSize(), 0);
   }
