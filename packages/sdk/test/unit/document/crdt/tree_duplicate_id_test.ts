@@ -29,6 +29,8 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
+import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 
 /**
  * A CRDTTreeNodeID (createdAt + offset) is the identity every position anchors
@@ -287,6 +289,48 @@ describe('CRDTTree with a duplicated node id', function () {
       'the live node keeps the id after its tombstone is collected',
     );
     assert.equal(tree.toXML(), /*html*/ `<r><p>0123456789</p></r>`);
+  });
+
+  it('does not let a dropped copy widen the reverse operation', function () {
+    const [root, tree, textID] = buildDigitTree();
+
+    tree.editT([6, 7], undefined, 0, timeT(), timeT);
+    assert.equal(tree.toXML(), /*html*/ `<r><p>012346789</p></r>`);
+
+    // The undo of that deletion, as the copy-reinsert path builds it: one
+    // content node carrying the id of the piece just tombstoned.
+    const undoAt = TimeTicket.of(timeT().getLamport() + 1n, 1, InitialActorID);
+    const pos = tree.findPos(6);
+    const op = TreeEditOperation.create(
+      tree.getCreatedAt(),
+      pos,
+      pos,
+      [
+        new CRDTTreeNode(
+          CRDTTreeNodeID.of(textID.getCreatedAt(), 5),
+          'text',
+          '5',
+        ),
+      ],
+      0,
+      undoAt,
+    );
+
+    const { reverseOp } = op.execute(root, OpSource.Local);
+    assert.equal(
+      tree.toXML(),
+      /*html*/ `<r><p>012346789</p></r>`,
+      'the copy is not inserted',
+    );
+
+    // Redoing must not delete a neighbour that this edit never inserted.
+    if (reverseOp) {
+      const redo = reverseOp as TreeEditOperation;
+      assert.isTrue(
+        redo.getFromPos().equals(redo.getToPos()),
+        'the reverse of an edit that inserted nothing spans nothing',
+      );
+    }
   });
 
   it('refuses to split a text node past its end', function () {

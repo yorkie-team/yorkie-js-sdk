@@ -320,6 +320,16 @@ export class TreeEditOperation extends Operation {
       }
     }
 
+    // Content that reuses an ID already in the tree is dropped, so the reverse
+    // operation has to be built from what was inserted rather than from what
+    // this operation carried: a range covering content the tree refused would
+    // delete a neighbour on redo. The delimiter simulation below stays on the
+    // original count, since the server simulates it the same way.
+    const contents = this.contents?.map((content) => content.deepcopy());
+    const insertedContents = contents
+      ? tree.dropDuplicateContents(contents, editedAt)
+      : undefined;
+
     const [
       changes,
       pairs,
@@ -332,7 +342,7 @@ export class TreeEditOperation extends Operation {
       insertedSpans,
     ] = tree.edit(
       [this.fromPos, this.toPos],
-      this.contents?.map((content) => content.deepcopy()),
+      insertedContents,
       this.splitLevel,
       editedAt,
       /**
@@ -383,6 +393,7 @@ export class TreeEditOperation extends Operation {
         mergeLevel,
         removedSpans,
         insertedSpans,
+        insertedContents,
       );
     } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
@@ -433,6 +444,7 @@ export class TreeEditOperation extends Operation {
     mergeLevel?: number,
     removedSpans?: Array<TreeRestoreSpan>,
     insertedSpans?: Array<TreeRestoreSpan>,
+    insertedContents?: Array<CRDTTreeNode>,
   ): Operation | undefined {
     // Identity-preserving reverse: reverse an edit by reviving the nodes it
     // removed (restoreSpans) AND re-removing the nodes it inserted
@@ -500,9 +512,12 @@ export class TreeEditOperation extends Operation {
       return splitUndoOp;
     }
 
-    // Compute inserted content size (total tree index tokens)
-    const insertedContentSize = this.contents
-      ? this.contents.reduce((sum, node) => sum + node.paddedSize(), 0)
+    // Compute inserted content size (total tree index tokens). This counts
+    // what the tree accepted, not what the operation carried: content whose ID
+    // was already in the tree is dropped, and a reverse range covering it
+    // would delete a neighbour on redo.
+    const insertedContentSize = insertedContents
+      ? insertedContents.reduce((sum, node) => sum + node.paddedSize(), 0)
       : 0;
 
     // Guard: if the positions exceed the post-edit tree size,

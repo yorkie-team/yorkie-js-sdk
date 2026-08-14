@@ -1214,7 +1214,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * content node's subtree drops that whole subtree, on the grounds that a
    * copy is copied whole.
    */
-  private dropDuplicateContents(
+  public dropDuplicateContents(
     contents: Array<CRDTTreeNode>,
     editedAt: TimeTicket,
   ): Array<CRDTTreeNode> {
