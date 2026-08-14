@@ -90,9 +90,11 @@ which took the copy path no longer restores its text.
 
 ## Open Problems
 
-- **Undo by copy is the source.** Routing every reverse through the restore
-  path — or having the copy issue fresh IDs — removes path 1 entirely. Until
-  then these rules only contain it.
+- **Undo by copy is the source.** Routing every reverse the restore path can
+  express through it removes path 1. Issuing fresh IDs for the copies would
+  stop the collision, but it keeps the copy-based model that duplicates content
+  when undo ranges overlap — a narrower fix for the identity problem alone, not
+  for undo correctness. Until then these rules only contain it.
 - **Simulated split delimiters are the second source.** Carrying the split
   tickets in the operation would remove path 2, and only then can rule 1 drop
   its same-change carve-out and become an invariant rather than a goal.

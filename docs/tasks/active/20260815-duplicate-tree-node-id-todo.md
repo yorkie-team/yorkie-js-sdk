@@ -41,10 +41,11 @@ with nothing logged.
 
 ## Follow-ups
 
-- The origin is still here: reverse every deletion through the restore
-  path, or have the copy issue fresh IDs. Until then these rules only
-  contain it, and an undo that took the copy path no longer restores
-  its text.
+- The origin is still here: reverse every deletion the restore path can
+  express through it. Fresh IDs for the copies would stop the collision
+  but keep the copy-based model, which duplicates content when undo
+  ranges overlap. Until then these rules only contain it, and an undo
+  that took the copy path no longer restores its text.
 - Element splits simulate the delimiters the client consumed instead of
   replaying them, so ordinary editing can still issue two nodes one ID.
   That is why `dropDuplicateContents` has to keep same-change content,
