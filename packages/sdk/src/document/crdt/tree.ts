@@ -986,7 +986,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     this.pendingGCPairs = [];
 
     this.indexTree.traverseAll((node) => {
-      this.nodeMapByID.put(node.id, node);
+      this.registerNode(node);
     });
 
     // Rebuild runtime merge state from the persisted `mergedFrom`
@@ -1156,10 +1156,87 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `registerNode` registers the given node to the tree.
+   * `registerNode` registers the given node to the tree, keeping a live node
+   * over a tombstone when both claim the same ID.
+   *
+   * Documents written by older clients can carry two nodes under one ID (an
+   * undo that re-inserted a deleted piece by copy). A plain `put` lets the
+   * winner depend on the order the nodes were registered — operation order on
+   * a live document, document order on one rebuilt from a snapshot — so after
+   * a reload the same position resolves to a different node and its offset can
+   * fall outside that node. Keeping the live one makes both orders agree for a
+   * live/tombstone pair, which is the shape those documents carry.
+   *
+   * Two nodes in the same state keep the last-registered-wins behavior, and
+   * stay order-dependent: element IDs issued for a split can legitimately
+   * collide with an inserted node's ID (see the delimiter note in
+   * `TreeEditOperation`), and that resolution order is what the rest of the
+   * tree already assumes.
+   *
+   * A node this refuses stays in the index tree while another node answers for
+   * its ID, so it is reachable by traversal but not by lookup. That is the
+   * intended trade for a duplicate: the alternative is unregistering a node
+   * that positions still resolve through.
    */
   public registerNode(node: CRDTTreeNode): void {
+    const entry = this.nodeMapByID.floorEntry(node.id);
+    if (
+      entry &&
+      entry.value !== node &&
+      entry.key.equals(node.id) &&
+      node.isRemoved &&
+      !entry.value.isRemoved
+    ) {
+      return;
+    }
+
     this.nodeMapByID.put(node.id, node);
+  }
+
+  /**
+   * `dropDuplicateContents` returns the contents that would not put a second
+   * node under an ID already in the tree.
+   *
+   * Content created by an edit carries that edit's lamport and actor, so a
+   * content node whose ID names another change is a copy of a node that
+   * already exists — what the copy-reinsert undo path sends when it reverses a
+   * deletion. Inserting it would leave two nodes under one identity, so the
+   * copy is dropped and the rest of the edit applies.
+   *
+   * Content from this edit's own change is kept even when its ID collides: the
+   * delimiters an element split consumes are simulated rather than replayed,
+   * so an ID issued here can legitimately collide, and dropping it would lose
+   * a node the client already inserted.
+   *
+   * Dropping rather than failing is deliberate: such changes are already in
+   * the history of existing documents, and a change that cannot be replayed is
+   * a document that can never be loaded again. A collision anywhere in a
+   * content node's subtree drops that whole subtree, on the grounds that a
+   * copy is copied whole.
+   */
+  private dropDuplicateContents(
+    contents: Array<CRDTTreeNode>,
+    editedAt: TimeTicket,
+  ): Array<CRDTTreeNode> {
+    return contents.filter((content) => {
+      let reused = false;
+      traverseAll(content, (node) => {
+        const createdAt = node.id.getCreatedAt();
+        if (
+          createdAt.getLamport() === editedAt.getLamport() &&
+          createdAt.getActorID() === editedAt.getActorID()
+        ) {
+          return;
+        }
+
+        const entry = this.nodeMapByID.floorEntry(node.id);
+        if (entry && entry.key.equals(node.id)) {
+          reused = true;
+        }
+      });
+
+      return !reused;
+    });
   }
 
   /**
@@ -1631,6 +1708,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ] {
     const diff = { data: 0, meta: 0 };
 
+    // 00. identity check: a CRDTTreeNodeID must name a single node, so content
+    // that reuses an ID already in the tree is dropped before anything is
+    // mutated.
+    if (contents) {
+      contents = this.dropDuplicateContents(contents, editedAt);
+    }
+
     // 01. find nodes from the given range and split nodes.
     const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
@@ -2025,7 +2109,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
             addDataSizes(diff, node.getDataSize());
           }
 
-          this.nodeMapByID.put(node.id, node);
+          this.registerNode(node);
 
           // Capture this inserted node's identity span (parent-before-child
           // via traverseAll) for identity-preserving insert undo/redo.
@@ -2160,7 +2244,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public purge(node: CRDTTreeNode): void {
     node.parent?.removeChild(node);
-    this.nodeMapByID.remove(node.id);
+    // `nodeMapByID` is keyed by ID, so an unconditional remove would also
+    // unregister a different node that shares this one's ID — see
+    // `registerNode`. Only drop the entry this node actually holds.
+    const entry = this.nodeMapByID.floorEntry(node.id);
+    if (entry && entry.value === node && entry.key.equals(node.id)) {
+      this.nodeMapByID.remove(node.id);
+    }
 
     const insPrevID = node.insPrevID;
     const insNextID = node.insNextID;
@@ -2428,7 +2518,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         succ.id.getOffset() === offset + length
       ) {
         parent.insertAt(node, siblings.indexOf(succ));
-        this.nodeMapByID.put(node.id, node);
+        this.registerNode(node);
         return node;
       }
       if (offset > span.id.getOffset() || offset > 0) {
@@ -2437,7 +2527,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         );
         if (pred && pred.isText && pred.parent === parent) {
           parent.insertAfter(node, pred);
-          this.nodeMapByID.put(node.id, node);
+          this.registerNode(node);
           return node;
         }
       }
@@ -2448,7 +2538,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const left = this.findFloorNode(span.leftSiblingID);
       if (left && left.parent === parent) {
         parent.insertAfter(node, left);
-        this.nodeMapByID.put(node.id, node);
+        this.registerNode(node);
         return node;
       }
     }
@@ -2459,7 +2549,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (right && right.parent === parent) {
         const rightIdx = siblings.indexOf(right);
         parent.insertAt(node, rightIdx);
-        this.nodeMapByID.put(node.id, node);
+        this.registerNode(node);
         return node;
       }
     }
@@ -2473,7 +2563,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
     parent.insertAt(node, insertIdx);
-    this.nodeMapByID.put(node.id, node);
+    this.registerNode(node);
     return node;
   }
 
