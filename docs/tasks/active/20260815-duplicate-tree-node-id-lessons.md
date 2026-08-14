@@ -32,6 +32,19 @@ longer create the state under test, and tests written that way would
 have kept passing while testing nothing. Constructing the corrupted
 state directly keeps them honest for documents that already carry it.
 
+## A port is not a copy: the client keeps an undo stack
+
+The server applies an operation and forgets it. Here every edit also
+produces its reverse, and that reverse was sized from the content the
+operation carried. Dropping content in the tree therefore left the
+reverse spanning tokens that were never inserted, so redoing an undo
+would have deleted whatever sat at that position — turning a silent
+no-op into a destructive one, which is worse than the bug being fixed.
+
+Nothing in the server change hinted at it, because the server has no
+reverse to build. The lesson is to walk what the port's side does *with*
+the result of the ported call, not just to match the call itself.
+
 ## Same-change collisions are legitimate
 
 The first version of the server-side rule treated every colliding ID as

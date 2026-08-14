@@ -36,6 +36,12 @@ with nothing logged.
 - [x] `CRDTTree.dropDuplicateContents`: drop content that reuses an ID
       from another change, keep content this change issued
 - [x] `splitText`: throw `ErrInvalidArgument` past the end of the node
+- [x] Build the reverse operation from the content the tree accepted.
+      `TreeEditOperation` sized the reverse range from the content the
+      operation carried, so a dropped copy left the reverse covering
+      tokens that were never inserted — redo would delete whatever sat
+      there. The delimiter simulation still counts the original content,
+      since the server simulates split tickets the same way
 - [x] Write the rules into `docs/design/tree-node-id-identity.md`
 - [x] `pnpm lint`, `pnpm sdk build`, unit suite, integration suite
 
