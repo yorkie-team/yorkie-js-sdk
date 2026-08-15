@@ -86,7 +86,7 @@ which took the copy path no longer restores its text.
 |------|------------|
 | A dropped content node is silent, so a user's undo appears to do nothing | Only fires for content that reuses another change's identity, which is the buggy path. The repair is to stop copying — see Open Problems |
 | `splitText` now throws where it used to no-op | It only throws for a position that cannot be resolved in this replica, which previously produced a wrong edit position instead |
-| Two nodes in the same state (both live or both tombstoned) still resolve by registration order | Not reachable through the public edit path today; documented rather than fixed, since a tie-break would have to be identical on every replica |
+| Two nodes in the same state (both live or both tombstoned) still resolve by registration order | **Reachable**: deleting the live one of a duplicated pair leaves two tombstones, and nothing re-registers a node when it is tombstoned, so a live replica and one rebuilt from a snapshot can disagree again. Out of scope here — see Open Problems |
 
 ## Open Problems
 
@@ -100,3 +100,25 @@ which took the copy path no longer restores its text.
   its same-change carve-out and become an invariant rather than a goal.
 - **Documents already carrying duplicates keep them.** They load and resolve
   consistently, but nothing removes the duplicates.
+- **Rule 2 only covers a live/tombstone pair.** Delete the live duplicate and
+  both become tombstones, at which point registration order decides again: the
+  live replica keeps the node it registered last, a rebuilt one takes document
+  order, and a position anchored there resolves to a different node on each.
+  Closing it needs a replica-independent total order (live first, then
+  `removedAt`, then ID) plus re-registration when a node is tombstoned — and it
+  has to land on the server in the same cycle, since a tie-break applied on one
+  side only is worse than none.
+- **The drop decision depends on GC state.** `purge` unregisters the ID, so a
+  replica that has already collected the tombstone accepts a copy that a
+  replica which has not would drop.
+- **`setActor` rewrites the operation's actor, not its content's.** A change
+  built before `attach` carries content whose `createdAt` names a different
+  actor than `executedAt`, so every replica reads it as foreign content. A
+  false drop still needs the ID to be in the tree already, which for fresh
+  content only happens through the delimiter path, but rule 1's carve-out is
+  conditional on this.
+- **An unresolvable position aborts the change.** `splitText` throws and
+  nothing between it and `Document.applyChanges` catches, so one such position
+  fails the whole change rather than the operation. The server behaves the same
+  way with `ErrSplitOutOfRange`; both sides should decide together whether the
+  operation should be skipped instead.
