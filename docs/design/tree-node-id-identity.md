@@ -26,7 +26,9 @@ resolves to different nodes on each side.
 ### Non-Goals
 
 - Removing duplicates from documents that already carry them.
-- Fixing the undo path that creates them (see Open Problems).
+- Replacing copy-based undo, which still duplicates content when undo ranges
+  overlap even though its copies no longer reuse an identity (see Open
+  Problems).
 
 ## Proposal Details
 
