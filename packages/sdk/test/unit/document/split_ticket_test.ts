@@ -15,7 +15,7 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
@@ -69,7 +69,7 @@ describe('split tickets', function () {
     doc.update((r) => r.t.edit(2, 2, { type: 'text', value: 'q' }, 1));
 
     const pack = doc.createChangePack();
-    const restored = converter.fromChangePack<unknown>(
+    const restored = converter.fromChangePack<Indexable>(
       converter.toChangePack(pack),
     );
 
