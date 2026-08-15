@@ -49,7 +49,9 @@ Two paths produce the duplicates:
 1. **Undo by copy.** `TreeEditOperation.toReverseOperation` reverses a deletion
    by deep-copying the removed nodes, and the copy keeps each node's ID. The
    identity-preserving restore path (`restoreSpans`) avoids this, but it only
-   covers edits that were merge- and split-free; everything else still copies,
+   covers edits that were merge- and split-free — the spans are dropped when
+   merge propagation, a piece split off an already-tombstoned node, or content
+   inserted under a removed parent adds GC pairs beyond the plain deletion —
    and SDKs from 0.7.13 and earlier copy for every deletion.
 2. **Simulated split delimiters.** An element split issues its tickets by
    simulating the delimiters the client consumed rather than replaying them
@@ -77,24 +79,31 @@ Two paths produce the duplicates:
 
 Dropping content rather than failing the change is deliberate: such changes are
 already in the history of existing documents, and a change that cannot be
-replayed is a document that can never be loaded again. The cost is that an undo
-which took the copy path no longer restores its text.
+replayed is a document that can never be loaded again. An undo that takes the
+copy path now re-inserts its content under fresh identities, so the rule no
+longer has anything to drop there.
 
 ### Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
-| A dropped content node is silent, so a user's undo appears to do nothing | Only fires for content that reuses another change's identity, which is the buggy path. The repair is to stop copying — see Open Problems |
+| A dropped content node is silent, so a user's undo appears to do nothing | The copy path now takes fresh identities at undo time, so it has nothing left to drop. What remains is content from an SDK old enough to still copy identities |
 | `splitText` now throws where it used to no-op | It only throws for a position that cannot be resolved in this replica, which previously produced a wrong edit position instead |
 | Two nodes in the same state (both live or both tombstoned) still resolve by registration order | **Reachable**: deleting the live one of a duplicated pair leaves two tombstones, and nothing re-registers a node when it is tombstoned, so a live replica and one rebuilt from a snapshot can disagree again. Out of scope here — see Open Problems |
 
 ## Open Problems
 
-- **Undo by copy is the source.** Routing every reverse the restore path can
-  express through it removes path 1. Issuing fresh IDs for the copies would
-  stop the collision, but it keeps the copy-based model that duplicates content
-  when undo ranges overlap — a narrower fix for the identity problem alone, not
-  for undo correctness. Until then these rules only contain it.
+- **Undo by copy no longer reuses identity.** The copy path now takes fresh
+  tickets at undo time (`TreeEditOperation.reissueContentIDs`, called from
+  `executeUndoRedo` where `ArraySet` and `Add` already re-identify a restored
+  value), so a reverse that re-inserts a copy can no longer put two nodes under
+  one ID. What it does not fix is the copy-based model itself: overlapping
+  undos still duplicate content, which only routing every reverse through the
+  restore path solves. That path already covers every deletion reachable
+  through ordinary single-client editing — probing plain deletes, deletes
+  across a tombstone, and deletes whose boundary lands inside one all produced
+  restore reverses — leaving the copy path to merge-propagation cases and to
+  reverse operations that older SDKs left on a user's undo stack.
 - **Simulated split delimiters are the second source.** Carrying the split
   tickets in the operation would remove path 2, and only then can rule 1 drop
   its same-change carve-out and become an invariant rather than a goal.
@@ -113,7 +122,8 @@ which took the copy path no longer restores its text.
   replica which has not would drop.
 - **`setActor` rewrites the operation's actor, not its content's.** A change
   built before `attach` carries content whose `createdAt` names a different
-  actor than `executedAt`, so every replica reads it as foreign content. A
+  actor than `executedAt`, so every replica reads it as foreign content. The
+  identities an undo reissues inherit the same limitation. A
   false drop still needs the ID to be in the tree already, which for fresh
   content only happens through the delimiter path, but rule 1's carve-out is
   conditional on this.

@@ -20,6 +20,7 @@ import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   CRDTTree,
   CRDTTreeNode,
+  CRDTTreeNodeID,
   CRDTTreePos,
   TreeRestoreSpan,
   toXML,
@@ -181,6 +182,57 @@ export class TreeEditOperation extends Operation {
       restoreMode,
       retombstoneSpans,
     );
+  }
+
+  /**
+   * `reissueContentIDs` gives every node this operation inserts a fresh
+   * identity.
+   *
+   * A reverse operation that reverses a deletion by re-inserting a copy of the
+   * removed nodes carries their original ids, so executing it would put two
+   * nodes under one id — the ambiguity that makes a position anchored there
+   * resolve differently on different replicas. Undo already re-identifies a
+   * restored value elsewhere: `ArraySet` and `Add` both take the fresh ticket
+   * in `executeUndoRedo`. This is the tree's counterpart, called from the same
+   * place so the ids come from the change the undo creates.
+   *
+   * A restore-mode reverse is left alone: it revives nodes under their
+   * original identity by design, which is what makes concurrent undos of one
+   * deletion converge rather than duplicate.
+   */
+  public reissueContentIDs(issueTimeTicket: () => TimeTicket): void {
+    if (!this.contents || this.restoreMode) {
+      return;
+    }
+
+    // The tickets taken here start at `executedAt.delimiter + 1` and run one
+    // per node, while `execute` simulates the tickets an element split
+    // consumes starting at `executedAt.delimiter + contents.length + 1`. The
+    // two ranges overlap as soon as content has descendants, so this only
+    // holds while no content-bearing reverse splits — which is every reverse
+    // `toReverseOperation` builds, all of them `splitLevel: 0`.
+    if (this.splitLevel !== 0) {
+      throw new YorkieError(
+        Code.ErrRefused,
+        `cannot reissue content ids on a splitting edit`,
+      );
+    }
+
+    for (const content of this.contents) {
+      traverseAll(content, (node) => {
+        node.id = CRDTTreeNodeID.of(issueTimeTicket(), 0);
+        // A fresh identity has to be fresh in every field that names a node.
+        // The copy came from `deepcopy`, which carries the split chain and the
+        // merge lineage of the node it copied: left in place they would splice
+        // this node into a chain it never belonged to, and `purge` relinking
+        // that chain would unlink the real tombstone from it.
+        node.insPrevID = undefined;
+        node.insNextID = undefined;
+        node.mergedFrom = undefined;
+        node.mergedAt = undefined;
+        node.mergedInto = undefined;
+      });
+    }
   }
 
   /**
