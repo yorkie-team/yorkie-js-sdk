@@ -2101,6 +2101,11 @@ export class Document<
         const prev = op.getValue().getCreatedAt();
         op.getValue().setCreatedAt(ticket);
         this.internalHistory.reconcileCreatedAt(prev, ticket);
+      } else if (op instanceof TreeEditOperation) {
+        // A reverse that re-inserts a copy of removed nodes carries their
+        // original ids; inserting them again would leave two nodes under one
+        // id. Restore-mode reverses revive by identity and keep theirs.
+        op.reissueContentIDs(() => ctx.issueTimeTicket());
       }
 
       ctx.push(op);

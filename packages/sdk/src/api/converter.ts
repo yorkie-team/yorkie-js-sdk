@@ -612,6 +612,9 @@ function toOperation(operation: Operation): PbOperation {
           ? PbRestoreMode.RETOMBSTONE
           : PbRestoreMode.RESTORE;
     }
+    pbTreeEditOperation.splitTickets = treeEditOperation
+      .getSplitTickets()
+      .map((ticket) => toTimeTicket(ticket)!);
     pbOperation.body.case = 'treeEdit';
     pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
@@ -1533,7 +1536,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
           ? 'retombstone'
           : 'restore';
     }
-    return TreeEditOperation.create(
+    const treeEdit = TreeEditOperation.create(
       fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
       fromTreePos(pbTreeEditOperation!.from!),
       fromTreePos(pbTreeEditOperation!.to!),
@@ -1547,6 +1550,12 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRestoreMode,
       treeRetombstoneSpans,
     );
+    treeEdit.setSplitTickets(
+      pbTreeEditOperation!.splitTickets.map(
+        (ticket) => fromTimeTicket(ticket)!,
+      ),
+    );
+    return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;
     const attributes = new Map();

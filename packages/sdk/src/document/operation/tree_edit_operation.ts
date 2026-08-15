@@ -20,6 +20,7 @@ import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   CRDTTree,
   CRDTTreeNode,
+  CRDTTreeNodeID,
   CRDTTreePos,
   TreeRestoreSpan,
   toXML,
@@ -119,6 +120,14 @@ export class TreeEditOperation extends Operation {
   // does the opposite. Nodes are revived/removed by original identity, never
   // copy-reinserted, so concurrent undos converge. Empty/undefined for
   // ordinary edits and for the copy-reinsert reverse of merge/split edits.
+  /**
+   * `splitTickets` carries the tickets the originating replica issued for the
+   * nodes an element split creates, in issue order. A replica applying the
+   * operation consumes them instead of reconstructing them, so neither side
+   * depends on the other's allocation staying in step. Empty for a change
+   * written before the field existed, which falls back to the reconstruction.
+   */
+  private splitTickets: Array<TimeTicket> = [];
   private restoreSpans?: Array<TreeRestoreSpan>;
   private restoreMode?: RestoreMode;
   private retombstoneSpans?: Array<TreeRestoreSpan>;
@@ -181,6 +190,74 @@ export class TreeEditOperation extends Operation {
       restoreMode,
       retombstoneSpans,
     );
+  }
+
+  /**
+   * `reissueContentIDs` gives every node this operation inserts a fresh
+   * identity.
+   *
+   * A reverse operation that reverses a deletion by re-inserting a copy of the
+   * removed nodes carries their original ids, so executing it would put two
+   * nodes under one id — the ambiguity that makes a position anchored there
+   * resolve differently on different replicas. Undo already re-identifies a
+   * restored value elsewhere: `ArraySet` and `Add` both take the fresh ticket
+   * in `executeUndoRedo`. This is the tree's counterpart, called from the same
+   * place so the ids come from the change the undo creates.
+   *
+   * A restore-mode reverse is left alone: it revives nodes under their
+   * original identity by design, which is what makes concurrent undos of one
+   * deletion converge rather than duplicate.
+   */
+  public reissueContentIDs(issueTimeTicket: () => TimeTicket): void {
+    if (!this.contents || this.restoreMode) {
+      return;
+    }
+
+    // The tickets taken here start at `executedAt.delimiter + 1` and run one
+    // per node, while `execute` simulates the tickets an element split
+    // consumes starting at `executedAt.delimiter + contents.length + 1`. The
+    // two ranges overlap as soon as content has descendants, so this only
+    // holds while no content-bearing reverse splits — which is every reverse
+    // `toReverseOperation` builds, all of them `splitLevel: 0`.
+    if (this.splitLevel !== 0) {
+      throw new YorkieError(
+        Code.ErrRefused,
+        `cannot reissue content ids on a splitting edit`,
+      );
+    }
+
+    for (const content of this.contents) {
+      traverseAll(content, (node) => {
+        node.id = CRDTTreeNodeID.of(issueTimeTicket(), 0);
+        // A fresh identity has to be fresh in every field that names a node.
+        // The copy came from `deepcopy`, which carries the split chain and the
+        // merge lineage of the node it copied: left in place they would splice
+        // this node into a chain it never belonged to, and `purge` relinking
+        // that chain would unlink the real tombstone from it.
+        node.insPrevID = undefined;
+        node.insNextID = undefined;
+        node.mergedFrom = undefined;
+        node.mergedAt = undefined;
+        node.mergedInto = undefined;
+      });
+    }
+  }
+
+  /**
+   * `getSplitTickets` returns the tickets issued for the nodes an element
+   * split created, in issue order.
+   */
+  public getSplitTickets(): Array<TimeTicket> {
+    return this.splitTickets;
+  }
+
+  /**
+   * `setSplitTickets` records the tickets issued for the nodes an element
+   * split created. The originating replica calls this after executing the
+   * edit, so every other replica can use them instead of reconstructing them.
+   */
+  public setSplitTickets(tickets: Array<TimeTicket>): void {
+    this.splitTickets = tickets;
   }
 
   /**
@@ -350,17 +427,29 @@ export class TreeEditOperation extends Operation {
        * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
        * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
        */
+      // Splitting an element creates nodes that need tickets. The originating
+      // replica issued them and carries them here, so this hands them back in
+      // the same order. A change written before the field existed carries
+      // none, and falls back to reconstructing them from `executedAt` and the
+      // number of top-level contents — a reconstruction that is wrong as soon
+      // as content has descendants, since each of those consumed a ticket too.
       (() => {
+        let issued = 0;
         let delimiter = editedAt.getDelimiter();
         if (this.contents !== undefined) {
           delimiter += this.contents.length;
         }
-        const issueTimeTicket = () =>
-          TimeTicket.of(
+        const issueTimeTicket = () => {
+          if (issued < this.splitTickets.length) {
+            return this.splitTickets[issued++];
+          }
+
+          return TimeTicket.of(
             editedAt.getLamport(),
             ++delimiter,
             editedAt.getActorID(),
           );
+        };
         return issueTimeTicket;
       })(),
       versionVector,

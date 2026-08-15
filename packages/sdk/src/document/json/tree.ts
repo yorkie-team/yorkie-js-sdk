@@ -779,6 +779,11 @@ export class Tree {
         .filter((a) => a) as Array<CRDTTreeNode>;
     }
 
+    // Splitting an element creates nodes that need tickets. Record the ones
+    // issued so the operation can carry them: every other replica then uses
+    // them instead of reconstructing them from the operation, which it cannot
+    // do correctly once content has descendants.
+    const splitTickets: Array<TimeTicket> = [];
     const [, pairs, diff] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
@@ -786,7 +791,11 @@ export class Tree {
         : undefined,
       splitLevel,
       ticket,
-      () => this.context!.issueTimeTicket(),
+      () => {
+        const issued = this.context!.issueTimeTicket();
+        splitTickets.push(issued);
+        return issued;
+      },
     );
 
     this.context!.acc(diff);
@@ -795,16 +804,16 @@ export class Tree {
       this.context!.registerGCPair(pair);
     }
 
-    this.context!.push(
-      TreeEditOperation.create(
-        this.tree!.getCreatedAt(),
-        fromPos,
-        toPos,
-        crdtNodes.length ? crdtNodes : undefined,
-        splitLevel,
-        ticket,
-      ),
+    const edit = TreeEditOperation.create(
+      this.tree!.getCreatedAt(),
+      fromPos,
+      toPos,
+      crdtNodes.length ? crdtNodes : undefined,
+      splitLevel,
+      ticket,
     );
+    edit.setSplitTickets(splitTickets);
+    this.context!.push(edit);
 
     return true;
   }
