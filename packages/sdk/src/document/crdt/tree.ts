@@ -985,9 +985,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
     this.nodeMapByID = new LLRBTree(CRDTTreeNodeID.createComparator());
     this.pendingGCPairs = [];
 
+    // Registering every node is the cost of loading a document, so it runs
+    // without the duplicate check: a plain put per node, then one comparison
+    // to see whether any ID was claimed twice. Only a tree that carries
+    // duplicates pays for resolving them.
+    let nodeCount = 0;
     this.indexTree.traverseAll((node) => {
-      this.registerNode(node);
+      this.nodeMapByID.put(node.id, node);
+      nodeCount++;
     });
+    if (this.nodeMapByID.size() !== nodeCount) {
+      this.indexTree.traverseAll((node) => {
+        this.registerNode(node);
+      });
+    }
 
     // Rebuild runtime merge state from the persisted `mergedFrom`
     // field. Only `mergedFrom` and `mergedAt` are written to the

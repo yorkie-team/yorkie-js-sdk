@@ -397,7 +397,6 @@ export class TreeEditOperation extends Operation {
         mergeLevel,
         removedSpans,
         insertedSpans,
-        insertedContents,
       );
     } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
@@ -448,7 +447,6 @@ export class TreeEditOperation extends Operation {
     mergeLevel?: number,
     removedSpans?: Array<TreeRestoreSpan>,
     insertedSpans?: Array<TreeRestoreSpan>,
-    insertedContents?: Array<CRDTTreeNode>,
   ): Operation | undefined {
     // Identity-preserving reverse: reverse an edit by reviving the nodes it
     // removed (restoreSpans) AND re-removing the nodes it inserted
@@ -516,13 +514,14 @@ export class TreeEditOperation extends Operation {
       return splitUndoOp;
     }
 
-    // Inserted content size in tree index tokens, counting what the tree
-    // accepted rather than what this operation carried: content whose ID was
-    // already in the tree is dropped, and a reverse range covering it would
-    // delete a neighbour on redo.
-    const insertedContentSize = insertedContents
-      ? insertedContents.reduce((sum, node) => sum + node.paddedSize(), 0)
-      : 0;
+    // Inserted content size in tree index tokens, measured before the edit:
+    // these nodes are now in the tree, and one inserted under a concurrently
+    // removed parent is tombstoned on the way in, which shrinks the size read
+    // back here. The guard below relies on that pre-edit size to recognize an
+    // edit that had no effect. What it counts is the content the tree
+    // accepted, not the content this operation carried — a reverse range
+    // covering a dropped copy would delete a neighbour on redo.
+    const insertedContentSize = this.insertedContentSize ?? 0;
 
     // Guard: if the positions exceed the post-edit tree size,
     // the edit was a no-op (e.g., concurrent parent deletion where inserted
