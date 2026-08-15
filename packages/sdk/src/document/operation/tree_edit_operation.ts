@@ -120,6 +120,14 @@ export class TreeEditOperation extends Operation {
   // does the opposite. Nodes are revived/removed by original identity, never
   // copy-reinserted, so concurrent undos converge. Empty/undefined for
   // ordinary edits and for the copy-reinsert reverse of merge/split edits.
+  /**
+   * `splitTickets` carries the tickets the originating replica issued for the
+   * nodes an element split creates, in issue order. A replica applying the
+   * operation consumes them instead of reconstructing them, so neither side
+   * depends on the other's allocation staying in step. Empty for a change
+   * written before the field existed, which falls back to the reconstruction.
+   */
+  private splitTickets: Array<TimeTicket> = [];
   private restoreSpans?: Array<TreeRestoreSpan>;
   private restoreMode?: RestoreMode;
   private retombstoneSpans?: Array<TreeRestoreSpan>;
@@ -233,6 +241,23 @@ export class TreeEditOperation extends Operation {
         node.mergedInto = undefined;
       });
     }
+  }
+
+  /**
+   * `getSplitTickets` returns the tickets issued for the nodes an element
+   * split created, in issue order.
+   */
+  public getSplitTickets(): Array<TimeTicket> {
+    return this.splitTickets;
+  }
+
+  /**
+   * `setSplitTickets` records the tickets issued for the nodes an element
+   * split created. The originating replica calls this after executing the
+   * edit, so every other replica can use them instead of reconstructing them.
+   */
+  public setSplitTickets(tickets: Array<TimeTicket>): void {
+    this.splitTickets = tickets;
   }
 
   /**
@@ -402,17 +427,29 @@ export class TreeEditOperation extends Operation {
        * Therefore, it is possible to simulate later timeTickets using `editedAt` and the length of `contents`.
        * This logic might be unclear; consider refactoring for multi-level concurrent editing in the Tree implementation.
        */
+      // Splitting an element creates nodes that need tickets. The originating
+      // replica issued them and carries them here, so this hands them back in
+      // the same order. A change written before the field existed carries
+      // none, and falls back to reconstructing them from `executedAt` and the
+      // number of top-level contents — a reconstruction that is wrong as soon
+      // as content has descendants, since each of those consumed a ticket too.
       (() => {
+        let issued = 0;
         let delimiter = editedAt.getDelimiter();
         if (this.contents !== undefined) {
           delimiter += this.contents.length;
         }
-        const issueTimeTicket = () =>
-          TimeTicket.of(
+        const issueTimeTicket = () => {
+          if (issued < this.splitTickets.length) {
+            return this.splitTickets[issued++];
+          }
+
+          return TimeTicket.of(
             editedAt.getLamport(),
             ++delimiter,
             editedAt.getActorID(),
           );
+        };
         return issueTimeTicket;
       })(),
       versionVector,
