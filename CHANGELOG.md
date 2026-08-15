@@ -7,6 +7,14 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.16] - 2026-08-15
+
+### Fixed
+
+- Keep a tree position resolvable when two nodes claim one ID by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1318
+- Stamp merge-bound inserts and filter style-range interlopers by @Nahee-Park in https://github.com/yorkie-team/yorkie-js-sdk/pull/1317
+- Stop undo and element splits from reusing a node's identity by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1319
+
 ## [v0.7.15] - 2026-08-13
 
 ### Fixed
