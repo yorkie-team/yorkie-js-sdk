@@ -472,9 +472,11 @@ export class CRDTTreeNode
   insNextID?: CRDTTreeNodeID;
 
   /**
-   * `mergedFrom` records the source parent's ID when this node was moved
-   * by a concurrent merge. Persisted in the snapshot encoding as the
-   * witness of the merge relationship.
+   * `mergedFrom` records the parent this node logically belongs to when
+   * a merge relocated it into the merge target: the source parent it was
+   * moved out of, or the declared parent of an insert redirected by the
+   * §9.4 intended-parent stamp. Persisted in the snapshot encoding as
+   * the witness of the merge relationship.
    */
   mergedFrom?: CRDTTreeNodeID;
 
@@ -659,13 +661,18 @@ export class CRDTTreeNode
    * `cloneElement` clones this element node with the given issueTimeTicket function.
    */
   cloneElement(issueTimeTicket: () => TimeTicket): CRDTTreeNode {
-    return new CRDTTreeNode(
+    const clone = new CRDTTreeNode(
       CRDTTreeNodeID.of(issueTimeTicket(), 0),
       this.type,
       undefined,
       this.attrs?.deepcopy(),
       this.removedAt,
     );
+    // The split product holds the other half of the same moved node, so
+    // it carries the same merge stamp (as cloneText does).
+    clone.mergedFrom = this.mergedFrom;
+    clone.mergedAt = this.mergedAt;
+    return clone;
   }
 
   /**
@@ -1083,6 +1090,101 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `mergedAnchorInterloperGuard` prepares the §9.4 per-node filter for a
+   * style range whose end position was declared inside a parent that a
+   * merge unknown to the styling client removed. The moved anchor child
+   * resolves in the merge target, so the traversal covers nodes sitting
+   * between the merge-source tombstone and the moved children — nodes the
+   * styling client saw outside its range, after the then-live parent. The
+   * predicate skips exactly those interlopers.
+   */
+  private mergedAnchorInterloperGuard(
+    pos: CRDTTreePos,
+    versionVector?: VersionVector,
+  ): { isInterloper: (node: CRDTTreeNode) => boolean } | undefined {
+    if (versionVector === undefined) {
+      return;
+    }
+    const [declaredParent] = pos.toTreeNodePair(this);
+    if (
+      !declaredParent.isRemoved ||
+      !declaredParent.mergedInto ||
+      !declaredParent.removedAt ||
+      ticketKnown(versionVector, declaredParent.removedAt)
+    ) {
+      return;
+    }
+    const target = this.resolveMergeTarget(declaredParent);
+    // Restricted to the shape where the tombstone sits directly under the
+    // merge target; in other shapes the resolved range already excludes
+    // the interlopers.
+    if (target === declaredParent || declaredParent.parent !== target) {
+      return;
+    }
+    // Collect the target's children positioned after the merge-source
+    // tombstone in one pass, so the predicate is O(depth) per node.
+    const afterTombstone = new Set<CRDTTreeNode>();
+    let seenTombstone = false;
+    for (const child of target.allChildren) {
+      if (child === declaredParent) {
+        seenTombstone = true;
+        continue;
+      }
+      if (seenTombstone) {
+        afterTombstone.add(child);
+      }
+    }
+    return {
+      isInterloper: (node: CRDTTreeNode): boolean => {
+        // Judge by the node's highest ancestor directly under the merge
+        // target, so an interloper's descendants are skipped with it.
+        let top = node;
+        while (top.parent && top.parent !== target) {
+          top = top.parent as CRDTTreeNode;
+        }
+        if (top.parent !== target) {
+          return false;
+        }
+        // Fail open on any merge stamp: an earlier merge keeps the
+        // ORIGINAL source in mergedFrom (first-move stamp rule), so
+        // stamp equality cannot prove the node was outside the styled
+        // range. Only stamp-free nodes are positively interlopers.
+        if (top.mergedFrom) {
+          return false;
+        }
+        return afterTombstone.has(top);
+      },
+    };
+  }
+
+  /**
+   * `styleSkipPredicate` builds the per-token skip checks shared by style
+   * and removeStyle: the End-token unknown-split-sibling exclusion and the
+   * §9.4 merged-anchor interloper filter for the range-end position.
+   */
+  private styleSkipPredicate(
+    pos: CRDTTreePos,
+    versionVector?: VersionVector,
+  ): (node: CRDTTreeNode, tokenType: TokenType) => boolean {
+    const anchorGuard = this.mergedAnchorInterloperGuard(pos, versionVector);
+    return (node: CRDTTreeNode, tokenType: TokenType): boolean => {
+      // Skip styling via End token when the node has an unknown
+      // split sibling. The End token is in the range only because
+      // a concurrent split extended the range into the sibling.
+      if (
+        tokenType === TokenType.End &&
+        versionVector !== undefined &&
+        this.hasUnknownSplitSibling(node, versionVector)
+      ) {
+        return true;
+      }
+      // §9.4: the node is in the range only because an unknown merge
+      // pulled the range-end anchor past it.
+      return !!anchorGuard && anchorGuard.isInterloper(node);
+    };
+  }
+
+  /**
    * `advancePastUnknownSplitSiblings` follows the insNextID chain of the
    * given node, advancing past element-type split siblings that the editing
    * client did not know about (not in versionVector).
@@ -1410,6 +1512,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
         : toLeftRaw;
 
+    const shouldSkipToken = this.styleSkipPredicate(range[1], versionVector);
+
     const changes: Array<TreeChange> = [];
     const attrs: { [key: string]: any } = attributes
       ? parseObjectValues(attributes)
@@ -1433,14 +1537,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
 
         if (node.canStyle(editedAt, clientLamportAtChange) && attributes) {
-          // Skip styling via End token when the node has an unknown
-          // split sibling. The End token is in the range only because
-          // a concurrent split extended the range into the sibling.
-          if (
-            tokenType === TokenType.End &&
-            versionVector !== undefined &&
-            this.hasUnknownSplitSibling(node, versionVector)
-          ) {
+          if (shouldSkipToken(node, tokenType)) {
             return;
           }
 
@@ -1581,6 +1678,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     addDataSizes(diff, diffTo, diffFrom);
 
+    const shouldSkipToken = this.styleSkipPredicate(range[1], versionVector);
+
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
     const prevAttributes = new Map<string, string>();
@@ -1603,14 +1702,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           node.canStyle(editedAt, clientLamportAtChange) &&
           attributesToRemove
         ) {
-          // Skip styling via End token when the node has an unknown
-          // split sibling. The End token is in the range only because
-          // a concurrent split extended the range into the sibling.
-          if (
-            tokenType === TokenType.End &&
-            versionVector !== undefined &&
-            this.hasUnknownSplitSibling(node, versionVector)
-          ) {
+          if (shouldSkipToken(node, tokenType)) {
             return;
           }
           if (!node.attrs) {
@@ -2104,6 +2196,32 @@ export class CRDTTree extends CRDTElement implements GCParent {
       : 0;
 
     if (contents?.length) {
+      // §9.4: When the insert position was declared inside a parent that a
+      // concurrent merge removed, the content physically lands in the merge
+      // target. Stamp it as merged-from the declared parent so it stays
+      // distinguishable from nodes that were never inside that parent —
+      // style-range resolution and merge-delete propagation key on this.
+      const [declaredFromParent] = range[0].toTreeNodePair(this);
+      const intendedParent =
+        declaredFromParent !== fromParent &&
+        declaredFromParent.isRemoved &&
+        declaredFromParent.mergedInto &&
+        this.resolveMergeTarget(declaredFromParent) === fromParent
+          ? declaredFromParent
+          : undefined;
+      let intendedMergedAt: TimeTicket | undefined;
+      if (intendedParent) {
+        // Take the merge ticket from a sibling the merge moved; the parent's
+        // own removedAt may have been overwritten by a later LWW tombstone.
+        for (const child of fromParent.allChildren) {
+          if (child.mergedFrom?.equals(intendedParent.id) && child.mergedAt) {
+            intendedMergedAt = child.mergedAt;
+            break;
+          }
+        }
+        intendedMergedAt ??= intendedParent.removedAt;
+      }
+
       const aliveContents: Array<CRDTTreeNode> = [];
       let leftInChildren = fromLeft; // tree
       for (const content of contents) {
@@ -2114,6 +2232,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
         } else {
           // 05-1-2. insert after leftSibling
           fromParent.insertAfter(content, leftInChildren);
+        }
+
+        if (intendedParent) {
+          content.mergedFrom = intendedParent.id;
+          content.mergedAt = intendedMergedAt;
         }
 
         leftInChildren = content;

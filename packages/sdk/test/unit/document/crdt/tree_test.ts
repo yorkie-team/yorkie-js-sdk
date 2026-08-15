@@ -82,6 +82,28 @@ describe('CRDTTreeNode', function () {
     assert.deepEqual(right!.mergedAt, mergeTicket);
   });
 
+  it('splitElement preserves mergedFrom and mergedAt', function () {
+    const root = new CRDTTreeNode(posT(), 'r', []);
+    const para = new CRDTTreeNode(posT(), 'p', []);
+    root.append(para);
+    para.append(new CRDTTreeNode(posT(), 'text', 'helloworld'));
+
+    // The paragraph was previously moved by a merge.
+    const sourceID = CRDTTreeNodeID.of(timeT(), 0);
+    const mergeTicket = timeT();
+    para.mergedFrom = sourceID;
+    para.mergedAt = mergeTicket;
+
+    para.children[0].splitText(5, 0);
+    const [split] = para.splitElement(1, timeT);
+    assert.isNotNull(split);
+
+    // The split product holds the other half of the same moved node, so
+    // it must carry the same merge stamp (as splitText does).
+    assert.deepEqual(split!.mergedFrom, sourceID);
+    assert.deepEqual(split!.mergedAt, mergeTicket);
+  });
+
   it('deepcopy preserves merge metadata', function () {
     const para = new CRDTTreeNode(posT(), 'p', []);
     const text = new CRDTTreeNode(posT(), 'text', 'hello');
@@ -681,6 +703,48 @@ describe('CRDTTree.Edit', function () {
     );
     assert.equal(rangeLeft.isRemoved, true);
     assert.equal(tree.toIndex(rangeParent, rangeLeft), 6);
+  });
+
+  it('stamps an insert declared inside a merged-away parent', function () {
+    // 01. Create <root><p>ab</p><p>cd</p></root> and capture the leftmost
+    // position inside the second paragraph before the merge.
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ab')],
+      0,
+      timeT(),
+      timeT,
+    );
+    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [5, 5],
+      [new CRDTTreeNode(posT(), 'text', 'cd')],
+      0,
+      timeT(),
+      timeT,
+    );
+    const pos = tree.findPos(5);
+    const [[declaredParent]] = tree.findNodesAndSplitText(pos, timeT());
+
+    // 02. Merge the second paragraph into the first, then apply an insert
+    // that still declares the merged-away paragraph as its parent. A later
+    // delete LWW-overwrites the tombstone first, so the merge ticket is
+    // only recoverable from the moved sibling.
+    const mergeTicket = timeT();
+    tree.editT([3, 5], undefined, 0, mergeTicket, timeT);
+    declaredParent.remove(timeT());
+    const content = new CRDTTreeNode(posT(), 'b');
+    tree.edit([pos, pos], [content], 0, timeT(), timeT);
+
+    // 03. The content lands in the merge target (the surviving first
+    // paragraph) but is stamped as merged-from the declared parent,
+    // like a merge-moved child. The merge ticket comes from the moved
+    // sibling, not the parent's LWW-overwritable removedAt.
+    assert.equal(content.parent, tree.getRoot().allChildren[0]);
+    assert.equal(content.mergedFrom?.equals(declaredParent.id), true);
+    assert.deepEqual(content.mergedAt, mergeTicket);
   });
 
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
