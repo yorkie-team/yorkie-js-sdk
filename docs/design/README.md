@@ -8,6 +8,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 - [Polling Sync Mode](polling-sync-mode.md): Stream-less `SyncMode.Polling` for Channel and Document, opt-in alternative to watch streams
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 - [ProseMirror Native Split/Merge](prosemirror-native-split-merge.md): Use Tree.Edit splitLevel and boundary deletion for splits and merges instead of block replacement
+- [One Node per CRDTTreeNodeID](tree-node-id-identity.md): Rules that keep a Tree position resolvable when two nodes claim one ID, mirroring the server
 
 ## Guidelines
 

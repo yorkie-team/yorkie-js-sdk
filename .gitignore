@@ -121,9 +121,10 @@ dist/
 bundle/
 
 # Docs files (generated API docs)
-docs/
-!docs/design/
-!docs/tasks/
+# `docs/` alone also matched the hand-written docs/ at the repo root, and the
+# negations below it could not re-include them: git does not descend into an
+# excluded directory. Scope the pattern to where typedoc writes instead.
+packages/**/docs/
 
 # ghpages
 ghpages/

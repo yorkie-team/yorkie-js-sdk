@@ -291,6 +291,16 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       return [undefined, diff];
     }
 
+    // A position that anchors past the end of this node cannot be resolved
+    // here. `slice` would quietly hand back an empty right value and the split
+    // would look like a no-op, leaving the edit at the wrong position.
+    if (offset < 0 || offset > this.visibleSize) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `split at ${offset} of ${this.visibleSize}: offset out of range`,
+      );
+    }
+
     const leftValue = this.value.slice(0, offset);
     const rightValue = this.value.slice(offset);
 

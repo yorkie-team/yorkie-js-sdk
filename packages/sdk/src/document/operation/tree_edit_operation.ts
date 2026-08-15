@@ -105,6 +105,7 @@ export class TreeEditOperation extends Operation {
   private toIdx?: number;
   private lastFromIdx?: number;
   private lastToIdx?: number;
+  private insertedContentSize?: number;
   /**
    * `redoSplitLevel` is set on boundary-deletion undo ops that were generated
    * to reverse a split. When this op executes (as undo), `toReverseOperation`
@@ -320,6 +321,12 @@ export class TreeEditOperation extends Operation {
       }
     }
 
+    // The tree drops content that reuses an ID it already holds, and reports
+    // the size of what it accepted. The reverse operation and the undo stack
+    // both read that size rather than the content this operation carried: a
+    // range covering content the tree refused would delete a neighbour on
+    // redo. The delimiter simulation below stays on the original count, since
+    // the server simulates it the same way.
     const [
       changes,
       pairs,
@@ -330,6 +337,7 @@ export class TreeEditOperation extends Operation {
       preTombstoned,
       removedSpans,
       insertedSpans,
+      insertedContentSize,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -367,6 +375,7 @@ export class TreeEditOperation extends Operation {
       0,
     );
     this.lastToIdx = preEditFromIdx + removedSize;
+    this.insertedContentSize = insertedContentSize;
 
     // Create reverse op for undo
     let reverseOp: Operation | undefined;
@@ -500,10 +509,14 @@ export class TreeEditOperation extends Operation {
       return splitUndoOp;
     }
 
-    // Compute inserted content size (total tree index tokens)
-    const insertedContentSize = this.contents
-      ? this.contents.reduce((sum, node) => sum + node.paddedSize(), 0)
-      : 0;
+    // Inserted content size in tree index tokens, measured before the edit:
+    // these nodes are now in the tree, and one inserted under a concurrently
+    // removed parent is tombstoned on the way in, which shrinks the size read
+    // back here. The guard below relies on that pre-edit size to recognize an
+    // edit that had no effect. What it counts is the content the tree
+    // accepted, not the content this operation carried — a reverse range
+    // covering a dropped copy would delete a neighbour on redo.
+    const insertedContentSize = this.insertedContentSize ?? 0;
 
     // Guard: if the positions exceed the post-edit tree size,
     // the edit was a no-op (e.g., concurrent parent deletion where inserted
@@ -726,8 +739,16 @@ export class TreeEditOperation extends Operation {
   /**
    * `getContentSize` returns the total visible size of this operation's
    * content (for reconciliation).
+   *
+   * Once the operation has run, this is the size the tree accepted: content
+   * whose ID was already in the tree is dropped, and the undo stack shifts its
+   * stored indices by this size, so counting the dropped copy would move every
+   * index in the stack past content that was never inserted.
    */
   public getContentSize(): number {
+    if (this.insertedContentSize !== undefined) {
+      return this.insertedContentSize;
+    }
     if (!this.contents) return 0;
     return this.contents.reduce((sum, node) => sum + node.paddedSize(), 0);
   }

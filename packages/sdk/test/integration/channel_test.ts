@@ -78,8 +78,12 @@ describe('Channel', function () {
 
   it('should get presence count', async function ({ task }) {
     await withTwoClientsAndChannels(async (c1, ch1, c2, ch2) => {
-      // Wait a bit for presence to stabilize
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for both channels to see each other, rather than assuming a
+      // fixed delay is enough for the presence round trip.
+      await waitFor(
+        () => ch1.getSessionCount() >= 2 && ch2.getSessionCount() >= 2,
+        { message: 'presence did not stabilize within timeout' },
+      );
 
       // Get presence count
       const count1 = ch1.getSessionCount();
@@ -137,8 +141,13 @@ describe('Channel', function () {
       // Broadcast to 'notification' topic
       ch1.broadcast('notification', 'message2');
 
-      // Wait a bit for all events to be processed
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Wait for the second broadcast to arrive. A fixed delay races the
+      // round trip: the collector holds one event when the broadcast takes
+      // longer than the delay, and the assertion below reads it as a lost
+      // event rather than a slow one.
+      await waitFor(() => allBroadcastCollector.getLength() >= 2, {
+        message: 'the second broadcast did not arrive within timeout',
+      });
 
       // Chat collector should only have chat messages
       assert.equal(chatCollector.getLength(), 1);
