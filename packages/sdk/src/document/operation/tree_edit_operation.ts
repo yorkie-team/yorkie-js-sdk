@@ -321,19 +321,12 @@ export class TreeEditOperation extends Operation {
       }
     }
 
-    // Content that reuses an ID already in the tree is dropped, so the reverse
-    // operation has to be built from what was inserted rather than from what
-    // this operation carried: a range covering content the tree refused would
-    // delete a neighbour on redo. The delimiter simulation below stays on the
-    // original count, since the server simulates it the same way.
-    const contents = this.contents?.map((content) => content.deepcopy());
-    const insertedContents = contents
-      ? tree.dropDuplicateContents(contents, editedAt)
-      : undefined;
-    this.insertedContentSize = insertedContents
-      ? insertedContents.reduce((sum, node) => sum + node.paddedSize(), 0)
-      : 0;
-
+    // The tree drops content that reuses an ID it already holds, and reports
+    // the size of what it accepted. The reverse operation and the undo stack
+    // both read that size rather than the content this operation carried: a
+    // range covering content the tree refused would delete a neighbour on
+    // redo. The delimiter simulation below stays on the original count, since
+    // the server simulates it the same way.
     const [
       changes,
       pairs,
@@ -344,9 +337,10 @@ export class TreeEditOperation extends Operation {
       preTombstoned,
       removedSpans,
       insertedSpans,
+      insertedContentSize,
     ] = tree.edit(
       [this.fromPos, this.toPos],
-      insertedContents,
+      this.contents?.map((content) => content.deepcopy()),
       this.splitLevel,
       editedAt,
       /**
@@ -381,6 +375,7 @@ export class TreeEditOperation extends Operation {
       0,
     );
     this.lastToIdx = preEditFromIdx + removedSize;
+    this.insertedContentSize = insertedContentSize;
 
     // Create reverse op for undo
     let reverseOp: Operation | undefined;

@@ -1716,15 +1716,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Set<string>,
     Array<TreeRestoreSpan>,
     Array<TreeRestoreSpan>,
+    number,
   ] {
     const diff = { data: 0, meta: 0 };
-
-    // 00. identity check: a CRDTTreeNodeID must name a single node, so content
-    // that reuses an ID already in the tree is dropped before anything is
-    // mutated.
-    if (contents) {
-      contents = this.dropDuplicateContents(contents, editedAt);
-    }
 
     // 01. find nodes from the given range and split nodes.
     const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
@@ -2095,6 +2089,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
     }
 
     // 05. Insert: insert the given nodes at the given position.
+    //
+    // The identity check runs here rather than on entry: resolving the range
+    // above splits text nodes, and a split can create the very ID a content
+    // node carries. Checking before that would let the copy through and leave
+    // two nodes under one ID. `insertedContentSize` is measured now, while the
+    // content is still detached — inserting under a removed parent tombstones
+    // it and shrinks what its size reads back as.
+    if (contents) {
+      contents = this.dropDuplicateContents(contents, editedAt);
+    }
+    const insertedContentSize = contents
+      ? contents.reduce((sum, node) => sum + node.paddedSize(), 0)
+      : 0;
+
     if (contents?.length) {
       const aliveContents: Array<CRDTTreeNode> = [];
       let leftInChildren = fromLeft; // tree
@@ -2191,6 +2199,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // parent-before-child — the order `restore()` needs to recreate a purged
       // subtree top-down (a child's recreate resolves its parent by identity).
       spansComplete ? insertedSpans.reverse() : [],
+      insertedContentSize,
     ];
   }
 
@@ -2214,6 +2223,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Set<string>,
     Array<TreeRestoreSpan>,
     Array<TreeRestoreSpan>,
+    number,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);

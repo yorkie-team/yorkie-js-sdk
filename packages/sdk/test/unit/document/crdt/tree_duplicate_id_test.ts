@@ -159,6 +159,30 @@ describe('CRDTTree with a duplicated node id', function () {
     );
   });
 
+  it('drops content whose id this edit is about to create by splitting', function () {
+    const [, tree, textID] = buildDigitTree();
+
+    // Nothing has split the text node yet, so no node carries (textID, 5).
+    // Resolving the insert position splits it there, which creates that id
+    // moments before the copy is inserted under it.
+    const undoAt = TimeTicket.of(timeT().getLamport() + 1n, 1, InitialActorID);
+    tree.editT(
+      [6, 6],
+      [
+        new CRDTTreeNode(
+          CRDTTreeNodeID.of(textID.getCreatedAt(), 5),
+          'text',
+          '5',
+        ),
+      ],
+      0,
+      undoAt,
+      () => undoAt,
+    );
+
+    assert.deepEqual(duplicatedIDs(tree), [], 'an id names at most one node');
+  });
+
   it('drops content that reuses an id from another actor', function () {
     const [, tree, textID] = buildDigitTree();
 
