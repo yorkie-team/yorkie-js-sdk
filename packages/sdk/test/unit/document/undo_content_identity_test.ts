@@ -63,6 +63,9 @@ describe('undo content identity', function () {
     op.reissueContentIDs(() => timeT());
 
     const after = idsOf(op.getContents()!);
+    // The count is stated rather than derived from the same traversal the
+    // reissue uses, so a traversal that skipped a node would show up here.
+    assert.equal(after.length, 3, 'the <p> and its two texts');
     assert.equal(after.length, before.length);
     assert.equal(
       new Set(after).size,
@@ -74,6 +77,8 @@ describe('undo content identity', function () {
     }
   });
 
+  // Deliberately over-constrained: a restore reverse is built with no contents
+  // at all, so this pins the guard rather than a shape production emits.
   it('leaves a restore-mode reverse alone', function () {
     const pos = CRDTTreePos.of(posT(), posT());
     const node = new CRDTTreeNode(posT(), 'text', 'a');
