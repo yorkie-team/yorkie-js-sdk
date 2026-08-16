@@ -4,6 +4,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 
 ## Contents
 
+- [Channel Lifecycle via RefreshChannel Only](channel-refresh-only.md): Align the SDK with the server's consolidated channel RPC — `RefreshChannel` alone, a TTL/3 heartbeat, and `PeekChannel` for read-only counts
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
 - [Polling Sync Mode](polling-sync-mode.md): Stream-less `SyncMode.Polling` for Channel and Document, opt-in alternative to watch streams
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
