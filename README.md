@@ -21,8 +21,8 @@ This is a pnpm monorepo. See each package's README for details:
 
 ## Documentation
 
-- [docs/design/](docs/design/README.md) — Architectural design documents
-- [docs/tasks/](docs/tasks/README.md) — Task tracking (active and archived)
+- [docs/](docs/README.md) — Architectural design documents and task tracking
+- [scripts/](scripts/README.md) — Task-doc tooling and clone setup
 - [CHANGELOG.md](CHANGELOG.md) — Release notes
 - [MAINTAINING.md](MAINTAINING.md) — Release and maintenance procedures
 - [CLAUDE.md](CLAUDE.md) — Agent instructions for AI-assisted development
