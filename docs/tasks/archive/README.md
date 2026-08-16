@@ -1,8 +1,12 @@
 ---
-updated: 2026-06-18
+updated: 2026-08-16
 ---
 
 # Archived Tasks
+
+## 2026-08
+
+- [[20260815-duplicate-tree-node-id-todo]] — Mirror the duplicate CRDTTreeNodeID rules
 
 ## 2026-06
 
