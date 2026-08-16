@@ -7,7 +7,7 @@ published — these run by hand, not from the build or the package scripts.
 
 | Script | Invoked as | Role |
 |---|---|---|
-| `tasks-archive.sh` | `bash scripts/tasks-archive.sh` | Moves completed task pairs from `docs/tasks/active/` into `docs/tasks/archive/YYYY/MM/`, bucketed by each todo's `**Created**` line. Eligibility is decided by unchecked boxes alone, so read a todo's Review section before trusting the result. |
+| `tasks-archive.sh` | `bash scripts/tasks-archive.sh` | Moves finished todos from `docs/tasks/active/` into `docs/tasks/archive/YYYY/MM/`, bucketed by each todo's `**Created**` line. A todo has to clear two bars: no unchecked boxes, and a parseable `**Created**` date — one missing the date is warned about and left alone. A matching `-lessons.md` rides along if it exists; a todo without one still moves. Neither bar reads the prose, so check a todo's Review section before trusting the result. |
 | `tasks-index.sh` | `bash scripts/tasks-index.sh` | Regenerates `docs/tasks/README.md` and `docs/tasks/archive/README.md`. Never hand-edit those two. `docs/tasks/active/README.md` is hand-written prose and is left alone. |
 
 Both take an optional tasks directory argument, defaulting to `docs/tasks`.
