@@ -44,6 +44,8 @@ After the example is merged to the `main` branch, it is automatically deployed t
 - [profile-stack](profile-stack/README.md)
 - [react-document-limit](react-document-limit/README.md)
 - [react-flow](react-flow/README.md)
+- [react-page-view-counter](react-page-view-counter/README.md)
+- [react-polling-playground](react-polling-playground/README.md)
 - [react-tldraw](react-tldraw/README.md)
 - [react-todomvc](react-todomvc/README.md)
 - [simultaneous-cursors](simultaneous-cursors/README.md)
