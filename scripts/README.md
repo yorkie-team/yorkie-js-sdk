@@ -18,6 +18,12 @@ Both take an optional tasks directory argument, defaulting to `docs/tasks`.
 |---|---|---|
 | `verify-doc-links.mjs` | `pnpm verify:doc-links` | Walks the documentation graph from `CLAUDE.md`, `AGENTS.md`, and `README.md`, and fails on a link that resolves to nothing. Archived task records are reached but not walked — a finished task's citations are a record of what was true then. Runs in CI right after `pnpm lint`. |
 
+## Directories
+
+| Directory | Contents |
+|---|---|
+| [`test/`](test/) | `node --test` suites for the scripts above, run by `pnpm test:scripts` and in CI. Every case plants its tree under the OS temp directory and shells out to nothing, so the suite can never touch the checkout it runs from. |
+
 ## Setup
 
 | Script | Invoked as | Role |

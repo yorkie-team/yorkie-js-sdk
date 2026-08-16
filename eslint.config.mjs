@@ -84,6 +84,16 @@ export default tseslint.config(
       'jsdoc/require-jsdoc': 'off',
     },
   },
+  // Repository automation under `scripts/` is a set of Node CLIs, not browser
+  // or library code: `process` and `console` are its runtime, not undeclared
+  // identifiers. Spelled out rather than pulled from the `globals` package,
+  // which is not a dependency here and would be one for two names.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly' },
+    },
+  },
   globalIgnores([
     // common
     '**/dist/*',

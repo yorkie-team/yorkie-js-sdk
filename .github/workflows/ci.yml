@@ -47,6 +47,9 @@ jobs:
       - name: Verify documentation links
         run: pnpm verify:doc-links
 
+      - name: Test the scripts
+        run: pnpm test:scripts
+
       - name: Build and Test SDK
         run: |
           pnpm sdk build
