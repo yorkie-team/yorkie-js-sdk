@@ -44,6 +44,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Verify documentation links
+        run: pnpm verify:doc-links
+
       - name: Build and Test SDK
         run: |
           pnpm sdk build

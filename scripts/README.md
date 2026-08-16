@@ -8,9 +8,15 @@ published — these run by hand, not from the build or the package scripts.
 | Script | Invoked as | Role |
 |---|---|---|
 | `tasks-archive.sh` | `bash scripts/tasks-archive.sh` | Moves completed task pairs from `docs/tasks/active/` into `docs/tasks/archive/YYYY/MM/`, bucketed by each todo's `**Created**` line. Eligibility is decided by unchecked boxes alone, so read a todo's Review section before trusting the result. |
-| `tasks-index.sh` | `bash scripts/tasks-index.sh` | Regenerates `docs/tasks/README.md`, `docs/tasks/active/README.md`, and `docs/tasks/archive/README.md`. Never hand-edit those three. |
+| `tasks-index.sh` | `bash scripts/tasks-index.sh` | Regenerates `docs/tasks/README.md` and `docs/tasks/archive/README.md`. Never hand-edit those two. `docs/tasks/active/README.md` is hand-written prose and is left alone. |
 
 Both take an optional tasks directory argument, defaulting to `docs/tasks`.
+
+## Verification
+
+| Script | Invoked as | Role |
+|---|---|---|
+| `verify-doc-links.mjs` | `pnpm verify:doc-links` | Walks the documentation graph from `CLAUDE.md`, `AGENTS.md`, and `README.md`, and fails on a link that resolves to nothing. Archived task records are reached but not walked — a finished task's citations are a record of what was true then. Runs in CI right after `pnpm lint`. |
 
 ## Setup
 
