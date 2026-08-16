@@ -2,32 +2,47 @@
 updated: 2026-08-16
 ---
 
-# Archived Tasks
+# Tasks Archive
 
-## 2026-08
+Completed task records, grouped by year/month.
 
-- [[20260815-duplicate-tree-node-id-todo]] — Mirror the duplicate CRDTTreeNodeID rules
+- Back to tasks index: [../README.md](../README.md)
 
-## 2026-06
+Total archived tasks: 16
 
-- [[20260604-pv-counter-example-todo]] — ---
-- [[20260616-presenceless-document-option-todo]] — **Created**: 2026-06-16
+## 2026/08 (1 task)
 
-## 2026-05
+| Task | Todo | Lessons |
+|---|---|---|
+| Mirror the duplicate CRDTTreeNodeID rules (2026-08-15) | [20260815-duplicate-tree-node-id-todo.md](./2026/08/20260815-duplicate-tree-node-id-todo.md) | [20260815-duplicate-tree-node-id-lessons.md](./2026/08/20260815-duplicate-tree-node-id-lessons.md) |
 
-- [[20260504-polling-sync-mode-todo]] — Polling Sync Mode Implementation Plan
-- [[20260515-webhook-test-fast-fail-todo]] — Webhook Test Fast Fail Plan
-- [[20260527-disable-gc-on-attach-todo]] — **Created**: 2026-05-27
+## 2026/06 (2 tasks)
 
-## 2026-04
+| Task | Todo | Lessons |
+|---|---|---|
+| Presenceless Document Option — JS SDK (2026-06-16) | [20260616-presenceless-document-option-todo.md](./2026/06/20260616-presenceless-document-option-todo.md) | - |
+| react-page-view-counter example (2026-06-04) | [20260604-pv-counter-example-todo.md](./2026/06/20260604-pv-counter-example-todo.md) | - |
 
-- [[20260327-epoch-mismatch-todo]] — Epoch Mismatch Handling in JS SDK
-- [[20260402-style-by-path-range-todo]] — **Created**: 2026-04-02
-- [[20260409-prosemirror-native-split-merge-todo]] — **Created**: 2026-04-09
-- [[20260410-merged-fields-snapshot-todo]] — **Created**: 2026-04-10
-- [[20260415-tree-split-undo-redo-todo]] — **Created**: 2026-04-15
-- [[20260422-fix-detach-sync-race-todo]] — Fix Detach/Sync Race Condition Implementation Plan
-- [[20260422-presence-event-reconciliation-todo]] — Presence Event Reconciliation Implementation Plan
-- [[20260425-tree-split-l2-undo-redo-todo]] — **Created**: 2026-04-25
-- [[20260428-tree-reverseop-pretombstoned-filter-todo]] — **Created**: 2026-04-28
+## 2026/05 (4 tasks)
+
+| Task | Todo | Lessons |
+|---|---|---|
+| Disable GC on Attach — JS SDK (2026-05-27) | [20260527-disable-gc-on-attach-todo.md](./2026/05/20260527-disable-gc-on-attach-todo.md) | - |
+| Webhook Test Fast Fail Plan (2026-05-15) | [20260515-webhook-test-fast-fail-todo.md](./2026/05/20260515-webhook-test-fast-fail-todo.md) | [20260515-webhook-test-fast-fail-lessons.md](./2026/05/20260515-webhook-test-fast-fail-lessons.md) |
+| Channel RefreshChannel-Only SDK Implementation Plan (2026-05-14) | [20260514-channel-refresh-only-todo.md](./2026/05/20260514-channel-refresh-only-todo.md) | [20260514-channel-refresh-only-lessons.md](./2026/05/20260514-channel-refresh-only-lessons.md) |
+| Polling Sync Mode Implementation Plan (2026-05-04) | [20260504-polling-sync-mode-todo.md](./2026/05/20260504-polling-sync-mode-todo.md) | [20260504-polling-sync-mode-lessons.md](./2026/05/20260504-polling-sync-mode-lessons.md) |
+
+## 2026/04 (9 tasks)
+
+| Task | Todo | Lessons |
+|---|---|---|
+| Tree reverseOp Pre-tombstoned Descendant Filtering (2026-04-28) | [20260428-tree-reverseop-pretombstoned-filter-todo.md](./2026/04/20260428-tree-reverseop-pretombstoned-filter-todo.md) | [20260428-tree-reverseop-pretombstoned-filter-lessons.md](./2026/04/20260428-tree-reverseop-pretombstoned-filter-lessons.md) |
+| Tree Split Undo/Redo (splitLevel=2) Implementation Plan (2026-04-25) | [20260425-tree-split-l2-undo-redo-todo.md](./2026/04/20260425-tree-split-l2-undo-redo-todo.md) | - |
+| Presence Event Reconciliation Implementation Plan (2026-04-22) | [20260422-presence-event-reconciliation-todo.md](./2026/04/20260422-presence-event-reconciliation-todo.md) | - |
+| Fix Detach/Sync Race Condition Implementation Plan (2026-04-22) | [20260422-fix-detach-sync-race-todo.md](./2026/04/20260422-fix-detach-sync-race-todo.md) | - |
+| Tree Split Undo/Redo (splitLevel=1) Implementation Plan (2026-04-15) | [20260415-tree-split-undo-redo-todo.md](./2026/04/20260415-tree-split-undo-redo-todo.md) | - |
+| Mirror JS SDK merge fields snapshot encoding (2026-04-10) | [20260410-merged-fields-snapshot-todo.md](./2026/04/20260410-merged-fields-snapshot-todo.md) | - |
+| ProseMirror native split/merge (2026-04-09) | [20260409-prosemirror-native-split-merge-todo.md](./2026/04/20260409-prosemirror-native-split-merge-todo.md) | - |
+| Add range-based styleByPath and removeStyleByPath (2026-04-02) | [20260402-style-by-path-range-todo.md](./2026/04/20260402-style-by-path-range-todo.md) | [20260402-style-by-path-range-lessons.md](./2026/04/20260402-style-by-path-range-lessons.md) |
+| Epoch Mismatch Handling in JS SDK (2026-03-27) | [20260327-epoch-mismatch-todo.md](./2026/04/20260327-epoch-mismatch-todo.md) | - |
 
