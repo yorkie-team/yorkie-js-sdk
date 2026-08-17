@@ -9,6 +9,8 @@
     "build:examples": "pnpm --filter './examples/*' run build",
     "build:packages": "pnpm --filter './packages/*' run build",
     "lint": "eslint . --fix --max-warnings=0 --flag v10_config_lookup_from_file",
+    "verify:doc-links": "node ./scripts/verify-doc-links.mjs",
+    "test:scripts": "node --test 'scripts/test/**/*.test.mjs'",
     "sdk": "pnpm --filter=@yorkie-js/sdk",
     "devtools": "pnpm --filter=@yorkie-js/devtools",
     "react": "pnpm --filter=@yorkie-js/react",
