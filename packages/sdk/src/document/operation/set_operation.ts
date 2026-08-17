@@ -96,11 +96,17 @@ export class SetOperation extends Operation {
     // NOTE(chacha912): When resetting elements with the pre-existing createdAt
     // during undo/redo, it's essential to handle previously tombstoned elements.
     // In non-GC languages, there may be a need to execute both deregister and purge.
-    if (
-      source === OpSource.UndoRedo &&
-      root.findByCreatedAt(value.getCreatedAt())
-    ) {
-      root.deregisterElement(value);
+    //
+    // NOTE(hackerwins): It has to be the registered element that is
+    // deregistered, not the incoming copy: the copy's size and descendants are
+    // the ones about to be registered, so passing it would charge the wrong
+    // size against gc and leave the stale element's own descendants registered
+    // forever.
+    if (source === OpSource.UndoRedo) {
+      const registered = root.findByCreatedAt(value.getCreatedAt());
+      if (registered) {
+        root.deregisterElement(registered);
+      }
     }
     root.registerElement(value, obj);
     if (removed) {

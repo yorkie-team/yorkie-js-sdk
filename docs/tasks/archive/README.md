@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-16
+updated: 2026-08-17
 ---
 
 # Tasks Archive
@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 16
+Total archived tasks: 17
 
-## 2026/08 (1 task)
+## 2026/08 (2 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| DocSize: count a removed container's descendants in the GC total (2026-08-17) | [20260817-docsize-container-gc-symmetry-todo.md](./2026/08/20260817-docsize-container-gc-symmetry-todo.md) | [20260817-docsize-container-gc-symmetry-lessons.md](./2026/08/20260817-docsize-container-gc-symmetry-lessons.md) |
 | Mirror the duplicate CRDTTreeNodeID rules (2026-08-15) | [20260815-duplicate-tree-node-id-todo.md](./2026/08/20260815-duplicate-tree-node-id-todo.md) | [20260815-duplicate-tree-node-id-lessons.md](./2026/08/20260815-duplicate-tree-node-id-lessons.md) |
 
 ## 2026/06 (2 tasks)
