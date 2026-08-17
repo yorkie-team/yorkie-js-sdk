@@ -96,6 +96,18 @@ export class CRDTRoot {
   private gcElementSetByCreatedAt: Set<string>;
 
   /**
+   * `sizeInGC` maps the creation time of every registered element whose size
+   * counts toward `docSize.gc` rather than `docSize.live`, to the exact amount
+   * charged. Each element's size belongs to exactly one of the two, and an
+   * element reaches gc by more routes than it has removals: it can be removed
+   * itself, or be a descendant of a removed container. Recording the amount
+   * rather than a flag keeps the two sides symmetric even though `getDataSize`
+   * is not stable over an element's lifetime -- it grows by a ticket the moment
+   * `removedAt` is set, which can happen after the size has already moved.
+   */
+  private sizeInGC: Map<string, DataSize>;
+
+  /**
    * `gcPairMap` is a hash table that maps the IDString of GCChild to the
    * element itself and its parent.
    */
@@ -110,6 +122,7 @@ export class CRDTRoot {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.gcElementSetByCreatedAt = new Set();
+    this.sizeInGC = new Map();
     this.gcPairMap = new Map();
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     this.registerElement(rootObject, undefined);
@@ -234,7 +247,19 @@ export class CRDTRoot {
 
     const deregisterElementInternal = (elem: CRDTElement) => {
       const createdAt = elem.getCreatedAt().toIDString();
-      subDataSize(this.docSize.gc, elem.getDataSize());
+      // Subtract the size from wherever it is actually counted, and by the
+      // amount actually charged. A descendant created inside an
+      // already-removed container never passed through a removal, so it still
+      // sits in live; subtracting it from gc would push gc below zero and
+      // leave its cost in live forever.
+      const charged = this.sizeInGC.get(createdAt);
+      if (charged) {
+        subDataSize(this.docSize.gc, charged);
+        this.sizeInGC.delete(createdAt);
+      } else {
+        subDataSize(this.docSize.live, elem.getDataSize());
+      }
+
       this.elementPairMapByCreatedAt.delete(createdAt);
       this.gcElementSetByCreatedAt.delete(createdAt);
       count++;
@@ -255,13 +280,63 @@ export class CRDTRoot {
    * `registerRemovedElement` registers the given element to the hash set.
    */
   public registerRemovedElement(element: CRDTElement): void {
-    addDataSizes(this.docSize.gc, element.getDataSize());
-    subDataSize(this.docSize.live, element.getDataSize());
+    const moved = this.moveSizeToGC(element);
+
+    // NOTE(hackerwins): registerElement books a container and every descendant
+    // into live, and deregisterElement subtracts both when the tombstone is
+    // collected. Removing a container therefore has to move its descendants as
+    // well: booking only the container itself would strand their size in live
+    // forever and drive gc negative once the collection subtracted them.
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((elem) => {
+        this.moveSizeToGC(elem);
+        return false;
+      });
+    }
+
     // NOTE(hackerwins): When an element is removed, parent sets the removedAt
-    // to mark the child as removed.
-    this.docSize.live.meta += TimeTicketSize;
+    // to mark the child as removed. That ticket is part of the size charged to
+    // gc just now, but it was not part of what live held -- registerElement ran
+    // before the removal -- so live gets it back. Only on the move that carried
+    // it: a size already in gc, or one moved as a descendant while its own
+    // removedAt is still unset, did not.
+    //
+    // This holds for the incremental path. The constructor instead registers an
+    // already-tombstoned element at its post-removal size, so live did hold the
+    // ticket and the refund over-credits it by one per tombstone. That drift is
+    // pre-existing and unchanged here.
+    if (moved && element.getRemovedAt()) {
+      this.docSize.live.meta += TimeTicketSize;
+    }
 
     this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
+  }
+
+  /**
+   * `moveSizeToGC` moves the size of the given element from live to gc, and
+   * reports whether it moved a size live was holding. A size already in gc --
+   * because the element was removed before, or because a container above it
+   * was -- only has its charge topped up: getDataSize grows by a ticket when
+   * removedAt is set, which can happen after the move.
+   */
+  private moveSizeToGC(element: CRDTElement): boolean {
+    const createdAt = element.getCreatedAt().toIDString();
+    const size = element.getDataSize();
+
+    const charged = this.sizeInGC.get(createdAt);
+    if (charged) {
+      addDataSizes(this.docSize.gc, {
+        data: size.data - charged.data,
+        meta: size.meta - charged.meta,
+      });
+      this.sizeInGC.set(createdAt, size);
+      return false;
+    }
+
+    addDataSizes(this.docSize.gc, size);
+    subDataSize(this.docSize.live, size);
+    this.sizeInGC.set(createdAt, size);
+    return true;
   }
 
   /**
