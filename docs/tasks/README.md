@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-16
+updated: 2026-08-17
 ---
 
 # Tasks Index
@@ -18,7 +18,9 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Active Tasks
 
-_(none)_
+| Task | Todo | Lessons |
+|---|---|---|
+| DocSize: count a removed container's descendants in the GC total (2026-08-17) | [20260817-docsize-container-gc-symmetry-todo.md](./active/20260817-docsize-container-gc-symmetry-todo.md) | [20260817-docsize-container-gc-symmetry-lessons.md](./active/20260817-docsize-container-gc-symmetry-lessons.md) |
 
 ## Archive
 
