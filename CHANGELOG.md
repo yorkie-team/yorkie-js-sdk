@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.17] - 2026-08-18
+
+### Fixed
+
+- Count a removed container's descendants in the GC total by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1322
+
 ## [v0.7.16] - 2026-08-15
 
 ### Fixed
