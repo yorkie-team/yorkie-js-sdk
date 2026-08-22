@@ -21,6 +21,25 @@ export const removeDecimal = (number: number) =>
   number < 0 ? Math.ceil(number) : Math.floor(number);
 
 /**
+ * `MaxInt64` is the maximum value of a signed 64-bit integer (2^63 - 1).
+ */
+export const MaxInt64 = 2n ** 63n - 1n;
+
+/**
+ * `MinInt64` is the minimum value of a signed 64-bit integer (-2^63).
+ */
+export const MinInt64 = -(2n ** 63n);
+
+/**
+ * `isWithinInt64Range` reports whether the given bigint fits in a signed
+ * 64-bit integer. Values outside this range cannot be stored as a Long
+ * without silently wrapping, so callers should reject them.
+ */
+export function isWithinInt64Range(value: bigint): boolean {
+  return value >= MinInt64 && value <= MaxInt64;
+}
+
+/**
  * `bigintToBytesLE` converts a signed 64-bit bigint to 8 bytes (little-endian).
  */
 export function bigintToBytesLE(value: bigint): Uint8Array {

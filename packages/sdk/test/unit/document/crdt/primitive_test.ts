@@ -108,4 +108,35 @@ describe('Primitive', function () {
     );
     assert.equal(restored, BigInt(largeNumber));
   });
+
+  it('should reject a number integer beyond the int64 range instead of wrapping', function () {
+    // 1e19 (10000000000000000000) exceeds 2^63-1 and would previously wrap
+    // silently in bigintToBytesLE, so the writer and remote peers disagree.
+    assert.throws(() => Primitive.of(1e19, InitialTimeTicket));
+  });
+
+  it('should reject a bigint beyond the int64 range instead of wrapping', function () {
+    assert.throws(() => Primitive.of(2n ** 64n, InitialTimeTicket));
+  });
+
+  it('should accept the int64 boundary and reject one past it', function () {
+    const maxInt64 = 2n ** 63n - 1n;
+    const minInt64 = -(2n ** 63n);
+
+    // Exactly at the boundary: valid, stored losslessly.
+    const max = Primitive.of(maxInt64, InitialTimeTicket);
+    assert.equal(max.getType(), PrimitiveType.Long);
+    assert.equal(max.getValue(), maxInt64);
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, max.toBytes()),
+      maxInt64,
+    );
+
+    const min = Primitive.of(minInt64, InitialTimeTicket);
+    assert.equal(min.getValue(), minInt64);
+
+    // One past the boundary: throws.
+    assert.throws(() => Primitive.of(maxInt64 + 1n, InitialTimeTicket));
+    assert.throws(() => Primitive.of(minInt64 - 1n, InitialTimeTicket));
+  });
 });
