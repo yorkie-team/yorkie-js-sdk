@@ -373,7 +373,16 @@ export class CRDTCounter extends CRDTElement {
         typeof v.getValue() === 'bigint'
           ? (v.getValue() as bigint)
           : BigInt(Math.trunc(v.getValue() as number));
-      this.value = BigInt.asIntN(64, (this.value as bigint) + delta);
+      // Mirror the constructor guard: reject sums outside the int64 range
+      // instead of silently wrapping via `BigInt.asIntN(64, ...)`.
+      const nextValue = (this.value as bigint) + delta;
+      if (!isWithinInt64Range(nextValue)) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${nextValue} is out of the int64 range and cannot be stored as Long`,
+        );
+      }
+      this.value = nextValue;
     } else {
       if (v.getType() === PrimitiveType.Long) {
         this.value = bigintToInt32(
