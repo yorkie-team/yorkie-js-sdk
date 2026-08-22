@@ -26,6 +26,7 @@ import {
   bigintFromBytesLE,
   bigintToBytesLE,
   bigintToInt32,
+  isWithinInt64Range,
 } from '@yorkie-js/sdk/src/util/number';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
@@ -70,13 +71,20 @@ export class CRDTCounter extends CRDTElement {
           this.value = bigintToInt32(value);
         }
         break;
-      case CounterType.Long:
-        if (typeof value === 'number') {
-          this.value = BigInt.asIntN(64, BigInt(Math.trunc(value)));
-        } else {
-          this.value = BigInt.asIntN(64, value);
+      case CounterType.Long: {
+        // Mirror the Primitive Long guard: reject magnitudes outside the
+        // int64 range instead of silently wrapping via `BigInt.asIntN(64, ...)`.
+        const longValue =
+          typeof value === 'number' ? BigInt(Math.trunc(value)) : value;
+        if (!isWithinInt64Range(longValue)) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            `${value} is out of the int64 range and cannot be stored as Long`,
+          );
         }
+        this.value = longValue;
         break;
+      }
       default:
         throw new YorkieError(
           Code.ErrUnimplemented,

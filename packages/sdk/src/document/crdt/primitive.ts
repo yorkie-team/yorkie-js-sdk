@@ -25,6 +25,7 @@ import {
   bigintToBytesLE,
   bigintFromBytesLE,
   bigintFromBytesLEUnsigned,
+  isWithinInt64Range,
 } from '@yorkie-js/sdk/src/util/number';
 
 export enum PrimitiveType {
@@ -57,11 +58,25 @@ export class Primitive extends CRDTElement {
   constructor(value: PrimitiveValue, createdAt: TimeTicket) {
     super(createdAt);
     this.valueType = Primitive.getPrimitiveType(value)!;
-    if (this.valueType === PrimitiveType.Long && typeof value === 'number') {
-      logger.warn(
-        `number exceeds int32 range and will be stored as Long (bigint): ${value}`,
-      );
-      this.value = BigInt(value);
+    if (this.valueType === PrimitiveType.Long) {
+      // Both the number path (promoted from out-of-int32 integers) and the
+      // bigint path converge here. Reject magnitudes outside the int64 range
+      // instead of silently wrapping them in `bigintToBytesLE`, since the SDK
+      // has no wider lossless integer type to promote them to.
+      const longValue =
+        typeof value === 'number' ? BigInt(value) : (value as bigint);
+      if (!isWithinInt64Range(longValue)) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${value} is out of the int64 range and cannot be stored as Long`,
+        );
+      }
+      if (typeof value === 'number') {
+        logger.warn(
+          `number exceeds int32 range and will be stored as Long (bigint): ${value}`,
+        );
+      }
+      this.value = longValue;
     } else {
       this.value = value === undefined ? null : value;
     }
