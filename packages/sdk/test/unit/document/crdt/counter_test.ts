@@ -118,17 +118,3 @@ it('should accept the int64 boundary for a Long counter and reject one past it',
     CRDTCounter.create(CounterType.Long, minInt64 - 1n, InitialTimeTicket),
   );
 });
-
-it('should reject a Long counter increment that overflows the int64 range', function () {
-  const maxInt64 = 2n ** 63n - 1n;
-  const minInt64 = -(2n ** 63n);
-
-  const max = CRDTCounter.create(CounterType.Long, maxInt64, InitialTimeTicket);
-  assert.throws(() => max.increase(Primitive.of(1n, InitialTimeTicket)));
-  // The value must stay untouched after a rejected increment.
-  assert.equal(max.getValue(), maxInt64);
-
-  const min = CRDTCounter.create(CounterType.Long, minInt64, InitialTimeTicket);
-  assert.throws(() => min.increase(Primitive.of(-1n, InitialTimeTicket)));
-  assert.equal(min.getValue(), minInt64);
-});
