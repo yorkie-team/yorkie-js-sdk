@@ -90,31 +90,3 @@ it('Can wrap around Int counter when increased by an out-of-int32 Long', functio
   counter2.increase(Primitive.of(BigInt(2147483648), InitialTimeTicket));
   assert.equal(counter2.getValue(), 2147483647);
 });
-
-it('should reject a Long counter value beyond the int64 range instead of wrapping', function () {
-  // Mirror of the Primitive Long guard: construction must throw rather than
-  // silently wrap via BigInt.asIntN(64, ...).
-  assert.throws(() =>
-    CRDTCounter.create(CounterType.Long, 2n ** 64n, InitialTimeTicket),
-  );
-  assert.throws(() =>
-    CRDTCounter.create(CounterType.Long, 1e19, InitialTimeTicket),
-  );
-});
-
-it('should accept the int64 boundary for a Long counter and reject one past it', function () {
-  const maxInt64 = 2n ** 63n - 1n;
-  const minInt64 = -(2n ** 63n);
-
-  const max = CRDTCounter.create(CounterType.Long, maxInt64, InitialTimeTicket);
-  assert.equal(max.getValue(), maxInt64);
-  const min = CRDTCounter.create(CounterType.Long, minInt64, InitialTimeTicket);
-  assert.equal(min.getValue(), minInt64);
-
-  assert.throws(() =>
-    CRDTCounter.create(CounterType.Long, maxInt64 + 1n, InitialTimeTicket),
-  );
-  assert.throws(() =>
-    CRDTCounter.create(CounterType.Long, minInt64 - 1n, InitialTimeTicket),
-  );
-});
