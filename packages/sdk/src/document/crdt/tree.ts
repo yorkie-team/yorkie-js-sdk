@@ -1101,7 +1101,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private mergedAnchorInterloperGuard(
     pos: CRDTTreePos,
     versionVector?: VersionVector,
-  ): { isInterloper: (node: CRDTTreeNode) => boolean } | undefined {
+  ):
+    | {
+        isInterloper: (node: CRDTTreeNode) => boolean;
+        declaredParent: CRDTTreeNode;
+        target: CRDTTreeNode;
+      }
+    | undefined {
     if (versionVector === undefined) {
       return;
     }
@@ -1154,6 +1160,61 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
         return afterTombstone.has(top);
       },
+      declaredParent,
+      target,
+    };
+  }
+
+  /**
+   * `reversedFromAnchorRecovery` prepares the §9.4 from-side counterpart of
+   * `mergedAnchorInterloperGuard` for a style range whose start position was
+   * declared inside a parent that a merge unknown to the styling client
+   * removed. The resolved range then collapses (start past end) and the
+   * traversal misses nodes the styling client covered. The recovery
+   * re-anchors the traversal start just after the last live sibling before
+   * the merge-source tombstone; the caller must style only nodes the
+   * returned predicate positively identifies as interlopers. Stamped nodes
+   * in the span stay out of reach and fail open unstyled — see the §9.4
+   * known limitations in yorkie's concurrent-merge-split design doc.
+   */
+  private reversedFromAnchorRecovery(
+    pos: CRDTTreePos,
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+    versionVector?: VersionVector,
+  ):
+    | {
+        fromParent: CRDTTreeNode;
+        fromLeft: CRDTTreeNode;
+        isInterloper: (node: CRDTTreeNode) => boolean;
+      }
+    | undefined {
+    const guard = this.mergedAnchorInterloperGuard(pos, versionVector);
+    if (!guard) {
+      return;
+    }
+    // Only a range that actually collapsed needs recovery: when both
+    // anchors moved with the merge, the resolved range stays ordered and
+    // still covers what the styling client covered.
+    if (this.toIndex(fromParent, fromLeft) <= this.toIndex(toParent, toLeft)) {
+      return;
+    }
+    const { declaredParent, target } = guard;
+    let anchorLeft: CRDTTreeNode = target;
+    for (const child of target.allChildren) {
+      if (child === declaredParent) {
+        break;
+      }
+      if (!child.isRemoved) {
+        anchorLeft = child;
+      }
+    }
+    return {
+      fromParent: target,
+      fromLeft: anchorLeft,
+      isInterloper: guard.isInterloper,
     };
   }
 
@@ -1165,6 +1226,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private styleSkipPredicate(
     pos: CRDTTreePos,
     versionVector?: VersionVector,
+    recoveredInterloper?: (node: CRDTTreeNode) => boolean,
   ): (node: CRDTTreeNode, tokenType: TokenType) => boolean {
     const anchorGuard = this.mergedAnchorInterloperGuard(pos, versionVector);
     return (node: CRDTTreeNode, tokenType: TokenType): boolean => {
@@ -1176,6 +1238,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
         versionVector !== undefined &&
         this.hasUnknownSplitSibling(node, versionVector)
       ) {
+        return true;
+      }
+      // §9.4 from-side: a recovered traversal may only touch nodes the
+      // collapsed range lost, the positively identified interlopers.
+      if (recoveredInterloper && !recoveredInterloper(node)) {
         return true;
       }
       // §9.4: the node is in the range only because an unknown merge
@@ -1512,7 +1579,22 @@ export class CRDTTree extends CRDTElement implements GCParent {
         ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
         : toLeftRaw;
 
-    const shouldSkipToken = this.styleSkipPredicate(range[1], versionVector);
+    const recovery = this.reversedFromAnchorRecovery(
+      range[0],
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      versionVector,
+    );
+    const [traverseFromParent, traverseFromLeft] = recovery
+      ? [recovery.fromParent, recovery.fromLeft]
+      : [fromParent, fromLeft];
+    const shouldSkipToken = this.styleSkipPredicate(
+      range[1],
+      versionVector,
+      recovery?.isInterloper,
+    );
 
     const changes: Array<TreeChange> = [];
     const attrs: { [key: string]: any } = attributes
@@ -1523,8 +1605,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const newAttrKeys: Array<string> = [];
     let capturedPrev = false;
     this.traverseInPosRange(
-      fromParent,
-      fromLeft,
+      traverseFromParent,
+      traverseFromLeft,
       toParent,
       toLeft,
       ([node, tokenType]) => {
@@ -1678,15 +1760,30 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     addDataSizes(diff, diffTo, diffFrom);
 
-    const shouldSkipToken = this.styleSkipPredicate(range[1], versionVector);
+    const recovery = this.reversedFromAnchorRecovery(
+      range[0],
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      versionVector,
+    );
+    const [traverseFromParent, traverseFromLeft] = recovery
+      ? [recovery.fromParent, recovery.fromLeft]
+      : [fromParent, fromLeft];
+    const shouldSkipToken = this.styleSkipPredicate(
+      range[1],
+      versionVector,
+      recovery?.isInterloper,
+    );
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
     const prevAttributes = new Map<string, string>();
     let capturedPrev = false;
     this.traverseInPosRange(
-      fromParent,
-      fromLeft,
+      traverseFromParent,
+      traverseFromLeft,
       toParent,
       toLeft,
       ([node, tokenType]) => {

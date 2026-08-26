@@ -236,41 +236,208 @@ describe('Tree.Style range ending after a merge-moved child', () => {
     await c2.attach(d2, { syncMode: SyncMode.Manual });
     await c3.attach(d3, { syncMode: SyncMode.Manual });
 
-    d1.update((root) => {
-      root.tree = new Tree({
-        type: 'r',
-        children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
-        ],
+    try {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
       });
-    });
-    await c1.sync();
-    await c2.sync();
-    await c3.sync();
+      await c1.sync();
+      await c2.sync();
+      await c3.sync();
 
-    // d3's insert is unknown to d1's style, so the version-vector check
-    // keeps it unstyled on every replica.
-    d1.update((root) => root.tree.style(0, 6, { bold: 'x' }));
-    d2.update((root) => root.tree.edit(0, 5));
-    d3.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      // d3's insert is unknown to d1's style, so the version-vector check
+      // keeps it unstyled on every replica.
+      d1.update((root) => root.tree.style(0, 6, { bold: 'x' }));
+      d2.update((root) => root.tree.edit(0, 5));
+      d3.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
 
-    for (const client of [c1, c2, c3]) {
-      await client.sync();
+      for (const client of [c1, c2, c3]) {
+        await client.sync();
+      }
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
+    } finally {
+      for (const [client, doc] of [
+        [c1, d1],
+        [c2, d2],
+        [c3, d3],
+      ] as const) {
+        await client.detach(doc);
+        await client.deactivate();
+      }
     }
-    await c1.sync();
-    await c2.sync();
+  });
+});
 
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
+describe('Tree.Style range starting after a merge-moved child', () => {
+  it('styles the writer insert when a merge reverses the range', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ tree: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
 
-    for (const [client, doc] of [
-      [c1, d1],
-      [c2, d2],
-      [c3, d3],
-    ] as const) {
-      await client.detach(doc);
-      await client.deactivate();
+      // d1 inserts an empty <p> after the second paragraph, then styles a
+      // range starting after `c` and ending inside its own insert. On d2
+      // the concurrent merge moves `cd` behind the insert, so the resolved
+      // range collapses and would miss the insert entirely.
+      d1.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      d1.update((root) => root.tree.style(6, 9, { bold: 'x' }));
+      d2.update((root) => root.tree.edit(0, 5));
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(d1.getRoot().tree.toXML(), '<r><p bold="x"></p>cd</r>');
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
+  it('applies removeStyle to the writer insert on both replicas', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ tree: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      // Same shape as above with removeStyle: the removal tombstone must
+      // materialize on both replicas, not only on the writer.
+      d1.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      d1.update((root) => root.tree.removeStyle(6, 9, ['bold']));
+      d2.update((root) => root.tree.edit(0, 5));
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.include(
+        d1.toSortedJSON(),
+        '{"type":"p","children":[],"attributes":{}}',
+      );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
+  it('keeps a range that stays ordered away from the insert', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ tree: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      // Both anchors sit inside the merged paragraph, so the resolved
+      // range moves with the merge and stays ordered. The recovery must
+      // not widen it onto the insert.
+      d1.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      d1.update((root) => root.tree.style(6, 7, { bold: 'x' }));
+      d2.update((root) => root.tree.edit(0, 5));
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(d1.getRoot().tree.toXML(), '<r><p></p>cd</r>');
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
+  it('keeps a reversed range away from an insert unknown to the styler', async ({
+    task,
+  }) => {
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+    await c3.activate();
+
+    const docKey = `${toDocKey(task.name)}-${c1.getKey()}`;
+    const d1 = new yorkie.Document<{ tree: Tree }>(docKey);
+    const d2 = new yorkie.Document<{ tree: Tree }>(docKey);
+    const d3 = new yorkie.Document<{ tree: Tree }>(docKey);
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+    await c3.attach(d3, { syncMode: SyncMode.Manual });
+
+    try {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+      await c3.sync();
+
+      // d3's insert is unknown to d1's style, so the version-vector check
+      // keeps it unstyled even when the recovered traversal passes it.
+      d1.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      d1.update((root) => root.tree.style(6, 9, { bold: 'x' }));
+      d2.update((root) => root.tree.edit(0, 5));
+      d3.update((root) => root.tree.edit(8, 8, { type: 'b', children: [] }));
+
+      for (const client of [c1, c2, c3]) {
+        await client.sync();
+      }
+      await c1.sync();
+      await c2.sync();
+
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
+      assert.include(
+        d1.toSortedJSON(),
+        '{"type":"p","children":[],"attributes":{"bold":"x"}}',
+      );
+      assert.include(d1.toSortedJSON(), '{"type":"b","children":[]}');
+    } finally {
+      for (const [client, doc] of [
+        [c1, d1],
+        [c2, d2],
+        [c3, d3],
+      ] as const) {
+        await client.detach(doc);
+        await client.deactivate();
+      }
     }
   });
 });

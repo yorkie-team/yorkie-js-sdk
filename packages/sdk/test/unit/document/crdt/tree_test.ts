@@ -18,6 +18,7 @@ import { describe, it, assert } from 'vitest';
 import {
   InitialTimeTicket as ITT,
   MaxTimeTicket as MTT,
+  TimeTicket,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   CRDTTree,
@@ -28,6 +29,7 @@ import {
   TreeChangeType,
   TreeNodeForTest,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
 import { idT, posT, timeT } from '@yorkie-js/sdk/test/helper/helper';
 
@@ -745,6 +747,108 @@ describe('CRDTTree.Edit', function () {
     assert.equal(content.parent, tree.getRoot().allChildren[0]);
     assert.equal(content.mergedFrom?.equals(declaredParent.id), true);
     assert.deepEqual(content.mergedAt, mergeTicket);
+  });
+
+  // An actor outside the styler's version vector, for simulating an
+  // unknown concurrent merge in a single-context unit test.
+  const otherActor = '111111111111111111111111';
+
+  it('recovers a style range reversed by an unknown merge at the from anchor', function () {
+    // 01. Create <root><p>ab</p><p>cd</p></root> and insert the styler's
+    // own <p> after the second paragraph.
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ab')],
+      0,
+      timeT(),
+      timeT,
+    );
+    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [5, 5],
+      [new CRDTTreeNode(posT(), 'text', 'cd')],
+      0,
+      timeT(),
+      timeT,
+    );
+    const inserted = new CRDTTreeNode(posT(), 'p');
+    tree.editT([8, 8], [inserted], 0, timeT(), timeT);
+
+    // 02. Capture the styler-view range (from after `c`, to inside the
+    // insert) and a version vector that predates the merge.
+    const fromPos = tree.findPos(6);
+    const toPos = tree.findPos(9);
+    const knownTicket = timeT();
+    const stylerVV = new VersionVector(
+      new Map([[knownTicket.getActorID(), knownTicket.getLamport()]]),
+    );
+
+    // 03. Apply a merge from another actor, outside the styler's version
+    // vector: the moved `cd` now resolves after the insert, so the range
+    // collapses. The recovery must still style the insert.
+    const mergeTicket = TimeTicket.of(
+      knownTicket.getLamport() + 1n,
+      0,
+      otherActor,
+    );
+    tree.editT([0, 5], undefined, 0, mergeTicket, timeT);
+    tree.style(
+      [fromPos, toPos],
+      stringifyObjectValues({ bold: 'x' }),
+      timeT(),
+      stylerVV,
+    );
+
+    assert.equal(inserted.attrs?.get('bold'), '"x"');
+  });
+
+  it('keeps an ordered from-anchor range off the writer insert', function () {
+    // Same shape, but both anchors sit inside the merged paragraph: the
+    // resolved range moves with the merge and stays ordered, so the
+    // recovery must not widen it onto the insert.
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'root'), timeT());
+    tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [1, 1],
+      [new CRDTTreeNode(posT(), 'text', 'ab')],
+      0,
+      timeT(),
+      timeT,
+    );
+    tree.editT([4, 4], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);
+    tree.editT(
+      [5, 5],
+      [new CRDTTreeNode(posT(), 'text', 'cd')],
+      0,
+      timeT(),
+      timeT,
+    );
+    const inserted = new CRDTTreeNode(posT(), 'p');
+    tree.editT([8, 8], [inserted], 0, timeT(), timeT);
+
+    const fromPos = tree.findPos(6);
+    const toPos = tree.findPos(7);
+    const knownTicket = timeT();
+    const stylerVV = new VersionVector(
+      new Map([[knownTicket.getActorID(), knownTicket.getLamport()]]),
+    );
+
+    const mergeTicket = TimeTicket.of(
+      knownTicket.getLamport() + 1n,
+      0,
+      otherActor,
+    );
+    tree.editT([0, 5], undefined, 0, mergeTicket, timeT);
+    tree.style(
+      [fromPos, toPos],
+      stringifyObjectValues({ bold: 'x' }),
+      timeT(),
+      stylerVV,
+    );
+
+    assert.equal(inserted.attrs?.get('bold'), undefined);
   });
 
   it('Can find the closest TreePos when parentNode or leftSiblingNode does not exist', function () {
