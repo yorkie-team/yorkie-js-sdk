@@ -236,41 +236,43 @@ describe('Tree.Style range ending after a merge-moved child', () => {
     await c2.attach(d2, { syncMode: SyncMode.Manual });
     await c3.attach(d3, { syncMode: SyncMode.Manual });
 
-    d1.update((root) => {
-      root.tree = new Tree({
-        type: 'r',
-        children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
-        ],
+    try {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
       });
-    });
-    await c1.sync();
-    await c2.sync();
-    await c3.sync();
+      await c1.sync();
+      await c2.sync();
+      await c3.sync();
 
-    // d3's insert is unknown to d1's style, so the version-vector check
-    // keeps it unstyled on every replica.
-    d1.update((root) => root.tree.style(0, 6, { bold: 'x' }));
-    d2.update((root) => root.tree.edit(0, 5));
-    d3.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      // d3's insert is unknown to d1's style, so the version-vector check
+      // keeps it unstyled on every replica.
+      d1.update((root) => root.tree.style(0, 6, { bold: 'x' }));
+      d2.update((root) => root.tree.edit(0, 5));
+      d3.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
 
-    for (const client of [c1, c2, c3]) {
-      await client.sync();
-    }
-    await c1.sync();
-    await c2.sync();
+      for (const client of [c1, c2, c3]) {
+        await client.sync();
+      }
+      await c1.sync();
+      await c2.sync();
 
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
-
-    for (const [client, doc] of [
-      [c1, d1],
-      [c2, d2],
-      [c3, d3],
-    ] as const) {
-      await client.detach(doc);
-      await client.deactivate();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
+    } finally {
+      for (const [client, doc] of [
+        [c1, d1],
+        [c2, d2],
+        [c3, d3],
+      ] as const) {
+        await client.detach(doc);
+        await client.deactivate();
+      }
     }
   });
 });
@@ -335,6 +337,10 @@ describe('Tree.Style range starting after a merge-moved child', () => {
       await c2.sync();
       await c1.sync();
 
+      assert.include(
+        d1.toSortedJSON(),
+        '{"type":"p","children":[],"attributes":{}}',
+      );
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
@@ -389,47 +395,49 @@ describe('Tree.Style range starting after a merge-moved child', () => {
     await c2.attach(d2, { syncMode: SyncMode.Manual });
     await c3.attach(d3, { syncMode: SyncMode.Manual });
 
-    d1.update((root) => {
-      root.tree = new Tree({
-        type: 'r',
-        children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
-        ],
+    try {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
       });
-    });
-    await c1.sync();
-    await c2.sync();
-    await c3.sync();
+      await c1.sync();
+      await c2.sync();
+      await c3.sync();
 
-    // d3's insert is unknown to d1's style, so the version-vector check
-    // keeps it unstyled even when the recovered traversal passes it.
-    d1.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
-    d1.update((root) => root.tree.style(6, 9, { bold: 'x' }));
-    d2.update((root) => root.tree.edit(0, 5));
-    d3.update((root) => root.tree.edit(8, 8, { type: 'b', children: [] }));
+      // d3's insert is unknown to d1's style, so the version-vector check
+      // keeps it unstyled even when the recovered traversal passes it.
+      d1.update((root) => root.tree.edit(8, 8, { type: 'p', children: [] }));
+      d1.update((root) => root.tree.style(6, 9, { bold: 'x' }));
+      d2.update((root) => root.tree.edit(0, 5));
+      d3.update((root) => root.tree.edit(8, 8, { type: 'b', children: [] }));
 
-    for (const client of [c1, c2, c3]) {
-      await client.sync();
-    }
-    await c1.sync();
-    await c2.sync();
+      for (const client of [c1, c2, c3]) {
+        await client.sync();
+      }
+      await c1.sync();
+      await c2.sync();
 
-    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
-    assert.include(
-      d1.toSortedJSON(),
-      '{"type":"p","children":[],"attributes":{"bold":"x"}}',
-    );
-    assert.include(d1.toSortedJSON(), '{"type":"b","children":[]}');
-
-    for (const [client, doc] of [
-      [c1, d1],
-      [c2, d2],
-      [c3, d3],
-    ] as const) {
-      await client.detach(doc);
-      await client.deactivate();
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      assert.equal(d2.toSortedJSON(), d3.toSortedJSON());
+      assert.include(
+        d1.toSortedJSON(),
+        '{"type":"p","children":[],"attributes":{"bold":"x"}}',
+      );
+      assert.include(d1.toSortedJSON(), '{"type":"b","children":[]}');
+    } finally {
+      for (const [client, doc] of [
+        [c1, d1],
+        [c2, d2],
+        [c3, d3],
+      ] as const) {
+        await client.detach(doc);
+        await client.deactivate();
+      }
     }
   });
 });
