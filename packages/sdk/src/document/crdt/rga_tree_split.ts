@@ -817,6 +817,23 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             chainAnchor,
           );
           this.insertAfter(prev, newNode);
+          // `insertAfter` only maintains the physical prev/next chain. Relink
+          // the separate insertion chain (`insPrev`/`insNext`) too, the same
+          // way `splitNode` does, so a recreated interior fragment is not
+          // skipped by the surviving same-insertion neighbours. Otherwise a
+          // later edit whose boundary lands on this fragment resolves through
+          // a stale insertion pointer in `findFloorNodePreferToLeft` and
+          // miscomputes its offset (yorkie-team/yorkie-js-sdk#1327).
+          if (cursor > 0) {
+            const insPrev = this.findPieceCovering(span.createdAt, cursor - 1);
+            if (insPrev) {
+              newNode.setInsPrev(insPrev);
+            }
+          }
+          const insNext = this.findPieceCovering(span.createdAt, gapEnd);
+          if (insNext) {
+            newNode.setInsNext(insNext);
+          }
           recreated.push(newNode);
           chainAnchor = newNode;
           cursor = gapEnd;
