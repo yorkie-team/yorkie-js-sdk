@@ -21,6 +21,26 @@ const nonZeroDeltaArbitrary = fc.oneof(
   fc.integer({ min: 1, max: 10 }),
 );
 
+const boundaryDeltaArbitrary = fc.constantFrom(
+  2 ** 31 - 1,
+  2 ** 31,
+  2 ** 31 + 1,
+  -(2 ** 31 - 1),
+  -(2 ** 31),
+  -(2 ** 31 + 1),
+  2 ** 53 - 1,
+  2 ** 53,
+  -(2 ** 53 - 1),
+  -(2 ** 53),
+);
+
+// Small deltas stay dominant so that shrunk counterexamples remain readable.
+const deltaArbitrary = fc.oneof(
+  { withCrossShrink: true },
+  { arbitrary: nonZeroDeltaArbitrary, weight: 3 },
+  { arbitrary: boundaryDeltaArbitrary, weight: 1 },
+);
+
 function counterStepArbitrary(clientCount: number): fc.Arbitrary<CounterStep> {
   const clientIndexArbitrary = fc.integer({
     min: 0,
@@ -30,7 +50,7 @@ function counterStepArbitrary(clientCount: number): fc.Arbitrary<CounterStep> {
     fc.record({
       kind: fc.constant<'increase'>('increase'),
       client: clientIndexArbitrary,
-      delta: nonZeroDeltaArbitrary,
+      delta: deltaArbitrary,
     }),
     fc.record({
       kind: fc.constant<'sync'>('sync'),
@@ -57,7 +77,7 @@ function counterTraceArbitrary(
         minLength: clientCount,
         maxLength: clientCount,
       }),
-      deltas: fc.array(nonZeroDeltaArbitrary, {
+      deltas: fc.array(deltaArbitrary, {
         minLength: clientCount,
         maxLength: clientCount,
       }),
@@ -80,11 +100,21 @@ function counterTraceArbitrary(
     });
 }
 
+function expectedCounterJSON(trace: Array<CounterStep>): string {
+  let sum = 0n;
+  for (const step of trace) {
+    if (step.kind === 'increase') {
+      sum += BigInt(step.delta);
+    }
+  }
+  return `{"counter":${BigInt.asIntN(32, sum)}}`;
+}
+
 function assertDocumentsEqual(
   pairs: ClientsAndDocuments<CounterDocument>,
+  expected: string,
 ): void {
-  const expected = pairs[0].document.toSortedJSON();
-  for (const pair of pairs.slice(1)) {
+  for (const pair of pairs) {
     assert.equal(pair.document.toSortedJSON(), expected);
   }
 }
@@ -98,7 +128,7 @@ async function runCounterTrace(
     root.counter = new Counter(0);
   });
   await runFinalSyncForPBT(pairs);
-  assertDocumentsEqual(pairs);
+  assertDocumentsEqual(pairs, '{"counter":0}');
 
   for (const step of trace) {
     const pair = pairs[step.client];
@@ -113,7 +143,7 @@ async function runCounterTrace(
   }
 
   await runFinalSyncForPBT(pairs);
-  assertDocumentsEqual(pairs);
+  assertDocumentsEqual(pairs, expectedCounterJSON(trace));
 }
 
 describe('Counter property-based tests', function () {
