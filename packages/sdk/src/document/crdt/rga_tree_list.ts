@@ -482,9 +482,21 @@ export class RGATreeList implements GCParent {
 
   /**
    * `insert` adds the given element after the last node.
+   *
+   * The anchor must be the last node's POSITION identity
+   * (`getLastCreatedAt`), not its element identity (`last.getCreatedAt`).
+   * When the last element was moved here, the two differ: `insertAfter`
+   * resolves `nodeMapByCreatedAt` first, where the element's createdAt still
+   * keys its now-dead original position node (dead positions are retained as
+   * stable anchors). Anchoring on element identity would therefore append
+   * after that stale dead slot instead of the tail, and since each appended
+   * element carries the newest ticket the RGA forward-skip never advances —
+   * so every append lands immediately after the same anchor, reversing the
+   * appended run (yorkie#1948). `fromArray` is the only caller, so this was
+   * seen solely via snapshot restore.
    */
   public insert(value: CRDTElement): void {
-    this.insertAfter(this.last.getCreatedAt(), value);
+    this.insertAfter(this.getLastCreatedAt(), value);
   }
 
   /**
