@@ -7,6 +7,15 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.18] - 2026-08-31
+
+### Fixed
+
+- Anchor RGATreeList.insert on the last node's position identity by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1332
+- Recover style ranges collapsed by a merge at the from anchor by @Nahee-Park in https://github.com/yorkie-team/yorkie-js-sdk/pull/1329
+- Relink insertion chain when restore recreates a purged fragment by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1328
+- Reject integers outside the int64 range by @lemon0333 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1326
+
 ## [v0.7.17] - 2026-08-18
 
 ### Fixed
