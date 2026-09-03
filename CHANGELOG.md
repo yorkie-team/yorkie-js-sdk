@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.19] - 2026-09-03
+
+### Fixed
+
+- Replace YSON regex preprocessor with a string-aware scanner by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1335
+
 ## [v0.7.18] - 2026-08-31
 
 ### Fixed
