@@ -458,6 +458,120 @@ describe('YSON Parser', () => {
     });
   });
 
+  describe('Deep nesting (regression: regex depth ceiling)', () => {
+    it('should parse a Tree nested deeper than three levels', () => {
+      // doc > block > inline > text is already depth four.
+      const yson =
+        '{"c":Tree({"type":"doc","children":[{"type":"block","children":[{"type":"inline","children":[{"type":"text","value":"a"}]}]}]})}';
+      const result = YSON.parse(yson) as { c: YSON.YSONValue };
+
+      expect(YSON.isTree(result.c)).toBe(true);
+      if (YSON.isTree(result.c)) {
+        expect(YSON.treeToXML(result.c)).toBe(
+          '<doc><block><inline><text>a</text></inline></block></doc>',
+        );
+      }
+    });
+
+    it('should parse a Tree nested far past four levels', () => {
+      // Build doc > l0 > l1 > ... > l7 > text.
+      let node = '{"type":"text","value":"deep"}';
+      for (let i = 7; i >= 0; i--) {
+        node = `{"type":"l${i}","children":[${node}]}`;
+      }
+      const yson = `{"c":Tree({"type":"doc","children":[${node}]})}`;
+      const result = YSON.parse(yson) as { c: YSON.YSONValue };
+
+      expect(YSON.isTree(result.c)).toBe(true);
+      if (YSON.isTree(result.c)) {
+        const xml = YSON.treeToXML(result.c);
+        expect(xml).toContain('<l0>');
+        expect(xml).toContain('<l7>');
+        expect(xml).toContain('<text>deep</text>');
+      }
+    });
+  });
+
+  describe('Bracket characters in string values (regression: not string-aware)', () => {
+    it('should parse a Text value with an unmatched closing bracket', () => {
+      const result = YSON.parse('{"c":Text([{"val":"a]b"}])}') as {
+        c: YSON.YSONValue;
+      };
+      expect(YSON.isText(result.c)).toBe(true);
+      if (YSON.isText(result.c)) {
+        expect(result.c.nodes[0].val).toBe('a]b');
+      }
+    });
+
+    it('should parse a Text value with an unmatched opening bracket', () => {
+      const result = YSON.parse('{"c":Text([{"val":"a[b"}])}') as {
+        c: YSON.YSONValue;
+      };
+      if (YSON.isText(result.c)) {
+        expect(result.c.nodes[0].val).toBe('a[b');
+      }
+    });
+
+    it('should parse a Tree value with an unmatched closing brace', () => {
+      const result = YSON.parse(
+        '{"c":Tree({"type":"doc","children":[{"type":"text","value":"a}b"}]})}',
+      ) as { c: YSON.YSONValue };
+      expect(YSON.isTree(result.c)).toBe(true);
+      if (YSON.isTree(result.c)) {
+        expect(YSON.treeToXML(result.c)).toContain('a}b');
+      }
+    });
+
+    it('should parse a Text value containing a closing paren', () => {
+      const result = YSON.parse('{"c":Text([{"val":"see f(x))"}])}') as {
+        c: YSON.YSONValue;
+      };
+      if (YSON.isText(result.c)) {
+        expect(result.c.nodes[0].val).toBe('see f(x))');
+      }
+    });
+
+    it('should parse a value with an escaped quote adjacent to a bracket', () => {
+      const result = YSON.parse('{"c":Text([{"val":"a\\"]b"}])}') as {
+        c: YSON.YSONValue;
+      };
+      if (YSON.isText(result.c)) {
+        expect(result.c.nodes[0].val).toBe('a"]b');
+      }
+    });
+
+    it('should not treat a constructor-like substring inside a string as a type', () => {
+      const result = YSON.parse(
+        '{"c":Text([{"val":"Int(42) and Tree(x)"}])}',
+      ) as {
+        c: YSON.YSONValue;
+      };
+      expect(YSON.isText(result.c)).toBe(true);
+      if (YSON.isText(result.c)) {
+        expect(result.c.nodes[0].val).toBe('Int(42) and Tree(x)');
+      }
+    });
+  });
+
+  describe('Text and Tree in the same root', () => {
+    it('should parse a document holding both, each with bracket content', () => {
+      const yson =
+        '{"t":Text([{"val":"x]y"}]),"tr":Tree({"type":"doc","children":[{"type":"text","value":"p}q"}]})}';
+      const result = YSON.parse(yson) as {
+        t: YSON.YSONValue;
+        tr: YSON.YSONValue;
+      };
+      expect(YSON.isText(result.t)).toBe(true);
+      expect(YSON.isTree(result.tr)).toBe(true);
+      if (YSON.isText(result.t)) {
+        expect(result.t.nodes[0].val).toBe('x]y');
+      }
+      if (YSON.isTree(result.tr)) {
+        expect(YSON.treeToXML(result.tr)).toContain('p}q');
+      }
+    });
+  });
+
   describe('Error Handling', () => {
     it('should throw on invalid JSON', () => {
       expect(() => YSON.parse('invalid json')).toThrow();
