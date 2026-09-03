@@ -39,6 +39,10 @@ export enum Code {
   // ErrNotDetached is returned when the resource is not detached.
   ErrNotDetached = 'ErrNotDetached',
 
+  // ErrAlreadyAttached is returned when a document with the same key is
+  // already attached (or being attached) to this client.
+  ErrAlreadyAttached = 'ErrAlreadyAttached',
+
   // ErrSessionNotFound is returned when the server no longer recognises a
   // channel session_id (e.g. reclaimed after TTL). Callers should treat this
   // as "session expired" and retry as a first-call (empty session_id).
