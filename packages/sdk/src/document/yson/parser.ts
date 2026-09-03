@@ -82,62 +82,192 @@ export function parse<T = YSONValue>(yson: string): T {
  * - `DedupCounter(Int(15),"b64")` → `{"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"b64"}`
  * - `Counter(Int(10))` → `{"__yson_type":"Counter","__yson_data":{"__yson_type":"Int","__yson_data":10}}`
  */
+/**
+ * `ysonConstructors` lists the YSON type constructor names the scanner
+ * recognizes. Longer names are listed before their suffixes (e.g.
+ * `DedupCounter` before `Counter`) so the scanner prefers the longest match.
+ */
+const ysonConstructors = [
+  'DedupCounter',
+  'Counter',
+  'BinData',
+  'Date',
+  'Long',
+  'Int',
+  'Text',
+  'Tree',
+];
+
+/**
+ * `isIdentChar` reports whether `ch` can appear inside an identifier. Used to
+ * ensure a constructor keyword is matched at a token boundary, not as the tail
+ * of some longer word.
+ */
+function isIdentChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[A-Za-z0-9_]/.test(ch);
+}
+
+/**
+ * `skipString` returns the index just past the JSON string literal that starts
+ * at `start` (which must point at the opening quote), honouring `\"` escapes.
+ */
+function skipString(s: string, start: number): number {
+  let i = start + 1;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === '\\') {
+      i += 2;
+      continue;
+    }
+    if (ch === '"') {
+      return i + 1;
+    }
+    i++;
+  }
+  throw new YorkieError(Code.ErrInvalidArgument, 'unterminated string literal');
+}
+
+/**
+ * `findMatchingParen` returns the index of the `)` that closes the `(` whose
+ * argument begins at `start`. Parentheses inside string literals are ignored,
+ * so the boundary is found by depth counting rather than a fixed-arity pattern.
+ */
+function findMatchingParen(s: string, start: number): number {
+  let depth = 1;
+  let i = start;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === '"') {
+      i = skipString(s, i);
+      continue;
+    }
+    if (ch === '(') {
+      depth++;
+    } else if (ch === ')') {
+      depth--;
+      if (depth === 0) {
+        return i;
+      }
+    }
+    i++;
+  }
+  throw new YorkieError(
+    Code.ErrInvalidArgument,
+    'unbalanced parentheses in YSON',
+  );
+}
+
+/**
+ * `splitTopLevelArgs` splits a constructor argument list on top-level commas,
+ * ignoring commas that appear inside nested brackets or string literals.
+ */
+function splitTopLevelArgs(s: string): Array<string> {
+  const args: Array<string> = [];
+  let depth = 0;
+  let start = 0;
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === '"') {
+      i = skipString(s, i);
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+    } else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--;
+    } else if (ch === ',' && depth === 0) {
+      args.push(s.slice(start, i).trim());
+      start = i + 1;
+    }
+    i++;
+  }
+  args.push(s.slice(start).trim());
+  return args;
+}
+
+/**
+ * `matchConstructorAt` returns the constructor name that begins at `i` (when
+ * immediately followed by `(` and starting on a token boundary), or `null`.
+ */
+function matchConstructorAt(s: string, i: number): string | undefined {
+  if (isIdentChar(s[i - 1])) {
+    return undefined;
+  }
+  for (const name of ysonConstructors) {
+    if (s.startsWith(name, i) && s[i + name.length] === '(') {
+      return name;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * `preprocessYSON` converts YSON special syntax to JSON-compatible format.
+ *
+ * A single left-to-right pass rewrites constructor literals into their
+ * `__yson_type` marker objects. The scanner tracks string literals (so
+ * brackets and parentheses inside string values are never counted as
+ * structure) and matches constructor arguments by paren depth (so there is no
+ * nesting-depth ceiling). Nested constructors such as `Counter(Int(10))` are
+ * handled by recursing into the argument content.
+ *
+ * Transformations:
+ * - `Text([...])` → `{"__yson_type":"Text","__yson_data":[...]}`
+ * - `Tree(...)` → `{"__yson_type":"Tree","__yson_data":...}`
+ * - `Int(42)` → `{"__yson_type":"Int","__yson_data":42}`
+ * - `Long(64)` → `{"__yson_type":"Long","__yson_data":64}`
+ * - `Date("...")` → `{"__yson_type":"Date","__yson_data":"..."}`
+ * - `BinData("...")` → `{"__yson_type":"BinData","__yson_data":"..."}`
+ * - `DedupCounter(Int(15),"b64")` → `{"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"b64"}`
+ * - `Counter(Int(10))` → `{"__yson_type":"Counter","__yson_data":{"__yson_type":"Int","__yson_data":10}}`
+ */
 function preprocessYSON(yson: string): string {
-  let result = yson;
+  let result = '';
+  let i = 0;
+  while (i < yson.length) {
+    const ch = yson[i];
 
-  // Handle DedupCounter first (compound structure incompatible with general replacements)
-  // DedupCounter(Int(15),"base64...") → {"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":15},"__yson_registers":"base64..."}
-  result = result.replace(
-    /DedupCounter\(Int\((-?\d+)\),"([^"]+)"\)/g,
-    (_, value, registers) => {
-      return `{"__yson_type":"DedupCounter","__yson_data":{"__yson_type":"Int","__yson_data":${value}},"__yson_registers":"${registers}"}`;
-    },
-  );
+    // Copy string literals verbatim so their contents are never interpreted
+    // as structure.
+    if (ch === '"') {
+      const end = skipString(yson, i);
+      result += yson.slice(i, end);
+      i = end;
+      continue;
+    }
 
-  // Handle Counter type (as it may contain Int/Long)
-  // Counter(Int(10)) → {"__yson_type":"Counter","__yson_data":{"__yson_type":"Int","__yson_data":10}}
-  result = result.replace(
-    /Counter\((Int|Long)\((-?\d+)\)\)/g,
-    (_, type, value) => {
-      return `{"__yson_type":"Counter","__yson_data":{"__yson_type":"${type}","__yson_data":${value}}}`;
-    },
-  );
+    const name = matchConstructorAt(yson, i);
+    if (name === undefined) {
+      result += ch;
+      i++;
+      continue;
+    }
 
-  // Handle Int type: Int(42) → {"__yson_type":"Int","__yson_data":42}
-  result = result.replace(/Int\((-?\d+)\)/g, (_, value) => {
-    return `{"__yson_type":"Int","__yson_data":${value}}`;
-  });
+    const argStart = i + name.length + 1;
+    const argEnd = findMatchingParen(yson, argStart);
+    const argContent = yson.slice(argStart, argEnd);
 
-  // Handle Long type: Long(64) → {"__yson_type":"Long","__yson_data":64}
-  result = result.replace(/Long\((-?\d+)\)/g, (_, value) => {
-    return `{"__yson_type":"Long","__yson_data":${value}}`;
-  });
+    if (name === 'DedupCounter') {
+      const args = splitTopLevelArgs(argContent);
+      if (args.length !== 2) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'DedupCounter expects a value and a registers argument',
+        );
+      }
+      const [value, registers] = args;
+      result += `{"__yson_type":"DedupCounter","__yson_data":${preprocessYSON(
+        value,
+      )},"__yson_registers":${registers}}`;
+    } else {
+      result += `{"__yson_type":"${name}","__yson_data":${preprocessYSON(
+        argContent,
+      )}}`;
+    }
 
-  // Handle Date type: Date("2025-01-02T15:04:05.058Z") → {"__yson_type":"Date","__yson_data":"2025-01-02T15:04:05.058Z"}
-  result = result.replace(/Date\("([^"]*)"\)/g, (_, value) => {
-    return `{"__yson_type":"Date","__yson_data":"${value}"}`;
-  });
-
-  // Handle BinData type: BinData("AQID") → {"__yson_type":"BinData","__yson_data":"AQID"}
-  result = result.replace(/BinData\("([^"]*)"\)/g, (_, value) => {
-    return `{"__yson_type":"BinData","__yson_data":"${value}"}`;
-  });
-
-  // Handle Text type: Text([...]) → {"__yson_type":"Text","__yson_data":[...]}
-  result = result.replace(
-    /Text\((\[(?:[^[\]]|\[(?:[^[\]]|\[[^[\]]*\])*\])*\])\)/g,
-    (_, content) => {
-      return `{"__yson_type":"Text","__yson_data":${content}}`;
-    },
-  );
-
-  // Handle Tree type: Tree({...}) → {"__yson_type":"Tree","__yson_data":{...}}
-  result = result.replace(
-    /Tree\((\{[^{}]*(?:\{[^{}]*(?:\{[^{}]*\})*[^{}]*\})*[^{}]*\})\)/g,
-    (_, content) => {
-      return `{"__yson_type":"Tree","__yson_data":${content}}`;
-    },
-  );
+    i = argEnd + 1;
+  }
 
   return result;
 }
