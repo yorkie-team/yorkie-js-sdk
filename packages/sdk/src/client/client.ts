@@ -385,6 +385,10 @@ export class Client {
   private metadata: Record<string, string>;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment<Attachable>>;
+  // `attachingDocs` holds keys with an in-flight attach. attachmentMap is
+  // only populated after the attach round-trip resolves, so this set is
+  // needed to reject a concurrent duplicate attach of the same key.
+  private attachingDocs: Set<string>;
 
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
@@ -414,6 +418,7 @@ export class Client {
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
+    this.attachingDocs = new Set();
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
@@ -679,6 +684,20 @@ export class Client {
         `${doc.getKey()} is not detached`,
       );
     }
+    // Reject a duplicate attach of the same key on this client. Without this
+    // guard the request reaches the server, which reports the already-attached
+    // key as a misleading `ErrClientNotFound`; the SDK then deactivates the
+    // whole client. `attachmentMap` covers the resolved case and
+    // `attachingDocs` covers a concurrent in-flight attach.
+    if (
+      this.attachmentMap.has(doc.getKey()) ||
+      this.attachingDocs.has(doc.getKey())
+    ) {
+      throw new YorkieError(
+        Code.ErrAlreadyAttached,
+        `${doc.getKey()} is already attached`,
+      );
+    }
 
     doc.setActor(this.id!);
     // Resolve the effective presence-disabled state at attach time. The
@@ -712,6 +731,10 @@ export class Client {
       : syncMode === SyncMode.Polling
         ? DefaultDocumentPollIntervalMs
         : 0;
+    // Mark the attach in flight synchronously so a concurrent duplicate
+    // attach of the same key is rejected by the guard above before it is
+    // enqueued. Cleared in the task's `finally`.
+    this.attachingDocs.add(doc.getKey());
     return this.enqueueTask(async () => {
       try {
         const res = await this.rpcClient.attachDocument(
@@ -788,6 +811,8 @@ export class Client {
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
         throw err;
+      } finally {
+        this.attachingDocs.delete(doc.getKey());
       }
     });
   }
