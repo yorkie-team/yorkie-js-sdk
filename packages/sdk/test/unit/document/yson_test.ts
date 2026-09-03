@@ -507,6 +507,7 @@ describe('YSON Parser', () => {
       const result = YSON.parse('{"c":Text([{"val":"a[b"}])}') as {
         c: YSON.YSONValue;
       };
+      expect(YSON.isText(result.c)).toBe(true);
       if (YSON.isText(result.c)) {
         expect(result.c.nodes[0].val).toBe('a[b');
       }
@@ -526,6 +527,7 @@ describe('YSON Parser', () => {
       const result = YSON.parse('{"c":Text([{"val":"see f(x))"}])}') as {
         c: YSON.YSONValue;
       };
+      expect(YSON.isText(result.c)).toBe(true);
       if (YSON.isText(result.c)) {
         expect(result.c.nodes[0].val).toBe('see f(x))');
       }
@@ -535,6 +537,7 @@ describe('YSON Parser', () => {
       const result = YSON.parse('{"c":Text([{"val":"a\\"]b"}])}') as {
         c: YSON.YSONValue;
       };
+      expect(YSON.isText(result.c)).toBe(true);
       if (YSON.isText(result.c)) {
         expect(result.c.nodes[0].val).toBe('a"]b');
       }
@@ -585,6 +588,18 @@ describe('YSON Parser', () => {
     it('should throw on invalid Tree format', () => {
       const invalidTree = '{"content":Tree({"invalid":"tree"})}';
       expect(() => YSON.parse(invalidTree)).toThrow();
+    });
+
+    it('should throw on an unterminated string literal', () => {
+      expect(() => YSON.parse('{"c":Text([{"val":"a}])}')).toThrow();
+    });
+
+    it('should throw on unbalanced parentheses', () => {
+      expect(() => YSON.parse('{"c":Tree({"type":"doc"}')).toThrow();
+    });
+
+    it('should throw on a DedupCounter with the wrong argument count', () => {
+      expect(() => YSON.parse('{"c":DedupCounter(Int(15))}')).toThrow();
     });
   });
 });

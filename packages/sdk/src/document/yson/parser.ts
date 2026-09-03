@@ -249,7 +249,14 @@ function preprocessYSON(yson: string): string {
     const argContent = yson.slice(argStart, argEnd);
 
     if (name === 'DedupCounter') {
-      const [value, registers] = splitTopLevelArgs(argContent);
+      const args = splitTopLevelArgs(argContent);
+      if (args.length !== 2) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'DedupCounter expects a value and a registers argument',
+        );
+      }
+      const [value, registers] = args;
       result += `{"__yson_type":"DedupCounter","__yson_data":${preprocessYSON(
         value,
       )},"__yson_registers":${registers}}`;
