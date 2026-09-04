@@ -15,7 +15,10 @@
  */
 
 import { Client } from '@yorkie-js/sdk/src/client/client';
-import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  MemoryDocStore,
+  IndexedDBDocStore,
+} from '@yorkie-js/sdk/src/client/doc-store';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
@@ -39,6 +42,7 @@ export {
 export {
   type DocStore,
   MemoryDocStore,
+  IndexedDBDocStore,
 } from '@yorkie-js/sdk/src/client/doc-store';
 export { type RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
 export {
@@ -167,6 +171,7 @@ export default {
   Client,
   Document,
   MemoryDocStore,
+  IndexedDBDocStore,
   Primitive,
   Text,
   Counter,
@@ -186,6 +191,7 @@ if (typeof globalThis !== 'undefined') {
     Client,
     Document,
     MemoryDocStore,
+    IndexedDBDocStore,
     Primitive,
     Text,
     Counter,
