@@ -151,12 +151,37 @@ Three client obligations the server does not cover:
   `clientSeq` to the post-attach checkpoint (the preserved value when the server
   honors resume intent, else `0`) or `validateClientSeqContinuity` rejects the
   first restored push. On `ErrInvalidClientSeq` or `ErrEpochMismatch`, fall back
-  to a full re-attach-from-snapshot and replay local changes on top.
+  to a full re-attach-from-snapshot.
+
+  On `ErrEpochMismatch` the document was force-compacted while the client was
+  offline, so the persisted un-pushed changes reference a pre-compaction state
+  and cannot be presented again. The client re-anchors from the current
+  snapshot and **must not silently drop** those changes: before discarding, it
+  captures the pending local changes and emits an app-visible
+  `local-changes-dropped` data-loss event (`DocEventType.LocalChangesDropped`,
+  reason `epoch-reanchor`) carrying their serialized structs, so the app can
+  surface the loss and, if it wishes, re-apply them. **Follow-up:** the SDK does
+  not yet replay the dropped changes on top of the re-anchored/compacted state;
+  the data-loss event is the safe, design-mandated minimum, and automatic
+  replay-on-top is a genuine future enhancement.
 - **Guard against silent purge (Tier 3).** If the server GC'd or deleted the
   document, attach silently mints a fresh empty doc with **no error signal**.
-  Persist `docID`/`epoch` alongside the offline snapshot and raise an
-  app-visible data-loss event on re-attach when the returned `docID` differs or
-  `serverSeq` regressed to `0` against a non-empty local snapshot.
+  Persist `docID` (alongside `epoch`) in the `toBytes` envelope — appended as an
+  optional trailing blob so a legacy envelope without it still decodes (absent
+  blob → empty). On restore-then-attach, compare the server-returned
+  `documentId` against the persisted one; if they differ, or `serverSeq`
+  regressed to `0` against a non-empty local snapshot, emit the same
+  `local-changes-dropped` data-loss event (reason `document-purged`) carrying
+  the dropped changes, clear the stale store entry, and re-anchor fresh.
+- **Guard against a store reused under a different identity.** The store key is
+  scoped to `apiKey/clientKey/docKey` (matching the session lock) so a store
+  shared across identities cannot collide on the bare `docKey`. As a second
+  line of defence, `restoreFromBytes` asserts the persisted `changeID` actor
+  equals the current stable actor; on mismatch (or a corrupt envelope) it emits
+  the `local-changes-dropped` data-loss event (reason `actor-mismatch`), clears
+  the entry, and attaches fresh rather than divergently restoring under the
+  wrong actor. A flaky store (a rejected `load`/`remove`) degrades gracefully to
+  a fresh attach instead of aborting.
 
 `deactivateOnUnload` must be `false` on this path: the default `true` detaches on
 unload, which triggers the server-side checkpoint reset and defeats persistence.
@@ -189,7 +214,11 @@ follow-up on top of this guard.
 | `localStorage` is synchronous, ~5 MB, string-only | Apps should back the store with IndexedDB (async, large); `localStorage` only viable for tiny documents |
 | `setActor` runs after elements are rehydrated → restored elements keep a stale actor (`document.ts:1246` TODO) | Enforce set-actor-first ordering on the restore path; validate no rehydrated element predates `setActor` |
 | Resumed `clientSeq` misaligned with the server checkpoint → first push rejected | Reconcile `clientSeq` to the post-attach checkpoint; on `ErrInvalidClientSeq`/`ErrEpochMismatch` fall back to full re-attach-from-snapshot |
-| Server GC'd or deleted the doc (Tier 3): attach silently mints a new empty doc, no error | Persist `docID`/`epoch`; raise a data-loss event on re-attach when `docID` differs or `serverSeq` regressed to `0` against a non-empty local snapshot |
+| `ErrEpochMismatch` re-anchor silently drops un-pushed offline edits | Capture the pending changes and emit an app-visible `local-changes-dropped` event (reason `epoch-reanchor`) before discarding; replay-on-top is a follow-up |
+| Server GC'd or deleted the doc (Tier 3): attach silently mints a new empty doc, no error | Persist `docID` (optional trailing blob) alongside `epoch`; raise a `local-changes-dropped` event (reason `document-purged`) on re-attach when `docID` differs or `serverSeq` regressed to `0` against a non-empty local snapshot, then clear the entry and re-anchor |
+| Store reused under a different `clientKey` → restored edits carry a stale actor, diverging the CRDT | Scope the store key to `apiKey/clientKey/docKey`; `restoreFromBytes` also asserts persisted actor == current actor and emits a `local-changes-dropped` event (reason `actor-mismatch`) on mismatch |
+| A push acked with nothing pulled emits no Remote/Snapshot event, so the stored envelope keeps already-pushed changes + a stale checkpoint until the next edit | Persist explicitly after a successful sync (`syncInternal`), in addition to the event-driven persist on local/presence changes. It is a full overwrite, so it does not grow unbounded |
+| A flaky store (rejected `load`/`remove`) aborts attach | Wrap store access; degrade to a fresh attach and log rather than throwing out of attach |
 | Two tabs share one store and corrupt/diverge `clientSeq` (worse with resumable checkpoints) | Single-active-session lease; non-leader tabs are read-only observers |
 | App forgets to persist a stable client key | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored key. Document this as a hard requirement |
 | Fear that restore double-counts HLL dedup counters | Non-issue: dedup identity is the app-supplied actor arg (`DedupCounter.add(actor)` → `IncreaseOperation.actor`), independent of the client actor; reusing or re-minting the SDK actor cannot re-count |

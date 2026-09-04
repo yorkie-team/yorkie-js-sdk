@@ -51,7 +51,9 @@ import {
   DocEventType,
   StreamConnectionStatus,
   DocSyncStatus,
+  LocalChangesDroppedReason,
 } from '@yorkie-js/sdk/src/document/document';
+import { ChangeStruct } from '@yorkie-js/sdk/src/document/change/change';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
@@ -838,10 +840,55 @@ export class Client {
           // re-pushed local changes.
           let restored = false;
           if (this.store && !reanchor) {
-            const bytes = await this.store.load(doc.getKey());
+            // A flaky store must not abort attach: on a load/restore failure,
+            // fall back to a fresh (unrestored) attach instead of throwing out
+            // of attach. `restoreFromBytes` also throws on an actor mismatch
+            // (store reused under a different clientKey); that is genuine data
+            // loss, so surface it and clear the stale entry rather than
+            // divergently restoring.
+            let bytes: Uint8Array | undefined;
+            try {
+              bytes = await this.store.load(this.storeKey(doc.getKey()));
+            } catch (err) {
+              logger.warn(
+                `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" store load ` +
+                  `failed; falling back to a fresh attach:`,
+                err,
+              );
+              bytes = undefined;
+            }
             if (bytes) {
-              doc.restoreFromBytes(bytes);
-              restored = true;
+              try {
+                doc.restoreFromBytes(bytes);
+                restored = true;
+              } catch (err) {
+                // A persisted envelope that cannot be safely restored — an
+                // actor mismatch (store reused under a different clientKey) or
+                // a corrupt envelope — is unusable. Rather than abort attach or
+                // divergently restore, emit an app-visible data-loss event with
+                // whatever pending changes are recoverable, clear the stale
+                // entry, and fall through to a fresh attach.
+                if (err instanceof YorkieError) {
+                  logger.warn(
+                    `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                      `persisted state unusable; dropping stale edits:`,
+                    err,
+                  );
+                  let dropped: Array<ChangeStruct<P>> = [];
+                  try {
+                    dropped = Document.fromBytes<R, P>(
+                      doc.getKey(),
+                      bytes,
+                    ).getPendingChangeStructs();
+                  } catch {
+                    dropped = [];
+                  }
+                  this.emitLocalChangesDropped(doc, 'actor-mismatch', dropped);
+                  await this.removeFromStore(doc.getKey());
+                } else {
+                  throw err;
+                }
+              }
             }
           }
 
@@ -853,6 +900,17 @@ export class Client {
           if (!resolvedDisablePresence && !restored) {
             doc.update((_, p) => p.set(opts.initialPresence || {}));
           }
+
+          // Snapshot the pre-attach state used by the Tier-3 silent-purge
+          // guard: the docID persisted with the restored envelope and whether
+          // the local snapshot is non-empty. Captured before `applyChangePack`
+          // overwrites the checkpoint/root with the server's response.
+          const persistedDocID = doc.getDocID();
+          const hadLocalState =
+            restored && doc.getCheckpoint().getServerSeq() > 0n;
+          const persistedPending = restored
+            ? doc.getPendingChangeStructs()
+            : [];
 
           const res = await this.rpcClient.attachDocument(
             {
@@ -873,6 +931,42 @@ export class Client {
             doc.setSchemaRules(converter.fromSchemaRules(res.schemaRules));
           }
 
+          // Tier-3 silent-purge guard: if the server GC'd/deleted the document
+          // while this client was offline, attach mints a fresh empty doc with
+          // a new documentId and a server sequence back at 0. Restoring the
+          // local snapshot on top would present un-pushed edits against an
+          // unrelated document. Detect it by comparing the returned documentId
+          // against the persisted one, or a serverSeq that regressed to 0 while
+          // the local snapshot was non-empty, and surface an app-visible
+          // data-loss event carrying the dropped edits before clearing the
+          // stale entry and attaching fresh.
+          if (this.store && restored) {
+            const serverSeq = res.changePack?.checkpoint?.serverSeq ?? 0n;
+            const idChanged =
+              persistedDocID !== '' && res.documentId !== persistedDocID;
+            const seqRegressed = hadLocalState && serverSeq === 0n;
+            if (idChanged || seqRegressed) {
+              logger.warn(
+                `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" server ` +
+                  `purged the document (docID or serverSeq reset); dropping ` +
+                  `persisted offline state`,
+              );
+              this.emitLocalChangesDropped(
+                doc,
+                'document-purged',
+                persistedPending,
+              );
+              await this.removeFromStore(doc.getKey());
+              doc.resetForReanchor();
+              doc.setActor((this.actorID ?? this.id)!);
+              doc.setDisableGC(opts.disableGC ?? false);
+              doc.setDisablePresence(res.disablePresence);
+              doc.applyChangePack(converter.fromChangePack<P>(res.changePack!));
+              doc.setDocID(res.documentId);
+              return res;
+            }
+          }
+
           const pack = converter.fromChangePack<P>(res.changePack!);
           // Record the opt-out decision before applying the attach response
           // so the first applyChangePack already routes remote changes
@@ -880,6 +974,9 @@ export class Client {
           doc.setDisableGC(opts.disableGC ?? false);
           doc.setDisablePresence(res.disablePresence);
           doc.applyChangePack(pack);
+          // Record the server-assigned document id so the next persisted
+          // envelope carries it for the Tier-3 guard on a later restore.
+          doc.setDocID(res.documentId);
           return res;
         };
 
@@ -895,12 +992,19 @@ export class Client {
           // and retry a clean attach — the server re-anchors us from the
           // current snapshot. Gated to the store path so non-store clients keep
           // today's app-driven `epoch-mismatch` behavior.
+          //
+          // Data loss is not silent: before discarding, capture the un-pushed
+          // local changes and emit an app-visible `LocalChangesDropped` event
+          // carrying them, so the app can react/re-apply. Replaying them on top
+          // of the re-anchored (compacted) state is a follow-up enhancement.
           if (this.store && isErrorCode(err, Code.ErrEpochMismatch)) {
             logger.warn(
               `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" stale epoch on ` +
                 `resume; clearing persisted state and re-anchoring`,
             );
-            await this.store.remove(doc.getKey());
+            const dropped = doc.getPendingChangeStructs();
+            this.emitLocalChangesDropped(doc, 'epoch-reanchor', dropped);
+            await this.removeFromStore(doc.getKey());
             doc.resetForReanchor();
             doc.setActor((this.actorID ?? this.id)!);
             res = await attachOnce(true);
@@ -929,27 +1033,46 @@ export class Client {
         attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
 
-        // Persist-on-local-change: when an offline `store` is configured,
-        // subscribe to the document's local changes and persist the full
-        // restorable envelope (`doc.toBytes()`) after each one. The
-        // unsubscribe is captured on the attachment so `detachInternal` can
-        // tear it down and re-attaches do not accumulate handlers. Persisting
-        // on every local change is intentionally simple and correct for this
-        // increment (no debounce). Errors are logged, not thrown, so a failing
-        // store never breaks the editing path.
+        // Persist the full restorable envelope (`doc.toBytes()`) on every local
+        // mutation. This is a plain full overwrite (not an append), so it does
+        // not grow unbounded. The unsubscribe is captured on the attachment so
+        // `detachInternal` can tear it down and re-attaches do not accumulate
+        // handlers. Errors are logged, not thrown, so a failing store never
+        // breaks the editing path.
+        //
+        // Persist on:
+        //   - LocalChange: a new un-pushed edit must be captured.
+        //   - PresenceChanged (local source): a presence-only local change
+        //     appends to `localChanges` but emits no LocalChange (gated by
+        //     opInfos.length), so it would otherwise never be persisted.
+        //
+        // The post-sync checkpoint is persisted separately in `syncInternal`:
+        // an ack-only push emits no Remote/Snapshot event, so it cannot be
+        // captured here.
         if (this.store) {
           const store = this.store;
+          const storeKey = this.storeKey(doc.getKey());
           const persist = () => {
-            store.save(doc.getKey(), doc.toBytes()).catch((err) => {
+            store.save(storeKey, doc.toBytes()).catch((err) => {
               logger.error(
                 `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
                 err,
               );
             });
           };
-          attachment.unsubscribePersist = doc.subscribe((event) => {
-            if (event.type === DocEventType.LocalChange) {
-              persist();
+          // Subscribe via 'all': the default `subscribe(fn)` overload only
+          // delivers Local/Remote/Snapshot, but a presence-only local change
+          // surfaces as PresenceChanged, which must also trigger a persist.
+          attachment.unsubscribePersist = doc.subscribe('all', (events) => {
+            for (const event of events) {
+              if (
+                event.type === DocEventType.LocalChange ||
+                (event.type === DocEventType.PresenceChanged &&
+                  event.source === OpSource.Local)
+              ) {
+                persist();
+                break;
+              }
             }
           });
         }
@@ -1533,6 +1656,56 @@ export class Client {
    */
   public getKey(): string {
     return this.key;
+  }
+
+  /**
+   * `storeKey` scopes a document key to this client's identity before it is
+   * used as a `DocStore` key. The session lock is already scoped by
+   * `apiKey/clientKey/docKey`; the store must match so a store shared across
+   * identities (different apiKey/clientKey) cannot collide on the bare docKey
+   * and hand one identity another's persisted envelope.
+   */
+  private storeKey(docKey: string): string {
+    return `${this.apiKey}/${this.key}/${docKey}`;
+  }
+
+  /**
+   * `removeFromStore` clears the persisted envelope for a document key, scoped
+   * to this client's identity. A flaky store must not abort the attach/recover
+   * path, so a rejection is logged rather than thrown.
+   */
+  private async removeFromStore(docKey: string): Promise<void> {
+    if (!this.store) {
+      return;
+    }
+    try {
+      await this.store.remove(this.storeKey(docKey));
+    } catch (err) {
+      logger.warn(
+        `[PS] c:"${this.getKey()}" store remove d:"${docKey}" failed:`,
+        err,
+      );
+    }
+  }
+
+  /**
+   * `emitLocalChangesDropped` surfaces an app-visible data-loss event carrying
+   * the un-pushed local changes the offline-persistence layer had to discard.
+   * The design mandates raising this instead of silently dropping edits when a
+   * persisted envelope cannot be reconciled with the server (a stale-epoch
+   * re-anchor, a server-side purge, or a store reused under a different actor).
+   */
+  private emitLocalChangesDropped<R, P extends Indexable>(
+    doc: Document<R, P>,
+    reason: LocalChangesDroppedReason,
+    changes: Array<ChangeStruct<P>>,
+  ): void {
+    doc.publish([
+      {
+        type: DocEventType.LocalChangesDropped,
+        value: { reason, changes },
+      },
+    ]);
   }
 
   /**
@@ -2508,6 +2681,26 @@ export class Client {
 
       doc.applyChangePack(respPack);
       attachment.updateHeartbeatTime();
+
+      // Re-persist after a successful sync when a store is configured. A push
+      // that is merely acked (nothing pulled) advances the checkpoint and
+      // drops the pushed changes from `localChanges` without emitting any
+      // Remote/Snapshot event, so the event-driven persist alone would leave
+      // the stored envelope holding already-pushed changes and a stale
+      // checkpoint until the next local edit. This is a full overwrite (not an
+      // append), so it does not grow unbounded. Errors are logged, not thrown.
+      if (this.store) {
+        this.store
+          .save(this.storeKey(doc.getKey()), doc.toBytes())
+          .catch((err) => {
+            logger.error(
+              `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +
+                `failed:`,
+              err,
+            );
+          });
+      }
+
       attachment.resource.publish([
         {
           type: DocEventType.SyncStatusChanged,

@@ -112,9 +112,14 @@ describe('Offline persistence (reload with pending changes)', () => {
   // presents a stale epoch on the resume attach. The server rejects it with
   // ErrEpochMismatch and the store-backed attach path must auto-recover: clear
   // the persisted (stale) entry and re-attach fresh so the server re-anchors
-  // the client from the current snapshot. Requires a server with epoch support
-  // (yorkie-team/yorkie#1714) plus the offline-resumable-attach feature, so it
-  // is opt-in alongside the resume test above.
+  // the client from the current snapshot. The un-pushed offline edit cannot be
+  // replayed onto the compacted state, so it is dropped — but NOT silently: an
+  // app-visible `local-changes-dropped` data-loss event fires carrying the
+  // dropped change so the app can react/re-apply. (Replaying the dropped edit
+  // on top of the re-anchored state is a documented follow-up.) Requires a
+  // server with epoch support (yorkie-team/yorkie#1714) plus the
+  // offline-resumable-attach feature, so it is opt-in alongside the resume test
+  // above.
   it.skipIf(!process.env.OFFLINE_E2E)(
     're-anchors a store-backed resume after an offline force-compaction',
     async ({ task }) => {
@@ -192,6 +197,13 @@ describe('Offline persistence (reload with pending changes)', () => {
       });
       await c2.activate();
       const d2 = new yorkie.Document<R>(docKey);
+      // The re-anchor drops the un-pushed offline "world"; capture the
+      // app-visible data-loss event so we can assert the loss is surfaced (not
+      // silent) and carries the dropped change.
+      const dropped: Array<{ reason: string; changes: Array<unknown> }> = [];
+      d2.subscribe('local-changes-dropped', (event) => {
+        dropped.push(event.value);
+      });
       // Must NOT throw: the re-anchor recovers automatically.
       await c2.attach(d2, { syncMode: SyncMode.Manual });
 
@@ -199,6 +211,11 @@ describe('Offline persistence (reload with pending changes)', () => {
       // compaction; the un-pushed offline "world" is dropped (re-anchor
       // discards stale local state), and the document is usable again.
       assert.equal(d2.getRoot().text, 'hello');
+      // The drop was surfaced as a data-loss event carrying the dropped edit,
+      // not silently discarded.
+      assert.equal(dropped.length, 1);
+      assert.equal(dropped[0].reason, 'epoch-reanchor');
+      assert.isAtLeast(dropped[0].changes.length, 1);
       d2.update((root) => {
         root.text = `${root.text} again`;
       });
