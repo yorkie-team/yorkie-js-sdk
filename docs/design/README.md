@@ -10,6 +10,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 - [ProseMirror Native Split/Merge](prosemirror-native-split-merge.md): Use Tree.Edit splitLevel and boundary deletion for splits and merges instead of block replacement
 - [One Node per CRDTTreeNodeID](tree-node-id-identity.md): Rules that keep a Tree position resolvable when two nodes claim one ID, mirroring the server
+- [Offline Local Persistence](offline-local-persistence.md): Persist a document and its un-pushed changes to IndexedDB so a reload survives, on top of a server-side stable actor; why rebase-on-restore is rejected
 
 ## Guidelines
 
