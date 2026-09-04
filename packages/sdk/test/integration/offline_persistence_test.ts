@@ -20,7 +20,10 @@ import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import {
   toDocKey,
   testRPCAddr,
+  testAPIID,
+  testAPIPW,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
+import axios from 'axios';
 
 type R = { text?: string };
 
@@ -83,6 +86,81 @@ describe('Offline persistence (reload with pending changes)', () => {
 
       await c2.deactivate();
       await c3.deactivate();
+    },
+  );
+
+  // A resumed offline client whose document was force-compacted while offline
+  // presents a stale epoch on the resume attach. The server rejects it with
+  // ErrEpochMismatch and the store-backed attach path must auto-recover: clear
+  // the persisted (stale) entry and re-attach fresh so the server re-anchors
+  // the client from the current snapshot. Requires a server with epoch support
+  // (yorkie-team/yorkie#1714) plus the offline-resumable-attach feature, so it
+  // is opt-in alongside the resume test above.
+  it.skipIf(!process.env.OFFLINE_E2E)(
+    're-anchors a store-backed resume after an offline force-compaction',
+    async ({ task }) => {
+      const stamp = `${new Date().getTime()}`;
+      const docKey = toDocKey(`${task.name}-${stamp}`);
+      const key = `offline-epoch-e2e-${stamp}`;
+      const store = new MemoryDocStore();
+
+      // Admin login to force-compact the document out of band.
+      const login = await axios.post(
+        `${testRPCAddr}/yorkie.v1.AdminService/LogIn`,
+        { username: testAPIID, password: testAPIPW },
+      );
+      const list = await axios.post(
+        `${testRPCAddr}/yorkie.v1.AdminService/ListProjects`,
+        {},
+        { headers: { Authorization: `Bearer ${login.data.token}` } },
+      );
+      const project = list.data.projects.find(
+        (p: { name: string }) => p.name === 'default',
+      );
+
+      // --- Session 1: sync "hello", then edit "world" WITHOUT syncing. ---
+      const c1 = new yorkie.Client({ rpcAddr: testRPCAddr, key, store });
+      await c1.activate();
+      const d1 = new yorkie.Document<R>(docKey);
+      await c1.attach(d1, { syncMode: SyncMode.Manual });
+      d1.update((root) => {
+        root.text = 'hello';
+      });
+      await c1.sync();
+      d1.update((root) => {
+        root.text = `${root.text} world`;
+      });
+      // "world" is un-pushed and persisted to `store`; c1 goes offline.
+
+      // Force-compact the document while c1 is offline: bumps the doc's epoch,
+      // so the persisted (old) epoch is now stale.
+      await axios.post(
+        `${testRPCAddr}/yorkie.v1.AdminService/CompactDocumentByAdmin`,
+        { document_key: docKey, force: true },
+        { headers: { Authorization: `API-Key ${project.secretKey}` } },
+      );
+
+      // --- Session 2: reload — same key + store, brand-new client. The resume
+      // attach presents the stale epoch, the server rejects with
+      // ErrEpochMismatch, and the store-backed path re-anchors fresh. ---
+      const c2 = new yorkie.Client({ rpcAddr: testRPCAddr, key, store });
+      await c2.activate();
+      const d2 = new yorkie.Document<R>(docKey);
+      // Must NOT throw: the re-anchor recovers automatically.
+      await c2.attach(d2, { syncMode: SyncMode.Manual });
+
+      // Re-anchored from the compacted snapshot: "hello" survives the
+      // compaction; the un-pushed offline "world" is dropped (re-anchor
+      // discards stale local state), and the document is usable again.
+      assert.equal(d2.getRoot().text, 'hello');
+      d2.update((root) => {
+        root.text = `${root.text} again`;
+      });
+      await c2.sync();
+      assert.equal(d2.getRoot().text, 'hello again');
+
+      await c1.deactivate();
+      await c2.deactivate();
     },
   );
 });

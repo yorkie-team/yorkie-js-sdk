@@ -217,6 +217,77 @@ describe('Document.toBytes / fromBytes', function () {
     assertChangeIDEqual(restored.getChangeID(), d1.getChangeID());
   });
 
+  it('should round-trip the compaction epoch', function () {
+    type R = { n?: number };
+    const doc = new Document<R>('epoch-doc');
+    doc.setActor(actorA);
+    doc.update((root) => {
+      root.n = 1;
+    });
+
+    // Learn a non-zero epoch from a server-style response pack, mirroring the
+    // pull path (`applyChangePack` copies the pack's epoch onto the document).
+    doc.applyChangePack(
+      ChangePack.create(
+        'epoch-doc',
+        Checkpoint.of(0n, 1),
+        false,
+        [],
+        InitialVersionVector,
+        undefined,
+        7n,
+      ),
+    );
+    assert.equal(doc.getEpoch(), 7n);
+
+    const restored = Document.fromBytes<R>('epoch-doc', doc.toBytes());
+    assert.equal(restored.getEpoch(), 7n);
+  });
+
+  it('should present the document epoch on createChangePack', function () {
+    type R = { n?: number };
+    const doc = new Document<R>('present-epoch-doc');
+    doc.setActor(actorA);
+    doc.applyChangePack(
+      ChangePack.create(
+        'present-epoch-doc',
+        Checkpoint.of(0n, 0),
+        false,
+        [],
+        InitialVersionVector,
+        undefined,
+        11n,
+      ),
+    );
+
+    assert.equal(doc.createChangePack().getEpoch(), 11n);
+  });
+
+  it('should default the epoch to 0n for a legacy four-blob envelope', function () {
+    // An envelope written before epoch support has no epoch blob; fromBytes
+    // must treat it as the initial epoch rather than throwing.
+    type R = { n?: number };
+    const doc = new Document<R>('legacy-epoch-doc');
+    doc.setActor(actorA);
+    doc.update((root) => {
+      root.n = 1;
+    });
+
+    // Strip the trailing epoch blob to synthesize a legacy four-blob envelope.
+    const full = doc.toBytes();
+    const view = new DataView(full.buffer, full.byteOffset, full.byteLength);
+    let offset = 0;
+    for (let i = 0; i < 4; i++) {
+      const len = view.getUint32(offset, true);
+      offset += 4 + len;
+    }
+    const legacy = full.subarray(0, offset);
+
+    const restored = Document.fromBytes<R>('legacy-epoch-doc', legacy);
+    assert.equal(restored.getEpoch(), 0n);
+    assert.equal(restored.toSortedJSON(), doc.toSortedJSON());
+  });
+
   it('should reject a corrupt envelope', function () {
     const doc = new Document<{ n?: number }>('corrupt-doc');
     doc.update((root) => {
