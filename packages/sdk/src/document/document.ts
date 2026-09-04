@@ -537,6 +537,48 @@ type OpInfoOf<
 type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 
 /**
+ * `packBlobs` concatenates the given byte blobs into a single, self-contained
+ * envelope. Each blob is prefixed with its length as a 4-byte little-endian
+ * uint32, so `unpackBlobs` can split them back out without a shared schema.
+ * This avoids adding a new message to the generated protobuf api, whose source
+ * of truth lives in the yorkie server repo.
+ */
+function packBlobs(blobs: Array<Uint8Array>): Uint8Array {
+  let total = 0;
+  for (const blob of blobs) {
+    total += 4 + blob.length;
+  }
+
+  const out = new Uint8Array(total);
+  const view = new DataView(out.buffer);
+  let offset = 0;
+  for (const blob of blobs) {
+    view.setUint32(offset, blob.length, true);
+    offset += 4;
+    out.set(blob, offset);
+    offset += blob.length;
+  }
+  return out;
+}
+
+/**
+ * `unpackBlobs` is the reverse of `packBlobs`: it splits the given envelope
+ * back into the original ordered list of byte blobs.
+ */
+function unpackBlobs(bytes: Uint8Array): Array<Uint8Array> {
+  const blobs: Array<Uint8Array> = [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 0;
+  while (offset < bytes.length) {
+    const len = view.getUint32(offset, true);
+    offset += 4;
+    blobs.push(bytes.subarray(offset, offset + len));
+    offset += len;
+  }
+  return blobs;
+}
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  * It implements Attachable interface to be managed by Attachment.
@@ -1201,6 +1243,74 @@ export class Document<
    */
   public hasLocalChanges(): boolean {
     return this.localChanges.length > 0;
+  }
+
+  /**
+   * `toBytes` serializes the full restorable state of this document into a
+   * self-contained byte envelope: the root and presences (as a snapshot), the
+   * checkpoint, the changeID (lamport, version vector, actor), and the pending
+   * local changes. `fromBytes` reverses it, so a document survives a reload
+   * with its un-pushed edits intact. The envelope is a length-prefixed
+   * concatenation of existing byte encodings rather than a new protobuf message.
+   */
+  public toBytes(): Uint8Array {
+    const encoder = new TextEncoder();
+
+    const snapshot = converter.snapshotToBytes(
+      this.getRootObject(),
+      this.presences,
+    );
+    const checkpoint = encoder.encode(
+      JSON.stringify({
+        serverSeq: this.checkpoint.getServerSeq().toString(),
+        clientSeq: this.checkpoint.getClientSeq(),
+      }),
+    );
+    const changeID = converter.changeIDToBinary(this.changeID);
+    const pendingChanges = encoder.encode(
+      JSON.stringify(this.localChanges.map((change) => change.toStruct())),
+    );
+
+    return packBlobs([snapshot, checkpoint, changeID, pendingChanges]);
+  }
+
+  /**
+   * `fromBytes` reconstructs a document from the bytes produced by `toBytes`,
+   * restoring the root, presences, checkpoint, changeID, and pending local
+   * changes.
+   */
+  public static fromBytes<R, P extends Indexable = Indexable>(
+    key: string,
+    bytes: Uint8Array,
+    opts?: DocumentOptions,
+  ): Document<R, P> {
+    const decoder = new TextDecoder();
+    const [snapshot, checkpointBytes, changeIDBytes, pendingChangesBytes] =
+      unpackBlobs(bytes);
+
+    const doc = new Document<R, P>(key, opts);
+
+    const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
+    doc.root = new CRDTRoot(root);
+    doc.presences = presences;
+
+    const checkpoint = JSON.parse(decoder.decode(checkpointBytes)) as {
+      serverSeq: string;
+      clientSeq: number;
+    };
+    doc.checkpoint = Checkpoint.of(
+      BigInt(checkpoint.serverSeq),
+      checkpoint.clientSeq,
+    );
+
+    doc.changeID = converter.bytesToChangeID(changeIDBytes);
+
+    const structs = JSON.parse(decoder.decode(pendingChangesBytes)) as Array<
+      ChangeStruct<P>
+    >;
+    doc.localChanges = structs.map((struct) => Change.fromStruct<P>(struct));
+
+    return doc;
   }
 
   /**
