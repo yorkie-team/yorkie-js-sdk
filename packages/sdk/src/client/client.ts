@@ -63,6 +63,7 @@ import {
   BroadcastOptions,
 } from '@yorkie-js/sdk/src/channel/channel';
 import { Attachable } from './attachable';
+import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 
 /**
@@ -231,6 +232,23 @@ export interface ClientOptions {
    * client after its `clientDeactivateThreshold`, so opting out is safe.
    */
   deactivateOnUnload?: boolean;
+
+  /**
+   * `store` is a pluggable persistence backend for offline document state.
+   * When set, the client persists `doc.toBytes()` after every local change on
+   * a document attached through it, and on `attach` it rehydrates the document
+   * from any persisted bytes so un-pushed local changes survive a reload. The
+   * restored checkpoint is presented in the attach ChangePack so the server
+   * seeds the client's document sequence from it and re-accepts the re-pushed
+   * local changes. When unset (the default), no persistence happens.
+   *
+   * For offline persistence you also want `deactivateOnUnload: false`: the
+   * default `true` deactivates the client on page unload, which detaches
+   * documents server-side and defeats the point of resuming un-pushed local
+   * changes on the next load. This option does not change that default — set
+   * it explicitly alongside `store`.
+   */
+  store?: DocStore;
 }
 
 /**
@@ -404,6 +422,7 @@ export class Client {
   private retrySyncLoopDelay: number;
   private channelHeartbeatInterval: number;
   private deactivateOnUnload: boolean;
+  private store?: DocStore;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -444,6 +463,7 @@ export class Client {
       DefaultClientOptions.channelHeartbeatInterval;
     this.deactivateOnUnload =
       opts.deactivateOnUnload ?? DefaultClientOptions.deactivateOnUnload;
+    this.store = opts.store;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -706,6 +726,12 @@ export class Client {
       );
     }
 
+    // Stamp the actor before any local elements are rehydrated. `setActor`
+    // has a known limitation: it does not rewrite the actor of existing
+    // elements, so the restore (which repopulates the root/changeID/pending
+    // changes under their persisted actor) must run after this call. The
+    // restore itself is deferred into the enqueued task because the store
+    // load is async; see the `store.load` step below.
     doc.setActor((this.actorID ?? this.id)!);
     // Resolve the effective presence-disabled state at attach time. The
     // local option wins; absent that, the Document's seeded value (from
@@ -717,9 +743,6 @@ export class Client {
     // on the request.
     const resolvedDisablePresence =
       opts.disablePresence ?? doc.isPresenceDisabled() ?? false;
-    if (!resolvedDisablePresence) {
-      doc.update((_, p) => p.set(opts.initialPresence || {}));
-    }
 
     // 02. Attach the document to the client.
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
@@ -744,6 +767,26 @@ export class Client {
     this.attachingDocs.add(doc.getKey());
     return this.enqueueTask(async () => {
       try {
+        // Restore any persisted offline state before building the attach
+        // pack. The actor was already stamped above, so rehydrating here
+        // respects the actor-set-before-elements ordering. `createChangePack`
+        // reads `doc.checkpoint`, so the restored (non-zero) checkpoint flows
+        // straight into the attach ChangePack; the server (Q3) seeds the
+        // client's document sequence from it instead of 0 and re-accepts the
+        // re-pushed local changes.
+        if (this.store) {
+          const bytes = await this.store.load(doc.getKey());
+          if (bytes) {
+            doc.restoreFromBytes(bytes);
+          }
+        }
+
+        // Seed the initial presence after restore so it is not overwritten by
+        // the rehydrated presences map. Skipped when presence is disabled.
+        if (!resolvedDisablePresence) {
+          doc.update((_, p) => p.set(opts.initialPresence || {}));
+        }
+
         const res = await this.rpcClient.attachDocument(
           {
             clientId: this.id!,
@@ -776,19 +819,42 @@ export class Client {
         }
 
         doc.applyStatus(DocStatus.Attached);
-        this.attachmentMap.set(
-          doc.getKey(),
-          new Attachment(
-            this.reconnectStreamDelay,
-            doc,
-            res.documentId,
-            syncMode,
-            pollInterval,
-            pollIntervalPinned,
-            opts.disableGC ?? false,
-            res.disablePresence,
-          ),
+        const attachment = new Attachment(
+          this.reconnectStreamDelay,
+          doc,
+          res.documentId,
+          syncMode,
+          pollInterval,
+          pollIntervalPinned,
+          opts.disableGC ?? false,
+          res.disablePresence,
         );
+        this.attachmentMap.set(doc.getKey(), attachment);
+
+        // Persist-on-local-change: when an offline `store` is configured,
+        // subscribe to the document's local changes and persist the full
+        // restorable envelope (`doc.toBytes()`) after each one. The
+        // unsubscribe is captured on the attachment so `detachInternal` can
+        // tear it down and re-attaches do not accumulate handlers. Persisting
+        // on every local change is intentionally simple and correct for this
+        // increment (no debounce). Errors are logged, not thrown, so a failing
+        // store never breaks the editing path.
+        if (this.store) {
+          const store = this.store;
+          const persist = () => {
+            store.save(doc.getKey(), doc.toBytes()).catch((err) => {
+              logger.error(
+                `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
+                err,
+              );
+            });
+          };
+          attachment.unsubscribePersist = doc.subscribe((event) => {
+            if (event.type === DocEventType.LocalChange) {
+              persist();
+            }
+          });
+        }
 
         if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
           await this.runWatchLoop(doc.getKey());
@@ -2171,6 +2237,13 @@ export class Client {
     if (attachment.unsubscribeLocalBroadcast) {
       attachment.unsubscribeLocalBroadcast();
       attachment.unsubscribeLocalBroadcast = undefined;
+    }
+    // Tear down the persist-on-local-change subscription installed by
+    // attachDocument, if any. Without this a re-attach would stack duplicate
+    // persist handlers on the same document.
+    if (attachment.unsubscribePersist) {
+      attachment.unsubscribePersist();
+      attachment.unsubscribePersist = undefined;
     }
     if (attachment.resource instanceof Document) {
       attachment.resource.resetOnlineClients();

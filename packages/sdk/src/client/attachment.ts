@@ -72,6 +72,14 @@ export class Attachment<R extends Attachable> {
    * on each attach cycle.
    */
   unsubscribeLocalBroadcast?: () => void;
+  /**
+   * `unsubscribePersist` is set by `attachDocument` when the client has an
+   * offline `store` configured: it holds the unsubscribe for the local-change
+   * subscription that persists `doc.toBytes()`. `detachInternal` tears it down
+   * so the subscription does not survive a detach and re-attaches do not
+   * accumulate duplicate persist handlers. Documents only.
+   */
+  unsubscribePersist?: () => void;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
