@@ -461,9 +461,14 @@ export class Client {
     this.channelHeartbeatInterval =
       opts.channelHeartbeatInterval ??
       DefaultClientOptions.channelHeartbeatInterval;
-    this.deactivateOnUnload =
-      opts.deactivateOnUnload ?? DefaultClientOptions.deactivateOnUnload;
     this.store = opts.store;
+    // Offline persistence needs the client to stay attached across an unload:
+    // the default deactivate-on-unload would detach and reset the server
+    // checkpoint, defeating a later resume. So when a store is configured,
+    // default deactivateOnUnload to false unless the app set it explicitly.
+    this.deactivateOnUnload =
+      opts.deactivateOnUnload ??
+      (this.store ? false : DefaultClientOptions.deactivateOnUnload);
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
