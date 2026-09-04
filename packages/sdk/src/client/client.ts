@@ -774,16 +774,20 @@ export class Client {
         // straight into the attach ChangePack; the server (Q3) seeds the
         // client's document sequence from it instead of 0 and re-accepts the
         // re-pushed local changes.
+        let restored = false;
         if (this.store) {
           const bytes = await this.store.load(doc.getKey());
           if (bytes) {
             doc.restoreFromBytes(bytes);
+            restored = true;
           }
         }
 
         // Seed the initial presence after restore so it is not overwritten by
-        // the rehydrated presences map. Skipped when presence is disabled.
-        if (!resolvedDisablePresence) {
+        // the rehydrated presences map. Skipped when presence is disabled. When
+        // restoring, the presence map already came back from storage, so adding
+        // an initial-presence change here would append a spurious local change.
+        if (!resolvedDisablePresence && !restored) {
           doc.update((_, p) => p.set(opts.initialPresence || {}));
         }
 
