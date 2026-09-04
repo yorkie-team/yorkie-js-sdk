@@ -822,56 +822,92 @@ export class Client {
           }
         }
 
-        // Restore any persisted offline state before building the attach
-        // pack. The actor was already stamped above, so rehydrating here
-        // respects the actor-set-before-elements ordering. `createChangePack`
-        // reads `doc.checkpoint`, so the restored (non-zero) checkpoint flows
-        // straight into the attach ChangePack; the server (Q3) seeds the
-        // client's document sequence from it instead of 0 and re-accepts the
-        // re-pushed local changes.
-        let restored = false;
-        if (this.store) {
-          const bytes = await this.store.load(doc.getKey());
-          if (bytes) {
-            doc.restoreFromBytes(bytes);
-            restored = true;
+        // `attachOnce` runs the restore + attach RPC + apply-response sequence.
+        // It is a closure so the store-backed path can retry it once as a
+        // fresh (non-restored) attach after an `ErrEpochMismatch` re-anchor.
+        // `reanchor` skips the store restore and clears any state the caller
+        // reset, so the pack presents an initial checkpoint/epoch and the
+        // server sends the current snapshot.
+        const attachOnce = async (reanchor: boolean) => {
+          // Restore any persisted offline state before building the attach
+          // pack. The actor was already stamped above, so rehydrating here
+          // respects the actor-set-before-elements ordering. `createChangePack`
+          // reads `doc.checkpoint`, so the restored (non-zero) checkpoint flows
+          // straight into the attach ChangePack; the server (Q3) seeds the
+          // client's document sequence from it instead of 0 and re-accepts the
+          // re-pushed local changes.
+          let restored = false;
+          if (this.store && !reanchor) {
+            const bytes = await this.store.load(doc.getKey());
+            if (bytes) {
+              doc.restoreFromBytes(bytes);
+              restored = true;
+            }
+          }
+
+          // Seed the initial presence after restore so it is not overwritten by
+          // the rehydrated presences map. Skipped when presence is disabled.
+          // When restoring, the presence map already came back from storage, so
+          // adding an initial-presence change here would append a spurious
+          // local change.
+          if (!resolvedDisablePresence && !restored) {
+            doc.update((_, p) => p.set(opts.initialPresence || {}));
+          }
+
+          const res = await this.rpcClient.attachDocument(
+            {
+              clientId: this.id!,
+              changePack: converter.toChangePack(doc.createChangePack()),
+              schemaKey: opts.schema,
+              disableGc: opts.disableGC ?? false,
+              disablePresence: resolvedDisablePresence,
+            },
+            { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+          );
+
+          const maxSize = res.maxSizePerDocument ?? 0;
+          if (maxSize > 0) {
+            doc.setMaxSizePerDocument(res.maxSizePerDocument);
+          }
+          if (res.schemaRules.length > 0) {
+            doc.setSchemaRules(converter.fromSchemaRules(res.schemaRules));
+          }
+
+          const pack = converter.fromChangePack<P>(res.changePack!);
+          // Record the opt-out decision before applying the attach response
+          // so the first applyChangePack already routes remote changes
+          // through the lamport-only sync path.
+          doc.setDisableGC(opts.disableGC ?? false);
+          doc.setDisablePresence(res.disablePresence);
+          doc.applyChangePack(pack);
+          return res;
+        };
+
+        let res;
+        try {
+          res = await attachOnce(false);
+        } catch (err) {
+          // Store-backed re-anchor: a resume attach that presents a persisted
+          // (stale) checkpoint/epoch is rejected with `ErrEpochMismatch` when
+          // the document was force-compacted while this client was offline.
+          // The persisted entry is unusable, so drop it, reset the document to
+          // a fresh state (re-stamping the actor, since reset clears changeID),
+          // and retry a clean attach — the server re-anchors us from the
+          // current snapshot. Gated to the store path so non-store clients keep
+          // today's app-driven `epoch-mismatch` behavior.
+          if (this.store && isErrorCode(err, Code.ErrEpochMismatch)) {
+            logger.warn(
+              `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" stale epoch on ` +
+                `resume; clearing persisted state and re-anchoring`,
+            );
+            await this.store.remove(doc.getKey());
+            doc.resetForReanchor();
+            doc.setActor((this.actorID ?? this.id)!);
+            res = await attachOnce(true);
+          } else {
+            throw err;
           }
         }
-
-        // Seed the initial presence after restore so it is not overwritten by
-        // the rehydrated presences map. Skipped when presence is disabled. When
-        // restoring, the presence map already came back from storage, so adding
-        // an initial-presence change here would append a spurious local change.
-        if (!resolvedDisablePresence && !restored) {
-          doc.update((_, p) => p.set(opts.initialPresence || {}));
-        }
-
-        const res = await this.rpcClient.attachDocument(
-          {
-            clientId: this.id!,
-            changePack: converter.toChangePack(doc.createChangePack()),
-            schemaKey: opts.schema,
-            disableGc: opts.disableGC ?? false,
-            disablePresence: resolvedDisablePresence,
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-        );
-
-        const maxSize = res.maxSizePerDocument ?? 0;
-        if (maxSize > 0) {
-          doc.setMaxSizePerDocument(res.maxSizePerDocument);
-        }
-        if (res.schemaRules.length > 0) {
-          doc.setSchemaRules(converter.fromSchemaRules(res.schemaRules));
-        }
-
-        const pack = converter.fromChangePack<P>(res.changePack!);
-        // Record the opt-out decision before applying the attach response
-        // so the first applyChangePack already routes remote changes
-        // through the lamport-only sync path.
-        doc.setDisableGC(opts.disableGC ?? false);
-        doc.setDisablePresence(res.disablePresence);
-        doc.applyChangePack(pack);
 
         if (doc.getStatus() === DocStatus.Removed) {
           return doc;
