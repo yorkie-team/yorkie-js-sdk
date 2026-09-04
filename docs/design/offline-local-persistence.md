@@ -42,8 +42,8 @@ serialization, restore flow, and multi-tab safety.
 - Persist `{snapshot, checkpoint, changeID, pendingChanges}` per document so a
   reload restores the document — including un-pushed edits — before the network
   responds.
-- Provide a pluggable `DocStore` interface with an IndexedDB default; keep the
-  storage backend out of the SDK core.
+- Provide a pluggable `DocStore` interface with a dependency-free `MemoryDocStore`
+  default; keep concrete browser backends (IndexedDB) out of the SDK core.
 - Restore-then-sync: `getRoot()` is usable from local state immediately, then
   reconcile with the server.
 - Do not lose data silently when the same document is open in two tabs.
@@ -55,7 +55,9 @@ serialization, restore flow, and multi-tab safety.
 - Rebasing pending changes onto a new actor. Rejected below.
 - True concurrent multi-tab co-editing of the *same local store*. Bounded by a
   single-active-session lease.
-- A remote-storage backend. The interface allows it; only IndexedDB ships.
+- Shipping any concrete browser/remote backend. The SDK ships only the interface
+  and `MemoryDocStore`; IndexedDB is app-implemented (a tested fixture is provided
+  as a reference).
 
 ## Design
 
@@ -76,28 +78,34 @@ the existing machinery. The new work is a `snapshotToBytes` counterpart to
 `bytesToSnapshot` that also captures presence, version vector, and checkpoint —
 not just the root that `objectToBytes` handles.
 
-### DocStore interface + IndexedDB default
+### DocStore interface + storage backends
+
+The store persists one opaque `Uint8Array` per document (the `Document.toBytes()`
+envelope that already bundles snapshot + checkpoint + changeID + pending changes),
+so the interface stays tiny and backend-agnostic:
 
 ```ts
 interface DocStore {
-  load(docKey: string): Promise<StoredDoc | undefined>;
-  save(docKey: string, doc: StoredDoc): Promise<void>;
+  load(docKey: string): Promise<Uint8Array | undefined>;
+  save(docKey: string, bytes: Uint8Array): Promise<void>;
   remove(docKey: string): Promise<void>;
 }
 
-type StoredDoc = {
-  snapshot: Uint8Array;       // root + presences
-  checkpoint: { serverSeq: bigint; clientSeq: number };
-  changeID: Uint8Array;       // lamport + version vector + actor
-  pendingChanges: Uint8Array; // encoded local changes
-};
-
 const client = new yorkie.Client({
   rpcAddr,
-  store: new IndexedDBStore(),
-  deactivateOnUnload: false,   // default is true — must be off for this path
+  store: new MemoryDocStore(),  // or an app-provided IndexedDB store
+  deactivateOnUnload: false,    // default is true — must be off for this path
 });
 ```
+
+**The SDK ships only the interface and a dependency-free `MemoryDocStore`.** It
+deliberately does **not** ship an IndexedDB backend, so the core carries no
+browser-storage coupling and stays environment-agnostic (Node, workers, RN). The
+browser-durable backend is a ~40-line app-side implementation over the raw
+IndexedDB API; the SDK's tests keep a reference `IndexedDBDocStore` fixture
+(`test/unit/client/indexeddb_doc_store_test.ts`) that verifies the DocStore
+contract and the full persist/restore document loop against a real IndexedDB (via
+the `fake-indexeddb` dev shim), so apps have a verified pattern to copy.
 
 Writing a full snapshot on every keystroke is too much. Append encoded changes
 and compact periodically into a fresh snapshot.
@@ -172,7 +180,7 @@ of corrupting the store.
 | Risk | Mitigation |
 |------|------------|
 | Full-snapshot-per-keystroke is too expensive | Append encoded changes; compact to a snapshot periodically |
-| `localStorage` is synchronous, ~5 MB, string-only | IndexedDB is the default; `localStorage` only viable for tiny documents |
+| `localStorage` is synchronous, ~5 MB, string-only | Apps should back the store with IndexedDB (async, large); `localStorage` only viable for tiny documents |
 | `setActor` runs after elements are rehydrated → restored elements keep a stale actor (`document.ts:1246` TODO) | Enforce set-actor-first ordering on the restore path; validate no rehydrated element predates `setActor` |
 | Resumed `clientSeq` misaligned with the server checkpoint → first push rejected | Reconcile `clientSeq` to the post-attach checkpoint; on `ErrInvalidClientSeq`/`ErrEpochMismatch` fall back to full re-attach-from-snapshot |
 | Server GC'd or deleted the doc (Tier 3): attach silently mints a new empty doc, no error | Persist `docID`/`epoch`; raise a data-loss event on re-attach when `docID` differs or `serverSeq` regressed to `0` against a non-empty local snapshot |
@@ -185,7 +193,7 @@ of corrupting the store.
 | Decision | Reason |
 |----------|--------|
 | Depend on a server-side stable actor instead of rebasing on the client | Rebase is unsound (below); a stable actor needs zero ticket rewriting and keeps the CRDT protocol intact |
-| `DocStore` interface with IndexedDB default | Keeps storage out of the core; lets apps swap backends without SDK changes |
+| Ship only the `DocStore` interface + dependency-free `MemoryDocStore`; keep IndexedDB app-side | No browser-storage coupling in the core (works in Node/workers/RN); apps supply the backend. A tested `IndexedDBDocStore` fixture is the reference |
 | Append changes + periodic compaction | Per-keystroke full snapshots are too heavy; append is cheap and bounded by compaction |
 | Single-active-session lease over concurrent multi-tab | Converts a silent `clientSeq`-collision data-loss path into an explicit, recoverable UX state |
 | Require `deactivateOnUnload: false` | The default detaches on unload and resets the server checkpoint, defeating persistence |
