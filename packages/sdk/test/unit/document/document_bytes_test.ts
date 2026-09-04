@@ -18,9 +18,48 @@ import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 import type { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
 const actorA = '000000000000000000000001';
 const actorB = '000000000000000000000002';
+
+/**
+ * `crossSync` exchanges pending local changes between two in-process documents
+ * without a server, so each document's version vector gains the other actor's
+ * entry. Mirrors the helper in document_size_test.ts.
+ */
+function crossSync<T>(d1: Document<T>, d2: Document<T>): void {
+  const p1 = d1.createChangePack();
+  const p2 = d2.createChangePack();
+  type Pack = ReturnType<Document<T>['createChangePack']>;
+  const deliver = (pack: Pack) =>
+    ChangePack.create(
+      pack.getDocumentKey(),
+      Checkpoint.of(0n, 0),
+      false,
+      pack.getChanges(),
+      InitialVersionVector,
+    );
+  d2.applyChangePack(deliver(p1));
+  d1.applyChangePack(deliver(p2));
+  const ack = (pack: Pack) => {
+    const changes = pack.getChanges();
+    const lastSeq = changes.length
+      ? changes[changes.length - 1].getID().getClientSeq()
+      : 0;
+    return ChangePack.create(
+      pack.getDocumentKey(),
+      Checkpoint.of(0n, lastSeq),
+      false,
+      [],
+      InitialVersionVector,
+    );
+  };
+  d1.applyChangePack(ack(p1));
+  d2.applyChangePack(ack(p2));
+}
 
 /**
  * `assertChangeIDEqual` asserts the lamport, version vector, and actor of two
@@ -152,6 +191,43 @@ describe('Document.toBytes / fromBytes', function () {
     assert.deepEqual(
       restoredChanges.map((c) => c.toStruct()),
       originalChanges.map((c) => c.toStruct()),
+    );
+  });
+
+  it('should round-trip a version vector with multiple actor entries', function () {
+    type R = { a?: number; b?: number };
+    const d1 = new Document<R>('multi-actor-doc');
+    const d2 = new Document<R>('multi-actor-doc');
+    d1.setActor(actorA);
+    d2.setActor(actorB);
+
+    d1.update((root) => {
+      root.a = 1;
+    });
+    d2.update((root) => {
+      root.b = 2;
+    });
+    crossSync(d1, d2);
+
+    // d1's version vector now carries entries for both actors.
+    assert.isTrue(Array.from(d1.getChangeID().getVersionVector()).length >= 2);
+
+    const restored = Document.fromBytes<R>('multi-actor-doc', d1.toBytes());
+    assert.equal(d1.toSortedJSON(), restored.toSortedJSON());
+    assertChangeIDEqual(restored.getChangeID(), d1.getChangeID());
+  });
+
+  it('should reject a corrupt envelope', function () {
+    const doc = new Document<{ n?: number }>('corrupt-doc');
+    doc.update((root) => {
+      root.n = 1;
+    });
+    const bytes = doc.toBytes();
+
+    // Truncating the envelope leaves a blob length that overruns the buffer.
+    const truncated = bytes.subarray(0, bytes.length - 3);
+    assert.throws(() =>
+      Document.fromBytes<{ n?: number }>('corrupt-doc', truncated),
     );
   });
 });

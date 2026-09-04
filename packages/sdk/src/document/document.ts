@@ -570,8 +570,20 @@ function unpackBlobs(bytes: Uint8Array): Array<Uint8Array> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 0;
   while (offset < bytes.length) {
+    if (offset + 4 > bytes.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'corrupt envelope: truncated length prefix',
+      );
+    }
     const len = view.getUint32(offset, true);
     offset += 4;
+    if (offset + len > bytes.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'corrupt envelope: blob length exceeds remaining bytes',
+      );
+    }
     blobs.push(bytes.subarray(offset, offset + len));
     offset += len;
   }
