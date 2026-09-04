@@ -1326,6 +1326,31 @@ export class Document<
   }
 
   /**
+   * `restoreFromBytes` rehydrates this document in place from the bytes
+   * produced by `toBytes`, overwriting the root, presences, checkpoint,
+   * changeID, and pending local changes. Unlike the static `fromBytes`, it
+   * mutates the existing instance so a document the caller already holds (and
+   * is about to attach) recovers its persisted, un-pushed state.
+   *
+   * Ordering: the caller must have stamped the actor (`setActor`) before
+   * calling this. The rehydrated changes and changeID carry the actor they
+   * were persisted under, and the snapshot's element actors are restored as
+   * persisted, so this does not rely on `setActor` rewriting existing element
+   * actors (a documented limitation of `setActor`).
+   */
+  public restoreFromBytes(bytes: Uint8Array): void {
+    const restored = Document.fromBytes<R, P>(this.key, bytes, this.opts);
+    this.root = restored.root;
+    this.presences = restored.presences;
+    this.checkpoint = restored.checkpoint;
+    this.changeID = restored.changeID;
+    this.localChanges = restored.localChanges;
+    // Drop any stale clone so the next `update` re-clones from the restored
+    // root/presences rather than the pre-restore state.
+    this.clone = undefined;
+  }
+
+  /**
    * `ensureClone` make a clone of root.
    */
   public ensureClone(): void {
