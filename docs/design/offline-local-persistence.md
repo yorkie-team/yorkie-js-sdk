@@ -171,10 +171,15 @@ changes out — silent edit loss, not a merge conflict. With resumable checkpoin
 this sharpens: racing attaches could *both* preserve and then diverge the
 resumed `clientSeq`.
 
-Guard with a **single-active-session lease**: elect one leader tab per document
-(BroadcastChannel / Web Locks). The leader drives sync and holds the resume;
-other tabs observe and surface an explicit "open in another tab" state instead
-of corrupting the store.
+Guard with a **single-active-session lease**. The shipped MVP is **fail-fast**:
+on the store-backed path, `attach` acquires a Web Lock keyed by
+`apiKey/clientKey/docKey` (`WebLocksSessionLock`, injectable; a no-op in
+non-browser runtimes) and holds it for the attachment's lifetime, releasing on
+detach/deactivate. A second tab of the same client+doc cannot acquire the lock,
+so its `attach` **rejects with a clear "already open in another tab" error**
+rather than driving concurrent sync on a shared checkpoint. Leader hand-off and
+an observe/read-only mode (so a background tab follows instead of erroring) are a
+follow-up on top of this guard.
 
 ### Risks and Mitigation
 
@@ -196,7 +201,7 @@ of corrupting the store.
 | Depend on a server-side stable actor instead of rebasing on the client | Rebase is unsound (below); a stable actor needs zero ticket rewriting and keeps the CRDT protocol intact |
 | Ship only the `DocStore` interface + dependency-free `MemoryDocStore`; keep IndexedDB app-side | No browser-storage coupling in the core (works in Node/workers/RN); apps supply the backend. A tested `IndexedDBDocStore` fixture is the reference |
 | Append changes + periodic compaction | Per-keystroke full snapshots are too heavy; append is cheap and bounded by compaction |
-| Single-active-session lease over concurrent multi-tab | Converts a silent `clientSeq`-collision data-loss path into an explicit, recoverable UX state |
+| Single-active-session lease (fail-fast Web Lock) over concurrent multi-tab | Converts a silent `clientSeq`-collision data-loss path into an explicit "open in another tab" error; leader hand-off / observe mode is a follow-up |
 | Auto-default `deactivateOnUnload` to false when a store is set (overridable) | The default detaches on unload and resets the server checkpoint, defeating persistence; configuring a store signals intent to persist, so make it work out of the box |
 
 ## Alternatives Considered
