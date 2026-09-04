@@ -17,6 +17,7 @@
 import { describe, it, assert } from 'vitest';
 import yorkie, { SyncMode } from '@yorkie-js/sdk/src/yorkie';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import { SessionLock } from '@yorkie-js/sdk/src/client/session-lock';
 import {
   toDocKey,
   testRPCAddr,
@@ -26,6 +27,14 @@ import {
 import axios from 'axios';
 
 type R = { text?: string };
+
+// A no-op session lock so the simulated "reload" (a second in-process client
+// with the same key) is not blocked by the multi-tab guard. In a real browser a
+// reload frees the old tab's Web Lock; the same-process test cannot replicate
+// that, and the multi-tab guard is covered by its own unit tests.
+const noopLock: SessionLock = {
+  acquire: async () => ({ release: () => {} }),
+};
 
 // This end-to-end test requires a server that supports offline-resumable attach
 // (stable actor + Q3 checkpoint seeding), which is unreleased. The default CI
@@ -44,7 +53,12 @@ describe('Offline persistence (reload with pending changes)', () => {
       const store = new MemoryDocStore();
 
       // --- Session 1: sync "hello", then edit "world" WITHOUT syncing. ---
-      const c1 = new yorkie.Client({ rpcAddr: testRPCAddr, key, store });
+      const c1 = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        key,
+        store,
+        sessionLock: noopLock,
+      });
       await c1.activate();
       const d1 = new yorkie.Document<R>(docKey);
       await c1.attach(d1, { syncMode: SyncMode.Manual });
@@ -61,7 +75,12 @@ describe('Offline persistence (reload with pending changes)', () => {
       // by the persist-on-local-change hook. c1 is abandoned (tab crash/close).
 
       // --- Session 2: reload — same key + same store, brand-new client. ---
-      const c2 = new yorkie.Client({ rpcAddr: testRPCAddr, key, store });
+      const c2 = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        key,
+        store,
+        sessionLock: noopLock,
+      });
       await c2.activate();
       const d2 = new yorkie.Document<R>(docKey);
       await c2.attach(d2, { syncMode: SyncMode.Manual });
@@ -118,32 +137,59 @@ describe('Offline persistence (reload with pending changes)', () => {
         (p: { name: string }) => p.name === 'default',
       );
 
-      // --- Session 1: sync "hello", then edit "world" WITHOUT syncing. ---
-      const c1 = new yorkie.Client({ rpcAddr: testRPCAddr, key, store });
+      const compact = () =>
+        axios.post(
+          `${testRPCAddr}/yorkie.v1.AdminService/CompactDocumentByAdmin`,
+          { document_key: docKey, force: true },
+          { headers: { Authorization: `API-Key ${project.secretKey}` } },
+        );
+
+      // --- Setup: seed content and compact once so the doc epoch is non-zero
+      // before the offline client joins. (A brand-new doc starts at epoch 0,
+      // which the server treats as "no epoch presented"; a client that first
+      // syncs an already-compacted doc learns a real, non-zero epoch.) ---
+      const cInit = new yorkie.Client({ rpcAddr: testRPCAddr });
+      await cInit.activate();
+      const dInit = new yorkie.Document<R>(docKey);
+      await cInit.attach(dInit, { syncMode: SyncMode.Manual });
+      dInit.update((root) => {
+        root.text = 'hello';
+      });
+      await cInit.sync();
+      await compact(); // doc epoch 0 -> 1
+      await cInit.deactivate();
+
+      // --- Session 1: a fresh client learns the non-zero epoch, then edits
+      // "world" WITHOUT syncing and goes offline. ---
+      const c1 = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        key,
+        store,
+        sessionLock: noopLock,
+      });
       await c1.activate();
       const d1 = new yorkie.Document<R>(docKey);
       await c1.attach(d1, { syncMode: SyncMode.Manual });
-      d1.update((root) => {
-        root.text = 'hello';
-      });
-      await c1.sync();
+      assert.equal(d1.getRoot().text, 'hello');
       d1.update((root) => {
         root.text = `${root.text} world`;
       });
-      // "world" is un-pushed and persisted to `store`; c1 goes offline.
+      // "world" is un-pushed and persisted to `store` with the epoch-1 baseline;
+      // c1 goes offline.
 
-      // Force-compact the document while c1 is offline: bumps the doc's epoch,
-      // so the persisted (old) epoch is now stale.
-      await axios.post(
-        `${testRPCAddr}/yorkie.v1.AdminService/CompactDocumentByAdmin`,
-        { document_key: docKey, force: true },
-        { headers: { Authorization: `API-Key ${project.secretKey}` } },
-      );
+      // Force-compact again while c1 is offline: doc epoch 1 -> 2, so c1's
+      // persisted epoch (1) is now stale.
+      await compact();
 
       // --- Session 2: reload — same key + store, brand-new client. The resume
       // attach presents the stale epoch, the server rejects with
       // ErrEpochMismatch, and the store-backed path re-anchors fresh. ---
-      const c2 = new yorkie.Client({ rpcAddr: testRPCAddr, key, store });
+      const c2 = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        key,
+        store,
+        sessionLock: noopLock,
+      });
       await c2.activate();
       const d2 = new yorkie.Document<R>(docKey);
       // Must NOT throw: the re-anchor recovers automatically.
