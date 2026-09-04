@@ -381,6 +381,12 @@ const DefaultBroadcastOptions = {
  */
 export class Client {
   private id?: ActorID;
+  // actorID is the stable actor stamped into document changes. It comes from
+  // `ActivateClientResponse.actor_id` (a new server), and falls back to the
+  // per-session `id` against an older server that does not return it. It is
+  // kept separate from `id` so RPC calls keep using the per-session client id
+  // for row lookups while documents author changes under the stable actor.
+  private actorID?: ActorID;
   private key: string;
   private metadata: Record<string, string>;
   private status: ClientStatus;
@@ -545,6 +551,7 @@ export class Client {
         );
 
         this.id = res.clientId;
+        this.actorID = res.actorId || res.clientId;
         this.status = ClientStatus.Activated;
         this.deactivating = false;
         this.runSyncLoop();
@@ -699,7 +706,7 @@ export class Client {
       );
     }
 
-    doc.setActor(this.id!);
+    doc.setActor((this.actorID ?? this.id)!);
     // Resolve the effective presence-disabled state at attach time. The
     // local option wins; absent that, the Document's seeded value (from
     // construction or a prior attach response on this instance) is used;
@@ -1317,7 +1324,7 @@ export class Client {
         `${doc.getKey()} is not attached`,
       );
     }
-    doc.setActor(this.id!);
+    doc.setActor((this.actorID ?? this.id)!);
 
     const pbChangePack = converter.toChangePack(doc.createChangePack());
     pbChangePack.isRemoved = true;
