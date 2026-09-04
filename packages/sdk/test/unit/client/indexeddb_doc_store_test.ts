@@ -14,93 +14,156 @@
  * limitations under the License.
  */
 
-// The vitest environment (node/jsdom) does not provide `indexedDB`, so we load
-// the standard `fake-indexeddb` shim to make it globally available.
+// The SDK ships only the `DocStore` interface and the dependency-free
+// `MemoryDocStore`; it deliberately does NOT ship an IndexedDB backend so the
+// core carries no browser-storage coupling. But IndexedDB is the real backend
+// apps will implement, so this test keeps an IndexedDB-backed `DocStore` as a
+// fixture and verifies both the DocStore contract and the full persist/restore
+// document loop against a real IndexedDB (via the `fake-indexeddb` shim). It is
+// the reference implementation apps can copy.
 import 'fake-indexeddb/auto';
 import { describe, it, assert } from 'vitest';
-import { IndexedDBDocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 
 /**
- * `newStore` returns an `IndexedDBDocStore` scoped to a unique database name so
- * the tests do not share persisted state through the process-global IndexedDB.
+ * `IndexedDBDocStore` is a browser-durable `DocStore` fixture backed by the raw
+ * IndexedDB API (no runtime dependency). It mirrors what an application would
+ * implement to persist offline documents across reloads.
  */
-let dbCounter = 0;
-function newStore(): IndexedDBDocStore {
-  return new IndexedDBDocStore(`yorkie-test-${dbCounter++}`);
+class IndexedDBDocStore implements DocStore {
+  private dbPromise?: Promise<IDBDatabase>;
+
+  constructor(
+    private dbName = 'yorkie',
+    private storeName = 'documents',
+  ) {}
+
+  public async load(docKey: string): Promise<Uint8Array | undefined> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const req = db
+        .transaction(this.storeName, 'readonly')
+        .objectStore(this.storeName)
+        .get(docKey);
+      req.onsuccess = () =>
+        resolve(
+          req.result === undefined ? undefined : new Uint8Array(req.result),
+        );
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async save(docKey: string, bytes: Uint8Array): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      tx.objectStore(this.storeName).put(bytes.slice(), docKey);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  public async remove(docKey: string): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      tx.objectStore(this.storeName).delete(docKey);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  private open(): Promise<IDBDatabase> {
+    if (this.dbPromise) return this.dbPromise;
+    this.dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.dbName);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return this.dbPromise;
+  }
 }
 
-describe('IndexedDBDocStore', function () {
-  it('should round-trip bytes through save/load', async function () {
-    const store = newStore();
-    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
-
-    assert.isUndefined(await store.load('doc-1'));
-
-    await store.save('doc-1', bytes);
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), Array.from(bytes));
-  });
-
-  it('should return undefined for a missing key', async function () {
-    const store = newStore();
-    assert.isUndefined(await store.load('missing'));
-  });
-
-  it('should isolate stored bytes from later caller mutation', async function () {
-    const store = newStore();
+describe('DocStore against IndexedDB', () => {
+  it('round-trips, overwrites, and removes', async () => {
+    const store = new IndexedDBDocStore('yorkie-contract');
     const bytes = new Uint8Array([1, 2, 3]);
-    await store.save('doc-1', bytes);
 
-    // Mutating the source buffer after save must not corrupt the snapshot.
+    assert.isUndefined(await store.load('missing'));
+
+    await store.save('a', bytes);
+    assert.deepEqual(Array.from((await store.load('a'))!), [1, 2, 3]);
+
+    await store.save('a', new Uint8Array([9]));
+    assert.deepEqual(Array.from((await store.load('a'))!), [9]);
+
+    await store.remove('a');
+    assert.isUndefined(await store.load('a'));
+    await store.remove('a'); // no-op on a missing key
+  });
+
+  it('isolates stored bytes from later caller mutation', async () => {
+    const store = new IndexedDBDocStore('yorkie-isolation');
+    const bytes = new Uint8Array([1, 2, 3]);
+    await store.save('a', bytes);
     bytes[0] = 99;
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [1, 2, 3]);
-
-    // Mutating the loaded buffer must not corrupt the snapshot either.
-    loaded![0] = 88;
-    const reloaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(reloaded!), [1, 2, 3]);
+    assert.deepEqual(Array.from((await store.load('a'))!), [1, 2, 3]);
   });
 
-  it('should overwrite on repeated save', async function () {
-    const store = newStore();
-    await store.save('doc-1', new Uint8Array([1]));
-    await store.save('doc-1', new Uint8Array([2, 3]));
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [2, 3]);
+  it('persists across a fresh store instance on the same database', async () => {
+    await new IndexedDBDocStore('yorkie-reload').save(
+      'a',
+      new Uint8Array([7, 8]),
+    );
+    // A new instance models a page reload reopening the same IndexedDB.
+    const reloaded = await new IndexedDBDocStore('yorkie-reload').load('a');
+    assert.deepEqual(Array.from(reloaded!), [7, 8]);
   });
 
-  it('should remove stored bytes', async function () {
-    const store = newStore();
-    await store.save('doc-1', new Uint8Array([1]));
-    await store.remove('doc-1');
-    assert.isUndefined(await store.load('doc-1'));
-    // remove on a missing key is a no-op.
-    await store.remove('missing');
-  });
+  it('drives the full persist/restore document loop through IndexedDB', async () => {
+    type R = { text: Text; counter: Counter; n?: number };
+    const store = new IndexedDBDocStore('yorkie-doc-loop');
+    const docKey = 'doc-loop';
+    const actor = '000000000000000000000001';
 
-  it('should persist across store instances on the same database', async function () {
-    const dbName = `yorkie-shared-${dbCounter++}`;
-    const writer = new IndexedDBDocStore(dbName);
-    await writer.save('doc-1', new Uint8Array([7, 8, 9]));
+    // Author a document with pending local changes and persist its bytes.
+    const doc = new Document<R>(docKey);
+    doc.setActor(actor);
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'hello');
+      root.counter = new Counter(0);
+      root.counter.increase(5);
+      root.n = 42;
+    });
+    await store.save(docKey, doc.toBytes());
 
-    // A fresh instance opening the same database sees the persisted bytes,
-    // mirroring what happens after a page reload.
-    const reader = new IndexedDBDocStore(dbName);
-    const loaded = await reader.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [7, 8, 9]);
-  });
+    // Reload: a brand-new document restored from IndexedDB must match.
+    const bytes = await store.load(docKey);
+    assert.isDefined(bytes);
+    const restored = Document.fromBytes<R>(docKey, bytes!);
 
-  it('should keep keys independent across document keys', async function () {
-    const store = newStore();
-    await store.save('doc-a', new Uint8Array([1]));
-    await store.save('doc-b', new Uint8Array([2]));
-
-    assert.deepEqual(Array.from((await store.load('doc-a'))!), [1]);
-    assert.deepEqual(Array.from((await store.load('doc-b'))!), [2]);
-
-    await store.remove('doc-a');
-    assert.isUndefined(await store.load('doc-a'));
-    assert.deepEqual(Array.from((await store.load('doc-b'))!), [2]);
+    assert.equal(restored.toSortedJSON(), doc.toSortedJSON());
+    assert.equal(restored.getChangeID().getActorID(), actor);
+    assert.deepEqual(
+      restored
+        .createChangePack()
+        .getChanges()
+        .map((c) => c.toStruct()),
+      doc
+        .createChangePack()
+        .getChanges()
+        .map((c) => c.toStruct()),
+    );
   });
 });
