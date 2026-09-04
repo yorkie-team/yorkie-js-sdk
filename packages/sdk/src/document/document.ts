@@ -609,6 +609,15 @@ export class Document<
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
 
+  // `epoch` is the document's last-known compaction epoch (proto int64). The
+  // client learns it from every server response pack (`applyChangePack`) and
+  // presents it back on the next attach/sync (`createChangePack`). A resumed
+  // offline client persists it (`toBytes`) so, after a reload, the attach
+  // presents the epoch the document was last synced under; if the document was
+  // force-compacted while offline the server sees a stale epoch and rejects the
+  // resume with `ErrEpochMismatch`, driving the store-backed re-anchor.
+  private epoch: bigint;
+
   private root: CRDTRoot;
   private presences: Map<ActorID, P>;
   private clone?: { root: CRDTRoot; presences: Map<ActorID, P> };
@@ -654,6 +663,7 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.epoch = 0n;
     this.disableGC = false;
     // Seed from the local option so the gate already works before the first
     // attach response lands (e.g. a unit test that constructs a Document with
@@ -1221,6 +1231,10 @@ export class Document<
     // 02. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
+    // 02-1. Learn the document's current compaction epoch from the server so a
+    // subsequent attach/sync (and any persisted envelope) presents it back.
+    this.epoch = pack.getEpoch();
+
     // 03. Do Garbage collection.
     if (!pack.hasSnapshot()) {
       this.garbageCollect(pack.getVersionVector()!);
@@ -1241,6 +1255,13 @@ export class Document<
    */
   public getCheckpoint(): Checkpoint {
     return this.checkpoint;
+  }
+
+  /**
+   * `getEpoch` returns the document's last-known compaction epoch.
+   */
+  public getEpoch(): bigint {
+    return this.epoch;
   }
 
   /**
@@ -1282,8 +1303,11 @@ export class Document<
     const pendingChanges = encoder.encode(
       JSON.stringify(this.localChanges.map((change) => change.toStruct())),
     );
+    // The epoch is appended as the last blob so an older envelope (four blobs)
+    // still decodes: `fromBytes` treats a missing epoch blob as 0n.
+    const epoch = encoder.encode(this.epoch.toString());
 
-    return packBlobs([snapshot, checkpoint, changeID, pendingChanges]);
+    return packBlobs([snapshot, checkpoint, changeID, pendingChanges, epoch]);
   }
 
   /**
@@ -1297,8 +1321,13 @@ export class Document<
     opts?: DocumentOptions,
   ): Document<R, P> {
     const decoder = new TextDecoder();
-    const [snapshot, checkpointBytes, changeIDBytes, pendingChangesBytes] =
-      unpackBlobs(bytes);
+    const [
+      snapshot,
+      checkpointBytes,
+      changeIDBytes,
+      pendingChangesBytes,
+      epochBytes,
+    ] = unpackBlobs(bytes);
 
     const doc = new Document<R, P>(key, opts);
 
@@ -1321,6 +1350,10 @@ export class Document<
       ChangeStruct<P>
     >;
     doc.localChanges = structs.map((struct) => Change.fromStruct<P>(struct));
+
+    // The epoch blob is optional: envelopes written before epoch support have
+    // only four blobs, so treat an absent blob as the initial epoch 0n.
+    doc.epoch = epochBytes ? BigInt(decoder.decode(epochBytes)) : 0n;
 
     return doc;
   }
@@ -1345,8 +1378,30 @@ export class Document<
     this.checkpoint = restored.checkpoint;
     this.changeID = restored.changeID;
     this.localChanges = restored.localChanges;
+    this.epoch = restored.epoch;
     // Drop any stale clone so the next `update` re-clones from the restored
     // root/presences rather than the pre-restore state.
+    this.clone = undefined;
+  }
+
+  /**
+   * `resetForReanchor` drops all local state that was seeded from a stale
+   * persisted envelope so the document can be re-attached fresh. The server
+   * then re-anchors the client from the current snapshot. Used only on the
+   * store-backed attach path when the resume is rejected with
+   * `ErrEpochMismatch`: the persisted checkpoint/epoch/changeID and any
+   * un-pushed local changes are stale relative to the compacted document, so
+   * presenting them again would just be rejected. This mirrors constructing a
+   * brand-new Document instance without forcing the caller to swap the object
+   * reference it already holds.
+   */
+  public resetForReanchor(): void {
+    this.changeID = InitialChangeID;
+    this.checkpoint = InitialCheckpoint;
+    this.localChanges = [];
+    this.epoch = 0n;
+    this.root = CRDTRoot.create();
+    this.presences = new Map();
     this.clone = undefined;
   }
 
@@ -1377,6 +1432,8 @@ export class Document<
       false,
       changes,
       this.getVersionVector(),
+      undefined,
+      this.epoch,
     );
   }
 

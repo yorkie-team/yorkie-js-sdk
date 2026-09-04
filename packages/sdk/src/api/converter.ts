@@ -1001,6 +1001,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
     versionVector: toVersionVector(pack.getVersionVector()),
+    epoch: pack.getEpoch(),
   });
 }
 
@@ -1654,6 +1655,7 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
+    pbPack.epoch,
   );
 }
 

@@ -50,6 +50,14 @@ export class ChangePack<P extends Indexable> {
    */
   private versionVector?: VersionVector;
 
+  /**
+   * `epoch` is the document's compaction epoch. It is a bidirectional carrier:
+   * server responses set it to the document's current epoch, and an attach/sync
+   * request presents the client's last-known epoch so the server can detect a
+   * stale-epoch mismatch after a force compaction.
+   */
+  private epoch: bigint;
+
   constructor(
     key: string,
     checkpoint: Checkpoint,
@@ -57,6 +65,7 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
+    epoch: bigint = 0n,
   ) {
     this.documentKey = key;
     this.checkpoint = checkpoint;
@@ -64,6 +73,7 @@ export class ChangePack<P extends Indexable> {
     this.changes = changes;
     this.snapshot = snapshot;
     this.versionVector = versionVector;
+    this.epoch = epoch;
   }
   /**
    * `create` creates a new instance of ChangePack.
@@ -75,6 +85,7 @@ export class ChangePack<P extends Indexable> {
     changes: Array<Change<P>>,
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
+    epoch: bigint = 0n,
   ): ChangePack<P> {
     return new ChangePack<P>(
       key,
@@ -83,6 +94,7 @@ export class ChangePack<P extends Indexable> {
       changes,
       versionVector,
       snapshot,
+      epoch,
     );
   }
 
@@ -147,5 +159,12 @@ export class ChangePack<P extends Indexable> {
    */
   public getVersionVector(): VersionVector | undefined {
     return this.versionVector;
+  }
+
+  /**
+   * `getEpoch` returns the document's compaction epoch of this pack.
+   */
+  public getEpoch(): bigint {
+    return this.epoch;
   }
 }
