@@ -94,7 +94,7 @@ interface DocStore {
 const client = new yorkie.Client({
   rpcAddr,
   store: new MemoryDocStore(),  // or an app-provided IndexedDB store
-  deactivateOnUnload: false,    // default is true — must be off for this path
+  // deactivateOnUnload auto-defaults to false once a store is set (overridable)
 });
 ```
 
@@ -158,8 +158,9 @@ Three client obligations the server does not cover:
   app-visible data-loss event on re-attach when the returned `docID` differs or
   `serverSeq` regressed to `0` against a non-empty local snapshot.
 
-`deactivateOnUnload: false` is required: the default `true` detaches on unload,
-which triggers the server-side checkpoint reset and defeats persistence.
+`deactivateOnUnload` must be `false` on this path: the default `true` detaches on
+unload, which triggers the server-side checkpoint reset and defeats persistence.
+Configuring a `store` auto-defaults it to `false` (an explicit option still wins).
 
 ### Multi-tab safety
 
@@ -196,7 +197,7 @@ of corrupting the store.
 | Ship only the `DocStore` interface + dependency-free `MemoryDocStore`; keep IndexedDB app-side | No browser-storage coupling in the core (works in Node/workers/RN); apps supply the backend. A tested `IndexedDBDocStore` fixture is the reference |
 | Append changes + periodic compaction | Per-keystroke full snapshots are too heavy; append is cheap and bounded by compaction |
 | Single-active-session lease over concurrent multi-tab | Converts a silent `clientSeq`-collision data-loss path into an explicit, recoverable UX state |
-| Require `deactivateOnUnload: false` | The default detaches on unload and resets the server checkpoint, defeating persistence |
+| Auto-default `deactivateOnUnload` to false when a store is set (overridable) | The default detaches on unload and resets the server checkpoint, defeating persistence; configuring a store signals intent to persist, so make it work out of the box |
 
 ## Alternatives Considered
 
