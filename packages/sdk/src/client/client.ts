@@ -64,6 +64,11 @@ import {
 } from '@yorkie-js/sdk/src/channel/channel';
 import { Attachable } from './attachable';
 import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  SessionLock,
+  SessionLockHandle,
+  WebLocksSessionLock,
+} from '@yorkie-js/sdk/src/client/session-lock';
 import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 
 /**
@@ -249,6 +254,20 @@ export interface ClientOptions {
    * it explicitly alongside `store`.
    */
   store?: DocStore;
+
+  /**
+   * `sessionLock` is the single-active-session guard used only on the offline
+   * persistence path (when `store` is set). Offline persistence derives a
+   * stable actor from the app's clientKey, so two tabs of the same app+user
+   * share it; two live tabs would share one server checkpoint and mint
+   * colliding `clientSeq` values — silent edit loss. On `attach` the client
+   * acquires a lock keyed by `apiKey/clientKey/docKey` and holds it for the
+   * attachment lifetime; if it is already held (another tab) the attach fails
+   * fast. The default {@link WebLocksSessionLock} uses the Web Locks API and is
+   * a no-op in non-browser runtimes; inject a fake for testing. Ignored when
+   * `store` is unset (non-persistence clients keep today's behavior).
+   */
+  sessionLock?: SessionLock;
 }
 
 /**
@@ -423,6 +442,10 @@ export class Client {
   private channelHeartbeatInterval: number;
   private deactivateOnUnload: boolean;
   private store?: DocStore;
+  // Single-active-session guard for the offline persistence path. Only consulted
+  // when `store` is set; a stable Web Locks default is created so store-backed
+  // clients get multi-tab safety out of the box.
+  private sessionLock: SessionLock;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -469,6 +492,9 @@ export class Client {
     this.deactivateOnUnload =
       opts.deactivateOnUnload ??
       (this.store ? false : DefaultClientOptions.deactivateOnUnload);
+    // Default to the Web Locks-backed guard; it is a no-op outside browsers and
+    // is only consulted on the store-backed attach path below.
+    this.sessionLock = opts.sessionLock ?? new WebLocksSessionLock();
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -771,7 +797,31 @@ export class Client {
     // enqueued. Cleared in the task's `finally`.
     this.attachingDocs.add(doc.getKey());
     return this.enqueueTask(async () => {
+      // Single-active-session lock, held for the attachment lifetime and
+      // released either on the failure path below or by `detachInternal`. Kept
+      // in this local until the attachment exists to capture it; if attach
+      // throws before then, the `catch` releases it so the lock is not leaked.
+      let sessionLockHandle: SessionLockHandle | undefined;
       try {
+        // Acquire the single-active-session guard before any restore or RPC, so
+        // a second tab of the same offline-persistence client fails fast instead
+        // of driving sync on a shared checkpoint. Only on the store-backed path:
+        // non-store clients keep today's behavior (no guard). The Web Locks
+        // default is a no-op in non-browser runtimes.
+        if (this.store) {
+          const lockName =
+            `yorkie-session:${this.apiKey}/${this.key}/` + doc.getKey();
+          sessionLockHandle = await this.sessionLock.acquire(lockName);
+          if (!sessionLockHandle) {
+            throw new YorkieError(
+              Code.ErrInvalidArgument,
+              `document "${doc.getKey()}" is already open in another tab under ` +
+                `offline persistence; only one active session per document is ` +
+                `allowed to avoid silent edit loss`,
+            );
+          }
+        }
+
         // Restore any persisted offline state before building the attach
         // pack. The actor was already stamped above, so rehydrating here
         // respects the actor-set-before-elements ordering. `createChangePack`
@@ -838,6 +888,9 @@ export class Client {
           opts.disableGC ?? false,
           res.disablePresence,
         );
+        // Hand the held session lock to the attachment so `detachInternal`
+        // releases it on detach/deactivate, freeing a later tab to take over.
+        attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
 
         // Persist-on-local-change: when an offline `store` is configured,
@@ -890,6 +943,10 @@ export class Client {
 
         return doc;
       } catch (err) {
+        // Release the session lock on any failure so the guard is not leaked
+        // and a later attach (this or another tab) can acquire it. Release is
+        // idempotent, so this is safe even if `detachInternal` also runs.
+        sessionLockHandle?.release();
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
         throw err;
@@ -2253,6 +2310,12 @@ export class Client {
     if (attachment.unsubscribePersist) {
       attachment.unsubscribePersist();
       attachment.unsubscribePersist = undefined;
+    }
+    // Release the single-active-session lock installed by attachDocument on the
+    // offline persistence path, so a later tab can take over the document.
+    if (attachment.sessionLockHandle) {
+      attachment.sessionLockHandle.release();
+      attachment.sessionLockHandle = undefined;
     }
     if (attachment.resource instanceof Document) {
       attachment.resource.resetOnlineClients();

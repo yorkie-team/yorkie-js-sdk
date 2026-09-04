@@ -17,6 +17,11 @@
 import { describe, it, assert } from 'vitest';
 import { Client } from '@yorkie-js/sdk/src/client/client';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  SessionLock,
+  SessionLockHandle,
+  WebLocksSessionLock,
+} from '@yorkie-js/sdk/src/client/session-lock';
 
 const rpcAddr = 'http://127.0.0.1:8080';
 
@@ -26,6 +31,13 @@ const rpcAddr = 'http://127.0.0.1:8080';
 function deactivateOnUnloadOf(client: Client): boolean {
   return (client as unknown as { deactivateOnUnload: boolean })
     .deactivateOnUnload;
+}
+
+/**
+ * `sessionLockOf` reads the resolved private guard for assertions.
+ */
+function sessionLockOf(client: Client): SessionLock {
+  return (client as unknown as { sessionLock: SessionLock }).sessionLock;
 }
 
 describe('Client options', () => {
@@ -46,5 +58,19 @@ describe('Client options', () => {
       deactivateOnUnload: true,
     });
     assert.isTrue(deactivateOnUnloadOf(client));
+  });
+
+  it('defaults to the Web Locks session guard', () => {
+    const client = new Client({ rpcAddr });
+    assert.instanceOf(sessionLockOf(client), WebLocksSessionLock);
+  });
+
+  it('accepts an injected session lock', () => {
+    const fake: SessionLock = {
+      acquire: (): Promise<SessionLockHandle | undefined> =>
+        Promise.resolve({ release: () => {} }),
+    };
+    const client = new Client({ rpcAddr, sessionLock: fake });
+    assert.strictEqual(sessionLockOf(client), fake);
   });
 });

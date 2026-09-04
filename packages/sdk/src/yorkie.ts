@@ -40,6 +40,11 @@ export {
   type DocStore,
   MemoryDocStore,
 } from '@yorkie-js/sdk/src/client/doc-store';
+export {
+  type SessionLock,
+  type SessionLockHandle,
+  WebLocksSessionLock,
+} from '@yorkie-js/sdk/src/client/session-lock';
 export { type RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
 export {
   Channel,

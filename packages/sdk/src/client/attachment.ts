@@ -17,6 +17,7 @@
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Attachable } from './attachable';
 import { Document } from '@yorkie-js/sdk/src/document/document';
+import { SessionLockHandle } from '@yorkie-js/sdk/src/client/session-lock';
 
 /**
  * `WatchStream` represents a stream that watches the changes of a resource.
@@ -80,6 +81,13 @@ export class Attachment<R extends Attachable> {
    * accumulate duplicate persist handlers. Documents only.
    */
   unsubscribePersist?: () => void;
+  /**
+   * `sessionLockHandle` is set by `attachDocument` on the offline persistence
+   * path (a `store` is configured): it holds the single-active-session lock for
+   * this document key. `detachInternal` releases it so a later tab can take over.
+   * Documents only.
+   */
+  sessionLockHandle?: SessionLockHandle;
 
   private reconnectStreamDelay: number;
   private cancelled: boolean;
