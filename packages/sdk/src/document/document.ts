@@ -198,6 +198,16 @@ export enum DocEventType {
    * and this client must detach and reattach to recover.
    */
   EpochMismatch = 'epoch-mismatch',
+
+  /**
+   * `LocalChangesDropped` indicates the offline-persistence layer had to
+   * discard un-pushed local changes it could not reconcile with the server
+   * (a stale-epoch re-anchor, a server-side GC/purge of the document, or a
+   * store reused under a different actor). The event carries the dropped
+   * changes so the app can surface the data loss and, if it wishes, re-apply
+   * them on top of the re-anchored state.
+   */
+  LocalChangesDropped = 'local-changes-dropped',
 }
 
 /**
@@ -213,7 +223,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | RemoteChangeEvent<T, P>
   | PresenceEvent<P>
   | AuthErrorEvent
-  | EpochMismatchEvent;
+  | EpochMismatchEvent
+  | LocalChangesDroppedEvent<P>;
 
 /**
  * `DocEvents` represents document events that occur within
@@ -387,6 +398,32 @@ export interface EpochMismatchEvent extends BaseDocEvent {
   };
 }
 
+/**
+ * `LocalChangesDroppedReason` enumerates why the offline-persistence layer
+ * had to discard un-pushed local changes it could not reconcile.
+ */
+export type LocalChangesDroppedReason =
+  | 'epoch-reanchor'
+  | 'document-purged'
+  | 'actor-mismatch'
+  | 'restore-failed';
+
+/**
+ * `LocalChangesDroppedEvent` is an app-visible data-loss signal: the persisted
+ * un-pushed local changes could not be reconciled with the server and were
+ * discarded. `value.changes` carries their serialized structs so the app can
+ * surface the loss and optionally re-apply them on top of the recovered state.
+ */
+export interface LocalChangesDroppedEvent<
+  P extends Indexable = Indexable,
+> extends BaseDocEvent {
+  type: DocEventType.LocalChangesDropped;
+  value: {
+    reason: LocalChangesDroppedReason;
+    changes: Array<ChangeStruct<P>>;
+  };
+}
+
 type DocEventCallbackMap<P extends Indexable> = {
   default: NextFn<
     LocalChangeEvent<OpInfo, P> | RemoteChangeEvent<OpInfo, P> | SnapshotEvent
@@ -399,6 +436,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   sync: NextFn<SyncStatusChangedEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
   'epoch-mismatch': NextFn<EpochMismatchEvent>;
+  'local-changes-dropped': NextFn<LocalChangesDroppedEvent<P>>;
   all: NextFn<DocEvents<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -537,6 +575,60 @@ type OpInfoOf<
 type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 
 /**
+ * `packBlobs` concatenates the given byte blobs into a single, self-contained
+ * envelope. Each blob is prefixed with its length as a 4-byte little-endian
+ * uint32, so `unpackBlobs` can split them back out without a shared schema.
+ * This avoids adding a new message to the generated protobuf api, whose source
+ * of truth lives in the yorkie server repo.
+ */
+function packBlobs(blobs: Array<Uint8Array>): Uint8Array {
+  let total = 0;
+  for (const blob of blobs) {
+    total += 4 + blob.length;
+  }
+
+  const out = new Uint8Array(total);
+  const view = new DataView(out.buffer);
+  let offset = 0;
+  for (const blob of blobs) {
+    view.setUint32(offset, blob.length, true);
+    offset += 4;
+    out.set(blob, offset);
+    offset += blob.length;
+  }
+  return out;
+}
+
+/**
+ * `unpackBlobs` is the reverse of `packBlobs`: it splits the given envelope
+ * back into the original ordered list of byte blobs.
+ */
+function unpackBlobs(bytes: Uint8Array): Array<Uint8Array> {
+  const blobs: Array<Uint8Array> = [];
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 0;
+  while (offset < bytes.length) {
+    if (offset + 4 > bytes.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'corrupt envelope: truncated length prefix',
+      );
+    }
+    const len = view.getUint32(offset, true);
+    offset += 4;
+    if (offset + len > bytes.length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'corrupt envelope: blob length exceeds remaining bytes',
+      );
+    }
+    blobs.push(bytes.subarray(offset, offset + len));
+    offset += len;
+  }
+  return blobs;
+}
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  * It implements Attachable interface to be managed by Attachment.
@@ -554,6 +646,24 @@ export class Document<
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
+
+  // `epoch` is the document's last-known compaction epoch (proto int64). The
+  // client learns it from every server response pack (`applyChangePack`) and
+  // presents it back on the next attach/sync (`createChangePack`). A resumed
+  // offline client persists it (`toBytes`) so, after a reload, the attach
+  // presents the epoch the document was last synced under; if the document was
+  // force-compacted while offline the server sees a stale epoch and rejects the
+  // resume with `ErrEpochMismatch`, driving the store-backed re-anchor.
+  private epoch: bigint;
+
+  // `docID` is the server-assigned document id (`AttachDocumentResponse.
+  // documentId`) recorded by the client after a successful attach. It is
+  // persisted in the `toBytes` envelope so a restored offline session can
+  // compare it against the id the server returns on re-attach: if they differ
+  // the server GC'd/deleted the document and minted a fresh one, which would
+  // otherwise silently drop the local snapshot + edits (Tier-3 guard). Empty
+  // until the first attach records it (and for legacy envelopes without it).
+  private docID: string;
 
   private root: CRDTRoot;
   private presences: Map<ActorID, P>;
@@ -600,6 +710,8 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.epoch = 0n;
+    this.docID = '';
     this.disableGC = false;
     // Seed from the local option so the gate already works before the first
     // attach response lands (e.g. a unit test that constructs a Document with
@@ -907,6 +1019,16 @@ export class Document<
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the offline-persistence layer had to
+   * discard un-pushed local changes it could not reconcile (a data-loss event).
+   */
+  public subscribe(
+    type: 'local-changes-dropped',
+    next: DocEventCallbackMap<P>['local-changes-dropped'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -1071,6 +1193,19 @@ export class Document<
           }
         }, arg3);
       }
+      if (arg1 === 'local-changes-dropped') {
+        const callback =
+          arg2 as DocEventCallbackMap<P>['local-changes-dropped'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.LocalChangesDropped) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
       if (arg1 === 'all') {
         const callback = arg2 as DocEventCallbackMap<P>['all'];
         return this.eventStream.subscribe(callback, arg3, arg4);
@@ -1167,6 +1302,10 @@ export class Document<
     // 02. Update the checkpoint.
     this.checkpoint = this.checkpoint.forward(pack.getCheckpoint());
 
+    // 02-1. Learn the document's current compaction epoch from the server so a
+    // subsequent attach/sync (and any persisted envelope) presents it back.
+    this.epoch = pack.getEpoch();
+
     // 03. Do Garbage collection.
     if (!pack.hasSnapshot()) {
       this.garbageCollect(pack.getVersionVector()!);
@@ -1190,6 +1329,30 @@ export class Document<
   }
 
   /**
+   * `getEpoch` returns the document's last-known compaction epoch.
+   */
+  public getEpoch(): bigint {
+    return this.epoch;
+  }
+
+  /**
+   * `getDocID` returns the server-assigned document id recorded on attach, or
+   * an empty string before the first attach (or for a legacy envelope that
+   * predates docID persistence).
+   */
+  public getDocID(): string {
+    return this.docID;
+  }
+
+  /**
+   * `setDocID` records the server-assigned document id so the next persisted
+   * envelope carries it for the Tier-3 silent-purge guard.
+   */
+  public setDocID(docID: string): void {
+    this.docID = docID;
+  }
+
+  /**
    * `getChangeID` returns the change id of this document.
    */
   public getChangeID(): ChangeID {
@@ -1201,6 +1364,195 @@ export class Document<
    */
   public hasLocalChanges(): boolean {
     return this.localChanges.length > 0;
+  }
+
+  /**
+   * `toBytes` serializes the full restorable state of this document into a
+   * self-contained byte envelope: the root and presences (as a snapshot), the
+   * checkpoint, the changeID (lamport, version vector, actor), and the pending
+   * local changes. `fromBytes` reverses it, so a document survives a reload
+   * with its un-pushed edits intact. The envelope is a length-prefixed
+   * concatenation of existing byte encodings rather than a new protobuf message.
+   */
+  public toBytes(): Uint8Array {
+    const encoder = new TextEncoder();
+
+    const snapshot = converter.snapshotToBytes(
+      this.getRootObject(),
+      this.presences,
+    );
+    const checkpoint = encoder.encode(
+      JSON.stringify({
+        serverSeq: this.checkpoint.getServerSeq().toString(),
+        clientSeq: this.checkpoint.getClientSeq(),
+      }),
+    );
+    const changeID = converter.changeIDToBinary(this.changeID);
+    const pendingChanges = encoder.encode(
+      JSON.stringify(this.localChanges.map((change) => change.toStruct())),
+    );
+    // The epoch is appended after the pending changes so an older envelope
+    // (four blobs) still decodes: `fromBytes` treats a missing epoch blob as 0n.
+    const epoch = encoder.encode(this.epoch.toString());
+    // The docID is the last blob, appended after epoch, so an envelope written
+    // before docID support (five blobs) still decodes: `fromBytes` treats a
+    // missing docID blob as an empty string.
+    const docID = encoder.encode(this.docID);
+
+    return packBlobs([
+      snapshot,
+      checkpoint,
+      changeID,
+      pendingChanges,
+      epoch,
+      docID,
+    ]);
+  }
+
+  /**
+   * `fromBytes` reconstructs a document from the bytes produced by `toBytes`,
+   * restoring the root, presences, checkpoint, changeID, and pending local
+   * changes.
+   */
+  public static fromBytes<R, P extends Indexable = Indexable>(
+    key: string,
+    bytes: Uint8Array,
+    opts?: DocumentOptions,
+  ): Document<R, P> {
+    const decoder = new TextDecoder();
+    // Envelope invariant: trailing blobs are OPTIONAL for back-compat. A legacy
+    // envelope written before a later field was added carries fewer blobs (e.g.
+    // four blobs pre-epoch, five pre-docID), and each such blob is nil-guarded
+    // below to a sensible default. This tolerate-fewer decode is intentional, so
+    // no strict blob-count check is imposed. Any future field MUST be appended
+    // as a new trailing blob and remain optional/nil-guarded here to keep older
+    // envelopes decodable.
+    const [
+      snapshot,
+      checkpointBytes,
+      changeIDBytes,
+      pendingChangesBytes,
+      epochBytes,
+      docIDBytes,
+    ] = unpackBlobs(bytes);
+
+    const doc = new Document<R, P>(key, opts);
+
+    const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
+    doc.root = new CRDTRoot(root);
+    doc.presences = presences;
+
+    const checkpoint = JSON.parse(decoder.decode(checkpointBytes)) as {
+      serverSeq: string;
+      clientSeq: number;
+    };
+    doc.checkpoint = Checkpoint.of(
+      BigInt(checkpoint.serverSeq),
+      checkpoint.clientSeq,
+    );
+
+    doc.changeID = converter.bytesToChangeID(changeIDBytes);
+
+    const structs = JSON.parse(decoder.decode(pendingChangesBytes)) as Array<
+      ChangeStruct<P>
+    >;
+    doc.localChanges = structs.map((struct) => Change.fromStruct<P>(struct));
+
+    // The epoch blob is optional: envelopes written before epoch support have
+    // only four blobs, so treat an absent blob as the initial epoch 0n.
+    doc.epoch = epochBytes ? BigInt(decoder.decode(epochBytes)) : 0n;
+
+    // The docID blob is optional: envelopes written before docID support have
+    // only five blobs, so treat an absent blob as an empty string.
+    doc.docID = docIDBytes ? decoder.decode(docIDBytes) : '';
+
+    return doc;
+  }
+
+  /**
+   * `restoreFromBytes` rehydrates this document in place from the bytes
+   * produced by `toBytes`, overwriting the root, presences, checkpoint,
+   * changeID, and pending local changes. Unlike the static `fromBytes`, it
+   * mutates the existing instance so a document the caller already holds (and
+   * is about to attach) recovers its persisted, un-pushed state.
+   *
+   * Ordering: the caller must have stamped the actor (`setActor`) before
+   * calling this. The rehydrated changes and changeID carry the actor they
+   * were persisted under, and the snapshot's element actors are restored as
+   * persisted, so this does not rely on `setActor` rewriting existing element
+   * actors (a documented limitation of `setActor`).
+   *
+   * Actor guard: the persisted changeID must carry the same actor the caller
+   * just stamped. If a store is reused under a different clientKey the current
+   * stable actor differs from the persisted one; restoring anyway would stamp
+   * subsequent edits with the current actor while the restored root/changes
+   * keep the persisted actor, silently diverging the CRDT against a server that
+   * keys on the current actor. On mismatch this throws `ErrClientNotActivated`-
+   * free `ErrInvalidArgument` so the store-backed attach path can surface a
+   * data-loss event and re-anchor instead of corrupting state.
+   */
+  public restoreFromBytes(bytes: Uint8Array): void {
+    const currentActor = this.changeID.getActorID();
+    const restored = Document.fromBytes<R, P>(this.key, bytes, this.opts);
+    const restoredActor = restored.changeID.getActorID();
+    if (currentActor && restoredActor && currentActor !== restoredActor) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `persisted actor "${restoredActor}" does not match the current ` +
+          `stable actor "${currentActor}"; the store was reused under a ` +
+          `different client identity, restoring would diverge the CRDT`,
+      );
+    }
+    this.root = restored.root;
+    this.presences = restored.presences;
+    this.checkpoint = restored.checkpoint;
+    this.changeID = restored.changeID;
+    this.localChanges = restored.localChanges;
+    this.epoch = restored.epoch;
+    this.docID = restored.docID;
+    // Drop any stale clone so the next `update` re-clones from the restored
+    // root/presences rather than the pre-restore state.
+    this.clone = undefined;
+    // Clear the undo/redo history: its reverse-ops reference the pre-restore
+    // root/changeID that was just replaced, so a later undo/redo would apply
+    // stale ticket references against the rehydrated state and corrupt it.
+    this.clearHistory();
+  }
+
+  /**
+   * `getPendingChangeStructs` returns the serialized structs of the current
+   * un-pushed local changes. Used by the offline-persistence layer to carry the
+   * dropped changes in a `LocalChangesDropped` data-loss event so the app can
+   * surface (and optionally re-apply) edits that could not be reconciled.
+   */
+  public getPendingChangeStructs(): Array<ChangeStruct<P>> {
+    return this.localChanges.map((change) => change.toStruct());
+  }
+
+  /**
+   * `resetForReanchor` drops all local state that was seeded from a stale
+   * persisted envelope so the document can be re-attached fresh. The server
+   * then re-anchors the client from the current snapshot. Used only on the
+   * store-backed attach path when the resume is rejected with
+   * `ErrEpochMismatch`: the persisted checkpoint/epoch/changeID and any
+   * un-pushed local changes are stale relative to the compacted document, so
+   * presenting them again would just be rejected. This mirrors constructing a
+   * brand-new Document instance without forcing the caller to swap the object
+   * reference it already holds.
+   */
+  public resetForReanchor(): void {
+    this.changeID = InitialChangeID;
+    this.checkpoint = InitialCheckpoint;
+    this.localChanges = [];
+    this.epoch = 0n;
+    this.docID = '';
+    this.root = CRDTRoot.create();
+    this.presences = new Map();
+    this.clone = undefined;
+    // Clear the undo/redo history: its reverse-ops reference the stale
+    // root/changeID that was just dropped, so a later undo/redo would apply
+    // stale ticket references against the re-anchored state and corrupt it.
+    this.clearHistory();
   }
 
   /**
@@ -1230,6 +1582,8 @@ export class Document<
       false,
       changes,
       this.getVersionVector(),
+      undefined,
+      this.epoch,
     );
   }
 

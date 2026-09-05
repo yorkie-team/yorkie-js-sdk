@@ -1001,6 +1001,7 @@ function toChangePack(pack: ChangePack<Indexable>): PbChangePack {
     changes: toChanges(pack.getChanges()),
     snapshot: pack.getSnapshot(),
     versionVector: toVersionVector(pack.getVersionVector()),
+    epoch: pack.getEpoch(),
   });
 }
 
@@ -1654,6 +1655,7 @@ function fromChangePack<P extends Indexable>(
     fromChanges(pbPack.changes),
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
+    pbPack.epoch,
   );
 }
 
@@ -1850,6 +1852,27 @@ function bytesToSnapshot<P extends Indexable>(
 }
 
 /**
+ * `snapshotToBytes` converts the given root and presences into a byte array.
+ * It is the reverse of `bytesToSnapshot`: the produced bytes decode back into
+ * the same `{ root, presences }` shape via the shared `Snapshot` message.
+ */
+function snapshotToBytes<P extends Indexable>(
+  root: CRDTObject,
+  presences: Map<ActorID, P>,
+): Uint8Array {
+  const pbPresences: { [key: string]: PbPresence } = {};
+  for (const [actorID, presence] of presences) {
+    pbPresences[actorID] = toPresence(presence);
+  }
+
+  const snapshot = create(PbSnapshotSchema, {
+    root: toElement(root),
+    presences: pbPresences,
+  });
+  return toBinary(PbSnapshotSchema, snapshot);
+}
+
+/**
  * `versionVectorToHex` converts the given VersionVector to bytes.
  */
 function versionVectorToHex(vector: VersionVector): string {
@@ -2034,6 +2057,7 @@ export const converter = {
   objectToBytes,
   bytesToObject,
   bytesToSnapshot,
+  snapshotToBytes,
   bytesToHex,
   hexToBytes,
   toHexString,
