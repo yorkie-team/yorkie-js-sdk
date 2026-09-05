@@ -69,7 +69,7 @@ Add the missing reverse direction so a full document round-trips:
 class Document<T> {
   toBytes(): Uint8Array;              // root + presences + checkpoint
                                      // + changeID (lamport, VV, actor)
-  static fromBytes<T>(bytes: Uint8Array): Document<T>;
+  static fromBytes<T>(key: string, bytes: Uint8Array): Document<T>;
 }
 ```
 
@@ -128,7 +128,7 @@ server-side decoupling.
 
 ### Restore-then-sync flow
 
-```
+```text
 attach(doc, { syncMode: Manual })
   └─ store.load(docKey)
        └─ hit  → doc.setActor(stableActor)  ← BEFORE any element is rehydrated
