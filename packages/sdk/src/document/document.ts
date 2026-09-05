@@ -1505,6 +1505,10 @@ export class Document<
     // Drop any stale clone so the next `update` re-clones from the restored
     // root/presences rather than the pre-restore state.
     this.clone = undefined;
+    // Clear the undo/redo history: its reverse-ops reference the pre-restore
+    // root/changeID that was just replaced, so a later undo/redo would apply
+    // stale ticket references against the rehydrated state and corrupt it.
+    this.clearHistory();
   }
 
   /**
@@ -1537,6 +1541,10 @@ export class Document<
     this.root = CRDTRoot.create();
     this.presences = new Map();
     this.clone = undefined;
+    // Clear the undo/redo history: its reverse-ops reference the stale
+    // root/changeID that was just dropped, so a later undo/redo would apply
+    // stale ticket references against the re-anchored state and corrupt it.
+    this.clearHistory();
   }
 
   /**
