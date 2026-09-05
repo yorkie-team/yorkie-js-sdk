@@ -1419,6 +1419,13 @@ export class Document<
     opts?: DocumentOptions,
   ): Document<R, P> {
     const decoder = new TextDecoder();
+    // Envelope invariant: trailing blobs are OPTIONAL for back-compat. A legacy
+    // envelope written before a later field was added carries fewer blobs (e.g.
+    // four blobs pre-epoch, five pre-docID), and each such blob is nil-guarded
+    // below to a sensible default. This tolerate-fewer decode is intentional, so
+    // no strict blob-count check is imposed. Any future field MUST be appended
+    // as a new trailing blob and remain optional/nil-guarded here to keep older
+    // envelopes decodable.
     const [
       snapshot,
       checkpointBytes,
