@@ -150,8 +150,8 @@ describe('DocStore persistence loop', function () {
     });
     unsub();
 
-    // Advance the persisted checkpoint's serverSeq so the restore is
-    // observably non-zero (the server-seeded case Q3 depends on).
+    // Load the persisted envelope written by the local change above; this is
+    // what a fresh instance restores from on attach.
     const bytes = await store.load('restore-doc');
     assert.isDefined(bytes);
 

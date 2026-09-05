@@ -176,7 +176,10 @@ describe('Store-backed epoch re-anchor', () => {
     (client as any).actorID = actorHex;
     (client as any).rpcClient = { attachDocument };
 
-    const doc = new Document<{ text?: string }>('k');
+    // A doc key unique to this test so it cannot collide with the shared 'k'
+    // key used by the store-backed cases above (whose attachments never detach
+    // and keep holding their session lock).
+    const doc = new Document<{ text?: string }>('k-no-store');
     let threw = false;
     try {
       await client.attach(doc, { syncMode: SyncMode.Manual });

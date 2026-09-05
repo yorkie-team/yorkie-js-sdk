@@ -141,6 +141,10 @@ describe('Offline persistence (reload with pending changes)', () => {
       const project = list.data.projects.find(
         (p: { name: string }) => p.name === 'default',
       );
+      // Assert the default project was found: reading `project.secretKey` off an
+      // undefined match would throw a confusing TypeError that masks the real
+      // "default project missing" failure.
+      assert.isDefined(project, 'default project not found');
 
       const compact = () =>
         axios.post(
