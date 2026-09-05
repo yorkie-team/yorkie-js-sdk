@@ -252,8 +252,8 @@ export interface ClientOptions {
    * For offline persistence you also want `deactivateOnUnload: false`: the
    * default `true` deactivates the client on page unload, which detaches
    * documents server-side and defeats the point of resuming un-pushed local
-   * changes on the next load. This option does not change that default — set
-   * it explicitly alongside `store`.
+   * changes on the next load. Setting `store` therefore auto-defaults
+   * `deactivateOnUnload` to `false`; pass it explicitly to override.
    */
   store?: DocStore;
 
