@@ -444,6 +444,12 @@ export class Client {
   private channelHeartbeatInterval: number;
   private deactivateOnUnload: boolean;
   private store?: DocStore;
+  // Per-store-key write chain that serializes `store.save` calls for a single
+  // document. Async saves (esp. IndexedDB) for the same key can otherwise
+  // interleave and let an earlier save resolve after a later one, persisting
+  // stale bytes. Each key's tail promise is kept here so the next save chains
+  // after it; see `persistToStore`.
+  private persistQueues: Map<string, Promise<void>> = new Map();
   // Single-active-session guard for the offline persistence path. Only consulted
   // when `store` is set; a stable Web Locks default is created so store-backed
   // clients get multi-tab safety out of the box.
@@ -1065,10 +1071,9 @@ export class Client {
         // an ack-only push emits no Remote/Snapshot event, so it cannot be
         // captured here.
         if (this.store) {
-          const store = this.store;
           const storeKey = this.storeKey(doc.getKey());
           const persist = () => {
-            store.save(storeKey, doc.toBytes()).catch((err) => {
+            this.persistToStore(storeKey, doc.toBytes(), (err) => {
               logger.error(
                 `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
                 err,
@@ -1682,6 +1687,43 @@ export class Client {
    */
   private storeKey(docKey: string): string {
     return `${this.apiKey}/${this.key}/${docKey}`;
+  }
+
+  /**
+   * `persistToStore` saves the given bytes for a store key, serializing writes
+   * per key so concurrent saves for the same document cannot interleave and
+   * persist stale bytes (an earlier save resolving after a later one). Each key
+   * chains onto its previous save; failures are logged, not thrown, and do not
+   * break the chain for the next write. `onError` labels the log site.
+   */
+  private persistToStore(
+    storeKey: string,
+    bytes: Uint8Array,
+    onError: (err: unknown) => void,
+  ): void {
+    const store = this.store;
+    if (!store) {
+      return;
+    }
+    const prev = this.persistQueues.get(storeKey);
+    // With no in-flight write for this key, start `store.save` synchronously so
+    // a store whose `save` has synchronous side effects (e.g. MemoryDocStore)
+    // lands immediately, preserving the pre-serialization observable timing.
+    // Only when a previous write is still pending do we chain after it, which
+    // is exactly the interleaving case this guards against.
+    const next = (
+      prev
+        ? prev.catch(() => undefined).then(() => store.save(storeKey, bytes))
+        : store.save(storeKey, bytes)
+    ).catch(onError);
+    this.persistQueues.set(storeKey, next);
+    // Drop the queue entry once this write is the tail, so the map does not grow
+    // for keys that stop being written.
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
   }
 
   /**
@@ -2705,15 +2747,17 @@ export class Client {
       // checkpoint until the next local edit. This is a full overwrite (not an
       // append), so it does not grow unbounded. Errors are logged, not thrown.
       if (this.store) {
-        this.store
-          .save(this.storeKey(doc.getKey()), doc.toBytes())
-          .catch((err) => {
+        this.persistToStore(
+          this.storeKey(doc.getKey()),
+          doc.toBytes(),
+          (err) => {
             logger.error(
               `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +
                 `failed:`,
               err,
             );
-          });
+          },
+        );
       }
 
       attachment.resource.publish([
