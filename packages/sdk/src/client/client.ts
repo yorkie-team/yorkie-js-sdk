@@ -862,32 +862,42 @@ export class Client {
                 doc.restoreFromBytes(bytes);
                 restored = true;
               } catch (err) {
-                // A persisted envelope that cannot be safely restored — an
-                // actor mismatch (store reused under a different clientKey) or
-                // a corrupt envelope — is unusable. Rather than abort attach or
-                // divergently restore, emit an app-visible data-loss event with
+                // A persisted envelope that cannot be safely restored is
+                // unusable and MUST never abort attach or poison every future
+                // one. Two failure classes are handled the same way:
+                //   - actor mismatch (a YorkieError: store reused under a
+                //     different clientKey) — restoring would diverge the CRDT;
+                //   - any other failure (a native error such as a SyntaxError
+                //     from a corrupt/truncated envelope) — the bytes cannot be
+                //     decoded at all.
+                // In both cases emit an app-visible data-loss event with
                 // whatever pending changes are recoverable, clear the stale
-                // entry, and fall through to a fresh attach.
-                if (err instanceof YorkieError) {
-                  logger.warn(
-                    `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
-                      `persisted state unusable; dropping stale edits:`,
-                    err,
-                  );
-                  let dropped: Array<ChangeStruct<P>> = [];
-                  try {
-                    dropped = Document.fromBytes<R, P>(
-                      doc.getKey(),
-                      bytes,
-                    ).getPendingChangeStructs();
-                  } catch {
-                    dropped = [];
-                  }
-                  this.emitLocalChangesDropped(doc, 'actor-mismatch', dropped);
-                  await this.removeFromStore(doc.getKey());
-                } else {
-                  throw err;
+                // entry, and fall through to a fresh attach. Treating a native
+                // decode error as unusable (rather than rethrowing) is what
+                // keeps a single poisoned store entry from failing every later
+                // attach.
+                const reason: LocalChangesDroppedReason =
+                  err instanceof YorkieError
+                    ? 'actor-mismatch'
+                    : 'restore-failed';
+                logger.warn(
+                  `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                    `persisted state unusable (${reason}); dropping stale ` +
+                    `edits:`,
+                  err,
+                );
+                let dropped: Array<ChangeStruct<P>> = [];
+                try {
+                  dropped = Document.fromBytes<R, P>(
+                    doc.getKey(),
+                    bytes,
+                  ).getPendingChangeStructs();
+                } catch {
+                  // The envelope itself may be undecodable; recover nothing.
+                  dropped = [];
                 }
+                this.emitLocalChangesDropped(doc, reason, dropped);
+                await this.removeFromStore(doc.getKey());
               }
             }
           }

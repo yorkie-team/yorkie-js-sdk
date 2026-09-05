@@ -405,7 +405,8 @@ export interface EpochMismatchEvent extends BaseDocEvent {
 export type LocalChangesDroppedReason =
   | 'epoch-reanchor'
   | 'document-purged'
-  | 'actor-mismatch';
+  | 'actor-mismatch'
+  | 'restore-failed';
 
 /**
  * `LocalChangesDroppedEvent` is an app-visible data-loss signal: the persisted
