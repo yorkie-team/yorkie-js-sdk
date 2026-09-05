@@ -1014,6 +1014,11 @@ export class Client {
         }
 
         if (doc.getStatus() === DocStatus.Removed) {
+          // The document was already removed server-side, so no Attachment is
+          // created here and nothing will ever call `detachInternal` to release
+          // the session lock. Release it now before the early return, otherwise
+          // the lock leaks and every later attach of this doc key fails fast.
+          sessionLockHandle?.release();
           return doc;
         }
 
