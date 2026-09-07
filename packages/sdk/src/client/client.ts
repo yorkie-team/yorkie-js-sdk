@@ -2650,6 +2650,11 @@ export class Client {
           // our existing id so prior document attachments stay valid.
           if (res.clientId && !this.id) {
             this.id = res.clientId;
+            // Channel activation carries no stable actor, so fall back to the
+            // session id. Without this a channel-first client leaves actorID
+            // undefined, so a later document attach stamps the session id while
+            // getActorID() returns undefined, contradicting its contract.
+            this.actorID = res.clientId;
             this.status = ClientStatus.Activated;
             resource.setActor(res.clientId);
           } else if (this.id) {
