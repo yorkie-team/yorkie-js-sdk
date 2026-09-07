@@ -2310,8 +2310,10 @@ export class Client {
         clientId: this.id!,
         // Declare the stable actor so the server keys watch peers and
         // watched/unwatched events by the same actor stamped into presence
-        // changes. Falls back to the session id against old servers.
-        actorId: this.actorID ?? this.id!,
+        // changes. Send it or nothing (never the session id, which the server
+        // rejects as a mismatch); an empty value makes the server fall back to
+        // the session id, as old SDKs get by omitting the field.
+        actorId: this.actorID ?? '',
         resources: [
           {
             resource: {
