@@ -1665,10 +1665,24 @@ export class Client {
   }
 
   /**
-   * `getID` returns a ActorID of client.
+   * `getID` returns the per-session id of this client. It is the wire
+   * `clientId` used for RPC routing, not the actor stamped into document
+   * changes. Use {@link getActorID} for the change author.
    */
   public getID(): string | undefined {
     return this.id;
+  }
+
+  /**
+   * `getActorID` returns the actor stamped into this client's document
+   * changes. On a server that supports stable actors it is the stable actor
+   * derived from the project and client key (`ActivateClientResponse.actorId`);
+   * otherwise it falls back to the per-session id. This is the actor a version
+   * vector is keyed by, so tests and callers that reason about change
+   * authorship or GC must use this, not {@link getID}.
+   */
+  public getActorID(): ActorID | undefined {
+    return this.actorID;
   }
 
   /**

@@ -1505,7 +1505,7 @@ describe('Tree History - GC symmetry and anchor fallback', () => {
 
       // GC symmetry: with a version vector both replicas fully know, each must
       // purge the same tombstones and end with an empty garbage set.
-      const vv = maxVectorOf([c1.getID()!, c2.getID()!]);
+      const vv = maxVectorOf([c1.getActorID()!, c2.getActorID()!]);
       const purged1 = d1.garbageCollect(vv);
       const purged2 = d2.garbageCollect(vv);
       assert.equal(purged1, purged2, 'both replicas purge the same node count');
@@ -1545,7 +1545,7 @@ describe('Tree History - GC symmetry and anchor fallback', () => {
       await c1.sync();
       await c2.sync();
       await c1.sync();
-      const vv = maxVectorOf([c1.getID()!, c2.getID()!]);
+      const vv = maxVectorOf([c1.getActorID()!, c2.getActorID()!]);
       d1.garbageCollect(vv);
       d2.garbageCollect(vv);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON(), 'after undo + GC');
