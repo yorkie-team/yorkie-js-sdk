@@ -47,10 +47,20 @@ export async function withTwoClientsAndDocuments<
   title: string,
   syncMode: SyncMode = SyncMode.Manual,
 ): Promise<void> {
-  const client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-  const client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+  let client1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+  let client2 = new yorkie.Client({ rpcAddr: testRPCAddr });
   await client1.activate();
   await client2.activate();
+
+  // Concurrent-edit conflicts are resolved by the actor tie-break. Historically
+  // the actor was the session id, a time-ordered ObjectID, so the
+  // second-created client (client2) always had the higher actor and won ties;
+  // many tests encode that outcome. A stable actor is a hash of the client key,
+  // so creation order no longer implies actor order. Pin client1 to the lower
+  // actor and client2 to the higher so the tie-break stays deterministic.
+  if (client1.getActorID()! > client2.getActorID()!) {
+    [client1, client2] = [client2, client1];
+  }
 
   const docKey = `${toDocKey(title)}-${new Date().getTime()}`;
   const doc1 = new yorkie.Document<T, P>(docKey);

@@ -54,11 +54,11 @@ describe('Garbage Collection', function () {
 
     // Actual garbage-collected nodes
     assert.equal(
-      d1.garbageCollect(maxVectorOf([c1.getID()!, c2.getID()!])),
+      d1.garbageCollect(maxVectorOf([c1.getActorID()!, c2.getActorID()!])),
       gcNodeLen,
     );
     assert.equal(
-      d2.garbageCollect(maxVectorOf([c1.getID()!, c2.getID()!])),
+      d2.garbageCollect(maxVectorOf([c1.getActorID()!, c2.getActorID()!])),
       gcNodeLen,
     );
 
@@ -105,7 +105,7 @@ describe('Garbage Collection', function () {
       });
     });
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
@@ -114,15 +114,15 @@ describe('Garbage Collection', function () {
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -132,8 +132,8 @@ describe('Garbage Collection', function () {
     }, 'removes 2');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -144,8 +144,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -155,8 +155,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -166,8 +166,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -177,8 +177,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -188,8 +188,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -228,7 +228,7 @@ describe('Garbage Collection', function () {
       root['3'] = 3;
     }, 'sets 1, 2, 3');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
@@ -237,15 +237,15 @@ describe('Garbage Collection', function () {
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -255,8 +255,8 @@ describe('Garbage Collection', function () {
     }, 'removes 2');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -266,8 +266,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -277,8 +277,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -288,8 +288,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -300,8 +300,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -311,8 +311,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -350,7 +350,7 @@ describe('Garbage Collection', function () {
       root.textWithAttr.edit(0, 0, 'Hello World');
     }, 'sets text');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 0);
@@ -358,15 +358,15 @@ describe('Garbage Collection', function () {
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -378,8 +378,8 @@ describe('Garbage Collection', function () {
     }, 'edit text type elements');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -389,8 +389,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -400,8 +400,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -411,8 +411,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -422,8 +422,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -433,8 +433,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -483,7 +483,7 @@ describe('Garbage Collection', function () {
       root['5'].edit(0, 0, 'hi');
     }, 'sets 1, 2, 3, 4, 5');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
@@ -493,15 +493,15 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       d1.getVersionVector(),
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
     );
 
     await c2.sync();
     assert.deepEqual(
       d2.getVersionVector(),
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
     );
 
@@ -511,7 +511,7 @@ describe('Garbage Collection', function () {
       root['5'].edit(0, 1, 'h', { b: '1' });
     }, 'removes 2 and edit text type elements');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 6);
@@ -519,7 +519,7 @@ describe('Garbage Collection', function () {
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 6);
@@ -534,7 +534,7 @@ describe('Garbage Collection', function () {
     await c1.sync();
     // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 0);
@@ -561,21 +561,21 @@ describe('Garbage Collection', function () {
       root.point = { x: 0, y: 0 };
     });
     assert.deepEqual(
-      vectorOf([{ c: cli.getID()!, l: 1n }]),
+      vectorOf([{ c: cli.getActorID()!, l: 1n }]),
       doc.getVersionVector(),
     );
     doc.update((root) => {
       root.point = { x: 1, y: 1 };
     });
     assert.deepEqual(
-      vectorOf([{ c: cli.getID()!, l: 2n }]),
+      vectorOf([{ c: cli.getActorID()!, l: 2n }]),
       doc.getVersionVector(),
     );
     doc.update((root) => {
       root.point = { x: 2, y: 2 };
     });
     assert.deepEqual(
-      vectorOf([{ c: cli.getID()!, l: 3n }]),
+      vectorOf([{ c: cli.getActorID()!, l: 3n }]),
       doc.getVersionVector(),
     );
     assert.equal(doc.getGarbageLen(), 6);
@@ -598,7 +598,7 @@ describe('Garbage Collection', function () {
       root.list.push([3, 4, 5]);
     });
     assert.deepEqual(
-      vectorOf([{ c: cli.getID()!, l: 1n }]),
+      vectorOf([{ c: cli.getActorID()!, l: 1n }]),
       doc.getVersionVector(),
     );
     assert.equal('{"list":[0,1,2,[3,4,5]]}', doc.toJSON());
@@ -606,7 +606,7 @@ describe('Garbage Collection', function () {
       delete root.list[1];
     });
     assert.deepEqual(
-      vectorOf([{ c: cli.getID()!, l: 2n }]),
+      vectorOf([{ c: cli.getActorID()!, l: 2n }]),
       doc.getVersionVector(),
     );
     assert.equal('{"list":[0,2,[3,4,5]]}', doc.toJSON());
@@ -614,7 +614,7 @@ describe('Garbage Collection', function () {
       delete (root.list[2] as Array<number>)[1];
     });
     assert.deepEqual(
-      vectorOf([{ c: cli.getID()!, l: 3n }]),
+      vectorOf([{ c: cli.getActorID()!, l: 3n }]),
       doc.getVersionVector(),
     );
     assert.equal('{"list":[0,2,[3,5]]}', doc.toJSON());
@@ -641,27 +641,27 @@ describe('Garbage Collection', function () {
     assert.deepEqual(vectorOf([]), d1.getVersionVector());
     d1.update((root) => (root.point = { x: 0, y: 0 }));
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 1n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => (root.point.x = 1));
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 2n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 1);
     await client1.sync();
     assert.equal(d1.getGarbageLen(), 0);
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 2n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
     await client2.attach(d2, { syncMode: SyncMode.Manual });
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 3n },
+        { c: client1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -669,8 +669,8 @@ describe('Garbage Collection', function () {
     d2.update((root) => (root.point.x = 2));
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 4n },
+        { c: client1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 4n },
       ]),
       d2.getVersionVector(),
     );
@@ -678,20 +678,20 @@ describe('Garbage Collection', function () {
 
     d1.update((root) => (root.point = { x: 3, y: 3 }));
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 3n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 3n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 3);
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 3n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 3n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 3);
 
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 3n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 3n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getGarbageLen(), 3);
@@ -699,8 +699,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 3n },
-        { c: client2.getID()!, l: 5n },
+        { c: client1.getActorID()!, l: 3n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -708,8 +708,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 5n },
-        { c: client2.getID()!, l: 4n },
+        { c: client1.getActorID()!, l: 5n },
+        { c: client2.getActorID()!, l: 4n },
       ]),
       d1.getVersionVector(),
     );
@@ -762,40 +762,40 @@ describe('Garbage Collection', function () {
       root.t.edit(0, 0, 'z');
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 1n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => {
       root.t.edit(0, 1, 'a');
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 2n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => {
       root.t.edit(1, 1, 'b');
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 3n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 3n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => {
       root.t.edit(2, 2, 'd');
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 4n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 4n }]),
       d1.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 4n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 4n }]),
       d1.getVersionVector(),
     );
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 4n },
-        { c: client2.getID()!, l: 5n },
+        { c: client1.getActorID()!, l: 4n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -807,25 +807,25 @@ describe('Garbage Collection', function () {
       root.t.edit(2, 2, 'c');
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 5n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 5n }]),
       d1.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 5n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 5n }]),
       d1.getVersionVector(),
     );
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 5n },
-        { c: client2.getID()!, l: 6n },
+        { c: client1.getActorID()!, l: 5n },
+        { c: client2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 5n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 5n }]),
       d1.getVersionVector(),
     );
 
@@ -836,12 +836,12 @@ describe('Garbage Collection', function () {
       root.t.edit(1, 3, '');
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getRoot().t.toString(), 'ad');
@@ -850,14 +850,14 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 6n },
-        { c: client2.getID()!, l: 7n },
+        { c: client1.getActorID()!, l: 6n },
+        { c: client2.getActorID()!, l: 7n },
       ]),
       d2.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     await client2.sync();
@@ -898,7 +898,7 @@ describe('Garbage Collection', function () {
       });
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 1n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => {
@@ -908,7 +908,7 @@ describe('Garbage Collection', function () {
       });
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 2n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => {
@@ -918,7 +918,7 @@ describe('Garbage Collection', function () {
       });
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 3n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 3n }]),
       d1.getVersionVector(),
     );
     d1.update((root) => {
@@ -928,19 +928,19 @@ describe('Garbage Collection', function () {
       });
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 4n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 4n }]),
       d1.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 4n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 4n }]),
       d1.getVersionVector(),
     );
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 4n },
-        { c: client2.getID()!, l: 5n },
+        { c: client1.getActorID()!, l: 4n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -955,19 +955,19 @@ describe('Garbage Collection', function () {
       });
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 5n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 5n }]),
       d1.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 5n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 5n }]),
       d1.getVersionVector(),
     );
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 5n },
-        { c: client2.getID()!, l: 6n },
+        { c: client1.getActorID()!, l: 5n },
+        { c: client2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
@@ -978,12 +978,12 @@ describe('Garbage Collection', function () {
       root.t.editByPath([1], [3]);
     });
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getRoot().t.toXML(), '<r>ad</r>');
@@ -992,14 +992,14 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 6n },
-        { c: client2.getID()!, l: 7n },
+        { c: client1.getActorID()!, l: 6n },
+        { c: client2.getActorID()!, l: 7n },
       ]),
       d2.getVersionVector(),
     );
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     assert.equal(d2.getRoot().t.toXML(), '<r>ad</r>');
@@ -1008,8 +1008,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 6n },
-        { c: client2.getID()!, l: 7n },
+        { c: client1.getActorID()!, l: 6n },
+        { c: client2.getActorID()!, l: 7n },
       ]),
       d2.getVersionVector(),
     );
@@ -1018,7 +1018,7 @@ describe('Garbage Collection', function () {
 
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 6n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 6n }]),
       d1.getVersionVector(),
     );
     assert.equal(d1.getRoot().t.toXML(), '<r>ad</r>');
@@ -1051,21 +1051,21 @@ describe('Garbage Collection', function () {
       root.t.edit(2, 2, 'c');
     }, 'sets text');
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 1n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 1n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 1n },
-        { c: client2.getID()!, l: 2n },
+        { c: client1.getActorID()!, l: 1n },
+        { c: client2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -1075,8 +1075,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 1n },
-        { c: client2.getID()!, l: 3n },
+        { c: client1.getActorID()!, l: 1n },
+        { c: client2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1085,7 +1085,7 @@ describe('Garbage Collection', function () {
       root.t.edit(1, 3, '');
     }, 'delete bd');
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 2n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
@@ -1094,15 +1094,15 @@ describe('Garbage Collection', function () {
 
     await client1.sync();
     assert.deepEqual(
-      vectorOf([{ c: client1.getID()!, l: 2n }]),
+      vectorOf([{ c: client1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 4n },
+        { c: client1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 4n },
       ]),
       d2.getVersionVector(),
     );
@@ -1115,8 +1115,8 @@ describe('Garbage Collection', function () {
     }, 'insert 1');
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 5n },
+        { c: client1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1124,8 +1124,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 5n },
+        { c: client1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1136,8 +1136,8 @@ describe('Garbage Collection', function () {
     await client1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: client1.getID()!, l: 6n },
-        { c: client2.getID()!, l: 5n },
+        { c: client1.getActorID()!, l: 6n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d1.getVersionVector(),
     );
@@ -1174,21 +1174,21 @@ describe('Garbage Collection', function () {
       root.t.edit(1, 1, 'b');
     }, 'insert ab');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -1199,8 +1199,8 @@ describe('Garbage Collection', function () {
     }, 'insert d');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1208,8 +1208,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1217,8 +1217,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -1229,8 +1229,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 4n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 4n },
       ]),
       d2.getVersionVector(),
     );
@@ -1241,8 +1241,8 @@ describe('Garbage Collection', function () {
     }, 'remove ac');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 5n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 5n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
@@ -1252,8 +1252,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 4n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 4n },
       ]),
       d2.getVersionVector(),
     );
@@ -1261,8 +1261,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 6n },
-        { c: c2.getID()!, l: 4n },
+        { c: c1.getActorID()!, l: 6n },
+        { c: c2.getActorID()!, l: 4n },
       ]),
       d1.getVersionVector(),
     );
@@ -1273,8 +1273,8 @@ describe('Garbage Collection', function () {
     }, 'insert 1 (pushonly)');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1282,8 +1282,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1291,8 +1291,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 7n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 7n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d1.getVersionVector(),
     );
@@ -1306,8 +1306,8 @@ describe('Garbage Collection', function () {
     }, 'insert 2 (pushonly)');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
@@ -1315,8 +1315,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
@@ -1325,8 +1325,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 5n },
-        { c: c2.getID()!, l: 7n },
+        { c: c1.getActorID()!, l: 5n },
+        { c: c2.getActorID()!, l: 7n },
       ]),
       d2.getVersionVector(),
     );
@@ -1334,8 +1334,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 8n },
-        { c: c2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 8n },
+        { c: c2.getActorID()!, l: 6n },
       ]),
       d1.getVersionVector(),
     );
@@ -1346,8 +1346,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 5n },
-        { c: c2.getID()!, l: 7n },
+        { c: c1.getActorID()!, l: 5n },
+        { c: c2.getActorID()!, l: 7n },
       ]),
       d2.getVersionVector(),
     );
@@ -1358,8 +1358,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 8n },
-        { c: c2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 8n },
+        { c: c2.getActorID()!, l: 6n },
       ]),
       d1.getVersionVector(),
     );
@@ -1396,21 +1396,21 @@ describe('Garbage Collection', function () {
       root.t.edit(2, 2, 'c');
     }, 'sets text');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -1420,8 +1420,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1430,7 +1430,7 @@ describe('Garbage Collection', function () {
       root.t.edit(1, 3, '');
     }, 'delete bd');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
@@ -1472,21 +1472,21 @@ describe('Garbage Collection', function () {
       root.t.edit(2, 2, 'c');
     }, 'sets text');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -1496,8 +1496,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1506,7 +1506,7 @@ describe('Garbage Collection', function () {
       root.t.edit(1, 3, '');
     }, 'delete bd');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
@@ -1515,15 +1515,15 @@ describe('Garbage Collection', function () {
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: c2.getID()!, l: 4n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: c2.getActorID()!, l: 4n },
       ]),
       d2.getVersionVector(),
     );
@@ -1536,8 +1536,8 @@ describe('Garbage Collection', function () {
     }, 'insert 1');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1545,8 +1545,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1557,8 +1557,8 @@ describe('Garbage Collection', function () {
     await c1.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 6n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 6n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d1.getVersionVector(),
     );
@@ -1567,8 +1567,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: c2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: c2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1578,8 +1578,8 @@ describe('Garbage Collection', function () {
     }, 'delete all');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: c2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: c2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
@@ -1587,8 +1587,8 @@ describe('Garbage Collection', function () {
     await c2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: c2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: c2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
@@ -1624,21 +1624,21 @@ describe('Garbage Collection', function () {
       root.t.edit(2, 2, 'c');
     }, 'sets text');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
 
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: client2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: client2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
@@ -1648,8 +1648,8 @@ describe('Garbage Collection', function () {
     }, 'insert c');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: client2.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: client2.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1658,7 +1658,7 @@ describe('Garbage Collection', function () {
       root.t.edit(1, 3, '');
     }, 'delete bd');
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
@@ -1667,15 +1667,15 @@ describe('Garbage Collection', function () {
 
     await c1.sync();
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 2n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 2n }]),
       d1.getVersionVector(),
     );
 
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 4n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 4n },
       ]),
       d2.getVersionVector(),
     );
@@ -1688,8 +1688,8 @@ describe('Garbage Collection', function () {
     }, 'insert 1');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1697,8 +1697,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1710,8 +1710,8 @@ describe('Garbage Collection', function () {
     // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 6n },
-        { c: client2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 6n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d1.getVersionVector(),
     );
@@ -1720,8 +1720,8 @@ describe('Garbage Collection', function () {
     await client2.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 5n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 5n },
       ]),
       d2.getVersionVector(),
     );
@@ -1731,8 +1731,8 @@ describe('Garbage Collection', function () {
     }, 'delete all');
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 2n },
-        { c: client2.getID()!, l: 6n },
+        { c: c1.getActorID()!, l: 2n },
+        { c: client2.getActorID()!, l: 6n },
       ]),
       d2.getVersionVector(),
     );
@@ -1781,20 +1781,20 @@ describe('Garbage Collection', function () {
     await c3.sync();
 
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c3.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c3.getActorID()!, l: 2n },
       ]),
       d3.getVersionVector(),
     );
@@ -1833,22 +1833,22 @@ describe('Garbage Collection', function () {
 
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 6n },
-        { c: c2.getID()!, l: 4n },
+        { c: c1.getActorID()!, l: 6n },
+        { c: c2.getActorID()!, l: 4n },
       ]),
       d1.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 7n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 7n },
       ]),
       d2.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c3.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c3.getActorID()!, l: 3n },
       ]),
       d3.getVersionVector(),
     );
@@ -1869,17 +1869,17 @@ describe('Garbage Collection', function () {
     // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 9n },
-        { c: c2.getID()!, l: 8n },
-        { c: c3.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 9n },
+        { c: c2.getActorID()!, l: 8n },
+        { c: c3.getActorID()!, l: 3n },
       ]),
       d1.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 4n },
-        { c: c2.getID()!, l: 9n },
-        { c: c3.getID()!, l: 3n },
+        { c: c1.getActorID()!, l: 4n },
+        { c: c2.getActorID()!, l: 9n },
+        { c: c3.getActorID()!, l: 3n },
       ]),
       d2.getVersionVector(),
     );
@@ -1930,20 +1930,20 @@ describe('Garbage Collection', function () {
     await c3.sync();
 
     assert.deepEqual(
-      vectorOf([{ c: c1.getID()!, l: 1n }]),
+      vectorOf([{ c: c1.getActorID()!, l: 1n }]),
       d1.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c2.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c2.getActorID()!, l: 2n },
       ]),
       d2.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c3.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c3.getActorID()!, l: 2n },
       ]),
       d3.getVersionVector(),
     );
@@ -1965,22 +1965,22 @@ describe('Garbage Collection', function () {
 
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1001n },
-        { c: c2.getID()!, l: 1000n },
+        { c: c1.getActorID()!, l: 1001n },
+        { c: c2.getActorID()!, l: 1000n },
       ]),
       d1.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 998n },
-        { c: c2.getID()!, l: 1000n },
+        { c: c1.getActorID()!, l: 998n },
+        { c: c2.getActorID()!, l: 1000n },
       ]),
       d2.getVersionVector(),
     );
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 1n },
-        { c: c3.getID()!, l: 2n },
+        { c: c1.getActorID()!, l: 1n },
+        { c: c3.getActorID()!, l: 2n },
       ]),
       d3.getVersionVector(),
     );
@@ -1992,10 +1992,10 @@ describe('Garbage Collection', function () {
     await c3.sync();
     assert.deepEqual(
       vectorOf([
-        { c: c1.getID()!, l: 998n },
-        { c: c2.getID()!, l: 1000n },
+        { c: c1.getActorID()!, l: 998n },
+        { c: c2.getActorID()!, l: 1000n },
         { c: InitialActorID, l: 1002n },
-        { c: c3.getID()!, l: 1003n },
+        { c: c3.getActorID()!, l: 1003n },
       ]),
       d3.getVersionVector(),
     );

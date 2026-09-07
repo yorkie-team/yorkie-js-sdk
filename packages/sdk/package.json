@@ -54,6 +54,7 @@
     "@vitest/coverage-v8": "^4.1.8",
     "axios": "^1.17.0",
     "express": "^5.2.1",
+    "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.9.0",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",

@@ -717,8 +717,8 @@ describe('Document', function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
-    const c1ID = c1.getID()!;
-    let c2ID = c2.getID()!;
+    const c1ID = c1.getActorID()!;
+    let c2ID = c2.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document(docKey);
@@ -776,7 +776,7 @@ describe('Document', function () {
     });
 
     await c2.activate();
-    c2ID = c2.getID()!;
+    c2ID = c2.getActorID()!;
     await c2.attach(d4, { syncMode: SyncMode.Manual });
     await eventCollectorD4.waitAndVerifyNthEvent(1, {
       status: DocStatus.Attached,
@@ -816,8 +816,8 @@ describe('Document', function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
-    const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
+    const c1ID = c1.getActorID()!;
+    const c2ID = c2.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     const d1 = new yorkie.Document(docKey);
@@ -1057,10 +1057,17 @@ describe('Document', function () {
     it('Can handle concurrent attach with InitialRoot', async function ({
       task,
     }) {
-      const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
-      const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+      let c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+      let c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
       await c1.activate();
       await c2.activate();
+      // The concurrent-root conflict is decided by the actor tie-break. With a
+      // stable actor (a hash of the client key) the ordering is not creation
+      // order, so pin c2 as the higher actor to keep it the deterministic
+      // winner this scenario expects.
+      if (c1.getActorID()! > c2.getActorID()!) {
+        [c1, c2] = [c2, c1];
+      }
 
       const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
 
