@@ -855,10 +855,17 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
       const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
 
-      const client1 = new Client({ rpcAddr: testRPCAddr });
-      const client2 = new Client({ rpcAddr: testRPCAddr });
+      let client1 = new Client({ rpcAddr: testRPCAddr });
+      let client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
+      // Concurrent-set conflicts are resolved by the actor tie-break. With a
+      // stable actor (a hash of the client key) the ordering is not creation
+      // order, so pin client2 as the higher actor to keep it the deterministic
+      // winner this scenario expects.
+      if (client1.getActorID()! > client2.getActorID()!) {
+        [client1, client2] = [client2, client1];
+      }
 
       await client1.attach(doc1, { syncMode: SyncMode.Manual });
       await client2.attach(doc2, { syncMode: SyncMode.Manual });
@@ -908,10 +915,17 @@ describe('Object', function () {
       const doc1 = new Document<TestDoc>(docKey, { disableGC: true });
       const doc2 = new Document<TestDoc>(docKey, { disableGC: true });
 
-      const client1 = new Client({ rpcAddr: testRPCAddr });
-      const client2 = new Client({ rpcAddr: testRPCAddr });
+      let client1 = new Client({ rpcAddr: testRPCAddr });
+      let client2 = new Client({ rpcAddr: testRPCAddr });
       await client1.activate();
       await client2.activate();
+      // Concurrent-set conflicts are resolved by the actor tie-break. With a
+      // stable actor (a hash of the client key) the ordering is not creation
+      // order, so pin client2 as the higher actor to keep it the deterministic
+      // winner this scenario expects.
+      if (client1.getActorID()! > client2.getActorID()!) {
+        [client1, client2] = [client2, client1];
+      }
 
       await client1.attach(doc1, { syncMode: SyncMode.Manual });
       await client2.attach(doc2, { syncMode: SyncMode.Manual });

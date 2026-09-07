@@ -40,13 +40,13 @@ describe('DocPresence', function () {
     for (let i = 0; i < DefaultSnapshotThreshold; i++) {
       doc1.update((root, p) => p.set({ key: `${i}` }));
     }
-    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), {
+    assert.deepEqual(doc1.getPresenceForTest(c1.getActorID()!), {
       key: `${DefaultSnapshotThreshold - 1}`,
     });
 
     await c1.sync();
     await c2.sync();
-    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), {
+    assert.deepEqual(doc2.getPresenceForTest(c1.getActorID()!), {
       key: `${DefaultSnapshotThreshold - 1}`,
     });
   });
@@ -73,17 +73,25 @@ describe('DocPresence', function () {
       syncMode: SyncMode.Manual,
     });
 
-    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), { key: 'key1' });
-    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), undefined);
-    assert.deepEqual(doc2.getPresenceForTest(c2.getID()!), { key: 'key2' });
-    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), { key: 'key1' });
+    assert.deepEqual(doc1.getPresenceForTest(c1.getActorID()!), {
+      key: 'key1',
+    });
+    assert.deepEqual(doc1.getPresenceForTest(c2.getActorID()!), undefined);
+    assert.deepEqual(doc2.getPresenceForTest(c2.getActorID()!), {
+      key: 'key2',
+    });
+    assert.deepEqual(doc2.getPresenceForTest(c1.getActorID()!), {
+      key: 'key1',
+    });
 
     await c1.sync();
-    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), { key: 'key2' });
+    assert.deepEqual(doc1.getPresenceForTest(c2.getActorID()!), {
+      key: 'key2',
+    });
 
     await c2.detach(doc2);
     await c1.sync();
-    assert.isFalse(doc1.hasPresence(c2.getID()!));
+    assert.isFalse(doc1.hasPresence(c2.getActorID()!));
   });
 
   it('Should be initialized as an empty object if no initial value is set during attach', async function ({
@@ -103,13 +111,13 @@ describe('DocPresence', function () {
     await c2.attach(doc2, { syncMode: SyncMode.Manual });
 
     const emptyObject = {} as PresenceType;
-    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), emptyObject);
-    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), undefined);
-    assert.deepEqual(doc2.getPresenceForTest(c2.getID()!), emptyObject);
-    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), emptyObject);
+    assert.deepEqual(doc1.getPresenceForTest(c1.getActorID()!), emptyObject);
+    assert.deepEqual(doc1.getPresenceForTest(c2.getActorID()!), undefined);
+    assert.deepEqual(doc2.getPresenceForTest(c2.getActorID()!), emptyObject);
+    assert.deepEqual(doc2.getPresenceForTest(c1.getActorID()!), emptyObject);
 
     await c1.sync();
-    assert.deepEqual(doc1.getPresenceForTest(c2.getID()!), emptyObject);
+    assert.deepEqual(doc1.getPresenceForTest(c2.getActorID()!), emptyObject);
   });
 
   it('Should be synced eventually', async function ({ task }) {
@@ -117,8 +125,8 @@ describe('DocPresence', function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
-    const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
+    const c1ID = c1.getActorID()!;
+    const c2ID = c2.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type EventForTest = Pick<DocEvent, 'type' | 'value'>;
@@ -217,14 +225,14 @@ describe('DocPresence', function () {
     });
 
     doc1.update((root, p) => p.set({ cursor: { x: 1, y: 1 } }));
-    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), {
+    assert.deepEqual(doc1.getPresenceForTest(c1.getActorID()!), {
       key: 'key1',
       cursor: { x: 1, y: 1 },
     });
 
     await c1.sync();
     await c2.sync();
-    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), {
+    assert.deepEqual(doc2.getPresenceForTest(c1.getActorID()!), {
       key: 'key1',
       cursor: { x: 1, y: 1 },
     });
@@ -237,9 +245,9 @@ describe('DocPresence', function () {
     await c1.activate();
     await c2.activate();
     await c3.activate();
-    const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
-    const c3ID = c3.getID()!;
+    const c1ID = c1.getActorID()!;
+    const c2ID = c2.getActorID()!;
+    const c3ID = c3.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { name: string; cursor: { x: number; y: number } };
@@ -323,11 +331,11 @@ describe('DocPresence', function () {
       const counter = p.get('counter');
       p.set({ counter: counter + 1 });
     });
-    assert.deepEqual(doc1.getPresenceForTest(c1.getID()!), { counter: 1 });
+    assert.deepEqual(doc1.getPresenceForTest(c1.getActorID()!), { counter: 1 });
 
     await c1.sync();
     await c2.sync();
-    assert.deepEqual(doc2.getPresenceForTest(c1.getID()!), { counter: 1 });
+    assert.deepEqual(doc2.getPresenceForTest(c1.getActorID()!), { counter: 1 });
   });
 
   it(`Should not be accessible to other clients' presence when the stream is disconnected`, async function ({
@@ -337,7 +345,7 @@ describe('DocPresence', function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
-    const c2ID = c2.getID()!;
+    const c2ID = c2.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type EventForTest = Pick<DocEvent, 'type' | 'value'>;
@@ -385,8 +393,8 @@ describe(`Document.Subscribe('presence')`, function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
-    const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
+    const c1ID = c1.getActorID()!;
+    const c2ID = c2.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type EventForTest = Pick<DocEvent, 'type' | 'value'>;
@@ -442,8 +450,8 @@ describe(`Document.Subscribe('presence')`, function () {
     const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
     await c2.activate();
-    const c1ID = c1.getID()!;
-    const c2ID = c2.getID()!;
+    const c1ID = c1.getActorID()!;
+    const c2ID = c2.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { name: string };
@@ -495,8 +503,8 @@ describe(`Document.Subscribe('presence')`, function () {
     await c1.activate();
     await c2.activate();
     await c3.activate();
-    const c2ID = c2.getID()!;
-    const c3ID = c3.getID()!;
+    const c2ID = c2.getActorID()!;
+    const c3ID = c3.getActorID()!;
 
     const doc1 = new yorkie.Document<object, PresenceType>(docKey);
     await c1.attach(doc1, {
@@ -863,7 +871,7 @@ describe('Undo/Redo', function () {
   }) {
     const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
     await c1.activate();
-    const c1ID = c1.getID()!;
+    const c1ID = c1.getActorID()!;
 
     const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
     type PresenceType = { key: string };
