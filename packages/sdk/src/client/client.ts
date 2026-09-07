@@ -2308,6 +2308,10 @@ export class Client {
     const stream = this.rpcClient.watch(
       {
         clientId: this.id!,
+        // Declare the stable actor so the server keys watch peers and
+        // watched/unwatched events by the same actor stamped into presence
+        // changes. Falls back to the session id against old servers.
+        actorId: this.actorID ?? this.id!,
         resources: [
           {
             resource: {
