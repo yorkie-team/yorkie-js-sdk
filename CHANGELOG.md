@@ -7,6 +7,16 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.20] - 2026-09-09
+
+### Added
+
+- Add offline local persistence (serialize, store, resume, multi-tab) by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1338
+
+### Fixed
+
+- Reject duplicate attach of the same key on one client by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1337
+
 ## [v0.7.19] - 2026-09-03
 
 ### Fixed
