@@ -418,8 +418,8 @@ export class CRDTRoot {
 
     for (const createdAt of this.gcElementSetByCreatedAt) {
       seen.add(createdAt);
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
-      if (pair.element instanceof CRDTContainer) {
+      const pair = this.elementPairMapByCreatedAt.get(createdAt);
+      if (pair?.element instanceof CRDTContainer) {
         pair.element.getDescendants((el) => {
           seen.add(el.getCreatedAt().toIDString());
           return false;
@@ -464,11 +464,27 @@ export class CRDTRoot {
     let count = 0;
 
     for (const createdAt of this.gcElementSetByCreatedAt) {
-      const pair = this.elementPairMapByCreatedAt.get(createdAt)!;
+      // NOTE(hackerwins): Neither lookup is guaranteed to hit. A document
+      // written by an SDK that registered an element without its parent, or
+      // that left two elements under one createdAt, holds a member of this set
+      // that cannot be reached for purging. Dereferencing either one throws
+      // inside `applyChangePack`, and because that is where every sync applies
+      // the server's change pack, the same pass throws again on the next sync:
+      // the client stops syncing the document for good (#1340).
+      //
+      // Skip it rather than drop it. The element is still in the document and
+      // its size is still charged to `docSize.gc`, which only
+      // `deregisterElement` releases; forgetting the member would leave that
+      // charge counted against the size limit with nothing left reporting it
+      // as garbage. `getGCElementPairs` already guards the same lookup.
+      const pair = this.elementPairMapByCreatedAt.get(createdAt);
+      if (!pair || !pair.parent) {
+        continue;
+      }
       const removedAt = pair.element.getRemovedAt();
 
       if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
-        pair.parent!.purge(pair.element);
+        pair.parent.purge(pair.element);
         count += this.deregisterElement(pair.element);
       }
     }
