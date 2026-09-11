@@ -99,7 +99,17 @@ deregister is no longer gated on the source.
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The guard hides a future occurrence instead of surfacing it | The invariant is pinned directly by `test/unit/document/gc_containment_test.ts`, which fails on duplication rather than on the crash it eventually causes |
 | Registering the displaced element changes collection counts | Measured: content is unchanged at every step, and the counts an existing test asserted were the leak rather than a property                               |
-| The unconditional deregister fires where it did not before  | An ordinary set carries a freshly issued `createdAt`, so the lookup misses. It can hit only under duplicate application, which the server prevents        |
+| The unconditional deregister fires where it did not before  | An ordinary set carries a freshly issued `createdAt`, so the lookup normally misses. It hits under duplicate application, which the checkpoint does not rule out (see below); there the deregister is the better of the two, since the gated version left the earlier copy's descendants registered forever |
+
+The checkpoint prevents a change being *stored* twice, not applied twice.
+`pushPack` skips a change whose `clientSeq` the checkpoint already covers, but
+it filters the list it stores — `reqPack.Changes` is left intact, and
+`pullSnapshot` applies that raw list on a document built for a `serverSeq` that
+already includes them. A pack retried after a lost response therefore replays
+its own changes, and `applyChanges` has no version-vector deduplication. That is
+a defect in its own right, filed in the Go repository as
+`20260911-duplicate-change-application-not-idempotent-todo.md`; it is not
+introduced or worsened here.
 
 ### Design Decisions
 
