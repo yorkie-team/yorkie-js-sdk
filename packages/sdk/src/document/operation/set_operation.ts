@@ -102,11 +102,23 @@ export class SetOperation extends Operation {
     // the ones about to be registered, so passing it would charge the wrong
     // size against gc and leave the stale element's own descendants registered
     // forever.
-    if (source === OpSource.UndoRedo) {
-      const registered = root.findByCreatedAt(value.getCreatedAt());
-      if (registered) {
-        root.deregisterElement(registered);
-      }
+    //
+    // NOTE(hackerwins): This is not conditional on the source. The undo is
+    // generated on one replica and executed on all of them -- peers apply it
+    // with `OpSource.Remote`, and the Go server replays it to build a snapshot
+    // -- and every one of them has the same stale entry to clear. Gating it on
+    // `OpSource.UndoRedo` left the removal's member in
+    // `gcElementSetByCreatedAt` on every replica but the one that undid, where
+    // it resolves to the restored element, whose `removedAt` is undefined, so
+    // collection skips it forever: garbage that is reported and never taken.
+    // The Go SDK gates the same call and loses the member outright there; see
+    // yorkie#1978.
+    //
+    // An ordinary set carries a freshly issued createdAt, so the lookup
+    // normally misses and costs one map read.
+    const registered = root.findByCreatedAt(value.getCreatedAt());
+    if (registered) {
+      root.deregisterElement(registered);
     }
     root.registerElement(value, obj);
     if (removed) {
