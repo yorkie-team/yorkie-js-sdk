@@ -77,11 +77,29 @@ export class ArraySetOperation extends Operation {
 
     const value = this.value.deepcopy();
     parentObject.insertAfter(this.createdAt, value, this.getExecutedAt());
-    parentObject.delete(this.createdAt, this.getExecutedAt());
+    const removed = parentObject.delete(this.createdAt, this.getExecutedAt());
 
-    // TODO(junseo): GC logic is not implemented here
-    // because there is no way to distinguish between old and new element with same `createdAt`.
-    root.registerElement(value);
+    // NOTE(hackerwins): The parent has to be passed. `garbageCollect` reaches
+    // an element through the pair registered here and calls `purge` on its
+    // parent, so a value registered without one cannot be collected -- it
+    // throws there instead, inside `applyChangePack`, and that client stops
+    // syncing for good. No undo is involved: setting an array element, then
+    // removing it, then collecting is enough.
+    root.registerElement(value, parentObject);
+
+    // NOTE(hackerwins): The element this assignment displaced has to be
+    // registered for collection. Discarding it left it charged to
+    // `docSize.live` with nothing able to reach it, so an ordinary
+    // `arr[i] = x` in a loop grew the document without bound and collection
+    // reported nothing to do.
+    //
+    // The old TODO here said the two could not be told apart because they
+    // share a createdAt. They do not: `this.createdAt` names the element being
+    // displaced and `value` carries its own identity. That stopped being true
+    // when `set` became insert-then-remove rather than an in-place swap.
+    if (removed) {
+      root.registerRemovedElement(removed);
+    }
 
     return {
       opInfos: [

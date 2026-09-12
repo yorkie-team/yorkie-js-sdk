@@ -727,8 +727,18 @@ export class ArrayProxy {
       ),
     );
 
-    target.set(createdAt, element, ticket);
+    const removed = target.set(createdAt, element, ticket);
     context.registerElement(element, target);
+
+    // NOTE(hackerwins): The displaced element has to be registered here too,
+    // not only in `ArraySetOperation.execute`. This path runs against the
+    // clone the updater is given, so leaving it out makes the clone's
+    // accounting drift from the document the operation is replayed on.
+    // `json/object.ts`'s `setInternal` registers the value it replaces the
+    // same way.
+    if (removed) {
+      context.registerRemovedElement(removed);
+    }
 
     return element;
   }

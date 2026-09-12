@@ -554,6 +554,13 @@ export class RGATreeList implements GCParent {
       );
     }
 
+    // Same guard as `ElementRHT.purge`: releasing the position node of an entry
+    // that now holds a different element would unlink a live one on a
+    // tombstone's behalf. A genuinely missing entry still throws above.
+    if (entry.elem !== element) {
+      return;
+    }
+
     const node = entry.positionNode;
     this.elementMapByCreatedAt.delete(element.getCreatedAt().toIDString());
     this.release(node);
