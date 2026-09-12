@@ -155,6 +155,19 @@ export class ElementRHT {
       );
     }
 
+    // The slot names a creation time, not an element. Undo of a remove
+    // re-inserts a copy under the original createdAt and `set` re-points this
+    // map at it, so unlinking whatever the key answers with would delete a live
+    // member on a tombstone's behalf. The tombstone is already off both maps by
+    // then, so there is nothing left to unlink.
+    //
+    // A genuinely missing key still throws above: that is a mis-registration
+    // worth reporting, and this guard is only about a slot that has been taken
+    // over.
+    if (node.getValue() !== element) {
+      return;
+    }
+
     const nodeByKey = this.nodeMapByKey.get(node.getStrKey());
     if (node === nodeByKey) {
       this.nodeMapByKey.delete(nodeByKey.getStrKey());

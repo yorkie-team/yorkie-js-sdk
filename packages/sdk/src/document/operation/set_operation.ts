@@ -97,29 +97,35 @@ export class SetOperation extends Operation {
     // during undo/redo, it's essential to handle previously tombstoned elements.
     // In non-GC languages, there may be a need to execute both deregister and purge.
     //
-    // NOTE(hackerwins): It has to be the registered element that is
-    // deregistered, not the incoming copy: the copy's size and descendants are
-    // the ones about to be registered, so passing it would charge the wrong
-    // size against gc and leave the stale element's own descendants registered
-    // forever.
+    // NOTE(hackerwins): A set can restore an element under a createdAt that a
+    // tombstone already answers to -- undoing a remove re-inserts the removed
+    // element under its original identity, and `obj.set` above has just handed
+    // that identity to the restored copy in the object's `nodeMapByCreatedAt`.
     //
-    // NOTE(hackerwins): This is not conditional on the source. The undo is
-    // generated on one replica and executed on all of them -- peers apply it
-    // with `OpSource.Remote`, and the Go server replays it to build a snapshot
-    // -- and every one of them has the same stale entry to clear. Gating it on
-    // `OpSource.UndoRedo` left the removal's member in
-    // `gcElementSetByCreatedAt` on every replica but the one that undid, where
-    // it resolves to the restored element, whose `removedAt` is undefined, so
-    // collection skips it forever: garbage that is reported and never taken.
-    // The Go SDK gates the same call and loses the member outright there; see
-    // yorkie#1978.
+    // The entry that has to follow is the one in `gcElementSetByCreatedAt`.
+    // Collection resolves it through the index that was just re-pointed, so
+    // leaving it makes the next pass reach live data.
+    //
+    // Retiring that entry is the whole job, so retire only that entry. The
+    // tombstone's other registrations are deliberately left alone: its
+    // descendant set can be a strict superset of the restored copy's, since a
+    // peer may have added a child into the container after the undoing replica
+    // took its copy, and tearing the subtree out of
+    // `elementPairMapByCreatedAt` would take those extra descendants with it,
+    // with nothing to put them back -- so a later change addressed at one of
+    // them throws inside `applyChangePack`. See
+    // `CRDTRoot.unregisterRemovedElementPair`.
+    //
+    // This is a condition on the state of the tree, not on who is applying:
+    // peers apply the undo with `OpSource.Remote`, and the Go server replays
+    // it to build a snapshot, and every one of them has the same stale entry.
+    // Gating it on `OpSource.UndoRedo` spared only the replica that performed
+    // the undo; the Go SDK gates the same call and loses the member outright
+    // there, which is the data loss yorkie#1978 fixes alongside this.
     //
     // An ordinary set carries a freshly issued createdAt, so the lookup
     // normally misses and costs one map read.
-    const registered = root.findByCreatedAt(value.getCreatedAt());
-    if (registered) {
-      root.deregisterElement(registered);
-    }
+    root.unregisterRemovedElementPair(value.getCreatedAt());
     root.registerElement(value, obj);
     if (removed) {
       root.registerRemovedElement(removed);
