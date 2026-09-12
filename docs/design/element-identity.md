@@ -85,13 +85,41 @@ given, and dropped the displaced element too, so the clone's accounting drifted
 from the document the operation is replayed on. `json/object.ts` already
 registered the value it replaces.
 
-### Clear a reused identity wherever the operation is applied
+### Retire a reused identity wherever the operation is applied — and only that
 
 Whether a `Set` is restoring an element under an already-registered `createdAt`
 is a property of the tree, not of who is applying the operation. The undo is
 generated on one replica and executed on all of them — peers apply it with
 `OpSource.Remote`, and the Go server replays it to build a snapshot — so the
-deregister is no longer gated on the source.
+retirement is no longer gated on the source.
+
+What it retires is one entry. `deregisterElement` was the wrong instrument: it
+walks the tombstone's descendants, and the tombstone's descendant set can be a
+strict superset of the restored copy's, because a peer may have added a member
+into the container after the undoing replica took the copy its reverse carries.
+Those extra members lose their `elementPairMapByCreatedAt` entries with nothing
+to put them back, and the next change addressed at one of them throws `fail to
+find` inside `applyChangePack` — the same permanent desync as [#1340], reached
+on a replica that never performed an undo.
+
+`unregisterRemovedElementPair` drops the one `gcElementSetByCreatedAt` member
+that collection would have resolved onto live data, releases the charge the
+orphaned subtree holds, and leaves the identity index alone.
+
+### Delete index entries by identity, not by key
+
+The general statement of the same defect. `deregisterElement` deleted
+`elementPairMapByCreatedAt[createdAt]` outright, and an undone array assignment
+restores descendants under their original `createdAt`s — only the top level is
+re-ticketed — so collecting the tombstone deleted entries that answer for live
+elements. The deletes now fire only when the slot still holds the element being
+retired.
+
+`sizeInGC` records which element a charge is held for, so a size can no longer
+be taken out of `docSize.live` that live was not holding. `ElementRHT.purge` and
+`RGATreeList.purge` get the matching guard; neither is reachable under this
+ordering today, and they are what keeps the identity work from having to be
+rediscovered when revive lands.
 
 ### Risks and Mitigation
 
@@ -99,7 +127,8 @@ deregister is no longer gated on the source.
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The guard hides a future occurrence instead of surfacing it | The invariant is pinned directly by `test/unit/document/gc_containment_test.ts`, which fails on duplication rather than on the crash it eventually causes |
 | Registering the displaced element changes collection counts | Measured: content is unchanged at every step, and the counts an existing test asserted were the leak rather than a property                               |
-| The unconditional deregister fires where it did not before  | An ordinary set carries a freshly issued `createdAt`, so the lookup normally misses. It hits under duplicate application, which the checkpoint does not rule out (see below); there the deregister is the better of the two, since the gated version left the earlier copy's descendants registered forever |
+| The ungated retirement fires where it did not before | An ordinary set carries a freshly issued `createdAt`, so the worklist lookup misses. It hits under duplicate application, which the checkpoint does not rule out (see below) — and there retiring one entry is the safe direction, unlike the subtree deregister this replaced |
+| An identity guard silently skips a delete that should have happened | The element that owns the slot clears it when its own turn comes, so nothing is stranded that was reachable. What is deliberately retained is the abandoned tombstone's registration — memory, not `docSize`, and it is what keeps the change log replayable |
 
 The checkpoint prevents a change being *stored* twice, not applied twice.
 `pushPack` skips a change whose `clientSeq` the checkpoint already covers, but
@@ -117,7 +146,9 @@ introduced or worsened here.
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Skip rather than drop an unresolvable member | Dropping releases nothing and leaves the charge unreported                                     |
 | Fix the local path as well as the operation  | The clone is what the updater sees and what the size limit is checked against                  |
-| Ship with the Go change, not before it       | Both SDKs gate the same deregister; one-sided, the SDKs disagree about what a peer's undo does |
+| Ship with the Go change, not before it       | Both SDKs gate the same retirement; one-sided, the SDKs disagree about what a peer's undo does |
+| Retire one worklist entry, not the subtree   | The subtree is not the unit that went stale. Deregistering it evicts members the restored copy never carried, and a change addressed at one of them then throws — on the server's replay too, which makes the stored change log unreplayable |
+| Keep the abandoned tombstone registered      | Its registration is what the peer's later change resolves through. Retaining it costs memory and nothing in `docSize`, which `release` settles at retirement time |
 
 ## Alternatives Considered
 

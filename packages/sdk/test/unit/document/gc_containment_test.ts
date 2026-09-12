@@ -223,3 +223,142 @@ describe('Garbage collection containment', () => {
     assert.equal(doc.toSortedJSON(), '{"items":[]}');
   });
 });
+
+/**
+ * `broadcast` is `deliver` for more than one receiver. The ack has to happen
+ * once, after every receiver has the pack: it clears the sender's local
+ * changes, so acking per receiver would leave the second one with nothing.
+ */
+function broadcast<T>(from: Document<T>, ...tos: Array<Document<T>>): void {
+  const pack = from.createChangePack();
+  const changes = pack.getChanges();
+  for (const to of tos) {
+    to.applyChangePack(
+      ChangePack.create(
+        pack.getDocumentKey(),
+        Checkpoint.of(0n, 0),
+        false,
+        changes,
+        InitialVersionVector,
+      ),
+    );
+  }
+  const lastSeq = changes.length
+    ? changes[changes.length - 1].getID().getClientSeq()
+    : 0;
+  from.applyChangePack(
+    ChangePack.create(
+      pack.getDocumentKey(),
+      Checkpoint.of(0n, lastSeq),
+      false,
+      [],
+      InitialVersionVector,
+    ),
+  );
+}
+
+describe('Restoring a container', function () {
+  /**
+   * The reverse of a remove is a set of `value.deepcopy()`, taken when the
+   * removal was recorded. A peer that added a member into the container after
+   * that copy was taken has a tombstone whose descendant set is a strict
+   * superset of the copy's. Retiring the tombstone by deregistering it and its
+   * descendants evicts those extra members from `elementPairMapByCreatedAt`,
+   * and nothing puts them back -- so the next change addressed at one of them
+   * throws `fail to find` inside `applyChangePack`, which is the permanent
+   * desync this release exists to stop.
+   *
+   * It is not confined to the replica it happens on: the Go server rebuilds
+   * documents and snapshots by replaying the stored change log, so a change
+   * that cannot apply makes the document unloadable for everyone.
+   *
+   * This does not assert convergence. The restored container still diverges --
+   * the copy never held the peer's member, so the edit lands on an orphaned
+   * subtree and is invisible. That is the identity-preserving revive work this
+   * release defers. What must hold is narrower: the change log stays
+   * replayable.
+   */
+  it('keeps a member a peer added into it addressable', function () {
+    const d1 = new Document<any>('restore-foreign');
+    const d2 = new Document<any>('restore-foreign');
+    const d3 = new Document<any>('restore-foreign');
+
+    d1.update((r) => {
+      r.obj = { k: 1 };
+    });
+    broadcast(d1, d2, d3);
+
+    // d2 adds a member inside obj. d1 never sees it, so the copy its undo
+    // carries will not contain it.
+    d2.update((r) => {
+      r.obj.n = { y: 1 };
+    });
+    broadcast(d2, d3);
+
+    d1.update((r) => {
+      delete r.obj;
+    }, 'remove obj');
+    d1.history.undo();
+    deliver(d1, d3);
+
+    // d2, which has not seen the removal, edits the member it added.
+    d2.update((r) => {
+      r.obj.n.x = 5;
+    });
+    const pack = d2.createChangePack();
+
+    let thrown: unknown;
+    try {
+      d3.applyChangePack(
+        ChangePack.create(
+          pack.getDocumentKey(),
+          Checkpoint.of(0n, 0),
+          false,
+          pack.getChanges(),
+          InitialVersionVector,
+        ),
+      );
+    } catch (e) {
+      thrown = e;
+    }
+    assert.isUndefined(
+      thrown,
+      `the peer's change no longer applies, so the change log is unreplayable: ${thrown}`,
+    );
+  });
+
+  /**
+   * Each cycle leaves another tombstone answering to the same createdAt.
+   * Collection that resolves an entry through a createdAt-keyed index rather
+   * than through the element it was registered for will, on a later pass,
+   * unlink a live member on a dead one's behalf or fail to find the node at
+   * all -- and a throw inside `garbageCollect` inside `applyChangePack` is
+   * exactly #1340.
+   */
+  it('survives being restored and removed repeatedly', function () {
+    const doc = new Document<any>('restore-repeat');
+    doc.update((r) => {
+      r.o = { k: 1 };
+    });
+
+    for (let i = 0; i < 3; i++) {
+      doc.update((r) => {
+        delete r.o;
+      }, 'remove o');
+      doc.history.undo();
+    }
+    doc.update((r) => {
+      delete r.o;
+    }, 'remove o');
+
+    let thrown: unknown;
+    try {
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+    } catch (e) {
+      thrown = e;
+    }
+    assert.isUndefined(thrown, `collection threw: ${thrown}`);
+    assert.equal(doc.toSortedJSON(), '{}');
+    assert.equal(doc.getGarbageLen(), 0);
+  });
+});
