@@ -7,6 +7,12 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.21] - 2026-09-13
+
+### Fixed
+
+- Keep a client syncing when a restore duplicates an element identity, and stop `arr[i] = x` from growing the document without bound by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1341
+
 ## [v0.7.20] - 2026-09-09
 
 ### Added
