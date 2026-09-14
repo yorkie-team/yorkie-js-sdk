@@ -175,19 +175,27 @@ export function YorkieSourceProvider({ children }: Props) {
     [docKeys, selectDocument],
   );
 
+  // NOTE(hackerwins): Every provider value below is rebuilt whenever this
+  // component renders, and a notification arrives on its own state update. An
+  // inline object would therefore repaint History, Document and Presence on
+  // every notification, even while the list is collapsed.
+  const eventsForReplay = useMemo(
+    () => ({
+      events: docEventsForReplay,
+      syncGeneration,
+      hidePresenceEvents,
+      setHidePresenceEvents,
+    }),
+    [docEventsForReplay, syncGeneration, hidePresenceEvents],
+  );
+  const yorkieDoc = useMemo(() => [doc, setDoc], [doc]);
+
   return (
     <DocKeyContext.Provider value={currentDocKey}>
       <DocListContext.Provider value={docList}>
-        <DocEventsForReplayContext.Provider
-          value={{
-            events: docEventsForReplay,
-            syncGeneration,
-            hidePresenceEvents,
-            setHidePresenceEvents,
-          }}
-        >
+        <DocEventsForReplayContext.Provider value={eventsForReplay}>
           <DocNotificationsContext.Provider value={docNotifications}>
-            <YorkieDocContext.Provider value={[doc, setDoc]}>
+            <YorkieDocContext.Provider value={yorkieDoc}>
               {children}
             </YorkieDocContext.Provider>
           </DocNotificationsContext.Provider>

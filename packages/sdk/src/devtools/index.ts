@@ -21,9 +21,11 @@ import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 import {
   DocEventsForReplay,
   DocNotification,
+  DocNotificationEvent,
   isDocEventForReplay,
   isDocNotificationEvent,
 } from './types';
+import { DocEventType } from '@yorkie-js/sdk/src/document/document';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
 
@@ -86,6 +88,53 @@ if (typeof window !== 'undefined') {
  * panel's time travel is an index over the replay list.
  */
 const docNotificationsByDocKey = new Map<string, Array<DocNotification>>();
+
+/**
+ * `isRepeatableStatus` reports whether the type describes a state the document
+ * is in, rather than something that happened to it. The sync loop republishes
+ * these on every round it runs, so only a change of value is worth recording.
+ *
+ * NOTE(hackerwins): This reads `DocEventType` lazily. `document.ts` imports
+ * this module, so the enum is still uninitialized while this one is evaluated.
+ */
+function isRepeatableStatus(type: DocEventType): boolean {
+  return (
+    type === DocEventType.SyncStatusChanged ||
+    type === DocEventType.ConnectionChanged
+  );
+}
+
+/**
+ * `isStatusRepeat` reports whether the given event restates the value already
+ * held by the most recent record of the same type. Without this a typing
+ * session records one `sync-status-changed` per sync round and buries every
+ * other notification, including the data-loss ones.
+ */
+function isStatusRepeat(
+  docKey: string,
+  event: DocNotificationEvent,
+  pending: Array<DocNotification>,
+): boolean {
+  if (!isRepeatableStatus(event.type)) {
+    return false;
+  }
+
+  const recorded = docNotificationsByDocKey.get(docKey) || [];
+  for (let i = pending.length - 1; i >= 0; i--) {
+    const previous = pending[i].event;
+    if (previous.type === event.type) {
+      return previous.value === event.value;
+    }
+  }
+  for (let i = recorded.length - 1; i >= 0; i--) {
+    const previous = recorded[i].event;
+    if (previous.type === event.type) {
+      return previous.value === event.value;
+    }
+  }
+
+  return false;
+}
 
 /**
  * `sendToPanel` sends a message to the devtools panel.
@@ -156,6 +205,9 @@ export function setupDevtools<T, P extends Indexable>(
       if (isDocEventForReplay(event)) {
         eventsForReplay.push(event);
       } else if (isDocNotificationEvent(event)) {
+        if (isStatusRepeat(doc.getKey(), event, notifications)) {
+          continue;
+        }
         notifications.push({ event, timestamp: Date.now() });
       }
     }

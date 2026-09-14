@@ -20,6 +20,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import {
   DocEventType,
+  DocSyncStatus,
   type DocEvent,
 } from '@yorkie-js/sdk/src/document/document';
 import {
@@ -298,6 +299,36 @@ describe('Devtools bridge with multiple documents', () => {
     ]);
     // NOTE(hackerwins): Only the subscribed document answers.
     expect(notificationsOf('doc::notification::full', keyB)).toEqual([]);
+  });
+
+  it('records status transitions rather than every restatement', async () => {
+    const key = 'devtools-status-repeat-a';
+    const doc = newDoc(key);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+
+    captured.length = 0;
+    // NOTE(hackerwins): The sync loop republishes `Synced` on every round it
+    // runs, which is every 50ms while a document has changes to push.
+    const syncStatus = (value: DocSyncStatus) =>
+      doc.publish([{ type: DocEventType.SyncStatusChanged, value }]);
+    syncStatus(DocSyncStatus.Synced);
+    syncStatus(DocSyncStatus.Synced);
+    syncStatus(DocSyncStatus.Synced);
+    syncStatus(DocSyncStatus.SyncFailed);
+    syncStatus(DocSyncStatus.Synced);
+    await flush();
+
+    const values = notificationsOf('doc::notification::partial', key).map(
+      (m) => m.notification.event.value,
+    );
+    expect(values).toEqual([
+      DocSyncStatus.Synced,
+      DocSyncStatus.SyncFailed,
+      DocSyncStatus.Synced,
+    ]);
   });
 
   it('asks the panel to refresh when no panel is connected', async () => {
