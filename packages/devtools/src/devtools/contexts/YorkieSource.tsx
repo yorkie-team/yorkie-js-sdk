@@ -37,6 +37,11 @@ const DocListContext = createContext<{
 const YorkieDocContext = createContext(null);
 const DocEventsForReplayContext = createContext<{
   events: Array<Devtools.DocEventsForReplay>;
+  // `syncGeneration` counts the times the event list was REPLACED rather than
+  // appended to. Consumers that cache something derived from the whole list
+  // watch this instead of the list itself, so a partial sync does not make
+  // them recompute.
+  syncGeneration: number;
   hidePresenceEvents: boolean;
   setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
 }>(null);
@@ -61,6 +66,7 @@ export function YorkieSourceProvider({ children }: Props) {
   const [docEventsForReplay, setDocEventsForReplay] = useState<
     Array<Devtools.DocEventsForReplay>
   >([]);
+  const [syncGeneration, setSyncGeneration] = useState(0);
 
   // filter out presence events
   const [hidePresenceEvents, setHidePresenceEvents] = useState(false);
@@ -114,6 +120,7 @@ export function YorkieSourceProvider({ children }: Props) {
           // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
           if (message.events === undefined) break;
           setDocEventsForReplay(message.events);
+          setSyncGeneration((generation) => generation + 1);
           break;
         case 'doc::sync::partial':
           if (message.docKey !== currentDocKeyRef.current) break;
@@ -156,6 +163,7 @@ export function YorkieSourceProvider({ children }: Props) {
         <DocEventsForReplayContext.Provider
           value={{
             events: docEventsForReplay,
+            syncGeneration,
             hidePresenceEvents,
             setHidePresenceEvents,
           }}
@@ -257,9 +265,8 @@ export const getDocEventsScope = (
  * @returns An object containing the original events, filtered events, and methods to control filtering.
  */
 export function useDocEventsForReplay() {
-  const { events, hidePresenceEvents, setHidePresenceEvents } = useContext(
-    DocEventsForReplayContext,
-  );
+  const { events, syncGeneration, hidePresenceEvents, setHidePresenceEvents } =
+    useContext(DocEventsForReplayContext);
 
   if (events === undefined) {
     throw new YorkieError(
@@ -290,6 +297,7 @@ export function useDocEventsForReplay() {
   return {
     originalEvents: enhancedEvents,
     presenceFilteredEvents,
+    syncGeneration,
     hidePresenceEvents,
     setHidePresenceEvents,
   };

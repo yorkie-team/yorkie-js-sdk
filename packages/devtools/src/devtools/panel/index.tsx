@@ -33,8 +33,12 @@ import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const { originalEvents, presenceFilteredEvents, hidePresenceEvents } =
-    useDocEventsForReplay();
+  const {
+    originalEvents,
+    presenceFilteredEvents,
+    syncGeneration,
+    hidePresenceEvents,
+  } = useDocEventsForReplay();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -74,7 +78,15 @@ const Panel = () => {
       return;
     }
 
-    if (selectedEventIndexInfo.isLast) {
+    // NOTE(hackerwins): A re-announced document replaces the list with its own,
+    // which can be shorter than the position the user is holding. Follow the
+    // tail when the user was on it, and otherwise keep their position unless
+    // the new list no longer reaches it.
+    if (
+      selectedEventIndexInfo.isLast ||
+      selectedEventIndexInfo.index === null ||
+      selectedEventIndexInfo.index > events.length - 1
+    ) {
       setSelectedEventIndexInfo({
         index: events.length - 1,
         isLast: true,
@@ -108,7 +120,13 @@ const Panel = () => {
 
     setDoc(doc);
     setSelectedEvent(events[selectedEventIndexInfo.index]?.event || []);
-  }, [selectedEventIndexInfo]);
+    // NOTE(hackerwins): `syncGeneration` belongs in the dependencies. When a
+    // re-announced document answers with a new list and the held index stays
+    // valid, this effect is the only thing that rebuilds the replayed document;
+    // without it the panel keeps rendering the previous instance's tree. It
+    // counts replacements rather than watching the list, so an appended event
+    // does not re-run a full replay while the user is holding a past position.
+  }, [selectedEventIndexInfo, syncGeneration]);
 
   if (!currentDocKey) {
     return (
