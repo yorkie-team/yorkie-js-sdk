@@ -68,6 +68,26 @@ occupant's `positionedAt`. This mirrors `ElementRHT.SetWithExecutedAt` in
 - [x] `eslint --max-warnings=0` on the changed files.
 - [ ] Integration suite against a local server.
 
+## Verified end to end
+
+Against a real `yorkieteam/yorkie:latest` server, with the project created
+at `--snapshot-threshold 1 --snapshot-interval 1` so the decode path is
+actually exercised (with a handful of changes the server sends the change
+history instead, and applying operations in causal order never reaches it).
+A writer client does `set; set; undo` and syncs; then 12 independent clients
+attach and read the key back.
+
+| server | SDK | reads that saw the key |
+| --- | --- | --- |
+| `yorkie:latest` | 0.7.21 as published | 6/12, 11/12, 0/12 |
+| `yorkie:latest` | this branch | 12/12 x5 |
+| the matching `yorkie` branch | 0.7.21 as published | 12/12 x3 |
+
+Row 1 is the reported symptom — three fresh documents, identical writes, the
+key present on some reads and absent on others. Row 2 is this fix standing
+alone against an unchanged server, which is what matters: a deployed client
+cannot choose its server's version.
+
 ## Notes
 
 - The `removed` element this method returns feeds
