@@ -75,5 +75,14 @@ jobs:
           pnpm schema build
           pnpm schema test
 
+      - name: Build and Typecheck Devtools
+        env:
+          # Parcel's thread worker backend is unreliable on CI runners; the
+          # publish workflow pins the process backend for the same build.
+          PARCEL_WORKER_BACKEND: process
+        run: |
+          pnpm devtools build
+          pnpm devtools typecheck
+
       - name: Run benchmark
         run: pnpm sdk test:bench
