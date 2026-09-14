@@ -87,8 +87,9 @@ export class ElementRHT {
   }
 
   /**
-   * `set` sets the value of the given key. If there is an existing value, it
-   * is removed.
+   * `set` sets the value of the given key. An existing occupant is removed
+   * only when the incoming value wins the LWW comparison; when it loses, the
+   * occupant stays and the incoming value is marked removed instead.
    *
    * Both the win/lose decision and the eviction of the previous occupant are
    * anchored on the occupant's `positionedAt` (its `movedAt`, falling back to
