@@ -30,9 +30,14 @@ jobs:
       # maintainer bumps by hand, so missing it is the likely mistake.
       - name: Verify the devtools version matches the release 🔍
         if: ${{ github.event_name == 'release' }}
+        # The tag is attacker-influenced data, so it reaches the shell through
+        # the environment. Expanding it into the script would let a crafted tag
+        # close the assignment and run commands.
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           version=$(node -p "require('./packages/devtools/package.json').version")
-          tag="${{ github.event.release.tag_name }}"
+          tag="$RELEASE_TAG"
           if [ "v$version" != "$tag" ]; then
             echo "packages/devtools/package.json is at $version, release is $tag." >&2
             echo "Bump it in the release PR; see MAINTAINING.md step 1." >&2
