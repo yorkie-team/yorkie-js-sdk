@@ -102,6 +102,12 @@ export class ElementRHT {
    * dropped without being registered as removed, and `get` reports the key as
    * absent although no operation ever removed it.
    *
+   * The inner `node.remove(executedAt)` gate is therefore redundant once the
+   * eviction sits inside the winner branch — that branch already guarantees
+   * `executedAt > positionedAt >= createdAt`, which is what
+   * `CRDTElement.remove` checks. It is kept so this reads as the mirror of Go
+   * that it is.
+   *
    * That made rebuilding an object from a snapshot depend on the order its
    * members happened to arrive in — see
    * `test/unit/document/crdt/element_rht_order_test.ts`, and

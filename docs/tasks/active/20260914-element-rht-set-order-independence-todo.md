@@ -93,6 +93,16 @@ key present on some reads and absent on others. Row 2 is this fix standing
 alone against an unchanged server, which is what matters: a deployed client
 cannot choose its server's version.
 
+## Already-damaged documents
+
+Nothing needs migrating, and an affected document reads correctly again the
+moment a client takes this fix. The server's state was never wrong: Go's
+`SetWithExecutedAt` has always anchored both checks on `PositionedAt`, so
+what it stored and what it encoded were both correct, and the damage existed
+only in this SDK's decode of a correct snapshot. Nor did a damaged read emit
+anything: a client that read `{}` and then wrote the key again would issue an
+ordinary `Set` under a fresh `createdAt`, which converges normally.
+
 ## Notes
 
 - The `removed` element this method returns feeds
