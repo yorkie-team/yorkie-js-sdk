@@ -66,7 +66,12 @@ occupant's `positionedAt`. This mirrors `ElementRHT.SetWithExecutedAt` in
 - [x] Anchor the eviction on `positionedAt` in `ElementRHT.set`.
 - [x] Unit suite: 44 files, 416 passed.
 - [x] `eslint --max-warnings=0` on the changed files.
-- [ ] Integration suite against a local server.
+- [x] Integration suite against a local `yorkie:latest`: 34 of 35 files
+      pass, 2578 tests. The one failure is `webhook_test.ts` (9 tests), which
+      binds a local HTTP server the Yorkie container has to call back into;
+      it fails identically on `origin/main` in the same environment, so it is
+      the ad-hoc `docker run` missing the compose file's
+      `extra_hosts: host.docker.internal`, not this change.
 
 ## Verified end to end
 
