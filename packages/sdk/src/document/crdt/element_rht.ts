@@ -87,7 +87,33 @@ export class ElementRHT {
   }
 
   /**
-   * `set` sets the value of the given key.
+   * `set` sets the value of the given key. An existing occupant is removed
+   * only when the incoming value wins the LWW comparison; when it loses, the
+   * occupant stays and the incoming value is marked removed instead.
+   *
+   * Both the win/lose decision and the eviction of the previous occupant are
+   * anchored on the occupant's `positionedAt` (its `movedAt`, falling back to
+   * its `createdAt`). Anchoring them on different tickets lets them disagree:
+   * `CRDTElement.remove` gates on the raw `createdAt`, so for an occupant
+   * whose `createdAt < executedAt < positionedAt` — which is what an undo/redo
+   * restore produces, since it re-places the original element under a fresh
+   * ticket — the eviction fires and tombstones the occupant, while the winner
+   * check decides the incoming value must NOT replace it. The occupant is then
+   * tombstoned but still linked as the key's value, the incoming value is
+   * dropped without being registered as removed, and `get` reports the key as
+   * absent although no operation ever removed it.
+   *
+   * The inner `node.remove(executedAt)` gate is therefore redundant once the
+   * eviction sits inside the winner branch — that branch already guarantees
+   * `executedAt > positionedAt >= createdAt`, which is what
+   * `CRDTElement.remove` checks. It is kept so this reads as the mirror of Go
+   * that it is.
+   *
+   * That made rebuilding an object from a snapshot depend on the order its
+   * members happened to arrive in — see
+   * `test/unit/document/crdt/element_rht_order_test.ts`, and
+   * `ElementRHT.SetWithExecutedAt` in `yorkie/pkg/document/crdt/element_rht.go`,
+   * whose anchoring this now mirrors.
    */
   public set(
     key: string,
@@ -96,13 +122,13 @@ export class ElementRHT {
   ): CRDTElement | undefined {
     let removed;
     const node = this.nodeMapByKey.get(key);
-    if (!!node && !node.isRemoved() && node.remove(executedAt)) {
-      removed = node.getValue();
-    }
 
     const newNode = ElementRHTNode.of(key, value);
     this.nodeMapByCreatedAt.set(value.getCreatedAt().toIDString(), newNode);
     if (!node || executedAt.after(node.getValue().getPositionedAt())) {
+      if (!!node && !node.isRemoved() && node.remove(executedAt)) {
+        removed = node.getValue();
+      }
       this.nodeMapByKey.set(key, newNode);
       value.setMovedAt(executedAt);
     } else if (!node.isRemoved()) {
