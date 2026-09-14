@@ -67,6 +67,10 @@ const Panel = () => {
         index: null,
         isLast: true,
       });
+      // NOTE(hackerwins): The replay effect below returns early while the index
+      // is null, so the detail pane would keep showing the event of the
+      // previously selected document. Clear it here.
+      setSelectedEvent([]);
       return;
     }
 

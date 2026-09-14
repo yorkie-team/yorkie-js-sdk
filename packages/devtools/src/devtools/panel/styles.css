@@ -163,6 +163,18 @@
   font-weight: 500;
 }
 
+.content-wrap .doc-select {
+  max-width: 80%;
+  padding: 1px 4px;
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  background: var(--gray-100);
+  color: var(--gray-900);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .content-wrap .content {
   flex: 1;
   min-height: 0;

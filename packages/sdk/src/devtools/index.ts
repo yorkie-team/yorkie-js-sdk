@@ -21,8 +21,36 @@ import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 import { DocEventsForReplay, isDocEventsForReplay } from './types';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
-let devtoolsStatus: DevtoolsStatus = 'disconnected';
+
+/**
+ * `devtoolsStatusByDocKey` stores the panel connection status of each document.
+ * The panel reaches every document on the page through a single window message
+ * channel, so the status cannot be shared across documents.
+ */
+const devtoolsStatusByDocKey = new Map<string, DevtoolsStatus>();
 const unsubsByDocKey = new Map<string, Array<() => void>>();
+
+/**
+ * `getDevtoolsStatus` returns the panel connection status of the given
+ * document.
+ */
+function getDevtoolsStatus(docKey: string): DevtoolsStatus {
+  return devtoolsStatusByDocKey.get(docKey) || 'disconnected';
+}
+
+/**
+ * `isPanelConnected` returns whether the panel is attached to any document on
+ * this page.
+ */
+function isPanelConnected(): boolean {
+  for (const status of devtoolsStatusByDocKey.values()) {
+    if (status !== 'disconnected') {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * `docEventsForReplayByDocKey` stores all events in the document for replaying
@@ -46,7 +74,9 @@ function sendToPanel(
   message: DevTools.SDKToPanelMessage,
   options?: { force: boolean },
 ): void {
-  if (!(options?.force || devtoolsStatus !== 'disconnected')) {
+  const connected =
+    'docKey' in message && getDevtoolsStatus(message.docKey) !== 'disconnected';
+  if (!(options?.force || connected)) {
     return;
   }
 
@@ -76,13 +106,14 @@ export function setupDevtools<T, P extends Indexable>(
   }
 
   docEventsForReplayByDocKey.set(doc.getKey(), []);
+  devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
   const unsub = doc.subscribe('all', (event) => {
     if (!isDocEventsForReplay(event)) {
       return;
     }
 
     docEventsForReplayByDocKey.get(doc.getKey())!.push(event);
-    if (devtoolsStatus === 'synced') {
+    if (getDevtoolsStatus(doc.getKey()) === 'synced') {
       sendToPanel({
         msg: 'doc::sync::partial',
         docKey: doc.getKey(),
@@ -94,12 +125,25 @@ export function setupDevtools<T, P extends Indexable>(
   unsubsByDocKey.set(doc.getKey(), [unsub]);
 
   // NOTE(chacha912): Send initial message, in case the devtool panel is already open.
-  sendToPanel(
-    {
-      msg: 'refresh-devtools',
-    },
-    { force: true },
-  );
+  // NOTE(hackerwins): When the panel is already attached to another document on
+  // this page, announcing this document is enough. Asking for a refresh would
+  // throw away the view the user is currently looking at.
+  if (isPanelConnected()) {
+    sendToPanel(
+      {
+        msg: 'doc::available',
+        docKey: doc.getKey(),
+      },
+      { force: true },
+    );
+  } else {
+    sendToPanel(
+      {
+        msg: 'refresh-devtools',
+      },
+      { force: true },
+    );
+  }
 
   // TODO(hackerwins): We need to ensure that this event listener should be
   // removed later.
@@ -113,10 +157,10 @@ export function setupDevtools<T, P extends Indexable>(
       const message = event.data;
       switch (message.msg) {
         case 'devtools::connect':
-          if (devtoolsStatus !== 'disconnected') {
-            break;
-          }
-          devtoolsStatus = 'connected';
+          // NOTE(hackerwins): The panel clears its state before sending
+          // `devtools::connect`, so every document has to announce itself
+          // again, including one that is already connected.
+          devtoolsStatusByDocKey.set(doc.getKey(), 'connected');
           sendToPanel({
             msg: 'doc::available',
             docKey: doc.getKey(),
@@ -124,11 +168,20 @@ export function setupDevtools<T, P extends Indexable>(
           logger.info(`[YD] Devtools connected. Doc: ${doc.getKey()}`);
           break;
         case 'devtools::disconnect':
-          devtoolsStatus = 'disconnected';
+          devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
           logger.info(`[YD] Devtools disconnected. Doc: ${doc.getKey()}`);
           break;
         case 'devtools::subscribe':
-          devtoolsStatus = 'synced';
+          // NOTE(hackerwins): The panel watches one document at a time, so
+          // subscribing to another document stops the stream of this one.
+          if (message.docKey !== doc.getKey()) {
+            if (getDevtoolsStatus(doc.getKey()) === 'synced') {
+              devtoolsStatusByDocKey.set(doc.getKey(), 'connected');
+            }
+            break;
+          }
+
+          devtoolsStatusByDocKey.set(doc.getKey(), 'synced');
           sendToPanel({
             msg: 'doc::sync::full',
             docKey: doc.getKey(),
