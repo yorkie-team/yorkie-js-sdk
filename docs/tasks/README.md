@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-17
+updated: 2026-09-14
 ---
 
 # Tasks Index
@@ -18,7 +18,10 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Active Tasks
 
-_(none)_
+| Task | Todo | Lessons |
+|---|---|---|
+| Decoding a snapshot drops a key depending on member order (2026-09-14) | [20260914-element-rht-set-order-independence-todo.md](./active/20260914-element-rht-set-order-independence-todo.md) | [20260914-element-rht-set-order-independence-lessons.md](./active/20260914-element-rht-set-order-independence-lessons.md) |
+| Anchor RGATreeList.insert on position identity (2026-08-30) | [20260830-array-move-snapshot-order-todo.md](./active/20260830-array-move-snapshot-order-todo.md) | [20260830-array-move-snapshot-order-lessons.md](./active/20260830-array-move-snapshot-order-lessons.md) |
 
 ## Archive
 
