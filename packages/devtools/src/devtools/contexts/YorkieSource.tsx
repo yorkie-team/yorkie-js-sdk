@@ -21,6 +21,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -29,9 +30,18 @@ import { connectPort, sendToSDK } from '../../port';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 const DocKeyContext = createContext<string>(null);
+const DocListContext = createContext<{
+  docKeys: Array<string>;
+  selectDocument: (docKey: string) => void;
+}>(null);
 const YorkieDocContext = createContext(null);
 const DocEventsForReplayContext = createContext<{
   events: Array<Devtools.DocEventsForReplay>;
+  // `syncGeneration` counts the times the event list was REPLACED rather than
+  // appended to. Consumers that cache something derived from the whole list
+  // watch this instead of the list itself, so a partial sync does not make
+  // them recompute.
+  syncGeneration: number;
   hidePresenceEvents: boolean;
   setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
 }>(null);
@@ -48,44 +58,79 @@ type Props = {
  */
 export function YorkieSourceProvider({ children }: Props) {
   const [currentDocKey, setCurrentDocKey] = useState<string>('');
+  // NOTE(hackerwins): `handleSDKMessage` is registered once per port, so it
+  // cannot read `currentDocKey` from the closure. The ref mirrors the state.
+  const currentDocKeyRef = useRef<string>('');
+  const [docKeys, setDocKeys] = useState<Array<string>>([]);
   const [doc, setDoc] = useState(null);
   const [docEventsForReplay, setDocEventsForReplay] = useState<
     Array<Devtools.DocEventsForReplay>
   >([]);
+  const [syncGeneration, setSyncGeneration] = useState(0);
 
   // filter out presence events
   const [hidePresenceEvents, setHidePresenceEvents] = useState(false);
 
   const resetDocument = () => {
+    currentDocKeyRef.current = '';
     setCurrentDocKey('');
+    setDocKeys([]);
     setDocEventsForReplay([]);
     setDoc(null);
   };
 
-  const handleSDKMessage = useCallback((message: SDKToPanelMessage) => {
-    switch (message.msg) {
-      case 'refresh-devtools':
-        resetDocument();
-        sendToSDK({ msg: 'devtools::connect' });
-        break;
-      case 'doc::available':
-        setCurrentDocKey(message.docKey);
-        sendToSDK({
-          msg: 'devtools::subscribe',
-          docKey: message.docKey,
-        });
-        break;
-      case 'doc::sync::full':
-        // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
-        if (message.events === undefined) break;
-        setDocEventsForReplay(message.events);
-        break;
-      case 'doc::sync::partial':
-        if (message.event === undefined) break;
-        setDocEventsForReplay((events) => [...events, message.event]);
-        break;
-    }
+  const selectDocument = useCallback((docKey: string) => {
+    currentDocKeyRef.current = docKey;
+    setCurrentDocKey(docKey);
+    setDocEventsForReplay([]);
+    setDoc(null);
+    sendToSDK({ msg: 'devtools::subscribe', docKey });
   }, []);
+
+  const handleSDKMessage = useCallback(
+    (message: SDKToPanelMessage) => {
+      switch (message.msg) {
+        case 'refresh-devtools':
+          resetDocument();
+          sendToSDK({ msg: 'devtools::connect' });
+          break;
+        case 'doc::available':
+          setDocKeys((keys) =>
+            keys.includes(message.docKey) ? keys : [...keys, message.docKey],
+          );
+          if (!currentDocKeyRef.current) {
+            // NOTE(hackerwins): Adopt the first document that announces itself,
+            // and keep the user's choice when another one shows up later.
+            selectDocument(message.docKey);
+          } else if (currentDocKeyRef.current === message.docKey) {
+            // NOTE(hackerwins): A document re-announces itself on every
+            // `devtools::connect`, which the panel re-issues whenever the
+            // inspected tab finishes loading. Resetting here would throw away the
+            // history position the user is looking at, so only re-subscribe.
+            sendToSDK({
+              msg: 'devtools::subscribe',
+              docKey: message.docKey,
+            });
+          }
+          break;
+        case 'doc::sync::full':
+          // NOTE(hackerwins): An SDK that ignores the subscribed key answers for
+          // every document on the page. Drop what the panel did not ask for.
+          if (message.docKey !== currentDocKeyRef.current) break;
+          // TODO(chacha912): Notify the user that they need to use the latest version of Yorkie-JS-SDK.
+          if (message.events === undefined) break;
+          setDocEventsForReplay(message.events);
+          setSyncGeneration((generation) => generation + 1);
+          break;
+        case 'doc::sync::partial':
+          if (message.docKey !== currentDocKeyRef.current) break;
+          if (message.event === undefined) break;
+          setDocEventsForReplay((events) => [...events, message.event]);
+          break;
+      }
+    },
+    [selectDocument],
+  );
 
   const handlePortDisconnect = useCallback(() => {
     resetDocument();
@@ -107,19 +152,27 @@ export function YorkieSourceProvider({ children }: Props) {
     };
   }, []);
 
+  const docList = useMemo(
+    () => ({ docKeys, selectDocument }),
+    [docKeys, selectDocument],
+  );
+
   return (
     <DocKeyContext.Provider value={currentDocKey}>
-      <DocEventsForReplayContext.Provider
-        value={{
-          events: docEventsForReplay,
-          hidePresenceEvents,
-          setHidePresenceEvents,
-        }}
-      >
-        <YorkieDocContext.Provider value={[doc, setDoc]}>
-          {children}
-        </YorkieDocContext.Provider>
-      </DocEventsForReplayContext.Provider>
+      <DocListContext.Provider value={docList}>
+        <DocEventsForReplayContext.Provider
+          value={{
+            events: docEventsForReplay,
+            syncGeneration,
+            hidePresenceEvents,
+            setHidePresenceEvents,
+          }}
+        >
+          <YorkieDocContext.Provider value={[doc, setDoc]}>
+            {children}
+          </YorkieDocContext.Provider>
+        </DocEventsForReplayContext.Provider>
+      </DocListContext.Provider>
     </DocKeyContext.Provider>
   );
 }
@@ -136,6 +189,26 @@ export function useCurrentDocKey() {
     throw new YorkieError(
       Code.ErrContextNotProvided,
       'useCurrentDocKey should be used within YorkieSourceProvider',
+    );
+  }
+  return value;
+}
+
+/**
+ * Hook to access the documents found in the page and to switch between them.
+ *
+ * @throws YorkieError if called outside of a YorkieSourceProvider.
+ * @returns The available document keys and a function to select one of them.
+ */
+export function useDocList() {
+  const value = useContext(DocListContext);
+  // NOTE(hackerwins): `createContext` is given a `null` default, so the guard
+  // has to test for `null`. Comparing against `undefined` never fires and the
+  // caller dies destructuring instead.
+  if (value === null) {
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
+      'useDocList should be used within YorkieSourceProvider',
     );
   }
   return value;
@@ -192,9 +265,8 @@ export const getDocEventsScope = (
  * @returns An object containing the original events, filtered events, and methods to control filtering.
  */
 export function useDocEventsForReplay() {
-  const { events, hidePresenceEvents, setHidePresenceEvents } = useContext(
-    DocEventsForReplayContext,
-  );
+  const { events, syncGeneration, hidePresenceEvents, setHidePresenceEvents } =
+    useContext(DocEventsForReplayContext);
 
   if (events === undefined) {
     throw new YorkieError(
@@ -225,6 +297,7 @@ export function useDocEventsForReplay() {
   return {
     originalEvents: enhancedEvents,
     presenceFilteredEvents,
+    syncGeneration,
     hidePresenceEvents,
     setHidePresenceEvents,
   };
