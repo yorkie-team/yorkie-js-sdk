@@ -18,7 +18,14 @@ import { Document, Indexable } from '@yorkie-js/sdk/src/yorkie';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
 import type * as DevTools from './protocol';
 import { EventSourceDevPanel, EventSourceSDK } from './protocol';
-import { DocEventsForReplay, isDocEventsForReplay } from './types';
+import {
+  DocEventsForReplay,
+  DocNotification,
+  DocNotificationEvent,
+  isDocEventForReplay,
+  isDocNotificationEvent,
+} from './types';
+import { DocEventType } from '@yorkie-js/sdk/src/document/document';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
 
@@ -75,6 +82,73 @@ if (typeof window !== 'undefined') {
 }
 
 /**
+ * `docNotificationsByDocKey` stores the events that cannot be replayed, such as
+ * `LocalChangesDropped`. They are kept beside `docEventsForReplayByDocKey`
+ * because `Document.applyDocEventsForReplay` has no case for them and the
+ * panel's time travel is an index over the replay list.
+ */
+const docNotificationsByDocKey = new Map<string, Array<DocNotification>>();
+
+/**
+ * `repeatKeyOf` returns a value identifying a notification that a retry loop
+ * can republish unchanged. Two records sharing a key describe the same
+ * ongoing condition, not two things that happened.
+ *
+ * `LocalChangesDropped` deliberately has no key: every one of them reports a
+ * distinct set of discarded changes and must always be recorded.
+ *
+ * NOTE(hackerwins): `DocEventType` is read lazily. `document.ts` imports this
+ * module, so the enum is still uninitialized while this one is evaluated.
+ */
+function repeatKeyOf(event: DocNotificationEvent): string | undefined {
+  switch (event.type) {
+    case DocEventType.SyncStatusChanged:
+    case DocEventType.ConnectionChanged:
+      return `${event.type}:${event.value}`;
+    case DocEventType.AuthError:
+      return `${event.type}:${event.value.method}:${event.value.reason}`;
+    case DocEventType.EpochMismatch:
+      return `${event.type}:${event.value.method}`;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * `isStatusRepeat` reports whether the given event restates the condition
+ * already held by the most recent record of the same type.
+ *
+ * Without this the retry loops bury everything else. A document holding an
+ * invalid token publishes `AuthError` from the sync loop every
+ * `retrySyncLoopDelay` and again from the watch loop every
+ * `reconnectStreamDelay`, and the sync loop republishes `SyncStatusChanged`
+ * on every round it runs. Minutes of that would leave a single
+ * `LocalChangesDropped` as one row among thousands.
+ */
+function isStatusRepeat(
+  docKey: string,
+  event: DocNotificationEvent,
+  pending: Array<DocNotification>,
+): boolean {
+  const key = repeatKeyOf(event);
+  if (key === undefined) {
+    return false;
+  }
+
+  const recorded = docNotificationsByDocKey.get(docKey) || [];
+  for (const list of [pending, recorded]) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const previous = list[i].event;
+      if (previous.type === event.type) {
+        return repeatKeyOf(previous) === key;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * `sendToPanel` sends a message to the devtools panel.
  */
 function sendToPanel(
@@ -122,6 +196,7 @@ export function setupDevtools<T, P extends Indexable>(
   teardownByDocKey.get(doc.getKey())?.();
 
   docEventsForReplayByDocKey.set(doc.getKey(), []);
+  docNotificationsByDocKey.set(doc.getKey(), []);
   // NOTE(hackerwins): A re-claim replaces the Document behind the key, not the
   // panel's attachment to it. Zeroing the status here would make
   // `isPanelConnected` report false on a single-document page, so the SDK would
@@ -130,18 +205,49 @@ export function setupDevtools<T, P extends Indexable>(
   if (!devtoolsStatusByDocKey.has(doc.getKey())) {
     devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
   }
-  const unsub = doc.subscribe('all', (event) => {
-    if (!isDocEventsForReplay(event)) {
-      return;
+  const unsub = doc.subscribe('all', (events) => {
+    // NOTE(hackerwins): One transaction can carry both replayable events and
+    // events that cannot be replayed, so the batch is split by hand.
+    // `events.filter(isDocEventForReplay)` does not narrow here: this callback
+    // receives `DocEvents<P>` with `P` still an unresolved type parameter,
+    // while the guard is declared over `DocEvent<Indexable, OpInfo>`.
+    const eventsForReplay: DocEventsForReplay = [];
+    const notifications: Array<DocNotification> = [];
+    for (const event of events) {
+      if (isDocEventForReplay(event)) {
+        eventsForReplay.push(event);
+      } else if (isDocNotificationEvent(event)) {
+        if (isStatusRepeat(doc.getKey(), event, notifications)) {
+          continue;
+        }
+        notifications.push({ event, timestamp: Date.now() });
+      }
     }
 
-    docEventsForReplayByDocKey.get(doc.getKey())!.push(event);
-    if (getDevtoolsStatus(doc.getKey()) === 'synced') {
-      sendToPanel({
-        msg: 'doc::sync::partial',
-        docKey: doc.getKey(),
-        event,
-      });
+    // NOTE(hackerwins): The replay half of the batch goes first, so that the
+    // document state the panel replays never lags behind a notification that
+    // refers to it. The two lists are rendered separately anyway, so the
+    // interleaving within one transaction is not observable.
+    if (eventsForReplay.length > 0) {
+      docEventsForReplayByDocKey.get(doc.getKey())!.push(eventsForReplay);
+      if (getDevtoolsStatus(doc.getKey()) === 'synced') {
+        sendToPanel({
+          msg: 'doc::sync::partial',
+          docKey: doc.getKey(),
+          event: eventsForReplay,
+        });
+      }
+    }
+
+    for (const notification of notifications) {
+      docNotificationsByDocKey.get(doc.getKey())!.push(notification);
+      if (getDevtoolsStatus(doc.getKey()) === 'synced') {
+        sendToPanel({
+          msg: 'doc::notification::partial',
+          docKey: doc.getKey(),
+          notification,
+        });
+      }
     }
   });
   // TODO(chacha912): Cancel the subscription when the document is removed.
@@ -211,6 +317,11 @@ export function setupDevtools<T, P extends Indexable>(
           docKey: doc.getKey(),
           events: docEventsForReplayByDocKey.get(doc.getKey())!,
         });
+        sendToPanel({
+          msg: 'doc::notification::full',
+          docKey: doc.getKey(),
+          notifications: docNotificationsByDocKey.get(doc.getKey())!,
+        });
         logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
         break;
     }
@@ -226,6 +337,7 @@ export function setupDevtools<T, P extends Indexable>(
     window.removeEventListener('message', handleMessage);
     unsubsByDocKey.delete(doc.getKey());
     docEventsForReplayByDocKey.delete(doc.getKey());
+    docNotificationsByDocKey.delete(doc.getKey());
     teardownByDocKey.delete(doc.getKey());
   });
 }
