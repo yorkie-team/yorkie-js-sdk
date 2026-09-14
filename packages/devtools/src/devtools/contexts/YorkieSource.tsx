@@ -194,7 +194,10 @@ export function useCurrentDocKey() {
  */
 export function useDocList() {
   const value = useContext(DocListContext);
-  if (value === undefined) {
+  // NOTE(hackerwins): `createContext` is given a `null` default, so the guard
+  // has to test for `null`. Comparing against `undefined` never fires and the
+  // caller dies destructuring instead.
+  if (value === null) {
     throw new YorkieError(
       Code.ErrContextNotProvided,
       'useDocList should be used within YorkieSourceProvider',

@@ -160,6 +160,33 @@ describe('Devtools bridge with multiple documents', () => {
     expect(captured.some((m) => m.msg === 'refresh-devtools')).toBe(false);
   });
 
+  it('hands a reused document key to the newest instance', async () => {
+    const key = 'devtools-reuse-a';
+    const stale = newDoc(key);
+    stale.update((root) => {
+      root.key = 'from the stale instance';
+    });
+    await flush();
+
+    // NOTE(hackerwins): A remount constructs a second Document under the same
+    // key. The first one is unreachable from the application at this point.
+    newDoc(key);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+
+    captured.length = 0;
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+
+    // Only the live instance answers, and it answers with its own empty log
+    // rather than the events the discarded instance recorded.
+    const fullSyncs = captured.filter(
+      (m) => m.msg === 'doc::sync::full' && 'docKey' in m && m.docKey === key,
+    );
+    expect(fullSyncs).toHaveLength(1);
+    expect((fullSyncs[0] as { events: Array<unknown> }).events).toEqual([]);
+  });
+
   it('asks the panel to refresh when no panel is connected', async () => {
     const key = 'devtools-refresh-a';
     captured.length = 0;
