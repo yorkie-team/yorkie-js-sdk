@@ -90,7 +90,14 @@ const Panel = () => {
     let eventIndex = 0;
     let filteredEventIndex = 0;
 
-    while (filteredEventIndex <= selectedEventIndexInfo.index) {
+    // NOTE(hackerwins): A re-announced document answers `devtools::subscribe`
+    // with a fresh, shorter log while the slider still points at an old
+    // position. Walking past the end would throw and unmount the panel, which
+    // has no error boundary.
+    while (
+      filteredEventIndex <= selectedEventIndexInfo.index &&
+      eventIndex < originalEvents.length
+    ) {
       if (!originalEvents[eventIndex].isFiltered) {
         filteredEventIndex++;
       }
@@ -100,7 +107,7 @@ const Panel = () => {
     }
 
     setDoc(doc);
-    setSelectedEvent(events[selectedEventIndexInfo.index].event);
+    setSelectedEvent(events[selectedEventIndexInfo.index]?.event || []);
   }, [selectedEventIndexInfo]);
 
   if (!currentDocKey) {

@@ -113,10 +113,23 @@ export function setupDevtools<T, P extends Indexable>(
   // previous instance is gone, but its subscription and window listener would
   // keep answering the panel and hand the user a dead document's history, so
   // the newest instance takes the key over.
+  //
+  // The protocol identifies a document by its key alone, so two documents that
+  // are alive at once under one key (two clients collaborating inside a single
+  // page) are indistinguishable from a remount. The newest wins in both cases;
+  // the older one stops being recorded. Telling them apart needs an identity
+  // the protocol does not carry.
   teardownByDocKey.get(doc.getKey())?.();
 
   docEventsForReplayByDocKey.set(doc.getKey(), []);
-  devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
+  // NOTE(hackerwins): A re-claim replaces the Document behind the key, not the
+  // panel's attachment to it. Zeroing the status here would make
+  // `isPanelConnected` report false on a single-document page, so the SDK would
+  // send `refresh-devtools` and wipe the view the re-announce path exists to
+  // preserve.
+  if (!devtoolsStatusByDocKey.has(doc.getKey())) {
+    devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
+  }
   const unsub = doc.subscribe('all', (event) => {
     if (!isDocEventsForReplay(event)) {
       return;
@@ -158,7 +171,10 @@ export function setupDevtools<T, P extends Indexable>(
   const handleMessage = (
     event: MessageEvent<DevTools.FullPanelToSDKMessage>,
   ) => {
-    if (event.data?.source !== EventSourceDevPanel) {
+    // NOTE(hackerwins): `message` events also arrive from child frames. Only
+    // this window's own posts come from the panel relay; a third-party iframe
+    // must not be able to drive the bridge.
+    if (event.source !== window || event.data?.source !== EventSourceDevPanel) {
       return;
     }
 

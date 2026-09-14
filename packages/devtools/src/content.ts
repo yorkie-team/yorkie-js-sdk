@@ -23,6 +23,13 @@ let panelPort = null;
 // TODO(hackerwins): We need to ensure that this event listener should be
 // removed later.
 window.addEventListener('message', (event) => {
+  // NOTE(hackerwins): A cross-origin iframe embedded by the inspected page can
+  // post to this window too. Relaying those would let a third party inject
+  // documents into the panel, so only this window's own posts are forwarded.
+  if (event.source !== window) {
+    return;
+  }
+
   const message = event.data as Record<string, unknown>;
   if (message?.source === EventSourceSDK) {
     if (!panelPort) return;

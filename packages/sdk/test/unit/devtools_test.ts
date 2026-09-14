@@ -40,8 +40,30 @@ const capture = (event: MessageEvent) => {
   }
 };
 
+// NOTE(hackerwins): jsdom leaves `event.source` null on `window.postMessage`,
+// while a browser sets it to the posting window. `setupDevtools` rejects
+// anything whose source is not this window, so the event is constructed
+// directly to reproduce what the browser delivers.
 const postFromPanel = (message: PanelToSDKMessage) => {
-  window.postMessage({ source: EventSourceDevPanel, ...message }, '*');
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      data: { source: EventSourceDevPanel, ...message },
+      source: window,
+    }),
+  );
+};
+
+/**
+ * `postFromFrame` imitates a child frame posting to this window: same payload,
+ * but a source that is not this window.
+ */
+const postFromFrame = (message: PanelToSDKMessage) => {
+  window.dispatchEvent(
+    new MessageEvent('message', {
+      data: { source: EventSourceDevPanel, ...message },
+      source: null,
+    }),
+  );
 };
 
 /**
@@ -185,6 +207,23 @@ describe('Devtools bridge with multiple documents', () => {
     );
     expect(fullSyncs).toHaveLength(1);
     expect((fullSyncs[0] as { events: Array<unknown> }).events).toEqual([]);
+  });
+
+  it('ignores panel messages that did not come from this window', async () => {
+    const key = 'devtools-foreign-source-a';
+    newDoc(key);
+    await flush();
+
+    captured.length = 0;
+    postFromFrame({ msg: 'devtools::connect' });
+    await flush();
+    expect(keysOf('doc::available', [key])).toEqual([]);
+
+    // The same message from this window is accepted, so the rejection above is
+    // the source check and not a broken payload.
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    expect(keysOf('doc::available', [key])).toEqual([key]);
   });
 
   it('asks the panel to refresh when no panel is connected', async () => {
