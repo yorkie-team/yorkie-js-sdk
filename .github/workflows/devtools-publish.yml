@@ -1,13 +1,14 @@
 name: Publish Yorkie Devtools Extension
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - packages/devtools/package.json
+  release:
+    types: [published]
 jobs:
   build-and-deploy:
+    # A pre-release must not reach the public Chrome Web Store listing. Unlike
+    # an npm prerelease, which consumers opt into by tag, a store upload goes
+    # to every user of the extension.
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
@@ -22,6 +23,26 @@ jobs:
         with:
           node-version: '22'
           cache: 'pnpm'
+
+      # Without this the job installs and builds for minutes before
+      # PlasmoHQ/bpp rejects an already-published version, and the release goes
+      # red with no hint of the cause. devtools is the fifth package.json a
+      # maintainer bumps by hand, so missing it is the likely mistake.
+      - name: Verify the devtools version matches the release 🔍
+        if: ${{ github.event_name == 'release' }}
+        # The tag is attacker-influenced data, so it reaches the shell through
+        # the environment. Expanding it into the script would let a crafted tag
+        # close the assignment and run commands.
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(node -p "require('./packages/devtools/package.json').version")
+          tag="$RELEASE_TAG"
+          if [ "v$version" != "$tag" ]; then
+            echo "packages/devtools/package.json is at $version, release is $tag." >&2
+            echo "Bump it in the release PR; see MAINTAINING.md step 1." >&2
+            exit 1
+          fi
 
       - name: Install and Build 🔧
         env:
