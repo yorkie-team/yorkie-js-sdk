@@ -11,14 +11,14 @@
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {
-    "@microlink/react-json-view": "^1.27.0",
+    "@microlink/react-json-view": "^1.31.33",
     "@yorkie-js/sdk": "workspace:*",
     "classnames": "^2.5.1",
     "plasmo": "0.90.5",
     "prism-react-renderer": "^2.4.1",
     "rc-slider": "^11.1.9",
     "react": "19.2.1",
-    "react-arborist": "^3.4.3",
+    "react-arborist": "^3.16.0",
     "react-dom": "19.2.1",
     "react-resizable-layout": "^0.7.3",
     "use-resize-observer": "^9.1.0"

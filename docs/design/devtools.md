@@ -1,13 +1,14 @@
 ---
-title: devtools
-target-version: 0.4.13
+created: 2024-01-24
+updated: 2026-09-14
+tags: [devtools, chrome-extension, debugging]
 ---
 
 # Devtools
 
 ## Summary
 
-[Yorkie Devtools](https://github.com/yorkie-team/yorkie-js-sdk/tree/main/tools/devtools) is a Chrome extension designed to assist in debugging Yorkie. The devtools extension consists of a `panel` that displays Yorkie data and a `content script` for communication. This document examines the configuration of the extension and explains how it communicates with the yorkie-js-sdk.
+Yorkie Devtools (`packages/devtools`) is a Chrome extension designed to assist in debugging Yorkie. The devtools extension consists of a `panel` that displays Yorkie data and a `content script` for communication. This document examines the configuration of the extension and explains how it communicates with the yorkie-js-sdk.
 
 ### Goals
 
@@ -25,9 +26,9 @@ A Chrome extension consists of various files, including popups, content scripts,
 
 - [Devtools Panels](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/user_interface/devtools_panels)
   - When an extension provides tools useful for developers, it can add a UI for them within the browser's developer tools as a new panel.
-  - `Yorkie 🐾` panel displays Yorkie data and is built using React. ([Code](https://github.com/yorkie-team/yorkie-js-sdk/blob/c0da57b3134d37cd8b113fe2c3aba612e3c89ecf/tools/devtools/src/devtools/panel/index.tsx))
+  - `Yorkie 🐾` panel displays Yorkie data and is built using React. (`packages/devtools/src/devtools/panel/index.tsx`)
 - [Content Scripts](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts)
-  - Content scripts are injected into web pages within the browser and share the context with the page, allowing access to the page's content using DOM APIs. ([Code](https://github.com/yorkie-team/yorkie-js-sdk/blob/c0da57b3134d37cd8b113fe2c3aba612e3c89ecf/tools/devtools/src/content.ts))
+  - Content scripts are injected into web pages within the browser and share the context with the page, allowing access to the page's content using DOM APIs. (`packages/devtools/src/content.ts`)
 
 <img width="500" alt="Devtools Extension" src="media/devtools-extension.png">
 
@@ -52,9 +53,10 @@ Let's examine the lifecycle of interaction between the devtools panel and the SD
 2. The content script confirms the port connection using `chrome.runtime.onConnect`.
 3. The panel, after establishing the port connection, sends a `devtools::connect` message to the SDK.
    The content script plays a role in relaying messages between the panel and the SDK.
-4. The SDK, upon receiving the `devtools::connect` message, sends a `doc::available` message to the panel, including the currently connected document key.
-5. The panel, upon receiving the document key, sends a `devtools::subscribe` message to indicate its intention to subscribe to the corresponding document.
-6. The SDK, upon receiving the `devtools::subscribe` message, initiates synchronization. Initially, it sends a `doc::sync::full` message with all document information, and subsequently, it sends `doc::sync::partial` data whenever there are changes to the document.
+4. The SDK, upon receiving the `devtools::connect` message, sends a `doc::available` message for **every** devtools-enabled document on the page, each carrying its own document key. The panel keeps the list, adopts the first one, and offers the rest in a selector. A document constructed later announces itself the same way.
+5. The panel sends a `devtools::subscribe` message naming the document key it wants. It watches one document at a time, so subscribing to another one stops the stream of the previous.
+6. The SDK, upon receiving the `devtools::subscribe` message, initiates synchronization for the requested key. It sends a `doc::sync::full` message with all document information, and subsequently `doc::sync::partial` whenever the document changes.
+7. Alongside those, the SDK sends `doc::notification::full` and then `doc::notification::partial` on a second channel. It carries the events that cannot be replayed — connection and sync status, auth errors, epoch mismatches, and discarded local changes — which the panel lists separately rather than feeding to the replay pipeline. Every message on both channels carries `docKey`, and the panel drops anything that is not the document it is showing.
 7. When the panel is closed, it is detected by the content script using `port.onDisconnect`, which then sends a `devtools::disconnect` message to the SDK.
 8. The SDK, upon detecting the panel disconnection, stops synchronization.
 
@@ -64,9 +66,13 @@ Let's examine the lifecycle of interaction between the devtools panel and the SD
 2. The content script confirms the new port connection using `chrome.runtime.onConnect`.
 3. The panel, after establishing the port connection, sends a `devtools::connect` message to the SDK.
    If yorkie-js-sdk is not ready at this point, no action is taken.
-4. Subsequently, when yorkie-js-sdk creates a new document and executes the [setup devtools](https://github.com/yorkie-team/yorkie-js-sdk/blob/c0da57b3134d37cd8b113fe2c3aba612e3c89ecf/src/devtools/index.ts#L98), it sends a `refresh-devtools` message.
+4. Subsequently, when yorkie-js-sdk creates a new document and executes `setupDevtools` (`packages/sdk/src/devtools/index.ts`), it sends a `refresh-devtools` message.
 5. The panel, upon receiving the `refresh-devtools` message, sends `devtools::connect` message. The subsequent steps are identical to those in the first scenario (steps 1-4 to 1-8).
 
-### Risks and Mitigation
+## Open Problems
 
-Currently, Yorkie devtools can only inspect the entire data for changes to documents and presence. In the future, we plan to enhance devtools to show operations and changes, as well as introduce a time travel feature to observe how documents change when operations are applied.
+The operation list and the time travel feature that this document once listed as future work have both shipped. The SDK records every replayable document event in `setupDevtools` (`packages/sdk/src/devtools/index.ts`) and the panel accumulates them in `YorkieSource.tsx` (`packages/devtools/src/devtools/contexts/`). The `History` tab (`packages/devtools/src/devtools/tabs/History.tsx`) renders each change's operations and drives the slider, and the panel rebuilds the document at the selected point through `Document.applyDocEventsForReplay` in `packages/devtools/src/devtools/panel/index.tsx`. What remains:
+
+- Operations render as `Operation.toTestString()` output rather than a structured view. `History.tsx` carries a TODO to this effect.
+- Replay events are held in memory, keyed by document key, so a long editing session grows without bound. `setupDevtools` notes that external storage such as IndexedDB should replace this.
+- The panel cannot tell the user that their SDK is too old to speak the current message protocol. A `doc::sync::full` message without `events` is silently dropped in `YorkieSource.tsx`.

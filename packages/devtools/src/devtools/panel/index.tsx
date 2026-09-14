@@ -106,8 +106,8 @@ const Panel = () => {
         <p className="empty-desc">
           If this seems wrong, try reloading the page.
           <br />
-          The current Devtools requires yorkie-js-sdk v0.4.18 or newer in a
-          development build.
+          Devtools requires @yorkie-js/sdk v0.4.18 or newer, and the document
+          must be created with the <code>enableDevtools</code> option.
         </p>
         <button
           className="reload-btn"
