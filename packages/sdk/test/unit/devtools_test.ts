@@ -331,6 +331,66 @@ describe('Devtools bridge with multiple documents', () => {
     ]);
   });
 
+  it('collapses a retry loop but never a data-loss record', async () => {
+    const key = 'devtools-retry-a';
+    const doc = newDoc(key);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+
+    captured.length = 0;
+    // NOTE(hackerwins): A document holding an invalid token publishes this
+    // from the sync loop every retrySyncLoopDelay and again from the watch
+    // loop every reconnectStreamDelay, both 1s by default.
+    for (let i = 0; i < 50; i++) {
+      doc.publish([
+        {
+          type: DocEventType.AuthError,
+          value: { reason: 'unauthenticated', method: 'PushPull' },
+        },
+      ]);
+    }
+    // Two genuine data-loss events must both survive that flood.
+    doc.publish([
+      {
+        type: DocEventType.LocalChangesDropped,
+        value: { reason: 'epoch-reanchor', changes: [] },
+      },
+    ]);
+    doc.publish([
+      {
+        type: DocEventType.LocalChangesDropped,
+        value: { reason: 'epoch-reanchor', changes: [] },
+      },
+    ]);
+    await flush();
+
+    const types = notificationsOf('doc::notification::partial', key).map(
+      (m) => m.notification.event.type,
+    );
+    expect(types).toEqual([
+      DocEventType.AuthError,
+      DocEventType.LocalChangesDropped,
+      DocEventType.LocalChangesDropped,
+    ]);
+
+    // A different reason is a different condition, so it is recorded.
+    captured.length = 0;
+    doc.publish([
+      {
+        type: DocEventType.AuthError,
+        value: { reason: 'token expired', method: 'PushPull' },
+      },
+    ]);
+    await flush();
+    expect(
+      notificationsOf('doc::notification::partial', key).map(
+        (m) => m.notification.event.type,
+      ),
+    ).toEqual([DocEventType.AuthError]);
+  });
+
   it('asks the panel to refresh when no panel is connected', async () => {
     const key = 'devtools-refresh-a';
     captured.length = 0;

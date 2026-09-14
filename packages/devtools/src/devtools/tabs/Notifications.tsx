@@ -23,16 +23,21 @@ import { useDocNotifications } from '../contexts/YorkieSource';
  * for the given event type.
  */
 const describeNotification = (event: Devtools.DocNotificationEvent): string => {
+  // NOTE(hackerwins): The payload reaches the panel through the page, so a
+  // field can be missing or the wrong type. A garbled row is acceptable here;
+  // a throw is not, because there is no error boundary above this component.
   switch (event.type) {
     case DocEventType.ConnectionChanged:
     case DocEventType.SyncStatusChanged:
-      return event.value;
+      return String(event.value ?? '');
     case DocEventType.AuthError:
-      return `${event.value.method}: ${event.value.reason}`;
+      return `${event.value?.method}: ${event.value?.reason}`;
     case DocEventType.EpochMismatch:
-      return event.value.method;
+      return String(event.value?.method ?? '');
     case DocEventType.LocalChangesDropped:
-      return `${event.value.reason}, ${event.value.changes.length} change(s) dropped`;
+      return `${event.value?.reason}, ${
+        event.value?.changes?.length ?? 0
+      } change(s) dropped`;
     default:
       return '';
   }

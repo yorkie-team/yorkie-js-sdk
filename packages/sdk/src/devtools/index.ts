@@ -90,46 +90,58 @@ if (typeof window !== 'undefined') {
 const docNotificationsByDocKey = new Map<string, Array<DocNotification>>();
 
 /**
- * `isRepeatableStatus` reports whether the type describes a state the document
- * is in, rather than something that happened to it. The sync loop republishes
- * these on every round it runs, so only a change of value is worth recording.
+ * `repeatKeyOf` returns a value identifying a notification that a retry loop
+ * can republish unchanged. Two records sharing a key describe the same
+ * ongoing condition, not two things that happened.
  *
- * NOTE(hackerwins): This reads `DocEventType` lazily. `document.ts` imports
- * this module, so the enum is still uninitialized while this one is evaluated.
+ * `LocalChangesDropped` deliberately has no key: every one of them reports a
+ * distinct set of discarded changes and must always be recorded.
+ *
+ * NOTE(hackerwins): `DocEventType` is read lazily. `document.ts` imports this
+ * module, so the enum is still uninitialized while this one is evaluated.
  */
-function isRepeatableStatus(type: DocEventType): boolean {
-  return (
-    type === DocEventType.SyncStatusChanged ||
-    type === DocEventType.ConnectionChanged
-  );
+function repeatKeyOf(event: DocNotificationEvent): string | undefined {
+  switch (event.type) {
+    case DocEventType.SyncStatusChanged:
+    case DocEventType.ConnectionChanged:
+      return `${event.type}:${event.value}`;
+    case DocEventType.AuthError:
+      return `${event.type}:${event.value.method}:${event.value.reason}`;
+    case DocEventType.EpochMismatch:
+      return `${event.type}:${event.value.method}`;
+    default:
+      return undefined;
+  }
 }
 
 /**
- * `isStatusRepeat` reports whether the given event restates the value already
- * held by the most recent record of the same type. Without this a typing
- * session records one `sync-status-changed` per sync round and buries every
- * other notification, including the data-loss ones.
+ * `isStatusRepeat` reports whether the given event restates the condition
+ * already held by the most recent record of the same type.
+ *
+ * Without this the retry loops bury everything else. A document holding an
+ * invalid token publishes `AuthError` from the sync loop every
+ * `retrySyncLoopDelay` and again from the watch loop every
+ * `reconnectStreamDelay`, and the sync loop republishes `SyncStatusChanged`
+ * on every round it runs. Minutes of that would leave a single
+ * `LocalChangesDropped` as one row among thousands.
  */
 function isStatusRepeat(
   docKey: string,
   event: DocNotificationEvent,
   pending: Array<DocNotification>,
 ): boolean {
-  if (!isRepeatableStatus(event.type)) {
+  const key = repeatKeyOf(event);
+  if (key === undefined) {
     return false;
   }
 
   const recorded = docNotificationsByDocKey.get(docKey) || [];
-  for (let i = pending.length - 1; i >= 0; i--) {
-    const previous = pending[i].event;
-    if (previous.type === event.type) {
-      return previous.value === event.value;
-    }
-  }
-  for (let i = recorded.length - 1; i >= 0; i--) {
-    const previous = recorded[i].event;
-    if (previous.type === event.type) {
-      return previous.value === event.value;
+  for (const list of [pending, recorded]) {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const previous = list[i].event;
+      if (previous.type === event.type) {
+        return repeatKeyOf(previous) === key;
+      }
     }
   }
 

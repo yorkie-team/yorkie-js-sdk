@@ -136,6 +136,10 @@ export function YorkieSourceProvider({ children }: Props) {
           break;
         case 'doc::notification::full':
           if (message.docKey !== currentDocKeyRef.current) break;
+          // NOTE(hackerwins): Anything running in the inspected page can post
+          // a message the relay forwards verbatim, and the panel has no error
+          // boundary. The replay path guards the same way one case above.
+          if (!Array.isArray(message.notifications)) break;
           setDocNotifications(message.notifications);
           break;
         case 'doc::notification::partial':
