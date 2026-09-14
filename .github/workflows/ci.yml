@@ -81,8 +81,8 @@ jobs:
           # publish workflow pins the process backend for the same build.
           PARCEL_WORKER_BACKEND: process
         run: |
-          pnpm devtools build
           pnpm devtools typecheck
+          pnpm devtools build
 
       - name: Run benchmark
         run: pnpm sdk test:bench

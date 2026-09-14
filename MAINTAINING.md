@@ -12,7 +12,7 @@ Update `version` in **all** publishable packages. All packages must be bumped to
 - [packages/prosemirror/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/prosemirror/package.json#L3)
 - [packages/devtools/package.json](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/packages/devtools/package.json#L4)
 
-> **Note:** The [npm-publish workflow](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/.github/workflows/npm-publish.yml) publishes sdk, react, schema, and prosemirror on every release. If a package version is not bumped, npm publish will fail with a version conflict. The [devtools-publish workflow](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/.github/workflows/devtools-publish.yml) uploads the extension to the Chrome Web Store on the same event, and will fail if `packages/devtools/package.json` still carries an already-published version.
+> **Note:** The [npm-publish workflow](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/.github/workflows/npm-publish.yml) publishes sdk, react, schema, and prosemirror on every release. If a package version is not bumped, npm publish will fail with a version conflict. The [devtools-publish workflow](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/.github/workflows/devtools-publish.yml) uploads the extension to the Chrome Web Store on the same event, and checks `packages/devtools/package.json` against the release tag before it builds, so a missed devtools bump fails the job immediately instead of at the upload. Pre-releases are skipped.
 
 ### 2. Write changelog of this version in [CHANGELOG.md](https://github.com/yorkie-team/yorkie-js-sdk/blob/main/CHANGELOG.md).
 
