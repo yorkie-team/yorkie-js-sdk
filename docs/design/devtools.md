@@ -71,7 +71,7 @@ Let's examine the lifecycle of interaction between the devtools panel and the SD
 
 ## Open Problems
 
-The operation list and the time travel feature that this document once listed as future work have both shipped. The `History` tab (`packages/devtools/src/devtools/tabs/History.tsx`) records every replayable document event, renders each change's operations, and rebuilds the document at any point on the slider through `Document.applyDocEventsForReplay`. What remains:
+The operation list and the time travel feature that this document once listed as future work have both shipped. The SDK records every replayable document event in `setupDevtools` (`packages/sdk/src/devtools/index.ts`) and the panel accumulates them in `YorkieSource.tsx` (`packages/devtools/src/devtools/contexts/`). The `History` tab (`packages/devtools/src/devtools/tabs/History.tsx`) renders each change's operations and drives the slider, and the panel rebuilds the document at the selected point through `Document.applyDocEventsForReplay` in `packages/devtools/src/devtools/panel/index.tsx`. What remains:
 
 - Operations render as `Operation.toTestString()` output rather than a structured view. `History.tsx` carries a TODO to this effect.
 - Replay events are held in memory, keyed by document key, so a long editing session grows without bound. `setupDevtools` notes that external storage such as IndexedDB should replace this.
