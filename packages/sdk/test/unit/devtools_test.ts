@@ -19,6 +19,14 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import {
+  DocEventType,
+  type DocEvent,
+} from '@yorkie-js/sdk/src/document/document';
+import {
+  isDocEventForReplay,
+  isDocNotificationEvent,
+} from '@yorkie-js/sdk/src/devtools/types';
+import {
   EventSourceDevPanel,
   EventSourceSDK,
   type FullSDKToPanelMessage,
@@ -78,6 +86,15 @@ const flush = async () => {
 
 const newDoc = (key: string) =>
   new yorkie.Document<TestDoc>(key, { enableDevtools: true });
+
+const notificationsOf = <T extends FullSDKToPanelMessage['msg']>(
+  msg: T,
+  docKey: string,
+) =>
+  captured.filter(
+    (m): m is Extract<FullSDKToPanelMessage, { msg: T }> =>
+      m.msg === msg && 'docKey' in m && m.docKey === docKey,
+  );
 
 const keysOf = (msg: string, docKeys: Array<string>) =>
   captured
@@ -226,6 +243,63 @@ describe('Devtools bridge with multiple documents', () => {
     expect(keysOf('doc::available', [key])).toEqual([key]);
   });
 
+  it('reports a non-replayable event on the notification channel', async () => {
+    const key = 'devtools-notification-a';
+    const doc = newDoc(key);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+
+    captured.length = 0;
+    doc.publish([
+      {
+        type: DocEventType.LocalChangesDropped,
+        value: { reason: 'epoch-reanchor', changes: [] },
+      },
+    ]);
+    await flush();
+
+    const notified = notificationsOf('doc::notification::partial', key);
+    expect(notified.length).toBe(1);
+    expect(notified[0].notification.event.type).toBe(
+      DocEventType.LocalChangesDropped,
+    );
+    expect(notified[0].notification.timestamp).toBeTypeOf('number');
+    // NOTE(hackerwins): The event must not reach the replay pipeline, which
+    // cannot apply it.
+    expect(keysOf('doc::sync::partial', [key])).toEqual([]);
+  });
+
+  it('replays the recorded notifications on the next subscribe', async () => {
+    const keyA = 'devtools-notification-full-a';
+    const keyB = 'devtools-notification-full-b';
+    const docA = newDoc(keyA);
+    newDoc(keyB);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+
+    docA.publish([
+      {
+        type: DocEventType.AuthError,
+        value: { reason: 'token expired', method: 'PushPull' },
+      },
+    ]);
+    await flush();
+
+    captured.length = 0;
+    postFromPanel({ msg: 'devtools::subscribe', docKey: keyA });
+    await flush();
+
+    const full = notificationsOf('doc::notification::full', keyA);
+    expect(full.length).toBe(1);
+    expect(full[0].notifications.map((n) => n.event.type)).toEqual([
+      DocEventType.AuthError,
+    ]);
+    // NOTE(hackerwins): Only the subscribed document answers.
+    expect(notificationsOf('doc::notification::full', keyB)).toEqual([]);
+  });
+
   it('asks the panel to refresh when no panel is connected', async () => {
     const key = 'devtools-refresh-a';
     captured.length = 0;
@@ -234,5 +308,47 @@ describe('Devtools bridge with multiple documents', () => {
 
     expect(captured.some((m) => m.msg === 'refresh-devtools')).toBe(true);
     expect(keysOf('doc::available', [key])).toEqual([]);
+  });
+});
+
+describe('Devtools event classification', () => {
+  // NOTE(hackerwins): The two sets are written out here rather than derived
+  // from the guards, so that a `DocEventType` added to `document.ts` fails this
+  // test until someone decides whether devtools replays it or reports it.
+  const replayableTypes = new Set<string>([
+    DocEventType.StatusChanged,
+    DocEventType.Snapshot,
+    DocEventType.LocalChange,
+    DocEventType.RemoteChange,
+    DocEventType.Initialized,
+    DocEventType.Watched,
+    DocEventType.Unwatched,
+    DocEventType.PresenceChanged,
+  ]);
+  const notificationTypes = new Set<string>([
+    DocEventType.ConnectionChanged,
+    DocEventType.SyncStatusChanged,
+    DocEventType.AuthError,
+    DocEventType.EpochMismatch,
+    DocEventType.LocalChangesDropped,
+  ]);
+
+  it('classifies every document event type exactly once', () => {
+    for (const type of Object.values(DocEventType)) {
+      const replayable = replayableTypes.has(type);
+      const notification = notificationTypes.has(type);
+
+      expect(
+        replayable || notification,
+        `'${type}' is unclassified: devtools would drop it. Add it to the ` +
+          'replay union or to the notification union, and to the matching ' +
+          'set in this test.',
+      ).toBe(true);
+      expect(replayable && notification).toBe(false);
+
+      const event = { type } as DocEvent;
+      expect(isDocEventForReplay(event)).toBe(replayable);
+      expect(isDocNotificationEvent(event)).toBe(notification);
+    }
   });
 });

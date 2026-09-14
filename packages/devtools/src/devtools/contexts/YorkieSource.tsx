@@ -45,6 +45,8 @@ const DocEventsForReplayContext = createContext<{
   hidePresenceEvents: boolean;
   setHidePresenceEvents: Dispatch<SetStateAction<boolean>>;
 }>(null);
+const DocNotificationsContext =
+  createContext<Array<Devtools.DocNotification>>(null);
 
 type Props = {
   children?: ReactNode;
@@ -67,6 +69,9 @@ export function YorkieSourceProvider({ children }: Props) {
     Array<Devtools.DocEventsForReplay>
   >([]);
   const [syncGeneration, setSyncGeneration] = useState(0);
+  const [docNotifications, setDocNotifications] = useState<
+    Array<Devtools.DocNotification>
+  >([]);
 
   // filter out presence events
   const [hidePresenceEvents, setHidePresenceEvents] = useState(false);
@@ -76,6 +81,7 @@ export function YorkieSourceProvider({ children }: Props) {
     setCurrentDocKey('');
     setDocKeys([]);
     setDocEventsForReplay([]);
+    setDocNotifications([]);
     setDoc(null);
   };
 
@@ -83,6 +89,7 @@ export function YorkieSourceProvider({ children }: Props) {
     currentDocKeyRef.current = docKey;
     setCurrentDocKey(docKey);
     setDocEventsForReplay([]);
+    setDocNotifications([]);
     setDoc(null);
     sendToSDK({ msg: 'devtools::subscribe', docKey });
   }, []);
@@ -127,6 +134,17 @@ export function YorkieSourceProvider({ children }: Props) {
           if (message.event === undefined) break;
           setDocEventsForReplay((events) => [...events, message.event]);
           break;
+        case 'doc::notification::full':
+          if (message.docKey !== currentDocKeyRef.current) break;
+          setDocNotifications(message.notifications);
+          break;
+        case 'doc::notification::partial':
+          if (message.docKey !== currentDocKeyRef.current) break;
+          setDocNotifications((notifications) => [
+            ...notifications,
+            message.notification,
+          ]);
+          break;
       }
     },
     [selectDocument],
@@ -168,9 +186,11 @@ export function YorkieSourceProvider({ children }: Props) {
             setHidePresenceEvents,
           }}
         >
-          <YorkieDocContext.Provider value={[doc, setDoc]}>
-            {children}
-          </YorkieDocContext.Provider>
+          <DocNotificationsContext.Provider value={docNotifications}>
+            <YorkieDocContext.Provider value={[doc, setDoc]}>
+              {children}
+            </YorkieDocContext.Provider>
+          </DocNotificationsContext.Provider>
         </DocEventsForReplayContext.Provider>
       </DocListContext.Provider>
     </DocKeyContext.Provider>
@@ -226,6 +246,26 @@ export function useYorkieDoc() {
     throw new YorkieError(
       Code.ErrContextNotProvided,
       'useYorkieDoc should be used within YorkieSourceProvider',
+    );
+  }
+  return value;
+}
+
+/**
+ * Hook to access the notifications of the current document, oldest first.
+ *
+ * NOTE(hackerwins): The guard checks for `null` because `createContext(null)`
+ * hands `null`, not `undefined`, to a consumer rendered outside the provider.
+ *
+ * @throws YorkieError if called outside of a YorkieSourceProvider.
+ * @returns The notifications recorded for the current document.
+ */
+export function useDocNotifications() {
+  const value = useContext(DocNotificationsContext);
+  if (value === null) {
+    throw new YorkieError(
+      Code.ErrContextNotProvided,
+      'useDocNotifications should be used within YorkieSourceProvider',
     );
   }
   return value;
