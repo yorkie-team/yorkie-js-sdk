@@ -49,15 +49,6 @@ interface CRDTElementPair {
 }
 
 /**
- * `GCCharge` is what `docSize.gc` is holding on behalf of one element, and
- * which element that is. See `Root.sizeInGC` for why the identity matters.
- */
-interface GCCharge {
-  element: CRDTElement;
-  size: DataSize;
-}
-
-/**
  * `RootStats` is a structure that represents the statistics of the root object.
  */
 export interface RootStats {
@@ -105,9 +96,9 @@ export class CRDTRoot {
   private gcElementSetByCreatedAt: Set<string>;
 
   /**
-   * `sizeInGC` maps the creation time of every registered element whose size
-   * counts toward `docSize.gc` rather than `docSize.live`, to the exact amount
-   * charged and to the element it is charged for. Each element's size belongs
+   * `sizeInGC` maps every registered element whose size counts toward
+   * `docSize.gc` rather than `docSize.live` to the exact amount
+   * charged. Each element's size belongs
    * to exactly one of the two, and an element reaches gc by more routes than it
    * has removals: it can be removed itself, or be a descendant of a removed
    * container. Recording the amount rather than a flag keeps the two sides
@@ -115,20 +106,23 @@ export class CRDTRoot {
    * lifetime -- it grows by a ticket the moment `removedAt` is set, which can
    * happen after the size has already moved.
    *
-   * The identity is load-bearing. A createdAt is meant to name one element, but
-   * it does not for the whole of a document's life: undo restores a `deepcopy`
-   * of a removed element, and the copy keeps the original's createdAt while the
-   * original is still a tombstone. Charging or releasing by key alone then
-   * bills whichever of the two occupies the slot, and a size can be taken out
-   * of `docSize.live` that live was never holding -- which is how docSize goes
-   * negative.
+   * It is keyed by the element, not by its createdAt. A createdAt is meant to
+   * name one element, but it does not for the whole of a document's life: undo
+   * restores a `deepcopy` of a removed element, and the copy keeps the
+   * original's createdAt while the original is still a tombstone. Undoing an
+   * array removal reissues a ticket for the restored container alone, so its
+   * members come back aliasing the tombstoned ones outright. One slot per
+   * createdAt cannot describe both: whichever is charged last displaces the
+   * other, and collecting the displaced one then takes a size out of
+   * `docSize.live` that live was never holding -- which is how docSize goes
+   * negative. One slot per element has room for both.
    *
    * A zero size is not the same as no record. It says this element has been
    * released: charged to neither side, because its subtree was orphaned by a
    * restore and nothing will ever collect it. Anything that later charges it
    * again has to know live is not the side to take it from.
    */
-  private sizeInGC: Map<string, GCCharge>;
+  private sizeInGC: Map<CRDTElement, DataSize>;
 
   /**
    * `gcPairMap` is a hash table that maps the IDString of GCChild to the
@@ -275,12 +269,10 @@ export class CRDTRoot {
       // already-removed container never passed through a removal, so it still
       // sits in live; subtracting it from gc would push gc below zero and
       // leave its cost in live forever.
-      // A charge recorded against some other element that shares this
-      // createdAt says nothing about this one, which is still in live.
-      const charged = this.sizeInGC.get(createdAt);
-      if (charged && charged.element === elem) {
-        subDataSize(this.docSize.gc, charged.size);
-        this.sizeInGC.delete(createdAt);
+      const charged = this.sizeInGC.get(elem);
+      if (charged) {
+        subDataSize(this.docSize.gc, charged);
+        this.sizeInGC.delete(elem);
       } else {
         subDataSize(this.docSize.live, elem.getDataSize());
       }
@@ -362,27 +354,25 @@ export class CRDTRoot {
    * charge topped up: getDataSize grows by a ticket when removedAt is set,
    * which can happen after the move.
    *
-   * A charge recorded against a different element that shares this createdAt is
-   * not this element's: this one is still in live and moves in full. The record
-   * it displaces is a released one (zero), so nothing charged is lost.
+   * Another element sharing this createdAt has a charge of its own, and it is
+   * not this one's: this element is still in live and moves in full.
    */
   private moveSizeToGC(element: CRDTElement): boolean {
-    const createdAt = element.getCreatedAt().toIDString();
     const size = element.getDataSize();
 
-    const charged = this.sizeInGC.get(createdAt);
-    if (charged && charged.element === element) {
+    const charged = this.sizeInGC.get(element);
+    if (charged) {
       addDataSizes(this.docSize.gc, {
-        data: size.data - charged.size.data,
-        meta: size.meta - charged.size.meta,
+        data: size.data - charged.data,
+        meta: size.meta - charged.meta,
       });
-      this.sizeInGC.set(createdAt, { element, size });
+      this.sizeInGC.set(element, size);
       return false;
     }
 
     addDataSizes(this.docSize.gc, size);
     subDataSize(this.docSize.live, size);
-    this.sizeInGC.set(createdAt, { element, size });
+    this.sizeInGC.set(element, size);
     return true;
   }
 
@@ -455,9 +445,9 @@ export class CRDTRoot {
     // actually charged -- the same split `deregisterElement` makes. A member
     // added into an already-removed container never passed through a removal,
     // so it still sits in live.
-    const charged = this.sizeInGC.get(createdAt);
-    if (charged && charged.element === element) {
-      subDataSize(this.docSize.gc, charged.size);
+    const charged = this.sizeInGC.get(element);
+    if (charged) {
+      subDataSize(this.docSize.gc, charged);
     } else {
       subDataSize(this.docSize.live, element.getDataSize());
     }
@@ -467,9 +457,9 @@ export class CRDTRoot {
     // peer that has not seen the restore can still remove something inside this
     // subtree, and `moveSizeToGC` would then take its size out of live for a
     // second time and drive docSize negative. A zero charge says live is not
-    // holding it, and the identity says which element that is about, so a copy
-    // restored under the same createdAt is still charged normally.
-    this.sizeInGC.set(createdAt, { element, size: { data: 0, meta: 0 } });
+    // holding it. A copy restored under the same createdAt has a slot of its
+    // own and is still charged normally.
+    this.sizeInGC.set(element, { data: 0, meta: 0 });
 
     if (this.elementPairMapByCreatedAt.get(createdAt)?.element === element) {
       this.gcElementSetByCreatedAt.delete(createdAt);

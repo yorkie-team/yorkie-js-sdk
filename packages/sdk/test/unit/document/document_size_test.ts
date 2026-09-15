@@ -486,6 +486,36 @@ describe('Document Size', () => {
     assert.deepEqual(doc.getDocSize(), built);
   });
 
+  it('removing an array container that was restored test', function () {
+    // Undoing an array removal reissues a ticket for the restored container
+    // alone, so its members come back sharing createdAts with the tombstoned
+    // ones. Both are registered, and both are charged -- one slot per createdAt
+    // would let the second displace the first, and collecting the displaced one
+    // would then take a size out of live that live was never holding.
+    const doc = new Document<{ k: Array<{ a: string; b?: string }> }>(
+      'test-doc',
+    );
+
+    doc.update((root) => (root.k = [{ a: '1', b: '2' }]));
+    doc.update((root) => {
+      delete root.k[0].b;
+    });
+    doc.update((root) => {
+      delete root.k[0];
+    });
+    doc.history.undo();
+    doc.update((root) => {
+      delete root.k[0];
+    });
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+
+    assert.equal(doc.toSortedJSON(), '{"k":[]}');
+
+    const empty = new Document<{ k: Array<unknown> }>('test-doc');
+    empty.update((root) => (root.k = []));
+    assert.deepEqual(doc.getDocSize(), empty.getDocSize());
+  });
+
   it('deep copy test', function () {
     const doc = new Document<{ counter: Counter }>('test-doc');
     doc.update((root) => (root.counter = new Counter(0)));
