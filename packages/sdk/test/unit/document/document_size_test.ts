@@ -14,6 +14,8 @@ import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
 
 const A1 = '000000000000000000000001';
 const A2 = '000000000000000000000002';
@@ -484,6 +486,121 @@ describe('Document Size', () => {
 
     doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     assert.deepEqual(doc.getDocSize(), built);
+  });
+
+  it('restoring a container holding an earlier tombstone test', function () {
+    // An undo restores the copy its reverse captured, and that copy keeps the
+    // member that was tombstoned before the container was. It is registered at
+    // its post-removal size, so that member's cost belongs to gc rather than
+    // live, and it has to stay collectable -- booking it into live instead
+    // strands it there with nothing left to collect it.
+    const doc = new Document<SizeDoc>('test-doc');
+
+    doc.update((root) => (root.k = { a: '1', b: '2' }));
+    doc.update((root) => {
+      delete (root.k as JSONObject<{ a: string; b?: string }>).b;
+    });
+    const beforeRemoval = structuredClone(doc.getDocSize());
+    assert.deepEqual(beforeRemoval.live, { data: 2, meta: 120 });
+    assert.deepEqual(beforeRemoval.gc, { data: 2, meta: 72 });
+
+    doc.update((root) => {
+      delete root.k;
+    });
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"k":{"a":"1"}}');
+
+    // The restored document is the one that stood before the removal, so it
+    // costs exactly what it cost then, tombstoned member included.
+    assert.deepEqual(doc.getDocSize(), beforeRemoval);
+
+    // And that member is still garbage.
+    assert.equal(
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
+      1,
+    );
+    assert.deepEqual(doc.getDocSize().live, { data: 2, meta: 120 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+  });
+
+  it('applying the losing side of a concurrent set test', function () {
+    // `ElementRHT.set` marks the losing value removed before the operation
+    // registers it, so live is charged the post-removal size, removal ticket
+    // included. Giving that ticket back would leave the replica that applied
+    // the loser permanently larger than the one that never saw it.
+    const [d1, d2] = newReplicas<SizeDoc>();
+
+    d1.update((root) => (root.k = '1'));
+    d2.update((root) => (root.k = '2'));
+    crossSync(d1, d2);
+
+    assert.equal(d1.toSortedJSON(), '{"k":"2"}');
+    assert.equal(d2.toSortedJSON(), '{"k":"2"}');
+
+    d1.garbageCollect(maxVectorOf([A1, A2]));
+    d2.garbageCollect(maxVectorOf([A1, A2]));
+
+    const fresh = new Document<SizeDoc>('test-doc');
+    fresh.update((root) => (root.k = '2'));
+
+    assert.deepEqual(d1.getDocSize(), d2.getDocSize());
+    assert.deepEqual(d1.getDocSize(), fresh.getDocSize());
+  });
+
+  it('rebuilding a document that holds a tombstone test', function () {
+    // A rebuild registers an already-tombstoned element at its post-removal
+    // size, so a refund there over-credits live by one ticket per tombstone.
+    // `Document.update` gates the size limit on the clone, which is built this
+    // way, while `getDocSize` reports the incrementally kept figure -- the two
+    // have to agree.
+    const doc = new Document<SizeDoc>('test-doc');
+
+    doc.update((root) => (root.k = { a: '1', b: '2' }));
+    doc.update((root) => {
+      delete (root.k as JSONObject<{ a: string; b?: string }>).b;
+    });
+
+    const bytes = converter.objectToBytes(doc.getRootObject());
+    const rebuilt = new CRDTRoot(converter.bytesToObject(bytes));
+    assert.deepEqual(rebuilt.getDocSize(), doc.getDocSize());
+    assert.deepEqual(
+      doc.getRootCRDT().deepcopy().getDocSize(),
+      doc.getDocSize(),
+    );
+  });
+
+  it('restoring an array container holding an earlier tombstone test', function () {
+    // Undoing an array removal reissues a ticket for the restored container
+    // alone, so its members come back sharing createdAts with the tombstoned
+    // ones. `sizeInGC` has one slot per createdAt, so the restored member
+    // cannot be booked into gc without orphaning the charge gc holds for the
+    // tombstone -- it stays in live until the tombstone is collected. This
+    // pins that: the split is off while both answer to one createdAt, the
+    // total is not, and collection settles it at the size it was built at.
+    const doc = new Document<{ k: Array<{ a: string; b?: string }> }>(
+      'test-doc',
+    );
+
+    doc.update((root) => (root.k = [{ a: '1', b: '2' }]));
+    doc.update((root) => {
+      delete root.k[0].b;
+    });
+    const beforeRemoval = structuredClone(doc.getDocSize());
+    assert.deepEqual(beforeRemoval.live, { data: 2, meta: 144 });
+
+    doc.update((root) => {
+      delete root.k[0];
+    });
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"k":[{"a":"1"}]}');
+
+    // The restored document is the one that stood before the removal, so it
+    // costs exactly what it cost then.
+    assert.deepEqual(doc.getDocSize().live, beforeRemoval.live);
+
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+    assert.deepEqual(doc.getDocSize().live, beforeRemoval.live);
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
   });
 
   it('removing an array container that was restored test', function () {

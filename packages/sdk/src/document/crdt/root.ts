@@ -144,10 +144,9 @@ export class CRDTRoot {
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     this.registerElement(rootObject, undefined);
 
+    // NOTE(hackerwins): tombstoned elements are not re-registered here:
+    // registerElement above already booked every one of them into gc.
     rootObject.getDescendants((elem) => {
-      if (elem.getRemovedAt()) {
-        this.registerRemovedElement(elem);
-      }
       if (elem instanceof CRDTText || elem instanceof CRDTTree) {
         for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
@@ -238,6 +237,29 @@ export class CRDTRoot {
    * `registerElement` registers the given element and its descendants to hash table.
    */
   public registerElement(element: CRDTElement, parent?: CRDTContainer): void {
+    this.registerLive(element, parent);
+
+    // NOTE(hackerwins): An element can be registered while it already carries a
+    // `removedAt`. An undo re-sets the `deepcopy` its reverse captured, and that
+    // copy keeps the members that were tombstoned before the container was; a
+    // snapshot loads a document that still holds tombstones; and the losing side
+    // of an LWW set is marked removed by `ElementRHT.set` before it is booked.
+    // The size registered above is the post-removal one in every such case, so
+    // it belongs to gc rather than live, and the tombstone has to be
+    // collectable. Booking it here is what makes both true whichever route
+    // brought it in, and it is the one place all of them pass through.
+    //
+    // This is a second pass on purpose. Adopting a tombstone moves its whole
+    // subtree, so doing it while the first pass is still walking would move
+    // descendants live has not been charged for yet, and drive live negative.
+    this.adoptTombstones(element);
+  }
+
+  /**
+   * `registerLive` registers the given element and its descendants to the pair
+   * map, and charges `docSize.live` for each.
+   */
+  private registerLive(element: CRDTElement, parent?: CRDTContainer): void {
     this.elementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), {
       parent,
       element,
@@ -251,6 +273,25 @@ export class CRDTRoot {
           element: elem,
         });
         addDataSizes(this.docSize.live, elem.getDataSize());
+        return false;
+      });
+    }
+  }
+
+  /**
+   * `adoptTombstones` books every element of the given subtree that already
+   * carries a `removedAt` into gc.
+   */
+  private adoptTombstones(element: CRDTElement): void {
+    if (element.getRemovedAt()) {
+      this.adoptRemovedElement(element);
+    }
+
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((elem) => {
+        if (elem.getRemovedAt()) {
+          this.adoptRemovedElement(elem);
+        }
         return false;
       });
     }
@@ -315,18 +356,7 @@ export class CRDTRoot {
    */
   public registerRemovedElement(element: CRDTElement): void {
     const moved = this.moveSizeToGC(element);
-
-    // NOTE(hackerwins): registerElement books a container and every descendant
-    // into live, and deregisterElement subtracts both when the tombstone is
-    // collected. Removing a container therefore has to move its descendants as
-    // well: booking only the container itself would strand their size in live
-    // forever and drive gc negative once the collection subtracted them.
-    if (element instanceof CRDTContainer) {
-      element.getDescendants((elem) => {
-        this.moveSizeToGC(elem);
-        return false;
-      });
-    }
+    this.moveDescendantsToGC(element);
 
     // NOTE(hackerwins): When an element is removed, parent sets the removedAt
     // to mark the child as removed. That ticket is part of the size charged to
@@ -335,15 +365,51 @@ export class CRDTRoot {
     // it: a size already in gc, or one moved as a descendant while its own
     // removedAt is still unset, did not.
     //
-    // This holds for the incremental path. The constructor instead registers an
-    // already-tombstoned element at its post-removal size, so live did hold the
-    // ticket and the refund over-credits it by one per tombstone. That drift is
-    // pre-existing and unchanged here.
+    // An element that already carried its `removedAt` when it was registered
+    // does not get the refund. `registerElement` books it with
+    // `adoptRemovedElement` and the top-up branch of `moveSizeToGC` then
+    // reports that nothing moved, so a later removal of it lands here with
+    // `moved` false. Live did hold that ticket, and there is nothing to give
+    // back.
     if (moved && element.getRemovedAt()) {
       this.docSize.live.meta += TimeTicketSize;
     }
 
     this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
+  }
+
+  /**
+   * `adoptRemovedElement` books an element that was already tombstoned when it
+   * was registered, and its descendants, into gc. It is
+   * `registerRemovedElement` without the ticket refund: the size just charged
+   * to live already included the `removedAt` ticket, so live has nothing to get
+   * back.
+   */
+  private adoptRemovedElement(element: CRDTElement): void {
+    this.moveSizeToGC(element);
+    this.moveDescendantsToGC(element);
+    this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
+  }
+
+  /**
+   * `moveDescendantsToGC` moves the size of every descendant of the given
+   * element from live to gc.
+   *
+   * NOTE(hackerwins): registerElement books a container and every descendant
+   * into live, and deregisterElement subtracts both when the tombstone is
+   * collected. Removing a container therefore has to move its descendants as
+   * well: booking only the container itself would strand their size in live
+   * forever and drive gc negative once the collection subtracted them.
+   */
+  private moveDescendantsToGC(element: CRDTElement): void {
+    if (!(element instanceof CRDTContainer)) {
+      return;
+    }
+
+    element.getDescendants((elem) => {
+      this.moveSizeToGC(elem);
+      return false;
+    });
   }
 
   /**
