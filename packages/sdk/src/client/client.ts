@@ -65,7 +65,11 @@ import {
   BroadcastOptions,
 } from '@yorkie-js/sdk/src/channel/channel';
 import { Attachable } from './attachable';
-import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import { DocStore, StoredChange } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  PersistState,
+  shouldCompact,
+} from '@yorkie-js/sdk/src/client/persist-policy';
 import {
   SessionLock,
   SessionLockHandle,
@@ -455,6 +459,14 @@ export class Client {
   // stale bytes. Each key's tail promise is kept here so the next save chains
   // after it; see `persistToStore`.
   private persistQueues: Map<string, Promise<void>> = new Map();
+  // Per-store-key accounting for the incremental write path: how large the
+  // stored snapshot is, how much has been appended since, and the highest
+  // clientSeq already written. The compaction decision reads it; `append`
+  // advances it. Cleared in `detachInternal`.
+  private persistStates: Map<
+    string,
+    PersistState & { lastAppendedClientSeq: number }
+  > = new Map();
   // Single-active-session guard for the offline persistence path. Only consulted
   // when `store` is set; a stable Web Locks default is created so store-backed
   // clients get multi-tab safety out of the box.
@@ -1060,35 +1072,85 @@ export class Client {
         attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
 
-        // Persist the full restorable envelope (`doc.toBytes()`) on every local
-        // mutation. This is a plain full overwrite (not an append), so it does
-        // not grow unbounded. The unsubscribe is captured on the attachment so
-        // `detachInternal` can tear it down and re-attaches do not accumulate
-        // handlers. Errors are logged, not thrown, so a failing store never
-        // breaks the editing path.
+        // Persist incrementally: one snapshot established here, then one
+        // appended change per local mutation. Re-serializing the document on
+        // every edit costs time proportional to the document — and a document
+        // is at its largest while being edited — whereas a change is a few
+        // hundred bytes regardless of size.
         //
-        // Persist on:
-        //   - LocalChange: a new un-pushed edit must be captured.
-        //   - PresenceChanged (local source): a presence-only local change
-        //     appends to `localChanges` but emits no LocalChange (gated by
-        //     opInfos.length), so it would otherwise never be persisted.
+        // The unsubscribe is captured on the attachment so `detachInternal` can
+        // tear it down and re-attaches do not accumulate handlers. Errors are
+        // logged, not thrown, so a failing store never breaks the editing path.
         //
-        // The post-sync checkpoint is persisted separately in `syncInternal`:
-        // an ack-only push emits no Remote/Snapshot event, so it cannot be
-        // captured here.
+        // Append on:
+        //   - LocalChange: a new un-pushed edit.
+        //   - PresenceChanged (local source): a presence-only change appends to
+        //     `localChanges` but emits no LocalChange (gated by
+        //     opInfos.length). Its content is worthless after a restore, but it
+        //     consumes a `clientSeq` and `restoreFromBytes` does not renumber,
+        //     so omitting it leaves a hole the first restored push is rejected
+        //     for.
+        //
+        // The post-sync checkpoint is written separately in `syncInternal` as
+        // `meta`: an ack-only push emits no Remote/Snapshot event, so it cannot
+        // be captured here.
         if (this.store) {
           const storeKey = this.storeKey(doc.getKey());
-          const persist = () => {
-            this.persistToStore(storeKey, doc.toBytes(), (err) => {
-              logger.error(
-                `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
-                err,
-              );
-            });
+          const onError = (err: unknown) =>
+            logger.error(
+              `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
+              err,
+            );
+
+          // Establish the base the log appends to.
+          //
+          // The watermark is the highest `clientSeq` the snapshot *already
+          // carries*, not the checkpoint. `toBytes` bundles the pending queue
+          // into its envelope, so anything un-pushed at this moment is inside
+          // the snapshot; appending it again would restore it twice — once
+          // from the envelope, once from the log.
+          const snapshot = doc.toBytes();
+          const carried = doc.getPendingChangesAfter(0);
+          this.persistStates.set(storeKey, {
+            snapshotBytes: snapshot.length,
+            logBytes: 0,
+            changeCount: 0,
+            lastAppendedClientSeq: carried.length
+              ? carried[carried.length - 1].clientSeq
+              : doc.getCheckpoint().getClientSeq(),
+          });
+          this.persistToStore(storeKey, snapshot, onError);
+
+          const append = () => {
+            const state = this.persistStates.get(storeKey);
+            if (!state) {
+              return;
+            }
+            // Driven off the pending queue rather than the event payload, so a
+            // coalesced or missed event cannot silently drop a change.
+            const pending = doc.getPendingChangesAfter(
+              state.lastAppendedClientSeq,
+            );
+            for (const { clientSeq, struct } of pending) {
+              const bytes = new TextEncoder().encode(JSON.stringify(struct));
+              state.lastAppendedClientSeq = clientSeq;
+              state.logBytes += bytes.length;
+              state.changeCount += 1;
+              this.appendToStore(storeKey, { clientSeq, bytes }, onError);
+            }
+
+            if (shouldCompact(state)) {
+              const compacted = doc.toBytes();
+              state.snapshotBytes = compacted.length;
+              state.logBytes = 0;
+              state.changeCount = 0;
+              this.persistToStore(storeKey, compacted, onError);
+            }
           };
+
           // Subscribe via 'all': the default `subscribe(fn)` overload only
           // delivers Local/Remote/Snapshot, but a presence-only local change
-          // surfaces as PresenceChanged, which must also trigger a persist.
+          // surfaces as PresenceChanged, which must also be appended.
           attachment.unsubscribePersist = doc.subscribe('all', (events) => {
             for (const event of events) {
               if (
@@ -1096,7 +1158,7 @@ export class Client {
                 (event.type === DocEventType.PresenceChanged &&
                   event.source === OpSource.Local)
               ) {
-                persist();
+                append();
                 break;
               }
             }
@@ -1741,6 +1803,76 @@ export class Client {
     this.persistQueues.set(storeKey, next);
     // Drop the queue entry once this write is the tail, so the map does not grow
     // for keys that stop being written.
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
+  }
+
+  /**
+   * `appendToStore` appends one change for a store key, chained onto the same
+   * per-key write queue `persistToStore` uses so an append can never overtake
+   * the snapshot it belongs after. Failures are logged, not thrown: the store
+   * may trail the document, and must never break the editing path.
+   */
+  private appendToStore(
+    storeKey: string,
+    change: StoredChange,
+    onError: (err: unknown) => void,
+  ): void {
+    const store = this.store;
+    if (!store) {
+      return;
+    }
+    const prev = this.persistQueues.get(storeKey);
+    const next = (
+      prev
+        ? prev
+            .catch(() => undefined)
+            .then(() => store.appendChange(storeKey, change))
+        : store.appendChange(storeKey, change)
+    ).catch(onError);
+    this.persistQueues.set(storeKey, next);
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
+  }
+
+  /**
+   * `saveMetaToStore` records the post-sync header and drops the changes the
+   * server acknowledged. Deliberately not a snapshot: an online client syncs
+   * constantly, and re-serializing per sync would reintroduce the cost the
+   * incremental path removes.
+   */
+  private saveMetaToStore(
+    storeKey: string,
+    bytes: Uint8Array,
+    ackedClientSeq: number,
+    onError: (err: unknown) => void,
+  ): void {
+    const store = this.store;
+    if (!store) {
+      return;
+    }
+    const state = this.persistStates.get(storeKey);
+    if (state) {
+      // The acked changes are gone from the log, so the accounting that drives
+      // compaction has to forget them too.
+      state.logBytes = 0;
+      state.changeCount = 0;
+    }
+    const prev = this.persistQueues.get(storeKey);
+    const next = (
+      prev
+        ? prev
+            .catch(() => undefined)
+            .then(() => store.saveMeta(storeKey, bytes, ackedClientSeq))
+        : store.saveMeta(storeKey, bytes, ackedClientSeq)
+    ).catch(onError);
+    this.persistQueues.set(storeKey, next);
     void next.finally(() => {
       if (this.persistQueues.get(storeKey) === next) {
         this.persistQueues.delete(storeKey);
@@ -2605,6 +2737,7 @@ export class Client {
       attachment.unsubscribePersist();
       attachment.unsubscribePersist = undefined;
     }
+    this.persistStates.delete(this.storeKey(key));
     // Release the single-active-session lock installed by attachDocument on the
     // offline persistence path, so a later tab can take over the document.
     if (attachment.sessionLockHandle) {
@@ -2780,9 +2913,10 @@ export class Client {
       // checkpoint until the next local edit. This is a full overwrite (not an
       // append), so it does not grow unbounded. Errors are logged, not thrown.
       if (this.store) {
-        this.persistToStore(
+        this.saveMetaToStore(
           this.storeKey(doc.getKey()),
-          doc.toBytes(),
+          doc.metaToBytes(),
+          doc.getCheckpoint().getClientSeq(),
           (err) => {
             logger.error(
               `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +

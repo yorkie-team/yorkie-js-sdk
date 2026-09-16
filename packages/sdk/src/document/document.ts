@@ -1530,6 +1530,28 @@ export class Document<
   }
 
   /**
+   * `getPendingChangesAfter` returns the un-pushed local changes whose
+   * `clientSeq` is above the given one, each paired with that sequence.
+   *
+   * The pairing is the point: a `ChangeStruct` carries its `clientSeq` encoded
+   * inside the hex `changeID`, so a caller working from structs alone cannot
+   * tell which changes it has already seen without decoding them. The
+   * offline-persistence layer needs exactly that to append only what is new.
+   */
+  public getPendingChangesAfter(
+    clientSeq: number,
+  ): Array<{ clientSeq: number; struct: ChangeStruct<P> }> {
+    const out: Array<{ clientSeq: number; struct: ChangeStruct<P> }> = [];
+    for (const change of this.localChanges) {
+      const seq = change.getID().getClientSeq();
+      if (seq > clientSeq) {
+        out.push({ clientSeq: seq, struct: change.toStruct() });
+      }
+    }
+    return out;
+  }
+
+  /**
    * `metaToBytes` serializes just the checkpoint and changeID — the client's
    * position against the server — without touching the root.
    *
