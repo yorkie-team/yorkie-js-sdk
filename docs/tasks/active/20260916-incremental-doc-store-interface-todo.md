@@ -259,8 +259,28 @@ has to demonstrate the real contract, not a reduced one.
       green — 430 passed across 44 files
 - [x] The offline integration suite passes unchanged against a live server
       (2 passed) — the real assertion that the reshape moved no behavior
-- [ ] The full integration suite passes (running; slower than the 10-minute
-      command budget, so it is worth re-running before the PR goes up)
+- [x] The full integration suite **ran to completion**: 2582 passed, 9 failed,
+  35 files, in 67 seconds. It is not a clean run. All nine failures are in
+  `webhook_test.ts` and are environmental — the containerized Yorkie server
+  cannot dial the test's host-side webhook server
+  (`dial tcp [::]:3004: connection refused`). Nothing this PR touched is in
+  that path; the merge touched no webhook or auth file. Whether those nine
+  pass on a correctly networked machine is untested here.
+
+  **It takes 67 seconds, not the ~25 minutes several attempts spent.**
+  `vitest.config.ts` sets `testTimeout: isCI ? 5000 : Infinity`, so locally a
+  hanging test hangs *forever* — here, `should refresh token and retry watch
+  document`, which is one of the nine. Four runs died that way and left
+  orphaned `vitest` workers behind (one had been running ten hours). Pass an
+  explicit bound and the suite finishes:
+
+  ```sh
+  cd packages/sdk && TEST_RPC_ADDR=http://127.0.0.1:8180 \
+    npx vitest run test/integration --testTimeout=30000
+  ```
+
+  Note `pnpm sdk test … --testTimeout=…` does **not** work: pnpm claims the
+  flag as its own and refuses with `Unknown options`. Call vitest directly.
 - [x] `git diff origin/main..HEAD -- packages/sdk/src/document/` is empty: the
       envelope format is untouched by this PR, as intended
 

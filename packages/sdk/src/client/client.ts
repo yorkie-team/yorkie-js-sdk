@@ -972,10 +972,30 @@ export class Client {
                 // without those changes and a checkpoint that stops the server
                 // from ever resending them. An empty log is the same case, and
                 // it used to skip validation entirely.
+                //
+                // The counter is the second position meta carries, and the log
+                // has to reach *it*, not merely the checkpoint. The two differ
+                // whenever an edit is minted while a sync is in flight: the
+                // response acks N while meta records a counter of N+1. Losing
+                // only that trailing entry leaves the log reaching N — enough
+                // to satisfy the checkpoint — while `restoreAppendedChanges`
+                // keeps the counter at N+1 over a root that holds N. The next
+                // edit then mints N+2, a gap the server rejects on every push
+                // from then on. That is not `ErrEpochMismatch`, so nothing
+                // re-anchors and the document never syncs again.
+                //
+                // Read after the header is applied, so it is meta's counter
+                // rather than the snapshot's. With meta absent this reduces to
+                // the checkpoint comparison, since a `toBytes` envelope's
+                // counter never leads the pending changes it carries.
+                const headerWatermark = Math.max(
+                  ackedWatermark,
+                  doc.getChangeID().getClientSeq(),
+                );
                 const lastReplayable = fresh.length
                   ? fresh[fresh.length - 1].clientSeq
                   : watermark;
-                const backsTheHeader = lastReplayable >= ackedWatermark;
+                const backsTheHeader = lastReplayable >= headerWatermark;
                 if (fresh.length || !backsTheHeader) {
                   // The run has to be contiguous. A hole — a failed append —
                   // cannot be pushed, because the server rejects a clientSeq
