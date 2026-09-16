@@ -175,20 +175,20 @@ export function shouldCompact(s: {
 `packages/sdk/src/document/document.ts` (event type),
 `packages/sdk/test/unit/client/persist_disabled_test.ts` (create)
 
-- [ ] **5.1** Write the failing test: with `maxPersistBytes` set below the
+- [x] **5.1** Write the failing test: with `maxPersistBytes` set below the
       document's snapshot size, the first compaction latches persistence off
       for that document and emits `PersistDisabled` with reason `too-large`.
-- [ ] **5.2** Write the second: after latching, no further `toBytes` call is
+- [x] **5.2** Write the second: after latching, no further `toBytes` call is
       made — the waste is bounded to one.
-- [ ] **5.3** Run them. Expect failure.
-- [ ] **5.4** Add `DocEventType.PersistDisabled` with reasons `too-large` /
+- [x] **5.3** Run them. Expect failure.
+- [x] **5.4** Add `DocEventType.PersistDisabled` with reasons `too-large` /
       `too-slow`, and `maxPersistBytes` / `maxPersistMillis` to
       `ClientOptions`. Measure at compaction only — appends are cheap and
       constant, so they need no budget.
-- [ ] **5.5** On exceeding, tear down the persist subscription for that
+- [x] **5.5** On exceeding, tear down the persist subscription for that
       document and publish the event.
-- [ ] **5.6** Run the tests. Expect pass.
-- [ ] **5.7** Commit: `Latch persistence off for a document that cannot afford it`
+- [x] **5.6** Run the tests. Expect pass.
+- [x] **5.7** Commit: `Latch persistence off for a document that cannot afford it`
 
 ## Task 6: integration
 
@@ -208,7 +208,7 @@ export function shouldCompact(s: {
 
 ## Verification
 
-- [ ] `pnpm lint && pnpm sdk build && pnpm sdk test` green
+- [x] `pnpm lint && pnpm sdk build && pnpm sdk test` green — 453 unit, 4 integration
 - [x] Integration suite green against a server from this repo's compose file
       — run as `docker run -p 8180:8080 yorkieteam/yorkie:latest` plus
       `TEST_RPC_ADDR=http://127.0.0.1:8180`, because `docker compose up` cannot
@@ -216,7 +216,7 @@ export function shouldCompact(s: {
 - [ ] A benchmark built by **editing**, not by one bulk `update()`: a fixture
       assembled in a single update understates cost by two orders of magnitude
       (a 20k-character note is 59 KB built at once, 6.60 MB typed)
-- [ ] The `ClientOptions.store` doc comment no longer says a full snapshot is
+- [x] The `ClientOptions.store` doc comment no longer says a full snapshot is
       written per local change
 
 ## Review

@@ -285,6 +285,27 @@ export interface ClientOptions {
    * `store` is unset (non-persistence clients keep today's behavior).
    */
   sessionLock?: SessionLock;
+
+  /**
+   * `maxPersistBytes` caps the size of a snapshot this client is willing to
+   * write. A document whose snapshot exceeds it stops being persisted and a
+   * {@link DocEventType.PersistDisabled} event is published; editing is
+   * unaffected.
+   *
+   * Only snapshots are measured. Appends are a few hundred bytes regardless of
+   * document size, so they need no budget — the budget exists for the one
+   * operation whose cost scales with the document.
+   *
+   * Unset means no limit.
+   */
+  maxPersistBytes?: number;
+
+  /**
+   * `maxPersistMillis` caps how long serializing a snapshot may block the main
+   * thread before this client gives up persisting the document. Same effect
+   * and same event as {@link maxPersistBytes}. Unset means no limit.
+   */
+  maxPersistMillis?: number;
 }
 
 /**
@@ -486,6 +507,8 @@ export class Client {
   // when `store` is set; a stable Web Locks default is created so store-backed
   // clients get multi-tab safety out of the box.
   private sessionLock: SessionLock;
+  private maxPersistBytes?: number;
+  private maxPersistMillis?: number;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -535,6 +558,8 @@ export class Client {
     // Default to the Web Locks-backed guard; it is a no-op outside browsers and
     // is only consulted on the store-backed attach path below.
     this.sessionLock = opts.sessionLock ?? new WebLocksSessionLock();
+    this.maxPersistBytes = opts.maxPersistBytes;
+    this.maxPersistMillis = opts.maxPersistMillis;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -1216,88 +1241,99 @@ export class Client {
           // into its envelope, so anything un-pushed at this moment is inside
           // the snapshot; appending it again would restore it twice — once
           // from the envelope, once from the log.
-          const snapshot = doc.toBytes();
+          // Over budget on the very first write means no persist subscription
+          // is installed at all, rather than one that latches itself off on the
+          // next edit. `snapshotWithinBudget` has already published the event.
+          const snapshot = this.snapshotWithinBudget(doc, storeKey);
           const carried = doc.getPendingChangesAfter(0);
-          this.persistStates.set(storeKey, {
-            snapshotBytes: snapshot.length,
-            logBytes: 0,
-            changeCount: 0,
-            lastAppendedClientSeq: carried.length
-              ? carried[carried.length - 1].clientSeq
-              : doc.getCheckpoint().getClientSeq(),
-            appended: [],
-            poisoned: false,
-          });
-          this.persistToStore(storeKey, snapshot, onError);
+          if (snapshot) {
+            this.persistStates.set(storeKey, {
+              snapshotBytes: snapshot.length,
+              logBytes: 0,
+              changeCount: 0,
+              lastAppendedClientSeq: carried.length
+                ? carried[carried.length - 1].clientSeq
+                : doc.getCheckpoint().getClientSeq(),
+              appended: [],
+              poisoned: false,
+            });
+            this.persistToStore(storeKey, snapshot, onError);
 
-          const append = () => {
-            const state = this.persistStates.get(storeKey);
-            if (!state) {
-              return;
-            }
-            // Driven off the pending queue rather than the event payload, so a
-            // coalesced or missed event cannot silently drop a change.
-            // A previous append failed, so the log has a hole and cannot be
-            // replayed. Writing a snapshot loses nothing — it embeds the whole
-            // pending queue — while appending into a holed log would lose the
-            // entire offline session at restore.
-            if (state.poisoned) {
-              const repaired = doc.toBytes();
-              state.snapshotBytes = repaired.length;
-              state.logBytes = 0;
-              state.changeCount = 0;
-              state.appended = [];
-              state.poisoned = false;
-              state.lastAppendedClientSeq = doc
-                .getPendingChangesAfter(0)
-                .reduce(
-                  (max, p) => Math.max(max, p.clientSeq),
-                  doc.getCheckpoint().getClientSeq(),
-                );
-              this.persistToStore(storeKey, repaired, onError);
-              return;
-            }
-
-            const pending = doc.getPendingChangesAfter(
-              state.lastAppendedClientSeq,
-            );
-            for (const { clientSeq, struct } of pending) {
-              const bytes = textEncoder.encode(JSON.stringify(struct));
-              state.lastAppendedClientSeq = clientSeq;
-              state.logBytes += bytes.length;
-              state.changeCount += 1;
-              state.appended.push({ clientSeq, size: bytes.length });
-              this.appendToStore(storeKey, { clientSeq, bytes }, (err) => {
-                state.poisoned = true;
-                onError(err);
-              });
-            }
-
-            if (shouldCompact(state)) {
-              const compacted = doc.toBytes();
-              state.snapshotBytes = compacted.length;
-              state.logBytes = 0;
-              state.changeCount = 0;
-              state.appended = [];
-              this.persistToStore(storeKey, compacted, onError);
-            }
-          };
-
-          // Subscribe via 'all': the default `subscribe(fn)` overload only
-          // delivers Local/Remote/Snapshot, but a presence-only local change
-          // surfaces as PresenceChanged, which must also be appended.
-          attachment.unsubscribePersist = doc.subscribe('all', (events) => {
-            for (const event of events) {
-              if (
-                event.type === DocEventType.LocalChange ||
-                (event.type === DocEventType.PresenceChanged &&
-                  event.source === OpSource.Local)
-              ) {
-                append();
-                break;
+            const append = () => {
+              const state = this.persistStates.get(storeKey);
+              if (!state) {
+                return;
               }
-            }
-          });
+              // Driven off the pending queue rather than the event payload, so a
+              // coalesced or missed event cannot silently drop a change.
+              // A previous append failed, so the log has a hole and cannot be
+              // replayed. Writing a snapshot loses nothing — it embeds the whole
+              // pending queue — while appending into a holed log would lose the
+              // entire offline session at restore.
+              if (state.poisoned) {
+                const repaired = this.snapshotWithinBudget(doc, storeKey);
+                if (!repaired) {
+                  return;
+                }
+                state.snapshotBytes = repaired.length;
+                state.logBytes = 0;
+                state.changeCount = 0;
+                state.appended = [];
+                state.poisoned = false;
+                state.lastAppendedClientSeq = doc
+                  .getPendingChangesAfter(0)
+                  .reduce(
+                    (max, p) => Math.max(max, p.clientSeq),
+                    doc.getCheckpoint().getClientSeq(),
+                  );
+                this.persistToStore(storeKey, repaired, onError);
+                return;
+              }
+
+              const pending = doc.getPendingChangesAfter(
+                state.lastAppendedClientSeq,
+              );
+              for (const { clientSeq, struct } of pending) {
+                const bytes = textEncoder.encode(JSON.stringify(struct));
+                state.lastAppendedClientSeq = clientSeq;
+                state.logBytes += bytes.length;
+                state.changeCount += 1;
+                state.appended.push({ clientSeq, size: bytes.length });
+                this.appendToStore(storeKey, { clientSeq, bytes }, (err) => {
+                  state.poisoned = true;
+                  onError(err);
+                });
+              }
+
+              if (shouldCompact(state)) {
+                const compacted = this.snapshotWithinBudget(doc, storeKey);
+                if (!compacted) {
+                  return;
+                }
+                state.snapshotBytes = compacted.length;
+                state.logBytes = 0;
+                state.changeCount = 0;
+                state.appended = [];
+                this.persistToStore(storeKey, compacted, onError);
+              }
+            };
+
+            // Subscribe via 'all': the default `subscribe(fn)` overload only
+            // delivers Local/Remote/Snapshot, but a presence-only local change
+            // surfaces as PresenceChanged, which must also be appended.
+            attachment.unsubscribePersist = doc.subscribe('all', (events) => {
+              for (const event of events) {
+                if (
+                  event.type === DocEventType.LocalChange ||
+                  (event.type === DocEventType.PresenceChanged &&
+                    event.source === OpSource.Local)
+                ) {
+                  append();
+                  break;
+                }
+              }
+            });
+          }
         }
 
         if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
@@ -1943,6 +1979,57 @@ export class Client {
         this.persistQueues.delete(storeKey);
       }
     });
+  }
+
+  /**
+   * `snapshotWithinBudget` serializes a document for persistence and measures
+   * what that cost. It answers `undefined` when the cost exceeds the client's
+   * budget, having already latched persistence off for that document and
+   * published {@link DocEventType.PersistDisabled}.
+   *
+   * Every snapshot write goes through here, which is the point: the budget is
+   * only meaningful if nothing can serialize behind its back, and latching has
+   * to tear down the subscription rather than merely skip a write — otherwise
+   * each later edit keeps paying the serialization the budget exists to avoid.
+   * The waste is bounded to the one measurement that discovers the problem.
+   */
+  private snapshotWithinBudget<R, P extends Indexable>(
+    doc: Document<R, P>,
+    storeKey: string,
+  ): Uint8Array | undefined {
+    const startedAt = Date.now();
+    const bytes = doc.toBytes();
+    const millis = Date.now() - startedAt;
+
+    const tooLarge =
+      this.maxPersistBytes !== undefined && bytes.length > this.maxPersistBytes;
+    const tooSlow =
+      this.maxPersistMillis !== undefined && millis > this.maxPersistMillis;
+    if (!tooLarge && !tooSlow) {
+      return bytes;
+    }
+
+    logger.warn(
+      `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" persistence disabled ` +
+        `(${bytes.length} bytes, ${millis}ms)`,
+    );
+    this.persistStates.delete(storeKey);
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (attachment?.unsubscribePersist) {
+      attachment.unsubscribePersist();
+      attachment.unsubscribePersist = undefined;
+    }
+    doc.publish([
+      {
+        type: DocEventType.PersistDisabled,
+        value: {
+          reason: tooLarge ? 'too-large' : 'too-slow',
+          bytes: bytes.length,
+          millis,
+        },
+      },
+    ]);
+    return undefined;
   }
 
   /**
@@ -3072,9 +3159,9 @@ export class Client {
           // Cost: a pull re-serializes the document. That is the price of a
           // local-only log; persisting remote changes incrementally as well
           // would avoid it and is the natural follow-up.
-          const snapshot = doc.toBytes();
+          const snapshot = this.snapshotWithinBudget(doc, storeKey);
           const state = this.persistStates.get(storeKey);
-          if (state) {
+          if (state && snapshot) {
             state.snapshotBytes = snapshot.length;
             state.logBytes = 0;
             state.changeCount = 0;
@@ -3087,7 +3174,9 @@ export class Client {
                 doc.getCheckpoint().getClientSeq(),
               );
           }
-          this.persistToStore(storeKey, snapshot, onError);
+          if (snapshot) {
+            this.persistToStore(storeKey, snapshot, onError);
+          }
         } else {
           // A pure push-ack: the root did not move, so the cheap header write
           // is both sufficient and correct.

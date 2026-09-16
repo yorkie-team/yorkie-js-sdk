@@ -208,6 +208,14 @@ export enum DocEventType {
    * them on top of the re-anchored state.
    */
   LocalChangesDropped = 'local-changes-dropped',
+
+  /**
+   * `PersistDisabled` indicates the offline-persistence layer stopped
+   * persisting this document because writing it costs more than the configured
+   * budget allows. Editing continues; durability does not. An app that reports
+   * sync state should say so, since the user's work is no longer being kept.
+   */
+  PersistDisabled = 'persist-disabled',
 }
 
 /**
@@ -224,7 +232,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | PresenceEvent<P>
   | AuthErrorEvent
   | EpochMismatchEvent
-  | LocalChangesDroppedEvent<P>;
+  | LocalChangesDroppedEvent<P>
+  | PersistDisabledEvent;
 
 /**
  * `DocEvents` represents document events that occur within
@@ -398,6 +407,23 @@ export interface EpochMismatchEvent extends BaseDocEvent {
   };
 }
 
+export type PersistDisabledReason =
+  // Serializing the document exceeded `maxPersistBytes`.
+  | 'too-large'
+  // Serializing the document took longer than `maxPersistMillis`.
+  | 'too-slow';
+
+/**
+ * `PersistDisabledEvent` reports that this document is no longer being
+ * persisted. It fires once per attachment: the measurement that triggers it is
+ * taken at compaction, and latching tears the persist subscription down, so
+ * the cost of discovering the document is unaffordable is paid once.
+ */
+export interface PersistDisabledEvent extends BaseDocEvent {
+  type: DocEventType.PersistDisabled;
+  value: { reason: PersistDisabledReason; bytes: number; millis: number };
+}
+
 /**
  * `LocalChangesDroppedReason` enumerates why the offline-persistence layer
  * had to discard un-pushed local changes it could not reconcile.
@@ -441,6 +467,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   'auth-error': NextFn<AuthErrorEvent>;
   'epoch-mismatch': NextFn<EpochMismatchEvent>;
   'local-changes-dropped': NextFn<LocalChangesDroppedEvent<P>>;
+  'persist-disabled': NextFn<PersistDisabledEvent>;
   all: NextFn<DocEvents<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -1033,6 +1060,17 @@ export class Document<
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the offline-persistence layer stopped
+   * persisting this document because writing it exceeds the configured budget.
+   * Editing continues; durability does not.
+   */
+  public subscribe(
+    type: 'persist-disabled',
+    next: DocEventCallbackMap<P>['persist-disabled'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -1190,6 +1228,18 @@ export class Document<
         return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.EpochMismatch) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'persist-disabled') {
+        const callback = arg2 as DocEventCallbackMap<P>['persist-disabled'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.PersistDisabled) {
               continue;
             }
 
