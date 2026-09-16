@@ -1530,6 +1530,96 @@ export class Document<
   }
 
   /**
+   * `metaToBytes` serializes just the checkpoint and changeID — the client's
+   * position against the server — without touching the root.
+   *
+   * This is what the offline-persistence layer writes after a sync. A sync
+   * advances the checkpoint while leaving the document unchanged, so
+   * re-serializing the whole document to record it would cost time
+   * proportional to the document for information that is a few dozen bytes.
+   * Without it a restore would resume from whatever checkpoint the last
+   * snapshot happened to carry.
+   */
+  public metaToBytes(): Uint8Array {
+    const encoder = new TextEncoder();
+    const checkpoint = encoder.encode(
+      JSON.stringify({
+        serverSeq: this.checkpoint.getServerSeq().toString(),
+        clientSeq: this.checkpoint.getClientSeq(),
+      }),
+    );
+    const changeID = converter.changeIDToBinary(this.changeID);
+    return packBlobs([checkpoint, changeID]);
+  }
+
+  /**
+   * `restoreMetaFromBytes` applies the bytes produced by `metaToBytes`,
+   * overwriting the checkpoint and changeID. Trailing blobs stay optional, the
+   * same extension rule the `toBytes` envelope follows.
+   */
+  public restoreMetaFromBytes(bytes: Uint8Array): void {
+    const decoder = new TextDecoder();
+    const [checkpointBytes, changeIDBytes] = unpackBlobs(bytes);
+
+    const checkpoint = JSON.parse(decoder.decode(checkpointBytes)) as {
+      serverSeq: string;
+      clientSeq: number;
+    };
+    this.checkpoint = Checkpoint.of(
+      BigInt(checkpoint.serverSeq),
+      checkpoint.clientSeq,
+    );
+    if (changeIDBytes) {
+      this.changeID = converter.bytesToChangeID(changeIDBytes);
+    }
+  }
+
+  /**
+   * `restoreAppendedChanges` replays changes that were recorded *after* the
+   * snapshot this document was restored from, as the offline-persistence
+   * layer's change log holds them.
+   *
+   * These are the opposite case to the pending changes carried inside a
+   * `toBytes` envelope. Those are already reflected in the snapshot's root —
+   * `toBytes` serializes the live root — so `fromBytes` queues them without
+   * applying. A change from the log was written after that root was captured,
+   * so it must be both **applied**, to bring the root forward, and **queued**,
+   * so it is still pushed. Doing only the first loses the edit on reconnect;
+   * doing only the second leaves the user looking at stale content.
+   *
+   * The log must be contiguous and ascending by `clientSeq`. A caller that
+   * cannot satisfy that should restore from the snapshot alone and report the
+   * loss rather than replaying a broken run.
+   */
+  public restoreAppendedChanges(structs: Array<ChangeStruct<P>>): void {
+    if (!structs.length) {
+      return;
+    }
+
+    const changes = structs.map((struct) => Change.fromStruct<P>(struct));
+    let prev: number | undefined;
+    for (const change of changes) {
+      const clientSeq = change.getID().getClientSeq();
+      if (prev !== undefined && clientSeq <= prev) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `appended changes must be ascending by clientSeq, got ${clientSeq} ` +
+            `after ${prev}`,
+        );
+      }
+      prev = clientSeq;
+    }
+
+    this.applyChanges(changes, OpSource.Local);
+    this.localChanges.push(...changes);
+
+    // The clone predates the replay, and the history's reverse-ops reference
+    // the pre-replay state — the same reasoning `restoreFromBytes` applies.
+    this.clone = undefined;
+    this.clearHistory();
+  }
+
+  /**
    * `resetForReanchor` drops all local state that was seeded from a stale
    * persisted envelope so the document can be re-attached fresh. The server
    * then re-anchors the client from the current snapshot. Used only on the

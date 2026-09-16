@@ -302,3 +302,102 @@ describe('Document.toBytes / fromBytes', function () {
     );
   });
 });
+
+describe('Document incremental restore', function () {
+  type R = { text: Text; counter: Counter; n?: number };
+
+  /** Builds a document with some content and a known actor. */
+  function seed(key: string): Document<R> {
+    const doc = new Document<R>(key);
+    doc.setActor(actorA);
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'hello');
+      root.counter = new Counter(0);
+      root.counter.increase(5);
+    });
+    return doc;
+  }
+
+  it('should restore a snapshot plus changes appended after it', function () {
+    const live = seed('inc-1');
+
+    // The snapshot is taken here; everything below is what the append log
+    // would hold. `toBytes` serializes the live root, so the snapshot already
+    // reflects the seed edits.
+    const snapshot = live.toBytes();
+    const beforeCount = live.getPendingChangeStructs().length;
+
+    live.update((root) => root.text.edit(5, 5, ' world'));
+    live.update((root) => root.counter.increase(3));
+    live.update((root) => {
+      root.n = 42;
+    });
+
+    // The changes written after the snapshot, in append order.
+    const appended = live.getPendingChangeStructs().slice(beforeCount);
+    assert.equal(appended.length, 3);
+
+    const restored = Document.fromBytes<R>('inc-1', snapshot);
+    restored.restoreAppendedChanges(appended);
+
+    // Applied: the root has moved forward to match the live document.
+    assert.equal(restored.toSortedJSON(), live.toSortedJSON());
+    // And queued: every un-pushed change is still there to push.
+    assert.deepEqual(
+      restored.getPendingChangeStructs(),
+      live.getPendingChangeStructs(),
+    );
+  });
+
+  it('should not re-apply the changes carried inside the envelope', function () {
+    // `toBytes` writes the live root *and* the pending queue. The queue is for
+    // re-pushing, not for replaying: applying it again would double every
+    // operation it holds.
+    const live = seed('inc-2');
+    live.update((root) => root.counter.increase(7));
+
+    const restored = Document.fromBytes<R>('inc-2', live.toBytes());
+
+    assert.equal(restored.toSortedJSON(), live.toSortedJSON());
+    assert.deepEqual(
+      restored.getPendingChangeStructs(),
+      live.getPendingChangeStructs(),
+    );
+  });
+
+  it('should reject an appended log that is out of order', function () {
+    const live = seed('inc-3');
+    const snapshot = live.toBytes();
+    const before = live.getPendingChangeStructs().length;
+    live.update((root) => root.text.edit(5, 5, 'a'));
+    live.update((root) => root.text.edit(6, 6, 'b'));
+    const appended = live.getPendingChangeStructs().slice(before);
+
+    const restored = Document.fromBytes<R>('inc-3', snapshot);
+    assert.throws(
+      () => restored.restoreAppendedChanges([appended[1], appended[0]]),
+      /ascending/,
+    );
+  });
+
+  it('should round-trip checkpoint and changeID through meta bytes', function () {
+    // After a sync the checkpoint advances while the snapshot stays put, so
+    // meta is what keeps a restore from resuming at a stale checkpoint.
+    const live = seed('inc-4');
+    const meta = live.metaToBytes();
+
+    const restored = Document.fromBytes<R>('inc-4', live.toBytes());
+    restored.restoreMetaFromBytes(meta);
+
+    assert.equal(
+      restored.getCheckpoint().getClientSeq(),
+      live.getCheckpoint().getClientSeq(),
+    );
+    assert.equal(
+      restored.getCheckpoint().getServerSeq().toString(),
+      live.getCheckpoint().getServerSeq().toString(),
+    );
+    assertChangeIDEqual(restored.getChangeID(), live.getChangeID());
+  });
+});
