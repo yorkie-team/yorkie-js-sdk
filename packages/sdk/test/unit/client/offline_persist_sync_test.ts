@@ -345,3 +345,119 @@ describe('Incremental persistence write path', () => {
     assert.deepEqual(stored.changes, []);
   });
 });
+
+describe('Incremental persistence restore path', () => {
+  const key = 'restore-incremental';
+
+  const attachDocument = async () =>
+    create(AttachDocumentResponseSchema, {
+      documentId: 'doc-id',
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, { serverSeq: 0n, clientSeq: 0 }),
+      }),
+      disablePresence: false,
+      schemaRules: [],
+    });
+
+  /**
+   * Seeds a store the way a previous session would have left it: a base
+   * snapshot plus the changes appended after it. Returns the seeded pieces so
+   * a test can corrupt them before attaching.
+   */
+  async function seedStore(store: MemoryDocStore) {
+    const seed = new Document<{ text?: string }>(key);
+    seed.setActor(actorHex);
+    const snapshot = seed.toBytes();
+
+    const appended: Array<{ clientSeq: number; bytes: Uint8Array }> = [];
+    for (const v of ['a', 'ab', 'abc']) {
+      seed.update((root) => {
+        root.text = v;
+      });
+    }
+    for (const { clientSeq, struct } of seed.getPendingChangesAfter(0)) {
+      appended.push({
+        clientSeq,
+        bytes: new TextEncoder().encode(JSON.stringify(struct)),
+      });
+    }
+
+    await store.saveSnapshot(scopedKey(key), snapshot);
+    for (const change of appended) {
+      await store.appendChange(scopedKey(key), change);
+    }
+    return { seed, appended };
+  }
+
+  it('replays the appended log so offline edits survive a reload', async () => {
+    const store = new MemoryDocStore();
+    const { seed } = await seedStore(store);
+
+    const client = activatedClient(store, { attachDocument });
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    // Applied: the content is back.
+    assert.equal(doc.getRoot().text, 'abc');
+    // And queued: the edits still reach the server on reconnect. Applying
+    // without queueing would show the right document and then lose it.
+    assert.equal(doc.toSortedJSON(), seed.toSortedJSON());
+    assert.isTrue(doc.hasLocalChanges());
+  });
+
+  it('drops logged changes the snapshot already contains', async () => {
+    // A torn compaction: the snapshot was replaced but the log clear was not
+    // observed. Replaying those changes would apply them twice.
+    const store = new MemoryDocStore();
+    const { seed, appended } = await seedStore(store);
+
+    // Compact: a snapshot that already carries every appended change, written
+    // without clearing the log.
+    const compacted = seed.toBytes();
+    (store as any).store.get(scopedKey(key)).snapshot = compacted;
+
+    const client = activatedClient(store, { attachDocument });
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    assert.isNotEmpty(appended);
+    assert.equal(doc.getRoot().text, 'abc', 'not "abcabc" or a throw');
+    assert.equal(doc.toSortedJSON(), seed.toSortedJSON());
+  });
+
+  it('falls back to the snapshot and reports loss on a clientSeq hole', async () => {
+    const store = new MemoryDocStore();
+    await seedStore(store);
+
+    // Lose the middle change, as a failed append would.
+    const entry = (store as any).store.get(scopedKey(key));
+    entry.changes.splice(1, 1);
+
+    const dropped: Array<any> = [];
+    const client = activatedClient(store, { attachDocument });
+    const doc = new Document<{ text?: string }>(key);
+    doc.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    // A discontinuous run cannot be pushed — the server rejects the gap — so
+    // restoring from the snapshot alone and saying so beats replaying it.
+    assert.equal(doc.getRoot().text, undefined);
+    assert.equal(dropped.length, 1);
+    assert.equal(dropped[0].reason, 'log-discontinuity');
+    // The event carries what was actually lost: the log's changes, not the
+    // snapshot's pending queue (which is empty here).
+    assert.isAtLeast(dropped[0].changes.length, 1);
+  });
+});

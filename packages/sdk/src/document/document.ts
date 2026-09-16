@@ -406,7 +406,11 @@ export type LocalChangesDroppedReason =
   | 'epoch-reanchor'
   | 'document-purged'
   | 'actor-mismatch'
-  | 'restore-failed';
+  | 'restore-failed'
+  // The persisted change log had a `clientSeq` hole — an append that never
+  // landed — so it could not be replayed: the server rejects a discontinuous
+  // run, and a document restored from one would never sync again.
+  | 'log-discontinuity';
 
 /**
  * `LocalChangesDroppedEvent` is an app-visible data-loss signal: the persisted

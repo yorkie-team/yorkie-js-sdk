@@ -866,13 +866,13 @@ export class Client {
             // loss, so surface it and clear the stale entry rather than
             // divergently restoring.
             let bytes: Uint8Array | undefined;
+            let storedMeta: Uint8Array | undefined;
+            let storedChanges: Array<StoredChange> = [];
             try {
-              // `changes` is necessarily empty here: nothing appends to the log
-              // yet, so the snapshot is the whole persisted state. Replaying an
-              // appended log belongs to the incremental engine, and a stub for
-              // it here would be untested code posing as a feature.
               const stored = await this.store.load(this.storeKey(doc.getKey()));
               bytes = stored?.snapshot;
+              storedMeta = stored?.meta;
+              storedChanges = stored?.changes ?? [];
             } catch (err) {
               logger.warn(
                 `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" store load ` +
@@ -884,6 +884,61 @@ export class Client {
             if (bytes) {
               try {
                 doc.restoreFromBytes(bytes);
+                // `meta` may carry a checkpoint newer than the snapshot's: a
+                // sync advances it without re-snapshotting, which is the whole
+                // reason meta is stored apart.
+                if (storedMeta) {
+                  doc.restoreMetaFromBytes(storedMeta);
+                }
+                // Replay the log written after the snapshot. Anything at or
+                // below what the snapshot already carries is dropped rather
+                // than replayed: a compaction that wrote the snapshot without
+                // its log clear being observed would otherwise apply those
+                // changes a second time.
+                const carried = doc.getPendingChangesAfter(0);
+                const watermark = carried.length
+                  ? carried[carried.length - 1].clientSeq
+                  : doc.getCheckpoint().getClientSeq();
+                const fresh = storedChanges.filter(
+                  (change) => change.clientSeq > watermark,
+                );
+                if (fresh.length) {
+                  // The run has to be contiguous. A hole — a failed append —
+                  // cannot be pushed, because the server rejects a clientSeq
+                  // gap, so replaying it would produce a document that never
+                  // syncs again. Report the loss and keep the snapshot.
+                  const contiguous = fresh.every(
+                    (change, i) =>
+                      i === 0 ||
+                      change.clientSeq === fresh[i - 1].clientSeq + 1,
+                  );
+                  const structs = fresh.map(
+                    (change) =>
+                      JSON.parse(
+                        new TextDecoder().decode(change.bytes),
+                      ) as ChangeStruct<P>,
+                  );
+                  if (!contiguous || fresh[0].clientSeq !== watermark + 1) {
+                    // Reported rather than thrown, because what is lost here is
+                    // the *log*, not the envelope — and the event exists to say
+                    // what was lost. Routing this through the generic restore
+                    // failure would hand the app the snapshot's pending changes
+                    // (often none) and call it an actor mismatch.
+                    logger.warn(
+                      `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                        `persisted change log is not contiguous from ` +
+                        `clientSeq ${watermark + 1}; keeping the snapshot`,
+                    );
+                    this.emitLocalChangesDropped(
+                      doc,
+                      'log-discontinuity',
+                      structs,
+                    );
+                    await this.removeFromStore(doc.getKey());
+                  } else {
+                    doc.restoreAppendedChanges(structs);
+                  }
+                }
                 restored = true;
               } catch (err) {
                 // A persisted envelope that cannot be safely restored is
