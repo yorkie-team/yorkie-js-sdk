@@ -355,6 +355,49 @@ describe('Document incremental restore', function () {
     assertChangeIDEqual(restored.getChangeID(), live.getChangeID());
   });
 
+  it('should apply every replayed change but queue only the unacked ones', function () {
+    // The log does two jobs: it is the delta between the snapshot and the
+    // current content, and it holds what still has to be pushed. Those answers
+    // differ once a sync acks part of it. Skipping an acked entry would leave
+    // the root behind; queueing one presents a `clientSeq` the server has
+    // already taken, and it silently skips the push rather than erroring.
+    const live = seed('inc-6');
+    const snapshot = live.toBytes();
+    const before = live.getPendingChangeStructs().length;
+
+    live.update((root) => root.text.edit(5, 5, 'a'));
+    live.update((root) => root.text.edit(6, 6, 'b'));
+    live.update((root) => root.text.edit(7, 7, 'c'));
+    // `getPendingChangesAfter` pairs each struct with its clientSeq, which the
+    // struct itself only carries inside a hex-encoded changeID.
+    const appended = live.getPendingChangesAfter(0).slice(before);
+    const acked = appended[0].clientSeq;
+
+    const restored = Document.fromBytes<R>('inc-6', snapshot);
+    restored.restoreAppendedChanges(
+      appended.map((c) => c.struct),
+      acked,
+    );
+
+    // Applied: all three, so the root matches the live document.
+    assert.equal(restored.toSortedJSON(), live.toSortedJSON());
+
+    // Queued: the two above the ack, and not the acked one. The envelope's own
+    // pending change is below all of them and stays queued on its own terms —
+    // `fromBytes` queues what the snapshot carried, which nothing has acked.
+    const queued = restored.getPendingChangesAfter(0).map((c) => c.clientSeq);
+    assert.notInclude(
+      queued,
+      acked,
+      're-pushing an acked clientSeq is skipped',
+    );
+    assert.includeMembers(
+      queued,
+      appended.slice(1).map((c) => c.clientSeq),
+      'every unacked replayed change must still be pushed',
+    );
+  });
+
   it('should keep the next edit pushable after a replay', function () {
     const live = seed('inc-5');
     const snapshot = live.toBytes();

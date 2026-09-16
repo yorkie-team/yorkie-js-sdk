@@ -972,6 +972,148 @@ describe('Store write failures must not persist a lie', () => {
     );
   });
 
+  it('rejects a log that does not start where the snapshot ends', async () => {
+    // Contiguity has two edges and the run's own `every` only checks one: it
+    // compares each entry with the one before it, so a run that is internally
+    // perfect but starts *past* the snapshot passes. Replaying it would apply
+    // an edit whose predecessor the root never saw.
+    const inner = new MemoryDocStore();
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => inner.appendChange(k, c),
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(2));
+    doc.update((root) => root.counter!.increase(3));
+    await settled();
+
+    // Drop the *first* entry, leaving a run that is contiguous within itself.
+    const entry = (inner as any).store.get(scopedKey(key));
+    assert.isAbove(entry.changes.length, 2);
+    entry.changes.shift();
+
+    const dropped: Array<any> = [];
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ counter?: Counter }>(key);
+    doc2.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    assert.equal(dropped.length, 1);
+    assert.equal(dropped[0].reason, 'log-discontinuity');
+    // The snapshot is kept whole rather than advanced over the hole.
+    assert.equal(doc2.getRoot().counter, undefined);
+  });
+
+  it('rejects meta whose counter the log cannot reach', async () => {
+    // The header carries two positions, not one: the checkpoint the server
+    // acked, and `changeID` — how many changes this client has minted. They
+    // differ whenever an edit is minted while a sync is in flight, which is
+    // ordinary rather than exotic: the response acks N while meta records a
+    // counter of N+1.
+    //
+    // Losing that trailing entry is the dangerous case, because measuring the
+    // log against the *checkpoint* alone accepts it: the log still reaches N.
+    // The restore then leaves the counter at N+1 over a root that only holds
+    // N, and the next edit mints N+2 — a gap the server rejects with
+    // ErrInvalidClientSeq on every push from then on. It is not an epoch
+    // mismatch, so nothing re-anchors; the document is wedged for good.
+    const inner = new MemoryDocStore();
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => inner.appendChange(k, c),
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, {
+      attachDocument,
+      // The edit lands *during* the push, so it is minted but not acked.
+      pushPullChanges: async (req: any) => {
+        doc.update((root) => root.counter!.increase(1));
+        return pushPullChanges(req);
+      },
+    });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(6));
+    await client.sync();
+    await settled();
+
+    // The header now leads its checkpoint, which is the precondition.
+    const beforeLoss = (await store.load(scopedKey(key)))!;
+    const carried = Document.fromBytes<{ counter?: Counter }>(
+      key,
+      beforeLoss.snapshot,
+    );
+    carried.restoreMetaFromBytes(beforeLoss.meta!);
+    assert.isAbove(
+      carried.getChangeID().getClientSeq(),
+      carried.getCheckpoint().getClientSeq(),
+      'the in-flight edit must leave the counter ahead of the checkpoint',
+    );
+
+    // An evicting store drops the newest entry — the one the counter needs.
+    const entry = (inner as any).store.get(scopedKey(key));
+    entry.changes.pop();
+
+    const dropped: Array<any> = [];
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ counter?: Counter }>(key);
+    doc2.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    // Reported, not silently accepted.
+    assert.equal(dropped.length, 1);
+    assert.equal(dropped[0].reason, 'log-discontinuity');
+
+    // And what the document does next must be pushable. The server requires
+    // every change to follow its checkpoint by exactly one, so the counter has
+    // to fall back with the checkpoint rather than keep the position the lost
+    // entry gave it.
+    doc2.update((root) => {
+      root.counter = new Counter(0);
+    });
+    await settled();
+    const pending = doc2.getPendingChangesAfter(0);
+    assert.isNotEmpty(pending);
+    assert.equal(
+      pending[0].clientSeq,
+      doc2.getCheckpoint().getClientSeq() + 1,
+      'the next push must continue from the checkpoint, not skip a clientSeq',
+    );
+  });
+
   it('does not advance the header over a log that has a hole', async () => {
     // A failed append leaves that change only in memory. Writing meta anyway
     // pushes the persisted serverSeq past content the store does not hold, and
