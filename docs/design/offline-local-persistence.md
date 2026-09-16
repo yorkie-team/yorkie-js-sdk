@@ -321,7 +321,7 @@ opaque-bytes discipline:
 interface StoredDoc {
   snapshot: Uint8Array;        // a `Document.toBytes()` envelope
   meta?: Uint8Array;           // checkpoint + changeID, advanced after a sync
-  changes: Array<Uint8Array>;  // `Change.toStruct()` blobs, in clientSeq order
+  changes: Array<{ clientSeq: number; bytes: Uint8Array }>;  // in clientSeq order
 }
 
 interface DocStore {
@@ -410,6 +410,17 @@ A test asserting a single field cannot see this break, because a log entry that
 sets an absolute value reconstructs that value whether or not the base survived.
 Assert `restored.toSortedJSON() === doc.toSortedJSON()`, and cover at least one
 **relative** operation (`Counter.increase`, `Text.edit`).
+
+**One carve-out: the invariant holds up to garbage-collection state.** A sync
+runs `garbageCollect` on every non-snapshot pack, including a pure push-ack —
+which writes only `meta`, so the persisted triple keeps tombstones the live
+document has already dropped. The reconstructed document is observably
+identical under `toSortedJSON()` and converges normally, so this is deliberate
+rather than a defect: paying a full serialization per GC would give back the
+cost the design exists to remove. The measurable consequence is that a restored
+document's `totalDocSize` counts tombstones the server purged, and that figure
+feeds the local `maxSizeLimit` check — so an edit the server would accept can
+be refused locally until the next compaction.
 
 #### The compaction threshold is relative, not absolute
 
@@ -519,7 +530,7 @@ document never reached.
 | `load` fails, or the entry is unreadable | Discard the entry, attach fresh, emit `LocalChangesDropped` — with no change structs, since what was lost cannot be read |
 | `appendChange` fails | **Treat the whole log as poisoned.** Clear it and force a `saveSnapshot` at the next opportunity rather than retrying into a hole. A gap is silently wrong in a way a missing log is not |
 | `saveSnapshot` fails | The write is poisoned, so the next edit retries the snapshot rather than appending into a log the store may not have cleared. A standing backoff and a hard log ceiling are **not** implemented; the budget latch is the only ceiling today |
-| Quota exceeded | Surfaced to the backend, which evicts and retries; a second failure latches persistence off with `PersistDisabled` |
+| Quota exceeded | Surfaced to the backend, which evicts and retries. A store-write failure **does not** latch persistence off — the only latch is the size/time budget. It poisons the log instead, so the next edit retries with a fresh snapshot; a store that never accepts a write therefore retries indefinitely rather than giving up, which is deliberate (a quota can clear) but means the app learns of it only through `DocStore` errors |
 | Torn write: snapshot replaced but log not cleared | Log entries carry their `clientSeq`, so a load drops every entry at or below the snapshot's. Replay is idempotent, and the clear need not be atomic with the write |
 | `clientSeq` discontinuity in the log | Restore from the snapshot alone and emit `LocalChangesDropped` carrying the changes that could not be replayed |
 

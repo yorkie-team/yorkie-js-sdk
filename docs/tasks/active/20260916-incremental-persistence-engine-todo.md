@@ -216,7 +216,7 @@ export function shouldCompact(s: {
 
 ## Verification
 
-- [x] `pnpm lint && pnpm sdk build && pnpm sdk test` green — 453 unit, 4 integration
+- [x] `pnpm lint && pnpm sdk build && pnpm sdk test` green — 464 unit, 6 integration
 - [x] Integration suite green against a server from this repo's compose file
       — run as `docker run -p 8180:8080 yorkieteam/yorkie:latest` plus
       `TEST_RPC_ADDR=http://127.0.0.1:8180`, because `docker compose up` cannot

@@ -494,9 +494,6 @@ export class Client {
     string,
     PersistState & {
       lastAppendedClientSeq: number;
-      /** One entry per appended change, so a sync can subtract exactly what
-       *  it acked instead of zeroing the accounting. */
-      appended: Array<{ clientSeq: number; size: number }>;
       /** Set when an append failed. A log with a hole cannot be replayed, so
        *  the next opportunity writes a fresh snapshot instead of appending
        *  into it. */
@@ -1278,7 +1275,6 @@ export class Client {
               lastAppendedClientSeq: carried.length
                 ? carried[carried.length - 1].clientSeq
                 : doc.getCheckpoint().getClientSeq(),
-              appended: [],
               poisoned: false,
             });
             // A failed base write must not leave the client appending into a
@@ -1286,13 +1282,7 @@ export class Client {
             // in both shipped stores, so nothing would be persisted and nothing
             // would say so. Poisoning routes the next edit through a fresh
             // snapshot, which is the same repair a failed append takes.
-            this.persistToStore(storeKey, snapshot, (err) => {
-              const current = this.persistStates.get(storeKey);
-              if (current) {
-                current.poisoned = true;
-              }
-              onError(err);
-            });
+            this.persistSnapshotOrPoison(storeKey, snapshot, onError);
 
             const append = () => {
               const state = this.persistStates.get(storeKey);
@@ -1313,7 +1303,6 @@ export class Client {
                 state.snapshotBytes = repaired.length;
                 state.logBytes = 0;
                 state.changeCount = 0;
-                state.appended = [];
                 state.poisoned = false;
                 state.lastAppendedClientSeq = doc
                   .getPendingChangesAfter(0)
@@ -1321,7 +1310,7 @@ export class Client {
                     (max, p) => Math.max(max, p.clientSeq),
                     doc.getCheckpoint().getClientSeq(),
                   );
-                this.persistToStore(storeKey, repaired, onError);
+                this.persistSnapshotOrPoison(storeKey, repaired, onError);
                 return;
               }
 
@@ -1333,7 +1322,6 @@ export class Client {
                 state.lastAppendedClientSeq = clientSeq;
                 state.logBytes += bytes.length;
                 state.changeCount += 1;
-                state.appended.push({ clientSeq, size: bytes.length });
                 this.appendToStore(storeKey, { clientSeq, bytes }, (err) => {
                   state.poisoned = true;
                   onError(err);
@@ -1348,8 +1336,7 @@ export class Client {
                 state.snapshotBytes = compacted.length;
                 state.logBytes = 0;
                 state.changeCount = 0;
-                state.appended = [];
-                this.persistToStore(storeKey, compacted, onError);
+                this.persistSnapshotOrPoison(storeKey, compacted, onError);
               }
             };
 
@@ -2078,6 +2065,37 @@ export class Client {
       },
     ]);
     return undefined;
+  }
+
+  /**
+   * `persistSnapshotOrPoison` writes a snapshot and re-poisons the log if that
+   * write fails.
+   *
+   * Every snapshot write is also a *repair*: the callers reset the log
+   * accounting and clear `poisoned` before it resolves, so that appends can
+   * resume immediately. If the write then rejects, the store still holds the
+   * old snapshot and whatever holed log went with it, while the client
+   * believes the log is clean — the next append lands past the hole and the
+   * following restore discards everything since the base snapshot. A
+   * randomized fuzz over the transition space wedged 8 of 60 seeds this way.
+   *
+   * Re-poisoning makes the next edit try the snapshot again, which is the
+   * behaviour the design's failure table already describes.
+   */
+  private persistSnapshotOrPoison(
+    storeKey: string,
+    bytes: Uint8Array,
+    onError: (err: unknown) => void,
+  ): void {
+    this.persistToStore(storeKey, bytes, (err) => {
+      // Re-read: a latch or a detach may have replaced or removed this entry
+      // between the write and its rejection.
+      const current = this.persistStates.get(storeKey);
+      if (current) {
+        current.poisoned = true;
+      }
+      onError(err);
+    });
   }
 
   /**
@@ -3220,7 +3238,6 @@ export class Client {
             state.snapshotBytes = snapshot.length;
             state.logBytes = 0;
             state.changeCount = 0;
-            state.appended = [];
             state.poisoned = false;
             state.lastAppendedClientSeq = doc
               .getPendingChangesAfter(0)
@@ -3230,7 +3247,7 @@ export class Client {
               );
           }
           if (snapshot) {
-            this.persistToStore(storeKey, snapshot, onError);
+            this.persistSnapshotOrPoison(storeKey, snapshot, onError);
           }
         } else if (this.persistStates.get(storeKey)?.poisoned) {
           // A pure push-ack, but the log has a hole: the change that failed to
@@ -3247,7 +3264,6 @@ export class Client {
             state.snapshotBytes = repaired.length;
             state.logBytes = 0;
             state.changeCount = 0;
-            state.appended = [];
             state.poisoned = false;
             state.lastAppendedClientSeq = doc
               .getPendingChangesAfter(0)
@@ -3257,7 +3273,7 @@ export class Client {
               );
           }
           if (repaired) {
-            this.persistToStore(storeKey, repaired, onError);
+            this.persistSnapshotOrPoison(storeKey, repaired, onError);
           }
         } else {
           // A pure push-ack on a healthy log: the root did not move, so the
@@ -3277,6 +3293,15 @@ export class Client {
       // be disconnected to not receive an event for that document.
       if (doc.getStatus() === DocStatus.Removed) {
         this.detachInternal(doc.getKey());
+        // And drop the persisted entry, as `remove()` and `detachDocument()`
+        // do. Learning of the removal from a sync is the third way a document
+        // can end, and the only one that used to leave the envelope behind: it
+        // carries a `serverSeq` for a row that no longer exists, so the next
+        // attach under the same client key is rejected for presenting a
+        // checkpoint ahead of the server. Only `ErrEpochMismatch` is recovered
+        // on the store path, so that error escapes attach and the app has no
+        // route back short of clearing its own store.
+        await this.removeFromStore(doc.getKey());
       }
 
       const key = doc.getKey();

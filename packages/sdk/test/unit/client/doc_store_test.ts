@@ -39,10 +39,14 @@ function assertChangeIDEqual(actual: ChangeID, expected: ChangeID) {
 }
 
 /**
- * `persistOnLocalChange` mirrors the client's persist-on-local-change hook:
- * it subscribes to a document's local changes and writes `doc.toBytes()` into
- * the given store after each one. Returns the unsubscribe. This exercises the
- * exact wiring the client installs without needing a server.
+ * `persistOnLocalChange` writes `doc.toBytes()` into the given store after
+ * each local change, so the cases below can exercise the snapshot round trip
+ * without a server.
+ *
+ * It is NOT what the client installs any more — the client appends a change
+ * rather than re-snapshotting — so do not read it as documenting that wiring.
+ * What it still covers is the envelope surviving a store round trip, which is
+ * orthogonal to how often one is written.
  */
 function persistOnLocalChange<R, P extends { [k: string]: any }>(
   store: DocStore,

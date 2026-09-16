@@ -385,3 +385,55 @@ describe('Offline persistence lifecycle', () => {
     await client.deactivate();
   });
 });
+
+describe('Offline persistence after a server-side removal', () => {
+  it('allows attaching again after learning the document was removed', async ({
+    task,
+  }) => {
+    // A sync can be the thing that tells this client the document is gone.
+    // That is the third way a document ends, and the persisted envelope has to
+    // go with it: it carries a serverSeq for a row that no longer exists, so
+    // the next attach presents a checkpoint ahead of the server and is
+    // rejected — an error the store path does not recover from.
+    const stamp = `${new Date().getTime()}`;
+    const docKey = toDocKey(`${task.name}-${stamp}`);
+    const key = `removal-${stamp}`;
+    const store = new MemoryDocStore();
+
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await c1.activate();
+    const d1 = new yorkie.Document<R>(docKey);
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    d1.update((root) => {
+      root.text = 'doomed';
+    });
+    await c1.sync();
+
+    // Another client removes it, and this one learns that from a sync.
+    const remover = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await remover.activate();
+    const dr = new yorkie.Document<R>(docKey);
+    await remover.attach(dr, { syncMode: SyncMode.Manual });
+    await remover.remove(dr);
+    await remover.deactivate();
+
+    try {
+      await c1.sync();
+    } catch {
+      // The sync itself may reject; what matters is the state it leaves.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // A fresh document under the same key and client key must attach.
+    const d2 = new yorkie.Document<R>(docKey);
+    await c1.attach(d2, { syncMode: SyncMode.Manual });
+    assert.equal(d2.getRoot().text, undefined);
+
+    await c1.deactivate();
+  });
+});

@@ -852,6 +852,63 @@ describe('Store write failures must not persist a lie', () => {
     assert.equal(reconstruct(stored).toSortedJSON(), doc.toSortedJSON());
   });
 
+  it('re-poisons when the repair snapshot itself fails', async () => {
+    // Callers clear `poisoned` and reset the accounting before the repair
+    // write resolves, so appends can resume at once. If that write then
+    // rejects, the store still holds the holed log while the client believes
+    // it is clean — the next append lands past the hole and the following
+    // restore discards everything since the base snapshot.
+    const inner = new MemoryDocStore();
+    let failAppend = true;
+    let failRepair = true;
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => {
+        // Let the attach base write through, then fail the first repair.
+        if (!failAppend && failRepair) {
+          failRepair = false;
+          return Promise.reject(new Error('disk full'));
+        }
+        return inner.saveSnapshot(k, b);
+      },
+      appendChange: (k: string, c: any) => {
+        if (failAppend) {
+          failAppend = false;
+          return Promise.reject(new Error('quota'));
+        }
+        return inner.appendChange(k, c);
+      },
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    await settled();
+
+    // This edit attempts the repair, which fails.
+    doc.update((root) => root.counter!.increase(2));
+    await settled();
+    // This one must try again rather than append past the hole.
+    doc.update((root) => root.counter!.increase(3));
+    await settled();
+
+    const stored = await store.load(scopedKey(key));
+    assert.isDefined(stored);
+    assert.equal(
+      reconstruct(stored).toSortedJSON(),
+      doc.toSortedJSON(),
+      'a failed repair must be retried, not assumed to have worked',
+    );
+  });
+
   it('does not advance the header over a log that has a hole', async () => {
     // A failed append leaves that change only in memory. Writing meta anyway
     // pushes the persisted serverSeq past content the store does not hold, and
