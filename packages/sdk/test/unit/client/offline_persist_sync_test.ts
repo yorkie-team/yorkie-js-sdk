@@ -100,7 +100,7 @@ describe('Offline store re-persisted after a successful sync', () => {
     });
     const afterEdit = Document.fromBytes<{ text?: string }>(
       key,
-      (await store.load(scopedKey(key)))!,
+      (await store.load(scopedKey(key)))!.snapshot,
     );
     assert.equal(afterEdit.getPendingChangeStructs().length, 1);
     assert.isTrue(doc.hasLocalChanges());
@@ -114,7 +114,7 @@ describe('Offline store re-persisted after a successful sync', () => {
 
     const afterSync = Document.fromBytes<{ text?: string }>(
       key,
-      (await store.load(scopedKey(key)))!,
+      (await store.load(scopedKey(key)))!.snapshot,
     );
     assert.equal(afterSync.getPendingChangeStructs().length, 0);
     assert.equal(
@@ -158,7 +158,7 @@ describe('Offline store re-persisted after a successful sync', () => {
     assert.isDefined(stored);
     const restored = Document.fromBytes<{ text?: string }, { cursor: number }>(
       key,
-      stored!,
+      stored!.snapshot,
     );
     // `getPresenceForTest` reads the raw persisted presence map (the restored
     // doc is detached, so `getPresence` would short-circuit to an empty map).

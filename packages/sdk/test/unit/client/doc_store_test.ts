@@ -49,54 +49,142 @@ function persistOnLocalChange<R, P extends { [k: string]: any }>(
 ): () => void {
   return doc.subscribe((event) => {
     if (event.type === DocEventType.LocalChange) {
-      void store.save(doc.getKey(), doc.toBytes());
+      void store.saveSnapshot(doc.getKey(), doc.toBytes());
     }
   });
 }
 
-describe('MemoryDocStore', function () {
-  it('should round-trip bytes through save/load', async function () {
+// The `DocStore` contract, asserted against `MemoryDocStore`. Every backend
+// must satisfy exactly these properties, so an app writing its own (IndexedDB,
+// or anything else) should be able to lift this block wholesale and point it at
+// its own implementation. Keep it free of anything Memory-specific.
+describe('DocStore contract (MemoryDocStore)', function () {
+  it('should answer undefined for an unknown key', async function () {
     const store = new MemoryDocStore();
-    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
-
-    assert.isUndefined(await store.load('doc-1'));
-
-    await store.save('doc-1', bytes);
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), Array.from(bytes));
+    assert.isUndefined(await store.load('nope'));
   });
 
-  it('should isolate stored bytes from later caller mutation', async function () {
+  it('should round-trip a snapshot with an empty change log', async function () {
     const store = new MemoryDocStore();
-    const bytes = new Uint8Array([1, 2, 3]);
-    await store.save('doc-1', bytes);
+    await store.saveSnapshot('doc-1', new Uint8Array([1, 2, 3]));
 
-    // Mutating the source buffer after save must not corrupt the snapshot.
-    bytes[0] = 99;
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [1, 2, 3]);
-
-    // Mutating the loaded buffer must not corrupt the snapshot either.
-    loaded![0] = 88;
-    const reloaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(reloaded!), [1, 2, 3]);
+    const stored = await store.load('doc-1');
+    assert.deepEqual(Array.from(stored!.snapshot), [1, 2, 3]);
+    assert.deepEqual(stored!.changes, []);
+    assert.isUndefined(stored!.meta);
   });
 
-  it('should overwrite on repeated save', async function () {
+  it('should overwrite the snapshot on repeated saveSnapshot', async function () {
     const store = new MemoryDocStore();
-    await store.save('doc-1', new Uint8Array([1]));
-    await store.save('doc-1', new Uint8Array([2, 3]));
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [2, 3]);
+    await store.saveSnapshot('doc-1', new Uint8Array([1]));
+    await store.saveSnapshot('doc-1', new Uint8Array([2, 3]));
+
+    const stored = await store.load('doc-1');
+    assert.deepEqual(Array.from(stored!.snapshot), [2, 3]);
   });
 
-  it('should remove stored bytes', async function () {
+  it('should return appended changes ordered by clientSeq', async function () {
     const store = new MemoryDocStore();
-    await store.save('doc-1', new Uint8Array([1]));
+    await store.saveSnapshot('doc-1', new Uint8Array([0]));
+    // Appended out of order on purpose: the store owes the client an ordered
+    // log, because replay applies them in sequence.
+    await store.appendChange('doc-1', {
+      clientSeq: 2,
+      bytes: new Uint8Array([2]),
+    });
+    await store.appendChange('doc-1', {
+      clientSeq: 1,
+      bytes: new Uint8Array([1]),
+    });
+
+    const stored = await store.load('doc-1');
+    assert.deepEqual(
+      stored!.changes.map((c) => c.clientSeq),
+      [1, 2],
+    );
+    assert.deepEqual(Array.from(stored!.changes[0].bytes), [1]);
+  });
+
+  it('should drop the change log when the snapshot is replaced', async function () {
+    // Compaction: the new snapshot already contains those changes, so keeping
+    // them would replay them a second time on restore.
+    const store = new MemoryDocStore();
+    await store.saveSnapshot('doc-1', new Uint8Array([0]));
+    await store.appendChange('doc-1', {
+      clientSeq: 1,
+      bytes: new Uint8Array([1]),
+    });
+    await store.saveSnapshot('doc-1', new Uint8Array([9]));
+
+    const stored = await store.load('doc-1');
+    assert.deepEqual(Array.from(stored!.snapshot), [9]);
+    assert.deepEqual(stored!.changes, []);
+  });
+
+  it('should drop changes at or below the acked clientSeq on saveMeta', async function () {
+    const store = new MemoryDocStore();
+    await store.saveSnapshot('doc-1', new Uint8Array([0]));
+    for (const clientSeq of [1, 2, 3]) {
+      await store.appendChange('doc-1', {
+        clientSeq,
+        bytes: new Uint8Array([clientSeq]),
+      });
+    }
+
+    await store.saveMeta('doc-1', new Uint8Array([7]), 2);
+
+    const stored = await store.load('doc-1');
+    assert.deepEqual(
+      stored!.changes.map((c) => c.clientSeq),
+      [3],
+    );
+    assert.deepEqual(Array.from(stored!.meta!), [7]);
+    // The snapshot is untouched: saveMeta is the cheap post-sync write, and
+    // re-snapshotting on every sync is the cost this whole design avoids.
+    assert.deepEqual(Array.from(stored!.snapshot), [0]);
+  });
+
+  it('should treat saveMeta on an absent entry as a no-op', async function () {
+    const store = new MemoryDocStore();
+    await store.saveMeta('missing', new Uint8Array([1]), 0);
+    assert.isUndefined(await store.load('missing'));
+  });
+
+  it('should clear snapshot, meta and changes on remove', async function () {
+    const store = new MemoryDocStore();
+    await store.saveSnapshot('doc-1', new Uint8Array([1]));
+    await store.saveMeta('doc-1', new Uint8Array([2]), 0);
+    await store.appendChange('doc-1', {
+      clientSeq: 1,
+      bytes: new Uint8Array([3]),
+    });
+
     await store.remove('doc-1');
     assert.isUndefined(await store.load('doc-1'));
     // remove on a missing key is a no-op.
     await store.remove('missing');
+  });
+
+  it('should isolate stored bytes from caller mutation on both sides', async function () {
+    const store = new MemoryDocStore();
+    const snapshot = new Uint8Array([1, 2, 3]);
+    const change = new Uint8Array([4, 5]);
+    await store.saveSnapshot('doc-1', snapshot);
+    await store.appendChange('doc-1', { clientSeq: 1, bytes: change });
+
+    // Mutating the source buffers after writing must not corrupt the entry.
+    snapshot[0] = 99;
+    change[0] = 99;
+    const first = (await store.load('doc-1'))!;
+    assert.deepEqual(Array.from(first.snapshot), [1, 2, 3]);
+    assert.deepEqual(Array.from(first.changes[0].bytes), [4, 5]);
+
+    // Mutating what load handed back must not corrupt it either.
+    first.snapshot[1] = 88;
+    first.changes[0].bytes[1] = 88;
+    const second = (await store.load('doc-1'))!;
+    assert.deepEqual(Array.from(second.snapshot), [1, 2, 3]);
+    assert.deepEqual(Array.from(second.changes[0].bytes), [4, 5]);
   });
 });
 
@@ -120,7 +208,7 @@ describe('DocStore persistence loop', function () {
     unsub();
 
     // A local change was persisted.
-    const bytes = await store.load('persist-doc');
+    const bytes = (await store.load('persist-doc'))!.snapshot;
     assert.isDefined(bytes);
 
     const restored = Document.fromBytes<R, P>('persist-doc', bytes!);
@@ -152,7 +240,7 @@ describe('DocStore persistence loop', function () {
 
     // Load the persisted envelope written by the local change above; this is
     // what a fresh instance restores from on attach.
-    const bytes = await store.load('restore-doc');
+    const bytes = (await store.load('restore-doc'))!.snapshot;
     assert.isDefined(bytes);
 
     // Rehydrate a fresh document instance in place, mirroring attach.

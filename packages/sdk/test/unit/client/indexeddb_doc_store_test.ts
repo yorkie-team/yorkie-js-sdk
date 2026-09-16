@@ -23,7 +23,11 @@
 // the reference implementation apps can copy.
 import 'fake-indexeddb/auto';
 import { describe, it, assert } from 'vitest';
-import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  DocStore,
+  StoredChange,
+  StoredDoc,
+} from '@yorkie-js/sdk/src/client/doc-store';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 
@@ -37,29 +41,121 @@ class IndexedDBDocStore implements DocStore {
 
   constructor(
     private dbName = 'yorkie',
-    private storeName = 'documents',
+    private docsStore = 'documents',
+    private changesStore = 'changes',
   ) {}
 
-  public async load(docKey: string): Promise<Uint8Array | undefined> {
+  public async load(docKey: string): Promise<StoredDoc | undefined> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const req = db
-        .transaction(this.storeName, 'readonly')
-        .objectStore(this.storeName)
-        .get(docKey);
-      req.onsuccess = () =>
-        resolve(
-          req.result === undefined ? undefined : new Uint8Array(req.result),
-        );
-      req.onerror = () => reject(req.error);
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readonly',
+      );
+      const entryReq = tx.objectStore(this.docsStore).get(docKey);
+      // A key range over [docKey, 0]..[docKey, MAX] selects exactly this
+      // document's log, and IndexedDB returns it in key order — which is
+      // clientSeq order, the order replay needs.
+      const changesReq = tx
+        .objectStore(this.changesStore)
+        .getAll(IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]));
+      tx.oncomplete = () => {
+        const entry = entryReq.result as
+          | { snapshot: ArrayBuffer; meta?: ArrayBuffer }
+          | undefined;
+        if (entry === undefined) {
+          resolve(undefined);
+          return;
+        }
+        resolve({
+          snapshot: new Uint8Array(entry.snapshot),
+          meta: entry.meta ? new Uint8Array(entry.meta) : undefined,
+          changes: (
+            changesReq.result as Array<{
+              clientSeq: number;
+              bytes: ArrayBuffer;
+            }>
+          ).map((row) => ({
+            clientSeq: row.clientSeq,
+            bytes: new Uint8Array(row.bytes),
+          })),
+        });
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   }
 
-  public async save(docKey: string, bytes: Uint8Array): Promise<void> {
+  public async saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      tx.objectStore(this.storeName).put(bytes.slice(), docKey);
+      // One transaction spans both stores, so the snapshot write and the log
+      // clear cannot be observed apart. A torn pair here would replay changes
+      // the new snapshot already contains.
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      const docs = tx.objectStore(this.docsStore);
+      const existing = docs.get(docKey);
+      existing.onsuccess = () => {
+        const prev = existing.result as { meta?: ArrayBuffer } | undefined;
+        docs.put({ snapshot: bytes.slice(), meta: prev?.meta }, docKey);
+      };
+      tx.objectStore(this.changesStore).delete(
+        IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]),
+      );
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  public async appendChange(
+    docKey: string,
+    change: StoredChange,
+  ): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.changesStore, 'readwrite');
+      // Keyed by [docKey, clientSeq]: the append writes one small row and
+      // touches nothing else, which is the property that makes this the cheap
+      // hot path rather than a rewrite of the whole entry.
+      tx.objectStore(this.changesStore).put(
+        { clientSeq: change.clientSeq, bytes: change.bytes.slice() },
+        [docKey, change.clientSeq],
+      );
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  public async saveMeta(
+    docKey: string,
+    bytes: Uint8Array,
+    ackedClientSeq: number,
+  ): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      const docs = tx.objectStore(this.docsStore);
+      const existing = docs.get(docKey);
+      existing.onsuccess = () => {
+        const prev = existing.result as { snapshot: ArrayBuffer } | undefined;
+        if (prev === undefined) {
+          // No entry: nothing to advance. Writing meta alone would leave a
+          // header describing a snapshot that does not exist.
+          return;
+        }
+        docs.put({ snapshot: prev.snapshot, meta: bytes.slice() }, docKey);
+        tx.objectStore(this.changesStore).delete(
+          IDBKeyRange.bound([docKey, -Infinity], [docKey, ackedClientSeq]),
+        );
+      };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -69,8 +165,14 @@ class IndexedDBDocStore implements DocStore {
   public async remove(docKey: string): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      tx.objectStore(this.storeName).delete(docKey);
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      tx.objectStore(this.docsStore).delete(docKey);
+      tx.objectStore(this.changesStore).delete(
+        IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]),
+      );
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -83,8 +185,11 @@ class IndexedDBDocStore implements DocStore {
       const req = indexedDB.open(this.dbName);
       req.onupgradeneeded = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName);
+        if (!db.objectStoreNames.contains(this.docsStore)) {
+          db.createObjectStore(this.docsStore);
+        }
+        if (!db.objectStoreNames.contains(this.changesStore)) {
+          db.createObjectStore(this.changesStore);
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -97,37 +202,101 @@ class IndexedDBDocStore implements DocStore {
 describe('DocStore against IndexedDB', () => {
   it('round-trips, overwrites, and removes', async () => {
     const store = new IndexedDBDocStore('yorkie-contract');
-    const bytes = new Uint8Array([1, 2, 3]);
 
     assert.isUndefined(await store.load('missing'));
 
-    await store.save('a', bytes);
-    assert.deepEqual(Array.from((await store.load('a'))!), [1, 2, 3]);
+    await store.saveSnapshot('a', new Uint8Array([1, 2, 3]));
+    assert.deepEqual(Array.from((await store.load('a'))!.snapshot), [1, 2, 3]);
+    assert.deepEqual((await store.load('a'))!.changes, []);
 
-    await store.save('a', new Uint8Array([9]));
-    assert.deepEqual(Array.from((await store.load('a'))!), [9]);
+    await store.saveSnapshot('a', new Uint8Array([9]));
+    assert.deepEqual(Array.from((await store.load('a'))!.snapshot), [9]);
 
     await store.remove('a');
     assert.isUndefined(await store.load('a'));
     await store.remove('a'); // no-op on a missing key
   });
 
+  it('returns appended changes ordered by clientSeq', async () => {
+    const store = new IndexedDBDocStore('yorkie-append');
+    await store.saveSnapshot('a', new Uint8Array([0]));
+    await store.appendChange('a', { clientSeq: 2, bytes: new Uint8Array([2]) });
+    await store.appendChange('a', { clientSeq: 1, bytes: new Uint8Array([1]) });
+
+    const stored = await store.load('a');
+    assert.deepEqual(
+      stored!.changes.map((c) => c.clientSeq),
+      [1, 2],
+    );
+    assert.deepEqual(Array.from(stored!.changes[0].bytes), [1]);
+  });
+
+  it('drops the change log when the snapshot is replaced', async () => {
+    const store = new IndexedDBDocStore('yorkie-compact');
+    await store.saveSnapshot('a', new Uint8Array([0]));
+    await store.appendChange('a', { clientSeq: 1, bytes: new Uint8Array([1]) });
+    await store.saveSnapshot('a', new Uint8Array([9]));
+
+    const stored = await store.load('a');
+    assert.deepEqual(Array.from(stored!.snapshot), [9]);
+    assert.deepEqual(stored!.changes, []);
+  });
+
+  it('drops changes at or below the acked clientSeq on saveMeta', async () => {
+    const store = new IndexedDBDocStore('yorkie-meta');
+    await store.saveSnapshot('a', new Uint8Array([0]));
+    for (const clientSeq of [1, 2, 3]) {
+      await store.appendChange('a', {
+        clientSeq,
+        bytes: new Uint8Array([clientSeq]),
+      });
+    }
+
+    await store.saveMeta('a', new Uint8Array([7]), 2);
+
+    const stored = await store.load('a');
+    assert.deepEqual(
+      stored!.changes.map((c) => c.clientSeq),
+      [3],
+    );
+    assert.deepEqual(Array.from(stored!.meta!), [7]);
+    assert.deepEqual(Array.from(stored!.snapshot), [0]);
+  });
+
+  it('keeps meta across a compaction', async () => {
+    const store = new IndexedDBDocStore('yorkie-meta-survives');
+    await store.saveSnapshot('a', new Uint8Array([0]));
+    await store.saveMeta('a', new Uint8Array([7]), 0);
+    await store.saveSnapshot('a', new Uint8Array([1]));
+
+    // The header describes the client's position against the server, which a
+    // new snapshot does not change.
+    assert.deepEqual(Array.from((await store.load('a'))!.meta!), [7]);
+  });
+
+  it('treats saveMeta on an absent entry as a no-op', async () => {
+    const store = new IndexedDBDocStore('yorkie-meta-absent');
+    await store.saveMeta('missing', new Uint8Array([1]), 0);
+    assert.isUndefined(await store.load('missing'));
+  });
+
   it('isolates stored bytes from later caller mutation', async () => {
     const store = new IndexedDBDocStore('yorkie-isolation');
     const bytes = new Uint8Array([1, 2, 3]);
-    await store.save('a', bytes);
+    await store.saveSnapshot('a', bytes);
     bytes[0] = 99;
-    assert.deepEqual(Array.from((await store.load('a'))!), [1, 2, 3]);
+    assert.deepEqual(Array.from((await store.load('a'))!.snapshot), [1, 2, 3]);
   });
 
   it('persists across a fresh store instance on the same database', async () => {
-    await new IndexedDBDocStore('yorkie-reload').save(
-      'a',
-      new Uint8Array([7, 8]),
-    );
+    const first = new IndexedDBDocStore('yorkie-reload');
+    await first.saveSnapshot('a', new Uint8Array([7, 8]));
+    await first.appendChange('a', { clientSeq: 1, bytes: new Uint8Array([9]) });
+
     // A new instance models a page reload reopening the same IndexedDB.
     const reloaded = await new IndexedDBDocStore('yorkie-reload').load('a');
-    assert.deepEqual(Array.from(reloaded!), [7, 8]);
+    assert.deepEqual(Array.from(reloaded!.snapshot), [7, 8]);
+    assert.deepEqual(Array.from(reloaded!.changes[0].bytes), [9]);
   });
 
   it('drives the full persist/restore document loop through IndexedDB', async () => {
@@ -146,12 +315,12 @@ describe('DocStore against IndexedDB', () => {
       root.counter.increase(5);
       root.n = 42;
     });
-    await store.save(docKey, doc.toBytes());
+    await store.saveSnapshot(docKey, doc.toBytes());
 
     // Reload: a brand-new document restored from IndexedDB must match.
-    const bytes = await store.load(docKey);
-    assert.isDefined(bytes);
-    const restored = Document.fromBytes<R>(docKey, bytes!);
+    const stored = await store.load(docKey);
+    assert.isDefined(stored);
+    const restored = Document.fromBytes<R>(docKey, stored!.snapshot);
 
     assert.equal(restored.toSortedJSON(), doc.toSortedJSON());
     assert.equal(restored.getChangeID().getActorID(), actor);

@@ -243,9 +243,13 @@ export interface ClientOptions {
 
   /**
    * `store` is a pluggable persistence backend for offline document state.
-   * When set, the client persists `doc.toBytes()` after every local change on
-   * a document attached through it, and on `attach` it rehydrates the document
-   * from any persisted bytes so un-pushed local changes survive a reload. The
+   * When set, the client persists `doc.toBytes()` through `saveSnapshot` after
+   * every local change on a document attached through it, and on `attach` it
+   * rehydrates the document from the persisted snapshot so un-pushed local
+   * changes survive a reload. (The store's `appendChange` / `saveMeta` are part
+   * of the contract a backend implements but are not yet driven from here: the
+   * incremental write path lands separately, and until it does the cost of a
+   * save is still proportional to the document.) The
    * restored checkpoint is presented in the attach ChangePack so the server
    * seeds the client's document sequence from it and re-accepts the re-pushed
    * local changes. When unset (the default), no persistence happens.
@@ -445,7 +449,7 @@ export class Client {
   private channelHeartbeatInterval: number;
   private deactivateOnUnload: boolean;
   private store?: DocStore;
-  // Per-store-key write chain that serializes `store.save` calls for a single
+  // Per-store-key write chain that serializes `store.saveSnapshot` calls for a
   // document. Async saves (esp. IndexedDB) for the same key can otherwise
   // interleave and let an earlier save resolve after a later one, persisting
   // stale bytes. Each key's tail promise is kept here so the next save chains
@@ -851,7 +855,12 @@ export class Client {
             // divergently restoring.
             let bytes: Uint8Array | undefined;
             try {
-              bytes = await this.store.load(this.storeKey(doc.getKey()));
+              // `changes` is necessarily empty here: nothing appends to the log
+              // yet, so the snapshot is the whole persisted state. Replaying an
+              // appended log belongs to the incremental engine, and a stub for
+              // it here would be untested code posing as a feature.
+              const stored = await this.store.load(this.storeKey(doc.getKey()));
+              bytes = stored?.snapshot;
             } catch (err) {
               logger.warn(
                 `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" store load ` +
@@ -1717,15 +1726,17 @@ export class Client {
       return;
     }
     const prev = this.persistQueues.get(storeKey);
-    // With no in-flight write for this key, start `store.save` synchronously so
+    // With no in-flight write for this key, start the write synchronously so
     // a store whose `save` has synchronous side effects (e.g. MemoryDocStore)
     // lands immediately, preserving the pre-serialization observable timing.
     // Only when a previous write is still pending do we chain after it, which
     // is exactly the interleaving case this guards against.
     const next = (
       prev
-        ? prev.catch(() => undefined).then(() => store.save(storeKey, bytes))
-        : store.save(storeKey, bytes)
+        ? prev
+            .catch(() => undefined)
+            .then(() => store.saveSnapshot(storeKey, bytes))
+        : store.saveSnapshot(storeKey, bytes)
     ).catch(onError);
     this.persistQueues.set(storeKey, next);
     // Drop the queue entry once this write is the tail, so the map does not grow

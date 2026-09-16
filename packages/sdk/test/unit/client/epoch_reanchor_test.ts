@@ -118,7 +118,7 @@ describe('Store-backed epoch re-anchor', () => {
       root.text = 'offline edit';
     });
     (seed as any).epoch = 5n;
-    await store.save(scopedKey('k'), seed.toBytes());
+    await store.saveSnapshot(scopedKey('k'), seed.toBytes());
 
     let calls = 0;
     const presentedEpochs: Array<bigint> = [];
@@ -207,7 +207,7 @@ describe('Tier-3 silent-purge guard', () => {
       root.text = 'offline edit';
     });
     seed.setDocID('doc-id-old');
-    await store.save(scopedKey(key), seed.toBytes());
+    await store.saveSnapshot(scopedKey(key), seed.toBytes());
 
     // The server GC'd/deleted the document while offline, so attach mints a
     // fresh doc under a different documentId. The resume itself succeeds (no
@@ -246,7 +246,7 @@ describe('Tier-3 silent-purge guard', () => {
     seed.update((root) => {
       root.text = 'foreign edit';
     });
-    await store.save(scopedKey(key), seed.toBytes());
+    await store.saveSnapshot(scopedKey(key), seed.toBytes());
 
     const attachDocument = async () => attachResponse(0n);
     const client = activatedClient(store, attachDocument);
