@@ -909,6 +909,69 @@ describe('Store write failures must not persist a lie', () => {
     );
   });
 
+  it('rejects meta that reaches past what the log can replay', async () => {
+    // The header can only be trusted as far as the log backs it. If the log is
+    // missing the entries between the snapshot and the acked checkpoint — lost
+    // to a store eviction, a partial quota failure, a lossy backend — then
+    // restoring with that header gives a root without those changes and a
+    // checkpoint that stops the server from ever resending them.
+    const inner = new MemoryDocStore();
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => inner.appendChange(k, c),
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(6));
+    await client.sync();
+    await settled();
+
+    // The log is what backs the acked header. Lose it, as an evicting store
+    // would, leaving the snapshot and the advanced meta behind.
+    const entry = (inner as any).store.get(scopedKey(key));
+    entry.changes = [];
+
+    const dropped: Array<any> = [];
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ counter?: Counter }>(key);
+    doc2.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    // Reported, not silently accepted.
+    assert.equal(dropped.length, 1);
+    // And the restored checkpoint must fall back to the snapshot's own, so the
+    // server can resend what the log lost instead of considering it delivered.
+    assert.equal(doc2.getCheckpoint().getClientSeq(), 0);
+
+    // The rebased base must not carry the advanced header either.
+    const rebased = (await store.load(scopedKey(key)))!;
+    assert.deepEqual(rebased.changes, []);
+    assert.equal(
+      Document.fromBytes<{ counter?: Counter }>(key, rebased.snapshot)
+        .getCheckpoint()
+        .getClientSeq(),
+      0,
+      'a rebase must not bake in a checkpoint its root cannot back',
+    );
+  });
+
   it('does not advance the header over a log that has a hole', async () => {
     // A failed append leaves that change only in memory. Writing meta anyway
     // pushes the persisted serverSeq past content the store does not hold, and

@@ -965,7 +965,18 @@ export class Client {
                 const fresh = storedChanges.filter(
                   (change) => change.clientSeq > watermark,
                 );
-                if (fresh.length) {
+                // The header is only trustworthy as far as the log backs it.
+                // If the entries between the snapshot and the acked checkpoint
+                // are missing — an evicting store, a partial quota failure, a
+                // lossy backend — then restoring with that header yields a root
+                // without those changes and a checkpoint that stops the server
+                // from ever resending them. An empty log is the same case, and
+                // it used to skip validation entirely.
+                const lastReplayable = fresh.length
+                  ? fresh[fresh.length - 1].clientSeq
+                  : watermark;
+                const backsTheHeader = lastReplayable >= ackedWatermark;
+                if (fresh.length || !backsTheHeader) {
                   // The run has to be contiguous. A hole — a failed append —
                   // cannot be pushed, because the server rejects a clientSeq
                   // gap, so replaying it would produce a document that never
@@ -997,8 +1008,9 @@ export class Client {
                   }
                   if (
                     !structs ||
+                    !backsTheHeader ||
                     !contiguous ||
-                    fresh[0].clientSeq !== watermark + 1
+                    (fresh.length && fresh[0].clientSeq !== watermark + 1)
                   ) {
                     // Reported rather than thrown, because what is lost here is
                     // the *log*, not the envelope — and the event exists to say
@@ -1015,24 +1027,29 @@ export class Client {
                       'log-discontinuity',
                       structs ?? [],
                     );
-                    // Rewrite the base from the snapshot that *did* restore,
-                    // which clears the log with it. Removing the entry would
-                    // discard a good snapshot because the log beside it broke.
-                    const rebased = this.snapshotWithinBudget(
-                      doc,
+                    // Undo the header. It described a position the log cannot
+                    // back, so keeping it would leave the document claiming
+                    // content its root does not have — and the server would
+                    // never resend it. Re-restoring from the snapshot bytes
+                    // returns checkpoint, changeID and epoch to what the
+                    // snapshot itself carries, which the server *can* resume
+                    // from.
+                    doc.restoreFromBytes(bytes);
+                    // Rewrite the base from those same bytes, which clears the
+                    // log with it. Writing them back costs no serialization,
+                    // and re-serializing here would have baked the rejected
+                    // header into the new base. Removing the entry instead
+                    // would discard a snapshot that restored perfectly well.
+                    this.persistToStore(
                       this.storeKey(doc.getKey()),
+                      bytes,
+                      (err) =>
+                        logger.error(
+                          `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                            `log-discontinuity rebase failed:`,
+                          err,
+                        ),
                     );
-                    if (rebased)
-                      this.persistToStore(
-                        this.storeKey(doc.getKey()),
-                        rebased,
-                        (err) =>
-                          logger.error(
-                            `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
-                              `log-discontinuity rebase failed:`,
-                            err,
-                          ),
-                      );
                   } else {
                     doc.restoreAppendedChanges(structs, ackedWatermark);
                   }
@@ -2130,8 +2147,14 @@ export class Client {
   }
 
   /**
-   * `saveMetaToStore` records the post-sync header and drops the changes the
-   * server acknowledged. Deliberately not a snapshot: an online client syncs
+   * `saveMetaToStore` records the post-sync header, leaving the snapshot and
+   * the change log intact. It does **not** drop acknowledged entries: the log
+   * is the delta between the snapshot and current content as well as the queue
+   * of un-pushed changes, and a push-ack brings the snapshot no further
+   * forward, so trimming would leave that content in neither place. Only
+   * compaction trims, by folding the entries into a new snapshot first.
+   *
+   * Deliberately not a snapshot: an online client syncs
    * constantly, and re-serializing per sync would reintroduce the cost the
    * incremental path removes.
    */
