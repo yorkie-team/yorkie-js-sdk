@@ -353,6 +353,12 @@ function preprocessYSON(yson: string): string {
         );
       }
       const [value, registers] = args;
+      if (value === '') {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'DedupCounter expects a value for its first argument',
+        );
+      }
       if (!isStringLiteral(registers)) {
         throw new YorkieError(
           Code.ErrInvalidArgument,

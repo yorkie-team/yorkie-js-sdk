@@ -684,6 +684,12 @@ describe('YSON Parser', () => {
       );
     });
 
+    it('should reject a DedupCounter with no value argument', () => {
+      expect(() => YSON.parse('{"v":DedupCounter(,"aGVsbG8=")}')).toThrow(
+        /DedupCounter/,
+      );
+    });
+
     it('should reject a DedupCounter with text after its registers', () => {
       expect(() => YSON.parse('{"v":DedupCounter(Int(1),"a"b)}')).toThrow(
         /DedupCounter/,
