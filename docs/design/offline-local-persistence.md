@@ -1,6 +1,6 @@
 ---
 created: 2026-09-04
-updated: 2026-09-04
+updated: 2026-09-16
 tags: [offline, persistence, storage, indexeddb, actor]
 ---
 
@@ -210,7 +210,7 @@ follow-up on top of this guard.
 
 | Risk | Mitigation |
 |------|------------|
-| Full-snapshot-per-keystroke is too expensive | Append encoded changes; compact to a snapshot periodically |
+| Full-snapshot-per-keystroke is too expensive | **Not mitigated in the shipped version** — it writes a full `toBytes()` on every local change. Measured and quantified in [Revision: incremental persistence](#revision-incremental-persistence); the append-and-compact design that closes it is specified there |
 | `localStorage` is synchronous, ~5 MB, string-only | Apps should back the store with IndexedDB (async, large); `localStorage` only viable for tiny documents |
 | `setActor` runs after elements are rehydrated → restored elements keep a stale actor (`document.ts:1246` TODO) | Enforce set-actor-first ordering on the restore path; validate no rehydrated element predates `setActor` |
 | Resumed `clientSeq` misaligned with the server checkpoint → first push rejected | Reconcile `clientSeq` to the post-attach checkpoint; on `ErrInvalidClientSeq`/`ErrEpochMismatch` fall back to full re-attach-from-snapshot |
@@ -241,6 +241,243 @@ follow-up on top of this guard.
 | `localStorage` instead of IndexedDB | Synchronous, ~5 MB, string-only; unsuitable beyond tiny documents |
 | Persist only the snapshot, drop pending changes | Loses exactly the un-pushed edits this feature exists to protect |
 | Concurrent multi-tab co-editing on one store | Shared checkpoint → `clientSeq` collisions and self-filtered pull dedup → real edit loss |
+
+## Revision: Incremental Persistence
+
+The section above ships a **full snapshot on every local change**. The Goals
+claimed "append encoded changes and compact periodically", but the
+implementation persists `doc.toBytes()` from a `doc.subscribe('all')` handler
+(`client.ts`), undebounced, on every `LocalChange` *and* every local
+`PresenceChanged`. This section measures what that costs and specifies the
+append-and-compact design that replaces it.
+
+### What it costs
+
+Measured against `@yorkie-js/sdk` 0.7.21 on documents shaped like a real
+consumer's (wafflebase: a stable-key spreadsheet, a `Text` note, a `Tree`
+document, a free-position board). Synthetic, single machine — the absolute
+milliseconds are machine-dependent, but the scaling law and the ratios are not.
+
+`toBytes()` is linear in document size, at roughly 36 µs per spreadsheet cell:
+
+| Sheet | Snapshot | `toBytes()` |
+|-------|----------|-------------|
+| 1,000 cells | 350 KB | 31 ms |
+| 4,000 cells | 1.38 MB | 155 ms |
+| 8,000 cells | 2.77 MB | 286 ms |
+| 16,000 cells | 5.66 MB | 583 ms |
+
+A 1,000-row × 20-column sheet is 20,000 cells. So an ordinary document costs
+most of a second of **main-thread** time per save. It cannot be moved to a
+worker: `toBytes()` reads the live document object.
+
+Two findings matter more than the raw numbers:
+
+- **The CRDT tax is 11–16×** over the equivalent raw JSON, and it is inherent,
+  not a property of a fat payload. A minimal `{v:"1"}` cell still costs
+  339 B/cell, because every member carries a `TimeTicket` (lamport + delimiter
+  + a 24-hex actor).
+- **A document is largest exactly while it is being edited.** Offline, no GC
+  runs, so tombstones and per-keystroke node splits accumulate:
+
+  | | Built in one update | After real editing |
+  |---|---|---|
+  | Sheet, 2,000 cells | 703 KB | 3.79 MB after 5,000 edits (5.4×) |
+  | Note, 20,000 chars | 59 KB | 6.60 MB typed one character at a time (112×) |
+
+  The 112× is the important one. A note's stored size tracks its **edit count**,
+  not its content length — and a real note is typed, not pasted. Any
+  benchmark that builds its fixture in a single `update()` understates this
+  design's cost by two orders of magnitude.
+
+Compression recovers the *footprint* but not the *time*: gzip yields 11–18×
+(a typed 20k-char note, 6.60 MB → 376 KB), so 50 stored documents fall from
+~139 MB to ~12 MB. It adds ~27 ms of CPU to each save. Space is a solved
+problem; main-thread time is not, and compression makes it slightly worse.
+
+### Why debouncing is not the fix
+
+Debouncing reduces how *often* the cost is paid, never how much it is. At any
+interval, one save still blocks the main thread for the full serialization. A
+frame-budget threshold (`maxPersistMillis` ≈ 16 ms) would latch persistence
+**off** for almost every document above ~500 cells, which reduces the feature
+to notes and small documents while appearing to support everything.
+
+Google's hosted-document offline service reaches the same conclusion from the
+other direction: its patent (US9361395B2) stores offline changes "in a separate
+data structure from committed mutations" — a pending-mutation queue beside a
+cached model, not a re-serialized snapshot.
+
+### The design
+
+Persist a snapshot **rarely** and each local change **as it happens**, so the
+per-save cost is the size of one change (hundreds of bytes) rather than the
+size of the document.
+
+`DocStore` grows from one opaque blob into three operations over the same
+opaque-bytes discipline:
+
+```ts
+interface StoredDoc {
+  snapshot: Uint8Array;        // a `Document.toBytes()` envelope
+  meta?: Uint8Array;           // checkpoint + changeID, advanced after a sync
+  changes: Array<Uint8Array>;  // `Change.toStruct()` blobs, in clientSeq order
+}
+
+interface DocStore {
+  load(docKey: string): Promise<StoredDoc | undefined>;
+  /** Replace the snapshot and atomically drop every appended change. */
+  saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void>;
+  /** Append one local change. The hot path: small, frequent, no serialization
+   *  of the document. */
+  appendChange(docKey: string, bytes: Uint8Array): Promise<void>;
+  /** Advance the persisted checkpoint and drop changes at or below
+   *  `ackedClientSeq`. Cheap — this is what a successful sync writes. */
+  saveMeta(docKey: string, bytes: Uint8Array, ackedClientSeq: number): Promise<void>;
+  remove(docKey: string): Promise<void>;
+}
+```
+
+The append unit is `JSON.stringify(change.toStruct())` — exactly what
+`toBytes()` already embeds as its `pendingChanges` blob, so no new
+serialization is introduced. Measured, **one change is ~471 B regardless of
+document size**, which is the property the whole design rests on:
+
+| Sheet | Snapshot | One change | |
+|-------|----------|-----------|---|
+| 1,000 cells | 350 KB | 471 B | 760× cheaper |
+| 8,000 cells | 2.77 MB | 471 B | 6,174× cheaper |
+| 16,000 cells | 5.66 MB | 471 B | 12,610× cheaper |
+
+Write paths:
+
+- **`LocalChange`** → `appendChange`. This is the only path on the hot edit
+  loop, and it never calls `toBytes()`.
+- **Local `PresenceChanged`** → `appendChange`, the same as any other change.
+  It is tempting to drop these — presence is re-established on reconnect, so
+  its *content* is worthless after a restore — but a presence-only change still
+  consumes a `clientSeq`, and `restoreFromBytes` does **not** renumber:
+  it restores the persisted checkpoint and changeID verbatim and lets the server
+  seed from the presented checkpoint. Omitting one therefore leaves a hole in
+  the `clientSeq` run, and the first restored push is rejected for
+  discontinuity. Excluding presence was the right call when every change
+  triggered a full snapshot; at ~300 B an append it buys nothing and costs
+  correctness.
+- **Successful sync** → `saveMeta`, dropping the changes the server
+  acknowledged. Not a snapshot: an online client syncs constantly, and
+  snapshotting per sync would reintroduce the original cost. This is also what
+  keeps presence churn bounded — online, the log drains continuously.
+- **Compaction** → `saveSnapshot`. One `toBytes()`, amortized over many edits;
+  threshold below.
+- **Attach** → `saveSnapshot` once, to establish the base.
+
+#### The compaction threshold is relative, not absolute
+
+A fixed change count is wrong, because the point at which appending stops
+paying is a function of the snapshot it is appended to. Measured, an 8,000-cell
+sheet's log equals its snapshot after ~6,300 edits; a 5,000-character note's
+log (100 changes ≈ 29.6 KB) already **exceeds** its 15.3 KB snapshot after
+~50. Two orders of magnitude apart — no single constant serves both.
+
+```
+compact when  logBytes > max(MIN_LOG_BYTES, snapshotBytes × LOG_RATIO)
+           or changeCount > MAX_REPLAY     // bounds restore latency, not size
+```
+
+This self-tunes. A small document compacts often, which is harmless precisely
+because its snapshot is small (a 15 KB note serializes in about a
+millisecond). A large document compacts rarely, so its 286 ms serialization is
+divided across thousands of edits. No per-document-type tuning, and the
+pathological case — frequent compaction of an expensive snapshot — is
+unreachable by construction, since expense and threshold both scale with the
+same quantity.
+
+`MAX_REPLAY` exists for a different reason than the byte rule: it bounds how
+many changes a restore has to replay, which is a latency budget at attach
+rather than a storage one.
+
+Restore inverts it: `Document.fromBytes(snapshot)`, then replay the appended
+changes as pending local changes — the same machinery `restoreFromBytes`
+already applies to the pending changes embedded in today's envelope, so the
+replay path is not new code so much as relocated code.
+
+`maxPersistBytes` / `maxPersistMillis` survive, but as a guard on **compaction**
+only, and they latch that document's persistence off with a
+`DocEventType.PersistDisabled` event (reason `too-large` / `too-slow`) so a
+consumer can tell the user rather than failing silently. Because appends are
+cheap, the threshold now excludes far less than it would have.
+
+Compression stays **out of the SDK**: `DocStore` takes opaque bytes, so a
+backend that wants gzip applies it in its own `save`/`load`. Browsers ship
+`CompressionStream` with no dependency, which is why the SDK does not need to
+take one.
+
+### Consumer-visible changes
+
+- `DocStore` is a breaking interface change. It is pre-1.0 and has one known
+  consumer shape (an app-side IndexedDB backend), so it is replaced rather than
+  widened; `MemoryDocStore` and the `IndexedDBDocStore` test fixture move with
+  it and remain the reference implementations.
+- The session-lock failure needs a **distinct error code**. It currently throws
+  `Code.ErrInvalidArgument` with an explanatory message, which leaves a consumer
+  matching on message text to distinguish "open in another tab" from any other
+  invalid argument.
+
+### Migration
+
+Migration is close to free, because **an envelope written by the shipped
+version is already a valid snapshot**: `toBytes()` embeds the pending changes
+inside itself, so an existing store entry restores under the new layout with
+no conversion at all.
+
+```
+existing entry (one envelope)  →  { snapshot: <that same envelope>, changes: [] }
+```
+
+The envelope format does not change, and `Document.fromBytes` is untouched. A
+backend migrates by relocating values between object stores, not by rewriting
+them.
+
+Rolling *back* is also safe: an older build meeting the new layout finds no
+entry where it expects one, and falls through to a fresh attach. The offline
+state is lost, which returns the user to the behavior they had before this
+feature existed — not to a corrupt one.
+
+The envelope's own extension rule is already established and should be kept:
+trailing blobs are optional and nil-guarded, so any future field is appended
+last and older envelopes stay decodable (`document.ts`). Nothing in this
+revision needs a new blob.
+
+### Failure handling
+
+One invariant governs the whole surface: **the store may trail the document,
+never lead it.** Appends happen after the change is applied locally, so the
+worst case is losing the most recent changes — the same bounded exposure a
+debounced full-snapshot design has — and never a store that claims state the
+document never reached.
+
+| Failure | Handling |
+|---------|----------|
+| Store unavailable (private browsing, storage disabled) | Detected at configuration; the client runs unpersisted, exactly as with no `store` |
+| `load` fails, or the entry is unreadable | Discard the entry, attach fresh, emit `LocalChangesDropped` — with no change structs, since what was lost cannot be read |
+| `appendChange` fails | **Treat the whole log as poisoned.** Clear it and force a `saveSnapshot` at the next opportunity rather than retrying into a hole. A gap is silently wrong in a way a missing log is not |
+| `saveSnapshot` fails | Keep appending to the existing log — still correct, merely larger — and retry with backoff. Latch off if the log passes a hard ceiling |
+| Quota exceeded | Surfaced to the backend, which evicts and retries; a second failure latches persistence off with `PersistDisabled` |
+| Torn write: snapshot replaced but log not cleared | Log entries carry their `clientSeq`, so a load drops every entry at or below the snapshot's. Replay is idempotent, and the clear need not be atomic with the write |
+| `clientSeq` discontinuity in the log | Restore from the snapshot alone and emit `LocalChangesDropped` carrying the changes that could not be replayed |
+
+No failure on this surface may propagate into the editing path: the shipped
+version already logs rather than throws, and that stays true.
+
+### Risks and Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| Replaying appended changes diverges from the state the snapshot implies | Changes are appended in `clientSeq` order and `saveSnapshot` clears them atomically, so a snapshot and its trailing changes can never overlap. Assert `clientSeq` contiguity on load; a gap degrades to snapshot-only restore plus a `LocalChangesDropped` event |
+| A crash between `appendChange` and the in-memory apply | The append happens after the change is applied locally, so the store can only ever trail the document — never lead it. A trailing store loses the last change, which is the same exposure the debounced full-snapshot design had |
+| Compaction still blocks the main thread | Unchanged in kind, but amortized: bounded by the compaction threshold rather than by the edit rate. The `maxPersistMillis` latch remains the backstop |
+| Unbounded change growth if compaction never fires | Compaction triggers on count **or** bytes, and a successful sync drops acknowledged changes, so an online client's change list stays near empty |
+| An `appendChange` fails while later ones succeed | Treat any append failure as poisoning the change list: clear it and force a `saveSnapshot` at the next opportunity, rather than persisting a list with a hole |
 
 ## Tasks
 
