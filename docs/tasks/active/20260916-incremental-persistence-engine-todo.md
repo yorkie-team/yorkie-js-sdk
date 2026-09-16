@@ -41,27 +41,27 @@ Reading first saved inventing these:
 **Files:** `packages/sdk/src/document/document.ts`,
 `packages/sdk/test/unit/document/document_bytes_test.ts`
 
-- [ ] **1.1** Write the failing round-trip test: build a document, snapshot it
+- [x] **1.1** Write the failing round-trip test: build a document, snapshot it
       with `toBytes()`, make three further edits, collect them with
       `getPendingChangeStructs()`, then restore from the snapshot plus those
       structs and assert `toSortedJSON()` equals the live document and that the
       restored pending queue holds all of them.
-- [ ] **1.2** Run it. Expect failure: no restore-with-appended-changes entry
+- [x] **1.2** Run it. Expect failure: no restore-with-appended-changes entry
       point exists.
-- [ ] **1.3** Add `metaToBytes()` / `restoreMetaFromBytes()` — checkpoint and
+- [x] **1.3** Add `metaToBytes()` / `restoreMetaFromBytes()` — checkpoint and
       changeID only, packed with the same `packBlobs` discipline as `toBytes`.
       This is what `saveMeta` persists after a sync: the snapshot stays put
       while the checkpoint advances, so without it a restore resumes from a
       stale checkpoint.
-- [ ] **1.4** Add `restoreAppendedChanges(structs)`: `Change.fromStruct` each,
+- [x] **1.4** Add `restoreAppendedChanges(structs)`: `Change.fromStruct` each,
       `applyChanges(changes, OpSource.Local)` to bring the root forward, then
       queue them for push. Assert ascending `clientSeq` on the way in.
-- [ ] **1.5** Run the test. Expect pass.
-- [ ] **1.6** Add the inverse-case test: changes *inside* the envelope must not
+- [x] **1.5** Run the test. Expect pass.
+- [x] **1.6** Add the inverse-case test: changes *inside* the envelope must not
       be re-applied. Snapshot a document with pending edits, restore from the
       envelope alone, and assert the root matches — not double-applied.
-- [ ] **1.7** `pnpm lint && pnpm sdk build && pnpm sdk test test/unit/document/document_bytes_test.ts`
-- [ ] **1.8** Commit: `Add document-level meta and appended-change restore`
+- [x] **1.7** `pnpm lint && pnpm sdk build && pnpm sdk test test/unit/document/document_bytes_test.ts`
+- [x] **1.8** Commit: `Add document-level meta and appended-change restore`
 
 ## Task 2: the compaction policy
 
@@ -71,7 +71,7 @@ Reading first saved inventing these:
 A pure function, separated from the client so the rule can be asserted as a
 truth table rather than through a live document.
 
-- [ ] **2.1** Write the failing test, including the asymmetry that makes a
+- [x] **2.1** Write the failing test, including the asymmetry that makes a
       fixed threshold impossible — the measured break-even is ~6,300 edits for
       an 8,000-cell sheet and ~50 for a 5,000-character note:
 
@@ -95,8 +95,8 @@ it('compacts on replay count even when the log is small', () => {
 });
 ```
 
-- [ ] **2.2** Run it. Expect failure: module not found.
-- [ ] **2.3** Implement:
+- [x] **2.2** Run it. Expect failure: module not found.
+- [x] **2.3** Implement:
 
 ```ts
 export const MIN_LOG_BYTES = 64 * 1024;
@@ -113,39 +113,39 @@ export function shouldCompact(s: {
 }
 ```
 
-- [ ] **2.4** Run the test. Expect pass.
-- [ ] **2.5** Commit: `Add a snapshot-relative compaction policy`
+- [x] **2.4** Run the test. Expect pass.
+- [x] **2.5** Commit: `Add a snapshot-relative compaction policy`
 
 ## Task 3: the client write path
 
 **Files:** `packages/sdk/src/client/client.ts`,
 `packages/sdk/test/unit/client/offline_persist_sync_test.ts`
 
-- [ ] **3.1** Write the failing test: with a `MemoryDocStore`, attach and make
+- [x] **3.1** Write the failing test: with a `MemoryDocStore`, attach and make
       several edits; assert the store holds **one** snapshot and a change per
       edit, rather than a snapshot rewritten per edit.
-- [ ] **3.2** Write the second failing test: a presence-only local change is
+- [x] **3.2** Write the second failing test: a presence-only local change is
       appended too. It is worthless on restore — presence is re-established on
       reconnect — but it consumes a `clientSeq`, and `restoreFromBytes` does
       not renumber, so skipping it leaves a hole that the first restored push
       is rejected for.
-- [ ] **3.3** Run both. Expect failure.
-- [ ] **3.4** Replace the persist subscription. Track the last appended
+- [x] **3.3** Run both. Expect failure.
+- [x] **3.4** Replace the persist subscription. Track the last appended
       `clientSeq` per attachment and, on either `LocalChange` or a local
       `PresenceChanged`, append every pending change above it. Driving it off
       the queue rather than off the event payload keeps a missed event from
       silently dropping a change.
-- [ ] **3.5** Snapshot once at attach to establish the base the log appends to.
-- [ ] **3.6** Replace the post-sync persist with `saveMeta(key,
+- [x] **3.5** Snapshot once at attach to establish the base the log appends to.
+- [x] **3.6** Replace the post-sync persist with `saveMeta(key,
       doc.metaToBytes(), ackedClientSeq)`. Not a snapshot: an online client
       syncs constantly, and snapshotting per sync reintroduces the cost this
       removes.
-- [ ] **3.7** Consult `shouldCompact` after each append; on true, `saveSnapshot`
+- [x] **3.7** Consult `shouldCompact` after each append; on true, `saveSnapshot`
       and reset the tracked log size.
-- [ ] **3.8** Run the tests. Expect pass.
-- [ ] **3.9** `pnpm sdk test test/unit` — the S1 suites assert end-to-end
+- [x] **3.8** Run the tests. Expect pass.
+- [x] **3.9** `pnpm sdk test test/unit` — the S1 suites assert end-to-end
       persistence behavior and must still pass.
-- [ ] **3.10** Commit: `Append local changes instead of re-snapshotting`
+- [x] **3.10** Commit: `Append local changes instead of re-snapshotting`
 
 ## Task 4: the client restore path
 
