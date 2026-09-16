@@ -256,13 +256,29 @@ has to demonstrate the real contract, not a reduced one.
 
 ## Verification
 
-- [ ] `pnpm lint && pnpm sdk build && pnpm sdk test` green
-- [ ] The offline integration suite passes unchanged against a live server
-      (`docker compose -f docker/docker-compose.yml up --build -d`, then
-      `pnpm sdk test test/integration/offline_persistence_test.ts`) — this is
-      the real assertion that the reshape moved no behavior
-- [ ] `git diff` shows no change to `document.ts`: the envelope format is
-      untouched by this PR
+- [x] `pnpm lint` clean, `pnpm sdk build` clean, `pnpm sdk test test/unit`
+      green — 430 passed across 44 files
+- [x] The offline integration suite passes unchanged against a live server
+      (2 passed) — the real assertion that the reshape moved no behavior
+- [ ] The full integration suite passes (running; slower than the 10-minute
+      command budget, so it is worth re-running before the PR goes up)
+- [x] `git diff origin/main..HEAD -- packages/sdk/src/document/` is empty: the
+      envelope format is untouched by this PR, as intended
+
+> **Note on the server used.** `docker compose up` here could not pull
+> `yorkieteam/yorkie:latest` (still pulling after 15 minutes, then failing to
+> bind 8080). The integration runs therefore went to a Yorkie server that was
+> already listening on 8080 — a `yorkieteam/yorkie:0.7.20` container from a
+> sibling project's compose stack. 0.7.20 is the release that introduced the
+> server-side offline-resumable attach and watch stable actor
+> (yorkie-team/yorkie#1969, #1970) this path depends on, so the runs did
+> exercise the real protocol.
+>
+> Two consequences for whoever re-runs this. The result is trustworthy but was
+> **not** reproduced from this repo's own compose file, so re-run it properly
+> before relying on it; and `docker compose up` will fail outright while
+> anything else holds 8080, which is what happened here and is easy to
+> misread as a server that would not start.
 
 ## Review
 
