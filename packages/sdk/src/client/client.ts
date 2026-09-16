@@ -65,11 +65,16 @@ import {
   BroadcastOptions,
 } from '@yorkie-js/sdk/src/channel/channel';
 import { Attachable } from './attachable';
-import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import { DocStore, StoredChange } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  PersistState,
+  shouldCompact,
+} from '@yorkie-js/sdk/src/client/persist-policy';
 import {
   SessionLock,
   SessionLockHandle,
   WebLocksSessionLock,
+  acquireSessionLock,
 } from '@yorkie-js/sdk/src/client/session-lock';
 import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 
@@ -150,6 +155,11 @@ export enum ClientCondition {
 /**
  * `ClientOptions` are user-settable options used when defining clients.
  */
+// Hoisted out of the append path: this is the hot loop the incremental design
+// exists to make cheap, and allocating a codec per change works against that.
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
 export interface ClientOptions {
   /**
    * `rpcAddr` is the address of the RPC server. It is used to connect to
@@ -242,9 +252,14 @@ export interface ClientOptions {
 
   /**
    * `store` is a pluggable persistence backend for offline document state.
-   * When set, the client persists `doc.toBytes()` after every local change on
-   * a document attached through it, and on `attach` it rehydrates the document
-   * from any persisted bytes so un-pushed local changes survive a reload. The
+   * When set, the client writes one base snapshot at attach and then **appends
+   * each local change**, so recording an edit costs the size of that edit
+   * rather than of the whole document. The log is compacted back into a
+   * snapshot once it grows large relative to it. A sync that only acks a push
+   * writes the small `meta` header; a sync that pulls content writes a
+   * snapshot, because the log carries local changes only. On `attach` the
+   * document is rehydrated from the snapshot and the log is replayed over it,
+   * so un-pushed local changes survive a reload. The
    * restored checkpoint is presented in the attach ChangePack so the server
    * seeds the client's document sequence from it and re-accepts the re-pushed
    * local changes. When unset (the default), no persistence happens.
@@ -270,6 +285,27 @@ export interface ClientOptions {
    * `store` is unset (non-persistence clients keep today's behavior).
    */
   sessionLock?: SessionLock;
+
+  /**
+   * `maxPersistBytes` caps the size of a snapshot this client is willing to
+   * write. A document whose snapshot exceeds it stops being persisted and a
+   * {@link DocEventType.PersistDisabled} event is published; editing is
+   * unaffected.
+   *
+   * Only snapshots are measured. Appends are a few hundred bytes regardless of
+   * document size, so they need no budget — the budget exists for the one
+   * operation whose cost scales with the document.
+   *
+   * Unset means no limit.
+   */
+  maxPersistBytes?: number;
+
+  /**
+   * `maxPersistMillis` caps how long serializing a snapshot may block the main
+   * thread before this client gives up persisting the document. Same effect
+   * and same event as {@link maxPersistBytes}. Unset means no limit.
+   */
+  maxPersistMillis?: number;
 }
 
 /**
@@ -444,16 +480,38 @@ export class Client {
   private channelHeartbeatInterval: number;
   private deactivateOnUnload: boolean;
   private store?: DocStore;
-  // Per-store-key write chain that serializes `store.save` calls for a single
+  // Per-store-key write chain that serializes `store.saveSnapshot` calls for a
   // document. Async saves (esp. IndexedDB) for the same key can otherwise
   // interleave and let an earlier save resolve after a later one, persisting
   // stale bytes. Each key's tail promise is kept here so the next save chains
   // after it; see `persistToStore`.
   private persistQueues: Map<string, Promise<void>> = new Map();
+  // Per-store-key accounting for the incremental write path: how large the
+  // stored snapshot is, how much has been appended since, and the highest
+  // clientSeq already written. The compaction decision reads it; `append`
+  // advances it. Cleared in `detachInternal`.
+  private persistStates: Map<
+    string,
+    PersistState & {
+      lastAppendedClientSeq: number;
+      /** Set when an append failed. A log with a hole cannot be replayed, so
+       *  the next opportunity writes a fresh snapshot instead of appending
+       *  into it. */
+      poisoned: boolean;
+    }
+  > = new Map();
   // Single-active-session guard for the offline persistence path. Only consulted
   // when `store` is set; a stable Web Locks default is created so store-backed
   // clients get multi-tab safety out of the box.
   private sessionLock: SessionLock;
+  private maxPersistBytes?: number;
+  // Store keys whose document exceeded the persist budget. Sticky: the latch
+  // has to outlive the subscription teardown, or a write path that does not go
+  // through the edit loop — a sync, a repair — keeps writing to a snapshot
+  // that can never be updated again, which is a permanent divergence with no
+  // route back.
+  private persistDisabled: Set<string> = new Set();
+  private maxPersistMillis?: number;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
   private setAuthToken: (token: string) => void;
@@ -503,6 +561,8 @@ export class Client {
     // Default to the Web Locks-backed guard; it is a no-op outside browsers and
     // is only consulted on the store-backed attach path below.
     this.sessionLock = opts.sessionLock ?? new WebLocksSessionLock();
+    this.maxPersistBytes = opts.maxPersistBytes;
+    this.maxPersistMillis = opts.maxPersistMillis;
 
     const { authInterceptor, setToken } = createAuthInterceptor(this.apiKey);
     this.setAuthToken = setToken;
@@ -819,15 +879,11 @@ export class Client {
         if (this.store) {
           const lockName =
             `yorkie-session:${this.apiKey}/${this.key}/` + doc.getKey();
-          sessionLockHandle = await this.sessionLock.acquire(lockName);
-          if (!sessionLockHandle) {
-            throw new YorkieError(
-              Code.ErrInvalidArgument,
-              `document "${doc.getKey()}" is already open in another tab under ` +
-                `offline persistence; only one active session per document is ` +
-                `allowed to avoid silent edit loss`,
-            );
-          }
+          sessionLockHandle = await acquireSessionLock(
+            this.sessionLock,
+            lockName,
+            doc.getKey(),
+          );
         }
 
         // `attachOnce` runs the restore + attach RPC + apply-response sequence.
@@ -853,8 +909,13 @@ export class Client {
             // loss, so surface it and clear the stale entry rather than
             // divergently restoring.
             let bytes: Uint8Array | undefined;
+            let storedMeta: Uint8Array | undefined;
+            let storedChanges: Array<StoredChange> = [];
             try {
-              bytes = await this.store.load(this.storeKey(doc.getKey()));
+              const stored = await this.store.load(this.storeKey(doc.getKey()));
+              bytes = stored?.snapshot;
+              storedMeta = stored?.meta;
+              storedChanges = stored?.changes ?? [];
             } catch (err) {
               logger.warn(
                 `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" store load ` +
@@ -866,6 +927,133 @@ export class Client {
             if (bytes) {
               try {
                 doc.restoreFromBytes(bytes);
+                // Replay the log written after the snapshot. Anything at or
+                // below what the snapshot already carries is dropped rather
+                // than replayed: a compaction that wrote the snapshot without
+                // its log clear being observed would otherwise apply those
+                // changes a second time.
+                // Two watermarks, because the log answers two questions.
+                //
+                // The *snapshot* watermark says which entries the snapshot
+                // already contains, so everything above it must be replayed to
+                // bring the root forward. It is read before the meta header is
+                // applied, since meta describes the server's position and not
+                // the snapshot's contents.
+                //
+                // The *ack* watermark says which of those the server has
+                // already taken, so only entries above it are queued for push.
+                //
+                // The `max` here is a guard rather than a live branch: a
+                // document's pending queue only ever holds changes above its
+                // checkpoint (an ack removes them), so the carried value leads
+                // whenever the queue is non-empty. It was load-bearing while
+                // `saveMeta` trimmed the log and a snapshot's queue could go
+                // stale against an advancing checkpoint; that state is now
+                // unreachable. Kept because the ordering it asserts is what
+                // makes the two-watermark split correct, and a future change
+                // that reintroduces trimming would need it again.
+                const carried = doc.getPendingChangesAfter(0);
+                const snapshotWatermark = Math.max(
+                  carried.length ? carried[carried.length - 1].clientSeq : 0,
+                  doc.getCheckpoint().getClientSeq(),
+                );
+                if (storedMeta) {
+                  doc.restoreMetaFromBytes(storedMeta);
+                }
+                const ackedWatermark = doc.getCheckpoint().getClientSeq();
+                const watermark = snapshotWatermark;
+                const fresh = storedChanges.filter(
+                  (change) => change.clientSeq > watermark,
+                );
+                // The header is only trustworthy as far as the log backs it.
+                // If the entries between the snapshot and the acked checkpoint
+                // are missing — an evicting store, a partial quota failure, a
+                // lossy backend — then restoring with that header yields a root
+                // without those changes and a checkpoint that stops the server
+                // from ever resending them. An empty log is the same case, and
+                // it used to skip validation entirely.
+                const lastReplayable = fresh.length
+                  ? fresh[fresh.length - 1].clientSeq
+                  : watermark;
+                const backsTheHeader = lastReplayable >= ackedWatermark;
+                if (fresh.length || !backsTheHeader) {
+                  // The run has to be contiguous. A hole — a failed append —
+                  // cannot be pushed, because the server rejects a clientSeq
+                  // gap, so replaying it would produce a document that never
+                  // syncs again. Report the loss and keep the snapshot.
+                  const contiguous = fresh.every(
+                    (change, i) =>
+                      i === 0 ||
+                      change.clientSeq === fresh[i - 1].clientSeq + 1,
+                  );
+                  // Parsed in its own try: a corrupt *log* entry says nothing
+                  // about the snapshot, and letting it reach the outer handler
+                  // would report `restore-failed` and delete a snapshot that
+                  // restored perfectly well.
+                  let structs: Array<ChangeStruct<P>> | undefined;
+                  try {
+                    structs = fresh.map(
+                      (change) =>
+                        JSON.parse(
+                          textDecoder.decode(change.bytes),
+                        ) as ChangeStruct<P>,
+                    );
+                  } catch (parseErr) {
+                    logger.warn(
+                      `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                        `persisted change log is undecodable; keeping the ` +
+                        `snapshot:`,
+                      parseErr,
+                    );
+                  }
+                  if (
+                    !structs ||
+                    !backsTheHeader ||
+                    !contiguous ||
+                    (fresh.length && fresh[0].clientSeq !== watermark + 1)
+                  ) {
+                    // Reported rather than thrown, because what is lost here is
+                    // the *log*, not the envelope — and the event exists to say
+                    // what was lost. Routing this through the generic restore
+                    // failure would hand the app the snapshot's pending changes
+                    // (often none) and call it an actor mismatch.
+                    logger.warn(
+                      `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                        `persisted change log is not contiguous from ` +
+                        `clientSeq ${watermark + 1}; keeping the snapshot`,
+                    );
+                    this.emitLocalChangesDropped(
+                      doc,
+                      'log-discontinuity',
+                      structs ?? [],
+                    );
+                    // Undo the header. It described a position the log cannot
+                    // back, so keeping it would leave the document claiming
+                    // content its root does not have — and the server would
+                    // never resend it. Re-restoring from the snapshot bytes
+                    // returns checkpoint, changeID and epoch to what the
+                    // snapshot itself carries, which the server *can* resume
+                    // from.
+                    doc.restoreFromBytes(bytes);
+                    // Rewrite the base from those same bytes, which clears the
+                    // log with it. Writing them back costs no serialization,
+                    // and re-serializing here would have baked the rejected
+                    // header into the new base. Removing the entry instead
+                    // would discard a snapshot that restored perfectly well.
+                    this.persistToStore(
+                      this.storeKey(doc.getKey()),
+                      bytes,
+                      (err) =>
+                        logger.error(
+                          `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                            `log-discontinuity rebase failed:`,
+                          err,
+                        ),
+                    );
+                  } else {
+                    doc.restoreAppendedChanges(structs, ackedWatermark);
+                  }
+                }
                 restored = true;
               } catch (err) {
                 // A persisted envelope that cannot be safely restored is
@@ -1054,47 +1242,137 @@ export class Client {
         attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
 
-        // Persist the full restorable envelope (`doc.toBytes()`) on every local
-        // mutation. This is a plain full overwrite (not an append), so it does
-        // not grow unbounded. The unsubscribe is captured on the attachment so
-        // `detachInternal` can tear it down and re-attaches do not accumulate
-        // handlers. Errors are logged, not thrown, so a failing store never
-        // breaks the editing path.
+        // Persist incrementally: one snapshot established here, then one
+        // appended change per local mutation. Re-serializing the document on
+        // every edit costs time proportional to the document — and a document
+        // is at its largest while being edited — whereas a change is a few
+        // hundred bytes regardless of size.
         //
-        // Persist on:
-        //   - LocalChange: a new un-pushed edit must be captured.
-        //   - PresenceChanged (local source): a presence-only local change
-        //     appends to `localChanges` but emits no LocalChange (gated by
-        //     opInfos.length), so it would otherwise never be persisted.
+        // The unsubscribe is captured on the attachment so `detachInternal` can
+        // tear it down and re-attaches do not accumulate handlers. Errors are
+        // logged, not thrown, so a failing store never breaks the editing path.
         //
-        // The post-sync checkpoint is persisted separately in `syncInternal`:
-        // an ack-only push emits no Remote/Snapshot event, so it cannot be
-        // captured here.
+        // Append on:
+        //   - LocalChange: a new un-pushed edit.
+        //   - PresenceChanged (local source): a presence-only change appends to
+        //     `localChanges` but emits no LocalChange (gated by
+        //     opInfos.length). Its content is worthless after a restore, but it
+        //     consumes a `clientSeq` and `restoreFromBytes` does not renumber,
+        //     so omitting it leaves a hole the first restored push is rejected
+        //     for.
+        //
+        // The post-sync checkpoint is written separately in `syncInternal` as
+        // `meta`: an ack-only push emits no Remote/Snapshot event, so it cannot
+        // be captured here.
         if (this.store) {
           const storeKey = this.storeKey(doc.getKey());
-          const persist = () => {
-            this.persistToStore(storeKey, doc.toBytes(), (err) => {
-              logger.error(
-                `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
-                err,
-              );
+          const onError = (err: unknown) =>
+            logger.error(
+              `[PS] c:"${this.getKey()}" persist d:"${doc.getKey()}" failed:`,
+              err,
+            );
+
+          // Establish the base the log appends to.
+          //
+          // The watermark is the highest `clientSeq` the snapshot *already
+          // carries*, not the checkpoint. `toBytes` bundles the pending queue
+          // into its envelope, so anything un-pushed at this moment is inside
+          // the snapshot; appending it again would restore it twice — once
+          // from the envelope, once from the log.
+          // Over budget on the very first write means no persist subscription
+          // is installed at all, rather than one that latches itself off on the
+          // next edit. `snapshotWithinBudget` has already published the event.
+          const snapshot = this.snapshotWithinBudget(doc, storeKey);
+          const carried = doc.getPendingChangesAfter(0);
+          if (snapshot) {
+            this.persistStates.set(storeKey, {
+              snapshotBytes: snapshot.length,
+              logBytes: 0,
+              changeCount: 0,
+              lastAppendedClientSeq: carried.length
+                ? carried[carried.length - 1].clientSeq
+                : doc.getCheckpoint().getClientSeq(),
+              poisoned: false,
             });
-          };
-          // Subscribe via 'all': the default `subscribe(fn)` overload only
-          // delivers Local/Remote/Snapshot, but a presence-only local change
-          // surfaces as PresenceChanged, which must also trigger a persist.
-          attachment.unsubscribePersist = doc.subscribe('all', (events) => {
-            for (const event of events) {
-              if (
-                event.type === DocEventType.LocalChange ||
-                (event.type === DocEventType.PresenceChanged &&
-                  event.source === OpSource.Local)
-              ) {
-                persist();
-                break;
+            // A failed base write must not leave the client appending into a
+            // void: `appendChange` on a key with no entry is a silent success
+            // in both shipped stores, so nothing would be persisted and nothing
+            // would say so. Poisoning routes the next edit through a fresh
+            // snapshot, which is the same repair a failed append takes.
+            this.persistSnapshotOrPoison(storeKey, snapshot, onError);
+
+            const append = () => {
+              const state = this.persistStates.get(storeKey);
+              if (!state) {
+                return;
               }
-            }
-          });
+              // Driven off the pending queue rather than the event payload, so a
+              // coalesced or missed event cannot silently drop a change.
+              // A previous append failed, so the log has a hole and cannot be
+              // replayed. Writing a snapshot loses nothing — it embeds the whole
+              // pending queue — while appending into a holed log would lose the
+              // entire offline session at restore.
+              if (state.poisoned) {
+                const repaired = this.snapshotWithinBudget(doc, storeKey);
+                if (!repaired) {
+                  return;
+                }
+                state.snapshotBytes = repaired.length;
+                state.logBytes = 0;
+                state.changeCount = 0;
+                state.poisoned = false;
+                state.lastAppendedClientSeq = doc
+                  .getPendingChangesAfter(0)
+                  .reduce(
+                    (max, p) => Math.max(max, p.clientSeq),
+                    doc.getCheckpoint().getClientSeq(),
+                  );
+                this.persistSnapshotOrPoison(storeKey, repaired, onError);
+                return;
+              }
+
+              const pending = doc.getPendingChangesAfter(
+                state.lastAppendedClientSeq,
+              );
+              for (const { clientSeq, struct } of pending) {
+                const bytes = textEncoder.encode(JSON.stringify(struct));
+                state.lastAppendedClientSeq = clientSeq;
+                state.logBytes += bytes.length;
+                state.changeCount += 1;
+                this.appendToStore(storeKey, { clientSeq, bytes }, (err) => {
+                  state.poisoned = true;
+                  onError(err);
+                });
+              }
+
+              if (shouldCompact(state)) {
+                const compacted = this.snapshotWithinBudget(doc, storeKey);
+                if (!compacted) {
+                  return;
+                }
+                state.snapshotBytes = compacted.length;
+                state.logBytes = 0;
+                state.changeCount = 0;
+                this.persistSnapshotOrPoison(storeKey, compacted, onError);
+              }
+            };
+
+            // Subscribe via 'all': the default `subscribe(fn)` overload only
+            // delivers Local/Remote/Snapshot, but a presence-only local change
+            // surfaces as PresenceChanged, which must also be appended.
+            attachment.unsubscribePersist = doc.subscribe('all', (events) => {
+              for (const event of events) {
+                if (
+                  event.type === DocEventType.LocalChange ||
+                  (event.type === DocEventType.PresenceChanged &&
+                    event.source === OpSource.Local)
+                ) {
+                  append();
+                  break;
+                }
+              }
+            });
+          }
         }
 
         if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
@@ -1218,6 +1496,11 @@ export class Client {
         }
 
         this.detachInternal(doc.getKey());
+        // A detached document has no owner for its offline state, and leaving
+        // the entry makes the *next* attach in this session present a resume
+        // the server refuses for a row it just detached — which surfaces as
+        // `document already detached` rather than as anything about storage.
+        await this.removeFromStore(doc.getKey());
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         return doc;
       } catch (err) {
@@ -1654,6 +1937,10 @@ export class Client {
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         this.detachInternal(doc.getKey());
+        // The document is gone server-side; keeping a local envelope for it
+        // would leave the Tier-3 purge guard to discover that on some later
+        // attach.
+        await this.removeFromStore(doc.getKey());
 
         logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
       } catch (err) {
@@ -1716,23 +2003,182 @@ export class Client {
     onError: (err: unknown) => void,
   ): void {
     const store = this.store;
-    if (!store) {
+    if (!store || this.persistDisabled.has(storeKey)) {
       return;
     }
     const prev = this.persistQueues.get(storeKey);
-    // With no in-flight write for this key, start `store.save` synchronously so
+    // With no in-flight write for this key, start the write synchronously so
     // a store whose `save` has synchronous side effects (e.g. MemoryDocStore)
     // lands immediately, preserving the pre-serialization observable timing.
     // Only when a previous write is still pending do we chain after it, which
     // is exactly the interleaving case this guards against.
     const next = (
       prev
-        ? prev.catch(() => undefined).then(() => store.save(storeKey, bytes))
-        : store.save(storeKey, bytes)
+        ? prev
+            .catch(() => undefined)
+            .then(() => store.saveSnapshot(storeKey, bytes))
+        : store.saveSnapshot(storeKey, bytes)
     ).catch(onError);
     this.persistQueues.set(storeKey, next);
     // Drop the queue entry once this write is the tail, so the map does not grow
     // for keys that stop being written.
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
+  }
+
+  /**
+   * `snapshotWithinBudget` serializes a document for persistence and measures
+   * what that cost. It answers `undefined` when the cost exceeds the client's
+   * budget, having already latched persistence off for that document and
+   * published {@link DocEventType.PersistDisabled}.
+   *
+   * Every snapshot write goes through here, which is the point: the budget is
+   * only meaningful if nothing can serialize behind its back, and latching has
+   * to tear down the subscription rather than merely skip a write — otherwise
+   * each later edit keeps paying the serialization the budget exists to avoid.
+   * The waste is bounded to the one measurement that discovers the problem.
+   */
+  private snapshotWithinBudget<R, P extends Indexable>(
+    doc: Document<R, P>,
+    storeKey: string,
+  ): Uint8Array | undefined {
+    if (this.persistDisabled.has(storeKey)) {
+      return undefined;
+    }
+    const startedAt = Date.now();
+    const bytes = doc.toBytes();
+    const millis = Date.now() - startedAt;
+
+    const tooLarge =
+      this.maxPersistBytes !== undefined && bytes.length > this.maxPersistBytes;
+    const tooSlow =
+      this.maxPersistMillis !== undefined && millis > this.maxPersistMillis;
+    if (!tooLarge && !tooSlow) {
+      return bytes;
+    }
+
+    logger.warn(
+      `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" persistence disabled ` +
+        `(${bytes.length} bytes, ${millis}ms)`,
+    );
+    this.persistDisabled.add(storeKey);
+    this.persistStates.delete(storeKey);
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (attachment?.unsubscribePersist) {
+      attachment.unsubscribePersist();
+      attachment.unsubscribePersist = undefined;
+    }
+    doc.publish([
+      {
+        type: DocEventType.PersistDisabled,
+        value: {
+          reason: tooLarge ? 'too-large' : 'too-slow',
+          bytes: bytes.length,
+          millis,
+        },
+      },
+    ]);
+    return undefined;
+  }
+
+  /**
+   * `persistSnapshotOrPoison` writes a snapshot and re-poisons the log if that
+   * write fails.
+   *
+   * Every snapshot write is also a *repair*: the callers reset the log
+   * accounting and clear `poisoned` before it resolves, so that appends can
+   * resume immediately. If the write then rejects, the store still holds the
+   * old snapshot and whatever holed log went with it, while the client
+   * believes the log is clean — the next append lands past the hole and the
+   * following restore discards everything since the base snapshot. A
+   * randomized fuzz over the transition space wedged 8 of 60 seeds this way.
+   *
+   * Re-poisoning makes the next edit try the snapshot again, which is the
+   * behaviour the design's failure table already describes.
+   */
+  private persistSnapshotOrPoison(
+    storeKey: string,
+    bytes: Uint8Array,
+    onError: (err: unknown) => void,
+  ): void {
+    this.persistToStore(storeKey, bytes, (err) => {
+      // Re-read: a latch or a detach may have replaced or removed this entry
+      // between the write and its rejection.
+      const current = this.persistStates.get(storeKey);
+      if (current) {
+        current.poisoned = true;
+      }
+      onError(err);
+    });
+  }
+
+  /**
+   * `appendToStore` appends one change for a store key, chained onto the same
+   * per-key write queue `persistToStore` uses so an append can never overtake
+   * the snapshot it belongs after. Failures are logged, not thrown: the store
+   * may trail the document, and must never break the editing path.
+   */
+  private appendToStore(
+    storeKey: string,
+    change: StoredChange,
+    onError: (err: unknown) => void,
+  ): void {
+    const store = this.store;
+    if (!store || this.persistDisabled.has(storeKey)) {
+      return;
+    }
+    const prev = this.persistQueues.get(storeKey);
+    const next = (
+      prev
+        ? prev
+            .catch(() => undefined)
+            .then(() => store.appendChange(storeKey, change))
+        : store.appendChange(storeKey, change)
+    ).catch(onError);
+    this.persistQueues.set(storeKey, next);
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
+  }
+
+  /**
+   * `saveMetaToStore` records the post-sync header, leaving the snapshot and
+   * the change log intact. It does **not** drop acknowledged entries: the log
+   * is the delta between the snapshot and current content as well as the queue
+   * of un-pushed changes, and a push-ack brings the snapshot no further
+   * forward, so trimming would leave that content in neither place. Only
+   * compaction trims, by folding the entries into a new snapshot first.
+   *
+   * Deliberately not a snapshot: an online client syncs
+   * constantly, and re-serializing per sync would reintroduce the cost the
+   * incremental path removes.
+   */
+  private saveMetaToStore(
+    storeKey: string,
+    bytes: Uint8Array,
+    onError: (err: unknown) => void,
+  ): void {
+    const store = this.store;
+    if (!store || this.persistDisabled.has(storeKey)) {
+      return;
+    }
+    // The accounting is untouched: `saveMeta` no longer trims the log, so the
+    // entries it describes are all still there and still count toward the
+    // compaction threshold.
+    const prev = this.persistQueues.get(storeKey);
+    const next = (
+      prev
+        ? prev
+            .catch(() => undefined)
+            .then(() => store.saveMeta(storeKey, bytes))
+        : store.saveMeta(storeKey, bytes)
+    ).catch(onError);
+    this.persistQueues.set(storeKey, next);
     void next.finally(() => {
       if (this.persistQueues.get(storeKey) === next) {
         this.persistQueues.delete(storeKey);
@@ -1749,14 +2195,30 @@ export class Client {
     if (!this.store) {
       return;
     }
-    try {
-      await this.store.remove(this.storeKey(docKey));
-    } catch (err) {
+    const store = this.store;
+    const storeKey = this.storeKey(docKey);
+    // Chained on the same per-key queue as the writes. Bypassing it lets an
+    // in-flight write resurrect the entry the remove exists to destroy — and
+    // every caller here removes precisely because the envelope must never be
+    // restored again.
+    const prev = this.persistQueues.get(storeKey);
+    const next = (
+      prev
+        ? prev.catch(() => undefined).then(() => store.remove(storeKey))
+        : store.remove(storeKey)
+    ).catch((err) => {
       logger.warn(
-        `[PS] c:"${this.getKey()}" store remove d:"${docKey}" failed:`,
+        `[PS] c:"${this.getKey()}" d:"${docKey}" store remove failed:`,
         err,
       );
-    }
+    });
+    this.persistQueues.set(storeKey, next);
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
+    await next;
   }
 
   /**
@@ -2597,6 +3059,8 @@ export class Client {
       attachment.unsubscribePersist();
       attachment.unsubscribePersist = undefined;
     }
+    this.persistStates.delete(this.storeKey(key));
+    this.persistDisabled.delete(this.storeKey(key));
     // Release the single-active-session lock installed by attachDocument on the
     // offline persistence path, so a later tab can take over the document.
     if (attachment.sessionLockHandle) {
@@ -2772,17 +3236,73 @@ export class Client {
       // checkpoint until the next local edit. This is a full overwrite (not an
       // append), so it does not grow unbounded. Errors are logged, not thrown.
       if (this.store) {
-        this.persistToStore(
-          this.storeKey(doc.getKey()),
-          doc.toBytes(),
-          (err) => {
-            logger.error(
-              `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +
-                `failed:`,
-              err,
-            );
-          },
-        );
+        const storeKey = this.storeKey(doc.getKey());
+        const onError = (err: unknown) =>
+          logger.error(
+            `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +
+              `failed:`,
+            err,
+          );
+        if (respPack.hasChanges() || respPack.hasSnapshot()) {
+          // The response moved the root, and the append log holds *local*
+          // changes only — nothing in it carries remote content. Writing meta
+          // alone would advance the persisted `serverSeq` past a root the
+          // store never received, so the server would never resend those
+          // changes and this replica would lose them permanently while
+          // claiming to hold them. A snapshot is the only thing that records
+          // them.
+          //
+          // Cost: a pull re-serializes the document. That is the price of a
+          // local-only log; persisting remote changes incrementally as well
+          // would avoid it and is the natural follow-up.
+          const snapshot = this.snapshotWithinBudget(doc, storeKey);
+          const state = this.persistStates.get(storeKey);
+          if (state && snapshot) {
+            state.snapshotBytes = snapshot.length;
+            state.logBytes = 0;
+            state.changeCount = 0;
+            state.poisoned = false;
+            state.lastAppendedClientSeq = doc
+              .getPendingChangesAfter(0)
+              .reduce(
+                (max, pending) => Math.max(max, pending.clientSeq),
+                doc.getCheckpoint().getClientSeq(),
+              );
+          }
+          if (snapshot) {
+            this.persistSnapshotOrPoison(storeKey, snapshot, onError);
+          }
+        } else if (this.persistStates.get(storeKey)?.poisoned) {
+          // A pure push-ack, but the log has a hole: the change that failed to
+          // append lives only in memory. Writing the header would put the
+          // persisted `serverSeq` past content the store does not hold — and
+          // since it is our own acked change, the server will never resend it.
+          // Repair with a snapshot, which embeds the whole pending queue.
+          //
+          // The repair-on-next-edit path cannot cover this: a sync, or a tab
+          // close, gets there first.
+          const repaired = this.snapshotWithinBudget(doc, storeKey);
+          const state = this.persistStates.get(storeKey);
+          if (state && repaired) {
+            state.snapshotBytes = repaired.length;
+            state.logBytes = 0;
+            state.changeCount = 0;
+            state.poisoned = false;
+            state.lastAppendedClientSeq = doc
+              .getPendingChangesAfter(0)
+              .reduce(
+                (max, pending) => Math.max(max, pending.clientSeq),
+                doc.getCheckpoint().getClientSeq(),
+              );
+          }
+          if (repaired) {
+            this.persistSnapshotOrPoison(storeKey, repaired, onError);
+          }
+        } else {
+          // A pure push-ack on a healthy log: the root did not move, so the
+          // cheap header write is both sufficient and correct.
+          this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
+        }
       }
 
       attachment.resource.publish([
@@ -2796,6 +3316,15 @@ export class Client {
       // be disconnected to not receive an event for that document.
       if (doc.getStatus() === DocStatus.Removed) {
         this.detachInternal(doc.getKey());
+        // And drop the persisted entry, as `remove()` and `detachDocument()`
+        // do. Learning of the removal from a sync is the third way a document
+        // can end, and the only one that used to leave the envelope behind: it
+        // carries a `serverSeq` for a row that no longer exists, so the next
+        // attach under the same client key is rejected for presenting a
+        // checkpoint ahead of the server. Only `ErrEpochMismatch` is recovered
+        // on the store path, so that error escapes attach and the app has no
+        // route back short of clearing its own store.
+        await this.removeFromStore(doc.getKey());
       }
 
       const key = doc.getKey();

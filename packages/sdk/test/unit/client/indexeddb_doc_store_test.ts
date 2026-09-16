@@ -23,7 +23,12 @@
 // the reference implementation apps can copy.
 import 'fake-indexeddb/auto';
 import { describe, it, assert } from 'vitest';
-import { DocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import {
+  DocStore,
+  StoredChange,
+  StoredDoc,
+} from '@yorkie-js/sdk/src/client/doc-store';
+import { testDocStoreContract } from './doc_store_contract';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 
@@ -37,29 +42,127 @@ class IndexedDBDocStore implements DocStore {
 
   constructor(
     private dbName = 'yorkie',
-    private storeName = 'documents',
+    private docsStore = 'documents',
+    private changesStore = 'changes',
   ) {}
 
-  public async load(docKey: string): Promise<Uint8Array | undefined> {
+  public async load(docKey: string): Promise<StoredDoc | undefined> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const req = db
-        .transaction(this.storeName, 'readonly')
-        .objectStore(this.storeName)
-        .get(docKey);
-      req.onsuccess = () =>
-        resolve(
-          req.result === undefined ? undefined : new Uint8Array(req.result),
-        );
-      req.onerror = () => reject(req.error);
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readonly',
+      );
+      const entryReq = tx.objectStore(this.docsStore).get(docKey);
+      // A key range over [docKey, 0]..[docKey, MAX] selects exactly this
+      // document's log, and IndexedDB returns it in key order — which is
+      // clientSeq order, the order replay needs.
+      const changesReq = tx
+        .objectStore(this.changesStore)
+        .getAll(IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]));
+      tx.oncomplete = () => {
+        const entry = entryReq.result as
+          | { snapshot: ArrayBuffer; meta?: ArrayBuffer }
+          | undefined;
+        if (entry === undefined) {
+          resolve(undefined);
+          return;
+        }
+        resolve({
+          snapshot: new Uint8Array(entry.snapshot),
+          meta: entry.meta ? new Uint8Array(entry.meta) : undefined,
+          changes: (
+            changesReq.result as Array<{
+              clientSeq: number;
+              bytes: ArrayBuffer;
+            }>
+          ).map((row) => ({
+            clientSeq: row.clientSeq,
+            bytes: new Uint8Array(row.bytes),
+          })),
+        });
+      };
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   }
 
-  public async save(docKey: string, bytes: Uint8Array): Promise<void> {
+  public async saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      tx.objectStore(this.storeName).put(bytes.slice(), docKey);
+      // One transaction spans both stores, so the snapshot write and the log
+      // clear cannot be observed apart. A torn pair here would replay changes
+      // the new snapshot already contains.
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      // The header is dropped with the log: the new snapshot embeds its own,
+      // newer checkpoint and changeID, so keeping the old one would regress
+      // the client's clocks on restore.
+      tx.objectStore(this.docsStore).put({ snapshot: bytes.slice() }, docKey);
+      tx.objectStore(this.changesStore).delete(
+        IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]),
+      );
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  public async appendChange(
+    docKey: string,
+    change: StoredChange,
+  ): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      // The write is issued from inside the existence check, not beside it:
+      // no entry means no snapshot to be a delta against, and a row written
+      // anyway is an orphan `load` cannot see. `MemoryDocStore` answers the
+      // same way, and the shared contract suite asserts they agree.
+      const entry = tx.objectStore(this.docsStore).get(docKey);
+      entry.onsuccess = () => {
+        if (entry.result === undefined) {
+          return;
+        }
+        // Keyed by [docKey, clientSeq], which also makes the append an upsert:
+        // a retried write replaces its row instead of duplicating it.
+        tx.objectStore(this.changesStore).put(
+          { clientSeq: change.clientSeq, bytes: change.bytes.slice() },
+          [docKey, change.clientSeq],
+        );
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  public async saveMeta(docKey: string, bytes: Uint8Array): Promise<void> {
+    const db = await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      const docs = tx.objectStore(this.docsStore);
+      const existing = docs.get(docKey);
+      existing.onsuccess = () => {
+        const prev = existing.result as { snapshot: ArrayBuffer } | undefined;
+        if (prev === undefined) {
+          // No entry: nothing to advance. Writing meta alone would leave a
+          // header describing a snapshot that does not exist.
+          return;
+        }
+        // Header only: the log is the delta between the snapshot and current
+        // content, so trimming acked entries here would lose that content —
+        // nothing brings the snapshot forward on a push-ack.
+        docs.put({ snapshot: prev.snapshot, meta: bytes.slice() }, docKey);
+      };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -69,8 +172,14 @@ class IndexedDBDocStore implements DocStore {
   public async remove(docKey: string): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      tx.objectStore(this.storeName).delete(docKey);
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      tx.objectStore(this.docsStore).delete(docKey);
+      tx.objectStore(this.changesStore).delete(
+        IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]),
+      );
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
@@ -83,8 +192,11 @@ class IndexedDBDocStore implements DocStore {
       const req = indexedDB.open(this.dbName);
       req.onupgradeneeded = () => {
         const db = req.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName);
+        if (!db.objectStoreNames.contains(this.docsStore)) {
+          db.createObjectStore(this.docsStore);
+        }
+        if (!db.objectStoreNames.contains(this.changesStore)) {
+          db.createObjectStore(this.changesStore);
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -94,40 +206,21 @@ class IndexedDBDocStore implements DocStore {
   }
 }
 
+testDocStoreContract(
+  'IndexedDBDocStore',
+  (scope) => new IndexedDBDocStore(`yorkie-contract-${scope}`),
+);
+
 describe('DocStore against IndexedDB', () => {
-  it('round-trips, overwrites, and removes', async () => {
-    const store = new IndexedDBDocStore('yorkie-contract');
-    const bytes = new Uint8Array([1, 2, 3]);
-
-    assert.isUndefined(await store.load('missing'));
-
-    await store.save('a', bytes);
-    assert.deepEqual(Array.from((await store.load('a'))!), [1, 2, 3]);
-
-    await store.save('a', new Uint8Array([9]));
-    assert.deepEqual(Array.from((await store.load('a'))!), [9]);
-
-    await store.remove('a');
-    assert.isUndefined(await store.load('a'));
-    await store.remove('a'); // no-op on a missing key
-  });
-
-  it('isolates stored bytes from later caller mutation', async () => {
-    const store = new IndexedDBDocStore('yorkie-isolation');
-    const bytes = new Uint8Array([1, 2, 3]);
-    await store.save('a', bytes);
-    bytes[0] = 99;
-    assert.deepEqual(Array.from((await store.load('a'))!), [1, 2, 3]);
-  });
-
   it('persists across a fresh store instance on the same database', async () => {
-    await new IndexedDBDocStore('yorkie-reload').save(
-      'a',
-      new Uint8Array([7, 8]),
-    );
+    const first = new IndexedDBDocStore('yorkie-reload');
+    await first.saveSnapshot('a', new Uint8Array([7, 8]));
+    await first.appendChange('a', { clientSeq: 1, bytes: new Uint8Array([9]) });
+
     // A new instance models a page reload reopening the same IndexedDB.
     const reloaded = await new IndexedDBDocStore('yorkie-reload').load('a');
-    assert.deepEqual(Array.from(reloaded!), [7, 8]);
+    assert.deepEqual(Array.from(reloaded!.snapshot), [7, 8]);
+    assert.deepEqual(Array.from(reloaded!.changes[0].bytes), [9]);
   });
 
   it('drives the full persist/restore document loop through IndexedDB', async () => {
@@ -146,12 +239,12 @@ describe('DocStore against IndexedDB', () => {
       root.counter.increase(5);
       root.n = 42;
     });
-    await store.save(docKey, doc.toBytes());
+    await store.saveSnapshot(docKey, doc.toBytes());
 
     // Reload: a brand-new document restored from IndexedDB must match.
-    const bytes = await store.load(docKey);
-    assert.isDefined(bytes);
-    const restored = Document.fromBytes<R>(docKey, bytes!);
+    const stored = await store.load(docKey);
+    assert.isDefined(stored);
+    const restored = Document.fromBytes<R>(docKey, stored!.snapshot);
 
     assert.equal(restored.toSortedJSON(), doc.toSortedJSON());
     assert.equal(restored.getChangeID().getActorID(), actor);
