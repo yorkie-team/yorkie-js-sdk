@@ -602,4 +602,151 @@ describe('YSON Parser', () => {
       expect(() => YSON.parse('{"c":DedupCounter(Int(15))}')).toThrow();
     });
   });
+
+  describe('Constructor Argument Validation', () => {
+    it('should reject an extra argument instead of changing the type', () => {
+      expect(() => YSON.parse('{"v":Int(42,"__yson_type":"Long")}')).toThrow(
+        /Int/,
+      );
+    });
+
+    it('should reject an extra argument instead of dropping it', () => {
+      expect(() => YSON.parse('{"v":Date("x","junk":1)}')).toThrow(/Date/);
+    });
+
+    it('should reject an unbalanced brace that would invent a parent key', () => {
+      expect(() => YSON.parse('{"v":Int(1},"y":{"a":2)}')).toThrow(/Int/);
+    });
+
+    it('should reject an unbalanced bracket in an argument', () => {
+      expect(() =>
+        YSON.parse('{"v":Text([{"val":"a"}]],"y":[{"a":2)}'),
+      ).toThrow(/Text/);
+    });
+
+    it('should reject mismatched bracket kinds in an argument', () => {
+      expect(() => YSON.parse('{"v":Int([1})}')).toThrow(/Int/);
+    });
+
+    it('should reject a missing argument by name', () => {
+      expect(() => YSON.parse('{"v":Int()}')).toThrow(/Int/);
+      expect(() => YSON.parse('{"v":Date()}')).toThrow(/Date/);
+      expect(() => YSON.parse('{"v":Text()}')).toThrow(/Text/);
+    });
+
+    it('should reject two arguments by name', () => {
+      expect(() => YSON.parse('{"v":Int(1,2)}')).toThrow(/Int/);
+    });
+
+    it('should reject a Counter with an extra argument', () => {
+      expect(() => YSON.parse('{"v":Counter(Int(1),"z")}')).toThrow(/Counter/);
+    });
+
+    it('should reject an extra argument inside a nested constructor', () => {
+      expect(() => YSON.parse('{"v":Counter(Int(1,2))}')).toThrow(/Int/);
+    });
+
+    it('should reject an argument list of only a comma', () => {
+      expect(() => YSON.parse('{"v":Int(,)}')).toThrow(/Int/);
+    });
+
+    it('should reject an unterminated string in an argument', () => {
+      expect(() => YSON.parse('{"v":Date("x)}')).toThrow(/Date/);
+    });
+
+    it('should reject a DedupCounter whose tail escapes the marker', () => {
+      expect(() =>
+        YSON.parse('{"v":DedupCounter(Int(1),"x"},"y":{"a":1)}'),
+      ).toThrow(/DedupCounter/);
+    });
+
+    it('should reject a DedupCounter with one argument', () => {
+      expect(() => YSON.parse('{"v":DedupCounter(Int(1))}')).toThrow(
+        /DedupCounter/,
+      );
+    });
+
+    it('should reject a DedupCounter with three arguments', () => {
+      expect(() => YSON.parse('{"v":DedupCounter(Int(1),"a","b")}')).toThrow(
+        /DedupCounter/,
+      );
+    });
+
+    it('should reject a DedupCounter whose registers is not a string', () => {
+      expect(() => YSON.parse('{"v":DedupCounter(Int(1),Int(2))}')).toThrow(
+        /DedupCounter/,
+      );
+    });
+
+    it('should reject a DedupCounter whose registers is left unclosed', () => {
+      expect(() => YSON.parse('{"v":DedupCounter(Int(1),"a\\")}')).toThrow(
+        /DedupCounter/,
+      );
+    });
+
+    it('should reject a DedupCounter with text after its registers', () => {
+      expect(() => YSON.parse('{"v":DedupCounter(Int(1),"a"b)}')).toThrow(
+        /DedupCounter/,
+      );
+    });
+
+    it('should not invent a key that was not in the document', () => {
+      const inputs = [
+        '{"v":Int(1},"y":{"a":2)}',
+        '{"v":DedupCounter(Int(1),"x"},"y":{"a":1)}',
+        '{"v":Text([{"val":"a"}]],"y":[{"a":2)}',
+      ];
+      for (const input of inputs) {
+        let parsed: any;
+        try {
+          parsed = YSON.parse(input);
+        } catch {
+          continue;
+        }
+        expect(Object.keys(parsed)).toEqual(['v']);
+      }
+    });
+
+    it('should keep accepting well-formed constructors', () => {
+      expect(YSON.parse('{"v":Int( 42 )}')).toEqual({
+        v: { type: 'Int', value: 42 },
+      });
+      expect(YSON.parse('{"c":Counter(Int(10))}')).toEqual({
+        c: { type: 'Counter', value: { type: 'Int', value: 10 } },
+      });
+      expect(YSON.parse('{"t":Text([{"val":"a"},{"val":"b"}])}')).toEqual({
+        t: { type: 'Text', nodes: [{ val: 'a' }, { val: 'b' }] },
+      });
+      expect(YSON.parse('{"t":Text([{"val":"a,b"}])}')).toEqual({
+        t: { type: 'Text', nodes: [{ val: 'a,b' }] },
+      });
+      expect(YSON.parse('{"t":Text([{"val":"a)b(c"}])}')).toEqual({
+        t: { type: 'Text', nodes: [{ val: 'a)b(c' }] },
+      });
+    });
+
+    it('should keep accepting a well-formed DedupCounter', () => {
+      expect(YSON.parse('{"c":DedupCounter(Int(15),"aGVsbG8=")}')).toEqual({
+        c: {
+          type: 'DedupCounter',
+          value: { type: 'Int', value: 15 },
+          registers: 'aGVsbG8=',
+        },
+      });
+    });
+
+    it('should not treat constructor-like text in a string as a call site', () => {
+      const values = [
+        'Int(42,"__yson_type":"Long")',
+        'Int(1},"y":{"a":2)',
+        'DedupCounter(Int(1),"x"},"y":{"a":1)',
+      ];
+      for (const val of values) {
+        const input = `{"t":Text([{"val":${JSON.stringify(val)}}])}`;
+        expect(YSON.parse(input)).toEqual({
+          t: { type: 'Text', nodes: [{ val }] },
+        });
+      }
+    });
+  });
 });
