@@ -49,15 +49,6 @@ interface CRDTElementPair {
 }
 
 /**
- * `GCCharge` is what `docSize.gc` is holding on behalf of one element, and
- * which element that is. See `Root.sizeInGC` for why the identity matters.
- */
-interface GCCharge {
-  element: CRDTElement;
-  size: DataSize;
-}
-
-/**
  * `RootStats` is a structure that represents the statistics of the root object.
  */
 export interface RootStats {
@@ -105,9 +96,9 @@ export class CRDTRoot {
   private gcElementSetByCreatedAt: Set<string>;
 
   /**
-   * `sizeInGC` maps the creation time of every registered element whose size
-   * counts toward `docSize.gc` rather than `docSize.live`, to the exact amount
-   * charged and to the element it is charged for. Each element's size belongs
+   * `sizeInGC` maps every registered element whose size counts toward
+   * `docSize.gc` rather than `docSize.live` to the exact amount
+   * charged. Each element's size belongs
    * to exactly one of the two, and an element reaches gc by more routes than it
    * has removals: it can be removed itself, or be a descendant of a removed
    * container. Recording the amount rather than a flag keeps the two sides
@@ -115,20 +106,23 @@ export class CRDTRoot {
    * lifetime -- it grows by a ticket the moment `removedAt` is set, which can
    * happen after the size has already moved.
    *
-   * The identity is load-bearing. A createdAt is meant to name one element, but
-   * it does not for the whole of a document's life: undo restores a `deepcopy`
-   * of a removed element, and the copy keeps the original's createdAt while the
-   * original is still a tombstone. Charging or releasing by key alone then
-   * bills whichever of the two occupies the slot, and a size can be taken out
-   * of `docSize.live` that live was never holding -- which is how docSize goes
-   * negative.
+   * It is keyed by the element, not by its createdAt. A createdAt is meant to
+   * name one element, but it does not for the whole of a document's life: undo
+   * restores a `deepcopy` of a removed element, and the copy keeps the
+   * original's createdAt while the original is still a tombstone. Undoing an
+   * array removal reissues a ticket for the restored container alone, so its
+   * members come back aliasing the tombstoned ones outright. One slot per
+   * createdAt cannot describe both: whichever is charged last displaces the
+   * other, and collecting the displaced one then takes a size out of
+   * `docSize.live` that live was never holding -- which is how docSize goes
+   * negative. One slot per element has room for both.
    *
    * A zero size is not the same as no record. It says this element has been
    * released: charged to neither side, because its subtree was orphaned by a
    * restore and nothing will ever collect it. Anything that later charges it
    * again has to know live is not the side to take it from.
    */
-  private sizeInGC: Map<string, GCCharge>;
+  private sizeInGC: Map<CRDTElement, DataSize>;
 
   /**
    * `gcPairMap` is a hash table that maps the IDString of GCChild to the
@@ -150,10 +144,9 @@ export class CRDTRoot {
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     this.registerElement(rootObject, undefined);
 
+    // NOTE(hackerwins): tombstoned elements are not re-registered here:
+    // registerElement above already booked every one of them into gc.
     rootObject.getDescendants((elem) => {
-      if (elem.getRemovedAt()) {
-        this.registerRemovedElement(elem);
-      }
       if (elem instanceof CRDTText || elem instanceof CRDTTree) {
         for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
@@ -244,6 +237,29 @@ export class CRDTRoot {
    * `registerElement` registers the given element and its descendants to hash table.
    */
   public registerElement(element: CRDTElement, parent?: CRDTContainer): void {
+    this.registerLive(element, parent);
+
+    // NOTE(hackerwins): An element can be registered while it already carries a
+    // `removedAt`. An undo re-sets the `deepcopy` its reverse captured, and that
+    // copy keeps the members that were tombstoned before the container was; a
+    // snapshot loads a document that still holds tombstones; and the losing side
+    // of an LWW set is marked removed by `ElementRHT.set` before it is booked.
+    // The size registered above is the post-removal one in every such case, so
+    // it belongs to gc rather than live, and the tombstone has to be
+    // collectable. Booking it here is what makes both true whichever route
+    // brought it in, and it is the one place all of them pass through.
+    //
+    // This is a second pass on purpose. Adopting a tombstone moves its whole
+    // subtree, so doing it while the first pass is still walking would move
+    // descendants live has not been charged for yet, and drive live negative.
+    this.adoptTombstones(element);
+  }
+
+  /**
+   * `registerLive` registers the given element and its descendants to the pair
+   * map, and charges `docSize.live` for each.
+   */
+  private registerLive(element: CRDTElement, parent?: CRDTContainer): void {
     this.elementPairMapByCreatedAt.set(element.getCreatedAt().toIDString(), {
       parent,
       element,
@@ -263,6 +279,25 @@ export class CRDTRoot {
   }
 
   /**
+   * `adoptTombstones` books every element of the given subtree that already
+   * carries a `removedAt` into gc.
+   */
+  private adoptTombstones(element: CRDTElement): void {
+    if (element.getRemovedAt()) {
+      this.adoptRemovedElement(element);
+    }
+
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((elem) => {
+        if (elem.getRemovedAt()) {
+          this.adoptRemovedElement(elem);
+        }
+        return false;
+      });
+    }
+  }
+
+  /**
    * `deregisterElement` deregister the given element and its descendants from hash table.
    */
   public deregisterElement(element: CRDTElement): number {
@@ -275,12 +310,10 @@ export class CRDTRoot {
       // already-removed container never passed through a removal, so it still
       // sits in live; subtracting it from gc would push gc below zero and
       // leave its cost in live forever.
-      // A charge recorded against some other element that shares this
-      // createdAt says nothing about this one, which is still in live.
-      const charged = this.sizeInGC.get(createdAt);
-      if (charged && charged.element === elem) {
-        subDataSize(this.docSize.gc, charged.size);
-        this.sizeInGC.delete(createdAt);
+      const charged = this.sizeInGC.get(elem);
+      if (charged) {
+        subDataSize(this.docSize.gc, charged);
+        this.sizeInGC.delete(elem);
       } else {
         subDataSize(this.docSize.live, elem.getDataSize());
       }
@@ -300,6 +333,12 @@ export class CRDTRoot {
       // tree, and whatever now owns the slot will clear it when its own turn
       // comes. `gcElementSetByCreatedAt` carries no element of its own, so the
       // pair map is what decides the identity for both.
+      //
+      // The Go SDK reads the same rule off a different structure. Its
+      // `gcElementPairMap` holds the element, because its `elementMap` has no
+      // parent to resolve one through, so it compares that entry directly
+      // instead of borrowing this one's answer. Same rule, one resolver each --
+      // the two differ in where the identity is read, not in what it decides.
       if (this.elementPairMapByCreatedAt.get(createdAt)?.element === elem) {
         this.elementPairMapByCreatedAt.delete(createdAt);
         this.gcElementSetByCreatedAt.delete(createdAt);
@@ -323,18 +362,7 @@ export class CRDTRoot {
    */
   public registerRemovedElement(element: CRDTElement): void {
     const moved = this.moveSizeToGC(element);
-
-    // NOTE(hackerwins): registerElement books a container and every descendant
-    // into live, and deregisterElement subtracts both when the tombstone is
-    // collected. Removing a container therefore has to move its descendants as
-    // well: booking only the container itself would strand their size in live
-    // forever and drive gc negative once the collection subtracted them.
-    if (element instanceof CRDTContainer) {
-      element.getDescendants((elem) => {
-        this.moveSizeToGC(elem);
-        return false;
-      });
-    }
+    this.moveDescendantsToGC(element);
 
     // NOTE(hackerwins): When an element is removed, parent sets the removedAt
     // to mark the child as removed. That ticket is part of the size charged to
@@ -343,15 +371,51 @@ export class CRDTRoot {
     // it: a size already in gc, or one moved as a descendant while its own
     // removedAt is still unset, did not.
     //
-    // This holds for the incremental path. The constructor instead registers an
-    // already-tombstoned element at its post-removal size, so live did hold the
-    // ticket and the refund over-credits it by one per tombstone. That drift is
-    // pre-existing and unchanged here.
+    // An element that already carried its `removedAt` when it was registered
+    // does not get the refund. `registerElement` books it with
+    // `adoptRemovedElement` and the top-up branch of `moveSizeToGC` then
+    // reports that nothing moved, so a later removal of it lands here with
+    // `moved` false. Live did hold that ticket, and there is nothing to give
+    // back.
     if (moved && element.getRemovedAt()) {
       this.docSize.live.meta += TimeTicketSize;
     }
 
     this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
+  }
+
+  /**
+   * `adoptRemovedElement` books an element that was already tombstoned when it
+   * was registered, and its descendants, into gc. It is
+   * `registerRemovedElement` without the ticket refund: the size just charged
+   * to live already included the `removedAt` ticket, so live has nothing to get
+   * back.
+   */
+  private adoptRemovedElement(element: CRDTElement): void {
+    this.moveSizeToGC(element);
+    this.moveDescendantsToGC(element);
+    this.gcElementSetByCreatedAt.add(element.getCreatedAt().toIDString());
+  }
+
+  /**
+   * `moveDescendantsToGC` moves the size of every descendant of the given
+   * element from live to gc.
+   *
+   * NOTE(hackerwins): registerElement books a container and every descendant
+   * into live, and deregisterElement subtracts both when the tombstone is
+   * collected. Removing a container therefore has to move its descendants as
+   * well: booking only the container itself would strand their size in live
+   * forever and drive gc negative once the collection subtracted them.
+   */
+  private moveDescendantsToGC(element: CRDTElement): void {
+    if (!(element instanceof CRDTContainer)) {
+      return;
+    }
+
+    element.getDescendants((elem) => {
+      this.moveSizeToGC(elem);
+      return false;
+    });
   }
 
   /**
@@ -362,27 +426,25 @@ export class CRDTRoot {
    * charge topped up: getDataSize grows by a ticket when removedAt is set,
    * which can happen after the move.
    *
-   * A charge recorded against a different element that shares this createdAt is
-   * not this element's: this one is still in live and moves in full. The record
-   * it displaces is a released one (zero), so nothing charged is lost.
+   * Another element sharing this createdAt has a charge of its own, and it is
+   * not this one's: this element is still in live and moves in full.
    */
   private moveSizeToGC(element: CRDTElement): boolean {
-    const createdAt = element.getCreatedAt().toIDString();
     const size = element.getDataSize();
 
-    const charged = this.sizeInGC.get(createdAt);
-    if (charged && charged.element === element) {
+    const charged = this.sizeInGC.get(element);
+    if (charged) {
       addDataSizes(this.docSize.gc, {
-        data: size.data - charged.size.data,
-        meta: size.meta - charged.size.meta,
+        data: size.data - charged.data,
+        meta: size.meta - charged.meta,
       });
-      this.sizeInGC.set(createdAt, { element, size });
+      this.sizeInGC.set(element, size);
       return false;
     }
 
     addDataSizes(this.docSize.gc, size);
     subDataSize(this.docSize.live, size);
-    this.sizeInGC.set(createdAt, { element, size });
+    this.sizeInGC.set(element, size);
     return true;
   }
 
@@ -455,9 +517,9 @@ export class CRDTRoot {
     // actually charged -- the same split `deregisterElement` makes. A member
     // added into an already-removed container never passed through a removal,
     // so it still sits in live.
-    const charged = this.sizeInGC.get(createdAt);
-    if (charged && charged.element === element) {
-      subDataSize(this.docSize.gc, charged.size);
+    const charged = this.sizeInGC.get(element);
+    if (charged) {
+      subDataSize(this.docSize.gc, charged);
     } else {
       subDataSize(this.docSize.live, element.getDataSize());
     }
@@ -467,9 +529,9 @@ export class CRDTRoot {
     // peer that has not seen the restore can still remove something inside this
     // subtree, and `moveSizeToGC` would then take its size out of live for a
     // second time and drive docSize negative. A zero charge says live is not
-    // holding it, and the identity says which element that is about, so a copy
-    // restored under the same createdAt is still charged normally.
-    this.sizeInGC.set(createdAt, { element, size: { data: 0, meta: 0 } });
+    // holding it. A copy restored under the same createdAt has a slot of its
+    // own and is still charged normally.
+    this.sizeInGC.set(element, { data: 0, meta: 0 });
 
     if (this.elementPairMapByCreatedAt.get(createdAt)?.element === element) {
       this.gcElementSetByCreatedAt.delete(createdAt);
