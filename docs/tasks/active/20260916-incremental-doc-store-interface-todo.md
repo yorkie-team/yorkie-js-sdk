@@ -27,12 +27,12 @@ should land whole, not grow under it one release at a time.
 
 In:
 
-- [ ] `StoredDoc` / `StoredChange` types and the reshaped `DocStore`
-- [ ] `MemoryDocStore` implementing the full interface
-- [ ] `client.ts` call sites moved to `saveSnapshot` / the new `load` shape
-- [ ] The `IndexedDBDocStore` reference fixture updated to the new contract
-- [ ] Public exports in `yorkie.ts`
-- [ ] A distinct error code for the session-lock failure (separate commit)
+- [x] `StoredDoc` / `StoredChange` types and the reshaped `DocStore`
+- [x] `MemoryDocStore` implementing the full interface
+- [x] `client.ts` call sites moved to `saveSnapshot` / the new `load` shape
+- [x] The `IndexedDBDocStore` reference fixture updated to the new contract
+- [x] Public exports in `yorkie.ts`
+- [x] A distinct error code for the session-lock failure (separate commit)
 
 Out — these belong to S2:
 
@@ -53,12 +53,21 @@ an explanatory message (`client.ts`), so a consumer has to match on message
 text to tell "open in another tab" from any other invalid argument. wafflebase
 needs to branch on it (W3's fallback backstop).
 
-- [ ] **1.1** Write the failing test in
-      `packages/sdk/test/unit/client/session_lock_test.ts`: configure a store
-      and a `SessionLock` stub whose `acquire` resolves `undefined`, attach,
-      and assert the rejection carries `Code.ErrDocumentOpenElsewhere`.
-- [ ] **1.2** Run it. Expect failure: the code is `ErrInvalidArgument`.
-- [ ] **1.3** Add to `Code` in `packages/sdk/src/util/error.ts`, with a comment
+> **Deviation from plan.** The step below assumed the test could drive a real
+> `attach()`. It cannot without a server: `attach` rejects on activation long
+> before it reaches the lock. Worse, the existing unit tests asserted against
+> `simulateGuard`, a local *copy* of the guard decision — a test that passes
+> while production regresses. So the decision was extracted into
+> `acquireSessionLock` in `session-lock.ts`, the tests point at that, and
+> `attach` calls the same function. The duplication is gone and the code is
+> asserted on the real path.
+
+- [x] **1.1** Write the failing test in
+      `packages/sdk/test/unit/client/session_lock_test.ts` asserting
+      `acquireSessionLock` rejects with `Code.ErrDocumentOpenElsewhere` and
+      names the document.
+- [x] **1.2** Run it. Failed with `acquireSessionLock is not a function`.
+- [x] **1.3** Add to `Code` in `packages/sdk/src/util/error.ts`, with a comment
       in the style of its neighbours:
 
 ```ts
@@ -68,15 +77,21 @@ needs to branch on it (W3's fallback backstop).
   ErrDocumentOpenElsewhere = 'ErrDocumentOpenElsewhere',
 ```
 
-- [ ] **1.4** Change the throw site in `client.ts` to use it. Leave the message
+- [x] **1.4** Change the throw site in `client.ts` to use it. Leave the message
       unchanged — it is good, and only the code is being made machine-readable.
-- [ ] **1.5** Run the test. Expect pass.
-- [ ] **1.6** `pnpm lint && pnpm sdk build && pnpm sdk test test/unit/client/session_lock_test.ts`
-- [ ] **1.7** Commit: `Give the single-active-session failure its own error code`
+- [x] **1.5** Run the test. Expect pass.
+- [x] **1.6** `pnpm lint && pnpm sdk build && pnpm sdk test test/unit/client/session_lock_test.ts`
+- [x] **1.7** Commit: `Give the single-active-session failure its own error code`
 
 ## Task 2: the reshaped interface
 
-- [ ] **2.1** Write the failing contract test in
+> **Deviation from plan.** Tasks 2-5 landed as **one commit**, not four. A
+> TypeScript interface and its callers cannot be split across commits without
+> leaving a build-breaking one in between — `pnpm sdk build` caught exactly
+> that between Task 3 and Task 4. The per-task TDD cycle still ran; only the
+> commit boundary moved.
+
+- [x] **2.1** Write the failing contract test in
       `packages/sdk/test/unit/client/doc_store_test.ts` against
       `MemoryDocStore`. These are the properties every backend must satisfy, so
       they are also what W2 will copy:
@@ -146,8 +161,8 @@ it('copies bytes defensively on both save and load', async () => {
 });
 ```
 
-- [ ] **2.2** Run them. Expect failure: `saveSnapshot` is not a function.
-- [ ] **2.3** Replace the interface in `packages/sdk/src/client/doc-store.ts`.
+- [x] **2.2** Run them. Expect failure: `saveSnapshot` is not a function.
+- [x] **2.3** Replace the interface in `packages/sdk/src/client/doc-store.ts`.
       Keep the byte-oriented, async discipline — the point of the reshape is a
       log the client can append to, not a richer vocabulary:
 
@@ -187,57 +202,57 @@ export interface DocStore {
 }
 ```
 
-- [ ] **2.4** Rewrite `MemoryDocStore` against it, keeping the existing
+- [x] **2.4** Rewrite `MemoryDocStore` against it, keeping the existing
       defensive-copy behavior on every read and write path.
-- [ ] **2.5** Run the contract tests. Expect pass.
-- [ ] **2.6** Commit: `Reshape DocStore into a snapshot, change log and meta`
+- [x] **2.5** Run the contract tests. Expect pass.
+- [x] **2.6** Commit: `Reshape DocStore into a snapshot, change log and meta`
 
 ## Task 3: move the client onto it
 
 No behavior change: the client still serializes the whole document on every
 local change. Only the method it calls and the shape it reads change.
 
-- [ ] **3.1** Update the two persist sites in `packages/sdk/src/client/client.ts`
+- [x] **3.1** Update the two persist sites in `packages/sdk/src/client/client.ts`
       — the `doc.subscribe('all')` handler installed in `attachDocument`, and
       the post-sync persist in `syncInternal` — from `store.save(key, bytes)`
       to `store.saveSnapshot(key, bytes)`. `persistToStore`'s per-key write
       chain is unchanged; it serializes whichever write it is handed.
-- [ ] **3.2** Update the restore site: `store.load` now answers a `StoredDoc`,
+- [x] **3.2** Update the restore site: `store.load` now answers a `StoredDoc`,
       so the bytes handed to `restoreFromBytes` become `stored.snapshot`. A
       non-empty `stored.changes` is not yet possible — nothing appends — so do
       **not** write speculative replay here. That is S2's task, and a stub
       would be untested code pretending to be a feature.
-- [ ] **3.3** Update `removeFromStore` if it names `save`/`load` in comments.
-- [ ] **3.4** Run the existing persistence suites unchanged — they assert
+- [x] **3.3** Update `removeFromStore` if it names `save`/`load` in comments.
+- [x] **3.4** Run the existing persistence suites unchanged — they assert
       end-to-end behavior, which is exactly what must not move:
       `pnpm sdk test test/unit/client/doc_store_test.ts test/unit/client/offline_persist_sync_test.ts test/unit/client/epoch_reanchor_test.ts test/unit/client/client_options_test.ts`
-- [ ] **3.5** Commit: `Move the client's persist path onto saveSnapshot`
+- [x] **3.5** Commit: `Move the client's persist path onto saveSnapshot`
 
 ## Task 4: the IndexedDB reference fixture
 
 `test/unit/client/indexeddb_doc_store_test.ts` is the pattern apps copy, so it
 has to demonstrate the real contract, not a reduced one.
 
-- [ ] **4.1** Update the fixture to the new interface over `fake-indexeddb`.
+- [x] **4.1** Update the fixture to the new interface over `fake-indexeddb`.
       Use two object stores — one keyed by `docKey` for snapshot + meta, one
       keyed by `[docKey, clientSeq]` for the log — so `saveSnapshot`'s
       snapshot-write and log-clear can share a transaction.
-- [ ] **4.2** Run the same contract assertions from Task 2 against it, plus the
+- [x] **4.2** Run the same contract assertions from Task 2 against it, plus the
       existing full persist/restore document loop.
-- [ ] **4.3** `pnpm sdk test test/unit/client/indexeddb_doc_store_test.ts`
-- [ ] **4.4** Commit: `Update the IndexedDB fixture to the new DocStore contract`
+- [x] **4.3** `pnpm sdk test test/unit/client/indexeddb_doc_store_test.ts`
+- [x] **4.4** Commit: `Update the IndexedDB fixture to the new DocStore contract`
 
 ## Task 5: exports and docs
 
-- [ ] **5.1** Export `StoredDoc` and `StoredChange` as types from
+- [x] **5.1** Export `StoredDoc` and `StoredChange` as types from
       `packages/sdk/src/yorkie.ts`, beside the existing `DocStore` /
       `MemoryDocStore` exports (both the named exports and the default-object
       entry, which lists `MemoryDocStore` today).
-- [ ] **5.2** Update the `ClientOptions.store` doc comment in `client.ts`,
+- [x] **5.2** Update the `ClientOptions.store` doc comment in `client.ts`,
       which currently says the client "persists `doc.toBytes()` after every
       local change" — still true in this PR, and S2 will revise it again.
-- [ ] **5.3** `pnpm lint && pnpm sdk build && pnpm sdk test`
-- [ ] **5.4** Commit: `Export the DocStore value types`
+- [x] **5.3** `pnpm lint && pnpm sdk build && pnpm sdk test`
+- [x] **5.4** Commit: `Export the DocStore value types`
 
 ## Verification
 
