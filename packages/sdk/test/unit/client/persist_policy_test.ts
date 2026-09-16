@@ -82,6 +82,8 @@ describe('compaction policy', () => {
   });
 
   it('does not compact an empty log', () => {
+    // Covered by the floor rather than by a special case: 0 is below
+    // MinLogBytes like any other small number.
     assert.isFalse(
       shouldCompact({ snapshotBytes: 0, logBytes: 0, changeCount: 0 }),
     );

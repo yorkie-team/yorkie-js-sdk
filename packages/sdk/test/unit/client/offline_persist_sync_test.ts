@@ -21,6 +21,8 @@ import { SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import {
   ChangePackSchema,
   CheckpointSchema,
@@ -459,5 +461,203 @@ describe('Incremental persistence restore path', () => {
     // The event carries what was actually lost: the log's changes, not the
     // snapshot's pending queue (which is empty here).
     assert.isAtLeast(dropped[0].changes.length, 1);
+  });
+});
+
+describe('Snapshot and log boundary regressions', () => {
+  const key = 'boundary';
+
+  // Echoes the checkpoint the client presents, modelling a server that honors
+  // a resume. A mock that always answers serverSeq 0 trips the Tier-3
+  // silent-purge guard the moment the client has real persisted state — which
+  // is correct behavior, but it masks everything downstream of it.
+  const attachDocument = async (req: any) => {
+    const presented = converter.fromChangePack(req.changePack).getCheckpoint();
+    return create(AttachDocumentResponseSchema, {
+      documentId: 'doc-id',
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, {
+          serverSeq: presented.getServerSeq(),
+          clientSeq: presented.getClientSeq(),
+        }),
+      }),
+      disablePresence: false,
+      schemaRules: [],
+    });
+  };
+
+  it('persists remote content pulled during a session', async () => {
+    // The append log holds local changes only. If a sync that pulls wrote only
+    // meta, the persisted serverSeq would advance past a root the store never
+    // received — the server would never resend it, and the replica would lose
+    // it while claiming to hold it.
+    const store = new MemoryDocStore();
+
+    // A peer's change, produced by an independent document.
+    const peer = new Document<{ peer?: string }>(key);
+    peer.setActor('000000000000000000000002');
+    peer.update((root) => {
+      root.peer = 'from-peer';
+    });
+    const peerChanges = peer.createChangePack().getChanges();
+
+    const pushPullChanges = async (req: any) => {
+      const reqPack = converter.fromChangePack(req.changePack);
+      return create(PushPullChangesResponseSchema, {
+        changePack: converter.toChangePack(
+          ChangePack.create(
+            key,
+            Checkpoint.of(1n, reqPack.getCheckpoint().getClientSeq()),
+            false,
+            peerChanges,
+          ),
+        ),
+      });
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; mine?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.mine = 'mine';
+    });
+    await client.sync(doc);
+    assert.equal(doc.getRoot().peer, 'from-peer', 'the pull landed in memory');
+
+    // "Reload": a fresh client and document over the same store.
+    await settled();
+    const persisted = (await store.load(scopedKey(key)))!;
+    assert.equal(
+      Document.fromBytes<{ peer?: string }>(key, persisted.snapshot).getRoot()
+        .peer,
+      'from-peer',
+      'a sync that pulls must write the root, not just the header',
+    );
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ peer?: string; mine?: string }>(key);
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    assert.equal(
+      doc2.getRoot().peer,
+      'from-peer',
+      'pulled remote content must survive a reload',
+    );
+    assert.equal(doc2.getRoot().mine, 'mine');
+  });
+
+  it('does not regress the clocks when meta predates a compaction', async () => {
+    // saveSnapshot drops meta: the new envelope embeds a newer header, and
+    // applying the old one over it would regress serverSeq and lamport. A
+    // regressed lamport mints tickets colliding with identities already in the
+    // restored root.
+    const store = new MemoryDocStore();
+    const seed = new Document<{ text?: string }>(key);
+    seed.setActor(actorHex);
+    await store.saveSnapshot(scopedKey(key), seed.toBytes());
+    await store.saveMeta(scopedKey(key), seed.metaToBytes(), 0);
+
+    for (const v of ['a', 'ab', 'abc']) {
+      seed.update((root) => {
+        root.text = v;
+      });
+    }
+    // Compaction after further edits: the snapshot is now ahead of meta.
+    await store.saveSnapshot(scopedKey(key), seed.toBytes());
+
+    const stored = (await store.load(scopedKey(key)))!;
+    assert.isUndefined(stored.meta, 'compaction drops the stale header');
+
+    const client = activatedClient(store, { attachDocument });
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    assert.equal(doc.getRoot().text, 'abc');
+    assert.isAtLeast(
+      Number(doc.getChangeID().getLamport()),
+      Number(seed.getChangeID().getLamport()),
+      'the lamport must not go backwards',
+    );
+  });
+
+  it('replays a log whose earlier entries a sync already acked', async () => {
+    // The snapshot's embedded queue is frozen at snapshot time while saveMeta
+    // keeps acking past it, so the restore watermark has to consider both. A
+    // watermark taken from the queue alone reports a false discontinuity and
+    // discards the whole offline session.
+    const store = new MemoryDocStore();
+    const pushPullChanges = async (req: any) => {
+      const reqPack = converter.fromChangePack(req.changePack);
+      return create(PushPullChangesResponseSchema, {
+        changePack: create(ChangePackSchema, {
+          documentKey: key,
+          checkpoint: create(CheckpointSchema, {
+            serverSeq: 1n,
+            clientSeq: reqPack.getCheckpoint().getClientSeq(),
+          }),
+        }),
+      });
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    for (const v of ['one', 'two', 'three']) {
+      doc.update((root) => {
+        root.text = v;
+      });
+    }
+    await settled();
+    // Stand in for a compaction: a snapshot that embeds the pending queue
+    // (clientSeq 1-3), replacing the log.
+    await store.saveSnapshot(scopedKey(key), doc.toBytes());
+
+    // Two more edits, then a sync that acks everything and drops them.
+    doc.update((root) => {
+      root.text = 'four';
+    });
+    doc.update((root) => {
+      root.text = 'five';
+    });
+    await client.sync(doc);
+    await settled();
+
+    // And two more offline, which is all the log holds now.
+    doc.update((root) => {
+      root.text = 'six';
+    });
+    doc.update((root) => {
+      root.text = 'seven';
+    });
+    await settled();
+
+    const stored = (await store.load(scopedKey(key)))!;
+    assert.isNotEmpty(stored.changes, 'the offline edits are logged');
+
+    const dropped: Array<any> = [];
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ text?: string }>(key);
+    doc2.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    assert.deepEqual(dropped, [], 'an intact log must not be reported as lost');
+    assert.equal(doc2.getRoot().text, 'seven');
   });
 });

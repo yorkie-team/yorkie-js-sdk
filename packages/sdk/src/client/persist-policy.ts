@@ -68,8 +68,5 @@ export function shouldCompact(state: PersistState): boolean {
   if (state.changeCount > MaxReplay) {
     return true;
   }
-  if (state.logBytes === 0) {
-    return false;
-  }
   return state.logBytes > Math.max(MinLogBytes, state.snapshotBytes * LogRatio);
 }

@@ -152,22 +152,22 @@ export function shouldCompact(s: {
 **Files:** `packages/sdk/src/client/client.ts`,
 `packages/sdk/test/unit/client/offline_persist_sync_test.ts`
 
-- [ ] **4.1** Write the failing test: seed a store with a snapshot plus
+- [x] **4.1** Write the failing test: seed a store with a snapshot plus
       appended changes, attach, and assert the document carries the appended
       edits and queues them for push.
-- [ ] **4.2** Write the torn-write test: a log containing changes at or below
+- [x] **4.2** Write the torn-write test: a log containing changes at or below
       the snapshot's `clientSeq` (compaction wrote the snapshot but the clear
       was not observed) must drop those, not replay them.
-- [ ] **4.3** Write the discontinuity test: a log with a `clientSeq` hole
+- [x] **4.3** Write the discontinuity test: a log with a `clientSeq` hole
       restores from the snapshot alone and emits `LocalChangesDropped` carrying
       the changes it could not replay.
-- [ ] **4.4** Run them. Expect failure.
-- [ ] **4.5** Implement in the store-backed attach path: filter the log against
+- [x] **4.4** Run them. Expect failure.
+- [x] **4.5** Implement in the store-backed attach path: filter the log against
       the snapshot's `clientSeq`, check contiguity, then
       `restoreAppendedChanges`. Apply `meta` when present, since it may carry a
       checkpoint newer than the snapshot's.
-- [ ] **4.6** Run the tests. Expect pass.
-- [ ] **4.7** Commit: `Replay the appended change log on restore`
+- [x] **4.6** Run the tests. Expect pass.
+- [x] **4.7** Commit: `Replay the appended change log on restore`
 
 ## Task 5: the persist budget
 

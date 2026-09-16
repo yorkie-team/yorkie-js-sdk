@@ -70,8 +70,10 @@ export interface DocStore {
 
   /**
    * `saveSnapshot` replaces the snapshot and atomically drops every appended
-   * change. This is compaction: the new snapshot already contains those
-   * changes, so keeping them would replay them twice.
+   * change **and any stored meta**. This is compaction: the new snapshot
+   * already contains those changes, so keeping them would replay them twice,
+   * and it embeds a newer header than meta holds, so keeping that would
+   * regress the client's clocks.
    */
   saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void>;
 
@@ -79,6 +81,9 @@ export interface DocStore {
    * `appendChange` appends one local change. This is the hot path — frequent
    * and small — so an implementation must not rewrite the whole entry to
    * satisfy it.
+   *
+   * It is an **upsert keyed by `clientSeq`**: re-appending a change already
+   * stored replaces it rather than duplicating it, so a retried write is safe.
    */
   appendChange(docKey: string, change: StoredChange): Promise<void>;
 
@@ -142,12 +147,14 @@ export class MemoryDocStore implements DocStore {
    * `saveSnapshot` stores a copy of the bytes and clears the change log.
    */
   public saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void> {
-    const entry = this.store.get(docKey);
     this.store.set(docKey, {
       snapshot: bytes.slice(),
-      // The header survives compaction: it describes the client's position
-      // against the server, which a new snapshot does not change.
-      meta: entry?.meta,
+      // The header is dropped, not carried forward. A snapshot envelope
+      // embeds its own checkpoint and changeID, and they are newer than
+      // whatever meta held; applying the old header over the new snapshot
+      // would regress `serverSeq` and — worse — `lamport`, whose regression
+      // makes the next edit mint tickets that collide with identities already
+      // in the restored root.
       changes: [],
     });
     return Promise.resolve();
@@ -162,11 +169,24 @@ export class MemoryDocStore implements DocStore {
     if (!entry) {
       return Promise.resolve();
     }
-    entry.changes.push({
+    // Upsert, not push: `clientSeq` identifies the change, and a re-append of
+    // one already stored is a retry rather than a second change. The
+    // IndexedDB reference keys on [docKey, clientSeq] and so behaves this way
+    // implicitly; the two must not disagree, because an app writes its backend
+    // against this contract.
+    const existing = entry.changes.findIndex(
+      (c) => c.clientSeq === change.clientSeq,
+    );
+    const stored = {
       clientSeq: change.clientSeq,
       bytes: change.bytes.slice(),
-    });
-    entry.changes.sort((a, b) => a.clientSeq - b.clientSeq);
+    };
+    if (existing >= 0) {
+      entry.changes[existing] = stored;
+    } else {
+      entry.changes.push(stored);
+      entry.changes.sort((a, b) => a.clientSeq - b.clientSeq);
+    }
     return Promise.resolve();
   }
 

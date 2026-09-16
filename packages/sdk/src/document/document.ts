@@ -1575,7 +1575,14 @@ export class Document<
       }),
     );
     const changeID = converter.changeIDToBinary(this.changeID);
-    return packBlobs([checkpoint, changeID]);
+    // The epoch and docID are learned from sync responses, so meta is the only
+    // place they can be recorded between snapshots. Omitting the epoch made a
+    // server-side force-compaction invisible until the next attach presented a
+    // stale one, took `ErrEpochMismatch`, and re-anchored — discarding every
+    // un-pushed edit for want of a field.
+    const encoderEpoch = encoder.encode(this.epoch.toString());
+    const docID = encoder.encode(this.docID);
+    return packBlobs([checkpoint, changeID, encoderEpoch, docID]);
   }
 
   /**
@@ -1585,7 +1592,8 @@ export class Document<
    */
   public restoreMetaFromBytes(bytes: Uint8Array): void {
     const decoder = new TextDecoder();
-    const [checkpointBytes, changeIDBytes] = unpackBlobs(bytes);
+    const [checkpointBytes, changeIDBytes, epochBytes, docIDBytes] =
+      unpackBlobs(bytes);
 
     const checkpoint = JSON.parse(decoder.decode(checkpointBytes)) as {
       serverSeq: string;
@@ -1597,6 +1605,14 @@ export class Document<
     );
     if (changeIDBytes) {
       this.changeID = converter.bytesToChangeID(changeIDBytes);
+    }
+    // Trailing blobs stay optional, the same rule the `toBytes` envelope
+    // follows, so meta written before these fields existed still decodes.
+    if (epochBytes) {
+      this.epoch = BigInt(decoder.decode(epochBytes));
+    }
+    if (docIDBytes) {
+      this.docID = decoder.decode(docIDBytes);
     }
   }
 
@@ -1638,6 +1654,19 @@ export class Document<
 
     this.applyChanges(changes, OpSource.Local);
     this.localChanges.push(...changes);
+
+    // Adopt the last replayed change's ID as the document's own counter.
+    //
+    // `applyChanges` only syncs clocks, which leaves `clientSeq` behind and
+    // over-advances `lamport` (it bumps per change, on top of a snapshot that
+    // predates them). Both matter. `createChangePack` derives the pushed
+    // checkpoint from `clientSeq`, so a counter left behind mints a sequence
+    // the server has already seen and silently drops the next edit; and a
+    // lamport that ran ahead mis-stamps every later ticket.
+    //
+    // An `update` leaves `changeID` equal to the change it just minted, so the
+    // state after replaying a run is the last change's ID exactly.
+    this.changeID = changes[changes.length - 1].getID();
 
     // The clone predates the replay, and the history's reverse-ops reference
     // the pre-replay state — the same reasoning `restoreFromBytes` applies.

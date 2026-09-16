@@ -155,6 +155,11 @@ export enum ClientCondition {
 /**
  * `ClientOptions` are user-settable options used when defining clients.
  */
+// Hoisted out of the append path: this is the hot loop the incremental design
+// exists to make cheap, and allocating a codec per change works against that.
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
 export interface ClientOptions {
   /**
    * `rpcAddr` is the address of the RPC server. It is used to connect to
@@ -247,13 +252,14 @@ export interface ClientOptions {
 
   /**
    * `store` is a pluggable persistence backend for offline document state.
-   * When set, the client persists `doc.toBytes()` through `saveSnapshot` after
-   * every local change on a document attached through it, and on `attach` it
-   * rehydrates the document from the persisted snapshot so un-pushed local
-   * changes survive a reload. (The store's `appendChange` / `saveMeta` are part
-   * of the contract a backend implements but are not yet driven from here: the
-   * incremental write path lands separately, and until it does the cost of a
-   * save is still proportional to the document.) The
+   * When set, the client writes one base snapshot at attach and then **appends
+   * each local change**, so recording an edit costs the size of that edit
+   * rather than of the whole document. The log is compacted back into a
+   * snapshot once it grows large relative to it. A sync that only acks a push
+   * writes the small `meta` header; a sync that pulls content writes a
+   * snapshot, because the log carries local changes only. On `attach` the
+   * document is rehydrated from the snapshot and the log is replayed over it,
+   * so un-pushed local changes survive a reload. The
    * restored checkpoint is presented in the attach ChangePack so the server
    * seeds the client's document sequence from it and re-accepts the re-pushed
    * local changes. When unset (the default), no persistence happens.
@@ -465,7 +471,16 @@ export class Client {
   // advances it. Cleared in `detachInternal`.
   private persistStates: Map<
     string,
-    PersistState & { lastAppendedClientSeq: number }
+    PersistState & {
+      lastAppendedClientSeq: number;
+      /** One entry per appended change, so a sync can subtract exactly what
+       *  it acked instead of zeroing the accounting. */
+      appended: Array<{ clientSeq: number; size: number }>;
+      /** Set when an append failed. A log with a hole cannot be replayed, so
+       *  the next opportunity writes a fresh snapshot instead of appending
+       *  into it. */
+      poisoned: boolean;
+    }
   > = new Map();
   // Single-active-session guard for the offline persistence path. Only consulted
   // when `store` is set; a stable Web Locks default is created so store-backed
@@ -895,10 +910,17 @@ export class Client {
                 // than replayed: a compaction that wrote the snapshot without
                 // its log clear being observed would otherwise apply those
                 // changes a second time.
+                // The watermark is the max of both sources, not one or the
+                // other. A snapshot's embedded pending queue is frozen at
+                // snapshot time while `saveMeta` keeps acking past it, so
+                // either can be ahead: taking only the queue reports a false
+                // discontinuity after a sync dropped acked entries, and taking
+                // only the checkpoint replays changes the snapshot carries.
                 const carried = doc.getPendingChangesAfter(0);
-                const watermark = carried.length
-                  ? carried[carried.length - 1].clientSeq
-                  : doc.getCheckpoint().getClientSeq();
+                const watermark = Math.max(
+                  carried.length ? carried[carried.length - 1].clientSeq : 0,
+                  doc.getCheckpoint().getClientSeq(),
+                );
                 const fresh = storedChanges.filter(
                   (change) => change.clientSeq > watermark,
                 );
@@ -912,13 +934,31 @@ export class Client {
                       i === 0 ||
                       change.clientSeq === fresh[i - 1].clientSeq + 1,
                   );
-                  const structs = fresh.map(
-                    (change) =>
-                      JSON.parse(
-                        new TextDecoder().decode(change.bytes),
-                      ) as ChangeStruct<P>,
-                  );
-                  if (!contiguous || fresh[0].clientSeq !== watermark + 1) {
+                  // Parsed in its own try: a corrupt *log* entry says nothing
+                  // about the snapshot, and letting it reach the outer handler
+                  // would report `restore-failed` and delete a snapshot that
+                  // restored perfectly well.
+                  let structs: Array<ChangeStruct<P>> | undefined;
+                  try {
+                    structs = fresh.map(
+                      (change) =>
+                        JSON.parse(
+                          textDecoder.decode(change.bytes),
+                        ) as ChangeStruct<P>,
+                    );
+                  } catch (parseErr) {
+                    logger.warn(
+                      `[AD] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                        `persisted change log is undecodable; keeping the ` +
+                        `snapshot:`,
+                      parseErr,
+                    );
+                  }
+                  if (
+                    !structs ||
+                    !contiguous ||
+                    fresh[0].clientSeq !== watermark + 1
+                  ) {
                     // Reported rather than thrown, because what is lost here is
                     // the *log*, not the envelope — and the event exists to say
                     // what was lost. Routing this through the generic restore
@@ -932,9 +972,21 @@ export class Client {
                     this.emitLocalChangesDropped(
                       doc,
                       'log-discontinuity',
-                      structs,
+                      structs ?? [],
                     );
-                    await this.removeFromStore(doc.getKey());
+                    // Rewrite the base from the snapshot that *did* restore,
+                    // which clears the log with it. Removing the entry would
+                    // discard a good snapshot because the log beside it broke.
+                    this.persistToStore(
+                      this.storeKey(doc.getKey()),
+                      doc.toBytes(),
+                      (err) =>
+                        logger.error(
+                          `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                            `log-discontinuity rebase failed:`,
+                          err,
+                        ),
+                    );
                   } else {
                     doc.restoreAppendedChanges(structs);
                   }
@@ -1173,6 +1225,8 @@ export class Client {
             lastAppendedClientSeq: carried.length
               ? carried[carried.length - 1].clientSeq
               : doc.getCheckpoint().getClientSeq(),
+            appended: [],
+            poisoned: false,
           });
           this.persistToStore(storeKey, snapshot, onError);
 
@@ -1183,15 +1237,40 @@ export class Client {
             }
             // Driven off the pending queue rather than the event payload, so a
             // coalesced or missed event cannot silently drop a change.
+            // A previous append failed, so the log has a hole and cannot be
+            // replayed. Writing a snapshot loses nothing — it embeds the whole
+            // pending queue — while appending into a holed log would lose the
+            // entire offline session at restore.
+            if (state.poisoned) {
+              const repaired = doc.toBytes();
+              state.snapshotBytes = repaired.length;
+              state.logBytes = 0;
+              state.changeCount = 0;
+              state.appended = [];
+              state.poisoned = false;
+              state.lastAppendedClientSeq = doc
+                .getPendingChangesAfter(0)
+                .reduce(
+                  (max, p) => Math.max(max, p.clientSeq),
+                  doc.getCheckpoint().getClientSeq(),
+                );
+              this.persistToStore(storeKey, repaired, onError);
+              return;
+            }
+
             const pending = doc.getPendingChangesAfter(
               state.lastAppendedClientSeq,
             );
             for (const { clientSeq, struct } of pending) {
-              const bytes = new TextEncoder().encode(JSON.stringify(struct));
+              const bytes = textEncoder.encode(JSON.stringify(struct));
               state.lastAppendedClientSeq = clientSeq;
               state.logBytes += bytes.length;
               state.changeCount += 1;
-              this.appendToStore(storeKey, { clientSeq, bytes }, onError);
+              state.appended.push({ clientSeq, size: bytes.length });
+              this.appendToStore(storeKey, { clientSeq, bytes }, (err) => {
+                state.poisoned = true;
+                onError(err);
+              });
             }
 
             if (shouldCompact(state)) {
@@ -1199,6 +1278,7 @@ export class Client {
               state.snapshotBytes = compacted.length;
               state.logBytes = 0;
               state.changeCount = 0;
+              state.appended = [];
               this.persistToStore(storeKey, compacted, onError);
             }
           };
@@ -1914,10 +1994,15 @@ export class Client {
     }
     const state = this.persistStates.get(storeKey);
     if (state) {
-      // The acked changes are gone from the log, so the accounting that drives
-      // compaction has to forget them too.
-      state.logBytes = 0;
-      state.changeCount = 0;
+      // Subtract only what the server took. A sync acks up to
+      // `ackedClientSeq`, and edits made during the round trip survive in the
+      // store; zeroing the accounting would erase them from it, so compaction
+      // would fire late and the `MaxReplay` restore-latency bound — the one
+      // budget meant to be hard — would stop holding.
+      const kept = state.appended.filter((e) => e.clientSeq > ackedClientSeq);
+      state.appended = kept;
+      state.logBytes = kept.reduce((sum, e) => sum + e.size, 0);
+      state.changeCount = kept.length;
     }
     const prev = this.persistQueues.get(storeKey);
     const next = (
@@ -2968,18 +3053,51 @@ export class Client {
       // checkpoint until the next local edit. This is a full overwrite (not an
       // append), so it does not grow unbounded. Errors are logged, not thrown.
       if (this.store) {
-        this.saveMetaToStore(
-          this.storeKey(doc.getKey()),
-          doc.metaToBytes(),
-          doc.getCheckpoint().getClientSeq(),
-          (err) => {
-            logger.error(
-              `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +
-                `failed:`,
-              err,
-            );
-          },
-        );
+        const storeKey = this.storeKey(doc.getKey());
+        const onError = (err: unknown) =>
+          logger.error(
+            `[PS] c:"${this.getKey()}" persist-on-sync d:"${doc.getKey()}" ` +
+              `failed:`,
+            err,
+          );
+        if (respPack.hasChanges() || respPack.hasSnapshot()) {
+          // The response moved the root, and the append log holds *local*
+          // changes only — nothing in it carries remote content. Writing meta
+          // alone would advance the persisted `serverSeq` past a root the
+          // store never received, so the server would never resend those
+          // changes and this replica would lose them permanently while
+          // claiming to hold them. A snapshot is the only thing that records
+          // them.
+          //
+          // Cost: a pull re-serializes the document. That is the price of a
+          // local-only log; persisting remote changes incrementally as well
+          // would avoid it and is the natural follow-up.
+          const snapshot = doc.toBytes();
+          const state = this.persistStates.get(storeKey);
+          if (state) {
+            state.snapshotBytes = snapshot.length;
+            state.logBytes = 0;
+            state.changeCount = 0;
+            state.appended = [];
+            state.poisoned = false;
+            state.lastAppendedClientSeq = doc
+              .getPendingChangesAfter(0)
+              .reduce(
+                (max, pending) => Math.max(max, pending.clientSeq),
+                doc.getCheckpoint().getClientSeq(),
+              );
+          }
+          this.persistToStore(storeKey, snapshot, onError);
+        } else {
+          // A pure push-ack: the root did not move, so the cheap header write
+          // is both sufficient and correct.
+          this.saveMetaToStore(
+            storeKey,
+            doc.metaToBytes(),
+            doc.getCheckpoint().getClientSeq(),
+            onError,
+          );
+        }
       }
 
       attachment.resource.publish([

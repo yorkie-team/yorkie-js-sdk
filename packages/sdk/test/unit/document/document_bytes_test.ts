@@ -348,6 +348,39 @@ describe('Document incremental restore', function () {
       restored.getPendingChangeStructs(),
       live.getPendingChangeStructs(),
     );
+    // And the document's own counter moved with them. `createChangePack`
+    // derives the pushed checkpoint from `changeID.clientSeq`, so a counter
+    // left behind the replayed run mints a colliding sequence on the next
+    // edit and the server silently drops it.
+    assertChangeIDEqual(restored.getChangeID(), live.getChangeID());
+  });
+
+  it('should keep the next edit pushable after a replay', function () {
+    const live = seed('inc-5');
+    const snapshot = live.toBytes();
+    const before = live.getPendingChangeStructs().length;
+    live.update((root) => root.text.edit(5, 5, 'x'));
+    live.update((root) => root.text.edit(6, 6, 'y'));
+    const appended = live.getPendingChangeStructs().slice(before);
+
+    const restored = Document.fromBytes<R>('inc-5', snapshot);
+    restored.restoreAppendedChanges(appended);
+    restored.update((root) => root.text.edit(7, 7, 'z'));
+
+    const seqs = restored
+      .createChangePack()
+      .getChanges()
+      .map((c) => c.getID().getClientSeq());
+    assert.deepEqual(
+      seqs,
+      [...seqs].sort((a, b) => a - b),
+      'clientSeqs must ascend',
+    );
+    assert.equal(
+      new Set(seqs).size,
+      seqs.length,
+      'a duplicate clientSeq is silently dropped by the server',
+    );
   });
 
   it('should not re-apply the changes carried inside the envelope', function () {
