@@ -96,12 +96,10 @@ class IndexedDBDocStore implements DocStore {
         [this.docsStore, this.changesStore],
         'readwrite',
       );
-      const docs = tx.objectStore(this.docsStore);
-      const existing = docs.get(docKey);
-      existing.onsuccess = () => {
-        const prev = existing.result as { meta?: ArrayBuffer } | undefined;
-        docs.put({ snapshot: bytes.slice(), meta: prev?.meta }, docKey);
-      };
+      // The header is dropped with the log: the new snapshot embeds its own,
+      // newer checkpoint and changeID, so keeping the old one would regress
+      // the client's clocks on restore.
+      tx.objectStore(this.docsStore).put({ snapshot: bytes.slice() }, docKey);
       tx.objectStore(this.changesStore).delete(
         IDBKeyRange.bound([docKey, -Infinity], [docKey, Infinity]),
       );
@@ -117,7 +115,18 @@ class IndexedDBDocStore implements DocStore {
   ): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.changesStore, 'readwrite');
+      const tx = db.transaction(
+        [this.docsStore, this.changesStore],
+        'readwrite',
+      );
+      // No entry means no snapshot to append to, and a row written anyway is
+      // an orphan `load` cannot see. `MemoryDocStore` answers the same way.
+      const entry = tx.objectStore(this.docsStore).get(docKey);
+      entry.onsuccess = () => {
+        if (entry.result === undefined) {
+          tx.abort();
+        }
+      };
       // Keyed by [docKey, clientSeq]: the append writes one small row and
       // touches nothing else, which is the property that makes this the cheap
       // hot path rather than a rewrite of the whole entry.
@@ -127,15 +136,12 @@ class IndexedDBDocStore implements DocStore {
       );
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
+      // An abort here is the no-entry guard above, not a failure.
+      tx.onabort = () => resolve();
     });
   }
 
-  public async saveMeta(
-    docKey: string,
-    bytes: Uint8Array,
-    ackedClientSeq: number,
-  ): Promise<void> {
+  public async saveMeta(docKey: string, bytes: Uint8Array): Promise<void> {
     const db = await this.open();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(
@@ -151,10 +157,10 @@ class IndexedDBDocStore implements DocStore {
           // header describing a snapshot that does not exist.
           return;
         }
+        // Header only: the log is the delta between the snapshot and current
+        // content, so trimming acked entries here would lose that content —
+        // nothing brings the snapshot forward on a push-ack.
         docs.put({ snapshot: prev.snapshot, meta: bytes.slice() }, docKey);
-        tx.objectStore(this.changesStore).delete(
-          IDBKeyRange.bound([docKey, -Infinity], [docKey, ackedClientSeq]),
-        );
       };
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
@@ -242,7 +248,7 @@ describe('DocStore against IndexedDB', () => {
     assert.deepEqual(stored!.changes, []);
   });
 
-  it('drops changes at or below the acked clientSeq on saveMeta', async () => {
+  it('records meta without trimming the log', async () => {
     const store = new IndexedDBDocStore('yorkie-meta');
     await store.saveSnapshot('a', new Uint8Array([0]));
     for (const clientSeq of [1, 2, 3]) {
@@ -252,31 +258,33 @@ describe('DocStore against IndexedDB', () => {
       });
     }
 
-    await store.saveMeta('a', new Uint8Array([7]), 2);
+    await store.saveMeta('a', new Uint8Array([7]));
 
     const stored = await store.load('a');
+    // The log is the delta between the snapshot and current content; only
+    // compaction trims it, by folding the entries into a new snapshot first.
     assert.deepEqual(
       stored!.changes.map((c) => c.clientSeq),
-      [3],
+      [1, 2, 3],
     );
     assert.deepEqual(Array.from(stored!.meta!), [7]);
     assert.deepEqual(Array.from(stored!.snapshot), [0]);
   });
 
-  it('keeps meta across a compaction', async () => {
-    const store = new IndexedDBDocStore('yorkie-meta-survives');
+  it('drops meta across a compaction', async () => {
+    const store = new IndexedDBDocStore('yorkie-meta-dropped');
     await store.saveSnapshot('a', new Uint8Array([0]));
-    await store.saveMeta('a', new Uint8Array([7]), 0);
+    await store.saveMeta('a', new Uint8Array([7]));
     await store.saveSnapshot('a', new Uint8Array([1]));
 
-    // The header describes the client's position against the server, which a
-    // new snapshot does not change.
-    assert.deepEqual(Array.from((await store.load('a'))!.meta!), [7]);
+    // The new snapshot embeds a newer header than meta holds, so carrying the
+    // old one forward would regress the client's clocks on restore.
+    assert.isUndefined((await store.load('a'))!.meta);
   });
 
   it('treats saveMeta on an absent entry as a no-op', async () => {
     const store = new IndexedDBDocStore('yorkie-meta-absent');
-    await store.saveMeta('missing', new Uint8Array([1]), 0);
+    await store.saveMeta('missing', new Uint8Array([1]));
     assert.isUndefined(await store.load('missing'));
   });
 

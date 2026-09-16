@@ -25,7 +25,10 @@ import {
   ChangePackSchema,
   CheckpointSchema,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
-import { AttachDocumentResponseSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
+import {
+  AttachDocumentResponseSchema,
+  PushPullChangesResponseSchema,
+} from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 
 const actorHex = '000000000000000000000001';
 const clientKey = 'budget-client';
@@ -132,6 +135,65 @@ describe('persist budget', () => {
     });
     assert.equal(doc.getRoot().text, 'still works');
     assert.isTrue(doc.hasLocalChanges());
+  });
+
+  it('stops every write path once latched, not just edits', async () => {
+    // The latch tears down the edit subscription, but a sync or a repair does
+    // not go through it. Without a sticky flag those keep writing a header
+    // over a snapshot that can never be updated again — the same permanent
+    // divergence, now with no route back.
+    const store = new MemoryDocStore();
+    const writes: Array<string> = [];
+    const wrapped: any = {
+      load: (k: string) => store.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => {
+        writes.push('saveSnapshot');
+        return store.saveSnapshot(k, b);
+      },
+      appendChange: (k: string, c: any) => {
+        writes.push('appendChange');
+        return store.appendChange(k, c);
+      },
+      saveMeta: (k: string, b: Uint8Array) => {
+        writes.push('saveMeta');
+        return store.saveMeta(k, b);
+      },
+      remove: (k: string) => store.remove(k),
+    };
+
+    const client = activatedClient(wrapped, { maxPersistBytes: 1 });
+    (client as any).rpcClient = {
+      attachDocument,
+      pushPullChanges: async (req: any) => {
+        const presented = converter
+          .fromChangePack(req.changePack)
+          .getCheckpoint();
+        return create(PushPullChangesResponseSchema, {
+          changePack: create(ChangePackSchema, {
+            documentKey: key,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 1n,
+              clientSeq: presented.getClientSeq(),
+            }),
+          }),
+        });
+      },
+    };
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+    writes.length = 0;
+
+    doc.update((root) => {
+      root.text = 'a';
+    });
+    await client.sync(doc);
+    await settled();
+
+    assert.deepEqual(writes, [], 'a latched document writes nothing');
   });
 
   it('does not latch a document within budget', async () => {

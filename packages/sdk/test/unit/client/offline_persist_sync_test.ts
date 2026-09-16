@@ -19,6 +19,7 @@ import { create } from '@bufbuild/protobuf';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Counter } from '@yorkie-js/sdk/src/yorkie';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
@@ -128,10 +129,12 @@ describe('Offline store re-persisted after a successful sync', () => {
 
     await settled();
     const afterSync = (await store.load(scopedKey(key)))!;
-    // The acked change is dropped from the log, and the advanced checkpoint is
-    // recorded in meta — without paying for a fresh snapshot, which is the
-    // point of splitting meta out.
-    assert.equal(afterSync.changes.length, 0);
+    // The advanced checkpoint is recorded in meta, without paying for a fresh
+    // snapshot — the point of splitting meta out. The log keeps the acked
+    // entry: nothing has brought the snapshot forward, so the log is still the
+    // only record of that content. Compaction is what trims it, by folding it
+    // into a new snapshot first.
+    assert.equal(afterSync.changes.length, 1);
     assert.isDefined(afterSync.meta);
     const restored = Document.fromBytes<{ text?: string }>(
       key,
@@ -343,8 +346,9 @@ describe('Incremental persistence write path', () => {
       Array.from(base.snapshot),
       'a sync does not rewrite the snapshot',
     );
-    // The acked change is gone from the log.
-    assert.deepEqual(stored.changes, []);
+    // The acked change stays in the log until a compaction folds it into a
+    // snapshot: it is the only place that content lives.
+    assert.equal(stored.changes.length, 1);
   });
 });
 
@@ -561,7 +565,7 @@ describe('Snapshot and log boundary regressions', () => {
     const seed = new Document<{ text?: string }>(key);
     seed.setActor(actorHex);
     await store.saveSnapshot(scopedKey(key), seed.toBytes());
-    await store.saveMeta(scopedKey(key), seed.metaToBytes(), 0);
+    await store.saveMeta(scopedKey(key), seed.metaToBytes());
 
     for (const v of ['a', 'ab', 'abc']) {
       seed.update((root) => {
@@ -659,5 +663,86 @@ describe('Snapshot and log boundary regressions', () => {
 
     assert.deepEqual(dropped, [], 'an intact log must not be reported as lost');
     assert.equal(doc2.getRoot().text, 'seven');
+  });
+});
+
+describe('Persisted state must reconstruct the live document', () => {
+  const key = 'reconstruct';
+
+  const attachDocument = async (req: any) => {
+    const presented = converter.fromChangePack(req.changePack).getCheckpoint();
+    return create(AttachDocumentResponseSchema, {
+      documentId: 'doc-id',
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, {
+          serverSeq: presented.getServerSeq(),
+          clientSeq: presented.getClientSeq(),
+        }),
+      }),
+      disablePresence: false,
+      schemaRules: [],
+    });
+  };
+
+  const pushPullChanges = async (req: any) => {
+    const reqPack = converter.fromChangePack(req.changePack);
+    return create(PushPullChangesResponseSchema, {
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, {
+          serverSeq: 1n,
+          clientSeq: reqPack.getCheckpoint().getClientSeq(),
+        }),
+      }),
+    });
+  };
+
+  it('keeps pushed content after a plain edit-and-sync', async () => {
+    // The log does two jobs: it holds un-pushed changes for durability, and it
+    // is the delta between the snapshot and current content. Dropping acked
+    // entries is right for the first and fatal for the second — the snapshot
+    // is not brought forward by a push-ack, so the content would exist nowhere.
+    //
+    // Written with a relative op on purpose. Every earlier test used an
+    // absolute `root.text = '...'`, which the last log entry reconstructs
+    // whether or not the base survived — which is how this went unnoticed.
+    const store = new MemoryDocStore();
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(5));
+    await client.sync();
+    doc.update((root) => root.counter!.increase(3));
+    await settled();
+
+    const stored = (await store.load(scopedKey(key)))!;
+    const restored = Document.fromBytes<{ counter?: Counter }>(
+      key,
+      stored.snapshot,
+    );
+    if (stored.meta) {
+      restored.restoreMetaFromBytes(stored.meta);
+    }
+    if (stored.changes.length) {
+      restored.restoreAppendedChanges(
+        stored.changes.map(
+          (c) => JSON.parse(new TextDecoder().decode(c.bytes)) as any,
+        ),
+      );
+    }
+
+    assert.equal(
+      restored.toSortedJSON(),
+      doc.toSortedJSON(),
+      'snapshot + meta + log must reconstruct the live document',
+    );
   });
 });

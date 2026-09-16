@@ -508,6 +508,12 @@ export class Client {
   // clients get multi-tab safety out of the box.
   private sessionLock: SessionLock;
   private maxPersistBytes?: number;
+  // Store keys whose document exceeded the persist budget. Sticky: the latch
+  // has to outlive the subscription teardown, or a write path that does not go
+  // through the edit loop — a sync, a repair — keeps writing to a snapshot
+  // that can never be updated again, which is a permanent divergence with no
+  // route back.
+  private persistDisabled: Set<string> = new Set();
   private maxPersistMillis?: number;
 
   private rpcClient: ConnectClient<typeof YorkieService>;
@@ -924,28 +930,31 @@ export class Client {
             if (bytes) {
               try {
                 doc.restoreFromBytes(bytes);
-                // `meta` may carry a checkpoint newer than the snapshot's: a
-                // sync advances it without re-snapshotting, which is the whole
-                // reason meta is stored apart.
-                if (storedMeta) {
-                  doc.restoreMetaFromBytes(storedMeta);
-                }
                 // Replay the log written after the snapshot. Anything at or
                 // below what the snapshot already carries is dropped rather
                 // than replayed: a compaction that wrote the snapshot without
                 // its log clear being observed would otherwise apply those
                 // changes a second time.
-                // The watermark is the max of both sources, not one or the
-                // other. A snapshot's embedded pending queue is frozen at
-                // snapshot time while `saveMeta` keeps acking past it, so
-                // either can be ahead: taking only the queue reports a false
-                // discontinuity after a sync dropped acked entries, and taking
-                // only the checkpoint replays changes the snapshot carries.
+                // Two watermarks, because the log answers two questions.
+                //
+                // The *snapshot* watermark says which entries the snapshot
+                // already contains, so everything above it must be replayed to
+                // bring the root forward. It is read before the meta header is
+                // applied, since meta describes the server's position and not
+                // the snapshot's contents.
+                //
+                // The *ack* watermark says which of those the server has
+                // already taken, so only entries above it are queued for push.
                 const carried = doc.getPendingChangesAfter(0);
-                const watermark = Math.max(
+                const snapshotWatermark = Math.max(
                   carried.length ? carried[carried.length - 1].clientSeq : 0,
                   doc.getCheckpoint().getClientSeq(),
                 );
+                if (storedMeta) {
+                  doc.restoreMetaFromBytes(storedMeta);
+                }
+                const ackedWatermark = doc.getCheckpoint().getClientSeq();
+                const watermark = snapshotWatermark;
                 const fresh = storedChanges.filter(
                   (change) => change.clientSeq > watermark,
                 );
@@ -1002,18 +1011,23 @@ export class Client {
                     // Rewrite the base from the snapshot that *did* restore,
                     // which clears the log with it. Removing the entry would
                     // discard a good snapshot because the log beside it broke.
-                    this.persistToStore(
+                    const rebased = this.snapshotWithinBudget(
+                      doc,
                       this.storeKey(doc.getKey()),
-                      doc.toBytes(),
-                      (err) =>
-                        logger.error(
-                          `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
-                            `log-discontinuity rebase failed:`,
-                          err,
-                        ),
                     );
+                    if (rebased)
+                      this.persistToStore(
+                        this.storeKey(doc.getKey()),
+                        rebased,
+                        (err) =>
+                          logger.error(
+                            `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +
+                              `log-discontinuity rebase failed:`,
+                            err,
+                          ),
+                      );
                   } else {
-                    doc.restoreAppendedChanges(structs);
+                    doc.restoreAppendedChanges(structs, ackedWatermark);
                   }
                 }
                 restored = true;
@@ -1955,7 +1969,7 @@ export class Client {
     onError: (err: unknown) => void,
   ): void {
     const store = this.store;
-    if (!store) {
+    if (!store || this.persistDisabled.has(storeKey)) {
       return;
     }
     const prev = this.persistQueues.get(storeKey);
@@ -1997,6 +2011,9 @@ export class Client {
     doc: Document<R, P>,
     storeKey: string,
   ): Uint8Array | undefined {
+    if (this.persistDisabled.has(storeKey)) {
+      return undefined;
+    }
     const startedAt = Date.now();
     const bytes = doc.toBytes();
     const millis = Date.now() - startedAt;
@@ -2013,6 +2030,7 @@ export class Client {
       `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" persistence disabled ` +
         `(${bytes.length} bytes, ${millis}ms)`,
     );
+    this.persistDisabled.add(storeKey);
     this.persistStates.delete(storeKey);
     const attachment = this.attachmentMap.get(doc.getKey());
     if (attachment?.unsubscribePersist) {
@@ -2044,7 +2062,7 @@ export class Client {
     onError: (err: unknown) => void,
   ): void {
     const store = this.store;
-    if (!store) {
+    if (!store || this.persistDisabled.has(storeKey)) {
       return;
     }
     const prev = this.persistQueues.get(storeKey);
@@ -2072,32 +2090,22 @@ export class Client {
   private saveMetaToStore(
     storeKey: string,
     bytes: Uint8Array,
-    ackedClientSeq: number,
     onError: (err: unknown) => void,
   ): void {
     const store = this.store;
-    if (!store) {
+    if (!store || this.persistDisabled.has(storeKey)) {
       return;
     }
-    const state = this.persistStates.get(storeKey);
-    if (state) {
-      // Subtract only what the server took. A sync acks up to
-      // `ackedClientSeq`, and edits made during the round trip survive in the
-      // store; zeroing the accounting would erase them from it, so compaction
-      // would fire late and the `MaxReplay` restore-latency bound — the one
-      // budget meant to be hard — would stop holding.
-      const kept = state.appended.filter((e) => e.clientSeq > ackedClientSeq);
-      state.appended = kept;
-      state.logBytes = kept.reduce((sum, e) => sum + e.size, 0);
-      state.changeCount = kept.length;
-    }
+    // The accounting is untouched: `saveMeta` no longer trims the log, so the
+    // entries it describes are all still there and still count toward the
+    // compaction threshold.
     const prev = this.persistQueues.get(storeKey);
     const next = (
       prev
         ? prev
             .catch(() => undefined)
-            .then(() => store.saveMeta(storeKey, bytes, ackedClientSeq))
-        : store.saveMeta(storeKey, bytes, ackedClientSeq)
+            .then(() => store.saveMeta(storeKey, bytes))
+        : store.saveMeta(storeKey, bytes)
     ).catch(onError);
     this.persistQueues.set(storeKey, next);
     void next.finally(() => {
@@ -2116,14 +2124,30 @@ export class Client {
     if (!this.store) {
       return;
     }
-    try {
-      await this.store.remove(this.storeKey(docKey));
-    } catch (err) {
+    const store = this.store;
+    const storeKey = this.storeKey(docKey);
+    // Chained on the same per-key queue as the writes. Bypassing it lets an
+    // in-flight write resurrect the entry the remove exists to destroy — and
+    // every caller here removes precisely because the envelope must never be
+    // restored again.
+    const prev = this.persistQueues.get(storeKey);
+    const next = (
+      prev
+        ? prev.catch(() => undefined).then(() => store.remove(storeKey))
+        : store.remove(storeKey)
+    ).catch((err) => {
       logger.warn(
-        `[PS] c:"${this.getKey()}" store remove d:"${docKey}" failed:`,
+        `[PS] c:"${this.getKey()}" d:"${docKey}" store remove failed:`,
         err,
       );
-    }
+    });
+    this.persistQueues.set(storeKey, next);
+    void next.finally(() => {
+      if (this.persistQueues.get(storeKey) === next) {
+        this.persistQueues.delete(storeKey);
+      }
+    });
+    await next;
   }
 
   /**
@@ -2965,6 +2989,7 @@ export class Client {
       attachment.unsubscribePersist = undefined;
     }
     this.persistStates.delete(this.storeKey(key));
+    this.persistDisabled.delete(this.storeKey(key));
     // Release the single-active-session lock installed by attachDocument on the
     // offline persistence path, so a later tab can take over the document.
     if (attachment.sessionLockHandle) {
@@ -3180,12 +3205,7 @@ export class Client {
         } else {
           // A pure push-ack: the root did not move, so the cheap header write
           // is both sufficient and correct.
-          this.saveMetaToStore(
-            storeKey,
-            doc.metaToBytes(),
-            doc.getCheckpoint().getClientSeq(),
-            onError,
-          );
+          this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
         }
       }
 

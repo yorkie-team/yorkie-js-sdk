@@ -88,18 +88,26 @@ export interface DocStore {
   appendChange(docKey: string, change: StoredChange): Promise<void>;
 
   /**
-   * `saveMeta` records the post-sync header and drops changes at or below
-   * `ackedClientSeq`, which the server has taken. It leaves the snapshot
-   * alone: an online client syncs constantly, and re-snapshotting per sync
-   * would reintroduce the cost this interface exists to avoid.
+   * `saveMeta` records the post-sync header. It leaves the snapshot alone —
+   * an online client syncs constantly, and re-snapshotting per sync would
+   * reintroduce the cost this interface exists to avoid — and it leaves the
+   * **log** alone too.
+   *
+   * That second part is load-bearing. The log does two jobs: it holds
+   * un-pushed changes so they survive a reload, and it is the delta between
+   * the snapshot and the document's current content. Deleting acknowledged
+   * entries serves the first job and destroys the second, because nothing
+   * brings the snapshot forward on a push-ack — the content would then exist
+   * in neither place while the persisted `serverSeq` claims the server has it.
+   * Only compaction trims the log, and it does so by folding the entries into
+   * a new snapshot first.
+   *
+   * The header itself carries the acknowledged `clientSeq`, so a restore reads
+   * it from there; the store needs no separate parameter for it.
    *
    * It is a no-op when nothing is stored for the key.
    */
-  saveMeta(
-    docKey: string,
-    bytes: Uint8Array,
-    ackedClientSeq: number,
-  ): Promise<void>;
+  saveMeta(docKey: string, bytes: Uint8Array): Promise<void>;
 
   /**
    * `remove` deletes everything persisted for the document key. It is a no-op
@@ -191,21 +199,15 @@ export class MemoryDocStore implements DocStore {
   }
 
   /**
-   * `saveMeta` stores a copy of the header and drops acknowledged changes.
+   * `saveMeta` stores a copy of the header, leaving the snapshot and the log
+   * untouched.
    */
-  public saveMeta(
-    docKey: string,
-    bytes: Uint8Array,
-    ackedClientSeq: number,
-  ): Promise<void> {
+  public saveMeta(docKey: string, bytes: Uint8Array): Promise<void> {
     const entry = this.store.get(docKey);
     if (!entry) {
       return Promise.resolve();
     }
     entry.meta = bytes.slice();
-    entry.changes = entry.changes.filter(
-      (change) => change.clientSeq > ackedClientSeq,
-    );
     return Promise.resolve();
   }
 

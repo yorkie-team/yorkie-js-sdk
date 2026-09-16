@@ -330,10 +330,14 @@ interface DocStore {
   saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void>;
   /** Append one local change. The hot path: small, frequent, no serialization
    *  of the document. */
-  appendChange(docKey: string, bytes: Uint8Array): Promise<void>;
-  /** Advance the persisted checkpoint and drop changes at or below
-   *  `ackedClientSeq`. Cheap — this is what a successful sync writes. */
-  saveMeta(docKey: string, bytes: Uint8Array, ackedClientSeq: number): Promise<void>;
+  appendChange(
+    docKey: string,
+    change: { clientSeq: number; bytes: Uint8Array },
+  ): Promise<void>;
+  /** Record the post-sync header. Cheap — this is what a push-ack writes.
+   *  It does NOT trim the log; only compaction does. The header itself carries
+   *  the acknowledged clientSeq, so restore reads it from there. */
+  saveMeta(docKey: string, bytes: Uint8Array): Promise<void>;
   remove(docKey: string): Promise<void>;
 }
 ```
@@ -363,13 +367,49 @@ Write paths:
   discontinuity. Excluding presence was the right call when every change
   triggered a full snapshot; at ~300 B an append it buys nothing and costs
   correctness.
-- **Successful sync** → `saveMeta`, dropping the changes the server
-  acknowledged. Not a snapshot: an online client syncs constantly, and
-  snapshotting per sync would reintroduce the original cost. This is also what
-  keeps presence churn bounded — online, the log drains continuously.
+- **Successful sync that only acked a push** → `saveMeta`. Not a snapshot: an
+  online client syncs constantly, and snapshotting per sync would reintroduce
+  the original cost. `saveMeta` records the header and **does not trim the
+  log** — see the invariant below.
+- **Successful sync that pulled content** → `saveSnapshot`. The log carries
+  local changes only, so nothing in it records what a pull brought in; writing
+  only the header would advance the persisted `serverSeq` past a root the
+  store never received, and the server would never resend it. Persisting
+  remote changes incrementally too would avoid the cost and is the natural
+  follow-up.
 - **Compaction** → `saveSnapshot`. One `toBytes()`, amortized over many edits;
   threshold below.
 - **Attach** → `saveSnapshot` once, to establish the base.
+
+#### The invariant: snapshot + meta + log reconstructs the document
+
+**At every moment, replaying the log over the snapshot (with meta applied) must
+reproduce the live document.** This is the property the whole layout exists to
+provide, and it is easy to break by accident because the log is doing two jobs
+at once:
+
+1. it holds un-pushed changes so they survive a reload, and
+2. it is the delta between the snapshot and the document's current content.
+
+Trimming acknowledged entries serves the first job and destroys the second.
+Nothing brings the snapshot forward on a push-ack, so an acked entry removed
+from the log leaves that content in neither place — while the persisted
+`serverSeq` claims the server has it, so it is never resent either. The result
+is a replica that silently reverts to its last snapshot and stays there.
+
+**Only compaction trims the log**, and it does so by folding the entries into a
+fresh snapshot first. `saveMeta` records the header and nothing else.
+
+Restore therefore reads **two** watermarks: the snapshot's (which entries it
+already contains, so everything above must be replayed to bring the root
+forward) and the ack's (which of those the server already took, so only
+entries above it are queued for push). Replaying an acked change is required;
+re-pushing one is not.
+
+A test asserting a single field cannot see this break, because a log entry that
+sets an absolute value reconstructs that value whether or not the base survived.
+Assert `restored.toSortedJSON() === doc.toSortedJSON()`, and cover at least one
+**relative** operation (`Counter.increase`, `Text.edit`).
 
 #### The compaction threshold is relative, not absolute
 
@@ -401,11 +441,28 @@ changes as pending local changes — the same machinery `restoreFromBytes`
 already applies to the pending changes embedded in today's envelope, so the
 replay path is not new code so much as relocated code.
 
-`maxPersistBytes` / `maxPersistMillis` survive, but as a guard on **compaction**
-only, and they latch that document's persistence off with a
-`DocEventType.PersistDisabled` event (reason `too-large` / `too-slow`) so a
-consumer can tell the user rather than failing silently. Because appends are
-cheap, the threshold now excludes far less than it would have.
+`maxPersistBytes` / `maxPersistMillis` guard **every snapshot write** — at
+attach, at compaction, on a poisoned-log repair, and on a pulling sync — since
+those are the operations whose cost scales with the document. Appends are
+constant-size and need no budget. Exceeding either latches that document's
+persistence off with a `DocEventType.PersistDisabled` event (reason
+`too-large` / `too-slow`) so a consumer can tell the user rather than failing
+silently.
+
+The latch is **sticky and per store key**, not merely a torn-down
+subscription. A sync or a repair does not go through the edit loop, so without
+a sticky flag those keep writing a header over a snapshot that can never be
+updated again — the same divergence, with no route back. It is cleared on
+detach, so a re-attach gets a fresh decision.
+
+Two more behaviours the implementation needs and this document originally
+omitted. `meta` carries the **epoch and docID** as well as the checkpoint and
+changeID: both are learned from sync responses, and omitting the epoch turned a
+server-side compaction into an `ErrEpochMismatch` re-anchor that discarded every
+un-pushed edit. And a **failed append poisons the log**: the next write
+compacts instead of appending, because a hole cannot be replayed and a snapshot
+loses nothing. `appendChange` is an **upsert keyed by `clientSeq`**, so a
+retried write is safe.
 
 Compression stays **out of the SDK**: `DocStore` takes opaque bytes, so a
 backend that wants gzip applies it in its own `save`/`load`. Browsers ship

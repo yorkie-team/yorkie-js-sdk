@@ -1683,7 +1683,10 @@ export class Document<
    * cannot satisfy that should restore from the snapshot alone and report the
    * loss rather than replaying a broken run.
    */
-  public restoreAppendedChanges(structs: Array<ChangeStruct<P>>): void {
+  public restoreAppendedChanges(
+    structs: Array<ChangeStruct<P>>,
+    ackedClientSeq = 0,
+  ): void {
     if (!structs.length) {
       return;
     }
@@ -1702,8 +1705,16 @@ export class Document<
       prev = clientSeq;
     }
 
+    // Every entry is applied — the log is the delta between the snapshot and
+    // current content, so skipping an acked one would leave the root behind.
+    // Only the unacked ones are queued: re-pushing what the server has already
+    // taken presents a `clientSeq` it will skip.
     this.applyChanges(changes, OpSource.Local);
-    this.localChanges.push(...changes);
+    this.localChanges.push(
+      ...changes.filter(
+        (change) => change.getID().getClientSeq() > ackedClientSeq,
+      ),
+    );
 
     // Adopt the last replayed change's ID as the document's own counter.
     //
@@ -1716,7 +1727,12 @@ export class Document<
     //
     // An `update` leaves `changeID` equal to the change it just minted, so the
     // state after replaying a run is the last change's ID exactly.
-    this.changeID = changes[changes.length - 1].getID();
+    // Guarded: an all-acked replay must not pull the clock back below what the
+    // meta header already established.
+    const lastID = changes[changes.length - 1].getID();
+    if (lastID.getClientSeq() >= this.changeID.getClientSeq()) {
+      this.changeID = lastID;
+    }
 
     // The clone predates the replay, and the history's reverse-ops reference
     // the pre-replay state — the same reasoning `restoreFromBytes` applies.

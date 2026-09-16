@@ -121,7 +121,7 @@ describe('DocStore contract (MemoryDocStore)', function () {
     assert.deepEqual(stored!.changes, []);
   });
 
-  it('should drop changes at or below the acked clientSeq on saveMeta', async function () {
+  it('should record meta without touching the snapshot or the log', async function () {
     const store = new MemoryDocStore();
     await store.saveSnapshot('doc-1', new Uint8Array([0]));
     for (const clientSeq of [1, 2, 3]) {
@@ -131,29 +131,34 @@ describe('DocStore contract (MemoryDocStore)', function () {
       });
     }
 
-    await store.saveMeta('doc-1', new Uint8Array([7]), 2);
+    await store.saveMeta('doc-1', new Uint8Array([7]));
 
     const stored = await store.load('doc-1');
+    // The log is NOT trimmed. It is the delta between the snapshot and current
+    // content as well as the queue of un-pushed changes; dropping acked
+    // entries serves the queue and destroys the delta, because a push-ack does
+    // not bring the snapshot forward. Only compaction trims, by folding the
+    // entries into a new snapshot first.
     assert.deepEqual(
       stored!.changes.map((c) => c.clientSeq),
-      [3],
+      [1, 2, 3],
     );
     assert.deepEqual(Array.from(stored!.meta!), [7]);
-    // The snapshot is untouched: saveMeta is the cheap post-sync write, and
-    // re-snapshotting on every sync is the cost this whole design avoids.
+    // And the snapshot is untouched: saveMeta is the cheap post-sync write,
+    // and re-snapshotting on every sync is the cost this design avoids.
     assert.deepEqual(Array.from(stored!.snapshot), [0]);
   });
 
   it('should treat saveMeta on an absent entry as a no-op', async function () {
     const store = new MemoryDocStore();
-    await store.saveMeta('missing', new Uint8Array([1]), 0);
+    await store.saveMeta('missing', new Uint8Array([1]));
     assert.isUndefined(await store.load('missing'));
   });
 
   it('should clear snapshot, meta and changes on remove', async function () {
     const store = new MemoryDocStore();
     await store.saveSnapshot('doc-1', new Uint8Array([1]));
-    await store.saveMeta('doc-1', new Uint8Array([2]), 0);
+    await store.saveMeta('doc-1', new Uint8Array([2]));
     await store.appendChange('doc-1', {
       clientSeq: 1,
       bytes: new Uint8Array([3]),
