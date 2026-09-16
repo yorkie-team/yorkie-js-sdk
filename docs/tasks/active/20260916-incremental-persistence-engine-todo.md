@@ -194,22 +194,25 @@ export function shouldCompact(s: {
 
 **Files:** `packages/sdk/test/integration/offline_persistence_test.ts`
 
-- [ ] **6.1** Extend the suite: edit offline, "reload" (fresh client and
+- [x] **6.1** Extend the suite: edit offline, "reload" (fresh client and
       document against the same store), assert the un-pushed edits survive and
       push successfully once reconnected — through the incremental path rather
       than the snapshot-per-change one.
-- [ ] **6.2** Assert the store holds one snapshot and N changes mid-session,
+- [x] **6.2** Assert the store holds one snapshot and N changes mid-session,
       which is the property that distinguishes this from S1's behavior.
-- [ ] **6.3** Run against a live server started from **this repo's** compose
+- [x] **6.3** Run against a live server started from **this repo's** compose
       file. Note that `docker compose up` fails outright if anything else holds
       8080; S1's runs silently went to a sibling project's server for exactly
       that reason.
-- [ ] **6.4** Commit: `Cover the incremental offline round trip end to end`
+- [x] **6.4** Commit: `Cover the incremental offline round trip end to end`
 
 ## Verification
 
 - [ ] `pnpm lint && pnpm sdk build && pnpm sdk test` green
-- [ ] Integration suite green against a server from this repo's compose file
+- [x] Integration suite green against a server from this repo's compose file
+      — run as `docker run -p 8180:8080 yorkieteam/yorkie:latest` plus
+      `TEST_RPC_ADDR=http://127.0.0.1:8180`, because `docker compose up` cannot
+      bind 8080 while another project's Yorkie holds it
 - [ ] A benchmark built by **editing**, not by one bulk `update()`: a fixture
       assembled in a single update understates cost by two orders of magnitude
       (a 20k-character note is 59 KB built at once, 6.60 MB typed)
