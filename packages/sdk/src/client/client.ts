@@ -70,6 +70,7 @@ import {
   SessionLock,
   SessionLockHandle,
   WebLocksSessionLock,
+  acquireSessionLock,
 } from '@yorkie-js/sdk/src/client/session-lock';
 import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 
@@ -819,15 +820,11 @@ export class Client {
         if (this.store) {
           const lockName =
             `yorkie-session:${this.apiKey}/${this.key}/` + doc.getKey();
-          sessionLockHandle = await this.sessionLock.acquire(lockName);
-          if (!sessionLockHandle) {
-            throw new YorkieError(
-              Code.ErrInvalidArgument,
-              `document "${doc.getKey()}" is already open in another tab under ` +
-                `offline persistence; only one active session per document is ` +
-                `allowed to avoid silent edit loss`,
-            );
-          }
+          sessionLockHandle = await acquireSessionLock(
+            this.sessionLock,
+            lockName,
+            doc.getKey(),
+          );
         }
 
         // `attachOnce` runs the restore + attach RPC + apply-response sequence.
