@@ -551,6 +551,20 @@ comparison is against `max(checkpoint.clientSeq, changeID.clientSeq)`. With
 `meta` absent it reduces to the checkpoint, since a `toBytes` envelope's counter
 never leads the pending changes it carries.
 
+**Known redundancy: a restore can re-push changes the server already has.**
+`saveMeta` advances the header without rewriting the snapshot, so a snapshot
+whose carried pending changes were acked afterwards still carries them. A
+restore queues them from the envelope, and `restoreAppendedChanges` prunes only
+*replayed log* entries — so those already-acked changes go out again on the
+first push. This is deliberate rather than overlooked: the server skips them
+explicitly (`validateClientSeqContinuity` `continue`s on
+`clientSeq <= checkpoint`, and `pushPack` filters them with a warning), the
+response's ack clears them from the queue, so it self-corrects after one sync.
+The cost is some wasted bytes and a server-side warning line. Pruning them at
+restore would mean one more mutation on the path that produced every defect in
+this feature, to avoid something the server is written to tolerate — a bad
+trade until there is evidence the traffic matters.
+
 No failure on this surface may propagate into the editing path: the shipped
 version already logs rather than throws, and that stays true.
 
