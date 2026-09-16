@@ -593,10 +593,17 @@ describe('Snapshot and log boundary regressions', () => {
   });
 
   it('replays a log whose earlier entries a sync already acked', async () => {
-    // The snapshot's embedded queue is frozen at snapshot time while saveMeta
-    // keeps acking past it, so the restore watermark has to consider both. A
-    // watermark taken from the queue alone reports a false discontinuity and
-    // discards the whole offline session.
+    // A log holding entries the server has already taken must still replay —
+    // they are the delta between the snapshot and current content — and must
+    // not be re-queued for push.
+    //
+    // This does NOT discriminate the two-source watermark: a pending queue only
+    // holds changes above its own checkpoint, so the carried value always
+    // leads and the `max` is inert. That was verified by reverting it and
+    // watching every test still pass. The state the `max` guarded became
+    // unreachable once `saveMeta` stopped trimming the log; the guard is
+    // documented as such at the call site rather than defended by a test for a
+    // state that cannot occur.
     const store = new MemoryDocStore();
     const pushPullChanges = async (req: any) => {
       const reqPack = converter.fromChangePack(req.changePack);
@@ -624,17 +631,27 @@ describe('Snapshot and log boundary regressions', () => {
       });
     }
     await settled();
-    // Stand in for a compaction: a snapshot that embeds the pending queue
-    // (clientSeq 1-3), replacing the log.
-    await store.saveSnapshot(scopedKey(key), doc.toBytes());
 
-    // Two more edits, then a sync that acks everything and drops them.
+    // Order matters here, and an earlier version of this test got it wrong:
+    // the compaction stand-in has to happen while the checkpoint is ALREADY
+    // ahead of the snapshot's pending queue, or the `max` under test is inert
+    // and the test passes with the fix reverted.
+    //
+    // So: sync first, so the checkpoint advances past 1-3...
+    await client.sync(doc);
+    await settled();
+    // ...then two more edits, and a compaction snapshot taken while they are
+    // pending. The snapshot now carries 4-5 while the checkpoint says 3.
     doc.update((root) => {
       root.text = 'four';
     });
     doc.update((root) => {
       root.text = 'five';
     });
+    await settled();
+    await store.saveSnapshot(scopedKey(key), doc.toBytes());
+    // A second sync acks 4-5, so the checkpoint (5) now leads the snapshot's
+    // queue, which is the state the two-source watermark exists for.
     await client.sync(doc);
     await settled();
 
@@ -743,6 +760,140 @@ describe('Persisted state must reconstruct the live document', () => {
       restored.toSortedJSON(),
       doc.toSortedJSON(),
       'snapshot + meta + log must reconstruct the live document',
+    );
+  });
+});
+
+describe('Store write failures must not persist a lie', () => {
+  const key = 'write-failures';
+
+  const attachDocument = async (req: any) => {
+    const presented = converter.fromChangePack(req.changePack).getCheckpoint();
+    return create(AttachDocumentResponseSchema, {
+      documentId: 'doc-id',
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, {
+          serverSeq: presented.getServerSeq(),
+          clientSeq: presented.getClientSeq(),
+        }),
+      }),
+      disablePresence: false,
+      schemaRules: [],
+    });
+  };
+
+  const pushPullChanges = async (req: any) => {
+    const reqPack = converter.fromChangePack(req.changePack);
+    return create(PushPullChangesResponseSchema, {
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, {
+          serverSeq: 1n,
+          clientSeq: reqPack.getCheckpoint().getClientSeq(),
+        }),
+      }),
+    });
+  };
+
+  /** Reconstructs from the persisted triple the way a restore does. */
+  function reconstruct(stored: any): Document<any> {
+    const doc = Document.fromBytes<any>(key, stored.snapshot);
+    if (stored.meta) {
+      doc.restoreMetaFromBytes(stored.meta);
+    }
+    if (stored.changes.length) {
+      doc.restoreAppendedChanges(
+        stored.changes.map(
+          (c: any) => JSON.parse(new TextDecoder().decode(c.bytes)) as any,
+        ),
+      );
+    }
+    return doc;
+  }
+
+  it('repairs after a failed base snapshot instead of appending into a void', async () => {
+    // `appendChange` on a key with no entry is a silent success in both
+    // shipped stores, so a failed base write leaves the client appending into
+    // nothing — persisting nothing and reporting nothing — until the in-memory
+    // accounting happens to trip compaction, up to a thousand changes later.
+    const inner = new MemoryDocStore();
+    let failNextSnapshot = true;
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => {
+        if (failNextSnapshot) {
+          failNextSnapshot = false;
+          return Promise.reject(new Error('disk full'));
+        }
+        return inner.saveSnapshot(k, b);
+      },
+      appendChange: (k: string, c: any) => inner.appendChange(k, c),
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(4));
+    await settled();
+
+    const stored = await store.load(scopedKey(key));
+    assert.isDefined(stored, 'the next edit must repair the missing base');
+    assert.equal(reconstruct(stored).toSortedJSON(), doc.toSortedJSON());
+  });
+
+  it('does not advance the header over a log that has a hole', async () => {
+    // A failed append leaves that change only in memory. Writing meta anyway
+    // pushes the persisted serverSeq past content the store does not hold, and
+    // since it is our own acked change the server will never resend it.
+    const inner = new MemoryDocStore();
+    let failNextAppend = true;
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => {
+        if (failNextAppend) {
+          failNextAppend = false;
+          return Promise.reject(new Error('quota'));
+        }
+        return inner.appendChange(k, c);
+      },
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(7));
+    await settled();
+
+    // A sync reaches the store before any further edit could repair the log.
+    await client.sync();
+    await settled();
+
+    const stored = await store.load(scopedKey(key));
+    assert.isDefined(stored);
+    assert.equal(
+      reconstruct(stored).toSortedJSON(),
+      doc.toSortedJSON(),
+      'the persisted triple must still reconstruct the document',
     );
   });
 });

@@ -193,11 +193,10 @@ export interface DocStore {
    * Advance the persisted meta and drop changes at or below `ackedClientSeq`.
    * What a successful sync writes, so it must stay cheap.
    */
-  saveMeta(
-    docKey: string,
-    bytes: Uint8Array,
-    ackedClientSeq: number,
-  ): Promise<void>;
+  // NOTE: shipped without `ackedClientSeq`. Review found that trimming the
+  // log here orphans the content a push-ack acknowledged, so `saveMeta`
+  // records the header only and the parameter had no use left.
+  saveMeta(docKey: string, bytes: Uint8Array): Promise<void>;
   remove(docKey: string): Promise<void>;
 }
 ```
@@ -282,4 +281,7 @@ has to demonstrate the real contract, not a reduced one.
 
 ## Review
 
-_Filled in when the PR lands._
+Landed as specified. The one contract detail that changed afterwards, under
+review of the engine built on it: `saveMeta` lost its `ackedClientSeq`
+parameter, because trimming the log on a push-ack orphans the content it
+acknowledged. The reshape itself moved no behavior, as intended.

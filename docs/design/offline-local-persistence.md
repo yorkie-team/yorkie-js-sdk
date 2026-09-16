@@ -518,7 +518,7 @@ document never reached.
 | Store unavailable (private browsing, storage disabled) | Detected at configuration; the client runs unpersisted, exactly as with no `store` |
 | `load` fails, or the entry is unreadable | Discard the entry, attach fresh, emit `LocalChangesDropped` — with no change structs, since what was lost cannot be read |
 | `appendChange` fails | **Treat the whole log as poisoned.** Clear it and force a `saveSnapshot` at the next opportunity rather than retrying into a hole. A gap is silently wrong in a way a missing log is not |
-| `saveSnapshot` fails | Keep appending to the existing log — still correct, merely larger — and retry with backoff. Latch off if the log passes a hard ceiling |
+| `saveSnapshot` fails | The write is poisoned, so the next edit retries the snapshot rather than appending into a log the store may not have cleared. A standing backoff and a hard log ceiling are **not** implemented; the budget latch is the only ceiling today |
 | Quota exceeded | Surfaced to the backend, which evicts and retries; a second failure latches persistence off with `PersistDisabled` |
 | Torn write: snapshot replaced but log not cleared | Log entries carry their `clientSeq`, so a load drops every entry at or below the snapshot's. Replay is idempotent, and the clear need not be atomic with the write |
 | `clientSeq` discontinuity in the log | Restore from the snapshot alone and emit `LocalChangesDropped` carrying the changes that could not be replayed |
@@ -533,7 +533,7 @@ version already logs rather than throws, and that stays true.
 | Replaying appended changes diverges from the state the snapshot implies | Changes are appended in `clientSeq` order and `saveSnapshot` clears them atomically, so a snapshot and its trailing changes can never overlap. Assert `clientSeq` contiguity on load; a gap degrades to snapshot-only restore plus a `LocalChangesDropped` event |
 | A crash between `appendChange` and the in-memory apply | The append happens after the change is applied locally, so the store can only ever trail the document — never lead it. A trailing store loses the last change, which is the same exposure the debounced full-snapshot design had |
 | Compaction still blocks the main thread | Unchanged in kind, but amortized: bounded by the compaction threshold rather than by the edit rate. The `maxPersistMillis` latch remains the backstop |
-| Unbounded change growth if compaction never fires | Compaction triggers on count **or** bytes, and a successful sync drops acknowledged changes, so an online client's change list stays near empty |
+| Unbounded change growth if compaction never fires | Compaction triggers on count **or** bytes. Note this is the one place the correctness fix costs footprint: because only compaction trims, an always-online client's log now grows to `max(MinLogBytes, snapshot x LogRatio)` or `MaxReplay` entries before being folded away, where an earlier design kept it near empty by dropping acked entries — which is exactly what made a push-ack orphan its own content |
 | An `appendChange` fails while later ones succeed | Treat any append failure as poisoning the change list: clear it and force a `saveSnapshot` at the next opportunity, rather than persisting a list with a hole |
 
 ## Tasks

@@ -137,9 +137,12 @@ export function shouldCompact(s: {
       silently dropping a change.
 - [x] **3.5** Snapshot once at attach to establish the base the log appends to.
 - [x] **3.6** Replace the post-sync persist with `saveMeta(key,
-      doc.metaToBytes(), ackedClientSeq)`. Not a snapshot: an online client
-      syncs constantly, and snapshotting per sync reintroduces the cost this
-      removes.
+      doc.metaToBytes())`. Not a snapshot: an online client syncs constantly,
+      and snapshotting per sync reintroduces the cost this removes.
+      **Revised twice after review.** `saveMeta` must not trim the log — that
+      was the review-2 critical — so its `ackedClientSeq` parameter is gone;
+      and this is only the *push-ack* path. A sync that pulls, or one over a
+      poisoned log, writes a snapshot instead.
 - [x] **3.7** Consult `shouldCompact` after each append; on true, `saveSnapshot`
       and reset the tracked log size.
 - [x] **3.8** Run the tests. Expect pass.
@@ -164,8 +167,9 @@ export function shouldCompact(s: {
 - [x] **4.4** Run them. Expect failure.
 - [x] **4.5** Implement in the store-backed attach path: filter the log against
       the snapshot's `clientSeq`, check contiguity, then
-      `restoreAppendedChanges`. Apply `meta` when present, since it may carry a
-      checkpoint newer than the snapshot's.
+      `restoreAppendedChanges`. **Revised after review:** restore reads *two*
+      watermarks, the snapshot's (what to replay, read before `meta` is
+      applied) and the ack's (what to queue for push).
 - [x] **4.6** Run the tests. Expect pass.
 - [x] **4.7** Commit: `Replay the appended change log on restore`
 
@@ -183,10 +187,14 @@ export function shouldCompact(s: {
 - [x] **5.3** Run them. Expect failure.
 - [x] **5.4** Add `DocEventType.PersistDisabled` with reasons `too-large` /
       `too-slow`, and `maxPersistBytes` / `maxPersistMillis` to
-      `ClientOptions`. Measure at compaction only — appends are cheap and
-      constant, so they need no budget.
+      `ClientOptions`. **Broadened during implementation:** the budget guards
+      *every* snapshot write — attach, compaction, poisoned repair, pulling
+      sync — since those are the operations whose cost scales. Appends are
+      constant-size and need no budget.
 - [x] **5.5** On exceeding, tear down the persist subscription for that
-      document and publish the event.
+      document and publish the event. **Revised after review:** the latch also
+      has to be *sticky* per store key, or sync and repair paths keep writing
+      after the subscription is gone.
 - [x] **5.6** Run the tests. Expect pass.
 - [x] **5.7** Commit: `Latch persistence off for a document that cannot afford it`
 
@@ -221,4 +229,21 @@ export function shouldCompact(s: {
 
 ## Review
 
-_Filled in when the PR lands._
+Three review passes, each finding data-loss defects the unit suite was green
+through. The pattern is the same every time: the tests asserted a proxy.
+
+- **Pass 1 (4 critical)** — pulled remote content lost; the first edit after a
+  restore silently dropped; stale `meta` regressing the clocks; a false
+  discontinuity discarding whole offline sessions.
+- **Pass 2 (3 critical)** — a push-ack orphaning the content it acknowledged,
+  which was a *design* error rather than a coding slip; the IndexedDB
+  reference store still carrying `meta` because the fix was applied to one of
+  two implementations; a budget latch that was not sticky.
+- **Pass 3 (2 critical)** — a push-ack writing a header over a poisoned log;
+  and a fix this repo's own history *claimed* had landed but never had.
+
+What the passes changed beyond the code: the design doc now states the
+invariant (`snapshot + meta + log` reconstructs the live document), the two
+`DocStore` implementations share one contract suite instead of two copies that
+drifted, and the persistence tests use a relative operation and compare whole
+documents.

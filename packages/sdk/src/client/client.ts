@@ -945,6 +945,16 @@ export class Client {
                 //
                 // The *ack* watermark says which of those the server has
                 // already taken, so only entries above it are queued for push.
+                //
+                // The `max` here is a guard rather than a live branch: a
+                // document's pending queue only ever holds changes above its
+                // checkpoint (an ack removes them), so the carried value leads
+                // whenever the queue is non-empty. It was load-bearing while
+                // `saveMeta` trimmed the log and a snapshot's queue could go
+                // stale against an advancing checkpoint; that state is now
+                // unreachable. Kept because the ordering it asserts is what
+                // makes the two-watermark split correct, and a future change
+                // that reintroduces trimming would need it again.
                 const carried = doc.getPendingChangesAfter(0);
                 const snapshotWatermark = Math.max(
                   carried.length ? carried[carried.length - 1].clientSeq : 0,
@@ -1271,7 +1281,18 @@ export class Client {
               appended: [],
               poisoned: false,
             });
-            this.persistToStore(storeKey, snapshot, onError);
+            // A failed base write must not leave the client appending into a
+            // void: `appendChange` on a key with no entry is a silent success
+            // in both shipped stores, so nothing would be persisted and nothing
+            // would say so. Poisoning routes the next edit through a fresh
+            // snapshot, which is the same repair a failed append takes.
+            this.persistToStore(storeKey, snapshot, (err) => {
+              const current = this.persistStates.get(storeKey);
+              if (current) {
+                current.poisoned = true;
+              }
+              onError(err);
+            });
 
             const append = () => {
               const state = this.persistStates.get(storeKey);
@@ -1471,6 +1492,11 @@ export class Client {
         }
 
         this.detachInternal(doc.getKey());
+        // A detached document has no owner for its offline state, and leaving
+        // the entry makes the *next* attach in this session present a resume
+        // the server refuses for a row it just detached — which surfaces as
+        // `document already detached` rather than as anything about storage.
+        await this.removeFromStore(doc.getKey());
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         return doc;
       } catch (err) {
@@ -1907,6 +1933,10 @@ export class Client {
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         this.detachInternal(doc.getKey());
+        // The document is gone server-side; keeping a local envelope for it
+        // would leave the Tier-3 purge guard to discover that on some later
+        // attach.
+        await this.removeFromStore(doc.getKey());
 
         logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
       } catch (err) {
@@ -3202,9 +3232,36 @@ export class Client {
           if (snapshot) {
             this.persistToStore(storeKey, snapshot, onError);
           }
+        } else if (this.persistStates.get(storeKey)?.poisoned) {
+          // A pure push-ack, but the log has a hole: the change that failed to
+          // append lives only in memory. Writing the header would put the
+          // persisted `serverSeq` past content the store does not hold — and
+          // since it is our own acked change, the server will never resend it.
+          // Repair with a snapshot, which embeds the whole pending queue.
+          //
+          // The repair-on-next-edit path cannot cover this: a sync, or a tab
+          // close, gets there first.
+          const repaired = this.snapshotWithinBudget(doc, storeKey);
+          const state = this.persistStates.get(storeKey);
+          if (state && repaired) {
+            state.snapshotBytes = repaired.length;
+            state.logBytes = 0;
+            state.changeCount = 0;
+            state.appended = [];
+            state.poisoned = false;
+            state.lastAppendedClientSeq = doc
+              .getPendingChangesAfter(0)
+              .reduce(
+                (max, pending) => Math.max(max, pending.clientSeq),
+                doc.getCheckpoint().getClientSeq(),
+              );
+          }
+          if (repaired) {
+            this.persistToStore(storeKey, repaired, onError);
+          }
         } else {
-          // A pure push-ack: the root did not move, so the cheap header write
-          // is both sufficient and correct.
+          // A pure push-ack on a healthy log: the root did not move, so the
+          // cheap header write is both sufficient and correct.
           this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
         }
       }

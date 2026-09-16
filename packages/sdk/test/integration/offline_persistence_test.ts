@@ -350,3 +350,38 @@ describe('Incremental persistence (real server round trip)', () => {
     await verifier.deactivate();
   });
 });
+
+describe('Offline persistence lifecycle', () => {
+  it('allows re-attaching a document after detaching it', async ({ task }) => {
+    // A detached document has no owner for its offline state. Leaving the
+    // entry makes the next attach present a resume the server refuses for a
+    // row it just detached, and it surfaces as "document already detached" —
+    // an error that says nothing about storage.
+    const stamp = `${new Date().getTime()}`;
+    const docKey = toDocKey(`${task.name}-${stamp}`);
+    const key = `lifecycle-${stamp}`;
+    const store = new MemoryDocStore();
+
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await client.activate();
+
+    const d1 = new yorkie.Document<R>(docKey);
+    await client.attach(d1, { syncMode: SyncMode.Manual });
+    d1.update((root) => {
+      root.text = 'hello';
+    });
+    await client.sync();
+    await client.detach(d1);
+
+    const d2 = new yorkie.Document<R>(docKey);
+    await client.attach(d2, { syncMode: SyncMode.Manual });
+    assert.equal(d2.getRoot().text, 'hello');
+
+    await client.deactivate();
+  });
+});

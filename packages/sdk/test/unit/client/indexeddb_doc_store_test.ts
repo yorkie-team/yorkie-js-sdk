@@ -28,6 +28,7 @@ import {
   StoredChange,
   StoredDoc,
 } from '@yorkie-js/sdk/src/client/doc-store';
+import { testDocStoreContract } from './doc_store_contract';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 
@@ -119,25 +120,25 @@ class IndexedDBDocStore implements DocStore {
         [this.docsStore, this.changesStore],
         'readwrite',
       );
-      // No entry means no snapshot to append to, and a row written anyway is
-      // an orphan `load` cannot see. `MemoryDocStore` answers the same way.
+      // The write is issued from inside the existence check, not beside it:
+      // no entry means no snapshot to be a delta against, and a row written
+      // anyway is an orphan `load` cannot see. `MemoryDocStore` answers the
+      // same way, and the shared contract suite asserts they agree.
       const entry = tx.objectStore(this.docsStore).get(docKey);
       entry.onsuccess = () => {
         if (entry.result === undefined) {
-          tx.abort();
+          return;
         }
+        // Keyed by [docKey, clientSeq], which also makes the append an upsert:
+        // a retried write replaces its row instead of duplicating it.
+        tx.objectStore(this.changesStore).put(
+          { clientSeq: change.clientSeq, bytes: change.bytes.slice() },
+          [docKey, change.clientSeq],
+        );
       };
-      // Keyed by [docKey, clientSeq]: the append writes one small row and
-      // touches nothing else, which is the property that makes this the cheap
-      // hot path rather than a rewrite of the whole entry.
-      tx.objectStore(this.changesStore).put(
-        { clientSeq: change.clientSeq, bytes: change.bytes.slice() },
-        [docKey, change.clientSeq],
-      );
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
-      // An abort here is the no-entry guard above, not a failure.
-      tx.onabort = () => resolve();
+      tx.onabort = () => reject(tx.error);
     });
   }
 
@@ -205,97 +206,12 @@ class IndexedDBDocStore implements DocStore {
   }
 }
 
+testDocStoreContract(
+  'IndexedDBDocStore',
+  (scope) => new IndexedDBDocStore(`yorkie-contract-${scope}`),
+);
+
 describe('DocStore against IndexedDB', () => {
-  it('round-trips, overwrites, and removes', async () => {
-    const store = new IndexedDBDocStore('yorkie-contract');
-
-    assert.isUndefined(await store.load('missing'));
-
-    await store.saveSnapshot('a', new Uint8Array([1, 2, 3]));
-    assert.deepEqual(Array.from((await store.load('a'))!.snapshot), [1, 2, 3]);
-    assert.deepEqual((await store.load('a'))!.changes, []);
-
-    await store.saveSnapshot('a', new Uint8Array([9]));
-    assert.deepEqual(Array.from((await store.load('a'))!.snapshot), [9]);
-
-    await store.remove('a');
-    assert.isUndefined(await store.load('a'));
-    await store.remove('a'); // no-op on a missing key
-  });
-
-  it('returns appended changes ordered by clientSeq', async () => {
-    const store = new IndexedDBDocStore('yorkie-append');
-    await store.saveSnapshot('a', new Uint8Array([0]));
-    await store.appendChange('a', { clientSeq: 2, bytes: new Uint8Array([2]) });
-    await store.appendChange('a', { clientSeq: 1, bytes: new Uint8Array([1]) });
-
-    const stored = await store.load('a');
-    assert.deepEqual(
-      stored!.changes.map((c) => c.clientSeq),
-      [1, 2],
-    );
-    assert.deepEqual(Array.from(stored!.changes[0].bytes), [1]);
-  });
-
-  it('drops the change log when the snapshot is replaced', async () => {
-    const store = new IndexedDBDocStore('yorkie-compact');
-    await store.saveSnapshot('a', new Uint8Array([0]));
-    await store.appendChange('a', { clientSeq: 1, bytes: new Uint8Array([1]) });
-    await store.saveSnapshot('a', new Uint8Array([9]));
-
-    const stored = await store.load('a');
-    assert.deepEqual(Array.from(stored!.snapshot), [9]);
-    assert.deepEqual(stored!.changes, []);
-  });
-
-  it('records meta without trimming the log', async () => {
-    const store = new IndexedDBDocStore('yorkie-meta');
-    await store.saveSnapshot('a', new Uint8Array([0]));
-    for (const clientSeq of [1, 2, 3]) {
-      await store.appendChange('a', {
-        clientSeq,
-        bytes: new Uint8Array([clientSeq]),
-      });
-    }
-
-    await store.saveMeta('a', new Uint8Array([7]));
-
-    const stored = await store.load('a');
-    // The log is the delta between the snapshot and current content; only
-    // compaction trims it, by folding the entries into a new snapshot first.
-    assert.deepEqual(
-      stored!.changes.map((c) => c.clientSeq),
-      [1, 2, 3],
-    );
-    assert.deepEqual(Array.from(stored!.meta!), [7]);
-    assert.deepEqual(Array.from(stored!.snapshot), [0]);
-  });
-
-  it('drops meta across a compaction', async () => {
-    const store = new IndexedDBDocStore('yorkie-meta-dropped');
-    await store.saveSnapshot('a', new Uint8Array([0]));
-    await store.saveMeta('a', new Uint8Array([7]));
-    await store.saveSnapshot('a', new Uint8Array([1]));
-
-    // The new snapshot embeds a newer header than meta holds, so carrying the
-    // old one forward would regress the client's clocks on restore.
-    assert.isUndefined((await store.load('a'))!.meta);
-  });
-
-  it('treats saveMeta on an absent entry as a no-op', async () => {
-    const store = new IndexedDBDocStore('yorkie-meta-absent');
-    await store.saveMeta('missing', new Uint8Array([1]));
-    assert.isUndefined(await store.load('missing'));
-  });
-
-  it('isolates stored bytes from later caller mutation', async () => {
-    const store = new IndexedDBDocStore('yorkie-isolation');
-    const bytes = new Uint8Array([1, 2, 3]);
-    await store.saveSnapshot('a', bytes);
-    bytes[0] = 99;
-    assert.deepEqual(Array.from((await store.load('a'))!.snapshot), [1, 2, 3]);
-  });
-
   it('persists across a fresh store instance on the same database', async () => {
     const first = new IndexedDBDocStore('yorkie-reload');
     await first.saveSnapshot('a', new Uint8Array([7, 8]));
