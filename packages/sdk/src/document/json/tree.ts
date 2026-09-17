@@ -310,10 +310,9 @@ export class Tree {
       );
     }
 
-    // A split divides the node that holds the position into two siblings, so
-    // it needs a parent to hold them. The root has none: splitting there is
-    // not a smaller split, it is no split at all. `edit` would accept it and
-    // push an operation that changes nothing, so reject it here.
+    // A split divides the node holding the position into two siblings, so it
+    // needs a parent to hold them. The root has none, and `edit` takes the
+    // position anyway and pushes an operation that changes nothing.
     const treePos = this.tree.pathToTreePos(path);
     const target = treePos.node.isText ? treePos.node.parent! : treePos.node;
 
@@ -374,7 +373,7 @@ export class Tree {
     // into the left sibling. The copy made each replica insert its own
     // children, so two replicas merging the same boundary kept both copies.
     // Deleting the boundary tokens re-inserts nothing and is idempotent.
-    const parentPath = [...path].slice(0, -1);
+    const parentPath = path.slice(0, -1);
     const fromPath = [
       ...parentPath,
       offset - 1,
