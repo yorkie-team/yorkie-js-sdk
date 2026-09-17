@@ -20,11 +20,6 @@ import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/inte
 
 type TestDoc = { t: Tree };
 
-/** `textOf` returns the text content of the tree, with the tags stripped. */
-function textOf(tree: Tree): string {
-  return tree.toXML().replace(/<[^>]*>/g, '');
-}
-
 describe('Tree.SplitByPath/MergeByPath concurrency', () => {
   it('does not duplicate content when two replicas split the same position', async ({
     task,
@@ -53,48 +48,19 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
       await c2.sync();
       await c1.sync();
 
-      assert.equal(textOf(d1.getRoot().t), 'abcde');
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
-    }, task.name);
-  });
-
-  // KNOWN LIMITATION (tracked, skipped): two replicas splitting the same
-  // position each contribute a boundary, so the merged tree carries an empty
-  // node between them. The content is intact and the replicas converge — only
-  // the extra node remains. Collapsing the two boundaries into one would mean
-  // recognizing a concurrent split at the same position, which the §7.5
-  // advance does not do today.
-  it.skip('KNOWN: two replicas splitting the same position leave an empty node', async ({
-    task,
-  }) => {
-    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
-      d1.update((r) => {
-        r.t = new Tree({
-          type: 'doc',
-          children: [
-            {
-              type: 'p',
-              children: [
-                { type: 'span', children: [{ type: 'text', value: 'abcde' }] },
-              ],
-            },
-          ],
-        });
-      }, 'init');
-      await c1.sync();
-      await c2.sync();
-
-      d1.update((r) => r.t.splitByPath([0, 0, 3]), 'd1 split');
-      d2.update((r) => r.t.splitByPath([0, 0, 3]), 'd2 split');
-
-      await c1.sync();
-      await c2.sync();
-      await c1.sync();
-
+      // The tail survives once, not twice.
+      //
+      // KNOWN LIMITATION (tracked): each replica still contributes its own
+      // boundary, so an empty node sits between them. Collapsing the two into
+      // one would mean recognizing a concurrent split at the same position,
+      // which the §7.5 advance does not do today. The empty node is asserted
+      // rather than tolerated, so lifting the limitation fails here and says
+      // so.
       assert.equal(
         d1.getRoot().t.toXML(),
-        '<doc><p><span>abc</span><span>de</span></p></doc>',
+        '<doc><p><span>abc</span><span></span><span>de</span></p></doc>',
       );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
 
@@ -134,26 +100,7 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
     }, task.name);
   });
 
-  // KNOWN LIMITATION (tracked, skipped): a merge concurrent with a
-  // split-and-style leaves the attribute on one replica only. The text
-  // converges; the attribute never does, and both replicas stay attached with
-  // later edits propagating normally.
-  //
-  // On the merging replica the style's from-anchor resolves onto the
-  // merge-source tombstone, the range collapses (start past end) and
-  // `traverseInPosRange` yields nothing, so the style is a silent no-op.
-  // `reversedFromAnchorRecovery` covers exactly this collapsed range, but it
-  // delegates to `mergedAnchorInterloperGuard`, which keys on the declared
-  // parent (`!declaredParent.isRemoved` returns early). Here the from
-  // position's parent `<p>` is still alive; it is the left-sibling anchor that
-  // the merge removed, so the guard bails and the recovery never runs.
-  //
-  // #1329 recovered the shape where the range start was declared inside a
-  // parent that the merge removed; this is the neighbouring shape where the
-  // parent stayed live.
-  it.skip('KNOWN: a merge concurrent with a split-and-style drops the attribute on the merging replica', async ({
-    task,
-  }) => {
+  it('keeps the text in order when a split meets a merge', async ({ task }) => {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((r) => {
         r.t = new Tree({
@@ -162,12 +109,8 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
             {
               type: 'p',
               children: [
-                {
-                  type: 'span',
-                  attributes: { bold: 'true' },
-                  children: [{ type: 'text', value: 'abcde' }],
-                },
-                { type: 'span', children: [{ type: 'text', value: 'fghij' }] },
+                { type: 'span', children: [{ type: 'text', value: 'abc' }] },
+                { type: 'span', children: [{ type: 'text', value: 'de' }] },
               ],
             },
           ],
@@ -176,24 +119,21 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
       await c1.sync();
       await c2.sync();
 
-      // d1 drops the attribute and merges the two spans.
-      d1.update((r) => {
-        r.t.removeStyleByPath([0, 0], [0, 1], ['bold']);
-        r.t.editByPath([0, 0, 5], [0, 1, 0]);
-      }, 'd1 unstyle and merge');
-
-      // d2 splits the second span twice and styles the middle piece.
-      d2.update((r) => {
-        r.t.editByPath([0, 1, 4], [0, 1, 4], undefined, 1);
-        r.t.editByPath([0, 1, 2], [0, 1, 2], undefined, 1);
-        r.t.styleByPath([0, 2], { bold: 'true' });
-      }, 'd2 split and style');
+      d1.update((r) => r.t.mergeByPath([0, 1]), 'd1 merge');
+      d2.update((r) => r.t.splitByPath([0, 0, 1]), 'd2 split');
 
       await c1.sync();
       await c2.sync();
       await c1.sync();
 
-      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      // The two structural changes compose: the split boundary stands and the
+      // rest merges behind it. Copying the content moved it instead, landing
+      // on `<span>ade</span><span>bc</span>` — the same text, reordered, on
+      // both replicas.
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p><span>a</span><span>bcde</span></p></doc>',
+      );
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });

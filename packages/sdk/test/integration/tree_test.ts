@@ -2430,6 +2430,121 @@ describe('Tree.style', function () {
   });
 });
 
+describe('Tree.splitByPath/mergeByPath', function () {
+  /**
+   * `docWithTwoSpans` returns a document holding
+   * `<doc><p><span>abc</span><span>de</span></p></doc>`.
+   */
+  function docWithTwoSpans(name: string): Document<{ t: Tree }> {
+    const doc = new yorkie.Document<{ t: Tree }>(
+      toDocKey(`${name}-${new Date().getTime()}`),
+    );
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              { type: 'span', children: [{ type: 'text', value: 'abc' }] },
+              { type: 'span', children: [{ type: 'text', value: 'de' }] },
+            ],
+          },
+        ],
+      });
+    });
+
+    return doc;
+  }
+
+  it('Can split a text position and a child position', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    doc.update((root) => root.t.splitByPath([0, 0, 1]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>a</span><span>bc</span><span>de</span></p></doc>`,
+    );
+
+    doc.update((root) => root.t.splitByPath([0, 1]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>a</span></p><p><span>bc</span><span>de</span></p></doc>`,
+    );
+  });
+
+  it('Can merge a boundary back together', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    doc.update((root) => root.t.mergeByPath([0, 1]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>abcde</span></p></doc>`,
+    );
+  });
+
+  it('Should throw on empty paths for splitByPath and mergeByPath', function ({
+    task,
+  }) {
+    const doc = docWithTwoSpans(task.name);
+
+    assert.throws(() => doc.update((root) => root.t.splitByPath([])));
+    assert.throws(() => doc.update((root) => root.t.mergeByPath([])));
+  });
+
+  it('Should throw when splitByPath targets the root', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    // A split needs a parent to hold the two halves, and the root has none.
+    // Without the guard this pushes an operation that changes nothing.
+    assert.throws(() => doc.update((root) => root.t.splitByPath([0])));
+    assert.throws(() => doc.update((root) => root.t.splitByPath([1])));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>abc</span><span>de</span></p></doc>`,
+    );
+  });
+
+  it('Should throw when splitByPath targets text held by the root', function ({
+    task,
+  }) {
+    const doc = new yorkie.Document<{ t: Tree }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'text', value: 'abcde' }],
+      });
+    });
+
+    // The position resolves to a text node, so the node that would split is
+    // its parent — the root again.
+    assert.throws(() => doc.update((root) => root.t.splitByPath([2])));
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc>abcde</doc>`);
+  });
+
+  it('Should throw when mergeByPath targets a first child', function ({
+    task,
+  }) {
+    const doc = docWithTwoSpans(task.name);
+
+    // There is no left sibling to merge into.
+    assert.throws(() => doc.update((root) => root.t.mergeByPath([0, 0])));
+    assert.throws(() => doc.update((root) => root.t.mergeByPath([0])));
+  });
+
+  it('Should throw when mergeByPath targets a text position', function ({
+    task,
+  }) {
+    const doc = docWithTwoSpans(task.name);
+
+    assert.throws(() => doc.update((root) => root.t.mergeByPath([0, 0, 1])));
+  });
+});
+
 describe('Tree.edit(concurrent overlapping range)', () => {
   it('Can concurrently delete overlapping elements', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {

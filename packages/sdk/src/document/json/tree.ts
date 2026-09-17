@@ -310,6 +310,20 @@ export class Tree {
       );
     }
 
+    // A split divides the node that holds the position into two siblings, so
+    // it needs a parent to hold them. The root has none: splitting there is
+    // not a smaller split, it is no split at all. `edit` would accept it and
+    // push an operation that changes nothing, so reject it here.
+    const treePos = this.tree.pathToTreePos(path);
+    const target = treePos.node.isText ? treePos.node.parent! : treePos.node;
+
+    if (!target.parent) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'the root node cannot be split',
+      );
+    }
+
     // Split through `edit`'s split level rather than lowering to a delete plus
     // an insert of a copied node. The copy made each replica insert its own
     // node, so two replicas splitting the same position kept both copies.
