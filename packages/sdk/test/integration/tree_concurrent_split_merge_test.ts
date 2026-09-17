@@ -178,6 +178,53 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
     }, task.name);
   });
 
+  it('applies a concurrent style change to both halves of a split', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => {
+        r.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'span',
+                  attributes: { bold: 'true' },
+                  children: [{ type: 'text', value: 'abcde' }],
+                },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.splitByPath([0, 0, 2]), 'd1 split');
+      d2.update(
+        (r) => r.t.removeStyleByPath([0, 0], [0, 1], ['bold']),
+        'd2 clear the formatting',
+      );
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // The half the split opened is the same node to the style, so clearing
+      // the formatting reaches it. A copied node was one the concurrent
+      // style had never seen, so it kept `bold` and the text came back half
+      // formatted — the shape an editor hits when one person clears
+      // formatting while another splits.
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p><span>ab</span><span>cde</span></p></doc>',
+      );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
   it('keeps the text in order when a split meets a merge', async ({ task }) => {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((r) => {
