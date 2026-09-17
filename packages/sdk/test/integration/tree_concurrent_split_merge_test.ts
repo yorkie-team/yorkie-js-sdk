@@ -20,19 +20,51 @@ import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/inte
 
 type TestDoc = { t: Tree };
 
+/** `textOf` returns the text content of the tree, with the tags stripped. */
+function textOf(tree: Tree): string {
+  return tree.toXML().replace(/<[^>]*>/g, '');
+}
+
 describe('Tree.SplitByPath/MergeByPath concurrency', () => {
-  // KNOWN LIMITATION (tracked, skipped): `splitByPath` does not emit a split
-  // operation. `separateSplit` lowers it into a delete of the tail plus an
-  // insert of a node that `createSplitNode` builds by value (a copied string,
-  // copied children). Two replicas splitting the same position therefore each
-  // delete the tail — idempotent — and each insert their own copy of it, so
-  // both copies survive. The replicas agree on the duplicated result, so this
-  // is silent content duplication rather than a divergence.
-  //
-  // Expressing the same split as a pure range edit inserts nothing:
-  // `edit(idx, idx, undefined, 1)` leaves an empty node under the same
-  // concurrency and keeps the text intact.
-  it.skip('KNOWN: two replicas splitting the same position duplicate the tail', async ({
+  it('does not duplicate content when two replicas split the same position', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => {
+        r.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'span', children: [{ type: 'text', value: 'abcde' }] },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.splitByPath([0, 0, 3]), 'd1 split');
+      d2.update((r) => r.t.splitByPath([0, 0, 3]), 'd2 split');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(textOf(d1.getRoot().t), 'abcde');
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
+  // KNOWN LIMITATION (tracked, skipped): two replicas splitting the same
+  // position each contribute a boundary, so the merged tree carries an empty
+  // node between them. The content is intact and the replicas converge — only
+  // the extra node remains. Collapsing the two boundaries into one would mean
+  // recognizing a concurrent split at the same position, which the §7.5
+  // advance does not do today.
+  it.skip('KNOWN: two replicas splitting the same position leave an empty node', async ({
     task,
   }) => {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
@@ -63,19 +95,10 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
         d1.getRoot().t.toXML(),
         '<doc><p><span>abc</span><span>de</span></p></doc>',
       );
-      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     }, task.name);
   });
 
-  // KNOWN LIMITATION (tracked, skipped): the merge side of the same shape.
-  // `separateMerge` lowers `mergeByPath` into a delete of the node plus an
-  // insert of its children, copied by value with `toTreeNode`, into the left
-  // sibling. Two replicas merging the same boundary insert two copies.
-  //
-  // Deleting the empty range across the boundary instead removes only the
-  // boundary tokens and re-inserts nothing: `edit` from the end of the left
-  // node to the start of the right node converges and is idempotent.
-  it.skip('KNOWN: two replicas merging the same boundary duplicate the content', async ({
+  it('does not duplicate content when two replicas merge the same boundary', async ({
     task,
   }) => {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {

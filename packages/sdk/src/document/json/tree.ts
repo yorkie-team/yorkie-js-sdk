@@ -27,14 +27,9 @@ import {
   IndexTree,
   DefaultRootType,
   DefaultTextType,
-  TreePos,
 } from '@yorkie-js/sdk/src/util/index_tree';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
-import {
-  isEmpty,
-  parseObjectValues,
-  stringifyObjectValues,
-} from '@yorkie-js/sdk/src/util/object';
+import { isEmpty, stringifyObjectValues } from '@yorkie-js/sdk/src/util/object';
 import { RHT } from '../crdt/rht';
 import { TreeStyleOperation } from '../operation/tree_style_operation';
 import type {
@@ -63,135 +58,6 @@ export {
   TreePosStructRange,
   CRDTTreeNodeIDStruct,
 };
-
-/**
- * `toTreeNode` returns tree node from CRDTTreeNode.
- */
-function toTreeNode(node: CRDTTreeNode): TreeNode {
-  if (node.isText) {
-    return {
-      type: node.type,
-      value: node.value,
-    } as TextNode;
-  }
-  const newNode = {
-    type: node.type,
-    children: node.children.map((child) => toTreeNode(child)),
-  } as ElementNode;
-
-  if (node.attrs) {
-    newNode.attributes = parseObjectValues(node.attrs.toObject());
-  }
-
-  return newNode;
-}
-
-/**
- * `createSplitNode` returns new node which is split from the given node.
- */
-function createSplitNode(
-  node: CRDTTreeNode,
-  offset: number,
-): ElementNode | undefined {
-  const newNode: ElementNode = {
-    type: node.isText ? node.parent!.type : node.type,
-    children: node.isText
-      ? node.parent!.getChildrenText().length === offset
-        ? []
-        : [
-            {
-              type: DefaultTextType,
-              value: node.parent!.getChildrenText().slice(offset),
-            },
-          ]
-      : node.children.slice(offset).map((child) => toTreeNode(child)),
-  };
-
-  if (node.attrs) {
-    newNode.attributes = parseObjectValues(node.attrs.toObject());
-  } else if (node.isText && node.parent!.attrs) {
-    newNode.attributes = parseObjectValues(node.parent!.attrs.toObject());
-  }
-
-  return newNode;
-}
-
-/**
- * `separateSplit` separates the split operation into insert and delete operations.
- */
-function separateSplit(
-  treePos: TreePos<CRDTTreeNode>,
-  path: Array<number>,
-): Array<{
-  fromPath: Array<number>;
-  toPath: Array<number>;
-  content?: TreeNode;
-}> {
-  const { node } = treePos;
-  const parentPath = [...path].slice(0, -1);
-  const last = node.isText
-    ? node.parent!.getChildrenText().length
-    : node.children.length;
-  const toPath = [...parentPath, last];
-  const insertPath = [...parentPath];
-  const res = [];
-
-  insertPath[insertPath.length - 1] += 1;
-
-  if (!path.every((v, i) => v === toPath[i])) {
-    res.push({ fromPath: [...path], toPath });
-  }
-
-  const newNode = createSplitNode(node, path[path.length - 1]);
-
-  if (newNode) {
-    res.push({ fromPath: insertPath, toPath: insertPath, content: newNode });
-  }
-
-  return res;
-}
-
-/**
- * `separateMerge` separates the merge operation into insert and delete operations.
- */
-function separateMerge(
-  treePos: TreePos<CRDTTreeNode>,
-  path: Array<number>,
-): Array<{
-  fromPath: Array<number>;
-  toPath: Array<number>;
-  content?: Array<TreeNode>;
-}> {
-  const { node: parentNode, offset } = treePos;
-  const node = parentNode.children[offset];
-  const leftSiblingNode = parentNode.children[offset - 1];
-  const { children } = node;
-  const parentPath = [...path].slice(0, -1);
-  const res: ReturnType<typeof separateMerge> = [
-    { fromPath: [...path], toPath: [...parentPath, offset + 1] },
-  ];
-
-  if (!node.children.length) {
-    return res;
-  }
-
-  const insertPath = [
-    ...parentPath,
-    offset - 1,
-    leftSiblingNode.hasTextChild()
-      ? leftSiblingNode.getChildrenText().length
-      : leftSiblingNode.children.length,
-  ];
-  const nodes = children.map((child) => toTreeNode(child));
-
-  res.push({
-    fromPath: insertPath,
-    toPath: insertPath,
-    content: nodes,
-  });
-
-  return res;
-}
 
 /**
  * `buildDescendants` builds descendants of the given tree node.
@@ -444,16 +310,12 @@ export class Tree {
       );
     }
 
-    const treePos = this.tree.pathToTreePos(path);
-    const commands = separateSplit(treePos, path);
+    // Split through `edit`'s split level rather than lowering to a delete plus
+    // an insert of a copied node. The copy made each replica insert its own
+    // node, so two replicas splitting the same position kept both copies.
+    const pos = this.tree.pathToPos(path);
 
-    for (const command of commands) {
-      const { fromPath, toPath, content } = command;
-      const fromPos = this.tree!.pathToPos(fromPath);
-      const toPos = this.tree!.pathToPos(toPath);
-
-      this.editInternal(fromPos, toPos, content ? [content] : [], 0);
-    }
+    this.editInternal(pos, pos, [], 1);
   }
 
   /**
@@ -483,15 +345,33 @@ export class Tree {
       );
     }
 
-    const commands = separateMerge(treePos, path);
+    const { node: parentNode, offset } = treePos;
+    const leftSibling = parentNode.children[offset - 1];
 
-    for (const command of commands) {
-      const { fromPath, toPath, content } = command;
-      const fromPos = this.tree!.pathToPos(fromPath);
-      const toPos = this.tree!.pathToPos(toPath);
-
-      this.editInternal(fromPos, toPos, content ?? [], 0);
+    if (!leftSibling) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'the first child cannot be merged',
+      );
     }
+
+    // Merge by deleting the empty range across the boundary, rather than
+    // lowering to a delete of the node plus an insert of its children copied
+    // into the left sibling. The copy made each replica insert its own
+    // children, so two replicas merging the same boundary kept both copies.
+    // Deleting the boundary tokens re-inserts nothing and is idempotent.
+    const parentPath = [...path].slice(0, -1);
+    const fromPath = [
+      ...parentPath,
+      offset - 1,
+      leftSibling.hasTextChild()
+        ? leftSibling.getChildrenText().length
+        : leftSibling.children.length,
+    ];
+    const fromPos = this.tree.pathToPos(fromPath);
+    const toPos = this.tree.pathToPos([...path, 0]);
+
+    this.editInternal(fromPos, toPos, []);
   }
 
   /**
