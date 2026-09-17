@@ -100,6 +100,84 @@ describe('Tree.SplitByPath/MergeByPath concurrency', () => {
     }, task.name);
   });
 
+  it('keeps every span when two replicas merge neighbouring boundaries', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => {
+        r.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'span', children: [{ type: 'text', value: 'ab' }] },
+                { type: 'span', children: [{ type: 'text', value: 'cd' }] },
+                { type: 'span', children: [{ type: 'text', value: 'ef' }] },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.mergeByPath([0, 1]), 'd1 merge first boundary');
+      d2.update((r) => r.t.mergeByPath([0, 2]), 'd2 merge second boundary');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // Both merges land, so all three spans end up as one. Copying the
+      // children lost a span instead: each replica deleted the node it
+      // merged and re-inserted its children into a left sibling the other
+      // replica had already removed, and both agreed on `abcd`.
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p><span>abcdef</span></p></doc>',
+      );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
+  it('keeps the text in order when two replicas split at different positions', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => {
+        r.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'span', children: [{ type: 'text', value: 'abcde' }] },
+              ],
+            },
+          ],
+        });
+      }, 'init');
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.splitByPath([0, 0, 1]), 'd1 split after a');
+      d2.update((r) => r.t.splitByPath([0, 0, 4]), 'd2 split before e');
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      // Two boundaries in one node give three pieces. Copying the tail wrote
+      // each replica's view of it into the tree, landing on `aebcde`.
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p><span>a</span><span>bcd</span><span>e</span></p></doc>',
+      );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
+
   it('keeps the text in order when a split meets a merge', async ({ task }) => {
     await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
       d1.update((r) => {
