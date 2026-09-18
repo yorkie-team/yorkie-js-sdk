@@ -225,10 +225,16 @@ describe('Tree History - concurrent overlapping undo after GC', () => {
   // between them. Undoing the *first* split is correct, which is what makes
   // this specific to a boundary that has another one after it.
   //
-  // Tracked as yorkie-team/yorkie#1999. Predates #1358 and is not about
-  // `splitByPath`: it reproduces on `main`
-  // through `editByPath(p, p, undefined, 1)`, the split path #1237 made the
-  // canonical one, which is what this case drives.
+  // Tracked as yorkie-team/yorkie#1999, and shared rather than JS-only:
+  // `pkg/document/operations/tree_edit.go` carries the same `redoSplitLevel`
+  // and `splitReverseAt` structure and says so.
+  //
+  // It predates #1358 and reproduces on `main` through
+  // `editByPath(p, p, undefined, 1)`, the split path #1237 made the canonical
+  // one, which is why that is what this case drives — driving `splitByPath`
+  // instead would not show that the defect is older than the helper. #1358 is
+  // what brings the helper onto this path, though: after it, the same pair of
+  // `splitByPath` calls settles as `a|bcd|e` and undoes to `a|b|e` too.
   it.skip('KNOWN: undo one of two concurrent splits of the same node', async ({
     task,
   }) => {

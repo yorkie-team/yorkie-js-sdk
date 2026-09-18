@@ -677,7 +677,7 @@ describe('Document Size', () => {
   //
   // `getDocSize()` hands back the root's own DataSize rather than a copy, so
   // the "before" value has to be copied out or it changes along with it.
-  it.skip('KNOWN: split and merge cycles drive the live size negative', function () {
+  it.skip('KNOWN: split and merge cycles drive the live size negative', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
