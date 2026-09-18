@@ -665,7 +665,8 @@ describe('Document Size', () => {
   // what it started as, so the live size should return to what it started as
   // too; instead it drops about 24 bytes per cycle, reaching -2208 after 100.
   //
-  // Predates #1358 and is not about `splitByPath`/`mergeByPath`: it
+  // Tracked as yorkie-team/yorkie#1998. Predates #1358 and is not about
+  // `splitByPath`/`mergeByPath`: it
   // reproduces on main through `editByPath(p, p, undefined, 1)` and the
   // cross-boundary `editByPath` merge, which is what this case drives. What
   // #1358 changes is the reach — the two helpers lowered to a delete plus an

@@ -225,7 +225,8 @@ describe('Tree History - concurrent overlapping undo after GC', () => {
   // between them. Undoing the *first* split is correct, which is what makes
   // this specific to a boundary that has another one after it.
   //
-  // Predates #1358 and is not about `splitByPath`: it reproduces on `main`
+  // Tracked as yorkie-team/yorkie#1999. Predates #1358 and is not about
+  // `splitByPath`: it reproduces on `main`
   // through `editByPath(p, p, undefined, 1)`, the split path #1237 made the
   // canonical one, which is what this case drives.
   it.skip('KNOWN: undo one of two concurrent splits of the same node', async ({
