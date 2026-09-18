@@ -660,4 +660,54 @@ describe('Document Size', () => {
     const clone = doc.getClone()!.root.deepcopy();
     assert.deepEqual(clone.getDocSize(), doc.getDocSize());
   });
+  // KNOWN LIMITATION (tracked, skipped): repeating a split and the merge that
+  // undoes it drives `live.meta` negative. Every cycle returns the tree to
+  // what it started as, so the live size should return to what it started as
+  // too; instead it drops about 24 bytes per cycle, reaching -2208 after 100.
+  //
+  // Tracked as yorkie-team/yorkie#1998. Predates #1358 and is not about
+  // `splitByPath`/`mergeByPath`: it
+  // reproduces on main through `editByPath(p, p, undefined, 1)` and the
+  // cross-boundary `editByPath` merge, which is what this case drives. What
+  // #1358 changes is the reach — the two helpers lowered to a delete plus an
+  // insert before it, which accounted correctly, so this is the one thing
+  // they did better. A document cycling a split and a merge now reports a
+  // live size that falls without bound, and that is the number the server's
+  // document size limit reads.
+  //
+  // `getDocSize()` hands back the root's own DataSize rather than a copy, so
+  // the "before" value has to be copied out or it changes along with it.
+  it.skip('KNOWN: split and merge cycles drive the live size negative', () => {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                children: [{ type: 'text', value: 'abcdefghij' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+    const before = { ...doc.getDocSize().live };
+
+    for (let i = 0; i < 100; i++) {
+      doc.update((root) =>
+        root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1),
+      );
+      doc.update((root) => root.t.editByPath([0, 0, 1], [0, 1, 0]));
+    }
+
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      '<doc><p><span>abcdefghij</span></p></doc>',
+    );
+    assert.deepEqual({ ...doc.getDocSize().live }, before);
+  });
 });
