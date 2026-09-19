@@ -660,24 +660,12 @@ describe('Document Size', () => {
     const clone = doc.getClone()!.root.deepcopy();
     assert.deepEqual(clone.getDocSize(), doc.getDocSize());
   });
-  // KNOWN LIMITATION (tracked, skipped): repeating a split and the merge that
-  // undoes it drives `live.meta` negative. Every cycle returns the tree to
-  // what it started as, so the live size should return to what it started as
-  // too; instead it drops about 24 bytes per cycle, reaching -2208 after 100.
-  //
-  // Tracked as yorkie-team/yorkie#1998. Predates #1358 and is not about
-  // `splitByPath`/`mergeByPath`: it
-  // reproduces on main through `editByPath(p, p, undefined, 1)` and the
-  // cross-boundary `editByPath` merge, which is what this case drives. What
-  // #1358 changes is the reach — the two helpers lowered to a delete plus an
-  // insert before it, which accounted correctly, so this is the one thing
-  // they did better. A document cycling a split and a merge now reports a
-  // live size that falls without bound, and that is the number the server's
-  // document size limit reads.
-  //
-  // `getDocSize()` hands back the root's own DataSize rather than a copy, so
-  // the "before" value has to be copied out or it changes along with it.
-  it.skip('KNOWN: split and merge cycles drive the live size negative', () => {
+  it('accounts for the element a split creates', () => {
+    // A split mints a new element node, and the phase that does it dropped
+    // the size its own `split` call reported, so live never carried it. A
+    // split and the merge that undoes it then did not cancel out: live.meta
+    // walked down by a ticket per cycle, without bound. Tracked as
+    // yorkie-team/yorkie#1998.
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
       root.t = new Tree({
@@ -695,19 +683,80 @@ describe('Document Size', () => {
         ],
       });
     });
-    const before = { ...doc.getDocSize().live };
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 168 });
 
-    for (let i = 0; i < 100; i++) {
-      doc.update((root) =>
-        root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1),
-      );
-      doc.update((root) => root.t.editByPath([0, 0, 1], [0, 1, 0]));
-    }
+    // Split after `a`: a new <span> and a text split, one ticket each.
+    doc.update((root) => root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      '<doc><p><span>a</span><span>bcdefghij</span></p></doc>',
+    );
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 216 });
 
+    // Merge the boundary back. The <span> the split created is tombstoned, so
+    // its size moves to gc. The text stays two nodes, which is why live keeps
+    // the ticket the text split added rather than returning to its pre-split
+    // value -- the expectation #1998 states.
+    doc.update((root) => root.t.editByPath([0, 0, 1], [0, 1, 0]));
     assert.equal(
       doc.getRoot().t.toXML(),
       '<doc><p><span>abcdefghij</span></p></doc>',
     );
-    assert.deepEqual({ ...doc.getDocSize().live }, before);
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 192 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 48 });
+
+    // Every further cycle needs no text split, so live returns to the same
+    // two values instead of drifting.
+    for (let i = 0; i < 100; i++) {
+      doc.update((root) =>
+        root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1),
+      );
+      assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 216 });
+      doc.update((root) => root.t.editByPath([0, 0, 1], [0, 1, 0]));
+      assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 192 });
+    }
+  });
+
+  it('charges live only for attribute values it was holding', () => {
+    // RHT mints a tombstone even for a key the element never carried -- so a
+    // remove arriving before its set still wins -- and supersedes an existing
+    // tombstone when the same key is removed twice or set again. None of
+    // those replace a live value, yet live was debited for each, so toggling
+    // one key walked it down without bound and eventually negative, at which
+    // point the document size limit stops applying.
+    const newDoc = () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'abc' }] }],
+        });
+      });
+      assert.deepEqual(doc.getDocSize().live, { data: 6, meta: 144 });
+      return doc;
+    };
+
+    const absent = newDoc();
+    absent.update((root) => root.t.removeStyleByPath([0], [1], ['never-set']));
+    assert.deepEqual(absent.getDocSize().live, { data: 6, meta: 144 });
+    assert.deepEqual(absent.getDocSize().gc, { data: 18, meta: 24 });
+
+    const twice = newDoc();
+    twice.update((root) => root.t.styleByPath([0], [1], { bold: 'true' }));
+    assert.deepEqual(twice.getDocSize().live, { data: 26, meta: 168 });
+    for (let i = 0; i < 2; i++) {
+      twice.update((root) => root.t.removeStyleByPath([0], [1], ['bold']));
+      assert.deepEqual(twice.getDocSize().live, { data: 6, meta: 144 });
+    }
+
+    // Toggling was already correct here -- the restyle credits live for the
+    // node it revives, which cancels the debit -- and has to stay that way.
+    const toggled = newDoc();
+    for (let i = 0; i < 100; i++) {
+      toggled.update((root) => root.t.styleByPath([0], [1], { bold: 'true' }));
+      assert.deepEqual(toggled.getDocSize().live, { data: 26, meta: 168 });
+      toggled.update((root) => root.t.removeStyleByPath([0], [1], ['bold']));
+      assert.deepEqual(toggled.getDocSize().live, { data: 6, meta: 144 });
+    }
   });
 });
