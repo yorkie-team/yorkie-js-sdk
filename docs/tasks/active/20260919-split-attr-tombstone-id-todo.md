@@ -87,14 +87,14 @@ and purging it subtracts only from gc — stranding its size in live. Both are
 on `main` and neither is caused by this change. This is why the text
 registration uses `gcOnlySize` despite the copy having been charged to live:
 the original it was copied from is carried in live too, so charging both the
-same way is what keeps the live and rebuilt documents equal. Filed separately;
-the same asymmetry exists in Go.
+same way is what keeps the live and rebuilt documents equal. Tracked as
+yorkie#2007; the same asymmetry exists in Go.
 
 **The snapshot converter.** `toTextNodes` does not carry `isRemoved` for text
 node attributes, so a tombstoned text attribute does not survive a snapshot at
 all — it comes back as a live attribute. Present in both SDKs, and worse than
 an accounting bug: a client that joins from a snapshot sees formatting a
-client that replayed the changes does not. Filed separately. It is why the
+client that replayed the changes does not. Tracked as yorkie#2006. It is why the
 tests here rebuild in memory (`new CRDTRoot(root.deepcopy())`) rather than
 through the converter.
 
