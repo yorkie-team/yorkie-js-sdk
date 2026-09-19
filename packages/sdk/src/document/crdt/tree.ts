@@ -711,8 +711,13 @@ export class CRDTTreeNode
             insNext.parent !== split.parent &&
             split.allChildren.length === 0
           ) {
-            split.parent!.detachChild(split);
-            insNext.parent.insertBefore(split, insNext);
+            // Moved rather than detached and re-inserted: a split born
+            // tombstoned contributes no visibleSize to either parent, so
+            // detaching would take its tokens off the source that it never
+            // held and re-inserting would give the destination tokens it must
+            // not have. `moveChildBefore` carries the same tombstone-aware
+            // semantics `moveChild` documents.
+            insNext.parent.moveChildBefore(split, insNext);
           }
         }
       }
@@ -1938,6 +1943,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<TreeRestoreSpan>,
     Array<TreeRestoreSpan>,
     number,
+    number,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -2262,6 +2268,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     }
 
     // 04. Split: split the element nodes for the given split level.
+    //
+    // The boundaries it opens grow the visible index, which nothing else in
+    // this method reports: they are not content, so `insertedContentSize`
+    // below does not see them, and they remove nothing, so the removed range
+    // does not either. Measured off the tree rather than computed as
+    // 2 * splitLevel, so a split whose product is born tombstoned, or one the
+    // tree has no room for, reports the growth it really produced.
+    const sizeBeforeSplit = this.getSize();
     if (splitLevel > 0) {
       let splitCount = 0;
       let parent = fromParent;
@@ -2314,6 +2328,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         actor: editedAt.getActorID(),
       });
     }
+    const splitSize = this.getSize() - sizeBeforeSplit;
 
     // 05. Insert: insert the given nodes at the given position.
     //
@@ -2458,6 +2473,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // subtree top-down (a child's recreate resolves its parent by identity).
       spansComplete ? insertedSpans.reverse() : [],
       insertedContentSize,
+      splitSize,
     ];
   }
 
@@ -2481,6 +2497,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Set<string>,
     Array<TreeRestoreSpan>,
     Array<TreeRestoreSpan>,
+    number,
     number,
   ] {
     const fromPos = this.findPos(range[0]);
