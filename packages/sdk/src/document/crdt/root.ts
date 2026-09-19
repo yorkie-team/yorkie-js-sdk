@@ -24,7 +24,7 @@ import {
   CRDTElement,
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
@@ -125,10 +125,34 @@ export class CRDTRoot {
   private sizeInGC: Map<CRDTElement, DataSize>;
 
   /**
-   * `gcPairMap` is a hash table that maps the IDString of GCChild to the
-   * element itself and its parent.
+   * `gcPairMap` is a hash table of the registered GC pairs, keyed by both of
+   * a pair's ends.
+   *
+   * The child's IDString alone is not unique document-wide. An RHTNode is
+   * identified by (updatedAt, key), and a split deep-copies the attributes of
+   * the node it splits -- tombstones included, because the copy has to reject
+   * the same stale styles the original does. The copy is therefore a distinct
+   * piece of garbage wearing the original's id. Keying on the child alone made
+   * the two collide, and since `registerGCPair` reads a second registration
+   * under a known key as an un-registration, the second tombstone cancelled
+   * the first instead of joining it.
+   *
+   * The parent is the discriminator because it is what `purge` is called on:
+   * two pairs that share a parent and a child id name the same collectable
+   * thing, two that differ in either do not.
    */
   private gcPairMap: Map<string, GCPair>;
+
+  /**
+   * `gcParentIDs` numbers the GC parents this root has seen, so a pair's key
+   * can name its parent. No GC parent carries an identifier of its own, and
+   * minting one per root is enough: a key never has to mean anything outside
+   * the root that made it, since registration, lookup and purge all happen
+   * within one. Weak so a parent the document has dropped is not held alive
+   * by its number.
+   */
+  private gcParentIDs: WeakMap<GCParent, number>;
+  private nextGCParentID: number;
 
   /**
    * `docSize` is a structure that represents the size of the document.
@@ -141,6 +165,8 @@ export class CRDTRoot {
     this.gcElementSetByCreatedAt = new Set();
     this.sizeInGC = new Map();
     this.gcPairMap = new Map();
+    this.gcParentIDs = new WeakMap();
+    this.nextGCParentID = 0;
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     this.registerElement(rootObject, undefined);
 
@@ -539,16 +565,29 @@ export class CRDTRoot {
   }
 
   /**
+   * `keyOf` returns the `gcPairMap` key identifying the given pair.
+   */
+  private keyOf(pair: GCPair): string {
+    let parentID = this.gcParentIDs.get(pair.parent);
+    if (parentID === undefined) {
+      parentID = ++this.nextGCParentID;
+      this.gcParentIDs.set(pair.parent, parentID);
+    }
+    return `${parentID}:${pair.child.toIDString()}`;
+  }
+
+  /**
    * `registerGCPair` registers the given pair to hash table.
    */
   public registerGCPair(pair: GCPair): void {
-    const prev = this.gcPairMap.get(pair.child.toIDString());
+    const key = this.keyOf(pair);
+    const prev = this.gcPairMap.get(key);
     if (prev) {
-      this.gcPairMap.delete(pair.child.toIDString());
+      this.gcPairMap.delete(key);
       return;
     }
 
-    this.gcPairMap.set(pair.child.toIDString(), pair);
+    this.gcPairMap.set(key, pair);
 
     if (pair.gcOnlySize) {
       // NOTE: The child's size was never counted in docSize.live (it was
@@ -560,9 +599,7 @@ export class CRDTRoot {
       return;
     }
 
-    const size = this.gcPairMap
-      .get(pair.child.toIDString())!
-      .child.getDataSize();
+    const size = this.gcPairMap.get(key)!.child.getDataSize();
     addDataSizes(this.docSize.gc, size);
     subDataSize(this.docSize.live, size);
 
@@ -585,12 +622,13 @@ export class CRDTRoot {
    * `getDataSize()` no longer includes the tombstone ticket.
    */
   public unregisterGCPair(pair: GCPair): void {
-    const registered = this.gcPairMap.get(pair.child.toIDString());
+    const key = this.keyOf(pair);
+    const registered = this.gcPairMap.get(key);
     if (!registered) {
       return;
     }
 
-    this.gcPairMap.delete(pair.child.toIDString());
+    this.gcPairMap.delete(key);
 
     // Mirror registerGCPair's accounting: move the node's size back from
     // gc to live, and drop the tombstone ticket counted at register time.
@@ -688,7 +726,7 @@ export class CRDTRoot {
       }
     }
 
-    for (const [, pair] of this.gcPairMap) {
+    for (const [key, pair] of this.gcPairMap) {
       const removedAt = pair.child.getRemovedAt();
       if (!removedAt) {
         // Node was revived but its pair was not unregistered. Reverse the
@@ -702,7 +740,7 @@ export class CRDTRoot {
         pair.parent.purge(pair.child);
 
         subDataSize(this.docSize.gc, pair.child.getDataSize());
-        this.gcPairMap.delete(pair.child.toIDString());
+        this.gcPairMap.delete(key);
         count += 1;
       }
     }
