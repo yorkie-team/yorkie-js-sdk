@@ -724,6 +724,22 @@ export class CRDTTreeNode
       this.insNextID = split.id;
       tree.registerNode(split);
 
+      // NOTE: `splitElement` deep-copies the node's attributes, tombstones
+      // included -- it has to, or the two halves of what was one node would
+      // resolve a concurrent style differently and never reconverge. Each
+      // copied tombstone is a distinct piece of garbage that no removal path
+      // produced, so buffer a registration for it; otherwise it sits in the
+      // split's RHT forever, uncounted and unpurgeable.
+      //
+      // `getDataSize` skips removed attributes, so the split's diff never
+      // charged these to docSize.live -- `gcOnlySize` sends each straight to
+      // docSize.gc, and purge subtracts the same amount back. This is the
+      // same routing `getGCPairs` already uses for the tombstones a snapshot
+      // rebuild finds.
+      for (const pair of split.getGCPairs()) {
+        tree.pushPendingGCPair(pair);
+      }
+
       // NOTE: A piece split off an already-tombstoned node inherits
       // `removedAt` without going through `remove()`, so no GC pair is
       // created for it in the normal deletion path. Register it here so
@@ -1456,6 +1472,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
    */
   public registerPendingGCPair(node: CRDTTreeNode, size: DataSize): void {
     this.pendingGCPairs.push({ parent: this, child: node, gcOnlySize: size });
+  }
+
+  /**
+   * `pushPendingGCPair` buffers an already-built pair, for garbage whose
+   * parent is not this tree -- an attribute tombstone belongs to the node
+   * holding it, not to the tree.
+   */
+  public pushPendingGCPair(pair: GCPair): void {
+    this.pendingGCPairs.push(pair);
   }
 
   /**

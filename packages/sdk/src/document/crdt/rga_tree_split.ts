@@ -25,7 +25,12 @@ import {
   TimeTicketStruct,
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
-import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  GCChild,
+  GCPair,
+  GCParent,
+  isGCPairProvider,
+} from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   DataSize,
@@ -43,6 +48,17 @@ export interface ValueChange<T> {
 export interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+
+  /**
+   * `truncate` shortens this value to the given length **in place**, keeping
+   * its identity. A split takes the right-hand piece with `substring` and
+   * truncates the left, rather than replacing the left with a new value:
+   * anything already registered against the left -- a GC pair naming it as
+   * the parent of one of its attribute tombstones -- goes on naming the
+   * object that is still in the list.
+   */
+  truncate(length: number): void;
+
   getDataSize(): DataSize;
 }
 
@@ -560,9 +576,9 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   private splitValue(offset: number): T {
-    const value = this.value;
-    this.value = value.substring(0, offset) as T;
-    return value.substring(offset, value.length) as T;
+    const right = this.value.substring(offset, this.value.length) as T;
+    this.value.truncate(offset);
+    return right;
   }
 
   /**
@@ -1436,6 +1452,31 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // the split operation.
     addDataSizes(diff, node.getDataSize(), splitNode.getDataSize());
     subDataSize(diff, prvSize);
+
+    // NOTE: Splitting a value deep-copies its attributes, tombstones
+    // included -- it has to, or the two halves of what was one node would
+    // resolve a concurrent style differently and never reconverge. Each
+    // copied tombstone is a distinct piece of garbage that no removal path
+    // produced, so register it; otherwise it sits in the new value's RHT
+    // forever, uncounted and unpurgeable.
+    //
+    // `gcOnlySize`, even though the copy was charged to docSize.live: unlike
+    // a tree node, `CRDTTextValue.getDataSize` counts removed attributes, so
+    // a text attribute tombstone sits in live and in gc at once, and the
+    // original this one was copied from is carried that way already. Taking
+    // only the copy out of live would put the live document out of step with
+    // what a rebuilt root computes from the same content. That they are
+    // charged twice at all is a separate defect in this path, not one this
+    // registration should silently half-fix.
+    const value = splitNode.getValue() as unknown;
+    if (isGCPairProvider(value)) {
+      for (const pair of value.getGCPairs()) {
+        this.pendingGCPairs.push({
+          ...pair,
+          gcOnlySize: pair.child.getDataSize(),
+        });
+      }
+    }
 
     // NOTE: A piece split off an already-tombstoned node inherits
     // `removedAt` without going through `remove()`, so no GC pair is
