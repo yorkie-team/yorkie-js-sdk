@@ -43,6 +43,7 @@ export interface ValueChange<T> {
 export interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
+
   getDataSize(): DataSize;
 }
 
