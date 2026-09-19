@@ -106,14 +106,6 @@ export class CRDTTextValue {
   }
 
   /**
-   * `truncate` shortens this value to the given length in place, keeping its
-   * attributes and its identity. See `RGATreeSplitValue.truncate`.
-   */
-  public truncate(length: number): void {
-    this.content = this.content.substring(0, length);
-  }
-
-  /**
    * `setAttr` sets attribute of the given key, updated time and value.
    */
   public setAttr(

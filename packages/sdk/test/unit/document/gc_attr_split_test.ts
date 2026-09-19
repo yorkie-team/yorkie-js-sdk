@@ -2,7 +2,7 @@ import { describe, it, assert } from 'vitest';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 import { Document } from '@yorkie-js/sdk/src/document/document';
-import { Text, Tree } from '@yorkie-js/sdk/src/yorkie';
+import { Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
@@ -184,85 +184,6 @@ describe('a split that copies an attribute tombstone', () => {
     assert.equal(d1.getGarbageLen(), 2);
     assert.equal(d2.getGarbageLen(), 2);
     assert.deepEqual(d2.getDocSize(), d1.getDocSize());
-
-    const purged1 = d1.garbageCollect(maxVectorOf([A1, A2]));
-    const purged2 = d2.garbageCollect(maxVectorOf([A1, A2]));
-    assert.equal(purged2, purged1);
-    assert.deepEqual(d1.getDocSize().gc, { data: 0, meta: 0 });
-    assert.deepEqual(d2.getDocSize().gc, { data: 0, meta: 0 });
-  });
-
-  /**
-   * `CRDTTextValue` copies its attributes on split the same way. Reaching the
-   * case needs an undo: the reverse of a `setStyle` that introduced a key
-   * carries `attributesToRemove`, the only route that tombstones a text
-   * attribute today.
-   */
-  const textStyledAndRemoved = () => {
-    const d = new Document<{ k: Text }>('test-doc');
-    d.setActor(A1);
-    d.update((r) => {
-      r.k = new Text();
-      r.k.edit(0, 0, 'abcdefghij');
-    });
-    d.update((r) => r.k.setStyle(0, 10, { b: '1' }));
-    d.history.undo();
-    return d;
-  };
-
-  it('counts and collects the tombstone a text split copied', () => {
-    const d = textStyledAndRemoved();
-    assert.equal(d.getGarbageLen(), 1);
-    assertRebuildsSame(d, 'before the split');
-
-    d.update((r) => r.k.edit(5, 5, 'X'));
-
-    assert.equal(d.getGarbageLen(), 2);
-    assertRebuildsSame(d, 'after the split');
-
-    assert.equal(d.garbageCollect(maxVectorOf([A1])), 2);
-    assert.equal(d.getGarbageLen(), 0);
-    assert.deepEqual(d.getDocSize().gc, { data: 0, meta: 0 });
-    // Counting is not collecting: assert the tombstones are gone from the
-    // values themselves, not just from the ledger.
-    assertRebuildsSame(d, 'after collecting');
-  });
-
-  it('keeps the left value collectable after a split', () => {
-    const d = textStyledAndRemoved();
-    d.update((r) => r.k.edit(5, 5, 'X'));
-    d.garbageCollect(maxVectorOf([A1]));
-
-    // The pair registered before the split names the left value as its
-    // parent. A split that replaced that value with a new object left the
-    // pair purging an orphan, and the tombstone stayed in the list forever
-    // — visible only in a rebuild, since the ledger had already forgotten it.
-    const rebuilt = new CRDTRoot(d.getRootObject().deepcopy());
-    assert.equal(rebuilt.getGarbageLen(), 0);
-    assert.deepEqual(rebuilt.getDocSize().gc, { data: 0, meta: 0 });
-  });
-
-  it('purges the same text tombstones on both replicas', () => {
-    const d1 = new Document<{ k: Text }>('test-doc');
-    const d2 = new Document<{ k: Text }>('test-doc');
-    d1.setActor(A1);
-    d2.setActor(A2);
-
-    d1.update((r) => {
-      r.k = new Text();
-      r.k.edit(0, 0, 'abcdefghij');
-    });
-    d1.update((r) => r.k.setStyle(0, 10, { b: '1' }));
-    d1.history.undo();
-    crossSync(d1, d2);
-
-    d1.update((r) => r.k.edit(5, 5, 'X'));
-    crossSync(d1, d2);
-
-    assert.equal(d2.getRoot().k.toJSON!(), d1.getRoot().k.toJSON!());
-    assert.equal(d1.getGarbageLen(), 2);
-    assert.equal(d2.getGarbageLen(), 2);
-    assert.deepEqual(d2.getDocSize().gc, d1.getDocSize().gc);
 
     const purged1 = d1.garbageCollect(maxVectorOf([A1, A2]));
     const purged2 = d2.garbageCollect(maxVectorOf([A1, A2]));

@@ -4,6 +4,9 @@
 
 Mirrored from yorkie-team/yorkie#2002. The Go change is yorkie#2005.
 
+This task covers the **Tree** half only, matching yorkie#2005 after its second
+review round narrowed the same way. The Text half is deferred; see Non-Goals.
+
 ## Problem
 
 Splitting a node that carries a **removed attribute** leaves the live document
@@ -67,18 +70,37 @@ yorkie#2003, unrelated.
       carry `gcOnlySize`, the same routing `getGCPairs` already uses for the
       tombstones a snapshot rebuild finds — `getDataSize` skips removed
       attributes, so they were never in `docSize.live`.
-- [x] Register the tombstones a text split copies, from
-      `RGATreeSplit.splitNode`, reached through an `isGCPairProvider` check on
-      the split value. `gcOnlySize` here too, for the opposite reason: see
-      Non-Goals.
-- [x] Make `splitValue` shorten the left value in place (`truncate`) instead
-      of replacing it, so registrations that name it stay valid.
+- [ ] Register the tombstones a text split copies. **Deferred behind
+      yorkie#2007**, with the Go side. Registering them puts a second claim on
+      bytes the owning node's `getDataSize` already counts, and collection
+      subtracts the node's size read at collection time — so purging the
+      attribute first leaves the difference stranded in `docSize.gc` with
+      `getGarbageLen()` at zero. `Map` iterates in insertion order and the
+      attribute is always registered first, so unlike Go this is not a coin
+      flip: it is every time. Measured `{data:0,meta:0}` on `main` against
+      `{data:8,meta:24}` with the registration.
+
+      Two ways of reconciling the ledger were tried in Go and both failed on
+      opposite cases; the root cause is `CRDTTextValue.getDataSize` counting
+      removed attributes while `CRDTTreeNode.getDataSize` does not.
+- [ ] Make `splitValue` shorten the left value in place instead of replacing
+      it, so registrations that name it stay valid. **Deferred with the Text
+      half** — it repairs a real, JS-only, pre-existing defect (a split
+      orphans every GC pair registered against the left value, so the
+      tombstone `removeStyle` registered can never be purged), but it is
+      purely a text fix and belongs with the rest of them.
 - [x] Tests in `packages/sdk/test/unit/document/gc_attr_split_test.ts`: the
-      tree case and the text case, a split of a split, a later `styleByPath`
-      that revives the key on both halves, the orphaned-left-value case, and a
-      two-replica exchange for each. All seven fail on `main`.
+      tree case, a split of a split, a later `styleByPath` that revives the
+      key on both halves, and a two-replica exchange. All four fail on
+      `main`.
 
 ## Non-Goals
+
+**The Text half.** `CRDTTextValue`'s split copies attribute tombstones exactly
+as `splitElement` does and they collide the same way, so the defect is real
+here too. Registering them is not a repair on its own: it lands on a ledger
+that already double-counts those bytes. Deferred with yorkie#2007, and with
+the `splitValue` identity fix, which is text-only.
 
 **The text attribute ledger.** `CRDTTextValue.getDataSize` counts removed
 attributes and `CRDTTreeNode.getDataSize` does not, so a text attribute

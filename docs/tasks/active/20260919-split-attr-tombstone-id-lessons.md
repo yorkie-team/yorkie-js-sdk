@@ -51,3 +51,26 @@ in a few lines, because the key only ever has to mean something inside one
 root. The cost is real but bounded: the key is now tied to object identity, so
 anything that replaces a parent object invalidates its registrations silently
 — which is exactly the third defect above, arriving from the other direction.
+
+## The third defect was real and still had to wait
+
+The mirror surfaced a JS-only defect the Go side does not have: `splitValue`
+replaced the left node's value with a new object, orphaning every GC pair
+registered against it. That is worth fixing and the fix is four lines.
+
+It still comes out of this change. It repairs the text path, and the text path
+as a whole is deferred behind yorkie#2007 — shipping a partial repair there
+would leave the SDK in a state neither before nor after, and make the next
+change harder to reason about than either. Finding a real bug while doing
+something else is not a licence to fix it in the same commit.
+
+## Symmetry is a constraint on the pair, not a property of one side
+
+This SDK had the Text half working end to end, with tests, before the Go side
+concluded the Text half could not be made ledger-correct yet. The temptation
+was to keep it: it was written, it passed, and it fixes something. But
+`MaxSizeLimit` is enforced client-side in both SDKs against `Live + GC`, so
+two SDKs that account differently hold the same document to different limits.
+A repair that only one of them has is not half a repair, it is a new
+divergence.
+

@@ -52,23 +52,3 @@ export interface GCChild {
   getRemovedAt(): TimeTicket | undefined;
   getDataSize(): DataSize;
 }
-
-/**
- * `GCPairProvider` is an optional capability of a value that owns garbage of
- * its own -- today, an `RGATreeSplit` value carrying an RHT of attributes
- * whose tombstones a split copies along with the live ones.
- */
-export interface GCPairProvider {
-  getGCPairs(): Array<GCPair>;
-}
-
-/**
- * `isGCPairProvider` reports whether the given value owns garbage of its own.
- */
-export function isGCPairProvider(value: unknown): value is GCPairProvider {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as GCPairProvider).getGCPairs === 'function'
-  );
-}
