@@ -113,6 +113,43 @@ describe('Tree History - single client split/merge', () => {
     assert.equal(xmlOf(doc), before);
   });
 
+  it('should undo a split deeper than the tree', () => {
+    // The split loop stops when it runs out of ancestors to split, so a split
+    // level the tree has no room for opens fewer boundaries than it asked
+    // for. Sizing the reverse as 2 * splitLevel then covers tokens the split
+    // never opened, and the undo deletes live content beyond its own
+    // boundary. Tracked with yorkie-team/yorkie#1999.
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          { type: 'p', children: [{ type: 'text', value: 'ABCD' }] },
+          { type: 'p', children: [{ type: 'text', value: '0123456789' }] },
+        ],
+      });
+    }, 'init');
+
+    const before = xmlOf(doc);
+    assert.equal(before, '<doc><p>ABCD</p><p>0123456789</p></doc>');
+
+    // Only one level below <doc> is splittable, so level 3 splits once.
+    doc.update((root) => {
+      root.t.editByPath([0, 2], [0, 2], undefined, 3);
+    }, 'split');
+    assert.equal(xmlOf(doc), '<doc><p>AB</p><p>CD</p><p>0123456789</p></doc>');
+
+    doc.history.undo();
+    assert.equal(
+      xmlOf(doc),
+      before,
+      'the undo must merge only the boundary the split opened',
+    );
+
+    doc.history.redo();
+    assert.equal(xmlOf(doc), '<doc><p>AB</p><p>CD</p><p>0123456789</p></doc>');
+  });
+
   it('should redo editByPath split', () => {
     const doc = new Document<{ t: Tree }>('test-doc');
     doc.update((root) => {
