@@ -76,15 +76,17 @@ The Go SDK drifted on that case and needed the repair; this one did not.
 Two differences from Go surfaced while measuring, both pre-existing and
 neither this task's to settle:
 
-- A superseded attribute tombstone stays registered for gc here, so `gc` grows
-  by one tombstone per style toggle and never drains — `RHT.purge` matches on
-  the key's current node, which the tombstone no longer is. Go drops it from
-  the ledger instead, which loses track of it just as permanently. Both leak;
-  they differ only in whether the leak is counted.
+- A superseded attribute tombstone adds its size to `gc` but is not the node
+  left registered for collection, so a toggle run between GC passes strands
+  size that no later pass reclaims: after 200 cycles `getGarbageLen()` is 0
+  while `gc` reports `{data: 4000, meta: 4800}` on a document whose content is
+  6 bytes. It does not reach `maxSizeLimit`, which reads the clone's ledger
+  rather than the root's. Tracked as yorkie-team/yorkie-js-sdk#1361.
 - Attribute values are stored JSON-encoded here and raw in Go, so the same
   document styled from the two SDKs reports different sizes for the same
   attribute (`bold="true"` costs 20 bytes of data here, 16 there). That
-  matters because the size limit is enforced client-side in both.
+  matters because the size limit is enforced client-side in both. Tracked as
+  yorkie-team/yorkie#2003.
 
 ## See Also
 
