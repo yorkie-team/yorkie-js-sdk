@@ -38,13 +38,14 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
  * decide differently diverge against each other, which is worse than the bug
  * being fixed in neither.
  *
- * The defect. `recreateFromSpan` resolves a restored node's parent by
- * IDENTITY and never by LIVENESS: a parent that has been TOMBSTONED since the
- * node was purged still accepts it, so the node is recreated LIVE under a
- * tombstone and registered in `nodeMapByID`. The next collection unlinks the
- * parent and touches none of its children, leaving the node live, registered,
- * and reachable from nothing. "Registered implies reachable" is broken, and
- * that is what produces the #2008 crash.
+ * The defect, now fixed. `recreateFromSpan` used to resolve a restored node's
+ * parent by IDENTITY and never by LIVENESS: a parent that had been TOMBSTONED
+ * since the node was purged still accepted it, so the node was recreated LIVE
+ * under a tombstone and registered in `nodeMapByID`. The next collection
+ * unlinked the parent and touched none of its children, leaving the node live,
+ * registered, and reachable from nothing. "Registered implies reachable" was
+ * broken, and that is what produced the #2008 crash. It is now recreated
+ * ALREADY TOMBSTONED, stamped with the PARENT's `removedAt`.
  *
  * What this measures, and what it deliberately does NOT. Comparing
  * `toXML()` proves nothing here: it is identical in every delivery order
@@ -55,10 +56,12 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
  * replicas holding different tickets. `removedAt` feeds `canDelete`, so two
  * replicas disagreeing on it collect on different passes.
  *
- * NOTE: this test is expected to be RED until the JS `recreateFromSpan`
- * recreates the node ALREADY TOMBSTONED, stamped with the PARENT's removedAt
- * (the stamp the Go fix landed after measuring the alternative). See the
- * closing comment for the recorded baseline.
+ * On the ticket: the PARENT's `removedAt` is what the removal already wrote
+ * onto every sibling it swept, so the restored node rejoins them carrying what
+ * it would have carried had it never been purged. The alternative -- the
+ * restoring operation's own ticket -- was built and measured on the Go side
+ * and produces three different answers across these six orders. The closing
+ * comment records the pre-fix baseline this test was written against.
  */
 
 const docKey = 'tree-restore-ticket';
