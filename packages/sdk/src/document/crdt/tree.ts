@@ -3318,7 +3318,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
       let childNode: CRDTTreeNode;
       while (parentNode.isRemoved) {
         childNode = parentNode;
-        parentNode = childNode.parent!;
+        // If the subtree has been detached by garbage collection, the walk
+        // can run off the top of it. Report it instead of dereferencing
+        // undefined. Throwing rather than returning undefined is deliberate:
+        // toIndex turns undefined into -1, which would go on to resolve a
+        // bogus position and edit the wrong range.
+        if (!childNode.parent) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            `least alive ancestor of ${childNode.id.toIDString()}: node not found`,
+          );
+        }
+        parentNode = childNode.parent;
       }
 
       const offset = parentNode.findOffset(childNode!, includeRemoved);
