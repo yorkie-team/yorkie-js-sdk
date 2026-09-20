@@ -2794,6 +2794,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
    *       node's id (pure function of ids → identical on every replica).
    * Parent genuinely absent → skip (B1): the node stays unplaced/invisible;
    * convergent, because every replica resolves parent-absent identically.
+   * Parent present but TOMBSTONED → the node is placed but born tombstoned,
+   * stamped with the parent's `removedAt`, and returned as undefined (see
+   * `attach` below).
    */
   private recreateFromSpan(
     span: TreeRestoreSpan,
@@ -2827,6 +2830,59 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     const siblings = parent.allChildren;
 
+    // `attach` finishes every anchor rung below: register the node, then decide
+    // whether it is born live or born tombstoned.
+    //
+    // The parent may have been tombstoned since this node was purged, in which
+    // case the node is born tombstoned rather than live. This mirrors the
+    // convention the concurrent-insert path already states ("if insertion
+    // happens during concurrent editing and parent node has been removed, make
+    // new nodes as tombstone immediately"). Recreating it live would leave a
+    // node that the next purge of the parent unlinks but never unregisters --
+    // reachable from nothing, still in nodeMapByID -- which is what sends
+    // toTreePos off the top of a detached subtree (#2008).
+    //
+    // The stamp is the PARENT's removedAt, not the restoring operation's
+    // ticket: that is the ticket the removal already wrote onto every sibling
+    // it swept, so the node rejoins them carrying what it would have carried
+    // had it never been purged, and it agrees with a replica that recreated it
+    // live and then had the removal sweep it. Stamping the restoring op's
+    // ticket makes those two disagree, and removedAt feeds canDelete, so they
+    // would then collect on different passes. The stamp only has to be
+    // overwritable by the eventual LWW winner, and it is: a later concurrent
+    // removal with a higher ticket reaches the tombstoned node and overwrites
+    // it (see CRDTTreeNode.remove).
+    //
+    // Accounting: the node is garbage the moment it is born, and its size was
+    // never in `docSize.live` -- it was purged before this restore, and
+    // returning undefined keeps it out of `restore`'s `recreated` list, which
+    // is the only thing that books a recreated node into live. So the pair
+    // carries `gcOnlySize`: charge the size to `docSize.gc` only and leave live
+    // alone. Subtracting from live, as a pair without `gcOnlySize` would, drives
+    // live negative by exactly this node's size.
+    //
+    // This is where the JS shape differs from Go's and the mirror has to be
+    // written differently to reach the same numbers. Go splits the two halves:
+    // `RegisterGCPair` only adds to GC, and the live-to-gc move lives in
+    // `AdjustDiffForGCPair`, which the restore path deliberately does not call
+    // for its pairs (operations/tree_edit.go). JS folds both halves into
+    // `registerGCPair`, so the only way to get "GC only, live untouched" here is
+    // `gcOnlySize`. `purge` subtracts `child.getDataSize()` from gc on both
+    // sides, so charging exactly that nets gc back to zero on collection.
+    const attach = (): CRDTTreeNode | undefined => {
+      this.registerNode(node);
+      if (parent.isRemoved) {
+        node.remove(parent.removedAt!);
+        this.pendingGCPairs.push({
+          parent: this,
+          child: node,
+          gcOnlySize: node.getDataSize(),
+        });
+        return undefined;
+      }
+      return node;
+    };
+
     // (a) same-insertion successor / predecessor piece (text): exact slot.
     if (span.isText) {
       const succ = this.findFloorNode(
@@ -2839,8 +2895,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         succ.id.getOffset() === offset + length
       ) {
         parent.insertAt(node, siblings.indexOf(succ));
-        this.registerNode(node);
-        return node;
+        return attach();
       }
       if (offset > span.id.getOffset() || offset > 0) {
         const pred = this.findFloorNode(
@@ -2848,8 +2903,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         );
         if (pred && pred.isText && pred.parent === parent) {
           parent.insertAfter(node, pred);
-          this.registerNode(node);
-          return node;
+          return attach();
         }
       }
     }
@@ -2859,8 +2913,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const left = this.findFloorNode(span.leftSiblingID);
       if (left && left.parent === parent) {
         parent.insertAfter(node, left);
-        this.registerNode(node);
-        return node;
+        return attach();
       }
     }
 
@@ -2870,8 +2923,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (right && right.parent === parent) {
         const rightIdx = siblings.indexOf(right);
         parent.insertAt(node, rightIdx);
-        this.registerNode(node);
-        return node;
+        return attach();
       }
     }
 
@@ -2884,8 +2936,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
     parent.insertAt(node, insertIdx);
-    this.registerNode(node);
-    return node;
+    return attach();
   }
 
   /**
