@@ -25,6 +25,34 @@ import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
  */
+/**
+ * `RHTWrite` is what an `RHT.set` reports back. See `RHT.set`.
+ */
+export type RHTWrite = {
+  /**
+   * `installed` is the node this write put in the map, absent when the write
+   * lost LWW and changed nothing. Its size is what enters docSize.live.
+   */
+  installed?: RHTNode;
+
+  /**
+   * `revived` is a tombstone this write replaced. It was registered as garbage
+   * when it was removed, so the caller re-registers the pair to cancel that
+   * registration: it is no longer collectable, it is simply gone.
+   */
+  revived?: RHTNode;
+
+  /**
+   * `superseded` is a LIVE node this write replaced. RHT overrides immutably,
+   * so the old node is dropped with no tombstone and nothing to collect, but
+   * its bytes were counted in docSize.live and have to leave it.
+   */
+  superseded?: RHTNode;
+};
+
+/**
+ * `RHTNode` is a node of RHT(Replicated Hashtable).
+ */
 export class RHTNode implements GCChild {
   private key: string;
   private value: string;
@@ -142,32 +170,35 @@ export class RHT {
   /**
    * `set` sets the value of the given key.
    */
-  public set(
-    key: string,
-    value: string,
-    executedAt: TimeTicket,
-  ): [RHTNode | undefined, RHTNode | undefined] {
+  /**
+   * `RHTWrite` reports what a `set` did, so the caller can keep docSize honest
+   * without inspecting the map afterwards. Reading the map cannot tell a write
+   * that installed a node from one that lost LWW and left the incumbent in
+   * place, and charging live for the latter makes the running size depend on
+   * delivery order.
+   */
+  public set(key: string, value: string, executedAt: TimeTicket): RHTWrite {
     const prev = this.nodeMapByKey.get(key);
 
-    if (prev && prev.isRemoved() && executedAt.after(prev.getUpdatedAt())) {
+    if (prev !== undefined && !executedAt.after(prev.getUpdatedAt())) {
+      return {};
+    }
+
+    if (prev !== undefined && prev.isRemoved()) {
       this.numberOfRemovedElement -= 1;
     }
 
-    if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
-      const node = RHTNode.of(key, value, executedAt, false);
-      this.nodeMapByKey.set(key, node);
+    const installed = RHTNode.of(key, value, executedAt, false);
+    this.nodeMapByKey.set(key, installed);
 
-      if (prev !== undefined && prev.isRemoved()) {
-        return [prev, node];
-      }
-      return [undefined, node];
+    if (prev === undefined) {
+      return { installed };
     }
-
     if (prev.isRemoved()) {
-      return [prev, undefined];
+      return { installed, revived: prev };
     }
 
-    return [undefined, undefined];
+    return { installed, superseded: prev };
   }
 
   /**

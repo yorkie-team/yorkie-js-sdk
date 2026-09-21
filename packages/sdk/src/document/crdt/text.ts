@@ -35,6 +35,10 @@ import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { parseObjectValues } from '@yorkie-js/sdk/src/util/object';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  accAttrWrite,
+  textAttrGCPair,
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import { DataSize, addDataSizes } from '@yorkie-js/sdk/src/util/resource';
@@ -106,6 +110,15 @@ export class CRDTTextValue {
   }
 
   /**
+   * `truncate` shortens this value in place, keeping the object identity so
+   * that GC pairs registered against it are not orphaned. See
+   * `RGATreeSplitValue.truncate`.
+   */
+  public truncate(offset: number): void {
+    this.content = this.content.substring(0, offset);
+  }
+
+  /**
    * `setAttr` sets attribute of the given key, updated time and value.
    */
   public setAttr(
@@ -138,6 +151,14 @@ export class CRDTTextValue {
     dataSize.data += this.content.length * 2;
 
     for (const node of this.attributes) {
+      // A removed attribute belongs to docSize.gc, not to live.
+      // `CRDTTreeNode.getDataSize` makes the same exclusion; the two halves
+      // have to answer this the same way or a document's size stops being a
+      // function of its content.
+      if (node.isRemoved()) {
+        continue;
+      }
+
       const size = node.getDataSize();
       dataSize.meta += size.meta;
       dataSize.data += size.data;
@@ -194,12 +215,40 @@ export class CRDTTextValue {
   /**
    * `getGCPairs` returns the pairs of GC.
    */
+  /**
+   * `getRemovedAttrs` reports the tombstoned attributes this value holds,
+   * which a split has just duplicated from its source. The copy is new garbage
+   * under a new parent with no registration of its own -- the original's pair
+   * names the original's parent -- so without this it could never be
+   * collected.
+   */
+  public getRemovedAttrs(): Array<RHTNode> {
+    const removed: Array<RHTNode> = [];
+    for (const node of this.attributes) {
+      if (node.getRemovedAt()) {
+        removed.push(node);
+      }
+    }
+
+    return removed;
+  }
+
+  /**
+   * `getGCPairs` returns the pairs of GC.
+   */
   public getGCPairs(): Array<GCPair> {
     const pairs = [];
 
     for (const node of this.attributes) {
       if (node.getRemovedAt()) {
-        pairs.push({ parent: this, child: node });
+        // `getDataSize` skips removed attributes, so a tombstoned attribute
+        // is not part of the live size this root was built with. Registering
+        // it without `gcOnlySize` would debit live for bytes it never held.
+        pairs.push({
+          parent: this,
+          child: node,
+          gcOnlySize: node.getDataSize(),
+        });
       }
     }
 
@@ -436,14 +485,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       });
 
       for (const [key, value] of Object.entries(attributes)) {
-        const [prev] = node.getValue().setAttr(key, value, editedAt);
-        if (prev !== undefined) {
-          pairs.push({ parent: node.getValue(), child: prev });
-        }
-        const curr = node.getValue().getAttrs().getNodeMapByKey().get(key);
-        if (curr !== undefined) {
-          addDataSizes(diff, curr.getDataSize());
-        }
+        accAttrWrite(
+          node.getValue().setAttr(key, value, editedAt),
+          node.getValue(),
+          pairs,
+          diff,
+        );
       }
     }
 
@@ -534,10 +581,31 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       });
 
       for (const key of attributesToRemove) {
-        const gcNodes = node.getValue().getAttrs().remove(key, editedAt);
-        for (const rhtNode of gcNodes) {
-          pairs.push({ parent: node.getValue(), child: rhtNode });
-          addDataSizes(diff, rhtNode.getDataSize());
+        // A text attribute has one case the tree's two-way split does not: the
+        // NODE holding it may already be a tombstone, because `canStyle`
+        // admits removed nodes.
+        //
+        //   live attr on a live node    -- in live, so move live -> gc.
+        //   live attr on a REMOVED node -- `getDataSize` skips removed nodes,
+        //     so it is not in live; its bytes are already inside the gc charge
+        //     taken when the node was removed. Charging them again doubles
+        //     them, and purge subtracts the node's now-smaller size, so the
+        //     pair must carry exactly zero.
+        //   attr that was already a tombstone -- never in live, and not inside
+        //     the node's charge either, so it carries its own size.
+        let attrWasLive = node.getValue().getAttrs().has(key);
+        const nodeIsLive = !node.isRemoved();
+        for (const rhtNode of node
+          .getValue()
+          .getAttrs()
+          .remove(key, editedAt)) {
+          pairs.push(
+            textAttrGCPair(node.getValue(), rhtNode, attrWasLive, nodeIsLive),
+          );
+          // Only the node that replaces the live value settles the live
+          // value's bytes; a second one in the same call is the tombstone it
+          // superseded, which was never in live.
+          attrWasLive = false;
         }
       }
     }
@@ -733,9 +801,9 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     // NOTE: Only called when a root is built from a snapshot, where
     // docSize.live counted visible nodes only. Tombstoned nodes (and the
     // attribute tombstones inside them) were never part of live, so their
-    // pairs carry `gcOnlySize`. Attribute tombstones of visible nodes ARE
-    // counted in live (getDataSize does not skip them), so their pairs use
-    // the normal live→gc accounting.
+    // pairs carry `gcOnlySize`. So do the attribute tombstones of visible
+    // nodes: `CRDTTextValue.getDataSize` skips removed attributes, matching
+    // the tree half, so those bytes are not in live either.
     for (const node of this.rgaTreeSplit) {
       if (node.getRemovedAt()) {
         pairs.push({

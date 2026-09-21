@@ -35,7 +35,7 @@ import {
   traverseAll,
   TreePos,
 } from '@yorkie-js/sdk/src/util/index_tree';
-import { RHT, RHTNode } from './rht';
+import { RHT, RHTNode, RHTWrite } from './rht';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js/sdk/src/util/comparator';
@@ -45,7 +45,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { DataSize, addDataSizes } from '../../util/resource';
+import { DataSize, addDataSizes, subDataSize } from '../../util/resource';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -821,12 +821,12 @@ export class CRDTTreeNode
       this.attrs = new RHT();
     }
 
-    const pairs: Array<[RHTNode | undefined, RHTNode | undefined]> = [];
+    const writes: Array<RHTWrite> = [];
     for (const [key, value] of Object.entries(attrs)) {
-      pairs.push(this.attrs.set(key, value, editedAt));
+      writes.push(this.attrs.set(key, value, editedAt));
     }
 
-    return pairs;
+    return writes;
   }
 
   /**
@@ -910,14 +910,64 @@ export class CRDTTreeNode
  * by the same `gcOnlySize` route `getGCPairs` already takes for the tombstones
  * a snapshot rebuild finds.
  */
-function attrGCPair(
-  parent: CRDTTreeNode,
+export function attrGCPair(
+  parent: GCParent,
   child: RHTNode,
   wasLive: boolean,
 ): GCPair {
   return wasLive
     ? { parent, child }
     : { parent, child, gcOnlySize: child.getDataSize() };
+}
+
+/**
+ * `accAttrWrite` books one attribute write into the ledger. It reads only what
+ * the write reported, never the map: a write that lost LWW installed nothing,
+ * so it must charge nothing, and a node visited twice in one traversal (once
+ * as Start and once as End) loses LWW on the second visit and is naturally
+ * deduped. Deciding from the map instead made live depend on delivery order
+ * and, where a token guard suppressed only one half, drove it negative.
+ */
+export function accAttrWrite(
+  write: RHTWrite,
+  parent: GCParent,
+  pairs: Array<GCPair>,
+  diff: DataSize,
+): void {
+  if (write.revived !== undefined) {
+    pairs.push(attrGCPair(parent, write.revived, false));
+  }
+  if (write.superseded !== undefined) {
+    subDataSize(diff, write.superseded.getDataSize());
+  }
+  if (write.installed !== undefined) {
+    addDataSizes(diff, write.installed.getDataSize());
+  }
+}
+
+/**
+ * `textAttrGCPair` decides which half of the ledger a TEXT attribute moves
+ * through. See the call site in `CRDTText.removeStyle` for the three cases;
+ * `attrGCPair` covers only two because a tree node's attributes are counted by
+ * `getDataSize` whether or not the node itself is removed.
+ */
+export function textAttrGCPair(
+  parent: GCParent,
+  child: RHTNode,
+  attrWasLive: boolean,
+  nodeIsLive: boolean,
+): GCPair {
+  if (attrWasLive && nodeIsLive) {
+    return { parent, child };
+  }
+
+  return {
+    parent,
+    child,
+    // A live attribute on a removed node is already counted inside that
+    // node's gc charge.
+    gcOnlySize: attrWasLive ? { data: 0, meta: 0 } : child.getDataSize(),
+  };
 }
 
 /**
@@ -1693,12 +1743,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
           const updatedAttrPairs = node.setAttrs(attributes, editedAt);
           const affectedAttrs = updatedAttrPairs.reduce(
-            (acc: { [key: string]: string }, [, curr]) => {
-              if (!curr) {
+            (acc: { [key: string]: string }, write) => {
+              if (!write.installed) {
                 return acc;
               }
 
-              acc[curr.getKey()] = attrs[curr.getKey()];
+              acc[write.installed.getKey()] = attrs[write.installed.getKey()];
               return acc;
             },
             {},
@@ -1719,17 +1769,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
             });
           }
 
-          for (const [prev] of updatedAttrPairs) {
-            if (prev) {
-              pairs.push(attrGCPair(node, prev, false));
-            }
-          }
-
-          for (const [key] of Object.entries(attrs)) {
-            const curr = node.attrs?.getNodeMapByKey().get(key);
-            if (curr !== undefined && tokenType !== TokenType.End) {
-              addDataSizes(diff, curr.getDataSize());
-            }
+          for (const write of updatedAttrPairs) {
+            accAttrWrite(write, node, pairs, diff);
           }
 
           // Propagate style to unknown split siblings so that a
@@ -1747,9 +1788,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
               }
               const siblingPairs = next.setAttrs(attributes, editedAt);
               const siblingAffectedAttrs = siblingPairs.reduce(
-                (acc: { [key: string]: string }, [, curr]) => {
-                  if (curr) {
-                    acc[curr.getKey()] = attrs[curr.getKey()];
+                (acc: { [key: string]: string }, write) => {
+                  if (write.installed) {
+                    acc[write.installed.getKey()] =
+                      attrs[write.installed.getKey()];
                   }
                   return acc;
                 },
@@ -1768,16 +1810,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
                   value: siblingAffectedAttrs,
                 });
               }
-              for (const [prev] of siblingPairs) {
-                if (prev) {
-                  pairs.push(attrGCPair(next, prev, false));
-                }
-              }
-              for (const [key] of Object.entries(attrs)) {
-                const curr = next.attrs?.getNodeMapByKey().get(key);
-                if (curr !== undefined) {
-                  addDataSizes(diff, curr.getDataSize());
-                }
+              for (const write of siblingPairs) {
+                accAttrWrite(write, next, pairs, diff);
               }
               current = next;
             }
