@@ -949,31 +949,6 @@ export function accAttrWrite(
 }
 
 /**
- * `textAttrGCPair` decides which half of the ledger a TEXT attribute moves
- * through. See the call site in `CRDTText.removeStyle` for the three cases;
- * `attrGCPair` covers only two because a tree node's attributes are counted by
- * `getDataSize` whether or not the node itself is removed.
- */
-export function textAttrGCPair(
-  parent: GCParent,
-  child: RHTNode,
-  attrWasLive: boolean,
-  nodeIsLive: boolean,
-): GCPair {
-  if (attrWasLive && nodeIsLive) {
-    return { parent, child };
-  }
-
-  return {
-    parent,
-    child,
-    // A live attribute on a removed node is already counted inside that
-    // node's gc charge.
-    gcOnlySize: attrWasLive ? { data: 0, meta: 0 } : child.getDataSize(),
-  };
-}
-
-/**
  * `ticketKnown` returns true if the given ticket is causally known to the
  * editor, i.e. the editor's version vector covers the ticket's lamport
  * clock for the same actor. For local operations (undefined version vector),

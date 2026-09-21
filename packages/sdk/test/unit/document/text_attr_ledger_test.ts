@@ -204,19 +204,25 @@ describe('the attribute ledger', () => {
   });
 
   /**
-   * `removeStyle` on a node the editor has already deleted: the attribute's
-   * bytes are not in live (getDataSize skips removed nodes) and are already
-   * inside the gc charge taken when the node was removed.
+   * A style that spans both live and already-deleted text, then an undo of it.
+   *
+   * NOTE ON WHAT THIS DOES NOT COVER. The Go server styles tombstoned nodes
+   * -- `canStyle` admits them -- and needs a third accounting case for that.
+   * This SDK skips them outright, so the history below never reaches that
+   * case here and the two SDKs end up with different garbage counts and,
+   * after a restore, different visible text. That divergence is tracked
+   * separately; this test pins only that the ledger stays exact along the
+   * path this SDK actually takes.
    */
-  it('balances removing an attribute from a tombstoned text node', () => {
+  it('balances a style that spans deleted text, and its undo', () => {
     const d = seededText();
     d.update((r) => r.k.setStyle(4, 6, { bbbbbbbbbb: 'vvvvvvvvvv' }));
     d.update((r) => r.k.edit(4, 6, ''));
     d.update((r) => r.k.setStyle(0, 8, { bbbbbbbbbb: 'vvvvvvvvvv' }));
     d.history.undo();
 
-    assertLedgerExact(d, 'after removing an attribute from a tombstoned node');
-    assertNotNegative(d.getDocSize().live, 'tombstoned node');
+    assertLedgerExact(d, 'after undoing a style that spanned deleted text');
+    assertNotNegative(d.getDocSize().live, 'style spanning deleted text');
 
     d.garbageCollect(d.getVersionVector());
     assert.equal(d.getGarbageLen(), 0);
