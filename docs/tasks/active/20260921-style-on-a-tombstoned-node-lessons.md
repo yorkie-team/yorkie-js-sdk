@@ -2,6 +2,15 @@
 
 **Created**: 2026-09-21
 
+## A pairwise convergence test is not enough
+
+The contract this mirror started from converged on every two-replica exchange
+we could build, and diverged the moment a third actor appeared with two
+concurrent removals of the same node. Two replicas cannot express "the styler
+knew about a removal this replica has not applied yet", which is the whole
+defect. **For a convergence question, build the three-actor case before
+believing the two-actor one.**
+
 ## A guard that makes a branch unreachable hides the branch's bug
 
 The previous commit removed `textAttrGCPair`'s third case — a live attribute

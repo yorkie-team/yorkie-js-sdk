@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-import {
-  MaxLamport,
-  TimeTicket,
-} from '@yorkie-js/sdk/src/document/time/ticket';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { RHT, RHTNode, RHTWrite } from '@yorkie-js/sdk/src/document/crdt/rht';
@@ -444,15 +441,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
     for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID();
-      let clientLamportAtChange = MaxLamport; // Local edit
-      if (versionVector != undefined) {
-        clientLamportAtChange = versionVector!.get(actorID)
-          ? versionVector!.get(actorID)!
-          : 0n;
-      }
-
-      if (node.canStyle(clientLamportAtChange, versionVector)) {
+      if (node.canStyle(versionVector)) {
         toBeStyleds.push(node);
       }
     }
@@ -543,15 +532,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
     for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID();
-      let clientLamportAtChange = MaxLamport;
-      if (versionVector != undefined) {
-        clientLamportAtChange = versionVector!.get(actorID)
-          ? versionVector!.get(actorID)!
-          : 0n;
-      }
-
-      if (node.canStyle(clientLamportAtChange, versionVector)) {
+      if (node.canStyle(versionVector)) {
         toBeStyleds.push(node);
       }
     }

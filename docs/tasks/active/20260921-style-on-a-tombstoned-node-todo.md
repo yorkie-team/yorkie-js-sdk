@@ -37,16 +37,38 @@ number.
 
 ## Decision
 
-Taken on the server side and mirrored here: **a style skips a node whose
-removal the styling change already knew about, and applies to one removed
-concurrently.** Locally every removal is known, so nothing a user sees
-changes — this SDK's current behaviour becomes the contract.
+Taken on the server side and mirrored here: **a style applies to every node
+the styling change knew about, and does not ask whether that node has since
+been removed.** `canStyle` reduces to one question:
+
+```ts
+public canStyle(versionVector?: VersionVector): boolean {
+  return ticketKnown(versionVector, this.getCreatedAt());
+}
+```
+
+The branch's first answer was to skip a removal the change had already seen —
+which would have kept this SDK's behaviour unchanged. It does not converge.
+`removedAt` is last-writer-wins and mutable, while a style is evaluated once,
+when it arrives, so two clients deleting the same run concurrently plus a
+third styling over it make the answer depend on delivery order. Measured on
+four causally legal replay orders; `B,S,C` disagreed with the other three.
+Neither storing more removal tickets nor converging removal on the earliest
+tombstone repairs it — see the server-side task doc for the full argument.
+
+**This is a behaviour change for this SDK.** A style now covers text the same
+client already deleted, so undoing the style and then the deletion brings the
+text back without the attributes it carried. The six-step sequence from the
+issue ends `[{"val":"abcd"},{"val":"ef"},{"val":"ghij"}]` where it used to
+keep `b="OLD"`.
 
 ## Tasks
 
 - [x] Export `ticketKnown` from `time/version_vector.ts` so both CRDTs share it
-- [x] `canStyle` takes the change's version vector and skips a causally-known
-      removal, on `RGATreeSplitNode` and on `CRDTTreeNode`
+- [x] `canStyle` takes only the change's version vector and asks one question
+      -- did the change know this node existed -- on `RGATreeSplitNode` and on
+      `CRDTTreeNode`. `clientLamportAtChange` goes with it: the four inlined
+      copies were `ticketKnown` spelled a second way
 - [x] Drop the `isRemoved()` guards in `setStyle`/`removeStyle`; a tombstoned
       node is styled but reports no change to editors
 - [x] `accAttrWrite` takes `nodeIsLive` and books a tombstoned node's write to
@@ -96,11 +118,6 @@ server branch. Every new test checked Red first.
 
 ### Known limitations
 
-Shared with the server: a document with two concurrent removals of the same
-node makes `canStyle`'s input delivery-order dependent, because `removedAt` is
-LWW and mutable. Pre-existing on both sides and unchanged by this contract;
-tracked on the server side with an executable repro.
-
 SDK version skew: clients apply remote changes with their own `canStyle`, so an
 un-upgraded SDK on the same document as an upgraded one computes different
 tombstone attributes and a different `docSize.gc` — which `MaxSizeLimit` reads.
@@ -108,7 +125,8 @@ The server and both SDKs are one logical release.
 
 ### Deferred
 
-`clientLamportAtChange` is now redundant with `versionVector` — the inline
-computation in `text.ts` and `tree.ts` is `ticketKnown` spelled out. Collapsing
-it would delete ~16 lines per SDK, but it is a refactor rather than a defect
-and has to land on both sides together.
+Keeping the nicer undo semantics would mean expressing a local style as the
+live runs the user actually selected rather than one range that sweeps
+tombstones. That is order-independent by construction and keeps the old
+rendering, but it changes the operation's shape and its wire encoding. Tracked
+on the server side.

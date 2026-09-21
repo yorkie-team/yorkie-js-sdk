@@ -15,7 +15,6 @@
  */
 
 import {
-  MaxLamport,
   TimeTicket,
   TimeTicketSize,
   TimeTicketStruct,
@@ -809,19 +808,8 @@ export class CRDTTreeNode
    * `canStyle` checks if node is able to style. It answers the same question
    * as `RGATreeSplitNode.canStyle`, the same way — see the contract there.
    */
-  public canStyle(
-    clientLamportAtChange: bigint,
-    versionVector?: VersionVector,
-  ): boolean {
-    if (this.isText) {
-      return false;
-    }
-
-    if (this.getCreatedAt().getLamport() > clientLamportAtChange) {
-      return false;
-    }
-
-    return !this.removedAt || !ticketKnown(versionVector, this.removedAt);
+  public canStyle(versionVector?: VersionVector): boolean {
+    return !this.isText && ticketKnown(versionVector, this.getCreatedAt());
   }
 
   /**
@@ -1722,15 +1710,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       toParent,
       toLeft,
       ([node, tokenType]) => {
-        const actorID = node.getCreatedAt().getActorID();
-        let clientLamportAtChange = MaxLamport; // Local edit
-        if (versionVector != undefined) {
-          clientLamportAtChange = versionVector!.get(actorID)
-            ? versionVector!.get(actorID)!
-            : 0n;
-        }
-
-        if (node.canStyle(clientLamportAtChange, versionVector) && attributes) {
+        if (node.canStyle(versionVector) && attributes) {
           if (shouldSkipToken(node, tokenType)) {
             return;
           }
@@ -1886,18 +1866,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       toParent,
       toLeft,
       ([node, tokenType]) => {
-        const actorID = node.getCreatedAt().getActorID();
-        let clientLamportAtChange = MaxLamport; // Local edit
-        if (versionVector != undefined) {
-          clientLamportAtChange = versionVector!.get(actorID)
-            ? versionVector!.get(actorID)!
-            : 0n;
-        }
-
-        if (
-          node.canStyle(clientLamportAtChange, versionVector) &&
-          attributesToRemove
-        ) {
+        if (node.canStyle(versionVector) && attributesToRemove) {
           if (shouldSkipToken(node, tokenType)) {
             return;
           }

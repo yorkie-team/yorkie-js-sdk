@@ -500,28 +500,29 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   /**
    * `canStyle` checks if node is able to set style.
    *
-   * A removal the styling change had already seen wins: the range was styled
-   * with the deleted part known to be gone, so the tombstone keeps whatever
-   * it held. A local change (undefined version vector) has seen every removal
-   * in its own replica by definition, which is what keeps a user from styling
-   * text they just deleted.
+   * The only question is whether the styling change knew this node existed.
+   * It deliberately does NOT ask whether the node has since been removed, and
+   * that is a convergence requirement rather than a preference: a style is
+   * applied unconditionally on the replica that issues it — the node is live
+   * there, or the range would not have reached it — and can never be
+   * retracted afterwards. Every other replica has to apply it too.
    *
-   * A removal CONCURRENT with the style does not win. The replica that issued
-   * the style applied it while the node was still live and can never retract
-   * it, so every other replica has to apply it too. Refusing every removed
-   * node -- what this SDK did -- leaves the two replicas holding different
-   * attributes on the same node forever, invisible while it is a tombstone
-   * and rendered the moment the removal is undone.
+   * Any rule that reads `removedAt` is delivery-order dependent, because
+   * `removedAt` is last-writer-wins and MUTABLE: `canRemove` lets a removal
+   * the node has not seen overwrite it, while a style is evaluated once, when
+   * it arrives. Two clients deleting the same run concurrently plus a third
+   * styling over it is enough to make replicas disagree, and no single stored
+   * ticket fixes it — the replica cannot know which of the concurrent
+   * removals the styler had seen. The predicate has to not depend on removal
+   * state at all.
+   *
+   * The cost is that a style covers text the same client had already deleted,
+   * invisibly, so undoing the style and then the deletion brings the text back
+   * without the attributes it carried. That is the price of the replicas
+   * agreeing.
    */
-  public canStyle(
-    clientLamportAtChange: bigint,
-    versionVector?: VersionVector,
-  ): boolean {
-    if (this.getCreatedAt().getLamport() > clientLamportAtChange) {
-      return false;
-    }
-
-    return !this.removedAt || !ticketKnown(versionVector, this.removedAt);
+  public canStyle(versionVector?: VersionVector): boolean {
+    return ticketKnown(versionVector, this.getCreatedAt());
   }
 
   /**

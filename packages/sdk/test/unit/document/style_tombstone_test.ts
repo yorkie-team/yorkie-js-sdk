@@ -154,10 +154,18 @@ function assertLedgerExact<T>(d: Document<T>, msg: string): void {
 describe('a style over a tombstoned node', () => {
   /**
    * The six operations from the issue, single actor, no sync. Step 4 styles a
-   * range that spans the node step 3 deleted; the style must leave it alone,
-   * so step 6 brings the text back carrying the attribute step 2 gave it.
+   * range that spans the node step 3 deleted, and it lands there — so step 5's
+   * undo strips it, and step 6 brings "ef" back WITHOUT the attribute step 2
+   * gave it.
+   *
+   * This is the cost of `canStyle` not reading `removedAt`, and it is
+   * deliberate — and it is a behaviour change for this SDK, which used to
+   * refuse every removed node. Skipping a removal the change already knew
+   * about reads better here, but it makes the predicate depend on a field a
+   * later concurrent removal overwrites, and then two clients deleting the
+   * same run leave replicas disagreeing for good.
    */
-  it('leaves a node the same actor already deleted alone', () => {
+  it('lands on a node the same actor already deleted', () => {
     const d: TextDoc = new Document('test-doc');
     d.update((r) => {
       r.t = new Text();
@@ -170,6 +178,11 @@ describe('a style over a tombstoned node', () => {
       d.getRoot().t.toJSON(),
       '[{"attrs":{"b":"NEW"},"val":"abcd"},{"attrs":{"b":"NEW"},"val":"ghij"}]',
     );
+    assert.deepEqual(
+      nodeAttrs(d),
+      ['"abcd" [b=NEW]', '"ef" (removed) [b=NEW]', '"ghij" [b=NEW]'],
+      'the dead node took the style too; RHT.set drops the value it held',
+    );
 
     d.history.undo();
     assert.equal(d.getRoot().t.toJSON(), '[{"val":"abcd"},{"val":"ghij"}]');
@@ -177,8 +190,8 @@ describe('a style over a tombstoned node', () => {
     d.history.undo();
     assert.equal(
       d.getRoot().t.toJSON(),
-      '[{"val":"abcd"},{"attrs":{"b":"OLD"},"val":"ef"},{"val":"ghij"}]',
-      'the restored run kept the attribute it was carrying when it was deleted',
+      '[{"val":"abcd"},{"val":"ef"},{"val":"ghij"}]',
+      'the restored run lost the attribute it carried: the cost of the contract',
     );
   });
 
@@ -409,6 +422,93 @@ describe('a style over a tombstoned node', () => {
           d.getDocSize(),
         )}`,
       );
+    }
+  });
+  /**
+   * Two clients delete the same run concurrently; a third, which has seen only
+   * one of the two deletions, styles a range covering it. This is the case
+   * that forces `canStyle` not to read `removedAt`.
+   *
+   * `removedAt` is last-writer-wins and MUTABLE, while a style is evaluated
+   * once, when it arrives — so any predicate over it answers differently
+   * depending on which of the two removals has landed. All four replay orders
+   * below are causally legal, so all four have to agree.
+   */
+  it('agrees across delivery orders when two removals are concurrent', () => {
+    const grab = <T>(d: Document<T>) => {
+      const pack = d.createChangePack();
+      const changes = pack.getChanges();
+      const lastSeq = changes.length
+        ? changes[changes.length - 1].getID().getClientSeq()
+        : 0;
+      d.applyChangePack(
+        ChangePack.create(
+          pack.getDocumentKey(),
+          Checkpoint.of(0n, lastSeq),
+          false,
+          [],
+          InitialVersionVector,
+        ),
+      );
+      return changes;
+    };
+    const feed = <T>(d: Document<T>, changes: ReturnType<typeof grab>) =>
+      d.applyChangePack(
+        ChangePack.create(
+          'test-doc',
+          Checkpoint.of(0n, 0),
+          false,
+          changes,
+          InitialVersionVector,
+        ),
+      );
+    const actor = (hex: string) => {
+      const d: TextDoc = new Document('test-doc');
+      d.setActor(hex);
+      return d;
+    };
+
+    const seed = actor('000000000000000000000009');
+    seed.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'abcdefghij');
+    });
+    const p0 = grab(seed);
+
+    const docB = actor('000000000000000000000001');
+    const docC = actor('000000000000000000000002');
+    const docX = actor('000000000000000000000003');
+    for (const d of [docB, docC, docX]) feed(d, p0);
+
+    docB.update((r) => r.t.edit(4, 6, ''));
+    const pB = grab(docB);
+    docC.update((r) => r.t.edit(4, 6, ''));
+    const pC = grab(docC);
+
+    // X knows B's removal but not C's.
+    feed(docX, pB);
+    docX.update((r) => r.t.setStyle(0, 8, { b: '1' }));
+    const pS = grab(docX);
+
+    const orders: Array<[string, Array<ReturnType<typeof grab>>]> = [
+      ['C,B,S', [pC, pB, pS]],
+      ['B,S,C', [pB, pS, pC]],
+      ['B,C,S', [pB, pC, pS]],
+      ['C,S,B', [pC, pS, pB]],
+    ];
+
+    let first: Array<string> | undefined;
+    for (const [name, seq] of orders) {
+      const d = actor('00000000000000000000000a');
+      feed(d, p0);
+      for (const batch of seq) feed(d, batch);
+
+      const got = nodeAttrs(d);
+      if (first === undefined) {
+        first = got;
+        continue;
+      }
+      assert.deepEqual(got, first, `delivery order ${name} diverges`);
     }
   });
 });
