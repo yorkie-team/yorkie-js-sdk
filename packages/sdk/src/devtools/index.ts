@@ -21,8 +21,43 @@ import { EventSourceDevPanel, EventSourceSDK } from './protocol';
 import { DocEventsForReplay, isDocEventsForReplay } from './types';
 
 type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
-let devtoolsStatus: DevtoolsStatus = 'disconnected';
+
+/**
+ * `devtoolsStatusByDocKey` stores the panel connection status of each document.
+ * The panel reaches every document on the page through a single window message
+ * channel, so the status cannot be shared across documents.
+ */
+const devtoolsStatusByDocKey = new Map<string, DevtoolsStatus>();
 const unsubsByDocKey = new Map<string, Array<() => void>>();
+
+/**
+ * `teardownByDocKey` releases everything the previous `setupDevtools` call
+ * registered for a document key: the event subscription, the window listener
+ * and the recorded events.
+ */
+const teardownByDocKey = new Map<string, () => void>();
+
+/**
+ * `getDevtoolsStatus` returns the panel connection status of the given
+ * document.
+ */
+function getDevtoolsStatus(docKey: string): DevtoolsStatus {
+  return devtoolsStatusByDocKey.get(docKey) || 'disconnected';
+}
+
+/**
+ * `isPanelConnected` returns whether the panel is attached to any document on
+ * this page.
+ */
+function isPanelConnected(): boolean {
+  for (const status of devtoolsStatusByDocKey.values()) {
+    if (status !== 'disconnected') {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /**
  * `docEventsForReplayByDocKey` stores all events in the document for replaying
@@ -46,7 +81,9 @@ function sendToPanel(
   message: DevTools.SDKToPanelMessage,
   options?: { force: boolean },
 ): void {
-  if (!(options?.force || devtoolsStatus !== 'disconnected')) {
+  const connected =
+    'docKey' in message && getDevtoolsStatus(message.docKey) !== 'disconnected';
+  if (!(options?.force || connected)) {
     return;
   }
 
@@ -67,22 +104,39 @@ function sendToPanel(
 export function setupDevtools<T, P extends Indexable>(
   doc: Document<T, P>,
 ): void {
-  if (
-    !doc.isEnableDevtools() ||
-    typeof window === 'undefined' ||
-    unsubsByDocKey.has(doc.getKey())
-  ) {
+  if (!doc.isEnableDevtools() || typeof window === 'undefined') {
     return;
   }
 
+  // NOTE(hackerwins): A document key can be claimed twice on one page when a
+  // component remounts and constructs a new Document under the same key. The
+  // previous instance is gone, but its subscription and window listener would
+  // keep answering the panel and hand the user a dead document's history, so
+  // the newest instance takes the key over.
+  //
+  // The protocol identifies a document by its key alone, so two documents that
+  // are alive at once under one key (two clients collaborating inside a single
+  // page) are indistinguishable from a remount. The newest wins in both cases;
+  // the older one stops being recorded. Telling them apart needs an identity
+  // the protocol does not carry.
+  teardownByDocKey.get(doc.getKey())?.();
+
   docEventsForReplayByDocKey.set(doc.getKey(), []);
+  // NOTE(hackerwins): A re-claim replaces the Document behind the key, not the
+  // panel's attachment to it. Zeroing the status here would make
+  // `isPanelConnected` report false on a single-document page, so the SDK would
+  // send `refresh-devtools` and wipe the view the re-announce path exists to
+  // preserve.
+  if (!devtoolsStatusByDocKey.has(doc.getKey())) {
+    devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
+  }
   const unsub = doc.subscribe('all', (event) => {
     if (!isDocEventsForReplay(event)) {
       return;
     }
 
     docEventsForReplayByDocKey.get(doc.getKey())!.push(event);
-    if (devtoolsStatus === 'synced') {
+    if (getDevtoolsStatus(doc.getKey()) === 'synced') {
       sendToPanel({
         msg: 'doc::sync::partial',
         docKey: doc.getKey(),
@@ -94,49 +148,84 @@ export function setupDevtools<T, P extends Indexable>(
   unsubsByDocKey.set(doc.getKey(), [unsub]);
 
   // NOTE(chacha912): Send initial message, in case the devtool panel is already open.
-  sendToPanel(
-    {
-      msg: 'refresh-devtools',
-    },
-    { force: true },
-  );
+  // NOTE(hackerwins): When the panel is already attached to another document on
+  // this page, announcing this document is enough. Asking for a refresh would
+  // throw away the view the user is currently looking at.
+  if (isPanelConnected()) {
+    sendToPanel(
+      {
+        msg: 'doc::available',
+        docKey: doc.getKey(),
+      },
+      { force: true },
+    );
+  } else {
+    sendToPanel(
+      {
+        msg: 'refresh-devtools',
+      },
+      { force: true },
+    );
+  }
 
-  // TODO(hackerwins): We need to ensure that this event listener should be
-  // removed later.
-  window.addEventListener(
-    'message',
-    (event: MessageEvent<DevTools.FullPanelToSDKMessage>) => {
-      if (event.data?.source !== EventSourceDevPanel) {
-        return;
-      }
+  const handleMessage = (
+    event: MessageEvent<DevTools.FullPanelToSDKMessage>,
+  ) => {
+    // NOTE(hackerwins): `message` events also arrive from child frames. Only
+    // this window's own posts come from the panel relay; a third-party iframe
+    // must not be able to drive the bridge.
+    if (event.source !== window || event.data?.source !== EventSourceDevPanel) {
+      return;
+    }
 
-      const message = event.data;
-      switch (message.msg) {
-        case 'devtools::connect':
-          if (devtoolsStatus !== 'disconnected') {
-            break;
+    const message = event.data;
+    switch (message.msg) {
+      case 'devtools::connect':
+        // NOTE(hackerwins): The panel clears its state before sending
+        // `devtools::connect`, so every document has to announce itself
+        // again, including one that is already connected.
+        devtoolsStatusByDocKey.set(doc.getKey(), 'connected');
+        sendToPanel({
+          msg: 'doc::available',
+          docKey: doc.getKey(),
+        });
+        logger.info(`[YD] Devtools connected. Doc: ${doc.getKey()}`);
+        break;
+      case 'devtools::disconnect':
+        devtoolsStatusByDocKey.set(doc.getKey(), 'disconnected');
+        logger.info(`[YD] Devtools disconnected. Doc: ${doc.getKey()}`);
+        break;
+      case 'devtools::subscribe':
+        // NOTE(hackerwins): The panel watches one document at a time, so
+        // subscribing to another document stops the stream of this one.
+        if (message.docKey !== doc.getKey()) {
+          if (getDevtoolsStatus(doc.getKey()) === 'synced') {
+            devtoolsStatusByDocKey.set(doc.getKey(), 'connected');
           }
-          devtoolsStatus = 'connected';
-          sendToPanel({
-            msg: 'doc::available',
-            docKey: doc.getKey(),
-          });
-          logger.info(`[YD] Devtools connected. Doc: ${doc.getKey()}`);
           break;
-        case 'devtools::disconnect':
-          devtoolsStatus = 'disconnected';
-          logger.info(`[YD] Devtools disconnected. Doc: ${doc.getKey()}`);
-          break;
-        case 'devtools::subscribe':
-          devtoolsStatus = 'synced';
-          sendToPanel({
-            msg: 'doc::sync::full',
-            docKey: doc.getKey(),
-            events: docEventsForReplayByDocKey.get(doc.getKey())!,
-          });
-          logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
-          break;
-      }
-    },
-  );
+        }
+
+        devtoolsStatusByDocKey.set(doc.getKey(), 'synced');
+        sendToPanel({
+          msg: 'doc::sync::full',
+          docKey: doc.getKey(),
+          events: docEventsForReplayByDocKey.get(doc.getKey())!,
+        });
+        logger.info(`[YD] Devtools subscribed. Doc: ${doc.getKey()}`);
+        break;
+    }
+  };
+  window.addEventListener('message', handleMessage);
+
+  // TODO(hackerwins): This runs when the key is claimed again. A document that
+  // is removed and never recreated still leaks its listener.
+  teardownByDocKey.set(doc.getKey(), () => {
+    for (const unsubscribe of unsubsByDocKey.get(doc.getKey()) || []) {
+      unsubscribe();
+    }
+    window.removeEventListener('message', handleMessage);
+    unsubsByDocKey.delete(doc.getKey());
+    docEventsForReplayByDocKey.delete(doc.getKey());
+    teardownByDocKey.delete(doc.getKey());
+  });
 }

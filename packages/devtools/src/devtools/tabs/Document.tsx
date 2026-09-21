@@ -20,7 +20,11 @@ import { Primitive } from '@yorkie-js/sdk';
 import { RootTree } from '../components/Tree';
 import { JSONDetail, TreeDetail } from '../components/Detail';
 import { useSelectedNode } from '../contexts/SelectedNode';
-import { useCurrentDocKey, useYorkieDoc } from '../contexts/YorkieSource';
+import {
+  useCurrentDocKey,
+  useDocList,
+  useYorkieDoc,
+} from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
 
 /**
@@ -32,6 +36,7 @@ import { CloseIcon } from '../icons';
  */
 export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
   const currentDocKey = useCurrentDocKey();
+  const { docKeys, selectDocument } = useDocList();
   const [doc] = useYorkieDoc();
   const [selectedNode, setSelectedNode] = useSelectedNode();
   const [hideRemovedNode, setHideRemovedNode] = useState(true);
@@ -39,7 +44,14 @@ export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
   const [nodeDetail, setNodeDetail] = useState(null);
 
   useEffect(() => {
-    if (!doc) return;
+    if (!doc) {
+      // NOTE(hackerwins): While switching documents the replayed document is
+      // null for one round trip. Clearing here keeps the previous document's
+      // tree from being rendered under the newly selected key.
+      setRoot(null);
+      setSelectedNode(null);
+      return;
+    }
     // TODO(chacha912): Enhance to prevent updates when there are no changes in the root.
     setRoot(doc.toJSForTest());
 
@@ -68,7 +80,23 @@ export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
   return (
     <div className="yorkie-root content-wrap" style={{ ...style }}>
       <div className="devtools-tab-toolbar">
-        <span className="title">{currentDocKey || 'Document'}</span>
+        {docKeys.length > 1 ? (
+          <select
+            className="title doc-select"
+            value={currentDocKey}
+            onChange={(e) => {
+              selectDocument(e.target.value);
+            }}
+          >
+            {docKeys.map((docKey) => (
+              <option key={docKey} value={docKey}>
+                {docKey}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="title">{currentDocKey || 'Document'}</span>
+        )}
         <button
           className="toggle-tab-btn"
           onClick={() => {

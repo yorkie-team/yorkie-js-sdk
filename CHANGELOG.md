@@ -7,6 +7,10 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix devtools panel state when a page has multiple documents by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1346
+
 ## [v0.7.22] - 2026-09-17
 
 ### Changed

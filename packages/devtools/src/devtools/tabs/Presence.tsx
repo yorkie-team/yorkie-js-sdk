@@ -32,7 +32,14 @@ export function Presence() {
   const [selectedPresence, setSelectedPresence] = useSelectedPresence();
   const [presences, setPresences] = useState([]);
   useEffect(() => {
-    if (!doc) return;
+    if (!doc) {
+      // NOTE(hackerwins): While switching documents the replayed document is
+      // null for one round trip. Clearing here keeps the previous document's
+      // presences from being rendered under the newly selected key.
+      setPresences([]);
+      setSelectedPresence(null);
+      return;
+    }
     // TODO(chacha912): Enhance to prevent updates when there are no changes in the presences.
     const presences = [doc.getSelfForTest(), ...doc.getOthersForTest()];
     setPresences(presences);
