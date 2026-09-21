@@ -1,13 +1,13 @@
 {
   "name": "@yorkie-js/devtools",
   "displayName": "Yorkie Devtools",
-  "version": "0.7.21",
+  "version": "0.7.22",
   "description": "A browser extension that helps you debug Yorkie.",
   "homepage": "https://yorkie.dev/",
   "scripts": {
     "dev": "plasmo dev --build-path=dist",
     "build": "plasmo build --build-path=dist --zip",
-    "test": "plasmo test",
+    "typecheck": "tsc --noEmit --verbatimModuleSyntax false",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {

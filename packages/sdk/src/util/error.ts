@@ -90,6 +90,14 @@ export enum Code {
   // ErrEpochMismatch is returned when the document has been compacted
   // and the client's epoch no longer matches the server's epoch.
   ErrEpochMismatch = 'ErrEpochMismatch',
+
+  // ErrDocumentOpenElsewhere is returned when an offline-persistence attach
+  // cannot take the single-active-session lock because another session — in
+  // practice another tab of the same client — already holds it for this
+  // document. It is its own code so a consumer can fall back to a
+  // non-persisting client on exactly this condition without matching on
+  // message text.
+  ErrDocumentOpenElsewhere = 'ErrDocumentOpenElsewhere',
 }
 
 /**

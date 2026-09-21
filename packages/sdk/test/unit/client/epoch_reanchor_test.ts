@@ -107,6 +107,36 @@ function activatedClient(
   return client;
 }
 
+/**
+ * `assertFreshlyBased` asserts a store entry holds a base snapshot for an
+ * empty, re-anchored document and nothing else.
+ *
+ * After a data-loss re-anchor the stale entry is cleared, and attach then
+ * writes a fresh base — persistence is meant to continue, not stop. So the
+ * property under test is that nothing stale survived, which "the key is
+ * absent" only approximated.
+ */
+async function assertFreshlyBased(
+  store: MemoryDocStore,
+  storeKey: string,
+  docKey: string,
+): Promise<void> {
+  // Let the chained persist queue settle: the store trails the document by
+  // design, so reading it immediately can catch it mid-write.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const stored = await store.load(storeKey);
+  assert.isDefined(stored, 'attach re-establishes a base after a re-anchor');
+  assert.deepEqual(stored!.changes, [], 'no stale edits survive');
+  const restored = Document.fromBytes<{ text?: string }>(
+    docKey,
+    stored!.snapshot,
+  );
+  // The staleness check is the content, not the pending count: a fresh attach
+  // legitimately queues a change of its own (presence, an initial root), and
+  // asserting zero would be asserting that attach does nothing.
+  assert.equal(restored.getRoot().text, undefined);
+}
+
 describe('Store-backed epoch re-anchor', () => {
   it('clears the store and re-attaches fresh on ErrEpochMismatch', async () => {
     // Pre-seed the store with a persisted (stale-epoch) envelope, as if a
@@ -118,7 +148,7 @@ describe('Store-backed epoch re-anchor', () => {
       root.text = 'offline edit';
     });
     (seed as any).epoch = 5n;
-    await store.save(scopedKey('k'), seed.toBytes());
+    await store.saveSnapshot(scopedKey('k'), seed.toBytes());
 
     let calls = 0;
     const presentedEpochs: Array<bigint> = [];
@@ -207,7 +237,7 @@ describe('Tier-3 silent-purge guard', () => {
       root.text = 'offline edit';
     });
     seed.setDocID('doc-id-old');
-    await store.save(scopedKey(key), seed.toBytes());
+    await store.saveSnapshot(scopedKey(key), seed.toBytes());
 
     // The server GC'd/deleted the document while offline, so attach mints a
     // fresh doc under a different documentId. The resume itself succeeds (no
@@ -228,11 +258,13 @@ describe('Tier-3 silent-purge guard', () => {
     assert.equal(dropped.length, 1);
     assert.equal(dropped[0].reason, 'document-purged');
     assert.isAtLeast(dropped[0].changes.length, 1);
-    // The re-anchored document reflects the fresh (empty) server doc, and the
-    // stale store entry was cleared.
+    // The re-anchored document reflects the fresh (empty) server doc.
     assert.equal(doc.getRoot().text, undefined);
     assert.equal(doc.getDocID(), 'doc-id-new');
-    assert.isUndefined(await store.load(scopedKey(key)));
+    // The stale entry was cleared and attach then established a fresh base for
+    // the re-anchored document. What matters is that nothing stale survived,
+    // not that the key is absent: persistence continues after a re-anchor.
+    await assertFreshlyBased(store, scopedKey(key), key);
   });
 
   it('drops stale edits when the persisted actor does not match', async () => {
@@ -246,7 +278,7 @@ describe('Tier-3 silent-purge guard', () => {
     seed.update((root) => {
       root.text = 'foreign edit';
     });
-    await store.save(scopedKey(key), seed.toBytes());
+    await store.saveSnapshot(scopedKey(key), seed.toBytes());
 
     const attachDocument = async () => attachResponse(0n);
     const client = activatedClient(store, attachDocument);
@@ -263,6 +295,6 @@ describe('Tier-3 silent-purge guard', () => {
     assert.equal(dropped[0].reason, 'actor-mismatch');
     assert.isAtLeast(dropped[0].changes.length, 1);
     assert.equal(doc.getRoot().text, undefined);
-    assert.isUndefined(await store.load(scopedKey(key)));
+    await assertFreshlyBased(store, scopedKey(key), key);
   });
 });

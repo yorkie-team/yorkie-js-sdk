@@ -227,3 +227,213 @@ describe('Offline persistence (reload with pending changes)', () => {
     await c2.deactivate();
   });
 });
+
+describe('Incremental persistence (real server round trip)', () => {
+  it('keeps writing appends, not snapshots, while editing', async ({
+    task,
+  }) => {
+    const stamp = `${new Date().getTime()}`;
+    const docKey = toDocKey(`${task.name}-${stamp}`);
+    const key = `incremental-e2e-${stamp}`;
+    const store = new MemoryDocStore();
+
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await c1.activate();
+    const d1 = new yorkie.Document<R>(docKey);
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+
+    const base = await store.load(`/${key}/${docKey}`);
+    assert.isDefined(base);
+    assert.deepEqual(base!.changes, []);
+
+    for (const word of ['a', 'ab', 'abc']) {
+      d1.update((root) => {
+        root.text = word;
+      });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const stored = (await store.load(`/${key}/${docKey}`))!;
+    // The property that distinguishes this from the snapshot-per-change
+    // design: the base is untouched and the edits live in the log.
+    assert.equal(stored.changes.length, 3);
+    assert.deepEqual(
+      Array.from(stored.snapshot),
+      Array.from(base!.snapshot),
+      'an edit must not rewrite the snapshot',
+    );
+
+    await c1.deactivate();
+  });
+
+  it('survives a reload and stays pushable afterwards', async ({ task }) => {
+    // The end-to-end shape that unit tests missed twice: remote content pulled
+    // during a session must persist, and the first edit after a restore must
+    // actually reach the server rather than being silently dropped for
+    // reusing a clientSeq the server has already seen.
+    const stamp = `${new Date().getTime()}`;
+    const docKey = toDocKey(`${task.name}-${stamp}`);
+    const key = `incremental-reload-${stamp}`;
+    const store = new MemoryDocStore();
+
+    // A peer writes something the offline client will pull.
+    const peer = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await peer.activate();
+    const peerDoc = new yorkie.Document<R>(docKey);
+    await peer.attach(peerDoc, { syncMode: SyncMode.Manual });
+    peerDoc.update((root) => {
+      root.text = 'from-peer';
+    });
+    await peer.sync();
+
+    // Session 1: pull the peer's change, then edit without syncing.
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await c1.activate();
+    const d1 = new yorkie.Document<R>(docKey);
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c1.sync();
+    assert.equal(d1.getRoot().text, 'from-peer');
+
+    d1.update((root) => {
+      root.text = `${root.text}+offline`;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Session 2: reload over the same store and client key.
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await c2.activate();
+    const d2 = new yorkie.Document<R>(docKey);
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+
+    assert.equal(
+      d2.getRoot().text,
+      'from-peer+offline',
+      'both the pulled content and the offline edit must survive',
+    );
+
+    // The first edit after a restore has to be pushable: a counter left behind
+    // by the replay mints a clientSeq the server has already acked and the
+    // edit disappears with no error anywhere.
+    d2.update((root) => {
+      root.text = `${root.text}+after`;
+    });
+    await c2.sync();
+
+    const verifier = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await verifier.activate();
+    const dv = new yorkie.Document<R>(docKey);
+    await verifier.attach(dv, { syncMode: SyncMode.Manual });
+    await verifier.sync();
+    assert.equal(
+      dv.getRoot().text,
+      'from-peer+offline+after',
+      'the post-restore edit must reach the server',
+    );
+
+    await c2.deactivate();
+    await peer.deactivate();
+    await verifier.deactivate();
+  });
+});
+
+describe('Offline persistence lifecycle', () => {
+  it('allows re-attaching a document after detaching it', async ({ task }) => {
+    // A detached document has no owner for its offline state. Leaving the
+    // entry makes the next attach present a resume the server refuses for a
+    // row it just detached, and it surfaces as "document already detached" —
+    // an error that says nothing about storage.
+    const stamp = `${new Date().getTime()}`;
+    const docKey = toDocKey(`${task.name}-${stamp}`);
+    const key = `lifecycle-${stamp}`;
+    const store = new MemoryDocStore();
+
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await client.activate();
+
+    const d1 = new yorkie.Document<R>(docKey);
+    await client.attach(d1, { syncMode: SyncMode.Manual });
+    d1.update((root) => {
+      root.text = 'hello';
+    });
+    await client.sync();
+    await client.detach(d1);
+
+    const d2 = new yorkie.Document<R>(docKey);
+    await client.attach(d2, { syncMode: SyncMode.Manual });
+    assert.equal(d2.getRoot().text, 'hello');
+
+    await client.deactivate();
+  });
+});
+
+describe('Offline persistence after a server-side removal', () => {
+  it('allows attaching again after learning the document was removed', async ({
+    task,
+  }) => {
+    // A sync can be the thing that tells this client the document is gone.
+    // That is the third way a document ends, and the persisted envelope has to
+    // go with it: it carries a serverSeq for a row that no longer exists, so
+    // the next attach presents a checkpoint ahead of the server and is
+    // rejected — an error the store path does not recover from.
+    const stamp = `${new Date().getTime()}`;
+    const docKey = toDocKey(`${task.name}-${stamp}`);
+    const key = `removal-${stamp}`;
+    const store = new MemoryDocStore();
+
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      key,
+      store,
+      sessionLock: noopLock,
+    });
+    await c1.activate();
+    const d1 = new yorkie.Document<R>(docKey);
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    d1.update((root) => {
+      root.text = 'doomed';
+    });
+    await c1.sync();
+
+    // Another client removes it, and this one learns that from a sync.
+    const remover = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await remover.activate();
+    const dr = new yorkie.Document<R>(docKey);
+    await remover.attach(dr, { syncMode: SyncMode.Manual });
+    await remover.remove(dr);
+    await remover.deactivate();
+
+    try {
+      await c1.sync();
+    } catch {
+      // The sync itself may reject; what matters is the state it leaves.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // A fresh document under the same key and client key must attach.
+    const d2 = new yorkie.Document<R>(docKey);
+    await c1.attach(d2, { syncMode: SyncMode.Manual });
+    assert.equal(d2.getRoot().text, undefined);
+
+    await c1.deactivate();
+  });
+});

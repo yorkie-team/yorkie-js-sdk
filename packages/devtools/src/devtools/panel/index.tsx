@@ -29,12 +29,17 @@ import {
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
 import { History } from '../tabs/History';
+import { Notifications } from '../tabs/Notifications';
 import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
-  const { originalEvents, presenceFilteredEvents, hidePresenceEvents } =
-    useDocEventsForReplay();
+  const {
+    originalEvents,
+    presenceFilteredEvents,
+    syncGeneration,
+    hidePresenceEvents,
+  } = useDocEventsForReplay();
   const [, setDoc] = useYorkieDoc();
   const [selectedEventIndexInfo, setSelectedEventIndexInfo] = useState({
     index: null,
@@ -67,10 +72,22 @@ const Panel = () => {
         index: null,
         isLast: true,
       });
+      // NOTE(hackerwins): The replay effect below returns early while the index
+      // is null, so the detail pane would keep showing the event of the
+      // previously selected document. Clear it here.
+      setSelectedEvent([]);
       return;
     }
 
-    if (selectedEventIndexInfo.isLast) {
+    // NOTE(hackerwins): A re-announced document replaces the list with its own,
+    // which can be shorter than the position the user is holding. Follow the
+    // tail when the user was on it, and otherwise keep their position unless
+    // the new list no longer reaches it.
+    if (
+      selectedEventIndexInfo.isLast ||
+      selectedEventIndexInfo.index === null ||
+      selectedEventIndexInfo.index > events.length - 1
+    ) {
       setSelectedEventIndexInfo({
         index: events.length - 1,
         isLast: true,
@@ -86,7 +103,14 @@ const Panel = () => {
     let eventIndex = 0;
     let filteredEventIndex = 0;
 
-    while (filteredEventIndex <= selectedEventIndexInfo.index) {
+    // NOTE(hackerwins): A re-announced document answers `devtools::subscribe`
+    // with a fresh, shorter log while the slider still points at an old
+    // position. Walking past the end would throw and unmount the panel, which
+    // has no error boundary.
+    while (
+      filteredEventIndex <= selectedEventIndexInfo.index &&
+      eventIndex < originalEvents.length
+    ) {
       if (!originalEvents[eventIndex].isFiltered) {
         filteredEventIndex++;
       }
@@ -96,8 +120,14 @@ const Panel = () => {
     }
 
     setDoc(doc);
-    setSelectedEvent(events[selectedEventIndexInfo.index].event);
-  }, [selectedEventIndexInfo]);
+    setSelectedEvent(events[selectedEventIndexInfo.index]?.event || []);
+    // NOTE(hackerwins): `syncGeneration` belongs in the dependencies. When a
+    // re-announced document answers with a new list and the held index stays
+    // valid, this effect is the only thing that rebuilds the replayed document;
+    // without it the panel keeps rendering the previous instance's tree. It
+    // counts replacements rather than watching the list, so an appended event
+    // does not re-run a full replay while the user is holding a past position.
+  }, [selectedEventIndexInfo, syncGeneration]);
 
   if (!currentDocKey) {
     return (
@@ -164,6 +194,8 @@ const Panel = () => {
           </>
         )}
       </div>
+
+      <Notifications />
     </div>
   );
 };

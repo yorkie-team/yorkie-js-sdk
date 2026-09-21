@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { DocEventsForReplay } from './types';
+import { DocEventsForReplay, DocNotification } from './types';
 
 /**
  * `EventSourceDevPanel` is the name of the source representing messages
@@ -85,6 +85,24 @@ export type SDKToPanelMessage =
       msg: 'doc::sync::partial';
       docKey: string;
       event: DocEventsForReplay;
+    }
+  /**
+   * Sent initially, to hand over the notifications recorded so far. These are
+   * the events that cannot be replayed, so they travel beside the replay
+   * stream instead of inside it.
+   */
+  | {
+      msg: 'doc::notification::full';
+      docKey: string;
+      notifications: Array<DocNotification>;
+    }
+  /**
+   * Sent whenever an event that cannot be replayed occurs in the document.
+   */
+  | {
+      msg: 'doc::notification::partial';
+      docKey: string;
+      notification: DocNotification;
     };
 
 export type FullPanelToSDKMessage = PanelToSDKMessage & {

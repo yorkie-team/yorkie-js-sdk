@@ -30,6 +30,12 @@ import {
   type WatchedEvent,
   type UnwatchedEvent,
   type PresenceChangedEvent,
+  type ConnectionChangedEvent,
+  type SyncStatusChangedEvent,
+  type AuthErrorEvent,
+  type EpochMismatchEvent,
+  type LocalChangesDroppedEvent,
+  type PersistDisabledEvent,
 } from '@yorkie-js/sdk/src/document/document';
 import type { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 
@@ -145,4 +151,48 @@ export function isDocEventsForReplay(
   events: Array<DocEvent>,
 ): events is DocEventsForReplay {
   return events.every(isDocEventForReplay);
+}
+
+/**
+ * `DocNotificationEvent` is an event that cannot be used to replay a document.
+ * `Document.applyDocEventsForReplay` has no case for it, so devtools shows it
+ * as a standalone record instead of feeding it to the replay pipeline.
+ */
+export type DocNotificationEvent<P extends Indexable = Indexable> =
+  | ConnectionChangedEvent
+  | SyncStatusChangedEvent
+  | AuthErrorEvent
+  | EpochMismatchEvent
+  | LocalChangesDroppedEvent<P>
+  | PersistDisabledEvent;
+
+/**
+ * `DocNotification` is a `DocNotificationEvent` stamped with the time the SDK
+ * observed it. The panel can receive the record long after the fact, in the
+ * initial full sync, so the SDK is the only place that knows when it happened.
+ */
+export type DocNotification = {
+  event: DocNotificationEvent;
+  timestamp: number;
+};
+
+/**
+ * `isDocNotificationEvent` checks if an event should be reported to devtools
+ * as a notification. The list is explicit rather than the complement of
+ * `isDocEventForReplay`, so that a `DocEventType` added later is classified on
+ * purpose instead of landing in this channel by default.
+ */
+export function isDocNotificationEvent(
+  event: DocEvent,
+): event is DocNotificationEvent {
+  const types = [
+    DocEventType.ConnectionChanged,
+    DocEventType.SyncStatusChanged,
+    DocEventType.AuthError,
+    DocEventType.EpochMismatch,
+    DocEventType.LocalChangesDropped,
+    DocEventType.PersistDisabled,
+  ];
+
+  return types.includes(event.type);
 }
