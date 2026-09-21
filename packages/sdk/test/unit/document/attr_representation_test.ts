@@ -154,3 +154,80 @@ describe('attribute sizing', () => {
     );
   });
 });
+
+/**
+ * The half of #2003 this change does NOT close.
+ *
+ * The issue says it was filed against the server "because the question is
+ * which representation is canonical -- deciding that is a protocol-level call,
+ * and whichever way it goes one of the two implementations changes." That
+ * decision has not been made. Reading and sizing were brought into line
+ * without it; what goes on the wire was left alone, deliberately, because
+ * storing strings raw was tried and makes a caller's string '1' read back as
+ * the number 1.
+ *
+ * These tests pin the gap so it is a fact in the suite rather than a sentence
+ * in a pull request, and so that whoever makes the decision finds a test that
+ * fails and tells them exactly what they changed.
+ */
+describe('the representation split #2003 leaves open', () => {
+  /** The bytes an attribute is stored and transmitted as. */
+  function storedTreeAttrs(
+    attrs: Record<string, unknown>,
+  ): Record<string, string> {
+    const d = new Document<{ t: Tree }>('test-doc');
+    d.update((r) => {
+      r.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      r.t.styleByPath([0], [1], attrs);
+    });
+    // Reaching past the public API is the point: the divergence IS the stored
+    // representation, and every public reader parses it back.
+    const p = (d as any).root.getObject().get('t').getRoot().children[0];
+    const out: Record<string, string> = {};
+    for (const n of p.attrs) {
+      out[n.getKey()] = n.getValue();
+    }
+    return out;
+  }
+
+  it('stores a STRING quoted, which the server does not', () => {
+    const stored = storedTreeAttrs({ color: 'red' });
+
+    // The server's `Style` takes map[string]string and stores `red`. A Go peer
+    // reading this document gets the quotes as part of the value, and prints
+    // them -- `{"attributes":{"color":"\"red\""}}`.
+    assert.equal(stored.color, '"red"', 'change this when the split is closed');
+    assert.notEqual(stored.color, 'red', 'the server would store this');
+  });
+
+  it('already agrees with the server on every NON-string', () => {
+    const stored = storedTreeAttrs({ bold: true, size: 12, ratio: 1.5 });
+
+    // `JSON.stringify` of a non-string is the same text the server would hold
+    // for the equivalent string, so these need no decision at all -- the split
+    // is strings only, which is what makes it narrow enough to be closable.
+    assert.equal(stored.bold, 'true');
+    assert.equal(stored.size, '12');
+    assert.equal(stored.ratio, '1.5');
+  });
+
+  it('cannot round-trip a string that looks like a non-string', () => {
+    // This is why the obvious fix -- store strings raw -- was not taken. With
+    // raw storage this value comes back as the boolean, and there is no way to
+    // tell the two apart without a type tag on the wire. The server has the
+    // same ambiguity today and cannot express the boolean at all.
+    const d = new Document<{ t: Tree }>('test-doc');
+    d.update((r) => {
+      r.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+      r.t.styleByPath([0], [1], { flag: 'true' });
+    });
+
+    assert.include(d.toSortedJSON(), '"flag":"true"', 'still a string today');
+  });
+});
