@@ -444,8 +444,9 @@ describe('a style over a tombstoned node', () => {
    *
    * `removedAt` is last-writer-wins and MUTABLE, while a style is evaluated
    * once, when it arrives — so any predicate over it answers differently
-   * depending on which of the two removals has landed. All four replay orders
-   * below are causally legal, so all four have to agree.
+   * depending on which of the two removals has landed. S causally depends on
+   * B (X applied B before styling), so an order delivering S first is not
+   * legal and is not replayed; the three below are, and they have to agree.
    */
   it('agrees across delivery orders when two removals are concurrent', () => {
     const grab = <T>(d: Document<T>) => {
@@ -507,7 +508,6 @@ describe('a style over a tombstoned node', () => {
       ['C,B,S', [pC, pB, pS]],
       ['B,S,C', [pB, pS, pC]],
       ['B,C,S', [pB, pC, pS]],
-      ['C,S,B', [pC, pS, pB]],
     ];
 
     let first: Array<string> | undefined;
