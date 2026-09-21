@@ -30,6 +30,7 @@ import {
   TreeStyleOpInfo,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
+import { YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   CRDTTreeNode,
   toXML,
@@ -2427,6 +2428,161 @@ describe('Tree.style', function () {
         root.t.removeStyleByPath([], [], ['bold']);
       });
     });
+  });
+});
+
+describe('Tree.splitByPath/mergeByPath', function () {
+  /**
+   * `docWithTwoSpans` returns a document holding
+   * `<doc><p><span>abc</span><span>de</span></p></doc>`.
+   */
+  function docWithTwoSpans(name: string): Document<{ t: Tree }> {
+    const doc = new yorkie.Document<{ t: Tree }>(
+      toDocKey(`${name}-${new Date().getTime()}`),
+    );
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              { type: 'span', children: [{ type: 'text', value: 'abc' }] },
+              { type: 'span', children: [{ type: 'text', value: 'de' }] },
+            ],
+          },
+        ],
+      });
+    });
+
+    return doc;
+  }
+
+  it('Can split a text position and a child position', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    doc.update((root) => root.t.splitByPath([0, 0, 1]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>a</span><span>bc</span><span>de</span></p></doc>`,
+    );
+
+    doc.update((root) => root.t.splitByPath([0, 1]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>a</span></p><p><span>bc</span><span>de</span></p></doc>`,
+    );
+  });
+
+  it('Can merge a boundary back together', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    doc.update((root) => root.t.mergeByPath([0, 1]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>abcde</span></p></doc>`,
+    );
+  });
+
+  it('Should not leave garbage content behind', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    // Neither helper copies content any more, so neither leaves a tombstone
+    // holding a copy of it. A split removes nothing at all; a merge removes
+    // only the two boundary nodes, which carry no data of their own.
+    doc.update((root) => root.t.splitByPath([0, 0, 1]));
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+
+    doc.update((root) => root.t.mergeByPath([0, 1]));
+    assert.equal(doc.getDocSize().gc.data, 0);
+  });
+
+  it('Should throw on empty paths for splitByPath and mergeByPath', function ({
+    task,
+  }) {
+    const doc = docWithTwoSpans(task.name);
+
+    assert.throws(
+      () => doc.update((root) => root.t.splitByPath([])),
+      YorkieError,
+      'path should not be empty',
+    );
+    assert.throws(
+      () => doc.update((root) => root.t.mergeByPath([])),
+      YorkieError,
+      'path should not be empty',
+    );
+  });
+
+  it('Should throw when splitByPath targets the root', function ({ task }) {
+    const doc = docWithTwoSpans(task.name);
+
+    // A split needs a parent to hold the two halves, and the root has none.
+    // Without the guard this pushes an operation that changes nothing.
+    for (const path of [[0], [1]]) {
+      assert.throws(
+        () => doc.update((root) => root.t.splitByPath(path)),
+        YorkieError,
+        'the root node cannot be split',
+      );
+    }
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      /*html*/ `<doc><p><span>abc</span><span>de</span></p></doc>`,
+    );
+  });
+
+  it('Should throw when splitByPath targets text held by the root', function ({
+    task,
+  }) {
+    const doc = new yorkie.Document<{ t: Tree }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'text', value: 'abcde' }],
+      });
+    });
+
+    // The position resolves to a text node, so the node that would split is
+    // its parent — the root again.
+    assert.throws(
+      () => doc.update((root) => root.t.splitByPath([2])),
+      YorkieError,
+      'the root node cannot be split',
+    );
+    assert.equal(doc.getRoot().t.toXML(), /*html*/ `<doc>abcde</doc>`);
+  });
+
+  it('Should throw when mergeByPath targets a first child', function ({
+    task,
+  }) {
+    const doc = docWithTwoSpans(task.name);
+
+    // There is no left sibling to merge into. Reading one off the end of the
+    // children used to raise a TypeError instead.
+    for (const path of [[0, 0], [0]]) {
+      assert.throws(
+        () => doc.update((root) => root.t.mergeByPath(path)),
+        YorkieError,
+        'the first child cannot be merged',
+      );
+    }
+  });
+
+  it('Should throw when mergeByPath targets a text position', function ({
+    task,
+  }) {
+    const doc = docWithTwoSpans(task.name);
+
+    assert.throws(
+      () => doc.update((root) => root.t.mergeByPath([0, 0, 1])),
+      YorkieError,
+      'text node cannot be merged',
+    );
   });
 });
 

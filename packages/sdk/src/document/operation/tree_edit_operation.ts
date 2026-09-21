@@ -107,6 +107,15 @@ export class TreeEditOperation extends Operation {
   private lastFromIdx?: number;
   private lastToIdx?: number;
   private insertedContentSize?: number;
+
+  /**
+   * `splitSize` is the visible-index size the boundaries THIS execution's
+   * forward `edit` opened: two tokens per element it split, zero for a split
+   * with no visible effect. A split creates boundaries rather than inserting
+   * nodes, so `insertedContentSize` above never sees them; reconciliation
+   * needs both, and reads their sum through `getContentSize`.
+   */
+  private splitSize?: number;
   /**
    * `redoSplitLevel` is set on boundary-deletion undo ops that were generated
    * to reverse a split. When this op executes (as undo), `toReverseOperation`
@@ -415,6 +424,7 @@ export class TreeEditOperation extends Operation {
       removedSpans,
       insertedSpans,
       insertedContentSize,
+      splitSize,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -465,6 +475,7 @@ export class TreeEditOperation extends Operation {
     );
     this.lastToIdx = preEditFromIdx + removedSize;
     this.insertedContentSize = insertedContentSize;
+    this.splitSize = splitSize;
 
     // Create reverse op for undo
     let reverseOp: Operation | undefined;
@@ -483,7 +494,7 @@ export class TreeEditOperation extends Operation {
         insertedSpans,
       );
     } else if (isPureSplit) {
-      reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx);
+      reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx, splitSize);
     }
 
     root.acc(diff);
@@ -672,21 +683,34 @@ export class TreeEditOperation extends Operation {
    * is a boundary deletion: a splitLevel=0 edit that removes those tokens,
    * merging the split elements back together.
    *
-   * boundarySize = 2 * splitLevel (each level creates 1 close + 1 open tag)
+   * `boundarySize` is how many tokens the split actually opened, not
+   * 2 * splitLevel, which is only how many it asked for: the split loop stops
+   * when it runs out of ancestors to split, and a level the tree has no room
+   * for would size this range over tokens the split never opened. The undo
+   * then deletes live content past its own boundary and merges elements the
+   * split never separated.
    *
    * @param tree - The CRDTTree after the split has been applied
    * @param preEditFromIdx - The from index captured BEFORE the split
+   * @param boundarySize - The visible-index size the split opened
    */
   private toSplitReverseOperation(
     tree: CRDTTree,
     preEditFromIdx: number,
+    boundarySize: number,
   ): Operation | undefined {
-    const boundarySize = 2 * this.splitLevel;
+    // The split had no visible effect — a concurrent deletion tombstoned the
+    // element it split, so its boundary occupies no visible index, or there
+    // was no ancestor left to split at all. Nothing for an undo to merge.
+    if (boundarySize === 0) {
+      return undefined;
+    }
+
     const reverseFromIdx = preEditFromIdx;
     const reverseToIdx = preEditFromIdx + boundarySize;
 
-    // Guard: if indices exceed tree size, the split was a no-op
-    // (e.g., concurrent parent deletion tombstoned the split result).
+    // Belt and braces against a range that runs off the end of the tree:
+    // deleting it would take out live content to the right of the boundary.
     if (reverseToIdx > tree.getSize()) {
       return undefined;
     }
@@ -836,7 +860,7 @@ export class TreeEditOperation extends Operation {
    */
   public getContentSize(): number {
     if (this.insertedContentSize !== undefined) {
-      return this.insertedContentSize;
+      return this.insertedContentSize + (this.splitSize ?? 0);
     }
     if (!this.contents) return 0;
     return this.contents.reduce((sum, node) => sum + node.paddedSize(), 0);

@@ -208,6 +208,14 @@ export enum DocEventType {
    * them on top of the re-anchored state.
    */
   LocalChangesDropped = 'local-changes-dropped',
+
+  /**
+   * `PersistDisabled` indicates the offline-persistence layer stopped
+   * persisting this document because writing it costs more than the configured
+   * budget allows. Editing continues; durability does not. An app that reports
+   * sync state should say so, since the user's work is no longer being kept.
+   */
+  PersistDisabled = 'persist-disabled',
 }
 
 /**
@@ -224,7 +232,8 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | PresenceEvent<P>
   | AuthErrorEvent
   | EpochMismatchEvent
-  | LocalChangesDroppedEvent<P>;
+  | LocalChangesDroppedEvent<P>
+  | PersistDisabledEvent;
 
 /**
  * `DocEvents` represents document events that occur within
@@ -398,6 +407,23 @@ export interface EpochMismatchEvent extends BaseDocEvent {
   };
 }
 
+export type PersistDisabledReason =
+  // Serializing the document exceeded `maxPersistBytes`.
+  | 'too-large'
+  // Serializing the document took longer than `maxPersistMillis`.
+  | 'too-slow';
+
+/**
+ * `PersistDisabledEvent` reports that this document is no longer being
+ * persisted. It fires once per attachment: the measurement that triggers it is
+ * taken at compaction, and latching tears the persist subscription down, so
+ * the cost of discovering the document is unaffordable is paid once.
+ */
+export interface PersistDisabledEvent extends BaseDocEvent {
+  type: DocEventType.PersistDisabled;
+  value: { reason: PersistDisabledReason; bytes: number; millis: number };
+}
+
 /**
  * `LocalChangesDroppedReason` enumerates why the offline-persistence layer
  * had to discard un-pushed local changes it could not reconcile.
@@ -406,7 +432,11 @@ export type LocalChangesDroppedReason =
   | 'epoch-reanchor'
   | 'document-purged'
   | 'actor-mismatch'
-  | 'restore-failed';
+  | 'restore-failed'
+  // The persisted change log had a `clientSeq` hole — an append that never
+  // landed — so it could not be replayed: the server rejects a discontinuous
+  // run, and a document restored from one would never sync again.
+  | 'log-discontinuity';
 
 /**
  * `LocalChangesDroppedEvent` is an app-visible data-loss signal: the persisted
@@ -437,6 +467,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   'auth-error': NextFn<AuthErrorEvent>;
   'epoch-mismatch': NextFn<EpochMismatchEvent>;
   'local-changes-dropped': NextFn<LocalChangesDroppedEvent<P>>;
+  'persist-disabled': NextFn<PersistDisabledEvent>;
   all: NextFn<DocEvents<P>>;
 };
 export type DocEventTopic = keyof DocEventCallbackMap<never>;
@@ -1029,6 +1060,17 @@ export class Document<
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the offline-persistence layer stopped
+   * persisting this document because writing it exceeds the configured budget.
+   * Editing continues; durability does not.
+   */
+  public subscribe(
+    type: 'persist-disabled',
+    next: DocEventCallbackMap<P>['persist-disabled'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    */
   public subscribe(
     type: 'all',
@@ -1186,6 +1228,18 @@ export class Document<
         return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.EpochMismatch) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'persist-disabled') {
+        const callback = arg2 as DocEventCallbackMap<P>['persist-disabled'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.PersistDisabled) {
               continue;
             }
 
@@ -1527,6 +1581,163 @@ export class Document<
    */
   public getPendingChangeStructs(): Array<ChangeStruct<P>> {
     return this.localChanges.map((change) => change.toStruct());
+  }
+
+  /**
+   * `getPendingChangesAfter` returns the un-pushed local changes whose
+   * `clientSeq` is above the given one, each paired with that sequence.
+   *
+   * The pairing is the point: a `ChangeStruct` carries its `clientSeq` encoded
+   * inside the hex `changeID`, so a caller working from structs alone cannot
+   * tell which changes it has already seen without decoding them. The
+   * offline-persistence layer needs exactly that to append only what is new.
+   */
+  public getPendingChangesAfter(
+    clientSeq: number,
+  ): Array<{ clientSeq: number; struct: ChangeStruct<P> }> {
+    const out: Array<{ clientSeq: number; struct: ChangeStruct<P> }> = [];
+    for (const change of this.localChanges) {
+      const seq = change.getID().getClientSeq();
+      if (seq > clientSeq) {
+        out.push({ clientSeq: seq, struct: change.toStruct() });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * `metaToBytes` serializes just the checkpoint and changeID — the client's
+   * position against the server — without touching the root.
+   *
+   * This is what the offline-persistence layer writes after a sync. A sync
+   * advances the checkpoint while leaving the document unchanged, so
+   * re-serializing the whole document to record it would cost time
+   * proportional to the document for information that is a few dozen bytes.
+   * Without it a restore would resume from whatever checkpoint the last
+   * snapshot happened to carry.
+   */
+  public metaToBytes(): Uint8Array {
+    const encoder = new TextEncoder();
+    const checkpoint = encoder.encode(
+      JSON.stringify({
+        serverSeq: this.checkpoint.getServerSeq().toString(),
+        clientSeq: this.checkpoint.getClientSeq(),
+      }),
+    );
+    const changeID = converter.changeIDToBinary(this.changeID);
+    // The epoch and docID are learned from sync responses, so meta is the only
+    // place they can be recorded between snapshots. Omitting the epoch made a
+    // server-side force-compaction invisible until the next attach presented a
+    // stale one, took `ErrEpochMismatch`, and re-anchored — discarding every
+    // un-pushed edit for want of a field.
+    const encoderEpoch = encoder.encode(this.epoch.toString());
+    const docID = encoder.encode(this.docID);
+    return packBlobs([checkpoint, changeID, encoderEpoch, docID]);
+  }
+
+  /**
+   * `restoreMetaFromBytes` applies the bytes produced by `metaToBytes`,
+   * overwriting the checkpoint and changeID. Trailing blobs stay optional, the
+   * same extension rule the `toBytes` envelope follows.
+   */
+  public restoreMetaFromBytes(bytes: Uint8Array): void {
+    const decoder = new TextDecoder();
+    const [checkpointBytes, changeIDBytes, epochBytes, docIDBytes] =
+      unpackBlobs(bytes);
+
+    const checkpoint = JSON.parse(decoder.decode(checkpointBytes)) as {
+      serverSeq: string;
+      clientSeq: number;
+    };
+    this.checkpoint = Checkpoint.of(
+      BigInt(checkpoint.serverSeq),
+      checkpoint.clientSeq,
+    );
+    if (changeIDBytes) {
+      this.changeID = converter.bytesToChangeID(changeIDBytes);
+    }
+    // Trailing blobs stay optional, the same rule the `toBytes` envelope
+    // follows, so meta written before these fields existed still decodes.
+    if (epochBytes) {
+      this.epoch = BigInt(decoder.decode(epochBytes));
+    }
+    if (docIDBytes) {
+      this.docID = decoder.decode(docIDBytes);
+    }
+  }
+
+  /**
+   * `restoreAppendedChanges` replays changes that were recorded *after* the
+   * snapshot this document was restored from, as the offline-persistence
+   * layer's change log holds them.
+   *
+   * These are the opposite case to the pending changes carried inside a
+   * `toBytes` envelope. Those are already reflected in the snapshot's root —
+   * `toBytes` serializes the live root — so `fromBytes` queues them without
+   * applying. A change from the log was written after that root was captured,
+   * so it must be both **applied**, to bring the root forward, and **queued**,
+   * so it is still pushed. Doing only the first loses the edit on reconnect;
+   * doing only the second leaves the user looking at stale content.
+   *
+   * The log must be contiguous and ascending by `clientSeq`. A caller that
+   * cannot satisfy that should restore from the snapshot alone and report the
+   * loss rather than replaying a broken run.
+   */
+  public restoreAppendedChanges(
+    structs: Array<ChangeStruct<P>>,
+    ackedClientSeq = 0,
+  ): void {
+    if (!structs.length) {
+      return;
+    }
+
+    const changes = structs.map((struct) => Change.fromStruct<P>(struct));
+    let prev: number | undefined;
+    for (const change of changes) {
+      const clientSeq = change.getID().getClientSeq();
+      if (prev !== undefined && clientSeq <= prev) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `appended changes must be ascending by clientSeq, got ${clientSeq} ` +
+            `after ${prev}`,
+        );
+      }
+      prev = clientSeq;
+    }
+
+    // Every entry is applied — the log is the delta between the snapshot and
+    // current content, so skipping an acked one would leave the root behind.
+    // Only the unacked ones are queued: re-pushing what the server has already
+    // taken presents a `clientSeq` it will skip.
+    this.applyChanges(changes, OpSource.Local);
+    this.localChanges.push(
+      ...changes.filter(
+        (change) => change.getID().getClientSeq() > ackedClientSeq,
+      ),
+    );
+
+    // Adopt the last replayed change's ID as the document's own counter.
+    //
+    // `applyChanges` only syncs clocks, which leaves `clientSeq` behind and
+    // over-advances `lamport` (it bumps per change, on top of a snapshot that
+    // predates them). Both matter. `createChangePack` derives the pushed
+    // checkpoint from `clientSeq`, so a counter left behind mints a sequence
+    // the server has already seen and silently drops the next edit; and a
+    // lamport that ran ahead mis-stamps every later ticket.
+    //
+    // An `update` leaves `changeID` equal to the change it just minted, so the
+    // state after replaying a run is the last change's ID exactly.
+    // Guarded: an all-acked replay must not pull the clock back below what the
+    // meta header already established.
+    const lastID = changes[changes.length - 1].getID();
+    if (lastID.getClientSeq() >= this.changeID.getClientSeq()) {
+      this.changeID = lastID;
+    }
+
+    // The clone predates the replay, and the history's reverse-ops reference
+    // the pre-replay state — the same reasoning `restoreFromBytes` applies.
+    this.clone = undefined;
+    this.clearHistory();
   }
 
   /**

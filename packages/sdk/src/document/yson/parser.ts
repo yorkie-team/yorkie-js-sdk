@@ -108,10 +108,13 @@ function isIdentChar(ch: string | undefined): boolean {
 }
 
 /**
- * `skipString` returns the index just past the JSON string literal that starts
- * at `start` (which must point at the opening quote), honouring `\"` escapes.
+ * `scanStringLiteral` returns the index just past the JSON string literal that
+ * starts at `start` (which must point at the opening quote), honouring `\"`
+ * escapes, together with whether the literal was closed. A literal ending in an
+ * escaped quote is indistinguishable from a closed one by index alone, so
+ * callers that must reject truncated input need the flag.
  */
-function skipString(s: string, start: number): number {
+function scanStringLiteral(s: string, start: number): [number, boolean] {
   let i = start + 1;
   while (i < s.length) {
     const ch = s[i];
@@ -120,25 +123,48 @@ function skipString(s: string, start: number): number {
       continue;
     }
     if (ch === '"') {
-      return i + 1;
+      return [i + 1, true];
     }
     i++;
   }
-  throw new YorkieError(Code.ErrInvalidArgument, 'unterminated string literal');
+  return [s.length, false];
+}
+
+/**
+ * `skipString` returns the index just past the JSON string literal that starts
+ * at `start` (which must point at the opening quote), honouring `\"` escapes.
+ */
+function skipString(s: string, start: number): number {
+  const [end, closed] = scanStringLiteral(s, start);
+  if (!closed) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      'unterminated string literal',
+    );
+  }
+  return end;
 }
 
 /**
  * `findMatchingParen` returns the index of the `)` that closes the `(` whose
  * argument begins at `start`. Parentheses inside string literals are ignored,
  * so the boundary is found by depth counting rather than a fixed-arity pattern.
+ * `name` is the constructor being scanned, used to name it in errors.
  */
-function findMatchingParen(s: string, start: number): number {
+function findMatchingParen(s: string, start: number, name: string): number {
   let depth = 1;
   let i = start;
   while (i < s.length) {
     const ch = s[i];
     if (ch === '"') {
-      i = skipString(s, i);
+      const [end, closed] = scanStringLiteral(s, i);
+      if (!closed) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${name} has an unterminated string`,
+        );
+      }
+      i = end;
       continue;
     }
     if (ch === '(') {
@@ -153,37 +179,97 @@ function findMatchingParen(s: string, start: number): number {
   }
   throw new YorkieError(
     Code.ErrInvalidArgument,
-    'unbalanced parentheses in YSON',
+    `${name} has unbalanced parentheses`,
   );
 }
 
 /**
- * `splitTopLevelArgs` splits a constructor argument list on top-level commas,
- * ignoring commas that appear inside nested brackets or string literals.
+ * `matchingOpen` returns the opening bracket that `closer` closes, or
+ * `undefined` if `closer` is not a closing bracket.
  */
-function splitTopLevelArgs(s: string): Array<string> {
+function matchingOpen(closer: string): string | undefined {
+  switch (closer) {
+    case ')':
+      return '(';
+    case ']':
+      return '[';
+    case '}':
+      return '{';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * `splitConstructorArgs` splits the text between a constructor's parentheses
+ * into its top-level arguments, rejecting text that is not a well-formed
+ * argument list.
+ *
+ * The bracket check is what keeps an argument inside the marker object it is
+ * emitted into. `findMatchingParen` balances only parentheses, so without it a
+ * stray `}` would close the marker object early and the text after it would
+ * escape into the parent: `Int(1},"y":{"a":2)` would parse to an object
+ * carrying a `y` key that was never in the document.
+ */
+function splitConstructorArgs(name: string, s: string): Array<string> {
   const args: Array<string> = [];
-  let depth = 0;
+  const stack: Array<string> = [];
   let start = 0;
   let i = 0;
   while (i < s.length) {
     const ch = s[i];
     if (ch === '"') {
-      i = skipString(s, i);
+      // Defence in depth: `preprocessYSON` only reaches here once
+      // `findMatchingParen` has closed the argument, which it cannot do while
+      // a literal inside it is unterminated. The check keeps this function
+      // correct on its own terms if that ever changes.
+      const [end, closed] = scanStringLiteral(s, i);
+      if (!closed) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${name} has an unterminated string`,
+        );
+      }
+      i = end;
       continue;
     }
     if (ch === '(' || ch === '[' || ch === '{') {
-      depth++;
+      stack.push(ch);
     } else if (ch === ')' || ch === ']' || ch === '}') {
-      depth--;
-    } else if (ch === ',' && depth === 0) {
+      if (stack.pop() !== matchingOpen(ch)) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${name} has unbalanced brackets`,
+        );
+      }
+    } else if (ch === ',' && stack.length === 0) {
       args.push(s.slice(start, i).trim());
       start = i + 1;
     }
     i++;
   }
+
+  if (stack.length !== 0) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `${name} has unbalanced brackets`,
+    );
+  }
+
   args.push(s.slice(start).trim());
   return args;
+}
+
+/**
+ * `isStringLiteral` reports whether `s` is exactly one complete JSON string
+ * literal, with nothing before or after it.
+ */
+function isStringLiteral(s: string): boolean {
+  if (s.length < 2 || s[0] !== '"') {
+    return false;
+  }
+  const [end, closed] = scanStringLiteral(s, 0);
+  return closed && end === s.length;
 }
 
 /**
@@ -211,6 +297,14 @@ function matchConstructorAt(s: string, i: number): string | undefined {
  * structure) and matches constructor arguments by paren depth (so there is no
  * nesting-depth ceiling). Nested constructors such as `Counter(Int(10))` are
  * handled by recursing into the argument content.
+ *
+ * Every argument is validated before it is interpolated into the marker
+ * object it belongs to. An unchecked argument would otherwise reshape the
+ * emitted JSON: a second argument becomes a sibling key of the marker object,
+ * so `Int(42,"__yson_type":"Long")` would emit a duplicate `__yson_type` and
+ * parse as a Long, and a stray `}` would close the marker object early, so
+ * `Int(1},"y":{"a":2)` would parse to an object carrying a `y` key that was
+ * never in the document.
  *
  * Transformations:
  * - `Text([...])` → `{"__yson_type":"Text","__yson_data":[...]}`
@@ -245,24 +339,50 @@ function preprocessYSON(yson: string): string {
     }
 
     const argStart = i + name.length + 1;
-    const argEnd = findMatchingParen(yson, argStart);
-    const argContent = yson.slice(argStart, argEnd);
+    const argEnd = findMatchingParen(yson, argStart, name);
+    const args = splitConstructorArgs(
+      name,
+      yson.slice(argStart, argEnd).trim(),
+    );
 
     if (name === 'DedupCounter') {
-      const args = splitTopLevelArgs(argContent);
       if (args.length !== 2) {
         throw new YorkieError(
           Code.ErrInvalidArgument,
-          'DedupCounter expects a value and a registers argument',
+          `DedupCounter expects two arguments, got ${args.length}`,
         );
       }
       const [value, registers] = args;
+      if (value === '') {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'DedupCounter expects a value for its first argument',
+        );
+      }
+      if (!isStringLiteral(registers)) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'DedupCounter expects a string literal for its registers argument',
+        );
+      }
       result += `{"__yson_type":"DedupCounter","__yson_data":${preprocessYSON(
         value,
       )},"__yson_registers":${registers}}`;
     } else {
+      if (args.length !== 1) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${name} expects one argument, got ${args.length}`,
+        );
+      }
+      if (args[0] === '') {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `${name} expects one argument, got none`,
+        );
+      }
       result += `{"__yson_type":"${name}","__yson_data":${preprocessYSON(
-        argContent,
+        args[0],
       )}}`;
     }
 

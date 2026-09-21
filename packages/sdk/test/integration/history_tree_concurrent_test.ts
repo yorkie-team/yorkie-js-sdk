@@ -214,4 +214,56 @@ describe('Tree History - concurrent overlapping undo after GC', () => {
       conv(d1, d2, 'after undo');
     }, task.name);
   });
+  // KNOWN LIMITATION (tracked, skipped): undoing one of two concurrent splits
+  // of the same node drops the text between the two boundaries. `abcde` split
+  // at 1 and at 4 settles as `a|bcd|e`; undoing the split at 4 should give
+  // `a|bcde`, but it gives `a|b|e` and both replicas agree on `abe`.
+  //
+  // The reverse of a split is a merge across the boundary it created. With a
+  // second boundary inside the same original node, that merge resolves over a
+  // range wider than the one the split opened, so it swallows the piece
+  // between them. Undoing the *first* split is correct, which is what makes
+  // this specific to a boundary that has another one after it.
+  //
+  // A remote split reported no visible-index growth to reconciliation, so a
+  // stacked split reverse to the right of it never shifted and its boundary
+  // deletion deleted live text instead of the boundary it had opened. Fixed
+  // with yorkie-team/yorkie#1999; this is the case that recorded it.
+  it('undo one of two concurrent splits of the same node', async ({ task }) => {
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => {
+        r.t = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                { type: 'span', children: [{ type: 'text', value: 'abcde' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1));
+      d2.update((r) => r.t.editByPath([0, 0, 4], [0, 0, 4], undefined, 1));
+      await settle(c1, c2);
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p><span>a</span><span>bcd</span><span>e</span></p></doc>',
+      );
+
+      d2.history.undo();
+      await settle(c1, c2);
+
+      assert.equal(
+        d1.getRoot().t.toXML(),
+        '<doc><p><span>a</span><span>bcde</span></p></doc>',
+      );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
 });

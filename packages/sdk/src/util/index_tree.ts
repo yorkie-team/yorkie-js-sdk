@@ -507,26 +507,85 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
     }
 
-    const removed = child.isRemoved;
-
-    if (child.parent) {
-      const offset = child.parent._children.indexOf(child);
-      // The child may already have been spliced out of its parent's list
-      // by a concurrent operation (e.g. cascade delete of a split
-      // sibling), which already reconciled the old ancestors' size. In
-      // that case only re-parent; otherwise detach with size accounting.
-      if (offset !== -1) {
-        child.parent._children.splice(offset, 1);
-        if (!removed) {
-          child.updateAncestorsSize(-child.paddedSize());
-        }
-        child.updateAncestorsSize(-child.paddedSize(true), true);
-      }
-      child.parent = undefined;
-    }
-
+    const removed = this.detachForMove(child);
     this._children.push(child);
     child.parent = this as any;
+    this.attachAfterMove(child, removed);
+  }
+
+  /**
+   * `moveChildBefore` detaches the given child from its current parent (if
+   * any) and inserts it before `reference` among this node's children,
+   * preserving both size dimensions on both parents. It is `moveChild` with a
+   * position: see there for why a removed child relocates only its
+   * include-removed size.
+   *
+   * Both failures are decided before anything moves, so a refused move leaves
+   * the tree exactly as it was rather than holding a child that belongs to no
+   * parent. The reference's offset is still read after the detach, since
+   * removing the child can shift it when the two share a parent.
+   */
+  moveChildBefore(child: T, reference: T): void {
+    if (this.isText) {
+      throw new YorkieError(Code.ErrRefused, 'Text node cannot have children');
+    }
+    // Already where it is being asked to go, and the detach below would make
+    // the reference impossible to find again.
+    if (child === reference) {
+      return;
+    }
+    if (this._children.indexOf(reference) === -1) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'reference is not a child',
+      );
+    }
+
+    const removed = this.detachForMove(child);
+    this._children.splice(this._children.indexOf(reference), 0, child);
+    child.parent = this as any;
+    this.attachAfterMove(child, removed);
+  }
+
+  /**
+   * `detachForMove` takes the child off its current parent, if it has one,
+   * subtracting its sizes from that parent's ancestors, and reports whether
+   * the child is a tombstone — which the re-attachment needs to know too.
+   *
+   * A tombstone moves only its include-removed size: it contributes no
+   * visibleSize to either parent, because removal already took it out of its
+   * ancestors. Splitting the move into this pair and `attachAfterMove` keeps
+   * that rule in one place; stating it once per call site is how the two
+   * dimensions drift apart.
+   */
+  private detachForMove(child: T): boolean {
+    const removed = child.isRemoved;
+    if (!child.parent) {
+      return removed;
+    }
+
+    const offset = child.parent._children.indexOf(child);
+    // The child may already have been spliced out of its parent's list by a
+    // concurrent operation (e.g. cascade delete of a split sibling), which
+    // already reconciled the old ancestors' size. In that case only
+    // re-parent; otherwise detach with size accounting.
+    if (offset !== -1) {
+      child.parent._children.splice(offset, 1);
+      if (!removed) {
+        child.updateAncestorsSize(-child.paddedSize());
+      }
+      child.updateAncestorsSize(-child.paddedSize(true), true);
+    }
+    child.parent = undefined;
+
+    return removed;
+  }
+
+  /**
+   * `attachAfterMove` adds the child's sizes to its new parent's ancestors,
+   * the mirror of `detachForMove`. `removed` is what that call reported.
+   */
+  private attachAfterMove(child: T, removed: boolean): void {
     if (!removed) {
       child.updateAncestorsSize(child.paddedSize());
     }
@@ -555,7 +614,15 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
      */
     const clone = this.cloneElement(issueTimeTicket);
     this.parent!.insertAfterInternal(clone, this as any);
-    clone.updateAncestorsSize(clone.paddedSize());
+    // A piece born tombstoned -- split off a node a concurrent deletion has
+    // already removed -- is not visible, so it must not lengthen its live
+    // ancestors. `remove` holds the same invariant from the other side,
+    // subtracting a node's padded size from its ancestors as it becomes a
+    // tombstone. The include-removed size counts tombstones and grows either
+    // way.
+    if (!clone.isRemoved) {
+      clone.updateAncestorsSize(clone.paddedSize());
+    }
     clone.updateAncestorsSize(clone.paddedSize(true), true);
 
     const left = this._children.slice(0, offset);

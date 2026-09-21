@@ -770,6 +770,7 @@ function toTextNodes(
       const pbNodeAttr = create(PbNodeAttrSchema);
       pbNodeAttr.value = attr.getValue();
       pbNodeAttr.updatedAt = toTimeTicket(attr.getUpdatedAt());
+      pbNodeAttr.isRemoved = attr.isRemoved();
       pbNodeAttrsMap[attr.getKey()] = pbNodeAttr;
     }
 
@@ -1279,7 +1280,14 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
   const textValue = CRDTTextValue.create(pbTextNode.value);
   Object.entries(pbTextNode.attributes).forEach(([key, value]) => {
-    textValue.setAttr(key, value.value, fromTimeTicket(value.updatedAt)!);
+    textValue
+      .getAttrs()
+      .setInternal(
+        key,
+        value.value,
+        fromTimeTicket(value.updatedAt)!,
+        value.isRemoved,
+      );
   });
 
   const textNode = RGATreeSplitNode.create(

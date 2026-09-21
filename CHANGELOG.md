@@ -11,6 +11,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 - Fix devtools panel state when a page has multiple documents by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1346
 
+## [v0.7.22] - 2026-09-17
+
+### Changed
+
+- Persist offline changes incrementally instead of re-snapshotting by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1354
+- Bump dependencies to fix 79 Dependabot security alerts by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1348
+
+### Fixed
+
+- Validate the restore log against meta's counter, not its checkpoint by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1355
+- Reject malformed YSON constructor argument lists by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1353
+- Fix docSize accounting for elements removed before registration by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1350
+- Anchor ElementRHT.set eviction on the occupant's positionedAt by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1343
+
 ## [v0.7.21] - 2026-09-13
 
 ### Fixed
