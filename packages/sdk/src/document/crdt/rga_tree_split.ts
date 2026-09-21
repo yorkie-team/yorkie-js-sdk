@@ -561,7 +561,16 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `deepcopy` returns a new instance of this RGATreeSplitNode without structural info.
    */
   public deepcopy(): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(this.id, this.value, this.removedAt);
+    // The value has to be copied, not shared. `Document.ensureClone` builds
+    // the clone from the root, and every operation is applied to both; a
+    // shared value means the clone's split or style mutates the root as a
+    // side effect, and the root's own application then sees an already-mutated
+    // value. Go has always copied here.
+    return new RGATreeSplitNode(
+      this.id,
+      this.value.substring(0, this.value.length) as T,
+      this.removedAt,
+    );
   }
 
   /**

@@ -583,6 +583,12 @@ export class CRDTRoot {
     const key = this.keyOf(pair);
     const prev = this.gcPairMap.get(key);
     if (prev) {
+      // A second registration under the same key un-registers: the child is
+      // no longer collectable, it was revived. Subtract exactly what the
+      // first registration added, or the bytes stay charged to gc for the
+      // life of the document -- the count drops to zero, so nothing else
+      // notices, while MaxSizeLimit keeps reading them.
+      subDataSize(this.docSize.gc, prev.gcOnlySize ?? prev.child.getDataSize());
       this.gcPairMap.delete(key);
       return;
     }

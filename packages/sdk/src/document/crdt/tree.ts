@@ -816,7 +816,7 @@ export class CRDTTreeNode
   public setAttrs(
     attrs: { [key: string]: string },
     editedAt: TimeTicket,
-  ): Array<[RHTNode | undefined, RHTNode | undefined]> {
+  ): Array<RHTWrite> {
     if (!this.attrs) {
       this.attrs = new RHT();
     }

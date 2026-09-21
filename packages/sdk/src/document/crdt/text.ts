@@ -20,7 +20,7 @@ import {
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
-import { RHT, RHTNode } from '@yorkie-js/sdk/src/document/crdt/rht';
+import { RHT, RHTNode, RHTWrite } from '@yorkie-js/sdk/src/document/crdt/rht';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import {
   RGATreeSplit,
@@ -125,7 +125,7 @@ export class CRDTTextValue {
     key: string,
     content: string,
     updatedAt: TimeTicket,
-  ): [RHTNode | undefined, RHTNode | undefined] {
+  ): RHTWrite {
     return this.attributes.set(key, content, updatedAt);
   }
 

@@ -19,6 +19,7 @@ import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
@@ -220,5 +221,63 @@ describe('the attribute ledger', () => {
     d.garbageCollect(d.getVersionVector());
     assert.equal(d.getGarbageLen(), 0);
     assert.deepEqual(d.getDocSize().gc, { data: 0, meta: 0 }, 'gc residue');
+  });
+
+  /**
+   * Re-styling a key whose value is a tombstone REVIVES it. The pair is
+   * re-registered under the same key, which un-registers it: the attribute is
+   * no longer collectable, it is simply gone. `registerGCPair` has to subtract
+   * exactly what the first registration added, or the bytes stay charged to gc
+   * for the life of the document -- the garbage COUNT drops to zero, so
+   * nothing else notices, while MaxSizeLimit keeps reading them.
+   */
+  it('does not strand a revived attribute in gc', () => {
+    const d = seededText();
+    d.update((r) => r.k.setStyle(0, 10, { b: '1' }));
+    d.history.undo();
+    assert.equal(d.getGarbageLen(), 1);
+
+    d.update((r) => r.k.setStyle(0, 10, { b: '2' }));
+    assert.equal(d.getGarbageLen(), 0, 'the tombstone was revived');
+    assertLedgerExact(d, 'after reviving an attribute tombstone');
+  });
+
+  it('does not strand a revived tree attribute in gc', () => {
+    const d = seededTree();
+    d.update((r) => r.t.styleByPath([0], [1], { b: '1' }));
+    d.history.undo();
+    d.update((r) => r.t.styleByPath([0], [1], { b: '2' }));
+    assertLedgerExact(d, 'after reviving a tree attribute tombstone');
+  });
+
+  /**
+   * `Document.ensureClone` rebuilds the clone from a POPULATED root after a
+   * snapshot, an offline restore, or an update whose callback threw. The
+   * clone's split values must not alias the root's, or the clone's edit
+   * mutates the root as a side effect and the root's own application of the
+   * same operation then sees an already-shortened value.
+   */
+  it('keeps the tail when a split follows a snapshot', () => {
+    const a = seededText();
+    const bytes = converter.snapshotToBytes(a.getRootObject(), new Map());
+    const b = new Document<TextDoc>('test-doc');
+    b.applySnapshot(1n, a.getVersionVector(), bytes, -1);
+
+    b.update((r) => r.k.edit(5, 5, 'X'));
+    assert.equal(
+      b.toJSON(),
+      '{"k":[{"val":"abcde"},{"val":"X"},{"val":"fghij"}]}',
+      'the tail after the split point was destroyed',
+    );
+  });
+
+  it('charges live for a style that follows a snapshot', () => {
+    const a = seededText();
+    const bytes = converter.snapshotToBytes(a.getRootObject(), new Map());
+    const d = new Document<TextDoc>('test-doc');
+    d.applySnapshot(1n, a.getVersionVector(), bytes, -1);
+
+    d.update((r) => r.k.setStyle(0, 10, { b: '1' }));
+    assertLedgerExact(d, 'style after a snapshot');
   });
 });
