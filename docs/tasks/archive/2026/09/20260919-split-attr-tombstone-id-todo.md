@@ -70,7 +70,7 @@ yorkie#2003, unrelated.
       carry `gcOnlySize`, the same routing `getGCPairs` already uses for the
       tombstones a snapshot rebuild finds — `getDataSize` skips removed
       attributes, so they were never in `docSize.live`.
-- [ ] Register the tombstones a text split copies. **Deferred behind
+- [x] Register the tombstones a text split copies. Was **deferred behind
       yorkie#2007**, with the Go side. Registering them puts a second claim on
       bytes the owning node's `getDataSize` already counts, and collection
       subtracts the node's size read at collection time — so purging the
@@ -83,12 +83,22 @@ yorkie#2003, unrelated.
       Two ways of reconciling the ledger were tried in Go and both failed on
       opposite cases; the root cause is `CRDTTextValue.getDataSize` counting
       removed attributes while `CRDTTreeNode.getDataSize` does not.
-- [ ] Make `splitValue` shorten the left value in place instead of replacing
-      it, so registrations that name it stay valid. **Deferred with the Text
-      half** — it repairs a real, JS-only, pre-existing defect (a split
+
+      Landed in #1365 together with the fix for the blocker itself:
+      `CRDTTextValue.getDataSize` now skips removed attributes
+      (`packages/sdk/src/document/crdt/text.ts`), and `splitNode` pushes a
+      `pendingGCPairs` entry per copied tombstone with `gcOnlySize`
+      (`packages/sdk/src/document/crdt/rga_tree_split.ts`).
+- [x] Make `splitValue` shorten the left value in place instead of replacing
+      it, so registrations that name it stay valid. Was **deferred with the
+      Text half** — it repairs a real, JS-only, pre-existing defect (a split
       orphans every GC pair registered against the left value, so the
       tombstone `removeStyle` registered can never be purged), but it is
-      purely a text fix and belongs with the rest of them.
+      purely a text fix and belonged with the rest of them.
+
+      Landed in #1365: `splitValue` now truncates the left value in place
+      (`packages/sdk/src/document/crdt/rga_tree_split.ts`), with `truncate`
+      added to the value interface and implemented on `CRDTTextValue`.
 - [x] Tests in `packages/sdk/test/unit/document/gc_attr_split_test.ts`: the
       tree case, a split of a split, a later `styleByPath` that revives the
       key on both halves, and a two-replica exchange. All four fail on
