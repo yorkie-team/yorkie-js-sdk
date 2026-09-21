@@ -32,7 +32,10 @@ import {
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
-import { parseObjectValues } from '@yorkie-js/sdk/src/util/object';
+import {
+  parseAttrValue,
+  parseObjectValues,
+} from '@yorkie-js/sdk/src/util/object';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import {
@@ -175,7 +178,9 @@ export class CRDTTextValue {
     const attrsObj = this.attributes.toObject();
     const attrs = [];
     for (const [key, v] of Object.entries(attrsObj)) {
-      const value = JSON.parse(v);
+      // See `parseAttrValue`: a peer that stores values raw writes ones this
+      // cannot parse, and rendering must not throw on them.
+      const value = parseAttrValue(v);
       const item =
         typeof value === 'string'
           ? `"${escapeString(key)}":"${escapeString(value)}"`

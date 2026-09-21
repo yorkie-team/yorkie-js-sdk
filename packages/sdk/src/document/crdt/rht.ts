@@ -20,7 +20,7 @@ import {
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
-import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { DataSize, utf8Length } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
@@ -49,6 +49,24 @@ export type RHTWrite = {
    */
   superseded?: RHTNode;
 };
+
+/**
+ * `RHTNode` is a node of RHT(Replicated Hashtable).
+ */
+/**
+ * `logicalValue` returns the attribute value as a peer storing values raw
+ * would hold it: a JSON-encoded string yields the string itself, anything else
+ * yields the stored text unchanged. A value written by such a peer does not
+ * parse at all and is already raw, so it passes straight through.
+ */
+function logicalValue(stored: string): string {
+  try {
+    const parsed = JSON.parse(stored);
+    return typeof parsed === 'string' ? parsed : stored;
+  } catch {
+    return stored;
+  }
+}
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
@@ -133,8 +151,23 @@ export class RHTNode implements GCChild {
    * `getDataSize` returns the size of this node.
    */
   public getDataSize(): DataSize {
+    // Charge the LOGICAL value in UTF-8 bytes, which is what the Go SDK
+    // stores and charges.
+    //
+    // Two things diverged. This SDK JSON-encodes values, so `color="red"` is
+    // stored as the five characters `"red"` where Go stores three. And
+    // `.length` counts UTF-16 units where Go's `len()` counts UTF-8 bytes, so
+    // the gap did not even have a consistent sign: measured, `color="red"`
+    // made JS 4 bytes heavier and `color="빨강"` made it 4 bytes LIGHTER.
+    // The document size limit is enforced client-side against each SDK's own
+    // accounting, so the same document had a different allowance per SDK.
+    //
+    // Sizing the logical value converges both without touching what is
+    // stored, what is sent, or how a value reads back -- storing strings raw
+    // would converge too, but it makes a JS caller's string '1' read back as
+    // the number 1.
     return {
-      data: (this.key.length + this.value.length) * 2,
+      data: (utf8Length(this.key) + utf8Length(logicalValue(this.value))) * 2,
       meta: TimeTicketSize,
     };
   }

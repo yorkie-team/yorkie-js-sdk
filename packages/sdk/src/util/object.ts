@@ -60,7 +60,30 @@ export const parseObjectValues = <A extends Indexable>(
 ): A => {
   const attributes: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attrs)) {
-    attributes[key] = JSON.parse(value);
+    attributes[key] = parseAttrValue(value);
   }
   return attributes as A;
+};
+
+/**
+ * `parseAttrValue` decodes one stored attribute value, tolerating one written
+ * by a peer that stores values RAW.
+ *
+ * The Go SDK's `Style` takes `map[string]string` and stores what it is given,
+ * so `color="red"` arrives here as the three characters `red`, which is not a
+ * JSON document. Parsing it unguarded threw `SyntaxError` out of
+ * `applyChangePack` before the checkpoint advanced, so the server redelivered
+ * the same change forever and the client could never open the document.
+ *
+ * Falling back to the raw string is lossless: it is exactly what the peer
+ * wrote. It cannot change how a JS-authored value reads, because everything
+ * this SDK writes goes through `JSON.stringify` and is valid JSON by
+ * construction, so the fallback is unreachable for those.
+ */
+export const parseAttrValue = (value: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 };

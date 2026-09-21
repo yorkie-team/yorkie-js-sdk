@@ -39,7 +39,10 @@ import { RHT, RHTNode, RHTWrite } from './rht';
 import { ActorID } from './../time/actor_id';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import { Comparator } from '@yorkie-js/sdk/src/util/comparator';
-import { parseObjectValues } from '@yorkie-js/sdk/src/util/object';
+import {
+  parseAttrValue,
+  parseObjectValues,
+} from '@yorkie-js/sdk/src/util/object';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
@@ -1028,7 +1031,9 @@ export function toXML(node: CRDTTreeNode): string {
         .filter((n) => !n.isRemoved())
         .sort((a, b) => a.getKey().localeCompare(b.getKey()))
         .map((n) => {
-          const obj = JSON.parse(n.getValue());
+          // See `parseAttrValue`: a peer that stores values raw writes ones
+          // this cannot parse, and rendering must not throw on them.
+          const obj = parseAttrValue(n.getValue());
           if (typeof obj === 'string') {
             return `${n.getKey()}="${obj}"`;
           }
