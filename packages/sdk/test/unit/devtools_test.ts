@@ -422,6 +422,7 @@ describe('Devtools event classification', () => {
     DocEventType.AuthError,
     DocEventType.EpochMismatch,
     DocEventType.LocalChangesDropped,
+    DocEventType.PersistDisabled,
   ]);
 
   it('classifies every document event type exactly once', () => {

@@ -35,6 +35,7 @@ import {
   type AuthErrorEvent,
   type EpochMismatchEvent,
   type LocalChangesDroppedEvent,
+  type PersistDisabledEvent,
 } from '@yorkie-js/sdk/src/document/document';
 import type { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 
@@ -162,7 +163,8 @@ export type DocNotificationEvent<P extends Indexable = Indexable> =
   | SyncStatusChangedEvent
   | AuthErrorEvent
   | EpochMismatchEvent
-  | LocalChangesDroppedEvent<P>;
+  | LocalChangesDroppedEvent<P>
+  | PersistDisabledEvent;
 
 /**
  * `DocNotification` is a `DocNotificationEvent` stamped with the time the SDK
@@ -189,6 +191,7 @@ export function isDocNotificationEvent(
     DocEventType.AuthError,
     DocEventType.EpochMismatch,
     DocEventType.LocalChangesDropped,
+    DocEventType.PersistDisabled,
   ];
 
   return types.includes(event.type);

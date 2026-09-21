@@ -38,6 +38,8 @@ const describeNotification = (event: Devtools.DocNotificationEvent): string => {
       return `${event.value?.reason}, ${
         event.value?.changes?.length ?? 0
       } change(s) dropped`;
+    case DocEventType.PersistDisabled:
+      return `${event.value?.reason}, ${event.value?.bytes ?? 0} byte(s)`;
     default:
       return '';
   }
