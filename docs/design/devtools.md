@@ -57,8 +57,8 @@ Let's examine the lifecycle of interaction between the devtools panel and the SD
 5. The panel sends a `devtools::subscribe` message naming the document key it wants. It watches one document at a time, so subscribing to another one stops the stream of the previous.
 6. The SDK, upon receiving the `devtools::subscribe` message, initiates synchronization for the requested key. It sends a `doc::sync::full` message with all document information, and subsequently `doc::sync::partial` whenever the document changes.
 7. Alongside those, the SDK sends `doc::notification::full` and then `doc::notification::partial` on a second channel. It carries the events that cannot be replayed — connection and sync status, auth errors, epoch mismatches, and discarded local changes — which the panel lists separately rather than feeding to the replay pipeline. Every message on both channels carries `docKey`, and the panel drops anything that is not the document it is showing.
-7. When the panel is closed, it is detected by the content script using `port.onDisconnect`, which then sends a `devtools::disconnect` message to the SDK.
-8. The SDK, upon detecting the panel disconnection, stops synchronization.
+8. When the panel is closed, it is detected by the content script using `port.onDisconnect`, which then sends a `devtools::disconnect` message to the SDK.
+9. The SDK, upon detecting the panel disconnection, stops synchronization.
 
 #### 2. When the Devtools Panel Is Open, and a New Page Is Loaded
 
@@ -67,7 +67,7 @@ Let's examine the lifecycle of interaction between the devtools panel and the SD
 3. The panel, after establishing the port connection, sends a `devtools::connect` message to the SDK.
    If yorkie-js-sdk is not ready at this point, no action is taken.
 4. Subsequently, when yorkie-js-sdk creates a new document and executes `setupDevtools` (`packages/sdk/src/devtools/index.ts`), it sends a `refresh-devtools` message.
-5. The panel, upon receiving the `refresh-devtools` message, sends `devtools::connect` message. The subsequent steps are identical to those in the first scenario (steps 1-4 to 1-8).
+5. The panel, upon receiving the `refresh-devtools` message, sends `devtools::connect` message. The subsequent steps are identical to those in the first scenario (steps 1-4 to 1-9).
 
 ## Open Problems
 
