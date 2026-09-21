@@ -93,7 +93,7 @@ export function useYorkieClient(opts: ClientOptions, activate: boolean = true) {
         client.deactivate({ keepalive: true });
       }
     };
-  }, [opts.apiKey, opts.rpcAddr, didMount, activate]);
+  }, [opts.apiKey, opts.rpcAddr, opts.key, didMount, activate]);
 
   return { client, loading, error };
 }
@@ -109,8 +109,23 @@ export function useYorkieClient(opts: ClientOptions, activate: boolean = true) {
  *   `useYorkieDoc`) still require activation, so leave this `true` if any
  *   descendant attaches a document.
  */
-export type YorkieProviderProps = ClientOptions & {
+export type YorkieProviderProps = Omit<ClientOptions, 'key'> & {
   activate?: boolean;
+
+  /**
+   * The client key, as `ClientOptions.key`.
+   *
+   * It is spelled differently here because `key` is reserved by React: React
+   * strips it at element creation — as a JSX attribute and through a spread
+   * alike — so a `key` prop never reaches this component and could never reach
+   * the `Client` constructor. `ClientOptions.key` is therefore unreachable
+   * through the provider without an alias, which matters for offline
+   * persistence: the SDK's store is keyed by `apiKey/clientKey/docKey`, so a
+   * client whose key is random per session resumes nothing.
+   *
+   * Changing it builds a new client, since the key is what the client carries.
+   */
+  clientKey?: string;
 };
 
 /**
@@ -119,16 +134,19 @@ export type YorkieProviderProps = ClientOptions & {
  */
 export const YorkieProvider: React.FC<
   PropsWithChildren<YorkieProviderProps>
-> = ({ children, activate = true, ...opts }) => {
+> = ({ children, activate = true, clientKey, ...opts }) => {
   // NOTE(hackerwins): useMemo is used to prevent re-creating the client
-  // when the component re-renders. If the apiKey or rpcAddr changes,
-  // the client will be re-created.
+  // when the component re-renders. If the apiKey, rpcAddr or clientKey
+  // changes, the client will be re-created.
   const clientOpts = useMemo(() => {
     return {
       userAgent: pkg.name + '/' + pkg.version,
       ...opts,
+      // Only when given, so a provider that passes none leaves the SDK to mint
+      // its own rather than receiving an explicit `undefined`.
+      ...(clientKey !== undefined ? { key: clientKey } : {}),
     };
-  }, [opts.apiKey, opts.rpcAddr]);
+  }, [opts.apiKey, opts.rpcAddr, clientKey]);
   const { client, loading, error } = useYorkieClient(clientOpts, activate);
 
   return (

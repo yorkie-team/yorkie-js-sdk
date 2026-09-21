@@ -15,19 +15,27 @@
  */
 
 // These are pure unit tests for the single-active-session guard used by the
-// offline persistence path. They exercise the `SessionLock` abstraction and the
-// guard decision directly (acquire → held → fail-fast → release → re-acquire),
-// plus the no-op fallback when `navigator.locks` is absent. Wiring the guard
-// into the real `attach()` needs a running server (attach round-trips an RPC),
-// so full attach() coverage is an integration-level gap noted in the design; the
-// decision logic modeled here is exactly what `attach()` runs before that RPC.
+// offline persistence path. They exercise the `SessionLock` abstraction and
+// `acquireSessionLock` — the guard decision itself — directly (acquire → held →
+// fail-fast → release → re-acquire), plus the no-op fallback when
+// `navigator.locks` is absent.
+//
+// `acquireSessionLock` is the *same function* `attach()` calls, not a model of
+// it. That matters more here than the usual preference: these tests used to
+// re-state the decision inline, which is a shape that keeps passing while the
+// real path regresses, and a regression in this particular guard means two tabs
+// sharing one checkpoint and silently losing edits. What still needs a running
+// server is the surrounding attach() plumbing (the RPC, the handle's lifetime
+// across detach), which stays integration-level.
 
 import { afterEach, describe, it, assert, expect, vi } from 'vitest';
 import {
   SessionLock,
   SessionLockHandle,
   WebLocksSessionLock,
+  acquireSessionLock,
 } from '@yorkie-js/sdk/src/client/session-lock';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `FakeSessionLock` is an in-memory `SessionLock` modeling one lock namespace
@@ -117,46 +125,47 @@ describe('SessionLock (fake, in-memory)', () => {
   });
 });
 
-/**
- * `simulateGuard` models exactly the decision `attach()` makes on the
- * store-backed path: acquire the lock; an absent result is the fail-fast signal
- * translated into a rejected attach. It returns the held handle on success or
- * throws on fail-fast, so the guard behavior is tested without a server.
- */
-async function simulateGuard(
-  lock: SessionLock,
-  name: string,
-): Promise<SessionLockHandle> {
-  const handle = await lock.acquire(name);
-  if (!handle) {
-    throw new Error('already open in another tab under offline persistence');
-  }
-  return handle;
-}
-
 describe('single-active-session guard decision', () => {
   const name = 'yorkie-session:api/clientKey/docKey';
+  const docKey = 'docKey';
 
   it('first attach-path acquisition succeeds and holds', async () => {
     const lock = new FakeSessionLock();
-    const handle = await simulateGuard(lock, name);
+    const handle = await acquireSessionLock(lock, name, docKey);
     assert.isDefined(handle);
     assert.isTrue((lock as FakeSessionLock).isHeld(name));
   });
 
   it('second attach-path acquisition fails fast while the first holds', async () => {
     const lock = new FakeSessionLock();
-    await simulateGuard(lock, name);
-    await expect(simulateGuard(lock, name)).rejects.toThrow(
+    await acquireSessionLock(lock, name, docKey);
+    await expect(acquireSessionLock(lock, name, docKey)).rejects.toThrow(
       /already open in another tab/,
     );
   });
 
+  it('names the document and its own error code on fail-fast', async () => {
+    // The code is what a consumer branches on — wafflebase falls back to a
+    // non-persisting client on exactly this rejection — so it must be
+    // distinguishable from any other invalid argument without matching on
+    // message text.
+    const lock = new FakeSessionLock();
+    await acquireSessionLock(lock, name, docKey);
+    try {
+      await acquireSessionLock(lock, name, docKey);
+      assert.fail('expected the second acquisition to reject');
+    } catch (err) {
+      assert.instanceOf(err, YorkieError);
+      assert.equal((err as YorkieError).code, Code.ErrDocumentOpenElsewhere);
+      assert.match((err as YorkieError).message, /"docKey"/);
+    }
+  });
+
   it('a new acquisition succeeds after the first releases (detach)', async () => {
     const lock = new FakeSessionLock();
-    const first = await simulateGuard(lock, name);
+    const first = await acquireSessionLock(lock, name, docKey);
     first.release();
-    const second = await simulateGuard(lock, name);
+    const second = await acquireSessionLock(lock, name, docKey);
     assert.isDefined(second);
   });
 });

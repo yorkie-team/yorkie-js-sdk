@@ -18,6 +18,7 @@ import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 import { DocStore, MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
+import { testDocStoreContract } from './doc_store_contract';
 import { DocEventType } from '@yorkie-js/sdk/src/document/document';
 import type { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
@@ -38,10 +39,14 @@ function assertChangeIDEqual(actual: ChangeID, expected: ChangeID) {
 }
 
 /**
- * `persistOnLocalChange` mirrors the client's persist-on-local-change hook:
- * it subscribes to a document's local changes and writes `doc.toBytes()` into
- * the given store after each one. Returns the unsubscribe. This exercises the
- * exact wiring the client installs without needing a server.
+ * `persistOnLocalChange` writes `doc.toBytes()` into the given store after
+ * each local change, so the cases below can exercise the snapshot round trip
+ * without a server.
+ *
+ * It is NOT what the client installs any more — the client appends a change
+ * rather than re-snapshotting — so do not read it as documenting that wiring.
+ * What it still covers is the envelope surviving a store round trip, which is
+ * orthogonal to how often one is written.
  */
 function persistOnLocalChange<R, P extends { [k: string]: any }>(
   store: DocStore,
@@ -49,56 +54,12 @@ function persistOnLocalChange<R, P extends { [k: string]: any }>(
 ): () => void {
   return doc.subscribe((event) => {
     if (event.type === DocEventType.LocalChange) {
-      void store.save(doc.getKey(), doc.toBytes());
+      void store.saveSnapshot(doc.getKey(), doc.toBytes());
     }
   });
 }
 
-describe('MemoryDocStore', function () {
-  it('should round-trip bytes through save/load', async function () {
-    const store = new MemoryDocStore();
-    const bytes = new Uint8Array([1, 2, 3, 4, 5]);
-
-    assert.isUndefined(await store.load('doc-1'));
-
-    await store.save('doc-1', bytes);
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), Array.from(bytes));
-  });
-
-  it('should isolate stored bytes from later caller mutation', async function () {
-    const store = new MemoryDocStore();
-    const bytes = new Uint8Array([1, 2, 3]);
-    await store.save('doc-1', bytes);
-
-    // Mutating the source buffer after save must not corrupt the snapshot.
-    bytes[0] = 99;
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [1, 2, 3]);
-
-    // Mutating the loaded buffer must not corrupt the snapshot either.
-    loaded![0] = 88;
-    const reloaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(reloaded!), [1, 2, 3]);
-  });
-
-  it('should overwrite on repeated save', async function () {
-    const store = new MemoryDocStore();
-    await store.save('doc-1', new Uint8Array([1]));
-    await store.save('doc-1', new Uint8Array([2, 3]));
-    const loaded = await store.load('doc-1');
-    assert.deepEqual(Array.from(loaded!), [2, 3]);
-  });
-
-  it('should remove stored bytes', async function () {
-    const store = new MemoryDocStore();
-    await store.save('doc-1', new Uint8Array([1]));
-    await store.remove('doc-1');
-    assert.isUndefined(await store.load('doc-1'));
-    // remove on a missing key is a no-op.
-    await store.remove('missing');
-  });
-});
+testDocStoreContract('MemoryDocStore', () => new MemoryDocStore());
 
 describe('DocStore persistence loop', function () {
   it('should persist bytes on local change that fromBytes reconstructs', async function () {
@@ -120,7 +81,7 @@ describe('DocStore persistence loop', function () {
     unsub();
 
     // A local change was persisted.
-    const bytes = await store.load('persist-doc');
+    const bytes = (await store.load('persist-doc'))!.snapshot;
     assert.isDefined(bytes);
 
     const restored = Document.fromBytes<R, P>('persist-doc', bytes!);
@@ -152,7 +113,7 @@ describe('DocStore persistence loop', function () {
 
     // Load the persisted envelope written by the local change above; this is
     // what a fresh instance restores from on attach.
-    const bytes = await store.load('restore-doc');
+    const bytes = (await store.load('restore-doc'))!.snapshot;
     assert.isDefined(bytes);
 
     // Rehydrate a fresh document instance in place, mirroring attach.

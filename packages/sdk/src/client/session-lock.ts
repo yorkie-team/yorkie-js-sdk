@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+
 /**
  * `SessionLockHandle` represents an acquired, held session lock. It is held for
  * the lifetime of a document attachment and released on detach/deactivate.
@@ -119,4 +121,32 @@ export class WebLocksSessionLock implements SessionLock {
       },
     );
   }
+}
+
+/**
+ * `acquireSessionLock` runs the single-active-session decision the store-backed
+ * `attach` makes: take the lock, and translate an absent handle — the
+ * fail-fast signal — into a rejected attach carrying
+ * {@link Code.ErrDocumentOpenElsewhere}.
+ *
+ * It lives here, rather than inline in `attach`, so the decision has exactly
+ * one implementation. A test that re-states it would pass while the real path
+ * regressed, which is the failure mode this guard can least afford: getting it
+ * wrong means two tabs sharing one checkpoint and silently losing edits.
+ */
+export async function acquireSessionLock(
+  lock: SessionLock,
+  name: string,
+  docKey: string,
+): Promise<SessionLockHandle> {
+  const handle = await lock.acquire(name);
+  if (!handle) {
+    throw new YorkieError(
+      Code.ErrDocumentOpenElsewhere,
+      `document "${docKey}" is already open in another tab under offline ` +
+        `persistence; only one active session per document is allowed to ` +
+        `avoid silent edit loss`,
+    );
+  }
+  return handle;
 }

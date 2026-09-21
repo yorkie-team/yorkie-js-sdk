@@ -38,6 +38,8 @@ export {
 } from '@yorkie-js/sdk/src/client/client';
 export {
   type DocStore,
+  type StoredChange,
+  type StoredDoc,
   MemoryDocStore,
 } from '@yorkie-js/sdk/src/client/doc-store';
 export {
