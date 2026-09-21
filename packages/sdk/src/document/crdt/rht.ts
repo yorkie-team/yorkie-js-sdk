@@ -20,7 +20,53 @@ import {
 } from '@yorkie-js/sdk/src/document/time/ticket';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild } from '@yorkie-js/sdk/src/document/crdt/gc';
-import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { DataSize, utf8Length } from '@yorkie-js/sdk/src/util/resource';
+
+/**
+ * `RHTNode` is a node of RHT(Replicated Hashtable).
+ */
+/**
+ * `RHTWrite` is what an `RHT.set` reports back. See `RHT.set`.
+ */
+export type RHTWrite = {
+  /**
+   * `installed` is the node this write put in the map, absent when the write
+   * lost LWW and changed nothing. Its size is what enters docSize.live.
+   */
+  installed?: RHTNode;
+
+  /**
+   * `revived` is a tombstone this write replaced. It was registered as garbage
+   * when it was removed, so the caller re-registers the pair to cancel that
+   * registration: it is no longer collectable, it is simply gone.
+   */
+  revived?: RHTNode;
+
+  /**
+   * `superseded` is a LIVE node this write replaced. RHT overrides immutably,
+   * so the old node is dropped with no tombstone and nothing to collect, but
+   * its bytes were counted in docSize.live and have to leave it.
+   */
+  superseded?: RHTNode;
+};
+
+/**
+ * `RHTNode` is a node of RHT(Replicated Hashtable).
+ */
+/**
+ * `logicalValue` returns the attribute value as a peer storing values raw
+ * would hold it: a JSON-encoded string yields the string itself, anything else
+ * yields the stored text unchanged. A value written by such a peer does not
+ * parse at all and is already raw, so it passes straight through.
+ */
+function logicalValue(stored: string): string {
+  try {
+    const parsed = JSON.parse(stored);
+    return typeof parsed === 'string' ? parsed : stored;
+  } catch {
+    return stored;
+  }
+}
 
 /**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
@@ -105,8 +151,23 @@ export class RHTNode implements GCChild {
    * `getDataSize` returns the size of this node.
    */
   public getDataSize(): DataSize {
+    // Charge the LOGICAL value in UTF-8 bytes, which is what the Go SDK
+    // stores and charges.
+    //
+    // Two things diverged. This SDK JSON-encodes values, so `color="red"` is
+    // stored as the five characters `"red"` where Go stores three. And
+    // `.length` counts UTF-16 units where Go's `len()` counts UTF-8 bytes, so
+    // the gap did not even have a consistent sign: measured, `color="red"`
+    // made JS 4 bytes heavier and `color="빨강"` made it 4 bytes LIGHTER.
+    // The document size limit is enforced client-side against each SDK's own
+    // accounting, so the same document had a different allowance per SDK.
+    //
+    // Sizing the logical value converges both without touching what is
+    // stored, what is sent, or how a value reads back -- storing strings raw
+    // would converge too, but it makes a JS caller's string '1' read back as
+    // the number 1.
     return {
-      data: (this.key.length + this.value.length) * 2,
+      data: (utf8Length(this.key) + utf8Length(logicalValue(this.value))) * 2,
       meta: TimeTicketSize,
     };
   }
@@ -142,32 +203,35 @@ export class RHT {
   /**
    * `set` sets the value of the given key.
    */
-  public set(
-    key: string,
-    value: string,
-    executedAt: TimeTicket,
-  ): [RHTNode | undefined, RHTNode | undefined] {
+  /**
+   * `RHTWrite` reports what a `set` did, so the caller can keep docSize honest
+   * without inspecting the map afterwards. Reading the map cannot tell a write
+   * that installed a node from one that lost LWW and left the incumbent in
+   * place, and charging live for the latter makes the running size depend on
+   * delivery order.
+   */
+  public set(key: string, value: string, executedAt: TimeTicket): RHTWrite {
     const prev = this.nodeMapByKey.get(key);
 
-    if (prev && prev.isRemoved() && executedAt.after(prev.getUpdatedAt())) {
+    if (prev !== undefined && !executedAt.after(prev.getUpdatedAt())) {
+      return {};
+    }
+
+    if (prev !== undefined && prev.isRemoved()) {
       this.numberOfRemovedElement -= 1;
     }
 
-    if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
-      const node = RHTNode.of(key, value, executedAt, false);
-      this.nodeMapByKey.set(key, node);
+    const installed = RHTNode.of(key, value, executedAt, false);
+    this.nodeMapByKey.set(key, installed);
 
-      if (prev !== undefined && prev.isRemoved()) {
-        return [prev, node];
-      }
-      return [undefined, node];
+    if (prev === undefined) {
+      return { installed };
     }
-
     if (prev.isRemoved()) {
-      return [prev, undefined];
+      return { installed, revived: prev };
     }
 
-    return [undefined, undefined];
+    return { installed, superseded: prev };
   }
 
   /**

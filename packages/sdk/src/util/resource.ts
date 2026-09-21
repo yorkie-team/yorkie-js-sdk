@@ -24,6 +24,18 @@ export function totalDocSize(d: DocSize | undefined): number {
 /**
  * `DataSize` represents the size of a resource in bytes.
  */
+const textEncoder = new TextEncoder();
+
+/**
+ * `utf8Length` returns the number of UTF-8 bytes in the given string, which is
+ * what Go's `len()` counts. A size charged in UTF-16 units instead agrees only
+ * for ASCII, and the two SDKs enforce the document size limit client-side
+ * against their own accounting, so they have to measure the same way.
+ */
+export function utf8Length(s: string): number {
+  return textEncoder.encode(s).length;
+}
+
 export type DataSize = {
   /**
    * `data` is the size of the data in bytes.

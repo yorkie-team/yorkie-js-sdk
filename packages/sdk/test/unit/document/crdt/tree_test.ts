@@ -801,7 +801,9 @@ describe('CRDTTree.Edit', function () {
       stylerVV,
     );
 
-    assert.equal(inserted.attrs?.get('bold'), '"x"');
+    // 'x' is not a JSON document, so it is stored as itself -- the same
+    // bytes the server would hold for this attribute.
+    assert.equal(inserted.attrs?.get('bold'), 'x');
   });
 
   it('keeps an ordered from-anchor range off the writer insert', function () {

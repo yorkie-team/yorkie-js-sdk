@@ -47,7 +47,20 @@ export const stringifyObjectValues = <A extends Indexable>(
 ): Record<string, string> => {
   const attrs: Record<string, string> = {};
   for (const [key, value] of Object.entries(attributes)) {
-    attrs[key] = JSON.stringify(value);
+    // A string that is not itself a JSON document is stored as-is, which is
+    // what the Go SDK stores for the same attribute: its `Style` takes
+    // map[string]string and holds what it is given. `color="red"` therefore
+    // puts the same three bytes on the wire from either SDK.
+    //
+    // A string that IS a JSON document keeps its quotes, because raw storage
+    // could not tell it from the value it encodes: '1' would come back as the
+    // number 1 and 'true' as the boolean. Those keep the encoding that
+    // preserves their type, at the cost of still differing from Go -- which
+    // cannot express the distinction at all.
+    attrs[key] =
+      typeof value === 'string' && !isJSONDocument(value)
+        ? value
+        : JSON.stringify(value);
   }
   return attrs;
 };
@@ -60,7 +73,43 @@ export const parseObjectValues = <A extends Indexable>(
 ): A => {
   const attributes: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attrs)) {
-    attributes[key] = JSON.parse(value);
+    attributes[key] = parseAttrValue(value);
   }
   return attributes as A;
+};
+
+/**
+ * `isJSONDocument` reports whether the given string would parse as JSON, and
+ * so could not be told apart from the value it encodes if it were stored raw.
+ */
+const isJSONDocument = (value: string): boolean => {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * `parseAttrValue` decodes one stored attribute value, tolerating one written
+ * by a peer that stores values RAW.
+ *
+ * The Go SDK's `Style` takes `map[string]string` and stores what it is given,
+ * so `color="red"` arrives here as the three characters `red`, which is not a
+ * JSON document. Parsing it unguarded threw `SyntaxError` out of
+ * `applyChangePack` before the checkpoint advanced, so the server redelivered
+ * the same change forever and the client could never open the document.
+ *
+ * Falling back to the raw string is lossless: it is exactly what the peer
+ * wrote. It cannot change how a JS-authored value reads, because everything
+ * this SDK writes goes through `JSON.stringify` and is valid JSON by
+ * construction, so the fallback is unreachable for those.
+ */
+export const parseAttrValue = (value: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 };

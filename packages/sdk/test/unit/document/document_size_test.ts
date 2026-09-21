@@ -741,9 +741,14 @@ describe('Document Size', () => {
     assert.deepEqual(absent.getDocSize().live, { data: 6, meta: 144 });
     assert.deepEqual(absent.getDocSize().gc, { data: 18, meta: 24 });
 
+    // 22, not 26: an attribute is charged for its LOGICAL value in UTF-8
+    // bytes, so `bold="true"` costs (4 + 4) * 2 = 16 here exactly as it does
+    // on the Go side. The old number counted the JSON quotes this SDK adds
+    // when it stores the value, which is what made the same document a
+    // different size depending on which SDK was looking at it (#2003).
     const twice = newDoc();
     twice.update((root) => root.t.styleByPath([0], [1], { bold: 'true' }));
-    assert.deepEqual(twice.getDocSize().live, { data: 26, meta: 168 });
+    assert.deepEqual(twice.getDocSize().live, { data: 22, meta: 168 });
     for (let i = 0; i < 2; i++) {
       twice.update((root) => root.t.removeStyleByPath([0], [1], ['bold']));
       assert.deepEqual(twice.getDocSize().live, { data: 6, meta: 144 });
@@ -754,7 +759,7 @@ describe('Document Size', () => {
     const toggled = newDoc();
     for (let i = 0; i < 100; i++) {
       toggled.update((root) => root.t.styleByPath([0], [1], { bold: 'true' }));
-      assert.deepEqual(toggled.getDocSize().live, { data: 26, meta: 168 });
+      assert.deepEqual(toggled.getDocSize().live, { data: 22, meta: 168 });
       toggled.update((root) => root.t.removeStyleByPath([0], [1], ['bold']));
       assert.deepEqual(toggled.getDocSize().live, { data: 6, meta: 144 });
     }

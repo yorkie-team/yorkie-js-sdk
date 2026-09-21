@@ -44,6 +44,18 @@ export interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 
+  /**
+   * `truncate` shortens this value in place, keeping the object identity.
+   *
+   * A split has to keep the LEFT node's value object, because `CRDTRoot.keyOf`
+   * identifies a GC pair's parent by object identity. Replacing it orphans
+   * every pair already registered against it: purge is then called on an
+   * object nothing references, so the tombstone survives while the ledger says
+   * it was collected. The Go implementation splits in place for the same
+   * reason.
+   */
+  truncate(offset: number): void;
+
   getDataSize(): DataSize;
 }
 
@@ -549,7 +561,16 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `deepcopy` returns a new instance of this RGATreeSplitNode without structural info.
    */
   public deepcopy(): RGATreeSplitNode<T> {
-    return new RGATreeSplitNode(this.id, this.value, this.removedAt);
+    // The value has to be copied, not shared. `Document.ensureClone` builds
+    // the clone from the root, and every operation is applied to both; a
+    // shared value means the clone's split or style mutates the root as a
+    // side effect, and the root's own application then sees an already-mutated
+    // value. Go has always copied here.
+    return new RGATreeSplitNode(
+      this.id,
+      this.value.substring(0, this.value.length) as T,
+      this.removedAt,
+    );
   }
 
   /**
@@ -561,9 +582,12 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   private splitValue(offset: number): T {
-    const value = this.value;
-    this.value = value.substring(0, offset) as T;
-    return value.substring(offset, value.length) as T;
+    // Take the right part first -- `substring` deep-copies the attributes --
+    // then shorten this value IN PLACE rather than replacing it, so the GC
+    // pairs registered against it keep pointing at a live object.
+    const right = this.value.substring(offset, this.value.length) as T;
+    this.value.truncate(offset);
+    return right;
   }
 
   /**
@@ -1437,6 +1461,23 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // the split operation.
     addDataSizes(diff, node.getDataSize(), splitNode.getDataSize());
     subDataSize(diff, prvSize);
+
+    // A split deep-copies the value's attributes, so every tombstone among
+    // them is duplicated under the new node. The copy was never in
+    // docSize.live -- `getDataSize` excludes removed attributes -- so it
+    // enters gc only, and purge subtracts the same size back out.
+    const splitValue = splitNode.getValue() as unknown as {
+      getRemovedAttrs?: () => Array<GCChild>;
+    };
+    if (typeof splitValue.getRemovedAttrs === 'function') {
+      for (const attr of splitValue.getRemovedAttrs()) {
+        this.pendingGCPairs.push({
+          parent: splitNode.getValue() as unknown as GCParent,
+          child: attr,
+          gcOnlySize: attr.getDataSize(),
+        });
+      }
+    }
 
     // NOTE: A piece split off an already-tombstoned node inherits
     // `removedAt` without going through `remove()`, so no GC pair is
