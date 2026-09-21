@@ -47,7 +47,20 @@ export const stringifyObjectValues = <A extends Indexable>(
 ): Record<string, string> => {
   const attrs: Record<string, string> = {};
   for (const [key, value] of Object.entries(attributes)) {
-    attrs[key] = JSON.stringify(value);
+    // A string that is not itself a JSON document is stored as-is, which is
+    // what the Go SDK stores for the same attribute: its `Style` takes
+    // map[string]string and holds what it is given. `color="red"` therefore
+    // puts the same three bytes on the wire from either SDK.
+    //
+    // A string that IS a JSON document keeps its quotes, because raw storage
+    // could not tell it from the value it encodes: '1' would come back as the
+    // number 1 and 'true' as the boolean. Those keep the encoding that
+    // preserves their type, at the cost of still differing from Go -- which
+    // cannot express the distinction at all.
+    attrs[key] =
+      typeof value === 'string' && !isJSONDocument(value)
+        ? value
+        : JSON.stringify(value);
   }
   return attrs;
 };
@@ -63,6 +76,19 @@ export const parseObjectValues = <A extends Indexable>(
     attributes[key] = parseAttrValue(value);
   }
   return attributes as A;
+};
+
+/**
+ * `isJSONDocument` reports whether the given string would parse as JSON, and
+ * so could not be told apart from the value it encodes if it were stored raw.
+ */
+const isJSONDocument = (value: string): boolean => {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 /**
