@@ -29,6 +29,7 @@ import {
 import { Document } from '../tabs/Document';
 import { Presence } from '../tabs/Presence';
 import { History } from '../tabs/History';
+import { Notifications } from '../tabs/Notifications';
 import { Separator } from '../components/ResizableSeparator';
 
 const Panel = () => {
@@ -193,6 +194,8 @@ const Panel = () => {
           </>
         )}
       </div>
+
+      <Notifications />
     </div>
   );
 };
