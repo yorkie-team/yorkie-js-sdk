@@ -269,6 +269,43 @@ describe('a style over a tombstoned node', () => {
   });
 
   /**
+   * A tombstoned node can also have an attribute REVIVED on it: a remote
+   * removeStyle tombstones the key, a later remote style sets it again. The
+   * pair the first one registered carried zero — the attribute's bytes were
+   * still inside the node's charge at that point — but the revive replaces it
+   * with a live node, so the node's charge no longer covers it and the map
+   * entry has to give back its own size on the way out.
+   *
+   * A text removeStyle only reaches a tombstone as the reverse of a style, so
+   * the sequence is: style, undo, style again, all concurrent with the
+   * removal.
+   */
+  it('gives an attribute back its own size when a revive unregisters it', () => {
+    const d1: TextDoc = new Document('test-doc');
+    const d2: TextDoc = new Document('test-doc');
+    d1.setActor(A1);
+    d2.setActor(A2);
+
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'abcdefghij');
+    });
+    d1.update((r) => r.t.setStyle(4, 6, { b: 'L'.repeat(12) }));
+    crossSync(d1, d2);
+
+    d1.update((r) => r.t.edit(4, 6, ''));
+    d2.update((r) => r.t.setStyle(0, 8, { b: 'x' }));
+    d2.history.undo();
+    d2.update((r) => r.t.setStyle(0, 8, { b: 'yy' }));
+
+    crossSync(d1, d2);
+
+    assert.deepEqual(nodeAttrs(d1), nodeAttrs(d2));
+    assertLedgerExact(d1, 'on the replica that deleted the node');
+    assertLedgerExact(d2, 'on the replica that issued the styles');
+  });
+
+  /**
    * The tree half of the same contract. Reaching it needs a remote style,
    * because an index range cannot address a removed node locally: a style
    * whose range was decided before a concurrent split follows `insNextID` to

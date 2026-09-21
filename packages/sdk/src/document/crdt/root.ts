@@ -584,11 +584,27 @@ export class CRDTRoot {
     const prev = this.gcPairMap.get(key);
     if (prev) {
       // A second registration under the same key un-registers: the child is
-      // no longer collectable, it was revived. Subtract exactly what the
-      // first registration added, or the bytes stay charged to gc for the
-      // life of the document -- the count drops to zero, so nothing else
+      // no longer collectable, it was revived. What comes back out has to be
+      // what the map was contributing, or the bytes stay charged to gc for
+      // the life of the document -- the count drops to zero, so nothing else
       // notices, while MaxSizeLimit keeps reading them.
-      subDataSize(this.docSize.gc, prev.gcOnlySize ?? prev.child.getDataSize());
+      //
+      // An attribute always contributes its own size while it is in the map:
+      // collection reads `getDataSize`, and nothing else's charge covers it
+      // once the write that revives it replaces it with a live node. A pair
+      // registered with a zero `gcOnlySize` -- a live attribute removed from
+      // a node that was ALREADY a tombstone, whose bytes were still inside
+      // that node's charge at the time -- would otherwise give back nothing.
+      // A born-dead split piece is the other way round: the rest of its
+      // bytes really are inside a sibling's charge, so it gives back exactly
+      // what registration added.
+      const isRHTNode = prev.child instanceof RHTNode;
+      subDataSize(
+        this.docSize.gc,
+        isRHTNode
+          ? prev.child.getDataSize()
+          : (prev.gcOnlySize ?? prev.child.getDataSize()),
+      );
       this.gcPairMap.delete(key);
       return;
     }
