@@ -73,3 +73,42 @@ changes — this SDK's current behaviour becomes the contract.
 Measured before and after on both SDKs; the six-operation sequence from the
 issue now produces the same document on each, and the concurrent case
 converges in both ticket orderings with an exact ledger on both replicas.
+
+`tsc --noEmit` clean, `eslint` 0 warnings, 545 unit tests green. The full
+integration suite (2607) passes against a server built from the matching
+server branch. Every new test checked Red first.
+
+### From code review
+
+- The tree's `removeStyle` had no liveness guard at all, so a live attribute
+  on a tombstoned tree node was debited from `live` — where it never was —
+  driving it to **-26** on the case the new test covers. Fixed on both SDKs by
+  collapsing `textAttrGCPair` and `attrGCPair` into one three-case helper.
+- Two comments claimed `CRDTTreeNode.getDataSize` skips a removed node. It
+  does not; the exclusion is `CRDTTree.getDataSize`'s. That confusion is what
+  justified leaving the tree at two cases.
+- `ticketKnown` read an empty-but-defined vector as "nothing known" where the
+  server reads `len(vv) == 0` as "everything known". Masked in practice by an
+  equally asymmetric `clientLamportAtChange`, but a latent trap now that
+  `canStyle` depends on the helper.
+- The tree still reported editor events for a tombstoned node where the text
+  half had stopped. Aligned.
+
+### Known limitations
+
+Shared with the server: a document with two concurrent removals of the same
+node makes `canStyle`'s input delivery-order dependent, because `removedAt` is
+LWW and mutable. Pre-existing on both sides and unchanged by this contract;
+tracked on the server side with an executable repro.
+
+SDK version skew: clients apply remote changes with their own `canStyle`, so an
+un-upgraded SDK on the same document as an upgraded one computes different
+tombstone attributes and a different `docSize.gc` — which `MaxSizeLimit` reads.
+The server and both SDKs are one logical release.
+
+### Deferred
+
+`clientLamportAtChange` is now redundant with `versionVector` — the inline
+computation in `text.ts` and `tree.ts` is `ticketKnown` spelled out. Collapsing
+it would delete ~16 lines per SDK, but it is a refactor rather than a defect
+and has to land on both sides together.
