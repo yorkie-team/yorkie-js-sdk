@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-import {
-  MaxLamport,
-  TimeTicket,
-} from '@yorkie-js/sdk/src/document/time/ticket';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import { RHT, RHTNode, RHTWrite } from '@yorkie-js/sdk/src/document/crdt/rht';
@@ -44,7 +41,11 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
-import { DataSize, addDataSizes } from '@yorkie-js/sdk/src/util/resource';
+import {
+  DataSize,
+  DocSize,
+  addDataSizes,
+} from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -415,12 +416,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     versionVector?: VersionVector,
   ): [
     Array<GCPair>,
-    DataSize,
+    DocSize,
     Array<TextChange<A>>,
     Map<string, string>,
     Array<string>,
   ] {
-    const diff = { data: 0, meta: 0 };
+    const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
 
     // 01. split nodes with from and to
     const [, diffTo, toRight] = this.rgaTreeSplit.findNodeWithSplit(
@@ -432,7 +433,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       editedAt,
     );
 
-    addDataSizes(diff, diffTo, diffFrom);
+    addDataSizes(size.live, diffTo, diffFrom);
 
     // 02. style nodes between from and to
     const changes: Array<TextChange<A>> = [];
@@ -440,15 +441,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
     for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID();
-      let clientLamportAtChange = MaxLamport; // Local edit
-      if (versionVector != undefined) {
-        clientLamportAtChange = versionVector!.get(actorID)
-          ? versionVector!.get(actorID)!
-          : 0n;
-      }
-
-      if (node.canStyle(editedAt, clientLamportAtChange)) {
+      if (node.canStyle(versionVector)) {
         toBeStyleds.push(node);
       }
     }
@@ -458,13 +451,24 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const attributesToRemove: Array<string> = [];
     let capturedPrev = false;
 
+    // The reverse operation restores what the VISIBLE text held, so the prior
+    // values come from the first LIVE node in the range. `canStyle` now admits
+    // tombstones, and the first node in the range can be one -- capturing from
+    // it made an undo write an attribute onto text that never carried it, out
+    // of a run the user had already deleted. The fallback to the first node
+    // keeps an all-tombstone range undoable.
+    const captureFrom =
+      toBeStyleds.find((n) => !n.isRemoved()) ?? toBeStyleds[0];
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
-      if (node.isRemoved()) {
-        continue;
-      }
+      // `canStyle` admits a node removed CONCURRENTLY with this style, which
+      // has to be styled for the replicas to agree. It is not part of the
+      // rendered text, though, so it reports no change to editors and its
+      // bytes move through gc rather than live.
+      const nodeIsLive = !node.isRemoved();
 
-      if (!capturedPrev) {
+      if (!capturedPrev && node === captureFrom) {
         for (const key of Object.keys(attributes)) {
           const attrs = node.getValue().getAttrs();
           if (attrs.has(key)) {
@@ -476,32 +480,35 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         capturedPrev = true;
       }
 
-      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
-        node.createPosRange(),
-      );
-      changes.push({
-        type: TextChangeType.Style,
-        actor: editedAt.getActorID(),
-        from: fromIdx,
-        to: toIdx,
-        value: {
-          attributes: parseObjectValues(attributes) as A,
-        },
-      });
+      if (nodeIsLive) {
+        const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+          node.createPosRange(),
+        );
+        changes.push({
+          type: TextChangeType.Style,
+          actor: editedAt.getActorID(),
+          from: fromIdx,
+          to: toIdx,
+          value: {
+            attributes: parseObjectValues(attributes) as A,
+          },
+        });
+      }
 
       for (const [key, value] of Object.entries(attributes)) {
         accAttrWrite(
           node.getValue().setAttr(key, value, editedAt),
           node.getValue(),
+          nodeIsLive,
           pairs,
-          diff,
+          size,
         );
       }
     }
 
     pairs.push(...this.rgaTreeSplit.drainPendingGCPairs());
 
-    return [pairs, diff, changes, prevAttributes, attributesToRemove];
+    return [pairs, size, changes, prevAttributes, attributesToRemove];
   }
 
   /**
@@ -513,8 +520,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, DataSize, Array<TextChange<A>>, Map<string, string>] {
-    const diff = { data: 0, meta: 0 };
+  ): [Array<GCPair>, DocSize, Array<TextChange<A>>, Map<string, string>] {
+    const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
 
     // 01. split nodes with from and to
     const [, diffTo, toRight] = this.rgaTreeSplit.findNodeWithSplit(
@@ -526,7 +533,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       editedAt,
     );
 
-    addDataSizes(diff, diffTo, diffFrom);
+    addDataSizes(size.live, diffTo, diffFrom);
 
     // 02. find nodes to remove style from
     const changes: Array<TextChange<A>> = [];
@@ -534,15 +541,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const toBeStyleds: Array<RGATreeSplitNode<CRDTTextValue>> = [];
 
     for (const node of nodes) {
-      const actorID = node.getCreatedAt().getActorID();
-      let clientLamportAtChange = MaxLamport;
-      if (versionVector != undefined) {
-        clientLamportAtChange = versionVector!.get(actorID)
-          ? versionVector!.get(actorID)!
-          : 0n;
-      }
-
-      if (node.canStyle(editedAt, clientLamportAtChange)) {
+      if (node.canStyle(versionVector)) {
         toBeStyleds.push(node);
       }
     }
@@ -551,13 +550,21 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const prevAttributes = new Map<string, string>();
     let capturedPrev = false;
 
+    // The reverse operation restores what the VISIBLE text held, so the prior
+    // values come from the first LIVE node in the range. `canStyle` now admits
+    // tombstones, and the first node in the range can be one -- capturing from
+    // it made an undo restore a value the visible text never held. The fallback to the first node
+    // keeps an all-tombstone range undoable.
+    const captureFrom =
+      toBeStyleds.find((n) => !n.isRemoved()) ?? toBeStyleds[0];
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
-      if (node.isRemoved()) {
-        continue;
-      }
+      // See setStyle: a node removed concurrently with this change is styled
+      // but is not part of the rendered text.
+      const nodeIsLive = !node.isRemoved();
 
-      if (!capturedPrev) {
+      if (!capturedPrev && node === captureFrom) {
         for (const key of attributesToRemove) {
           const attrs = node.getValue().getAttrs();
           if (attrs.has(key)) {
@@ -567,41 +574,38 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         capturedPrev = true;
       }
 
-      const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
-        node.createPosRange(),
-      );
+      if (nodeIsLive) {
+        const [fromIdx, toIdx] = this.rgaTreeSplit.findIndexesFromRange(
+          node.createPosRange(),
+        );
 
-      const removedAttributes: Record<string, any> = {};
-      for (const key of attributesToRemove) {
-        removedAttributes[key] = null; // null signals attribute removal to editors (e.g., Quill)
+        const removedAttributes: Record<string, any> = {};
+        for (const key of attributesToRemove) {
+          removedAttributes[key] = null; // null signals attribute removal to editors (e.g., Quill)
+        }
+        changes.push({
+          type: TextChangeType.Style,
+          actor: editedAt.getActorID(),
+          from: fromIdx,
+          to: toIdx,
+          value: {
+            attributes: removedAttributes as A,
+          },
+        });
       }
-      changes.push({
-        type: TextChangeType.Style,
-        actor: editedAt.getActorID(),
-        from: fromIdx,
-        to: toIdx,
-        value: {
-          attributes: removedAttributes as A,
-        },
-      });
 
       for (const key of attributesToRemove) {
-        // The loop above skips removed nodes, so every node reaching here is
-        // live and the only question is whether the ATTRIBUTE was. The Go
-        // implementation has no such skip -- `canStyle` alone admits
-        // tombstoned nodes there -- and so needs a third case this does not.
-        //
-        // That difference is a convergence divergence in its own right: on
-        // the same history the restored text ends up styled here and unstyled
-        // on the server. It is tracked separately; do not close the gap by
-        // adding the third case back on this side, because the question is
-        // which SDK is right about styling a tombstoned node at all.
+        // `canStyle` admits a node removed concurrently with this change, so
+        // the NODE holding the attribute may itself be a tombstone -- the
+        // third case `attrGCPair` asks about.
         let attrWasLive = node.getValue().getAttrs().has(key);
         for (const rhtNode of node
           .getValue()
           .getAttrs()
           .remove(key, editedAt)) {
-          pairs.push(attrGCPair(node.getValue(), rhtNode, attrWasLive));
+          pairs.push(
+            attrGCPair(node.getValue(), rhtNode, attrWasLive, nodeIsLive),
+          );
           // Only the node that replaces the live value settles the live
           // value's bytes; a second one in the same call is the tombstone it
           // superseded, which was never in live.
@@ -612,7 +616,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
     pairs.push(...this.rgaTreeSplit.drainPendingGCPairs());
 
-    return [pairs, diff, changes, prevAttributes];
+    return [pairs, size, changes, prevAttributes];
   }
 
   /**

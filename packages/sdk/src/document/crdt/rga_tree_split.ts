@@ -24,7 +24,10 @@ import {
   TimeTicketSize,
   TimeTicketStruct,
 } from '@yorkie-js/sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import {
+  VersionVector,
+  ticketKnown,
+} from '@yorkie-js/sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
@@ -496,15 +499,30 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
 
   /**
    * `canStyle` checks if node is able to set style.
+   *
+   * The only question is whether the styling change knew this node existed.
+   * It deliberately does NOT ask whether the node has since been removed, and
+   * that is a convergence requirement rather than a preference: a style is
+   * applied unconditionally on the replica that issues it — the node is live
+   * there, or the range would not have reached it — and can never be
+   * retracted afterwards. Every other replica has to apply it too.
+   *
+   * Any rule that reads `removedAt` is delivery-order dependent, because
+   * `removedAt` is last-writer-wins and MUTABLE: `canRemove` lets a removal
+   * the node has not seen overwrite it, while a style is evaluated once, when
+   * it arrives. Two clients deleting the same run concurrently plus a third
+   * styling over it is enough to make replicas disagree, and no single stored
+   * ticket fixes it — the replica cannot know which of the concurrent
+   * removals the styler had seen. The predicate has to not depend on removal
+   * state at all.
+   *
+   * The cost is that a style covers text the same client had already deleted,
+   * invisibly, so undoing the style and then the deletion brings the text back
+   * without the attributes it carried. That is the price of the replicas
+   * agreeing.
    */
-  public canStyle(
-    editedAt: TimeTicket,
-    clientLamportAtChange: bigint,
-  ): boolean {
-    const nodeExisted =
-      this.getCreatedAt().getLamport() <= clientLamportAtChange;
-
-    return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
+  public canStyle(versionVector?: VersionVector): boolean {
+    return ticketKnown(versionVector, this.getCreatedAt());
   }
 
   /**

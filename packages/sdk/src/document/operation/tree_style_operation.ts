@@ -120,7 +120,7 @@ export class TreeStyleOperation extends Operation {
     const tree = parentObject as CRDTTree;
     let changes: Array<TreeChange>;
     let pairs: Array<GCPair>;
-    let diff = { data: 0, meta: 0 };
+    let size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     const reversePrevAttributes = new Map<string, string>();
     const reverseAttrsToRemove: Array<string> = [];
 
@@ -130,7 +130,7 @@ export class TreeStyleOperation extends Operation {
 
       let prevAttributes: Map<string, string>;
       let newAttrKeys: Array<string>;
-      [pairs, changes, diff, prevAttributes, newAttrKeys] = tree.style(
+      [pairs, changes, size, prevAttributes, newAttrKeys] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
@@ -145,7 +145,7 @@ export class TreeStyleOperation extends Operation {
       const attributesToRemove = this.attributesToRemove;
 
       let prevAttributes: Map<string, string>;
-      [pairs, changes, diff, prevAttributes] = tree.removeStyle(
+      [pairs, changes, size, prevAttributes] = tree.removeStyle(
         [this.fromPos, this.toPos],
         attributesToRemove,
         this.getExecutedAt(),
@@ -157,7 +157,8 @@ export class TreeStyleOperation extends Operation {
       }
     }
 
-    root.acc(diff);
+    root.acc(size.live);
+    root.accGC(size.gc);
 
     for (const pair of pairs) {
       root.registerGCPair(pair);

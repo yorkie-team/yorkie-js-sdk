@@ -183,9 +183,10 @@ export class Text<A extends Indexable = Indexable> {
 
     const attrs = stringifyObjectValues(attributes);
     const ticket = this.context.issueTimeTicket();
-    const [pairs, diff] = this.text.setStyle(range, attrs, ticket);
+    const [pairs, size] = this.text.setStyle(range, attrs, ticket);
 
-    this.context!.acc(diff);
+    this.context!.acc(size.live);
+    this.context!.accGC(size.gc);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);

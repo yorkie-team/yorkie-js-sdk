@@ -87,9 +87,11 @@ export class MoveOperation extends Operation {
     );
 
     if (deadNode) {
+      // See `json/array.ts`: a dead position node was never in live.
       root.registerGCPair({
         parent: array.getRGATreeList(),
         child: deadNode,
+        gcOnlySize: deadNode.getDataSize(),
       });
     }
 

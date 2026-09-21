@@ -464,9 +464,10 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [pairs, , diff] = this.tree!.style([fromPos, toPos], attrs, ticket);
+    const [pairs, , size] = this.tree!.style([fromPos, toPos], attrs, ticket);
 
-    this.context!.acc(diff);
+    this.context!.acc(size.live);
+    this.context!.accGC(size.gc);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
@@ -510,9 +511,10 @@ export class Tree {
     const ticket = this.context.issueTimeTicket();
     const attrs = attributes ? stringifyObjectValues(attributes) : undefined;
 
-    const [pairs, , diff] = this.tree!.style([fromPos, toPos], attrs, ticket);
+    const [pairs, , size] = this.tree!.style([fromPos, toPos], attrs, ticket);
 
-    this.context!.acc(diff);
+    this.context!.acc(size.live);
+    this.context!.accGC(size.gc);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
@@ -555,13 +557,14 @@ export class Tree {
     const toPos = this.tree.findPos(toIdx);
     const ticket = this.context.issueTimeTicket();
 
-    const [pairs, , diff] = this.tree!.removeStyle(
+    const [pairs, , size] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
     );
 
-    this.context!.acc(diff);
+    this.context!.acc(size.live);
+    this.context!.accGC(size.gc);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);
@@ -611,13 +614,14 @@ export class Tree {
     const toPos = this.tree.pathToPos(toPath);
     const ticket = this.context.issueTimeTicket();
 
-    const [pairs, , diff] = this.tree!.removeStyle(
+    const [pairs, , size] = this.tree!.removeStyle(
       [fromPos, toPos],
       attributesToRemove,
       ticket,
     );
 
-    this.context!.acc(diff);
+    this.context!.acc(size.live);
+    this.context!.accGC(size.gc);
 
     for (const pair of pairs) {
       this.context!.registerGCPair(pair);

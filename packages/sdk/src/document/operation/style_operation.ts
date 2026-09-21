@@ -28,6 +28,7 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Indexable } from '../document';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { addDataSizes } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  *  `StyleOperation` is an operation applies the style of the given range to Text.
@@ -118,23 +119,21 @@ export class StyleOperation extends Operation {
 
     const allPairs: Array<GCPair> = [];
     const allChanges: Array<{ from: number; to: number; value?: unknown }> = [];
-    let allDiff = { data: 0, meta: 0 };
+    const allSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     const reversePrevAttributes = new Map<string, string>();
     const reverseAttrsToRemove: Array<string> = [];
 
     // 01. Handle attributesToRemove (remove style attributes)
     if (this.attributesToRemove.length > 0) {
-      const [pairs, diff, changes, prevAttributes] = text.removeStyle(
+      const [pairs, size, changes, prevAttributes] = text.removeStyle(
         [this.fromPos, this.toPos],
         this.attributesToRemove,
         this.getExecutedAt(),
         versionVector,
       );
 
-      allDiff = {
-        data: allDiff.data + diff.data,
-        meta: allDiff.meta + diff.meta,
-      };
+      addDataSizes(allSize.live, size.live);
+      addDataSizes(allSize.gc, size.gc);
       allPairs.push(...pairs);
       allChanges.push(...changes);
 
@@ -146,7 +145,7 @@ export class StyleOperation extends Operation {
 
     // 02. Handle attributes (set style attributes)
     if (this.attributes.size > 0) {
-      const [pairs, diff, changes, prevAttributes, attrsToRemove] =
+      const [pairs, size, changes, prevAttributes, attrsToRemove] =
         text.setStyle(
           [this.fromPos, this.toPos],
           Object.fromEntries(this.attributes),
@@ -154,10 +153,8 @@ export class StyleOperation extends Operation {
           versionVector,
         );
 
-      allDiff = {
-        data: allDiff.data + diff.data,
-        meta: allDiff.meta + diff.meta,
-      };
+      addDataSizes(allSize.live, size.live);
+      addDataSizes(allSize.gc, size.gc);
       allPairs.push(...pairs);
       allChanges.push(...changes);
 
@@ -168,7 +165,8 @@ export class StyleOperation extends Operation {
       reverseAttrsToRemove.push(...attrsToRemove);
     }
 
-    root.acc(allDiff);
+    root.acc(allSize.live);
+    root.accGC(allSize.gc);
     for (const pair of allPairs) {
       root.registerGCPair(pair);
     }
