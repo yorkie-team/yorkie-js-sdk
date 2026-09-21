@@ -306,6 +306,46 @@ describe('a style over a tombstoned node', () => {
   });
 
   /**
+   * The tree's `removeStyle` half of the same question. A remote
+   * `removeStyle` whose range was decided before a concurrent split follows
+   * `insNextID` to the split siblings, one of which is a tombstone by the
+   * time it arrives. A live attribute on a tombstoned node is not in `live` —
+   * `CRDTTree.getDataSize` excludes the node — so booking it out of `live`
+   * walks `live` down by the attribute's size, without bound and into the
+   * negative.
+   */
+  it('keeps the ledger exact for a remote removeStyle on a removed tree node', () => {
+    const d1: TreeDoc = new Document('test-doc');
+    const d2: TreeDoc = new Document('test-doc');
+    d1.setActor(A1);
+    d2.setActor(A2);
+
+    d1.update((r) => {
+      r.t = new Tree({
+        type: 'doc',
+        children: [
+          { type: 'p', children: [{ type: 'text', value: 'abcdefgh' }] },
+        ],
+      });
+    });
+    d1.update((r) => r.t.style(0, 10, { b: 'LONGLONGLONGLONG' }));
+    crossSync(d1, d2);
+
+    // d2 removes the style over a range decided before d1 splits.
+    d2.update((r) => r.t.removeStyle(0, 10, ['b']));
+
+    // d1 splits the paragraph and removes the right half.
+    d1.update((r) => r.t.edit(5, 5, undefined, 1));
+    d1.update((r) => r.t.edit(6, 11, undefined, 0));
+
+    crossSync(d1, d2);
+
+    assert.isAtLeast(d1.getDocSize().live.data, 0, 'live went negative');
+    assertLedgerExact(d1, 'on the replica that removed the node');
+    assertLedgerExact(d2, 'on the replica that issued the removeStyle');
+  });
+
+  /**
    * The tree half of the same contract. Reaching it needs a remote style,
    * because an index range cannot address a removed node locally: a style
    * whose range was decided before a concurrent split follows `insNextID` to

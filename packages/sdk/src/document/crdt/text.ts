@@ -37,8 +37,11 @@ import {
   parseObjectValues,
 } from '@yorkie-js/sdk/src/util/object';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
-import { accAttrWrite } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  accAttrWrite,
+  attrGCPair,
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import { SplayTree } from '@yorkie-js/sdk/src/util/splay_tree';
 import { LLRBTree } from '@yorkie-js/sdk/src/util/llrb_tree';
 import {
@@ -46,28 +49,6 @@ import {
   DocSize,
   addDataSizes,
 } from '@yorkie-js/sdk/src/util/resource';
-
-/**
- * `textAttrGCPair` decides which half of the ledger a text attribute moves
- * through. See the call site in `removeStyle` for the three cases; the tree's
- * `attrGCPair` covers only two because a tree node is never styled while the
- * container is still counting it.
- */
-function textAttrGCPair(
-  parent: GCParent,
-  child: RHTNode,
-  attrWasLive: boolean,
-  nodeIsLive: boolean,
-): GCPair {
-  if (attrWasLive && nodeIsLive) {
-    return { parent, child };
-  }
-
-  // Already counted inside the removed node's gc charge.
-  const gcOnlySize = attrWasLive ? { data: 0, meta: 0 } : child.getDataSize();
-
-  return { parent, child, gcOnlySize };
-}
 
 /**
  * `TextChangeType` is the type of TextChange.
@@ -616,24 +597,16 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       }
 
       for (const key of attributesToRemove) {
-        // A text attribute has one case the tree's two-way split does not:
-        // the NODE holding it may already be a tombstone.
-        //
-        //   live attr on a live node -- in live, so move live -> gc.
-        //   live attr on a REMOVED node -- `CRDTTextValue.getDataSize` skips
-        //     removed nodes, so it is not in live; its bytes are already
-        //     inside the gc charge taken when the node was removed. Charging
-        //     them again doubles them, and purge will subtract the node's
-        //     now-smaller size, so the pair must carry exactly zero.
-        //   attr that was already a tombstone -- never in live, and not
-        //     inside the node's charge either, so it carries its own size.
+        // `canStyle` admits a node removed concurrently with this change, so
+        // the NODE holding the attribute may itself be a tombstone -- the
+        // third case `attrGCPair` asks about.
         let attrWasLive = node.getValue().getAttrs().has(key);
         for (const rhtNode of node
           .getValue()
           .getAttrs()
           .remove(key, editedAt)) {
           pairs.push(
-            textAttrGCPair(node.getValue(), rhtNode, attrWasLive, nodeIsLive),
+            attrGCPair(node.getValue(), rhtNode, attrWasLive, nodeIsLive),
           );
           // Only the node that replaces the live value settles the live
           // value's bytes; a second one in the same call is the tombstone it

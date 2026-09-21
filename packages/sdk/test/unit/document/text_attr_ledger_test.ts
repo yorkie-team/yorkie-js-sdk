@@ -206,13 +206,13 @@ describe('the attribute ledger', () => {
   /**
    * A style that spans both live and already-deleted text, then an undo of it.
    *
-   * NOTE ON WHAT THIS DOES NOT COVER. The Go server styles tombstoned nodes
-   * -- `canStyle` admits them -- and needs a third accounting case for that.
-   * This SDK skips them outright, so the history below never reaches that
-   * case here and the two SDKs end up with different garbage counts and,
-   * after a restore, different visible text. That divergence is tracked
-   * separately; this test pins only that the ledger stays exact along the
-   * path this SDK actually takes.
+   * NOTE ON WHAT THIS DOES NOT COVER. `canStyle` skips a node whose removal
+   * the change had already seen, and a local change has seen every removal in
+   * its own replica — so the history below never reaches a tombstoned node at
+   * all, and the accounting case for one is exercised in
+   * `style_tombstone_test.ts` instead, on the concurrent histories that do
+   * reach it. This test pins only that the ledger stays exact along the local
+   * path.
    */
   it('balances a style that spans deleted text, and its undo', () => {
     const d = seededText();

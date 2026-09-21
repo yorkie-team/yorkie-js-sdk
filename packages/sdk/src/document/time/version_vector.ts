@@ -167,14 +167,17 @@ export const InitialVersionVector = new VersionVector(new Map());
 /**
  * `ticketKnown` returns true if the given ticket is causally known to the
  * editor, i.e. the editor's version vector covers the ticket's lamport
- * clock for the same actor. For local operations (undefined version vector),
- * all tickets are considered known.
+ * clock for the same actor. For local operations (an undefined or empty
+ * version vector), all tickets are considered known.
  */
 export function ticketKnown(
   vv: VersionVector | undefined,
   ticket: TimeTicket,
 ): boolean {
-  if (vv === undefined) {
+  // An empty vector is a local change, the same way the server reads
+  // `len(vv) == 0` -- not just an absent one. The two have to agree or the
+  // same operation is causally known on one side and not the other.
+  if (vv === undefined || vv.size() === 0) {
     return true;
   }
 

@@ -56,6 +56,13 @@ changes — this SDK's current behaviour becomes the contract.
       as unreachable behind the guard
 - [x] `setStyle`/`removeStyle`/`style`/`removeStyle` report `DocSize`, and
       `CRDTRoot.accGC` takes the gc half
+- [x] Give the tree's `removeStyle` the third accounting case too — it had no
+      liveness guard at all, so a live attribute on a tombstoned tree node was
+      debited from `live` and drove it to -26 on the case the new test covers
+- [x] Align `ticketKnown` with the server's `len(vv) == 0`: an empty-but-
+      defined vector is a local change on both sides
+- [x] Suppress editor events for a tombstoned node on the tree too, matching
+      the text half
 - [x] Tests mirroring the server's: the six-operation local sequence, both
       concurrent ticket orderings, a shrinking overwrite on a tombstone, and
       the tree's remote-style case, each asserting `live` and `gc` against a

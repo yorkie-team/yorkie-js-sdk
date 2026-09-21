@@ -913,25 +913,42 @@ export class CRDTTreeNode
 
 /**
  * `attrGCPair` builds the GC pair for an RHT node a style edit turned into
- * garbage. `wasLive` says whether docSize.live was holding the value this node
- * replaces: only then does collecting it take a size out of live.
+ * garbage, deciding which half of the ledger it moves through. Three cases,
+ * because the NODE holding the attribute may itself be a tombstone —
+ * `canStyle` admits one removed concurrently with the change:
  *
- * A tombstone minted over a key that was absent, or over one that was already
- * removed, was never live. Charging it to live anyway walked the live size
- * down by the attribute's size on every such edit, without bound — a rich-text
- * editor toggling one key is exactly that loop — and drove it negative, at
- * which point the document size limit stops applying. Those go to gc alone,
- * by the same `gcOnlySize` route `getGCPairs` already takes for the tombstones
- * a snapshot rebuild finds.
+ * - live attr on a live node — in live, so move live → gc the usual way.
+ * - live attr on a REMOVED node — the container skips a removed node
+ *   (`CRDTText.getDataSize`, `CRDTTree.getDataSize`; the per-NODE functions
+ *   count a live attribute either way), so it is not in live; its bytes are
+ *   already inside the gc charge taken when the node was removed, and
+ *   removing the attribute shrinks that charge by exactly them. Charging them
+ *   again doubles them, so the pair carries exactly zero.
+ * - attr that was already a tombstone — never in live, and not inside the
+ *   node's charge either, so it carries its own size.
+ *
+ * Charging case 2 or 3 to live walked the live size down by the attribute's
+ * size on every such edit, without bound — a rich-text editor toggling one key
+ * is exactly that loop — and drove it negative, at which point the document
+ * size limit stops applying.
+ *
+ * Shared by the tree and the text halves: both hold attributes in an RHT and
+ * must answer this the same way, which they historically did not (#1341).
  */
 export function attrGCPair(
   parent: GCParent,
   child: RHTNode,
-  wasLive: boolean,
+  attrWasLive: boolean,
+  nodeIsLive: boolean,
 ): GCPair {
-  return wasLive
-    ? { parent, child }
-    : { parent, child, gcOnlySize: child.getDataSize() };
+  if (attrWasLive && nodeIsLive) {
+    return { parent, child };
+  }
+
+  // A live attribute on a removed node is already counted inside that node's
+  // gc charge.
+  const gcOnlySize = attrWasLive ? { data: 0, meta: 0 } : child.getDataSize();
+  return { parent, child, gcOnlySize };
 }
 
 /**
@@ -950,14 +967,15 @@ export function accAttrWrite(
   size: DocSize,
 ): void {
   if (write.revived !== undefined) {
-    pairs.push(attrGCPair(parent, write.revived, false));
+    pairs.push(attrGCPair(parent, write.revived, false, nodeIsLive));
   }
 
   // `nodeIsLive` is false when the container does not count this node's
   // attributes in live at all -- a tombstoned node, which `CRDTText
-  // .getDataSize` and `CRDTTreeNode.getDataSize` both skip. Booking either
-  // half to live there drifts it by the SIGNED difference between the two
-  // values' sizes, and a shrinking overwrite takes it negative.
+  // .getDataSize` and `CRDTTree.getDataSize` both skip. (The per-NODE
+  // functions do NOT skip; the exclusion lives in the container.) Booking
+  // either half to live there drifts it by the SIGNED difference between the
+  // two values' sizes, and a shrinking overwrite takes it negative.
   //
   // The bytes are not nowhere, though: they are inside the gc charge the
   // node's removal took, and collection subtracts the node's size as it
@@ -1746,7 +1764,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const parentOfNode = node.parent!;
           const previousNode = node.prevSibling || node.parent!;
 
-          if (Object.keys(affectedAttrs).length > 0) {
+          // A tombstoned node is not part of the rendered document, and
+          // `toIndex` on one yields a zero-width range that means nothing to
+          // an editor. The text half makes the same exclusion.
+          if (Object.keys(affectedAttrs).length > 0 && !node.isRemoved) {
             changes.push({
               type: TreeChangeType.Style,
               from: this.toIndex(parentOfNode, previousNode),
@@ -1895,11 +1916,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
             capturedPrev = true;
           }
 
+          // `canStyle` admits a node removed concurrently with this change,
+          // so `nodeIsLive` is the third question `attrGCPair` asks.
+          const nodeIsLive = !node.isRemoved;
           for (const value of attributesToRemove) {
             let wasLive = node.attrs.has(value);
             const nodesTobeRemoved = node.attrs.remove(value, editedAt);
             for (const rhtNode of nodesTobeRemoved) {
-              pairs.push(attrGCPair(node, rhtNode, wasLive));
+              pairs.push(attrGCPair(node, rhtNode, wasLive, nodeIsLive));
               // Only the node replacing the live value takes a size out of
               // live; a second one in the same call is the tombstone it
               // superseded.
@@ -1910,15 +1934,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const parentOfNode = node.parent!;
           const previousNode = node.prevSibling || node.parent!;
 
-          changes.push({
-            actor: editedAt.getActorID()!,
-            type: TreeChangeType.RemoveStyle,
-            from: this.toIndex(parentOfNode, previousNode),
-            to: this.toIndex(node, node),
-            fromPath: this.toPath(parentOfNode, previousNode),
-            toPath: this.toPath(node, node),
-            value: attributesToRemove,
-          });
+          // See `style`: a tombstoned node reports no change to editors.
+          if (!node.isRemoved) {
+            changes.push({
+              actor: editedAt.getActorID()!,
+              type: TreeChangeType.RemoveStyle,
+              from: this.toIndex(parentOfNode, previousNode),
+              to: this.toIndex(node, node),
+              fromPath: this.toPath(parentOfNode, previousNode),
+              toPath: this.toPath(node, node),
+              value: attributesToRemove,
+            });
+          }
 
           // Propagate remove-style to unknown split siblings.
           if (tokenType === TokenType.Start && versionVector !== undefined) {
@@ -1940,7 +1967,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
                 const nodesTobeRemoved = next.attrs.remove(value, editedAt);
                 removedAny = removedAny || nodesTobeRemoved.length > 0;
                 for (const rhtNode of nodesTobeRemoved) {
-                  pairs.push(attrGCPair(next, rhtNode, wasLive));
+                  pairs.push(
+                    attrGCPair(next, rhtNode, wasLive, !next.isRemoved),
+                  );
                   wasLive = false;
                 }
               }
