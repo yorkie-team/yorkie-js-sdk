@@ -123,6 +123,21 @@ un-upgraded SDK on the same document as an upgraded one computes different
 tombstone attributes and a different `docSize.gc` — which `MaxSizeLimit` reads.
 The server and both SDKs are one logical release.
 
+### Structural parity with the server
+
+The server's `RegisterGCPair` only added to gc, leaving the live subtraction
+to a separate `AdjustDiffForGCPair` every caller had to remember; this SDK's
+`registerGCPair` has always done both halves, with `gcOnlySize` meaning "add
+to gc, take nothing out of live". The server now matches, and the four Go
+registrations that had been relying on the caller's silence say it with
+`GCOnlySize` instead.
+
+One of those is shared: the array dead position node. It holds no element, so
+`getDataSize` never counted it into live — but this SDK registered it without
+`gcOnlySize`, so `registerGCPair` debited live for bytes it never held. An
+array move reported `live={12,120}` here against the server's `{12,144}`. Both
+now say `{12,144}`.
+
 ### Deferred
 
 Keeping the nicer undo semantics would mean expressing a local style as the

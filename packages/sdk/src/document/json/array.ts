@@ -483,9 +483,13 @@ export class ArrayProxy {
       ),
     );
     if (deadNode) {
+      // A dead position node holds no element, so `getDataSize` never counted
+      // it into live -- `gcOnlySize` is how a pair says "add to gc, take
+      // nothing out of live". See `CRDTRoot.registerGCPair`.
       context.registerGCPair({
         parent: target.getRGATreeList(),
         child: deadNode,
+        gcOnlySize: deadNode.getDataSize(),
       });
     }
   }
@@ -521,9 +525,13 @@ export class ArrayProxy {
       ),
     );
     if (deadNode) {
+      // A dead position node holds no element, so `getDataSize` never counted
+      // it into live -- `gcOnlySize` is how a pair says "add to gc, take
+      // nothing out of live". See `CRDTRoot.registerGCPair`.
       context.registerGCPair({
         parent: target.getRGATreeList(),
         child: deadNode,
+        gcOnlySize: deadNode.getDataSize(),
       });
     }
   }
@@ -583,9 +591,13 @@ export class ArrayProxy {
       ),
     );
     if (deadNode) {
+      // A dead position node holds no element, so `getDataSize` never counted
+      // it into live -- `gcOnlySize` is how a pair says "add to gc, take
+      // nothing out of live". See `CRDTRoot.registerGCPair`.
       context.registerGCPair({
         parent: target.getRGATreeList(),
         child: deadNode,
+        gcOnlySize: deadNode.getDataSize(),
       });
     }
   }
@@ -606,9 +618,13 @@ export class ArrayProxy {
       MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );
     if (deadNode) {
+      // A dead position node holds no element, so `getDataSize` never counted
+      // it into live -- `gcOnlySize` is how a pair says "add to gc, take
+      // nothing out of live". See `CRDTRoot.registerGCPair`.
       context.registerGCPair({
         parent: target.getRGATreeList(),
         child: deadNode,
+        gcOnlySize: deadNode.getDataSize(),
       });
     }
   }
