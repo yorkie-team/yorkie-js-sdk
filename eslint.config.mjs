@@ -108,5 +108,7 @@ export default tseslint.config(
     'examples/**/*',
     // schema
     'packages/schema/antlr',
+    // devtools: plasmo's generated scaffold, produced by `pnpm devtools build`
+    'packages/devtools/.plasmo/**',
   ]),
 );
