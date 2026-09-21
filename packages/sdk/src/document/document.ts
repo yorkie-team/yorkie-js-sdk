@@ -2687,7 +2687,7 @@ export class Document<
         ? deepcopy(this.presences.get(actorID)!)
         : undefined,
     };
-    const { opInfos, reverseOps } = change.execute(
+    const { operations, opInfos, reverseOps } = change.execute(
       this.root,
       this.presences,
       OpSource.UndoRedo,
@@ -2707,7 +2707,20 @@ export class Document<
 
     // NOTE(chacha912): When there is no applied operation or presence
     // during undo/redo, skip propagating change remotely.
-    if (!change.hasPresenceChange() && !opInfos.length) {
+    //
+    // The test is whether an operation RAN, not whether it produced an
+    // `OpInfo`. Those differ: a style may change CRDT state without anything
+    // an editor could render, because `canStyle` admits a node another client
+    // removed concurrently and a tombstone has no index to report. Gating on
+    // `opInfos` dropped such a reverse style on the floor -- it mutated this
+    // replica and never reached the others, which is the divergence the
+    // `canStyle` contract exists to prevent, reintroduced through undo.
+    //
+    // `change.execute` omits an operation whose target was removed while the
+    // undo was pending (its result is undefined), so that case is still gated
+    // out. What gets through instead is a change that ran and showed nothing,
+    // which costs a redundant change on the wire and never a silent drop.
+    if (!change.hasPresenceChange() && !operations.length) {
       return;
     }
 

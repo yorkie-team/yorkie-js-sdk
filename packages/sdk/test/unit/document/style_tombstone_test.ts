@@ -521,4 +521,44 @@ describe('a style over a tombstoned node', () => {
       assert.deepEqual(got, first, `delivery order ${name} diverges`);
     }
   });
+  /**
+   * Undoing a style whose range covers only a node another client removed
+   * concurrently. The reverse style mutates the tombstone, but a tombstone has
+   * no index, so it produces no `OpInfo` — and `Document.update`'s undo path
+   * used to gate propagation on `opInfos.length`. The change was applied here
+   * and never sent, leaving the replicas with different attributes on the same
+   * node for good: the exact divergence `canStyle` was changed to prevent,
+   * coming back through undo.
+   */
+  it('sends an undo whose style lands only on a tombstone', () => {
+    const d1: TextDoc = new Document('test-doc');
+    const d2: TextDoc = new Document('test-doc');
+    d1.setActor(A1);
+    d2.setActor(A2);
+
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'abcdefghij');
+    });
+    crossSync(d1, d2);
+
+    d1.update((r) => r.t.setStyle(4, 6, { b: '1' }));
+    d2.update((r) => r.t.edit(4, 6, ''));
+    crossSync(d1, d2);
+    assert.deepEqual(nodeAttrs(d1), nodeAttrs(d2), 'sanity: converged first');
+
+    d1.history.undo();
+    assert.isAtLeast(
+      d1.createChangePack().getChanges().length,
+      1,
+      'the undo mutated the tombstone, so it has to reach the other replica',
+    );
+
+    crossSync(d1, d2);
+    assert.deepEqual(
+      nodeAttrs(d1),
+      nodeAttrs(d2),
+      'the replicas disagree after an undo that showed nothing',
+    );
+  });
 });
