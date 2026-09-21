@@ -85,17 +85,11 @@
 .rc-slider-mark-text .mark-remote {
   color: var(--blue-light);
 }
-.rc-slider-mark-text .mark-undoredo {
-  color: var(--purple-light);
-}
 .rc-slider-mark-text-active .mark-local {
   color: var(--yellow-0);
 }
 .rc-slider-mark-text-active .mark-remote {
   color: var(--blue-0);
-}
-.rc-slider-mark-text-active .mark-undoredo {
-  color: var(--purple-0);
 }
 
 .history-slider-wrap[data-length='1'] .rc-slider-rail {
