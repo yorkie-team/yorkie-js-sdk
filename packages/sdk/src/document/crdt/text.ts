@@ -451,6 +451,15 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const attributesToRemove: Array<string> = [];
     let capturedPrev = false;
 
+    // The reverse operation restores what the VISIBLE text held, so the prior
+    // values come from the first LIVE node in the range. `canStyle` now admits
+    // tombstones, and the first node in the range can be one -- capturing from
+    // it made an undo write an attribute onto text that never carried it, out
+    // of a run the user had already deleted. The fallback to the first node
+    // keeps an all-tombstone range undoable.
+    const captureFrom =
+      toBeStyleds.find((n) => !n.isRemoved()) ?? toBeStyleds[0];
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
       // `canStyle` admits a node removed CONCURRENTLY with this style, which
@@ -459,7 +468,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       // bytes move through gc rather than live.
       const nodeIsLive = !node.isRemoved();
 
-      if (!capturedPrev) {
+      if (!capturedPrev && node === captureFrom) {
         for (const key of Object.keys(attributes)) {
           const attrs = node.getValue().getAttrs();
           if (attrs.has(key)) {
@@ -541,13 +550,21 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     const prevAttributes = new Map<string, string>();
     let capturedPrev = false;
 
+    // The reverse operation restores what the VISIBLE text held, so the prior
+    // values come from the first LIVE node in the range. `canStyle` now admits
+    // tombstones, and the first node in the range can be one -- capturing from
+    // it made an undo restore a value the visible text never held. The fallback to the first node
+    // keeps an all-tombstone range undoable.
+    const captureFrom =
+      toBeStyleds.find((n) => !n.isRemoved()) ?? toBeStyleds[0];
+
     const pairs: Array<GCPair> = [];
     for (const node of toBeStyleds) {
       // See setStyle: a node removed concurrently with this change is styled
       // but is not part of the rendered text.
       const nodeIsLive = !node.isRemoved();
 
-      if (!capturedPrev) {
+      if (!capturedPrev && node === captureFrom) {
         for (const key of attributesToRemove) {
           const attrs = node.getValue().getAttrs();
           if (attrs.has(key)) {

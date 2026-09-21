@@ -561,4 +561,28 @@ describe('a style over a tombstoned node', () => {
       'the replicas disagree after an undo that showed nothing',
     );
   });
+  /**
+   * A style range that opens on a tombstone: the reverse operation's prior
+   * values must come from the first LIVE node, not from the dead run the user
+   * had already deleted. Capturing from the tombstone made the undo write
+   * `b="OLD"` onto `"efgh"`, which never carried the attribute at any point.
+   */
+  it('does not restore a tombstone’s attribute on undo', () => {
+    const d: TextDoc = new Document('test-doc');
+    d.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'abcdefghij');
+    });
+    d.update((r) => r.t.setStyle(0, 4, { b: 'OLD' }));
+    d.update((r) => r.t.edit(0, 4, ''));
+    assert.equal(d.getRoot().t.toJSON(), '[{"val":"efghij"}]');
+
+    d.update((r) => r.t.setStyle(0, 4, { b: 'NEW' }));
+    d.history.undo();
+    assert.equal(
+      d.getRoot().t.toJSON(),
+      '[{"val":"efgh"},{"val":"ij"}]',
+      'the undo restored an attribute the visible text never carried',
+    );
+  });
 });
