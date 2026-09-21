@@ -16,7 +16,7 @@ const doc = new yorkie.Document('docKey', {
 });
 ```
 
-> Please note that devtools requires `yorkie-js-sdk` version 0.4.18 or newer.
+> Devtools requires `@yorkie-js/sdk` v0.4.18 or newer — the release that added the `enableDevtools` option. No development build is needed: the option is the only gate. The extension and the SDK are released together and share a version number, so keeping both on the same version avoids message-protocol drift.
 
 ## Development
 
