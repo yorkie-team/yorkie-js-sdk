@@ -179,12 +179,17 @@ export class CRDTRoot {
         }
       }
       if (elem instanceof CRDTArray) {
-        // Register dead position nodes for GC.
+        // Register dead position nodes for GC. A dead position node holds no
+        // element, so the live size this root was just built from never
+        // counted it -- `gcOnlySize` is how a pair says "add to gc, take
+        // nothing out of live". The text and tree scans above say the same
+        // thing through `getGCPairs`.
         for (const node of elem.getAllRGANodes()) {
           if (!node.getElementEntry() && node.getRemovedAt()) {
             this.registerGCPair({
               parent: elem.getRGATreeList(),
               child: node,
+              gcOnlySize: node.getDataSize(),
             });
           }
         }
