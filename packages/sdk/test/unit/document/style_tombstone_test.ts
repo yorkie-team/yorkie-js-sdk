@@ -133,7 +133,11 @@ function nodeAttrs(d: TextDoc): Array<string> {
  * recomputes them from the content, and collection is what turns a gc charge
  * that no longer matches its node into a visible residue.
  */
-function assertLedgerExact<T>(d: Document<T>, msg: string): void {
+function assertLedgerExact<T>(
+  d: Document<T>,
+  msg: string,
+  actors: Array<string> = [A1, A2],
+): void {
   const rebuilt = new CRDTRoot(d.getRootObject().deepcopy());
   assert.deepEqual(
     d.getDocSize().live,
@@ -142,7 +146,7 @@ function assertLedgerExact<T>(d: Document<T>, msg: string): void {
   );
   assert.deepEqual(d.getDocSize().gc, rebuilt.getDocSize().gc, `${msg}: gc`);
 
-  d.garbageCollect(maxVectorOf([A1, A2]));
+  d.garbageCollect(maxVectorOf(actors));
   assert.equal(d.getGarbageLen(), 0, `${msg}: garbage left behind`);
   assert.deepEqual(
     d.getDocSize().gc,
@@ -193,6 +197,12 @@ describe('a style over a tombstoned node', () => {
       '[{"val":"abcd"},{"val":"ef"},{"val":"ghij"}]',
       'the restored run lost the attribute it carried: the cost of the contract',
     );
+
+    // The local path now reaches a tombstone, so it also books through the gc
+    // half of `accAttrWrite` — a branch no local history could reach before.
+    assertLedgerExact(d, 'after the local style reached a tombstone', [
+      d.getChangeID().getActorID(),
+    ]);
   });
 
   /**
