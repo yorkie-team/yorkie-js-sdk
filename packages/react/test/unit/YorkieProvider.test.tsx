@@ -118,3 +118,70 @@ describe('YorkieProvider deactivateOnUnload prop', () => {
     expect(mocks.deactivateSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('YorkieProvider clientKey prop', () => {
+  it('reaches the Client constructor as ClientOptions.key', async () => {
+    render(
+      <YorkieProvider
+        apiKey="k"
+        rpcAddr="http://localhost"
+        clientKey="wb:u1:note-7"
+      >
+        <div />
+      </YorkieProvider>,
+    );
+    await waitFor(() => expect(mocks.constructorSpy).toHaveBeenCalled());
+    expect(mocks.constructorSpy.mock.calls[0][0]).toMatchObject({
+      key: 'wb:u1:note-7',
+    });
+  });
+
+  it('is the only way to set it, because React reserves `key`', async () => {
+    // `ClientOptions.key` collides with React's own reserved prop: React strips
+    // `key` at element creation, as a JSX attribute and through a spread alike,
+    // so it never reaches this component's props. Without `clientKey` there is
+    // no way to give the provider a stable client key at all — which is what
+    // offline persistence needs, since the SDK's store is keyed by
+    // `apiKey/clientKey/docKey` and a random key resumes nothing.
+    render(
+      <YorkieProvider apiKey="k" rpcAddr="http://localhost" key="wb:u1:note-7">
+        <div />
+      </YorkieProvider>,
+    );
+    await waitFor(() => expect(mocks.constructorSpy).toHaveBeenCalled());
+    expect(mocks.constructorSpy.mock.calls[0][0]).not.toHaveProperty('key');
+  });
+
+  it('omits key from constructor opts when not provided', async () => {
+    render(
+      <YorkieProvider apiKey="k" rpcAddr="http://localhost">
+        <div />
+      </YorkieProvider>,
+    );
+    await waitFor(() => expect(mocks.constructorSpy).toHaveBeenCalled());
+    expect(mocks.constructorSpy.mock.calls[0][0]).not.toHaveProperty('key');
+  });
+
+  it('builds a new client when the client key changes', async () => {
+    // Navigating from one document to another changes the key, and the client
+    // is what carries it. Memoizing on apiKey and rpcAddr alone would keep the
+    // first document's client — and with it the first document's store scope —
+    // for the second document.
+    const { rerender } = render(
+      <YorkieProvider apiKey="k" rpcAddr="http://localhost" clientKey="wb:u1:a">
+        <div />
+      </YorkieProvider>,
+    );
+    await waitFor(() => expect(mocks.constructorSpy).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <YorkieProvider apiKey="k" rpcAddr="http://localhost" clientKey="wb:u1:b">
+        <div />
+      </YorkieProvider>,
+    );
+    await waitFor(() => expect(mocks.constructorSpy).toHaveBeenCalledTimes(2));
+    expect(mocks.constructorSpy.mock.calls[1][0]).toMatchObject({
+      key: 'wb:u1:b',
+    });
+  });
+});

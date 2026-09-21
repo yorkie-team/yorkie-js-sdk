@@ -440,4 +440,72 @@ describe('Tree.Style range starting after a merge-moved child', () => {
       }
     }
   });
+
+  // KNOWN LIMITATION (tracked, skipped): a merge concurrent with a
+  // split-and-style leaves the attribute on one replica only. The text
+  // converges; the attribute never does, and both replicas stay attached with
+  // later edits propagating normally.
+  //
+  // On the merging replica the style's from-anchor resolves onto the
+  // merge-source tombstone, the range collapses (start past end) and
+  // `traverseInPosRange` yields nothing, so the style is a silent no-op.
+  // `reversedFromAnchorRecovery` covers exactly this collapsed range, but it
+  // delegates to `mergedAnchorInterloperGuard`, which keys on the declared
+  // parent (`!declaredParent.isRemoved` returns early). Here the from
+  // position's parent `<p>` is still alive; it is the left-sibling anchor that
+  // the merge removed, so the guard bails and the recovery never runs.
+  //
+  // #1329 recovered the shape where the range start was declared inside a
+  // parent that the merge removed; this is the neighbouring shape where the
+  // parent stayed live.
+  it.skip('KNOWN: keeps the attribute when the merge removes the left-sibling anchor', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<{ tree: Tree }>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.tree = new Tree({
+          type: 'doc',
+          children: [
+            {
+              type: 'p',
+              children: [
+                {
+                  type: 'span',
+                  attributes: { bold: 'true' },
+                  children: [{ type: 'text', value: 'abcde' }],
+                },
+                { type: 'span', children: [{ type: 'text', value: 'fghij' }] },
+              ],
+            },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      // d1 drops the attribute and merges the two spans.
+      d1.update((root) => {
+        root.tree.removeStyleByPath([0, 0], [0, 1], ['bold']);
+        root.tree.editByPath([0, 0, 5], [0, 1, 0]);
+      });
+
+      // d2 splits the second span twice and styles the middle piece.
+      d2.update((root) => {
+        root.tree.editByPath([0, 1, 4], [0, 1, 4], undefined, 1);
+        root.tree.editByPath([0, 1, 2], [0, 1, 2], undefined, 1);
+        root.tree.styleByPath([0, 2], { bold: 'true' });
+      });
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+
+      assert.equal(
+        d1.getRoot().tree.toXML(),
+        '<doc><p><span>abcdefg</span><span bold="true">hi</span>' +
+          '<span>j</span></p></doc>',
+      );
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    }, task.name);
+  });
 });

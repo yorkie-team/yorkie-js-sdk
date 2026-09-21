@@ -15,72 +15,204 @@
  */
 
 /**
+ * `StoredChange` is one persisted local change, tagged with the `clientSeq` it
+ * carries. The sequence is what lets a store drop changes a sync has already
+ * acknowledged, and what lets a restore detect a hole rather than replaying a
+ * discontinuous run.
+ */
+export interface StoredChange {
+  clientSeq: number;
+  bytes: Uint8Array;
+}
+
+/**
+ * `StoredDoc` is everything a backend holds for one document: a base snapshot,
+ * the changes appended since it, and a small mutable header.
+ */
+export interface StoredDoc {
+  /** A `Document.toBytes()` envelope. */
+  snapshot: Uint8Array;
+
+  /**
+   * Checkpoint and changeID as of the last sync. Absent until the first one.
+   * Held apart from the snapshot because a sync has to advance it constantly
+   * while the snapshot stays put.
+   */
+  meta?: Uint8Array;
+
+  /** Changes appended since the snapshot, ascending by `clientSeq`. */
+  changes: Array<StoredChange>;
+}
+
+/**
  * `DocStore` is a pluggable persistence backend for offline document state.
- * The client serializes a document with `Document.toBytes()` and hands the
- * resulting envelope to `save`; on a later attach it calls `load` and, when
- * bytes are present, rehydrates the document via `Document.fromBytes` so
- * un-pushed local changes survive a reload.
  *
- * The interface is intentionally byte-oriented and async so that a durable
- * backend (e.g. IndexedDB) can implement it without the client knowing which
- * storage it talks to. The default `MemoryDocStore` keeps everything in a
- * process-local map and is dependency-free.
+ * It is deliberately a snapshot plus an append-only change log rather than one
+ * opaque blob. Re-serializing the whole document on every edit costs time
+ * proportional to the document — hundreds of milliseconds on a large one — and
+ * a document is at its largest while it is being edited, which is exactly when
+ * the writes happen. Appending costs the size of one change, which does not
+ * grow with the document at all.
+ *
+ * The interface stays byte-oriented and async so a durable backend (IndexedDB,
+ * say) can implement it without the client knowing which storage it talks to,
+ * and so a backend is free to compress or encrypt what it is handed. The
+ * default `MemoryDocStore` keeps everything in a process-local map and carries
+ * no dependency.
  */
 export interface DocStore {
   /**
-   * `load` returns the persisted bytes for the given document key, or
-   * `undefined` when nothing has been stored for it.
+   * `load` returns the persisted state for the given document key, or
+   * `undefined` when nothing has been stored for it. `changes` must be ordered
+   * by ascending `clientSeq`.
    */
-  load(docKey: string): Promise<Uint8Array | undefined>;
+  load(docKey: string): Promise<StoredDoc | undefined>;
 
   /**
-   * `save` persists the given bytes for the document key, overwriting any
-   * previously stored value.
+   * `saveSnapshot` replaces the snapshot and atomically drops every appended
+   * change **and any stored meta**. This is compaction: the new snapshot
+   * already contains those changes, so keeping them would replay them twice,
+   * and it embeds a newer header than meta holds, so keeping that would
+   * regress the client's clocks.
    */
-  save(docKey: string, bytes: Uint8Array): Promise<void>;
+  saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void>;
 
   /**
-   * `remove` deletes any persisted bytes for the document key. It is a no-op
+   * `appendChange` appends one local change. This is the hot path — frequent
+   * and small — so an implementation must not rewrite the whole entry to
+   * satisfy it.
+   *
+   * It is an **upsert keyed by `clientSeq`**: re-appending a change already
+   * stored replaces it rather than duplicating it, so a retried write is safe.
+   */
+  appendChange(docKey: string, change: StoredChange): Promise<void>;
+
+  /**
+   * `saveMeta` records the post-sync header. It leaves the snapshot alone —
+   * an online client syncs constantly, and re-snapshotting per sync would
+   * reintroduce the cost this interface exists to avoid — and it leaves the
+   * **log** alone too.
+   *
+   * That second part is load-bearing. The log does two jobs: it holds
+   * un-pushed changes so they survive a reload, and it is the delta between
+   * the snapshot and the document's current content. Deleting acknowledged
+   * entries serves the first job and destroys the second, because nothing
+   * brings the snapshot forward on a push-ack — the content would then exist
+   * in neither place while the persisted `serverSeq` claims the server has it.
+   * Only compaction trims the log, and it does so by folding the entries into
+   * a new snapshot first.
+   *
+   * The header itself carries the acknowledged `clientSeq`, so a restore reads
+   * it from there; the store needs no separate parameter for it.
+   *
+   * It is a no-op when nothing is stored for the key.
+   */
+  saveMeta(docKey: string, bytes: Uint8Array): Promise<void>;
+
+  /**
+   * `remove` deletes everything persisted for the document key. It is a no-op
    * when nothing is stored.
    */
   remove(docKey: string): Promise<void>;
 }
 
 /**
- * `MemoryDocStore` is an in-memory `DocStore` implementation. It holds the
- * persisted envelopes in a `Map` for the lifetime of the process and carries
- * no external dependency. It is the default store used when a durable backend
- * is not configured, and it doubles as a test double for the persistence loop.
+ * `MemoryDocStore` is an in-memory `DocStore`. It holds entries in a `Map` for
+ * the lifetime of the process and carries no external dependency. It is the
+ * default when a durable backend is not configured, and it doubles as a test
+ * double for the persistence loop.
  *
- * Each stored value is defensively copied on both `save` and `load` so a
- * caller mutating the returned buffer cannot corrupt the stored snapshot.
+ * Every byte array is copied on the way in and on the way out, so neither a
+ * caller mutating what it wrote nor one mutating what it read can corrupt the
+ * stored entry.
  */
 export class MemoryDocStore implements DocStore {
-  private store: Map<string, Uint8Array>;
+  private store: Map<string, StoredDoc>;
 
   constructor() {
     this.store = new Map();
   }
 
   /**
-   * `load` returns a copy of the persisted bytes for the document key, or
-   * `undefined` when nothing is stored.
+   * `load` returns a deep copy of the persisted entry, or `undefined`.
    */
-  public load(docKey: string): Promise<Uint8Array | undefined> {
-    const bytes = this.store.get(docKey);
-    return Promise.resolve(bytes ? bytes.slice() : undefined);
+  public load(docKey: string): Promise<StoredDoc | undefined> {
+    const entry = this.store.get(docKey);
+    if (!entry) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve({
+      snapshot: entry.snapshot.slice(),
+      meta: entry.meta ? entry.meta.slice() : undefined,
+      changes: entry.changes.map((change) => ({
+        clientSeq: change.clientSeq,
+        bytes: change.bytes.slice(),
+      })),
+    });
   }
 
   /**
-   * `save` stores a copy of the given bytes under the document key.
+   * `saveSnapshot` stores a copy of the bytes and clears the change log.
    */
-  public save(docKey: string, bytes: Uint8Array): Promise<void> {
-    this.store.set(docKey, bytes.slice());
+  public saveSnapshot(docKey: string, bytes: Uint8Array): Promise<void> {
+    this.store.set(docKey, {
+      snapshot: bytes.slice(),
+      // The header is dropped, not carried forward. A snapshot envelope
+      // embeds its own checkpoint and changeID, and they are newer than
+      // whatever meta held; applying the old header over the new snapshot
+      // would regress `serverSeq` and — worse — `lamport`, whose regression
+      // makes the next edit mint tickets that collide with identities already
+      // in the restored root.
+      changes: [],
+    });
     return Promise.resolve();
   }
 
   /**
-   * `remove` deletes any persisted bytes for the document key.
+   * `appendChange` appends a copy of the change, keeping the log ordered by
+   * `clientSeq`.
+   */
+  public appendChange(docKey: string, change: StoredChange): Promise<void> {
+    const entry = this.store.get(docKey);
+    if (!entry) {
+      return Promise.resolve();
+    }
+    // Upsert, not push: `clientSeq` identifies the change, and a re-append of
+    // one already stored is a retry rather than a second change. The
+    // IndexedDB reference keys on [docKey, clientSeq] and so behaves this way
+    // implicitly; the two must not disagree, because an app writes its backend
+    // against this contract.
+    const existing = entry.changes.findIndex(
+      (c) => c.clientSeq === change.clientSeq,
+    );
+    const stored = {
+      clientSeq: change.clientSeq,
+      bytes: change.bytes.slice(),
+    };
+    if (existing >= 0) {
+      entry.changes[existing] = stored;
+    } else {
+      entry.changes.push(stored);
+      entry.changes.sort((a, b) => a.clientSeq - b.clientSeq);
+    }
+    return Promise.resolve();
+  }
+
+  /**
+   * `saveMeta` stores a copy of the header, leaving the snapshot and the log
+   * untouched.
+   */
+  public saveMeta(docKey: string, bytes: Uint8Array): Promise<void> {
+    const entry = this.store.get(docKey);
+    if (!entry) {
+      return Promise.resolve();
+    }
+    entry.meta = bytes.slice();
+    return Promise.resolve();
+  }
+
+  /**
+   * `remove` deletes everything persisted for the document key.
    */
   public remove(docKey: string): Promise<void> {
     this.store.delete(docKey);

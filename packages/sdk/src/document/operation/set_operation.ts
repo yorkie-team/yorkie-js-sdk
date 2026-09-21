@@ -130,9 +130,11 @@ export class SetOperation extends Operation {
     if (removed) {
       root.registerRemovedElement(removed);
     }
-    if (value.getRemovedAt()) {
-      root.registerRemovedElement(value);
-    }
+    // NOTE(hackerwins): A value that lost the set is marked removed by
+    // `obj.set` above, before it was registered. `registerElement` is what
+    // books it into gc, and registering it as removed a second time here would
+    // refund a ticket live is holding on the one path where `registerElement`
+    // leaves it in live.
 
     return {
       opInfos: [

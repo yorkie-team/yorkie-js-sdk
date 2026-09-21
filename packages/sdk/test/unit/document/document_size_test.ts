@@ -14,6 +14,8 @@ import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
 
 const A1 = '000000000000000000000001';
 const A2 = '000000000000000000000002';
@@ -486,6 +488,162 @@ describe('Document Size', () => {
     assert.deepEqual(doc.getDocSize(), built);
   });
 
+  it('restoring a container holding an earlier tombstone test', function () {
+    // An undo restores the copy its reverse captured, and that copy keeps the
+    // member that was tombstoned before the container was. It is registered at
+    // its post-removal size, so that member's cost belongs to gc rather than
+    // live, and it has to stay collectable -- booking it into live instead
+    // strands it there with nothing left to collect it.
+    const doc = new Document<SizeDoc>('test-doc');
+
+    doc.update((root) => (root.k = { a: '1', b: '2' }));
+    doc.update((root) => {
+      delete (root.k as JSONObject<{ a: string; b?: string }>).b;
+    });
+    const beforeRemoval = structuredClone(doc.getDocSize());
+    assert.deepEqual(beforeRemoval.live, { data: 2, meta: 120 });
+    assert.deepEqual(beforeRemoval.gc, { data: 2, meta: 72 });
+
+    doc.update((root) => {
+      delete root.k;
+    });
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"k":{"a":"1"}}');
+
+    // The restored document is the one that stood before the removal, so it
+    // costs exactly what it cost then, tombstoned member included.
+    assert.deepEqual(doc.getDocSize(), beforeRemoval);
+
+    // And that member is still garbage.
+    assert.equal(
+      doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
+      1,
+    );
+    assert.deepEqual(doc.getDocSize().live, { data: 2, meta: 120 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+  });
+
+  it('applying the losing side of a concurrent set test', function () {
+    // `ElementRHT.set` marks the losing value removed before the operation
+    // registers it, so live is charged the post-removal size, removal ticket
+    // included. Giving that ticket back would leave the replica that applied
+    // the loser permanently larger than the one that never saw it.
+    const [d1, d2] = newReplicas<SizeDoc>();
+
+    d1.update((root) => (root.k = '1'));
+    d2.update((root) => (root.k = '2'));
+    crossSync(d1, d2);
+
+    assert.equal(d1.toSortedJSON(), '{"k":"2"}');
+    assert.equal(d2.toSortedJSON(), '{"k":"2"}');
+
+    d1.garbageCollect(maxVectorOf([A1, A2]));
+    d2.garbageCollect(maxVectorOf([A1, A2]));
+
+    const fresh = new Document<SizeDoc>('test-doc');
+    fresh.update((root) => (root.k = '2'));
+
+    assert.deepEqual(d1.getDocSize(), d2.getDocSize());
+    assert.deepEqual(d1.getDocSize(), fresh.getDocSize());
+  });
+
+  it('rebuilding a document that holds a tombstone test', function () {
+    // A rebuild registers an already-tombstoned element at its post-removal
+    // size, so a refund there over-credits live by one ticket per tombstone.
+    // `Document.update` gates the size limit on the clone, which is built this
+    // way, while `getDocSize` reports the incrementally kept figure -- the two
+    // have to agree.
+    const doc = new Document<SizeDoc>('test-doc');
+
+    doc.update((root) => (root.k = { a: '1', b: '2' }));
+    doc.update((root) => {
+      delete (root.k as JSONObject<{ a: string; b?: string }>).b;
+    });
+
+    const bytes = converter.objectToBytes(doc.getRootObject());
+    const rebuilt = new CRDTRoot(converter.bytesToObject(bytes));
+    assert.deepEqual(rebuilt.getDocSize(), doc.getDocSize());
+    assert.deepEqual(
+      doc.getRootCRDT().deepcopy().getDocSize(),
+      doc.getDocSize(),
+    );
+
+    // The tombstone has to arrive collectable too. The constructor no longer
+    // registers it separately -- `registerElement` is what enters it for
+    // collection -- so a rebuilt root that cannot collect would strand the
+    // charge with nothing reporting it as garbage.
+    assert.equal(rebuilt.getGarbageLen(), 1);
+    assert.equal(
+      rebuilt.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()])),
+      1,
+    );
+    assert.deepEqual(rebuilt.getDocSize().gc, { data: 0, meta: 0 });
+  });
+
+  it('restoring an array container holding an earlier tombstone test', function () {
+    // Undoing an array removal reissues a ticket for the restored container
+    // alone, so its members come back sharing createdAts with the tombstoned
+    // ones. Charging by element gives each of the two a slot of its own, so
+    // the restored member is booked into gc on its own account and the charge
+    // gc holds for the tombstone stays where it is. The restored document
+    // therefore costs what it cost before the removal, and collecting the
+    // tombstone drains gc rather than debiting live.
+    const doc = new Document<{ k: Array<{ a: string; b?: string }> }>(
+      'test-doc',
+    );
+
+    doc.update((root) => (root.k = [{ a: '1', b: '2' }]));
+    doc.update((root) => {
+      delete root.k[0].b;
+    });
+    const beforeRemoval = structuredClone(doc.getDocSize());
+    assert.deepEqual(beforeRemoval.live, { data: 2, meta: 144 });
+
+    doc.update((root) => {
+      delete root.k[0];
+    });
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{"k":[{"a":"1"}]}');
+
+    // The restored document is the one that stood before the removal, so it
+    // costs exactly what it cost then.
+    assert.deepEqual(doc.getDocSize().live, beforeRemoval.live);
+
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+    assert.deepEqual(doc.getDocSize().live, beforeRemoval.live);
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+  });
+
+  it('removing an array container that was restored test', function () {
+    // Undoing an array removal reissues a ticket for the restored container
+    // alone, so its members come back sharing createdAts with the tombstoned
+    // ones. Both are registered, and both are charged -- one slot per createdAt
+    // would let the second displace the first, and collecting the displaced one
+    // would then take a size out of live that live was never holding.
+    const doc = new Document<{ k: Array<{ a: string; b?: string }> }>(
+      'test-doc',
+    );
+
+    doc.update((root) => (root.k = [{ a: '1', b: '2' }]));
+    doc.update((root) => {
+      delete root.k[0].b;
+    });
+    doc.update((root) => {
+      delete root.k[0];
+    });
+    doc.history.undo();
+    doc.update((root) => {
+      delete root.k[0];
+    });
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+
+    assert.equal(doc.toSortedJSON(), '{"k":[]}');
+
+    const empty = new Document<{ k: Array<unknown> }>('test-doc');
+    empty.update((root) => (root.k = []));
+    assert.deepEqual(doc.getDocSize(), empty.getDocSize());
+  });
+
   it('deep copy test', function () {
     const doc = new Document<{ counter: Counter }>('test-doc');
     doc.update((root) => (root.counter = new Counter(0)));
@@ -501,5 +659,104 @@ describe('Document Size', () => {
 
     const clone = doc.getClone()!.root.deepcopy();
     assert.deepEqual(clone.getDocSize(), doc.getDocSize());
+  });
+  it('accounts for the element a split creates', () => {
+    // A split mints a new element node, and the phase that does it dropped
+    // the size its own `split` call reported, so live never carried it. A
+    // split and the merge that undoes it then did not cancel out: live.meta
+    // walked down by a ticket per cycle, without bound. Tracked as
+    // yorkie-team/yorkie#1998.
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          {
+            type: 'p',
+            children: [
+              {
+                type: 'span',
+                children: [{ type: 'text', value: 'abcdefghij' }],
+              },
+            ],
+          },
+        ],
+      });
+    });
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 168 });
+
+    // Split after `a`: a new <span> and a text split, one ticket each.
+    doc.update((root) => root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      '<doc><p><span>a</span><span>bcdefghij</span></p></doc>',
+    );
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 216 });
+
+    // Merge the boundary back. The <span> the split created is tombstoned, so
+    // its size moves to gc. The text stays two nodes, which is why live keeps
+    // the ticket the text split added rather than returning to its pre-split
+    // value -- the expectation #1998 states.
+    doc.update((root) => root.t.editByPath([0, 0, 1], [0, 1, 0]));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      '<doc><p><span>abcdefghij</span></p></doc>',
+    );
+    assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 192 });
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 48 });
+
+    // Every further cycle needs no text split, so live returns to the same
+    // two values instead of drifting.
+    for (let i = 0; i < 100; i++) {
+      doc.update((root) =>
+        root.t.editByPath([0, 0, 1], [0, 0, 1], undefined, 1),
+      );
+      assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 216 });
+      doc.update((root) => root.t.editByPath([0, 0, 1], [0, 1, 0]));
+      assert.deepEqual(doc.getDocSize().live, { data: 20, meta: 192 });
+    }
+  });
+
+  it('charges live only for attribute values it was holding', () => {
+    // RHT mints a tombstone even for a key the element never carried -- so a
+    // remove arriving before its set still wins -- and supersedes an existing
+    // tombstone when the same key is removed twice or set again. None of
+    // those replace a live value, yet live was debited for each, so toggling
+    // one key walked it down without bound and eventually negative, at which
+    // point the document size limit stops applying.
+    const newDoc = () => {
+      const doc = new Document<{ t: Tree }>('test-doc');
+      doc.update((root) => {
+        root.t = new Tree({
+          type: 'doc',
+          children: [{ type: 'p', children: [{ type: 'text', value: 'abc' }] }],
+        });
+      });
+      assert.deepEqual(doc.getDocSize().live, { data: 6, meta: 144 });
+      return doc;
+    };
+
+    const absent = newDoc();
+    absent.update((root) => root.t.removeStyleByPath([0], [1], ['never-set']));
+    assert.deepEqual(absent.getDocSize().live, { data: 6, meta: 144 });
+    assert.deepEqual(absent.getDocSize().gc, { data: 18, meta: 24 });
+
+    const twice = newDoc();
+    twice.update((root) => root.t.styleByPath([0], [1], { bold: 'true' }));
+    assert.deepEqual(twice.getDocSize().live, { data: 26, meta: 168 });
+    for (let i = 0; i < 2; i++) {
+      twice.update((root) => root.t.removeStyleByPath([0], [1], ['bold']));
+      assert.deepEqual(twice.getDocSize().live, { data: 6, meta: 144 });
+    }
+
+    // Toggling was already correct here -- the restyle credits live for the
+    // node it revives, which cancels the debit -- and has to stay that way.
+    const toggled = newDoc();
+    for (let i = 0; i < 100; i++) {
+      toggled.update((root) => root.t.styleByPath([0], [1], { bold: 'true' }));
+      assert.deepEqual(toggled.getDocSize().live, { data: 26, meta: 168 });
+      toggled.update((root) => root.t.removeStyleByPath([0], [1], ['bold']));
+      assert.deepEqual(toggled.getDocSize().live, { data: 6, meta: 144 });
+    }
   });
 });
