@@ -380,4 +380,35 @@ describe('a style over a tombstoned node', () => {
     assertLedgerExact(d1, 'on the replica that removed the node');
     assertLedgerExact(d2, 'on the replica that issued the style');
   });
+  /**
+   * Toggling a tree attribute on and off has to return the ledger to where it
+   * started, on the CLONE as well as on the root — `Document.update` reads the
+   * clone's total against `maxSizeLimit`. The server had a gap here:
+   * `json.Tree`'s `RemoveStyle` registered its GC pairs without ever adjusting
+   * the Live diff, so a rich-text editor toggling one key walked into the size
+   * limit on a document nowhere near it. This SDK is spared because
+   * `registerGCPair` does the live subtraction itself rather than leaving it
+   * to a separate `AdjustDiffForGCPair`; pinned so the two stay that way.
+   */
+  it('does not drift the clone ledger when a tree attribute is toggled', () => {
+    const d = new Document<{ t: Tree }>('test-doc');
+    d.setMaxSizePerDocument(2000);
+    d.update((r) => {
+      r.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
+      });
+    });
+
+    const val = 'v'.repeat(200);
+    for (let i = 0; i < 40; i++) {
+      d.update((r) => r.t.style(0, 6, { b: val }));
+      assert.doesNotThrow(
+        () => d.update((r) => r.t.removeStyle(0, 6, ['b'])),
+        `toggle ${i} tripped maxSizeLimit; the document itself is ${JSON.stringify(
+          d.getDocSize(),
+        )}`,
+      );
+    }
+  });
 });
