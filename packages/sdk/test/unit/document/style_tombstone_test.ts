@@ -175,7 +175,10 @@ describe('a style over a tombstoned node', () => {
       r.t = new Text();
       r.t.edit(0, 0, 'abcdefghij');
     });
-    d.update((r) => r.t.setStyle(4, 6, { b: 'OLD' }));
+    // The two values differ in LENGTH on purpose: an overwrite of equal size
+    // nets to zero through accAttrWrite, so the ledger assertion below could
+    // not see which half of docSize it was booked to.
+    d.update((r) => r.t.setStyle(4, 6, { b: 'OLDOLDOLDOLDOLD' }));
     d.update((r) => r.t.edit(4, 6, ''));
     d.update((r) => r.t.setStyle(0, 8, { b: 'NEW' }));
     assert.equal(
