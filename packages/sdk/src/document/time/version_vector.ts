@@ -163,3 +163,21 @@ export class VersionVector {
  * `InitialVersionVector` is the initial version vector.
  */
 export const InitialVersionVector = new VersionVector(new Map());
+
+/**
+ * `ticketKnown` returns true if the given ticket is causally known to the
+ * editor, i.e. the editor's version vector covers the ticket's lamport
+ * clock for the same actor. For local operations (undefined version vector),
+ * all tickets are considered known.
+ */
+export function ticketKnown(
+  vv: VersionVector | undefined,
+  ticket: TimeTicket,
+): boolean {
+  if (vv === undefined) {
+    return true;
+  }
+
+  const l = vv.get(ticket.getActorID());
+  return l !== undefined && l >= ticket.getLamport();
+}

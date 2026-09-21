@@ -20,7 +20,10 @@ import {
   TimeTicketSize,
   TimeTicketStruct,
 } from '@yorkie-js/sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import {
+  VersionVector,
+  ticketKnown,
+} from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 
 import type {
@@ -48,7 +51,12 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
-import { DataSize, addDataSizes, subDataSize } from '../../util/resource';
+import {
+  DataSize,
+  DocSize,
+  addDataSizes,
+  subDataSize,
+} from '../../util/resource';
 
 /**
  * `TreeNode` represents a node in the tree.
@@ -798,19 +806,22 @@ export class CRDTTreeNode
   }
 
   /**
-   * `canStyle` checks if node is able to style.
+   * `canStyle` checks if node is able to style. It answers the same question
+   * as `RGATreeSplitNode.canStyle`, the same way — see the contract there.
    */
   public canStyle(
-    editedAt: TimeTicket,
     clientLamportAtChange: bigint,
+    versionVector?: VersionVector,
   ): boolean {
     if (this.isText) {
       return false;
     }
-    const nodeExisted =
-      this.getCreatedAt().getLamport() <= clientLamportAtChange;
 
-    return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
+    if (this.getCreatedAt().getLamport() > clientLamportAtChange) {
+      return false;
+    }
+
+    return !this.removedAt || !ticketKnown(versionVector, this.removedAt);
   }
 
   /**
@@ -934,35 +945,33 @@ export function attrGCPair(
 export function accAttrWrite(
   write: RHTWrite,
   parent: GCParent,
+  nodeIsLive: boolean,
   pairs: Array<GCPair>,
-  diff: DataSize,
+  size: DocSize,
 ): void {
   if (write.revived !== undefined) {
     pairs.push(attrGCPair(parent, write.revived, false));
   }
+
+  // `nodeIsLive` is false when the container does not count this node's
+  // attributes in live at all -- a tombstoned node, which `CRDTText
+  // .getDataSize` and `CRDTTreeNode.getDataSize` both skip. Booking either
+  // half to live there drifts it by the SIGNED difference between the two
+  // values' sizes, and a shrinking overwrite takes it negative.
+  //
+  // The bytes are not nowhere, though: they are inside the gc charge the
+  // node's removal took, and collection subtracts the node's size as it
+  // stands when it is purged. So the same delta goes to gc, or registration
+  // and purge stop agreeing about that one node -- which a style concurrent
+  // with a removal reaches on the replica that receives it, see `canStyle`.
+  const target = nodeIsLive ? size.live : size.gc;
+
   if (write.superseded !== undefined) {
-    subDataSize(diff, write.superseded.getDataSize());
+    subDataSize(target, write.superseded.getDataSize());
   }
   if (write.installed !== undefined) {
-    addDataSizes(diff, write.installed.getDataSize());
+    addDataSizes(target, write.installed.getDataSize());
   }
-}
-
-/**
- * `ticketKnown` returns true if the given ticket is causally known to the
- * editor, i.e. the editor's version vector covers the ticket's lamport
- * clock for the same actor. For local operations (undefined version vector),
- * all tickets are considered known.
- */
-function ticketKnown(
-  vv: VersionVector | undefined,
-  ticket: TimeTicket,
-): boolean {
-  if (vv === undefined) {
-    return true;
-  }
-  const l = vv.get(ticket.getActorID());
-  return l !== undefined && l >= ticket.getLamport();
 }
 
 /**
@@ -1636,11 +1645,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): [
     Array<GCPair>,
     Array<TreeChange>,
-    DataSize,
+    DocSize,
     Map<string, string>,
     Array<string>,
   ] {
-    const diff = { data: 0, meta: 0 };
+    const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
 
     const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
@@ -1653,7 +1662,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       'range',
     );
 
-    addDataSizes(diff, diffTo, diffFrom);
+    addDataSizes(size.live, diffTo, diffFrom);
 
     const fromLeft =
       fromLeftRaw !== fromParent
@@ -1703,7 +1712,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
             : 0n;
         }
 
-        if (node.canStyle(editedAt, clientLamportAtChange) && attributes) {
+        if (node.canStyle(clientLamportAtChange, versionVector) && attributes) {
           if (shouldSkipToken(node, tokenType)) {
             return;
           }
@@ -1750,7 +1759,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
 
           for (const write of updatedAttrPairs) {
-            accAttrWrite(write, node, pairs, diff);
+            accAttrWrite(write, node, !node.isRemoved, pairs, size);
           }
 
           // Propagate style to unknown split siblings so that a
@@ -1791,7 +1800,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
                 });
               }
               for (const write of siblingPairs) {
-                accAttrWrite(write, next, pairs, diff);
+                accAttrWrite(write, next, !next.isRemoved, pairs, size);
               }
               current = next;
             }
@@ -1802,7 +1811,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     pairs.push(...this.drainPendingGCPairs());
 
-    return [pairs, changes, diff, prevAttributes, newAttrKeys];
+    return [pairs, changes, size, prevAttributes, newAttrKeys];
   }
 
   /**
@@ -1813,8 +1822,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TreeChange>, DataSize, Map<string, string>] {
-    const diff = { data: 0, meta: 0 };
+  ): [Array<GCPair>, Array<TreeChange>, DocSize, Map<string, string>] {
+    const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
 
     const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
       range[0],
@@ -1827,7 +1836,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       'range',
     );
 
-    addDataSizes(diff, diffTo, diffFrom);
+    addDataSizes(size.live, diffTo, diffFrom);
 
     const recovery = this.reversedFromAnchorRecovery(
       range[0],
@@ -1865,7 +1874,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
 
         if (
-          node.canStyle(editedAt, clientLamportAtChange) &&
+          node.canStyle(clientLamportAtChange, versionVector) &&
           attributesToRemove
         ) {
           if (shouldSkipToken(node, tokenType)) {
@@ -1957,7 +1966,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     pairs.push(...this.drainPendingGCPairs());
 
-    return [pairs, changes, diff, prevAttributes];
+    return [pairs, changes, size, prevAttributes];
   }
 
   /**

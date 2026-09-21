@@ -251,4 +251,11 @@ export class ChangeContext<P extends Indexable = Indexable> {
   public acc(diff: DataSize) {
     this.root.acc(diff);
   }
+
+  /**
+   * `accGC` accumulates the given DataSize to gc. See `CRDTRoot.accGC`.
+   */
+  public accGC(diff: DataSize) {
+    this.root.accGC(diff);
+  }
 }

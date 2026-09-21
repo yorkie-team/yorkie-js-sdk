@@ -24,7 +24,10 @@ import {
   TimeTicketSize,
   TimeTicketStruct,
 } from '@yorkie-js/sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import {
+  VersionVector,
+  ticketKnown,
+} from '@yorkie-js/sdk/src/document/time/version_vector';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
@@ -496,15 +499,29 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
 
   /**
    * `canStyle` checks if node is able to set style.
+   *
+   * A removal the styling change had already seen wins: the range was styled
+   * with the deleted part known to be gone, so the tombstone keeps whatever
+   * it held. A local change (undefined version vector) has seen every removal
+   * in its own replica by definition, which is what keeps a user from styling
+   * text they just deleted.
+   *
+   * A removal CONCURRENT with the style does not win. The replica that issued
+   * the style applied it while the node was still live and can never retract
+   * it, so every other replica has to apply it too. Refusing every removed
+   * node -- what this SDK did -- leaves the two replicas holding different
+   * attributes on the same node forever, invisible while it is a tombstone
+   * and rendered the moment the removal is undone.
    */
   public canStyle(
-    editedAt: TimeTicket,
     clientLamportAtChange: bigint,
+    versionVector?: VersionVector,
   ): boolean {
-    const nodeExisted =
-      this.getCreatedAt().getLamport() <= clientLamportAtChange;
+    if (this.getCreatedAt().getLamport() > clientLamportAtChange) {
+      return false;
+    }
 
-    return nodeExisted && (!this.removedAt || editedAt.after(this.removedAt));
+    return !this.removedAt || !ticketKnown(versionVector, this.removedAt);
   }
 
   /**

@@ -788,6 +788,20 @@ export class CRDTRoot {
   }
 
   /**
+   * `accGC` accumulates the given DataSize to gc.
+   *
+   * `docSize.gc` has to stay equal to the sum of the CURRENT size of every
+   * registered pair's child, because collection subtracts exactly that when
+   * it purges one. Registration alone cannot maintain that: writing an
+   * attribute onto a node that is already a tombstone changes the size of a
+   * child that was registered earlier, with no pair of its own to carry the
+   * difference. That is what this reports.
+   */
+  public accGC(diff: DataSize) {
+    addDataSizes(this.docSize.gc, diff);
+  }
+
+  /**
    * `getGCElementPairs` returns an iterator for all GC element pairs.
    * This is similar to Go's GCElementPairMap() functionality.
    */
