@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-22
 ---
 
 # Tasks Archive
@@ -8,12 +8,25 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 17
+Total archived tasks: 25
 
-## 2026/08 (2 tasks)
+## 2026/09 (7 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| A style lands on a deleted text node in Go and not in JS (2026-09-21) | [20260921-style-on-a-tombstoned-node-todo.md](./2026/09/20260921-style-on-a-tombstoned-node-todo.md) | [20260921-style-on-a-tombstoned-node-lessons.md](./2026/09/20260921-style-on-a-tombstoned-node-lessons.md) |
+| Tree edits charge live for sizes it was not holding (2026-09-19) | [20260919-tree-size-ledger-todo.md](./2026/09/20260919-tree-size-ledger-todo.md) | [20260919-tree-size-ledger-lessons.md](./2026/09/20260919-tree-size-ledger-lessons.md) |
+| A split reports no index growth to undo/redo reconciliation (2026-09-19) | [20260919-split-index-ledger-todo.md](./2026/09/20260919-split-index-ledger-todo.md) | [20260919-split-index-ledger-lessons.md](./2026/09/20260919-split-index-ledger-lessons.md) |
+| A split copies an attribute tombstone under the same id (2026-09-19) | [20260919-split-attr-tombstone-id-todo.md](./2026/09/20260919-split-attr-tombstone-id-todo.md) | [20260919-split-attr-tombstone-id-lessons.md](./2026/09/20260919-split-attr-tombstone-id-lessons.md) |
+| Incremental DocStore Interface (S1) (2026-09-16) | [20260916-incremental-doc-store-interface-todo.md](./2026/09/20260916-incremental-doc-store-interface-todo.md) | [20260916-incremental-doc-store-interface-lessons.md](./2026/09/20260916-incremental-doc-store-interface-lessons.md) |
+| Decoding a snapshot drops a key depending on member order (2026-09-14) | [20260914-element-rht-set-order-independence-todo.md](./2026/09/20260914-element-rht-set-order-independence-todo.md) | [20260914-element-rht-set-order-independence-lessons.md](./2026/09/20260914-element-rht-set-order-independence-lessons.md) |
+| Dependabot Security Bump (2026-09) (2026-09-14) | [20260914-dependabot-security-bump-todo.md](./2026/09/20260914-dependabot-security-bump-todo.md) | [20260914-dependabot-security-bump-lessons.md](./2026/09/20260914-dependabot-security-bump-lessons.md) |
+
+## 2026/08 (3 tasks)
+
+| Task | Todo | Lessons |
+|---|---|---|
+| Anchor RGATreeList.insert on position identity (2026-08-30) | [20260830-array-move-snapshot-order-todo.md](./2026/08/20260830-array-move-snapshot-order-todo.md) | [20260830-array-move-snapshot-order-lessons.md](./2026/08/20260830-array-move-snapshot-order-lessons.md) |
 | DocSize: count a removed container's descendants in the GC total (2026-08-17) | [20260817-docsize-container-gc-symmetry-todo.md](./2026/08/20260817-docsize-container-gc-symmetry-todo.md) | [20260817-docsize-container-gc-symmetry-lessons.md](./2026/08/20260817-docsize-container-gc-symmetry-lessons.md) |
 | Mirror the duplicate CRDTTreeNodeID rules (2026-08-15) | [20260815-duplicate-tree-node-id-todo.md](./2026/08/20260815-duplicate-tree-node-id-todo.md) | [20260815-duplicate-tree-node-id-lessons.md](./2026/08/20260815-duplicate-tree-node-id-lessons.md) |
 
