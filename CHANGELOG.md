@@ -7,13 +7,28 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.23] - 2026-09-22
+
 ### Added
 
 - Show non-replayable document events in devtools by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1347
 
+### Changed
+
+- Build the devtools extension in CI and gate its publish on release by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1344
+- Refresh devtools dependencies and fix stale devtools docs by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1345
+
 ### Fixed
 
 - Fix devtools panel state when a page has multiple documents by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1346
+- Let YorkieProvider set the client key, which React made unreachable by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1357
+- Stop splitByPath and mergeByPath from duplicating content by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1358
+- Charge live only for the tree sizes it was actually holding by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1359
+- Report a split's boundary growth to undo/redo reconciliation by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1360
+- Give a split's copied tree attribute tombstone its own place in GC by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1363
+- Recreate a restored node tombstoned, and carry a text attribute's removal flag by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1364
+- Charge an attribute to live only while it is the live value by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1365
+- Stop canStyle reading removal state, and charge a tombstone's style by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1368
 
 ## [v0.7.22] - 2026-09-17
 
