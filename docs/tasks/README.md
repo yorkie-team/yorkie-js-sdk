@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-09-23
 ---
 
 # Tasks Index
@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Concurrent splits of one boundary sit in arrival order (2026-09-23) | [20260923-same-boundary-split-order-todo.md](./active/20260923-same-boundary-split-order-todo.md) | [20260923-same-boundary-split-order-lessons.md](./active/20260923-same-boundary-split-order-lessons.md) |
 | Incremental Persistence Engine (S2) (2026-09-16) | [20260916-incremental-persistence-engine-todo.md](./active/20260916-incremental-persistence-engine-todo.md) | [20260916-incremental-persistence-engine-lessons.md](./active/20260916-incremental-persistence-engine-lessons.md) |
 
 ## Archive

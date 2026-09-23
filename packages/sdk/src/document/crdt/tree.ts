@@ -1341,6 +1341,65 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `orderSameBoundarySplit` decides which node a split at `offset` of
+   * `parent` actually splits, so that concurrent splits of one node at one
+   * boundary land in the same order on every replica.
+   *
+   * `splitElement` places its product directly after the node it splits.
+   * When a concurrent split of the same boundary has already been applied,
+   * that puts the products in arrival order, which differs per replica. The
+   * XML still matches (all but the last product are empty) but position-based
+   * operations that follow do not.
+   *
+   * Order them by ticket instead, newest first, as RGA orders concurrent
+   * inserts after the same node: skip the unknown split siblings with a newer
+   * ticket and split the last of them at its start. The right half lives in
+   * that sibling on this replica, so it moves into our product exactly as it
+   * would have moved out of `parent` on a replica that applied us first.
+   */
+  private orderSameBoundarySplit(
+    parent: CRDTTreeNode,
+    offset: number,
+    editedAt: TimeTicket,
+    versionVector?: VersionVector,
+  ): [CRDTTreeNode, number] {
+    // A concurrent split of the same boundary took everything to the right of
+    // it, so only a split at the end of `parent` can be one.
+    if (!versionVector || offset !== parent.allChildren.length) {
+      return [parent, offset];
+    }
+
+    let target = parent;
+    while (target.insNextID) {
+      const next = this.findFloorNode(target.insNextID);
+      // No parent check: at a multi-level split the sibling may already sit
+      // under the next level's product (the same reason §7.5 relaxes it).
+      if (!next || next.isText || !next.parent) {
+        break;
+      }
+
+      const createdAt = next.id.getCreatedAt();
+      if (createdAt.getActorID() === editedAt.getActorID()) {
+        break;
+      }
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= createdAt.getLamport()
+      ) {
+        break;
+      }
+      if (!createdAt.after(editedAt)) {
+        break;
+      }
+
+      target = next;
+    }
+
+    return target === parent ? [parent, offset] : [target, 0];
+  }
+
+  /**
    * `advancePastUnknownSplitSiblings` follows the insNextID chain of the
    * given node, advancing past element-type split siblings that the editing
    * client did not know about (not in versionVector).
@@ -1385,10 +1444,52 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
+      // Empty unknown siblings standing right before our own product are
+      // concurrent splits of the same boundary, ordered ahead of ours by
+      // `orderSameBoundarySplit`. They are not content the editor meant to
+      // keep on its left; a replica that applied them later re-parented them
+      // after the boundary (§7.4), so stay in front of them here as well.
+      if (
+        skipActorID !== undefined &&
+        this.emptyRunReachesActor(next, skipActorID, versionVector)
+      ) {
+        break;
+      }
+
       current = next;
     }
 
     return current;
+  }
+
+  /**
+   * `emptyRunReachesActor` reports whether the insNextID chain starting at
+   * `node` runs through empty, unknown element split siblings only and then
+   * reaches a node created by `actorID`.
+   */
+  private emptyRunReachesActor(
+    node: CRDTTreeNode,
+    actorID: string,
+    versionVector: VersionVector,
+  ): boolean {
+    let current: CRDTTreeNode | undefined = node;
+    while (current && !current.isText) {
+      const createdAt = current.id.getCreatedAt();
+      if (createdAt.getActorID() === actorID) {
+        return current !== node;
+      }
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        current.allChildren.length > 0 ||
+        (knownLamport !== undefined && knownLamport >= createdAt.getLamport())
+      ) {
+        return false;
+      }
+      current = current.insNextID
+        ? this.findFloorNode(current.insNextID)
+        : undefined;
+    }
+    return false;
   }
 
   /**
@@ -2353,9 +2454,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // live without the elements a split mints, so a split and the merge
         // that undoes it did not cancel out and the live size walked down by
         // a ticket per cycle, without bound.
-        const [, splitDiff] = parent.split(
-          this,
+        const [target, offset] = this.orderSameBoundarySplit(
+          parent,
           left !== parent ? parent.findOffset(left, true) + 1 : 0,
+          editedAt,
+          versionVector,
+        );
+        const [, splitDiff] = target.split(
+          this,
+          offset,
           issueTimeTicket,
           versionVector,
         );
