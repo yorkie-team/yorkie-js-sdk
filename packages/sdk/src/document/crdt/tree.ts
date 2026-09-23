@@ -612,6 +612,25 @@ export class CRDTTreeNode
   }
 
   /**
+   * `dropSplitLinks` clears the split-sibling links on this node and every
+   * one of its descendants.
+   *
+   * insPrevID/insNextID name positions in a split chain and only
+   * `splitElement` may create them. A node arriving as operation content is
+   * freshly created by the editing client, so it can never legitimately be a
+   * split product — but the wire format carries the fields regardless, and
+   * the chain walks that read them treat them as trusted structural
+   * pointers. Drop them on the way in rather than let a peer hand the tree a
+   * chain of its choosing.
+   */
+  public dropSplitLinks(): void {
+    traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
+      node.insPrevID = undefined;
+      node.insNextID = undefined;
+    });
+  }
+
+  /**
    * `isRemoved` returns whether the node is removed or not.
    */
   get isRemoved(): boolean {
@@ -1060,6 +1079,32 @@ function toTestTreeNode(node: CRDTTreeNode): TreeNodeForTest {
 }
 
 /**
+ * `InsNextWalker` bounds a walk of an insNextID chain.
+ *
+ * insNextID is a structural pointer that only `splitElement` is supposed to
+ * set, but it also arrives verbatim from client-supplied bytes, so a chain
+ * that loops back on itself would spin the applying task forever. Every
+ * chain walk runs through one of these.
+ */
+class InsNextWalker {
+  private seen: Set<CRDTTreeNode> = new Set();
+
+  /**
+   * `visit` records `node` and reports whether this walk had not already
+   * passed through it. A false result means the chain is cyclic; stop
+   * following it.
+   */
+  public visit(node: CRDTTreeNode): boolean {
+    if (this.seen.has(node)) {
+      return false;
+    }
+    this.seen.add(node);
+
+    return true;
+  }
+}
+
+/**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement implements GCParent {
@@ -1370,11 +1415,34 @@ export class CRDTTree extends CRDTElement implements GCParent {
     }
 
     let target = parent;
+    const walker = new InsNextWalker();
+    walker.visit(target);
     while (target.insNextID) {
       const next = this.findFloorNode(target.insNextID);
-      // No parent check: at a multi-level split the sibling may already sit
-      // under the next level's product (the same reason §7.5 relaxes it).
       if (!next || next.isText || !next.parent) {
+        break;
+      }
+
+      // Stop on a chain that loops back on itself; see InsNextWalker.
+      if (!walker.visit(next)) {
+        break;
+      }
+
+      // The sibling has to belong to target's own split family. The strict
+      // parent-equality check §7.5 uses is too strong here — at a
+      // multi-level split the sibling may already sit under the next level's
+      // product — but dropping it entirely would let an insNextID that did
+      // not come from `splitElement` redirect this split onto an arbitrary
+      // element elsewhere in the tree.
+      if (!this.sharesSplitFamilyParent(target, next)) {
+        break;
+      }
+
+      // Splitting a tombstoned sibling would make our product born
+      // tombstoned, which a replica that applied us before the concurrent
+      // split never does. Fall back to splitting parent, as that replica
+      // did, rather than diverge on liveness.
+      if (next.isRemoved) {
         break;
       }
 
@@ -1400,6 +1468,39 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `sharesSplitFamilyParent` reports whether `next` sits under `node`'s
+   * parent, or under a split product of that parent. A multi-level split
+   * moves a sibling under the next level's product, so the two parents
+   * legitimately differ — but only within one split family. Anything beyond
+   * that is not a split sibling of `node`, whatever its insNextID claims.
+   */
+  private sharesSplitFamilyParent(
+    node: CRDTTreeNode,
+    next: CRDTTreeNode,
+  ): boolean {
+    if (!node.parent || !next.parent) {
+      return false;
+    }
+    if (node.parent === next.parent) {
+      return true;
+    }
+
+    const walker = new InsNextWalker();
+    let current: CRDTTreeNode | undefined = node.parent as CRDTTreeNode;
+    while (current && walker.visit(current)) {
+      if (current === next.parent) {
+        return true;
+      }
+      if (!current.insNextID) {
+        return false;
+      }
+      current = this.findFloorNode(current.insNextID);
+    }
+
+    return false;
+  }
+
+  /**
    * `advancePastUnknownSplitSiblings` follows the insNextID chain of the
    * given node, advancing past element-type split siblings that the editing
    * client did not know about (not in versionVector).
@@ -1415,9 +1516,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
     }
 
     let current = node;
+    const walker = new InsNextWalker();
+    walker.visit(current);
     while (current.insNextID) {
       const next = this.findFloorNode(current.insNextID);
       if (!next || next.isText) {
+        break;
+      }
+
+      // Stop on a chain that loops back on itself; see InsNextWalker.
+      if (!walker.visit(next)) {
         break;
       }
 
@@ -1472,8 +1580,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     actorID: string,
     versionVector: VersionVector,
   ): boolean {
+    const walker = new InsNextWalker();
     let current: CRDTTreeNode | undefined = node;
-    while (current && !current.isText) {
+    while (current && !current.isText && walker.visit(current)) {
       const createdAt = current.id.getCreatedAt();
       if (createdAt.getActorID() === actorID) {
         return current !== node;
@@ -1771,13 +1880,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     addDataSizes(size.live, diffTo, diffFrom);
 
+    // skipActorID for the same reason as edit's Phase 2: a same-boundary
+    // empty run has to resolve here the way the split loop resolves it.
+    const styleActorID = editedAt.getActorID();
     const fromLeft =
       fromLeftRaw !== fromParent
-        ? this.advancePastUnknownSplitSiblings(fromLeftRaw, versionVector)
+        ? this.advancePastUnknownSplitSiblings(
+            fromLeftRaw,
+            versionVector,
+            false,
+            styleActorID,
+          )
         : fromLeftRaw;
     const toLeft =
       toLeftRaw !== toParent
-        ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
+        ? this.advancePastUnknownSplitSiblings(
+            toLeftRaw,
+            versionVector,
+            false,
+            styleActorID,
+          )
         : toLeftRaw;
 
     const recovery = this.reversedFromAnchorRecovery(
@@ -1869,9 +1991,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
           // split also covers the right part of the split.
           if (tokenType === TokenType.Start && versionVector !== undefined) {
             let current: CRDTTreeNode = node;
+            const walker = new InsNextWalker();
+            walker.visit(current);
             while (current.insNextID) {
               const next = this.findFloorNode(current.insNextID);
               if (!next || next.isText) {
+                break;
+              }
+              // Stop on a chain that loops back on itself; see InsNextWalker.
+              if (!walker.visit(next)) {
                 break;
               }
               if (ticketKnown(versionVector, next.id.getCreatedAt())) {
@@ -2020,9 +2148,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
           // Propagate remove-style to unknown split siblings.
           if (tokenType === TokenType.Start && versionVector !== undefined) {
             let current: CRDTTreeNode = node;
+            const walker = new InsNextWalker();
+            walker.visit(current);
             while (current.insNextID) {
               const next = this.findFloorNode(current.insNextID);
               if (!next || next.isText) {
+                break;
+              }
+              // Stop on a chain that loops back on itself; see InsNextWalker.
+              if (!walker.visit(next)) {
                 break;
               }
               if (ticketKnown(versionVector, next.id.getCreatedAt())) {
@@ -2112,13 +2246,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // past siblings the editor could not have seen so that the range
     // starts/ends after all concurrent split products.
     // Skip when leftNode == parent (leftmost child position).
+    // §7.7: pass the editing actor so a same-boundary empty run resolves
+    // here exactly as the split loop resolves it; without it the two sides
+    // would place the same boundary differently.
+    const editActorID = editedAt.getActorID();
     const fromLeft =
       fromLeftRaw !== fromParent
-        ? this.advancePastUnknownSplitSiblings(fromLeftRaw, versionVector)
+        ? this.advancePastUnknownSplitSiblings(
+            fromLeftRaw,
+            versionVector,
+            false,
+            editActorID,
+          )
         : fromLeftRaw;
     const toLeft =
       toLeftRaw !== toParent
-        ? this.advancePastUnknownSplitSiblings(toLeftRaw, versionVector)
+        ? this.advancePastUnknownSplitSiblings(
+            toLeftRaw,
+            versionVector,
+            false,
+            editActorID,
+          )
         : toLeftRaw;
 
     // Phase 3: Range Narrowing — when fromLeft and toLeft are in
@@ -2131,9 +2279,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
     let collectFromLeft: CRDTTreeNode = fromLeft;
     if (fromLeft !== fromParent && fromParent !== toParent) {
       let current: CRDTTreeNode = fromLeft;
+      const walker = new InsNextWalker();
+      walker.visit(current);
       while (current.insNextID) {
         const next = this.findFloorNode(current.insNextID);
         if (!next || next.isText) {
+          break;
+        }
+        // Stop on a chain that loops back on itself; see InsNextWalker.
+        if (!walker.visit(next)) {
           break;
         }
         if (next.parent && next.parent === toParent) {
@@ -2222,8 +2376,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
               node.insNextID &&
               !toBeMergedNodes.includes(node)
             ) {
+              const walker = new InsNextWalker();
+              walker.visit(node);
               let next = this.findFloorNode(node.insNextID);
-              while (next) {
+              // Stop on a chain that loops back on itself; see
+              // InsNextWalker. Unbounded here would also grow
+              // nodesToBeRemoved without limit.
+              while (next && walker.visit(next)) {
                 if (!ticketKnown(versionVector, next.id.getCreatedAt())) {
                   nodesToBeRemoved.push(next);
                   // Cascade through the full subtree, not just immediate children.
