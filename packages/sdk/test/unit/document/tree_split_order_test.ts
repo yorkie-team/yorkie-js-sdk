@@ -209,3 +209,53 @@ describe('Tree concurrent split at the same boundary', () => {
     assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
   });
 });
+
+/**
+ * A same-boundary split that meets an older, already-known split product of
+ * one of the two actors.
+ */
+describe('Tree concurrent split after an older split of the same boundary', () => {
+  const split = (t: Tree) => t.editByPath([0, 0, 3], [0, 0, 3], undefined, 1);
+  const cases: Array<[string, (t: Tree) => void, string | undefined]> = [
+    ['the older actor splits the span again', split, undefined],
+    [
+      'the older actor splits the paragraph',
+      (t) => t.splitByPath([0, 1]),
+      "KNOWN: the other actor's empty product lands before the paragraph " +
+        'boundary on the replica that applied it first (the position advance ' +
+        'passes it) and after it on the other (§7.4 re-parents it next to the ' +
+        'older product). Diverges on main too.',
+    ],
+    [
+      'the older actor presses Enter as two edits',
+      (t) => {
+        split(t);
+        t.splitByPath([0, 1]);
+      },
+      'KNOWN: same shape as the paragraph case. Diverges on main too.',
+    ],
+  ];
+
+  for (const [name, op, known] of cases) {
+    for (const older of [0, 1]) {
+      it.skipIf(known !== undefined)(
+        `${name}, older split by replica ${older}`,
+        () => {
+          const docs = replicas(2);
+          docs[older].update((root) => split(root.t));
+          exchange(docs, [[1], [0]]);
+
+          docs[older].update((root) => op(root.t));
+          docs[1 - older].update((root) => split(root.t));
+          exchange(docs, [[1], [0]]);
+
+          assert.equal(
+            docs[1].getRoot().t.toXML(),
+            docs[0].getRoot().t.toXML(),
+          );
+          assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+        },
+      );
+    }
+  }
+});
