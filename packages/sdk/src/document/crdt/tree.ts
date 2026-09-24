@@ -2055,18 +2055,40 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): [Array<GCPair>, Array<TreeChange>, DocSize, Map<string, string>] {
     const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
 
-    const [[fromParent, fromLeft], diffFrom] = this.findNodesAndSplitText(
+    const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
       'range',
     );
-    const [[toParent, toLeft], diffTo] = this.findNodesAndSplitText(
+    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
       'range',
     );
 
     addDataSizes(size.live, diffTo, diffFrom);
+
+    // skipActorID for the same reason as edit's Phase 2: a same-boundary
+    // empty run has to resolve here the way the split loop resolves it.
+    const styleActorID = editedAt.getActorID();
+    const fromLeft =
+      fromLeftRaw !== fromParent
+        ? this.advancePastUnknownSplitSiblings(
+            fromLeftRaw,
+            versionVector,
+            false,
+            styleActorID,
+          )
+        : fromLeftRaw;
+    const toLeft =
+      toLeftRaw !== toParent
+        ? this.advancePastUnknownSplitSiblings(
+            toLeftRaw,
+            versionVector,
+            false,
+            styleActorID,
+          )
+        : toLeftRaw;
 
     const recovery = this.reversedFromAnchorRecovery(
       range[0],
