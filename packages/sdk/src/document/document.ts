@@ -60,6 +60,8 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { ArraySetOperation } from '@yorkie-js/sdk/src/document/operation/array_set_operation';
 import { AddOperation } from '@yorkie-js/sdk/src/document/operation/add_operation';
+import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { dropSplitLinksInElement } from '@yorkie-js/sdk/src/document/crdt/split_links';
 import {
   createJSON,
   JSONElement,
@@ -2652,6 +2654,20 @@ export class Document<
 
       const ticket = ctx.issueTimeTicket();
       op.setExecutedAt(ticket);
+
+      // A Set/Add/ArraySet reverse carries a deepcopy of the value it
+      // restores, and that copy keeps the split-sibling links of the tree it
+      // was taken from. Every other replica decodes this same operation
+      // through `dropSplitLinksInElement`, so without this the replica that
+      // ran the undo is the only one left holding the links, and the two
+      // disagree from the next same-boundary split on.
+      if (
+        op instanceof SetOperation ||
+        op instanceof AddOperation ||
+        op instanceof ArraySetOperation
+      ) {
+        dropSplitLinksInElement(op.getValue());
+      }
 
       // NOTE(hackerwins): In undo/redo, both Set and Add may act as updates.
       // - Set: replaces the element value.
