@@ -44,10 +44,8 @@ import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
 import { RGATreeList } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
-import {
-  CRDTContainer,
-  CRDTElement,
-} from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { dropSplitLinksInElement } from '@yorkie-js/sdk/src/document/crdt/split_links';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
@@ -1201,38 +1199,6 @@ function fromCounterType(pbValueType: PbValueType): CounterType {
     Code.ErrUnimplemented,
     `unimplemented value type: ${pbValueType}`,
   );
-}
-
-/**
- * `dropSplitLinksInElement` strips the split-sibling links from every tree
- * reachable from `elem`.
- *
- * A Set/Add/SetByIndex payload arrives as element bytes and is decoded by the
- * same `bytesToObject`/`bytesToArray`/`bytesToTree` that reads a server-built
- * snapshot, but unlike a snapshot it is entirely client-supplied and always
- * freshly created by the editing client: none of its nodes can be a split
- * product. The wire format carries insPrevID/insNextID regardless and the
- * tree follows them as trusted structural pointers, so drop them here for the
- * same reason `fromTreeNodesWhenEdit` drops them from operation content.
- */
-function dropSplitLinksInElement(elem: CRDTElement): CRDTElement {
-  if (elem instanceof CRDTTree) {
-    elem.getRoot()?.dropSplitLinks();
-
-    return elem;
-  }
-
-  if (elem instanceof CRDTContainer) {
-    elem.getDescendants((child) => {
-      if (child instanceof CRDTTree) {
-        child.getRoot()?.dropSplitLinks();
-      }
-
-      return false;
-    });
-  }
-
-  return elem;
 }
 
 /**
