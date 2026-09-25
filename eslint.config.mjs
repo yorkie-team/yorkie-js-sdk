@@ -106,6 +106,8 @@ export default tseslint.config(
     'packages/sdk/test/vitest.d.ts',
     // examples
     'examples/**/*',
+    // vendored from yorkie-team/yorkie; follows that repository's style
+    'scripts/agent/**',
     // schema
     'packages/schema/antlr',
     // devtools: plasmo's generated scaffold, produced by `pnpm devtools build`

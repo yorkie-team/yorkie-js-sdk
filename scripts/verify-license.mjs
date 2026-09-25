@@ -73,6 +73,13 @@ export const PACKAGE_DIRS = ['src', 'test'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'coverage']);
 
 /**
+ * Paths under `root` never scanned. `scripts/agent` is vendored verbatim from
+ * yorkie-team/yorkie, whose licence check covers Go only; adding headers here
+ * would make every future sync a conflict. Headers belong upstream.
+ */
+export const VENDORED_DIRS = [path.join('scripts', 'agent')];
+
+/**
  * The directories to walk under `root`: each package's `src`/`test`, and
  * `scripts`. Only the ones that exist — a package without tests is normal.
  */
@@ -144,6 +151,7 @@ export function sourceFiles(root) {
       const abs = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
+        if (VENDORED_DIRS.includes(path.relative(root, abs))) continue;
         walk(abs);
       } else if (
         entry.isFile() &&

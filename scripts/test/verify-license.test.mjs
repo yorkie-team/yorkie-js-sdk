@@ -320,3 +320,11 @@ test('an unreadable package src is a finding, not a skip', () => {
     },
   );
 });
+
+test('the vendored scripts/agent is not scanned, but scripts/ still is', () => {
+  withTree({ 'scripts/agent/x.mjs': 'x', 'scripts/y.mjs': 'x' }, (root) =>
+    assert.deepEqual(collectFindings(root), [
+      'scripts/y.mjs has no Apache 2.0 header',
+    ]),
+  );
+});
