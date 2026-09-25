@@ -64,3 +64,30 @@
   used only plain `commit`; every reflog verb form the header claims to
   accept needs its own case. Also: `.sh` was outside the licence scan while
   the docs said "every source file under scripts/".
+
+## Phase 1 — porting the workflows and the repo-shaped parts
+
+- A vendored guard that starts with `if (!/actions\/setup-go/.test(wf))
+  continue;` goes vacuous the moment the toolchain is swapped: green, and
+  pinning nothing. After a toolchain swap, grep the tests for the old
+  toolchain's names, not just the failures, and rewrite each guard for the new
+  shape with a non-vacuity count.
+- Several tests passed against yorkie's content from day one because they
+  read the vendored constant, not the repository (the coverage-note test
+  checked that the note mentioned golangci-lint). A pinning test is only worth
+  porting if it reads its facts off this tree: eslint config, ci.yml steps,
+  the compose file, codecov.yml.
+- The pnpm form of "never run `make tools` with a token in `.git/config`" is
+  not just `--ignore-scripts`: pnpm executes a `.pnpmfile.cjs` with scripts
+  off, and `pnpm/action-setup` without `version:` reads the branch's
+  `packageManager`. Hence `--ignore-pnpmfile` and a version in the workflow.
+  Verified `verify:fast` passes on a fresh worktree installed exactly so.
+- A rationale does not port with its code. yorkie excludes generated `*.pb.go`
+  from the review diff because a CI lane regenerates and diffs it; nothing
+  here does, so the same exclude hides a hand edit. Kept (per the plan), but
+  the comments and the coverage note now say so.
+- `yml.slice(yml.indexOf("\non:"), yml.indexOf("\nenv:"))` ran to the end of
+  a file with no `env:` block. Slice to the next top-level key.
+- Mutation-checking the guards with `git checkout -- .` also reverted an
+  uncommitted edit to this todo that predated the work. Restored from a saved
+  `git diff`. Revert mutations by path, or stash first.
