@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The cheap half of `pnpm verify:fast`, run on every commit: ESLint over the
+# staged source, through lint-staged.
+#
+# Lint only. The rest of the gate — build and unit tests, ~30s — runs in
+# pre-push, one layer out, where the cost is paid once per push instead of
+# once per commit. A gate that costs that much per commit is a gate people
+# disable.
+#
+# SAME EXECUTION SURFACE AS pre-push: `pnpm exec lint-staged` resolves through
+# the WORKING TREE's `lint-staged.config.mjs` and `eslint.config.mjs`. The
+# `$GIT_DIR` snapshot `scripts/setup.sh` takes pins which hook runs, not what
+# the hook invokes — which is why `trusted-tree.sh` below refuses when this
+# checkout carries somebody else's commits. Its header carries the argument.
+#
+# Bypass with `git commit --no-verify` when you mean to.
+
+# NOTHING TO LINT IS NOT THE SAME AS NO LINTER, and the two must not share an
+# answer. A commit staging no source cannot introduce a lint failure, so there
+# is nothing to refuse — and refusing anyway would mean a contributor fixing a
+# typo in a README cannot commit without installing dependencies.
+#
+# NO --diff-filter. `ACM` drops a rename-with-edit, which git reports as a
+# single `R` entry; adding `R` still drops `D`, and a deletion breaks every
+# import of the deleted file. Any staged change to a source file is a reason
+# to run.
+#
+# git's own pathspec does the filtering. A `| grep -q` would be the obvious
+# spelling and is a trap: `grep -q` exits at the first match, `git` takes
+# SIGPIPE, and `set -o pipefail` then reports the pipeline as FAILED —
+# inverting the test precisely when source is staged.
+if [ -z "$(git diff --cached --name-only -- \
+  '*.ts' '*.tsx' '*.mts' '*.cts' '*.js' '*.mjs' '*.cjs')" ]; then
+  exit 0
+fi
+
+# There IS source to lint, so a missing toolchain is a refusal rather than a
+# skip. A lint gate that quietly does nothing is the case it exists to prevent.
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-commit: pnpm not found; install it and run 'pnpm install'." >&2
+  exit 1
+fi
+
+# There is source to lint, so this branch's lint configs are about to run.
+# Check whose branch it is first.
+# shellcheck source=.githooks/trusted-tree.sh
+. "$(dirname "$0")/trusted-tree.sh"
+yorkie_require_own_work "pre-commit" "'pnpm exec lint-staged'" || exit 1
+
+exec pnpm exec lint-staged
