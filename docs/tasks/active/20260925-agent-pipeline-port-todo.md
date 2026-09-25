@@ -80,7 +80,8 @@ Design: `docs/design/agent-harness.md`.
 - [ ] Port the hook fixes back to yorkie: worktree common dir, `pull`
       reflog subjects, `rebase (finish)` after a fast-forward, `upstream/main`
       as a trusted base for forks, lowercase `fast-forward` from
-      `cherry-pick --ff`, raw `%ae` instead of mailmapped `%aE`
+      `cherry-pick --ff`, raw `%ae` instead of mailmapped `%aE`, `commit (amend)` /
+      `commit (merge)` subjects
 
 ## Phase 1 — advisory verbs (`review`, `summarize`)
 

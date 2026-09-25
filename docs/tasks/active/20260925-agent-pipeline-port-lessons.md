@@ -58,3 +58,9 @@
 - Every round found something real, and the rounds did not converge — each
   looked from a different side. Six of the defects were in the server
   repository's original; see the port-back item in the todo.
+- **CodeRabbit on #1384**: 8 findings, all accepted. The one that mattered —
+  `commit (amend):` never matched because awk split the qualifier into `$3`,
+  so your own amend was refused — survived three self-review rounds. Tests
+  used only plain `commit`; every reflog verb form the header claims to
+  accept needs its own case. Also: `.sh` was outside the licence scan while
+  the docs said "every source file under scripts/".
