@@ -496,32 +496,40 @@ jobs:
           ref: ${{ steps.pr.outputs.branch }}
           fetch-depth: 0
           token: ${{ steps.agent-token.outputs.token }} # persisted into .git/config; must be the narrow one
-      # The linter the fixer verifies with, installed from a version pinned HERE
-      # rather than by running the branch's `make tools`.
+      # The toolchain the fixer verifies with, installed WITHOUT running
+      # anything the branch wrote.
       #
       # THE REASON IS THE TOKEN. From the checkout above, the workspace is the
       # UNTRUSTED PR branch and an App token is already in the environment, so
       # any setup step that executes branch-authored build instructions hands a
-      # credential to code the branch wrote. `make tools` is exactly that: five
-      # `go install` lines the PR can rewrite. This is the Go-shaped version of
-      # the `--ignore-scripts` rule the pipeline this was ported from applies to
-      # its package manager, and it fails in the same direction — the pin can go
-      # stale against the Makefile, which shows up as a lint disagreement, not as
-      # a leaked credential.
+      # credential to code the branch wrote. A plain `pnpm install` is exactly
+      # that: the lifecycle scripts of every workspace package.json (the SDK's
+      # `prepare` alone runs a full build) and of every dependency the branch's
+      # lockfile names, plus a `.pnpmfile.cjs` hook if the branch adds one.
+      # Hence `--ignore-scripts` and `--ignore-pnpmfile`; `--frozen-lockfile`
+      # so the install is exactly what the lockfile pins. `pnpm verify:fast`
+      # needs no install script: the SDK build is one of its own steps. The
+      # pnpm major is pinned here, as `ci.yml` pins it, rather than read from a
+      # `packageManager` field the branch could add.
       #
-      # Keep in sync with the Makefile's `tools` target.
-      - uses: actions/setup-go@v6
+      # This does not stop the AGENT running branch code — it has to, to verify,
+      # and it holds the token by design because it has to push. What must not
+      # happen is the job reaching the agent having already run the branch's
+      # build files for its own convenience.
+      #
+      # NO CACHE: no `cache: pnpm` on setup-node and no actions/cache. A cache
+      # post step would SAVE the pnpm store after the agent ran, with whatever
+      # the agent left there, under a key the agent controls through
+      # `pnpm-lock.yaml` — and a cache saved by a run in the default branch's
+      # context (`issue_comment`, `workflow_run`) is one `ci.yml` and the npm
+      # publish can restore.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         if: steps.eligible.outputs.eligible == 'true' && steps.ci-clear.outputs.clear == 'true'
         with:
-          go-version: "1.25"
-          # NO CACHE. setup-go's post step would SAVE `~/go/pkg/mod` and the
-          # build cache after the agent ran, with whatever the agent left there,
-          # under a key the agent controls through `go.sum` — and `ci.yml` and the
-          # Docker publish restore by the same key on `main`.
-          cache: false
-      - name: Install the linter (pinned here, not read from the branch)
+          version: 9
+      - name: Install dependencies (lockfile-exact, no lifecycle scripts)
         if: steps.eligible.outputs.eligible == 'true' && steps.ci-clear.outputs.clear == 'true'
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+        run: pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
 
       # Read the remote tip before the agent runs, so the step after it can tell
       # "fixed and pushed" from "ran and pushed nothing". The REMOTE, not local

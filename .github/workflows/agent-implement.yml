@@ -412,23 +412,22 @@ jobs:
           cp -R scripts/agent "$RUNNER_TEMP/agent-tools"
           npm ci --no-audit --no-fund --ignore-scripts --prefix "$RUNNER_TEMP/agent-tools"
 
-      - uses: actions/setup-go@v6
+      # The toolchain `pnpm verify:fast` needs. The tree is still `main` here,
+      # but the install follows the same rule as every other token-bearing job
+      # (agent-fix.yml says why): no lifecycle scripts, no pnpmfile, exactly the
+      # lockfile, pnpm pinned in this file. `verify:fast` builds the SDK itself.
+      #
+      # NO CACHE. A cache post step would SAVE the pnpm store after the agent
+      # ran, with whatever the agent left there, under a key the agent controls
+      # through `pnpm-lock.yaml` — in the default branch's cache scope, which
+      # `ci.yml` and the npm publish can restore.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         if: steps.app.outputs.configured == 'true'
         with:
-          go-version: "1.25"
-          # NO CACHE. setup-go's post step would SAVE `~/go/pkg/mod` and the
-          # build cache after the agent ran, with whatever the agent left there,
-          # under a key the agent controls through `go.sum` — and `ci.yml` and the
-          # Docker publish restore by the same key on `main`.
-          cache: false
-
-      # Same untrusted-setup rule as every other token-bearing job here: the
-      # linter version is pinned in this file rather than read from `make tools`,
-      # which is five `go install` lines the working tree could rewrite. Keep in
-      # sync with the Makefile's `tools` target.
-      - name: Install the linter (pinned here, not read from the tree)
+          version: 9
+      - name: Install dependencies (lockfile-exact, no lifecycle scripts)
         if: steps.app.outputs.configured == 'true'
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+        run: pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
 
       # FETCH THE ISSUE HERE, ONCE, INTO A FILE — do not let the agent go get it.
       #
@@ -960,7 +959,7 @@ jobs:
             // KEYED BY THE BRANCH TAKEN, not by `cause`. `cause` has four values
             // and the messages below have six, so `no-pr` covered three of them:
             // a lookup failure, a stop between staging and the agent, and a real
-            // no-PR run. Run one dies at `go install`, says "worth trying
+            // no-PR run. Run one dies at `pnpm install`, says "worth trying
             // again"; the maintainer retries as instructed; run two burns ninety
             // minutes and dies without a PR — same bucket, suppressed, and the
             // issue keeps "On it" forever. That is the silent termination this
@@ -996,11 +995,11 @@ jobs:
                 + 'transient, so `@claude fix` is worth trying again.';
             } else if (agentOutcome === 'skipped' || agentOutcome === '') {
               key = 'presetup';
-              // Between staging and the agent: Go setup, the linter install, the
-              // issue fetch, the prompt build. The branch below cites the
-              // execution transcript, and none of these produce one.
-              why = '🛑 This run stopped after setup and before the agent started — the Go toolchain, the '
-                + `linter install, or fetching the issue. See the [run](${runUrl}); there is no agent `
+              // Between staging and the agent: pnpm setup, the dependency
+              // install, the issue fetch, the prompt build. The branch below cites
+              // the execution transcript, and none of these produce one.
+              why = '🛑 This run stopped after setup and before the agent started — the pnpm setup, the '
+                + `dependency install, or fetching the issue. See the [run](${runUrl}); there is no agent `
                 + 'transcript because nothing ran. `@claude fix` is worth trying again.';
             } else {
               key = 'agent';

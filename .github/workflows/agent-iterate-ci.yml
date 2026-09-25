@@ -353,22 +353,19 @@ jobs:
             --note "CI failed $ATTEMPTS times (limit $MAX) — the CI-fix loop paged a human." \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
-      # Same untrusted-setup rule as the panel's fix job and agent-fix.yml: the
-      # workspace below is the PR branch and an App token is in the environment,
-      # so the linter version is pinned here rather than read from the branch's
-      # `make tools`. Keep in sync with the Makefile's `tools` target.
-      - uses: actions/setup-go@v6
+      # Same untrusted-setup rule as agent-fix.yml: the workspace below is the
+      # PR branch and an App token is in the environment, so the install runs
+      # no lifecycle script and no pnpmfile the branch wrote, resolves exactly
+      # the lockfile, and pins pnpm here. No cache, for the same reason: a
+      # post step would save what the agent left in the store under a key the
+      # agent controls.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         if: steps.guard.outputs.proceed == 'true'
         with:
-          go-version: "1.25"
-          # NO CACHE. setup-go's post step would SAVE `~/go/pkg/mod` and the
-          # build cache after the agent ran, with whatever the agent left there,
-          # under a key the agent controls through `go.sum` — and `ci.yml` and the
-          # Docker publish restore by the same key on `main`.
-          cache: false
-      - name: Install the linter (pinned here, not read from the branch)
+          version: 9
+      - name: Install dependencies (lockfile-exact, no lifecycle scripts)
         if: steps.guard.outputs.proceed == 'true'
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+        run: pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
 
       # THE DIAGNOSIS: `gh run view --log-failed`, the log of every step that
       # failed, tailed, because an integration failure can print megabytes and

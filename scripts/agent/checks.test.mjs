@@ -845,27 +845,58 @@ test("no token-bearing job sets itself up by running the branch's build files", 
   // Every one of these jobs checks out the PR branch (UNTRUSTED) with an App
   // token already in the environment. A setup step that executes
   // branch-authored build instructions therefore hands a credential to code the
-  // branch wrote. `make tools` is exactly that shape — five `go install` lines
-  // the PR can rewrite — which is why the linter is installed from a version
-  // pinned in the workflow instead.
+  // branch wrote. A plain `pnpm install` is exactly that shape: the lifecycle
+  // scripts of every workspace manifest (the SDK's `prepare` runs a full build)
+  // and of every dependency the branch's lockfile names, plus a `.pnpmfile.cjs`
+  // the branch can add. Hence the three flags pinned below, and a pnpm version
+  // pinned in the workflow rather than read from a `packageManager` field the
+  // branch controls.
   //
-  // This is the Go-shaped version of the `--ignore-scripts` rule the pipeline
-  // this was ported from applies to its package manager. Scoped to SETUP: the
+  // The server repository pins the Go-shaped version of this rule (a linter
+  // installed from a version in the workflow, never `make tools`); the
+  // pipeline it was ported from pinned this pnpm shape. Scoped to SETUP: the
   // agent itself runs branch code by design, and holds the token by design,
-  // because it has to push. What must not happen is the job reaching that point
-  // having already run the branch's Makefile for its own convenience.
-  const TOOL_PIN = /go install github\.com\/golangci\/golangci-lint\/v2\/cmd\/golangci-lint@v[0-9.]+/;
-  for (const name of ["agent-fix.yml", "agent-review-panel.yml", "agent-review-reply.yml"]) {
-    const wf = WF(name);
-    if (!/actions\/setup-go/.test(wf)) continue;
-    assert.match(wf, TOOL_PIN, `${name}: the linter version must be pinned in the workflow`);
-    // `run: make tools` — the invocation, not the word in a comment, which the
-    // rationale above legitimately contains.
-    assert.ok(
-      !/^\s*run: make tools\s*$/m.test(wf),
-      `${name}: sets up by running the branch's \`make tools\` while holding a token`,
-    );
+  // because it has to push. What must not happen is the job reaching that
+  // point having already run the branch's build files for its own convenience.
+  const HERE = path.dirname(fileURLToPath(import.meta.url));
+  const dir = path.join(HERE, "..", "..", ".github", "workflows");
+  const offenders = [];
+  let installs = 0;
+  for (const file of readdirSync(dir).filter((f) => f.startsWith("agent-") && f.endsWith(".yml"))) {
+    const wf = readFileSync(path.join(dir, file), "utf8");
+    // Prose does not run: comments state the rule, and a prompt may name
+    // `pnpm verify:fast` as an instruction to the agent.
+    const code = wf.split("\n").filter((l) => !/^\s*#/.test(l));
+    for (const line of code) {
+      // A `run:` that invokes pnpm or npm directly.
+      const m = /^\s*(?:- )?run:\s*(pnpm|npm)\s+(\S+)(.*)$/.exec(line);
+      if (!m) continue;
+      const [, pm, verb, rest] = m;
+      if (pm === "pnpm") {
+        if (verb !== "install") {
+          offenders.push(`${file}: runs \`pnpm ${verb}\` as a setup step — a branch-defined script`);
+          continue;
+        }
+        installs++;
+        for (const flag of ["--frozen-lockfile", "--ignore-scripts", "--ignore-pnpmfile"]) {
+          if (!rest.split(/\s+/).includes(flag)) offenders.push(`${file}: \`pnpm install\` without ${flag}`);
+        }
+      } else if (["ci", "install", "i"].includes(verb) && !rest.split(/\s+/).includes("--ignore-scripts")) {
+        offenders.push(`${file}: \`npm ${verb}\` without --ignore-scripts`);
+      }
+    }
+    // Every pnpm setup pins the version here, and the action itself by SHA: it
+    // runs in a job whose `.git/config` already holds the App token.
+    for (const m of wf.matchAll(/uses: pnpm\/action-setup@(\S+)[^\n]*\n((?: {8}.*\n)*)/g)) {
+      if (!/^[0-9a-f]{40}$/.test(m[1])) offenders.push(`${file}: pnpm/action-setup@${m[1]} is not pinned to a commit`);
+      if (!/^ {10}version: \d+/m.test(m[2])) offenders.push(`${file}: pnpm/action-setup reads its version from the branch`);
+    }
+    // And no install step anywhere restores or saves a pnpm cache.
+    if (/cache: ['"]?pnpm/.test(code.join("\n"))) offenders.push(`${file}: caches the pnpm store`);
   }
+  // Five jobs verify with pnpm: the three fixers, the reply, and implement.
+  assert.ok(installs >= 5, `expected the fixer installs to be found, saw ${installs} — this guard would be vacuous`);
+  assert.deepEqual(offenders, [], `token-bearing setup runs branch-authored code:\n  ${offenders.join("\n  ")}`);
 });
 
 test("every fixer prompt runs the same verification target", () => {
