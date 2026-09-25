@@ -115,3 +115,13 @@
   on yorkie at all: `claude-code-action` without `github_token` fails on OIDC.
   A verb nobody has watched run end to end is not "working" — the comment
   saying it did was the pipeline's own text.
+- `gh secret list -R <repo>` lists repository secrets only. The Claude token
+  lives at the org level, so it looked missing; the repo's view of org
+  secrets is `gh api repos/<repo>/actions/organization-secrets`.
+- `summarize` failed twice after "the fix": first OIDC (no `github_token`),
+  then `git fetch origin main` (no checkout). `issue_comment` workflows run
+  from `main`, so each attempt costs a merge. Reading the pinned action's
+  source for every fatal step before the first fix would have saved one.
+- A `git rebase` that stopped on a conflict left the next scripted commit
+  landing on a detached HEAD with conflict markers. Check the rebase exit
+  status before chaining anything after it.

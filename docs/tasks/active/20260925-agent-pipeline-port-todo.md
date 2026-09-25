@@ -113,10 +113,17 @@ is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
       `*_pb.ts` and the ANTLR output; `agent-iterate-ci` diagnoses from the
       failed-step log only
 - [x] `npm test` in `scripts/agent` green (924/924); actionlint clean
-- [ ] GitHub (user): secret `CLAUDE_CODE_OAUTH_TOKEN`, environment `agent`,
-      variable `AGENT_PIPELINE_ENABLED=true` → `review` / `summarize` live
-- [ ] Verify `@claude review` and `@claude summarize` on a same-repo PR and a
-      fork PR
+- [x] Merged as #1387 (a8f0bc38)
+- [x] GitHub (2026-09-26): environment `agent` (no protection rules, as on
+      yorkie), variable `AGENT_PIPELINE_ENABLED=true`. `CLAUDE_CODE_OAUTH_TOKEN`
+      and `_1` are ORG secrets already visible to this repo — no repo-level
+      secret. Check with `gh api repos/yorkie-team/yorkie-js-sdk/actions/organization-secrets`;
+      `gh secret list` shows repo secrets only
+- [x] Verify on a same-repo PR (#1388): `review` ran on the first try ($1.41,
+      5 min) and its security lens found the fork-trigger hole; `summarize`
+      needed #1389 (read-only `github_token`, write-access gate, /proc deny)
+      and #1390 (a default-branch checkout for the action's git setup)
+- [ ] Verify a comment from a non-collaborator on a fork PR is ignored
 
 ### Phase 1 known limitations (from self-review)
 
