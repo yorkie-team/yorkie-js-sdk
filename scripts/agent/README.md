@@ -36,6 +36,8 @@ monorepo. Everything else is as vendored.
 | `capture-meta.mjs` | Schema id `yorkie-js-sdk/stage-capture-meta@1` |
 | `redact.mjs`, `package.json` | Comments and description only |
 | `agent-scripts.yml` | Path filter also covers the root files the coverage-note test reads |
+| `ask.mjs` | `DENIED_READ_PATHS`: no session's read tools may open `/proc` or `/sys`, where its credential is readable |
+| `agent-review-on-demand.yml`, `agent-summarize.yml` | Write access required to trigger (not the PR author); summarize's model job is read-only and a `publish` job posts |
 | `checks.test.mjs`, `review-panel.test.mjs`, `mark-ready.test.mjs`, `review-scope.test.mjs`, `capture-meta.test.mjs` | Tests that pin the adaptations above, re-derived for this repository |
 | `agent-fix.yml`, `agent-review-panel.yml`, `agent-review-reply.yml`, `agent-iterate-ci.yml`, `agent-implement.yml` | Go and golangci-lint setup replaced by pnpm (`--frozen-lockfile --ignore-scripts --ignore-pnpmfile`, the branch's `.npmrc` set aside for main's, `--config.*` location pins, no cache); prompts run `pnpm verify:fast` and never the integration suites |
 | `agent-review-panel.yml`, `agent-review-on-demand.yml` | Diff excludes: `*_pb.ts` and the ANTLR output |
