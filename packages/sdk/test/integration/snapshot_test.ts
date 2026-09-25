@@ -126,13 +126,14 @@ describe('Snapshot', function () {
       await c1.sync();
 
       // 02. c2 receives the snapshot and increases the counter simultaneously.
-      c2.sync();
+      const synced = c2.sync();
       d2.update((r) => r.counter.increase(1));
 
       await eventCollector.waitAndVerifyNthEvent(
         1,
         DefaultSnapshotThreshold + 1,
       );
+      await synced;
     }, task.name);
   });
 });

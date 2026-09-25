@@ -58,10 +58,11 @@ rewrites it, and a reviewer who checks the branch out and commits runs it.
 So both hook systems install into `$GIT_DIR`, where `git checkout` never
 writes:
 
-- git hooks: `scripts/setup.sh` copies `.githooks/` to `$GIT_DIR/githooks`
-  and points `core.hooksPath` there
+- git hooks: `scripts/setup.sh` copies `.githooks/` to the common git
+  directory's `githooks/` (shared by every worktree) and points
+  `core.hooksPath` there
 - Claude Code hooks: `scripts/hooks/install.mjs` copies the scripts to
-  `$GIT_DIR/agent-hooks/` and wires them in the gitignored
+  the common git directory's `agent-hooks/` and wires them in the gitignored
   `.claude/settings.local.json`
 
 The snapshot pins which hook runs, not what it invokes — `lint-staged` and

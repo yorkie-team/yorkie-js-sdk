@@ -46,7 +46,8 @@ between rounds, not a flag you pass.
 ### Each round
 
 1. **Review.** Dispatch `superpowers:requesting-code-review` (or `/code-review`)
-   over the full branch diff — `git diff origin/main...HEAD`, not the last
+   over the full branch diff against the PR's base — `git diff
+   origin/main...HEAD`, or `upstream/main...HEAD` from a fork — not the last
    commit.
 
    Some harnesses block `/code-review` and `/simplify`, and `/ultrareview` is

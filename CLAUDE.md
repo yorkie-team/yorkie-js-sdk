@@ -37,7 +37,8 @@ pnpm sdk test      # plus the integration suites, with the server above running
    branch diff, **max 3 rounds, stopping at the first round with no blocking
    findings**. Log each round in `*-lessons.md`; a finding you believe is wrong
    goes there with evidence.
-4. **Open PR** — rebase onto `origin/main` first. Body = Summary + Test plan.
+4. **Open PR** — rebase onto the base first (`origin/main`, or
+   `upstream/main` from a fork). Body = Summary + Test plan.
 5. **Before merge** — `bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`.
 
 ## Project Docs
