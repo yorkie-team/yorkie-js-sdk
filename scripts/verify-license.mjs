@@ -95,12 +95,29 @@ export function scanRoots(root) {
     if (!entry.isDirectory()) continue;
     for (const dir of PACKAGE_DIRS) {
       const candidate = path.join(packages, entry.name, dir);
-      if (safeIsDirectory(candidate)) roots.push(candidate);
+      if (isScanDir(candidate, root, errors)) roots.push(candidate);
     }
   }
   const scripts = path.join(root, 'scripts');
-  if (safeIsDirectory(scripts)) roots.push(scripts);
+  if (isScanDir(scripts, root, errors)) roots.push(scripts);
   return { roots, errors };
+}
+
+/**
+ * Whether `dir` is a directory to walk. Absent is a normal "no" — a package
+ * without tests. Any other failure to stat it is a gap in the scan and is
+ * recorded, since silently skipping it would let the rest pass green.
+ */
+function isScanDir(dir, root, errors) {
+  try {
+    return statSync(dir).isDirectory();
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      const rel = path.relative(root, dir);
+      errors.push(`${rel} could not be read (${err.code ?? err.message})`);
+    }
+    return false;
+  }
 }
 
 /**
@@ -143,26 +160,37 @@ export function sourceFiles(root) {
   return { files, errors };
 }
 
-function safeIsDirectory(target) {
-  try {
-    return statSync(target).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-/** A line that is part of a comment in any of the scanned languages. */
-const COMMENT_LINE = /^\s*(\/\/|\/\*|\*|#)/;
+/** A line comment in any of the scanned languages (`//`, `///`, `#`, `#!`). */
+const LINE_COMMENT = /^\s*(\/\/|#)/;
 
 /**
- * True iff the file opens with the Apache grant clause in a comment. A
- * string literal that quotes the clause — this file has one — is not a
- * header.
+ * True iff the file OPENS with a comment carrying the Apache grant clause:
+ * only the leading run of comments and blank lines is read, and the first
+ * line of code ends it. A clause quoted in a string, or in a comment below
+ * the code, is not a header.
  */
 export function hasLicenseHeader(content) {
-  return content
-    .split('\n', HEADER_SCAN_LINES)
-    .some((line) => COMMENT_LINE.test(line) && line.includes(LICENSE_CLAUSE));
+  let inBlock = false;
+  for (const line of content.split('\n', HEADER_SCAN_LINES)) {
+    const trimmed = line.trim();
+    if (inBlock) {
+      if (trimmed.includes(LICENSE_CLAUSE)) return true;
+      if (trimmed.includes('*/')) inBlock = false;
+      continue;
+    }
+    if (trimmed === '') continue;
+    if (trimmed.startsWith('/*')) {
+      if (trimmed.includes(LICENSE_CLAUSE)) return true;
+      inBlock = !trimmed.includes('*/', 2);
+      continue;
+    }
+    if (LINE_COMMENT.test(line)) {
+      if (trimmed.includes(LICENSE_CLAUSE)) return true;
+      continue;
+    }
+    return false;
+  }
+  return false;
 }
 
 /**

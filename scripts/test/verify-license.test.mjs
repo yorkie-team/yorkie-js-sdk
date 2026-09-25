@@ -284,3 +284,39 @@ test('an unlistable packages/ is a finding even when scripts/ is fine', () => {
     },
   );
 });
+
+test('a clause in a comment after code is not a header', () => {
+  withTree(
+    {
+      'packages/sdk/src/a.ts': `export const x = 1;\n// ${LICENSE_CLAUSE}\n`,
+    },
+    (root) =>
+      assert.deepEqual(collectFindings(root), [
+        'packages/sdk/src/a.ts has no Apache 2.0 header',
+      ]),
+  );
+});
+
+test('an unreadable package src is a finding, not a skip', () => {
+  withTree(
+    {
+      'packages/sdk/src/inner/a.ts': LINE_HEADER,
+      'scripts/b.mjs': LINE_HEADER,
+    },
+    (root) => {
+      // Search permission removed on the package, so `src` cannot be stat'ed.
+      const pkg = path.join(root, 'packages', 'sdk');
+      chmodSync(pkg, 0o600);
+      try {
+        const findings = collectFindings(root);
+        if (sourceFiles(root).files.length > 1) return; // running as root
+        assert.ok(
+          findings.some((f) => /^packages\/sdk\/src could not be read/.test(f)),
+          `got ${findings}`,
+        );
+      } finally {
+        chmodSync(pkg, 0o755);
+      }
+    },
+  );
+});
