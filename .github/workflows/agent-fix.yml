@@ -648,11 +648,15 @@ jobs:
             - Fix ALL blocking findings in a single pass.
             - Stay in scope: modify only the flagged files unless a fix genuinely
               requires touching others; do not refactor unrelated code.
-            - Run `make verify` ONCE at the end to confirm green — not after
-              every edit. It is `make lint`, the Apache licence-header check and
-              `go test ./...`, which is the whole of what this job can verify.
-              Do NOT run `make test`: it needs a MongoDB this job does not stand
-              up, and the push below re-runs the full integration lane anyway.
+            - Run `pnpm verify:fast` ONCE at the end to confirm green — not after
+              every edit. It is lint, the Apache licence-header check, the doc
+              links, the SDK build and every unit suite, which is the whole of
+              what this job can verify. Do NOT run the integration suites
+              (`pnpm sdk test`, `pnpm prosemirror test`): they need a Yorkie
+              server and MongoDB this job does not stand up, and the push below
+              re-runs them in CI anyway.
+            - Never hand-edit generated code: packages/sdk/src/api/yorkie/v1/*_pb.ts
+              or packages/schema/antlr/*.ts.
 
             YOUR WALL IS ABOUT FIFTY MINUTES, and it is the credential's rather
             than a budget: the job is killed at 55 and the token you push with

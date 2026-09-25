@@ -520,7 +520,7 @@ jobs:
           Authoritative process: follow CLAUDE.md and CONTRIBUTING.md exactly. Do
           NOT invent a parallel process.
 
-          Execute the standard yorkie task workflow, in order:
+          Execute the standard yorkie-js-sdk task workflow, in order:
 
           1. PLAN: create docs/tasks/active/__TODAY__-<slug>-todo.md and its paired
              -lessons.md. The todo starts with a `**Created**: YYYY-MM-DD` line.
@@ -530,8 +530,9 @@ jobs:
           2. BRANCH: the checkout is on `main`. Create a NEW branch
              `git checkout -b agent/__ISSUE_NUMBER__-<slug>` and do all work there
              — never commit on `main`.
-          3. IMPLEMENT: make the change. Apache 2.0 licence header on every new Go
-             file; every package needs a package comment. Commit subject <= 70
+          3. IMPLEMENT: make the change. Apache 2.0 licence header on every new
+             source file under packages/*/src, packages/*/test and scripts/
+             (`pnpm verify:license` checks it). Commit subject <= 70
              chars saying what changed, blank line, body wrapped at 80 saying why.
              Every commit message MUST end with the trailer
              "Assisted-by: Claude Code (autonomous)".
@@ -555,11 +556,13 @@ jobs:
              "Fixes #__ISSUE_NUMBER__" or an authorship disclosure; the workflow
              adds both, so that they are true by construction rather than by your
              remembering. Say what you could NOT verify — that part only you know.
-          5. LET CI VERIFY — do NOT run `make test`, `make test-complex`,
-             `make bench` or `make coverage`: they need a MongoDB stack and are far
-             too slow for a one-shot headless run. `make lint` and a TARGETED
-             `go test ./path/to/pkg/...` in the foreground are fine. The PR's CI
-             runs the full lanes, including the `-race` integration suite.
+          5. VERIFY WITH `pnpm verify:fast` (lint, licence headers, doc links,
+             the SDK build and every unit suite; no server needed), in the
+             foreground, before the final push. Do NOT run the integration
+             suites (`pnpm sdk test`, `pnpm prosemirror test`): they need a
+             Yorkie server and MongoDB this run does not stand up. A TARGETED
+             unit file (`pnpm sdk exec vitest run test/unit/<file>`) is fine.
+             The PR's CI runs the full lanes, integration included.
           6. STOP. Do not run /self-review: it dispatches a reviewer subagent, and
              this run is granted no tool that can do that. Its own rules forbid
              substituting your own read of your own diff, and there is nobody here
@@ -593,10 +596,12 @@ jobs:
           would fail). Leave the PR a DRAFT — a human review is required before it
           goes anywhere.
 
-          Generated protobuf under api/yorkie/v1/ cannot be changed from this run:
-          hand-editing it is forbidden, and `make proto` needs buf and two
-          protoc plugins that are not installed here. If the issue requires an API
-          change, say so on the issue and stop rather than working around it.
+          Never hand-edit generated code: packages/sdk/src/api/yorkie/v1/*_pb.ts
+          (from `pnpm sdk build:proto`) or packages/schema/antlr/*.ts (from
+          `pnpm schema build:schema`). The `.proto` files beside the SDK's
+          generated code are copies: their source of truth is the server
+          repository, yorkie-team/yorkie. If the issue requires an API change,
+          say so on the issue and stop rather than working around it.
           PROMPT
           )
           TEMPLATE=${TEMPLATE//__ISSUE_NUMBER__/$ISSUE_NUMBER}

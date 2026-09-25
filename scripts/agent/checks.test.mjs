@@ -900,32 +900,38 @@ test("no token-bearing job sets itself up by running the branch's build files", 
 });
 
 test("every fixer prompt runs the same verification target", () => {
-  // THE LANE THE AUTONOMOUS ARM VERIFIES WITH, named once.
+  // THE LANE THE AUTONOMOUS ARM VERIFIES WITH, named once. `pnpm verify:fast`
+  // is lint, the licence check, the doc links, the script tests, the SDK build
+  // and every unit suite; a prompt that spelled out a subset of it (lint and a
+  // test run, say) would let a fixer push a file with no Apache header, red
+  // `ci.yml`, and buy the PR an extra round plus a CI-fix round for a line it
+  // could have added before pushing. Naming the target means a gate added to
+  // `verify:fast` reaches every prompt at once.
   //
-  // All three prompts used to spell out `make lint` and `go test ./...`, which
-  // is `make verify` MINUS the licence check — so a fixer could push a `.go`
-  // file with no Apache header, red `ci.yml`'s `build` job, and buy the PR a
-  // whole extra round plus a CI-fix round for a line it could have added before
-  // pushing. Naming the target instead means a lane added to the Makefile
-  // reaches all three at once, which is the only reason to name one.
-  //
-  // `make verify-license` announces SKIPPED where Node is absent, which would
-  // have made this a cosmetic rename — the guard below is what rules that out
-  // for these jobs specifically. ("every job that runs a pipeline script pins
-  // its Node" covers the same steps from the other direction, for a different
-  // reason; both must hold, and only this one is about the licence gate.)
+  // The integration suites need a Yorkie server and MongoDB these jobs do not
+  // stand up, so every prompt must also say not to run them: an agent that
+  // tries spends its wall on connection timeouts.
   for (const name of ["agent-fix.yml", "agent-iterate-ci.yml", "agent-review-panel.yml"]) {
     const wf = WF(name);
-    assert.match(wf, /Run `make verify` ONCE at the end/,
-      `${name}: the fixer prompt must call \`make verify\`, not a hand-written subset of it`);
+    assert.match(wf, /Run `pnpm verify:fast` ONCE at the end/,
+      `${name}: the fixer prompt must call \`pnpm verify:fast\`, not a hand-written subset of it`);
     assert.ok(
-      !/- Run `make lint` and `go test \.\/\.\.\.` ONCE/.test(wf),
-      `${name}: the prompt still spells out the pair, so the licence check is not in the fixer's lane`,
+      !/- Run `pnpm lint(?::check)?` and /.test(wf),
+      `${name}: the prompt spells out a subset, so the licence check is not in the fixer's lane`,
     );
-    // The licence half of `make verify` only runs where node does, and the
-    // prompt promises it unconditionally.
+    assert.match(wf, /Do NOT run\s+the integration suites\s+\(`pnpm sdk test`,\s+`pnpm prosemirror test`\)/,
+      `${name}: the prompt must keep the fixer off the server-backed suites`);
+    // The target only runs where pnpm and the workspace's dependencies do.
     assert.match(wf, /uses: actions\/setup-node@v4/,
-      `${name}: without a Node setup, \`make verify\` skips the licence check and the prompt lies`);
+      `${name}: without a Node setup, \`pnpm verify:fast\` cannot run and the prompt lies`);
+    assert.match(wf, /run: pnpm install --frozen-lockfile/,
+      `${name}: without an install, \`pnpm verify:fast\` cannot run and the prompt lies`);
+  }
+  // The implementer and the reply agent verify with the same target.
+  for (const name of ["agent-implement.yml", "agent-review-reply.yml"]) {
+    const wf = WF(name);
+    assert.match(wf, /`pnpm verify:fast`/, `${name}: the prompt must name \`pnpm verify:fast\``);
+    assert.match(wf, /run: pnpm install --frozen-lockfile/, `${name}: \`pnpm verify:fast\` needs the install`);
   }
 });
 
