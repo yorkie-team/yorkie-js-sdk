@@ -464,26 +464,28 @@ jobs:
           # and a list that shrinks mid-PR would let a lens that FAILED an earlier
           # round silently stop being required, promoting an unresolved blocker.
           git diff --name-only origin/main...HEAD > /tmp/changed.txt
-          # Omit generated protobuf output from the diff BODY only. `buf generate`
-          # reproduces `api/yorkie/v1/*.pb.go`, the connect wrappers and the
-          # OpenAPI bundle byte for byte, and CI already fails the build job when
-          # they are stale — so a lens reading them spends its turns on machine
-          # output that a mechanical lane owns. They are large: a single proto
-          # change can move tens of thousands of generated lines, re-read by
-          # every lens x every sample x every round.
+          # Omit generated output from the diff BODY only: the protobuf-es
+          # modules `buf generate` writes to `packages/sdk/src/api/yorkie/v1/*_pb.ts`
+          # and the ANTLR parser `antlr4ts` writes to `packages/schema/antlr/`.
+          # They are machine output and large — a single proto change can move
+          # thousands of generated lines, re-read by every lens x every sample x
+          # every round.
           #
-          # THE CHANGED-FILE LIST ABOVE STILL CARRIES THEM, which is the half
-          # that matters — a lens can still see that codegen moved, and the
-          # blast-radius lens acts on exactly that. Only the bytes are withheld.
+          # UNLIKE THE SERVER REPOSITORY, NO CI LANE REGENERATES THEM, so a hand
+          # edit here is not caught mechanically; MECHANICAL_COVERAGE_NOTE says
+          # so to every lens. THE CHANGED-FILE LIST ABOVE STILL CARRIES THEM,
+          # which is the half that matters — a lens can see that generated code
+          # moved and open the file, and the blast-radius lens acts on exactly
+          # that. Only the bytes are withheld from the diff.
           #
-          # `api/**/*.proto` is NEVER excluded: it is the wire contract, the one
-          # kind of change this repository cannot walk back, and it is
-          # hand-written. `go.mod` and `go.sum` are never excluded either —
-          # supply-chain relevant, and small.
+          # The `.proto` copies beside them and `YorkieSchema.g4` are NEVER
+          # excluded: they are the hand-written sources. `pnpm-lock.yaml` is never
+          # excluded either — supply-chain relevant.
           git diff origin/main...HEAD -- . \
-            ':(exclude)api/yorkie/v1/*.pb.go' \
-            ':(exclude)api/yorkie/v1/v1connect/*.connect.go' \
-            ':(exclude)api/docs/*' > /tmp/pr.diff
+            ':(exclude)packages/sdk/src/api/yorkie/v1/*_pb.ts' \
+            ':(exclude)packages/schema/antlr/*.ts' \
+            ':(exclude)packages/schema/antlr/*.interp' \
+            ':(exclude)packages/schema/antlr/*.tokens' > /tmp/pr.diff
           # A regeneration-only change filters down to nothing, and the panel
           # fails closed on an empty diff. Fall back to the unfiltered diff so
           # that only ever pages for a genuinely empty change, never because
@@ -642,9 +644,10 @@ jobs:
         run: |
           set -euo pipefail
           git diff --no-color -U15 "$SINCE_SHA" HEAD -- . \
-            ':(exclude)api/yorkie/v1/*.pb.go' \
-            ':(exclude)api/yorkie/v1/v1connect/*.connect.go' \
-            ':(exclude)api/docs/*' > /tmp/delta.diff
+            ':(exclude)packages/sdk/src/api/yorkie/v1/*_pb.ts' \
+            ':(exclude)packages/schema/antlr/*.ts' \
+            ':(exclude)packages/schema/antlr/*.interp' \
+            ':(exclude)packages/schema/antlr/*.tokens' > /tmp/delta.diff
           if [ ! -s /tmp/delta.diff ]; then
             git diff --no-color -U15 "$SINCE_SHA" HEAD > /tmp/delta.diff
           fi

@@ -301,16 +301,16 @@ jobs:
           git diff --name-only origin/main...HEAD > /tmp/changed.txt
           # Generated artefacts omitted from the diff BODY only — the changed-FILE
           # list above still carries them, so a lens can still see that codegen
-          # moved. `api/yorkie/v1/*.pb.go` and the connect wrappers are the buf
-          # output that `buf generate` reproduces byte for byte and that CI
-          # already fails on when stale, so a lens reading them spends its turns
-          # on machine output; `api/docs/**` is the generated OpenAPI bundle.
-          # `api/**/*.proto` is NEVER excluded — it is the wire contract, the one
-          # kind of change this repository cannot walk back.
+          # moved. `packages/sdk/src/api/yorkie/v1/*_pb.ts` is `buf generate`
+          # output and `packages/schema/antlr/` (bar the `.g4` grammar) is ANTLR
+          # output, so a lens reading them spends its turns on machine output.
+          # No CI lane regenerates them here; see the twin step for what that
+          # means. The `.proto` copies and the grammar are NEVER excluded.
           git diff origin/main...HEAD -- . \
-            ':(exclude)api/yorkie/v1/*.pb.go' \
-            ':(exclude)api/yorkie/v1/v1connect/*.connect.go' \
-            ':(exclude)api/docs/*' > /tmp/pr.diff
+            ':(exclude)packages/sdk/src/api/yorkie/v1/*_pb.ts' \
+            ':(exclude)packages/schema/antlr/*.ts' \
+            ':(exclude)packages/schema/antlr/*.interp' \
+            ':(exclude)packages/schema/antlr/*.tokens' > /tmp/pr.diff
           # Regeneration-only change → filtered diff is empty and the panel
           # fails closed. Fall back to the unfiltered diff.
           if [ ! -s /tmp/pr.diff ]; then
