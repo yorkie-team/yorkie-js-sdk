@@ -317,9 +317,9 @@ jobs:
       # verdict, which was refused one gate earlier — every time, for the whole
       # life of the carve-out.
       #
-      # `ci.yml` no longer filters `pull_request` at the workflow level, so a
-      # docs-only PR now produces a run (its `build` job skips instead), and the
-      # case the carve-out was written for does not exist. What is left in the
+      # `ci.yml` does not filter `pull_request` by path, so a docs-only PR
+      # produces a run like any other, and the case the carve-out was written
+      # for does not exist. What is left in the
       # no-run state is "this sha's CI run is not visible" — deleted by hand, or
       # aged past retention while its check runs survive — i.e. the conclusion
       # that gates the two pushing arms cannot be read at all.

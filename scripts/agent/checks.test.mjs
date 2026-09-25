@@ -1038,16 +1038,16 @@ test("agent-fix always answers the commenter, even when the gate step itself fai
   // The carve-out said: the gate asks whether agent-iterate-ci.yml's fixer could
   // own this branch, that arm fires only on a `workflow_run` of CI, so no run
   // means it cannot have started — and refusing would make `@claude fix`
-  // unusable on a docs-only PR, which produced no CI run at all. Follow the two
+  // unusable on a docs-only PR, which produced no CI run at all (on the server
+  // repository, whose `ci.yml` then filtered markdown on its trigger). Follow the two
   // conditions instead of the prose and the branch never executed: the step is
   // `if: steps.eligible.outputs.eligible == 'true'`, and `decideEligibility`
   // returns `eligible: false` on `total === 0` — no lens check runs on the head.
   // Only the panel writes those, and only a CI run starts the panel. No CI run
   // therefore meant no verdict, refused one gate earlier, every time.
   //
-  // `ci.yml` now filters documentation on its `build` JOB rather than on the
-  // `pull_request` trigger (see the guard below), so a docs-only PR produces a
-  // run and the case is gone. What is left in this branch is an invisible run —
+  // `ci.yml` does not filter the `pull_request` trigger by path (see the guard
+  // below), so a docs-only PR produces a run and the case is gone. What is left in this branch is an invisible run —
   // deleted, or past retention — which is the CI conclusion being unreadable,
   // and this gate refuses every unknown.
   assert.match(gate, /if \(!runs\.length\)/, "the no-run case must be handled explicitly");
@@ -1070,9 +1070,10 @@ test("ci.yml files a run for every PR, so a docs-only PR reaches the pipeline", 
   // PR confined to markdown sat outside the loop entirely: `@claude loop`
   // labelled it and nothing happened, `mark-ready.mjs`'s gate could never go
   // green, and `@claude fix`'s docs-only carve-out above was written for a state
-  // `fix-eligible.mjs` had already refused. Moving the filter onto the `build`
-  // JOB keeps the cost saving (no Go lane, no MongoDB, no `-race` suite) and
-  // gives the pipeline its event back.
+  // `fix-eligible.mjs` had already refused. The server repository moved its
+  // filter onto its `build` JOB, which keeps the cost saving and gives the
+  // pipeline its event back; this repository's `ci.yml` has no path filter at
+  // all, which satisfies the same property more simply.
   //
   // Asserted here rather than left to review because it is a ONE-LINE
   // regression: re-adding `paths-ignore:` under `pull_request` restores every
@@ -1080,7 +1081,12 @@ test("ci.yml files a run for every PR, so a docs-only PR reaches the pipeline", 
   const HERE = path.dirname(fileURLToPath(import.meta.url));
   const yml = readFileSync(path.join(HERE, "..", "..", CI_WORKFLOW_PATH), "utf8");
 
-  const on = yml.slice(yml.indexOf("\non:"), yml.indexOf("\nenv:"));
+  // To the next TOP-LEVEL key after `on:`, whatever it is: this ci.yml has no
+  // `env:` block, and slicing to a named key that is absent runs to the end of
+  // the file.
+  const onStart = yml.indexOf("\non:");
+  const onEnd = yml.slice(onStart + 1).search(/\n[a-z_-]+:/);
+  const on = yml.slice(onStart, onEnd < 0 ? yml.length : onStart + 1 + onEnd);
   const pr = on.slice(on.indexOf("  pull_request:"));
   assert.ok(pr.startsWith("  pull_request:"), "ci.yml must still trigger on pull_request");
   assert.ok(
@@ -1089,23 +1095,31 @@ test("ci.yml files a run for every PR, so a docs-only PR reaches the pipeline", 
     + "and the review panel and the CI-fix arm both trigger on one",
   );
 
-  // ...and the filter that replaced it must keep failing toward RUNNING. The
-  // only positive pattern is `**`, so a path nothing mentions still builds; the
-  // rest are negations. A positive list here would silently skip CI on any new
-  // directory, which is the failure this shape exists to make impossible.
-  const step = yml.slice(yml.indexOf("id: code-changed"));
-  const filters = step.slice(step.indexOf("build:"), step.indexOf("\n\n"));
-  const patterns = [...filters.matchAll(/^ {14}- '(.+)'$/gm)].map((m) => m[1]);
-  assert.ok(patterns.length >= 2, "could not read the build filter's patterns from ci.yml");
-  assert.equal(patterns[0], "**", "the build filter's only positive pattern must be `**`");
-  for (const p of patterns.slice(1)) {
-    assert.ok(p.startsWith("!"), `the build filter must be \`**\` plus negations only; found '${p}'`);
+  // ...and any JOB-level filter must keep failing toward RUNNING. The server
+  // repository's has `**` as its only positive pattern, so a path nothing
+  // mentions still builds; the rest are negations. A positive list would
+  // silently skip CI on any new directory, which is the failure this shape
+  // exists to make impossible. This repository has no such filter today — every
+  // job runs on every PR — so the check below applies the moment one is added.
+  if (/dorny\/paths-filter/.test(yml)) {
+    const step = yml.slice(yml.indexOf("id: code-changed"));
+    assert.ok(step.length < yml.length, "a paths-filter step exists but not as `id: code-changed`");
+    const filters = step.slice(step.indexOf("build:"), step.indexOf("\n\n"));
+    const patterns = [...filters.matchAll(/^ {14}- '(.+)'$/gm)].map((m) => m[1]);
+    assert.ok(patterns.length >= 2, "could not read the build filter's patterns from ci.yml");
+    assert.equal(patterns[0], "**", "the build filter's only positive pattern must be `**`");
+    for (const p of patterns.slice(1)) {
+      assert.ok(p.startsWith("!"), `the build filter must be \`**\` plus negations only; found '${p}'`);
+    }
+    // Without `every`, dorny/paths-filter ORs the patterns per file: a lone
+    // `README.md` matches `**` and the filter is true, so the negations do
+    // nothing and the step is a no-op that looks like a filter.
+    assert.match(step.slice(0, 400), /predicate-quantifier: every/,
+      "the build filter needs `predicate-quantifier: every`, or its negations are inert");
+  } else {
+    // No filter: then no job may be skipped by path some other way either.
+    assert.ok(!/^\s+paths(-ignore)?:/m.test(yml), "ci.yml filters by path without dorny/paths-filter");
   }
-  // Without `every`, dorny/paths-filter ORs the patterns per file: a lone
-  // `README.md` matches `**` and the filter is true, so the negations do
-  // nothing and the step is a no-op that looks like a filter.
-  assert.match(step.slice(0, 400), /predicate-quantifier: every/,
-    "the build filter needs `predicate-quantifier: every`, or its negations are inert");
 });
 
 test("CI_WORKFLOW_PATH names a workflow file that actually exists", () => {
