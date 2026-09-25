@@ -1,7 +1,8 @@
 # On-demand PR summary: when someone comments "@claude summarize" on a PR, post a
 # "🤖 Summarizing…" comment immediately, then EDIT it into a short "what this PR
 # does + is it good to go?" summary once Claude finishes. READ-ONLY toward code —
-# it never checks out or executes branch code, never pushes, and never merges; it
+# it never checks out or executes branch code (only the default branch, for
+# the action's own git setup), never pushes, and never merges; it
 # reads the PR diff/metadata via the API and hands it to Claude as data.
 #
 # Trust: an account with write access may trigger it, on any PR including a
@@ -259,12 +260,27 @@ jobs:
             if (diff.length > CAP) diff = diff.slice(0, CAP) + '\n\n… [diff truncated]\n';
             fs.writeFileSync('/tmp/pr.diff', diff);
 
+      # The action needs a git repository even here: given a token it
+      # configures git auth and runs `git fetch origin main` to restore
+      # `.claude/` and friends from the default branch, and with no checkout
+      # both fail (exit 128) before the model starts. The default branch, not
+      # the PR head — `issue_comment` runs on main — shallow, and with no
+      # credential left in `.git/config`. The model still reads the PR only
+      # from the two files above.
+      - name: Check out the default branch for the action's git setup
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Summarize (read-only; no repo credentials)
         # Pinned to the v1 release commit (immutable) for supply-chain safety.
-        # NO github_token and NO Bash — Claude can only Read the pre-fetched PR
-        # data and Write its summary to a file. Holding no write-capable credential
+        # A READ-ONLY github_token (this job's) and NO Bash — Claude can only
+        # Read the pre-fetched PR data and Write its summary to a file, and
+        # /proc and /sys are denied to it. Holding no write-capable credential
         # and no shell, prompt-injected text in the diff cannot make it post,
-        # label, or run commands. The next (trusted) step posts the result.
+        # label, or run commands. The `publish` job posts the result.
         uses: anthropics/claude-code-action@af0559ee4f514d1ef21826982bed13f7edc3c35e # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
