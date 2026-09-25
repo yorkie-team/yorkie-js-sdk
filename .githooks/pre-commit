@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The cheap half of `pnpm verify:fast`, run on every commit: ESLint over the
+# staged source, through lint-staged. Build and tests run in pre-push, where
+# the ~30s is paid once per push rather than once per commit.
+#
+# Bypass with `git commit --no-verify` when you mean to.
+
+# Nothing to lint is not the same as no linter. A commit staging no source
+# (a README typo) must not need the toolchain. No --diff-filter: `ACM` would
+# skip a rename-with-edit. And git's pathspec does the filtering, because
+# `| grep -q` under `pipefail` fails exactly when source IS staged (SIGPIPE).
+if [ -z "$(git diff --cached --name-only -- \
+  '*.ts' '*.tsx' '*.mts' '*.cts' '*.js' '*.mjs' '*.cjs')" ]; then
+  exit 0
+fi
+
+# There IS source to lint, so a missing toolchain refuses rather than skips.
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-commit: pnpm not found; install it and run 'pnpm install'." >&2
+  exit 1
+fi
+
+# lint-staged loads this branch's lint configs. Check whose branch it is first.
+# shellcheck source=.githooks/trusted-tree.sh
+. "$(dirname "$0")/trusted-tree.sh"
+yorkie_require_own_work "pre-commit" "'pnpm exec lint-staged'" || exit 1
+
+exec pnpm exec lint-staged

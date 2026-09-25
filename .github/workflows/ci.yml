@@ -42,10 +42,13 @@ jobs:
         run: pnpm install
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint:check
 
       - name: Verify documentation links
         run: pnpm verify:doc-links
+
+      - name: Verify licence headers
+        run: pnpm verify:license
 
       - name: Test the scripts
         run: pnpm test:scripts
@@ -61,6 +64,9 @@ jobs:
           files: ./coverage/lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Test ProseMirror
+        run: pnpm prosemirror test
 
       - name: Build Examples
         run: pnpm build:examples

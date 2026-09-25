@@ -15,17 +15,12 @@
  */
 
 import { describe, it, assert, vi, afterEach } from 'vitest';
-import {
-  EventCollector,
-  maxVectorOf,
-  DefaultSnapshotThreshold,
-} from '@yorkie-js/sdk/test/helper/helper';
+import { EventCollector, maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 import { Document, DocEventType } from '@yorkie-js/sdk/src/document/document';
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { JSONArray, Text, Counter, Tree } from '@yorkie-js/sdk/src/yorkie';
-import { withTwoClientsAndDocuments } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 describe.sequential('Document', function () {
   afterEach(() => {
@@ -1480,39 +1475,6 @@ describe.sequential('Document', function () {
         value: 'hello world',
       });
     });
-  });
-
-  it('should publish snapshot event with up-to-date document', async function ({
-    task,
-  }) {
-    type TestDoc = { counter: Counter };
-    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
-      const eventCollector = new EventCollector<number>();
-      d2.subscribe((event) => {
-        if (event.type === DocEventType.Snapshot) {
-          eventCollector.add(d2.getRoot().counter.getValue() as number);
-        }
-      });
-
-      d1.update((r) => (r.counter = new Counter(0)));
-      await c1.sync();
-      await c2.sync();
-
-      // 01. c1 increases the counter for creating snapshot.
-      for (let i = 0; i < DefaultSnapshotThreshold; i++) {
-        d1.update((r) => r.counter.increase(1));
-      }
-      await c1.sync();
-
-      // 02. c2 receives the snapshot and increases the counter simultaneously.
-      c2.sync();
-      d2.update((r) => r.counter.increase(1));
-
-      await eventCollector.waitAndVerifyNthEvent(
-        1,
-        DefaultSnapshotThreshold + 1,
-      );
-    }, task.name);
   });
 
   it('should retain presence after watch stream reconnection', function () {

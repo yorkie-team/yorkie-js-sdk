@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The full local gate — `pnpm verify:fast` — once per push: lint, licence
+# headers, doc links, the script suite, the sdk build and every unit suite
+# that needs no server.
+#
+# This is the last point at which a failure costs only local time. Past it a
+# red lane is a CI run, a PR comment, and on an agent-managed branch a fix
+# round out of a bounded budget.
+#
+# The integration suites are deliberately NOT here: they need a Yorkie server
+# and MongoDB, which a push cannot assume are up. CI runs them against real
+# containers (`docker/docker-compose-ci.yml`).
+#
+# It runs the working tree's code — that is what verifying a tree means. The
+# `$GIT_DIR` snapshot keeps a branch from rewriting this hook; trusted-tree.sh
+# refuses when the checkout carries commits somebody else wrote.
+#
+# Bypass with `git push --no-verify` when you mean to — including when you are
+# standing in someone else's branch and only want the push.
+
+# REFUSE RATHER THAN SKIP. git reads only the exit status here, so a gate that
+# printed "skipped" and exited 0 would let the push through with the gate
+# silently absent.
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-push: pnpm not found; the verify gate cannot run. Install pnpm," >&2
+  echo "          or push with --no-verify and let CI check it." >&2
+  exit 1
+fi
+
+# `pnpm verify:fast` builds and runs this tree's tests, the broadest of the two
+# hooks' execution surfaces. Check whose branch it is first.
+# shellcheck source=.githooks/trusted-tree.sh
+. "$(dirname "$0")/trusted-tree.sh"
+yorkie_require_own_work "pre-push" "'pnpm verify:fast'" || exit 1
+
+exec pnpm verify:fast
