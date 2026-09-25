@@ -98,8 +98,8 @@ test("lensApplies: path-scoped lenses skip docs-only diffs; correctness always a
   // Read from the shipped manifest — see the note at the top of this file.
   const correctness = lensOf("correctness");
   // security stays wildcard so supply-chain / secret vectors in root-level and
-  // any top-level file (go.mod, go.sum, Dockerfile, the chart values) are never
-  // exempt from the blocking security gate.
+  // any top-level file (package.json, pnpm-lock.yaml, .npmrc, the compose
+  // stack) are never exempt from the blocking security gate.
   const security = lensOf("security");
   const designFit = lensOf("design-fit");
   const testAdequacy = lensOf("test-adequacy");
@@ -122,11 +122,11 @@ test("lensApplies: path-scoped lenses skip docs-only diffs; correctness always a
 
   // A root-level supply-chain change (root package.json + lockfile) must run
   // the security gate.
-  const rootSupplyChain = ["go.mod", "go.sum"];
+  const rootSupplyChain = ["package.json", "pnpm-lock.yaml"];
   assert.equal(lensApplies(security, rootSupplyChain), true);
 
   // A code PR runs every lens.
-  const code = ["pkg/document/crdt/tree.go"];
+  const code = ["packages/sdk/src/document/crdt/tree.ts"];
   for (const lens of [correctness, security, designFit, testAdequacy]) {
     assert.equal(lensApplies(lens, code), true);
   }
@@ -1042,21 +1042,37 @@ test("classifyFile: ordered rules — the .md that is policy is not prose", () =
   assert.equal(classifyFile("CLAUDE.md"), "policy");
   assert.equal(classifyFile("CONTRIBUTING.md"), "policy");
   assert.equal(classifyFile(".github/workflows/ci.yml"), "policy");
-  // The lanes themselves: what golangci-lint checks, and what `make` runs, is
-  // the difference between a mechanical guarantee and a claim.
-  assert.equal(classifyFile(".golangci.yml"), "policy");
-  assert.equal(classifyFile("Makefile"), "policy");
-  assert.equal(classifyFile("api/buf.gen.yaml"), "policy");
+  // The lanes themselves: what eslint, tsc and vitest check, and what the
+  // package scripts run, is the difference between a mechanical guarantee and a
+  // claim.
+  for (const p of [
+    "package.json",
+    "packages/sdk/package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "eslint.config.mjs",
+    "packages/sdk/eslint.config.mjs",
+    ".prettierrc.js",
+    "lint-staged.config.mjs",
+    "packages/sdk/tsconfig.json",
+    "packages/sdk/vitest.config.ts",
+    "packages/sdk/vite.build.ts",
+    "packages/prosemirror/vite.config.ts",
+    "docker/docker-compose-ci.yml",
+    ".githooks/pre-push",
+  ]) {
+    assert.equal(classifyFile(p), "policy", `${p} decides what a lane checks`);
+  }
 
   // The design contract stays with design-fit, never with docs.
   assert.equal(classifyFile("docs/design/tree.md"), "design-spec");
   assert.equal(classifyFile("docs/design/TEMPLATE.md"), "design-spec");
   assert.equal(classifyFile("docs/design/README.md"), "design-spec");
 
-  // Data that behavior depends on is read as code.
-  assert.equal(classifyFile("server/backend/testdata/config.json"), "code-adjacent");
-  assert.equal(classifyFile("test/fixtures/sample.json"), "code-adjacent");
-  assert.equal(classifyFile("build/docker/docker-compose.yml"), "code-adjacent");
+  // Tests, and the data they assert against, are read by every code lens.
+  assert.equal(classifyFile("packages/sdk/test/integration/tree_test.ts"), "code-adjacent");
+  assert.equal(classifyFile("packages/sdk/test/vitest.setup.ts"), "code-adjacent");
+  assert.equal(classifyFile("packages/react/test/fixtures/sample.json"), "code-adjacent");
 
   // The narration this whole split exists to stop paying opus to re-read.
   assert.equal(classifyFile("docs/tasks/active/20260912-x-todo.md"), "prose");
@@ -1065,12 +1081,13 @@ test("classifyFile: ordered rules — the .md that is policy is not prose", () =
   assert.equal(classifyFile("CHANGELOG.md"), "prose");
   assert.equal(classifyFile("ROADMAP.md"), "prose");
 
-  // Go source is code, TEST source included — a `_test.go` file is where a
-  // convergence bug hides, not narration about one.
-  assert.equal(classifyFile("pkg/document/crdt/tree.go"), "code");
-  assert.equal(classifyFile("server/backend/database/mongo/client_test.go"), "code");
-  assert.equal(classifyFile("test/integration/document_test.go"), "code");
-  assert.equal(classifyFile("api/yorkie/v1/resources.proto"), "code");
+  // Source is code: the packages, the scripts, the examples, and the `.proto`
+  // copies the SDK generates from.
+  assert.equal(classifyFile("packages/sdk/src/document/crdt/tree.ts"), "code");
+  assert.equal(classifyFile("packages/prosemirror/src/sync.ts"), "code");
+  assert.equal(classifyFile("packages/sdk/src/api/yorkie/v1/resources.proto"), "code");
+  assert.equal(classifyFile("examples/react-todomvc/src/App.tsx"), "code");
+  assert.equal(classifyFile("scripts/verify-license.mjs"), "code");
   assert.equal(classifyFile("scripts/agent/review-panel.mjs"), "code");
 });
 
@@ -1081,12 +1098,13 @@ test("classifyFile: anything unrecognized falls through to code", () => {
   for (const p of [
     "LICENSE",
     ".gitignore",
-    "pkg/document/notes.md",              // stray .md beside Go source → NOT prose
-    "cmd/yorkie/main.go",
-    // Generated protobuf. Excluded from the diff BODY by the workflow, never
+    "packages/sdk/src/document/notes.md", // stray .md beside source → NOT prose
+    "packages/sdk/src/yorkie.ts",
+    // Generated output. Excluded from the diff BODY by the workflow, never
     // from the changed-FILE list, and never demoted to a cheap class: a lens
     // that sees one in the file list is seeing that codegen moved.
-    "api/yorkie/v1/resources.pb.go",
+    "packages/sdk/src/api/yorkie/v1/resources_pb.ts",
+    "packages/schema/antlr/YorkieSchemaParser.ts",
     "some/new/toolchain/config.yaml",
     "",
     null,
@@ -1200,10 +1218,10 @@ test("routing coverage: every file class has a blocking lens that reads it", () 
   // class. A lens that reads `prose` but whose appliesWhen never matches a
   // prose-only PR is not coverage — it is a lens that never runs.
   const sample = {
-    "code": "packages/sheets/src/a.ts",
-    "code-adjacent": "packages/docs/test/fixtures/sample.md",
+    "code": "packages/sdk/src/document/document.ts",
+    "code-adjacent": "packages/sdk/test/unit/document/document_test.ts",
     "policy": "CLAUDE.md",
-    "design-spec": "docs/design/sheets/formula.md",
+    "design-spec": "docs/design/prosemirror.md",
     "prose": "docs/tasks/active/x-todo.md",
   };
   for (const [cls, file] of Object.entries(sample)) {
@@ -1256,7 +1274,8 @@ test("routing coverage: the docs lens runs on exactly the prose it is scoped to"
     "CHANGELOG.md",
     "ROADMAP.md",
     "NOTES.txt",
-    "pkg/document/README.md",
+    "packages/react/README.md",
+    "examples/react-todomvc/README.md",
   ]) {
     assert.equal(classifyFile(p), "prose", `${p} is no longer classified as prose`);
     assert.ok(lensApplies(docs, [p]),
@@ -1264,7 +1283,7 @@ test("routing coverage: the docs lens runs on exactly the prose it is scoped to"
   }
 
   // ...and it stays out of the way of a pure code change.
-  assert.equal(lensApplies(docs, ["pkg/document/crdt/tree.go"]), false);
+  assert.equal(lensApplies(docs, ["packages/sdk/src/document/crdt/tree.ts"]), false);
 });
 
 // An empty SLICE must report the same neutral, non-gating shape as an

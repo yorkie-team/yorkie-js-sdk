@@ -238,39 +238,57 @@ export const FILE_CLASSES = ["code", "code-adjacent", "policy", "design-spec", "
 // is reviewed by everyone. A new kind of file must never silently take the cheap
 // path — same "fail toward blocking" rule as normalizeSeverity's unknown → major.
 const CLASS_RULES = [
-  // 1. Data that BEHAVIOR depends on: parsed at runtime or asserted against by
-  //    tests. Reviewed as code, because it is code's input. Go test SOURCE is
-  //    not here — a `_test.go` file is code and falls through to `code` below.
+  // 1. Tests and the data they assert against. Reviewed by every code lens,
+  //    because test-adequacy and correctness read a test as the claim a change
+  //    makes about itself. The SDK's `test/` trees hold both the suites and
+  //    their helpers (the vitest setup file, the custom jsdom environment).
   ["code-adjacent", [
-    "**/testdata/**",
+    "packages/*/test/**",
+    "**/__fixtures__/**",
     "**/fixtures/**",
-    "build/docker/**",
+    "**/testdata/**",
   ]],
   // 2. Files that GOVERN the agents and the lanes, or are the injection surface
   //    itself. CLAUDE.md is executable policy here: the contributor workflow
-  //    tells both people and agents to follow it, and `.golangci.yml` /
-  //    `Makefile` / the buf configs decide what the mechanical lanes even check.
+  //    tells both people and agents to follow it. The package manifests, the
+  //    lockfile, the lint/format/type/test configs and the compose stack decide
+  //    what the mechanical lanes even check (see CI_DEFINING_PATHS in
+  //    checks.mjs, which refuses auto-promotion on the same surface).
   ["policy", [
     "CLAUDE.md",
     "AGENTS.md",
     "CONTRIBUTING.md",
     "MAINTAINING.md",
-    ".golangci.yml",
-    "Makefile",
-    "buf.gen.yaml",
-    "buf.work.yaml",
-    "api/buf.yaml",
-    "api/buf.gen.yaml",
+    "package.json",
+    "packages/*/package.json",
+    "examples/*/package.json",
+    "scripts/agent/package.json",
+    "scripts/agent/package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ".npmrc",
+    "eslint.config.mjs",
+    "packages/*/eslint.config.mjs",
+    ".prettierrc.js",
+    ".prettierignore",
+    "lint-staged.config.mjs",
+    "codecov.yml",
+    "packages/*/tsconfig*.json",
+    "packages/*/vite.config.*",
+    "packages/*/vite.build.*",
+    "packages/*/vitest.config.*",
+    "docker/**",
     "scripts/agent/lenses/*.md",
     ".github/**",
     ".claude/**",
+    ".githooks/**",
   ]],
   // 3. The design contract. Never cheap: this is what design-fit measures the
   //    code against, and nothing in the pipeline re-syncs it after PLAN.
   ["design-spec", ["docs/design/**"]],
   // 4. Narration and user-facing docs — the only class routed off the code
-  //    lenses. Deliberately NOT `**/*.md`: a stray markdown file next to Go
-  //    source is more likely a fixture than prose, and unmatched → `code` is
+  //    lenses. Deliberately NOT `**/*.md`: a stray markdown file under
+  //    packages/ is more likely a fixture than prose, and unmatched → `code` is
   //    the safe answer. `docs/design/**` already matched above.
   ["prose", [
     "docs/**/*.md",
@@ -279,6 +297,12 @@ const CLASS_RULES = [
     "*.txt",
     "**/README.md",
   ]],
+  // Everything else is `code` by falling through, deliberately without a rule:
+  // `packages/*/src/**`, `scripts/**`, and `examples/**` (sample apps, reviewed
+  // as code). So is GENERATED output — `packages/sdk/src/api/yorkie/v1/*_pb.ts`
+  // and `packages/schema/antlr/*` — which the workflows drop from the diff BODY
+  // but never from the changed-file list, and which must never be demoted to a
+  // cheap class: a lens that sees one in the file list is seeing codegen move.
 ];
 
 const COMPILED_RULES = CLASS_RULES.map(([cls, globs]) => [cls, globs.map(globToRegExp)]);
