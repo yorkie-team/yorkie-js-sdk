@@ -83,33 +83,60 @@ Design: `docs/design/agent-harness.md`.
       `cherry-pick --ff`, raw `%ae` instead of mailmapped `%aE`, `commit (amend)` /
       `commit (merge)` subjects
 
-## Phase 1 — advisory verbs (`review`, `summarize`)
+## Phase 1 — vendor the pipeline, enable the advisory verbs
 
-- [ ] Vendor `scripts/agent/` from yorkie at a named commit; `npm test` green
-- [ ] Rewrite the repo-shaped parts:
-  - [ ] `review-panel.mjs` `CLASS_RULES` for `packages/*`, `examples/**`,
-        `docs/design/**`, generated `*_pb.ts`; reviewer prompt names the SDK
-  - [ ] `MECHANICAL_COVERAGE_NOTE` read off this repo's `ci.yml` (eslint,
-        tsc build, vitest + integration against docker server, bench,
-        react/schema/devtools builds, license, doc-links) and its pinning test
-  - [ ] `checks.mjs` `CI_DEFINING_PATHS` (pnpm workspace manifests, lockfile,
-        `docker/**`, eslint/vitest/tsconfig, hooks, `scripts/*.mjs`)
-  - [ ] `lenses.json` `appliesWhen` globs for `packages/**`, `scripts/**`
-  - [ ] `mark-ready.mjs` hand-off text, `capture-meta` schema id
-- [ ] `agent-summarize.yml`, `agent-review-on-demand.yml` (exclude `*_pb.ts`
-      from the diff), `agent-scripts.yml` with actionlint
-- [ ] GitHub: secret `CLAUDE_CODE_OAUTH_TOKEN`, environment `agent`,
-      variable `AGENT_PIPELINE_ENABLED=true`
-- [ ] Verify on a same-repo PR **and a fork PR** (the fork 403 is still
-      unverified on yorkie)
+**Scope change (2026-09-25).** The vendored `scripts/agent` suite pins
+structural invariants across ALL nine agent workflows (App-token narrowing,
+post-agent handoff, pinned Node, …): 35 of its tests fail with only the
+Phase 1 workflows present. So this PR ports every workflow, as yorkie #2020
+did, and phases are gated on the GitHub side instead: nothing runs without
+`AGENT_PIPELINE_ENABLED`, every App-needing verb declines when the App is
+absent, and `agent-implement` refuses without last-push approval on `main`.
+
+Source: yorkie `33810d95` (#2056). #2056's Go lane runner (`.ci-reports/`)
+is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
+
+- [x] Vendor `scripts/agent/` (own npm lockfile; `.gitignore` exception for
+      its `package-lock.json`); excluded from root ESLint, lint-staged and the
+      licence scan as vendored code; source commit recorded in its README
+- [x] Rewrite the repo-shaped parts: `CLASS_RULES`, `MECHANICAL_COVERAGE_NOTE`
+      (+ its pinning test) read off this `ci.yml`, `CI_DEFINING_PATHS`,
+      `lenses.json` `appliesWhen`, `mark-ready` text, `capture-meta` id,
+      reviewer prompt naming the SDK
+- [x] Port the nine `agent-*.yml` + `agent-scripts.yml`: `setup-go`/golangci →
+      `setup-node` + `pnpm install --frozen-lockfile --ignore-scripts
+      --ignore-pnpmfile` (pnpm 9, action pinned by SHA, no cache); fixer
+      prompts run `pnpm verify:fast`, never the server suites; diff excludes
+      `*_pb.ts` and the ANTLR output; `agent-iterate-ci` diagnoses from the
+      failed-step log only
+- [x] `npm test` in `scripts/agent` green (924/924); actionlint clean
+- [ ] GitHub (user): secret `CLAUDE_CODE_OAUTH_TOKEN`, environment `agent`,
+      variable `AGENT_PIPELINE_ENABLED=true` → `review` / `summarize` live
+- [ ] Verify `@claude review` and `@claude summarize` on a same-repo PR and a
+      fork PR
+
+### Phase 1 known limitations (from self-review)
+
+- The publish guard refuses a release the App authored, but a `release`
+  event runs the workflow at the tagged commit, so an App-made tag on an older
+  commit bypasses it. Close with a reviewed environment around `NPM_TOKEN` /
+  `BPP_KEYS` or a `v*` tag ruleset (user, GitHub settings).
+- `agent-iterate-ci` cannot fix a red CI caused by a stale lockfile: its
+  `--frozen-lockfile` install fails before the agent starts.
+- A branch `packageManager` that disagrees with `version: 9` can make
+  `pnpm/action-setup` fail, stopping that PR's own fixer (self-DoS only).
+- Lens scope: a PR touching only `examples/**`, root manifests or `docker/**`
+  gets correctness and security, not design-fit / test-adequacy /
+  blast-radius — the same shape as yorkie. Revisit if example changes land
+  unreviewed.
+- No CI lane regenerates `*_pb.ts` / ANTLR output, and the panel's diff
+  excludes them; a hand edit is caught only by the Claude Code guard locally.
 
 ## Phase 2 — gating panel (`loop`, `rerun`, `agent-iterate-ci`)
 
 - [ ] App per decision 2; secrets `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY`
 - [ ] Create the eight `agent:*` labels
-- [ ] `agent-loop.yml`, `agent-rerun.yml`, `agent-review-panel.yml`,
-      `agent-iterate-ci.yml`; swap `setup-go`/golangci for `setup-node` +
-      pnpm; fixer prompts use `pnpm verify:fast`
+- [ ] (workflows land in Phase 1; this phase is the GitHub-side enablement)
 - [ ] Decide whether to add a `paths-ignore` to `ci.yml` so docs-only PRs skip
       the panel as on yorkie — `verify:doc-links` runs in `ci.yml` here, so it
       would need its own workflow first
@@ -128,8 +155,10 @@ Design: `docs/design/agent-harness.md`.
 - [ ] App `Administration: read`
 - [ ] `agent-implement.yml`; `agent-task.yml` issue form so `design-fit`
       has a spec on human-opened work (open gap on yorkie too)
-- [ ] `npm-publish.yml` / `devtools-publish.yml`: refuse
-      `yorkie-team-agent[bot]` as actor or release author, as yorkie does
+- [x] `npm-publish.yml` / `devtools-publish.yml`: refuse a release authored
+      by `yorkie-team-agent[bot]`, as yorkie does (landed in Phase 1, because
+      a vendored test demands it). No push-triggered workflow here inherits
+      secrets, so yorkie's actor guard has no counterpart yet
 
 ## Out of scope
 

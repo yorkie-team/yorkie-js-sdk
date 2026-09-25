@@ -149,6 +149,8 @@ packages/prosemirror/lib/
 
 # npm
 **/package-lock.json
+# scripts/agent is a standalone npm package with its own lockfile
+!scripts/agent/package-lock.json
 
 # Claude Code hook wiring, written per clone by scripts/hooks/install.mjs.
 # Never tracked: Claude Code runs what it names straight out of a checkout.
