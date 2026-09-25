@@ -1460,34 +1460,36 @@ const CONFIDENCE_LEVELS = new Set(FINDING.properties.confidence.enum);
  * EVERY CLAIM HERE WAS READ OFF THE REPO, not assumed, because the failure mode
  * is silent: tell a lens something is covered when it is not and that whole
  * finding class stops being reported, with nothing in the output to show for it.
- * The audit that produced the halves below, for this repository:
- *   - `.golangci.yml` runs gofmt AND goimports as formatters, so formatting and
- *     import grouping are ENFORCED here. That is the opposite of the repository
- *     this file was ported from, where Prettier is write-only — copying its
- *     "no lane checks formatting" bullet would have sent every lens hunting a
- *     class golangci-lint already reds.
- *   - The same file DISABLES `staticcheck` and `unused`. "golangci-lint runs"
- *     on its own would have implied both and silenced the dead-code class.
- *   - The Apache 2.0 licence header CLAUDE.md requires on every Go file HAS a
- *     lane as of `scripts/verify-license.mjs`: `ci.yml`'s `build` job runs it
- *     and `make verify` runs it locally. It did not when this note was first
- *     written — 17 files had drifted — and the bullet lived in the NOT-enforced
- *     half until the lane landed. Moving it is the same discipline as the
- *     formatting bullet above, in the other direction: a lens told to hunt a
- *     class CI reds in seconds spends turns for nothing.
- *   - `ci.yml`'s `build` job is filtered on documentation paths, so on a
- *     documentation-only PR none of the lanes below run at all — only
- *     `docs.yml`'s link check. (The filter used to sit on ci.yml's trigger,
- *     which skipped the whole run; it moved onto the job so the run still
- *     exists for the pipeline to trigger on. Nothing changed about which lanes
- *     execute.) The licence check loses nothing by it: it reads `.go` files,
- *     and no filtered path can hold one.
- *   - `complex-test`, `bench` and `load-test` are path-gated by the
- *     `ci-target-check` job, so most pull requests run none of them. `build` is
- *     gated only on the documentation filter above, so it runs on every pull
- *     request that touches anything else.
- *   - `go vet -tags rgafuzz ./...` COMPILES the tag-gated reproductions and
- *     deliberately never runs them; they are expected to fail when run.
+ * Read off this repository's `.github/workflows/ci.yml` (its one `build` job)
+ * and the scripts it calls, when this package was vendored here:
+ *   - FORMATTING IS ENFORCED, through eslint: the root config sets
+ *     `prettier/prettier` to `error`, and `pnpm lint:check` fails on any
+ *     warning. The server repository gets the same from gofmt; the pnpm
+ *     monorepo this pipeline first came from does not, so neither upstream's
+ *     formatting bullet carries over as written.
+ *   - typescript-eslint runs its `recommended` set, NOT `recommendedTypeChecked`,
+ *     so the type-aware rules (no-floating-promises and friends) are enforced by
+ *     nothing. "eslint runs" on its own would have implied them.
+ *   - The root eslint ignores `examples/**`, `scripts/agent/**` and
+ *     `packages/schema/antlr`, so those are linted by nothing.
+ *   - `tsc` runs inside the sdk, react and schema builds and as devtools'
+ *     `typecheck`. prosemirror's build is NOT in ci.yml — only its vitest
+ *     suite, which strips types — so its own `tsc` runs nowhere. (The
+ *     vanilla-prosemirror example's `tsc` reaches what that example imports.)
+ *   - The integration suites run against `yorkieteam/yorkie:latest` from
+ *     `docker/docker-compose-ci.yml`: the newest server image, not a pinned one.
+ *   - Coverage is uploaded to Codecov, and `codecov.yml` turns both status
+ *     checks off, so coverage gates nothing.
+ *   - `pnpm sdk test:bench` runs the benchmarks with no threshold: a slower
+ *     result passes.
+ *   - `ci.yml` has no path filter at all, so every lane runs on every pull
+ *     request, a documentation-only one included. (Upstream's note has a
+ *     documentation-only gap; this repository does not.)
+ *   - The Apache licence header has a lane: `scripts/verify-license.mjs`, over
+ *     `packages/*\/src`, `packages/*\/test` and `scripts/` (bar
+ *     `scripts/agent/`), not `examples/`.
+ *   - No lane regenerates the protobuf or ANTLR output, so a hand edit to
+ *     `*_pb.ts` or `packages/schema/antlr/*.ts` is caught by nothing in CI.
  *
  * MECHANISMS, NEVER CATEGORIES. "a type error `tsc --noEmit` would report in
  * packages/sheets", never "type problems" — the latter also silences `as any`,
@@ -1511,37 +1513,39 @@ export const MECHANICAL_COVERAGE_NOTE = [
   "nothing they were not about to be told anyway.",
   "",
   "ENFORCED — you may rely on these:",
-  "- `golangci-lint run ./...`: gofmt and goimports as formatters, plus gosec,",
-  "  revive, wrapcheck, gocyclo, goconst, lll, misspell, nakedret and",
-  "  goprintffuncname. Formatting and import grouping are covered here.",
-  "- `buf lint` over the protobuf, and `buf breaking` against this PR's own base",
-  "  commit — a wire-incompatible proto change reds the lane.",
-  "- Generated-code freshness: `buf generate` must leave `api/` clean, untracked",
-  "  files included. A hand-edited `.pb.go` or a stale OpenAPI bundle reds it.",
-  "- `make build`.",
-  "- `go vet -tags rgafuzz ./...`, which COMPILES the build-tag-gated",
-  "  reproductions without running them.",
-  "- `go test -tags integration -race -coverpkg=./... ./...` against a real",
-  "  MongoDB from docker compose. The race detector is on.",
-  "- `node scripts/verify-doc-links.mjs` and its own `node --test` suite, on every",
-  "  PR with no path filter: a markdown link reachable from CLAUDE.md, AGENTS.md",
-  "  or README.md must resolve on disk.",
-  "- `node scripts/verify-license.mjs`, in the same `build` job as the Go lanes:",
-  "  every `.go` file must carry the Apache 2.0 grant clause in its first 40",
-  "  lines. `make verify` runs it locally too.",
+  "- `pnpm lint:check`: eslint over the repository with zero warnings allowed —",
+  "  typescript-eslint's non-type-checked `recommended` set, `prettier/prettier`",
+  "  as an error (formatting is covered here), and in TypeScript files",
+  "  `jsdoc/require-jsdoc` on classes and non-private methods plus the",
+  "  naming-convention, no-null-type and generic-array-type rules in",
+  "  `eslint.config.mjs`.",
+  "- `tsc` inside `pnpm sdk build` (src and test), `pnpm react build`,",
+  "  `pnpm schema build` and `pnpm devtools typecheck`; `pnpm build:examples`",
+  "  builds every example.",
+  "- The SDK's whole vitest suite, unit and integration, with coverage, against a",
+  "  real Yorkie server and MongoDB from `docker/docker-compose-ci.yml`; the",
+  "  prosemirror, react and schema vitest suites; `node --test` over",
+  "  scripts/test.",
+  "- `node scripts/verify-license.mjs`: every source file under packages/*/src,",
+  "  packages/*/test and scripts/ must carry the Apache 2.0 grant clause in its",
+  "  first 40 lines.",
+  "- `node scripts/verify-doc-links.mjs`: a markdown link reachable from",
+  "  CLAUDE.md, AGENTS.md or README.md must resolve on disk.",
+  "- No path filter: all of the above runs on every PR, documentation-only",
+  "  ones included.",
   "",
   "NOT ENFORCED BY ANYTHING — a real finding here is worth MORE than one the lanes",
   "above would have caught, because nothing else in the pipeline will catch it:",
-  "- `staticcheck` and `unused`. Both are disabled in `.golangci.yml`, so the",
-  "  whole staticcheck class and unreferenced code reach main unremarked.",
-  "- `go test -tags complex` (the sharded-cluster suite), `-tags bench`, and the",
-  "  k6 load test. All three are path-gated, so most pull requests run none.",
-  "- Everything above, on a documentation-only PR. `ci.yml`'s `build` job is",
-  "  filtered on `**/*.md` (plus api/docs, build/charts, design/ and *.txt), so",
-  "  such a PR runs no lint, no build and no tests — only `docs.yml`'s link",
-  "  check, which reads no Go behaviour.",
-  "- A data race on a path no test exercises. `-race` observes executions, not",
-  "  code, so it proves nothing about what the suite never reached.",
+  "- Type-aware lint: no-floating-promises, no-misused-promises and the rest of",
+  "  `recommendedTypeChecked` are not configured. An unawaited promise passes.",
+  "- `tsc` over packages/prosemirror: CI runs its tests, which strip types, and",
+  "  never its build.",
+  "- Lint of examples/ (the root eslint ignores it) and tests of any example.",
+  "- Generated-code freshness. No lane regenerates `*_pb.ts` or the ANTLR",
+  "  output, so a hand edit there is caught by nothing.",
+  "- Compatibility with any Yorkie server but `yorkieteam/yorkie:latest`.",
+  "- Coverage. It is uploaded, and both Codecov status checks are off.",
+  "- Performance. `pnpm sdk test:bench` runs with no threshold.",
   "- Whether a passing test asserts anything. The lanes prove the suite is GREEN,",
   "  never that it is ADEQUATE — a test that asserts nothing passes just as loudly.",
 ].join("\n");

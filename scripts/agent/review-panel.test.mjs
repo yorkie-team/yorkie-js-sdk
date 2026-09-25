@@ -1773,52 +1773,84 @@ test("the coverage note claims only mechanisms this repo actually runs", () => {
   const notEnforced = N.slice(N.indexOf("NOT ENFORCED"));
 
   // FORMATTING IS CHECKED HERE, and this is the assertion most likely to be
-  // copied wrong: .golangci.yml enables gofmt and goimports as formatters, so
-  // unlike the repository this note came from, a lens may rely on them.
-  assert.match(enforced, /gofmt and goimports as formatters/);
+  // copied wrong: the root eslint config sets `prettier/prettier` to `error`,
+  // so unlike the pnpm monorepo this pipeline first came from, a lens may rely
+  // on it. Read off the config rather than asserted from memory.
+  const ROOT = path.join(HERE, "..", "..");
+  const eslintConfig = readFileSync(path.join(ROOT, "eslint.config.mjs"), "utf8");
+  assert.match(eslintConfig, /'prettier\/prettier': 'error'/,
+    "the note claims eslint enforces formatting; the root config no longer does");
+  assert.match(enforced, /`prettier\/prettier`\s+as an error/);
   assert.ok(!/write-only|no lane checks formatting/i.test(N),
-    "golangci-lint formats here — do not carry over the upstream formatting gap");
+    "eslint formats here — do not carry over the upstream formatting gap");
 
-  // staticcheck and unused are DISABLED in .golangci.yml. "golangci-lint runs"
-  // on its own implies them, which would silence the whole dead-code class.
-  assert.match(notEnforced, /`staticcheck` and `unused`/);
-  const lintLine = N.split("\n").find((l) => l.includes("golangci-lint run"));
+  // typescript-eslint's TYPE-AWARE rules are NOT configured. "eslint runs" on
+  // its own implies them, which would silence the unawaited-promise class — so
+  // the lint bullet must name the non-type-checked set, and the gap must be in
+  // the NOT-enforced half.
+  assert.ok(!/recommendedTypeChecked|strictTypeChecked|parserOptions:\s*{[^}]*project/.test(eslintConfig),
+    "type-aware lint is configured now — move that bullet to the enforced half");
+  const lintLine = N.split("\n").find((l) => l.includes("`pnpm lint:check`"));
   // FOUND FIRST, then read. `find` returns undefined when the bullet is reworded,
   // `/x/.test(undefined)` tests the string "undefined", and the assertion below
-  // then passes having checked nothing — so a note that stopped mentioning
-  // golangci-lint at all would sail through the guard written to police it.
-  assert.ok(lintLine, "the note no longer has a `golangci-lint run` bullet to check");
-  assert.ok(!/staticcheck|unused/.test(lintLine), `the lint claim must not imply them: ${lintLine}`);
+  // then passes having checked nothing.
+  assert.ok(lintLine, "the note no longer has a `pnpm lint:check` bullet to check");
+  assert.match(enforced, /non-type-checked `recommended` set/);
+  assert.match(notEnforced, /no-floating-promises/);
 
-  // The licence header HAS a lane — `scripts/verify-license.mjs`, run by
-  // ci.yml's `build` job. This assertion was the other way round until that
-  // lane landed, and it is pinned in both directions on purpose: the note's
-  // whole failure mode is a half that has stopped being true, and a guard
-  // that only checks the NOT-enforced half cannot catch a claim that moved.
+  // The licence header HAS a lane — pinned in both directions, because the
+  // note's whole failure mode is a half that has stopped being true.
   assert.match(enforced, /verify-license\.mjs/);
-  assert.doesNotMatch(notEnforced, /Apache 2\.0 licence header/);
+  assert.doesNotMatch(notEnforced, /Apache 2\.0/);
 
-  // The tag-gated suites are path-gated, so most PRs run none of them. Only the
-  // `build` job is unconditional.
-  assert.match(notEnforced, /`go test -tags complex`/);
-  assert.match(notEnforced, /path-gated/);
-  const suiteLine = N.split("\n").find((l) => l.includes("-tags integration -race"));
-  assert.ok(suiteLine, "the note no longer claims the `-tags integration -race` lane");
-  // MongoDB must be named ON THAT BULLET, not merely somewhere in the note —
-  // the earlier `/MongoDB/.test(N)` was satisfied by any other mention.
-  assert.match(
-    `${suiteLine}\n${N.split("\n")[N.split("\n").indexOf(suiteLine) + 1] ?? ""}`,
-    /MongoDB/,
-    `the suite claim must name what it runs against: ${suiteLine}`,
-  );
+  // Every lane the ENFORCED half names must be a step in ci.yml. Read off the
+  // workflow, so deleting a step there breaks this test instead of quietly
+  // making the note a lie.
+  const ci = readFileSync(path.join(ROOT, ".github", "workflows", "ci.yml"), "utf8");
+  for (const lane of [
+    "pnpm lint:check",
+    "pnpm verify:doc-links",
+    "pnpm verify:license",
+    "pnpm test:scripts",
+    "pnpm sdk build",
+    "docker compose -f docker/docker-compose-ci.yml up",
+    "pnpm sdk test:ci",
+    "pnpm prosemirror test",
+    "pnpm build:examples",
+    "pnpm react build",
+    "pnpm react test",
+    "pnpm schema build",
+    "pnpm schema test",
+    "pnpm devtools typecheck",
+  ]) {
+    assert.ok(ci.includes(lane), `the note relies on \`${lane}\`, which ci.yml no longer runs`);
+  }
+  // ...and the lane the NOT-enforced half says is missing really is missing.
+  assert.ok(!/pnpm prosemirror build/.test(ci),
+    "ci.yml builds prosemirror now — its `tsc` bullet belongs in the enforced half");
+  assert.match(notEnforced, /`tsc` over packages\/prosemirror/);
 
-  // A docs-only PR runs NONE of it. This is the gap most likely to be missed,
-  // because every other bullet reads as unconditional.
-  assert.match(notEnforced, /documentation-only PR/);
+  // The integration suite claim must name what it runs against ON ITS BULLET,
+  // and what it names must be what the compose file actually starts.
+  const suiteLine = N.split("\n").findIndex((l) => l.includes("whole vitest suite"));
+  assert.ok(suiteLine >= 0, "the note no longer claims the SDK's integration suite");
+  assert.match(N.split("\n").slice(suiteLine, suiteLine + 2).join("\n"), /Yorkie server and MongoDB/);
+  const compose = readFileSync(path.join(ROOT, "docker", "docker-compose-ci.yml"), "utf8");
+  assert.match(compose, /yorkieteam\/yorkie:latest/, "the note names the server image the suite runs against");
+  assert.match(notEnforced, /yorkieteam\/yorkie:latest/);
 
-  // `-race` is on, and the note must not over-claim it: it observes executions.
-  assert.match(enforced, /race detector is on/);
-  assert.match(notEnforced, /observes executions, not/);
+  // No path filter on ci.yml: a documentation-only PR runs every lane. This is
+  // the upstream bullet most likely to be carried over by habit.
+  assert.ok(!/^\s+paths(-ignore)?:/m.test(ci) && !/dorny\/paths-filter/.test(ci),
+    "ci.yml filters paths now — the note's documentation-only claim is false");
+  assert.match(enforced, /documentation-only/);
+  assert.doesNotMatch(notEnforced, /documentation-only PR/);
+
+  // Coverage gates nothing: codecov.yml turns both statuses off.
+  const codecov = readFileSync(path.join(ROOT, "codecov.yml"), "utf8");
+  assert.match(codecov, /project: off/);
+  assert.match(codecov, /patch: off/);
+  assert.match(notEnforced, /Coverage/);
 
   // MECHANISMS, NEVER CATEGORIES. "type problems" and friends also cover the
   // things the named tool accepts; named tools and named lanes only.
