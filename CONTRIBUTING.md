@@ -156,7 +156,7 @@ the SDK build and every unit suite that needs no server — before a push
 (`pre-push`). `pnpm install` only reminds you when they are missing.
 
 The hooks are copied into `.git/` rather than run from the working tree, so a
-branch you check out cannot change what runs on your machine. For the same
+branch you check out cannot change which hooks run on your machine. For the same
 reason `pre-commit` and `pre-push` refuse when the checkout carries commits
 this clone did not create — the usual case when reviewing someone else's pull
 request. Skip them with `--no-verify`, or set `YORKIE_ALLOW_FOREIGN_TREE=1`

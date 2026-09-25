@@ -47,3 +47,14 @@
 - Porting comments verbatim ports their history too. "An earlier revision of
   this file…" is false in a file that has one revision. Keep the why, drop
   the story.
+- **Round 3** (security, docs). No blocking findings; the loop ends here.
+  Fixed anyway, with Red tests, because each was a way around the trust
+  guard: `cherry-pick --ff` logs a lowercase `fast-forward` against the
+  foreign OID and counted as "created"; `%aE` applied the branch's own
+  `.mailmap` to the author check. Also: setup.sh counts untracked hook
+  sources; the lint-staged `examples/` filter works on repo-relative paths;
+  docs now say setup.sh's refusal guards against accident only, and describe
+  the two reflogs and both trusted bases.
+- Every round found something real, and the rounds did not converge — each
+  looked from a different side. Six of the defects were in the server
+  repository's original; see the port-back item in the todo.

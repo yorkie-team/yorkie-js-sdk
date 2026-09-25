@@ -11,11 +11,9 @@ $ARGUMENTS
 
 ## Why this exists
 
-`CLAUDE.md` step 3 says to dispatch a code review before pushing. That is one
-prose line with no exit condition, so in practice it means one pass, and a pass
-that surfaces findings has no defined follow-up.
-
-This command is that step with a bound and a stopping rule.
+A code review before the PR, left as prose, tends to mean one pass, and a
+pass that surfaces findings has no defined follow-up. This command is
+`CLAUDE.md` step 3: that review with a bound and a stopping rule.
 
 **What it is not.** The `@claude review` lens panel (being ported from the
 server repository; see `docs/design/agent-harness.md`) runs in CI, after the

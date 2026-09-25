@@ -74,11 +74,12 @@ Design: `docs/design/agent-harness.md`.
 - [x] `CLAUDE.md` (verify gate, task workflow, stale `mcp` dropped),
       `CONTRIBUTING.md`, `scripts/README.md`
 - [x] Design doc `docs/design/agent-harness.md`
-- [ ] `/self-review` over the branch (round 1 done, see lessons), then open
-      the Phase 0 PR
-- [ ] Port the four hook fixes back to yorkie (worktree common dir, `pull`
+- [x] `/self-review` over the branch: 3 rounds, round 3 clean (see lessons)
+- [ ] Open the Phase 0 PR and confirm CI, including the new prosemirror step
+- [ ] Port the hook fixes back to yorkie: worktree common dir, `pull`
       reflog subjects, `rebase (finish)` after a fast-forward, `upstream/main`
-      as a trusted base for forks)
+      as a trusted base for forks, lowercase `fast-forward` from
+      `cherry-pick --ff`, raw `%ae` instead of mailmapped `%aE`
 
 ## Phase 1 — advisory verbs (`review`, `summarize`)
 

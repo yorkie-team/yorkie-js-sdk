@@ -67,8 +67,13 @@ writes:
 The snapshot pins which hook runs, not what it invokes — `lint-staged` and
 `verify:fast` resolve through the branch's own configs and tests. That half
 is closed at run time by `.githooks/trusted-tree.sh`, which refuses when the
-checkout carries commits this clone did not create, read from HEAD's reflog
-rather than the author line a branch writes.
+checkout carries commits on top of `origin/main` or `upstream/main` that this
+clone did not create — read from HEAD's and the current branch's reflogs,
+which only the local git writes — or whose raw author address is not the
+local `user.email`. `upstream` is trusted by remote name; a clone that points
+`upstream` at somebody's fork trusts that fork's `main`. And once you rewrite
+a branch yourself (rebase, amend) its commits count as yours, so read before
+rewriting.
 
 The cost is staleness: an improved hook reaches a clone when someone re-runs
 `setup.sh`. CI is the backstop, so hooks are an accelerator, not the gate of

@@ -34,7 +34,7 @@ it.
 
 | Script | Invoked as | Role |
 |---|---|---|
-| `setup.sh` | `bash scripts/setup.sh` | Copies `.githooks/` into `$GIT_DIR/githooks` and points `core.hooksPath` there, then runs `hooks/install.mjs`. Refuses when the hook sources differ from the default branch — `upstream/main` if present, else `origin/main` (override: `YORKIE_ALLOW_LOCAL_HOOKS=1`), because a re-run inside a reviewed branch would persist that branch's hooks. `--check` only reports missing hooks; `pnpm install` runs it through `prepare`. |
+| `setup.sh` | `bash scripts/setup.sh` | Copies `.githooks/` into `$GIT_DIR/githooks` and points `core.hooksPath` there, then runs `hooks/install.mjs`. Refuses when the hook sources differ from the default branch — `upstream/main` if present, else `origin/main` (override: `YORKIE_ALLOW_LOCAL_HOOKS=1`), because a re-run inside a reviewed branch would persist that branch's hooks — a guard against accident only, since a hostile branch's `setup.sh` can omit it. `--check` only reports missing hooks; `pnpm install` runs it through `prepare`. |
 
 ## Hooks
 
@@ -43,7 +43,7 @@ it.
 | `../.githooks/commit-msg` | git | Subject ≤70, blank line 2, body ≤80. |
 | `../.githooks/pre-commit` | git | `pnpm exec lint-staged` when source is staged. |
 | `../.githooks/pre-push` | git | `pnpm verify:fast`. |
-| `../.githooks/trusted-tree.sh` | sourced | Refuses to run the tree when the checkout carries commits this clone did not create (read from HEAD's reflog). Bypass: `--no-verify` or `YORKIE_ALLOW_FOREIGN_TREE=1`. |
+| `../.githooks/trusted-tree.sh` | sourced | Refuses to run the tree when the checkout carries commits on top of `origin/main` / `upstream/main` that this clone did not create (read from HEAD's and the branch's reflogs), or whose raw author address is not yours. Bypass: `--no-verify` or `YORKIE_ALLOW_FOREIGN_TREE=1`. |
 | `hooks/install.mjs` | installer | Snapshots the Claude Code hooks into `$GIT_DIR/agent-hooks/` and wires them in the gitignored `.claude/settings.local.json`. A tracked settings file would run a checked-out branch's hooks. |
 | `hooks/session-prime.sh` | Claude Code, SessionStart | Prints the workflow checklist. Silent under `GITHUB_ACTIONS`. |
 | `hooks/guard-generated-files.sh` | Claude Code, PreToolUse(Edit\|Write) | Refuses edits to generated `*_pb.ts`, the `.proto` copies and the ANTLR output. Fails open. |
