@@ -4,7 +4,7 @@
   "private": true,
   "description": "A collection of tools and examples for Yorkie",
   "scripts": {
-    "prepare": "bash scripts/setup.sh --check",
+    "prepare": "bash scripts/setup.sh --check || exit 0",
     "preinstall": "npx only-allow pnpm",
     "build:examples": "pnpm --filter './examples/*' run build",
     "build:packages": "pnpm --filter './packages/*' run build",

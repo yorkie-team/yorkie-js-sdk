@@ -17,9 +17,10 @@ that surfaces findings has no defined follow-up.
 
 This command is that step with a bound and a stopping rule.
 
-**What it is not.** The `@claude review` lens panel runs in CI, after the PR
-exists. It is not available locally — there is no local runner for it,
-deliberately. So the review this command performs is
+**What it is not.** The `@claude review` lens panel (being ported from the
+server repository; see `docs/design/agent-harness.md`) runs in CI, after the
+PR exists. It will not be available locally — there is no local runner for
+it, deliberately. So the review this command performs is
 the harness's own reviewer, not the panel's six lenses, and the two are not
 interchangeable: the panel reads the diff in independent sessions per lens, this
 one shares your context. Say which one you ran. Never report a round as a panel

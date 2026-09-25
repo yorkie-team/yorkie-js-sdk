@@ -42,7 +42,7 @@ jobs:
         run: pnpm install
 
       - name: Lint
-        run: pnpm lint
+        run: pnpm lint:check
 
       - name: Verify documentation links
         run: pnpm verify:doc-links
