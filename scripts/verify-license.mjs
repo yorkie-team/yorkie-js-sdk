@@ -60,6 +60,7 @@ export const SOURCE_EXTENSIONS = [
   '.js',
   '.mjs',
   '.cjs',
+  '.sh',
 ];
 
 /** Per-package directories holding first-party code. */
@@ -77,12 +78,18 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'lib', 'coverage']);
  */
 export function scanRoots(root) {
   const roots = [];
+  const errors = [];
   const packages = path.join(root, 'packages');
   let entries = [];
   try {
     entries = readdirSync(packages, { withFileTypes: true });
-  } catch {
-    // No packages/ at all is caught below as "scanned nothing".
+  } catch (err) {
+    // Absent is fine — a tree with nothing at all is caught as "scanned
+    // nothing". Present but unreadable is a gap, and has to say so, or a
+    // readable scripts/ turns it into a green run.
+    if (err.code !== 'ENOENT') {
+      errors.push(`packages could not be listed (${err.code ?? err.message})`);
+    }
   }
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
@@ -93,7 +100,7 @@ export function scanRoots(root) {
   }
   const scripts = path.join(root, 'scripts');
   if (safeIsDirectory(scripts)) roots.push(scripts);
-  return roots;
+  return { roots, errors };
 }
 
 /**
@@ -129,7 +136,9 @@ export function sourceFiles(root) {
       }
     }
   };
-  for (const dir of scanRoots(root)) walk(dir);
+  const scan = scanRoots(root);
+  errors.push(...scan.errors);
+  for (const dir of scan.roots) walk(dir);
   files.sort();
   return { files, errors };
 }
@@ -142,11 +151,18 @@ function safeIsDirectory(target) {
   }
 }
 
-/** True iff the file opens with the Apache grant clause. */
+/** A line that is part of a comment in any of the scanned languages. */
+const COMMENT_LINE = /^\s*(\/\/|\/\*|\*|#)/;
+
+/**
+ * True iff the file opens with the Apache grant clause in a comment. A
+ * string literal that quotes the clause — this file has one — is not a
+ * header.
+ */
 export function hasLicenseHeader(content) {
   return content
     .split('\n', HEADER_SCAN_LINES)
-    .some((line) => line.includes(LICENSE_CLAUSE));
+    .some((line) => COMMENT_LINE.test(line) && line.includes(LICENSE_CLAUSE));
 }
 
 /**

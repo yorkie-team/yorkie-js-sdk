@@ -236,3 +236,51 @@ test('the CLI reports the count it checked in this repository', () => {
   assert.ok(m, `no count in the success line: ${r.stdout}`);
   assert.ok(Number(m[1]) > 100, `implausibly few files scanned: ${m[1]}`);
 });
+
+test('shell scripts under scripts/ need the header too', () => {
+  withTree(
+    {
+      'scripts/setup.sh': '#!/usr/bin/env bash\necho hi\n',
+      'scripts/ok.sh': `#!/usr/bin/env bash\n# ${LICENSE_CLAUSE}\n`,
+    },
+    (root) =>
+      assert.deepEqual(collectFindings(root), [
+        'scripts/setup.sh has no Apache 2.0 header',
+      ]),
+  );
+});
+
+test('the clause in code rather than a comment is not a header', () => {
+  withTree(
+    {
+      'packages/sdk/src/a.ts': `export const clause = '${LICENSE_CLAUSE}';\n`,
+    },
+    (root) =>
+      assert.deepEqual(collectFindings(root), [
+        'packages/sdk/src/a.ts has no Apache 2.0 header',
+      ]),
+  );
+});
+
+test('an unlistable packages/ is a finding even when scripts/ is fine', () => {
+  withTree(
+    {
+      'packages/sdk/src/a.ts': LINE_HEADER,
+      'scripts/b.mjs': LINE_HEADER,
+    },
+    (root) => {
+      const packages = path.join(root, 'packages');
+      chmodSync(packages, 0o000);
+      try {
+        const findings = collectFindings(root);
+        if (sourceFiles(root).files.includes('packages/sdk/src/a.ts')) return; // root
+        assert.ok(
+          findings.some((f) => /^packages could not be listed/.test(f)),
+          `got ${findings}`,
+        );
+      } finally {
+        chmodSync(packages, 0o755);
+      }
+    },
+  );
+});
