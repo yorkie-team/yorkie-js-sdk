@@ -115,6 +115,19 @@ is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
 - [ ] Verify `@claude review` and `@claude summarize` on a same-repo PR and a
       fork PR
 
+### Phase 1 known limitations (from self-review)
+
+- The publish guard refuses a release the App authored, but a `release`
+  event runs the workflow at the tagged commit, so an App-made tag on an older
+  commit bypasses it. Close with a reviewed environment around `NPM_TOKEN` /
+  `BPP_KEYS` or a `v*` tag ruleset (user, GitHub settings).
+- `agent-iterate-ci` cannot fix a red CI caused by a stale lockfile: its
+  `--frozen-lockfile` install fails before the agent starts.
+- A branch `packageManager` that disagrees with `version: 9` can make
+  `pnpm/action-setup` fail, stopping that PR's own fixer (self-DoS only).
+- No CI lane regenerates `*_pb.ts` / ANTLR output, and the panel's diff
+  excludes them; a hand edit is caught only by the Claude Code guard locally.
+
 ## Phase 2 — gating panel (`loop`, `rerun`, `agent-iterate-ci`)
 
 - [ ] App per decision 2; secrets `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY`

@@ -91,3 +91,14 @@
 - Mutation-checking the guards with `git checkout -- .` also reverted an
   uncommitted edit to this todo that predated the work. Restored from a saved
   `git diff`. Revert mutations by path, or stash first.
+- **Phase 1 self-review, round 1** (security). Blocking: `--ignore-scripts`
+  and `--ignore-pnpmfile` do not reach PATH settings, so a branch `.npmrc`
+  with `modules-dir=../..` wrote a branch package over the runner's `node`
+  before the agent ran. Fixed by installing with main's `.npmrc` and pinning
+  location settings on the CLI (c78bec6c); verified against the reviewer's
+  reproduction. Porting a "don't run the branch's build" rule from Go to pnpm
+  is not a flag swap: `go install pkg@ver` reads no branch config, while a
+  package manager reads several files the branch owns.
+- `git checkout <file>` after a mutation check discarded an uncommitted fix
+  in the same file — the second time in this task. Commit (or stash) before
+  mutation-testing, and restore mutations from a copy, never from HEAD.

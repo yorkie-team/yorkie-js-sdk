@@ -2227,14 +2227,21 @@ test("a release the agent App created publishes nothing", () => {
   // This repository has none today: its push-triggered workflows are `ci.yml`
   // (Codecov's upload token only) and `github-page-publish.yml` (GITHUB_TOKEN
   // only, deploying what `main` already holds). The server repository pins its
-  // Docker publisher by name here; with no such file the loop below is empty by
-  // fact rather than by omission, and re-arms the day one is added.
+  // Docker publisher by name here. The predicate below matches this repo's
+  // shape — a secret referenced directly — as well as `secrets: inherit`, so
+  // the loop is empty by fact and re-arms the day a push-triggered workflow
+  // reaches for a real credential. Codecov's token is allowed: it can only
+  // upload a coverage report.
+  const HARMLESS = new Set(["GITHUB_TOKEN", "CODECOV_TOKEN"]);
   const onPushInherit = readdirSync(dir)
     .filter((f) => f.endsWith(".yml"))
     .filter((f) => {
       const code = readFileSync(path.join(dir, f), "utf8").split("\n").filter((l) => !/^\s*#/.test(l));
       const on = code.slice(0, code.findIndex((l) => /^jobs:/.test(l)));
-      return on.some((l) => /^\s+push:\s*$/.test(l)) && code.some((l) => /^\s+secrets: inherit\s*$/.test(l));
+      if (!on.some((l) => /^\s+push:\s*$/.test(l))) return false;
+      const text = code.join("\n");
+      const named = [...text.matchAll(/secrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]);
+      return /^\s+secrets: inherit\s*$/m.test(text) || named.some((name) => !HARMLESS.has(name));
     });
   for (const file of onPushInherit) {
     assert.match(

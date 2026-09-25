@@ -8,10 +8,13 @@ jobs:
     # NOT FOR A RELEASE THE AGENT APP CREATED. `contents: write` is one
     # permission covering commits AND releases, so the token the fix agents hold
     # to push a branch can also publish a release — and this job answers that
-    # with `NPM_TOKEN`. There is no narrower grant to ask for; the escape closes
-    # here, at the consumer, or it does not close. Nothing legitimate publishes
-    # a release as the App, so the condition costs nothing and refuses the one
-    # thing it exists to refuse. Same guard as yorkie-team/yorkie's
+    # with `NPM_TOKEN`. There is no narrower grant to ask for, so the check sits
+    # at the consumer. Nothing legitimate publishes a release as the App, so it
+    # costs nothing. It is not the whole answer: a `release` event runs the
+    # workflow file at the TAGGED commit, which the App could point at one that
+    # predates this line, and it can publish a draft a human created. Putting
+    # the publish secrets behind a reviewed environment, or a `v*` tag ruleset,
+    # closes those. Same guard as yorkie-team/yorkie's
     # docker-publish.yml; scripts/agent/checks.test.mjs pins it.
     if: github.event.release.author.login != 'yorkie-team-agent[bot]'
     runs-on: ubuntu-latest
