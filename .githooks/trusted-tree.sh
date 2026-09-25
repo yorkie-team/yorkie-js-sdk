@@ -93,7 +93,7 @@ yorkie_locally_created() {
     fi
   } | awk '
     tolower($0) ~ / fast-forward$/ { next }
-    $2 ~ /^(commit|cherry-pick|revert|am|applypatch)[:( ]/ { print $1; next }
+    /^[0-9a-f]+ (commit|cherry-pick|revert|am|applypatch)( \([a-z]+\))?:/ { print $1; next }
     /^[0-9a-f]+ (rebase|pull)[^:]*\((pick|reword|edit|squash|fixup|continue)\):/ { print $1; next }
     /^[0-9a-f]+ (merge|pull)[^:]*: Merge made by/ { print $1; next }
   '

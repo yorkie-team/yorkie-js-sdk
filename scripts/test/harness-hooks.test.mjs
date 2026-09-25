@@ -365,6 +365,7 @@ function inScratchRepo(body) {
     git('init', '-q', '.');
     git('config', 'user.email', 'test@example.com');
     git('config', 'user.name', 'test');
+    git('config', 'commit.gpgsign', 'false');
     return body({ dir, git });
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -646,6 +647,7 @@ test('the trust guard is not satisfied by an author line the branch supplies', (
     up('init', '-q', '-b', 'main', '.');
     up('config', 'user.email', 'test@example.com');
     up('config', 'user.name', 'test');
+    up('config', 'commit.gpgsign', 'false');
     up('commit', '-qm', 'base', '--allow-empty', '--no-verify');
     up('checkout', '-qb', 'pr');
     up('commit', '-qm', 'theirs', '--allow-empty', '--no-verify');
@@ -658,6 +660,7 @@ test('the trust guard is not satisfied by an author line the branch supplies', (
     git('init', '-q', '-b', 'main', '.');
     git('config', 'user.email', 'test@example.com');
     git('config', 'user.name', 'test');
+    git('config', 'commit.gpgsign', 'false');
     git('remote', 'add', 'origin', upstream);
     git('fetch', '-q', 'origin');
     git('checkout', '-q', '-B', 'main', 'origin/pr');
@@ -1141,5 +1144,25 @@ test("the author check ignores the branch's own .mailmap", () => {
     const r = runHookIn('pre-push', clone, env);
     assert.equal(r.status, 1, `a mailmapped author must refuse: ${r.stdout}`);
     assert.match(r.stderr, /someone@else\.example/);
+  });
+});
+
+test('the trust guard accepts your own amended commit', () => {
+  // `commit (amend):` splits into `commit` and `(amend):` under awk, so a
+  // pattern on `$2` alone never saw the qualifier and refused your own amend.
+  inScratchClone(({ clone, at, env }) => {
+    at(clone)('commit', '-qm', 'mine', '--allow-empty', '--no-verify');
+    const amended = at(clone)(
+      'commit',
+      '-q',
+      '--amend',
+      '-m',
+      'mine, amended',
+      '--allow-empty',
+      '--no-verify',
+    );
+    assert.equal(amended.status, 0, amended.stderr);
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 0, r.stderr);
   });
 });
