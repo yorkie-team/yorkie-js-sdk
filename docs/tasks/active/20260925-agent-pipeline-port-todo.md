@@ -73,7 +73,10 @@ Design: `docs/design/agent-harness.md`.
 - [x] `CLAUDE.md` (verify gate, task workflow, stale `mcp` dropped),
       `CONTRIBUTING.md`, `scripts/README.md`
 - [x] Design doc `docs/design/agent-harness.md`
-- [ ] `/self-review` over the branch, then open the Phase 0 PR
+- [ ] `/self-review` over the branch (round 1 done, see lessons), then open
+      the Phase 0 PR
+- [ ] Port the three hook fixes back to yorkie (worktree common dir, `pull`
+      reflog subjects, `rebase (finish)` after a fast-forward)
 
 ## Phase 1 — advisory verbs (`review`, `summarize`)
 

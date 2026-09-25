@@ -18,3 +18,21 @@
   pointing at an ignored directory whose runner exits 0 when the hook file is
   gone — a silent loss of the commit-msg check. `prepare` running
   `setup.sh --check` is what surfaces it.
+
+## Self-review log
+
+- **Round 1** (correctness, tests; subagent reviewer, not the lens panel).
+  Blocking: `setup.sh` in a worktree snapshotted into `.git/worktrees/<n>`
+  while `core.hooksPath` is shared, so removing the worktree silently
+  disabled every hook; the trust guard refused your own branch after
+  `git pull --rebase` or a pull merge. Writing the Red tests surfaced a third:
+  `rebase (finish)` after a fast-forward onto a fetched PR counted as "created".
+  All three fixed with tests (a6b0cbfb). Also: CI lint now `lint:check`;
+  `prepare` cannot fail install; the pre-commit comment no longer claims
+  deletions are linted (lint-staged lints ACMR only).
+  Not fixed: Windows without bash (prepare now falls through, hooks still
+  need bash); `commit-msg` rejects git's default pull-merge message
+  (pre-existing, unchanged from Husky).
+- All three hook defects came verbatim from the server repository. A port
+  inherits the source's bugs; the review of the copy is also a review of the
+  original. Report them upstream rather than fixing only here.
