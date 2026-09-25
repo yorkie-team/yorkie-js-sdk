@@ -75,7 +75,8 @@ Design: `docs/design/agent-harness.md`.
       `CONTRIBUTING.md`, `scripts/README.md`
 - [x] Design doc `docs/design/agent-harness.md`
 - [x] `/self-review` over the branch: 3 rounds, round 3 clean (see lessons)
-- [ ] Open the Phase 0 PR and confirm CI, including the new prosemirror step
+- [x] Open the Phase 0 PR (#1384); CI green, including the new licence and
+      prosemirror steps
 - [ ] Port the hook fixes back to yorkie: worktree common dir, `pull`
       reflog subjects, `rebase (finish)` after a fast-forward, `upstream/main`
       as a trusted base for forks, lowercase `fast-forward` from
