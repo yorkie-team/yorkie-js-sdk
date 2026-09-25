@@ -36,3 +36,14 @@
 - All three hook defects came verbatim from the server repository. A port
   inherits the source's bugs; the review of the copy is also a review of the
   original. Report them upstream rather than fixing only here.
+- **Round 2** (design fit, blast radius). Blocking: a fork contributor who
+  rebases onto `upstream/main` while their fork's `main` lags was refused on
+  every commit and push — `origin/main` was the only trusted base. Fixed with
+  a stale-fork test (e1fe10f3). Also: lint-staged now skips `examples/`, which
+  CI's `eslint .` ignores but explicit paths do not (d777e91f); the ported
+  comments were condensed — they narrated the server repo's revision history
+  as if it had happened here; two tests that pinned source text were dropped.
+  Not fixed: the new CI prosemirror step is unverified until the PR runs.
+- Porting comments verbatim ports their history too. "An earlier revision of
+  this file…" is false in a file that has one revision. Keep the why, drop
+  the story.
