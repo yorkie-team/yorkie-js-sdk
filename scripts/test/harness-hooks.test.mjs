@@ -1081,3 +1081,65 @@ test('the trust guard accepts a fork branch rebased onto upstream/main', () => {
     assert.equal(r.status, 0, r.stderr);
   });
 });
+
+/** An upstream `pr` branch with one commit by someone else, fetched. */
+function withForeignPr({ upstream, clone, at }) {
+  at(upstream)('checkout', '-qb', 'pr');
+  at(upstream)(
+    '-c',
+    'user.email=someone@else.example',
+    'commit',
+    '-qm',
+    'theirs',
+    '--allow-empty',
+    '--no-verify',
+  );
+  at(upstream)('checkout', '-q', 'main');
+  at(clone)('fetch', '-q', 'origin');
+}
+
+test('the trust guard refuses commits reached by cherry-pick --ff', () => {
+  // `cherry-pick --ff` logs `cherry-pick: fast-forward` against the foreign
+  // OID, unchanged — lowercase, so a case-sensitive `Fast-forward` skip missed
+  // it and the `cherry-pick` verb counted it as written here.
+  inScratchClone((ctx) => {
+    const { clone, at, env } = ctx;
+    withForeignPr(ctx);
+    const picked = at(clone)('cherry-pick', '--ff', 'origin/pr');
+    assert.equal(picked.status, 0, picked.stderr);
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 1, `a fast-forwarded pick must refuse: ${r.stdout}`);
+    assert.match(r.stderr, /not created by this clone/);
+  });
+});
+
+test("the author check ignores the branch's own .mailmap", () => {
+  // `%aE` applies `.mailmap`, a tracked file the branch supplies, so a branch
+  // could map its author onto yours. Once you rewrite it locally (rebase,
+  // amend) the commits count as created and only the author check is left.
+  inScratchClone((ctx) => {
+    const { upstream, clone, at, env } = ctx;
+    at(upstream)('checkout', '-qb', 'pr');
+    writeFileSync(
+      path.join(upstream, '.mailmap'),
+      'test <test@example.com> <someone@else.example>\n',
+    );
+    at(upstream)('add', '.mailmap');
+    at(upstream)(
+      '-c',
+      'user.email=someone@else.example',
+      'commit',
+      '-qm',
+      'theirs',
+      '--no-verify',
+    );
+    at(clone)('fetch', '-q', 'origin');
+    at(clone)('checkout', '-qb', 'review', 'origin/pr');
+    // A local rewrite that keeps the author: now "created here".
+    const rebased = at(clone)('rebase', '-q', '-f', 'origin/main');
+    assert.equal(rebased.status, 0, rebased.stderr);
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 1, `a mailmapped author must refuse: ${r.stdout}`);
+    assert.match(r.stderr, /someone@else\.example/);
+  });
+});

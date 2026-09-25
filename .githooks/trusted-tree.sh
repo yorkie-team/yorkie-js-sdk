@@ -16,7 +16,7 @@
 # supplies code to it.
 #
 # "CAME FROM" IS NOT THE AUTHOR LINE. The author address is a field the
-# branch's author writes (and `.mailmap` can rewrite), so it is a label, not a
+# branch's author writes, so it is a label, not a
 # credential. The credential is the reflog: it lives in `$GIT_DIR`, only the
 # local git writes it, and no fetched content can add to it. A commit this
 # clone CREATED has a commit-writing entry; one it merely RECEIVED is known
@@ -31,8 +31,9 @@
 # stranger's, and is refused. The bypass below is the answer.
 #
 # WHAT IT DOES NOT CATCH: a branch authored under YOUR address that you then
-# rebase yourself — the rebase writes new commits here and the author matches.
-# Read the diff before rebasing someone else's branch.
+# rewrite yourself — rebase, amend, `am`, a `pull.rebase` pull. The rewrite
+# writes the commits here and the author matches. Read the diff before
+# rewriting someone else's branch.
 
 # Echo every trusted default-branch ref this clone has, one per line, or fail
 # if it has none.
@@ -73,7 +74,8 @@ yorkie_upstream_refs() {
 #     `pull ...: Merge made by`.
 #
 # Everything else moves HEAD onto a commit that arrived from somewhere else:
-# `checkout:`, `reset:`, `clone:`, anything ending in `Fast-forward`, and
+# `checkout:`, `reset:`, `clone:`, anything ending in `fast-forward` (any
+# case — `cherry-pick --ff` logs it lowercase, against the foreign OID), and
 # `(start)` / `(finish)` of a rebase. `(finish)` in particular names the
 # commit HEAD lands on, which after a rebase that only fast-forwarded onto a
 # fetched branch is somebody else's. An unrecognised subject is not creating,
@@ -90,7 +92,7 @@ yorkie_locally_created() {
       git reflog show "$branch" --format='%H %gs' 2>/dev/null || true
     fi
   } | awk '
-    / Fast-forward$/ { next }
+    tolower($0) ~ / fast-forward$/ { next }
     $2 ~ /^(commit|cherry-pick|revert|am|applypatch)[:( ]/ { print $1; next }
     /^[0-9a-f]+ (rebase|pull)[^:]*\((pick|reword|edit|squash|fixup|continue)\):/ { print $1; next }
     /^[0-9a-f]+ (merge|pull)[^:]*: Merge made by/ { print $1; next }
@@ -139,7 +141,7 @@ yorkie_require_own_work() {
   # head of a pipeline would turn a range that failed to resolve into no
   # output, and no output into "no foreign commits".
   # shellcheck disable=SC2086
-  if ! commits=$(git log --format='%H %aE' HEAD --not $upstreams 2>/dev/null); then
+  if ! commits=$(git log --format='%H %ae' HEAD --not $upstreams 2>/dev/null); then
     echo "$hook: could not list this branch's commits against" >&2
     echo "        ${upstream#refs/remotes/}, so there is no way to tell whose code" >&2
     echo "        $runs would run. See the bypass below." >&2
@@ -151,12 +153,11 @@ yorkie_require_own_work() {
     return 0
   fi
 
-  # `%aE` is the mailmap-resolved author address, compared case-insensitively
-  # because git preserves the case a commit was made with and addresses are not
-  # case-sensitive in practice. A commit with no author address at all
-  # (`--author='A U Thor <>'`, which git accepts) yields an empty field: it is
-  # reported as untrusted rather than silently compared equal to nothing, which
-  # is how the earlier `grep -vFx` pipeline let it through.
+  # `%ae` is the RAW author address. `%aE` would apply `.mailmap`, a tracked
+  # file the branch supplies, letting it map its author onto yours. Compared
+  # case-insensitively, since git keeps the case a commit was made with. A
+  # commit with no author address (`--author='A U Thor <>'`) yields an empty
+  # field and is reported, not compared equal to nothing.
   # The two lists are concatenated around a separator rather than passed as two
   # awk files, because the idiomatic `NR == FNR` split silently misreads an
   # EMPTY first file — and an empty first file is the interesting case here: a
