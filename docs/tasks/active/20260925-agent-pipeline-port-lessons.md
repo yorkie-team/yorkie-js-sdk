@@ -106,3 +106,12 @@
   findings; loop ends. Fixed anyway: decline replies linked a design doc that
   exists only in yorkie (now an absolute URL); the vendoring README's
   adaptation table missed the lens and `.npmrc` changes a sync would revert.
+- **First live run (#1388).** `review` worked ($1.41, 5 min) and its security
+  lens found a real hole: any PR author, i.e. anyone on a public repo, could
+  trigger a model run whose environment holds the Claude OAuth token, and the
+  Read tool reaches /proc/self/environ (verified locally: a bare `Read` rule
+  reads outside cwd; `Read(//etc/**)` in `disallowedTools` blocks it). Now
+  write-access only, and /proc and /sys are denied. `summarize` had never run
+  on yorkie at all: `claude-code-action` without `github_token` fails on OIDC.
+  A verb nobody has watched run end to end is not "working" — the comment
+  saying it did was the pipeline's own text.

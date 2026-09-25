@@ -82,6 +82,9 @@ Design: `docs/design/agent-harness.md`.
       as a trusted base for forks, lowercase `fast-forward` from
       `cherry-pick --ff`, raw `%ae` instead of mailmapped `%aE`, `commit (amend)` /
       `commit (merge)` subjects
+- [ ] Port the advisory-verb hardening back to yorkie: summarize's missing
+      `github_token` (it has never run there), write access to trigger
+      review/summarize, and `DENIED_READ_PATHS` in `ask.mjs`
 
 ## Phase 1 — vendor the pipeline, enable the advisory verbs
 
