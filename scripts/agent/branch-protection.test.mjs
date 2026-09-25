@@ -145,7 +145,12 @@ test("the workflow calls the module rather than carrying its own copy", () => {
     path.join(HERE, "..", "..", ".github", "workflows", "agent-implement.yml"),
     "utf8",
   );
-  assert.match(wf, /node \.\/scripts\/agent\/check-protection\.mjs main/);
+  assert.match(wf, /node \.\/\.trusted-protection\/scripts\/agent\/check-protection\.mjs main/);
+  // ITS OWN DIRECTORY. Sparse-checked-out into the workspace root, the full
+  // checkout after it reused that repository and, on the runner's git, stayed
+  // sparse: the job reached `pnpm install` with no package.json.
+  const gate = wf.slice(wf.indexOf("Check out the protection check"));
+  assert.match(gate.slice(0, 400), /path: \.trusted-protection/);
   assert.ok(
     !/getBranchProtection/.test(wf),
     "the workflow must not carry its own copy of the protection logic",
