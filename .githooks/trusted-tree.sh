@@ -3,74 +3,60 @@
 # Sourced by pre-commit and pre-push. Not a hook itself — git runs hooks by
 # name, so a sibling file in the hooks directory is inert.
 #
-# WHY THIS EXISTS. `scripts/setup.sh` snapshots the hook SCRIPTS into
-# `$GIT_DIR` so a branch cannot rewrite them, and that closes exactly half the
-# hole: the snapshot pins which script runs, not what the script invokes.
-# `pnpm exec lint-staged` resolves through the working tree's
-# `lint-staged.config.mjs` and `eslint.config.mjs` — both JavaScript modules
-# that run on load — and `pnpm verify:fast` additionally runs the branch's
-# `package.json` scripts, its vitest configs and every test file. So without
-# this file, `gh pr checkout` followed by a single commit would run an unread
-# branch's code.
+# WHY THIS EXISTS. The `$GIT_DIR` snapshot `scripts/setup.sh` takes pins which
+# hook script runs, not what it invokes: `pnpm exec lint-staged` loads the
+# working tree's `lint-staged.config.mjs` and `eslint.config.mjs`, and
+# `pnpm verify:fast` runs its package scripts and every test file. So without
+# this check, `gh pr checkout` plus one commit would run an unread branch's
+# code. It has to happen at hook-run time: the dangerous commit comes later
+# than setup, in a branch that did not exist when setup ran.
 #
-# Extending `setup.sh`'s source comparison does not reach this: that guard runs
-# at install time, and the dangerous commit happens later, in a checkout of a
-# branch that did not exist when setup ran. The check has to be at hook-run
-# time.
+# WHAT IS CHECKED is where the commits on top of the default branch CAME FROM,
+# not a list of files — the gate's whole job is to run the tree, so any branch
+# supplies code to it.
 #
-# WHAT IS COMPARED, and why it is provenance rather than a file list. The
-# tempting spelling is "refuse when `package.json` or the lint configs differ
-# from upstream". That closes the obvious paths and leaves the widest one open:
-# the test runner executes every `*_test.ts` in the tree, so any branch at all
-# supplies code to pre-push. There is no file list to pin — the gate's
-# whole job is to run the tree. The property that actually separates "my work"
-# from "a pull request I am reviewing" is where the commits this checkout
-# carries on top of the upstream default branch CAME FROM, so that is what is
-# checked.
+# "CAME FROM" IS NOT THE AUTHOR LINE. The author address is a field the
+# branch's author writes (and `.mailmap` can rewrite), so it is a label, not a
+# credential. The credential is the reflog: it lives in `$GIT_DIR`, only the
+# local git writes it, and no fetched content can add to it. A commit this
+# clone CREATED has a commit-writing entry; one it merely RECEIVED is known
+# only through fetch, checkout, reset or a fast-forward — the `gh pr checkout`
+# case. The author check stays underneath, to name a mismatch in the refusal.
 #
-# AND "CAME FROM" IS NOT THE AUTHOR LINE. An earlier revision of this file
-# compared `%aE` against the local `user.email`, which is not an authentication
-# decision at all: the author address is a field the branch's own author writes,
-# so `git config user.email maintainer@example.com` before committing walked
-# straight through the gate, and `.mailmap` — also branch-supplied, also
-# consulted by `%aE` — could rewrite it after the fact. The address is a label,
-# not a credential.
+# Commits reachable from the default branch are trusted by construction, so a
+# branch rebased onto or merged with a fetched `main` does not trip this.
 #
-# The credential is HEAD's reflog. It lives in `$GIT_DIR`, it is written by the
-# local git as it moves HEAD, and no content a fetched branch carries can add an
-# entry to it. A commit this clone CREATED has a reflog entry whose action is a
-# commit-creating one (`commit`, `commit (amend)`, `rebase (pick)`, `merge`,
-# `cherry-pick`, `revert`, `am`); a commit this clone merely RECEIVED is known
-# only through `clone:`, `fetch`, `checkout:`, `reset:` or a `Fast-forward`,
-# which is exactly the `gh pr checkout` case being refused. The author check is
-# kept underneath it, because a mismatched address is still worth naming in the
-# refusal — but it is the second condition, never the only one.
-#
-# Commits reachable from the upstream ref are trusted by construction: they are
-# on the default branch, which is what reviewing a pull request produces. So a
-# branch rebased onto — or merged with — a fetched `main` does not trip this.
-#
-# THE COST, stated because it is real: a commit you wrote on another machine and
-# fetched into this clone was not created here, so this refuses it; so is one
-# whose reflog entry has expired (90 days by default). That is the same
-# evidence a stranger's commit presents, and the bypass below is the answer —
-# an explicit one, which is the point.
+# THE COST: a commit you wrote on another machine, or one whose reflog entry
+# has expired (90 days by default), presents the same evidence as a
+# stranger's, and is refused. The bypass below is the answer.
 #
 # WHAT IT DOES NOT CATCH: a branch authored under YOUR address that you then
-# rebase yourself. The rebase writes new commits, so they are created here,
-# and the author line matches. Rebasing an unread branch is itself running
-# none of its code, but the next commit would be; read the diff first.
+# rebase yourself — the rebase writes new commits here and the author matches.
+# Read the diff before rebasing someone else's branch.
 
-# Echo the upstream default-branch ref, or fail if the clone has none.
-yorkie_upstream_ref() {
-  local ref
-  for ref in refs/remotes/origin/main refs/remotes/origin/HEAD; do
+# Echo every trusted default-branch ref this clone has, one per line, or fail
+# if it has none.
+#
+# `upstream/main` as well as `origin/main`: CONTRIBUTING.md has contributors
+# work from a fork, where `origin` is the fork and its `main` usually lags.
+# Rebasing onto `upstream/main` brings in commits this clone did not create,
+# and they are no less the default branch for arriving by another remote.
+# Only these two names — not every remote's `main`, since checking out a
+# pull request can add a remote for the author's fork.
+yorkie_upstream_refs() {
+  local ref found=1
+  for ref in refs/remotes/origin/main refs/remotes/upstream/main; do
     if git rev-parse --verify --quiet "$ref" >/dev/null; then
       printf '%s\n' "$ref"
-      return 0
+      found=0
     fi
   done
-  return 1
+  if [ "$found" -ne 0 ] &&
+    git rev-parse --verify --quiet refs/remotes/origin/HEAD >/dev/null; then
+    printf '%s\n' refs/remotes/origin/HEAD
+    found=0
+  fi
+  return "$found"
 }
 
 # Echo the OIDs this clone CREATED, one per line.
@@ -121,13 +107,13 @@ yorkie_locally_created() {
 # one command away from fixed (`git fetch origin main`, `git config
 # user.email`) and both are named in the refusal.
 yorkie_require_own_work() {
-  local hook="$1" runs="$2" upstream me commits untrusted
+  local hook="$1" runs="$2" upstreams upstream me commits untrusted
 
   if [ "${YORKIE_ALLOW_FOREIGN_TREE:-}" = "1" ]; then
     return 0
   fi
 
-  if ! upstream=$(yorkie_upstream_ref); then
+  if ! upstreams=$(yorkie_upstream_refs); then
     echo "$hook: no origin/main to tell your commits from a branch you are" >&2
     echo "        reviewing, and $runs runs this tree's code. Fetch it with" >&2
     echo "        'git fetch origin main', or see the bypass below." >&2
@@ -145,11 +131,15 @@ yorkie_require_own_work() {
     return 1
   fi
 
-  # Enumerated in its own command, and its status checked, because the previous
-  # spelling put `git log` at the head of a pipeline: a range that failed to
-  # resolve produced no output, no output read as "no foreign commits", and the
-  # gate passed on the error path.
-  if ! commits=$(git log --format='%H %aE' "$upstream..HEAD" 2>/dev/null); then
+  # `upstream` names the trusted base in messages; the range excludes all of
+  # them. Word-splitting `$upstreams` is safe: these are fixed ref names.
+  upstream=$(printf '%s\n' "$upstreams" | head -n1)
+
+  # Enumerated in its own command, and its status checked: `git log` at the
+  # head of a pipeline would turn a range that failed to resolve into no
+  # output, and no output into "no foreign commits".
+  # shellcheck disable=SC2086
+  if ! commits=$(git log --format='%H %aE' HEAD --not $upstreams 2>/dev/null); then
     echo "$hook: could not list this branch's commits against" >&2
     echo "        ${upstream#refs/remotes/}, so there is no way to tell whose code" >&2
     echo "        $runs would run. See the bypass below." >&2

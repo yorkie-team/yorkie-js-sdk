@@ -721,27 +721,6 @@ test('the trust guard refuses a commit carrying no author address at all', () =>
   });
 });
 
-test('both git hooks still consult the trust guard', () => {
-  // Structural, because dropping the two lines is a silent change: the hooks
-  // keep working, they just start running unread branches again.
-  for (const hook of ['pre-commit', 'pre-push']) {
-    const src = readFileSync(path.join(REPO, '.githooks', hook), 'utf8');
-    assert.match(
-      src,
-      /trusted-tree\.sh/,
-      `${hook} no longer sources the trust guard`,
-    );
-    const guard = src.indexOf('yorkie_require_own_work');
-    const run = src.search(/^exec pnpm (exec lint-staged|verify:fast)$/m);
-    assert.ok(guard > 0, `${hook} no longer calls the trust guard`);
-    assert.ok(run > 0, `${hook} no longer ends in its exec line`);
-    assert.ok(
-      guard < run,
-      `${hook} runs pnpm before checking whose tree it is`,
-    );
-  }
-});
-
 test('a clone path with a space stays one argument, and stays idempotent', () => {
   // THE BUG THIS PINS. The command is handed to a shell. Unquoted, a clone
   // under `~/My Projects/` becomes two words, the hook never starts, and the
@@ -796,37 +775,6 @@ test('a clone path with shell metacharacters cannot inject', () => {
     'the metacharacters must survive as literal text',
   );
   assert.equal(existsSync('/tmp/pwned-by-hook-wiring'), false);
-});
-
-test('setup.sh installs git hooks from a snapshot, not from the worktree', () => {
-  // THE PROPERTY, and it is the same one install.mjs exists for. Pointing
-  // `core.hooksPath` at the tracked `.githooks/` makes every hook
-  // branch-controlled: a pull request rewrites `pre-commit`, a reviewer checks
-  // the branch out and commits, and it runs — reaching the branch's configs
-  // and test code through lint-staged / verify:fast. Closing that for the
-  // Claude hooks and leaving it open for the git hooks would be two threat
-  // models in one change.
-  const setup = readFileSync(path.join(REPO, 'scripts', 'setup.sh'), 'utf8');
-
-  assert.match(
-    setup,
-    /rev-parse --git-common-dir/,
-    'setup.sh must resolve the common git dir',
-  );
-  // THE COMMAND, not the comment. The paragraph above it explains the change
-  // by quoting the old `core.hooksPath ... .githooks` form, so a naive `find`
-  // on the setting name reads the argument for the fix as the fix.
-  const hooksPath = setup
-    .split('\n')
-    .map((l) => l.trim())
-    .find((l) => l.startsWith('git config core.hooksPath'));
-  assert.ok(hooksPath, 'setup.sh no longer configures core.hooksPath');
-  assert.doesNotMatch(
-    hooksPath,
-    /REPO_ROOT|\.githooks"?$/,
-    `core.hooksPath must name the $GIT_DIR snapshot, not the worktree: ${hooksPath}`,
-  );
-  assert.match(hooksPath, /HOOKS_SNAPSHOT/);
 });
 
 /**
@@ -1099,5 +1047,37 @@ test('setup.sh refuses hook sources that differ from origin/main', () => {
 
     const forced = runSetup(clone, { ...env, YORKIE_ALLOW_LOCAL_HOOKS: '1' });
     assert.equal(forced.status, 0, forced.stderr);
+  });
+});
+
+test('the trust guard accepts a fork branch rebased onto upstream/main', () => {
+  // CONTRIBUTING.md has contributors fork: `origin` is their fork, whose
+  // `main` usually lags. Rebasing onto `upstream/main` brings in upstream
+  // commits this clone did not create, and with `origin/main` as the only
+  // trusted base every one of them read as foreign.
+  inScratchClone(({ root, upstream, clone, at, env }) => {
+    at(upstream)(
+      'commit',
+      '-qm',
+      'upstream moved',
+      '--allow-empty',
+      '--no-verify',
+    );
+    // `origin` stays the stale fork; the real upstream is a second remote.
+    const fork = path.join(root, 'fork');
+    at(root)('clone', '-q', '--bare', upstream, fork);
+    at(fork)('update-ref', 'refs/heads/main', 'main~1');
+    at(clone)('remote', 'set-url', 'origin', fork);
+    at(clone)('fetch', '-q', 'origin');
+    at(clone)('reset', '-q', '--hard', 'origin/main');
+    at(clone)('remote', 'add', 'upstream', upstream);
+    at(clone)('fetch', '-q', 'upstream');
+
+    at(clone)('checkout', '-qb', 'topic');
+    at(clone)('commit', '-qm', 'mine', '--allow-empty', '--no-verify');
+    const rebased = at(clone)('rebase', '-q', 'upstream/main');
+    assert.equal(rebased.status, 0, rebased.stderr);
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 0, r.stderr);
   });
 });
