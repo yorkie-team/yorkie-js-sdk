@@ -365,7 +365,30 @@ jobs:
           version: 9
       - name: Install dependencies (lockfile-exact, no lifecycle scripts)
         if: steps.guard.outputs.proceed == 'true'
-        run: pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
+        # THE BRANCH'S .npmrc IS NOT READ. The flags above stop scripts and
+        # pnpmfiles, but not PATH settings: a branch `.npmrc` with
+        # `modules-dir=../..` makes the install write a branch-supplied package
+        # outside the workspace — over the `node` a later step runs, with the
+        # credential pool in its environment. So every `.npmrc` the branch
+        # carries is set aside, `main`'s (the `@buf` registry) stands in for
+        # the install, and the location and version settings are pinned on
+        # the command line as well. The branch's files are put back before the
+        # agent runs, so its working tree is what the branch holds.
+        run: |
+          stash=$(mktemp -d)
+          find . -name .npmrc -not -path '*/node_modules/*' -print0 |
+            while IFS= read -r -d '' f; do
+              mkdir -p "$stash/$(dirname "$f")"
+              mv "$f" "$stash/$f"
+            done
+          git show refs/remotes/origin/main:.npmrc > .npmrc
+          pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile \
+            --config.manage-package-manager-versions=false \
+            --config.modules-dir=node_modules \
+            --config.virtual-store-dir=node_modules/.pnpm
+          rm .npmrc
+          (cd "$stash" && find . -name .npmrc -print0) |
+            while IFS= read -r -d '' f; do mv "$stash/$f" "$f"; done
 
       # THE DIAGNOSIS: `gh run view --log-failed`, the log of every step that
       # failed, tailed, because an integration failure can print megabytes and

@@ -850,7 +850,8 @@ test("no token-bearing job sets itself up by running the branch's build files", 
   // and of every dependency the branch's lockfile names, plus a `.pnpmfile.cjs`
   // the branch can add. Hence the three flags pinned below, and a pnpm version
   // pinned in the workflow rather than read from a `packageManager` field the
-  // branch controls.
+  // branch controls. And the flags do not reach PATH settings in a branch
+  // `.npmrc`, so that file is not read at all — see the install step.
   //
   // The server repository pins the Go-shaped version of this rule (a linter
   // installed from a version in the workflow, never `make tools`); the
@@ -866,23 +867,48 @@ test("no token-bearing job sets itself up by running the branch's build files", 
     const wf = readFileSync(path.join(dir, file), "utf8");
     // Prose does not run: comments state the rule, and a prompt may name
     // `pnpm verify:fast` as an instruction to the agent.
-    const code = wf.split("\n").filter((l) => !/^\s*#/.test(l));
+    // `//` too: the JavaScript inside github-script steps has its own prose.
+    const code = wf.split("\n").filter((l) => !/^\s*(#|\/\/)/.test(l));
     for (const line of code) {
-      // A `run:` that invokes pnpm or npm directly.
+      // A one-line `run:` that invokes pnpm or npm directly.
       const m = /^\s*(?:- )?run:\s*(pnpm|npm)\s+(\S+)(.*)$/.exec(line);
       if (!m) continue;
       const [, pm, verb, rest] = m;
-      if (pm === "pnpm") {
-        if (verb !== "install") {
-          offenders.push(`${file}: runs \`pnpm ${verb}\` as a setup step — a branch-defined script`);
-          continue;
-        }
-        installs++;
-        for (const flag of ["--frozen-lockfile", "--ignore-scripts", "--ignore-pnpmfile"]) {
-          if (!rest.split(/\s+/).includes(flag)) offenders.push(`${file}: \`pnpm install\` without ${flag}`);
-        }
-      } else if (["ci", "install", "i"].includes(verb) && !rest.split(/\s+/).includes("--ignore-scripts")) {
+      if (pm === "pnpm" && verb !== "install") {
+        offenders.push(`${file}: runs \`pnpm ${verb}\` as a setup step — a branch-defined script`);
+      } else if (pm === "npm" && ["ci", "install", "i"].includes(verb) && !rest.split(/\s+/).includes("--ignore-scripts")) {
         offenders.push(`${file}: \`npm ${verb}\` without --ignore-scripts`);
+      }
+    }
+    // Every `pnpm install`, one-line or in a `run: |` block, with its
+    // backslash continuations joined.
+    const joined = code.join("\n").replace(/\\\n\s*/g, " ");
+    for (const m of joined.matchAll(/pnpm install([^\n]*)/g)) {
+      installs++;
+      const args = m[1].split(/\s+/);
+      for (const flag of [
+        "--frozen-lockfile",
+        "--ignore-scripts",
+        "--ignore-pnpmfile",
+        // Location and version settings are pinned on the command line, so a
+        // branch config cannot move the install outside the workspace or
+        // switch the pnpm that runs it.
+        "--config.manage-package-manager-versions=false",
+        "--config.modules-dir=node_modules",
+        "--config.virtual-store-dir=node_modules/.pnpm",
+      ]) {
+        if (!args.includes(flag)) offenders.push(`${file}: \`pnpm install\` without ${flag}`);
+      }
+    }
+    // The flags stop scripts, not PATH settings: a branch `.npmrc` with
+    // `modules-dir=../..` writes a branch package over the `node` a later step
+    // runs. So the branch's .npmrc files are set aside and main's stands in.
+    if (/pnpm install/.test(joined)) {
+      if (!/find \. -name \.npmrc/.test(joined) || !/git show refs\/remotes\/origin\/main:\.npmrc > \.npmrc/.test(joined)) {
+        offenders.push(`${file}: installs with the branch's .npmrc instead of main's`);
+      }
+      if (joined.indexOf("git show refs/remotes/origin/main:.npmrc") > joined.indexOf("pnpm install")) {
+        offenders.push(`${file}: takes main's .npmrc only after installing`);
       }
     }
     // Every pnpm setup pins the version here, and the action itself by SHA: it
@@ -924,14 +950,14 @@ test("every fixer prompt runs the same verification target", () => {
     // The target only runs where pnpm and the workspace's dependencies do.
     assert.match(wf, /uses: actions\/setup-node@v4/,
       `${name}: without a Node setup, \`pnpm verify:fast\` cannot run and the prompt lies`);
-    assert.match(wf, /run: pnpm install --frozen-lockfile/,
+    assert.match(wf, /pnpm install --frozen-lockfile/,
       `${name}: without an install, \`pnpm verify:fast\` cannot run and the prompt lies`);
   }
   // The implementer and the reply agent verify with the same target.
   for (const name of ["agent-implement.yml", "agent-review-reply.yml"]) {
     const wf = WF(name);
     assert.match(wf, /`pnpm verify:fast`/, `${name}: the prompt must name \`pnpm verify:fast\``);
-    assert.match(wf, /run: pnpm install --frozen-lockfile/, `${name}: \`pnpm verify:fast\` needs the install`);
+    assert.match(wf, /pnpm install --frozen-lockfile/, `${name}: \`pnpm verify:fast\` needs the install`);
   }
 });
 
