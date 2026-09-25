@@ -22,10 +22,11 @@ set -euo pipefail
 # is nothing to refuse — and refusing anyway would mean a contributor fixing a
 # typo in a README cannot commit without installing dependencies.
 #
-# NO --diff-filter. `ACM` drops a rename-with-edit, which git reports as a
-# single `R` entry; adding `R` still drops `D`, and a deletion breaks every
-# import of the deleted file. Any staged change to a source file is a reason
-# to run.
+# NO --diff-filter here. `ACM` would skip a rename-with-edit, which git
+# reports as a single `R` entry. A deletion also reaches lint-staged, but
+# lint-staged itself lints only added/changed files, and ESLint does not
+# resolve imports — so the broken imports a deletion leaves are caught by the
+# build in pre-push, not here.
 #
 # git's own pathspec does the filtering. A `| grep -q` would be the obvious
 # spelling and is a trap: `grep -q` exits at the first match, `git` takes

@@ -8,15 +8,20 @@ set -euo pipefail
 # checked-out branch's hook sources on every install, which is the hole the
 # snapshot below exists to close.
 if [ "${1:-}" = "--check" ]; then
-  GIT_DIR=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
-  if [ "$(git config --get core.hooksPath || true)" != "$GIT_DIR/githooks" ]; then
+  GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null) || exit 0
+  GIT_COMMON=$(cd "$GIT_COMMON" && pwd -P) || exit 0
+  if [ "$(git config --get core.hooksPath || true)" != "$GIT_COMMON/githooks" ]; then
     echo "Git hooks are not installed for this clone. Run: bash scripts/setup.sh" >&2
   fi
   exit 0
 fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
-GIT_DIR=$(git rev-parse --absolute-git-dir)
+# THE COMMON DIR, not `--absolute-git-dir`. In a linked worktree the latter is
+# `.git/worktrees/<name>`, while `core.hooksPath` is shared config: a snapshot
+# taken there is what every checkout of the clone runs, and `git worktree
+# remove` deletes it — after which git runs no hooks at all, silently.
+GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
 
 # THE RE-RUN IS THE VECTOR THE SNAPSHOT DOES NOT COVER BY ITSELF. Everything
 # below copies the CURRENT worktree's hook sources into `$GIT_DIR`, where no
@@ -111,7 +116,7 @@ fi
 # `YORKIE_ALLOW_FOREIGN_TREE=1`. CONTRIBUTING.md says the same thing where
 # contributors read it.
 
-HOOKS_SNAPSHOT="$GIT_DIR/githooks"
+HOOKS_SNAPSHOT="$GIT_COMMON/githooks"
 rm -rf "$HOOKS_SNAPSHOT"
 mkdir -p "$HOOKS_SNAPSHOT"
 cp "$REPO_ROOT/.githooks/"* "$HOOKS_SNAPSHOT/"

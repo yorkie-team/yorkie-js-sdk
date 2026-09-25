@@ -51,9 +51,15 @@
 # branch rebased onto — or merged with — a fetched `main` does not trip this.
 #
 # THE COST, stated because it is real: a commit you wrote on another machine and
-# fetched into this clone was not created here, so this refuses it. That is the
-# same evidence a stranger's commit presents, and the bypass below is the answer
-# — an explicit one, which is the point.
+# fetched into this clone was not created here, so this refuses it; so is one
+# whose reflog entry has expired (90 days by default). That is the same
+# evidence a stranger's commit presents, and the bypass below is the answer —
+# an explicit one, which is the point.
+#
+# WHAT IT DOES NOT CATCH: a branch authored under YOUR address that you then
+# rebase yourself. The rebase writes new commits, so they are created here,
+# and the author line matches. Rebasing an unread branch is itself running
+# none of its code, but the next commit would be; read the diff first.
 
 # Echo the upstream default-branch ref, or fail if the clone has none.
 yorkie_upstream_ref() {
@@ -69,17 +75,39 @@ yorkie_upstream_ref() {
 
 # Echo the OIDs this clone CREATED, one per line.
 #
-# `%gs` is the reflog subject, whose first word is the action. Only the
-# commit-creating actions count: `checkout:`, `reset:`, `clone:`,
-# `rebase (start):`, and any entry ending in `Fast-forward` all move HEAD onto a
-# commit that arrived from somewhere else, so an OID known only through those is
-# precisely what this refuses. An unrecognised action is not creating, so a
-# future git spelling fails closed rather than open.
+# `%gs` is the reflog subject. Only entries that record git WRITING a commit
+# count, matched on the whole subject rather than its first word:
+#
+#   - `commit`, `commit (amend)`, `commit (merge)`, `cherry-pick`, `revert`,
+#     `am`, `applypatch`;
+#   - a rebase step that writes one — `(pick)`, `(reword)`, `(edit)`,
+#     `(squash)`, `(fixup)`, `(continue)` — whether git spells the action
+#     `rebase` or `pull --rebase ...`, which is what `git pull --rebase` logs;
+#   - a merge commit git made, `merge ...: Merge made by` or
+#     `pull ...: Merge made by`.
+#
+# Everything else moves HEAD onto a commit that arrived from somewhere else:
+# `checkout:`, `reset:`, `clone:`, anything ending in `Fast-forward`, and
+# `(start)` / `(finish)` of a rebase. `(finish)` in particular names the
+# commit HEAD lands on, which after a rebase that only fast-forwarded onto a
+# fetched branch is somebody else's. An unrecognised subject is not creating,
+# so a future git spelling fails closed rather than open.
+#
+# TWO REFLOGS. HEAD's reflog is per worktree; the current branch's reflog is
+# shared by every worktree of the clone. Reading both keeps a branch you wrote
+# in one worktree yours when you check it out in another.
 yorkie_locally_created() {
-  git reflog show HEAD --format='%H %gs' 2>/dev/null | awk '
-    /Fast-forward$/ { next }
-    $2 == "rebase" && $3 == "(start):" { next }
-    $2 ~ /^(commit|rebase|merge|cherry-pick|revert|am|applypatch)/ { print $1 }
+  local branch
+  {
+    git reflog show HEAD --format='%H %gs' 2>/dev/null || true
+    if branch=$(git symbolic-ref -q HEAD 2>/dev/null); then
+      git reflog show "$branch" --format='%H %gs' 2>/dev/null || true
+    fi
+  } | awk '
+    / Fast-forward$/ { next }
+    $2 ~ /^(commit|cherry-pick|revert|am|applypatch)[:( ]/ { print $1; next }
+    /^[0-9a-f]+ (rebase|pull)[^:]*\((pick|reword|edit|squash|fixup|continue)\):/ { print $1; next }
+    /^[0-9a-f]+ (merge|pull)[^:]*: Merge made by/ { print $1; next }
   '
 }
 

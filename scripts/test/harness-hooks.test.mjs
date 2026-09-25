@@ -32,6 +32,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  realpathSync,
   readFileSync,
   rmSync,
   statSync,
@@ -281,9 +282,8 @@ test('the installer wires the snapshot and keeps everything else', () => {
 test('session-prime says nothing in CI and speaks locally', () => {
   // The guidance it prints is a local multi-commit workflow — plan a task doc,
   // self-review, archive before merge. A CI fix job is told to fix the
-  // findings it was handed "and nothing else", and whether
-  // `claude-code-action` loads a branch's `.claude/` is unsettled: three
-  // workflows delete the directory on the assumption that it does. Refusing
+  // findings it was handed and nothing else, and whether
+  // `claude-code-action` loads a branch's `.claude/` is unsettled. Refusing
   // under GITHUB_ACTIONS settles it either way, and is easy to drop by
   // accident because nothing fails when it goes.
   const prime = path.join(REPO, 'scripts', 'hooks', 'session-prime.sh');
@@ -326,7 +326,14 @@ test('verify:fast reaches the licence gate and needs no server', () => {
     pkg.scripts['verify:license'],
     'verify:fast names a script that does not exist',
   );
-  assert.doesNotMatch(fast, /sdk test(?!:unit)|test:ci|integration/);
+  // The sdk and prosemirror suites include integration tests; only their
+  // `test:unit` halves are server-free. react and schema have none.
+  assert.doesNotMatch(
+    fast,
+    /pnpm (sdk|prosemirror) test(?!:unit)|test:ci|integration/,
+  );
+  assert.match(fast, /pnpm sdk test:unit/);
+  assert.match(fast, /pnpm prosemirror test:unit/);
 });
 
 test('Husky is gone, so nothing wires hooks from the worktree', () => {
@@ -469,8 +476,10 @@ test('pre-commit lints whenever a commit stages source, however it stages it', (
   });
 });
 
-test('pre-commit lints a staged source deletion', () => {
-  // A deletion breaks every import of the deleted file.
+test('pre-commit hands a staged source deletion to lint-staged', () => {
+  // This pins only that the hook does not skip a deletion. lint-staged
+  // itself lints added/changed files, so what catches the imports a deletion
+  // breaks is the build in pre-push.
   inScratchRepo(({ dir, git }) => {
     writeFileSync(path.join(dir, 'a.mjs'), 'export const a = 1;\n');
     git('add', 'a.mjs');
@@ -801,8 +810,8 @@ test('setup.sh installs git hooks from a snapshot, not from the worktree', () =>
 
   assert.match(
     setup,
-    /rev-parse --absolute-git-dir/,
-    'setup.sh must resolve $GIT_DIR',
+    /rev-parse --git-common-dir/,
+    'setup.sh must resolve the common git dir',
   );
   // THE COMMAND, not the comment. The paragraph above it explains the change
   // by quoting the old `core.hooksPath ... .githooks` form, so a naive `find`
@@ -818,4 +827,277 @@ test('setup.sh installs git hooks from a snapshot, not from the worktree', () =>
     `core.hooksPath must name the $GIT_DIR snapshot, not the worktree: ${hooksPath}`,
   );
   assert.match(hooksPath, /HOOKS_SNAPSHOT/);
+});
+
+/**
+ * A scratch upstream plus a clone of it, built without `git clone` so every
+ * command can be addressed with `git -C` under a stripped environment. No
+ * GIT_DIR is pinned: the worktree cases need git's own discovery, and the
+ * ceiling keeps that discovery inside the scratch directory.
+ */
+function inScratchClone(body) {
+  const root = mkdtempSync(path.join(tmpdir(), 'scratch-clone-'));
+  const env = {
+    ...withoutGitVars(),
+    GIT_CEILING_DIRECTORIES: path.dirname(root),
+  };
+  const at =
+    (cwd) =>
+    (...args) => {
+      const r = spawnSync('git', ['-C', cwd, ...args], {
+        encoding: 'utf8',
+        env,
+      });
+      return r;
+    };
+  try {
+    const upstream = path.join(root, 'upstream');
+    const clone = path.join(root, 'clone');
+    for (const dir of [upstream, clone]) {
+      mkdirSync(dir);
+      const git = at(dir);
+      git('init', '-q', '-b', 'main', '.');
+      git('config', 'user.email', 'test@example.com');
+      git('config', 'user.name', 'test');
+      git('config', 'commit.gpgsign', 'false');
+    }
+    at(upstream)('commit', '-qm', 'base', '--allow-empty', '--no-verify');
+    const git = at(clone);
+    git('remote', 'add', 'origin', upstream);
+    git('fetch', '-q', 'origin');
+    git('reset', '-q', '--hard', 'origin/main');
+    return body({ root, upstream, clone, at, env });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** Run a hook from this repository against `dir` with a stub pnpm on PATH. */
+function runHookIn(hook, dir, env) {
+  const bin = path.join(dir, '..', 'probe-bin');
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(
+    path.join(bin, 'pnpm'),
+    '#!/usr/bin/env bash\necho "RAN pnpm $*"\n',
+  );
+  chmodSync(path.join(bin, 'pnpm'), 0o755);
+  const hooks = path.join(dir, '..', 'probe-hooks');
+  mkdirSync(hooks, { recursive: true });
+  for (const f of [hook, 'trusted-tree.sh']) {
+    writeFileSync(
+      path.join(hooks, f),
+      readFileSync(path.join(REPO, '.githooks', f)),
+    );
+  }
+  return spawnSync('bash', [path.join(hooks, hook)], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...env, PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+  });
+}
+
+test('pre-push runs on your own branch, and reaches verify:fast', () => {
+  inScratchClone(({ clone, at, env }) => {
+    at(clone)('commit', '-qm', 'mine', '--allow-empty', '--no-verify');
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /RAN pnpm verify:fast/);
+  });
+});
+
+test('the trust guard accepts your own commits after git pull --rebase', () => {
+  // `git pull --rebase` logs its picks as `pull --rebase ... (pick): ...`, so
+  // an action list that knows only `rebase` refuses the everyday way of
+  // staying current — and a guard that refuses the everyday case gets
+  // bypassed by reflex.
+  inScratchClone(({ upstream, clone, at, env }) => {
+    at(clone)('commit', '-qm', 'mine', '--allow-empty', '--no-verify');
+    at(upstream)(
+      'commit',
+      '-qm',
+      'upstream moved',
+      '--allow-empty',
+      '--no-verify',
+    );
+    const pulled = at(clone)('pull', '-q', '--rebase', 'origin', 'main');
+    assert.equal(pulled.status, 0, pulled.stderr);
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 0, r.stderr);
+  });
+});
+
+test('the trust guard accepts your own merge made by git pull', () => {
+  inScratchClone(({ upstream, clone, at, env }) => {
+    at(clone)('commit', '-qm', 'mine', '--allow-empty', '--no-verify');
+    at(upstream)(
+      'commit',
+      '-qm',
+      'upstream moved',
+      '--allow-empty',
+      '--no-verify',
+    );
+    const pulled = at(clone)(
+      'pull',
+      '-q',
+      '--no-rebase',
+      '--no-edit',
+      'origin',
+      'main',
+    );
+    assert.equal(pulled.status, 0, pulled.stderr);
+    // The merge commit is on top of origin/main's history, and it is ours.
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 0, r.stderr);
+  });
+});
+
+test('the trust guard refuses a rebase that only fast-forwards onto a PR', () => {
+  // `rebase (finish)` names the commit HEAD lands on, which after a
+  // fast-forward is somebody else's. Only the steps that write a commit
+  // (pick, reword, ...) are evidence of authorship.
+  inScratchClone(({ upstream, clone, at, env }) => {
+    at(upstream)('checkout', '-qb', 'pr');
+    at(upstream)('commit', '-qm', 'theirs', '--allow-empty', '--no-verify');
+    at(clone)('fetch', '-q', 'origin');
+    const rebased = at(clone)('rebase', '-q', 'origin/pr');
+    assert.equal(rebased.status, 0, rebased.stderr);
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(
+      r.status,
+      1,
+      `a fast-forward onto a PR must refuse: ${r.stdout}`,
+    );
+    assert.match(r.stderr, /not created by this clone/);
+  });
+});
+
+test('the trust guard accepts a branch committed in another worktree', () => {
+  // HEAD's reflog is per worktree; the branch's reflog is shared. A branch
+  // written in a worktree and checked out in the main checkout is still ours.
+  inScratchClone(({ root, clone, at, env }) => {
+    const wt = path.join(root, 'wt');
+    at(clone)('worktree', 'add', '-q', '-b', 'topic', wt, 'origin/main');
+    at(wt)(
+      'commit',
+      '-qm',
+      'mine in a worktree',
+      '--allow-empty',
+      '--no-verify',
+    );
+    at(clone)('worktree', 'remove', wt);
+    at(clone)('checkout', '-q', 'topic');
+    const r = runHookIn('pre-push', clone, env);
+    assert.equal(r.status, 0, r.stderr);
+  });
+});
+
+/** Copy what setup.sh runs into `dir` and commit it as origin/main. */
+function plantSetup({ upstream, clone, at }) {
+  for (const rel of [
+    '.githooks/commit-msg',
+    '.githooks/pre-commit',
+    '.githooks/pre-push',
+    '.githooks/trusted-tree.sh',
+    'scripts/setup.sh',
+    'scripts/direct-run.mjs',
+    'scripts/hooks/install.mjs',
+    'scripts/hooks/session-prime.sh',
+    'scripts/hooks/guard-generated-files.sh',
+  ]) {
+    const dest = path.join(upstream, rel);
+    mkdirSync(path.dirname(dest), { recursive: true });
+    writeFileSync(dest, readFileSync(path.join(REPO, rel)));
+    chmodSync(dest, statSync(path.join(REPO, rel)).mode);
+  }
+  at(upstream)('add', '-A');
+  at(upstream)('commit', '-qm', 'hooks', '--no-verify');
+  at(clone)('fetch', '-q', 'origin');
+  at(clone)('reset', '-q', '--hard', 'origin/main');
+}
+
+function runSetup(cwd, env, ...args) {
+  return spawnSync('bash', [path.join(cwd, 'scripts', 'setup.sh'), ...args], {
+    cwd,
+    encoding: 'utf8',
+    env,
+  });
+}
+
+test('setup.sh installs a snapshot with its sourced helper, then --check is quiet', () => {
+  inScratchClone((ctx) => {
+    const { clone, at, env } = ctx;
+    plantSetup(ctx);
+    const before = runSetup(clone, env, '--check');
+    assert.equal(before.status, 0);
+    assert.match(before.stderr, /not installed/);
+
+    const r = runSetup(clone, env);
+    assert.equal(r.status, 0, r.stderr);
+    const hooksPath = at(clone)(
+      'config',
+      '--get',
+      'core.hooksPath',
+    ).stdout.trim();
+    assert.equal(hooksPath, path.join(realpathSync(clone), '.git', 'githooks'));
+    statSync(path.join(hooksPath, 'trusted-tree.sh'));
+    accessSync(path.join(hooksPath, 'pre-push'), constants.X_OK);
+    statSync(path.join(clone, '.claude', 'settings.local.json'));
+
+    const after = runSetup(clone, env, '--check');
+    assert.equal(after.stderr, '');
+  });
+});
+
+test('setup.sh in a worktree installs into the shared git dir', () => {
+  // `--absolute-git-dir` in a worktree is `.git/worktrees/<name>`, while
+  // `core.hooksPath` is shared config. Snapshotting there meant removing the
+  // worktree deleted the hooks every checkout of the clone was pointed at,
+  // and git runs no hooks at all from a path that does not exist.
+  inScratchClone((ctx) => {
+    const { root, clone, at, env } = ctx;
+    plantSetup(ctx);
+    const wt = path.join(root, 'wt');
+    at(clone)('worktree', 'add', '-q', wt, 'origin/main');
+
+    const r = runSetup(wt, env);
+    assert.equal(r.status, 0, r.stderr);
+    const hooksPath = at(clone)(
+      'config',
+      '--get',
+      'core.hooksPath',
+    ).stdout.trim();
+    assert.doesNotMatch(hooksPath, /worktrees/);
+
+    assert.equal(
+      runSetup(wt, env, '--check').stderr,
+      '',
+      '--check in a worktree',
+    );
+    at(clone)('worktree', 'remove', '--force', wt);
+    statSync(path.join(hooksPath, 'pre-push')); // still there
+    assert.equal(runSetup(clone, env, '--check').stderr, '');
+  });
+});
+
+test('setup.sh refuses hook sources that differ from origin/main', () => {
+  // The re-run inside a reviewed branch is the vector the snapshot does not
+  // cover by itself: it would persist that branch's hooks.
+  inScratchClone((ctx) => {
+    const { clone, at, env } = ctx;
+    plantSetup(ctx);
+    writeFileSync(
+      path.join(clone, '.githooks', 'pre-push'),
+      '#!/usr/bin/env bash\nexit 0\n',
+    );
+    const r = runSetup(clone, env);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /YORKIE_ALLOW_LOCAL_HOOKS=1/);
+    assert.equal(
+      at(clone)('config', '--get', 'core.hooksPath').stdout.trim(),
+      '',
+    );
+
+    const forced = runSetup(clone, { ...env, YORKIE_ALLOW_LOCAL_HOOKS: '1' });
+    assert.equal(forced.status, 0, forced.stderr);
+  });
 });
