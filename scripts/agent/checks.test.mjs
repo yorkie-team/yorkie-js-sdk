@@ -2157,9 +2157,9 @@ test("no agent is handed a token that can approve a pull request", () => {
 test("a release the agent App created publishes nothing", () => {
   // `contents: write` IS ONE PERMISSION COVERING COMMITS AND RELEASES. The token
   // a fix agent holds to push a branch can therefore publish a release, and
-  // `docker-publish.yml` answers `release: published` with `secrets: inherit` —
-  // Docker Hub credentials. GitHub offers no narrower grant, so the escape
-  // closes at the consumer or not at all.
+  // `npm-publish.yml` answers `release: published` with `NPM_TOKEN` and
+  // `devtools-publish.yml` with the Chrome Web Store keys. GitHub offers no
+  // narrower grant, so the escape closes at the consumer or not at all.
   const HERE = path.dirname(fileURLToPath(import.meta.url));
   const dir = path.join(HERE, "..", "..", ".github", "workflows");
   const onRelease = readdirSync(dir)
@@ -2169,7 +2169,8 @@ test("a release the agent App created publishes nothing", () => {
       const on = code.slice(0, code.findIndex((l) => /^jobs:/.test(l)));
       return on.some((l) => /^\s+release:\s*$/.test(l));
     });
-  assert.ok(onRelease.length > 0, "no release-triggered workflow found — this guard would be vacuous");
+  assert.deepEqual(onRelease.sort(), ["devtools-publish.yml", "npm-publish.yml"],
+    "the release-triggered publishers must be found — this guard would be vacuous");
   for (const file of onRelease) {
     const wf = readFileSync(path.join(dir, file), "utf8");
     assert.match(
@@ -2182,6 +2183,12 @@ test("a release the agent App created publishes nothing", () => {
   // a PR a human already approved, which is a push to `main` authored by the
   // App — and a push-triggered workflow that inherits secrets answers it the
   // same way. Every such workflow must refuse the App as the actor.
+  //
+  // This repository has none today: its push-triggered workflows are `ci.yml`
+  // (Codecov's upload token only) and `github-page-publish.yml` (GITHUB_TOKEN
+  // only, deploying what `main` already holds). The server repository pins its
+  // Docker publisher by name here; with no such file the loop below is empty by
+  // fact rather than by omission, and re-arms the day one is added.
   const onPushInherit = readdirSync(dir)
     .filter((f) => f.endsWith(".yml"))
     .filter((f) => {
@@ -2189,7 +2196,6 @@ test("a release the agent App created publishes nothing", () => {
       const on = code.slice(0, code.findIndex((l) => /^jobs:/.test(l)));
       return on.some((l) => /^\s+push:\s*$/.test(l)) && code.some((l) => /^\s+secrets: inherit\s*$/.test(l));
     });
-  assert.ok(onPushInherit.includes("docker-publish-latest.yml"), "the push-triggered publisher must be found");
   for (const file of onPushInherit) {
     assert.match(
       readFileSync(path.join(dir, file), "utf8"),

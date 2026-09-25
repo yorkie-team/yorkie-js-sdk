@@ -8,7 +8,14 @@ jobs:
     # A pre-release must not reach the public Chrome Web Store listing. Unlike
     # an npm prerelease, which consumers opt into by tag, a store upload goes
     # to every user of the extension.
-    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
+    #
+    # And not for a release the agent App created: `contents: write`, which the
+    # fix agents hold to push a branch, also publishes releases, and this job
+    # answers one with the store's `BPP_KEYS`. npm-publish.yml carries the same
+    # guard and says why.
+    if: >-
+      ${{ (github.event_name != 'release' || !github.event.release.prerelease)
+      && github.event.release.author.login != 'yorkie-team-agent[bot]' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
