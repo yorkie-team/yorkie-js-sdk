@@ -87,21 +87,21 @@ export const CI_WORKFLOW_FILE = "ci.yml";
  * A `pull_request` run executes the merge ref's copy of everything CI reaches,
  * so a branch that edits any of these hands gate 1 a green run that proves
  * nothing about main's CI. `.github/workflows/ci.yml` is the obvious one and is
- * nowhere near sufficient: it contains almost no test logic. It calls `make
- * lint` and `make build`, which resolve through the merge ref's `Makefile` into
- * whatever `golangci-lint` config the branch ships, and it grades the
- * integration suite against a compose stack the branch also owns. Listing only
- * the two `.github` prefixes — which an earlier revision of this gate did —
- * meant a branch could gut CI through the `Makefile` and still auto-promote,
- * while the hand-off comment told the human reviewer the run had executed
- * main's CI definition.
+ * nowhere near sufficient: it contains almost no test logic. Every step is a
+ * `pnpm` script, which resolves through the merge ref's `package.json` files into
+ * whatever eslint, tsc, vite and vitest configuration the branch ships, installed
+ * from the branch's lockfile, and it grades the integration suites against a
+ * compose stack the branch also owns. Listing only the two `.github` prefixes —
+ * which an earlier revision of this gate did — meant a branch could gut CI
+ * through a package script and still auto-promote, while the hand-off comment
+ * told the human reviewer the run had executed main's CI definition.
  *
- * NO SECOND LIST TO MIRROR HERE. The repository this gate was ported from keeps
- * its own CODEOWNER-ed declaration of "files that decide how much CI runs", and
- * a test asserts this list covers it entry for entry. This repository has no
- * such file: `ci.yml`'s own filter declares `build: '**'`, so the lint/build/
- * test job is unconditional and no path can shrink it. That removes the drift
- * risk and removes the cross-check with it, which is why the entries below are
+ * NO SECOND LIST TO MIRROR HERE. The pnpm monorepo this gate was first written
+ * for keeps its own CODEOWNER-ed declaration of "files that decide how much CI
+ * runs", and a test there asserts this list covers it entry for entry. This
+ * repository has no such file: `ci.yml` has no path filter at all, so its one
+ * job is unconditional and no path can shrink it. That removes the drift risk
+ * and removes the cross-check with it, which is why the entries below are
  * commented individually — the comment is the only thing left saying why each
  * one is on the list.
  *
@@ -121,36 +121,47 @@ export const CI_DEFINING_PATHS = [
   ".github/workflows/**",
   ".github/actions/**",
   ".github/CODEOWNERS",
-  // The lanes themselves. `ci.yml` calls `make lint`, `make build` and a
-  // `go test` line; what those resolve to lives in the Makefile and
-  // `.golangci.yml`, so a branch editing either supplies part of the CI
-  // definition exactly as if it had edited the workflow.
-  "Makefile",
-  ".golangci.yml",
+  // The lanes themselves. Every `ci.yml` step is `pnpm <script>`, and what a
+  // script runs is written in these manifests — a branch that turns `test:ci`
+  // into `true` supplies part of the CI definition exactly as if it had edited
+  // the workflow.
+  "package.json",
+  "packages/*/package.json",
+  // `pnpm build:examples` runs each example's own `build` script. An example's
+  // other files (its vite config, its sources) are that sample app's code,
+  // graded by the build succeeding, and stay reviewable rather than refused.
+  "examples/*/package.json",
+  // The dependency graph CI installs before it runs anything, and where it
+  // installs it from (`.npmrc` names a registry for the `@buf` scope).
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  ".npmrc",
+  // What `pnpm lint:check` checks. eslint looks its config up per file
+  // (`--flag v10_config_lookup_from_file`), so a package-level config decides
+  // that package's rules; `prettier/prettier` reads the Prettier config and
+  // ignore file.
+  "eslint.config.mjs",
+  "packages/*/eslint.config.mjs",
+  ".prettierrc.js",
+  ".prettierignore",
+  // What `tsc` checks and what vitest collects: the include globs, the setup
+  // file and the environment are all here.
+  "packages/*/tsconfig*.json",
+  "packages/*/vite.config.*",
+  "packages/*/vite.build.*",
+  "packages/*/vitest.config.*",
   "codecov.yml",
-  // The toolchain and the dependency graph CI resolves before it runs anything.
-  "go.mod",
-  "go.sum",
-  // Codegen configuration: the `buf generate` freshness gate is only as strict
-  // as the config it regenerates from.
-  "buf.gen.yaml",
-  "buf.work.yaml",
-  "api/buf.yaml",
-  "api/buf.gen.yaml",
-  // The stack the integration lane is graded against.
-  "build/docker/**",
-  // Scripts a workflow invokes directly.
-  "scripts/ci/**",
-  // …and the modules those scripts import. `scripts/*.mjs` rather than
-  // `scripts/verify-*.mjs`: `verify-doc-links.mjs` and `verify-license.mjs`
-  // both import `direct-run.mjs` for the predicate that decides whether their
-  // CLI body runs at all, so a branch editing that one file makes both of
-  // docs.yml's gates exit 0 having checked nothing — the same fail-open as
-  // editing the verify scripts themselves, one import away from the pattern
-  // that only named them. The directory holds nothing but those scripts and
-  // their shared helpers, so the wider glob costs no false refusals.
+  // The stack the integration suites are graded against.
+  "docker/**",
+  // Scripts a workflow invokes directly, and the modules they import.
+  // `verify-doc-links.mjs` and `verify-license.mjs` both import
+  // `direct-run.mjs` for the predicate that decides whether their CLI body runs
+  // at all, so a branch editing that one file makes both gates exit 0 having
+  // checked nothing — the same fail-open as editing the verify scripts
+  // themselves. The directory's top level holds nothing but those scripts and
+  // their shared helpers, so the glob costs no false refusals.
   "scripts/*.mjs",
-  // …and the suite those scripts are graded by. `docs.yml` runs
+  // …and the suite those scripts are graded by. `pnpm test:scripts` runs
   // `node --test 'scripts/test/**'`, so a branch editing a guard there changes
   // what the lane proves exactly as much as editing the script it guards.
   "scripts/test/**",
@@ -158,9 +169,11 @@ export const CI_DEFINING_PATHS = [
   // Claude Code's hook wiring point at, and the two hook directories are what
   // they point at — a branch rewriting any of them changes what runs on a
   // reviewer's machine and what a contributor's clone checks before pushing.
+  // `lint-staged.config.mjs` is what the pre-commit hook runs.
   "scripts/setup.sh",
   "scripts/hooks/**",
   ".githooks/**",
+  "lint-staged.config.mjs",
 ];
 
 // `**` spans separators, `*` does not, everything else is literal. Deliberately

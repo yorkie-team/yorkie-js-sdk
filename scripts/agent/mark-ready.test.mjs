@@ -147,7 +147,7 @@ function okConfig(over = {}) {
       started_at: AT,
       app: { slug: "github-actions" },
     })),
-    files: [{ filename: "pkg/document/crdt/tree.go" }],
+    files: [{ filename: "packages/sdk/src/document/crdt/tree.ts" }],
     fail: [],
     ...over,
   };
@@ -358,34 +358,33 @@ test("gate 1b: a branch that edits the CI definition is not promoted by its own 
   assert.ok(!promoted(unreadable.calls));
 
   // ...and an ordinary code-only PR is unaffected.
-  const ordinary = run(["7", "--promote"], okConfig({ files: [{ filename: "server/rpc/yorkie_server.go" }] }));
+  const ordinary = run(["7", "--promote"], okConfig({ files: [{ filename: "packages/sdk/src/client/client.ts" }] }));
   assert.equal(ordinary.code, 0);
   assert.ok(promoted(ordinary.calls));
 });
 
 test("gate 1b covers the WHOLE CI-defining surface, not just .github/**", () => {
-  // `ci.yml` contains almost no test logic: it calls `make lint` and `make build`,
-  // which resolve through the MERGE REF's `Makefile` into whatever golangci-lint
-  // config the branch ships, and it grades the integration suite against a
-  // compose stack the branch also owns. A gate that refused only
-  // `.github/workflows|actions/**` let a branch gut CI through any of those and
-  // still auto-promote — while the hand-off comment told the human reviewer the
-  // run had executed main's CI definition. Every path here is one the agent App
-  // CAN push.
+  // `ci.yml` contains almost no test logic: every step is a pnpm script, which
+  // resolves through the MERGE REF's `package.json` files into whatever eslint,
+  // tsc and vitest configuration the branch ships, installed from the branch's
+  // lockfile, and it grades the integration suites against a compose stack the
+  // branch also owns. A gate that refused only `.github/workflows|actions/**`
+  // let a branch gut CI through any of those and still auto-promote — while the
+  // hand-off comment told the human reviewer the run had executed main's CI
+  // definition. Every path here is one the agent App CAN push.
   for (const filename of [
-    "Makefile",
-    ".golangci.yml",
+    "package.json",
+    "packages/sdk/package.json",
+    "pnpm-lock.yaml",
+    "eslint.config.mjs",
+    "packages/sdk/vitest.config.ts",
+    "packages/sdk/tsconfig.json",
     "codecov.yml",
-    "go.mod",
-    "go.sum",
-    "buf.gen.yaml",
-    "api/buf.gen.yaml",
-    "build/docker/docker-compose.yml",
-    "scripts/ci/parse-bench.js",
+    "docker/docker-compose-ci.yml",
     "scripts/verify-doc-links.mjs",
     // And the module both verify scripts import their entry-point predicate
-    // from: editing it alone makes docs.yml's two gates exit 0 having checked
-    // nothing, so gate 1b has to refuse it too.
+    // from: editing it alone makes both gates exit 0 having checked nothing, so
+    // gate 1b has to refuse it too.
     "scripts/direct-run.mjs",
     ".github/CODEOWNERS",
   ]) {

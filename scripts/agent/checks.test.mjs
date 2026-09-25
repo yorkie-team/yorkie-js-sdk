@@ -1145,37 +1145,48 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
   // rather than an omission. Upstream asserts this list is a superset of its
   // `harness.config.json` `ciConfig`, which exists because a changed path there
   // can SHRINK a CI run — so a PR editing it could grade its own homework. This
-  // repository's `build` filter is `'**'` plus negations naming documentation
-  // paths, and `definesCi` refuses a PR that edits `ci.yml` at all, so a branch
-  // cannot widen those negations to exempt its own code; the tag-gated jobs it
-  // can narrow (bench, complex-test, load-test) are not what a gate reads. The
-  // property the upstream mirror protects is structurally absent, so what is
-  // left to assert is that the matcher classifies the real surface.
+  // repository's `ci.yml` has no path filter at all, and `definesCi` refuses a
+  // PR that edits `ci.yml`, so a branch cannot add one to exempt its own code.
+  // The property the upstream mirror protects is structurally absent, so what
+  // is left to assert is that the matcher classifies the real surface.
   for (const p of [
     ".github/workflows/ci.yml",
     ".github/workflows/nested/whatever.yml",
     ".github/actions/setup/action.yml",
     ".github/CODEOWNERS",
-    // The lanes: `ci.yml` runs `make lint` and `make build`, and what those do
-    // lives here.
-    "Makefile",
-    ".golangci.yml",
+    // The lanes: every `ci.yml` step is a pnpm script, and what those run is
+    // written in the manifests and the tool configs they read.
+    "package.json",
+    "packages/sdk/package.json",
+    "packages/prosemirror/package.json",
+    "examples/vanilla-prosemirror/package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    ".npmrc",
+    "eslint.config.mjs",
+    "packages/sdk/eslint.config.mjs",
+    ".prettierrc.js",
+    ".prettierignore",
+    "packages/sdk/tsconfig.json",
+    "packages/sdk/vite.build.ts",
+    "packages/sdk/vitest.config.ts",
+    "packages/prosemirror/vite.config.ts",
+    "packages/react/vite.config.js",
     "codecov.yml",
-    "go.mod",
-    "go.sum",
-    "buf.gen.yaml",
-    "buf.work.yaml",
-    "api/buf.yaml",
-    "api/buf.gen.yaml",
-    "build/docker/docker-compose.yml",
-    "build/docker/sharding/docker-compose.yml",
-    "scripts/ci/parse-bench.js",
+    "docker/docker-compose-ci.yml",
+    "docker/docker-compose.yml",
     "scripts/verify-doc-links.mjs",
+    "scripts/verify-license.mjs",
     // The module both verify scripts import their "am I the entry point?"
-    // predicate from. Editing it alone makes docs.yml's two gates exit 0
-    // without checking anything, so it defines CI's behaviour exactly as much
-    // as the scripts that import it.
+    // predicate from. Editing it alone makes both gates exit 0 without
+    // checking anything, so it defines CI's behaviour exactly as much as the
+    // scripts that import it.
     "scripts/direct-run.mjs",
+    "scripts/test/verify-license.test.mjs",
+    "scripts/setup.sh",
+    "scripts/hooks/install.mjs",
+    ".githooks/pre-push",
+    "lint-staged.config.mjs",
   ]) {
     assert.equal(definesCi(p), true, `${p} defines what CI does and must be refused by gate 1b`);
   }
@@ -1183,11 +1194,14 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
   // ...and does not swallow the code under review. A gate that refuses every PR
   // is the same outage as one that refuses none, arrived at from the other side.
   for (const p of [
-    "pkg/document/crdt/tree.go",
-    "server/backend/database/mongo/client.go",
-    "test/integration/document_test.go",
-    "api/yorkie/v1/resources.proto",
-    "docs/design/tree.md",
+    "packages/sdk/src/document/crdt/tree.ts",
+    "packages/sdk/test/integration/tree_test.ts",
+    "packages/sdk/src/api/yorkie/v1/resources.proto",
+    "packages/prosemirror/src/sync.ts",
+    "examples/react-todomvc/src/App.tsx",
+    "examples/react-todomvc/vite.config.ts",
+    "scripts/agent/review-panel.mjs",
+    "docs/design/prosemirror.md",
     "README.md",
   ]) {
     assert.equal(definesCi(p), false, `${p} is code or prose under review, not the CI definition`);
