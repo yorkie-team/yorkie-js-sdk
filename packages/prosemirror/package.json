@@ -18,6 +18,7 @@
     "build": "tsc && vite build --config vite.build.ts",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts --flag v10_config_lookup_from_file",
     "test": "vitest run",
+    "test:unit": "vitest run test/unit",
     "test:watch": "vitest"
   },
   "peerDependencies": {
