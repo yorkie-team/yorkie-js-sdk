@@ -104,14 +104,6 @@ function isOurs(command) {
 }
 
 /**
- * Merge this repository's hook wiring into `settings`, returning a new object.
- *
- * Pure, and everything it does not own is copied through untouched:
- * `settings.local.json` is where a contributor's `permissions.allow` grants
- * live, and an installer that dropped them would be a worse nuisance than no
- * installer.
- */
-/**
  * Single-quote a path for the shell Claude Code runs hook commands through.
  *
  * Unquoted, a clone under `~/My Projects/` produces `bash /Users/x/My
@@ -124,6 +116,14 @@ export function shellQuote(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
+/**
+ * Merge this repository's hook wiring into `settings`, returning a new object.
+ *
+ * Pure, and everything it does not own is copied through untouched:
+ * `settings.local.json` is where a contributor's `permissions.allow` grants
+ * live, and an installer that dropped them would be a worse nuisance than no
+ * installer.
+ */
 export function wireHooks(settings, snapshotDir) {
   const next = { ...(settings ?? {}) };
   const hooks = { ...(next.hooks ?? {}) };

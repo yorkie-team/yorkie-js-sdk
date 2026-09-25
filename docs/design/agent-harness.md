@@ -41,7 +41,7 @@ working tree.
 | Gate | When | Runs | Cost |
 |---|---|---|---|
 | Claude Code hooks | every Edit/Write, session start | generated-file guard, workflow checklist | ~0 |
-| `pre-commit` | every commit staging source | `pnpm exec lint-staged` | seconds |
+| `pre-commit` | every commit staging source | `pnpm exec lint-staged` (outside `examples/`) | seconds |
 | `pre-push` | every push | `pnpm verify:fast` | ~30s |
 | CI | every push | everything, including integration against docker | minutes |
 
@@ -98,6 +98,8 @@ with its source commit recorded.
 | `verify:fast` gets slow and people bypass it | Measured at ~30s; `pre-commit` stays lint-only |
 | A generated file is edited through Bash, past the Edit/Write guard | The next regeneration reverts it; review catches the rest |
 | Three vendored copies of `scripts/agent/` drift | Record the source commit per sync and diff before the next one |
+| Fork contributors rebase onto `upstream/main` while their fork's `main` lags | The trust guard treats both `origin/main` and `upstream/main` as the default branch |
+| The commit gate refuses files CI never lints | lint-staged filters out `examples/`, which the root `eslint .` ignores |
 
 ### Design Decisions
 

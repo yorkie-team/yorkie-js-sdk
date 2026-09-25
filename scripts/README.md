@@ -34,7 +34,7 @@ it.
 
 | Script | Invoked as | Role |
 |---|---|---|
-| `setup.sh` | `bash scripts/setup.sh` | Copies `.githooks/` into `$GIT_DIR/githooks` and points `core.hooksPath` there, then runs `hooks/install.mjs`. Refuses when the hook sources differ from `origin/main` (override: `YORKIE_ALLOW_LOCAL_HOOKS=1`), because a re-run inside a reviewed branch would persist that branch's hooks. `--check` only reports missing hooks; `pnpm install` runs it through `prepare`. |
+| `setup.sh` | `bash scripts/setup.sh` | Copies `.githooks/` into `$GIT_DIR/githooks` and points `core.hooksPath` there, then runs `hooks/install.mjs`. Refuses when the hook sources differ from the default branch — `upstream/main` if present, else `origin/main` (override: `YORKIE_ALLOW_LOCAL_HOOKS=1`), because a re-run inside a reviewed branch would persist that branch's hooks. `--check` only reports missing hooks; `pnpm install` runs it through `prepare`. |
 
 ## Hooks
 

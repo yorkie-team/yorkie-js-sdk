@@ -68,15 +68,17 @@ Design: `docs/design/agent-harness.md`.
       `scripts/setup.sh` snapshot install, Husky removed
 - [x] `scripts/hooks/`: `install.mjs`, `session-prime.sh`,
       `guard-generated-files.sh` (`*_pb.ts`, `.proto` copies, ANTLR output)
-- [x] `scripts/test/harness-hooks.test.mjs` (25 cases)
+- [x] `scripts/test/harness-hooks.test.mjs` (behavioral: scratch clones for
+      setup, worktrees, pull/rebase, forks)
 - [x] `.claude/commands/self-review.md` pointing at `verify:fast`
 - [x] `CLAUDE.md` (verify gate, task workflow, stale `mcp` dropped),
       `CONTRIBUTING.md`, `scripts/README.md`
 - [x] Design doc `docs/design/agent-harness.md`
 - [ ] `/self-review` over the branch (round 1 done, see lessons), then open
       the Phase 0 PR
-- [ ] Port the three hook fixes back to yorkie (worktree common dir, `pull`
-      reflog subjects, `rebase (finish)` after a fast-forward)
+- [ ] Port the four hook fixes back to yorkie (worktree common dir, `pull`
+      reflog subjects, `rebase (finish)` after a fast-forward, `upstream/main`
+      as a trusted base for forks)
 
 ## Phase 1 — advisory verbs (`review`, `summarize`)
 
@@ -105,7 +107,9 @@ Design: `docs/design/agent-harness.md`.
 - [ ] `agent-loop.yml`, `agent-rerun.yml`, `agent-review-panel.yml`,
       `agent-iterate-ci.yml`; swap `setup-go`/golangci for `setup-node` +
       pnpm; fixer prompts use `pnpm verify:fast`
-- [ ] Check `ci.yml` paths-ignore so docs-only PRs skip the panel like yorkie
+- [ ] Decide whether to add a `paths-ignore` to `ci.yml` so docs-only PRs skip
+      the panel as on yorkie — `verify:doc-links` runs in `ci.yml` here, so it
+      would need its own workflow first
 - [ ] Run one real round on a small PR; record cost from `agent-metric`
 
 ## Phase 3 — PR fix and reply (`fix`, bare mention)

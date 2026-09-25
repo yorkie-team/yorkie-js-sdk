@@ -28,8 +28,9 @@ for the steps in order and for everything left out here.
 - Plan first. Write docs/tasks/active/YYYYMMDD-<slug>-todo.md BEFORE code.
   Architecture changes also update docs/design/.
 - Branch from main. `pnpm verify:fast` (lint, licence headers, doc links,
-  build, unit tests) green per commit; the pre-commit and pre-push hooks check
-  this for you. Integration tests need a server: see CLAUDE.md.
+  build, unit tests) green per commit. The hooks check part of it for you:
+  lint-staged on commit, the full `verify:fast` on push. Integration tests
+  need a server: see CLAUDE.md.
 - Commit subject <=70 chars, verb-first, no type prefix; blank line 2;
   body wrapped at 80.
 - Self review with /self-review before opening the PR: max 3 rounds, stop at

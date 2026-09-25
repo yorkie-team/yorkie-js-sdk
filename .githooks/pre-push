@@ -13,11 +13,9 @@ set -euo pipefail
 # and MongoDB, which a push cannot assume are up. CI runs them against real
 # containers (`docker/docker-compose-ci.yml`).
 #
-# IT RUNS THE WORKING TREE'S CODE, and that is what verifying a tree means.
-# `scripts/setup.sh` snapshots THIS FILE into `$GIT_DIR` so a branch cannot
-# rewrite the hook itself; `trusted-tree.sh` answers the other half, whose
-# tree is being run, and refuses when this checkout carries commits somebody
-# else wrote.
+# It runs the working tree's code — that is what verifying a tree means. The
+# `$GIT_DIR` snapshot keeps a branch from rewriting this hook; trusted-tree.sh
+# refuses when the checkout carries commits somebody else wrote.
 #
 # Bypass with `git push --no-verify` when you mean to — including when you are
 # standing in someone else's branch and only want the push.
