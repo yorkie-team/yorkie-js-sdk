@@ -22,11 +22,21 @@ on:
     paths:
       - "scripts/agent/**"
       - ".github/workflows/**"
+      # Read by the test that pins MECHANICAL_COVERAGE_NOTE to this repo's
+      # CI; without them a change there leaves the lenses' note stale.
+      - "eslint.config.mjs"
+      - "docker/docker-compose-ci.yml"
+      - "codecov.yml"
   pull_request:
     branches: [main]
     paths:
       - "scripts/agent/**"
       - ".github/workflows/**"
+      # Read by the test that pins MECHANICAL_COVERAGE_NOTE to this repo's
+      # CI; without them a change there leaves the lenses' note stale.
+      - "eslint.config.mjs"
+      - "docker/docker-compose-ci.yml"
+      - "codecov.yml"
 
 # Read-only: this job needs the tree and nothing else. No model is called here —
 # the suite is offline, and the Agent SDK is installed only because the modules

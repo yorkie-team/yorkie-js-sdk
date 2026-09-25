@@ -3928,3 +3928,15 @@ test("applySkipClaims: the verdict string comes from the code, not the claim", a
   assert.equal(out.adjudication.verdict, "skipped-by-author");
   assert.equal(out.adjudication.upheld, 1);
 });
+
+test("agent-scripts.yml runs whenever a file the coverage-note test reads changes", () => {
+  // The note test above reads these files off the repository. If the lane's
+  // path filter misses one, a PR changing it merges green while the note
+  // every lens reads goes stale.
+  const HERE = path.dirname(fileURLToPath(import.meta.url));
+  const wf = readFileSync(path.join(HERE, "..", "..", ".github", "workflows", "agent-scripts.yml"), "utf8");
+  for (const file of ["eslint.config.mjs", "docker/docker-compose-ci.yml", "codecov.yml"]) {
+    const listed = wf.split("\n").filter((l) => l.trim() === `- "${file}"`).length;
+    assert.equal(listed, 2, `${file} must be in both push.paths and pull_request.paths`);
+  }
+});
