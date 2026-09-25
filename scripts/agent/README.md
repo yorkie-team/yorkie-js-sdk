@@ -29,18 +29,20 @@ monorepo. Everything else is as vendored.
 |---|---|
 | `review-panel.mjs` | `CLASS_RULES` for this layout; `MECHANICAL_COVERAGE_NOTE` read off this `ci.yml`; the lens prompt names yorkie-js-sdk |
 | `lenses/lenses.json` | `appliesWhen` scoped to `packages/**` and `scripts/**` |
+| `lenses/design-fit.md` | Shared primitives named as `packages/sdk/src/…`, not yorkie's `pkg/` |
+| `branch-protection.mjs` | The decline message links yorkie's design doc by URL |
 | `checks.mjs` | `CI_DEFINING_PATHS`: manifests, lockfile, tool configs, `docker/**`, `scripts/*.mjs`, the hook layer |
 | `mark-ready.mjs` | Gate label, hand-off comment and comments describe this CI |
 | `capture-meta.mjs` | Schema id `yorkie-js-sdk/stage-capture-meta@1` |
 | `redact.mjs`, `package.json` | Comments and description only |
 | `checks.test.mjs`, `review-panel.test.mjs`, `mark-ready.test.mjs`, `review-scope.test.mjs`, `capture-meta.test.mjs` | Tests that pin the adaptations above, re-derived for this repository |
-| `agent-fix.yml`, `agent-review-panel.yml`, `agent-review-reply.yml`, `agent-iterate-ci.yml`, `agent-implement.yml` | Go and golangci-lint setup replaced by pnpm (`--frozen-lockfile --ignore-scripts --ignore-pnpmfile`, no cache); prompts run `pnpm verify:fast` and never the integration suites |
+| `agent-fix.yml`, `agent-review-panel.yml`, `agent-review-reply.yml`, `agent-iterate-ci.yml`, `agent-implement.yml` | Go and golangci-lint setup replaced by pnpm (`--frozen-lockfile --ignore-scripts --ignore-pnpmfile`, the branch's `.npmrc` set aside for main's, `--config.*` location pins, no cache); prompts run `pnpm verify:fast` and never the integration suites |
 | `agent-review-panel.yml`, `agent-review-on-demand.yml` | Diff excludes: `*_pb.ts` and the ANTLR output |
 | `agent-iterate-ci.yml` | Diagnoses from the failed-step log only: this `ci.yml` has no lane reports |
-| `agent-fix.yml`, `agent-loop.yml`, `agent-scripts.yml` | Comments describe this `ci.yml` |
+| `agent-fix.yml`, `agent-loop.yml`, `agent-scripts.yml` | Comments describe this `ci.yml`; decline messages (with `agent-rerun.yml`) link yorkie's design doc by URL |
 | `npm-publish.yml`, `devtools-publish.yml` | Refuse a release authored by `yorkie-team-agent[bot]`, as yorkie's `docker-publish.yml` does |
 
-`agent-rerun.yml` and `agent-summarize.yml` are unchanged.
+`agent-summarize.yml` is unchanged.
 
 ## Syncing from yorkie
 
@@ -52,8 +54,8 @@ monorepo. Everything else is as vendored.
    `make` target or a MongoDB-only claim is a bug here.
 3. Re-read `MECHANICAL_COVERAGE_NOTE` and `CI_DEFINING_PATHS` against this
    repository's `ci.yml` as it is at the time of the sync.
-4. `npm ci --ignore-scripts && npm test` here, and actionlint over
-   `.github/workflows/`:
+4. `npm ci --ignore-scripts && npm test` here, then actionlint from the
+   REPOSITORY ROOT, so the mount includes `.github/workflows/`:
 
    ```sh
    docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck= -pyflakes=

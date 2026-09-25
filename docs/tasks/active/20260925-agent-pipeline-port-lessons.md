@@ -102,3 +102,7 @@
 - `git checkout <file>` after a mutation check discarded an uncommitted fix
   in the same file — the second time in this task. Commit (or stash) before
   mutation-testing, and restore mutations from a copy, never from HEAD.
+- **Phase 1 self-review, round 2** (correctness, design fit): no blocking
+  findings; loop ends. Fixed anyway: decline replies linked a design doc that
+  exists only in yorkie (now an absolute URL); the vendoring README's
+  adaptation table missed the lens and `.npmrc` changes a sync would revert.

@@ -125,6 +125,10 @@ is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
   `--frozen-lockfile` install fails before the agent starts.
 - A branch `packageManager` that disagrees with `version: 9` can make
   `pnpm/action-setup` fail, stopping that PR's own fixer (self-DoS only).
+- Lens scope: a PR touching only `examples/**`, root manifests or `docker/**`
+  gets correctness and security, not design-fit / test-adequacy /
+  blast-radius — the same shape as yorkie. Revisit if example changes land
+  unreviewed.
 - No CI lane regenerates `*_pb.ts` / ANTLR output, and the panel's diff
   excludes them; a hand edit is caught only by the Claude Code guard locally.
 

@@ -32,7 +32,7 @@ export function decideProtection({ classic = null, classicError = null, rules = 
       ok: false,
       reason:
         `branch protection could not be read (HTTP ${classicError.status}). The App token needs ` +
-        "Administration: read — see docs/design/agent-command-verbs.md, Phase I",
+        "Administration: read — see https://github.com/yorkie-team/yorkie/blob/main/docs/design/agent-command-verbs.md, Phase I",
     };
   }
 

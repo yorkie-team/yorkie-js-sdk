@@ -298,7 +298,8 @@ jobs:
               return run.conclusion === 'success' ? 'proceed' : 'skip';
             };
             const runId = context.payload.workflow_run.id;
-            // 35 min against a 13.5 min median. Generous on purpose: overshooting
+            // 35 min against the server repo's 13.5 min median; CI here took
+            // ~7.5 min on #1384. Generous on purpose: overshooting
             // costs free public-runner minutes in a job that is already parked,
             // while undershooting pages a human for a slow-but-fine CI run.
             const DEADLINE_MS = 35 * 60 * 1000;
