@@ -26,6 +26,8 @@ GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
 # Re-running this inside a checkout of somebody's pull request would make that
 # branch's hooks the clone's permanent ones. So compare what this script
 # installs and runs against the default branch, and refuse when it differs.
+# This guards against ACCIDENT only: a malicious branch's setup.sh can simply
+# leave the check out. Run setup on `main`.
 # The glob covers `scripts/*.mjs` because `install.mjs` imports
 # `../direct-run.mjs`; `:(glob)` keeps `*` from spanning `/`.
 HOOK_SOURCES=(.githooks scripts/hooks scripts/setup.sh ':(glob)scripts/*.mjs')
@@ -42,7 +44,9 @@ done
 if [ -z "$UPSTREAM_REF" ]; then
   echo "setup: no origin/main to compare the hook sources against; installing this" >&2
   echo "       worktree's copies as-is." >&2
-elif ! git -C "$REPO_ROOT" diff --quiet "$UPSTREAM_REF" -- "${HOOK_SOURCES[@]}"; then
+elif ! git -C "$REPO_ROOT" diff --quiet "$UPSTREAM_REF" -- "${HOOK_SOURCES[@]}" ||
+  # `git diff` ignores untracked files, but `cp .githooks/*` copies them.
+  [ -n "$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "${HOOK_SOURCES[@]}")" ]; then
   if [ "${YORKIE_ALLOW_LOCAL_HOOKS:-}" != "1" ]; then
     echo "setup: this worktree's hook sources differ from ${UPSTREAM_REF#refs/remotes/}:" >&2
     git -C "$REPO_ROOT" diff --stat "$UPSTREAM_REF" -- "${HOOK_SOURCES[@]}" >&2

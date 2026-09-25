@@ -1,3 +1,6 @@
+import path from 'node:path';
+import process from 'node:process';
+
 const ESLINT =
   'pnpm exec eslint --fix --max-warnings=0 --no-warn-ignored --flag v10_config_lookup_from_file';
 
@@ -7,8 +10,14 @@ const ESLINT =
 // the commit gate from refusing files CI never checks.
 export default {
   '**/*.{ts,tsx,mts,cts,js,mjs,cjs}': (files) => {
+    // lint-staged passes absolute paths; judge them relative to the repo
+    // root, or a clone under any directory named `examples` lints nothing.
     const linted = files.filter(
-      (file) => !file.split(/[\\/]/).includes('examples'),
+      (file) =>
+        !path
+          .relative(process.cwd(), file)
+          .split(path.sep)
+          .includes('examples'),
     );
     return linted.length
       ? `${ESLINT} ${linted.map((f) => JSON.stringify(f)).join(' ')}`
