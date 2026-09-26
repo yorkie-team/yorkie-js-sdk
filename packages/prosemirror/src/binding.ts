@@ -38,6 +38,17 @@ import { CursorManager } from './cursor';
 import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
 
 /**
+ * Sync mode the document is held in while an IME composition is active.
+ *
+ * `RealtimePushOnly` keeps local edits flowing to peers while still refusing
+ * every incoming change: the request carries `pushOnly`, and the client drops
+ * a response pack that arrives anyway. That is all the composition guard needs
+ * — applying a remote change mid-composition is what breaks the browser's
+ * composing text node, pushing a local one is not.
+ */
+const PausedSyncMode = SyncMode.RealtimePushOnly;
+
+/**
  * Primary user-facing API for binding a ProseMirror editor to a Yorkie document.
  *
  * Usage:
@@ -217,12 +228,12 @@ export class YorkieProseMirrorBinding {
     this.syncModeChangeQueue = this.syncModeChangeQueue
       .then(() => this.client!.changeSyncMode(this.doc, nextMode))
       .then(() => {
-        this.isSyncPaused = nextMode === SyncMode.RealtimeSyncOff;
+        this.isSyncPaused = nextMode === PausedSyncMode;
       })
       .catch((e) => {
         // Revert desired mode to the last known effective state so callers can retry.
         this.desiredSyncMode = this.isSyncPaused
-          ? SyncMode.RealtimeSyncOff
+          ? PausedSyncMode
           : SyncMode.Realtime;
         this.onLog?.(
           'error',
@@ -232,7 +243,7 @@ export class YorkieProseMirrorBinding {
   }
 
   private pauseRemoteSync(): void {
-    this.setRemoteSyncMode(SyncMode.RealtimeSyncOff);
+    this.setRemoteSyncMode(PausedSyncMode);
   }
 
   private resumeRemoteSync(): void {
