@@ -80,6 +80,8 @@ export class YorkieProseMirrorBinding {
   private composingBlockRange: { from: number; to: number } | undefined =
     undefined;
   private hasPendingRemoteChanges = false;
+  private pendingFlushHandle: number | undefined = undefined;
+  private isDestroyed = false;
   private cursorManager: CursorManager | undefined = undefined;
   private remoteSelections = new Map<string, RemoteSelection>();
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
@@ -159,12 +161,21 @@ export class YorkieProseMirrorBinding {
    * Clean up all subscriptions and overrides.
    */
   destroy(): void {
+    this.isDestroyed = true;
+    // Cancel a flush deferred by a compositionend that never got its frame,
+    // so it cannot sync and dispatch into a torn-down view.
+    if (this.pendingFlushHandle !== undefined) {
+      cancelAnimationFrame(this.pendingFlushHandle);
+      this.pendingFlushHandle = undefined;
+    }
     this.resumeRemoteSync();
     this.unsubscribeDoc?.();
     this.unsubscribePresence?.();
     this.cursorManager?.destroy();
     this.hasPendingRemoteChanges = false;
     this.composingBlockRange = undefined;
+    this.isComposing = false;
+    this.isSyncPaused = false;
 
     const dom = this.view.dom;
     dom.removeEventListener('compositionstart', this.onCompositionStart);
@@ -277,12 +288,23 @@ export class YorkieProseMirrorBinding {
    * Flush all deferred remote changes after composition ends.
    */
   private flushPendingRemoteChanges(): void {
-    if (!this.hasPendingRemoteChanges && !this.isSyncPaused) return;
+    // `isSyncPaused` only flips once the queued `changeSyncMode` resolves, so a
+    // composition short enough to end while the pause is still in flight would
+    // early-return here and strand the document in `PausedSyncMode` forever.
+    // Treat the requested mode as paused too, so the resume always happens.
+    const isPausedOrPausing =
+      this.isSyncPaused || this.desiredSyncMode === PausedSyncMode;
+    if (!this.hasPendingRemoteChanges && !isPausedOrPausing) return;
     this.hasPendingRemoteChanges = false;
 
     // Wait for the browser to finish processing the compositionend event
     // and check that a new composition hasn't started immediately after.
-    requestAnimationFrame(() => {
+    if (this.pendingFlushHandle !== undefined) {
+      cancelAnimationFrame(this.pendingFlushHandle);
+    }
+    this.pendingFlushHandle = requestAnimationFrame(() => {
+      this.pendingFlushHandle = undefined;
+      if (this.isDestroyed) return;
       if (this.isComposing) {
         // A new composition started (e.g. user continued typing Korean).
         // Re-defer until that composition ends.
