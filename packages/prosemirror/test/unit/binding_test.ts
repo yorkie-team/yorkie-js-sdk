@@ -18,6 +18,7 @@ import { describe, it, assert } from 'vitest';
 import type { EditorView } from 'prosemirror-view';
 import { EditorState, TextSelection, Transaction } from 'prosemirror-state';
 import { YorkieProseMirrorBinding } from '../../src/binding';
+import { remoteSelectionsKey } from '../../src/selection-plugin';
 import { buildMarkMapping } from '../../src/defaults';
 import { pmToYorkie } from '../../src/convert';
 import type { YorkieProseMirrorOptions } from '../../src/types';
@@ -76,7 +77,7 @@ function createFakeView(editable = true) {
 
 /**
  * Yorkie document stand-in that records every presence write and every
- * subscription topic. `getDoc` supplies the PM document the tree mirrors, so
+ * subscription topic, keeping each topic's handler so a test can fire events. `getDoc` supplies the PM document the tree mirrors, so
  * a test driving content edits can hand in the live view state.
  */
 function createFakeDoc(
@@ -104,11 +105,13 @@ function createFakeDoc(
   };
   const presenceUpdates: Array<Record<string, unknown>> = [];
   const topics: Array<string> = [];
+  const handlers: Record<string, (event: unknown) => void> = {};
   const root = { content: tree };
 
   return {
     presenceUpdates,
     topics,
+    handlers,
     edits,
     /** Return the fake root holding the tree. */
     getRoot() {
@@ -123,11 +126,12 @@ function createFakeDoc(
         },
       });
     },
-    /** Record the subscribed topic and hand back a no-op unsubscribe. */
-    subscribe(topicOrHandler: unknown) {
-      topics.push(
-        typeof topicOrHandler === 'string' ? topicOrHandler : 'document',
-      );
+    /** Record the subscribed topic and handler; unsubscribing is a no-op. */
+    subscribe(topicOrHandler: unknown, handler?: (event: unknown) => void) {
+      const topic =
+        typeof topicOrHandler === 'string' ? topicOrHandler : 'document';
+      topics.push(topic);
+      handlers[topic] = handler ?? (topicOrHandler as (event: unknown) => void);
       return () => {};
     },
   };
@@ -331,6 +335,36 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
     assert.equal(yorkieDoc.presenceUpdates.length, afterDestroy);
   });
 
+  it('unwraps view.update on destroy', function () {
+    const view = createFakeView();
+    const originalUpdate = view.update;
+    const binding = bind(
+      view,
+      createFakeDoc(() => view.state.doc),
+    );
+    const wrapper = view.update;
+    assert.notEqual(wrapper, originalUpdate);
+
+    // The write-count check above passes even with the wrapper left in place,
+    // since destroy() has already retracted; check the slot itself.
+    binding.destroy();
+    assert.notEqual(view.update, wrapper);
+  });
+
+  it('leaves a view.update wrapper installed after it alone', function () {
+    const view = createFakeView();
+    const binding = bind(
+      view,
+      createFakeDoc(() => view.state.doc),
+    );
+    const inner = view.update;
+    const later = (props: Record<string, unknown>) => inner(props);
+    view.update = later;
+    binding.destroy();
+
+    assert.equal(view.update, later);
+  });
+
   it('retracts the published selection on destroy', function () {
     const view = createFakeView();
     const yorkieDoc = createFakeDoc(() => view.state.doc);
@@ -422,5 +456,69 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
 
     assert.include(yorkieDoc.topics, 'others');
     assert.equal(yorkieDoc.presenceUpdates.length, 0);
+  });
+
+  it('removes the cursor of a peer that retracts its selection', function () {
+    const view = createFakeView(false);
+    const yorkieDoc = createFakeDoc();
+    const binding = bind(view, yorkieDoc, {
+      publishSelection: false,
+      cursors: { enabled: true, overlayElement: {} as HTMLElement },
+    });
+
+    // Seed a rendered cursor for the peer. Drawing one for real needs a DOM,
+    // which these node-only tests do not have.
+    let removed = false;
+    const internals = binding as any;
+    internals.cursorManager.cursors.set('peer', {
+      container: {
+        /** Record the DOM removal. */
+        remove() {
+          removed = true;
+        },
+      },
+    });
+    internals.remoteSelections.set('peer', {
+      clientID: 'peer',
+      from: 1,
+      to: 1,
+      color: 'red',
+    });
+    const dispatched: Array<Transaction> = [];
+    const dispatch = view.dispatch;
+    view.dispatch = (tr: Transaction) => {
+      dispatched.push(tr);
+      dispatch(tr);
+    };
+
+    yorkieDoc.handlers.others({
+      type: 'presence-changed',
+      value: { clientID: 'peer', presence: {} },
+    });
+
+    assert.isTrue(removed);
+    assert.equal(internals.remoteSelections.size, 0);
+    assert.equal(dispatched.length, 1);
+    assert.deepEqual(dispatched[0].getMeta(remoteSelectionsKey), []);
+  });
+
+  it('dispatches nothing when a peer without a cursor retracts', function () {
+    const view = createFakeView(false);
+    const yorkieDoc = createFakeDoc();
+    bind(view, yorkieDoc, {
+      publishSelection: false,
+      cursors: { enabled: true, overlayElement: {} as HTMLElement },
+    });
+    const dispatched: Array<Transaction> = [];
+    view.dispatch = (tr: Transaction) => {
+      dispatched.push(tr);
+    };
+
+    yorkieDoc.handlers.others({
+      type: 'presence-changed',
+      value: { clientID: 'peer', presence: {} },
+    });
+
+    assert.equal(dispatched.length, 0);
   });
 });
