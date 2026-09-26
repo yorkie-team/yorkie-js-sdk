@@ -69,6 +69,34 @@ function logicalValue(stored: string): string {
 }
 
 /**
+ * `valueSize` returns the `DataSize.data` bytes an attribute value of the
+ * given stored form contributes, on the same terms as `RHTNode.getDataSize`.
+ */
+function valueSize(stored: string): number {
+  return utf8Length(logicalValue(stored)) * 2;
+}
+
+/**
+ * `RHTRemoval` is what an `RHT.remove` reports back.
+ */
+export type RHTRemoval = {
+  /**
+   * `gcNodes` are the tombstones this removal made collectable.
+   */
+  gcNodes: Array<RHTNode>;
+
+  /**
+   * `valueDropped` is the size of the value the removal stopped charging for,
+   * which no node's `getDataSize` accounts for any more. The caller subtracts
+   * it from whichever side of the ledger was holding it: `live` for an
+   * attribute that was live on a live node, `gc` for one on a node that is
+   * itself a tombstone. Zero when the attribute was already a tombstone, since
+   * a tombstone's value was not being charged in the first place.
+   */
+  valueDropped: DataSize;
+};
+
+/**
  * `RHTNode` is a node of RHT(Replicated Hashtable).
  */
 export class RHTNode implements GCChild {
@@ -149,6 +177,15 @@ export class RHTNode implements GCChild {
 
   /**
    * `getDataSize` returns the size of this node.
+   *
+   * A tombstone charges its key only. The value it still carries is dead
+   * weight: nothing reads it -- `has`, `toJSON` and `toObject` all gate on
+   * `isRemoved` -- and charging it made the running `docSize` disagree with a
+   * rebuild of the same document, which replays the same removals. The value
+   * is left on the node rather than cleared so that what this SDK stores and
+   * serializes for a tombstone is byte-for-byte what it was, and what a peer
+   * sends us is kept verbatim: the convergence fix belongs in the accounting,
+   * not in the wire format.
    */
   public getDataSize(): DataSize {
     // Charge the LOGICAL value in UTF-8 bytes, which is what the Go SDK
@@ -167,7 +204,9 @@ export class RHTNode implements GCChild {
     // would converge too, but it makes a JS caller's string '1' read back as
     // the number 1.
     return {
-      data: (utf8Length(this.key) + utf8Length(logicalValue(this.value))) * 2,
+      data:
+        utf8Length(this.key) * 2 +
+        (this._isRemoved ? 0 : valueSize(this.value)),
       meta: TimeTicketSize,
     };
   }
@@ -236,6 +275,11 @@ export class RHT {
 
   /**
    * SetInternal sets the value of the given key internally.
+   *
+   * This is the route a snapshot and a `deepcopy` both take, and it keeps what
+   * it is given verbatim, tombstones included: a peer's bytes are not this
+   * SDK's to rewrite, and a tombstone's value costs nothing either way because
+   * `RHTNode.getDataSize` does not charge it.
    */
   public setInternal(
     key: string,
@@ -253,11 +297,18 @@ export class RHT {
 
   /**
    * `remove` removes the Element of the given key.
+   *
+   * The tombstone still STORES the value -- what goes on the wire is unchanged
+   * -- but stops being CHARGED for it, because `RHTNode.getDataSize` skips a
+   * removed node's value. `valueDropped` is what the caller has to take back
+   * out of whichever side of the ledger was holding those bytes; see
+   * `attrGCPair` for which side that is.
    */
-  public remove(key: string, executedAt: TimeTicket): Array<RHTNode> {
+  public remove(key: string, executedAt: TimeTicket): RHTRemoval {
     const prev = this.nodeMapByKey.get(key);
 
     const gcNodes: Array<RHTNode> = [];
+    const valueDropped: DataSize = { data: 0, meta: 0 };
     if (prev === undefined || executedAt.after(prev.getUpdatedAt())) {
       if (prev === undefined) {
         this.numberOfRemovedElement += 1;
@@ -265,12 +316,13 @@ export class RHT {
         this.nodeMapByKey.set(key, node);
 
         gcNodes.push(node);
-        return gcNodes;
+        return { gcNodes, valueDropped };
       }
 
       const alreadyRemoved = prev.isRemoved();
       if (!alreadyRemoved) {
         this.numberOfRemovedElement += 1;
+        valueDropped.data = valueSize(prev.getValue());
       }
 
       if (alreadyRemoved) {
@@ -281,10 +333,10 @@ export class RHT {
       this.nodeMapByKey.set(key, node);
       gcNodes.push(node);
 
-      return gcNodes;
+      return { gcNodes, valueDropped };
     }
 
-    return gcNodes;
+    return { gcNodes, valueDropped };
   }
 
   /**

@@ -21,6 +21,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import {
   RGATreeList,
+  RGATreeListMove,
   RGATreeListNode,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_list';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
@@ -82,13 +83,14 @@ export class CRDTArray extends CRDTContainer {
 
   /**
    * `moveAfter` moves the given `createdAt` element after the
-   * `prevCreatedAt`. Returns the dead position node for GC.
+   * `prevCreatedAt`. Returns the dead position node for GC and the size the
+   * move added to the moved element.
    */
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
     executedAt: TimeTicket,
-  ): RGATreeListNode | undefined {
+  ): RGATreeListMove {
     return this.elements.moveAfter(prevCreatedAt, createdAt, executedAt);
   }
 

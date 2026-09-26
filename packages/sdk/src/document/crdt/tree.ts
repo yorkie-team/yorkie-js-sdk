@@ -2141,8 +2141,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const nodeIsLive = !node.isRemoved;
           for (const value of attributesToRemove) {
             let wasLive = node.attrs.has(value);
-            const nodesTobeRemoved = node.attrs.remove(value, editedAt);
-            for (const rhtNode of nodesTobeRemoved) {
+            const { gcNodes, valueDropped } = node.attrs.remove(
+              value,
+              editedAt,
+            );
+
+            // The tombstone is not charged for its value; those bytes leave
+            // whichever side was holding them. See `attrGCPair` for the split.
+            subDataSize(nodeIsLive ? size.live : size.gc, valueDropped);
+
+            for (const rhtNode of gcNodes) {
               pairs.push(attrGCPair(node, rhtNode, wasLive, nodeIsLive));
               // Only the node replacing the live value takes a size out of
               // live; a second one in the same call is the tombstone it
@@ -2188,14 +2196,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
                 next.attrs = new RHT();
               }
               let removedAny = false;
+              const nextIsLive = !next.isRemoved;
               for (const value of attributesToRemove) {
                 let wasLive = next.attrs.has(value);
-                const nodesTobeRemoved = next.attrs.remove(value, editedAt);
-                removedAny = removedAny || nodesTobeRemoved.length > 0;
-                for (const rhtNode of nodesTobeRemoved) {
-                  pairs.push(
-                    attrGCPair(next, rhtNode, wasLive, !next.isRemoved),
-                  );
+                const { gcNodes, valueDropped } = next.attrs.remove(
+                  value,
+                  editedAt,
+                );
+                removedAny = removedAny || gcNodes.length > 0;
+                subDataSize(nextIsLive ? size.live : size.gc, valueDropped);
+                for (const rhtNode of gcNodes) {
+                  pairs.push(attrGCPair(next, rhtNode, wasLive, nextIsLive));
                   wasLive = false;
                 }
               }

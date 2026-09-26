@@ -46,6 +46,26 @@ export class ElementEntry {
 }
 
 /**
+ * `RGATreeListMove` is what an `RGATreeList.moveAfter` reports back.
+ */
+export type RGATreeListMove = {
+  /**
+   * `deadNode` is the position node the move abandoned, for GC registration.
+   * Absent when the move was discarded by LWW and its position node already
+   * existed.
+   */
+  deadNode?: RGATreeListNode;
+
+  /**
+   * `movedDiff` is the size the move added to the MOVED ELEMENT -- one ticket
+   * for the `movedAt` stamp, and only the first time it is stamped. It is not
+   * the dead position node's size: that node was never in live, and the caller
+   * books it through a `gcOnlySize` pair instead.
+   */
+  movedDiff: DataSize;
+};
+
+/**
  * `RGATreeListNode` is a position slot in the RGA linked list.
  * When `elementEntry` is undefined, it is a dead slot abandoned by a move.
  */
@@ -424,13 +444,14 @@ export class RGATreeList implements GCParent {
   /**
    * `moveAfter` moves the given `createdAt` element after the
    * `prevCreatedAt` element using LWW position register semantics.
-   * Returns the dead position node (if any) for GC registration.
+   * Returns the dead position node (if any) for GC registration, and the size
+   * the move added to the element itself.
    */
   public moveAfter(
     prevCreatedAt: TimeTicket,
     createdAt: TimeTicket,
     executedAt: TimeTicket,
-  ): RGATreeListNode | undefined {
+  ): RGATreeListMove {
     if (!this.nodeMapByCreatedAt.has(prevCreatedAt.toIDString())) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
@@ -451,14 +472,20 @@ export class RGATreeList implements GCParent {
     // operations referencing this move's position can find it.
     if (entry.posMovedAt && !executedAt.after(entry.posMovedAt)) {
       if (this.nodeMapByCreatedAt.has(executedAt.toIDString())) {
-        return undefined;
+        return { movedDiff: { data: 0, meta: 0 } };
       }
 
       const deadPosNode = this.insertPositionAfter(prevCreatedAt, executedAt);
       deadPosNode.setRemovedAt(executedAt);
       this.nodeMapByIndex.updateWeight(deadPosNode.indexNode);
-      return deadPosNode;
+      return { deadNode: deadPosNode, movedDiff: { data: 0, meta: 0 } };
     }
+
+    // `setMovedAt` below makes `getMetaUsage` count one more ticket, but only
+    // the first time: a re-move overwrites a ticket already charged, and
+    // charging it again would walk `docSize` up without bound on a list the
+    // user reorders repeatedly.
+    const firstStamp = entry.elem.getMovedAt() === undefined;
 
     // Create a new position node after the target position.
     const newPosNode = this.insertPositionAfter(prevCreatedAt, executedAt);
@@ -477,7 +504,13 @@ export class RGATreeList implements GCParent {
 
     this.nodeMapByIndex.updateWeight(newPosNode.indexNode);
 
-    return oldPosNode;
+    return {
+      deadNode: oldPosNode,
+      movedDiff: {
+        data: 0,
+        meta: firstStamp ? TimeTicketSize : 0,
+      },
+    };
   }
 
   /**

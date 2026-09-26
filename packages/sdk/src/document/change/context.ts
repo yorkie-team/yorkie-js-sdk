@@ -258,4 +258,12 @@ export class ChangeContext<P extends Indexable = Indexable> {
   public accGC(diff: DataSize) {
     this.root.accGC(diff);
   }
+
+  /**
+   * `accMovedElement` books the size a move added to the moved element. See
+   * `CRDTRoot.accMovedElement`.
+   */
+  public accMovedElement(element: CRDTElement, diff: DataSize) {
+    this.root.accMovedElement(element, diff);
+  }
 }
