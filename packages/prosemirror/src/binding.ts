@@ -211,11 +211,15 @@ export class YorkieProseMirrorBinding {
     // ProseMirror's built-in dispatch. Restoring when we never installed it
     // (destroy() before initialize(), or a second destroy()) would instead
     // erase a dispatch handler the consumer owns, so the flag gates the write.
+    // A view destroyed first (`view.destroy(); binding.destroy();`) dispatches
+    // nothing anymore, and its setProps throws, so skip the write there.
     if (this.hasDispatchOverride) {
       this.hasDispatchOverride = false;
-      (this.view as any).setProps({
-        dispatchTransaction: this.originalDispatchTransaction,
-      });
+      if (!(this.view as any).isDestroyed) {
+        (this.view as any).setProps({
+          dispatchTransaction: this.originalDispatchTransaction,
+        });
+      }
       this.originalDispatchTransaction = undefined;
     }
   }

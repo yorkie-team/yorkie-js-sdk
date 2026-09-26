@@ -322,6 +322,20 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     assert.isUndefined(view.props.dispatchTransaction);
   });
 
+  it('should not touch a view destroyed before the binding', () => {
+    const { view, binding } = setup();
+    // Mirror EditorView after destroy(): isDestroyed is set and setProps
+    // throws, since it runs into the nulled docView.
+    Object.assign(view, {
+      isDestroyed: true,
+      setProps() {
+        throw new TypeError('view is destroyed');
+      },
+    });
+
+    assert.doesNotThrow(() => binding.destroy());
+  });
+
   it('should leave a consumer dispatch alone when destroy() never initialized', () => {
     const view = createMockView();
     const consumerDispatch = () => undefined;
