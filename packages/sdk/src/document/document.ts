@@ -2128,6 +2128,22 @@ export class Document<
    * `applyChange` applies the given change into this document.
    */
   public applyChange(change: Change<P>, source: OpSource) {
+    try {
+      this.applyChangeInternal(change, source);
+    } catch (err) {
+      // NOTE: `Change.execute` does not roll back, so a change that fails
+      // partway leaves the clone and the root holding different prefixes of
+      // it. Drop the clone so the next access rebuilds it from the root, the
+      // way `update` does on failure.
+      this.clone = undefined;
+      throw err;
+    }
+  }
+
+  /**
+   * `applyChangeInternal` applies the given change into the clone and the root.
+   */
+  private applyChangeInternal(change: Change<P>, source: OpSource) {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -2654,6 +2670,23 @@ export class Document<
       );
     }
 
+    // NOTE: The refusal above must not drop the clone: an updater is holding
+    // a proxy over it, and `update` reads it again after the updater returns.
+    try {
+      this.executeUndoRedoInternal(isUndo);
+    } catch (err) {
+      // A partially executed undo/redo leaves the clone ahead of the root;
+      // drop it so the next access rebuilds it from the root.
+      this.clone = undefined;
+      throw err;
+    }
+  }
+
+  /**
+   * `executeUndoRedoInternal` pops the history entry and applies it to the
+   * clone and the root.
+   */
+  private executeUndoRedoInternal(isUndo: boolean): void {
     const ops = isUndo
       ? this.internalHistory.popUndo()
       : this.internalHistory.popRedo();
