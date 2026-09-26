@@ -142,9 +142,9 @@ export class ElementRHT {
       }
       this.nodeMapByKey.set(key, newNode);
       value.setMovedAt(executedAt);
-    } else if (!node.isRemoved() && !value.isRemoved()) {
-      // The new node loses the LWW conflict — mark it as removed
-      // so it doesn't appear as a duplicate in ownKeys iteration.
+    } else if (!value.isRemoved()) {
+      // A live incoming node that loses the LWW conflict must be removed even
+      // when the current occupant is already a tombstone.
       value.remove(node.getValue().getPositionedAt());
     }
     return removed;

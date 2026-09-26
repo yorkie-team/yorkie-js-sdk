@@ -83,4 +83,27 @@ describe('ElementRHT', function () {
     const winner = obj.get('key') as Primitive;
     assert.equal(winner.toJSON(), '"first"');
   });
+
+  it('should remove a losing value when the occupant is a tombstone', function () {
+    const rht = ElementRHT.create();
+
+    const winnerTicket = TimeTicket.of(6n, 0, 'actorA');
+    const winner = Primitive.of('v2', winnerTicket);
+    rht.set('key', winner, winnerTicket);
+
+    const removedAt = TimeTicket.of(7n, 0, 'actorA');
+    rht.delete(winnerTicket, removedAt);
+    assert.isTrue(winner.isRemoved());
+
+    const loserTicket = TimeTicket.of(5n, 0, 'actorB');
+    const loser = Primitive.of('v3', loserTicket);
+    rht.set('key', loser, loserTicket);
+
+    assert.isTrue(loser.isRemoved(), 'the losing value should be removed');
+    assert.isUndefined(rht.get('key'));
+
+    const obj = new CRDTObject(InitialTimeTicket, rht);
+    assert.deepEqual(obj.getKeys(), []);
+    assert.equal(obj.toSortedJSON(), '{}');
+  });
 });
