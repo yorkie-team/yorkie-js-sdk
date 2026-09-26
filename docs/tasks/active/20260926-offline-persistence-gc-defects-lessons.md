@@ -29,12 +29,26 @@ the orphaned subtree. `WeakMap` keeps the marker for exactly the window in which
 it can be consulted and no longer, without either side having to know about the
 other.
 
-**The counter and the checkpoint are different positions.** The
-log-discontinuity repair already computes `headerWatermark` as
-`max(ackedWatermark, meta counter)` — precisely because the two diverge when an
-edit is minted while a sync is in flight. That the same value is what the repair
-must preserve is not a coincidence: it is the highest `clientSeq` the server
-could possibly have seen.
+**The counter and the checkpoint are different positions, and the issue names
+the wrong one.** #1377 asks for "the header's `clientSeq` counter" to be kept
+across the re-restore. Carrying the *counter* wedges the document: the repair's
+own sibling case — an edit minted while a sync is in flight, whose log entry is
+then lost — leaves the counter one ahead of anything the server took, and the
+existing test `rejects meta whose counter the log cannot reach` pins that the
+next edit must not skip a `clientSeq`. What has to be carried is the header's
+**acked checkpoint**: the server validates continuity from the position it
+holds, so the next change is that position plus one. The issue's own worked
+example agrees — header checkpoint 7, counter 8, entry 8 lost, and 8 is the
+sequence that must be minted next.
+
+**An existing test can encode the bug.** That same test asserted
+`pending[0].clientSeq === doc2.getCheckpoint().getClientSeq() + 1` with a
+comment reasoning from the *document's* checkpoint. After the repair the
+document's checkpoint is deliberately the snapshot's, which is not the server's
+— so the assertion was satisfied by minting sequences the server had already
+taken, which is defect 1 exactly. It now compares against the acked checkpoint
+the header carried. Re-deriving what the assertion was *for* mattered more than
+that it was green.
 
 **A cross-SDK fix is only half-landed here.** The reporter deliberately did not
 fix these in `yorkie-ios-sdk`, and `ElementRHT.set` in particular mirrors

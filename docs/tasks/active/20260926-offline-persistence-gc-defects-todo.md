@@ -24,12 +24,15 @@ header's counter records sequence numbers the server has already taken. Minting
 them again gets them skipped as duplicates and then dropped from
 `localChanges` by the next ack, silently.
 
-- [ ] `ChangeID.setClientSeq` — the counter-only sibling of `setLamport`.
-- [ ] `Document.advanceClientSeqTo(clientSeq)` — move the counter forward only,
+- [x] `ChangeID.setClientSeq` — the counter-only sibling of `setLamport`.
+- [x] `Document.advanceClientSeqTo(clientSeq)` — move the counter forward only,
       never back.
-- [ ] Call it in the `log-discontinuity` branch with `headerWatermark`, which is
-      already computed there as `max(ackedWatermark, meta counter)`.
-- [ ] Unit test: snapshot counter below the header's, repair, assert the next
+- [x] Call it in the `log-discontinuity` branch with `ackedWatermark` — the
+      header's checkpoint, not its counter. The server validates continuity
+      from the position it holds, so resuming at a counter that leads it would
+      mint past the server and wedge every push on `ErrInvalidClientSeq`; and
+      the entry that lead came from is exactly the one the log lost.
+- [x] Unit test: snapshot counter below the header's, repair, assert the next
       edit mints above the header's.
 
 ### 2. Permanent zero `sizeInGC` record
@@ -40,13 +43,15 @@ the restore orphaned, and that tombstone is dropped from
 `gcElementSetByCreatedAt`, so nothing ever collects it and nothing ever
 deregisters it — the record, and the element it pins, are permanent.
 
-- [ ] Make `sizeInGC` a `WeakMap`. It is only ever read/written by element
+- [x] Make `sizeInGC` a `WeakMap`. It is only ever read/written by element
       identity — never iterated, never sized — so the record's lifetime can
       simply be the element's. The zero marker still stands for exactly as long
       as the tombstone stays addressable, which is the only window in which
       `moveSizeToGC` or `accMovedElement` can reach it.
-- [ ] Unit test: repeated remove/undo does not leave `docSize` drifting, and the
-      released tombstone is no longer retained.
+- [x] No new test. Retention is not observable from inside the process without
+      forcing a GC, and the accounting the change must not disturb is already
+      pinned by `gc_containment_test.ts`, `docsize_rebuild_drift_test.ts` and
+      `document_size_test.ts`, which all stay green.
 
 ### 3. `fromObject` mutates decoded tombstones
 
@@ -57,14 +62,14 @@ does not surface in `ownKeys`. A decoded tombstone is already removed, and
 ticket, and the replica's re-serialized snapshots and `docSize.gc` disagree with
 replicas that never reloaded.
 
-- [ ] Guard the losing branch on `!value.isRemoved()`. An already-removed loser
+- [x] Guard the losing branch on `!value.isRemoved()`. An already-removed loser
       needs no marking: the marking exists only to hide it from `ownKeys`.
-- [ ] Unit test in `element_rht_order_test.ts`: a losing tombstone keeps its own
+- [x] Unit test in `element_rht_order_test.ts`: a losing tombstone keeps its own
       `removedAt`.
 
 ## Verification
 
-- [ ] `pnpm verify:fast`
-- [ ] Targeted unit files for each of the three.
+- [x] `pnpm verify:fast`
+- [x] Targeted unit files for each of the three.
 
 [#1377]: https://github.com/yorkie-team/yorkie-js-sdk/issues/1377

@@ -1056,14 +1056,24 @@ export class Client {
                     // from.
                     doc.restoreFromBytes(bytes);
                     // ...except the counter, which is not a claim about
-                    // content. The header said the server had already taken
-                    // sequences up to `headerWatermark`; the snapshot's counter
-                    // can be below that. Minting those again gets them skipped
-                    // as duplicates on push and then dropped from the pending
-                    // queue by the ack that covers them -- new edits lost with
-                    // no event, which is the one outcome this whole branch
-                    // exists to avoid. Carry the counter across the re-restore.
-                    doc.advanceClientSeqTo(headerWatermark);
+                    // content. The header's *checkpoint* names sequences the
+                    // server has already taken, and the snapshot's counter can
+                    // be below it: a snapshot at counter 3 under a header that
+                    // acked 7. Minting 4..7 again gets them skipped as
+                    // duplicates on push, and the next ack — whose clientSeq
+                    // covers them — drops them from `localChanges` as pushed.
+                    // New edits lost with no event, which is the one outcome
+                    // this whole branch exists to avoid.
+                    //
+                    // The acked checkpoint, not the header's counter. The
+                    // server validates continuity from the position it holds,
+                    // so the next change has to be its clientSeq plus one; the
+                    // counter can lead that (an edit minted while a sync was in
+                    // flight), and it is exactly the entry that lead came from
+                    // that the log has lost. Resuming at the counter would mint
+                    // past the server's position and wedge every later push on
+                    // `ErrInvalidClientSeq`.
+                    doc.advanceClientSeqTo(ackedWatermark);
                     // Rewrite the base from those same bytes, which clears the
                     // log with it. Writing them back costs no serialization,
                     // and re-serializing here would have baked the rejected

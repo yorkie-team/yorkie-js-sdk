@@ -551,6 +551,22 @@ comparison is against `max(checkpoint.clientSeq, changeID.clientSeq)`. With
 `meta` absent it reduces to the checkpoint, since a `toBytes` envelope's counter
 never leads the pending changes it carries.
 
+**The repair undoes the header's position, but not the sequences it spent.**
+Re-restoring from the snapshot bytes returns checkpoint, epoch and `changeID`
+to what the snapshot itself carries. That is right for the first two — they
+describe content, and the point is to let the server resend what the log lost —
+and wrong for the counter, which describes nothing but which `clientSeq` values
+this client has already minted. The header's checkpoint names sequences the
+server has taken; a snapshot written before them sits below it. Minting them
+again gets them skipped as duplicates on push, and the next ack — whose
+`clientSeq` covers them — drops them from `localChanges` as pushed: new edits
+lost with no event ([#1377](https://github.com/yorkie-team/yorkie-js-sdk/issues/1377)). `Document.advanceClientSeqTo` carries the acked
+checkpoint across the re-restore, forward only. The acked checkpoint and not
+the header's counter: the server validates continuity from the position it
+holds, so resuming at a counter that leads it would mint past the server and
+wedge every later push on `ErrInvalidClientSeq` — and the entry that lead came
+from is exactly the one the log has lost.
+
 **Known redundancy: a restore can re-push changes the server already has.**
 `saveMeta` advances the header without rewriting the snapshot, so a snapshot
 whose carried pending changes were acked afterwards still carries them. A
