@@ -41,3 +41,25 @@
   `from` split before it resolves `to`, so the root has taken part of it; a
   change that omitted it would leave peers without a mutation this replica
   made.
+
+### Review round 2 (panel)
+
+- The previous round's conclusion about the failing operation was wrong, and
+  the panel reversed it. Shipping the operation that threw tells peers to
+  apply it *in full* while this replica applied only part of it — a strictly
+  worse divergence than omitting it, and it contradicts Go's `Execute`, which
+  returns only the operations that ran. `Change.execute` no longer records it.
+- Whatever `update` does for a partial local change, `applyChange` owes a
+  partial remote change. Round 1 only dropped the clone and synced the clock
+  there, which left every event-mirroring consumer behind and skipped the
+  `reconcileTextEdit`/`reconcileTreeEdit` walk. The reconcile-sync-publish
+  tail is now `finalizeApplyChange`, shared by both the success and the
+  failure path.
+- The clone is executed before the root, so a throw does not imply the root
+  moved. Syncing the version vector unconditionally told the server's GC this
+  replica held a change it never applied; the sync is now gated on the root
+  having been reached.
+- `emptyRunReachesActor` must read `allChildren`. `isRemoved` is mutable and
+  delivery-order dependent, so making a concurrent-boundary placement depend
+  on it lets two replicas that have seen the same insertions but not the same
+  removals place an insertion differently.

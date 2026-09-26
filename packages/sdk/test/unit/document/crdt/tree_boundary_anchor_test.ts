@@ -100,18 +100,21 @@ describe('CRDTTree boundary anchors', function () {
     ).emptyRunReachesActor(node, actorID, new VersionVector());
   }
 
-  it('treats a sibling holding only tombstones as empty', function () {
+  it('does not let a tombstone change which side a split lands on', function () {
     const { tree, sibling, removedChild } = buildTree();
 
-    // Live child: real content stands between the boundary and our split.
+    // A child stands between the boundary and our split, so the run is not
+    // empty.
     assert.isFalse(emptyRunReachesActor(tree, sibling, actorA));
 
-    // Same sibling, its only child tombstoned: nothing visible is left, so
-    // the run is empty and reaches our own split product. Counting
-    // tombstones (`allChildren`) would report false here and land the split
-    // on the wrong side of the boundary.
+    // Removing that child must not flip the answer. This predicate decides
+    // which side of a concurrent boundary an insertion lands on, and every
+    // replica has to decide the same way; `isRemoved` is mutable and
+    // delivery-order dependent, so reading `children` here would make a
+    // replica that has already applied the removal place the insertion
+    // differently from one that has not.
     removedChild.remove(ticketOf(8, actorA));
-    assert.isTrue(emptyRunReachesActor(tree, sibling, actorA));
+    assert.isFalse(emptyRunReachesActor(tree, sibling, actorA));
   });
 
   /**

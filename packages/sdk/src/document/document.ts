@@ -903,9 +903,19 @@ export class Document<
           executed,
         );
       } catch (err) {
-        // The prefix is a local change like any other: it goes on the undo
-        // stack and invalidates the redo stack exactly as the success path
-        // below does, so history keeps describing the root as it now is.
+        // The prefix is a local change like any other: the history stack is
+        // reconciled against the ArraySets that ran, the reverse ops go on
+        // the undo stack and the redo stack is invalidated exactly as the
+        // success path below does, so history keeps describing the root as
+        // it now is.
+        for (const op of executed.operations) {
+          if (op instanceof ArraySetOperation) {
+            this.internalHistory.reconcileCreatedAt(
+              op.getCreatedAt(),
+              op.getValue().getCreatedAt(),
+            );
+          }
+        }
         if (executed.reverseOps.length) {
           this.internalHistory.pushUndo(executed.reverseOps);
         }
@@ -2188,8 +2198,20 @@ export class Document<
    * `applyChange` applies the given change into this document.
    */
   public applyChange(change: Change<P>, source: OpSource) {
+    // NOTE(hackerwins): `execute` does not roll back, so an operation that
+    // throws leaves the root holding every operation before it. Collect that
+    // prefix so the failure path can reconcile and publish exactly what ran:
+    // subscribers that mirror the document from events — the ProseMirror
+    // binding, devtools, the React provider — would otherwise spend the rest
+    // of the session describing a root that moved without them.
+    const executed: ExecutionResult<P> = {
+      operations: [],
+      opInfos: [],
+      reverseOps: [],
+    };
+    const state = { rootExecuted: false };
     try {
-      this.applyChangeInternal(change, source);
+      this.applyChangeInternal(change, source, executed, state);
     } catch (err) {
       // NOTE(hackerwins): A change that fails partway is not a no-op on the
       // clone: `Tree.edit` applies the `from` split before it resolves `to`,
@@ -2198,23 +2220,31 @@ export class Document<
       // update rebuilds the clone from the document instead of continuing
       // from a state that diverged for the rest of the session.
       this.clone = undefined;
-      // The root took a prefix of the change, so this replica has seen it:
-      // sync the clock exactly as the success path does. Leaving the lamport
-      // behind would order every ticket this document issues next before
-      // mutations it already holds.
-      this.changeID = this.disableGC
-        ? this.changeID.syncLamport(change.getID())
-        : this.changeID.syncClocks(change.getID());
+
+      // The clone is executed before the root. If the throw came from there
+      // the root never saw the change at all, so neither the clocks nor the
+      // subscribers may be advanced — a synced version vector would tell the
+      // server's GC this replica holds a change it does not. Only once the
+      // root has taken a prefix is there something to finalize.
+      if (state.rootExecuted) {
+        // `prev` is undefined: `execute` applies the presence change only
+        // after the last operation, so a change that threw never reached it.
+        this.finalizeApplyChange(change, source, executed, undefined, true);
+      }
 
       throw err;
     }
   }
 
-  private applyChangeInternal(change: Change<P>, source: OpSource) {
+  private applyChangeInternal(
+    change: Change<P>,
+    source: OpSource,
+    executed: ExecutionResult<P>,
+    state: { rootExecuted: boolean },
+  ) {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
-    const events: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
 
     // Capture prev state before execute updates this.presences
@@ -2228,11 +2258,36 @@ export class Document<
         }
       : undefined;
 
-    const { opInfos, operations } = change.execute(
-      this.root,
-      this.presences,
-      source,
-    );
+    state.rootExecuted = true;
+    change.execute(this.root, this.presences, source, executed);
+
+    this.finalizeApplyChange(change, source, executed, prev, false);
+  }
+
+  /**
+   * `finalizeApplyChange` reconciles the history, syncs the clocks and
+   * publishes the events for the operations of `change` that the root
+   * actually executed.
+   *
+   * It runs on the failure path too, over the prefix that ran: a change that
+   * threw partway still mutated the root, so the same reconciliation and the
+   * same event have to follow it. `partial` only changes what the event
+   * describes — the struct devtools replays has to list the operations that
+   * ran, not the ones the change set out to apply.
+   */
+  private finalizeApplyChange(
+    change: Change<P>,
+    source: OpSource,
+    executed: ExecutionResult<P>,
+    prev:
+      | { hadPresence: boolean; wasOnline: boolean; presence?: P }
+      | undefined,
+    partial: boolean,
+  ) {
+    const events: DocEvents<P> = [];
+    const actorID = change.getID().getActorID();
+    const { opInfos, operations } = executed;
+
     for (const op of operations) {
       if (op instanceof EditOperation) {
         const [from, to] = op.normalizePos(this.root);
@@ -2258,7 +2313,16 @@ export class Document<
       ? this.changeID.syncLamport(change.getID())
       : this.changeID.syncClocks(change.getID());
     if (opInfos.length) {
-      const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
+      const applied = partial
+        ? Change.create<P>({
+            id: change.getID(),
+            operations,
+            message: change.getMessage(),
+          })
+        : change;
+      const rawChange = this.isEnableDevtools()
+        ? applied.toStruct()
+        : undefined;
       events.push(
         source === OpSource.Remote
           ? {

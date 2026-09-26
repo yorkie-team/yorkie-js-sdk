@@ -1588,12 +1588,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
         return current !== node;
       }
       const knownLamport = versionVector.get(createdAt.getActorID());
-      // `children` excludes removed children: a sibling holding only
-      // tombstones contributes nothing visible and is empty by the definition
-      // this walk uses. Counting tombstones here would make it read as
-      // non-empty and land the split on the wrong side of the boundary.
+      // `allChildren`, not `children`: this predicate decides which side of a
+      // concurrent boundary an insertion lands on, and that decision has to be
+      // the same on every replica. `isRemoved` is mutable and delivery-order
+      // dependent, so a replica that already applied a child's removal would
+      // read the sibling as empty while one that has not reads it as
+      // non-empty, and the two would place the insertion differently.
       if (
-        current.children.length > 0 ||
+        current.allChildren.length > 0 ||
         (knownLamport !== undefined && knownLamport >= createdAt.getLamport())
       ) {
         return false;

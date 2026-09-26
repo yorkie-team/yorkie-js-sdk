@@ -96,11 +96,12 @@ describe('partially applied change', function () {
     assert.isUndefined(internals(doc as never).clone);
     // The root kept the prefix...
     assert.equal(doc.getRoot().t.toString(), 'abX');
-    // ...so the prefix is recorded for the peers, and the failing operation
-    // with it: it mutated the root before it threw.
+    // ...so the prefix is recorded for the peers. The failing operation is
+    // not in it: telling peers to apply in full an operation this replica
+    // only applied part of is the worse divergence of the two.
     const recorded = internals(doc as never).localChanges;
     assert.equal(recorded.length, before + 1);
-    assert.equal(recorded[recorded.length - 1].getOperations().length, 2);
+    assert.equal(recorded[recorded.length - 1].getOperations().length, 1);
     // ...the clientSeq this change consumed is not reissued...
     assert.isAbove(doc.getChangeID().getClientSeq(), seqBefore);
     // ...and subscribers hear about the mutation the document took.
@@ -150,5 +151,55 @@ describe('partially applied change', function () {
     assert.isTrue(
       target.getChangeID().getLamport() >= change.getID().getLamport(),
     );
+  });
+
+  it('publishes what a failed remote change applied', function () {
+    const source = new Document<{ a: number; b: number }>('d');
+    source.update((r) => {
+      r.a = 1;
+      r.b = 2;
+    });
+    const change = internals(source as never).localChanges[0];
+
+    const target = new Document<{ a: number; b: number }>('d');
+    const events: Array<DocEvent<never>> = [];
+    target.subscribe((event) => {
+      events.push(event as DocEvent<never>);
+    });
+
+    // Calls 1-2 are the clone's two operations, 3-4 the root's: the root
+    // takes the first and throws on the second.
+    throwOnNthCall(SetOperation.prototype as never, 4);
+    assert.throws(
+      () => target.applyChange(change as never, OpSource.Remote),
+      'boom',
+    );
+
+    // The root moved, so subscribers that mirror the document from events
+    // hear about exactly the operation it took.
+    const remote = events.filter((e) => e.type === DocEventType.RemoteChange);
+    assert.equal(remote.length, 1);
+    assert.equal((remote[0] as any).value.operations.length, 1);
+  });
+
+  it('leaves the clocks alone when only the clone was touched', function () {
+    const source = new Document<{ k: number }>('d');
+    source.update((r) => {
+      r.k = 1;
+    });
+    const change = internals(source as never).localChanges[0];
+
+    const target = new Document<{ k: number }>('d');
+    const lamportBefore = target.getChangeID().getLamport();
+
+    // Call 1 is the clone: the root never sees the change at all, so the
+    // version vector must not claim this replica applied it.
+    throwOnNthCall(SetOperation.prototype as never, 1);
+    assert.throws(
+      () => target.applyChange(change as never, OpSource.Remote),
+      'boom',
+    );
+
+    assert.equal(target.getChangeID().getLamport(), lamportBefore);
   });
 });

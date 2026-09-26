@@ -182,22 +182,16 @@ export class Change<P extends Indexable> {
       : [];
 
     for (const operation of this.operations) {
-      let executionResult;
-      try {
-        executionResult = operation.execute(
-          root,
-          source,
-          this.id.getVersionVector(),
-        );
-      } catch (err) {
-        // NOTE(hackerwins): An operation that throws is not atomic either:
-        // `Tree.edit`, for one, applies the `from` split before it resolves
-        // `to`, so the root has already taken part of this operation. Record
-        // it in the prefix too — a change that omitted it would leave peers
-        // without a mutation this replica made.
-        changeOperations.push(operation);
-        throw err;
-      }
+      // NOTE(hackerwins): An operation that throws is not recorded in the
+      // prefix, even though it may have mutated the root partway (`Tree.edit`
+      // applies the `from` split before it resolves `to`). Recording it would
+      // tell peers to apply in full an operation this replica only applied
+      // part of, which is the worse divergence of the two.
+      const executionResult = operation.execute(
+        root,
+        source,
+        this.id.getVersionVector(),
+      );
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
       // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;
