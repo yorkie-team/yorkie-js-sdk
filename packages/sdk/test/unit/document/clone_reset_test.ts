@@ -89,6 +89,26 @@ describe('Document clone reset', function () {
     assert.isUndefined(internals(doc as never).clone);
   });
 
+  it('drops the clone when a local change fails on the root', function () {
+    const doc = new Document<{ k: number }>('d');
+    doc.update((r) => {
+      r.k = 1;
+    });
+
+    // The updater mutates the clone through the proxy, so the first
+    // `SetOperation.execute` is the root pass.
+    throwOnNthCall(1);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.k = 2;
+      });
+    }, 'boom');
+
+    assert.isUndefined(internals(doc as never).clone);
+    assert.equal(doc.getRoot().k, 1);
+    assert.equal(doc.toSortedJSON(), '{"k":1}');
+  });
+
   it('keeps the clone when undo is refused during an update', function () {
     const doc = new Document<{ k: number }>('d');
     doc.update((r) => {
