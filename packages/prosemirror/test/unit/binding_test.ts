@@ -68,15 +68,26 @@ function createFakeView(editable = true) {
 
 /**
  * Yorkie document stand-in that records every presence write and every
- * subscription topic.
+ * subscription topic. `getDoc` supplies the PM document the tree mirrors, so
+ * a test driving content edits can hand in the live view state.
  */
-function createFakeDoc(pmDoc = doc(p('hello'))) {
+function createFakeDoc(
+  getDoc: () => ReturnType<typeof doc> = () => doc(p('hello')),
+) {
   const markMapping = buildMarkMapping(testSchema);
-  const treeJSON = pmToYorkie(pmDoc, markMapping, 'span');
+  const edits: Array<Array<unknown>> = [];
   const tree = {
-    /** Serialize the fixed tree. */
+    /** Serialize the tree as it currently mirrors the PM document. */
     toJSON() {
-      return JSON.stringify(treeJSON);
+      return JSON.stringify(pmToYorkie(getDoc(), markMapping, 'span'));
+    },
+    /** Record an edit; the mirrored PM document already reflects it. */
+    edit(...args: Array<unknown>) {
+      edits.push(args);
+    },
+    /** Record a bulk edit. */
+    editBulk(...args: Array<unknown>) {
+      edits.push(args);
     },
     /** Return an opaque position range for the given index range. */
     indexRangeToPosRange(range: [number, number]) {
@@ -90,6 +101,7 @@ function createFakeDoc(pmDoc = doc(p('hello'))) {
   return {
     presenceUpdates,
     topics,
+    edits,
     /** Return the fake root holding the tree. */
     getRoot() {
       return root;
@@ -135,6 +147,17 @@ function moveCaret(view: ReturnType<typeof createFakeView>, pos: number) {
     TextSelection.create(view.state.doc, pos),
   );
   assert.equal(tr.steps.length, 0, 'caret move must carry no steps');
+  view.dispatch(tr);
+}
+
+/** Dispatch a content-changing transaction, as typing would. */
+function typeText(
+  view: ReturnType<typeof createFakeView>,
+  text: string,
+  pos: number,
+) {
+  const tr = view.state.tr.insertText(text, pos);
+  assert.isAbove(tr.steps.length, 0, 'content edit must carry steps');
   view.dispatch(tr);
 }
 
@@ -190,13 +213,94 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
     bind(view, yorkieDoc);
     assert.equal(yorkieDoc.presenceUpdates.length, 1);
 
+    // Turning off retracts the published selection, then stays silent.
     view.editable = false;
     moveCaret(view, 3);
-    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+    assert.equal(yorkieDoc.presenceUpdates.length, 2);
+    assert.isUndefined(yorkieDoc.presenceUpdates[1].selection);
 
     view.editable = true;
     moveCaret(view, 4);
+    assert.equal(yorkieDoc.presenceUpdates.length, 3);
+    assert.isDefined(yorkieDoc.presenceUpdates[2].selection);
+  });
+
+  it('publishes the selection after a content edit', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const errors: Array<string> = [];
+    bind(view, yorkieDoc, {
+      /** Fail loudly if the upstream sync path reports an error. */
+      onLog(type, message) {
+        if (type === 'error') errors.push(message);
+      },
+    });
+    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+
+    typeText(view, 'x', 3);
+    assert.deepEqual(errors, []);
+    assert.isAbove(yorkieDoc.edits.length, 0, 'content must reach the tree');
     assert.equal(yorkieDoc.presenceUpdates.length, 2);
+    assert.isDefined(yorkieDoc.presenceUpdates[1].selection);
+  });
+
+  it('publishes no selection on a content edit when publishing is off', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const errors: Array<string> = [];
+    bind(view, yorkieDoc, {
+      publishSelection: false,
+      /** Fail loudly if the upstream sync path reports an error. */
+      onLog(type, message) {
+        if (type === 'error') errors.push(message);
+      },
+    });
+
+    typeText(view, 'x', 3);
+    assert.deepEqual(errors, []);
+    assert.isAbove(yorkieDoc.edits.length, 0, 'content must reach the tree');
+    assert.equal(yorkieDoc.presenceUpdates.length, 0);
+  });
+
+  it('retracts the published selection once publishing turns off', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    bind(view, yorkieDoc);
+    assert.isDefined(yorkieDoc.presenceUpdates[0].selection);
+
+    view.editable = false;
+    moveCaret(view, 3);
+    assert.equal(yorkieDoc.presenceUpdates.length, 2);
+    assert.property(yorkieDoc.presenceUpdates[1], 'selection');
+    assert.isUndefined(yorkieDoc.presenceUpdates[1].selection);
+
+    // Already retracted — no further presence writes while it stays off.
+    moveCaret(view, 4);
+    typeText(view, 'x', 3);
+    assert.equal(yorkieDoc.presenceUpdates.length, 2);
+  });
+
+  it('retracts on a content edit once publishing turns off', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    bind(view, yorkieDoc);
+    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+
+    view.editable = false;
+    typeText(view, 'x', 3);
+    assert.equal(yorkieDoc.presenceUpdates.length, 2);
+    assert.property(yorkieDoc.presenceUpdates[1], 'selection');
+    assert.isUndefined(yorkieDoc.presenceUpdates[1].selection);
+  });
+
+  it('publishes nothing to retract when it never published', function () {
+    const view = createFakeView(false);
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    bind(view, yorkieDoc);
+
+    moveCaret(view, 3);
+    typeText(view, 'x', 3);
+    assert.equal(yorkieDoc.presenceUpdates.length, 0);
   });
 
   it('keeps receiving others presence while publishing is off', function () {

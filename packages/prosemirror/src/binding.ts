@@ -72,6 +72,7 @@ export class YorkieProseMirrorBinding {
   private cursorManager: CursorManager | undefined = undefined;
   private remoteSelections = new Map<string, RemoteSelection>();
   private publishSelection: boolean | undefined;
+  private hasPublishedSelection = false;
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   private originalDispatchTransaction: ((tr: Transaction) => void) | undefined;
   private unsubscribeDoc?: () => void;
@@ -376,6 +377,11 @@ export class YorkieProseMirrorBinding {
                   yorkieTo,
                 ]),
               });
+              this.hasPublishedSelection = true;
+            } else if (this.hasPublishedSelection) {
+              // Publishing just turned off — retract what peers still render.
+              presence.set({ selection: undefined });
+              this.hasPublishedSelection = false;
             }
           } catch (e) {
             this.onLog?.(
@@ -477,7 +483,15 @@ export class YorkieProseMirrorBinding {
     const unsubscribe = this.doc.subscribe('others' as any, (event: any) => {
       if (event.type === 'presence-changed') {
         const { clientID, presence } = event.value;
-        if (presence.selection) {
+        if (!presence.selection) {
+          // The peer retracted its selection (e.g. it went read-only). The
+          // event carries that peer's whole presence, so an absent selection
+          // means there is no cursor of theirs left to render.
+          this.cursorManager!.removeCursor(clientID);
+          if (this.remoteSelections.delete(clientID)) {
+            this.dispatchSelectionDecorations();
+          }
+        } else {
           try {
             const tree = this.getTree();
             const [fromIdx, toIdx] = tree.posRangeToIndexRange([
@@ -547,8 +561,32 @@ export class YorkieProseMirrorBinding {
     return this.view.editable !== false;
   }
 
+  /**
+   * Drop an already-published selection from presence. Without this, a view
+   * that stops publishing (e.g. `editable` flips to false) would leave its
+   * last selection behind and every peer would keep rendering that cursor.
+   */
+  private retractSelection(): void {
+    if (!this.hasPublishedSelection) return;
+    this.hasPublishedSelection = false;
+
+    try {
+      this.doc.update((_root: any, presence: any) => {
+        presence.set({ selection: undefined });
+      });
+    } catch (e) {
+      this.onLog?.(
+        'error',
+        `Presence retraction failed: ${(e as Error).message}`,
+      );
+    }
+  }
+
   private syncPresence(): void {
-    if (!this.shouldPublishSelection()) return;
+    if (!this.shouldPublishSelection()) {
+      this.retractSelection();
+      return;
+    }
 
     const tree = this.getTree();
     if (!tree) return;
@@ -564,6 +602,7 @@ export class YorkieProseMirrorBinding {
           selection: tree.indexRangeToPosRange([yorkieFrom, yorkieTo]),
         });
       });
+      this.hasPublishedSelection = true;
     } catch (e) {
       this.onLog?.('error', `Presence sync failed: ${(e as Error).message}`);
     }

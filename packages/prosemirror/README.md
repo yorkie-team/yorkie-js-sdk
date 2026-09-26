@@ -57,6 +57,11 @@ selection while still seeing everyone else's cursors.
 const view = new EditorView(host, { state, editable: () => canWrite });
 ```
 
+The policy is re-read on every publish, so a view that flips to read-only
+mid-session stops publishing — and the binding clears the selection it had
+already published, on the next transaction, so peers drop that cursor instead
+of rendering it where it was last seen.
+
 Set the option explicitly to override that policy in either direction. It is
 outbound only — the binding keeps subscribing to other clients' presence and
 rendering their cursors either way.
