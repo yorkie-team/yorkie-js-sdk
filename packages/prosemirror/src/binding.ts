@@ -71,6 +71,7 @@ export class YorkieProseMirrorBinding {
   private hasPendingRemoteChanges = false;
   private cursorManager: CursorManager | undefined = undefined;
   private remoteSelections = new Map<string, RemoteSelection>();
+  private publishSelection: boolean | undefined;
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   private originalDispatchTransaction: ((tr: Transaction) => void) | undefined;
   private unsubscribeDoc?: () => void;
@@ -89,6 +90,7 @@ export class YorkieProseMirrorBinding {
       options.markMapping || buildMarkMapping(view.state.schema);
     this.elementToMarkMapping = invertMapping(this.markMapping);
     this.wrapperElementName = options.wrapperElementName || 'span';
+    this.publishSelection = options.publishSelection;
     this.onLog = options.onLog;
     this.client = options.client;
 
@@ -362,17 +364,19 @@ export class YorkieProseMirrorBinding {
             );
 
             // Sync cursor position after content edit
-            const treeJSON = JSON.parse(root[this.treePath].toJSON());
-            const map = buildPositionMap(newDoc, treeJSON);
-            const sel = newState.selection;
-            const yorkieFrom = pmPosToYorkieIdx(map, sel.from);
-            const yorkieTo = pmPosToYorkieIdx(map, sel.to);
-            presence.set({
-              selection: root[this.treePath].indexRangeToPosRange([
-                yorkieFrom,
-                yorkieTo,
-              ]),
-            });
+            if (this.shouldPublishSelection()) {
+              const treeJSON = JSON.parse(root[this.treePath].toJSON());
+              const map = buildPositionMap(newDoc, treeJSON);
+              const sel = newState.selection;
+              const yorkieFrom = pmPosToYorkieIdx(map, sel.from);
+              const yorkieTo = pmPosToYorkieIdx(map, sel.to);
+              presence.set({
+                selection: root[this.treePath].indexRangeToPosRange([
+                  yorkieFrom,
+                  yorkieTo,
+                ]),
+              });
+            }
           } catch (e) {
             this.onLog?.(
               'error',
@@ -533,7 +537,19 @@ export class YorkieProseMirrorBinding {
     this.view.dispatch(tr);
   }
 
+  /**
+   * Whether the local selection may be published as presence. Evaluated at
+   * publish time, not at construction, so a view whose `editable` prop flips
+   * later is honored. Never affects the receive side.
+   */
+  private shouldPublishSelection(): boolean {
+    if (this.publishSelection !== undefined) return this.publishSelection;
+    return this.view.editable !== false;
+  }
+
   private syncPresence(): void {
+    if (!this.shouldPublishSelection()) return;
+
     const tree = this.getTree();
     if (!tree) return;
 
