@@ -2644,6 +2644,24 @@ export class Document<
   }
 
   /**
+   * `acknowledgePushedChanges` removes the local changes the server has
+   * confirmed up to `clientSeq`, and forwards only the client seq of the
+   * checkpoint. It is for a response pack dropped without applying its remote
+   * state: the server seq must stay put so the skipped state is pulled again
+   * later, while the confirmed changes must not be pushed again. The server
+   * dedupes a re-pushed change when storing it, but a snapshot it builds for
+   * the same request would apply that change a second time.
+   *
+   * @internal
+   */
+  public acknowledgePushedChanges(clientSeq: number): void {
+    this.removePushedLocalChanges(clientSeq);
+    this.checkpoint = this.checkpoint.forward(
+      Checkpoint.of(this.checkpoint.getServerSeq(), clientSeq),
+    );
+  }
+
+  /**
    * `removePushedLocalChanges` removes local changes that have been applied to
    * the server from the local changes.
    *
