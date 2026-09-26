@@ -57,6 +57,39 @@ describe('RHT interface', function () {
     assert.equal(rht.size(), 0);
   });
 
+  it('should keep a tombstone storing its value but stop charging it', function () {
+    const key = 'color';
+    const value = '"red"';
+
+    const rht = RHT.create();
+    rht.set(key, value, ITT);
+
+    const live = [...rht][0];
+    const liveSize = live.getDataSize();
+
+    const { valueDropped } = rht.remove(key, timeT());
+    const tombstone = [...rht][0];
+
+    // What the node stores -- and therefore what `toRHT` puts on the wire --
+    // is unchanged by the removal, so a peer reading our tombstone sees the
+    // same bytes it always did.
+    assert.equal(tombstone.getValue(), value);
+
+    // What it COSTS drops to the key alone, which is what a rebuild of the
+    // same document charges for a removed attribute.
+    const tombstoneSize = tombstone.getDataSize();
+    assert.equal(tombstoneSize.data, liveSize.data - valueDropped.data);
+    assert.equal(tombstoneSize.data, 'color'.length * 2);
+
+    // A peer that ships the value on a tombstone cannot reintroduce those
+    // bytes either: `setInternal` keeps what it is given, and the size still
+    // excludes it.
+    const copied = rht.deepcopy();
+    const copiedNode = [...copied][0];
+    assert.equal(copiedNode.getValue(), value);
+    assert.deepEqual(copiedNode.getDataSize(), tombstoneSize);
+  });
+
   it('should return undefined when a key does not exist', function () {
     const notExistsKey = 'not-exists-key';
 

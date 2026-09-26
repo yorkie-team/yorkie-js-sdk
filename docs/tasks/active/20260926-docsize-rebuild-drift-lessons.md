@@ -21,8 +21,8 @@ the same three `attrGCPair` already documents:
 - live attr on a REMOVED node — the container skips a removed node, so the
   value was never in `live`; it is inside the gc charge taken when the node was
   removed, so `gc` pays.
-- attr that was already a tombstone — post-change its value is already `''`, so
-  there is nothing to drop and `valueDropped` is zero.
+- attr that was already a tombstone — its value was not being charged before
+  the removal either, so there is nothing to drop and `valueDropped` is zero.
 
 Getting this wrong is not a rounding error: `removeStyle` in a rich-text editor
 is a loop a user runs hundreds of times, so a per-call bias walks `docSize`
@@ -68,3 +68,18 @@ server does exactly the same thing — `RHT.Remove` mints the tombstone with
 naming that boundary as the defence against peers that still send a value.
 This SDK's `fromRHT` routes every incoming attribute through `setInternal`, so
 the wire value of a tombstone is unreachable on either side. Rebuttal filed.
+
+## Review round 2
+
+**Tombstone values serialized as `''`, re-raised.** Rather than defend the
+wire change a second time, the branch stops making one. The drift was never
+about what a tombstone *stores*, only about what it is *charged*: moving the
+exclusion into `RHTNode.getDataSize` (`this._isRemoved ? 0 : valueSize(...)`)
+gives byte-identical `docSize` numbers to the `''` approach while leaving
+`remove`, `setInternal`, `deepcopy` and `toRHT` storing and serializing
+exactly what `main` did. It is also the stronger of the two: under the `''`
+approach a peer that ships a value on a tombstone was defused only because
+`setInternal` scrubbed it, whereas now such a value cannot be charged no
+matter which door it comes in. The rebuttal is withdrawn — not because the
+reasoning behind it was wrong, but because a fix that needs no cross-SDK
+argument at all is worth more than winning one.

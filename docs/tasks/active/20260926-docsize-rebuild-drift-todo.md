@@ -12,10 +12,10 @@ each is a convergence-level change in `tree.ts` and does not fit in one pass.
 The running `docSize` must equal what a rebuild of the same document from its
 operations would compute. Two accounting holes break that equality:
 
-1. **Attribute tombstones keep their value.** `RHT.remove` builds the tombstone
-   with `prev.getValue()`, so a removed attribute still charges its value's
-   bytes forever. A rebuild that replays the same removals holds no value, so
-   the two disagree by the dropped value on every `removeStyle`.
+1. **Attribute tombstones are charged for their value.** A removed attribute
+   still charges its value's bytes forever, where a rebuild of the same
+   document does not, so the two disagree by the dropped value on every
+   `removeStyle`.
 2. **`movedAt` is never charged.** `RGATreeList.moveAfter` stamps `movedAt` and
    `CRDTElement.getMetaUsage` counts it, but no diff is reported to the root, so
    `docSize.live` is short one `TimeTicketSize` per first-moved element. A
@@ -23,9 +23,9 @@ operations would compute. Two accounting holes break that equality:
 
 ## Plan
 
-- [x] `rht.ts`: tombstone carries `''`; `remove` returns
-      `{ gcNodes, valueDropped }`; `setInternal` clears the value on a removed
-      attribute so a snapshot/deepcopy cannot reintroduce it.
+- [x] `rht.ts`: `getDataSize` stops charging a removed node's value; `remove`
+      returns `{ gcNodes, valueDropped }`. What a tombstone stores and
+      serializes is untouched, so nothing changes on the wire.
 - [x] `text.ts` / `tree.ts` `removeStyle`: subtract `valueDropped` from
       `size.live`, or from `size.gc` when the holding node is itself a
       tombstone (its gc charge included the value).

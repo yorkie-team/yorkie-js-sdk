@@ -2146,8 +2146,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
               editedAt,
             );
 
-            // The tombstone holds no value; the dropped bytes leave whichever
-            // side was holding them. See `attrGCPair` for the same split.
+            // The tombstone is not charged for its value; those bytes leave
+            // whichever side was holding them. See `attrGCPair` for the split.
             subDataSize(nodeIsLive ? size.live : size.gc, valueDropped);
 
             for (const rhtNode of gcNodes) {

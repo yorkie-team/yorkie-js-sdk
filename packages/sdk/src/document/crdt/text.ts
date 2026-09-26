@@ -605,7 +605,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
           .getAttrs()
           .remove(key, editedAt);
 
-        // The tombstone holds no value, so the dropped bytes have to leave
+        // The tombstone is not charged for its value, so those bytes leave
         // whichever side was holding them: live for a live attribute on a live
         // node, and the node's own gc charge when the node is a tombstone --
         // the container skips a removed node, so live never held it. The same
