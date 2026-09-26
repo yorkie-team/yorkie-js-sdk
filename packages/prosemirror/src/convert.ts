@@ -18,16 +18,85 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { MarkMapping, YorkieTreeJSON, PMNodeJSON } from './types';
 
 /**
+ * Attribute names ProseMirror schemas resolve as a URL when rendering.
+ * Their values come from remote peers, so they get a scheme allow-list.
+ */
+const UrlAttrNames = new Set([
+  'href',
+  'src',
+  'srcset',
+  'xlink:href',
+  'action',
+  'formaction',
+  'background',
+  'poster',
+  'cite',
+  'longdesc',
+  'data',
+  'codebase',
+  'profile',
+]);
+
+/** Keys that would mutate the result's prototype if assigned blindly. */
+const UnsafeAttrNames = new Set(['__proto__', 'constructor', 'prototype']);
+
+/** Schemes that cannot execute script when the editor renders the value. */
+const SafeUrlSchemes = new Set([
+  'http:',
+  'https:',
+  'mailto:',
+  'tel:',
+  'ftp:',
+  'blob:',
+]);
+
+/** Inline `data:` payloads limited to raster images (SVG can carry script). */
+const SafeDataUrl = /^data:image\/(png|jpe?g|gif|webp|bmp|x-icon);/;
+
+/**
+ * Check whether a remote URL attribute is safe to hand to ProseMirror.
+ *
+ * A collaborator controls these strings, so a `javascript:` href would run in
+ * the local editor's origin the moment the link is clicked. Control characters
+ * and whitespace are stripped first because browsers ignore them when
+ * resolving the scheme (`java\tscript:alert(1)` navigates just fine).
+ */
+function isSafeUrlValue(value: string): boolean {
+  const normalized = Array.from(value)
+    .filter((char) => char.charCodeAt(0) > 0x20)
+    .join('')
+    .toLowerCase();
+  const scheme = /^[a-z][a-z0-9+.-]*:/.exec(normalized);
+  // No scheme at all — a relative URL, which cannot escape the origin.
+  if (!scheme) return true;
+  if (SafeUrlSchemes.has(scheme[0])) return true;
+  return SafeDataUrl.test(normalized);
+}
+
+/**
  * Coerce Yorkie string attributes back to their original types.
  * Yorkie stores all attribute values as strings, so numeric-looking
  * strings (e.g., "2" from heading level) must be converted back to numbers
  * for ProseMirror's `Node.fromJSON` compatibility.
+ *
+ * Values arrive from remote peers, so unsafe keys are dropped and unsafe URL
+ * values are blanked rather than passed through to node and mark attrs.
  */
 function deserializeAttrs(
   attrs: Record<string, string>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attrs)) {
+    if (UnsafeAttrNames.has(key)) continue;
+    if (
+      typeof value === 'string' &&
+      UrlAttrNames.has(key.toLowerCase()) &&
+      !isSafeUrlValue(value)
+    ) {
+      // Keep the attribute present (schemas often require it) but inert.
+      result[key] = '';
+      continue;
+    }
     if (/^-?\d+(\.\d+)?$/.test(value)) {
       result[key] = Number(value);
     } else if (value === 'true') {

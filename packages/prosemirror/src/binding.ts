@@ -49,6 +49,22 @@ import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
 const PausedSyncMode = SyncMode.RealtimePushOnly;
 
 /**
+ * How many times a single sync-mode transition is attempted before giving up.
+ *
+ * A rejected `changeSyncMode` has no other re-driver: a failed resume would
+ * otherwise leave the document in `RealtimePushOnly` forever, silently never
+ * receiving another remote change.
+ */
+const MaxSyncModeAttempts = 3;
+
+/** Cancel a scheduled frame, tolerating environments without the global. */
+function cancelFrame(handle: number): void {
+  if (typeof cancelAnimationFrame === 'function') {
+    cancelAnimationFrame(handle);
+  }
+}
+
+/**
  * Primary user-facing API for binding a ProseMirror editor to a Yorkie document.
  *
  * Usage:
@@ -115,6 +131,8 @@ export class YorkieProseMirrorBinding {
    * set up dispatchTransaction override and subscriptions.
    */
   initialize(): void {
+    // A binding re-initialized after destroy() must not stay inert.
+    this.isDestroyed = false;
     const tree = this.getTree();
 
     // If tree doesn't exist yet, create it from current PM doc
@@ -165,7 +183,7 @@ export class YorkieProseMirrorBinding {
     // Cancel a flush deferred by a compositionend that never got its frame,
     // so it cannot sync and dispatch into a torn-down view.
     if (this.pendingFlushHandle !== undefined) {
-      cancelAnimationFrame(this.pendingFlushHandle);
+      cancelFrame(this.pendingFlushHandle);
       this.pendingFlushHandle = undefined;
     }
     this.resumeRemoteSync();
@@ -175,18 +193,23 @@ export class YorkieProseMirrorBinding {
     this.hasPendingRemoteChanges = false;
     this.composingBlockRange = undefined;
     this.isComposing = false;
-    this.isSyncPaused = false;
+    // `isSyncPaused` is owned by the sync-mode queue: clearing it here while
+    // the resume queued above is still in flight would make a failed resume
+    // revert `desiredSyncMode` to Realtime even though the document is still
+    // push-only, stranding it there. The queued resume clears it on success.
 
     const dom = this.view.dom;
     dom.removeEventListener('compositionstart', this.onCompositionStart);
     dom.removeEventListener('compositionend', this.onCompositionEnd);
 
-    // Restore original dispatchTransaction via setProps (ProseMirror's API)
-    if (this.originalDispatchTransaction) {
-      (this.view as any).setProps({
-        dispatchTransaction: this.originalDispatchTransaction,
-      });
-    }
+    // Always hand dispatchTransaction back, even when the view had no prop of
+    // its own: leaving the override installed lets a post-destroy transaction
+    // keep writing tree content and presence into the shared document.
+    // `undefined` restores ProseMirror's built-in dispatch.
+    (this.view as any).setProps({
+      dispatchTransaction: this.originalDispatchTransaction,
+    });
+    this.originalDispatchTransaction = undefined;
   }
 
   private getTree(): any {
@@ -236,21 +259,46 @@ export class YorkieProseMirrorBinding {
   private setRemoteSyncMode(nextMode: SyncMode): void {
     if (!this.client || this.desiredSyncMode === nextMode) return;
     this.desiredSyncMode = nextMode;
-    this.syncModeChangeQueue = this.syncModeChangeQueue
+    this.syncModeChangeQueue = this.syncModeChangeQueue.then(() =>
+      this.applySyncMode(nextMode, 1),
+    );
+  }
+
+  /**
+   * Apply one queued sync-mode transition, retrying a rejected request.
+   *
+   * Nothing else re-drives a transition — `resumeRemoteSync()` is only called
+   * from `destroy()` and from the deferred flush — so a resume that fails once
+   * and is never retried strands the document in `PausedSyncMode`, where it
+   * pushes local edits but receives nothing.
+   */
+  private applySyncMode(nextMode: SyncMode, attempt: number): Promise<void> {
+    // A newer transition superseded this one while it waited in the queue.
+    if (this.desiredSyncMode !== nextMode) return Promise.resolve();
+
+    // `Promise.resolve().then` so a client that throws synchronously rejects
+    // this attempt instead of poisoning the shared queue.
+    return Promise.resolve()
       .then(() => this.client!.changeSyncMode(this.doc, nextMode))
-      .then(() => {
-        this.isSyncPaused = nextMode === PausedSyncMode;
-      })
-      .catch((e) => {
-        // Revert desired mode to the last known effective state so callers can retry.
-        this.desiredSyncMode = this.isSyncPaused
-          ? PausedSyncMode
-          : SyncMode.Realtime;
-        this.onLog?.(
-          'error',
-          `Failed to change sync mode: ${(e as Error).message}`,
-        );
-      });
+      .then(
+        () => {
+          this.isSyncPaused = nextMode === PausedSyncMode;
+        },
+        (e: Error) => {
+          this.onLog?.('error', `Failed to change sync mode: ${e.message}`);
+          if (attempt < MaxSyncModeAttempts) {
+            return this.applySyncMode(nextMode, attempt + 1);
+          }
+          // Out of attempts: fall back to the last known effective mode so a
+          // later pause/resume is not skipped by the `desiredSyncMode` check.
+          if (this.desiredSyncMode === nextMode) {
+            this.desiredSyncMode = this.isSyncPaused
+              ? PausedSyncMode
+              : SyncMode.Realtime;
+          }
+          return undefined;
+        },
+      );
   }
 
   private pauseRemoteSync(): void {
@@ -300,7 +348,7 @@ export class YorkieProseMirrorBinding {
     // Wait for the browser to finish processing the compositionend event
     // and check that a new composition hasn't started immediately after.
     if (this.pendingFlushHandle !== undefined) {
-      cancelAnimationFrame(this.pendingFlushHandle);
+      cancelFrame(this.pendingFlushHandle);
     }
     this.pendingFlushHandle = requestAnimationFrame(() => {
       this.pendingFlushHandle = undefined;
@@ -350,6 +398,12 @@ export class YorkieProseMirrorBinding {
       dispatchTransaction: (transaction: Transaction) => {
         const newState = this.view.state.apply(transaction);
         this.view.updateState(newState);
+
+        // A consumer that installed no dispatchTransaction of its own can hold
+        // on to this closure past destroy() (ProseMirror keeps the props of a
+        // view it never re-configured). Apply the transaction, but never write
+        // into the document from a torn-down binding.
+        if (this.isDestroyed) return;
 
         // Skip sync for remote changes or during sync
         if (transaction.getMeta('yorkie-remote') || this.isSyncing) {

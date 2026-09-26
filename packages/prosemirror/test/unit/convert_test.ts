@@ -299,6 +299,48 @@ describe('convert', () => {
         assert.deepEqual(arr[0].marks[0].attrs, { href: 'http://example.com' });
       });
 
+      it('should blank a script-bearing href from a remote peer', () => {
+        for (const href of [
+          'javascript:alert(1)',
+          '  JaVaScRiPt:alert(1)',
+          'java\tscript:alert(1)',
+          'data:text/html;base64,PHNjcmlwdD4=',
+          'vbscript:msgbox(1)',
+        ]) {
+          const node = yElem('link', [yText('click')], { href });
+          const result = yorkieToJSON(node, elementToMarkMapping);
+          const arr = result as Array<{
+            marks: Array<{ attrs?: Record<string, unknown> }>;
+          }>;
+          assert.deepEqual(arr[0].marks[0].attrs, { href: '' }, href);
+        }
+      });
+
+      it('should keep relative and data-image URLs intact', () => {
+        for (const href of ['/docs/page', 'data:image/png;base64,iVBOR']) {
+          const node = yElem('link', [yText('click')], { href });
+          const result = yorkieToJSON(node, elementToMarkMapping);
+          const arr = result as Array<{
+            marks: Array<{ attrs?: Record<string, unknown> }>;
+          }>;
+          assert.deepEqual(arr[0].marks[0].attrs, { href }, href);
+        }
+      });
+
+      it('should drop prototype-polluting attribute keys', () => {
+        const node = yElem('link', [yText('click')], {
+          href: 'http://example.com',
+          ['__proto__']: 'polluted',
+        });
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const arr = result as Array<{
+          marks: Array<{ attrs?: Record<string, unknown> }>;
+        }>;
+        const attrs = arr[0].marks[0].attrs!;
+        assert.deepEqual(Object.keys(attrs), ['href']);
+        assert.notEqual(Object.getPrototypeOf(attrs), 'polluted');
+      });
+
       it('should not add attrs to mark entry when attributes are empty', () => {
         const node = yElem('strong', [yText('bold')]);
         const result = yorkieToJSON(node, elementToMarkMapping);
