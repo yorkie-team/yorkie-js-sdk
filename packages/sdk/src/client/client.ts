@@ -952,10 +952,23 @@ export class Client {
                 // unreachable. Kept because the ordering it asserts is what
                 // makes the two-watermark split correct, and a future change
                 // that reintroduces trimming would need it again.
+                //
+                // The envelope's own counter joins the max, because it is the
+                // highest `clientSeq` this client has MINTED — and a minted
+                // sequence is never replayable, whether the snapshot contains
+                // it or it was lost. It normally ties the other two (the
+                // counter equals the last pending entry, or the checkpoint
+                // when the queue is empty), so it only leads for a base this
+                // very branch rewrote: a repair persists the snapshot with the
+                // acked counter carried forward, deliberately ahead of the
+                // snapshot's checkpoint. Without it, the next edit appended
+                // after such a repair starts above `watermark + 1` and the
+                // contiguity guard below discards it.
                 const carried = doc.getPendingChangesAfter(0);
                 const snapshotWatermark = Math.max(
                   carried.length ? carried[carried.length - 1].clientSeq : 0,
                   doc.getCheckpoint().getClientSeq(),
+                  doc.getChangeID().getClientSeq(),
                 );
                 if (storedMeta) {
                   doc.restoreMetaFromBytes(storedMeta);
@@ -985,9 +998,10 @@ export class Client {
                 // re-anchors and the document never syncs again.
                 //
                 // Read after the header is applied, so it is meta's counter
-                // rather than the snapshot's. With meta absent this reduces to
-                // the checkpoint comparison, since a `toBytes` envelope's
-                // counter never leads the pending changes it carries.
+                // rather than the snapshot's. With meta absent it cannot trip:
+                // the snapshot's own counter is already folded into
+                // `snapshotWatermark` above, so `headerWatermark` never leads
+                // the watermark the log is measured against.
                 const headerWatermark = Math.max(
                   ackedWatermark,
                   doc.getChangeID().getClientSeq(),
@@ -1055,14 +1069,45 @@ export class Client {
                     // snapshot itself carries, which the server *can* resume
                     // from.
                     doc.restoreFromBytes(bytes);
-                    // Rewrite the base from those same bytes, which clears the
-                    // log with it. Writing them back costs no serialization,
-                    // and re-serializing here would have baked the rejected
-                    // header into the new base. Removing the entry instead
-                    // would discard a snapshot that restored perfectly well.
+                    // ...except the counter, which is not a claim about
+                    // content. The header's *checkpoint* names sequences the
+                    // server has already taken, and the snapshot's counter can
+                    // be below it: a snapshot at counter 3 under a header that
+                    // acked 7. Minting 4..7 again gets them skipped as
+                    // duplicates on push, and the next ack — whose clientSeq
+                    // covers them — drops them from `localChanges` as pushed.
+                    // New edits lost with no event, which is the one outcome
+                    // this whole branch exists to avoid.
+                    //
+                    // The acked checkpoint, not the header's counter. The
+                    // server validates continuity from the position it holds,
+                    // so the next change has to be its clientSeq plus one; the
+                    // counter can lead that (an edit minted while a sync was in
+                    // flight), and it is exactly the entry that lead came from
+                    // that the log has lost. Resuming at the counter would mint
+                    // past the server's position and wedge every later push on
+                    // `ErrInvalidClientSeq`.
+                    doc.advanceClientSeqTo(ackedWatermark);
+                    // Rewrite the base from the *repaired* document, which
+                    // clears the log with it. Re-serializing rather than
+                    // writing `bytes` straight back is what makes the counter
+                    // correction survive: `saveSnapshot` drops the meta blob
+                    // that held the acked position, and the original envelope's
+                    // `changeID` still carries the snapshot's pre-ack counter —
+                    // so persisting it would reproduce this very repair (and
+                    // its silent clientSeq reuse) on the next reload.
+                    //
+                    // Re-serializing cannot smuggle the rejected header back
+                    // in. `restoreFromBytes` just above returned root,
+                    // presences, checkpoint, epoch, docID and the pending queue
+                    // to what the snapshot carries, so `toBytes` re-emits that
+                    // same envelope; the counter is the one field that differs,
+                    // and advancing it is the whole point. Removing the entry
+                    // instead would discard a snapshot that restored perfectly
+                    // well.
                     this.persistToStore(
                       this.storeKey(doc.getKey()),
-                      bytes,
+                      doc.toBytes(),
                       (err) =>
                         logger.error(
                           `[PS] c:"${this.getKey()}" d:"${doc.getKey()}" ` +

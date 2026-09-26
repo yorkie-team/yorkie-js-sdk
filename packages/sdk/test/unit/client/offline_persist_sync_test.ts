@@ -1076,6 +1076,7 @@ describe('Store write failures must not persist a lie', () => {
       carried.getCheckpoint().getClientSeq(),
       'the in-flight edit must leave the counter ahead of the checkpoint',
     );
+    const acked = carried.getCheckpoint().getClientSeq();
 
     // An evicting store drops the newest entry — the one the counter needs.
     const entry = (inner as any).store.get(scopedKey(key));
@@ -1097,10 +1098,11 @@ describe('Store write failures must not persist a lie', () => {
     assert.equal(dropped.length, 1);
     assert.equal(dropped[0].reason, 'log-discontinuity');
 
-    // And what the document does next must be pushable. The server requires
-    // every change to follow its checkpoint by exactly one, so the counter has
-    // to fall back with the checkpoint rather than keep the position the lost
-    // entry gave it.
+    // And what the document does next must be pushable. The server validates
+    // continuity from the position *it* holds, which the header's checkpoint
+    // names, so the counter has to fall back to that — not to the counter the
+    // lost entry gave it (which would skip a clientSeq), and not to the
+    // snapshot's (which would mint sequences the server has already taken).
     doc2.update((root) => {
       root.counter = new Counter(0);
     });
@@ -1109,8 +1111,199 @@ describe('Store write failures must not persist a lie', () => {
     assert.isNotEmpty(pending);
     assert.equal(
       pending[0].clientSeq,
-      doc2.getCheckpoint().getClientSeq() + 1,
-      'the next push must continue from the checkpoint, not skip a clientSeq',
+      acked + 1,
+      'the next push must continue from the acked checkpoint',
+    );
+  });
+
+  it('does not reuse clientSeqs the discarded header said were acked', async () => {
+    // The repair undoes the header by re-restoring from the snapshot bytes.
+    // That is right for the checkpoint and the epoch and wrong for the
+    // counter: the header's checkpoint names sequences the server has already
+    // taken, and the snapshot's counter sits below it. Minting them again gets
+    // them skipped as duplicates on push, and the next ack — whose clientSeq
+    // covers them — drops them from `localChanges` as pushed. The edits are
+    // gone with no event, which is the one outcome the repair exists to avoid.
+    const inner = new MemoryDocStore();
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => inner.appendChange(k, c),
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(2));
+    doc.update((root) => root.counter!.increase(3));
+    // Ack everything, so the header records a checkpoint the snapshot — taken
+    // at attach, before any of these — knows nothing about.
+    await client.sync();
+    await settled();
+
+    const header = (await store.load(scopedKey(key)))!;
+    const carried = Document.fromBytes<{ counter?: Counter }>(
+      key,
+      header.snapshot,
+    );
+    const acked = (() => {
+      const d = Document.fromBytes<{ counter?: Counter }>(key, header.snapshot);
+      d.restoreMetaFromBytes(header.meta!);
+      return d.getCheckpoint().getClientSeq();
+    })();
+    assert.isAbove(
+      acked,
+      carried.getChangeID().getClientSeq(),
+      'the snapshot must predate the acked checkpoint for this to test anything',
+    );
+
+    // Lose the whole log: the header now claims a position nothing backs.
+    (inner as any).store.get(scopedKey(key)).changes = [];
+
+    const dropped: Array<any> = [];
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ counter?: Counter }>(key);
+    doc2.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    assert.equal(dropped.length, 1);
+    assert.equal(dropped[0].reason, 'log-discontinuity');
+    // The header is undone where it describes content...
+    assert.equal(
+      doc2.getCheckpoint().getClientSeq(),
+      carried.getCheckpoint().getClientSeq(),
+      'the checkpoint must fall back so the server resends what was lost',
+    );
+    // ...and carried where it describes sequences already spent.
+    doc2.update((root) => {
+      root.counter = new Counter(0);
+    });
+    await settled();
+    const pending = doc2.getPendingChangesAfter(0);
+    assert.isNotEmpty(pending);
+    assert.equal(
+      pending[0].clientSeq,
+      acked + 1,
+      'a new edit must not reuse a clientSeq the server has already taken',
+    );
+  });
+
+  it('persists the repaired counter so a second reload does not reuse it', async () => {
+    // The repair is only worth anything if it survives the reload after it.
+    // Writing the *original* snapshot bytes back would rebase onto an envelope
+    // whose `changeID` still holds the pre-ack counter — and `saveSnapshot`
+    // drops the meta blob that held the right one — so the very next attach
+    // would repeat the repair and mint the acked sequences again. The edit
+    // appended after the repair must also still replay: its clientSeq starts
+    // from the carried counter, above the snapshot's checkpoint, and the
+    // contiguity guard has to measure it against that.
+    const inner = new MemoryDocStore();
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => inner.appendChange(k, c),
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(2));
+    await client.sync();
+    await settled();
+
+    const header = (await store.load(scopedKey(key)))!;
+    const acked = (() => {
+      const d = Document.fromBytes<{ counter?: Counter }>(key, header.snapshot);
+      d.restoreMetaFromBytes(header.meta!);
+      return d.getCheckpoint().getClientSeq();
+    })();
+    assert.isAbove(
+      acked,
+      Document.fromBytes<{ counter?: Counter }>(key, header.snapshot)
+        .getChangeID()
+        .getClientSeq(),
+      'the snapshot must predate the acked checkpoint for this to test anything',
+    );
+
+    // Lose the whole log, so the next attach takes the repair branch.
+    (inner as any).store.get(scopedKey(key)).changes = [];
+
+    const dropped2: Array<any> = [];
+    const client2 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc2 = new Document<{ counter?: Counter }>(key);
+    doc2.subscribe('local-changes-dropped', (event) =>
+      dropped2.push(event.value),
+    );
+    await client2.attach(doc2, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+    assert.equal(dropped2.length, 1);
+    assert.equal(dropped2[0].reason, 'log-discontinuity');
+
+    // The rebase must have carried the counter into the persisted base.
+    const rebased = (await store.load(scopedKey(key)))!;
+    assert.isAtLeast(
+      Document.fromBytes<{ counter?: Counter }>(key, rebased.snapshot)
+        .getChangeID()
+        .getClientSeq(),
+      acked,
+      'the rebased base must carry the acked counter, not the snapshot ones',
+    );
+
+    // One edit after the repair, appended to the freshly cleared log.
+    doc2.update((root) => {
+      root.counter = new Counter(7);
+    });
+    await settled();
+    const appended = doc2.getPendingChangesAfter(0);
+    assert.isNotEmpty(appended);
+
+    // The reload after the repair must be quiet: no second repair, no dropped
+    // edit, and the counter still above what the server already took.
+    const dropped3: Array<any> = [];
+    const client3 = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc3 = new Document<{ counter?: Counter }>(key);
+    doc3.subscribe('local-changes-dropped', (event) =>
+      dropped3.push(event.value),
+    );
+    await client3.attach(doc3, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    assert.isEmpty(
+      dropped3,
+      'the edit appended after a repair must replay, not be discarded',
+    );
+    assert.isAtLeast(
+      doc3.getChangeID().getClientSeq(),
+      appended[appended.length - 1].clientSeq,
+      'the counter must not rewind onto sequences already minted',
     );
   });
 

@@ -548,8 +548,43 @@ server rejects that gap with `ErrInvalidClientSeq` on every push from then on,
 and because it is not `ErrEpochMismatch`, nothing re-anchors: the document never
 syncs again, and the app's only escape is clearing its own store. So the
 comparison is against `max(checkpoint.clientSeq, changeID.clientSeq)`. With
-`meta` absent it reduces to the checkpoint, since a `toBytes` envelope's counter
-never leads the pending changes it carries.
+`meta` absent it cannot trip, because the snapshot's own counter is already
+folded into the watermark the log is measured against (see below).
+
+**The repair undoes the header's position, but not the sequences it spent.**
+Re-restoring from the snapshot bytes returns checkpoint, epoch and `changeID`
+to what the snapshot itself carries. That is right for the first two — they
+describe content, and the point is to let the server resend what the log lost —
+and wrong for the counter, which describes nothing but which `clientSeq` values
+this client has already minted. The header's checkpoint names sequences the
+server has taken; a snapshot written before them sits below it. Minting them
+again gets them skipped as duplicates on push, and the next ack — whose
+`clientSeq` covers them — drops them from `localChanges` as pushed: new edits
+lost with no event ([#1377](https://github.com/yorkie-team/yorkie-js-sdk/issues/1377)). `Document.advanceClientSeqTo` carries the acked
+checkpoint across the re-restore, forward only. The acked checkpoint and not
+the header's counter: the server validates continuity from the position it
+holds, so resuming at a counter that leads it would mint past the server and
+wedge every later push on `ErrInvalidClientSeq` — and the entry that lead came
+from is exactly the one the log has lost.
+
+The correction has to be *persisted*, not merely applied in memory. The rebase
+that clears the log writes `doc.toBytes()` — the repaired document — rather
+than the snapshot bytes it just restored from: `saveSnapshot` drops the `meta`
+blob that held the acked position, and the original envelope's `changeID` still
+carries the snapshot's pre-ack counter, so writing it back would stage the very
+same repair (and its silent `clientSeq` reuse) for the next reload.
+Re-serializing smuggles nothing in, because `restoreFromBytes` has already
+returned root, presences, checkpoint, epoch, `docID` and the pending queue to
+what the snapshot carries; the counter is the one field that differs.
+
+That rebased base is the one envelope whose counter legitimately leads its own
+checkpoint, so the *snapshot* watermark is
+`max(last pending clientSeq, checkpoint.clientSeq, changeID.clientSeq)`. The
+counter is the highest sequence this client has minted, and a minted sequence
+is never replayable — whether the snapshot holds it or the log lost it. For
+every other envelope the counter ties one of the other two, so the third term
+only bites after a repair: without it, the first edit appended post-repair
+starts above `watermark + 1` and the contiguity guard discards it.
 
 **Known redundancy: a restore can re-push changes the server already has.**
 `saveMeta` advances the header without rewriting the snapshot, so a snapshot

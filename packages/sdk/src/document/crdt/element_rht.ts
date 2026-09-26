@@ -109,6 +109,17 @@ export class ElementRHT {
    * `CRDTElement.remove` checks. It is kept so this reads as the mirror of Go
    * that it is.
    *
+   * The losing branch marks the incoming value removed only when it is not
+   * removed already. The marking exists solely to keep a duplicate out of
+   * `ownKeys`, and a value that arrives removed is already out; but
+   * `CRDTElement.remove` accepts any ticket later than the one it holds, so
+   * without the guard it is not a no-op. `converter.fromObject` replays a
+   * decoded object through here, and a decoded tombstone that sorts after the
+   * live occupant would have its `removedAt` bumped from the ticket of the
+   * removal that actually happened to the occupant's `positionedAt` — making
+   * GC on this replica wait on the wrong ticket, and its re-serialized
+   * snapshots and `docSize.gc` disagree with replicas that never reloaded.
+   *
    * That made rebuilding an object from a snapshot depend on the order its
    * members happened to arrive in — see
    * `test/unit/document/crdt/element_rht_order_test.ts`, and
@@ -131,7 +142,7 @@ export class ElementRHT {
       }
       this.nodeMapByKey.set(key, newNode);
       value.setMovedAt(executedAt);
-    } else if (!node.isRemoved()) {
+    } else if (!node.isRemoved() && !value.isRemoved()) {
       // The new node loses the LWW conflict — mark it as removed
       // so it doesn't appear as a duplicate in ownKeys iteration.
       value.remove(node.getValue().getPositionedAt());
