@@ -46,6 +46,17 @@ export type ChangeStruct<P extends Indexable> = {
 };
 
 /**
+ * `ExecutionResult` is what executing a change's operations produced: the
+ * operations that actually ran, the changes they made and the operations that
+ * undo them.
+ */
+export type ExecutionResult<P extends Indexable> = {
+  operations: Array<Operation>;
+  opInfos: Array<OpInfo>;
+  reverseOps: Array<HistoryOperation<P>>;
+};
+
+/**
  * `Change` represents a unit of modification in the document.
  */
 export class Change<P extends Indexable> {
@@ -153,28 +164,40 @@ export class Change<P extends Indexable> {
    * Operations are applied one at a time and are not rolled back: if one
    * throws, the ones before it have already mutated `root`. Pass `executed`
    * to collect that prefix — it is filled as each operation runs, so a caller
-   * catching the error still knows exactly what the root took.
+   * catching the error still knows exactly what the root took, down to the
+   * `opInfos` it has to publish and the reverse operations that undo it.
    */
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
     source: OpSource,
-    executed?: Array<Operation>,
-  ): {
-    operations: Array<Operation>;
-    opInfos: Array<OpInfo>;
-    reverseOps: Array<HistoryOperation<P>>;
-  } {
-    const changeOpInfos: Array<OpInfo> = [];
-    const changeOperations: Array<Operation> = executed || [];
-    const reverseOps: Array<HistoryOperation<P>> = [];
+    executed?: ExecutionResult<P>,
+  ): ExecutionResult<P> {
+    const changeOpInfos: Array<OpInfo> = executed ? executed.opInfos : [];
+    const changeOperations: Array<Operation> = executed
+      ? executed.operations
+      : [];
+    const reverseOps: Array<HistoryOperation<P>> = executed
+      ? executed.reverseOps
+      : [];
 
     for (const operation of this.operations) {
-      const executionResult = operation.execute(
-        root,
-        source,
-        this.id.getVersionVector(),
-      );
+      let executionResult;
+      try {
+        executionResult = operation.execute(
+          root,
+          source,
+          this.id.getVersionVector(),
+        );
+      } catch (err) {
+        // NOTE(hackerwins): An operation that throws is not atomic either:
+        // `Tree.edit`, for one, applies the `from` split before it resolves
+        // `to`, so the root has already taken part of this operation. Record
+        // it in the prefix too — a change that omitted it would leave peers
+        // without a mutation this replica made.
+        changeOperations.push(operation);
+        throw err;
+      }
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
       // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;

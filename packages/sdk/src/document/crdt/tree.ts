@@ -2988,8 +2988,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
         if (piece && pieceStart <= cursor) {
           const overlapEnd = Math.min(pieceEnd, end);
+          // `undefined` when the requested boundary aligns past this piece
+          // (trailing half of a surrogate pair): nothing here to revive.
           const target = this.isolateTextRange(piece, cursor, overlapEnd, diff);
-          if (target.isRemoved) {
+          if (target && target.isRemoved) {
             target.unremove();
             untombstoned.push(target);
           }
@@ -3023,18 +3025,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * RGATreeSplit.isolateRange). A live split's metadata overhead is added to
    * `diff`; a removed split buffers a pending GC pair internally (contributing
    * zero here). Requires pieceStart <= from < to <= pieceEnd.
+   *
+   * `split` aligns a cut that falls inside a surrogate pair forward to the end
+   * of the pair, so the boundary it makes can land past `from`. When that
+   * alignment reaches the end of `piece` the requested range was the trailing
+   * half of a pair and nothing inside `piece` covers it: `split` makes no new
+   * node and `undefined` is returned so the caller skips the piece.
    */
   private isolateTextRange(
     piece: CRDTTreeNode,
     from: number,
     to: number,
     diff: DataSize,
-  ): CRDTTreeNode {
+  ): CRDTTreeNode | undefined {
     let node = piece;
     if (from > node.id.getOffset()) {
       const [right, splitDiff] = node.split(this, from - node.id.getOffset());
       addDataSizes(diff, splitDiff);
-      node = right!;
+      if (!right) {
+        return undefined;
+      }
+      node = right;
     }
     if (to < node.id.getOffset() + node.value.length) {
       const [, splitDiff] = node.split(this, to - node.id.getOffset());
@@ -3067,13 +3078,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
           );
       for (const piece of pieces) {
         if (piece.isRemoved) continue;
-        let target = piece;
+        let target: CRDTTreeNode | undefined = piece;
         if (piece.isText) {
           const from = Math.max(piece.id.getOffset(), start);
           const to = Math.min(piece.id.getOffset() + piece.value.length, end);
+          // `undefined` when the span boundary aligns past this piece
+          // (trailing half of a surrogate pair): nothing here to re-remove.
           target = this.isolateTextRange(piece, from, to, diff);
         }
-        if (target.remove(executedAt)) {
+        if (target && target.remove(executedAt)) {
           pairs.push({ parent: this, child: target });
         }
       }

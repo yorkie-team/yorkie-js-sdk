@@ -37,6 +37,7 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
   ChangeStruct,
+  ExecutionResult,
 } from '@yorkie-js/sdk/src/document/change/change';
 import {
   ChangeID,
@@ -888,7 +889,11 @@ export class Document<
       // rejects the next push over. The presence change is dropped rather
       // than recorded — `execute` applies it only after the last operation,
       // so it never reached the document.
-      const executed: Array<Operation> = [];
+      const executed: ExecutionResult<P> = {
+        operations: [],
+        opInfos: [],
+        reverseOps: [],
+      };
       let result;
       try {
         result = change.execute(
@@ -898,18 +903,22 @@ export class Document<
           executed,
         );
       } catch (err) {
-        this.localChanges.push(
-          Change.create({
-            id: change.getID(),
-            operations: executed,
-            message: change.getMessage(),
-          }),
+        // The prefix is a local change like any other: it goes on the undo
+        // stack and invalidates the redo stack exactly as the success path
+        // below does, so history keeps describing the root as it now is.
+        if (executed.reverseOps.length) {
+          this.internalHistory.pushUndo(executed.reverseOps);
+        }
+        if (executed.opInfos.length) {
+          this.internalHistory.clearRedo();
+        }
+        this.recordPartialChange(
+          change,
+          executed,
+          actorID,
+          OpSource.Local,
+          ctx.getNextID(),
         );
-        this.changeID = ctx.getNextID();
-        // The clone applied the whole change; the document took a prefix of
-        // it. Drop the clone so the next update rebuilds it from the
-        // document instead of continuing from a state that diverged.
-        this.clone = undefined;
 
         throw err;
       }
@@ -979,6 +988,58 @@ export class Document<
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
+  }
+
+  /**
+   * `recordPartialChange` records the prefix of `change` that the root
+   * actually took when one of its operations threw partway.
+   *
+   * It does what the success path does, for the operations that ran: the
+   * change goes to `localChanges` so peers receive the mutations this replica
+   * made, `changeID` advances so the next change neither reissues these
+   * tickets nor leaves a clientSeq hole the server rejects the push over, and
+   * the executed `opInfos` are published as a `LocalChange` so subscribers
+   * that mirror the document from events — editor bindings, devtools — do not
+   * spend the rest of the session describing a root that moved without them.
+   * The clone is dropped: it applied more than the document did.
+   *
+   * The presence change is not recorded — `execute` applies it only after the
+   * last operation, so it never reached the document.
+   */
+  private recordPartialChange(
+    change: Change<P>,
+    executed: ExecutionResult<P>,
+    actorID: ActorID,
+    source: OpSource.Local | OpSource.UndoRedo,
+    nextID: ChangeID,
+  ): void {
+    const partial = Change.create<P>({
+      id: change.getID(),
+      operations: executed.operations,
+      message: change.getMessage(),
+    });
+    this.localChanges.push(partial);
+    this.changeID = nextID;
+    this.clone = undefined;
+
+    if (!executed.opInfos.length) {
+      return;
+    }
+
+    this.publish([
+      {
+        type: DocEventType.LocalChange,
+        source,
+        value: {
+          message: partial.getMessage() || '',
+          operations: executed.opInfos,
+          actor: actorID,
+          clientSeq: partial.getID().getClientSeq(),
+          serverSeq: partial.getID().getServerSeq(),
+        },
+        rawChange: this.isEnableDevtools() ? partial.toStruct() : undefined,
+      },
+    ]);
   }
 
   /**
@@ -2137,6 +2198,13 @@ export class Document<
       // update rebuilds the clone from the document instead of continuing
       // from a state that diverged for the rest of the session.
       this.clone = undefined;
+      // The root took a prefix of the change, so this replica has seen it:
+      // sync the clock exactly as the success path does. Leaving the lamport
+      // behind would order every ticket this document issues next before
+      // mutations it already holds.
+      this.changeID = this.disableGC
+        ? this.changeID.syncLamport(change.getID())
+        : this.changeID.syncClocks(change.getID());
 
       throw err;
     }
@@ -2764,11 +2832,42 @@ export class Document<
         ? deepcopy(this.presences.get(actorID)!)
         : undefined,
     };
-    const { operations, opInfos, reverseOps } = change.execute(
-      this.root,
-      this.presences,
-      OpSource.UndoRedo,
-    );
+    // Same hole `update` closes: `execute` does not roll back, so an
+    // operation that throws here leaves the root holding the ones before it.
+    // Record exactly that prefix and advance `changeID`, or peers never see
+    // mutations this replica took and the next change reissues these tickets.
+    const executed: ExecutionResult<P> = {
+      operations: [],
+      opInfos: [],
+      reverseOps: [],
+    };
+    let result;
+    try {
+      result = change.execute(
+        this.root,
+        this.presences,
+        OpSource.UndoRedo,
+        executed,
+      );
+    } catch (err) {
+      if (executed.reverseOps.length) {
+        if (isUndo) {
+          this.internalHistory.pushRedo(executed.reverseOps);
+        } else {
+          this.internalHistory.pushUndo(executed.reverseOps);
+        }
+      }
+      this.recordPartialChange(
+        change,
+        executed,
+        actorID,
+        OpSource.UndoRedo,
+        ctx.getNextID(),
+      );
+
+      throw err;
+    }
+    const { operations, opInfos, reverseOps } = result;
     const reverse = ctx.getReversePresence();
     if (reverse) {
       reverseOps.push({ type: 'presence', value: reverse });

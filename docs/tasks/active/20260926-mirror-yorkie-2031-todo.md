@@ -27,13 +27,13 @@ question differently from the server after that PR.
 - Alignment is forward (to the end of the pair), not back: an edit resolves the
   same anchor twice and only the forward boundary leaves the second resolution
   on the boundary the first one created.
-- No architecture change: no `docs/design/` update beyond the mirror-item note
-  already in `docs/design/tree.md`.
+- No architecture change, so no `docs/design/` update: the five items change
+  how existing split/failure paths behave, not the design they implement.
 
 ## Verify
 
 - `pnpm verify:fast`
-- `pnpm sdk exec vitest run test/unit/document/crdt/surrogate_split_test.ts`
+- `pnpm sdk exec vitest run test/unit/document/surrogate_split_test.ts`
 - Integration suites are not run here (no server in the agent run).
 
 [yorkie#2031]: https://github.com/yorkie-team/yorkie/pull/2031
