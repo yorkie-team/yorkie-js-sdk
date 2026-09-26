@@ -21,7 +21,6 @@ import {
   addDataSizes,
   subDataSize,
 } from '@yorkie-js/sdk/src/util/resource';
-import { alignSplitOffset } from '@yorkie-js/sdk/src/util/utf16';
 
 /**
  * About `index`, `path`, `size` and `TreePos` in crdt.IndexTree.
@@ -302,14 +301,8 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
       );
     }
 
-    // An offset falling between the two code units of a surrogate pair names
-    // no character boundary. Move it to the end of the pair, so this replica
-    // cuts where the server — whose strings cannot hold a lone surrogate —
-    // would cut, and the two keep the same text-node segmentation.
-    const splitAt = alignSplitOffset(this.value, offset);
-
-    const leftValue = this.value.slice(0, splitAt);
-    const rightValue = this.value.slice(splitAt);
+    const leftValue = this.value.slice(0, offset);
+    const rightValue = this.value.slice(offset);
 
     if (!rightValue.length) {
       return [undefined, diff];
@@ -319,7 +312,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
 
     this.value = leftValue;
 
-    const rightNode = this.cloneText(splitAt + absOffset);
+    const rightNode = this.cloneText(offset + absOffset);
     rightNode.value = rightValue;
 
     this.parent!.insertAfterInternal(rightNode, this as any);

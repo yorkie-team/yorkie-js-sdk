@@ -29,7 +29,6 @@ import {
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
-import { alignSplitOffset } from '@yorkie-js/sdk/src/util/utf16';
 import {
   parseAttrValue,
   parseObjectValues,
@@ -113,15 +112,6 @@ export class CRDTTextValue {
     );
     value.attributes = this.attributes.deepcopy();
     return value;
-  }
-
-  /**
-   * `splitOffset` returns the offset this value can actually be split at,
-   * moving an offset that falls inside a surrogate pair forward to the end of
-   * the pair. See `alignSplitOffset`.
-   */
-  public splitOffset(offset: number): number {
-    return alignSplitOffset(this.content, offset);
   }
 
   /**

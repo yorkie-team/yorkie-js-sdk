@@ -46,17 +46,6 @@ export type ChangeStruct<P extends Indexable> = {
 };
 
 /**
- * `ExecutionResult` is what executing a change's operations produced: the
- * operations that actually ran, the changes they made and the operations that
- * undo them.
- */
-export type ExecutionResult<P extends Indexable> = {
-  operations: Array<Operation>;
-  opInfos: Array<OpInfo>;
-  reverseOps: Array<HistoryOperation<P>>;
-};
-
-/**
  * `Change` represents a unit of modification in the document.
  */
 export class Change<P extends Indexable> {
@@ -160,33 +149,21 @@ export class Change<P extends Indexable> {
 
   /**
    * `execute` executes the operations of this change to the given root.
-   *
-   * Operations are applied one at a time and are not rolled back: if one
-   * throws, the ones before it have already mutated `root`. Pass `executed`
-   * to collect that prefix — it is filled as each operation runs, so a caller
-   * catching the error still knows exactly what the root took, down to the
-   * `opInfos` it has to publish and the reverse operations that undo it.
    */
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
     source: OpSource,
-    executed?: ExecutionResult<P>,
-  ): ExecutionResult<P> {
-    const changeOpInfos: Array<OpInfo> = executed ? executed.opInfos : [];
-    const changeOperations: Array<Operation> = executed
-      ? executed.operations
-      : [];
-    const reverseOps: Array<HistoryOperation<P>> = executed
-      ? executed.reverseOps
-      : [];
+  ): {
+    operations: Array<Operation>;
+    opInfos: Array<OpInfo>;
+    reverseOps: Array<HistoryOperation<P>>;
+  } {
+    const changeOpInfos: Array<OpInfo> = [];
+    const changeOperations: Array<Operation> = [];
+    const reverseOps: Array<HistoryOperation<P>> = [];
 
     for (const operation of this.operations) {
-      // NOTE(hackerwins): An operation that throws is not recorded in the
-      // prefix, even though it may have mutated the root partway (`Tree.edit`
-      // applies the `from` split before it resolves `to`). Recording it would
-      // tell peers to apply in full an operation this replica only applied
-      // part of, which is the worse divergence of the two.
       const executionResult = operation.execute(
         root,
         source,

@@ -79,3 +79,14 @@
   dedup, re-ran the non-idempotent history reconciliation and published the
   prefix twice. The failure path now forwards the checkpoint over that change
   alone; the pack's later changes never ran and stay behind it.
+
+### Rescope (maintainer)
+
+- The issue named yorkie#2031, which was closed unmerged; the landed fix is
+  yorkie#2035. Four fix rounds converged on the wrong target because nobody
+  compared against Go `main`. Before mirroring a server PR, confirm it merged
+  and read the merged code, not the PR description.
+- Rounds 2–3 "fixed" item 2 by moving JS away from Go (`orderSameBoundarySplit`
+  lost its `isRemoved` break). A panel finding about convergence has to be
+  checked against the other implementation, not only reasoned about locally.
+- Items 1, 2 and 5 were dropped; items 3 and 4 kept. See the todo file.

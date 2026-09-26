@@ -1438,16 +1438,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
-      // No `isRemoved` test here, for the same reason `emptyRunReachesActor`
-      // counts `allChildren`: this loop decides which node a boundary splits,
-      // and that decision has to come out the same on every replica.
-      // `isRemoved` is mutable and delivery-order dependent, so branching on
-      // it would have a replica that already applied the sibling's removal
-      // split `parent` while one that has not splits the sibling — the two
-      // would put the same boundary in different places and never reconverge.
-      // A product born tombstoned is not a new hazard: `splitElement` already
-      // inherits `removedAt` onto it and registers it for GC, and step 04
-      // measures the split's size growth off the tree for exactly that case.
+      // Splitting a tombstoned sibling would make our product born
+      // tombstoned, which a replica that applied us before the concurrent
+      // split never does. Fall back to splitting parent, as that replica
+      // did, rather than diverge on liveness.
+      if (next.isRemoved) {
+        break;
+      }
 
       const createdAt = next.id.getCreatedAt();
       if (createdAt.getActorID() === editedAt.getActorID()) {
@@ -1591,12 +1588,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
         return current !== node;
       }
       const knownLamport = versionVector.get(createdAt.getActorID());
-      // `allChildren`, not `children`: this predicate decides which side of a
-      // concurrent boundary an insertion lands on, and that decision has to be
-      // the same on every replica. `isRemoved` is mutable and delivery-order
-      // dependent, so a replica that already applied a child's removal would
-      // read the sibling as empty while one that has not reads it as
-      // non-empty, and the two would place the insertion differently.
       if (
         current.allChildren.length > 0 ||
         (knownLamport !== undefined && knownLamport >= createdAt.getLamport())
@@ -2993,10 +2984,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
         if (piece && pieceStart <= cursor) {
           const overlapEnd = Math.min(pieceEnd, end);
-          // `undefined` when the requested boundary aligns past this piece
-          // (trailing half of a surrogate pair): nothing here to revive.
           const target = this.isolateTextRange(piece, cursor, overlapEnd, diff);
-          if (target && target.isRemoved) {
+          if (target.isRemoved) {
             target.unremove();
             untombstoned.push(target);
           }
@@ -3030,27 +3019,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * RGATreeSplit.isolateRange). A live split's metadata overhead is added to
    * `diff`; a removed split buffers a pending GC pair internally (contributing
    * zero here). Requires pieceStart <= from < to <= pieceEnd.
-   *
-   * `split` aligns a cut that falls inside a surrogate pair forward to the end
-   * of the pair, so the boundary it makes can land past `from`. When that
-   * alignment reaches the end of `piece` the requested range was the trailing
-   * half of a pair and nothing inside `piece` covers it: `split` makes no new
-   * node and `undefined` is returned so the caller skips the piece.
    */
   private isolateTextRange(
     piece: CRDTTreeNode,
     from: number,
     to: number,
     diff: DataSize,
-  ): CRDTTreeNode | undefined {
+  ): CRDTTreeNode {
     let node = piece;
     if (from > node.id.getOffset()) {
       const [right, splitDiff] = node.split(this, from - node.id.getOffset());
       addDataSizes(diff, splitDiff);
-      if (!right) {
-        return undefined;
-      }
-      node = right;
+      node = right!;
     }
     if (to < node.id.getOffset() + node.value.length) {
       const [, splitDiff] = node.split(this, to - node.id.getOffset());
@@ -3083,15 +3063,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
           );
       for (const piece of pieces) {
         if (piece.isRemoved) continue;
-        let target: CRDTTreeNode | undefined = piece;
+        let target = piece;
         if (piece.isText) {
           const from = Math.max(piece.id.getOffset(), start);
           const to = Math.min(piece.id.getOffset() + piece.value.length, end);
-          // `undefined` when the span boundary aligns past this piece
-          // (trailing half of a surrogate pair): nothing here to re-remove.
           target = this.isolateTextRange(piece, from, to, diff);
         }
-        if (target && target.remove(executedAt)) {
+        if (target.remove(executedAt)) {
           pairs.push({ parent: this, child: target });
         }
       }
@@ -3293,10 +3271,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private leftAnchorID(sibling: CRDTTreeNode): CRDTTreeNodeID {
     // A text node with no characters has no last character to anchor on, and
     // `value.length - 1` would put the anchor one code unit before the node's
-    // own start — offset -1 for a node at offset 0, which the server rejects.
-    // Local edits cannot create one (`validateTextNode`), but a remote peer's
-    // contents are decoded without that check. The node's own ID is the
-    // closest anchor available and floor-resolves to the same node.
+    // own start — offset -1 for a node at offset 0. Local edits cannot create
+    // one (`validateTextNode`), but a remote peer's contents are decoded
+    // without that check. The node's own ID floor-resolves to the same node.
     if (!sibling.isText || sibling.value.length === 0) {
       return sibling.id;
     }

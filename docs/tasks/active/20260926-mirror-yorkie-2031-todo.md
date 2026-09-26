@@ -1,42 +1,36 @@
-# Mirror yorkie#2031: mid-surrogate-pair splits and four related gaps
+# Mirror yorkie#2035: client-side gaps around the tree split fix
 
 **Created**: 2026-09-26
 
-Issue: #1378. The root fix of [yorkie#2031] (rune → UTF-16 lengths) does not
-apply here — JS strings are already UTF-16 — but five places answer the same
-question differently from the server after that PR.
+Issue: #1378. The issue was written against [yorkie#2031], which was closed
+unmerged; the server fix that landed is [yorkie#2035]. This task is rescoped
+to what matches Go `main` or is a local-only safety net.
 
 ## Items
 
-- [ ] 1. Move a mid-surrogate-pair split forward, at the three split sites:
-  - `util/index_tree.ts` `splitText`
-  - `crdt/rga_tree_split.ts` `splitNode` (align before deriving the node ID)
-  - `crdt/text.ts` `CRDTTextValue` (expose the aligned offset to `splitNode`)
-- [ ] 2. Concurrent-boundary placement must not read `isRemoved`, which is
-  mutable and delivery-order dependent: `emptyRunReachesActor` keeps counting
-  `allChildren`, and `orderSameBoundarySplit` drops its tombstone fallback, so
-  the two paths resolve one boundary the same way on every replica
-  (`crdt/tree.ts`).
-- [ ] 3. `leftAnchorID` must not anchor an empty text node at offset `-1`:
+- [x] 3. `leftAnchorID` must not anchor an empty text node at offset `-1`:
   return `sibling.id` when `value.length === 0`.
-- [ ] 4. `applyChange` and `executeUndoRedo` must drop the clone when a change
+- [x] 4. `applyChange` and `executeUndoRedo` must drop the clone when a change
   fails partway, the way `Document.update` already does.
-- [ ] 5. A failed local change must still be recorded: `Change.execute` hands
-  back the operations that ran, and `Document.update` pushes a change carrying
-  that prefix and advances `changeID` before rethrowing.
 
-## Notes
+## Dropped
 
-- Alignment is forward (to the end of the pair), not back: an edit resolves the
-  same anchor twice and only the forward boundary leaves the second resolution
-  on the boundary the first one created.
-- No architecture change, so no `docs/design/` update: the five items change
-  how existing split/failure paths behave, not the design they implement.
+- 1. Forward alignment of a mid-surrogate-pair split. Go `main` splits at the
+  raw offset (`TreeNode.SplitText`, `TextValue.Split`), so aligning only here
+  would give JS and the server different node IDs for the same operation.
+  Needs to land in Go first, with a mixed-version rollout plan.
+- 2. Tombstone-insensitive boundary placement. Go `main` counts
+  `Children(true)` in `emptyRunReachesActor` and keeps the `IsRemoved()` break
+  in `orderSameBoundarySplit`; the JS code already matched it.
+- 5. Recording a partially failed change. Go's `Change.Execute` returns an
+  empty result on error and `Update` records nothing, so this is a new
+  contract for both SDKs, not a mirror. Track it as a separate design issue.
 
 ## Verify
 
 - `pnpm verify:fast`
-- `pnpm sdk exec vitest run test/unit/document/surrogate_split_test.ts`
-- Integration suites are not run here (no server in the agent run).
+- `test/unit/document/clone_reset_test.ts`: fails on the merge base, passes
+  here.
 
 [yorkie#2031]: https://github.com/yorkie-team/yorkie/pull/2031
+[yorkie#2035]: https://github.com/yorkie-team/yorkie/pull/2035

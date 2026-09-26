@@ -48,13 +48,6 @@ export interface RGATreeSplitValue {
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 
   /**
-   * `splitOffset` returns the offset this value can actually be split at: an
-   * offset naming no character boundary moves forward to the next one. See
-   * `alignSplitOffset`.
-   */
-  splitOffset(offset: number): number;
-
-  /**
    * `truncate` shortens this value in place, keeping the object identity.
    *
    * A split has to keep the LEFT node's value object, because `CRDTRoot.keyOf`
@@ -833,16 +826,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           // Covered by an existing piece.
           const overlapEnd = Math.min(pieceEnd, span.end);
           if (piece.isRemoved()) {
-            // `undefined` when the requested boundary aligns past this piece
-            // (trailing half of a surrogate pair): nothing here to revive.
             const [target] = this.isolateRange(piece, cursor, overlapEnd);
-            if (target) {
-              target.setRemovedAt(undefined);
-              // Repair splay weights on the path to root (length 0 → len).
-              this.treeByIndex.splayNode(target);
-              untombstoned.push(target);
-              chainAnchor = target;
-            }
+            target.setRemovedAt(undefined);
+            // Repair splay weights on the path to root (length 0 → len).
+            this.treeByIndex.splayNode(target);
+            untombstoned.push(target);
+            chainAnchor = target;
           } else {
             chainAnchor = piece;
           }
@@ -958,11 +947,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         // `piece` was live, so the split overhead belongs to the live
         // bucket, same as a normal edit's boundary splits.
         addDataSizes(diff, splitDiff);
-        if (!target) {
-          // The span boundary aligned past this piece (trailing half of a
-          // surrogate pair): nothing inside it to re-remove.
-          continue;
-        }
         // Capture the visible range while `target` is still live.
         const [from, to] = this.findIndexesFromRange(target.createPosRange());
         target.remove(executedAt);
@@ -1127,28 +1111,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * drain and register those pairs.
    *
    * Requires: pieceStart <= from < to <= pieceEnd.
-   *
-   * `splitNode` aligns a cut that falls inside a surrogate pair forward to the
-   * end of the pair, so the boundary it makes can land past `from`. When that
-   * alignment reaches the end of `piece` the requested range was the trailing
-   * half of a pair and nothing inside `piece` covers it; `undefined` is
-   * returned and the caller skips the piece. (Splitting there would hand back
-   * `splitNode`'s `getNext()`, a node outside the requested range.)
    */
   private isolateRange(
     piece: RGATreeSplitNode<T>,
     from: number,
     to: number,
-  ): [RGATreeSplitNode<T> | undefined, DataSize] {
+  ): [RGATreeSplitNode<T>, DataSize] {
     const diff = { data: 0, meta: 0 };
     let node = piece;
     const nodeStart = node.getID().getOffset();
     if (from > nodeStart) {
-      const offset = from - nodeStart;
-      if (node.getValue().splitOffset(offset) >= node.getContentLength()) {
-        return [undefined, diff];
-      }
-      const [right, splitDiff] = this.splitNode(node, offset);
+      const [right, splitDiff] = this.splitNode(node, from - nodeStart);
       addDataSizes(diff, splitDiff);
       node = right as RGATreeSplitNode<T>;
     }
@@ -1484,21 +1457,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     if (offset === 0) {
       return [node, diff];
-    }
-
-    // Ask the value for the boundary before deriving anything from the
-    // offset, so the new node's ID moves with the cut: an offset inside a
-    // surrogate pair names no character boundary and moves to the end of the
-    // pair. See `alignSplitOffset`.
-    const splitAt = node.getValue().splitOffset(offset);
-
-    if (splitAt === node.getContentLength()) {
+    } else if (offset === node.getContentLength()) {
       return [node.getNext(), diff];
     }
 
     const prvSize = node.getDataSize();
 
-    const splitNode = node.split(splitAt);
+    const splitNode = node.split(offset);
     this.treeByIndex.updateWeight(splitNode);
     this.insertAfter(node, splitNode);
 
