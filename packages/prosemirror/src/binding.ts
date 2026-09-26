@@ -71,8 +71,14 @@ export class YorkieProseMirrorBinding {
   private hasPendingRemoteChanges = false;
   private cursorManager: CursorManager | undefined = undefined;
   private remoteSelections = new Map<string, RemoteSelection>();
+  private publishSelection: boolean | undefined;
+  private hasPublishedSelection = false;
+  private lastShouldPublish: boolean | undefined;
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   private originalDispatchTransaction: ((tr: Transaction) => void) | undefined;
+  private installedDispatchTransaction: ((tr: Transaction) => void) | undefined;
+  private originalViewUpdate: ((props: any) => void) | undefined;
+  private installedViewUpdate: ((props: any) => void) | undefined;
   private unsubscribeDoc?: () => void;
   private unsubscribePresence?: () => void;
 
@@ -89,6 +95,7 @@ export class YorkieProseMirrorBinding {
       options.markMapping || buildMarkMapping(view.state.schema);
     this.elementToMarkMapping = invertMapping(this.markMapping);
     this.wrapperElementName = options.wrapperElementName || 'span';
+    this.publishSelection = options.publishSelection;
     this.onLog = options.onLog;
     this.client = options.client;
 
@@ -140,6 +147,9 @@ export class YorkieProseMirrorBinding {
     // Track IME composition to defer remote updates
     this.setupCompositionListeners();
 
+    // Watch prop updates so an `editable` flip is acted on right away
+    this.setupEditableWatch();
+
     // Set initial presence
     this.syncPresence();
   }
@@ -159,12 +169,39 @@ export class YorkieProseMirrorBinding {
     dom.removeEventListener('compositionstart', this.onCompositionStart);
     dom.removeEventListener('compositionend', this.onCompositionEnd);
 
-    // Restore original dispatchTransaction via setProps (ProseMirror's API)
-    if (this.originalDispatchTransaction) {
-      (this.view as any).setProps({
+    const view = this.view as any;
+
+    // Unwrap `update` before the setProps below, which routes through it.
+    // Restore only while ours is still the installed one: a wrapper layered
+    // on after us owns the slot, and overwriting it would detach that one.
+    if (this.installedViewUpdate && view.update === this.installedViewUpdate) {
+      view.update = this.originalViewUpdate;
+    }
+    this.installedViewUpdate = undefined;
+    this.originalViewUpdate = undefined;
+
+    // Retract before the binding goes quiet. A torn-down binding that leaves
+    // its last `presence.selection` behind is a ghost cursor on every peer:
+    // the peer-side removal only fires on a presence event carrying no
+    // selection, and nothing else would ever send one.
+    this.retractSelection();
+    this.lastShouldPublish = undefined;
+
+    // Restore the original dispatchTransaction via setProps (ProseMirror's
+    // API). It is `undefined` for a view built without that prop — the usual
+    // case — and restoring it must still happen, or the binding keeps writing
+    // edits and publishing the caret after destroy(). Same ownership check as
+    // `update` above, so a later wrapper is left alone.
+    if (
+      this.installedDispatchTransaction &&
+      view.props.dispatchTransaction === this.installedDispatchTransaction
+    ) {
+      view.setProps({
         dispatchTransaction: this.originalDispatchTransaction,
       });
     }
+    this.installedDispatchTransaction = undefined;
+    this.originalDispatchTransaction = undefined;
   }
 
   private getTree(): any {
@@ -313,55 +350,55 @@ export class YorkieProseMirrorBinding {
       this.view as any
     ).props.dispatchTransaction;
 
-    (this.view as any).setProps({
-      dispatchTransaction: (transaction: Transaction) => {
-        const newState = this.view.state.apply(transaction);
-        this.view.updateState(newState);
+    this.installedDispatchTransaction = (transaction: Transaction) => {
+      const newState = this.view.state.apply(transaction);
+      this.view.updateState(newState);
 
-        // Skip sync for remote changes or during sync
-        if (transaction.getMeta('yorkie-remote') || this.isSyncing) {
-          return;
+      // Skip sync for remote changes or during sync
+      if (transaction.getMeta('yorkie-remote') || this.isSyncing) {
+        return;
+      }
+
+      const tree = this.getTree();
+      if (!tree) return;
+
+      if (!transaction.steps.length) {
+        // Selection-only change — sync cursor to presence
+        this.syncPresence();
+        return;
+      }
+
+      // Content changed — remap remote cursor positions through the mapping
+      if (this.cursorManager && transaction.steps.length) {
+        this.cursorManager.remapPositions(transaction.mapping);
+        for (const [id, sel] of this.remoteSelections) {
+          this.remoteSelections.set(id, {
+            ...sel,
+            from: transaction.mapping.map(sel.from),
+            to: transaction.mapping.map(sel.to),
+          });
         }
+        this.cursorManager.repositionAll(this.view);
+      }
 
-        const tree = this.getTree();
-        if (!tree) return;
+      // Content changed - sync to Yorkie
+      const oldDoc = transaction.before;
+      const newDoc = newState.doc;
 
-        if (!transaction.steps.length) {
-          // Selection-only change — sync cursor to presence
-          this.syncPresence();
-          return;
-        }
+      this.doc.update((root: any, presence: any) => {
+        try {
+          this.isSyncing = true;
+          syncToYorkie(
+            root[this.treePath],
+            oldDoc,
+            newDoc,
+            this.markMapping,
+            this.onLog,
+            this.wrapperElementName,
+          );
 
-        // Content changed — remap remote cursor positions through the mapping
-        if (this.cursorManager && transaction.steps.length) {
-          this.cursorManager.remapPositions(transaction.mapping);
-          for (const [id, sel] of this.remoteSelections) {
-            this.remoteSelections.set(id, {
-              ...sel,
-              from: transaction.mapping.map(sel.from),
-              to: transaction.mapping.map(sel.to),
-            });
-          }
-          this.cursorManager.repositionAll(this.view);
-        }
-
-        // Content changed - sync to Yorkie
-        const oldDoc = transaction.before;
-        const newDoc = newState.doc;
-
-        this.doc.update((root: any, presence: any) => {
-          try {
-            this.isSyncing = true;
-            syncToYorkie(
-              root[this.treePath],
-              oldDoc,
-              newDoc,
-              this.markMapping,
-              this.onLog,
-              this.wrapperElementName,
-            );
-
-            // Sync cursor position after content edit
+          // Sync cursor position after content edit
+          if (this.shouldPublishSelection()) {
             const treeJSON = JSON.parse(root[this.treePath].toJSON());
             const map = buildPositionMap(newDoc, treeJSON);
             const sel = newState.selection;
@@ -373,25 +410,34 @@ export class YorkieProseMirrorBinding {
                 yorkieTo,
               ]),
             });
-          } catch (e) {
-            this.onLog?.(
-              'error',
-              `Upstream sync failed: ${(e as Error).message}`,
-            );
-            // Re-sync from Yorkie to recover from diverged state
-            syncToPM(
-              this.view,
-              root[this.treePath],
-              this.view.state.schema,
-              this.elementToMarkMapping,
-              this.onLog,
-              this.wrapperElementName,
-            );
-          } finally {
-            this.isSyncing = false;
+            this.hasPublishedSelection = true;
+          } else if (this.hasPublishedSelection) {
+            // Publishing just turned off — retract what peers still render.
+            presence.set({ selection: undefined });
+            this.hasPublishedSelection = false;
           }
-        });
-      },
+        } catch (e) {
+          this.onLog?.(
+            'error',
+            `Upstream sync failed: ${(e as Error).message}`,
+          );
+          // Re-sync from Yorkie to recover from diverged state
+          syncToPM(
+            this.view,
+            root[this.treePath],
+            this.view.state.schema,
+            this.elementToMarkMapping,
+            this.onLog,
+            this.wrapperElementName,
+          );
+        } finally {
+          this.isSyncing = false;
+        }
+      });
+    };
+
+    (this.view as any).setProps({
+      dispatchTransaction: this.installedDispatchTransaction,
     });
   }
 
@@ -473,7 +519,15 @@ export class YorkieProseMirrorBinding {
     const unsubscribe = this.doc.subscribe('others' as any, (event: any) => {
       if (event.type === 'presence-changed') {
         const { clientID, presence } = event.value;
-        if (presence.selection) {
+        if (!presence.selection) {
+          // The peer retracted its selection (e.g. it went read-only). The
+          // event carries that peer's whole presence, so an absent selection
+          // means there is no cursor of theirs left to render.
+          this.cursorManager!.removeCursor(clientID);
+          if (this.remoteSelections.delete(clientID)) {
+            this.dispatchSelectionDecorations();
+          }
+        } else {
           try {
             const tree = this.getTree();
             const [fromIdx, toIdx] = tree.posRangeToIndexRange([
@@ -533,7 +587,83 @@ export class YorkieProseMirrorBinding {
     this.view.dispatch(tr);
   }
 
+  /**
+   * Whether the local selection may be published as presence. Evaluated at
+   * publish time, not at construction, so a view whose `editable` prop flips
+   * later is honored. Never affects the receive side.
+   */
+  private shouldPublishSelection(): boolean {
+    if (this.publishSelection !== undefined) return this.publishSelection;
+    return this.view.editable !== false;
+  }
+
+  /**
+   * Wrap `view.update`, the single funnel every prop change passes through
+   * (`setProps` delegates to it), and recheck publishing after each one.
+   * A prop change produces no transaction, so a view whose `editable` flips
+   * to false and is then left alone would otherwise never retract — the very
+   * case retraction exists for. `setProps` on such a view is also how a host
+   * turns the editor read-only, which makes this the primary trigger rather
+   * than a fallback for the transaction-driven ones.
+   */
+  private setupEditableWatch(): void {
+    const view = this.view as any;
+    if (typeof view.update !== 'function') return;
+
+    this.lastShouldPublish = this.shouldPublishSelection();
+    const original = view.update.bind(view) as (props: any) => void;
+    this.originalViewUpdate = original;
+    this.installedViewUpdate = (props: any) => {
+      original(props);
+      this.reconcilePublishSelection();
+    };
+    view.update = this.installedViewUpdate;
+  }
+
+  /**
+   * Publish or retract after `shouldPublishSelection()` changes answer.
+   * A no-op while the answer is unchanged, so an unrelated prop update costs
+   * no presence write.
+   */
+  private reconcilePublishSelection(): void {
+    const shouldPublish = this.shouldPublishSelection();
+    if (shouldPublish === this.lastShouldPublish) return;
+    this.lastShouldPublish = shouldPublish;
+
+    if (shouldPublish) {
+      this.syncPresence();
+    } else {
+      this.retractSelection();
+    }
+  }
+
+  /**
+   * Drop an already-published selection from presence. Without this, a view
+   * that stops publishing (e.g. `editable` flips to false) would leave its
+   * last selection behind and every peer would keep rendering that cursor.
+   */
+  private retractSelection(): void {
+    if (!this.hasPublishedSelection) return;
+    this.hasPublishedSelection = false;
+
+    try {
+      this.doc.update((_root: any, presence: any) => {
+        presence.set({ selection: undefined });
+      });
+    } catch (e) {
+      this.onLog?.(
+        'error',
+        `Presence retraction failed: ${(e as Error).message}`,
+      );
+    }
+  }
+
   private syncPresence(): void {
+    if (!this.shouldPublishSelection()) {
+      this.retractSelection();
+      return;
+    }
+
     const tree = this.getTree();
     if (!tree) return;
 
@@ -548,6 +678,7 @@ export class YorkieProseMirrorBinding {
           selection: tree.indexRangeToPosRange([yorkieFrom, yorkieTo]),
         });
       });
+      this.hasPublishedSelection = true;
     } catch (e) {
       this.onLog?.('error', `Presence sync failed: ${(e as Error).message}`);
     }
