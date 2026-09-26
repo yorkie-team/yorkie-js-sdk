@@ -879,11 +879,22 @@ export class Document<
           : undefined,
       };
       const change = ctx.toChange();
-      const { opInfos, reverseOps } = change.execute(
-        this.root,
-        this.presences,
-        OpSource.Local,
-      );
+      let opInfos: Array<OpInfo>;
+      let reverseOps: Array<HistoryOperation<P>>;
+      try {
+        ({ opInfos, reverseOps } = change.execute(
+          this.root,
+          this.presences,
+          OpSource.Local,
+        ));
+      } catch (err) {
+        // NOTE: The updater has already applied the whole change to the
+        // clone, and `Change.execute` does not roll back, so a throw here
+        // leaves the root holding only a prefix of it. Drop the clone so the
+        // next access rebuilds it from the root.
+        this.clone = undefined;
+        throw err;
+      }
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
       // The history stack may still reference the old element's createdAt,
