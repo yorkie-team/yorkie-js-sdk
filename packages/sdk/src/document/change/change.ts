@@ -149,18 +149,24 @@ export class Change<P extends Indexable> {
 
   /**
    * `execute` executes the operations of this change to the given root.
+   *
+   * Operations are applied one at a time and are not rolled back: if one
+   * throws, the ones before it have already mutated `root`. Pass `executed`
+   * to collect that prefix — it is filled as each operation runs, so a caller
+   * catching the error still knows exactly what the root took.
    */
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
     source: OpSource,
+    executed?: Array<Operation>,
   ): {
     operations: Array<Operation>;
     opInfos: Array<OpInfo>;
     reverseOps: Array<HistoryOperation<P>>;
   } {
     const changeOpInfos: Array<OpInfo> = [];
-    const changeOperations: Array<Operation> = [];
+    const changeOperations: Array<Operation> = executed || [];
     const reverseOps: Array<HistoryOperation<P>> = [];
 
     for (const operation of this.operations) {

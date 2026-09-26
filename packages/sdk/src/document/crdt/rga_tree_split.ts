@@ -48,6 +48,13 @@ export interface RGATreeSplitValue {
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
 
   /**
+   * `splitOffset` returns the offset this value can actually be split at: an
+   * offset naming no character boundary moves forward to the next one. See
+   * `alignSplitOffset`.
+   */
+  splitOffset(offset: number): number;
+
+  /**
    * `truncate` shortens this value in place, keeping the object identity.
    *
    * A split has to keep the LEFT node's value object, because `CRDTRoot.keyOf`
@@ -1457,13 +1464,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     if (offset === 0) {
       return [node, diff];
-    } else if (offset === node.getContentLength()) {
+    }
+
+    // Ask the value for the boundary before deriving anything from the
+    // offset, so the new node's ID moves with the cut: an offset inside a
+    // surrogate pair names no character boundary and moves to the end of the
+    // pair. See `alignSplitOffset`.
+    const splitAt = node.getValue().splitOffset(offset);
+
+    if (splitAt === node.getContentLength()) {
       return [node.getNext(), diff];
     }
 
     const prvSize = node.getDataSize();
 
-    const splitNode = node.split(offset);
+    const splitNode = node.split(splitAt);
     this.treeByIndex.updateWeight(splitNode);
     this.insertAfter(node, splitNode);
 

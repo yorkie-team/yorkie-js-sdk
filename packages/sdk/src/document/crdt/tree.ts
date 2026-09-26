@@ -1588,8 +1588,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
         return current !== node;
       }
       const knownLamport = versionVector.get(createdAt.getActorID());
+      // `children` excludes removed children: a sibling holding only
+      // tombstones contributes nothing visible and is empty by the definition
+      // this walk uses. Counting tombstones here would make it read as
+      // non-empty and land the split on the wrong side of the boundary.
       if (
-        current.allChildren.length > 0 ||
+        current.children.length > 0 ||
         (knownLamport !== undefined && knownLamport >= createdAt.getLamport())
       ) {
         return false;
@@ -3269,7 +3273,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * which floor-resolves to the leftmost fragment — the true right neighbor.
    */
   private leftAnchorID(sibling: CRDTTreeNode): CRDTTreeNodeID {
-    if (!sibling.isText) {
+    // A text node with no characters has no last character to anchor on, and
+    // `value.length - 1` would put the anchor one code unit before the node's
+    // own start — offset -1 for a node at offset 0, which the server rejects.
+    // Local edits cannot create one (`validateTextNode`), but a remote peer's
+    // contents are decoded without that check. The node's own ID is the
+    // closest anchor available and floor-resolves to the same node.
+    if (!sibling.isText || sibling.value.length === 0) {
       return sibling.id;
     }
     return CRDTTreeNodeID.of(

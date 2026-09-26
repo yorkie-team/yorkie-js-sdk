@@ -879,11 +879,41 @@ export class Document<
           : undefined,
       };
       const change = ctx.toChange();
-      const { opInfos, reverseOps } = change.execute(
-        this.root,
-        this.presences,
-        OpSource.Local,
-      );
+      // NOTE(hackerwins): `execute` does not roll back. If an operation
+      // throws, the root has kept every operation before it, so the change
+      // has to be recorded with exactly that prefix and `changeID` advanced
+      // anyway: otherwise peers never see mutations this document already
+      // took, the next update reissues the tickets this context handed out,
+      // and the clientSeq this change consumed becomes a hole the server
+      // rejects the next push over. The presence change is dropped rather
+      // than recorded — `execute` applies it only after the last operation,
+      // so it never reached the document.
+      const executed: Array<Operation> = [];
+      let result;
+      try {
+        result = change.execute(
+          this.root,
+          this.presences,
+          OpSource.Local,
+          executed,
+        );
+      } catch (err) {
+        this.localChanges.push(
+          Change.create({
+            id: change.getID(),
+            operations: executed,
+            message: change.getMessage(),
+          }),
+        );
+        this.changeID = ctx.getNextID();
+        // The clone applied the whole change; the document took a prefix of
+        // it. Drop the clone so the next update rebuilds it from the
+        // document instead of continuing from a state that diverged.
+        this.clone = undefined;
+
+        throw err;
+      }
+      const { opInfos, reverseOps } = result;
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
       // The history stack may still reference the old element's createdAt,
@@ -2097,6 +2127,22 @@ export class Document<
    * `applyChange` applies the given change into this document.
    */
   public applyChange(change: Change<P>, source: OpSource) {
+    try {
+      this.applyChangeInternal(change, source);
+    } catch (err) {
+      // NOTE(hackerwins): A change that fails partway is not a no-op on the
+      // clone: `Tree.edit` applies the `from` split before it resolves `to`,
+      // so an error on the second position leaves the clone holding a split
+      // the document never took. Drop it like `update` does, so the next
+      // update rebuilds the clone from the document instead of continuing
+      // from a state that diverged for the rest of the session.
+      this.clone = undefined;
+
+      throw err;
+    }
+  }
+
+  private applyChangeInternal(change: Change<P>, source: OpSource) {
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -2616,6 +2662,8 @@ export class Document<
    * `executeUndoRedo` executes undo or redo operation with shared logic.
    */
   private executeUndoRedo(isUndo: boolean): void {
+    // Checked before the clone-dropping guard below: an updater is holding a
+    // proxy over the clone, so this refusal must leave it alone.
     if (this.isUpdating) {
       throw new YorkieError(
         Code.ErrRefused,
@@ -2623,6 +2671,19 @@ export class Document<
       );
     }
 
+    try {
+      this.executeUndoRedoInternal(isUndo);
+    } catch (err) {
+      // NOTE(hackerwins): Same reason as `applyChange`: an undo that fails
+      // partway leaves the clone holding what the document did not take.
+      // Drop it so the next update rebuilds it from the document.
+      this.clone = undefined;
+
+      throw err;
+    }
+  }
+
+  private executeUndoRedoInternal(isUndo: boolean): void {
     const ops = isUndo
       ? this.internalHistory.popUndo()
       : this.internalHistory.popRedo();
