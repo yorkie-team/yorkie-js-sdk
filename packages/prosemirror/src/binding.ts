@@ -73,8 +73,10 @@ export class YorkieProseMirrorBinding {
   private remoteSelections = new Map<string, RemoteSelection>();
   private publishSelection: boolean | undefined;
   private hasPublishedSelection = false;
+  private lastShouldPublish: boolean | undefined;
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   private originalDispatchTransaction: ((tr: Transaction) => void) | undefined;
+  private originalViewUpdate: ((props: any) => void) | undefined;
   private unsubscribeDoc?: () => void;
   private unsubscribePresence?: () => void;
 
@@ -143,6 +145,9 @@ export class YorkieProseMirrorBinding {
     // Track IME composition to defer remote updates
     this.setupCompositionListeners();
 
+    // Watch prop updates so an `editable` flip is acted on right away
+    this.setupEditableWatch();
+
     // Set initial presence
     this.syncPresence();
   }
@@ -161,6 +166,12 @@ export class YorkieProseMirrorBinding {
     const dom = this.view.dom;
     dom.removeEventListener('compositionstart', this.onCompositionStart);
     dom.removeEventListener('compositionend', this.onCompositionEnd);
+
+    // Unwrap `update` before the setProps below, which routes through it
+    if (this.originalViewUpdate) {
+      (this.view as any).update = this.originalViewUpdate;
+      this.originalViewUpdate = undefined;
+    }
 
     // Restore original dispatchTransaction via setProps (ProseMirror's API)
     if (this.originalDispatchTransaction) {
@@ -559,6 +570,45 @@ export class YorkieProseMirrorBinding {
   private shouldPublishSelection(): boolean {
     if (this.publishSelection !== undefined) return this.publishSelection;
     return this.view.editable !== false;
+  }
+
+  /**
+   * Wrap `view.update`, the single funnel every prop change passes through
+   * (`setProps` delegates to it), and recheck publishing after each one.
+   * A prop change produces no transaction, so a view whose `editable` flips
+   * to false and is then left alone would otherwise never retract — the very
+   * case retraction exists for. `setProps` on such a view is also how a host
+   * turns the editor read-only, which makes this the primary trigger rather
+   * than a fallback for the transaction-driven ones.
+   */
+  private setupEditableWatch(): void {
+    const view = this.view as any;
+    if (typeof view.update !== 'function') return;
+
+    this.lastShouldPublish = this.shouldPublishSelection();
+    const original = view.update.bind(view) as (props: any) => void;
+    this.originalViewUpdate = original;
+    view.update = (props: any) => {
+      original(props);
+      this.reconcilePublishSelection();
+    };
+  }
+
+  /**
+   * Publish or retract after `shouldPublishSelection()` changes answer.
+   * A no-op while the answer is unchanged, so an unrelated prop update costs
+   * no presence write.
+   */
+  private reconcilePublishSelection(): void {
+    const shouldPublish = this.shouldPublishSelection();
+    if (shouldPublish === this.lastShouldPublish) return;
+    this.lastShouldPublish = shouldPublish;
+
+    if (shouldPublish) {
+      this.syncPresence();
+    } else {
+      this.retractSelection();
+    }
   }
 
   /**

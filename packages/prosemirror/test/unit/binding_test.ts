@@ -42,10 +42,18 @@ function createFakeView(editable = true) {
       /** No-op listener removal. */
       removeEventListener() {},
     },
-    props: {} as Record<string, unknown>,
-    /** Record props the binding installs, like ProseMirror's `setProps`. */
+    props: { editable: () => editable } as Record<string, unknown>,
+    /** Replace the props and recompute `editable`, as ProseMirror's does. */
+    update(props: Record<string, unknown>) {
+      view.props = props;
+      const editableProp = props.editable as
+        | ((state: EditorState) => boolean)
+        | undefined;
+      view.editable = editableProp ? editableProp(view.state) : true;
+    },
+    /** Merge in the given props and update, like ProseMirror's `setProps`. */
     setProps(props: Record<string, unknown>) {
-      Object.assign(view.props, props);
+      view.update({ ...view.props, ...props });
     },
     /** Replace the current state. */
     updateState(next: EditorState) {
@@ -278,6 +286,47 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
     moveCaret(view, 4);
     typeText(view, 'x', 3);
     assert.equal(yorkieDoc.presenceUpdates.length, 2);
+  });
+
+  it('retracts when the editable prop flips with no transaction', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    bind(view, yorkieDoc);
+    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+
+    // Turning an editor read-only is a prop update, not a transaction, and a
+    // view left alone afterwards never produces one — so the retraction has
+    // to happen here rather than wait for an edit or caret move.
+    view.setProps({ editable: () => false });
+    assert.equal(yorkieDoc.presenceUpdates.length, 2);
+    assert.property(yorkieDoc.presenceUpdates[1], 'selection');
+    assert.isUndefined(yorkieDoc.presenceUpdates[1].selection);
+
+    // Flipping back republishes, again without any transaction.
+    view.setProps({ editable: () => true });
+    assert.equal(yorkieDoc.presenceUpdates.length, 3);
+    assert.isDefined(yorkieDoc.presenceUpdates[2].selection);
+  });
+
+  it('writes no presence for prop updates that keep publishing on', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    bind(view, yorkieDoc);
+    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+
+    view.setProps({ editable: () => true });
+    view.setProps({ attributes: { class: 'editor' } });
+    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+  });
+
+  it('ignores the editable prop once destroyed', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const binding = bind(view, yorkieDoc);
+    binding.destroy();
+
+    view.setProps({ editable: () => false });
+    assert.equal(yorkieDoc.presenceUpdates.length, 1);
   });
 
   it('retracts on a content edit once publishing turns off', function () {
