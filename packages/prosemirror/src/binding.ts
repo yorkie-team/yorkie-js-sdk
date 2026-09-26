@@ -40,11 +40,13 @@ import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
 /**
  * Sync mode the document is held in while an IME composition is active.
  *
- * `RealtimePushOnly` keeps local edits flowing to peers while still refusing
- * every incoming change: the request carries `pushOnly`, and the client drops
- * a response pack that arrives anyway. That is all the composition guard needs
- * — applying a remote change mid-composition is what breaks the browser's
- * composing text node, pushing a local one is not.
+ * `RealtimePushOnly` keeps local edits flowing to peers while refusing
+ * incoming changes: the request carries `pushOnly`, and the client drops a
+ * response pack with changes that arrives anyway. A snapshot can still be
+ * applied (from an explicit `client.sync(doc)`, which always pulls), so the
+ * binding also defers snapshots itself until compositionend. That is all the
+ * composition guard needs — applying a remote change mid-composition is what
+ * breaks the browser's composing text node, pushing a local one is not.
  */
 const PausedSyncMode = SyncMode.RealtimePushOnly;
 
@@ -497,6 +499,10 @@ export class YorkieProseMirrorBinding {
 
   private setupDocSubscription(): void {
     const unsubscribe = this.doc.subscribe((event: any) => {
+      if (event.type === 'snapshot') {
+        this.onSnapshot();
+        return;
+      }
       if (event.type !== 'remote-change') return;
       if (this.isSyncing) return;
 
@@ -546,6 +552,21 @@ export class YorkieProseMirrorBinding {
       this.hasPendingRemoteChanges = true;
     });
     this.unsubscribeDoc = unsubscribe;
+  }
+
+  /**
+   * Handle a snapshot the document applied. It replaces the whole root and
+   * emits no `remote-change`, so without this the view would silently fall
+   * behind the tree. While composing, defer it to the compositionend flush:
+   * a replaced root gives no trustworthy block-level diff to apply in part.
+   */
+  private onSnapshot(): void {
+    this.onLog?.('remote', 'Received a remote snapshot');
+    if (this.isComposing) {
+      this.hasPendingRemoteChanges = true;
+      return;
+    }
+    this.applyRemoteTreeOps();
   }
 
   private applyRemoteTreeOps(): void {

@@ -62,13 +62,19 @@ function createMockView() {
   };
 }
 
-/** Yorkie document stand-in holding a tree that mirrors the PM doc. */
+/**
+ * Yorkie document stand-in holding a tree that mirrors the PM doc. `text` is
+ * the paragraph content the tree serializes, so a test can swap it out before
+ * emitting a snapshot.
+ */
 function createMockDoc() {
+  const handlers: Array<(event: unknown) => void> = [];
   const tree = {
+    text: 'hello',
     /** Serialize the tree, matching the mock view's initial PM doc. */
     toJSON() {
       return JSON.stringify(
-        yElem('doc', [yElem('paragraph', [yText('hello')])]),
+        yElem('doc', [yElem('paragraph', [yText(tree.text)])]),
       );
     },
     /** Presence writes go through this; the value itself is not asserted. */
@@ -79,6 +85,11 @@ function createMockDoc() {
   const root = { tree };
 
   return {
+    tree,
+    /** Deliver a document event to every subscriber. */
+    emit(event: unknown) {
+      for (const handler of handlers) handler(event);
+    },
     /** Return the document root. */
     getRoot() {
       return root;
@@ -86,8 +97,11 @@ function createMockDoc() {
     update(fn: (root: unknown, presence: unknown) => void) {
       fn(root, { set: () => undefined });
     },
-    /** Remote-change subscription; the tests never emit one. */
-    subscribe() {
+    /** Record a subscriber so `emit` can reach it. */
+    subscribe(topicOrHandler: unknown) {
+      if (typeof topicOrHandler === 'function') {
+        handlers.push(topicOrHandler as (event: unknown) => void);
+      }
       return () => undefined;
     },
   };
@@ -173,14 +187,17 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
   /** Build an initialized binding wired to the mocks above. */
   function setup(client = createMockClient()) {
     const view = createMockView();
+    const yorkieDoc = createMockDoc();
     const binding = new YorkieProseMirrorBinding(
       view as any,
-      createMockDoc(),
+      yorkieDoc,
       'tree',
-      { client },
+      {
+        client,
+      },
     );
     binding.initialize();
-    return { view, client, binding };
+    return { view, yorkieDoc, client, binding };
   }
 
   it('should keep pushing local changes while composing', async () => {
@@ -262,6 +279,31 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
       SyncMode.Realtime,
       SyncMode.Realtime,
     ]);
+  });
+
+  it('should apply a snapshot to the view right away when not composing', () => {
+    const { view, yorkieDoc } = setup();
+
+    yorkieDoc.tree.text = 'hello world';
+    yorkieDoc.emit({ type: 'snapshot', source: 'remote' });
+
+    assert.equal(view.state.doc.textContent, 'hello world');
+  });
+
+  it('should defer a snapshot applied mid-composition until it ends', async () => {
+    const { view, yorkieDoc } = setup();
+
+    view.fire('compositionstart');
+    await tick();
+    // An explicit client.sync(doc) pulls even in push-only mode, so a
+    // snapshot can land mid-composition; the view must not change under it.
+    yorkieDoc.tree.text = 'hello world';
+    yorkieDoc.emit({ type: 'snapshot', source: 'remote' });
+    assert.equal(view.state.doc.textContent, 'hello');
+
+    view.fire('compositionend');
+    await flushFrames();
+    assert.equal(view.state.doc.textContent, 'hello world');
   });
 
   it('should cancel the previous flush frame when another flush is scheduled', async () => {
