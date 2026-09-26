@@ -45,6 +45,7 @@ import {
   DataSize,
   DocSize,
   addDataSizes,
+  subDataSize,
 } from '@yorkie-js/sdk/src/util/resource';
 
 /**
@@ -599,10 +600,19 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
         // the NODE holding the attribute may itself be a tombstone -- the
         // third case `attrGCPair` asks about.
         let attrWasLive = node.getValue().getAttrs().has(key);
-        for (const rhtNode of node
+        const { gcNodes, valueDropped } = node
           .getValue()
           .getAttrs()
-          .remove(key, editedAt)) {
+          .remove(key, editedAt);
+
+        // The tombstone holds no value, so the dropped bytes have to leave
+        // whichever side was holding them: live for a live attribute on a live
+        // node, and the node's own gc charge when the node is a tombstone --
+        // the container skips a removed node, so live never held it. The same
+        // split `attrGCPair` makes just below.
+        subDataSize(nodeIsLive ? size.live : size.gc, valueDropped);
+
+        for (const rhtNode of gcNodes) {
           pairs.push(
             attrGCPair(node.getValue(), rhtNode, attrWasLive, nodeIsLive),
           );

@@ -473,7 +473,11 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const prevCreatedAt = target.getPrevCreatedAt(nextCreatedAt);
-    const deadNode = target.moveAfter(prevCreatedAt, createdAt, ticket);
+    const { deadNode, movedDiff } = target.moveAfter(
+      prevCreatedAt,
+      createdAt,
+      ticket,
+    );
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -482,6 +486,10 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    // The `movedAt` stamp is part of the moved element's size; see
+    // `CRDTRoot.accMovedElement` for why it cannot simply go to live.
+    context.accMovedElement(target.getByID(createdAt)!, movedDiff);
+
     if (deadNode) {
       // A dead position node holds no element, so `getDataSize` never counted
       // it into live -- `gcOnlySize` is how a pair says "add to gc, take
@@ -515,7 +523,11 @@ export class ArrayProxy {
     } catch {
       posCreatedAt = prevCreatedAt;
     }
-    const deadNode = target.moveAfter(posCreatedAt, createdAt, ticket);
+    const { deadNode, movedDiff } = target.moveAfter(
+      posCreatedAt,
+      createdAt,
+      ticket,
+    );
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -524,6 +536,10 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    // The `movedAt` stamp is part of the moved element's size; see
+    // `CRDTRoot.accMovedElement` for why it cannot simply go to live.
+    context.accMovedElement(target.getByID(createdAt)!, movedDiff);
+
     if (deadNode) {
       // A dead position node holds no element, so `getDataSize` never counted
       // it into live -- `gcOnlySize` is how a pair says "add to gc, take
@@ -581,7 +597,11 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const head = target.getHead();
-    const deadNode = target.moveAfter(head.getCreatedAt(), createdAt, ticket);
+    const { deadNode, movedDiff } = target.moveAfter(
+      head.getCreatedAt(),
+      createdAt,
+      ticket,
+    );
     context.push(
       MoveOperation.create(
         target.getCreatedAt(),
@@ -590,6 +610,10 @@ export class ArrayProxy {
         ticket,
       ),
     );
+    // The `movedAt` stamp is part of the moved element's size; see
+    // `CRDTRoot.accMovedElement` for why it cannot simply go to live.
+    context.accMovedElement(target.getByID(createdAt)!, movedDiff);
+
     if (deadNode) {
       // A dead position node holds no element, so `getDataSize` never counted
       // it into live -- `gcOnlySize` is how a pair says "add to gc, take
@@ -613,10 +637,18 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const last = target.getLastCreatedAt();
-    const deadNode = target.moveAfter(last, createdAt, ticket);
+    const { deadNode, movedDiff } = target.moveAfter(
+      last,
+      createdAt,
+      ticket,
+    );
     context.push(
       MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );
+    // The `movedAt` stamp is part of the moved element's size; see
+    // `CRDTRoot.accMovedElement` for why it cannot simply go to live.
+    context.accMovedElement(target.getByID(createdAt)!, movedDiff);
+
     if (deadNode) {
       // A dead position node holds no element, so `getDataSize` never counted
       // it into live -- `gcOnlySize` is how a pair says "add to gc, take

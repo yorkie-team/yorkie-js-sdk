@@ -80,11 +80,15 @@ export class MoveOperation extends Operation {
     const reverseOp = this.toReverseOperation(array);
 
     const previousIndex = Number(array.subPathOf(this.createdAt));
-    const deadNode = array.moveAfter(
+    const { deadNode, movedDiff } = array.moveAfter(
       this.prevCreatedAt,
       this.createdAt,
       this.getExecutedAt(),
     );
+
+    // The `movedAt` stamp is part of the moved element's size; see
+    // `CRDTRoot.accMovedElement` for why it cannot simply go to live.
+    root.accMovedElement(root.findByCreatedAt(this.createdAt)!, movedDiff);
 
     if (deadNode) {
       // See `json/array.ts`: a dead position node was never in live.
