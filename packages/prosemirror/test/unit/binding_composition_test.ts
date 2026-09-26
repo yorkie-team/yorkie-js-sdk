@@ -322,6 +322,36 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     assert.isUndefined(view.props.dispatchTransaction);
   });
 
+  it('should leave a consumer dispatch alone when destroy() never initialized', () => {
+    const view = createMockView();
+    const consumerDispatch = () => undefined;
+    view.setProps({ dispatchTransaction: consumerDispatch });
+    const binding = new YorkieProseMirrorBinding(
+      view as any,
+      createMockDoc(),
+      'tree',
+      { client: createMockClient() },
+    );
+
+    // No initialize(), so the binding never installed an override and has no
+    // prop of its own to hand back — writing one would erase the consumer's.
+    binding.destroy();
+
+    assert.equal(view.props.dispatchTransaction, consumerDispatch);
+  });
+
+  it('should not clobber a dispatch reinstalled after the first destroy', () => {
+    const { view, binding } = setup();
+
+    binding.destroy();
+    const consumerDispatch = () => undefined;
+    view.setProps({ dispatchTransaction: consumerDispatch });
+
+    binding.destroy();
+
+    assert.equal(view.props.dispatchTransaction, consumerDispatch);
+  });
+
   it('should resume realtime on destroy', async () => {
     const { view, client, binding } = setup();
 

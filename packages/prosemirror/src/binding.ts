@@ -102,6 +102,8 @@ export class YorkieProseMirrorBinding {
   private remoteSelections = new Map<string, RemoteSelection>();
   private onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   private originalDispatchTransaction: ((tr: Transaction) => void) | undefined;
+  /** Whether this binding currently owns the view's `dispatchTransaction`. */
+  private hasDispatchOverride = false;
   private unsubscribeDoc?: () => void;
   private unsubscribePresence?: () => void;
 
@@ -202,14 +204,20 @@ export class YorkieProseMirrorBinding {
     dom.removeEventListener('compositionstart', this.onCompositionStart);
     dom.removeEventListener('compositionend', this.onCompositionEnd);
 
-    // Always hand dispatchTransaction back, even when the view had no prop of
-    // its own: leaving the override installed lets a post-destroy transaction
-    // keep writing tree content and presence into the shared document.
-    // `undefined` restores ProseMirror's built-in dispatch.
-    (this.view as any).setProps({
-      dispatchTransaction: this.originalDispatchTransaction,
-    });
-    this.originalDispatchTransaction = undefined;
+    // Hand dispatchTransaction back whenever this binding installed the
+    // override, even if the view had no prop of its own: leaving the override
+    // installed lets a post-destroy transaction keep writing tree content and
+    // presence into the shared document, and `undefined` restores
+    // ProseMirror's built-in dispatch. Restoring when we never installed it
+    // (destroy() before initialize(), or a second destroy()) would instead
+    // erase a dispatch handler the consumer owns, so the flag gates the write.
+    if (this.hasDispatchOverride) {
+      this.hasDispatchOverride = false;
+      (this.view as any).setProps({
+        dispatchTransaction: this.originalDispatchTransaction,
+      });
+      this.originalDispatchTransaction = undefined;
+    }
   }
 
   private getTree(): any {
@@ -393,6 +401,7 @@ export class YorkieProseMirrorBinding {
     this.originalDispatchTransaction = (
       this.view as any
     ).props.dispatchTransaction;
+    this.hasDispatchOverride = true;
 
     (this.view as any).setProps({
       dispatchTransaction: (transaction: Transaction) => {
