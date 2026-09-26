@@ -259,12 +259,19 @@ jobs:
       # The gate below runs BEFORE the workspace checkout — deliberately, since it
       # decides whether this job may touch the repository at all — so its module
       # is fetched here, sparsely, from the default branch. `persist-credentials:
-      # false`: nothing after this reads a token from `.git/config`, and the
-      # workspace checkout further down replaces it anyway.
+      # false`: nothing after this reads a token from `.git/config`.
+      #
+      # ITS OWN DIRECTORY, not the workspace. Checked out sparsely into the
+      # workspace root, the full checkout further down reused that repository,
+      # and on the runner's git (2.55) `sparse-checkout disable` did not bring
+      # the tree back: the job reached `pnpm install` holding only
+      # `scripts/agent/` — `ERR_PNPM_NO_PKG_MANIFEST`, on the first live run.
+      # A separate path leaves the workspace checkout starting from nothing.
       - name: Check out the protection check (trusted, from the default branch)
         if: steps.app.outputs.configured == 'true'
         uses: actions/checkout@v4
         with:
+          path: .trusted-protection
           sparse-checkout: scripts/agent
           sparse-checkout-cone-mode: false
           persist-credentials: false
@@ -287,7 +294,9 @@ jobs:
         if: steps.app.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: node ./scripts/agent/check-protection.mjs main
+        run: |
+          node ./.trusted-protection/scripts/agent/check-protection.mjs main
+          rm -rf .trusted-protection
 
       - name: Refuse if this issue already has an agent branch
         id: existing
