@@ -1576,6 +1576,31 @@ export class Document<
   }
 
   /**
+   * `advanceClientSeqTo` moves this document's `clientSeq` counter forward to
+   * the given sequence, and never backward.
+   *
+   * It exists for the one caller that has to undo a persisted header without
+   * undoing the counter inside it. `restoreFromBytes` returns checkpoint,
+   * epoch and `changeID` to what the snapshot carries, which is right for a
+   * header the appended log cannot back — except for the counter. A counter is
+   * not a claim about content the way a checkpoint is: it records which
+   * `clientSeq` values this client has already MINTED, and the server has
+   * taken some of them. Rewinding it to the snapshot's counter mints those
+   * sequences a second time; the server skips them as duplicates and the next
+   * ack, whose `clientSeq` covers them, drops them from `localChanges` as
+   * pushed. The edits are lost with no event.
+   *
+   * The counter only ever rises, so the guard is the whole contract: a caller
+   * that hands over a stale position cannot pull the document back into
+   * reusing sequence numbers.
+   */
+  public advanceClientSeqTo(clientSeq: number): void {
+    if (clientSeq > this.changeID.getClientSeq()) {
+      this.changeID = this.changeID.setClientSeq(clientSeq);
+    }
+  }
+
+  /**
    * `getPendingChangeStructs` returns the serialized structs of the current
    * un-pushed local changes. Used by the offline-persistence layer to carry the
    * dropped changes in a `LocalChangesDropped` data-loss event so the app can

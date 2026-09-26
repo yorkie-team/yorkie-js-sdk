@@ -1055,6 +1055,15 @@ export class Client {
                     // snapshot itself carries, which the server *can* resume
                     // from.
                     doc.restoreFromBytes(bytes);
+                    // ...except the counter, which is not a claim about
+                    // content. The header said the server had already taken
+                    // sequences up to `headerWatermark`; the snapshot's counter
+                    // can be below that. Minting those again gets them skipped
+                    // as duplicates on push and then dropped from the pending
+                    // queue by the ack that covers them -- new edits lost with
+                    // no event, which is the one outcome this whole branch
+                    // exists to avoid. Carry the counter across the re-restore.
+                    doc.advanceClientSeqTo(headerWatermark);
                     // Rewrite the base from those same bytes, which clears the
                     // log with it. Writing them back costs no serialization,
                     // and re-serializing here would have baked the rejected

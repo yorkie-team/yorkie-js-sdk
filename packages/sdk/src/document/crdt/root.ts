@@ -121,8 +121,20 @@ export class CRDTRoot {
    * released: charged to neither side, because its subtree was orphaned by a
    * restore and nothing will ever collect it. Anything that later charges it
    * again has to know live is not the side to take it from.
+   *
+   * It is a `WeakMap` because a released element's record has no retirement of
+   * its own. `release` writes the zero record for a tombstone the restore
+   * orphaned, and that tombstone is dropped from `gcElementSetByCreatedAt` in
+   * the same breath -- so nothing collects it, nothing deregisters it, and a
+   * strong map would hold both the record and the element for the life of the
+   * document, growing by one subtree per remove/undo. The record is only ever
+   * reached through the element it is keyed by -- this map is never iterated
+   * and never counted -- so its useful lifetime IS the element's: the zero
+   * marker stands for exactly as long as the tombstone stays addressable,
+   * which is the only window in which `moveSizeToGC` or `accMovedElement` can
+   * consult it.
    */
-  private sizeInGC: Map<CRDTElement, DataSize>;
+  private sizeInGC: WeakMap<CRDTElement, DataSize>;
 
   /**
    * `gcPairMap` is a hash table of the registered GC pairs, keyed by both of
@@ -163,7 +175,7 @@ export class CRDTRoot {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
     this.gcElementSetByCreatedAt = new Set();
-    this.sizeInGC = new Map();
+    this.sizeInGC = new WeakMap();
     this.gcPairMap = new Map();
     this.gcParentIDs = new WeakMap();
     this.nextGCParentID = 0;
@@ -561,7 +573,9 @@ export class CRDTRoot {
     // subtree, and `moveSizeToGC` would then take its size out of live for a
     // second time and drive docSize negative. A zero charge says live is not
     // holding it. A copy restored under the same createdAt has a slot of its
-    // own and is still charged normally.
+    // own and is still charged normally. Nothing retires this record -- the
+    // element is past collection and past deregistration -- so `sizeInGC` is a
+    // `WeakMap` and the record goes when the element does.
     this.sizeInGC.set(element, { data: 0, meta: 0 });
 
     if (this.elementPairMapByCreatedAt.get(createdAt)?.element === element) {
