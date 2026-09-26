@@ -179,7 +179,7 @@ IME input (Korean, Chinese, Japanese) uses browser composition events. During ac
 
 Rather than deferring all remote changes during composition, the binding inspects each remote change to determine whether it affects the composing block:
 
-**On `compositionstart`**: Set `isComposing = true` and capture `composingBlockRange` (the PM position range of the top-level block containing the selection).
+**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, matching the CodeMirror and Quill bindings, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack with changes that arrives anyway is dropped). A snapshot can still be applied, since an explicit `client.sync(doc)` always pulls, so the binding defers a `snapshot` event itself until `compositionend`. Only the *apply* direction threatens the composing text node, so only it needs to stop.
 
 **When a remote change arrives during composition**:
 1. Build the new PM doc from the Yorkie tree.
@@ -188,7 +188,9 @@ Rather than deferring all remote changes during composition, the binding inspect
 4. **No overlap**: Apply immediately. Update `composingBlockRange` in case positions shifted.
 5. **Overlap**: Set `hasPendingRemoteChanges = true` to defer.
 
-**On `compositionend`**: Flush pending changes via `requestAnimationFrame`. The `requestAnimationFrame` ensures we don't flush between a `compositionend` → `compositionstart` pair (common in Korean where syllables trigger back-to-back events). Deferring only affects the PM view render — the Yorkie document is always up-to-date. When multiple remote changes arrive during composition, `syncToPMIncremental` reads the latest Yorkie tree state on flush, so a single sync captures all accumulated changes.
+**When a snapshot is applied**: The document replaces its whole root and emits a `snapshot` event, not `remote-change`. Outside composition the binding syncs the view right away. During composition it always defers (`hasPendingRemoteChanges = true`), since a replaced root gives no trustworthy block-level diff to apply in part.
+
+**On `compositionend`**: Restore `SyncMode.Realtime` and flush pending changes via `requestAnimationFrame`. The `requestAnimationFrame` ensures we don't flush between a `compositionend` → `compositionstart` pair (common in Korean where syllables trigger back-to-back events). Deferring only affects the PM view render — the Yorkie document is always up-to-date. When multiple remote changes arrive during composition, `syncToPMIncremental` reads the latest Yorkie tree state on flush, so a single sync captures all accumulated changes.
 
 #### Error Recovery
 
