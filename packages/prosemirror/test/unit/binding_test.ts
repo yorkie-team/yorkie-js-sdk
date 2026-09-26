@@ -324,9 +324,66 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
     const yorkieDoc = createFakeDoc(() => view.state.doc);
     const binding = bind(view, yorkieDoc);
     binding.destroy();
+    // destroy() retracts, so the write count is 2 before the prop update.
+    const afterDestroy = yorkieDoc.presenceUpdates.length;
 
     view.setProps({ editable: () => false });
-    assert.equal(yorkieDoc.presenceUpdates.length, 1);
+    assert.equal(yorkieDoc.presenceUpdates.length, afterDestroy);
+  });
+
+  it('retracts the published selection on destroy', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const binding = bind(view, yorkieDoc);
+    assert.isDefined(yorkieDoc.presenceUpdates[0].selection);
+
+    // Peers drop a remote cursor only on a presence event carrying no
+    // selection, so a binding that tears down without one leaves a ghost.
+    binding.destroy();
+    assert.equal(yorkieDoc.presenceUpdates.length, 2);
+    assert.property(yorkieDoc.presenceUpdates[1], 'selection');
+    assert.isUndefined(yorkieDoc.presenceUpdates[1].selection);
+  });
+
+  it('writes no retraction on destroy when it never published', function () {
+    const view = createFakeView(false);
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const binding = bind(view, yorkieDoc);
+
+    binding.destroy();
+    assert.equal(yorkieDoc.presenceUpdates.length, 0);
+  });
+
+  it('detaches dispatchTransaction on destroy without an original prop', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    // A view built the ordinary way carries no dispatchTransaction prop.
+    assert.isUndefined(view.props.dispatchTransaction);
+
+    const binding = bind(view, yorkieDoc);
+    assert.isDefined(view.props.dispatchTransaction);
+    binding.destroy();
+    const afterDestroy = yorkieDoc.presenceUpdates.length;
+
+    // Post-destroy edits must reach neither the tree nor presence.
+    typeText(view, 'x', 3);
+    moveCaret(view, 3);
+    assert.equal(yorkieDoc.edits.length, 0);
+    assert.equal(yorkieDoc.presenceUpdates.length, afterDestroy);
+  });
+
+  it('leaves a dispatchTransaction wrapper installed after it alone', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const binding = bind(view, yorkieDoc);
+
+    const later = (tr: Transaction) => {
+      view.updateState(view.state.apply(tr));
+    };
+    view.setProps({ dispatchTransaction: later });
+    binding.destroy();
+
+    assert.equal(view.props.dispatchTransaction, later);
   });
 
   it('retracts on a content edit once publishing turns off', function () {
