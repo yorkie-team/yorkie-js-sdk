@@ -23,6 +23,7 @@ import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 const A1 = '000000000000000000000001';
 const A2 = '000000000000000000000002';
@@ -264,6 +265,42 @@ describe('docSize rebuild drift', function () {
     );
     assertMatchesRebuild(d1, 'move applied before remove');
     assertMatchesRebuild(d2, 'remove applied before move');
+  });
+
+  it('collects a move charged to gc without overshooting', function () {
+    // Same concurrent pair as above, then collected. When the remove lands
+    // first the move's ticket is charged to gc, and `accMovedElement` also
+    // tops up the element's `sizeInGC` entry -- collection subtracts the
+    // element's CURRENT size, so without the top-up it takes back one ticket
+    // more than was ever put in and `docSize.gc` ends up short. Nothing but a
+    // collection can witness that top-up.
+    const [d1, d2] = newReplicas<ArrDoc>();
+
+    d1.update((root) => {
+      root.arr = ['a', 'b', 'c'] as unknown as JSONArray<string>;
+    });
+    crossSync(d1, d2);
+
+    d1.update((root) => root.arr.moveAfterByIndex(2, 0));
+    d2.update((root) => {
+      root.arr.deleteByID(root.arr.getElementByIndex(0).getID());
+    });
+    crossSync(d1, d2);
+    assert.isAbove(d2.getDocSize().gc.meta, 0, 'the tombstone must be in gc');
+
+    d1.garbageCollect(maxVectorOf([A1, A2]));
+    d2.garbageCollect(maxVectorOf([A1, A2]));
+
+    const empty = { data: 0, meta: 0 };
+    assert.deepEqual(d1.getDocSize().gc, empty, 'gc after collection on d1');
+    assert.deepEqual(d2.getDocSize().gc, empty, 'gc after collection on d2');
+    assert.deepEqual(
+      d1.getDocSize(),
+      d2.getDocSize(),
+      'the two delivery orders must collect to the same size',
+    );
+    assertMatchesRebuild(d1, 'collected, move applied before remove');
+    assertMatchesRebuild(d2, 'collected, remove applied before move');
   });
 
   it('agrees with a rebuild on a concurrent set and removeStyle', function () {

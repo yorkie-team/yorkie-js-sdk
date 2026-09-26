@@ -1798,7 +1798,14 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
  */
 function fromTree(pbTree: PbJSONElement_Tree): CRDTTree {
   const root = fromTreeNodes(pbTree.nodes);
-  return CRDTTree.create(root!, fromTimeTicket(pbTree.createdAt)!);
+  const tree = CRDTTree.create(root!, fromTimeTicket(pbTree.createdAt)!);
+  // `toTree` writes both tickets and `CRDTElement.getMetaUsage` charges both,
+  // so dropping them here makes a tree restored from a snapshot smaller than
+  // the same tree before the restore -- one ticket per stamp. Every other
+  // `from*` restores them; this one did not.
+  tree.setMovedAt(fromTimeTicket(pbTree.movedAt));
+  tree.setRemovedAt(fromTimeTicket(pbTree.removedAt));
+  return tree;
 }
 
 /**

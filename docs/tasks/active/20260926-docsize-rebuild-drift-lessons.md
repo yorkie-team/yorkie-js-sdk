@@ -42,3 +42,29 @@ again is the same unbounded drift in the other direction.
 The integration suites (`pnpm sdk test`) need a running Yorkie server and
 MongoDB, which this run does not stand up. Only `pnpm verify:fast` — lint,
 licence headers, doc links, build, unit suites — was run locally.
+
+## Review round 1
+
+Two findings fixed, one disputed.
+
+**`fromTree` dropped `movedAt` and `removedAt`.** `toTree` writes both and
+`CRDTElement.getMetaUsage` charges both, but `fromTree` restored neither —
+alone among the six `from*` element decoders. A tree that had been moved or
+removed therefore came back from a snapshot one ticket per stamp lighter than
+it went in, which is the same rebuild disagreement this task is closing, just
+on the decode side. Fixed by restoring both, as its five siblings do.
+
+**No collection ran after a move charged to gc.** `accMovedElement` tops up
+the element's `sizeInGC` entry as well as `docSize.gc`, and only a collection
+can witness the top-up: nothing else reads `sizeInGC`. Dropping the top-up
+line and rerunning the new test leaves `d2`'s `gc.meta` at 24 after a full
+collect instead of 0, so the case is genuinely load-bearing rather than
+decorative.
+
+**Disputed: tombstone values serialized as `''`.** The claim is that shipping
+an empty value for a removed attribute makes cross-SDK accounting diverge. The
+server does exactly the same thing — `RHT.Remove` mints the tombstone with
+`""` and `SetInternal` forces `""` at the decode boundary, with a comment
+naming that boundary as the defence against peers that still send a value.
+This SDK's `fromRHT` routes every incoming attribute through `setInternal`, so
+the wire value of a tombstone is unreachable on either side. Rebuttal filed.
