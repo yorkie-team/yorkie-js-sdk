@@ -3280,13 +3280,18 @@ export class Client {
 
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
-      // NOTE(chacha912, hackerwins): If syncLoop already executed with
-      // PushPull, ignore the response when the syncMode is PushOnly.
+      // NOTE(chacha912, hackerwins): A request sent with PushPull, e.g. an
+      // explicit sync(doc), still pulls while the document is in PushOnly or
+      // SyncOff. Ignore any remote state it brings back, a snapshot included:
+      // the server seq stays put, so the skipped state is pulled again once
+      // realtime sync resumes. The push itself did land, so still take the
+      // client seq ack rather than push the same changes again.
       if (
-        respPack.hasChanges() &&
+        (respPack.hasChanges() || respPack.hasSnapshot()) &&
         (attachment.syncMode === SyncMode.RealtimePushOnly ||
           attachment.syncMode === SyncMode.RealtimeSyncOff)
       ) {
+        doc.acknowledgePushedChanges(respPack.getCheckpoint().getClientSeq());
         return doc;
       }
 
