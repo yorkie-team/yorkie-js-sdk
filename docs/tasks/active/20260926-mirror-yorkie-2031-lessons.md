@@ -63,3 +63,19 @@
   delivery-order dependent, so making a concurrent-boundary placement depend
   on it lets two replicas that have seen the same insertions but not the same
   removals place an insertion differently.
+
+### Review round 3 (panel)
+
+- Round 2's `allChildren` argument half-applied. `orderSameBoundarySplit`
+  still broke on `next.isRemoved`, so the split loop and the now
+  tombstone-insensitive `emptyRunReachesActor` could resolve one boundary
+  differently. The tombstone fallback is gone: a product born tombstoned is
+  already handled (`splitElement` inherits `removedAt` and registers the GC
+  pair, and step 04 measures the growth off the tree), whereas branching on a
+  mutable flag is a divergence with no floor.
+- Publishing a partial remote change is only safe if the change is not
+  delivered again. The throw skips `applyChangePack`'s checkpoint forward, so
+  the server re-sent the change and `applyChange`, which has no serverSeq
+  dedup, re-ran the non-idempotent history reconciliation and published the
+  prefix twice. The failure path now forwards the checkpoint over that change
+  alone; the pack's later changes never ran and stay behind it.

@@ -2230,6 +2230,23 @@ export class Document<
         // `prev` is undefined: `execute` applies the presence change only
         // after the last operation, so a change that threw never reached it.
         this.finalizeApplyChange(change, source, executed, undefined, true);
+
+        // The throw propagates out of `applyChangePack` before it forwards
+        // the checkpoint, so without this the server keeps re-delivering a
+        // change whose prefix this replica has already applied, whose clocks
+        // it has already synced and whose operations it has already
+        // published. `applyChange` has no serverSeq dedup, so that second
+        // delivery re-runs the non-idempotent `reconcileTextEdit`/
+        // `reconcileTreeEdit` shifts and publishes the same prefix again to
+        // every event-mirroring consumer. Forward the checkpoint over this
+        // change only — the pack's later changes never ran, so they are left
+        // behind it and are re-delivered as they should be.
+        const serverSeq = change.getID().getServerSeq();
+        if (source === OpSource.Remote && serverSeq !== '') {
+          this.checkpoint = this.checkpoint.forward(
+            Checkpoint.of(BigInt(serverSeq), 0),
+          );
+        }
       }
 
       throw err;

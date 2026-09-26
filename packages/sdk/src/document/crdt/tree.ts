@@ -1438,13 +1438,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
-      // Splitting a tombstoned sibling would make our product born
-      // tombstoned, which a replica that applied us before the concurrent
-      // split never does. Fall back to splitting parent, as that replica
-      // did, rather than diverge on liveness.
-      if (next.isRemoved) {
-        break;
-      }
+      // No `isRemoved` test here, for the same reason `emptyRunReachesActor`
+      // counts `allChildren`: this loop decides which node a boundary splits,
+      // and that decision has to come out the same on every replica.
+      // `isRemoved` is mutable and delivery-order dependent, so branching on
+      // it would have a replica that already applied the sibling's removal
+      // split `parent` while one that has not splits the sibling — the two
+      // would put the same boundary in different places and never reconverge.
+      // A product born tombstoned is not a new hazard: `splitElement` already
+      // inherits `removedAt` onto it and registers it for GC, and step 04
+      // measures the split's size growth off the tree for exactly that case.
 
       const createdAt = next.id.getCreatedAt();
       if (createdAt.getActorID() === editedAt.getActorID()) {

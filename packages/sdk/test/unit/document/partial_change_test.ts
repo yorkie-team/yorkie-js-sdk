@@ -22,6 +22,10 @@ import {
 } from '@yorkie-js/sdk/src/document/document';
 import { Text } from '@yorkie-js/sdk/src/yorkie';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
+import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { EditOperation } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
@@ -180,6 +184,59 @@ describe('partially applied change', function () {
     const remote = events.filter((e) => e.type === DocEventType.RemoteChange);
     assert.equal(remote.length, 1);
     assert.equal((remote[0] as any).value.operations.length, 1);
+  });
+
+  it('forwards the checkpoint over a remote change that failed partway', function () {
+    const source = new Document<{ a: number; b: number }>('d');
+    source.update((r) => {
+      r.a = 1;
+      r.b = 2;
+    });
+    const local = internals(source as never).localChanges[0];
+    const id = local.getID();
+    // Changes arrive from the server carrying a serverSeq; a locally created
+    // one does not, so re-issue this one with the seq the server would give.
+    const change = Change.create<never>({
+      id: ChangeID.of(
+        id.getClientSeq(),
+        id.getLamport(),
+        id.getActorID(),
+        id.getVersionVector(),
+        7n,
+      ),
+      operations: local.getOperations(),
+    });
+
+    const target = new Document<{ a: number; b: number }>('d');
+    const events: Array<DocEvent<never>> = [];
+    target.subscribe((event) => {
+      events.push(event as DocEvent<never>);
+    });
+
+    // Calls 1-2 are the clone's two operations, 3-4 the root's.
+    throwOnNthCall(SetOperation.prototype as never, 4);
+    assert.throws(
+      () =>
+        target.applyChangePack(
+          ChangePack.create<never>(
+            'd',
+            Checkpoint.of(7n, 0),
+            false,
+            [change as never],
+            InitialVersionVector,
+          ) as never,
+        ),
+      'boom',
+    );
+
+    // The throw skips `applyChangePack`'s own checkpoint forward, so without
+    // the one on the failure path the server would re-deliver a change this
+    // replica has already applied and published.
+    assert.equal(target.getCheckpoint().getServerSeq(), 7n);
+    assert.equal(
+      events.filter((e) => e.type === DocEventType.RemoteChange).length,
+      1,
+    );
   });
 
   it('leaves the clocks alone when only the clone was touched', function () {

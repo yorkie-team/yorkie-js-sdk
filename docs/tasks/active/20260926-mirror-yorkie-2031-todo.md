@@ -12,8 +12,11 @@ question differently from the server after that PR.
   - `util/index_tree.ts` `splitText`
   - `crdt/rga_tree_split.ts` `splitNode` (align before deriving the node ID)
   - `crdt/text.ts` `CRDTTextValue` (expose the aligned offset to `splitNode`)
-- [ ] 2. `emptyRunReachesActor` must ignore removed children: `allChildren` →
-  `children` in `crdt/tree.ts`.
+- [ ] 2. Concurrent-boundary placement must not read `isRemoved`, which is
+  mutable and delivery-order dependent: `emptyRunReachesActor` keeps counting
+  `allChildren`, and `orderSameBoundarySplit` drops its tombstone fallback, so
+  the two paths resolve one boundary the same way on every replica
+  (`crdt/tree.ts`).
 - [ ] 3. `leftAnchorID` must not anchor an empty text node at offset `-1`:
   return `sibling.id` when `value.length === 0`.
 - [ ] 4. `applyChange` and `executeUndoRedo` must drop the clone when a change
