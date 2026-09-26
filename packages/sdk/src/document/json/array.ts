@@ -637,11 +637,7 @@ export class ArrayProxy {
   ): void {
     const ticket = context.issueTimeTicket();
     const last = target.getLastCreatedAt();
-    const { deadNode, movedDiff } = target.moveAfter(
-      last,
-      createdAt,
-      ticket,
-    );
+    const { deadNode, movedDiff } = target.moveAfter(last, createdAt, ticket);
     context.push(
       MoveOperation.create(target.getCreatedAt(), last, createdAt, ticket),
     );

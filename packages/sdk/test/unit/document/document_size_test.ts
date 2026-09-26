@@ -295,7 +295,11 @@ describe('Document Size', () => {
     });
     assert.equal(doc.getRoot().tree.toXML(), `<doc><p>world</p></doc>`);
     assert.deepEqual(doc.getDocSize().live, { data: 10, meta: 168 });
-    assert.deepEqual(doc.getDocSize().gc, { data: 36, meta: 168 });
+    // gc gains the tombstone's KEY only (`bold`, 4 chars, 8 bytes): a removed
+    // attribute holds no value, so the 8 bytes `true` was charging leave live
+    // without arriving in gc. This used to read 36 -- the value counted twice
+    // over, once in the tombstone and once in the rebuild it disagreed with.
+    assert.deepEqual(doc.getDocSize().gc, { data: 28, meta: 168 });
   });
 
   it('gc test', function () {
