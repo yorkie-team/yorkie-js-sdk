@@ -15,13 +15,17 @@
   internal pairs. Go's `UnregisterRemovedElementPair` does the same, so this
   PR keeps parity and only asserts docSize == rebuild after collection. A fix
   belongs in both SDKs together.
-- J3: JS `Client.deactivate` defaults to `synchronous: false`; Go's is
-  synchronous. So in "gc targeting nodes made by deactivated client" the
-  deactivated client's row is still on file when the peer syncs, the min
-  version vector carries the peer at 0, and the barrier holds one tombstone.
-  Go passes the same test with 0 against the same server (checked by running
-  Go's `TestGarbageCollection` and the JS suite against a server built from
-  yorkie `origin/main`). The JS expectation is annotated, not the option.
+- J3: "gc targeting nodes made by deactivated client" raced the server.
+  JS `deactivate` defaults to asynchronous, so c1's version vector row is
+  dropped in the background; if c2 syncs first, minVV carries c2 at 0 and
+  the barrier holds "b". CI (Mongo) saw 0; locally (memory backend) I saw 1
+  every time, because the memory backend's server-side detach fails with
+  "change not found" and never drops the row. I misread that as a
+  deterministic difference and flipped the expectation to 1 -- CI then
+  failed. Fix: `deactivate({ synchronous: true })`, as Go does, and assert
+  Go's 0; 20/20 green against Mongo-backed servers (`latest` and `main`).
+  Rule: when an expectation differs between SDKs, run it against the CI
+  backend (Mongo) and repeat it before accepting the difference.
 - J3: vitest swallows `console.log` in this repo's config, so the fuzz
   harness writes its report to `RGA_FUZZ_OUT` when set.
 - J3: the JS fuzz uses its own PRNG, so seed counts do not match Go's. The

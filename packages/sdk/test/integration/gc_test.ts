@@ -1460,16 +1460,22 @@ describe('Garbage Collection', function () {
     await c1.sync();
     await c2.sync();
 
-    await c1.deactivate();
+    // Deactivate synchronously, as Go's client does by default. The default
+    // here is asynchronous: the server answers first and detaches c1 (dropping
+    // its version vector row) in the background, racing the c2.sync below. If
+    // the row is still on file, the min version vector carries c2 at 0, which
+    // does not cover c2's "c" -- the successor of the tombstone "b" -- so the
+    // successor barrier holds "b" back and the count depends on timing.
+    //
+    // NOTE: a server on the memory backend currently fails this synchronous
+    // detach with "change not found" (FindLatestChangeInfoByActor). Run it
+    // against a Mongo-backed server, as CI and Go's suite do.
+    await c1.deactivate({ synchronous: true });
     assert.equal(d2.getGarbageLen(), 2);
     assert.equal(d2.getVersionVector().size(), 2);
 
     await c2.sync();
-    // `deactivate` is asynchronous by default here (Go's is synchronous), so
-    // c1's row is still on file and the min version vector carries c2 at 0.
-    // "b"'s successor is c2's "c", which that vector does not cover, so the
-    // successor barrier holds "b" back; the tail "c" has no successor and goes.
-    assert.equal(d2.getGarbageLen(), 1);
+    assert.equal(d2.getGarbageLen(), 0);
     // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.equal(d2.getVersionVector().size(), 2);
   });

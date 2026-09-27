@@ -18,9 +18,10 @@ commit each.
   partial fix (in-flight anchors, tail tombstones); port the same scope.
   - [x] Unit ports: `gc_rga_barrier_test.ts` (four order cases, three cost
     cases). Red on `origin/main`: WSX/WXS, `["w","s","x"]`.
-  - [x] Integration: nine `getGarbageLen` expectations annotated (Go's seven,
-    plus the JS-only "no tombstone" lifecycle variant and the deactivated
-    client case), and a port of `TestGarbageCollectionBarrierDrainsWithinOneRound`.
+  - [x] Integration: eight `getGarbageLen` expectations annotated (Go's seven
+    plus the JS-only "no tombstone" lifecycle variant), the deactivated-client
+    case made deterministic with a synchronous deactivate, and a port of
+    `TestGarbageCollectionBarrierDrainsWithinOneRound`.
   - [x] Opt-in fuzz harness `gc_rga_fuzz_test.ts` (`RGA_FUZZ=1`), with the
     before/after counts in its header.
 - [x] J5. `recreateFromSpan` books attribute tombstones (mirrors Go
