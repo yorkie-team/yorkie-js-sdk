@@ -1200,6 +1200,60 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `findMergeNode` returns the element whose id is exactly `id`, or
+   * undefined. Unlike `findFloorNode` it refuses a floor-only match (a split
+   * product this replica does not hold) and a text node: a merge pointer
+   * names an element, so either would hand merge logic a node the pointer
+   * never named.
+   */
+  private findMergeNode(id?: CRDTTreeNodeID): CRDTTreeNode | undefined {
+    if (!id) {
+      return;
+    }
+    const node = this.findFloorNode(id);
+    if (!node || !node.id.equals(id) || node.isText) {
+      return;
+    }
+    return node;
+  }
+
+  /**
+   * `declaredBoundaries` returns the elements the edit's own positions named
+   * as boundaries: the element each position declared as its parent, and
+   * every ancestor of that element. A range stops at those rather than
+   * covering them -- the edit asks to merge their remaining content away, not
+   * to delete it -- so a concurrent merge that already moved their children
+   * where this edit would have put them did this edit's work rather than
+   * something it now has to undo.
+   *
+   * The declared parent is resolved with `findMergeNode`, not a floor lookup:
+   * a floor lookup matches on createdAt alone, so a parentID naming a split
+   * product this replica does not hold would land on the offset-0 element and
+   * hand the skip to a node the position never named.
+   *
+   * The walk upward prefers `mergedFrom` over the physical parent: a prior
+   * merge moves a node under the merge target, so the parent no longer names
+   * the element that enclosed it when the position was declared. The set
+   * doubles as the seen set, guarding against a cycle in a client-supplied
+   * `mergedFrom` chain. Mirrors yorkie's `declaredBoundaries` (yorkie#2042).
+   */
+  private declaredBoundaries(
+    ...positions: Array<CRDTTreePos>
+  ): Set<CRDTTreeNode> {
+    const boundaries = new Set<CRDTTreeNode>();
+    for (const pos of positions) {
+      let current = this.findMergeNode(pos.getParentID());
+      while (current && !boundaries.has(current)) {
+        boundaries.add(current);
+        current =
+          this.findMergeNode(current.mergedFrom) ??
+          (current.parent as CRDTTreeNode | undefined);
+      }
+    }
+    return boundaries;
+  }
+
+  /**
    * `resolveMergeTarget` follows the `mergedInto` forwarding chain from the
    * given node while the current node is a merge-away tombstone, returning
    * the final live target. When a merge lands on a parent that a prior
@@ -2564,19 +2618,32 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03-1. Propagate deletes to children moved by prior merges.
     // When a merge-source node is fully deleted (not a merge boundary),
     // its former children in the merge target should also be deleted.
-    // Skip when `mergedInto` points to the merge destination (concurrent
-    // merge). Compare against the resolved `dest`, not `fromParent`: the
-    // forwarding pointers above point at the flattened target (§6.3), so a
-    // chained merge (dest !== fromParent) must recognize a concurrent-merge
-    // boundary by `dest`. The list of moved children is recomputed on the
-    // fly from the merge target's children filtered by `mergedFrom`.
+    // Compare against the resolved `dest`, not `fromParent`: the forwarding
+    // pointers above point at the flattened target (§6.3), so a chained
+    // merge (dest !== fromParent) must recognize a concurrent-merge boundary
+    // by `dest`. The list of moved children is recomputed on the fly from
+    // the merge target's children filtered by `mergedFrom`.
+    //
+    // The boundaries the edit's own positions name are resolved lazily: §1.1
+    // redirects a position away from a merged-away parent, so fromParent
+    // and toParent no longer say which boundaries the edit asked for.
+    let declared: Set<CRDTTreeNode> | undefined;
     for (const node of nodesToBeRemoved) {
-      if (
-        !node.mergedInto ||
-        toBeMergedNodes.includes(node) ||
-        node.mergedInto.equals(dest.id)
-      ) {
+      if (!node.mergedInto || toBeMergedNodes.includes(node)) {
         continue;
+      }
+      // A source whose children already sit in this edit's own destination
+      // stands for a merge the edit itself asks for only when one of the
+      // edit's positions named that source: the range then stops at the
+      // source instead of covering it, and keeping the children is what
+      // makes the two replicas agree (§6.2). A source the range merely spans
+      // is a plain delete of everything that was inside it, so its children
+      // are tombstoned wherever the concurrent merge left them.
+      if (node.mergedInto.equals(dest.id)) {
+        declared ??= this.declaredBoundaries(range[0], range[1]);
+        if (declared.has(node)) {
+          continue;
+        }
       }
       const mergeTarget = this.findFloorNode(node.mergedInto);
       if (!mergeTarget) {
