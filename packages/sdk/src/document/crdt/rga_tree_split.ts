@@ -1668,6 +1668,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
+   * `purgeBarrierAt` implements `GCBarrier`. `findNodeWithSplit` skips forward
+   * while the next node was created after the incoming edit, so a tombstone
+   * whose createdAt precedes the edit stops that walk. Unlinking it hands the
+   * next node the stopping decision, which is only the same decision once
+   * that node is causally stable.
+   */
+  public purgeBarrierAt(node: RGATreeSplitNode<T>): TimeTicket | undefined {
+    return node.getNext()?.getCreatedAt();
+  }
+
+  /**
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: RGATreeSplitNode<T>): void {

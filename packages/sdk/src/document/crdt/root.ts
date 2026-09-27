@@ -24,7 +24,12 @@ import {
   CRDTElement,
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import { GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  GCChild,
+  GCPair,
+  GCParent,
+  hasGCBarrier,
+} from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
@@ -765,9 +770,36 @@ export class CRDTRoot {
 
   /**
    * `garbageCollect` purges elements that were removed before the given time.
+   *
+   * A pass can hold a purge back (see `GCBarrier`), and holding one back can be
+   * the only reason another is held back: purging a node hands its successor
+   * to the node in front of it, and that successor is one this pass already
+   * found stable. So a pass that both purged and deferred may have more to do,
+   * and the loop repeats until a pass purges nothing new or defers nothing.
+   * Everything held back stays on the worklist for the next vector that covers
+   * it. The repeat also makes the result independent of iteration order, which
+   * decides only how many passes it takes, not what ends up collected.
    */
   public garbageCollect(minSyncedVersionVector: VersionVector): number {
     let count = 0;
+
+    for (;;) {
+      const [purged, deferred] = this.collect(minSyncedVersionVector);
+      count += purged;
+
+      if (purged === 0 || deferred === 0) {
+        return count;
+      }
+    }
+  }
+
+  /**
+   * `collect` runs one collection pass, reporting how much it purged and how
+   * much it held back on a barrier.
+   */
+  private collect(minSyncedVersionVector: VersionVector): [number, number] {
+    let count = 0;
+    let deferred = 0;
 
     for (const createdAt of this.gcElementSetByCreatedAt) {
       // NOTE(hackerwins): Neither lookup is guaranteed to hit. A document
@@ -788,11 +820,23 @@ export class CRDTRoot {
         continue;
       }
       const removedAt = pair.element.getRemovedAt();
-
-      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
-        pair.parent.purge(pair.element);
-        count += this.deregisterElement(pair.element);
+      if (!removedAt || !minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        continue;
       }
+
+      // A tombstone is not only a value that is gone, it is also a place in
+      // its parent that other replicas may still be deciding against.
+      // removedAt covers the value; the barrier covers the place.
+      if (hasGCBarrier<CRDTElement>(pair.parent)) {
+        const at = pair.parent.purgeBarrierAt(pair.element);
+        if (at && !minSyncedVersionVector.afterOrEqual(at)) {
+          deferred++;
+          continue;
+        }
+      }
+
+      pair.parent.purge(pair.element);
+      count += this.deregisterElement(pair.element);
     }
 
     for (const [key, pair] of this.gcPairMap) {
@@ -805,16 +849,26 @@ export class CRDTRoot {
         this.unregisterGCPair(pair);
         continue;
       }
-      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
-        pair.parent.purge(pair.child);
-
-        subDataSize(this.docSize.gc, pair.child.getDataSize());
-        this.gcPairMap.delete(key);
-        count += 1;
+      if (!minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        continue;
       }
+
+      if (hasGCBarrier<GCChild>(pair.parent)) {
+        const at = pair.parent.purgeBarrierAt(pair.child);
+        if (at && !minSyncedVersionVector.afterOrEqual(at)) {
+          deferred++;
+          continue;
+        }
+      }
+
+      pair.parent.purge(pair.child);
+
+      subDataSize(this.docSize.gc, pair.child.getDataSize());
+      this.gcPairMap.delete(key);
+      count += 1;
     }
 
-    return count;
+    return [count, deferred];
   }
 
   /**

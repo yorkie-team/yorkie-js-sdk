@@ -562,6 +562,30 @@ export class RGATreeList implements GCParent {
   }
 
   /**
+   * `purgeBarrierAt` implements `GCBarrier`: the ticket that must be covered
+   * before the given child may be unlinked is the one
+   * `findNextBeforeExecutedAt` would read in its place. It handles the same
+   * two kinds of child `purge` does: a dead position node a move left behind,
+   * and a removed element, reached through the position node holding it.
+   */
+  public purgeBarrierAt(child: GCChild | CRDTElement): TimeTicket | undefined {
+    if (child instanceof RGATreeListNode) {
+      return successorBarrierAt(child);
+    }
+
+    const element = child as CRDTElement;
+    const entry = this.elementMapByCreatedAt.get(
+      element.getCreatedAt().toIDString(),
+    );
+    // Same identity guard as `purge`: an entry now holding a different
+    // element is not this element's position, and `purge` declines anyway.
+    if (!entry || entry.elem !== element) {
+      return;
+    }
+    return successorBarrierAt(entry.positionNode);
+  }
+
+  /**
    * `purge` physically purges the given child. Handles both dead
    * position nodes (GCChild from GCParent path) and CRDTElements
    * (from CRDTContainer path).
@@ -836,4 +860,14 @@ export class RGATreeList implements GCParent {
       node = node.getNext();
     }
   }
+}
+
+/**
+ * `successorBarrierAt` returns the positioning ticket of the node that would
+ * take over as `findNextBeforeExecutedAt`'s stopping point once the given node
+ * is unlinked. Undefined at the tail: with nothing behind it, unlinking cannot
+ * send an insert past anything.
+ */
+function successorBarrierAt(node: RGATreeListNode): TimeTicket | undefined {
+  return node.getNext()?.getPositionedAt();
 }

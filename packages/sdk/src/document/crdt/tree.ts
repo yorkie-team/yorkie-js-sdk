@@ -2881,6 +2881,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `purgeBarrierAt` implements `GCBarrier`. `findNodesAndSplitText` walks the
+   * parent's children, removed ones included, advancing while the next sibling
+   * was created after the incoming edit; a tombstoned sibling with an older
+   * ticket ends that walk. Purging detaches it from the parent, so the next
+   * sibling inherits the decision and must be causally stable first.
+   */
+  public purgeBarrierAt(node: CRDTTreeNode): TimeTicket | undefined {
+    if (!node.parent) {
+      return;
+    }
+
+    // Read the children in place: `allChildren` copies, and this runs once
+    // per stable tombstone on every collection pass.
+    const siblings = node.parent._children;
+    const offset = siblings.indexOf(node);
+    if (offset < 0) {
+      return;
+    }
+    return siblings[offset + 1]?.id.getCreatedAt();
+  }
+
+  /**
    * `purge` physically purges the given node.
    */
   public purge(node: CRDTTreeNode): void {

@@ -1147,7 +1147,11 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(d1.getGarbageLen(), 2);
-    assert.equal(d2.getGarbageLen(), 0);
+    // "b" and "c" meet the GC condition, but one of them is still held by the
+    // successor barrier: purging it would move the stopping point of a forward
+    // skip that c2's concurrent insert still depends on. It drains on the next
+    // round, which 'successor barrier drains within one round' pins.
+    assert.equal(d2.getGarbageLen(), 1);
 
     await client1.sync();
     assert.deepEqual(
@@ -1158,8 +1162,9 @@ describe('Garbage Collection', function () {
       d1.getVersionVector(),
     );
 
-    assert.equal(d1.getGarbageLen(), 0);
-    assert.equal(d2.getGarbageLen(), 0);
+    // One tombstone each is still held by the successor barrier; see above.
+    assert.equal(d1.getGarbageLen(), 1);
+    assert.equal(d2.getGarbageLen(), 1);
 
     await client1.deactivate();
     await client2.deactivate();
@@ -1369,7 +1374,8 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(d1.getGarbageLen(), 2);
-    assert.equal(d2.getGarbageLen(), 0);
+    // One is held by the successor barrier for a round.
+    assert.equal(d2.getGarbageLen(), 1);
 
     await c1.sync();
     assert.deepEqual(
@@ -1381,7 +1387,8 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(d1.getGarbageLen(), 0);
-    assert.equal(d2.getGarbageLen(), 0);
+    // d2 still holds one behind the successor barrier.
+    assert.equal(d2.getGarbageLen(), 1);
 
     await c1.deactivate();
     await c2.deactivate();
@@ -1458,7 +1465,11 @@ describe('Garbage Collection', function () {
     assert.equal(d2.getVersionVector().size(), 2);
 
     await c2.sync();
-    assert.equal(d2.getGarbageLen(), 0);
+    // `deactivate` is asynchronous by default here (Go's is synchronous), so
+    // c1's row is still on file and the min version vector carries c2 at 0.
+    // "b"'s successor is c2's "c", which that vector does not cover, so the
+    // successor barrier holds "b" back; the tail "c" has no successor and goes.
+    assert.equal(d2.getGarbageLen(), 1);
     // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
     assert.equal(d2.getVersionVector().size(), 2);
   });
@@ -1568,7 +1579,9 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(d1.getGarbageLen(), 2);
-    assert.equal(d2.getGarbageLen(), 0);
+    // One is held by the successor barrier for a round; see
+    // 'concurrent garbage collection test'.
+    assert.equal(d2.getGarbageLen(), 1);
 
     await c1.sync();
     assert.deepEqual(
@@ -1720,7 +1733,9 @@ describe('Garbage Collection', function () {
     );
 
     assert.equal(d1.getGarbageLen(), 2);
-    assert.equal(d2.getGarbageLen(), 0);
+    // One is held by the successor barrier for a round; see
+    // 'concurrent garbage collection test'.
+    assert.equal(d2.getGarbageLen(), 1);
 
     await c1.sync();
     // TODO(JOOHOJANG): we have to consider removing detached client's lamport from version vector
@@ -1912,7 +1927,9 @@ describe('Garbage Collection', function () {
     await c2.sync();
     await c1.sync();
     assert.equal(d1.getGarbageLen(), 0);
-    assert.equal(d2.getGarbageLen(), 0);
+    // One tombstone is still held by the successor barrier for a round; see
+    // 'concurrent garbage collection test'.
+    assert.equal(d2.getGarbageLen(), 1);
 
     await c1.deactivate();
     await c2.deactivate();
@@ -2035,4 +2052,71 @@ describe('Garbage Collection', function () {
     await c2.deactivate();
     await c3.deactivate();
   }, 50000);
+
+  // Port of Go TestGarbageCollectionBarrierDrainsWithinOneRound. The successor
+  // barrier delays a purge when the node that would become a forward skip's
+  // new stopping point is not yet causally stable, which is why several
+  // assertions above expect one retained tombstone where they used to expect
+  // none. A delay is acceptable; a leak is not. So this replays the same
+  // sequence as 'concurrent garbage collection test' and then keeps syncing
+  // with no further edits: retention has to reach zero and the replicas have
+  // to agree.
+  it('successor barrier drains within one round', async function ({ task }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+
+    d1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+      root.t.edit(1, 1, 'b');
+      root.t.edit(2, 2, 'c');
+    }, 'sets text');
+    await c1.sync();
+    await c2.sync();
+
+    // c2 inserts next to what c1 is about to delete. The tombstone c1 leaves
+    // is what stops the forward skip c2's insert is positioned by.
+    d2.update((root) => root.t.edit(2, 2, 'c'), 'insert c');
+    d1.update((root) => root.t.edit(1, 3, ''), 'delete bc');
+    await c1.sync();
+    await c2.sync();
+
+    d2.update((root) => root.t.edit(2, 2, '1'), 'insert 1');
+    await c2.sync();
+    await c1.sync();
+
+    // Where the assertions above stop: one tombstone each, held back.
+    assert.equal(d1.getGarbageLen(), 1);
+    assert.equal(d2.getGarbageLen(), 1);
+
+    // One more round with no edits at all has to drain it.
+    await c1.sync();
+    await c2.sync();
+    assert.equal(d1.getGarbageLen(), 0, 'the barrier must delay, not prevent');
+    assert.equal(d2.getGarbageLen(), 0, 'the barrier must delay, not prevent');
+
+    // Further rounds must not resurrect anything.
+    for (let i = 0; i < 3; i++) {
+      await c1.sync();
+      await c2.sync();
+      assert.equal(d1.getGarbageLen(), 0);
+      assert.equal(d2.getGarbageLen(), 0);
+    }
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    assert.equal(
+      d1.toSortedJSON(),
+      '{"t":[{"val":"a"},{"val":"c"},{"val":"1"}]}',
+    );
+
+    await c1.deactivate();
+    await c2.deactivate();
+  });
 });
