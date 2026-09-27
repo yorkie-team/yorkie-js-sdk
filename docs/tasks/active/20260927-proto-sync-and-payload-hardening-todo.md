@@ -8,7 +8,7 @@ exact lookup this task extends.
 
 ## Gaps
 
-- [ ] **J8. `.proto` files lag Go.** yorkie `73139d01` added
+- [x] **J8. `.proto` files lag Go.** yorkie `73139d01` added
       `ChangePack.capabilities = 9`, `restore_mode = 5` on
       `Operation.Set`/`Add`/`ArraySet`, `revived_at` on every `JSONElement`
       subtype, and `channel_session_ttl` on `Project` /
@@ -16,12 +16,12 @@ exact lookup this task extends.
       and `yorkie.proto` verbatim and regenerate with `pnpm sdk build:proto`.
       The fields are dormant in Go (no converter reads or writes them), so
       the JS converter does not either.
-- [ ] **J7a. Merge pointers resolve by exact element ID.** yorkie `96bcb779`
+- [x] **J7a. Merge pointers resolve by exact element ID.** yorkie `96bcb779`
       resolves every merge-lineage read through `findMergeNode`:
       `rebuildMergeState` (plus a text-parent guard), `resolveMergeTarget`,
       `mergeNodes`, `propagateMergeDeletes` and the §1.1 redirect. JS still
       uses `findFloorNode` at those five sites.
-- [ ] **J7b. TreeEdit content drops engine-only state.** Go
+- [x] **J7b. TreeEdit content drops engine-only state.** Go
       `FromTreeNodesWhenEdit` rejects an empty content group, and clears
       `insPrev`/`insNext`, `mergedFrom`/`mergedAt`/`mergedInto` and every
       tombstone on the content. JS drops only the split links and pushes
@@ -41,4 +41,18 @@ exact lookup this task extends.
 
 ## Review
 
-(filled in at the end)
+- J8: both `.proto` files are byte-identical to yorkie `origin/main`; the
+  only differences were the additive fields above and comments. JS carries
+  no copy of `admin.proto` or `cluster.proto`, so nothing else to sync.
+  yorkie's converter references none of the new fields (`restore_mode` is
+  read only on `Edit`/`TreeEdit`, which JS already had), so neither does JS.
+- J7a: 8 cases in `tree_merge_lineage_test.ts`; 7 were Red before the fix
+  (the genuine-lineage case passes on both sides by design). The §1.1
+  redirect case threw `Text node cannot have children`.
+- J7b: 4 cases in `tree_edit_content_sanitize_test.ts`; tombstone, lineage
+  and empty-group were Red; split links already passed.
+- `pnpm verify:fast` green on every commit; `pnpm sdk test` against
+  `yorkieteam/yorkie:latest`: 104 files, 3266 passed, 15 skipped.
+- Not ported from 96bcb779: the `GCPairs` root guard (JS books a pair for
+  a removed root, but its `purge` uses `node.parent?.` so it cannot crash)
+  and `NormalizeStoredOperations` (server-only replay path).
