@@ -16,7 +16,11 @@
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
-import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  ChangeApplyError,
+  Code,
+  YorkieError,
+} from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 import {
@@ -1343,16 +1347,31 @@ export class Document<
    */
   public applyChangePack(pack: ChangePack<P>): void {
     // 01. Apply snapshot or changes to the root object.
-    if (pack.hasSnapshot()) {
-      this.applySnapshot(
-        pack.getCheckpoint().getServerSeq(),
-        pack.getVersionVector()!,
-        pack.getSnapshot()!,
-        pack.getCheckpoint().getClientSeq(),
+    //
+    // NOTE: the checkpoint below is only reached once everything applied, so
+    // a throw here leaves it where it was and the server redelivers this same
+    // pack on every sync. Report that once, naming the checkpoint the
+    // document is stuck at, before letting the error out: otherwise the only
+    // field signal is a sync that never makes progress.
+    try {
+      if (pack.hasSnapshot()) {
+        this.applySnapshot(
+          pack.getCheckpoint().getServerSeq(),
+          pack.getVersionVector()!,
+          pack.getSnapshot()!,
+          pack.getCheckpoint().getClientSeq(),
+        );
+      } else {
+        this.applyChanges(pack.getChanges(), OpSource.Remote);
+        this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
+      }
+    } catch (err) {
+      logger.error(
+        `[Document] "${this.key}" cannot apply the pack at checkpoint ` +
+          `${this.checkpoint.toTestString()}; the server will redeliver it ` +
+          `until this is resolved: ${err}`,
       );
-    } else {
-      this.applyChanges(pack.getChanges(), OpSource.Remote);
-      this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
+      throw err;
     }
 
     // 02. Update the checkpoint.
@@ -2136,7 +2155,19 @@ export class Document<
       // it. Drop the clone so the next access rebuilds it from the root, the
       // way `update` does on failure.
       this.clone = undefined;
-      throw err;
+
+      // NOTE: the checkpoint only advances after the changes of a pack have
+      // been applied, so a change that throws is redelivered by the server
+      // forever. Name the document, the change and the operation instead of
+      // surfacing whatever the operation happened to throw, so the wedged
+      // document is diagnosable rather than looking like a network problem.
+      throw err instanceof ChangeApplyError
+        ? err.withDocKey(this.key)
+        : new ChangeApplyError({
+            docKey: this.key,
+            changeID: change.getID().toTestString(),
+            cause: err,
+          });
     }
   }
 

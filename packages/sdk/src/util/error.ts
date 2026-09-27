@@ -98,6 +98,14 @@ export enum Code {
   // non-persisting client on exactly this condition without matching on
   // message text.
   ErrDocumentOpenElsewhere = 'ErrDocumentOpenElsewhere',
+
+  // ErrChangeApplyFailed is returned when a change cannot be applied to a
+  // document. The checkpoint only advances after the changes in a pack have
+  // been applied, so the server redelivers a pack whose change throws: the
+  // document stops making progress until the cause is fixed. This code names
+  // that condition so it is diagnosable instead of surfacing as whatever the
+  // failing operation happened to throw.
+  ErrChangeApplyFailed = 'ErrChangeApplyFailed',
 }
 
 /**
@@ -113,5 +121,75 @@ export class YorkieError extends Error {
   ) {
     super(message);
     this.toString = (): string => `[code=${this.code}]: ${this.message}`;
+  }
+}
+
+/**
+ * `ChangeApplyDetail` describes which change, and which operation of it,
+ * could not be applied. `docKey` is unknown at the throw site inside the
+ * change itself and is filled in by the document; `opIndex` and `operation`
+ * are absent when the failure was not raised by a single operation.
+ */
+export type ChangeApplyDetail = {
+  docKey?: string;
+  changeID: string;
+  opIndex?: number;
+  operation?: string;
+  cause: unknown;
+};
+
+/**
+ * `ChangeApplyError` is thrown when a change cannot be applied to a document.
+ *
+ * It names the document, the change and the operation that failed, and keeps
+ * the original error in `cause`. Without it the only signal is whatever the
+ * operation threw, which says nothing about which change is stuck — and
+ * because the checkpoint does not advance past a change that throws, the
+ * server keeps redelivering it.
+ */
+export class ChangeApplyError extends YorkieError {
+  name = 'ChangeApplyError';
+
+  readonly docKey?: string;
+  readonly changeID: string;
+  readonly opIndex?: number;
+  readonly operation?: string;
+  readonly cause: unknown;
+
+  constructor(detail: ChangeApplyDetail) {
+    const { docKey, changeID, opIndex, operation, cause } = detail;
+    const where = docKey === undefined ? '' : ` of document "${docKey}"`;
+    const which =
+      opIndex === undefined ? '' : ` at operation ${opIndex} (${operation})`;
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    super(
+      Code.ErrChangeApplyFailed,
+      `failed to apply change ${changeID}${where}${which}: ${reason}`,
+    );
+
+    this.docKey = docKey;
+    this.changeID = changeID;
+    this.opIndex = opIndex;
+    this.operation = operation;
+    this.cause = cause;
+  }
+
+  /**
+   * `withDocKey` returns this error named with the given document key. The
+   * change knows which operation failed but not which document it belongs
+   * to, so the document adds its key as the error passes through.
+   */
+  public withDocKey(docKey: string): ChangeApplyError {
+    if (this.docKey === docKey) {
+      return this;
+    }
+
+    return new ChangeApplyError({
+      docKey,
+      changeID: this.changeID,
+      opIndex: this.opIndex,
+      operation: this.operation,
+      cause: this.cause,
+    });
   }
 }
