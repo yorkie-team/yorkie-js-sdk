@@ -41,7 +41,6 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
   ChangeStruct,
-  ExecutionResult,
 } from '@yorkie-js/sdk/src/document/change/change';
 import {
   ChangeID,
@@ -884,60 +883,31 @@ export class Document<
           : undefined,
       };
       const change = ctx.toChange();
-      let opInfos: Array<OpInfo>;
-      let reverseOps: Array<HistoryOperation<P>>;
-      const landed: ExecutionResult<P> = {
-        operations: [],
-        opInfos: [],
-        reverseOps: [],
-      };
+      let executed;
       try {
-        ({ opInfos, reverseOps } = change.execute(
-          this.root,
-          this.presences,
-          OpSource.Local,
-          landed,
-        ));
+        executed = change.execute(this.root, this.presences, OpSource.Local);
       } catch (err) {
-        // NOTE: The updater has already applied the whole change to the
-        // clone, and `Change.execute` does not roll back, so a throw here
-        // leaves the root holding only a prefix of it. Drop the clone so the
-        // next access rebuilds it from the root.
+        // NOTE: `Change.execute` does not roll back, so an operation that
+        // throws here leaves the clone holding the whole change while the
+        // root holds only the prefix that applied, and the change is never
+        // recorded. Drop the clone so the next access rebuilds it from the
+        // root, the same way a failing updater above does.
         this.clone = undefined;
 
-        // The prefix that did land is real document state: it is in the root,
-        // `toSortedJSON` shows it and the rebuilt clone hands it to the next
-        // updater. Commit it exactly as a whole change is committed — queue it
-        // so `createChangePack` pushes it, record its reverse ops so it can be
-        // undone, and publish it so subscribers, devtools and the offline
-        // persistence hook see the state the server is about to receive.
-        // `changeID` advances with it so the tickets it already burned into
-        // the root are not reissued by the next change; the two must move
-        // together, as advancing without queueing leaves a clientSeq hole that
-        // the server rejects. When nothing landed the root is untouched, so
-        // neither moves and the next change reuses this one's ID.
-        //
-        // The presence part of the change is applied only after every
-        // operation succeeds (see `Change.execute`), so it did not land and is
-        // not carried here. The operation that threw may itself have mutated
-        // the root before throwing; that part is below operation granularity
-        // and stays unrecorded.
-        if (landed.operations.length) {
-          this.publish(
-            this.commitLocalChange(
-              Change.create<P>({
-                id: change.getID(),
-                operations: landed.operations,
-                message: change.getMessage(),
-              }),
-              landed.opInfos,
-              landed.reverseOps,
-              ctx.getNextID(),
-              actorID,
-            ),
+        throw err;
+      }
+      const { opInfos, reverseOps } = executed;
+
+      // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
+      // The history stack may still reference the old element's createdAt,
+      // so we reconcile it to the new createdAt here.
+      for (const op of change.getOperations()) {
+        if (op instanceof ArraySetOperation) {
+          this.internalHistory.reconcileCreatedAt(
+            op.getCreatedAt(),
+            op.getValue().getCreatedAt(),
           );
         }
-        throw err;
       }
 
       const reversePresence = ctx.getReversePresence();
@@ -948,14 +918,33 @@ export class Document<
         });
       }
 
-      // 03. Commit the change and publish the document change event.
-      const event = this.commitLocalChange(
-        change,
-        opInfos,
-        reverseOps,
-        ctx.getNextID(),
-        actorID,
-      );
+      this.localChanges.push(change);
+      if (reverseOps.length) {
+        this.internalHistory.pushUndo(reverseOps);
+      }
+      // NOTE(chacha912): Clear redo when a new local operation is applied.
+      if (opInfos.length) {
+        this.internalHistory.clearRedo();
+      }
+      this.changeID = ctx.getNextID();
+
+      // 03. Publish the document change event.
+      // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
+      const event: DocEvents<P> = [];
+      if (opInfos.length) {
+        event.push({
+          type: DocEventType.LocalChange,
+          source: OpSource.Local,
+          value: {
+            message: change.getMessage() || '',
+            operations: opInfos,
+            actor: actorID,
+            clientSeq: change.getID().getClientSeq(),
+            serverSeq: change.getID().getServerSeq(),
+          },
+          rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
+        });
+      }
       if (change.hasPresenceChange()) {
         const presenceEvent = this.reconcilePresence(
           actorID,
@@ -973,74 +962,6 @@ export class Document<
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
-  }
-
-  /**
-   * `commitLocalChange` records a change that has been executed on the root:
-   * it queues the change for the next change pack, updates the history stacks
-   * and advances the change ID to `nextID`. It returns the events the caller
-   * has to publish, so that a change carrying a presence change can publish
-   * both of its events at once.
-   *
-   * `change` may be a truncated one holding only the prefix of an update that
-   * reached the root, in which case `opInfos` and `reverseOps` describe that
-   * prefix rather than the whole update.
-   */
-  private commitLocalChange(
-    change: Change<P>,
-    opInfos: Array<OpInfo>,
-    reverseOps: Array<HistoryOperation<P>>,
-    nextID: ChangeID,
-    actorID: ActorID,
-  ): DocEvents<P> {
-    // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
-    // The history stack may still reference the old element's createdAt,
-    // so we reconcile it to the new createdAt here.
-    for (const op of change.getOperations()) {
-      if (op instanceof ArraySetOperation) {
-        this.internalHistory.reconcileCreatedAt(
-          op.getCreatedAt(),
-          op.getValue().getCreatedAt(),
-        );
-      }
-    }
-
-    this.localChanges.push(change);
-    if (reverseOps.length) {
-      this.internalHistory.pushUndo(reverseOps);
-    }
-    // NOTE(chacha912): Clear redo when a new local operation is applied.
-    if (opInfos.length) {
-      this.internalHistory.clearRedo();
-    }
-    this.changeID = nextID;
-
-    // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
-    //
-    // An operation can run without yielding an `OpInfo` -- a style on a node a
-    // peer removed concurrently mutates the CRDT but has no index to report --
-    // so the two counts differ. The change still goes on the wire, so it must
-    // still be announced: the offline-persistence hook appends from the pending
-    // queue only when it sees a local event (client.ts), and a change that is
-    // queued without one leaves a `clientSeq` hole that makes the whole restored
-    // log unreplayable. `operations` is the test for "is there something to
-    // push", `opInfos` only for what the payload can describe.
-    const event: DocEvents<P> = [];
-    if (opInfos.length || change.getOperations().length) {
-      event.push({
-        type: DocEventType.LocalChange,
-        source: OpSource.Local,
-        value: {
-          message: change.getMessage() || '',
-          operations: opInfos,
-          actor: actorID,
-          clientSeq: change.getID().getClientSeq(),
-          serverSeq: change.getID().getServerSeq(),
-        },
-        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
-      });
-    }
-    return event;
   }
 
   /**
@@ -2925,12 +2846,8 @@ export class Document<
       ctx.push(op);
     }
 
-    const fullChange = ctx.toChange();
-    fullChange.execute(
-      this.clone!.root,
-      this.clone!.presences,
-      OpSource.UndoRedo,
-    );
+    const change = ctx.toChange();
+    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
 
     const actorID = this.changeID.getActorID();
     const prev = {
@@ -2940,48 +2857,14 @@ export class Document<
         ? deepcopy(this.presences.get(actorID)!)
         : undefined,
     };
-
-    // The root pass can throw partway, and `Change.execute` does not roll back,
-    // so the root is left holding a prefix of the undo/redo. That prefix is real
-    // document state, and it burned tickets, so it takes the same route a local
-    // change takes in `update`: queued for the next change pack, its reverse ops
-    // pushed, and `changeID` advanced with it. Advancing without queueing would
-    // leave a `clientSeq` hole the server rejects; queueing without advancing
-    // would reissue tickets the root already carries.
-    //
-    // The presence half is applied only after every operation succeeds (see
-    // `Change.execute`) and the `Channel` proxy writes to the clone only, so a
-    // failed pass carries no presence change: the truncated change has none and
-    // `getReversePresence` is not consulted.
-    const landed: ExecutionResult<P> = {
-      operations: [],
-      opInfos: [],
-      reverseOps: [],
-    };
-    let change = fullChange;
-    let failure: unknown;
-    let operations: Array<Operation>;
-    let opInfos: Array<OpInfo>;
-    let reverseOps: Array<HistoryOperation<P>>;
-    try {
-      ({ operations, opInfos, reverseOps } = fullChange.execute(
-        this.root,
-        this.presences,
-        OpSource.UndoRedo,
-        landed,
-      ));
-      const reverse = ctx.getReversePresence();
-      if (reverse) {
-        reverseOps.push({ type: 'presence', value: reverse });
-      }
-    } catch (err) {
-      failure = err;
-      ({ operations, opInfos, reverseOps } = landed);
-      change = Change.create<P>({
-        id: fullChange.getID(),
-        operations: landed.operations,
-        message: fullChange.getMessage(),
-      });
+    const { operations, opInfos, reverseOps } = change.execute(
+      this.root,
+      this.presences,
+      OpSource.UndoRedo,
+    );
+    const reverse = ctx.getReversePresence();
+    if (reverse) {
+      reverseOps.push({ type: 'presence', value: reverse });
     }
 
     if (reverseOps.length) {
@@ -3008,21 +2891,13 @@ export class Document<
     // out. What gets through instead is a change that ran and showed nothing,
     // which costs a redundant change on the wire and never a silent drop.
     if (!change.hasPresenceChange() && !operations.length) {
-      // Nothing landed, so the root is untouched and this change's ID stays
-      // unissued for the next one to reuse.
-      if (failure) {
-        throw failure;
-      }
       return;
     }
 
     this.localChanges.push(change);
     this.changeID = ctx.getNextID();
     const events: DocEvents<P> = [];
-    // See `commitLocalChange`: an operation that ran without yielding an
-    // `OpInfo` still goes on the wire, and a queued change with no event of its
-    // own leaves a `clientSeq` hole in the offline-persistence log.
-    if (opInfos.length || operations.length) {
+    if (opInfos.length) {
       events.push({
         type: DocEventType.LocalChange,
         source: OpSource.UndoRedo,
@@ -3047,9 +2922,5 @@ export class Document<
       }
     }
     this.publish(events);
-
-    if (failure) {
-      throw failure;
-    }
   }
 }
