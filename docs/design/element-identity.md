@@ -116,7 +116,14 @@ elements. The deletes now fire only when the slot still holds the element being
 retired.
 
 `sizeInGC` records which element a charge is held for, so a size can no longer
-be taken out of `docSize.live` that live was not holding. `ElementRHT.purge` and
+be taken out of `docSize.live` that live was not holding. It is a `WeakMap`:
+`release` writes a zero record for a tombstone that nothing will collect and
+nothing will deregister, so the record has no retirement of its own, and a
+strong map keyed by element identity would pin both the record and the element
+for the life of the document — one subtree per remove/undo ([#1377]). The record
+is only ever reached through the element it is keyed by, never iterated and
+never counted, so the element's reachability is exactly the window in which the
+marker can still be consulted. `ElementRHT.purge` and
 `RGATreeList.purge` get the matching guard; neither is reachable under this
 ordering today, and they are what keeps the identity work from having to be
 rediscovered when revive lands.
@@ -166,3 +173,4 @@ introduced or worsened here.
   outright rather than leaking it
 
 [#1340]: https://github.com/yorkie-team/yorkie-js-sdk/issues/1340
+[#1377]: https://github.com/yorkie-team/yorkie-js-sdk/issues/1377

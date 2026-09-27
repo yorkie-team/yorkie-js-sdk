@@ -45,6 +45,36 @@ binding.initialize();
 binding.destroy();
 ```
 
+### Read-only viewers
+
+A view made read-only the ProseMirror way still dispatches selection-only
+transactions when the user clicks, so by default the binding would publish that
+viewer's selection as presence. It does not: when `publishSelection` is
+omitted, the binding follows `view.editable`, so a read-only viewer shares no
+selection while still seeing everyone else's cursors.
+
+```typescript
+const view = new EditorView(host, { state, editable: () => canWrite });
+```
+
+The policy is re-read on every publish, so a view that flips to read-only
+mid-session stops publishing — and the binding clears the selection it had
+already published, on the next transaction, so peers drop that cursor instead
+of rendering it where it was last seen.
+
+Set the option explicitly to override that policy in either direction. It is
+outbound only — the binding keeps subscribing to other clients' presence and
+rendering their cursors either way.
+
+```typescript
+const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+  publishSelection: false, // never publish, even in an editable view
+});
+```
+
+Use `cursors: { enabled: false }` instead if you also want to stop rendering
+remote cursors.
+
 ### Lower-Level Utilities
 
 You can also use the individual sync functions directly:

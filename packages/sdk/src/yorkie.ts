@@ -146,6 +146,11 @@ export {
   type TreePosStructRange,
 } from '@yorkie-js/sdk/src/document/json/tree';
 export { Change } from '@yorkie-js/sdk/src/document/change/change';
+export {
+  Code,
+  YorkieError,
+  ChangeApplyError,
+} from '@yorkie-js/sdk/src/util/error';
 export { converter } from '@yorkie-js/sdk/src/api/converter';
 
 import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';

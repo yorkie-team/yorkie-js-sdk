@@ -3269,7 +3269,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * which floor-resolves to the leftmost fragment — the true right neighbor.
    */
   private leftAnchorID(sibling: CRDTTreeNode): CRDTTreeNodeID {
-    if (!sibling.isText) {
+    // A text node with no characters has no last character to anchor on, and
+    // `value.length - 1` would put the anchor one code unit before the node's
+    // own start — offset -1 for a node at offset 0. Local edits cannot create
+    // one (`validateTextNode`), but a remote peer's contents are decoded
+    // without that check. The node's own ID floor-resolves to the same node.
+    if (!sibling.isText || sibling.value.length === 0) {
       return sibling.id;
     }
     return CRDTTreeNodeID.of(

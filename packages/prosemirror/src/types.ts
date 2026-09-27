@@ -85,6 +85,17 @@ export type YorkieProseMirrorOptions = {
   wrapperElementName?: string;
   /** Remote cursor display configuration. */
   cursors?: CursorOptions;
+  /**
+   * Whether to publish the local selection as presence. Outbound only: the
+   * binding keeps subscribing to other clients' presence and rendering their
+   * cursors regardless of this value.
+   *
+   * When omitted, the binding follows the view: it publishes while
+   * `view.editable` is true and stays quiet while it is false, so a read-only
+   * editor shares no selection without any configuration. Set it explicitly to
+   * override that policy in either direction.
+   */
+  publishSelection?: boolean;
   /** Callback for sync log messages. */
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
   /** Yorkie client instance used to pause/resume sync during IME composition. */

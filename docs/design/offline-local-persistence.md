@@ -188,6 +188,32 @@ Three client obligations the server does not cover:
 unload, which triggers the server-side checkpoint reset and defeats persistence.
 Configuring a `store` auto-defaults it to `false` (an explicit option still wins).
 
+`ClientOptions.key` must be **caller-supplied and persisted** on this path, and
+unlike `deactivateOnUnload` it cannot be defaulted: only the app knows which
+identity should outlive the process. The SDK's default mints a random key per
+`Client`, and that key scopes the store keys as well as the derived actor, so
+the next launch addresses a namespace of its own: it restores nothing, the
+`actor-mismatch` guard above never fires (the old entries are never loaded), and
+a store-backed client with no `key` loses 100% of its un-pushed edits on every
+restart *silently*, stranding one dead snapshot/log namespace per launch that
+`DocStore` — load/saveSnapshot/appendChange/saveMeta/remove, no enumeration, no
+prune — offers no way to reclaim. The constructor warns when `store` is set and
+`key` is not; making the default itself stable (persisting the generated key in
+the store) would need a home for a non-document value in the `DocStore`
+interface and a client identity that is only known after an `await`, and has to
+be agreed with `yorkie-ios-sdk` first. An enumeration/prune API for reclaiming
+orphaned namespaces is follow-up work and needs the same cross-SDK agreement.
+
+The value apps supply must be an **opaque random value minted once** (e.g.
+`crypto.randomUUID()` in local storage), scoped to the signed-in user and
+cleared on sign-out — not a user id, an email, or a device id. The client key is
+an unauthenticated identifier sent verbatim in `ActivateClientRequest.client_key`,
+so a guessable one lets another client of the same project claim the same derived
+actor; and a device-scoped one gives every user of one browser the same
+`apiKey/clientKey/docKey` namespace, whose bytes attach rehydrates locally before
+the attach RPC — one user's un-pushed edits would surface in the next user's
+session ahead of any server authorization.
+
 ### Multi-tab safety
 
 The stable actor is shared by every tab using the same persisted client
@@ -221,7 +247,7 @@ follow-up on top of this guard.
 | A push acked with nothing pulled emits no Remote/Snapshot event, so the stored envelope keeps already-pushed changes + a stale checkpoint until the next edit | Persist explicitly after a successful sync (`syncInternal`), in addition to the event-driven persist on local/presence changes. It is a full overwrite, so it does not grow unbounded                                                                                 |
 | A flaky store (rejected `load`/`remove`) aborts attach                                                                                                        | Wrap store access; degrade to a fresh attach and log rather than throwing out of attach                                                                                                                                                                               |
 | Two tabs share one store and corrupt/diverge `clientSeq` (worse with resumable checkpoints)                                                                   | Single-active-session lease; non-leader tabs are read-only observers                                                                                                                                                                                                  |
-| App forgets to persist a stable client key                                                                                                                    | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored key. Document this as a hard requirement                                                                                                    |
+| App forgets to persist a stable client key                                                                                                                    | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored, opaque key. Documented as a hard requirement on `ClientOptions.key`/`.store` — including why the loss is silent and why the value must not be a user or device id — and the constructor warns when `store` is set and `key` is not                                                                                                    |
 | Fear that restore double-counts HLL dedup counters                                                                                                            | Non-issue: dedup identity is the app-supplied actor arg (`DedupCounter.add(actor)` → `IncreaseOperation.actor`), independent of the client actor; reusing or re-minting the SDK actor cannot re-count                                                                 |
 
 ### Design Decisions
@@ -548,8 +574,43 @@ server rejects that gap with `ErrInvalidClientSeq` on every push from then on,
 and because it is not `ErrEpochMismatch`, nothing re-anchors: the document never
 syncs again, and the app's only escape is clearing its own store. So the
 comparison is against `max(checkpoint.clientSeq, changeID.clientSeq)`. With
-`meta` absent it reduces to the checkpoint, since a `toBytes` envelope's counter
-never leads the pending changes it carries.
+`meta` absent it cannot trip, because the snapshot's own counter is already
+folded into the watermark the log is measured against (see below).
+
+**The repair undoes the header's position, but not the sequences it spent.**
+Re-restoring from the snapshot bytes returns checkpoint, epoch and `changeID`
+to what the snapshot itself carries. That is right for the first two — they
+describe content, and the point is to let the server resend what the log lost —
+and wrong for the counter, which describes nothing but which `clientSeq` values
+this client has already minted. The header's checkpoint names sequences the
+server has taken; a snapshot written before them sits below it. Minting them
+again gets them skipped as duplicates on push, and the next ack — whose
+`clientSeq` covers them — drops them from `localChanges` as pushed: new edits
+lost with no event ([#1377](https://github.com/yorkie-team/yorkie-js-sdk/issues/1377)). `Document.advanceClientSeqTo` carries the acked
+checkpoint across the re-restore, forward only. The acked checkpoint and not
+the header's counter: the server validates continuity from the position it
+holds, so resuming at a counter that leads it would mint past the server and
+wedge every later push on `ErrInvalidClientSeq` — and the entry that lead came
+from is exactly the one the log has lost.
+
+The correction has to be *persisted*, not merely applied in memory. The rebase
+that clears the log writes `doc.toBytes()` — the repaired document — rather
+than the snapshot bytes it just restored from: `saveSnapshot` drops the `meta`
+blob that held the acked position, and the original envelope's `changeID` still
+carries the snapshot's pre-ack counter, so writing it back would stage the very
+same repair (and its silent `clientSeq` reuse) for the next reload.
+Re-serializing smuggles nothing in, because `restoreFromBytes` has already
+returned root, presences, checkpoint, epoch, `docID` and the pending queue to
+what the snapshot carries; the counter is the one field that differs.
+
+That rebased base is the one envelope whose counter legitimately leads its own
+checkpoint, so the *snapshot* watermark is
+`max(last pending clientSeq, checkpoint.clientSeq, changeID.clientSeq)`. The
+counter is the highest sequence this client has minted, and a minted sequence
+is never replayable — whether the snapshot holds it or the log lost it. For
+every other envelope the counter ties one of the other two, so the third term
+only bites after a repair: without it, the first edit appended post-repair
+starts above `watermark + 1` and the contiguity guard discards it.
 
 **Known redundancy: a restore can re-push changes the server already has.**
 `saveMeta` advances the header without rewriting the snapshot, so a snapshot

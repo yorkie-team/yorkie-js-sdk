@@ -201,6 +201,22 @@ export class ChangeID {
   }
 
   /**
+   * `setClientSeq` sets the given client sequence, leaving the logical clocks
+   * alone. The counter and the clocks are independent positions: the counter
+   * names this client's changes to the server, while the clocks order
+   * operations against other actors.
+   */
+  public setClientSeq(clientSeq: number): ChangeID {
+    return new ChangeID(
+      clientSeq,
+      this.lamport,
+      this.actor,
+      this.versionVector,
+      this.serverSeq,
+    );
+  }
+
+  /**
    * `setVersionVector` sets the given version vector.
    */
   public setVersionVector(versionVector: VersionVector): ChangeID {

@@ -178,6 +178,37 @@ describe('ElementRHT snapshot rebuild order', function () {
       assert.isTrue(loser.isRemoved(), 'the loser marks itself removed');
     });
 
+    /**
+     * The losing branch marks the incoming value removed so `ownKeys` skips
+     * it. A value that arrives already removed is already skipped, so the
+     * marking has nothing to do — but `CRDTElement.remove` accepts any later
+     * ticket, so ungated it is not a no-op: it moves the tombstone's
+     * `removedAt` off the ticket of the removal that actually happened and
+     * onto the occupant's `positionedAt`.
+     *
+     * That is the shape `converter.fromObject` replays on every snapshot load
+     * (#1377): GC then waits for `minSyncedVersionVector >= M` instead of
+     * `R`, and the replica's re-serialized snapshots and `docSize.gc` differ
+     * from replicas that never reloaded.
+     */
+    it('leaves a losing tombstone removedAt alone', function () {
+      for (const order of permute([0, 1])) {
+        const rht = ElementRHT.create();
+        const elems = members();
+        const tomb = elems[1];
+        for (const idx of order) {
+          rht.set('frame', elems[idx], elems[idx].getPositionedAt());
+        }
+
+        assert.isTrue(tomb.isRemoved(), `order ${order}: tombstone revived`);
+        assert.isTrue(
+          tomb.getRemovedAt()!.equals(T4),
+          `order ${order}: removedAt moved from ${T4.toTestString()} to ` +
+            `${tomb.getRemovedAt()!.toTestString()}`,
+        );
+      }
+    });
+
     it('resolves a key carrying more than two members, in every order', function () {
       const elems = [
         Primitive.of('kept', T1), // undo-restored: positionedAt T5
@@ -262,5 +293,58 @@ describe('ElementRHT snapshot rebuild order', function () {
         }
       });
     }
+
+    /**
+     * A snapshot round-trip must be a fixpoint on the tombstones it carries.
+     * `fromObject` replays every decoded member through `ElementRHT.set`, and
+     * a tombstone that sorts after the live occupant takes the losing branch —
+     * which used to bump its `removedAt` to the occupant's `positionedAt`.
+     * The document then measures differently depending on whether it has been
+     * through a snapshot load (#1377).
+     */
+    it('preserves each tombstone removedAt across a decode', function () {
+      // `createdAt(live) < createdAt(tomb) < removedAt(tomb) < movedAt(live)`:
+      // the tombstone loses to the undo-restored occupant, and its own
+      // removal is strictly older than the ticket that restored the occupant.
+      // An undo whose reverse `Set` both removes and restores under one ticket
+      // leaves `removedAt == movedAt`, where the bump is invisible.
+      // Actor IDs must be the wire's 24-hex form: anything else decodes back
+      // as the initial actor and the comparison passes on a technicality.
+      const actorA = '000000000000000000000001';
+      const actorB = '000000000000000000000002';
+      const rht = ElementRHT.create();
+      const live = Primitive.of('kept', TimeTicket.of(1n, 0, actorA));
+      const tomb = Primitive.of('displaced', TimeTicket.of(3n, 0, actorB));
+      tomb.remove(TimeTicket.of(4n, 0, actorB));
+      live.setMovedAt(TimeTicket.of(5n, 0, actorA));
+      rht.set('frame', live, live.getPositionedAt());
+      rht.set('frame', tomb, tomb.getPositionedAt());
+      const root = new CRDTObject(InitialTimeTicket, rht);
+
+      /** Every member of the root's `frame` key, by createdAt → removedAt. */
+      const removedAts = (obj: CRDTObject) => {
+        const out = new Map<string, string>();
+        for (const node of obj.getRHT()) {
+          const elem = node.getValue();
+          out.set(
+            elem.getCreatedAt().toTestString(),
+            elem.getRemovedAt()?.toTestString() ?? '',
+          );
+        }
+        return out;
+      };
+
+      const want = removedAts(root);
+      assert.isTrue(
+        Array.from(want.values()).some((at) => at !== ''),
+        'the key must carry a tombstone for this to test anything',
+      );
+
+      const rebuilt = converter.bytesToObject(converter.objectToBytes(root));
+      assert.deepEqual(
+        Array.from(removedAts(rebuilt).entries()).sort(),
+        Array.from(want.entries()).sort(),
+      );
+    });
   });
 });
