@@ -890,6 +890,18 @@ describe.sequential('Client', function () {
         if (e.type === 'snapshot') snapshots.push(e.type);
       });
 
+      // Record what the server actually answered c1 with. Without this the
+      // test cannot tell a dropped snapshot from a dropped change list, and
+      // would keep passing while the `hasSnapshot()` branch never runs.
+      const rpc = (c1 as any).rpcClient;
+      const origPushPull = rpc.pushPullChanges.bind(rpc);
+      const respSnapshotBytes: Array<number> = [];
+      rpc.pushPullChanges = async (...args: Array<any>) => {
+        const res = await origPushPull(...args);
+        respSnapshotBytes.push(res.changePack?.snapshot?.length ?? 0);
+        return res;
+      };
+
       // 01. c2 makes enough changes for the server to answer c1 with a
       // snapshot instead of changes.
       for (let i = 0; i < DefaultSnapshotThreshold; i++) {
@@ -901,6 +913,12 @@ describe.sequential('Client', function () {
       // snapshot it brings back must be dropped like changes are.
       d1.update((r) => r.counter.increase(1));
       await c1.sync(d1);
+      // The response carried a snapshot, so the drop below is the snapshot
+      // branch and not the pre-existing changes branch.
+      assert.isTrue(
+        respSnapshotBytes.some((len) => len > 0),
+        'the server answered with a snapshot',
+      );
       assert.equal(snapshots.length, 0);
       assert.equal(d1.getRoot().counter.getValue(), 1);
       // The push landed, so it must not be sent again: a snapshot built for a
@@ -918,6 +936,7 @@ describe.sequential('Client', function () {
       await c1.changeSyncMode(d1, SyncMode.Realtime);
       await c1.sync(d1);
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      rpc.pushPullChanges = origPushPull;
       unsub();
     }, task.name);
   });

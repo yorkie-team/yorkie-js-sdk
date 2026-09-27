@@ -3286,20 +3286,26 @@ export class Client {
       // the server seq stays put, so the skipped state is pulled again once
       // realtime sync resumes. The push itself did land, so still take the
       // client seq ack rather than push the same changes again.
-      if (
+      const dropsRemoteState =
         (respPack.hasChanges() || respPack.hasSnapshot()) &&
         (attachment.syncMode === SyncMode.RealtimePushOnly ||
-          attachment.syncMode === SyncMode.RealtimeSyncOff)
-      ) {
+          attachment.syncMode === SyncMode.RealtimeSyncOff);
+      if (dropsRemoteState) {
         doc.acknowledgePushedChanges(respPack.getCheckpoint().getClientSeq());
-        return doc;
+      } else {
+        doc.applyChangePack(respPack);
       }
-
-      doc.applyChangePack(respPack);
       attachment.updateHeartbeatTime();
 
+      // Whether the response actually moved the root. A dropped pack does not:
+      // it only takes the push ack, which leaves the document exactly where the
+      // pure push-ack branches below expect it.
+      const movedRoot =
+        !dropsRemoteState && (respPack.hasChanges() || respPack.hasSnapshot());
+
       // Re-persist after a successful sync when a store is configured. A push
-      // that is merely acked (nothing pulled) advances the checkpoint and
+      // that is merely acked (nothing pulled, or a pulled pack dropped because
+      // the document is in PushOnly/SyncOff) advances the checkpoint and
       // drops the pushed changes from `localChanges` without emitting any
       // Remote/Snapshot event, so the event-driven persist alone would leave
       // the stored envelope holding already-pushed changes and a stale
@@ -3313,7 +3319,7 @@ export class Client {
               `failed:`,
             err,
           );
-        if (respPack.hasChanges() || respPack.hasSnapshot()) {
+        if (movedRoot) {
           // The response moved the root, and the append log holds *local*
           // changes only — nothing in it carries remote content. Writing meta
           // alone would advance the persisted `serverSeq` past a root the
