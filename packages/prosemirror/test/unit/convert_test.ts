@@ -441,6 +441,38 @@ describe('convert', () => {
         assert.equal(pmNode.attrs.src, '');
       });
 
+      it('should blank a script URL hidden behind a non-string value', () => {
+        // Attributes reach the converter as `JSON.parse` output (the SDK's
+        // `parseObjectValues`, via `CRDTTree.toJSON`), and `tree.style` types
+        // its attributes as `any` — so a peer can store `href` as an array or
+        // an object that stringifies back to a live scheme at `setAttribute`.
+        for (const href of [
+          ['javascript:alert(1)'],
+          ['javascript:alert(1)', ''],
+          [['  javascript:alert(1)']],
+        ] as unknown as Array<string>) {
+          const node = yElem('link', [yText('click')], { href });
+          const result = yorkieToJSON(node, elementToMarkMapping);
+          const arr = result as Array<{
+            marks: Array<{ attrs: Record<string, unknown> }>;
+          }>;
+          assert.equal(arr[0].marks[0].attrs.href, '', JSON.stringify(href));
+        }
+      });
+
+      it('should leave a non-URL non-string attribute untouched', () => {
+        // Only the URL names are neutralized; every other decoded value is
+        // handed through as the type `JSON.parse` produced.
+        const node = yElem('image', [], {
+          alt: ['a', 'b'],
+          width: 42,
+        } as unknown as Record<string, string>);
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const pmNode = result as { attrs: Record<string, unknown> };
+        assert.deepEqual(pmNode.attrs.alt, ['a', 'b']);
+        assert.equal(pmNode.attrs.width, 42);
+      });
+
       it('should leave a non-executable URL untouched', () => {
         // Blanking round-trips upstream through pmToYorkie, so only values
         // that can run script may be rewritten.

@@ -49,12 +49,31 @@ const UrlAttrNames = new Set([
  * must round-trip untouched. Control characters and whitespace are stripped
  * first because browsers ignore them when resolving the scheme
  * (`java\tscript:alert(1)` navigates just fine).
+ *
+ * The value is stringified before it is tested, and `unknown` rather than
+ * `string` is the honest input type: attributes arrive as `JSON.parse` output
+ * (`parseObjectValues` in the SDK decodes every stored attribute), so a peer
+ * calling `tree.style(from, to, { href: ['javascript:alert(1)'] })` delivers
+ * an array here. `toDOM`/`setAttribute` stringify it straight back into a
+ * live scheme, so the check has to see the string the DOM would see.
  */
-function isScriptUrlValue(value: string): boolean {
-  const normalized = Array.from(value)
-    .filter((char) => char.charCodeAt(0) > 0x20)
-    .join('')
-    .toLowerCase();
+function isScriptUrlValue(value: unknown): boolean {
+  let raw: string;
+  try {
+    raw = String(value);
+  } catch {
+    // A value with no primitive conversion (a null-prototype object) cannot
+    // reach the DOM as a scheme either — `setAttribute` throws on it too.
+    return false;
+  }
+  // Strip C0 controls and space in one pass. Nothing at or below U+0020 is a
+  // surrogate, so walking code units is equivalent to walking code points
+  // without the per-character array the previous `Array.from` allocated.
+  let stripped = '';
+  for (let i = 0; i < raw.length; i++) {
+    if (raw.charCodeAt(i) > 0x20) stripped += raw[i];
+  }
+  const normalized = stripped.toLowerCase();
   if (/^(?:javascript|vbscript|livescript):/.test(normalized)) return true;
   // `data:` can carry markup that runs script (`data:text/html,<script>`),
   // and an SVG payload is markup too. Raster images cannot.
@@ -72,18 +91,22 @@ function isScriptUrlValue(value: string): boolean {
  *
  * Values arrive from remote peers, so a URL attribute carrying an executable
  * scheme is blanked rather than handed to the schema's `toDOM`.
+ *
+ * The values are typed `string` upstream but are not: `CRDTTree.toJSON` runs
+ * every stored attribute through `JSON.parse`, so a remote peer can put a
+ * number, boolean, array or object here. The URL check therefore runs on
+ * every value regardless of type, and only the string-shaped coercions below
+ * are type-gated — a non-string is already the type `JSON.parse` decided.
  */
 function deserializeAttrs(
-  attrs: Record<string, string>,
+  attrs: Record<string, unknown>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attrs)) {
-    if (
-      UrlAttrNames.has(key) &&
-      typeof value === 'string' &&
-      isScriptUrlValue(value)
-    ) {
+    if (UrlAttrNames.has(key) && isScriptUrlValue(value)) {
       result[key] = '';
+    } else if (typeof value !== 'string') {
+      result[key] = value;
     } else if (/^-?\d+(\.\d+)?$/.test(value)) {
       result[key] = Number(value);
     } else if (value === 'true') {
