@@ -15,7 +15,13 @@
  */
 
 import { describe, it, assert, afterEach, vi } from 'vitest';
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import {
+  Document,
+  DocEvent,
+  DocEventType,
+  LocalChangeEvent,
+} from '@yorkie-js/sdk/src/document/document';
+import { OpInfo } from '@yorkie-js/sdk/src/document/operation/operation';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
@@ -136,6 +142,73 @@ describe('Document clone reset', function () {
     assert.equal(changes.length, 2);
     assert.equal(changes[1].getID().getClientSeq(), 2);
     assert.equal(doc.toSortedJSON(), '{"a":1,"c":3}');
+  });
+
+  it('publishes the prefix a failed local change left on the root', function () {
+    const doc = new Document<{ a: number; b: number }>('d');
+    const events: Array<DocEvent<never>> = [];
+    doc.subscribe((event) => {
+      events.push(event as DocEvent<never>);
+    });
+
+    throwOnNthCall(2);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.a = 1;
+        r.b = 2;
+      });
+    }, 'boom');
+
+    assert.equal(events.length, 1);
+    const event = events[0];
+    assert.equal(event.type, DocEventType.LocalChange);
+    assert.equal(
+      (event as LocalChangeEvent<OpInfo, never>).value.operations.length,
+      1,
+    );
+    assert.equal((event as LocalChangeEvent<OpInfo, never>).value.clientSeq, 1);
+  });
+
+  it('undoes the prefix a failed local change left on the root', function () {
+    const doc = new Document<{ a: number; b: number; c: number }>('d');
+
+    throwOnNthCall(2);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.a = 1;
+        r.b = 2;
+      });
+    }, 'boom');
+
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+    assert.isTrue(doc.history.canUndo());
+
+    // The undo must revert the landed prefix, not the change before it.
+    doc.history.undo();
+    assert.equal(doc.toSortedJSON(), '{}');
+    assert.isTrue(doc.history.canRedo());
+
+    doc.history.redo();
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+  });
+
+  it('clears the redo stack when a local change lands partway', function () {
+    const doc = new Document<{ a: number; b: number; c: number }>('d');
+    doc.update((r) => {
+      r.a = 1;
+    });
+    doc.history.undo();
+    assert.isTrue(doc.history.canRedo());
+
+    throwOnNthCall(2);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.b = 2;
+        r.c = 3;
+      });
+    }, 'boom');
+
+    assert.isFalse(doc.history.canRedo());
   });
 
   it('reuses the change ID when nothing of a local change landed', function () {

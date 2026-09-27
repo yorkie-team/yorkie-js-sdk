@@ -903,39 +903,37 @@ export class Document<
 
         // The prefix that did land is real document state: it is in the root,
         // `toSortedJSON` shows it and the rebuilt clone hands it to the next
-        // updater. Queue it as a truncated change so `createChangePack` pushes
-        // it, and advance `changeID` so the tickets it already burned into the
-        // root are not reissued by the next change. The two must move together
-        // — advancing without queueing leaves a clientSeq hole that the server
-        // rejects. When nothing landed the root is untouched, so neither moves
-        // and the next change reuses this one's ID.
+        // updater. Commit it exactly as a whole change is committed — queue it
+        // so `createChangePack` pushes it, record its reverse ops so it can be
+        // undone, and publish it so subscribers, devtools and the offline
+        // persistence hook see the state the server is about to receive.
+        // `changeID` advances with it so the tickets it already burned into
+        // the root are not reissued by the next change; the two must move
+        // together, as advancing without queueing leaves a clientSeq hole that
+        // the server rejects. When nothing landed the root is untouched, so
+        // neither moves and the next change reuses this one's ID.
         //
-        // The operation that threw may itself have mutated the root before
-        // throwing; that part is below operation granularity and stays
-        // unrecorded.
+        // The presence part of the change is applied only after every
+        // operation succeeds (see `Change.execute`), so it did not land and is
+        // not carried here. The operation that threw may itself have mutated
+        // the root before throwing; that part is below operation granularity
+        // and stays unrecorded.
         if (landed.operations.length) {
-          this.localChanges.push(
-            Change.create<P>({
-              id: change.getID(),
-              operations: landed.operations,
-              message: change.getMessage(),
-            }),
+          this.publish(
+            this.commitLocalChange(
+              Change.create<P>({
+                id: change.getID(),
+                operations: landed.operations,
+                message: change.getMessage(),
+              }),
+              landed.opInfos,
+              landed.reverseOps,
+              ctx.getNextID(),
+              actorID,
+            ),
           );
-          this.changeID = ctx.getNextID();
         }
         throw err;
-      }
-
-      // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
-      // The history stack may still reference the old element's createdAt,
-      // so we reconcile it to the new createdAt here.
-      for (const op of change.getOperations()) {
-        if (op instanceof ArraySetOperation) {
-          this.internalHistory.reconcileCreatedAt(
-            op.getCreatedAt(),
-            op.getValue().getCreatedAt(),
-          );
-        }
       }
 
       const reversePresence = ctx.getReversePresence();
@@ -946,33 +944,14 @@ export class Document<
         });
       }
 
-      this.localChanges.push(change);
-      if (reverseOps.length) {
-        this.internalHistory.pushUndo(reverseOps);
-      }
-      // NOTE(chacha912): Clear redo when a new local operation is applied.
-      if (opInfos.length) {
-        this.internalHistory.clearRedo();
-      }
-      this.changeID = ctx.getNextID();
-
-      // 03. Publish the document change event.
-      // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
-      const event: DocEvents<P> = [];
-      if (opInfos.length) {
-        event.push({
-          type: DocEventType.LocalChange,
-          source: OpSource.Local,
-          value: {
-            message: change.getMessage() || '',
-            operations: opInfos,
-            actor: actorID,
-            clientSeq: change.getID().getClientSeq(),
-            serverSeq: change.getID().getServerSeq(),
-          },
-          rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
-        });
-      }
+      // 03. Commit the change and publish the document change event.
+      const event = this.commitLocalChange(
+        change,
+        opInfos,
+        reverseOps,
+        ctx.getNextID(),
+        actorID,
+      );
       if (change.hasPresenceChange()) {
         const presenceEvent = this.reconcilePresence(
           actorID,
@@ -990,6 +969,65 @@ export class Document<
         logger.trivial(`after update a local change: ${this.toJSON()}`);
       }
     }
+  }
+
+  /**
+   * `commitLocalChange` records a change that has been executed on the root:
+   * it queues the change for the next change pack, updates the history stacks
+   * and advances the change ID to `nextID`. It returns the events the caller
+   * has to publish, so that a change carrying a presence change can publish
+   * both of its events at once.
+   *
+   * `change` may be a truncated one holding only the prefix of an update that
+   * reached the root, in which case `opInfos` and `reverseOps` describe that
+   * prefix rather than the whole update.
+   */
+  private commitLocalChange(
+    change: Change<P>,
+    opInfos: Array<OpInfo>,
+    reverseOps: Array<HistoryOperation<P>>,
+    nextID: ChangeID,
+    actorID: ActorID,
+  ): DocEvents<P> {
+    // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
+    // The history stack may still reference the old element's createdAt,
+    // so we reconcile it to the new createdAt here.
+    for (const op of change.getOperations()) {
+      if (op instanceof ArraySetOperation) {
+        this.internalHistory.reconcileCreatedAt(
+          op.getCreatedAt(),
+          op.getValue().getCreatedAt(),
+        );
+      }
+    }
+
+    this.localChanges.push(change);
+    if (reverseOps.length) {
+      this.internalHistory.pushUndo(reverseOps);
+    }
+    // NOTE(chacha912): Clear redo when a new local operation is applied.
+    if (opInfos.length) {
+      this.internalHistory.clearRedo();
+    }
+    this.changeID = nextID;
+
+    // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
+    const event: DocEvents<P> = [];
+    if (opInfos.length) {
+      event.push({
+        type: DocEventType.LocalChange,
+        source: OpSource.Local,
+        value: {
+          message: change.getMessage() || '',
+          operations: opInfos,
+          actor: actorID,
+          clientSeq: change.getID().getClientSeq(),
+          serverSeq: change.getID().getServerSeq(),
+        },
+        rawChange: this.isEnableDevtools() ? change.toStruct() : undefined,
+      });
+    }
+    return event;
   }
 
   /**
