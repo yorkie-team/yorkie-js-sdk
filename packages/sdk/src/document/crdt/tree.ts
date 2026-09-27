@@ -3305,7 +3305,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // These pairs carry `gcOnlySize` because `getDataSize` of the freshly
     // built root only counted visible nodes into docSize.live.
     this.indexTree.traverseAll((node) => {
-      if (node.getRemovedAt()) {
+      // The walk includes the root, and purging is detachment from a parent,
+      // which the root does not have. It is never legitimately removed, but a
+      // crafted Set/Add payload can mark it so; leave it unbooked, as Go does.
+      if (node.getRemovedAt() && node.parent) {
         pairs.push({
           parent: this,
           child: node,
