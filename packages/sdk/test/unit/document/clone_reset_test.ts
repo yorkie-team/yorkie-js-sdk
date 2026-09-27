@@ -231,6 +231,52 @@ describe('Document clone reset', function () {
     assert.equal(changes[0].getID().getClientSeq(), 1);
   });
 
+  it('queues the prefix a failed undo left on the root', function () {
+    const doc = new Document<{ a: number; b: number; c: number }>('d');
+    doc.update((r) => {
+      r.a = 1;
+      r.b = 2;
+    });
+    doc.update((r) => {
+      r.a = 3;
+      r.b = 4;
+    });
+
+    const events: Array<DocEvent<never>> = [];
+    doc.subscribe((event) => {
+      events.push(event as DocEvent<never>);
+    });
+
+    // The undo change runs on the clone first (calls 1-2) and on the root
+    // second (calls 3-4). Reverse ops are unshifted, so the root pass restores
+    // `b` and then throws on `a`.
+    throwOnNthCall(4);
+    assert.throws(() => doc.history.undo(), 'boom');
+
+    assert.equal(doc.toSortedJSON(), '{"a":3,"b":2}');
+    assert.isUndefined(internals(doc as never).clone);
+
+    // The landed prefix is queued, not dropped, and the change ID advances with
+    // it so the next change does not reuse the tickets it already burned.
+    const changes = internals(doc as never).localChanges;
+    assert.equal(changes.length, 3);
+    assert.equal(changes[2].getOperations().length, 1);
+    assert.equal(changes[2].getID().getClientSeq(), 3);
+
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, DocEventType.LocalChange);
+    assert.equal(
+      (events[0] as LocalChangeEvent<OpInfo, never>).value.clientSeq,
+      3,
+    );
+
+    doc.update((r) => {
+      r.c = 5;
+    });
+    assert.equal(changes[3].getID().getClientSeq(), 4);
+    assert.equal(doc.toSortedJSON(), '{"a":3,"b":2,"c":5}');
+  });
+
   it('keeps the clone when undo is refused during an update', function () {
     const doc = new Document<{ k: number }>('d');
     doc.update((r) => {

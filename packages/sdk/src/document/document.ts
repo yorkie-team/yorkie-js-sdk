@@ -1012,8 +1012,17 @@ export class Document<
     this.changeID = nextID;
 
     // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
+    //
+    // An operation can run without yielding an `OpInfo` -- a style on a node a
+    // peer removed concurrently mutates the CRDT but has no index to report --
+    // so the two counts differ. The change still goes on the wire, so it must
+    // still be announced: the offline-persistence hook appends from the pending
+    // queue only when it sees a local event (client.ts), and a change that is
+    // queued without one leaves a `clientSeq` hole that makes the whole restored
+    // log unreplayable. `operations` is the test for "is there something to
+    // push", `opInfos` only for what the payload can describe.
     const event: DocEvents<P> = [];
-    if (opInfos.length) {
+    if (opInfos.length || change.getOperations().length) {
       event.push({
         type: DocEventType.LocalChange,
         source: OpSource.Local,
@@ -2835,8 +2844,12 @@ export class Document<
       ctx.push(op);
     }
 
-    const change = ctx.toChange();
-    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
+    const fullChange = ctx.toChange();
+    fullChange.execute(
+      this.clone!.root,
+      this.clone!.presences,
+      OpSource.UndoRedo,
+    );
 
     const actorID = this.changeID.getActorID();
     const prev = {
@@ -2846,14 +2859,48 @@ export class Document<
         ? deepcopy(this.presences.get(actorID)!)
         : undefined,
     };
-    const { operations, opInfos, reverseOps } = change.execute(
-      this.root,
-      this.presences,
-      OpSource.UndoRedo,
-    );
-    const reverse = ctx.getReversePresence();
-    if (reverse) {
-      reverseOps.push({ type: 'presence', value: reverse });
+
+    // The root pass can throw partway, and `Change.execute` does not roll back,
+    // so the root is left holding a prefix of the undo/redo. That prefix is real
+    // document state, and it burned tickets, so it takes the same route a local
+    // change takes in `update`: queued for the next change pack, its reverse ops
+    // pushed, and `changeID` advanced with it. Advancing without queueing would
+    // leave a `clientSeq` hole the server rejects; queueing without advancing
+    // would reissue tickets the root already carries.
+    //
+    // The presence half is applied only after every operation succeeds (see
+    // `Change.execute`) and the `Channel` proxy writes to the clone only, so a
+    // failed pass carries no presence change: the truncated change has none and
+    // `getReversePresence` is not consulted.
+    const landed: ExecutionResult<P> = {
+      operations: [],
+      opInfos: [],
+      reverseOps: [],
+    };
+    let change = fullChange;
+    let failure: unknown;
+    let operations: Array<Operation>;
+    let opInfos: Array<OpInfo>;
+    let reverseOps: Array<HistoryOperation<P>>;
+    try {
+      ({ operations, opInfos, reverseOps } = fullChange.execute(
+        this.root,
+        this.presences,
+        OpSource.UndoRedo,
+        landed,
+      ));
+      const reverse = ctx.getReversePresence();
+      if (reverse) {
+        reverseOps.push({ type: 'presence', value: reverse });
+      }
+    } catch (err) {
+      failure = err;
+      ({ operations, opInfos, reverseOps } = landed);
+      change = Change.create<P>({
+        id: fullChange.getID(),
+        operations: landed.operations,
+        message: fullChange.getMessage(),
+      });
     }
 
     if (reverseOps.length) {
@@ -2880,13 +2927,21 @@ export class Document<
     // out. What gets through instead is a change that ran and showed nothing,
     // which costs a redundant change on the wire and never a silent drop.
     if (!change.hasPresenceChange() && !operations.length) {
+      // Nothing landed, so the root is untouched and this change's ID stays
+      // unissued for the next one to reuse.
+      if (failure) {
+        throw failure;
+      }
       return;
     }
 
     this.localChanges.push(change);
     this.changeID = ctx.getNextID();
     const events: DocEvents<P> = [];
-    if (opInfos.length) {
+    // See `commitLocalChange`: an operation that ran without yielding an
+    // `OpInfo` still goes on the wire, and a queued change with no event of its
+    // own leaves a `clientSeq` hole in the offline-persistence log.
+    if (opInfos.length || operations.length) {
       events.push({
         type: DocEventType.LocalChange,
         source: OpSource.UndoRedo,
@@ -2911,5 +2966,9 @@ export class Document<
       }
     }
     this.publish(events);
+
+    if (failure) {
+      throw failure;
+    }
   }
 }
