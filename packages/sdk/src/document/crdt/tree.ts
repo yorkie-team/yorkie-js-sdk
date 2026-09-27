@@ -638,6 +638,53 @@ export class CRDTTreeNode
   }
 
   /**
+   * `dropEngineOnlyLinks` clears the engine-only links on this node and every
+   * one of its descendants: the split-sibling chain and the merge lineage.
+   *
+   * It is the operation-content counterpart of `dropSplitLinks`.
+   * `mergedFrom`/`mergedAt` name the parent a node was moved out of and only
+   * a merge may stamp them (`edit` restamps them on the content it inserts,
+   * from the merge parent it resolves locally), so content arriving on a
+   * TreeEdit -- always freshly created by the editing client, never a copy of
+   * live state -- can never legitimately carry them, while the §1.1 redirect
+   * and §6.2 propagation read them as trusted structural pointers.
+   * `mergedInto` goes with them: the decoder derives it from `mergedFrom`, so
+   * leaving it would keep a source pointing at a destination no field records
+   * any more.
+   */
+  public dropEngineOnlyLinks(): void {
+    traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
+      node.insPrevID = undefined;
+      node.insNextID = undefined;
+      node.mergedFrom = undefined;
+      node.mergedAt = undefined;
+      node.mergedInto = undefined;
+    });
+  }
+
+  /**
+   * `clearTombstones` clears the tombstone on this node and every one of its
+   * descendants, restoring the sizes a decoded tombstone suppressed.
+   *
+   * Like the engine-only links, `removedAt` is carried by the wire format on
+   * every tree node yet operation content can never legitimately hold it: a
+   * TreeEdit's content is freshly created by the editing client, so a node
+   * arriving tombstoned is a crafted one. Left in place, `edit` counts it
+   * into the live data size and registers no GC pair for it under a live
+   * parent, while `isRemoved` hides it from every later edit.
+   *
+   * Cleared via `unremove` so each node's padded size is given back to its
+   * ancestors. `traverseAll` is post-order, so a child is revived before its
+   * parent, and the parent's own size already includes the child when the
+   * parent hands it further up.
+   */
+  public clearTombstones(): void {
+    traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
+      node.unremove();
+    });
+  }
+
+  /**
    * `isRemoved` returns whether the node is removed or not.
    */
   get isRemoved(): boolean {

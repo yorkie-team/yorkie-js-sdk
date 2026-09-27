@@ -319,13 +319,12 @@ describe('Malformed tree edit content', function () {
     return ops[ops.length - 1] as TreeEditOperation;
   }
 
-  it('drops a content entry that decodes to no node', function () {
+  it('rejects a content entry that decodes to no node', function () {
     const pb = treeEditPack();
     assert.equal(lastEdit(pb).getContents()!.length, 1);
 
     contentsOf(pb)[0].content = [];
-    const contents = lastEdit(pb).getContents();
-    assert.isTrue(contents === undefined || contents.length === 0);
+    assert.throws(() => lastEdit(pb), YorkieError, /tree edit content missing/);
   });
 
   it('rejects a depth whose parent was never written', function () {

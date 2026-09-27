@@ -1330,24 +1330,33 @@ function fromTreeNodesWhenEdit(
   }
 
   const treeNodes: Array<CRDTTreeNode> = [];
-  pbTreeNodes.forEach((node) => {
+  for (const node of pbTreeNodes) {
+    // `fromTreeNodes` reports an empty content list as no root, and every
+    // group `toTreeNodesWhenEdit` writes holds at least the root of one
+    // content node. Reject the empty group rather than carry `undefined`
+    // into the operation, where the edit deep-copies each content.
     const treeNode = fromTreeNodes(node.content);
-    // An entry whose content is empty decodes to no node at all. Pushing the
-    // undefined would put a hole in the contents array that every later
-    // reader dereferences — `edit` down to `toXML` — so drop the entry
-    // instead: a sender with nothing to insert can say so by omitting it.
     if (!treeNode) {
-      return;
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'tree edit content missing',
+      );
     }
 
     // Operation content is fully client-controlled and is always freshly
-    // created by the editing client, so it can never be a split product.
-    // Drop the split-sibling links the wire format carries anyway: the tree
-    // follows them as trusted structural pointers once `edit` registers
-    // these nodes in nodeMapByID.
-    treeNode.dropSplitLinks();
+    // created by the editing client, so it can never be a split product,
+    // carry a merge lineage, or arrive already tombstoned -- `edit` stamps
+    // the lineage on the content it inserts from the merge parent it
+    // resolves locally, and tombstones it itself when the parent it lands in
+    // is removed. Drop the engine-only links and the tombstones the wire
+    // format carries anyway: the tree follows the links as trusted
+    // structural pointers once `edit` registers these nodes in nodeMapByID,
+    // and a node born tombstoned under a live parent is counted as live
+    // content that no GC pair will ever collect.
+    treeNode.dropEngineOnlyLinks();
+    treeNode.clearTombstones();
     treeNodes.push(treeNode);
-  });
+  }
 
   return treeNodes.length ? treeNodes : undefined;
 }
