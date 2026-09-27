@@ -129,6 +129,11 @@ export class YorkieError extends Error {
  * could not be applied. `docKey` is unknown at the throw site inside the
  * change itself and is filled in by the document; `opIndex` and `operation`
  * are absent when the failure was not raised by a single operation.
+ *
+ * `operation` names the operation — its type and the element it targets —
+ * and MUST NOT carry the operation's payload: this detail is spliced into a
+ * message that is thrown to application code and logged at the default level,
+ * so a payload there would publish plaintext document content.
  */
 export type ChangeApplyDetail = {
   docKey?: string;

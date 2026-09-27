@@ -883,11 +883,20 @@ export class Document<
           : undefined,
       };
       const change = ctx.toChange();
-      const { opInfos, reverseOps } = change.execute(
-        this.root,
-        this.presences,
-        OpSource.Local,
-      );
+      let executed;
+      try {
+        executed = change.execute(this.root, this.presences, OpSource.Local);
+      } catch (err) {
+        // NOTE: `Change.execute` does not roll back, so an operation that
+        // throws here leaves the clone holding the whole change while the
+        // root holds only the prefix that applied, and the change is never
+        // recorded. Drop the clone so the next access rebuilds it from the
+        // root, the same way a failing updater above does.
+        this.clone = undefined;
+
+        throw err;
+      }
+      const { opInfos, reverseOps } = executed;
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
       // The history stack may still reference the old element's createdAt,
@@ -1353,6 +1362,12 @@ export class Document<
     // pack on every sync. Report that once, naming the checkpoint the
     // document is stuck at, before letting the error out: otherwise the only
     // field signal is a sync that never makes progress.
+    //
+    // This line runs at the default log level and repeats on every
+    // redelivery, so everything it interpolates has to be metadata: the key,
+    // the checkpoint, and an error that names the change and the operation by
+    // type and ticket only. No operation payload — i.e. no document content —
+    // may be carried into it.
     try {
       if (pack.hasSnapshot()) {
         this.applySnapshot(
@@ -2156,11 +2171,17 @@ export class Document<
       // way `update` does on failure.
       this.clone = undefined;
 
-      // NOTE: the checkpoint only advances after the changes of a pack have
-      // been applied, so a change that throws is redelivered by the server
-      // forever. Name the document, the change and the operation instead of
-      // surfacing whatever the operation happened to throw, so the wedged
-      // document is diagnosable rather than looking like a network problem.
+      // NOTE: only a remote change is named. The checkpoint only advances
+      // after the changes of a pack have been applied, so a remote change
+      // that throws is redelivered by the server forever and needs to be
+      // diagnosable rather than looking like a network problem. A local
+      // replay (`restoreAppendedChanges`) or a devtools-driven local apply
+      // has a caller waiting on it, and rewriting the error it threw would
+      // hide the code that caller matches on.
+      if (source !== OpSource.Remote) {
+        throw err;
+      }
+
       throw err instanceof ChangeApplyError
         ? err.withDocKey(this.key)
         : new ChangeApplyError({
