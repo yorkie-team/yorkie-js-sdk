@@ -490,6 +490,38 @@ const DefaultBroadcastOptions = {
 };
 
 /**
+ * `escapeNamespacePart` percent-encodes the separator (and the escape
+ * character itself) so a component cannot forge one. Without it,
+ * `join(a, b)` is not injective: `apiKey` and `clientKey` are taken verbatim
+ * from `ClientOptions` and a docKey is caller-supplied, so a clientKey
+ * containing `/` could produce the same joined string as a different
+ * (apiKey, clientKey, docKey) triple — two distinct identities sharing one
+ * store namespace and one session lock. Escaping `%` first keeps the encoding
+ * reversible and collision-free.
+ */
+function escapeNamespacePart(part: string): string {
+  return part.replace(/%/g, '%25').replace(/\//g, '%2F');
+}
+
+/**
+ * `namespaceOf` builds the `apiKey/clientKey/docKey` identity namespace used
+ * for both `DocStore` keys and the single-active-session lock name. Each
+ * component is escaped, so the mapping from identity to namespace is
+ * one-to-one: distinct identities can never address the same persisted
+ * envelope or block each other's session lock.
+ */
+function namespaceOf(
+  apiKey: string,
+  clientKey: string,
+  docKey: string,
+): string {
+  return (
+    `${escapeNamespacePart(apiKey)}/${escapeNamespacePart(clientKey)}/` +
+    escapeNamespacePart(docKey)
+  );
+}
+
+/**
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
@@ -935,7 +967,8 @@ export class Client {
         // default is a no-op in non-browser runtimes.
         if (this.store) {
           const lockName =
-            `yorkie-session:${this.apiKey}/${this.key}/` + doc.getKey();
+            'yorkie-session:' +
+            namespaceOf(this.apiKey, this.key, doc.getKey());
           sessionLockHandle = await acquireSessionLock(
             this.sessionLock,
             lockName,
@@ -2106,10 +2139,11 @@ export class Client {
    * used as a `DocStore` key. The session lock is already scoped by
    * `apiKey/clientKey/docKey`; the store must match so a store shared across
    * identities (different apiKey/clientKey) cannot collide on the bare docKey
-   * and hand one identity another's persisted envelope.
+   * and hand one identity another's persisted envelope. Built through
+   * {@link namespaceOf}, so the scoping is injective.
    */
   private storeKey(docKey: string): string {
-    return `${this.apiKey}/${this.key}/${docKey}`;
+    return namespaceOf(this.apiKey, this.key, docKey);
   }
 
   /**
