@@ -23,6 +23,27 @@
   the call to the maintainers and notes `yorkie-ios-sdk` must match, so
   documenting + warning is the part that is safe to land unilaterally.
 
+## Review round 1 (panel)
+
+- The guidance I wrote was worse than no guidance on two counts, both caught by
+  the security lens. Suggesting "a user id, a device id" as the persisted key
+  ignores that the key is an *unauthenticated identifier* — sent verbatim in
+  `ActivateClientRequest.client_key`, with nothing proving the caller owns it —
+  so a guessable one is claimable by any client of the same project; and a
+  device-scoped one makes the `apiKey/clientKey/docKey` store namespace shared
+  by every user of one browser, whose bytes `attach` rehydrates *before* the
+  attach RPC. Now: an opaque `crypto.randomUUID()` minted once, scoped to the
+  signed-in user, cleared on sign-out, with both reasons spelled out.
+
+- I described a failure mode I had not traced to the end. The `actor-mismatch`
+  / `LocalChangesDropped` diagnostic cannot fire in the scenario the JSDoc used
+  it to describe: the store key *contains* the client key, so a new launch never
+  addresses the old entries and `restoreFromBytes` is never called on them. The
+  loss is silent, and the old namespace is stranded — `DocStore` has no
+  enumeration or prune, so a durable backend accrues one dead namespace per
+  launch. Documented as such; a reclaim API is follow-up needing the same
+  cross-SDK agreement as direction (3).
+
 ## Self-review
 
 `/self-review` was not run: this autonomous run is granted no tool that can

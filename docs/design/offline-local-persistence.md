@@ -191,13 +191,28 @@ Configuring a `store` auto-defaults it to `false` (an explicit option still wins
 `ClientOptions.key` must be **caller-supplied and persisted** on this path, and
 unlike `deactivateOnUnload` it cannot be defaulted: only the app knows which
 identity should outlive the process. The SDK's default mints a random key per
-`Client`, so the derived actor differs on every launch and the guard above fires
-on the very first restore — a store-backed client with no `key` drops 100% of
-its un-pushed edits on every restart. The constructor warns when `store` is set
-and `key` is not; making the default itself stable (persisting the generated key
-in the store) would need a home for a non-document value in the `DocStore`
+`Client`, and that key scopes the store keys as well as the derived actor, so
+the next launch addresses a namespace of its own: it restores nothing, the
+`actor-mismatch` guard above never fires (the old entries are never loaded), and
+a store-backed client with no `key` loses 100% of its un-pushed edits on every
+restart *silently*, stranding one dead snapshot/log namespace per launch that
+`DocStore` — load/saveSnapshot/appendChange/saveMeta/remove, no enumeration, no
+prune — offers no way to reclaim. The constructor warns when `store` is set and
+`key` is not; making the default itself stable (persisting the generated key in
+the store) would need a home for a non-document value in the `DocStore`
 interface and a client identity that is only known after an `await`, and has to
-be agreed with `yorkie-ios-sdk` first.
+be agreed with `yorkie-ios-sdk` first. An enumeration/prune API for reclaiming
+orphaned namespaces is follow-up work and needs the same cross-SDK agreement.
+
+The value apps supply must be an **opaque random value minted once** (e.g.
+`crypto.randomUUID()` in local storage), scoped to the signed-in user and
+cleared on sign-out — not a user id, an email, or a device id. The client key is
+an unauthenticated identifier sent verbatim in `ActivateClientRequest.client_key`,
+so a guessable one lets another client of the same project claim the same derived
+actor; and a device-scoped one gives every user of one browser the same
+`apiKey/clientKey/docKey` namespace, whose bytes attach rehydrates locally before
+the attach RPC — one user's un-pushed edits would surface in the next user's
+session ahead of any server authorization.
 
 ### Multi-tab safety
 
@@ -232,7 +247,7 @@ follow-up on top of this guard.
 | A push acked with nothing pulled emits no Remote/Snapshot event, so the stored envelope keeps already-pushed changes + a stale checkpoint until the next edit | Persist explicitly after a successful sync (`syncInternal`), in addition to the event-driven persist on local/presence changes. It is a full overwrite, so it does not grow unbounded                                                                                 |
 | A flaky store (rejected `load`/`remove`) aborts attach                                                                                                        | Wrap store access; degrade to a fresh attach and log rather than throwing out of attach                                                                                                                                                                               |
 | Two tabs share one store and corrupt/diverge `clientSeq` (worse with resumable checkpoints)                                                                   | Single-active-session lease; non-leader tabs are read-only observers                                                                                                                                                                                                  |
-| App forgets to persist a stable client key                                                                                                                    | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored key. Documented as a hard requirement on `ClientOptions.key`/`.store`, and the constructor warns when `store` is set and `key` is not                                                                                                    |
+| App forgets to persist a stable client key                                                                                                                    | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored, opaque key. Documented as a hard requirement on `ClientOptions.key`/`.store` — including why the loss is silent and why the value must not be a user or device id — and the constructor warns when `store` is set and `key` is not                                                                                                    |
 | Fear that restore double-counts HLL dedup counters                                                                                                            | Non-issue: dedup identity is the app-supplied actor arg (`DedupCounter.add(actor)` → `IncreaseOperation.actor`), independent of the client actor; reusing or re-minting the SDK actor cannot re-count                                                                 |
 
 ### Design Decisions

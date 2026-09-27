@@ -173,15 +173,33 @@ export interface ClientOptions {
    *
    * That random default is minted per `Client` instance, so it differs on every
    * launch. **Offline persistence requires a stable key**: the server derives
-   * the actor stamped into every change from the project and this key, and a
-   * restore under a different actor would diverge the CRDT, so
-   * {@link Document.restoreFromBytes} rejects it — the persisted entry is
-   * dropped with a {@link DocEventType.LocalChangesDropped} event (reason
-   * `actor-mismatch`) and the un-pushed edits it held are lost. It also scopes
-   * the {@link ClientOptions.store} keys, so a new key does not address the
-   * previous launch's entries at all. An app setting `store` must therefore
-   * pass a key it persists itself (local storage, a user id, a device id) and
-   * reuses on the next launch.
+   * the actor stamped into every change from the project and this key, and it
+   * also scopes the {@link ClientOptions.store} keys
+   * (`apiKey/clientKey/docKey`). A new key therefore does not address the
+   * previous launch's entries at all — the restore finds nothing, the un-pushed
+   * edits are lost *silently* (no {@link DocEventType.LocalChangesDropped}
+   * event: the `actor-mismatch` guard in
+   * {@link Document.restoreFromBytes} only fires when the *same* store key is
+   * reached under a different actor), and the previous namespace is orphaned.
+   * `DocStore` exposes no enumeration or prune, so nothing can reclaim those
+   * entries afterwards and a durable backend grows without bound, one dead
+   * namespace per launch.
+   *
+   * An app setting `store` must therefore pass a key it persists itself and
+   * reuses on the next launch. Make it an **opaque random value the app mints
+   * once** — `crypto.randomUUID()` kept in local storage, say — scoped to the
+   * signed-in user and cleared on sign-out. Do **not** derive it from a user
+   * id, a device id, an email, or anything else guessable or shared:
+   *
+   * - The key is an identifier, not a credential. It is sent verbatim in
+   *   `ActivateClientRequest.client_key` and nothing proves the caller owns it,
+   *   so a guessable key lets another client of the same project activate under
+   *   the same derived actor and attribute changes to it.
+   * - A key shared between users of one browser (a device id) gives them one
+   *   store namespace. `attach` loads and rehydrates the persisted bytes
+   *   locally *before* the attach RPC, so the previous user's document content
+   *   and un-pushed edits would surface in the next user's session ahead of any
+   *   server authorization.
    */
   key?: string;
 
@@ -282,12 +300,15 @@ export interface ClientOptions {
    * changes on the next load. Setting `store` therefore auto-defaults
    * `deactivateOnUnload` to `false`; pass it explicitly to override.
    *
-   * You **must** also set {@link ClientOptions.key} to a value the app persists
-   * and reuses across launches. Recovery is keyed by the actor the server
-   * derives from that key, and the default is a fresh random key per `Client`,
-   * so leaving it unset means every restart drops every un-pushed change. This
-   * cannot be defaulted correctly — only the app knows what identity should
-   * outlive the process — so the client warns rather than guessing.
+   * You **must** also set {@link ClientOptions.key} to an opaque random value
+   * the app mints once and reuses across launches. Both the store keys and the
+   * actor recovery is keyed by are derived from it, and the default is a fresh
+   * random key per `Client`, so leaving it unset means every restart silently
+   * loses every un-pushed change and orphans the previous launch's entries.
+   * This cannot be defaulted correctly — only the app knows what identity
+   * should outlive the process — so the client warns rather than guessing. See
+   * {@link ClientOptions.key} for why the value must not be a user id, a device
+   * id, or anything else guessable or shared between users of one browser.
    */
   store?: DocStore;
 
@@ -578,19 +599,20 @@ export class Client {
       opts.deactivateOnUnload ??
       (this.store ? false : DefaultClientOptions.deactivateOnUnload);
     // A store with no caller-supplied key cannot survive a restart, by
-    // construction: the generated key is per-instance, the actor the server
-    // derives from it therefore changes every launch, and `restoreFromBytes`
-    // rightly refuses to restore under a different actor. So the next launch
-    // drops every un-pushed change instead of resuming it. Warn where the two
-    // options meet — neither is wrong alone, and by the time the restore path
-    // reports `actor-mismatch` the edits are already gone.
+    // construction: the generated key is per-instance, and it scopes both the
+    // store keys and the actor the server derives. The next launch addresses a
+    // fresh namespace, so it restores nothing and orphans what the last one
+    // wrote — no `actor-mismatch` event fires, because the old entries are
+    // never reached. Warn where the two options meet: neither is wrong alone,
+    // the loss is silent, and `DocStore` has no prune to reclaim the orphans.
     if (this.store && !opts.key) {
       logger.warn(
         `[PS] c:"${this.key}" offline persistence needs a stable clientKey: ` +
           `\`store\` is set but \`key\` is not, so a random one was generated ` +
-          `for this instance. The next launch gets a different key, hence a ` +
-          `different actor, and every un-pushed change is dropped. Pass ` +
-          `\`key\` as a value your app persists across launches.`,
+          `for this instance. The next launch addresses a different namespace, ` +
+          `silently restoring nothing and stranding what this one persists. ` +
+          `Pass \`key\` as an opaque random value your app mints once and ` +
+          `persists across launches (not a user id or a device id).`,
       );
     }
     // Default to the Web Locks-backed guard; it is a no-op outside browsers and
