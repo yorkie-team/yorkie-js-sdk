@@ -42,11 +42,15 @@ import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
  *
  * `RealtimePushOnly` keeps local edits flowing to peers while refusing
  * incoming changes: the request carries `pushOnly`, and the client drops a
- * response pack with changes that arrives anyway. A snapshot can still be
- * applied (from an explicit `client.sync(doc)`, which always pulls), so the
- * binding also defers snapshots itself until compositionend. That is all the
- * composition guard needs — applying a remote change mid-composition is what
- * breaks the browser's composing text node, pushing a local one is not.
+ * response pack carrying remote state — changes or a snapshot — that arrives
+ * anyway, including from an explicit `client.sync(doc)` (which always pulls).
+ * That is all the composition guard needs — applying a remote change
+ * mid-composition is what breaks the browser's composing text node, pushing a
+ * local one is not.
+ *
+ * The pause is still asynchronous, so a snapshot can land in the window
+ * between compositionstart and `changeSyncMode` resolving; `onSnapshot()`
+ * defers that one to the compositionend flush.
  */
 const PausedSyncMode = SyncMode.RealtimePushOnly;
 

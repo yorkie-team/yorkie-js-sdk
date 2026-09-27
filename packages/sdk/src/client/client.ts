@@ -3237,8 +3237,19 @@ export class Client {
 
       // NOTE(chacha912, hackerwins): If syncLoop already executed with
       // PushPull, ignore the response when the syncMode is PushOnly.
+      //
+      // A snapshot counts as remote state just as much as a change does:
+      // `hasChanges()` is `changes.length > 0`, so a snapshot-only pack slips
+      // past a changes-only guard and `applyChangePack` replaces the whole
+      // root. That is exactly what a push-only caller asked not to happen —
+      // an IME composition guard, say, pauses into PushOnly precisely so no
+      // remote content lands on the tree while text is being composed.
+      // Dropping the pack leaves the checkpoint unadvanced, so the server
+      // resends the same state on the next pull once the mode goes back to
+      // Realtime (`changeSyncMode` sets `changeEventReceived`, which re-drives
+      // that pull).
       if (
-        respPack.hasChanges() &&
+        (respPack.hasChanges() || respPack.hasSnapshot()) &&
         (attachment.syncMode === SyncMode.RealtimePushOnly ||
           attachment.syncMode === SyncMode.RealtimeSyncOff)
       ) {
