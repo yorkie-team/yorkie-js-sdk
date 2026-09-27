@@ -40,7 +40,11 @@ import {
   isErrorCode,
 } from '@yorkie-js/sdk/src/api/converter';
 import { RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
-import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  ChangeApplyError,
+  Code,
+  YorkieError,
+} from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
 import { uuid } from '@yorkie-js/sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js/sdk/src/client/attachment';
@@ -1127,8 +1131,12 @@ export class Client {
                 //   - actor mismatch (a YorkieError: store reused under a
                 //     different clientKey) — restoring would diverge the CRDT;
                 //   - any other failure (a native error such as a SyntaxError
-                //     from a corrupt/truncated envelope) — the bytes cannot be
-                //     decoded at all.
+                //     from a corrupt/truncated envelope, or a
+                //     `ChangeApplyError` from a log entry that will not
+                //     replay) — the persisted state cannot be reconstructed.
+                // `ChangeApplyError` is excluded from the first class
+                // explicitly: it is a `YorkieError`, but a change that fails
+                // to apply says nothing about client identity.
                 // In both cases emit an app-visible data-loss event with
                 // whatever pending changes are recoverable, clear the stale
                 // entry, and fall through to a fresh attach. Treating a native
@@ -1136,7 +1144,8 @@ export class Client {
                 // keeps a single poisoned store entry from failing every later
                 // attach.
                 const reason: LocalChangesDroppedReason =
-                  err instanceof YorkieError
+                  err instanceof YorkieError &&
+                  !(err instanceof ChangeApplyError)
                     ? 'actor-mismatch'
                     : 'restore-failed';
                 logger.warn(

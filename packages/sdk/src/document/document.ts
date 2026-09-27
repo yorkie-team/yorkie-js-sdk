@@ -16,7 +16,11 @@
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
-import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  ChangeApplyError,
+  Code,
+  YorkieError,
+} from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 import {
@@ -879,11 +883,20 @@ export class Document<
           : undefined,
       };
       const change = ctx.toChange();
-      const { opInfos, reverseOps } = change.execute(
-        this.root,
-        this.presences,
-        OpSource.Local,
-      );
+      let executed;
+      try {
+        executed = change.execute(this.root, this.presences, OpSource.Local);
+      } catch (err) {
+        // NOTE: `Change.execute` does not roll back, so an operation that
+        // throws here leaves the clone holding the whole change while the
+        // root holds only the prefix that applied, and the change is never
+        // recorded. Drop the clone so the next access rebuilds it from the
+        // root, the same way a failing updater above does.
+        this.clone = undefined;
+
+        throw err;
+      }
+      const { opInfos, reverseOps } = executed;
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
       // The history stack may still reference the old element's createdAt,
@@ -1343,16 +1356,37 @@ export class Document<
    */
   public applyChangePack(pack: ChangePack<P>): void {
     // 01. Apply snapshot or changes to the root object.
-    if (pack.hasSnapshot()) {
-      this.applySnapshot(
-        pack.getCheckpoint().getServerSeq(),
-        pack.getVersionVector()!,
-        pack.getSnapshot()!,
-        pack.getCheckpoint().getClientSeq(),
+    //
+    // NOTE: the checkpoint below is only reached once everything applied, so
+    // a throw here leaves it where it was and the server redelivers this same
+    // pack on every sync. Report that once, naming the checkpoint the
+    // document is stuck at, before letting the error out: otherwise the only
+    // field signal is a sync that never makes progress.
+    //
+    // This line runs at the default log level and repeats on every
+    // redelivery, so everything it interpolates has to be metadata: the key,
+    // the checkpoint, and an error that names the change and the operation by
+    // type and ticket only. No operation payload — i.e. no document content —
+    // may be carried into it.
+    try {
+      if (pack.hasSnapshot()) {
+        this.applySnapshot(
+          pack.getCheckpoint().getServerSeq(),
+          pack.getVersionVector()!,
+          pack.getSnapshot()!,
+          pack.getCheckpoint().getClientSeq(),
+        );
+      } else {
+        this.applyChanges(pack.getChanges(), OpSource.Remote);
+        this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
+      }
+    } catch (err) {
+      logger.error(
+        `[Document] "${this.key}" cannot apply the pack at checkpoint ` +
+          `${this.checkpoint.toTestString()}; the server will redeliver it ` +
+          `until this is resolved: ${err}`,
       );
-    } else {
-      this.applyChanges(pack.getChanges(), OpSource.Remote);
-      this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
+      throw err;
     }
 
     // 02. Update the checkpoint.
@@ -2136,7 +2170,25 @@ export class Document<
       // it. Drop the clone so the next access rebuilds it from the root, the
       // way `update` does on failure.
       this.clone = undefined;
-      throw err;
+
+      // NOTE: only a remote change is named. The checkpoint only advances
+      // after the changes of a pack have been applied, so a remote change
+      // that throws is redelivered by the server forever and needs to be
+      // diagnosable rather than looking like a network problem. A local
+      // replay (`restoreAppendedChanges`) or a devtools-driven local apply
+      // has a caller waiting on it, and rewriting the error it threw would
+      // hide the code that caller matches on.
+      if (source !== OpSource.Remote) {
+        throw err;
+      }
+
+      throw err instanceof ChangeApplyError
+        ? err.withDocKey(this.key)
+        : new ChangeApplyError({
+            docKey: this.key,
+            changeID: change.getID().toTestString(),
+            cause: err,
+          });
     }
   }
 

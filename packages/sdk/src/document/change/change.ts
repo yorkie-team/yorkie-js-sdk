@@ -30,6 +30,7 @@ import {
   PresenceChangeType,
 } from '@yorkie-js/sdk/src/document/presence/change';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
+import { ChangeApplyError } from '@yorkie-js/sdk/src/util/error';
 
 /**
  * `ChangeStruct` represents the structure of Change.
@@ -163,12 +164,43 @@ export class Change<P extends Indexable> {
     const changeOperations: Array<Operation> = [];
     const reverseOps: Array<HistoryOperation<P>> = [];
 
-    for (const operation of this.operations) {
-      const executionResult = operation.execute(
-        root,
-        source,
-        this.id.getVersionVector(),
-      );
+    for (const [opIndex, operation] of this.operations.entries()) {
+      let executionResult;
+      try {
+        executionResult = operation.execute(
+          root,
+          source,
+          this.id.getVersionVector(),
+        );
+      } catch (cause) {
+        // NOTE: only a remote change is named. The wedged-document problem is
+        // specific to the pull path — the checkpoint does not advance past a
+        // change that throws, so the server redelivers it forever — while a
+        // local `update` or an undo/redo reports the failure straight to the
+        // caller that asked for it. Wrapping those would replace the error
+        // code an operation deliberately threw (`ErrInvalidArgument`,
+        // `ErrInvalidType`, ...) with `ErrChangeApplyFailed` for every
+        // consumer of the public API.
+        if (source !== OpSource.Remote) {
+          throw cause;
+        }
+
+        // NOTE: the failing operation is only identifiable here. Name it now
+        // so the document can report which operation of which change is
+        // stuck; the document key is added as the error passes through
+        // `Document`. The name is the operation's type and target element,
+        // never `toTestString()`: that serializer embeds the operation's
+        // payload, i.e. the plaintext document content, and this message
+        // reaches application code and the console.
+        throw new ChangeApplyError({
+          changeID: this.id.toTestString(),
+          opIndex,
+          operation: `${
+            operation.constructor.name
+          } on ${operation.getParentCreatedAt().toTestString()}`,
+          cause,
+        });
+      }
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
       // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;
