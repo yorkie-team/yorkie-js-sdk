@@ -1635,9 +1635,11 @@ describe('A pack dropped in PushOnly/SyncOff still persists the ack', () => {
     );
   });
 
-  it('does not act on the removal flag of a dropped pack', async () => {
-    // The removal rides on the state being dropped, so it is not applied and
-    // must not detach or clear the store here. Sync resuming pulls it again.
+  it('acts on the removal flag of a dropped pack', async () => {
+    // The removal is metadata, not the remote state being dropped, and there
+    // is no later pull to learn it from: the server row is gone. Dropping it
+    // would leave the document attached and its envelope pointing at that
+    // dead row, which the next attach is rejected for presenting.
     const store = new MemoryDocStore();
     const peerChanges = peerDoc().createChangePack().getChanges();
     const pushPullChanges = respondWith((acked) =>
@@ -1658,14 +1660,57 @@ describe('A pack dropped in PushOnly/SyncOff still persists the ack', () => {
     await client.sync(doc);
     await settled();
 
-    assert.equal(doc.getStatus(), DocStatus.Attached);
-    assert.isTrue(
+    assert.equal(doc.getStatus(), DocStatus.Removed);
+    assert.isFalse(
       (client as any).attachmentMap.has(key),
-      'a dropped removal must not detach the document',
+      'a removal reaches the document even on a dropped pack',
     );
-    assert.isDefined(
+    assert.isUndefined(
       await store.load(scopedKey(key)),
-      'nor drop the persisted envelope',
+      'and clears the envelope, which now points at a deleted row',
+    );
+  });
+
+  it('adopts the compaction epoch of a dropped pack', async () => {
+    // A compaction arrives as a snapshot, i.e. exactly the pack this path
+    // drops. Keeping the superseded epoch makes the next request fail with
+    // ErrEpochMismatch, whose recovery re-anchors the document and discards
+    // the un-pushed edits PushOnly exists to keep.
+    const store = new MemoryDocStore();
+    const peer = peerDoc();
+    const snapshot = converter.snapshotToBytes(peer.getRootObject(), new Map());
+    const pushPullChanges = respondWith((acked) =>
+      ChangePack.create(
+        key,
+        Checkpoint.of(9n, acked),
+        false,
+        [],
+        peer.getVersionVector(),
+        snapshot,
+        3n,
+      ),
+    );
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; mine?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    dropRemoteState(client, SyncMode.RealtimePushOnly);
+    doc.update((root) => {
+      root.mine = 'mine';
+    });
+
+    await client.sync(doc);
+    await settled();
+
+    assert.equal(doc.getEpoch(), 3n, 'the epoch is metadata, not remote state');
+    const stored = (await store.load(scopedKey(key)))!;
+    assert.equal(
+      reconstruct(stored).getEpoch(),
+      3n,
+      'and it must reach the persisted envelope',
     );
   });
 });

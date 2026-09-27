@@ -2645,20 +2645,40 @@ export class Document<
 
   /**
    * `acknowledgePushedChanges` removes the local changes the server has
-   * confirmed up to `clientSeq`, and forwards only the client seq of the
-   * checkpoint. It is for a response pack dropped without applying its remote
-   * state: the server seq must stay put so the skipped state is pulled again
-   * later, while the confirmed changes must not be pushed again. The server
-   * dedupes a re-pushed change when storing it, but a snapshot it builds for
-   * the same request would apply that change a second time.
+   * confirmed, and forwards only the client seq of the checkpoint. It is for a
+   * response pack dropped without applying its remote state: the server seq
+   * must stay put so the skipped state is pulled again later, while the
+   * confirmed changes must not be pushed again. The server dedupes a re-pushed
+   * change when storing it, but a snapshot it builds for the same request
+   * would apply that change a second time.
+   *
+   * The pack's *metadata* is not remote state, and is taken in full: the
+   * compaction epoch and the removal flag describe the document itself, not
+   * the content being skipped, and neither is re-sent by a later pull the way
+   * the skipped changes are.
    *
    * @internal
    */
-  public acknowledgePushedChanges(clientSeq: number): void {
+  public acknowledgePushedChanges(pack: ChangePack<P>): void {
+    const clientSeq = pack.getCheckpoint().getClientSeq();
     this.removePushedLocalChanges(clientSeq);
     this.checkpoint = this.checkpoint.forward(
       Checkpoint.of(this.checkpoint.getServerSeq(), clientSeq),
     );
+
+    // Dropping the epoch would leave the client presenting a superseded one on
+    // the next request, which the server answers with `ErrEpochMismatch` — a
+    // re-anchor that discards exactly the un-pushed edits PushOnly exists to
+    // keep. A compaction is also the shape that arrives as a snapshot, i.e.
+    // precisely the pack this path drops.
+    this.epoch = pack.getEpoch();
+
+    // A removal is terminal: there is no later pull to learn it from, because
+    // the server row is gone. Skipping it leaves the document attached and its
+    // persisted envelope pointing at a row that no longer exists.
+    if (pack.getIsRemoved()) {
+      this.applyStatus(DocStatus.Removed);
+    }
   }
 
   /**
