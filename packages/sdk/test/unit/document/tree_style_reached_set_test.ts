@@ -325,6 +325,16 @@ function scanDivergences(
   return scan;
 }
 
+/**
+ * `scanTimeout` is the per-test budget an exhaustive scan gets. CI caps
+ * `testTimeout` at 5s, and a scan replays thousands of pairs twice each --
+ * tens of seconds once coverage instrumentation is in the way. The scan
+ * bodies are synchronous, so the cap cannot interrupt one: it only turns a
+ * scan that already finished, and passed, into a failure. Locally the config
+ * sets no limit and this keeps it that way.
+ */
+const scanTimeout = process.env.CI === 'true' ? 180_000 : Infinity;
+
 const countOf = (needle: string) => (xml: string) =>
   xml.split(needle).length - 1;
 const styleRange = (t: Tree, from: number, to: number) =>
@@ -352,75 +362,91 @@ for (let from = 0; from <= 12; from++) {
  * to land on the server and here together).
  */
 describe('Tree style reached set scans', () => {
-  it('converges split x style', () => {
-    const scan = scanDivergences(
-      styleScanBase(),
-      splits,
-      styleRange,
-      countOf('b="x"'),
-    );
-    assert.deepEqual(scan, {
-      pairs: 1001,
-      rendered: 0,
-      tombstoneOnly: 0,
-      errored: 0,
-      styledPairs: 759,
-      styledNodes: 1862,
-    });
-  });
+  it(
+    'converges split x style',
+    () => {
+      const scan = scanDivergences(
+        styleScanBase(),
+        splits,
+        styleRange,
+        countOf('b="x"'),
+      );
+      assert.deepEqual(scan, {
+        pairs: 1001,
+        rendered: 0,
+        tombstoneOnly: 0,
+        errored: 0,
+        styledPairs: 759,
+        styledNodes: 1862,
+      });
+    },
+    scanTimeout,
+  );
 
-  it('converges split x remove-style', () => {
-    const scan = scanDivergences(
-      styleScanBoldBase(),
-      splits,
-      removeStyleRange,
-      countOf('<p>'),
-    );
-    assert.deepEqual(scan, {
-      pairs: 1001,
-      rendered: 0,
-      tombstoneOnly: 0,
-      errored: 0,
-      styledPairs: 759,
-      styledNodes: 1862,
-    });
-  });
+  it(
+    'converges split x remove-style',
+    () => {
+      const scan = scanDivergences(
+        styleScanBoldBase(),
+        splits,
+        removeStyleRange,
+        countOf('<p>'),
+      );
+      assert.deepEqual(scan, {
+        pairs: 1001,
+        rendered: 0,
+        tombstoneOnly: 0,
+        errored: 0,
+        styledPairs: 759,
+        styledNodes: 1862,
+      });
+    },
+    scanTimeout,
+  );
 
-  it('converges merge x style on the rendered document', () => {
-    const scan = scanDivergences(
-      styleScanBase(),
-      merges,
-      styleRange,
-      countOf('b="x"'),
-    );
-    const { tombstoneOnly, ...rest } = scan;
-    assert.deepEqual(rest, {
-      pairs: 7098,
-      rendered: 0,
-      errored: 0,
-      styledPairs: 4254,
-      styledNodes: 6302,
-    });
-    assert.isAtMost(tombstoneOnly, 1292, 'regressed on tombstone attributes');
-  });
+  it(
+    'converges merge x style on the rendered document',
+    () => {
+      const scan = scanDivergences(
+        styleScanBase(),
+        merges,
+        styleRange,
+        countOf('b="x"'),
+      );
+      const { tombstoneOnly, ...rest } = scan;
+      assert.deepEqual(rest, {
+        pairs: 7098,
+        rendered: 0,
+        errored: 0,
+        styledPairs: 4254,
+        styledNodes: 6302,
+      });
+      assert.isAtMost(tombstoneOnly, 1292, 'regressed on tombstone attributes');
+    },
+    scanTimeout,
+  );
 
-  it('converges merge x remove-style on the rendered document', () => {
-    const scan = scanDivergences(
-      styleScanBoldBase(),
-      merges,
-      removeStyleRange,
-      countOf('<p>'),
-    );
-    const { tombstoneOnly, ...rest } = scan;
-    assert.deepEqual(rest, {
-      pairs: 7098,
-      rendered: 0,
-      errored: 0,
-      styledPairs: 4254,
-      styledNodes: 6302,
-    });
-    assert.isAtMost(tombstoneOnly, 1292, 'regressed on tombstone attributes');
-  });
+  it(
+    'converges merge x remove-style on the rendered document',
+    () => {
+      const scan = scanDivergences(
+        styleScanBoldBase(),
+        merges,
+        removeStyleRange,
+        countOf('<p>'),
+      );
+      const { tombstoneOnly, ...rest } = scan;
+      assert.deepEqual(rest, {
+        pairs: 7098,
+        rendered: 0,
+        errored: 0,
+        styledPairs: 4254,
+        styledNodes: 6302,
+      });
+      assert.isAtMost(tombstoneOnly, 1292, 'regressed on tombstone attributes');
+    },
+    scanTimeout,
+  );
 });
 
 /**
@@ -789,41 +815,49 @@ for (let level = 1; level <= 2; level++) {
  * SDKs together.
  */
 describe('Tree style reached set nested scans', () => {
-  it('bounds nested split x style', () => {
-    const scan = scanDivergences(
-      nestedScanBase(),
-      nestedSplits,
-      styleRange,
-      countOf('b="x"'),
-      22,
-    );
-    const { rendered, ...rest } = scan;
-    assert.deepEqual(rest, {
-      pairs: 11592,
-      tombstoneOnly: 0,
-      errored: 0,
-      styledPairs: 9318,
-      styledNodes: 33208,
-    });
-    assert.isAtMost(rendered, 241, 'regressed in the rendered document');
-  });
+  it(
+    'bounds nested split x style',
+    () => {
+      const scan = scanDivergences(
+        nestedScanBase(),
+        nestedSplits,
+        styleRange,
+        countOf('b="x"'),
+        22,
+      );
+      const { rendered, ...rest } = scan;
+      assert.deepEqual(rest, {
+        pairs: 11592,
+        tombstoneOnly: 0,
+        errored: 0,
+        styledPairs: 9318,
+        styledNodes: 33208,
+      });
+      assert.isAtMost(rendered, 241, 'regressed in the rendered document');
+    },
+    scanTimeout,
+  );
 
-  it('bounds nested split x remove-style', () => {
-    const scan = scanDivergences(
-      nestedScanBase({ b: 'x' }),
-      nestedSplits,
-      removeStyleRange,
-      countOf('<p>'),
-      22,
-    );
-    const { rendered, ...rest } = scan;
-    assert.deepEqual(rest, {
-      pairs: 11592,
-      tombstoneOnly: 0,
-      errored: 0,
-      styledPairs: 9318,
-      styledNodes: 33208,
-    });
-    assert.isAtMost(rendered, 241, 'regressed in the rendered document');
-  });
+  it(
+    'bounds nested split x remove-style',
+    () => {
+      const scan = scanDivergences(
+        nestedScanBase({ b: 'x' }),
+        nestedSplits,
+        removeStyleRange,
+        countOf('<p>'),
+        22,
+      );
+      const { rendered, ...rest } = scan;
+      assert.deepEqual(rest, {
+        pairs: 11592,
+        tombstoneOnly: 0,
+        errored: 0,
+        styledPairs: 9318,
+        styledNodes: 33208,
+      });
+      assert.isAtMost(rendered, 241, 'regressed in the rendered document');
+    },
+    scanTimeout,
+  );
 });

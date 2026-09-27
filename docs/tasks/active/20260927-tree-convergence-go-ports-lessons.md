@@ -92,3 +92,27 @@ and found them equivalent, including `declaredParentOf` against
 
 No blocking findings remain after round 1 (the one raised is disputed above
 with evidence), so the review stops here.
+
+## CI round: the scans outran the CI test timeout
+
+The four exhaustive scans failed on CI with `Test timed out in 5000ms` and
+passed locally. `packages/sdk/vitest.config.ts` sets
+`testTimeout: isCI ? 5000 : Infinity`, so no local run can surface this: a
+scan that takes 20s is simply a slow green here and a red there.
+
+The bodies are synchronous, so the cap never interrupted them. Each scan ran
+to completion, its assertions passed, and vitest then failed it on elapsed
+time -- the counts in the diagnosis (15s, 10s, 14s, 20s) are full-run
+durations, not the point of a hang. Confirmed by re-running the file with
+`CI=true`: 27 passed once the tests carry their own budget.
+
+Fixed by giving the six scans an explicit `scanTimeout`, the idiom
+`testTimeoutForPBT` already uses in `test/crdt_pbt/helper.ts` for the same
+reason. The two split scans were at 3.7s and 2.8s -- under the cap, but with
+no margin on a slower runner -- so they got it too rather than waiting to
+flake.
+
+Lesson for the next widened scan: a new test whose body loops over thousands
+of cases needs its timeout decided when it is written. Check it with
+`CI=true pnpm sdk exec vitest run <file>`, since `pnpm verify:fast` inherits
+the `Infinity` local budget and will not.
