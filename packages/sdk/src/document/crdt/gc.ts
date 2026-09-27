@@ -44,6 +44,35 @@ export type GCPair = {
  */
 export interface GCParent {
   purge(node: GCChild): void;
+
+  /**
+   * `purgeBarrierAt` is an optional capability of a GC parent whose surviving
+   * order is decided by which nodes are still linked.
+   *
+   * Every such container resolves a concurrent insert by walking forward from
+   * the anchor and stopping at the first node whose positioning ticket does
+   * not follow the insert: `RGATreeList.findNextBeforeExecutedAt`, the skip in
+   * `RGATreeSplit.findNodeWithSplit`, and the sibling skip in
+   * `CRDTTree.findNodesAndSplitText`. The walk reads the nodes currently
+   * linked, tombstones included, so a tombstone with a small ticket is a hard
+   * barrier that ends the walk. Purging it physically unlinks it, which means
+   * collection mutates the input to the insertion rule: a replica that has
+   * collected sends a still-in-flight insert past the node behind the
+   * tombstone, a replica that has not does not, and the two orders never
+   * reconverge.
+   *
+   * `removedAt` alone does not authorise the unlink. What does is the node
+   * that would become the walk's new stopping point: once that node is
+   * causally stable, every future insert carries a ticket after it, so every
+   * future walk stops there whether or not the tombstone in front of it still
+   * exists. This returns that successor's positioning ticket, which
+   * `CRDTRoot.garbageCollect` requires the version vector to cover as well as
+   * `removedAt`, or undefined when the child has no successor (or is not a
+   * child of this kind) and unlinking it cannot move anything.
+   *
+   * Mirrors Go's `crdt.GCBarrier` (yorkie `ba82ed91`).
+   */
+  purgeBarrierAt?(node: GCChild): TimeTicket | undefined;
 }
 
 /**
@@ -53,46 +82,4 @@ export interface GCChild {
   toIDString(): string;
   getRemovedAt(): TimeTicket | undefined;
   getDataSize(): DataSize;
-}
-
-/**
- * `GCBarrier` is an optional capability of a GC parent whose surviving order
- * is decided by which nodes are still linked.
- *
- * Every such container resolves a concurrent insert by walking forward from
- * the anchor and stopping at the first node whose positioning ticket does not
- * follow the insert: `RGATreeList.findNextBeforeExecutedAt`, the skip in
- * `RGATreeSplit.findNodeWithSplit`, and the sibling skip in
- * `CRDTTree.findNodesAndSplitText`. The walk reads the nodes currently linked,
- * tombstones included, so a tombstone with a small ticket is a hard barrier
- * that ends the walk. Purging it physically unlinks it, which means collection
- * mutates the input to the insertion rule: a replica that has collected sends
- * a still-in-flight insert past the node behind the tombstone, a replica that
- * has not does not, and the two orders never reconverge.
- *
- * `removedAt` alone does not authorise the unlink. What does is the node that
- * would become the walk's new stopping point: once that node is causally
- * stable, every future insert carries a ticket after it, so every future walk
- * stops there whether or not the tombstone in front of it still exists, and
- * the insert lands in the same place either way. That successor's positioning
- * ticket is what `purgeBarrierAt` reports, and `CRDTRoot.garbageCollect` holds
- * the purge back until the version vector covers it as well as `removedAt`.
- *
- * Mirrors Go's `crdt.GCBarrier` (yorkie `ba82ed91`).
- */
-export interface GCBarrier<C> {
-  /**
-   * `purgeBarrierAt` returns the additional ticket that must be covered before
-   * the given child may be unlinked, or undefined when the child has no
-   * successor and unlinking it cannot move anything.
-   */
-  purgeBarrierAt(child: C): TimeTicket | undefined;
-}
-
-/**
- * `hasGCBarrier` reports whether the given GC parent or container holds its
- * purges back on a successor barrier.
- */
-export function hasGCBarrier<C>(parent: object): parent is GCBarrier<C> {
-  return typeof (parent as Partial<GCBarrier<C>>).purgeBarrierAt === 'function';
 }

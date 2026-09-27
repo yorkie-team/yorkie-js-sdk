@@ -901,9 +901,8 @@ export class CRDTTreeNode
       return pairs;
     }
 
-    // NOTE: Only called when a root is built from a snapshot. Removed
-    // attribute nodes are skipped by `getDataSize`, so they were never
-    // counted into docSize.live — hence `gcOnlySize`.
+    // NOTE: Removed attribute nodes are skipped by `getDataSize`, so they
+    // were never counted into docSize.live — hence `gcOnlySize`.
     for (const node of this.attrs) {
       if (node.getRemovedAt()) {
         pairs.push({
@@ -2881,14 +2880,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `purgeBarrierAt` implements `GCBarrier`. `findNodesAndSplitText` walks the
+   * `purgeBarrierAt` implements `GCParent.purgeBarrierAt`. `findNodesAndSplitText` walks the
    * parent's children, removed ones included, advancing while the next sibling
    * was created after the incoming edit; a tombstoned sibling with an older
    * ticket ends that walk. Purging detaches it from the parent, so the next
    * sibling inherits the decision and must be causally stable first.
    */
-  public purgeBarrierAt(node: CRDTTreeNode): TimeTicket | undefined {
-    if (!node.parent) {
+  public purgeBarrierAt(node: GCChild): TimeTicket | undefined {
+    if (!(node instanceof CRDTTreeNode) || !node.parent) {
       return;
     }
 
@@ -3331,9 +3330,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const pairs: Array<GCPair> = [];
     // NOTE: `traverse` only visits visible children, which never includes
     // removed nodes. `traverseAll` is required to register tombstones
-    // (including pieces split off a tombstoned node) after snapshot load.
-    // These pairs carry `gcOnlySize` because `getDataSize` of the freshly
-    // built root only counted visible nodes into docSize.live.
+    // (including pieces split off a tombstoned node) when the tree is
+    // registered: snapshot load, a Set/Add/ArraySet payload, an undo re-set.
+    // These pairs carry `gcOnlySize` because the tree's registered live size
+    // only counted visible nodes.
     this.indexTree.traverseAll((node) => {
       // The walk includes the root, and purging is detachment from a parent,
       // which the root does not have. It is never legitimately removed, but a

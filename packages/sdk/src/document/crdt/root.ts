@@ -24,12 +24,7 @@ import {
   CRDTElement,
 } from '@yorkie-js/sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import {
-  GCChild,
-  GCPair,
-  GCParent,
-  hasGCBarrier,
-} from '@yorkie-js/sdk/src/document/crdt/gc';
+import { GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
@@ -771,7 +766,7 @@ export class CRDTRoot {
   /**
    * `garbageCollect` purges elements that were removed before the given time.
    *
-   * A pass can hold a purge back (see `GCBarrier`), and holding one back can be
+   * A pass can hold a purge back (see `GCParent.purgeBarrierAt`), and holding one back can be
    * the only reason another is held back: purging a node hands its successor
    * to the node in front of it, and that successor is one this pass already
    * found stable. So a pass that both purged and deferred may have more to do,
@@ -827,12 +822,13 @@ export class CRDTRoot {
       // A tombstone is not only a value that is gone, it is also a place in
       // its parent that other replicas may still be deciding against.
       // removedAt covers the value; the barrier covers the place.
-      if (hasGCBarrier<CRDTElement>(pair.parent)) {
-        const at = pair.parent.purgeBarrierAt(pair.element);
-        if (at && !minSyncedVersionVector.afterOrEqual(at)) {
-          deferred++;
-          continue;
-        }
+      const elementBarrier = pair.parent.purgeBarrierAt?.(pair.element);
+      if (
+        elementBarrier &&
+        !minSyncedVersionVector.afterOrEqual(elementBarrier)
+      ) {
+        deferred++;
+        continue;
       }
 
       pair.parent.purge(pair.element);
@@ -853,12 +849,10 @@ export class CRDTRoot {
         continue;
       }
 
-      if (hasGCBarrier<GCChild>(pair.parent)) {
-        const at = pair.parent.purgeBarrierAt(pair.child);
-        if (at && !minSyncedVersionVector.afterOrEqual(at)) {
-          deferred++;
-          continue;
-        }
+      const barrier = pair.parent.purgeBarrierAt?.(pair.child);
+      if (barrier && !minSyncedVersionVector.afterOrEqual(barrier)) {
+        deferred++;
+        continue;
       }
 
       pair.parent.purge(pair.child);

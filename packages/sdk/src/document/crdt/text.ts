@@ -812,8 +812,9 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    */
   public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
-    // NOTE: Only called when a root is built from a snapshot, where
-    // docSize.live counted visible nodes only. Tombstoned nodes (and the
+    // NOTE: Called when the text is registered (snapshot load, a Set/Add/
+    // ArraySet payload, an undo re-set), where docSize.live counted visible
+    // nodes only. Tombstoned nodes (and the
     // attribute tombstones inside them) were never part of live, so their
     // pairs carry `gcOnlySize`. So do the attribute tombstones of visible
     // nodes: `CRDTTextValue.getDataSize` skips removed attributes, matching

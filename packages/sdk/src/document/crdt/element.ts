@@ -172,6 +172,12 @@ export abstract class CRDTContainer extends CRDTElement {
 
   abstract purge(element: CRDTElement): void;
 
+  /**
+   * `purgeBarrierAt` is the element-side form of `GCParent.purgeBarrierAt`,
+   * for a container whose purge unlinks a node of its RGA order (`CRDTArray`).
+   */
+  purgeBarrierAt?(element: CRDTElement): TimeTicket | undefined;
+
   abstract delete(createdAt: TimeTicket, executedAt: TimeTicket): CRDTElement;
 
   abstract getDescendants(

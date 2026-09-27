@@ -562,7 +562,7 @@ export class RGATreeList implements GCParent {
   }
 
   /**
-   * `purgeBarrierAt` implements `GCBarrier`: the ticket that must be covered
+   * `purgeBarrierAt` implements `GCParent.purgeBarrierAt`: the ticket that must be covered
    * before the given child may be unlinked is the one
    * `findNextBeforeExecutedAt` would read in its place. It handles the same
    * two kinds of child `purge` does: a dead position node a move left behind,

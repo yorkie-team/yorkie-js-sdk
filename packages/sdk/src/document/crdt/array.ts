@@ -64,7 +64,7 @@ export class CRDTArray extends CRDTContainer {
   }
 
   /**
-   * `purgeBarrierAt` implements `GCBarrier`: purging an element unlinks the
+   * `purgeBarrierAt` implements `CRDTContainer.purgeBarrierAt`: purging an element unlinks the
    * position node holding it, so the array's order decides when that is safe.
    */
   public purgeBarrierAt(element: CRDTElement): TimeTicket | undefined {
