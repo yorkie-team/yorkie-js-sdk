@@ -18,7 +18,11 @@ import { describe, it, assert } from 'vitest';
 import { create } from '@bufbuild/protobuf';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { SyncMode } from '@yorkie-js/sdk/src/client/client';
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import {
+  Document,
+  DocStatus,
+  DocSyncStatus,
+} from '@yorkie-js/sdk/src/document/document';
 import { Counter } from '@yorkie-js/sdk/src/yorkie';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
@@ -1349,6 +1353,319 @@ describe('Store write failures must not persist a lie', () => {
       reconstruct(stored).toSortedJSON(),
       doc.toSortedJSON(),
       'the persisted triple must still reconstruct the document',
+    );
+  });
+});
+
+describe('A pack dropped in PushOnly/SyncOff still persists the ack', () => {
+  const key = 'drop-persist';
+
+  // Echoes the presented checkpoint, so the attach does not trip the
+  // silent-purge guard once the store holds real state.
+  const attachDocument = async (req: any) => {
+    const presented = converter.fromChangePack(req.changePack).getCheckpoint();
+    return create(AttachDocumentResponseSchema, {
+      documentId: 'doc-id',
+      changePack: create(ChangePackSchema, {
+        documentKey: key,
+        checkpoint: create(CheckpointSchema, {
+          serverSeq: presented.getServerSeq(),
+          clientSeq: presented.getClientSeq(),
+        }),
+      }),
+      disablePresence: false,
+      schemaRules: [],
+    });
+  };
+
+  /** A peer's content, produced by an independent document. */
+  function peerDoc(): Document<{ peer?: string }> {
+    const peer = new Document<{ peer?: string }>(key);
+    peer.setActor('000000000000000000000002');
+    peer.update((root) => {
+      root.peer = 'from-peer';
+    });
+    return peer;
+  }
+
+  /**
+   * `respondWith` answers every pushPull with the given remote state plus the
+   * ack for what the request pushed. `sync(doc)` always asks with PushPull, so
+   * a document in PushOnly/SyncOff receives remote state it must drop.
+   */
+  function respondWith(pack: (acked: number) => ChangePack<any>) {
+    return async (req: any) => {
+      const reqPack = converter.fromChangePack(req.changePack);
+      return create(PushPullChangesResponseSchema, {
+        changePack: converter.toChangePack(
+          pack(reqPack.getCheckpoint().getClientSeq()),
+        ),
+      });
+    };
+  }
+
+  /**
+   * Switches the attachment into a mode that drops pulled state, without
+   * `changeSyncMode`'s watch loop — there is no stream to open here.
+   */
+  function dropRemoteState(client: any, syncMode: SyncMode) {
+    client.attachmentMap.get(key).changeSyncMode(syncMode);
+  }
+
+  /** Reconstructs from the persisted triple the way a restore does. */
+  function reconstruct(stored: any): Document<any> {
+    const doc = Document.fromBytes<any>(key, stored.snapshot);
+    if (stored.meta) {
+      doc.restoreMetaFromBytes(stored.meta);
+    }
+    if (stored.changes.length) {
+      doc.restoreAppendedChanges(
+        stored.changes.map(
+          (c: any) => JSON.parse(new TextDecoder().decode(c.bytes)) as any,
+        ),
+      );
+    }
+    return doc;
+  }
+
+  it('writes the header for a dropped pack, and re-snapshots nothing', async () => {
+    // The drop no longer returns early, so it falls through to the persist
+    // block. The root did not move, so the cheap header write is the correct
+    // branch: it must record the ack without advancing the persisted
+    // serverSeq past state the store never received.
+    const store = new MemoryDocStore();
+    const peerChanges = peerDoc().createChangePack().getChanges();
+    const pushPullChanges = respondWith((acked) =>
+      ChangePack.create(key, Checkpoint.of(7n, acked), false, peerChanges),
+    );
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; mine?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+    const base = (await store.load(scopedKey(key)))!;
+
+    dropRemoteState(client, SyncMode.RealtimePushOnly);
+    doc.update((root) => {
+      root.mine = 'mine';
+    });
+    await settled();
+
+    await client.sync(doc);
+    assert.isUndefined(doc.getRoot().peer, 'the pulled change is dropped');
+    assert.isFalse(doc.hasLocalChanges(), 'the push is still acked');
+
+    await settled();
+    const stored = (await store.load(scopedKey(key)))!;
+    assert.isDefined(stored.meta, 'the ack reaches the store');
+    assert.deepEqual(
+      Array.from(stored.snapshot),
+      Array.from(base.snapshot),
+      'a dropped pack did not move the root, so it must not re-snapshot',
+    );
+    const restored = reconstruct(stored);
+    assert.equal(restored.toSortedJSON(), doc.toSortedJSON());
+    assert.equal(
+      doc.getCheckpoint().getServerSeq(),
+      0n,
+      'the server seq stays put so the dropped state is pulled again later',
+    );
+    assert.equal(
+      restored.getCheckpoint().getServerSeq(),
+      doc.getCheckpoint().getServerSeq(),
+      'the header must not claim the dropped remote state',
+    );
+    assert.equal(
+      restored.getCheckpoint().getClientSeq(),
+      doc.getCheckpoint().getClientSeq(),
+      'but it must carry the ack, or the change is pushed twice',
+    );
+  });
+
+  it('persists the ack when the dropped pack carried a snapshot', async () => {
+    // hasSnapshot() is the half of the drop condition that used to fall
+    // through to applyChangePack. Persisting it would be worse than useless:
+    // the snapshot is discarded, so the store must stay where the document is.
+    const store = new MemoryDocStore();
+    const peer = peerDoc();
+    const snapshot = converter.snapshotToBytes(peer.getRootObject(), new Map());
+    const pushPullChanges = respondWith((acked) =>
+      ChangePack.create(
+        key,
+        Checkpoint.of(9n, acked),
+        false,
+        [],
+        peer.getVersionVector(),
+        snapshot,
+      ),
+    );
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; mine?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+    const base = (await store.load(scopedKey(key)))!;
+
+    dropRemoteState(client, SyncMode.RealtimeSyncOff);
+    doc.update((root) => {
+      root.mine = 'mine';
+    });
+    await settled();
+
+    await client.sync(doc);
+    assert.isUndefined(doc.getRoot().peer, 'the pulled snapshot is dropped');
+    assert.isFalse(doc.hasLocalChanges(), 'the push is still acked');
+
+    await settled();
+    const stored = (await store.load(scopedKey(key)))!;
+    assert.deepEqual(
+      Array.from(stored.snapshot),
+      Array.from(base.snapshot),
+      'a dropped snapshot must not be written to the store',
+    );
+    const restored = reconstruct(stored);
+    assert.equal(restored.toSortedJSON(), doc.toSortedJSON());
+    assert.equal(
+      restored.getCheckpoint().getServerSeq(),
+      doc.getCheckpoint().getServerSeq(),
+    );
+    assert.equal(
+      restored.getCheckpoint().getClientSeq(),
+      doc.getCheckpoint().getClientSeq(),
+    );
+  });
+
+  it('repairs a poisoned log on a dropped-pack sync', async () => {
+    // A failed append leaves that change only in memory. The dropped pack
+    // reaches the store before any further edit could repair it, so this sync
+    // must take the repair-snapshot branch rather than write a header over the
+    // hole — our own change is acked, so the server will never resend it.
+    const inner = new MemoryDocStore();
+    let failNextAppend = true;
+    const store: any = {
+      load: (k: string) => inner.load(k),
+      saveSnapshot: (k: string, b: Uint8Array) => inner.saveSnapshot(k, b),
+      appendChange: (k: string, c: any) => {
+        if (failNextAppend) {
+          failNextAppend = false;
+          return Promise.reject(new Error('quota'));
+        }
+        return inner.appendChange(k, c);
+      },
+      saveMeta: (k: string, b: Uint8Array) => inner.saveMeta(k, b),
+      remove: (k: string) => inner.remove(k),
+    };
+
+    const peerChanges = peerDoc().createChangePack().getChanges();
+    const pushPullChanges = respondWith((acked) =>
+      ChangePack.create(key, Checkpoint.of(7n, acked), false, peerChanges),
+    );
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; counter?: Counter }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    await settled();
+
+    dropRemoteState(client, SyncMode.RealtimePushOnly);
+    doc.update((root) => {
+      root.counter = new Counter(0);
+    });
+    doc.update((root) => root.counter!.increase(7));
+    await settled();
+
+    await client.sync(doc);
+    assert.isUndefined(doc.getRoot().peer, 'the pulled change is dropped');
+    await settled();
+
+    const stored = (await store.load(scopedKey(key)))!;
+    assert.equal(
+      reconstruct(stored).toSortedJSON(),
+      doc.toSortedJSON(),
+      'the repair must fold the unappended change into a snapshot',
+    );
+    assert.isFalse(
+      (client as any).persistStates.get(scopedKey(key)).poisoned,
+      'a successful repair clears the poison',
+    );
+  });
+
+  it('marks the sync synced and refreshes the heartbeat', async () => {
+    // Both used to be skipped by the early return: the document looked
+    // unsynced to subscribers, and the stale heartbeat made the sync loop
+    // treat the attachment as overdue.
+    const store = new MemoryDocStore();
+    const peerChanges = peerDoc().createChangePack().getChanges();
+    const pushPullChanges = respondWith((acked) =>
+      ChangePack.create(key, Checkpoint.of(7n, acked), false, peerChanges),
+    );
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; mine?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    dropRemoteState(client, SyncMode.RealtimePushOnly);
+
+    const statuses: Array<string> = [];
+    doc.subscribe('sync', (event) => statuses.push(event.value));
+    const attachment = (client as any).attachmentMap.get(key);
+    attachment.lastHeartbeatTime = 0;
+
+    doc.update((root) => {
+      root.mine = 'mine';
+    });
+    await client.sync(doc);
+    await settled();
+
+    assert.deepEqual(statuses, [DocSyncStatus.Synced]);
+    assert.isAbove(
+      attachment.lastHeartbeatTime,
+      0,
+      'a dropped pack is still a round trip: the heartbeat must advance',
+    );
+  });
+
+  it('does not act on the removal flag of a dropped pack', async () => {
+    // The removal rides on the state being dropped, so it is not applied and
+    // must not detach or clear the store here. Sync resuming pulls it again.
+    const store = new MemoryDocStore();
+    const peerChanges = peerDoc().createChangePack().getChanges();
+    const pushPullChanges = respondWith((acked) =>
+      ChangePack.create(key, Checkpoint.of(7n, acked), true, peerChanges),
+    );
+
+    const client = activatedClient(store, { attachDocument, pushPullChanges });
+    const doc = new Document<{ peer?: string; mine?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    dropRemoteState(client, SyncMode.RealtimePushOnly);
+    doc.update((root) => {
+      root.mine = 'mine';
+    });
+
+    await client.sync(doc);
+    await settled();
+
+    assert.equal(doc.getStatus(), DocStatus.Attached);
+    assert.isTrue(
+      (client as any).attachmentMap.has(key),
+      'a dropped removal must not detach the document',
+    );
+    assert.isDefined(
+      await store.load(scopedKey(key)),
+      'nor drop the persisted envelope',
     );
   });
 });
