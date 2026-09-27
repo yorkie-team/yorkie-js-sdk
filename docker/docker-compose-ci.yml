@@ -18,7 +18,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
-    image: "mongo:latest"
+    image: "mongo:8.0"
     restart: always
     ports:
       - "27017:27017"
