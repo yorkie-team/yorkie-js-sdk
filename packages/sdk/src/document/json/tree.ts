@@ -149,6 +149,18 @@ function createCRDTTreeNode(context: ChangeContext, content: TreeNode) {
 }
 
 /**
+ * `comparePath` compares two paths of equal length in document order.
+ */
+function comparePath(a: Array<number>, b: Array<number>): number {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      return a[i] - b[i];
+    }
+  }
+  return 0;
+}
+
+/**
  * `validateTextNode` ensures that a text node has a non-empty string value.
  */
 function validateTextNode(textNode: TextNode): boolean {
@@ -443,6 +455,14 @@ export class Tree {
           'path should not be empty',
         );
       }
+      // Same contract as the index form: a range given backwards is a caller
+      // error, not an empty range.
+      if (comparePath(fromPath, toPath) > 0) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'from should be less than or equal to to',
+        );
+      }
 
       fromPos = this.tree.pathToPos(fromPath);
       toPos = this.tree.pathToPos(toPath);
@@ -607,6 +627,15 @@ export class Tree {
       throw new YorkieError(
         Code.ErrInvalidArgument,
         'path should not be empty',
+      );
+    }
+
+    // Same contract as the index form: a range given backwards is a caller
+    // error, not an empty range.
+    if (comparePath(fromPath, toPath) > 0) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'from should be less than or equal to to',
       );
     }
 
