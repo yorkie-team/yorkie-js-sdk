@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, assert } from 'vitest';
+import { describe, it, assert, afterEach, vi } from 'vitest';
 import { Client } from '@yorkie-js/sdk/src/client/client';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import {
@@ -72,5 +72,48 @@ describe('Client options', () => {
     };
     const client = new Client({ rpcAddr, sessionLock: fake });
     assert.strictEqual(sessionLockOf(client), fake);
+  });
+});
+
+describe('Client key with offline persistence', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /**
+   * `captureWarnings` records everything `logger.warn` prints, which is where
+   * the constructor reports an unrecoverable option combination.
+   */
+  function captureWarnings(): Array<string> {
+    const warnings: Array<string> = [];
+    vi.spyOn(console, 'warn').mockImplementation((...args: Array<unknown>) => {
+      warnings.push(args.join(' '));
+    });
+    return warnings;
+  }
+
+  it('warns when a store is configured without a client key', () => {
+    const warnings = captureWarnings();
+    new Client({ rpcAddr, store: new MemoryDocStore() });
+    assert.lengthOf(warnings, 1);
+    assert.include(warnings[0], 'stable clientKey');
+  });
+
+  it('stays silent when a store is configured with a client key', () => {
+    const warnings = captureWarnings();
+    new Client({ rpcAddr, key: 'stable-key', store: new MemoryDocStore() });
+    assert.isEmpty(warnings);
+  });
+
+  it('stays silent when no store is configured', () => {
+    const warnings = captureWarnings();
+    new Client({ rpcAddr });
+    assert.isEmpty(warnings);
+  });
+
+  it('keeps the generated key when only a store is configured', () => {
+    captureWarnings();
+    const client = new Client({ rpcAddr, store: new MemoryDocStore() });
+    assert.isNotEmpty(client.getKey());
   });
 });

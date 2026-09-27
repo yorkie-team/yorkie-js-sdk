@@ -188,6 +188,17 @@ Three client obligations the server does not cover:
 unload, which triggers the server-side checkpoint reset and defeats persistence.
 Configuring a `store` auto-defaults it to `false` (an explicit option still wins).
 
+`ClientOptions.key` must be **caller-supplied and persisted** on this path, and
+unlike `deactivateOnUnload` it cannot be defaulted: only the app knows which
+identity should outlive the process. The SDK's default mints a random key per
+`Client`, so the derived actor differs on every launch and the guard above fires
+on the very first restore — a store-backed client with no `key` drops 100% of
+its un-pushed edits on every restart. The constructor warns when `store` is set
+and `key` is not; making the default itself stable (persisting the generated key
+in the store) would need a home for a non-document value in the `DocStore`
+interface and a client identity that is only known after an `await`, and has to
+be agreed with `yorkie-ios-sdk` first.
+
 ### Multi-tab safety
 
 The stable actor is shared by every tab using the same persisted client
@@ -221,7 +232,7 @@ follow-up on top of this guard.
 | A push acked with nothing pulled emits no Remote/Snapshot event, so the stored envelope keeps already-pushed changes + a stale checkpoint until the next edit | Persist explicitly after a successful sync (`syncInternal`), in addition to the event-driven persist on local/presence changes. It is a full overwrite, so it does not grow unbounded                                                                                 |
 | A flaky store (rejected `load`/`remove`) aborts attach                                                                                                        | Wrap store access; degrade to a fresh attach and log rather than throwing out of attach                                                                                                                                                                               |
 | Two tabs share one store and corrupt/diverge `clientSeq` (worse with resumable checkpoints)                                                                   | Single-active-session lease; non-leader tabs are read-only observers                                                                                                                                                                                                  |
-| App forgets to persist a stable client key                                                                                                                    | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored key. Document this as a hard requirement                                                                                                    |
+| App forgets to persist a stable client key                                                                                                                    | The SDK's default `key` is a random uuid per session (`client.ts`); persistence requires the app to pass a stable, stored key. Documented as a hard requirement on `ClientOptions.key`/`.store`, and the constructor warns when `store` is set and `key` is not                                                                                                    |
 | Fear that restore double-counts HLL dedup counters                                                                                                            | Non-issue: dedup identity is the app-supplied actor arg (`DedupCounter.add(actor)` → `IncreaseOperation.actor`), independent of the client actor; reusing or re-minting the SDK actor cannot re-count                                                                 |
 
 ### Design Decisions
