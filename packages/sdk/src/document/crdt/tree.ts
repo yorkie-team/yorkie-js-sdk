@@ -1891,14 +1891,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // is the one the End-token guard judges. When that guard excludes
         // it, re-adding the family would style the very node it skipped.
         //
-        // NOTE(js-only): the change must also have begun inside that node,
-        // which is the only way its End token alone is in a range (§9.6). A
-        // split of more than one level carries the right half into a new
-        // parent, past a range that began right after the known node, and
-        // its End token then enters the range with nothing to do with the
-        // change. yorkie#2038 has no such check and diverges there (the
-        // complex suite's split-2 x style `A -> B`); the Go fix should mirror
-        // this one.
+        // The change must also have begun inside that node, which is the
+        // only way its End token alone is in a range (§9.6). A split of more
+        // than one level carries the right half into a new parent, past a
+        // range that began right after the known node, and its End token
+        // then enters the range with nothing to do with the change. This is
+        // rule 2(c) of the Port specification in yorkie's
+        // concurrent-merge-split design doc (§9.2 Fix 27, yorkie#2070).
         if (
           family.length &&
           !skipToken([family[0], TokenType.End]) &&

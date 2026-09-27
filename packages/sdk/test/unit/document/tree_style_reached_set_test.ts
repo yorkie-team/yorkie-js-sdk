@@ -279,13 +279,15 @@ type ScanResult = {
 
 /**
  * `scanDivergences` replays every (structural change, style range) pair in
- * both orders and reports what the two orders did.
+ * both orders and reports what the two orders did. The style ranges are every
+ * [from, to] inside the root, which is `width` wide.
  */
 function scanDivergences(
   base: Batch,
   structural: Array<(t: Tree) => void>,
   style: (t: Tree, from: number, to: number) => void,
   countStyled: (xml: string) => number,
+  width = 12,
 ): ScanResult {
   const scan: ScanResult = {
     pairs: 0,
@@ -296,8 +298,8 @@ function scanDivergences(
     styledPairs: 0,
   };
   for (const edit of structural) {
-    for (let from = 0; from <= 12; from++) {
-      for (let to = from; to <= 12; to++) {
+    for (let from = 0; from <= width; from++) {
+      for (let to = from; to <= width; to++) {
         scan.pairs++;
         const [pA, pB] = concurrentTreeChanges(base, edit, (t) =>
           style(t, from, to),
@@ -744,5 +746,84 @@ describe('Tree style reached set across a level-2 split before the range', () =>
         '<p>efgh</p></p><p italic="a">ijkl</p></p></r>',
     );
     assert.deepEqual(ab, ba, 'split-then-remove-style diverges');
+  });
+});
+
+/**
+ * `nestedScanBase` is `<r><p><p><p>abcd</p><p>efgh</p></p><p>ijkl</p></p></r>`,
+ * 22 wide inside the root, every paragraph carrying `attrs`. The flat scans
+ * split one level of a flat tree, so a split never moves a half into a new
+ * parent there; this base is where a level-2 split does.
+ */
+const nestedScanBase = (attrs?: { [key: string]: string }) => {
+  const para = (
+    ...children: Array<ElementNode | { type: 'text'; value: string }>
+  ) =>
+    ({
+      type: 'p',
+      ...(attrs ? { attributes: attrs } : {}),
+      children,
+    }) as ElementNode;
+  const text = (value: string) => ({ type: 'text' as const, value });
+  return seedBase({
+    type: 'r',
+    children: [
+      para(para(para(text('abcd')), para(text('efgh'))), para(text('ijkl'))),
+    ],
+  });
+};
+
+const nestedSplits: Array<(t: Tree) => void> = [];
+for (let level = 1; level <= 2; level++) {
+  for (let at = 1; at <= 21; at++) {
+    nestedSplits.push((t: Tree) => t.edit(at, at, undefined, level));
+  }
+}
+
+/**
+ * Every level-1 and level-2 split of a nested tree against every style range:
+ * 42 x 276 pairs, with yorkie's counts (yorkie#2070). This family is NOT
+ * closed and the rendered count is a ratchet: 241 pairs still diverge, most
+ * of them a split of the element the range end is declared in, before that
+ * position -- an open rule tracked in yorkie's design doc, to land in both
+ * SDKs together.
+ */
+describe('Tree style reached set nested scans', () => {
+  it('bounds nested split x style', () => {
+    const scan = scanDivergences(
+      nestedScanBase(),
+      nestedSplits,
+      styleRange,
+      countOf('b="x"'),
+      22,
+    );
+    const { rendered, ...rest } = scan;
+    assert.deepEqual(rest, {
+      pairs: 11592,
+      tombstoneOnly: 0,
+      errored: 0,
+      styledPairs: 9318,
+      styledNodes: 33208,
+    });
+    assert.isAtMost(rendered, 241, 'regressed in the rendered document');
+  });
+
+  it('bounds nested split x remove-style', () => {
+    const scan = scanDivergences(
+      nestedScanBase({ b: 'x' }),
+      nestedSplits,
+      removeStyleRange,
+      countOf('<p>'),
+      22,
+    );
+    const { rendered, ...rest } = scan;
+    assert.deepEqual(rest, {
+      pairs: 11592,
+      tombstoneOnly: 0,
+      errored: 0,
+      styledPairs: 9318,
+      styledNodes: 33208,
+    });
+    assert.isAtMost(rendered, 241, 'regressed in the rendered document');
   });
 });
