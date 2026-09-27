@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Sync the protos with Go and harden crafted tree payloads (2026-09-27) | [20260927-proto-sync-and-payload-hardening-todo.md](./active/20260927-proto-sync-and-payload-hardening-todo.md) | [20260927-proto-sync-and-payload-hardening-lessons.md](./active/20260927-proto-sync-and-payload-hardening-lessons.md) |
 | Port three tree convergence fixes from Go (2026-09-27) | [20260927-tree-convergence-go-ports-todo.md](./active/20260927-tree-convergence-go-ports-todo.md) | [20260927-tree-convergence-go-ports-lessons.md](./active/20260927-tree-convergence-go-ports-lessons.md) |
 | Read-only viewers should not publish selection presence (2026-09-26) | [20260926-publish-selection-option-todo.md](./active/20260926-publish-selection-option-todo.md) | [20260926-publish-selection-option-lessons.md](./active/20260926-publish-selection-option-lessons.md) |
 | Three defects in offline-persistence repair and GC accounting (2026-09-26) | [20260926-offline-persistence-gc-defects-todo.md](./active/20260926-offline-persistence-gc-defects-todo.md) | [20260926-offline-persistence-gc-defects-lessons.md](./active/20260926-offline-persistence-gc-defects-lessons.md) |
