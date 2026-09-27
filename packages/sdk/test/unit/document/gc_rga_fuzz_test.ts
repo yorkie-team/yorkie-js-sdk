@@ -30,9 +30,7 @@ import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
 // Port of Go's gc_rga_fuzz_test.go (yorkie ba82ed91), the reproduction for
 // "collection changes RGA insertion". Like Go's, it is opt-in rather than part
 // of the default run, because the collection-on sweep still reports failures:
-// the successor barrier is a partial fix. What remains is the anchor an
-// in-flight operation still references, which a purge can destroy whatever
-// the successor's stability (a tail tombstone has no successor at all).
+// the successor barrier is a partial fix.
 //
 //   RGA_FUZZ=1 pnpm sdk exec vitest run test/unit/document/gc_rga_fuzz_test.ts
 //
@@ -49,13 +47,38 @@ import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
 // The GC-off control is what makes collection the cause rather than a
 // correlate: the same seeds converge when nothing is collected.
 //
-// The push/pull model is faithful to the server's pushpull: each client's row
-// is stored from its push's version vector, a client's own changes are
-// filtered out of its pull, minVV is the element-wise minimum over the stored
-// rows, and collection runs only inside `applyChangePack` with the vector that
-// pull delivered. The PRNG is not Go's, so seed-for-seed counts differ from
-// Go's; the shape (GC-off clean, GC-on better than before, not zero) is what
-// carries over.
+// WHAT REMAINS, traced on seed 39 of the `all` mix (three clients, the throw is
+// `AddOperation ... cant find the given node: 1:<actor1>:4`):
+//
+//   The successor barrier protects the node a purge hands its successor to. It
+//   does not protect the node a purge hands nothing to -- the ANCHOR. An RGA
+//   insert names the node it goes after, and two anchors a replica hands out
+//   are tombstones no version vector can retire:
+//
+//     1. The physical tail. `RGATreeList.getLastCreatedAt` returns the last
+//        node's position whether it is live or tombstoned, and
+//        `CRDTArray.insert` (`push`, and the proxy's insert on an empty array)
+//        anchors every append there. A replica whose array has gone entirely
+//        tombstoned keeps appending after that tombstone at ANY later lamport.
+//        `minSyncedVersionVector` covering `removedAt` says every replica knows
+//        the value is gone -- not that no replica will anchor there again. On
+//        seed 39 client 1 removed `1:<actor1>:4` itself at lamport 3 and still
+//        anchored an append at it at lamport 13, by which time clients 2 and 3
+//        had purged it. `successorBarrierAt` returns undefined at the tail, so
+//        nothing holds it.
+//     2. A move's dead position node, which `posCreatedAt` hands out as the
+//        current position identity of a moved element. The `insert+move` and
+//        `insert+delete+move` mixes fail on exactly this shape
+//        (`cant find the given node: <moveTicket>`).
+//
+//   Holding the tail with an uncoverable barrier was measured and does fix (1)
+//   -- `insert+delete` and `insert+delete+set` go to 0/0 and the `all` mix to
+//   67/11 -- but it retains one tombstone per list for as long as that
+//   tombstone is the tail, which the drain-to-zero assertions in
+//   `gc_rga_barrier_test.ts`, `document_size_test.ts`,
+//   `docsize_rebuild_drift_test.ts` and `gc_containment_test.ts` all read as a
+//   leak. Landing it means deciding what a permanently-held tail costs against
+//   `maxSizePerDocument` first, which is a larger change than this one.
 
 type ArrDoc = { arr: JSONArray<string> };
 
@@ -279,5 +302,5 @@ describe.skipIf(!process.env.RGA_FUZZ)('RGA collection fuzz (opt-in)', () => {
     if (process.env.RGA_FUZZ_OUT) {
       writeFileSync(process.env.RGA_FUZZ_OUT, lines.join('\n') + '\n');
     }
-  });
+  }, 300000);
 });

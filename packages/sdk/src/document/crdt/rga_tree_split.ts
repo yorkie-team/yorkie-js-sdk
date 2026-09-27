@@ -850,6 +850,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             RGATreeSplitNodeID.of(span.createdAt, cursor),
             value,
           );
+          // `substring` deep-copied the span's attributes, tombstones
+          // included, exactly as a split does. Book them here for the same
+          // reason `splitNode` does -- see `bookCopiedAttrTombstones`. The
+          // buffer is drained below into this call's returned pairs.
+          this.bookCopiedAttrTombstones(value);
           addDataSizes(liveDiff, newNode.getDataSize());
           const prev = this.findRestoreAnchor(
             span.createdAt,
@@ -1481,21 +1486,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     subDataSize(diff, prvSize);
 
     // A split deep-copies the value's attributes, so every tombstone among
-    // them is duplicated under the new node. The copy was never in
-    // docSize.live -- `getDataSize` excludes removed attributes -- so it
-    // enters gc only, and purge subtracts the same size back out.
-    const splitValue = splitNode.getValue() as unknown as {
-      getRemovedAttrs?: () => Array<GCChild>;
-    };
-    if (typeof splitValue.getRemovedAttrs === 'function') {
-      for (const attr of splitValue.getRemovedAttrs()) {
-        this.pendingGCPairs.push({
-          parent: splitNode.getValue() as unknown as GCParent,
-          child: attr,
-          gcOnlySize: attr.getDataSize(),
-        });
-      }
-    }
+    // them is duplicated under the new node.
+    this.bookCopiedAttrTombstones(splitNode.getValue());
 
     // NOTE: A piece split off an already-tombstoned node inherits
     // `removedAt` without going through `remove()`, so no GC pair is
@@ -1514,6 +1506,36 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
 
     return [splitNode, diff];
+  }
+
+  /**
+   * `bookCopiedAttrTombstones` registers the attribute tombstones a freshly
+   * copied value has just duplicated. `CRDTTextValue.substring` -- which both
+   * `splitNode` and `restore`'s recreate path go through -- deep-copies the
+   * whole RHT, tombstones included; it has to, or a piece would resolve a
+   * concurrent style differently from a replica that never split or never lost
+   * it. Each copy is a fresh piece of garbage under a new parent with no
+   * registration of its own: the original's pair names the original's parent,
+   * so without this the copy sits in the RHT forever, uncounted and
+   * unpurgeable. The copy was never in `docSize.live` -- `getDataSize` excludes
+   * removed attributes -- so `gcOnlySize` charges it to gc alone, and `purge`
+   * subtracts the same size back out.
+   */
+  private bookCopiedAttrTombstones(value: T): void {
+    const holder = value as unknown as {
+      getRemovedAttrs?: () => Array<GCChild>;
+    };
+    if (typeof holder.getRemovedAttrs !== 'function') {
+      return;
+    }
+
+    for (const attr of holder.getRemovedAttrs()) {
+      this.pendingGCPairs.push({
+        parent: value as unknown as GCParent,
+        child: attr,
+        gcOnlySize: attr.getDataSize(),
+      });
+    }
   }
 
   /**
