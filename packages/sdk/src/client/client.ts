@@ -174,6 +174,36 @@ export interface ClientOptions {
   /**
    * `key` is the client key. It is used to identify the client.
    * If not set, a random key is generated.
+   *
+   * That random default is minted per `Client` instance, so it differs on every
+   * launch. **Offline persistence requires a stable key**: the server derives
+   * the actor stamped into every change from the project and this key, and it
+   * also scopes the {@link ClientOptions.store} keys
+   * (`apiKey/clientKey/docKey`). A new key therefore does not address the
+   * previous launch's entries at all — the restore finds nothing, the un-pushed
+   * edits are lost *silently* (no {@link DocEventType.LocalChangesDropped}
+   * event: the `actor-mismatch` guard in
+   * {@link Document.restoreFromBytes} only fires when the *same* store key is
+   * reached under a different actor), and the previous namespace is orphaned.
+   * `DocStore` exposes no enumeration or prune, so nothing can reclaim those
+   * entries afterwards and a durable backend grows without bound, one dead
+   * namespace per launch.
+   *
+   * An app setting `store` must therefore pass a key it persists itself and
+   * reuses on the next launch. Make it an **opaque random value the app mints
+   * once** — `crypto.randomUUID()` kept in local storage, say — scoped to the
+   * signed-in user and cleared on sign-out. Do **not** derive it from a user
+   * id, a device id, an email, or anything else guessable or shared:
+   *
+   * - The key is an identifier, not a credential. It is sent verbatim in
+   *   `ActivateClientRequest.client_key` and nothing proves the caller owns it,
+   *   so a guessable key lets another client of the same project activate under
+   *   the same derived actor and attribute changes to it.
+   * - A key shared between users of one browser (a device id) gives them one
+   *   store namespace. `attach` loads and rehydrates the persisted bytes
+   *   locally *before* the attach RPC, so the previous user's document content
+   *   and un-pushed edits would surface in the next user's session ahead of any
+   *   server authorization.
    */
   key?: string;
 
@@ -273,6 +303,16 @@ export interface ClientOptions {
    * documents server-side and defeats the point of resuming un-pushed local
    * changes on the next load. Setting `store` therefore auto-defaults
    * `deactivateOnUnload` to `false`; pass it explicitly to override.
+   *
+   * You **must** also set {@link ClientOptions.key} to an opaque random value
+   * the app mints once and reuses across launches. Both the store keys and the
+   * actor recovery is keyed by are derived from it, and the default is a fresh
+   * random key per `Client`, so leaving it unset means every restart silently
+   * loses every un-pushed change and orphans the previous launch's entries.
+   * This cannot be defaulted correctly — only the app knows what identity
+   * should outlive the process — so the client warns rather than guessing. See
+   * {@link ClientOptions.key} for why the value must not be a user id, a device
+   * id, or anything else guessable or shared between users of one browser.
    */
   store?: DocStore;
 
@@ -454,6 +494,38 @@ const DefaultBroadcastOptions = {
 };
 
 /**
+ * `escapeNamespacePart` percent-encodes the separator (and the escape
+ * character itself) so a component cannot forge one. Without it,
+ * `join(a, b)` is not injective: `apiKey` and `clientKey` are taken verbatim
+ * from `ClientOptions` and a docKey is caller-supplied, so a clientKey
+ * containing `/` could produce the same joined string as a different
+ * (apiKey, clientKey, docKey) triple — two distinct identities sharing one
+ * store namespace and one session lock. Escaping `%` first keeps the encoding
+ * reversible and collision-free.
+ */
+function escapeNamespacePart(part: string): string {
+  return part.replace(/%/g, '%25').replace(/\//g, '%2F');
+}
+
+/**
+ * `namespaceOf` builds the `apiKey/clientKey/docKey` identity namespace used
+ * for both `DocStore` keys and the single-active-session lock name. Each
+ * component is escaped, so the mapping from identity to namespace is
+ * one-to-one: distinct identities can never address the same persisted
+ * envelope or block each other's session lock.
+ */
+function namespaceOf(
+  apiKey: string,
+  clientKey: string,
+  docKey: string,
+): string {
+  return (
+    `${escapeNamespacePart(apiKey)}/${escapeNamespacePart(clientKey)}/` +
+    escapeNamespacePart(docKey)
+  );
+}
+
+/**
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
@@ -562,6 +634,23 @@ export class Client {
     this.deactivateOnUnload =
       opts.deactivateOnUnload ??
       (this.store ? false : DefaultClientOptions.deactivateOnUnload);
+    // A store with no caller-supplied key cannot survive a restart, by
+    // construction: the generated key is per-instance, and it scopes both the
+    // store keys and the actor the server derives. The next launch addresses a
+    // fresh namespace, so it restores nothing and orphans what the last one
+    // wrote — no `actor-mismatch` event fires, because the old entries are
+    // never reached. Warn where the two options meet: neither is wrong alone,
+    // the loss is silent, and `DocStore` has no prune to reclaim the orphans.
+    if (this.store && !opts.key) {
+      logger.warn(
+        `[PS] c:"${this.key}" offline persistence needs a stable clientKey: ` +
+          `\`store\` is set but \`key\` is not, so a random one was generated ` +
+          `for this instance. The next launch addresses a different namespace, ` +
+          `silently restoring nothing and stranding what this one persists. ` +
+          `Pass \`key\` as an opaque random value your app mints once and ` +
+          `persists across launches (not a user id or a device id).`,
+      );
+    }
     // Default to the Web Locks-backed guard; it is a no-op outside browsers and
     // is only consulted on the store-backed attach path below.
     this.sessionLock = opts.sessionLock ?? new WebLocksSessionLock();
@@ -882,7 +971,8 @@ export class Client {
         // default is a no-op in non-browser runtimes.
         if (this.store) {
           const lockName =
-            `yorkie-session:${this.apiKey}/${this.key}/` + doc.getKey();
+            'yorkie-session:' +
+            namespaceOf(this.apiKey, this.key, doc.getKey());
           sessionLockHandle = await acquireSessionLock(
             this.sessionLock,
             lockName,
@@ -2058,10 +2148,11 @@ export class Client {
    * used as a `DocStore` key. The session lock is already scoped by
    * `apiKey/clientKey/docKey`; the store must match so a store shared across
    * identities (different apiKey/clientKey) cannot collide on the bare docKey
-   * and hand one identity another's persisted envelope.
+   * and hand one identity another's persisted envelope. Built through
+   * {@link namespaceOf}, so the scoping is injective.
    */
   private storeKey(docKey: string): string {
-    return `${this.apiKey}/${this.key}/${docKey}`;
+    return namespaceOf(this.apiKey, this.key, docKey);
   }
 
   /**
