@@ -1199,8 +1199,22 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (!node.mergedFrom || !node.parent) {
         return;
       }
-      const src = this.findFloorNode(node.mergedFrom);
+      // `findMergeNode`, not `findFloorNode`: `mergedFrom` is client-supplied
+      // on an element payload (Set/Add/ArraySet), so the source it names has
+      // to be the node it names exactly, and an element.
+      const src = this.findMergeNode(node.mergedFrom);
       if (!src) {
+        return;
+      }
+
+      // A merge moves children under an element parent, so a child sitting
+      // under a text node cannot be one a merge moved. Only a snapshot is
+      // guaranteed well-formed here: an element payload passes through this
+      // same reader and keeps its `mergedFrom`, because the reverse of a
+      // Remove legitimately carries the merges the tree really underwent.
+      // Deriving a forwarding pointer at a text node from a crafted one would
+      // hand a later insert a parent that can hold no children.
+      if (node.parent.isText) {
         return;
       }
 
@@ -1240,6 +1254,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * product this replica does not hold) and a text node: a merge pointer
    * names an element, so either would hand merge logic a node the pointer
    * never named.
+   *
+   * Every merge-lineage read goes through here, not only the decode that
+   * first sees a pointer: `mergedFrom` is retained on an element payload
+   * (Set/Add/ArraySet), persists on the node inside the live document, and
+   * `mergedInto` is derived from it. Otherwise a made-up offset becomes a
+   * forwarding pointer planted on an unrelated node, which a later, innocent
+   * delete follows to tombstone that node's live children.
    */
   private findMergeNode(id?: CRDTTreeNodeID): CRDTTreeNode | undefined {
     if (!id) {
@@ -1297,12 +1318,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * destination so the merge chain stays flat (P->R, not P->Q) and both
    * replicas converge. The seen set guards against cycles from a concurrent
    * mutual merge.
+   *
+   * Each link is resolved through `findMergeNode`, so a text node or a
+   * floor-only match cuts the chain: `mergedInto` is derived from the
+   * `mergedFrom` an element payload keeps, so a crafted one can name either,
+   * and the merge hands what this returns straight to `moveChild`.
    */
   private resolveMergeTarget(node: CRDTTreeNode): CRDTTreeNode {
     let target = node;
     const seen = new Set<CRDTTreeNode>([target]);
     while (target.isRemoved && target.mergedInto) {
-      const next = this.findFloorNode(target.mergedInto);
+      const next = this.findMergeNode(target.mergedInto);
       if (!next || seen.has(next)) {
         break;
       }
@@ -2437,7 +2463,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (boundary === 'range' && realParent.parent) {
         return [[realParent.parent as CRDTTreeNode, realParent], diff];
       }
-      const mergeTarget = this.findFloorNode(realParent.mergedInto);
+      // `findMergeNode`, not `findFloorNode`: a text node is never a merge
+      // destination, and neither is a node the pointer merely floors onto.
+      // The pointer can come from a client -- `mergedInto` is derived from
+      // the `mergedFrom` an element payload keeps -- and returned as the
+      // insertion parent it would fail every later edit that resolves
+      // through this tombstone, on every replica. Falling through to the
+      // normal path treats the crafted lineage as the absent one it is.
+      const mergeTarget = this.findMergeNode(realParent.mergedInto);
       if (mergeTarget && !mergeTarget.isRemoved) {
         const allCh = mergeTarget.allChildren;
         for (let i = 0; i < allCh.length; i++) {
@@ -2970,7 +3003,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // of its own (e.g. an intermediate that only relayed another source's
       // children) is left unset on both paths, keeping runtime and snapshot
       // consistent.
-      const src = this.findFloorNode(node.mergedFrom!);
+      //
+      // Resolved through `findMergeNode` for the same reason
+      // `rebuildMergeState` resolves it there: `mergedFrom` is stamped here
+      // only when the node carries none, so a node that arrived on an element
+      // payload keeps the client's value, and this is where that value is
+      // read again long after the decode that first saw it.
+      const src = this.findMergeNode(node.mergedFrom);
       if (src) {
         src.mergedInto = dest.id;
       }
@@ -3006,7 +3045,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
           continue;
         }
       }
-      const mergeTarget = this.findFloorNode(node.mergedInto);
+      // The destination has to be the node `mergedInto` names exactly, and an
+      // element: this loop tombstones that node's children, so a floor lookup
+      // landing on a neighbour is the cascade reaching live nodes no merge
+      // ever moved.
+      const mergeTarget = this.findMergeNode(node.mergedInto);
       if (!mergeTarget) {
         continue;
       }
