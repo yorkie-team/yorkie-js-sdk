@@ -37,6 +37,7 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import {
   Change,
   ChangeStruct,
+  ExecutionResult,
 } from '@yorkie-js/sdk/src/document/change/change';
 import {
   ChangeID,
@@ -881,11 +882,17 @@ export class Document<
       const change = ctx.toChange();
       let opInfos: Array<OpInfo>;
       let reverseOps: Array<HistoryOperation<P>>;
+      const landed: ExecutionResult<P> = {
+        operations: [],
+        opInfos: [],
+        reverseOps: [],
+      };
       try {
         ({ opInfos, reverseOps } = change.execute(
           this.root,
           this.presences,
           OpSource.Local,
+          landed,
         ));
       } catch (err) {
         // NOTE: The updater has already applied the whole change to the
@@ -893,6 +900,29 @@ export class Document<
         // leaves the root holding only a prefix of it. Drop the clone so the
         // next access rebuilds it from the root.
         this.clone = undefined;
+
+        // The prefix that did land is real document state: it is in the root,
+        // `toSortedJSON` shows it and the rebuilt clone hands it to the next
+        // updater. Queue it as a truncated change so `createChangePack` pushes
+        // it, and advance `changeID` so the tickets it already burned into the
+        // root are not reissued by the next change. The two must move together
+        // — advancing without queueing leaves a clientSeq hole that the server
+        // rejects. When nothing landed the root is untouched, so neither moves
+        // and the next change reuses this one's ID.
+        //
+        // The operation that threw may itself have mutated the root before
+        // throwing; that part is below operation granularity and stays
+        // unrecorded.
+        if (landed.operations.length) {
+          this.localChanges.push(
+            Change.create<P>({
+              id: change.getID(),
+              operations: landed.operations,
+              message: change.getMessage(),
+            }),
+          );
+          this.changeID = ctx.getNextID();
+        }
         throw err;
       }
 

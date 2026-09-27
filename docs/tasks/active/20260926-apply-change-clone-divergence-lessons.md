@@ -18,13 +18,24 @@ has just thrown.
 
 ## Dropping the clone is not a rollback
 
-The root may still hold a prefix of the failed change, whose `changeID` never
-advanced and which is never queued. An earlier revision of this PR queued the
-landed prefix as a truncated change and advanced `changeID`, and CI showed how
-subtle that is: advancing `changeID` without queueing leaves a clientSeq hole
-the server rejects (`change clientSeq must increase by one`). Since Go records
-nothing for a failed change either, that contract was split out into a design
-issue instead of being settled in this PR.
+The root may still hold a prefix of the failed change. Dropping the clone hides
+the divergence from the *clone*, but the prefix is still real document state:
+`toSortedJSON` shows it and the rebuilt clone hands it to the next updater. So
+the prefix has to be recorded, or it is state no peer ever sees.
+
+## Queueing and advancing move together
+
+`update` now queues the landed prefix as a truncated change **and** advances
+`changeID`. Doing only one of the two is what an earlier revision got wrong:
+advancing without queueing leaves a clientSeq hole the server rejects (`change
+clientSeq must increase by one`), and queueing without advancing reissues
+tickets that the landed operations already burned into the root, colliding in
+`elementPairMapByCreatedAt`. When nothing landed neither moves, and the next
+change reuses the failed change's ID.
+
+`Change.execute` takes an optional `ExecutionResult` accumulator so the catch
+block can read which prefix reached the root; the operation that threw may have
+mutated the root below operation granularity, and that part stays unrecorded.
 
 ## Narrowed after #1394
 

@@ -46,6 +46,16 @@ export type ChangeStruct<P extends Indexable> = {
 };
 
 /**
+ * `ExecutionResult` is the outcome of executing a change: the operations that
+ * actually ran, the events they produced and the operations that undo them.
+ */
+export type ExecutionResult<P extends Indexable> = {
+  operations: Array<Operation>;
+  opInfos: Array<OpInfo>;
+  reverseOps: Array<HistoryOperation<P>>;
+};
+
+/**
  * `Change` represents a unit of modification in the document.
  */
 export class Change<P extends Indexable> {
@@ -149,19 +159,23 @@ export class Change<P extends Indexable> {
 
   /**
    * `execute` executes the operations of this change to the given root.
+   *
+   * `landed` is an optional accumulator that is filled in as each operation
+   * succeeds. An operation that throws does not roll back its predecessors, so
+   * a caller that has to know which prefix of the change reached the root
+   * passes its own accumulator and reads it from the catch block.
    */
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
     source: OpSource,
-  ): {
-    operations: Array<Operation>;
-    opInfos: Array<OpInfo>;
-    reverseOps: Array<HistoryOperation<P>>;
-  } {
-    const changeOpInfos: Array<OpInfo> = [];
-    const changeOperations: Array<Operation> = [];
-    const reverseOps: Array<HistoryOperation<P>> = [];
+    landed?: ExecutionResult<P>,
+  ): ExecutionResult<P> {
+    const changeOpInfos: Array<OpInfo> = landed ? landed.opInfos : [];
+    const changeOperations: Array<Operation> = landed ? landed.operations : [];
+    const reverseOps: Array<HistoryOperation<P>> = landed
+      ? landed.reverseOps
+      : [];
 
     for (const operation of this.operations) {
       const executionResult = operation.execute(

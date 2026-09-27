@@ -109,6 +109,55 @@ describe('Document clone reset', function () {
     assert.equal(doc.toSortedJSON(), '{"k":1}');
   });
 
+  it('queues the prefix a failed local change left on the root', function () {
+    const doc = new Document<{ a: number; b: number; c: number }>('d');
+
+    // The updater mutates the clone through the proxy, so both
+    // `SetOperation.execute` calls are the root pass: `a` lands, `b` throws.
+    throwOnNthCall(2);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.a = 1;
+        r.b = 2;
+      });
+    }, 'boom');
+
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+
+    const changes = internals(doc as never).localChanges;
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].getOperations().length, 1);
+    assert.equal(changes[0].getID().getClientSeq(), 1);
+
+    // The next change must not reuse the ID the landed prefix already spent.
+    doc.update((r) => {
+      r.c = 3;
+    });
+    assert.equal(changes.length, 2);
+    assert.equal(changes[1].getID().getClientSeq(), 2);
+    assert.equal(doc.toSortedJSON(), '{"a":1,"c":3}');
+  });
+
+  it('reuses the change ID when nothing of a local change landed', function () {
+    const doc = new Document<{ a: number; b: number }>('d');
+
+    throwOnNthCall(1);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.a = 1;
+      });
+    }, 'boom');
+
+    assert.isEmpty(internals(doc as never).localChanges);
+
+    doc.update((r) => {
+      r.b = 2;
+    });
+    const changes = internals(doc as never).localChanges;
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].getID().getClientSeq(), 1);
+  });
+
   it('keeps the clone when undo is refused during an update', function () {
     const doc = new Document<{ k: number }>('d');
     doc.update((r) => {
