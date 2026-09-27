@@ -28,14 +28,15 @@ import {
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 /*
- * insNextID is a structural pointer only `splitElement` is supposed to write,
- * but the wire format carries it on every tree node, so a document rebuilt
- * from stored client changes can hold a chain that loops back on itself. An
- * unbounded walk of that chain spins the applying task forever — and
+ * insPrevID, insNextID and mergedFrom are structural pointers only
+ * `splitElement` and `edit`'s merge step are supposed to write, but the wire
+ * format carries all three on every tree node, so a document rebuilt from
+ * stored client changes can hold a chain that loops back on itself. An
+ * unbounded walk of such a chain spins the applying task forever — and
  * `collectBetween`'s cascade also appends to nodesToBeRemoved on every turn,
  * so it burns memory while it spins.
  *
- * The converter now strips the field from client-supplied content
+ * The converter now strips all of them from client-supplied content
  * (`fromTreeNodesWhenEdit` for operation content, `dropSplitLinksInElement`
  * for the element bytes a Set/Add/SetByIndex carries), so these chains should
  * no longer be constructible. The walks stay bounded anyway: documents stored
@@ -70,9 +71,16 @@ function ticketer() {
  *     <r><p>ab</p><p></p><p></p><p>cd</p></r>
  *
  * where the two middle paragraphs were created by `cycleActor` and point at
- * each other through insNextID, and both the first paragraph and its text node
- * link into that cycle. Every insNextID walk reachable from the first
- * paragraph runs into it.
+ * each other through insNextID, insPrevID and mergedFrom alike, and both the
+ * first paragraph and its text node link into those cycles. Every chain walk
+ * reachable from the first paragraph runs into one of them:
+ *
+ * - insNextID: `collectBetween`'s delete cascade, `unknownSplitSiblings`,
+ *   `advancePastUnknownSplitSiblings`.
+ * - insPrevID: `splitFamilyOf` and the two directions `declaredLineageOf`
+ *   walks to decide which nodes a style reached.
+ * - mergedFrom: the upward walk `declaredBoundaries` uses to decide whether a
+ *   delete propagates to a merge-moved child.
  */
 function poisonedTree(): CRDTTree {
   const issue = ticketer();
@@ -112,10 +120,23 @@ function poisonedTree(): CRDTTree {
   left.insNextID = right.id;
   right.insNextID = left.id;
 
+  // The same cycle backwards, so the walks that follow the split lineage the
+  // other way round meet it too.
+  text.insPrevID = left.id;
+  first.insPrevID = left.id;
+  last.insPrevID = right.id;
+  left.insPrevID = right.id;
+  right.insPrevID = left.id;
+
+  // And a mergedFrom cycle: `declaredBoundaries` prefers this pointer over the
+  // physical parent when it walks upward from a position's declared parent.
+  left.mergedFrom = right.id;
+  right.mergedFrom = left.id;
+
   return tree;
 }
 
-describe('Cyclic insNextID chains', function () {
+describe('Cyclic split and merge links', function () {
   const editedAt = TimeTicket.of(MaxTimeTicket.getLamport(), 0, remoteActor);
   // knownActor's nodes are known, cycleActor's are not.
   const vector = maxVectorOf([knownActor, remoteActor]);
@@ -157,10 +178,52 @@ describe('Cyclic insNextID chains', function () {
     );
     assert.isString(tree.toXML());
   });
+
+  // `declaredBoundaries` walks upward from the element each position named as
+  // its parent, preferring `mergedFrom` over the physical parent. Index 5 sits
+  // inside the first cycle paragraph, so the edit's own positions put the walk
+  // straight onto the mergedFrom cycle.
+  it('edit declared inside the mergedFrom cycle terminates', function () {
+    const tree = poisonedTree();
+    const range: [CRDTTreePos, CRDTTreePos] = [
+      tree.findPos(5),
+      tree.findPos(7),
+    ];
+
+    tree.edit(range, undefined, 0, editedAt, () => editedAt, vector);
+    assert.isString(tree.toXML());
+  });
+
+  // `declaredLineageOf` walks the ancestry of the element a style position
+  // named as its parent and, for each ancestor, that ancestor's insPrevID
+  // chain. A range inside the first paragraph names a parent whose chain runs
+  // into the cycle; `splitFamilyOf` follows the same pointers from the other
+  // end for every node the change did not know.
+  it('style declared inside the insPrevID cycle terminates', function () {
+    const tree = poisonedTree();
+    tree.style(
+      [tree.findPos(1), tree.findPos(3)],
+      { b: 't' },
+      editedAt,
+      vector,
+    );
+    assert.isString(tree.toXML());
+  });
+
+  it('remove style declared inside the insPrevID cycle terminates', function () {
+    const tree = poisonedTree();
+    tree.removeStyle(
+      [tree.findPos(1), tree.findPos(3)],
+      ['b'],
+      editedAt,
+      vector,
+    );
+    assert.isString(tree.toXML());
+  });
 });
 
 describe('dropSplitLinks', function () {
-  it('clears the links on the node and every descendant', function () {
+  it('clears the links and merge stamps on the node and every descendant', function () {
     const issue = ticketer();
     const node = (type: string, value?: string) =>
       new CRDTTreeNode(CRDTTreeNodeID.of(issue(knownActor), 0), type, value);
@@ -172,16 +235,25 @@ describe('dropSplitLinks', function () {
     para.append(text);
 
     const other = CRDTTreeNodeID.of(issue(cycleActor), 0);
+    const stamp = issue(cycleActor);
     root.insNextID = other;
     para.insPrevID = other;
     para.insNextID = other;
     text.insNextID = other;
+    for (const n of [root, para, text]) {
+      n.mergedFrom = other;
+      n.mergedAt = stamp;
+      n.mergedInto = other;
+    }
 
     root.dropSplitLinks();
 
     for (const n of [root, para, text]) {
       assert.isUndefined(n.insPrevID);
       assert.isUndefined(n.insNextID);
+      assert.isUndefined(n.mergedFrom);
+      assert.isUndefined(n.mergedAt);
+      assert.isUndefined(n.mergedInto);
     }
   });
 });

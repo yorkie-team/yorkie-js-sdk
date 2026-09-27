@@ -93,6 +93,29 @@ and found them equivalent, including `declaredParentOf` against
 No blocking findings remain after round 1 (the one raised is disputed above
 with evidence), so the review stops here.
 
+## Review round 2
+
+- **The declared-lineage walks were O(range x depth x chain) per node.**
+  `endsInside`/`beginsInside` re-walked the declared parent's whole ancestry,
+  and each ancestor's `insPrevID` chain, for every End token in a styled
+  range -- peer-controlled pointers, so one style message bought that work on
+  every replica. Nothing in the walks depends on the node being asked about,
+  so `declaredLineageOf` now resolves them once per change into a set, with
+  the one direction a set cannot answer memoized per node. Same answers: the
+  scan counts are unchanged.
+- **`mergedFrom` was trusted from the wire.** `declaredBoundaries` follows it
+  to decide whether a delete propagates, and `dropSplitLinks` stripped only
+  the split links. It now clears the merge stamps too, so operation content
+  and Set/Add payloads lose them exactly as `reissueContentIDs` already did
+  on the undo path.
+- **The cyclic-link fixture only poisoned `insNextID`.** `poisonedTree` now
+  carries an `insPrevID` cycle and a `mergedFrom` cycle as well, with cases
+  whose positions are declared inside each.
+- Disputed with evidence: the split-family guard being ahead of released Go
+  (unchanged, see round 1 -- dropping it makes two JS clients diverge), and
+  the 241 nested-scan divergences (§9.5, which has to land in both SDKs
+  together; a JS-only rule is the very failure this port removes).
+
 ## CI round: the scans outran the CI test timeout
 
 The four exhaustive scans failed on CI with `Test timed out in 5000ms` and

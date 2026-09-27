@@ -1333,10 +1333,11 @@ function fromTreeNodesWhenEdit(
   pbTreeNodes.forEach((node) => {
     const treeNode = fromTreeNodes(node.content);
     // Operation content is fully client-controlled and is always freshly
-    // created by the editing client, so it can never be a split product.
-    // Drop the split-sibling links the wire format carries anyway: the tree
-    // follows them as trusted structural pointers once `edit` registers
-    // these nodes in nodeMapByID.
+    // created by the editing client, so it can never be a split product nor a
+    // child some earlier merge moved. Drop the split-sibling links and the
+    // merge stamps the wire format carries anyway: the tree follows both as
+    // trusted structural pointers once `edit` registers these nodes in
+    // nodeMapByID.
     treeNode?.dropSplitLinks();
     treeNodes.push(treeNode!);
   });

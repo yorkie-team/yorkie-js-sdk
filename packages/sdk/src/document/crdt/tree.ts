@@ -612,21 +612,28 @@ export class CRDTTreeNode
   }
 
   /**
-   * `dropSplitLinks` clears the split-sibling links on this node and every
-   * one of its descendants.
+   * `dropSplitLinks` clears the split-sibling links and the merge stamps on
+   * this node and every one of its descendants.
    *
    * insPrevID/insNextID name positions in a split chain and only
-   * `splitElement` may create them. A node arriving as operation content is
-   * freshly created by the editing client, so it can never legitimately be a
-   * split product — but the wire format carries the fields regardless, and
-   * the chain walks that read them treat them as trusted structural
-   * pointers. Drop them on the way in rather than let a peer hand the tree a
-   * chain of its choosing.
+   * `splitElement` may create them; mergedFrom/mergedAt/mergedInto name the
+   * parent a merge moved a child out of and only `edit` may create them. A
+   * node arriving as operation content is freshly created by the editing
+   * client, so it can never legitimately be a split product or a merge-moved
+   * child — but the wire format carries all of these fields regardless, and
+   * the walks that read them treat them as trusted structural pointers:
+   * `declaredBoundaries` decides from the mergedFrom chain whether a delete
+   * propagates to a node's children. Drop them on the way in rather than let
+   * a peer hand the tree a lineage of its choosing. `reissueContentIDs`
+   * clears the same five fields on the undo path, for the same reason.
    */
   public dropSplitLinks(): void {
     traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
       node.insPrevID = undefined;
       node.insNextID = undefined;
+      node.mergedFrom = undefined;
+      node.mergedAt = undefined;
+      node.mergedInto = undefined;
     });
   }
 
@@ -1105,6 +1112,34 @@ class InsNextWalker {
 }
 
 /**
+ * `DeclaredLineage` answers, for one change, the two questions `styleTargets`
+ * asks of every node it visits: is this node the element a position declared
+ * as its parent (or an ancestor of it), matched through the split lineage.
+ *
+ * Both questions used to be answered per node by walking the declared parent's
+ * whole current ancestry and, for each ancestor, its `insPrevID` chain --
+ * pointers a peer controls, so one style message over a wide range bought
+ * O(range x depth x chain) work, with a fresh cycle-guard set per step, on
+ * every replica that applied it. Nothing in those walks depends on the node
+ * being asked about, so they run once per change here: `covers` is then a set
+ * lookup, and `coversEitherWay`'s one remaining direction is memoized per
+ * node, so each node costs its own chain at most once.
+ */
+interface DeclaredLineage {
+  /**
+   * `covers` reports whether `node` is one of the declared ancestors, or a
+   * piece a split cut off one of them.
+   */
+  covers(node: CRDTTreeNode): boolean;
+
+  /**
+   * `coversEitherWay` is `covers` plus the opposite direction: it also matches
+   * when a declared ancestor is a piece a split cut off `node`.
+   */
+  coversEitherWay(node: CRDTTreeNode): boolean;
+}
+
+/**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement implements GCParent {
@@ -1443,11 +1478,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): {
     skipToken: (token: TreeToken<CRDTTreeNode>) => boolean;
     skipReached: (token: TreeToken<CRDTTreeNode>) => boolean;
+    declaredTo: DeclaredLineage | undefined;
+    declaredFrom: DeclaredLineage | undefined;
   } {
     const isVersionVectorEmpty = !versionVector || versionVector.size() === 0;
     const anchorGuard = this.mergedAnchorInterloperGuard(to, versionVector);
-    const declaredToParent = this.declaredParentOf(to);
-    const declaredFromParent = this.declaredParentOf(from);
+    // Resolved once and handed back to `styleTargets`: the lineage walks are
+    // over peer-supplied pointers and depend only on the change's positions.
+    const declaredTo = this.declaredLineage(to);
+    const declaredFrom = this.declaredLineage(from);
 
     const beganInside = new Set<CRDTTreeNode>();
     for (
@@ -1467,7 +1506,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (
         tokenType === TokenType.End &&
         !isVersionVectorEmpty &&
-        (!declaredToParent || this.endsInside(node, declaredToParent)) &&
+        (!declaredTo || declaredTo.covers(node)) &&
         this.hasUnknownSplitSibling(node, versionVector!)
       ) {
         return true;
@@ -1482,8 +1521,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         tokenType === TokenType.End &&
         !isVersionVectorEmpty &&
         beganInside.has(node) &&
-        declaredFromParent &&
-        !this.beginsInside(node, declaredFromParent)
+        declaredFrom &&
+        !declaredFrom.coversEitherWay(node)
       ) {
         return true;
       }
@@ -1501,7 +1540,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return !!recoveredInterloper && !recoveredInterloper(token[0]);
     };
 
-    return { skipToken, skipReached };
+    return { skipToken, skipReached, declaredTo, declaredFrom };
   }
 
   /**
@@ -1517,30 +1556,101 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `isSplitProductOf` reports whether `node` is `origin` itself or a piece a
-   * split cut off `origin`, by walking back along `insPrevID`. Only
-   * `splitElement` sets `insPrevID` on an element, so the chain is exactly
-   * the split lineage; the walker stops a crafted chain that loops back on
-   * itself, and a text link cuts it.
+   * `splitOriginsOf` walks back along `insPrevID` from `node`, feeding each
+   * element it passes to `visit` and stopping when `visit` returns false.
+   * Only `splitElement` sets `insPrevID` on an element, so the chain is
+   * exactly the split lineage; the walker stops a crafted chain that loops
+   * back on itself, and a text link cuts it.
    */
-  private isSplitProductOf(node: CRDTTreeNode, origin: CRDTTreeNode): boolean {
+  private splitOriginsOf(
+    node: CRDTTreeNode,
+    visit: (origin: CRDTTreeNode) => boolean,
+  ): void {
     const walker = new InsNextWalker();
     let current: CRDTTreeNode | undefined = node;
     walker.visit(current);
-    while (current) {
-      if (current === origin) {
-        return true;
-      }
+    while (current && visit(current)) {
       if (!current.insPrevID) {
-        return false;
+        return;
       }
       const prev = this.findFloorNode(current.insPrevID);
       if (!prev || prev.isText || !walker.visit(prev)) {
-        return false;
+        return;
       }
       current = prev;
     }
-    return false;
+  }
+
+  /**
+   * `declaredLineageOf` resolves, once for a change, everything
+   * `DeclaredLineage` answers about the element a position declared as its
+   * parent: the element's current ancestry, and the split lineage of each
+   * ancestor.
+   */
+  private declaredLineageOf(declaredParent: CRDTTreeNode): DeclaredLineage {
+    // Every element a declared ancestor was split from. `endsInside` asked
+    // this one ancestor at a time; the union answers all of them at once, and
+    // a chain already walked needs no second walk because the chain back from
+    // an element is fixed.
+    const ancestors = new Set<CRDTTreeNode>();
+    const products = new Set<CRDTTreeNode>();
+    for (
+      let ancestor: CRDTTreeNode | undefined = declaredParent;
+      ancestor;
+      ancestor = ancestor.parent as CRDTTreeNode | undefined
+    ) {
+      ancestors.add(ancestor);
+      this.splitOriginsOf(ancestor, (origin) => {
+        if (products.has(origin)) {
+          return false;
+        }
+        products.add(origin);
+
+        return true;
+      });
+    }
+
+    // The opposite direction -- a declared ancestor is a piece split off the
+    // node being asked about -- cannot be precomputed, since it starts from
+    // that node. Memoize it instead: the answer for a node is the answer for
+    // every node whose chain runs through it, so one walk settles the whole
+    // prefix it passed.
+    const reversed = new Map<CRDTTreeNode, boolean>();
+    const reaches = (node: CRDTTreeNode): boolean => {
+      const cached = reversed.get(node);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const walked: Array<CRDTTreeNode> = [];
+      let found = false;
+      this.splitOriginsOf(node, (origin) => {
+        if (ancestors.has(origin)) {
+          found = true;
+
+          return false;
+        }
+        const memo = reversed.get(origin);
+        if (memo !== undefined) {
+          found = memo;
+
+          return false;
+        }
+        walked.push(origin);
+
+        return true;
+      });
+      for (const visited of walked) {
+        reversed.set(visited, found);
+      }
+
+      return found;
+    };
+
+    return {
+      covers: (node: CRDTTreeNode): boolean => products.has(node),
+      coversEitherWay: (node: CRDTTreeNode): boolean =>
+        products.has(node) || reaches(node),
+    };
   }
 
   /**
@@ -1565,40 +1675,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `endsInside` reports whether the change's range ended inside `node`:
-   * whether `node` is the element the range-end position named as its
-   * parent, or an ancestor of it. The ancestry walked is the current one,
-   * and a concurrent split moves the children after the split point into
-   * the new right half, so each ancestor is matched through its split
-   * lineage: every product of splitting `node` stands for `node`.
+   * `declaredLineage` is `declaredLineageOf` for the element `pos` named as
+   * its parent, or undefined when this replica cannot resolve the position.
+   *
+   * `covers` on the result is "the change's range ended inside this node":
+   * whether the node is the element the position named, or an ancestor of it.
+   * The ancestry is the current one, and a concurrent split moves the children
+   * after the split point into the new right half, so each ancestor is matched
+   * through its split lineage: every product of splitting the node stands for
+   * the node.
+   *
+   * `coversEitherWay` is the same question for the range-start position
+   * (§9.6), matching in BOTH directions along the split lineage: a split of
+   * the element the range began inside leaves the start anchor in whichever
+   * half holds it, and both halves are the element the change began inside.
+   * For the range-end side the extra matches would make a guard that excludes
+   * nodes fail open, so that side uses `covers`.
    */
-  private endsInside(
-    node: CRDTTreeNode,
-    declaredToParent: CRDTTreeNode,
-  ): boolean {
-    return this.declaredAncestryHas(declaredToParent, (ancestor) =>
-      this.isSplitProductOf(ancestor, node),
-    );
-  }
+  private declaredLineage(pos: CRDTTreePos): DeclaredLineage | undefined {
+    const declaredParent = this.declaredParentOf(pos);
 
-  /**
-   * `beginsInside` is the same question for the range-start position (§9.6).
-   * It matches in BOTH directions along the split lineage, which `endsInside`
-   * deliberately does not: a split of the element the range began inside
-   * leaves the start anchor in whichever half holds it, and both halves are
-   * the element the change began inside. In `endsInside` the extra matches
-   * would make a guard that excludes nodes fail open.
-   */
-  private beginsInside(
-    node: CRDTTreeNode,
-    declaredFromParent: CRDTTreeNode,
-  ): boolean {
-    return this.declaredAncestryHas(
-      declaredFromParent,
-      (ancestor) =>
-        this.isSplitProductOf(ancestor, node) ||
-        this.isSplitProductOf(node, ancestor),
-    );
+    return declaredParent ? this.declaredLineageOf(declaredParent) : undefined;
   }
 
   /**
@@ -1833,15 +1930,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       fromParent = recovery.fromParent;
       fromLeft = recovery.fromLeft;
     }
-    const { skipToken, skipReached } = this.styleSkipPredicate(
-      from,
-      to,
-      fromParent,
-      versionVector,
-      recovery?.isInterloper,
-    );
-    const declaredFromParent = this.declaredParentOf(from);
-    const declaredToParent = this.declaredParentOf(to);
+    const { skipToken, skipReached, declaredTo, declaredFrom } =
+      this.styleSkipPredicate(
+        from,
+        to,
+        fromParent,
+        versionVector,
+        recovery?.isInterloper,
+      );
 
     const targets: Array<CRDTTreeNode> = [];
     const seen = new Set<CRDTTreeNode>();
@@ -1883,8 +1979,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (
         tokenType === TokenType.End &&
         !isVersionVectorEmpty &&
-        declaredToParent &&
-        !this.endsInside(node, declaredToParent)
+        declaredTo &&
+        !declaredTo.covers(node)
       ) {
         const family = this.splitFamilyOf(node, versionVector);
         // The family is reached only through the node the change knew, which
@@ -1901,8 +1997,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         if (
           family.length &&
           !skipToken([family[0], TokenType.End]) &&
-          declaredFromParent &&
-          this.beginsInside(family[0], declaredFromParent)
+          declaredFrom &&
+          declaredFrom.coversEitherWay(family[0])
         ) {
           family.forEach(add);
         }

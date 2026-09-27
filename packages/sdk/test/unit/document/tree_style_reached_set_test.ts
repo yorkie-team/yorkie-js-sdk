@@ -813,6 +813,15 @@ for (let level = 1; level <= 2; level++) {
  * of them a split of the element the range end is declared in, before that
  * position -- an open rule tracked in yorkie's design doc, to land in both
  * SDKs together.
+ *
+ * Read the 241 honestly: they are permanent divergences on LIVE nodes, and
+ * 152 of them agreed before this branch, so on those pairs this is a
+ * regression traded for the 2569 the branch closes (main scans 2810 here).
+ * They are not left open for want of a local patch: the reached set is a
+ * replicated contract, so a JS-only rule would put every JS client at odds
+ * with the server on these same shapes -- the failure this port exists to
+ * remove. The counts below are exactly yorkie#2070's, which is what makes a
+ * later joint fix checkable on both sides.
  */
 describe('Tree style reached set nested scans', () => {
   it(
