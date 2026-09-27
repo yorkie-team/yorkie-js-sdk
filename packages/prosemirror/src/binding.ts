@@ -373,18 +373,24 @@ export class YorkieProseMirrorBinding {
   /**
    * Whether the composition guard should touch the document's sync mode.
    *
-   * Only `Realtime` and `Polling` pull remote changes without the host asking,
-   * which is the thing that breaks a composing text node. Under `Manual`
-   * nothing arrives unless the host calls `sync()`, and parking a manual
-   * document in `RealtimePushOnly` would start pushing on a schedule the host
-   * deliberately opted out of — so that mode is left exactly as attached and
-   * the deferral in `onRemoteChange` carries the guard on its own.
+   * Only `Realtime` qualifies, and the reason is what `changeSyncMode` does
+   * either side of the pause. `Realtime` and `PausedSyncMode` are both
+   * stream-using modes, so moving between them keeps the existing watch
+   * stream and resolves without a round trip. `Manual` and `Polling` are
+   * stream-*less*: `Client.changeSyncMode` awaits `runWatchLoop()` when it
+   * leaves one of them and cancels the stream on the way back, so pausing a
+   * polling document would open and tear down a server watch stream on every
+   * compositionstart — network the host opted out of by attaching that way,
+   * with the resume queued behind it.
+   *
+   * Neither mode needs the pause anyway: a remote change that lands mid
+   * composition is deferred by `onRemoteChange`/`onSnapshot` regardless of
+   * sync mode, which is what actually protects the composing text node. The
+   * mode change is only an optimization that stops the changes arriving in
+   * the first place, so the modes where it costs a stream skip it.
    */
   private managesSyncMode(): boolean {
-    return (
-      this.baseSyncMode === SyncMode.Realtime ||
-      this.baseSyncMode === SyncMode.Polling
-    );
+    return this.baseSyncMode === SyncMode.Realtime;
   }
 
   private pauseRemoteSync(): void {

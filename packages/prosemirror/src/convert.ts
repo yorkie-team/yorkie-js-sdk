@@ -82,25 +82,71 @@ function isScriptUrl(raw: string): boolean {
  * document does not grow it, and it is capped so a peer streaming distinct
  * blocked URLs cannot grow it without bound. Past the cap the value falls
  * back to the empty string — safe, but no longer round-trip preserving.
+ *
+ * Two properties keep the restore side from becoming a laundering channel,
+ * because restoring means writing a live script URL back into the shared
+ * tree under *this* client's identity:
+ *
+ * 1. Each placeholder carries 128 bits of randomness rather than a counter.
+ *    A counter is a predictable token, so a peer could send the literal
+ *    string `about:blank#yorkie-blocked-3` as an attribute value, have it
+ *    pass the inbound check untouched (it is an inert `about:` URL), and be
+ *    handed back whatever the third blocked URL in this page was — its own
+ *    primed `javascript:` payload, or a value blocked in a different
+ *    document sharing the module. An unguessable token cannot be named by
+ *    someone who never saw it, and the placeholder is only ever rendered
+ *    locally; it is never pushed upstream.
+ * 2. Restoring is gated on the same attribute names the blocking was, so a
+ *    placeholder planted under a key the sanitizer never inspects — where
+ *    condition 1 does not apply because the peer could have observed a token
+ *    leak — is left as the inert string it is.
  */
 const BlockedUrlPrefix = 'about:blank#yorkie-blocked-';
 const MaxBlockedUrls = 1024;
 const blockedUrlByOriginal = new Map<string, string>();
 const originalByBlockedUrl = new Map<string, string>();
 
+/** 128 unguessable bits, hex-encoded, for one placeholder. */
+function randomPlaceholderToken(): string {
+  const bytes = new Uint8Array(16);
+  const webCrypto = globalThis.crypto;
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    webCrypto.getRandomValues(bytes);
+  } else {
+    // No WebCrypto (an old jsdom, a non-secure context). `Math.random` is not
+    // a CSPRNG, but the alternative is a predictable counter, which is the
+    // exact thing the token exists to avoid.
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  let hex = '';
+  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
+  return hex;
+}
+
 /** The placeholder standing in for `raw`, registering it on first sight. */
 function blockUrlValue(raw: string): string {
   const existing = blockedUrlByOriginal.get(raw);
   if (existing !== undefined) return existing;
   if (blockedUrlByOriginal.size >= MaxBlockedUrls) return '';
-  const placeholder = `${BlockedUrlPrefix}${blockedUrlByOriginal.size + 1}`;
+  const placeholder = `${BlockedUrlPrefix}${randomPlaceholderToken()}`;
   blockedUrlByOriginal.set(raw, placeholder);
   originalByBlockedUrl.set(placeholder, raw);
   return placeholder;
 }
 
-/** The original a placeholder stands in for, or the value itself. */
-function restoreBlockedUrl(value: string): string {
+/**
+ * The original a placeholder stands in for, or the value itself.
+ *
+ * `key` is not decoration: only a value this client blocked under a URL
+ * attribute may be restored, which is the same gate `deserializeAttrs`
+ * applies inbound. Restoring unconditionally would let any attribute value
+ * that merely looks like a placeholder be swapped for a blocked URL on its
+ * way into the shared tree.
+ */
+function restoreBlockedUrl(key: string, value: string): string {
+  if (!UrlAttrNames.has(key)) return value;
   if (!value.startsWith(BlockedUrlPrefix)) return value;
   return originalByBlockedUrl.get(value) ?? value;
 }
@@ -191,7 +237,7 @@ function serializeAttrs(
   let hasAttrs = false;
   for (const [key, value] of Object.entries(attrs)) {
     if (value != null) {
-      result[key] = restoreBlockedUrl(String(value));
+      result[key] = restoreBlockedUrl(key, String(value));
       hasAttrs = true;
     }
   }
@@ -300,7 +346,9 @@ export function pmToYorkie(
             // Same restore as `serializeAttrs`: a sanitized `href` must go
             // back to the tree as the peer wrote it, not as the placeholder
             // this client rendered.
-            if (v != null) wrapper.attributes[k] = restoreBlockedUrl(String(v));
+            if (v != null) {
+              wrapper.attributes[k] = restoreBlockedUrl(k, String(v));
+            }
           }
         }
         yorkieNode = wrapper;

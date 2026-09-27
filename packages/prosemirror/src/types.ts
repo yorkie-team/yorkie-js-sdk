@@ -112,9 +112,12 @@ export type YorkieProseMirrorOptions = {
    * the current mode back off the client, so pass it here whenever it is not
    * the default.
    *
-   * Only `Realtime` and `Polling` pull remote changes on their own, so those
-   * are the only modes the binding pauses at all; under `Manual` it leaves the
-   * mode alone and relies on deferring the changes a host-driven sync pulls.
+   * `Realtime` is the only mode the binding pauses at all. `Polling` and
+   * `Manual` are stream-less, and `changeSyncMode` opens a watch stream on
+   * the way out of one and cancels it on the way back — network the host
+   * opted out of, on every composition. For those the binding leaves the
+   * mode alone and relies on deferring the remote changes that arrive, which
+   * is what protects the composing text node in every mode anyway.
    *
    * Defaults to `SyncMode.Realtime`.
    */

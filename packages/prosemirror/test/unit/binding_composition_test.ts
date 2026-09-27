@@ -243,10 +243,12 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     ]);
   });
 
-  it('should return to the host-chosen mode, not realtime', async () => {
-    // A document attached as Polling must still be Polling once the
-    // composition is over; resuming to Realtime would promote it behind the
-    // host's back, and the retry loop would re-drive that promotion.
+  it('should leave the sync mode of a polling document alone', async () => {
+    // Polling is a stream-less mode: `Client.changeSyncMode` awaits
+    // `runWatchLoop()` on the way into RealtimePushOnly and cancels the
+    // stream on the way back, so pausing here would open and tear down a
+    // watch stream on every composition. The deferral in `onRemoteChange`
+    // guards the composing text node without any of that.
     const { view, client } = setup(createMockClient(), SyncMode.Polling);
 
     view.fire('compositionstart');
@@ -254,10 +256,7 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     view.fire('compositionend');
     await flushFrames();
 
-    assert.deepEqual(client.modes, [
-      SyncMode.RealtimePushOnly,
-      SyncMode.Polling,
-    ]);
+    assert.deepEqual(client.modes, []);
   });
 
   it('should leave the sync mode of a manual document alone', async () => {

@@ -415,12 +415,17 @@ describe('convert', () => {
         }
       });
 
-      /** The inert value the sanitizer renders a blocked URL as. */
+      /**
+       * The inert value the sanitizer renders a blocked URL as. The token is
+       * 128 random bits, not a counter: a predictable placeholder could be
+       * sent *by* a peer as a literal attribute value and swapped back for
+       * someone else's blocked URL on the way upstream.
+       */
       function assertBlocked(value: unknown, label: string) {
         assert.isString(value, label);
         assert.match(
           value as string,
-          /^about:blank#yorkie-blocked-\d+$/,
+          /^about:blank#yorkie-blocked-[0-9a-f]{32}$/,
           label,
         );
       }
@@ -524,6 +529,60 @@ describe('convert', () => {
           roundTripped.children![0].children![0].attributes!.href,
           href,
         );
+      });
+
+      it('should not restore a placeholder a peer supplied itself', () => {
+        // The laundering vector: prime the registry with a script URL, then
+        // send the placeholder back as a literal attribute value. If the
+        // restore step trusted the shape alone, this client would write the
+        // live scheme into the shared tree under its own identity.
+        const href = 'javascript:alert(1)';
+        const primed = yorkieToJSON(
+          yElem('link', [yText('x')], { href }),
+          elementToMarkMapping,
+        ) as Array<{ marks: Array<{ attrs: Record<string, unknown> }> }>;
+        const placeholder = primed[0].marks[0].attrs.href as string;
+        assertBlocked(placeholder, href);
+
+        // Every token a peer can actually name is one it never saw — the
+        // placeholder is rendered locally and restored before anything is
+        // pushed, so it is never in the shared tree. A guess at the old
+        // counter shape, or at any other token, comes back untouched.
+        for (const planted of [
+          'about:blank#yorkie-blocked-1',
+          'about:blank#yorkie-blocked-',
+          `about:blank#yorkie-blocked-${'0'.repeat(32)}`,
+        ]) {
+          const doc = yElem('doc', [
+            yElem('paragraph', [
+              yElem('link', [yText('x')], { href: planted }),
+            ]),
+          ]);
+          const json = yorkieToJSON(doc, elementToMarkMapping);
+          const pmNode = Node.fromJSON(testSchema, json as never);
+          const roundTripped = pmToYorkie(pmNode, markMapping);
+          const out = roundTripped.children![0].children![0].attributes!.href;
+          assert.equal(out, planted, planted);
+          assert.notEqual(out, href, planted);
+        }
+      });
+
+      it('should not restore a placeholder under a non-URL attribute', () => {
+        // Restoring is gated on the same attribute names the blocking was.
+        // A placeholder planted under a key the sanitizer never inspects is
+        // left as the inert string it is.
+        const href = 'javascript:alert(1)';
+        const primed = yorkieToJSON(
+          yElem('link', [yText('x')], { href }),
+          elementToMarkMapping,
+        ) as Array<{ marks: Array<{ attrs: Record<string, unknown> }> }>;
+        const placeholder = primed[0].marks[0].attrs.href as string;
+
+        const node = yElem('image', [], { alt: placeholder });
+        const json = yorkieToJSON(node, elementToMarkMapping) as {
+          attrs: Record<string, unknown>;
+        };
+        assert.equal(json.attrs.alt, placeholder);
       });
 
       it('should leave a non-URL non-string attribute untouched', () => {
