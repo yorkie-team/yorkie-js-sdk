@@ -41,10 +41,13 @@ then Green, in its own commit.
             `boundaryRangeCovers`, and the collapsed-or-empty rule in
             `reversedFromAnchorRecovery`.
       - [x] Reject a backwards range in `styleByPath`/`removeStyleByPath`.
-      - [x] JS-only: a split family reached through an End token is styled
-            only if the change began inside it. Go main diverges on the
-            split-2 x style `A -> B` integration case without it; see
-            lessons.
+      - [x] A split family reached through an End token is styled only if
+            the change began inside it. Go main diverged on the split-2 x
+            style `A -> B` integration case without it; yorkie#2070 ports the
+            same check to Go (§9.2 Fix 27, Port specification rule 2(c)).
+            The two PRs should merge together.
+      - [x] Port Go's nested split scan from yorkie#2070 (42 splits at
+            levels 1-2 x 276 ranges) with its counts.
       - [x] Port Go `tree_style_reached_set_test.go`: the four pinned
             pairs, the thirteen complex-suite goldens and the exhaustive
             split/merge scans with Go's absolute counts.
@@ -63,7 +66,7 @@ then Green, in its own commit.
 
 - [x] `pnpm verify:fast` green per commit.
 - [x] `pnpm sdk test` against a local `yorkieteam/yorkie:latest`: 102 files,
-      3252 passed.
+      3252 passed (before the nested scan was added).
 
 ## Review
 
@@ -74,3 +77,7 @@ then Green, in its own commit.
 - J2: `tree_style_reached_set_test.ts` 10 of 23 fail on `main` (scans report
   135 and 297 rendered divergences, Go's "before"), all pass here with Go's
   absolute counts.
+- Nested scan: JS matches yorkie#2070 exactly — 2810 rendered divergences on
+  `main`, 241 here, 9318 / 33208 reached; 152 of the 241 converged on `main`
+  (Go reports the same 152, all a split of the range end's declared element
+  before that position). Left open, as in Go.

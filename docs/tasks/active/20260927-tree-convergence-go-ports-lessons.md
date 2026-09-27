@@ -32,11 +32,16 @@ reached through its End token alone only when the range began inside it
 (§9.6's own reasoning). Requiring `beginsInside(family[0], declaredFromParent)`
 closes it and changes none of Go's scan counts.
 
-That makes this one JS-only rule. Choosing Go's behaviour would have kept two
-JS clients diverging on a pair that converged before the port. It needs a
-mirror fix in Go; until then a JS client and the server snapshot differ for
-that shape (they already differed there before this PR, in the other
-direction).
+This started as a JS-only rule: choosing Go's behaviour would have kept two
+JS clients diverging on a pair that converged before the port. Go has since
+adopted the same check verbatim as §9.2 Fix 27 / Port specification rule
+2(c) in yorkie#2070, so the two PRs should merge together; until both
+release, a JS client and the server snapshot differ on that shape.
+
+yorkie#2070 also added a nested scan (42 splits at levels 1-2 x 276 ranges).
+Ported here, JS reproduces its counts exactly: 2810 rendered divergences on
+`main`, 241 on this branch, and 152 of those 241 converged on `main` -- the
+same 152 Go reports, left for the §9.5 rule that has to land in both SDKs.
 
 ## Smaller behaviour differences, all toward Go
 
@@ -66,13 +71,14 @@ An independent pass compared every ported function with Go's line by line
 and found them equivalent, including `declaredParentOf` against
 `ToTreeNodes` and an undefined version vector against `len(vv) == 0`.
 
-- **Blocking as raised: the JS-only split-family guard.** The reviewer agrees
+- **Blocking as raised: the split-family guard (then JS-only).** The reviewer agrees
   the reasoning holds and traced the level-2 case the same way. Its concern is
   that the server runs Go, so JS and the server snapshot differ on that shape
   until yorkie adopts the same check. Not changed here: dropping the guard
   makes two JS clients diverge on a pair that converged before this PR, which
   is the worse failure, and the Go side cannot be fixed from this repository.
-  Filed as the follow-up in the PR body instead.
+  Filed as the follow-up in the PR body instead; resolved by yorkie#2070,
+  which ports the same check to Go.
 - `styleTargets` said its result is in document order; boundary elements are
   appended after the traversal (as in Go). Comment corrected.
 - No test redid a split reverse. The multi-op undo case now also redoes and
