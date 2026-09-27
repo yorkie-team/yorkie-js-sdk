@@ -3280,21 +3280,34 @@ export class Client {
 
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
-      // NOTE(chacha912, hackerwins): If syncLoop already executed with
-      // PushPull, ignore the response when the syncMode is PushOnly.
-      if (
-        respPack.hasChanges() &&
+      // NOTE(chacha912, hackerwins): A request sent with PushPull, e.g. an
+      // explicit sync(doc), still pulls while the document is in PushOnly or
+      // SyncOff. Ignore any remote state it brings back, a snapshot included:
+      // the server seq stays put, so the skipped state is pulled again once
+      // realtime sync resumes. The push itself did land, so still take the
+      // client seq ack rather than push the same changes again — along with
+      // the pack's metadata (compaction epoch, removal flag), which describes
+      // the document rather than the content being skipped.
+      const dropsRemoteState =
+        (respPack.hasChanges() || respPack.hasSnapshot()) &&
         (attachment.syncMode === SyncMode.RealtimePushOnly ||
-          attachment.syncMode === SyncMode.RealtimeSyncOff)
-      ) {
-        return doc;
+          attachment.syncMode === SyncMode.RealtimeSyncOff);
+      if (dropsRemoteState) {
+        doc.acknowledgePushedChanges(respPack);
+      } else {
+        doc.applyChangePack(respPack);
       }
-
-      doc.applyChangePack(respPack);
       attachment.updateHeartbeatTime();
 
+      // Whether the response actually moved the root. A dropped pack does not:
+      // it only takes the push ack, which leaves the document exactly where the
+      // pure push-ack branches below expect it.
+      const movedRoot =
+        !dropsRemoteState && (respPack.hasChanges() || respPack.hasSnapshot());
+
       // Re-persist after a successful sync when a store is configured. A push
-      // that is merely acked (nothing pulled) advances the checkpoint and
+      // that is merely acked (nothing pulled, or a pulled pack dropped because
+      // the document is in PushOnly/SyncOff) advances the checkpoint and
       // drops the pushed changes from `localChanges` without emitting any
       // Remote/Snapshot event, so the event-driven persist alone would leave
       // the stored envelope holding already-pushed changes and a stale
@@ -3308,18 +3321,9 @@ export class Client {
               `failed:`,
             err,
           );
-        if (respPack.hasChanges() || respPack.hasSnapshot()) {
-          // The response moved the root, and the append log holds *local*
-          // changes only — nothing in it carries remote content. Writing meta
-          // alone would advance the persisted `serverSeq` past a root the
-          // store never received, so the server would never resend those
-          // changes and this replica would lose them permanently while
-          // claiming to hold them. A snapshot is the only thing that records
-          // them.
-          //
-          // Cost: a pull re-serializes the document. That is the price of a
-          // local-only log; persisting remote changes incrementally as well
-          // would avoid it and is the natural follow-up.
+        // Folds everything the document holds into a fresh snapshot and
+        // rebases the log accounting onto it.
+        const reSnapshot = () => {
           const snapshot = this.snapshotWithinBudget(doc, storeKey);
           const state = this.persistStates.get(storeKey);
           if (state && snapshot) {
@@ -3337,36 +3341,60 @@ export class Client {
           if (snapshot) {
             this.persistSnapshotOrPoison(storeKey, snapshot, onError);
           }
-        } else if (this.persistStates.get(storeKey)?.poisoned) {
-          // A pure push-ack, but the log has a hole: the change that failed to
-          // append lives only in memory. Writing the header would put the
-          // persisted `serverSeq` past content the store does not hold — and
-          // since it is our own acked change, the server will never resend it.
-          // Repair with a snapshot, which embeds the whole pending queue.
+        };
+
+        if (movedRoot) {
+          // The response moved the root, and the append log holds *local*
+          // changes only — nothing in it carries remote content. Writing meta
+          // alone would advance the persisted `serverSeq` past a root the
+          // store never received, so the server would never resend those
+          // changes and this replica would lose them permanently while
+          // claiming to hold them. A snapshot is the only thing that records
+          // them.
           //
-          // The repair-on-next-edit path cannot cover this: a sync, or a tab
-          // close, gets there first.
-          const repaired = this.snapshotWithinBudget(doc, storeKey);
-          const state = this.persistStates.get(storeKey);
-          if (state && repaired) {
-            state.snapshotBytes = repaired.length;
-            state.logBytes = 0;
-            state.changeCount = 0;
-            state.poisoned = false;
-            state.lastAppendedClientSeq = doc
-              .getPendingChangesAfter(0)
-              .reduce(
-                (max, pending) => Math.max(max, pending.clientSeq),
-                doc.getCheckpoint().getClientSeq(),
-              );
-          }
-          if (repaired) {
-            this.persistSnapshotOrPoison(storeKey, repaired, onError);
-          }
+          // Cost: a pull re-serializes the document. That is the price of a
+          // local-only log; persisting remote changes incrementally as well
+          // would avoid it and is the natural follow-up.
+          reSnapshot();
         } else {
-          // A pure push-ack on a healthy log: the root did not move, so the
-          // cheap header write is both sufficient and correct.
-          this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
+          // A pure push-ack. Which write is correct turns on `poisoned`, and
+          // that flag is only ever raised from an append's *rejection*
+          // callback — with a real async store an append that is going to
+          // fail can still be in flight when the sync response lands. Sampling
+          // it now would read a healthy log, pick the cheap header write, and
+          // queue it over the hole that append is about to leave. So decide
+          // once the writes already queued for this key have settled; both
+          // candidate writes chain onto that same queue anyway, so waiting
+          // reorders nothing.
+          const decide = () => {
+            // A removal learned from this very sync has already dropped the
+            // envelope by now; re-writing it here would resurrect an entry
+            // pointing at a server row that no longer exists.
+            if (doc.getStatus() === DocStatus.Removed) {
+              return;
+            }
+            if (this.persistStates.get(storeKey)?.poisoned) {
+              // The log has a hole: the change that failed to append lives
+              // only in memory. Writing the header would put the persisted
+              // `serverSeq` past content the store does not hold — and since
+              // it is our own acked change, the server will never resend it.
+              // Repair with a snapshot, which embeds the whole pending queue.
+              //
+              // The repair-on-next-edit path cannot cover this: a sync, or a
+              // tab close, gets there first.
+              reSnapshot();
+            } else {
+              // A healthy log: the root did not move, so the cheap header
+              // write is both sufficient and correct.
+              this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
+            }
+          };
+          const queued = this.persistQueues.get(storeKey);
+          if (queued) {
+            void queued.then(decide, decide);
+          } else {
+            decide();
+          }
         }
       }
 
