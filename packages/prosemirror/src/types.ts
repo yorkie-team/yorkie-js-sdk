@@ -102,4 +102,21 @@ export type YorkieProseMirrorOptions = {
   client?: {
     changeSyncMode(doc: any, syncMode: SyncMode): Promise<any>;
   };
+  /**
+   * The sync mode the document is attached in.
+   *
+   * The binding parks the document in a push-only mode for the duration of an
+   * IME composition and returns it to this mode afterwards, so a host that
+   * attached with `SyncMode.Polling` or `SyncMode.Manual` is not silently
+   * promoted to `Realtime` by the first composition. There is no way to read
+   * the current mode back off the client, so pass it here whenever it is not
+   * the default.
+   *
+   * Only `Realtime` and `Polling` pull remote changes on their own, so those
+   * are the only modes the binding pauses at all; under `Manual` it leaves the
+   * mode alone and relies on deferring the changes a host-driven sync pulls.
+   *
+   * Defaults to `SyncMode.Realtime`.
+   */
+  syncMode?: SyncMode;
 };

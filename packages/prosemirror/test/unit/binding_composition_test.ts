@@ -203,7 +203,7 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
   }
 
   /** Build an initialized binding wired to the mocks above. */
-  function setup(client = createMockClient()) {
+  function setup(client = createMockClient(), syncMode?: SyncMode) {
     const view = createMockView();
     const yorkieDoc = createMockDoc();
     const binding = new YorkieProseMirrorBinding(
@@ -212,6 +212,7 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
       'tree',
       {
         client,
+        syncMode,
       },
     );
     binding.initialize();
@@ -240,6 +241,36 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
       SyncMode.RealtimePushOnly,
       SyncMode.Realtime,
     ]);
+  });
+
+  it('should return to the host-chosen mode, not realtime', async () => {
+    // A document attached as Polling must still be Polling once the
+    // composition is over; resuming to Realtime would promote it behind the
+    // host's back, and the retry loop would re-drive that promotion.
+    const { view, client } = setup(createMockClient(), SyncMode.Polling);
+
+    view.fire('compositionstart');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    view.fire('compositionend');
+    await flushFrames();
+
+    assert.deepEqual(client.modes, [
+      SyncMode.RealtimePushOnly,
+      SyncMode.Polling,
+    ]);
+  });
+
+  it('should leave the sync mode of a manual document alone', async () => {
+    // Nothing arrives under Manual unless the host syncs, and parking it in
+    // RealtimePushOnly would start pushing on a schedule it opted out of.
+    const { view, client } = setup(createMockClient(), SyncMode.Manual);
+
+    view.fire('compositionstart');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    view.fire('compositionend');
+    await flushFrames();
+
+    assert.deepEqual(client.modes, []);
   });
 
   it('should stay push-only when a new composition starts before the flush', async () => {

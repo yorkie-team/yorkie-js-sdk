@@ -415,7 +415,17 @@ describe('convert', () => {
         }
       });
 
-      it('should blank a script URL in a remote mark attribute', () => {
+      /** The inert value the sanitizer renders a blocked URL as. */
+      function assertBlocked(value: unknown, label: string) {
+        assert.isString(value, label);
+        assert.match(
+          value as string,
+          /^about:blank#yorkie-blocked-\d+$/,
+          label,
+        );
+      }
+
+      it('should neutralize a script URL in a remote mark attribute', () => {
         for (const href of [
           'javascript:alert(1)',
           'JaVaScRiPt:alert(1)',
@@ -430,18 +440,18 @@ describe('convert', () => {
           const arr = result as Array<{
             marks: Array<{ attrs: Record<string, unknown> }>;
           }>;
-          assert.equal(arr[0].marks[0].attrs.href, '', href);
+          assertBlocked(arr[0].marks[0].attrs.href, href);
         }
       });
 
-      it('should blank a script URL in a remote node attribute', () => {
+      it('should neutralize a script URL in a remote node attribute', () => {
         const node = yElem('image', [], { src: 'javascript:alert(1)' });
         const result = yorkieToJSON(node, elementToMarkMapping);
         const pmNode = result as { attrs: Record<string, unknown> };
-        assert.equal(pmNode.attrs.src, '');
+        assertBlocked(pmNode.attrs.src, 'src');
       });
 
-      it('should blank a script URL hidden behind a non-string value', () => {
+      it('should neutralize a script URL behind a non-string value', () => {
         // Attributes reach the converter as `JSON.parse` output (the SDK's
         // `parseObjectValues`, via `CRDTTree.toJSON`), and `tree.style` types
         // its attributes as `any` — so a peer can store `href` as an array or
@@ -456,8 +466,64 @@ describe('convert', () => {
           const arr = result as Array<{
             marks: Array<{ attrs: Record<string, unknown> }>;
           }>;
-          assert.equal(arr[0].marks[0].attrs.href, '', JSON.stringify(href));
+          assertBlocked(arr[0].marks[0].attrs.href, JSON.stringify(href));
         }
+      });
+
+      it('should blank a value whose string conversion throws', () => {
+        // Fail closed: an uninspectable value is not one to hand to `toDOM`.
+        const href = {
+          toString() {
+            throw new Error('nope');
+          },
+        };
+        const node = yElem('link', [yText('click')], {
+          href,
+        } as unknown as Record<string, string>);
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const arr = result as Array<{
+          marks: Array<{ attrs: Record<string, unknown> }>;
+        }>;
+        assert.equal(arr[0].marks[0].attrs.href, '');
+      });
+
+      it('should not let a `__proto__` attribute smuggle in an href', () => {
+        // On an object literal, `result['__proto__'] = {...}` is a prototype
+        // assignment, so a sanitizer that only inspects own keys sees no
+        // `href` while ProseMirror's `computeAttrs` still resolves one up the
+        // chain. The attrs object must have no prototype to inherit from.
+        // `JSON.parse` is how these attributes really arrive, and it defines
+        // `__proto__` as an *own* property — the shape that poisons a literal.
+        const attributes = JSON.parse(
+          '{"__proto__":{"href":"javascript:alert(1)"}}',
+        ) as Record<string, string>;
+        const node = yElem('link', [yText('click')], attributes);
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const arr = result as Array<{
+          marks: Array<{ attrs: Record<string, unknown> }>;
+        }>;
+        const attrs = arr[0].marks[0].attrs;
+        assert.isNull(Object.getPrototypeOf(attrs));
+        assert.isUndefined(attrs.href);
+      });
+
+      it('should restore a neutralized URL when re-serialized upstream', () => {
+        // `syncToYorkie` re-serializes the whole local PM doc, so a rendering
+        // decision that survived into `pmToYorkie` would be pushed back into
+        // the shared tree and destroy the attribute for every peer.
+        const href = 'javascript:alert(1)';
+        const yorkieDoc = yElem('doc', [
+          yElem('paragraph', [yElem('link', [yText('click')], { href })]),
+        ]);
+        const json = yorkieToJSON(yorkieDoc, elementToMarkMapping);
+        const pmNode = Node.fromJSON(testSchema, json as never);
+        assertBlocked(pmNode.firstChild!.firstChild!.marks[0].attrs.href, href);
+
+        const roundTripped = pmToYorkie(pmNode, markMapping);
+        assert.equal(
+          roundTripped.children![0].children![0].attributes!.href,
+          href,
+        );
       });
 
       it('should leave a non-URL non-string attribute untouched', () => {

@@ -82,3 +82,34 @@ hostile to begin with — which is healing, not corruption.
 such trade-off: the type is remote-controlled and the mapping is a plain
 object, so a node named `constructor` resolved to an inherited function and was
 spliced into the mark stack as a mark type. An own-key check is pure gain.
+
+## Review round: the deny-list still had to stop writing to the CRDT
+
+The panel came back on the same trade-off from the other side. A deny-list
+narrows the false positives, but it does not remove them, and a false positive
+is not a render-time blank: it is echoed upstream and destroys the attribute
+for every peer. The answer was to stop making the sanitizer's output the thing
+that round-trips. `deserializeAttrs` now substitutes an inert
+`about:blank#yorkie-blocked-N` placeholder and `pmToYorkie` swaps the peer's
+original back in, so the CRDT is byte-identical however the check decides. With
+the round trip made harmless, the `String(value)` `catch` could also flip from
+fail-open to fail-closed, which is where it belonged all along.
+
+The attrs object itself was the other half. `result[key] = value` on an object
+literal with `key === '__proto__'` is a *prototype assignment*, not an own
+write — so a peer sending `__proto__: {href: 'javascript:…'}` left the
+sanitizer nothing to inspect while ProseMirror's `computeAttrs`, which reads
+`value[name]` straight through the chain, still resolved an href.
+`Object.create(null)` removes the chain entirely; it also covers the
+`constructor`/`toString` shape of the same bug for free.
+
+## Review round: resume must return to the mode the host attached in
+
+`resumeRemoteSync()` hardcoded `SyncMode.Realtime`, so a document attached as
+`Polling` or `Manual` was silently promoted by the first IME composition — and
+the new retry loop re-drove that promotion up to three times. Nothing on the
+client reads the current mode back, so the binding now takes it as
+`options.syncMode` and resumes to that. `Manual` goes further and opts out of
+the pause altogether: nothing arrives unless the host syncs, and parking a
+manual document in `RealtimePushOnly` would start pushing on a schedule the
+host deliberately declined.

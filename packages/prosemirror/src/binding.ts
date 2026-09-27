@@ -97,7 +97,16 @@ export class YorkieProseMirrorBinding {
   private isSyncing = false;
   private isComposing = false;
   private isSyncPaused = false;
-  private desiredSyncMode: SyncMode = SyncMode.Realtime;
+  /**
+   * The mode the document is attached in, and the one a resume returns it to.
+   *
+   * Nothing on the client reads the current mode back, so this is whatever the
+   * host declared via `options.syncMode`. Resuming to a hardcoded `Realtime`
+   * instead would promote a document the host attached as `Polling` or
+   * `Manual` the first time anyone used an IME.
+   */
+  private baseSyncMode: SyncMode;
+  private desiredSyncMode: SyncMode;
   private syncModeChangeQueue: Promise<void> = Promise.resolve();
   private composingBlockRange: { from: number; to: number } | undefined =
     undefined;
@@ -133,6 +142,8 @@ export class YorkieProseMirrorBinding {
     this.publishSelection = options.publishSelection;
     this.onLog = options.onLog;
     this.client = options.client;
+    this.baseSyncMode = options.syncMode ?? SyncMode.Realtime;
+    this.desiredSyncMode = this.baseSyncMode;
 
     if (options.cursors?.enabled) {
       this.cursorManager = new CursorManager(options.cursors);
@@ -352,19 +363,38 @@ export class YorkieProseMirrorBinding {
           if (this.desiredSyncMode === nextMode) {
             this.desiredSyncMode = this.isSyncPaused
               ? PausedSyncMode
-              : SyncMode.Realtime;
+              : this.baseSyncMode;
           }
           return undefined;
         },
       );
   }
 
+  /**
+   * Whether the composition guard should touch the document's sync mode.
+   *
+   * Only `Realtime` and `Polling` pull remote changes without the host asking,
+   * which is the thing that breaks a composing text node. Under `Manual`
+   * nothing arrives unless the host calls `sync()`, and parking a manual
+   * document in `RealtimePushOnly` would start pushing on a schedule the host
+   * deliberately opted out of — so that mode is left exactly as attached and
+   * the deferral in `onRemoteChange` carries the guard on its own.
+   */
+  private managesSyncMode(): boolean {
+    return (
+      this.baseSyncMode === SyncMode.Realtime ||
+      this.baseSyncMode === SyncMode.Polling
+    );
+  }
+
   private pauseRemoteSync(): void {
+    if (!this.managesSyncMode()) return;
     this.setRemoteSyncMode(PausedSyncMode);
   }
 
   private resumeRemoteSync(): void {
-    this.setRemoteSyncMode(SyncMode.Realtime);
+    if (!this.managesSyncMode()) return;
+    this.setRemoteSyncMode(this.baseSyncMode);
   }
 
   /**

@@ -298,6 +298,13 @@ export function syncToYorkie(
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
   wrapperElementName: string = 'span',
 ): void {
+  // Both docs are re-serialized wholesale, so every block this function
+  // rewrites is pushed to peers as whatever the local PM doc holds — including
+  // blocks the user never touched. `pmToYorkie` therefore has to be
+  // round-trip faithful: the URL sanitizer in `yorkieToJSON` renders a blocked
+  // scheme as an inert placeholder and `pmToYorkie` restores the peer's
+  // original, so a local rendering decision is never written back into the
+  // shared tree.
   const oldYorkie = pmToYorkie(oldDoc, markMapping, wrapperElementName);
   const newYorkie = pmToYorkie(newDoc, markMapping, wrapperElementName);
   const oldBlocks = oldYorkie.children || [];
