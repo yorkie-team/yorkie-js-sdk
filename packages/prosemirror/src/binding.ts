@@ -230,6 +230,20 @@ export class YorkieProseMirrorBinding {
     return this.doc.getRoot()[this.treePath];
   }
 
+  /**
+   * Whether the binding may still read from and dispatch into its view.
+   *
+   * `view.destroy(); binding.destroy();` is a supported ordering, and in the
+   * window between those two calls the document and presence subscriptions are
+   * still live: an event arriving there reaches `view.state` / `view.dispatch`
+   * on a view whose `docView` is already gone, which throws out of the SDK's
+   * subscriber callback. Every path that touches the view from a subscription
+   * or a deferred frame checks this first.
+   */
+  private canTouchView(): boolean {
+    return !this.isDestroyed && !(this.view as any).isDestroyed;
+  }
+
   private setupCompositionListeners(): void {
     const dom = this.view.dom;
     dom.addEventListener('compositionstart', this.onCompositionStart);
@@ -377,6 +391,11 @@ export class YorkieProseMirrorBinding {
       // Resume sync first so accumulated remote changes arrive
       this.resumeRemoteSync();
 
+      // The view can be destroyed before the binding is, leaving this frame
+      // scheduled with nothing to apply it to. The resume above still has to
+      // run — it is what takes the document back out of `PausedSyncMode`.
+      if (!this.canTouchView()) return;
+
       // Apply any accumulated remote content changes
       try {
         this.isSyncing = true;
@@ -499,6 +518,8 @@ export class YorkieProseMirrorBinding {
 
   private setupDocSubscription(): void {
     const unsubscribe = this.doc.subscribe((event: any) => {
+      // The view can be torn down before destroy() unsubscribes this.
+      if (!this.canTouchView()) return;
       if (event.type === 'snapshot') {
         this.onSnapshot();
         return;
@@ -592,6 +613,8 @@ export class YorkieProseMirrorBinding {
     if (!this.cursorManager) return;
 
     const unsubscribe = this.doc.subscribe('others' as any, (event: any) => {
+      // The view can be torn down before destroy() unsubscribes this.
+      if (!this.canTouchView()) return;
       if (event.type === 'presence-changed') {
         const { clientID, presence } = event.value;
         if (presence.selection) {
@@ -647,6 +670,11 @@ export class YorkieProseMirrorBinding {
   }
 
   private applySelectionDecorations(): void {
+    // Last line of defence for the `view.destroy(); binding.destroy();`
+    // window: unlike the two sync paths this one has no try/catch, so a
+    // dispatch into a destroyed view would escape into the caller — the SDK's
+    // presence subscriber, or the deferred compositionend frame.
+    if (!this.canTouchView()) return;
     const selections = Array.from(this.remoteSelections.values());
     const tr = this.view.state.tr;
     tr.setMeta(remoteSelectionsKey, selections);

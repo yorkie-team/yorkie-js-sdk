@@ -63,6 +63,24 @@ function createMockView() {
 }
 
 /**
+ * Mirror an `EditorView` that was destroyed first: `isDestroyed` is set, and
+ * everything that runs into the nulled `docView` — `state`, `dispatch`,
+ * `setProps` — throws.
+ */
+function markViewDestroyed(view: ReturnType<typeof createMockView>): void {
+  const destroyed = () => {
+    throw new TypeError('view is destroyed');
+  };
+  Object.defineProperty(view, 'state', { get: destroyed });
+  Object.assign(view, {
+    isDestroyed: true,
+    dispatch: destroyed,
+    updateState: destroyed,
+    setProps: destroyed,
+  });
+}
+
+/**
  * Yorkie document stand-in holding a tree that mirrors the PM doc. `text` is
  * the paragraph content the tree serializes, so a test can swap it out before
  * emitting a snapshot.
@@ -366,16 +384,50 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
 
   it('should not touch a view destroyed before the binding', () => {
     const { view, binding } = setup();
-    // Mirror EditorView after destroy(): isDestroyed is set and setProps
-    // throws, since it runs into the nulled docView.
-    Object.assign(view, {
-      isDestroyed: true,
-      setProps() {
-        throw new TypeError('view is destroyed');
-      },
-    });
+    markViewDestroyed(view);
 
     assert.doesNotThrow(() => binding.destroy());
+  });
+
+  it('should ignore document events between view.destroy and binding.destroy', () => {
+    const { view, yorkieDoc, binding } = setup();
+    const dispatchedOnSetup = view.dispatched.length;
+    markViewDestroyed(view);
+
+    // The subscriptions stay live until binding.destroy() runs, so anything
+    // arriving in this window must not reach the view.
+    assert.doesNotThrow(() => yorkieDoc.emit({ type: 'snapshot' }));
+    assert.doesNotThrow(() =>
+      yorkieDoc.emit({
+        type: 'remote-change',
+        value: { operations: [{ type: 'tree-edit' }] },
+      }),
+    );
+    assert.lengthOf(view.dispatched, dispatchedOnSetup);
+
+    binding.destroy();
+  });
+
+  it('should still resume sync when the view dies mid-composition', async () => {
+    const { view, client, binding } = setup();
+    const dispatchedOnSetup = view.dispatched.length;
+
+    view.fire('compositionstart');
+    await tick();
+    view.fire('compositionend');
+    markViewDestroyed(view);
+
+    // The deferred frame cannot apply anything into a destroyed view, but it
+    // is also the only thing that takes the document back out of push-only.
+    await flushFrames();
+
+    assert.deepEqual(client.modes, [
+      SyncMode.RealtimePushOnly,
+      SyncMode.Realtime,
+    ]);
+    assert.lengthOf(view.dispatched, dispatchedOnSetup);
+
+    binding.destroy();
   });
 
   it('should leave a consumer dispatch alone when destroy() never initialized', () => {

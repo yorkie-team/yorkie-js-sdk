@@ -401,6 +401,67 @@ describe('convert', () => {
         assert.equal(pmNode.content[0].text, 'abc');
       });
     });
+
+    describe('remote-controlled input', () => {
+      it('should not treat an inherited mapping key as a mark element', () => {
+        // `constructor` resolves on the mapping's prototype, so a bare lookup
+        // would hand `Object` back as a mark type.
+        for (const type of ['constructor', 'toString', 'valueOf']) {
+          const node = yElem('paragraph', [yElem(type, [yText('hi')])]);
+          const result = yorkieToJSON(node, elementToMarkMapping);
+          const pmNode = result as { content: Array<{ type: string }> };
+          assert.equal(pmNode.content.length, 1);
+          assert.equal(pmNode.content[0].type, type);
+        }
+      });
+
+      it('should blank a script URL in a remote mark attribute', () => {
+        for (const href of [
+          'javascript:alert(1)',
+          'JaVaScRiPt:alert(1)',
+          'java\tscript:alert(1)',
+          ' javascript:alert(1)',
+          'vbscript:msgbox(1)',
+          'data:text/html,<script>alert(1)</script>',
+          'data:image/svg+xml,<svg onload="alert(1)">',
+        ]) {
+          const node = yElem('link', [yText('click')], { href });
+          const result = yorkieToJSON(node, elementToMarkMapping);
+          const arr = result as Array<{
+            marks: Array<{ attrs: Record<string, unknown> }>;
+          }>;
+          assert.equal(arr[0].marks[0].attrs.href, '', href);
+        }
+      });
+
+      it('should blank a script URL in a remote node attribute', () => {
+        const node = yElem('image', [], { src: 'javascript:alert(1)' });
+        const result = yorkieToJSON(node, elementToMarkMapping);
+        const pmNode = result as { attrs: Record<string, unknown> };
+        assert.equal(pmNode.attrs.src, '');
+      });
+
+      it('should leave a non-executable URL untouched', () => {
+        // Blanking round-trips upstream through pmToYorkie, so only values
+        // that can run script may be rewritten.
+        for (const href of [
+          'http://example.com',
+          'https://example.com/a?b=c#d',
+          'mailto:a@example.com',
+          '/relative/path',
+          '#anchor',
+          'notion://page/1',
+          'data:image/png;base64,AAAA',
+        ]) {
+          const node = yElem('link', [yText('click')], { href });
+          const result = yorkieToJSON(node, elementToMarkMapping);
+          const arr = result as Array<{
+            marks: Array<{ attrs: Record<string, unknown> }>;
+          }>;
+          assert.equal(arr[0].marks[0].attrs.href, href);
+        }
+      });
+    });
   });
 
   describe('round-trip conversion', () => {

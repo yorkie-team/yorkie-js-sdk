@@ -18,17 +18,73 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { MarkMapping, YorkieTreeJSON, PMNodeJSON } from './types';
 
 /**
+ * Attribute names a ProseMirror schema resolves as a URL when it renders.
+ * The default `link` mark puts `href` straight into `['a', {href}, 0]`, so
+ * these values reach the DOM exactly as a remote peer wrote them.
+ */
+const UrlAttrNames = new Set([
+  'href',
+  'src',
+  'srcset',
+  'xlink:href',
+  'action',
+  'formaction',
+  'background',
+  'poster',
+  'cite',
+  'longdesc',
+  'data',
+  'codebase',
+  'profile',
+]);
+
+/**
+ * Whether a remote URL attribute value can run script in the local origin.
+ *
+ * A deny-list, not an allow-list, and deliberately so: the PM doc this
+ * converter produces is also the input to the upstream path (`syncToYorkie`
+ * re-serializes the local doc with `pmToYorkie`), so anything blanked here is
+ * echoed back into the shared tree on the next block replacement. Only values
+ * that execute are worth that — an app's own custom scheme, or a relative URL,
+ * must round-trip untouched. Control characters and whitespace are stripped
+ * first because browsers ignore them when resolving the scheme
+ * (`java\tscript:alert(1)` navigates just fine).
+ */
+function isScriptUrlValue(value: string): boolean {
+  const normalized = Array.from(value)
+    .filter((char) => char.charCodeAt(0) > 0x20)
+    .join('')
+    .toLowerCase();
+  if (/^(?:javascript|vbscript|livescript):/.test(normalized)) return true;
+  // `data:` can carry markup that runs script (`data:text/html,<script>`),
+  // and an SVG payload is markup too. Raster images cannot.
+  return (
+    normalized.startsWith('data:') &&
+    !/^data:image\/(?:png|jpe?g|gif|webp|bmp|x-icon)[;,]/.test(normalized)
+  );
+}
+
+/**
  * Coerce Yorkie string attributes back to their original types.
  * Yorkie stores all attribute values as strings, so numeric-looking
  * strings (e.g., "2" from heading level) must be converted back to numbers
  * for ProseMirror's `Node.fromJSON` compatibility.
+ *
+ * Values arrive from remote peers, so a URL attribute carrying an executable
+ * scheme is blanked rather than handed to the schema's `toDOM`.
  */
 function deserializeAttrs(
   attrs: Record<string, string>,
 ): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attrs)) {
-    if (/^-?\d+(\.\d+)?$/.test(value)) {
+    if (
+      UrlAttrNames.has(key) &&
+      typeof value === 'string' &&
+      isScriptUrlValue(value)
+    ) {
+      result[key] = '';
+    } else if (/^-?\d+(\.\d+)?$/.test(value)) {
       result[key] = Number(value);
     } else if (value === 'true') {
       result[key] = true;
@@ -244,8 +300,18 @@ export function yorkieToJSON(
     return flatChildren;
   }
 
-  // Check if this is a mark element (strong, em, etc.)
-  const markName = elementToMarkMapping[yorkieNode.type];
+  // Check if this is a mark element (strong, em, etc.).
+  // `yorkieNode.type` is remote-controlled and the mapping is a plain object,
+  // so a node named `constructor` or `toString` would otherwise resolve to an
+  // inherited function and be spliced into the mark stack as a mark type.
+  // Own keys only; anything else is a regular element, which is what the
+  // remote tree says it is.
+  const markName = Object.prototype.hasOwnProperty.call(
+    elementToMarkMapping,
+    yorkieNode.type,
+  )
+    ? elementToMarkMapping[yorkieNode.type]
+    : undefined;
   if (markName) {
     const markEntry: { type: string; attrs?: Record<string, unknown> } = {
       type: markName,
