@@ -875,6 +875,72 @@ describe.sequential('Client', function () {
     }, task.name);
   });
 
+  it('Should not apply a snapshot pulled while in push-only mode', async ({
+    task,
+  }) => {
+    type TestDoc = { counter: Counter };
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((r) => (r.counter = new Counter(0)));
+      await c1.sync();
+      await c2.sync();
+
+      await c1.changeSyncMode(d1, SyncMode.RealtimePushOnly);
+      const snapshots: Array<string> = [];
+      const unsub = d1.subscribe((e) => {
+        if (e.type === 'snapshot') snapshots.push(e.type);
+      });
+
+      // Record what the server actually answered c1 with. Without this the
+      // test cannot tell a dropped snapshot from a dropped change list, and
+      // would keep passing while the `hasSnapshot()` branch never runs.
+      const rpc = (c1 as any).rpcClient;
+      const origPushPull = rpc.pushPullChanges.bind(rpc);
+      const respSnapshotBytes: Array<number> = [];
+      rpc.pushPullChanges = async (...args: Array<any>) => {
+        const res = await origPushPull(...args);
+        respSnapshotBytes.push(res.changePack?.snapshot?.length ?? 0);
+        return res;
+      };
+
+      // 01. c2 makes enough changes for the server to answer c1 with a
+      // snapshot instead of changes.
+      for (let i = 0; i < DefaultSnapshotThreshold; i++) {
+        d2.update((r) => r.counter.increase(1));
+      }
+      await c2.sync();
+
+      // 02. An explicit sync always pulls, even in push-only mode. The
+      // snapshot it brings back must be dropped like changes are.
+      d1.update((r) => r.counter.increase(1));
+      await c1.sync(d1);
+      // The response carried a snapshot, so the drop below is the snapshot
+      // branch and not the pre-existing changes branch.
+      assert.isTrue(
+        respSnapshotBytes.some((len) => len > 0),
+        'the server answered with a snapshot',
+      );
+      assert.equal(snapshots.length, 0);
+      assert.equal(d1.getRoot().counter.getValue(), 1);
+      // The push landed, so it must not be sent again: a snapshot built for a
+      // re-push would count the change twice.
+      assert.isFalse(d1.hasLocalChanges());
+
+      // 03. The local change still reached the server.
+      await c2.sync();
+      assert.equal(
+        d2.getRoot().counter.getValue(),
+        DefaultSnapshotThreshold + 1,
+      );
+
+      // 04. Back in realtime, c1 catches up on what it dropped.
+      await c1.changeSyncMode(d1, SyncMode.Realtime);
+      await c1.sync(d1);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+      rpc.pushPullChanges = origPushPull;
+      unsub();
+    }, task.name);
+  });
+
   it('Should cancel watch stream when changing to manual sync mode', async function ({
     task,
   }) {

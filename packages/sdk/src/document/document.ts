@@ -16,7 +16,11 @@
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
-import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  ChangeApplyError,
+  Code,
+  YorkieError,
+} from '@yorkie-js/sdk/src/util/error';
 import { deepcopy } from '@yorkie-js/sdk/src/util/object';
 import { DocSize, totalDocSize } from '@yorkie-js/sdk/src/util/resource';
 import {
@@ -1431,16 +1435,37 @@ export class Document<
    */
   public applyChangePack(pack: ChangePack<P>): void {
     // 01. Apply snapshot or changes to the root object.
-    if (pack.hasSnapshot()) {
-      this.applySnapshot(
-        pack.getCheckpoint().getServerSeq(),
-        pack.getVersionVector()!,
-        pack.getSnapshot()!,
-        pack.getCheckpoint().getClientSeq(),
+    //
+    // NOTE: the checkpoint below is only reached once everything applied, so
+    // a throw here leaves it where it was and the server redelivers this same
+    // pack on every sync. Report that once, naming the checkpoint the
+    // document is stuck at, before letting the error out: otherwise the only
+    // field signal is a sync that never makes progress.
+    //
+    // This line runs at the default log level and repeats on every
+    // redelivery, so everything it interpolates has to be metadata: the key,
+    // the checkpoint, and an error that names the change and the operation by
+    // type and ticket only. No operation payload — i.e. no document content —
+    // may be carried into it.
+    try {
+      if (pack.hasSnapshot()) {
+        this.applySnapshot(
+          pack.getCheckpoint().getServerSeq(),
+          pack.getVersionVector()!,
+          pack.getSnapshot()!,
+          pack.getCheckpoint().getClientSeq(),
+        );
+      } else {
+        this.applyChanges(pack.getChanges(), OpSource.Remote);
+        this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
+      }
+    } catch (err) {
+      logger.error(
+        `[Document] "${this.key}" cannot apply the pack at checkpoint ` +
+          `${this.checkpoint.toTestString()}; the server will redeliver it ` +
+          `until this is resolved: ${err}`,
       );
-    } else {
-      this.applyChanges(pack.getChanges(), OpSource.Remote);
-      this.removePushedLocalChanges(pack.getCheckpoint().getClientSeq());
+      throw err;
     }
 
     // 02. Update the checkpoint.
@@ -2224,7 +2249,25 @@ export class Document<
       // it. Drop the clone so the next access rebuilds it from the root, the
       // way `update` does on failure.
       this.clone = undefined;
-      throw err;
+
+      // NOTE: only a remote change is named. The checkpoint only advances
+      // after the changes of a pack have been applied, so a remote change
+      // that throws is redelivered by the server forever and needs to be
+      // diagnosable rather than looking like a network problem. A local
+      // replay (`restoreAppendedChanges`) or a devtools-driven local apply
+      // has a caller waiting on it, and rewriting the error it threw would
+      // hide the code that caller matches on.
+      if (source !== OpSource.Remote) {
+        throw err;
+      }
+
+      throw err instanceof ChangeApplyError
+        ? err.withDocKey(this.key)
+        : new ChangeApplyError({
+            docKey: this.key,
+            changeID: change.getID().toTestString(),
+            cause: err,
+          });
     }
   }
 
@@ -2729,6 +2772,44 @@ export class Document<
 
     const nodePath = elem.split('.');
     return parent.split('.').every((path, index) => path === nodePath[index]);
+  }
+
+  /**
+   * `acknowledgePushedChanges` removes the local changes the server has
+   * confirmed, and forwards only the client seq of the checkpoint. It is for a
+   * response pack dropped without applying its remote state: the server seq
+   * must stay put so the skipped state is pulled again later, while the
+   * confirmed changes must not be pushed again. The server dedupes a re-pushed
+   * change when storing it, but a snapshot it builds for the same request
+   * would apply that change a second time.
+   *
+   * The pack's *metadata* is not remote state, and is taken in full: the
+   * compaction epoch and the removal flag describe the document itself, not
+   * the content being skipped, and neither is re-sent by a later pull the way
+   * the skipped changes are.
+   *
+   * @internal
+   */
+  public acknowledgePushedChanges(pack: ChangePack<P>): void {
+    const clientSeq = pack.getCheckpoint().getClientSeq();
+    this.removePushedLocalChanges(clientSeq);
+    this.checkpoint = this.checkpoint.forward(
+      Checkpoint.of(this.checkpoint.getServerSeq(), clientSeq),
+    );
+
+    // Dropping the epoch would leave the client presenting a superseded one on
+    // the next request, which the server answers with `ErrEpochMismatch` — a
+    // re-anchor that discards exactly the un-pushed edits PushOnly exists to
+    // keep. A compaction is also the shape that arrives as a snapshot, i.e.
+    // precisely the pack this path drops.
+    this.epoch = pack.getEpoch();
+
+    // A removal is terminal: there is no later pull to learn it from, because
+    // the server row is gone. Skipping it leaves the document attached and its
+    // persisted envelope pointing at a row that no longer exists.
+    if (pack.getIsRemoved()) {
+      this.applyStatus(DocStatus.Removed);
+    }
   }
 
   /**

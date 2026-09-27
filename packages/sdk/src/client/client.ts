@@ -40,7 +40,11 @@ import {
   isErrorCode,
 } from '@yorkie-js/sdk/src/api/converter';
 import { RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
-import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  ChangeApplyError,
+  Code,
+  YorkieError,
+} from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
 import { uuid } from '@yorkie-js/sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js/sdk/src/client/attachment';
@@ -170,6 +174,36 @@ export interface ClientOptions {
   /**
    * `key` is the client key. It is used to identify the client.
    * If not set, a random key is generated.
+   *
+   * That random default is minted per `Client` instance, so it differs on every
+   * launch. **Offline persistence requires a stable key**: the server derives
+   * the actor stamped into every change from the project and this key, and it
+   * also scopes the {@link ClientOptions.store} keys
+   * (`apiKey/clientKey/docKey`). A new key therefore does not address the
+   * previous launch's entries at all — the restore finds nothing, the un-pushed
+   * edits are lost *silently* (no {@link DocEventType.LocalChangesDropped}
+   * event: the `actor-mismatch` guard in
+   * {@link Document.restoreFromBytes} only fires when the *same* store key is
+   * reached under a different actor), and the previous namespace is orphaned.
+   * `DocStore` exposes no enumeration or prune, so nothing can reclaim those
+   * entries afterwards and a durable backend grows without bound, one dead
+   * namespace per launch.
+   *
+   * An app setting `store` must therefore pass a key it persists itself and
+   * reuses on the next launch. Make it an **opaque random value the app mints
+   * once** — `crypto.randomUUID()` kept in local storage, say — scoped to the
+   * signed-in user and cleared on sign-out. Do **not** derive it from a user
+   * id, a device id, an email, or anything else guessable or shared:
+   *
+   * - The key is an identifier, not a credential. It is sent verbatim in
+   *   `ActivateClientRequest.client_key` and nothing proves the caller owns it,
+   *   so a guessable key lets another client of the same project activate under
+   *   the same derived actor and attribute changes to it.
+   * - A key shared between users of one browser (a device id) gives them one
+   *   store namespace. `attach` loads and rehydrates the persisted bytes
+   *   locally *before* the attach RPC, so the previous user's document content
+   *   and un-pushed edits would surface in the next user's session ahead of any
+   *   server authorization.
    */
   key?: string;
 
@@ -269,6 +303,16 @@ export interface ClientOptions {
    * documents server-side and defeats the point of resuming un-pushed local
    * changes on the next load. Setting `store` therefore auto-defaults
    * `deactivateOnUnload` to `false`; pass it explicitly to override.
+   *
+   * You **must** also set {@link ClientOptions.key} to an opaque random value
+   * the app mints once and reuses across launches. Both the store keys and the
+   * actor recovery is keyed by are derived from it, and the default is a fresh
+   * random key per `Client`, so leaving it unset means every restart silently
+   * loses every un-pushed change and orphans the previous launch's entries.
+   * This cannot be defaulted correctly — only the app knows what identity
+   * should outlive the process — so the client warns rather than guessing. See
+   * {@link ClientOptions.key} for why the value must not be a user id, a device
+   * id, or anything else guessable or shared between users of one browser.
    */
   store?: DocStore;
 
@@ -450,6 +494,38 @@ const DefaultBroadcastOptions = {
 };
 
 /**
+ * `escapeNamespacePart` percent-encodes the separator (and the escape
+ * character itself) so a component cannot forge one. Without it,
+ * `join(a, b)` is not injective: `apiKey` and `clientKey` are taken verbatim
+ * from `ClientOptions` and a docKey is caller-supplied, so a clientKey
+ * containing `/` could produce the same joined string as a different
+ * (apiKey, clientKey, docKey) triple — two distinct identities sharing one
+ * store namespace and one session lock. Escaping `%` first keeps the encoding
+ * reversible and collision-free.
+ */
+function escapeNamespacePart(part: string): string {
+  return part.replace(/%/g, '%25').replace(/\//g, '%2F');
+}
+
+/**
+ * `namespaceOf` builds the `apiKey/clientKey/docKey` identity namespace used
+ * for both `DocStore` keys and the single-active-session lock name. Each
+ * component is escaped, so the mapping from identity to namespace is
+ * one-to-one: distinct identities can never address the same persisted
+ * envelope or block each other's session lock.
+ */
+function namespaceOf(
+  apiKey: string,
+  clientKey: string,
+  docKey: string,
+): string {
+  return (
+    `${escapeNamespacePart(apiKey)}/${escapeNamespacePart(clientKey)}/` +
+    escapeNamespacePart(docKey)
+  );
+}
+
+/**
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
@@ -558,6 +634,23 @@ export class Client {
     this.deactivateOnUnload =
       opts.deactivateOnUnload ??
       (this.store ? false : DefaultClientOptions.deactivateOnUnload);
+    // A store with no caller-supplied key cannot survive a restart, by
+    // construction: the generated key is per-instance, and it scopes both the
+    // store keys and the actor the server derives. The next launch addresses a
+    // fresh namespace, so it restores nothing and orphans what the last one
+    // wrote — no `actor-mismatch` event fires, because the old entries are
+    // never reached. Warn where the two options meet: neither is wrong alone,
+    // the loss is silent, and `DocStore` has no prune to reclaim the orphans.
+    if (this.store && !opts.key) {
+      logger.warn(
+        `[PS] c:"${this.key}" offline persistence needs a stable clientKey: ` +
+          `\`store\` is set but \`key\` is not, so a random one was generated ` +
+          `for this instance. The next launch addresses a different namespace, ` +
+          `silently restoring nothing and stranding what this one persists. ` +
+          `Pass \`key\` as an opaque random value your app mints once and ` +
+          `persists across launches (not a user id or a device id).`,
+      );
+    }
     // Default to the Web Locks-backed guard; it is a no-op outside browsers and
     // is only consulted on the store-backed attach path below.
     this.sessionLock = opts.sessionLock ?? new WebLocksSessionLock();
@@ -878,7 +971,8 @@ export class Client {
         // default is a no-op in non-browser runtimes.
         if (this.store) {
           const lockName =
-            `yorkie-session:${this.apiKey}/${this.key}/` + doc.getKey();
+            'yorkie-session:' +
+            namespaceOf(this.apiKey, this.key, doc.getKey());
           sessionLockHandle = await acquireSessionLock(
             this.sessionLock,
             lockName,
@@ -1127,8 +1221,12 @@ export class Client {
                 //   - actor mismatch (a YorkieError: store reused under a
                 //     different clientKey) — restoring would diverge the CRDT;
                 //   - any other failure (a native error such as a SyntaxError
-                //     from a corrupt/truncated envelope) — the bytes cannot be
-                //     decoded at all.
+                //     from a corrupt/truncated envelope, or a
+                //     `ChangeApplyError` from a log entry that will not
+                //     replay) — the persisted state cannot be reconstructed.
+                // `ChangeApplyError` is excluded from the first class
+                // explicitly: it is a `YorkieError`, but a change that fails
+                // to apply says nothing about client identity.
                 // In both cases emit an app-visible data-loss event with
                 // whatever pending changes are recoverable, clear the stale
                 // entry, and fall through to a fresh attach. Treating a native
@@ -1136,7 +1234,8 @@ export class Client {
                 // keeps a single poisoned store entry from failing every later
                 // attach.
                 const reason: LocalChangesDroppedReason =
-                  err instanceof YorkieError
+                  err instanceof YorkieError &&
+                  !(err instanceof ChangeApplyError)
                     ? 'actor-mismatch'
                     : 'restore-failed';
                 logger.warn(
@@ -2049,10 +2148,11 @@ export class Client {
    * used as a `DocStore` key. The session lock is already scoped by
    * `apiKey/clientKey/docKey`; the store must match so a store shared across
    * identities (different apiKey/clientKey) cannot collide on the bare docKey
-   * and hand one identity another's persisted envelope.
+   * and hand one identity another's persisted envelope. Built through
+   * {@link namespaceOf}, so the scoping is injective.
    */
   private storeKey(docKey: string): string {
-    return `${this.apiKey}/${this.key}/${docKey}`;
+    return namespaceOf(this.apiKey, this.key, docKey);
   }
 
   /**
@@ -3280,21 +3380,34 @@ export class Client {
 
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
-      // NOTE(chacha912, hackerwins): If syncLoop already executed with
-      // PushPull, ignore the response when the syncMode is PushOnly.
-      if (
-        respPack.hasChanges() &&
+      // NOTE(chacha912, hackerwins): A request sent with PushPull, e.g. an
+      // explicit sync(doc), still pulls while the document is in PushOnly or
+      // SyncOff. Ignore any remote state it brings back, a snapshot included:
+      // the server seq stays put, so the skipped state is pulled again once
+      // realtime sync resumes. The push itself did land, so still take the
+      // client seq ack rather than push the same changes again — along with
+      // the pack's metadata (compaction epoch, removal flag), which describes
+      // the document rather than the content being skipped.
+      const dropsRemoteState =
+        (respPack.hasChanges() || respPack.hasSnapshot()) &&
         (attachment.syncMode === SyncMode.RealtimePushOnly ||
-          attachment.syncMode === SyncMode.RealtimeSyncOff)
-      ) {
-        return doc;
+          attachment.syncMode === SyncMode.RealtimeSyncOff);
+      if (dropsRemoteState) {
+        doc.acknowledgePushedChanges(respPack);
+      } else {
+        doc.applyChangePack(respPack);
       }
-
-      doc.applyChangePack(respPack);
       attachment.updateHeartbeatTime();
 
+      // Whether the response actually moved the root. A dropped pack does not:
+      // it only takes the push ack, which leaves the document exactly where the
+      // pure push-ack branches below expect it.
+      const movedRoot =
+        !dropsRemoteState && (respPack.hasChanges() || respPack.hasSnapshot());
+
       // Re-persist after a successful sync when a store is configured. A push
-      // that is merely acked (nothing pulled) advances the checkpoint and
+      // that is merely acked (nothing pulled, or a pulled pack dropped because
+      // the document is in PushOnly/SyncOff) advances the checkpoint and
       // drops the pushed changes from `localChanges` without emitting any
       // Remote/Snapshot event, so the event-driven persist alone would leave
       // the stored envelope holding already-pushed changes and a stale
@@ -3308,18 +3421,9 @@ export class Client {
               `failed:`,
             err,
           );
-        if (respPack.hasChanges() || respPack.hasSnapshot()) {
-          // The response moved the root, and the append log holds *local*
-          // changes only — nothing in it carries remote content. Writing meta
-          // alone would advance the persisted `serverSeq` past a root the
-          // store never received, so the server would never resend those
-          // changes and this replica would lose them permanently while
-          // claiming to hold them. A snapshot is the only thing that records
-          // them.
-          //
-          // Cost: a pull re-serializes the document. That is the price of a
-          // local-only log; persisting remote changes incrementally as well
-          // would avoid it and is the natural follow-up.
+        // Folds everything the document holds into a fresh snapshot and
+        // rebases the log accounting onto it.
+        const reSnapshot = () => {
           const snapshot = this.snapshotWithinBudget(doc, storeKey);
           const state = this.persistStates.get(storeKey);
           if (state && snapshot) {
@@ -3337,36 +3441,60 @@ export class Client {
           if (snapshot) {
             this.persistSnapshotOrPoison(storeKey, snapshot, onError);
           }
-        } else if (this.persistStates.get(storeKey)?.poisoned) {
-          // A pure push-ack, but the log has a hole: the change that failed to
-          // append lives only in memory. Writing the header would put the
-          // persisted `serverSeq` past content the store does not hold — and
-          // since it is our own acked change, the server will never resend it.
-          // Repair with a snapshot, which embeds the whole pending queue.
+        };
+
+        if (movedRoot) {
+          // The response moved the root, and the append log holds *local*
+          // changes only — nothing in it carries remote content. Writing meta
+          // alone would advance the persisted `serverSeq` past a root the
+          // store never received, so the server would never resend those
+          // changes and this replica would lose them permanently while
+          // claiming to hold them. A snapshot is the only thing that records
+          // them.
           //
-          // The repair-on-next-edit path cannot cover this: a sync, or a tab
-          // close, gets there first.
-          const repaired = this.snapshotWithinBudget(doc, storeKey);
-          const state = this.persistStates.get(storeKey);
-          if (state && repaired) {
-            state.snapshotBytes = repaired.length;
-            state.logBytes = 0;
-            state.changeCount = 0;
-            state.poisoned = false;
-            state.lastAppendedClientSeq = doc
-              .getPendingChangesAfter(0)
-              .reduce(
-                (max, pending) => Math.max(max, pending.clientSeq),
-                doc.getCheckpoint().getClientSeq(),
-              );
-          }
-          if (repaired) {
-            this.persistSnapshotOrPoison(storeKey, repaired, onError);
-          }
+          // Cost: a pull re-serializes the document. That is the price of a
+          // local-only log; persisting remote changes incrementally as well
+          // would avoid it and is the natural follow-up.
+          reSnapshot();
         } else {
-          // A pure push-ack on a healthy log: the root did not move, so the
-          // cheap header write is both sufficient and correct.
-          this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
+          // A pure push-ack. Which write is correct turns on `poisoned`, and
+          // that flag is only ever raised from an append's *rejection*
+          // callback — with a real async store an append that is going to
+          // fail can still be in flight when the sync response lands. Sampling
+          // it now would read a healthy log, pick the cheap header write, and
+          // queue it over the hole that append is about to leave. So decide
+          // once the writes already queued for this key have settled; both
+          // candidate writes chain onto that same queue anyway, so waiting
+          // reorders nothing.
+          const decide = () => {
+            // A removal learned from this very sync has already dropped the
+            // envelope by now; re-writing it here would resurrect an entry
+            // pointing at a server row that no longer exists.
+            if (doc.getStatus() === DocStatus.Removed) {
+              return;
+            }
+            if (this.persistStates.get(storeKey)?.poisoned) {
+              // The log has a hole: the change that failed to append lives
+              // only in memory. Writing the header would put the persisted
+              // `serverSeq` past content the store does not hold — and since
+              // it is our own acked change, the server will never resend it.
+              // Repair with a snapshot, which embeds the whole pending queue.
+              //
+              // The repair-on-next-edit path cannot cover this: a sync, or a
+              // tab close, gets there first.
+              reSnapshot();
+            } else {
+              // A healthy log: the root did not move, so the cheap header
+              // write is both sufficient and correct.
+              this.saveMetaToStore(storeKey, doc.metaToBytes(), onError);
+            }
+          };
+          const queued = this.persistQueues.get(storeKey);
+          if (queued) {
+            void queued.then(decide, decide);
+          } else {
+            decide();
+          }
         }
       }
 
