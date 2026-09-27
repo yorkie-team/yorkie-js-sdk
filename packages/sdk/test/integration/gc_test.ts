@@ -2125,4 +2125,68 @@ describe('Garbage Collection', function () {
     await c1.deactivate();
     await c2.deactivate();
   });
+
+  // A barrier ticket is authored by whoever created the successor node, not by
+  // the remover, so that author may have left the document by the time the
+  // purge is due. This pins that the author leaving does not make the barrier
+  // unsatisfiable. The min version vector the server returns always includes
+  // the collecting client's own vector, and a client holding the successor
+  // node has applied its author's change, so the author's actor is always
+  // present in it; dropping the author's row only removes a lower bound.
+  it('successor barrier drains after the successor author detaches', async function ({
+    task,
+  }) {
+    type TestDoc = { t: Text };
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<TestDoc>(docKey);
+    const d2 = new yorkie.Document<TestDoc>(docKey);
+    const d3 = new yorkie.Document<TestDoc>(docKey);
+    const c1 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c2 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    const c3 = new yorkie.Client({ rpcAddr: testRPCAddr });
+    await c1.activate();
+    await c2.activate();
+    await c3.activate();
+    await c1.attach(d1, { syncMode: SyncMode.Manual });
+    await c2.attach(d2, { syncMode: SyncMode.Manual });
+    await c3.attach(d3, { syncMode: SyncMode.Manual });
+
+    d1.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'a');
+      root.t.edit(1, 1, 'b');
+      root.t.edit(2, 2, 'c');
+    }, 'sets text');
+    await c1.sync();
+    await c2.sync();
+    await c3.sync();
+
+    // c3 inserts "X" right behind "b" while c1 deletes "b": "X" becomes the
+    // successor of the tombstone, so its ticket is c3's.
+    d3.update((root) => root.t.edit(2, 2, 'X'), 'insert X');
+    d1.update((root) => root.t.edit(1, 2, ''), 'delete b');
+    await c1.sync();
+    await c2.sync();
+    await c3.sync();
+    await c1.sync();
+    assert.equal(d1.getRoot().t.toString(), 'aXc');
+
+    // c3 leaves; its row is removed from the server.
+    await c3.detach(d3);
+
+    // No further edits. The purge may be held back while c2 has not seen
+    // "X", but it has to drain once c2 catches up, although "X"'s author has
+    // gone.
+    for (let i = 0; i < 3; i++) {
+      await c2.sync();
+      await c1.sync();
+    }
+    assert.equal(d1.getGarbageLen(), 0, 'd1 retained the tombstone');
+    assert.equal(d2.getGarbageLen(), 0, 'd2 retained the tombstone');
+    assert.equal(d1.getRoot().t.toString(), d2.getRoot().t.toString());
+
+    await c1.deactivate();
+    await c2.deactivate();
+    await c3.deactivate();
+  });
 });
