@@ -32,3 +32,10 @@ fields there, so both sides agree.
   and that the new decode error cannot fire on a change a Go server would
   accept (Go rejects the same empty group). Noted but left out: the
   `GCPairs` root guard (no crash in JS) — see the todo review.
+
+## `YORKIE_ALLOW_FOREIGN_TREE` breaks the pre-push hook's own tests
+
+A branch stacked on someone else's commits trips the foreign-tree guard.
+Setting `YORKIE_ALLOW_FOREIGN_TREE=1` gets past it on commit, but on push the
+variable leaks into the hook suite that tests the guard, and those cases
+fail. Run `pnpm verify:fast` by hand and push with `--no-verify` instead.
