@@ -3148,6 +3148,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
           span.attrs?.deepcopy(),
         );
 
+    // The span's attributes are a deep copy of the node's RHT, tombstones
+    // included -- they have to be, or a recreated node would resolve a
+    // concurrent style differently from a replica that never lost it. Each
+    // copied tombstone is a fresh piece of garbage that no removal path
+    // produced: without a registration it sits in the RHT forever, uncounted
+    // and unpurgeable, and `getDataSize` excludes it so the node's own charge
+    // does not cover it either. `getGCPairs` marks each `gcOnlySize`, which is
+    // what sends it to gc alone. Booked by `attach` for both a live and a
+    // removed parent, as Go's `recreateFromSpan` does.
+    const recreatedAttrPairs = span.isText ? [] : node.getGCPairs();
+
     const siblings = parent.allChildren;
 
     // `attach` finishes every anchor rung below: register the node, then decide
@@ -3180,17 +3191,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // carries `gcOnlySize`: charge the size to `docSize.gc` only and leave live
     // alone. Subtracting from live, as a pair without `gcOnlySize` would, drives
     // live negative by exactly this node's size.
-    //
-    // This is where the JS shape differs from Go's and the mirror has to be
-    // written differently to reach the same numbers. Go splits the two halves:
-    // `RegisterGCPair` only adds to GC, and the live-to-gc move lives in
-    // `AdjustDiffForGCPair`, which the restore path deliberately does not call
-    // for its pairs (operations/tree_edit.go). JS folds both halves into
-    // `registerGCPair`, so the only way to get "GC only, live untouched" here is
-    // `gcOnlySize`. `purge` subtracts `child.getDataSize()` from gc on both
-    // sides, so charging exactly that nets gc back to zero on collection.
+    // Go's `RegisterGCPair` takes the same `GCOnlySize`, so both SDKs reach
+    // the same numbers the same way. `purge` subtracts `child.getDataSize()`
+    // from gc, so charging exactly that nets gc back to zero on collection.
     const attach = (): CRDTTreeNode | undefined => {
       this.registerNode(node);
+      for (const pair of recreatedAttrPairs) {
+        this.pendingGCPairs.push(pair);
+      }
       if (parent.isRemoved) {
         node.remove(parent.removedAt!);
         this.pendingGCPairs.push({

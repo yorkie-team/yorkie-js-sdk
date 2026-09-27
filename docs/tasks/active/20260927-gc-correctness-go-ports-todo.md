@@ -16,7 +16,7 @@ commit each.
   pass while it both purged and deferred. Port Go's barrier tests and cost
   tests; update the integration expectations Go annotated. Go calls this a
   partial fix (in-flight anchors, tail tombstones); port the same scope.
-- [ ] J5. `recreateFromSpan` books attribute tombstones (mirrors Go
+- [x] J5. `recreateFromSpan` books attribute tombstones (mirrors Go
   `recreateFromSpan` in `tree.go`). The recreated node deep-copies
   `span.attrs` but never registers their GC pairs, so running `docSize` and
   garbage count drift from a rebuild. Port `TestRecreateCarriesAttributeTombstones`.

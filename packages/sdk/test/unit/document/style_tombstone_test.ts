@@ -564,6 +564,47 @@ describe('a style over a tombstoned node', () => {
       'the replicas disagree after an undo that showed nothing',
     );
   });
+
+  /**
+   * Port of Go TestRecreateCarriesAttributeTombstones. Restoring a PURGED tree
+   * node recreates it from the span, whose attributes are a deep copy of the
+   * original RHT -- tombstones included, because a recreated node has to
+   * resolve a concurrent style the way a replica that never lost it would.
+   * Each copied tombstone is a fresh piece of garbage no removal path
+   * produced, and `getDataSize` excludes it, so without a registration it
+   * sits in the RHT forever: uncounted and unpurgeable.
+   */
+  it('books the attribute tombstones a recreated node carries', () => {
+    const doc = new Document<{ t: Tree }>('d');
+    doc.setActor('000000000000000000000001');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    // Style then undo it -> the reverse is a removeStyle, which tombstones
+    // the attribute on <p>.
+    doc.update((root) => root.t.style(0, 4, { bbbb: 'vvvv' }));
+    doc.history.undo();
+
+    // Remove the <p>, purge it, then undo the removal so it is RECREATED.
+    doc.update((root) => root.t.edit(0, 4));
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+    doc.history.undo();
+    assert.equal(doc.getRoot().t.toXML(), '<doc><p>ab</p></doc>');
+
+    const rebuilt = new CRDTRoot(doc.getRootObject().deepcopy());
+    assert.deepEqual(doc.getDocSize().live, rebuilt.getDocSize().live, 'live');
+    assert.deepEqual(doc.getDocSize().gc, rebuilt.getDocSize().gc, 'gc');
+    assert.equal(doc.getGarbageLen(), rebuilt.getGarbageLen(), 'garbage');
+
+    // And it is collectable, not just counted.
+    doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+    assert.equal(doc.getGarbageLen(), 0);
+    assert.deepEqual(doc.getDocSize().gc, { data: 0, meta: 0 });
+  });
+
   /**
    * A style range that opens on a tombstone: the reverse operation's prior
    * values must come from the first LIVE node, not from the dead run the user
