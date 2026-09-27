@@ -1320,6 +1320,45 @@ function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
 }
 
 /**
+ * `fromSplitTickets` converts the split tickets a tree edit carries, refusing
+ * any the change that sent them could not have issued.
+ *
+ * These tickets become the identities of the elements a split mints, so a
+ * peer free to name them could mint a live node under another actor's id, or
+ * under an id a node in the tree already holds. Every producer issues them
+ * from the change's own context, after the operation's own ticket: the same
+ * actor and lamport, delimiters strictly increasing above it. Anything else
+ * did not come from this change, so the pack is rejected at the boundary
+ * rather than executed into node ids.
+ */
+function fromSplitTickets(
+  pbTickets: Array<PbTimeTicket>,
+  executedAt: TimeTicket,
+): Array<TimeTicket> {
+  const tickets: Array<TimeTicket> = [];
+  let delimiter = executedAt.getDelimiter();
+  for (const pbTicket of pbTickets) {
+    const ticket = fromTimeTicket(pbTicket);
+    if (
+      !ticket ||
+      ticket.getActorID() !== executedAt.getActorID() ||
+      ticket.getLamport() !== executedAt.getLamport() ||
+      ticket.getDelimiter() <= delimiter
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `invalid split ticket: ${ticket?.toTestString()}`,
+      );
+    }
+
+    delimiter = ticket.getDelimiter();
+    tickets.push(ticket);
+  }
+
+  return tickets;
+}
+
+/**
  * `fromTreeNodesWhenEdit` converts the given Protobuf format to model format.
  */
 function fromTreeNodesWhenEdit(
@@ -1331,15 +1370,20 @@ function fromTreeNodesWhenEdit(
 
   const treeNodes: Array<CRDTTreeNode> = [];
   for (const node of pbTreeNodes) {
-    // `fromTreeNodes` reports an empty content list as no root, and every
-    // group `toTreeNodesWhenEdit` writes holds at least the root of one
-    // content node. Reject the empty group rather than carry `undefined`
-    // into the operation, where the edit deep-copies each content.
     const treeNode = fromTreeNodes(node.content);
+    // An entry whose content is empty decodes to no node at all, and neither
+    // keeping nor dropping it is safe. Keeping it puts a hole in the contents
+    // array that every later reader dereferences — `edit` down to `toXML`.
+    // Dropping it changes what the operation means: `CRDTTree.edit` reads an
+    // absent content list as "delete the range", so a payload the sender
+    // wrote as an insert would apply here as a deletion, and the split-ticket
+    // delimiters this replica reconstructs would no longer line up with the
+    // sender's. Reject the pack at the boundary instead, the way every other
+    // malformed field in this decoder does.
     if (!treeNode) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
-        'tree edit content missing',
+        'tree edit content has an entry with no node',
       );
     }
 
@@ -1358,7 +1402,7 @@ function fromTreeNodesWhenEdit(
     treeNodes.push(treeNode);
   }
 
-  return treeNodes.length ? treeNodes : undefined;
+  return treeNodes;
 }
 
 /**
@@ -1581,13 +1625,14 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
           ? 'retombstone'
           : 'restore';
     }
+    const treeEditExecutedAt = fromTimeTicket(pbTreeEditOperation!.executedAt)!;
     const treeEdit = TreeEditOperation.create(
       fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
       fromTreePos(pbTreeEditOperation!.from!),
       fromTreePos(pbTreeEditOperation!.to!),
       fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
       pbTreeEditOperation!.splitLevel,
-      fromTimeTicket(pbTreeEditOperation!.executedAt)!,
+      treeEditExecutedAt,
       treeRestoreMode ? true : undefined,
       undefined,
       undefined,
@@ -1596,9 +1641,7 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRetombstoneSpans,
     );
     treeEdit.setSplitTickets(
-      pbTreeEditOperation!.splitTickets.map(
-        (ticket) => fromTimeTicket(ticket)!,
-      ),
+      fromSplitTickets(pbTreeEditOperation!.splitTickets, treeEditExecutedAt),
     );
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {

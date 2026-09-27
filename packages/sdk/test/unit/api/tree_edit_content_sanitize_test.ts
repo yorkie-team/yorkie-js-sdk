@@ -163,7 +163,7 @@ describe('TreeEdit content sanitizing', () => {
     assert.throws(
       () => converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)),
       YorkieError,
-      'tree edit content missing',
+      /entry with no node/,
     );
     try {
       converter.bytesToOperation(toBinary(PbOperationSchema, pbOp));
