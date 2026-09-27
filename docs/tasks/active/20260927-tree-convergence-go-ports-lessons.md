@@ -176,3 +176,53 @@ written. Empty entries are now skipped and a depth miss (or a text node named
 as a parent) raises `ErrInvalidArgument`, so the pack is rejected at the
 converter boundary instead of failing part way through a tree the caller has
 already started applying.
+
+## Round 4: skipping an entry is not the same as rejecting it
+
+Round 3 closed the `undefined`-content hole by skipping the entry. That was
+the wrong half of the fix. An entry that decodes to no node makes
+`fromTreeNodesWhenEdit` return a shorter array -- or `undefined`, when every
+entry went -- and `CRDTTree.edit` reads absent contents as "delete the
+range". A malformed insert would then apply on this replica as a deletion of
+whatever the range covered, and the delimiters `TreeEditOperation.execute`
+reconstructs would be counted off a content length the sender never had.
+It now throws `ErrInvalidArgument`, like the depth miss beside it.
+
+Lesson: when a value's absence already means something to its consumer,
+"drop the bad one" silently rewrites the operation. Reject at the boundary.
+
+## Round 4: split tickets were wire data used as node identities
+
+`fromOperation` handed `pbTreeEditOperation.splitTickets` straight to
+`setSplitTickets`, and `execute` hands them to `edit` as the ids of the
+elements a split mints. A peer could therefore mint a live element under any
+actor's id, or under an id a node in the tree already holds -- ids are the
+one thing every replica agrees by, so a collision is not recoverable.
+
+Every producer issues them from the change's own context, after the
+operation's own ticket: same actor, same lamport, delimiters strictly
+increasing above `executedAt`'s. That is now checked in `fromSplitTickets`,
+which is a shape check on the sender's own claims rather than a rule about
+the tree, so it costs nothing in cross-implementation agreement.
+
+## Round 4: removeStyle emitted changes for nodes it did not change
+
+The target-based rewrite moved the `RemoveStyle` push out of the
+`if (removedAny)` it used to sit in, so every live target reported a change
+even when it held none of the attributes -- unlike the `style` half, which
+reports only what it wrote. The gate is back.
+
+The same push also reached `styleChangeRange` for targets that come out of
+id walks (split families, merge lineage), where a node can be live and yet
+have no parent; `prevSibling` dereferences `parent!` and throws on one.
+`styleChangeRange` returns `undefined` for a parentless node now, and both
+callers skip the change -- a node outside the document has no range to
+report.
+
+## Round 4: the nested-scan ratchet was pinned
+
+`isAtMost(rendered, 241)` passes for any later change that leaves a
+different 241 live nodes diverging, which is the movement the scan exists to
+catch. Both nested assertions are `deepEqual` on the whole scan now, so the
+count is a pin: movement in either direction has to be read against
+yorkie#2070's counts before it is written in.

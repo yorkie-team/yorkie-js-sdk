@@ -834,15 +834,20 @@ describe('Tree style reached set nested scans', () => {
         countOf('b="x"'),
         22,
       );
-      const { rendered, ...rest } = scan;
-      assert.deepEqual(rest, {
+      // Pinned, not bounded: `isAtMost` would pass for any later change
+      // that leaves a different set of live nodes diverging, as long as it
+      // stayed under the cap, which is exactly what this scan exists to
+      // catch. The 241 are the open §9.5 shapes named above; any movement,
+      // down as well as up, is a change in the reached set and has to be
+      // read against yorkie#2070's counts before it is written in here.
+      assert.deepEqual(scan, {
         pairs: 11592,
+        rendered: 241,
         tombstoneOnly: 0,
         errored: 0,
         styledPairs: 9318,
         styledNodes: 33208,
       });
-      assert.isAtMost(rendered, 241, 'regressed in the rendered document');
     },
     scanTimeout,
   );
@@ -857,15 +862,20 @@ describe('Tree style reached set nested scans', () => {
         countOf('<p>'),
         22,
       );
-      const { rendered, ...rest } = scan;
-      assert.deepEqual(rest, {
+      // Pinned, not bounded: `isAtMost` would pass for any later change
+      // that leaves a different set of live nodes diverging, as long as it
+      // stayed under the cap, which is exactly what this scan exists to
+      // catch. The 241 are the open §9.5 shapes named above; any movement,
+      // down as well as up, is a change in the reached set and has to be
+      // read against yorkie#2070's counts before it is written in here.
+      assert.deepEqual(scan, {
         pairs: 11592,
+        rendered: 241,
         tombstoneOnly: 0,
         errored: 0,
         styledPairs: 9318,
         styledNodes: 33208,
       });
-      assert.isAtMost(rendered, 241, 'regressed in the rendered document');
     },
     scanTimeout,
   );

@@ -319,13 +319,15 @@ describe('Malformed tree edit content', function () {
     return ops[ops.length - 1] as TreeEditOperation;
   }
 
-  it('drops a content entry that decodes to no node', function () {
+  it('rejects a content entry that decodes to no node', function () {
     const pb = treeEditPack();
     assert.equal(lastEdit(pb).getContents()!.length, 1);
 
+    // Dropping the entry instead would be a silent reinterpretation: an edit
+    // that reaches `CRDTTree.edit` with no contents deletes its range, so an
+    // insert the sender wrote would apply here as a deletion.
     contentsOf(pb)[0].content = [];
-    const contents = lastEdit(pb).getContents();
-    assert.isTrue(contents === undefined || contents.length === 0);
+    assert.throws(() => lastEdit(pb), YorkieError, /entry with no node/);
   });
 
   it('rejects a depth whose parent was never written', function () {
@@ -336,5 +338,79 @@ describe('Malformed tree edit content', function () {
     content[0].depth += 2;
 
     assert.throws(() => lastEdit(pb), YorkieError, /invalid tree node depth/);
+  });
+});
+
+/*
+ * The split tickets a tree edit carries become the ids of the elements the
+ * split mints, so a peer that could name them freely could put a live node
+ * under another actor's id, or under one a node in the tree already holds.
+ * They are only ever issued from the sending change's own context, after the
+ * operation's own ticket.
+ */
+describe('Malformed tree edit split tickets', function () {
+  /**
+   * `splitEditPack` returns the wire form of a change pack whose last
+   * operation splits `<p>ab</p>`, so it carries one split ticket.
+   */
+  function splitEditPack(): PbChangePack {
+    const doc: Document<{ t: Tree }> = new Document('d');
+    doc.update((r) => {
+      r.t = new Tree({
+        type: 'r',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    doc.update((r) => r.t.edit(2, 2, undefined, 1));
+    return converter.toChangePack(doc.createChangePack());
+  }
+
+  /**
+   * `splitTicketsOf` returns the split tickets carried by the given pack.
+   */
+  function splitTicketsOf(pb: PbChangePack) {
+    for (const change of pb.changes) {
+      for (const op of change.operations) {
+        if (op.body.case === 'treeEdit' && op.body.value.splitTickets.length) {
+          return op.body.value.splitTickets;
+        }
+      }
+    }
+    throw new Error('no split ticket in the pack');
+  }
+
+  /**
+   * `decode` decodes the given pack.
+   */
+  function decode(pb: PbChangePack) {
+    return converter.fromChangePack<Indexable>(pb);
+  }
+
+  it('accepts the tickets the sending change issued', function () {
+    const pb = splitEditPack();
+    assert.equal(splitTicketsOf(pb).length, 1);
+    assert.doesNotThrow(() => decode(pb));
+  });
+
+  it('rejects a ticket belonging to another actor', function () {
+    const pb = splitEditPack();
+    splitTicketsOf(pb)[0].actorId = new Uint8Array(12).fill(7);
+
+    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
+  });
+
+  it('rejects a ticket from another lamport', function () {
+    const pb = splitEditPack();
+    const ticket = splitTicketsOf(pb)[0];
+    ticket.lamport = ticket.lamport + 1n;
+
+    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
+  });
+
+  it('rejects a delimiter at or below the operation ticket', function () {
+    const pb = splitEditPack();
+    splitTicketsOf(pb)[0].delimiter = 0;
+
+    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
   });
 });

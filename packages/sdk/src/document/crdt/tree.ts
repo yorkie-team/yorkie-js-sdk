@@ -2546,12 +2546,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // `toIndex` on one yields a zero-width range that means nothing to
         // an editor. The text half makes the same exclusion.
         if (Object.keys(affectedAttrs).length > 0 && !node.isRemoved) {
-          changes.push({
-            type: TreeChangeType.Style,
-            ...this.styleChangeRange(node),
-            actor: editedAt.getActorID(),
-            value: affectedAttrs,
-          });
+          const range = this.styleChangeRange(node);
+          if (range) {
+            changes.push({
+              type: TreeChangeType.Style,
+              ...range,
+              actor: editedAt.getActorID(),
+              value: affectedAttrs,
+            });
+          }
         }
       });
     }
@@ -2601,9 +2604,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // `canStyle` admits a node removed concurrently with this change,
         // so `nodeIsLive` is the third question `attrGCPair` asks.
         const nodeIsLive = !node.isRemoved;
+        let removedAny = false;
         for (const key of attributesToRemove) {
           let wasLive = node.attrs.has(key);
           const { gcNodes, valueDropped } = node.attrs.remove(key, editedAt);
+          removedAny = removedAny || gcNodes.length > 0;
 
           // The tombstone is not charged for its value; those bytes leave
           // whichever side was holding them. See `attrGCPair` for the split.
@@ -2618,14 +2623,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
         }
 
-        // See `style`: a tombstoned node reports no change to editors.
-        if (nodeIsLive) {
-          changes.push({
-            type: TreeChangeType.RemoveStyle,
-            ...this.styleChangeRange(node),
-            actor: editedAt.getActorID(),
-            value: attributesToRemove,
-          });
+        // See `style`: a tombstoned node reports no change to editors, and
+        // neither does a node that held none of the attributes -- the
+        // `style` half reports only what it actually wrote, so a removal
+        // that took nothing off is the same no-op and stays silent.
+        if (nodeIsLive && removedAny) {
+          const range = this.styleChangeRange(node);
+          if (range) {
+            changes.push({
+              type: TreeChangeType.RemoveStyle,
+              ...range,
+              actor: editedAt.getActorID(),
+              value: attributesToRemove,
+            });
+          }
         }
       });
     }
@@ -2637,10 +2648,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `styleChangeRange` returns the index and path range a style change on
-   * the given node reports to editors.
+   * the given node reports to editors, or undefined when the node is not in
+   * the document.
+   *
+   * The targets come from walks over ids -- split families, merge lineage --
+   * so one can be a node that is live by `isRemoved` but detached from the
+   * tree, with no parent. `prevSibling` dereferences `parent!` and would
+   * throw on it; a node with no parent has no place in the rendered
+   * document to report either, so the caller reports nothing.
    */
   private styleChangeRange(node: CRDTTreeNode) {
-    const parent = node.parent!;
+    const parent = node.parent;
+    if (!parent) {
+      return undefined;
+    }
+
     const previous = node.prevSibling || parent;
     return {
       from: this.toIndex(parent, previous),
