@@ -21,17 +21,21 @@ import {
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 
 /**
- * `dropSplitLinksInElement` strips the split-sibling links and the merge
- * stamps from every tree reachable from `elem`.
+ * `dropSplitLinksInElement` strips the split-sibling links from every tree
+ * reachable from `elem`.
  *
  * A Set/Add/SetByIndex payload carries a whole element rather than a position
- * in the document, and the wire format carries insPrevID/insNextID and
- * mergedFrom/mergedAt on every tree node it holds. Such a payload is
- * client-supplied and its trees are always freshly created by the editing
- * client, so none of their nodes can be a split product or a merge-moved
- * child — but the tree follows both as trusted structural pointers all the
- * same. Drop them, for the same reason `fromTreeNodesWhenEdit` drops them
- * from operation content.
+ * in the document, and the wire format carries insPrevID/insNextID on every
+ * tree node it holds. Such a payload is client-supplied and its trees are
+ * always freshly created by the editing client, so none of their nodes can be
+ * a split product — but the tree follows the links as trusted structural
+ * pointers all the same. Drop them, for the same reason
+ * `fromTreeNodesWhenEdit` drops them from operation content.
+ *
+ * Merge stamps (mergedFrom/mergedAt/mergedInto) are left alone: unlike the
+ * split links they are read by the server too, so dropping them here only on
+ * the JS side would make a restored element differ between replicas. See
+ * `CRDTTreeNode.dropSplitLinks`.
  *
  * Both ways into the document have to agree: the converter calls this on the
  * element bytes it decodes, and `executeUndoRedo` calls it on the copy a

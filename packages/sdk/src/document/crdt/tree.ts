@@ -612,28 +612,28 @@ export class CRDTTreeNode
   }
 
   /**
-   * `dropSplitLinks` clears the split-sibling links and the merge stamps on
-   * this node and every one of its descendants.
+   * `dropSplitLinks` clears the split-sibling links on this node and every one
+   * of its descendants.
    *
    * insPrevID/insNextID name positions in a split chain and only
-   * `splitElement` may create them; mergedFrom/mergedAt/mergedInto name the
-   * parent a merge moved a child out of and only `edit` may create them. A
-   * node arriving as operation content is freshly created by the editing
-   * client, so it can never legitimately be a split product or a merge-moved
-   * child — but the wire format carries all of these fields regardless, and
-   * the walks that read them treat them as trusted structural pointers:
-   * `declaredBoundaries` decides from the mergedFrom chain whether a delete
-   * propagates to a node's children. Drop them on the way in rather than let
-   * a peer hand the tree a lineage of its choosing. `reissueContentIDs`
-   * clears the same five fields on the undo path, for the same reason.
+   * `splitElement` may create them. A node arriving as operation content is
+   * freshly created by the editing client, so it can never legitimately be a
+   * split product — but the wire format carries the links regardless, and the
+   * walks that read them treat them as trusted structural pointers.
+   *
+   * mergedFrom/mergedAt/mergedInto are deliberately NOT cleared here. They are
+   * on the wire too, but what a decoder does with them is part of a
+   * replicated contract: the server decodes the same bytes to build its
+   * snapshots, so a JS-only strip would leave every JS replica holding a
+   * different tree than the server and than any Go replica. The walks that
+   * read them are cycle-guarded instead (`declaredBoundaries` tree.ts,
+   * `resolveMergeTarget` tree.ts), which is what keeps a forged chain from
+   * spinning a replica without changing what the fields mean.
    */
   public dropSplitLinks(): void {
     traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
       node.insPrevID = undefined;
       node.insNextID = undefined;
-      node.mergedFrom = undefined;
-      node.mergedAt = undefined;
-      node.mergedInto = undefined;
     });
   }
 

@@ -1332,17 +1332,24 @@ function fromTreeNodesWhenEdit(
   const treeNodes: Array<CRDTTreeNode> = [];
   pbTreeNodes.forEach((node) => {
     const treeNode = fromTreeNodes(node.content);
+    // An entry whose content is empty decodes to no node at all. Pushing the
+    // undefined would put a hole in the contents array that every later
+    // reader dereferences — `edit` down to `toXML` — so drop the entry
+    // instead: a sender with nothing to insert can say so by omitting it.
+    if (!treeNode) {
+      return;
+    }
+
     // Operation content is fully client-controlled and is always freshly
-    // created by the editing client, so it can never be a split product nor a
-    // child some earlier merge moved. Drop the split-sibling links and the
-    // merge stamps the wire format carries anyway: the tree follows both as
-    // trusted structural pointers once `edit` registers these nodes in
-    // nodeMapByID.
-    treeNode?.dropSplitLinks();
-    treeNodes.push(treeNode!);
+    // created by the editing client, so it can never be a split product.
+    // Drop the split-sibling links the wire format carries anyway: the tree
+    // follows them as trusted structural pointers once `edit` registers
+    // these nodes in nodeMapByID.
+    treeNode.dropSplitLinks();
+    treeNodes.push(treeNode);
   });
 
-  return treeNodes;
+  return treeNodes.length ? treeNodes : undefined;
 }
 
 /**
@@ -1365,7 +1372,19 @@ function fromTreeNodes(
   depthTable.set(pbTreeNodes[nodes.length - 1].depth, nodes[nodes.length - 1]);
   for (let i = nodes.length - 2; i >= 0; i--) {
     const parent = depthTable.get(pbTreeNodes[i].depth - 1);
-    parent!.prepend(nodes[i]);
+    // The depths come off the wire. A peer can send a node whose parent depth
+    // was never written, or name a text node as a parent; dereferencing the
+    // miss threw a bare TypeError from inside the build. Reject the payload
+    // at the boundary instead, with the error every other malformed field
+    // here raises, so the caller sees a decode failure rather than a crash
+    // part way through assembling a tree.
+    if (!parent || parent.isText) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `invalid tree node depth: ${pbTreeNodes[i].depth}`,
+      );
+    }
+    parent.prepend(nodes[i]);
     depthTable.set(pbTreeNodes[i].depth, nodes[i]);
   }
 

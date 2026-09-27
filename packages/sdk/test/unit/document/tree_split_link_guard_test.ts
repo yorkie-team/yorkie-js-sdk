@@ -26,6 +26,12 @@ import {
   CRDTTreePos,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
+import { Tree } from '@yorkie-js/sdk/src/yorkie';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { ChangePack as PbChangePack } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import { YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
 
 /*
  * insPrevID, insNextID and mergedFrom are structural pointers only
@@ -36,11 +42,13 @@ import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
  * `collectBetween`'s cascade also appends to nodesToBeRemoved on every turn,
  * so it burns memory while it spins.
  *
- * The converter now strips all of them from client-supplied content
+ * The converter strips the two split links from client-supplied content
  * (`fromTreeNodesWhenEdit` for operation content, `dropSplitLinksInElement`
- * for the element bytes a Set/Add/SetByIndex carries), so these chains should
- * no longer be constructible. The walks stay bounded anyway: documents stored
- * before that already carry whatever a client sent.
+ * for the element bytes a Set/Add/SetByIndex carries), so those chains should
+ * no longer be constructible. mergedFrom is left on the wire — the server
+ * reads it too, so JS may not drop it unilaterally — and the walks stay
+ * bounded on their own anyway: documents stored before the strip already
+ * carry whatever a client sent.
  */
 
 // `knownActor` creates the nodes the operation under test knows about.
@@ -223,7 +231,7 @@ describe('Cyclic split and merge links', function () {
 });
 
 describe('dropSplitLinks', function () {
-  it('clears the links and merge stamps on the node and every descendant', function () {
+  it('clears the links on the node and every descendant, keeping merge stamps', function () {
     const issue = ticketer();
     const node = (type: string, value?: string) =>
       new CRDTTreeNode(CRDTTreeNodeID.of(issue(knownActor), 0), type, value);
@@ -251,9 +259,82 @@ describe('dropSplitLinks', function () {
     for (const n of [root, para, text]) {
       assert.isUndefined(n.insPrevID);
       assert.isUndefined(n.insNextID);
-      assert.isUndefined(n.mergedFrom);
-      assert.isUndefined(n.mergedAt);
-      assert.isUndefined(n.mergedInto);
+      // The merge stamps survive: what a decoder makes of them is a
+      // replicated contract the server shares, so the JS side may not drop
+      // them on its own. The walks that read them are cycle-guarded, which
+      // the tests above cover.
+      assert.deepEqual(n.mergedFrom, other);
+      assert.deepEqual(n.mergedAt, stamp);
+      assert.deepEqual(n.mergedInto, other);
     }
+  });
+});
+
+/*
+ * A tree edit's contents are decoded node by node from depths the sender
+ * wrote. Neither a content entry that holds no node nor a depth whose parent
+ * was never written can come from this SDK, but both are one field edit away
+ * on the wire, and a change that throws part way through decoding is one the
+ * server hands back on every retry.
+ */
+describe('Malformed tree edit content', function () {
+  /**
+   * `treeEditPack` returns the wire form of a change pack whose last
+   * operation is a tree edit inserting `<p>ab</p>`.
+   */
+  function treeEditPack(): PbChangePack {
+    const doc: Document<{ t: Tree }> = new Document('d');
+    doc.update((r) => {
+      r.t = new Tree({ type: 'r', children: [] });
+    });
+    doc.update((r) =>
+      r.t.edit(0, 0, {
+        type: 'p',
+        children: [{ type: 'text', value: 'ab' }],
+      }),
+    );
+    return converter.toChangePack(doc.createChangePack());
+  }
+
+  /**
+   * `contentsOf` returns the tree edit contents carried by the given pack.
+   */
+  function contentsOf(pb: PbChangePack) {
+    for (const change of pb.changes) {
+      for (const op of change.operations) {
+        if (op.body.case === 'treeEdit') {
+          return op.body.value.contents;
+        }
+      }
+    }
+    throw new Error('no tree edit in the pack');
+  }
+
+  /**
+   * `lastEdit` returns the decoded tree edit operation of the given pack.
+   */
+  function lastEdit(pb: PbChangePack): TreeEditOperation {
+    const changes = converter.fromChangePack<Indexable>(pb).getChanges();
+    const ops = changes[changes.length - 1].getOperations();
+    return ops[ops.length - 1] as TreeEditOperation;
+  }
+
+  it('drops a content entry that decodes to no node', function () {
+    const pb = treeEditPack();
+    assert.equal(lastEdit(pb).getContents()!.length, 1);
+
+    contentsOf(pb)[0].content = [];
+    const contents = lastEdit(pb).getContents();
+    assert.isTrue(contents === undefined || contents.length === 0);
+  });
+
+  it('rejects a depth whose parent was never written', function () {
+    const pb = treeEditPack();
+    const content = contentsOf(pb)[0].content;
+    // The text node, which the well-formed payload put at the paragraph's
+    // depth + 1.
+    content[0].depth += 2;
+
+    assert.throws(() => lastEdit(pb), YorkieError, /invalid tree node depth/);
   });
 });

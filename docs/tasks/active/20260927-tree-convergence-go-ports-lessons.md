@@ -139,3 +139,40 @@ Lesson for the next widened scan: a new test whose body loops over thousands
 of cases needs its timeout decided when it is written. Check it with
 `CI=true pnpm sdk exec vitest run <file>`, since `pnpm verify:fast` inherits
 the `Infinity` local budget and will not.
+
+## Round 3: the merge-stamp strip was itself a divergence
+
+Three of the panel's findings pointed at the same change from round 2 --
+`dropSplitLinks` widened to clear `mergedFrom`/`mergedAt`/`mergedInto` --
+and they were right, for the reason this whole task exists.
+
+What a decoder does with a wire field is a replicated contract. The server
+decodes the same bytes to build its snapshots, so a strip only the JS side
+performs leaves every JS replica holding a different tree than the server,
+and the next snapshot hands the stamps back. Worse on the undo path:
+`executeUndoRedo` calls `dropSplitLinksInElement` on a `deepcopy` taken from
+the LIVE document, where the stamps are real lineage rather than something a
+peer wrote -- so the widened strip erased merge history from restored
+elements that kept their node identities.
+
+Reverted to clearing only `insPrevID`/`insNextID`, which is what main does.
+Forged merge chains stay bounded the way they always were, by the cycle
+guards in `declaredBoundaries` and `resolveMergeTarget`; the fixture in
+`tree_split_link_guard_test.ts` keeps its `mergedFrom` cycle cases, which now
+prove the guards rather than the strip.
+
+Lesson: "drop the field on the way in" is only a local hardening when the
+field is local. For anything the server reads, the hardening has to be a
+bound on the walk, not a change to the data.
+
+## Round 3: malformed edit content decoded to a hole
+
+`fromTreeNodesWhenEdit` pushed `fromTreeNodes(...)` unconditionally --
+`treeNodes.push(treeNode!)` -- and that call returns `undefined` for an empty
+content entry, so a one-field wire edit put an `undefined` in the contents
+array for `edit` to dereference. `fromTreeNodes` then built its depth table
+with `parent!.prepend`, a bare TypeError on any depth whose parent was never
+written. Empty entries are now skipped and a depth miss (or a text node named
+as a parent) raises `ErrInvalidArgument`, so the pack is rejected at the
+converter boundary instead of failing part way through a tree the caller has
+already started applying.
