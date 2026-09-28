@@ -54,25 +54,37 @@ export function bigintToBytesLE(value: bigint): Uint8Array {
 }
 
 /**
- * `bigintFromBytesLE` reads a signed 64-bit bigint from 8 bytes (little-endian).
+ * `readUint64LE` reads eight little-endian bytes as an unsigned 64-bit bigint.
+ *
+ * These bytes come off the wire, so a remote peer can hand us fewer than the
+ * eight a 64-bit value needs. `bytes[i]` past the end is `undefined` and
+ * `BigInt(undefined)` throws a TypeError; a remote change that throws is
+ * redelivered by the server forever, so one malformed payload would wedge
+ * every client that receives it. Read the missing bytes as zero instead:
+ * every client answers the same value and none of them stall.
  */
-export function bigintFromBytesLE(bytes: Uint8Array): bigint {
+function readUint64LE(bytes: Uint8Array): bigint {
   let v = 0n;
   for (let i = 7; i >= 0; i--) {
-    v = (v << 8n) | BigInt(bytes[i]);
+    v = (v << 8n) | BigInt(i < bytes.length ? bytes[i] : 0);
   }
-  return BigInt.asIntN(64, v);
+  return v;
 }
 
 /**
- * `bigintFromBytesLEUnsigned` reads an unsigned 64-bit bigint from 8 bytes (little-endian).
+ * `bigintFromBytesLE` reads a signed 64-bit bigint from 8 bytes (little-endian).
+ * A payload shorter than 8 bytes is read as if zero-padded.
+ */
+export function bigintFromBytesLE(bytes: Uint8Array): bigint {
+  return BigInt.asIntN(64, readUint64LE(bytes));
+}
+
+/**
+ * `bigintFromBytesLEUnsigned` reads an unsigned 64-bit bigint from 8 bytes
+ * (little-endian). A payload shorter than 8 bytes is read as if zero-padded.
  */
 export function bigintFromBytesLEUnsigned(bytes: Uint8Array): bigint {
-  let v = 0n;
-  for (let i = 7; i >= 0; i--) {
-    v = (v << 8n) | BigInt(bytes[i]);
-  }
-  return v;
+  return readUint64LE(bytes);
 }
 
 /**

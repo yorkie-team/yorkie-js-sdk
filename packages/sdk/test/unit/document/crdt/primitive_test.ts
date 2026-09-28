@@ -181,4 +181,55 @@ describe('Primitive', function () {
     assert.equal(value, 1.4229854124e-314);
     assert.deepEqual(Array.from(shared), Array.from(untouched));
   });
+
+  it('reads a truncated long or date without throwing', function () {
+    // NOTE(chacha912): Same wire path as the truncated double above: the
+    // missing bytes read as zero rather than throwing a TypeError out of
+    // `BigInt(undefined)`.
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array([1, 2, 3])),
+      0x030201n,
+    );
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array()),
+      0n,
+    );
+    assert.deepEqual(
+      Primitive.valueFromBytes(PrimitiveType.Date, new Uint8Array([0xe8, 3])),
+      new Date(1000),
+    );
+  });
+
+  it('clamps a date whose millis fall outside the Date range', function () {
+    // NOTE(chacha912): An out-of-range offset would otherwise become an
+    // Invalid Date, which throws far from here: a RangeError out of
+    // `toJSON`, and `BigInt(NaN)` out of `toBytes`.
+    const primitive = Primitive.fromBytes(
+      PrimitiveType.Date,
+      new Uint8Array(8).fill(0xff),
+      InitialTimeTicket,
+    );
+
+    assert.equal((primitive.getValue() as Date).getTime(), 8640000000000000);
+    assert.doesNotThrow(() => primitive.toJSON());
+    assert.doesNotThrow(() => primitive.toBytes());
+  });
+
+  it('keeps the wire type of a double holding a whole number', function () {
+    // NOTE(chacha912): Re-deriving the type from the value alone would call
+    // this an Integer and re-serialise it in four bytes, diverging from the
+    // server.
+    const bytes = new Uint8Array(8);
+    new DataView(bytes.buffer).setFloat64(0, 3, true);
+
+    const primitive = Primitive.fromBytes(
+      PrimitiveType.Double,
+      bytes,
+      InitialTimeTicket,
+    );
+
+    assert.equal(primitive.getType(), PrimitiveType.Double);
+    assert.deepEqual(Array.from(primitive.toBytes()), Array.from(bytes));
+    assert.equal(primitive.deepcopy().getType(), PrimitiveType.Double);
+  });
 });

@@ -28,6 +28,13 @@ import {
   isWithinInt64Range,
 } from '@yorkie-js/sdk/src/util/number';
 
+/**
+ * `MaxDateMillis` is the largest millisecond offset a JavaScript `Date` can
+ * represent. Beyond it `new Date()` yields an Invalid Date, whose `getTime()`
+ * is `NaN` and whose `toISOString()` throws.
+ */
+const MaxDateMillis = 8640000000000000;
+
 export enum PrimitiveType {
   Null,
   Boolean,
@@ -55,9 +62,18 @@ export class Primitive extends CRDTElement {
   private valueType: PrimitiveType;
   private value: PrimitiveValue;
 
-  constructor(value: PrimitiveValue, createdAt: TimeTicket) {
+  constructor(
+    value: PrimitiveValue,
+    createdAt: TimeTicket,
+    valueType?: PrimitiveType,
+  ) {
     super(createdAt);
-    this.valueType = Primitive.getPrimitiveType(value)!;
+    // NOTE(chacha912): `valueType` is the type the value was declared as on
+    // the wire. Deriving the type from the value alone cannot tell a Double
+    // holding a whole number apart from an Integer, so a DOUBLE payload would
+    // come back as an Integer and re-serialise in four bytes, diverging from
+    // the server. Callers that know the declared type pass it through.
+    this.valueType = valueType ?? Primitive.getPrimitiveType(value)!;
     if (this.valueType === PrimitiveType.Long) {
       // Both the number path (promoted from out-of-int32 integers) and the
       // bigint path converge here. Reject magnitudes outside the int64 range
@@ -85,8 +101,29 @@ export class Primitive extends CRDTElement {
   /**
    * `of` creates a new instance of Primitive.
    */
-  public static of(value: PrimitiveValue, createdAt: TimeTicket): Primitive {
-    return new Primitive(value, createdAt);
+  public static of(
+    value: PrimitiveValue,
+    createdAt: TimeTicket,
+    valueType?: PrimitiveType,
+  ): Primitive {
+    return new Primitive(value, createdAt, valueType);
+  }
+
+  /**
+   * `fromBytes` creates a Primitive from the given wire type and payload,
+   * keeping the declared type rather than re-deriving it from the decoded
+   * value.
+   */
+  public static fromBytes(
+    primitiveType: PrimitiveType,
+    bytes: Uint8Array,
+    createdAt: TimeTicket,
+  ): Primitive {
+    return new Primitive(
+      Primitive.valueFromBytes(primitiveType, bytes),
+      createdAt,
+      primitiveType,
+    );
   }
 
   /**
@@ -141,8 +178,23 @@ export class Primitive extends CRDTElement {
         return bigintFromBytesLE(bytes);
       case PrimitiveType.Bytes:
         return bytes;
-      case PrimitiveType.Date:
-        return new Date(Number(bigintFromBytesLEUnsigned(bytes)));
+      case PrimitiveType.Date: {
+        // NOTE(chacha912): A remote peer can hand us a millisecond offset
+        // larger than a JavaScript `Date` can hold. `new Date()` answers an
+        // Invalid Date for those, and an Invalid Date throws later and far
+        // from here: `toJSON` throws a RangeError out of `toISOString`, and
+        // `toBytes` throws on `BigInt(NaN)` when the change is persisted.
+        // Clamp instead, the same way the Double case above pads a short
+        // payload: every client answers the same value and none of them stall.
+        const millis = bigintFromBytesLEUnsigned(bytes);
+        if (millis > BigInt(MaxDateMillis)) {
+          logger.warn(
+            `date value ${millis} is out of the Date range; clamping it to ${MaxDateMillis}`,
+          );
+          return new Date(MaxDateMillis);
+        }
+        return new Date(Number(millis));
+      }
       default:
         throw new YorkieError(
           Code.ErrUnimplemented,
@@ -233,7 +285,11 @@ export class Primitive extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): Primitive {
-    const primitive = Primitive.of(this.value, this.getCreatedAt());
+    const primitive = Primitive.of(
+      this.value,
+      this.getCreatedAt(),
+      this.valueType,
+    );
     primitive.setMovedAt(this.getMovedAt());
     primitive.setRemovedAt(this.getRemovedAt());
     return primitive;
