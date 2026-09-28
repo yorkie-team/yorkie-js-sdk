@@ -119,13 +119,7 @@ export class IncreaseOperation extends Operation {
     const valueType = primitiveValue.getType();
     const value =
       valueType === PrimitiveType.Long
-        ? // NOTE(chacha912): The operand comes off the wire, so it can be
-          // MinInt64, whose negation is 2^63 — one past the int64 range the
-          // Primitive constructor rejects. A remote change that throws is
-          // redelivered by the server forever, so that would wedge every
-          // client receiving it. Wrap the negation the way int64 arithmetic
-          // on the server does (MinInt64 negates to itself) instead.
-          BigInt.asIntN(64, -(primitiveValue.getValue() as bigint))
+        ? -(primitiveValue.getValue() as bigint)
         : (primitiveValue.getValue() as number) * -1;
 
     const reverseOp = IncreaseOperation.create(

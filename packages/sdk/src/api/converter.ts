@@ -1231,9 +1231,11 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
     case PbValueType.STRING:
     case PbValueType.BYTES:
     case PbValueType.DATE:
-      return Primitive.fromBytes(
-        fromValueType(pbElementSimple.type),
-        pbElementSimple.value,
+      return Primitive.of(
+        Primitive.valueFromBytes(
+          fromValueType(pbElementSimple.type),
+          pbElementSimple.value,
+        ),
         fromTimeTicket(pbElementSimple.createdAt)!,
       );
     case PbValueType.INTEGER_CNT:
@@ -1735,9 +1737,11 @@ function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
  * `fromPrimitive` converts the given Protobuf format to model format.
  */
 function fromPrimitive(pbPrimitive: PbJSONElement_Primitive): Primitive {
-  const primitive = Primitive.fromBytes(
-    fromValueType(pbPrimitive.type),
-    pbPrimitive.value,
+  const primitive = Primitive.of(
+    Primitive.valueFromBytes(
+      fromValueType(pbPrimitive.type),
+      pbPrimitive.value,
+    ),
     fromTimeTicket(pbPrimitive.createdAt)!,
   );
   primitive.setMovedAt(fromTimeTicket(pbPrimitive.movedAt));
