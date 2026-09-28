@@ -8,6 +8,7 @@
     "dev": "plasmo dev --build-path=dist",
     "build": "plasmo build --build-path=dist --zip",
     "typecheck": "tsc --noEmit --verbatimModuleSyntax false",
+    "test": "vitest run",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {
@@ -29,7 +30,8 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "prettier": "3.7.4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
   },
   "manifest": {
     "permissions": [

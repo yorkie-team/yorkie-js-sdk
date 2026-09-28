@@ -16,6 +16,7 @@
 
 import type { FullSDKToPanelMessage } from '@yorkie-js/sdk';
 import { EventSourceDevPanel, EventSourceSDK } from '@yorkie-js/sdk';
+import { replaceBigInts } from './devtools/stringify';
 
 let panelPort = null;
 
@@ -33,7 +34,15 @@ window.addEventListener('message', (event) => {
   const message = event.data as Record<string, unknown>;
   if (message?.source === EventSourceSDK) {
     if (!panelPort) return;
-    panelPort.postMessage(message as FullSDKToPanelMessage);
+    try {
+      panelPort.postMessage(message as FullSDKToPanelMessage);
+    } catch {
+      // NOTE(hackerwins): The SDK reaches this window through `postMessage`,
+      // which clones a `bigint` happily, but a port serializes as JSON and
+      // refuses one — so a document holding a Long would lose every message
+      // from here on. Only the message that was refused pays for the copy.
+      panelPort.postMessage(replaceBigInts(message) as FullSDKToPanelMessage);
+    }
   }
 });
 
