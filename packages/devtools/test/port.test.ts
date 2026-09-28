@@ -117,14 +117,22 @@ describe('connectPort', () => {
   it('keeps a late disconnect of an old channel from killing the new one', async () => {
     const { connectPort, sendToSDK } = await loadPort();
 
+    const staleDisconnect = vi.fn();
+    connectPort(vi.fn(), staleDisconnect);
     connectPort(vi.fn(), vi.fn());
-    connectPort(vi.fn(), vi.fn());
+    const before = opened[1].posted.length;
 
     // The old channel reports its disconnect only after the new one is open.
     opened[0].fireDisconnect();
 
+    // The replaced channel says nothing about the live one, so the panel must
+    // not be told to reset the document it is still receiving.
+    expect(staleDisconnect).not.toHaveBeenCalled();
+
+    // And the live channel is still the one `sendToSDK` writes to.
     sendToSDK({ msg: 'devtools::connect' });
-    expect(opened[1].posted).toContainEqual({
+    expect(opened[1].posted).toHaveLength(before + 1);
+    expect(opened[1].posted[before]).toEqual({
       source: 'yorkie-devtools-panel',
       msg: 'devtools::connect',
     });

@@ -56,10 +56,12 @@ export const connectPort = (onMessage, onDisconnect) => {
   connected.onMessage.addListener(onMessage);
   connected.onDisconnect.addListener(() => {
     connected.onMessage.removeListener(onMessage);
+    // A channel that has already been replaced is not the one the panel is
+    // reading from, so its disconnect says nothing about the live one: telling
+    // the caller would reset a document that is still being fed.
+    if (port !== connected) return;
+    port = undefined;
     onDisconnect();
-    if (port === connected) {
-      port = undefined;
-    }
   });
 
   sendToSDK({ msg: 'devtools::connect' });
