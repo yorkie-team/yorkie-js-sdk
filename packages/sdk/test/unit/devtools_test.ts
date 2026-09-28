@@ -20,6 +20,7 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import {
   DocEventType,
+  DocStatus,
   DocSyncStatus,
   type DocEvent,
 } from '@yorkie-js/sdk/src/document/document';
@@ -225,6 +226,70 @@ describe('Devtools bridge with multiple documents', () => {
     );
     expect(fullSyncs).toHaveLength(1);
     expect((fullSyncs[0] as { events: Array<unknown> }).events).toEqual([]);
+  });
+
+  it('keeps a reused key with the Document that is attached', async () => {
+    const key = 'devtools-attached-holds-a';
+    // NOTE(chacha912): The Document the page ends up using attaches first.
+    const live = newDoc(key);
+    live.applyStatus(DocStatus.Attached);
+    live.update((root) => {
+      root.key = 'from the live instance';
+    });
+    await flush();
+
+    // NOTE(chacha912): React's development double-render builds a second
+    // Document under the same key and throws it away. Whichever of the two is
+    // built last is decided by network timing, so construction order must not
+    // take the key away from the one that is attached.
+    const discarded = newDoc(key);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+
+    captured.length = 0;
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+    expect(notificationsOf('doc::sync::full', key)).toHaveLength(1);
+    expect(
+      notificationsOf('doc::sync::full', key)[0].events.length,
+    ).toBeGreaterThan(0);
+
+    // NOTE(chacha912): The discarded Document attaches and leaves again, the
+    // shape of a connection that resolves after its effect was cancelled. The
+    // key has to come back to the Document that is still attached.
+    captured.length = 0;
+    discarded.applyStatus(DocStatus.Attached);
+    await flush();
+    discarded.applyStatus(DocStatus.Detached);
+    await flush();
+    expect(notificationsOf('doc::unavailable', key)).toHaveLength(0);
+
+    captured.length = 0;
+    live.update((root) => {
+      root.key = 'still recording';
+    });
+    await flush();
+    expect(notificationsOf('doc::sync::partial', key)).toHaveLength(1);
+  });
+
+  it('stops announcing a document that left the page', async () => {
+    const key = 'devtools-left-page-a';
+    const doc = newDoc(key);
+    doc.applyStatus(DocStatus.Attached);
+    // NOTE(chacha912): Document-scoped messages only travel once a panel has
+    // announced itself, so the case has to connect before it can observe one.
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+
+    captured.length = 0;
+    doc.applyStatus(DocStatus.Detached);
+    await flush();
+    expect(notificationsOf('doc::unavailable', key)).toHaveLength(1);
+
+    captured.length = 0;
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    expect(notificationsOf('doc::available', key)).toHaveLength(0);
   });
 
   it('ignores panel messages that did not come from this window', async () => {
