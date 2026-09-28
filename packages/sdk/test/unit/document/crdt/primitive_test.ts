@@ -140,6 +140,18 @@ describe('Primitive', function () {
     assert.throws(() => Primitive.of(minInt64 - 1n, InitialTimeTicket));
   });
 
+  it('reads a double payload shorter than eight bytes instead of throwing', function () {
+    // NOTE(chacha912): A remote payload can arrive truncated, and the decoder
+    // answered on one before this change. It still does: the bytes that are
+    // missing read as zero instead of as whatever the buffer happened to hold.
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Double,
+      new Uint8Array([0, 0, 0, 0]),
+    );
+
+    assert.equal(value, 0);
+  });
+
   it('reads a double out of a shared buffer without writing to it', function () {
     // NOTE(chacha912): A snapshot arrives as one buffer and the decoder hands
     // its values out as views into it, so reading a value must not write.

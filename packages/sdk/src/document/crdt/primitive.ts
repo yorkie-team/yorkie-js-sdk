@@ -104,18 +104,21 @@ export class Primitive extends CRDTElement {
       case PrimitiveType.Integer:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
       case PrimitiveType.Double: {
-        // NOTE(chacha912): The view is bound to this value's own range. The
-        // earlier code copied the bytes to the start of the underlying buffer
-        // before reading them, which answered correctly but wrote through to
-        // whatever else was sharing that buffer. A snapshot arrives as one
-        // buffer that the decoder hands out as views, so reading a double out
-        // of it overwrote the first eight bytes of the snapshot itself.
-        const view = new DataView(
-          bytes.buffer,
-          bytes.byteOffset,
-          bytes.byteLength,
-        );
-        return view.getFloat64(0, true);
+        // NOTE(chacha912): The bytes are copied into a buffer of this value's
+        // own before being read. The earlier code copied them to offset 0 of
+        // the *underlying* buffer and read them back from there, which
+        // answered correctly and wrote through to whatever else was sharing
+        // that buffer: a snapshot arrives as one buffer the decoder hands out
+        // as views, so reading a double out of a document overwrote the first
+        // eight bytes of the snapshot itself.
+        //
+        // Reading in place would fix that but would also make a payload
+        // shorter than eight bytes throw, where it used to answer. The copy
+        // keeps both: nothing outside this value is written, and a short
+        // payload reads as the zero-padded value it would have been.
+        const buffer = new Uint8Array(8);
+        buffer.set(bytes.subarray(0, 8));
+        return new DataView(buffer.buffer).getFloat64(0, true);
       }
       case PrimitiveType.String:
         return new TextDecoder('utf-8').decode(bytes);
