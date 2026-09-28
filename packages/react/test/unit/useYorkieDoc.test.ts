@@ -86,6 +86,7 @@ vi.mock('../../src/useSelector', () => ({
 }));
 
 vi.mock('@yorkie-js/sdk', () => ({
+  teardownDevtools: vi.fn(),
   Client: vi.fn(() => mockClient),
   StreamConnectionStatus: {
     Connected: 'Connected',
