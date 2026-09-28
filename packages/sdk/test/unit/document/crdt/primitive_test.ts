@@ -161,4 +161,24 @@ describe('Primitive', function () {
       Array.from(new Uint8Array(8).fill(0xab)),
     );
   });
+
+  it('reads a truncated double without throwing or writing', function () {
+    // NOTE(chacha912): The bytes come off the wire, so a remote peer can send
+    // fewer than the eight a double needs. Throwing on them would wedge every
+    // client that receives the change, since the server redelivers a change
+    // that fails to apply.
+    const shared = new Uint8Array(16);
+    shared.fill(0xab);
+    const untouched = shared.slice();
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Double,
+      new Uint8Array(shared.buffer, 8, 4),
+    );
+
+    // The four missing bytes read as zero, so the value is the same on every
+    // client rather than whatever else happened to share the buffer.
+    assert.equal(value, 1.4229854124e-314);
+    assert.deepEqual(Array.from(shared), Array.from(untouched));
+  });
 });

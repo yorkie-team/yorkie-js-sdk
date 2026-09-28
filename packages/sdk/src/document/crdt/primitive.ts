@@ -110,6 +110,24 @@ export class Primitive extends CRDTElement {
         // whatever else was sharing that buffer. A snapshot arrives as one
         // buffer that the decoder hands out as views, so reading a double out
         // of it overwrote the first eight bytes of the snapshot itself.
+        //
+        // These bytes come off the wire, so a remote peer can hand us fewer
+        // than the eight a double needs. A view bound to a short range throws
+        // a RangeError on the read, and a remote change that throws is
+        // redelivered by the server forever, so one malformed payload would
+        // wedge every client that receives it. Read a short payload out of a
+        // zero-padded copy instead, the way the Integer case above reads its
+        // missing bytes as zero: every client answers the same value and none
+        // of them stall.
+        if (bytes.byteLength < 8) {
+          logger.warn(
+            `double value is ${bytes.byteLength} bytes, expected 8; reading it as zero-padded`,
+          );
+          const padded = new Uint8Array(8);
+          padded.set(bytes);
+          return new DataView(padded.buffer).getFloat64(0, true);
+        }
+
         const view = new DataView(
           bytes.buffer,
           bytes.byteOffset,
