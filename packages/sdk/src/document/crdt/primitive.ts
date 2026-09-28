@@ -104,10 +104,17 @@ export class Primitive extends CRDTElement {
       case PrimitiveType.Integer:
         return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
       case PrimitiveType.Double: {
-        const view = new DataView(bytes.buffer);
-        bytes.forEach(function (b, i) {
-          view.setUint8(i, b);
-        });
+        // NOTE(chacha912): The view is bound to this value's own range. The
+        // earlier code copied the bytes to the start of the underlying buffer
+        // before reading them, which answered correctly but wrote through to
+        // whatever else was sharing that buffer. A snapshot arrives as one
+        // buffer that the decoder hands out as views, so reading a double out
+        // of it overwrote the first eight bytes of the snapshot itself.
+        const view = new DataView(
+          bytes.buffer,
+          bytes.byteOffset,
+          bytes.byteLength,
+        );
         return view.getFloat64(0, true);
       }
       case PrimitiveType.String:

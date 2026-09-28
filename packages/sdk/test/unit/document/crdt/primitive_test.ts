@@ -139,4 +139,26 @@ describe('Primitive', function () {
     assert.throws(() => Primitive.of(maxInt64 + 1n, InitialTimeTicket));
     assert.throws(() => Primitive.of(minInt64 - 1n, InitialTimeTicket));
   });
+
+  it('reads a double out of a shared buffer without writing to it', function () {
+    // NOTE(chacha912): A snapshot arrives as one buffer and the decoder hands
+    // its values out as views into it, so reading a value must not write.
+    const shared = new Uint8Array(24);
+    shared.fill(0xab);
+    const view = new DataView(shared.buffer, 8, 8);
+    view.setFloat64(0, 3.14, true);
+    const untouched = shared.slice(0, 8);
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Double,
+      new Uint8Array(shared.buffer, 8, 8),
+    );
+
+    assert.equal(value, 3.14);
+    assert.deepEqual(Array.from(shared.slice(0, 8)), Array.from(untouched));
+    assert.deepEqual(
+      Array.from(shared.slice(16)),
+      Array.from(new Uint8Array(8).fill(0xab)),
+    );
+  });
 });
