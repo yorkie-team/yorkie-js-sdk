@@ -60,7 +60,16 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onMessage.addListener(handleMessage);
   port.onDisconnect.addListener(() => {
-    panelPort.onMessage.removeListener(handleMessage);
+    // NOTE(hackerwins): The panel closes its channel and opens a new one
+    // whenever the inspected tab finishes loading or the error boundary
+    // remounts the provider, so this handler can run for a channel that has
+    // already been replaced. Keying off the closed-over `port` rather than
+    // `panelPort` keeps a late disconnect from tearing down the live relay and
+    // telling the SDK devtools went away.
+    port.onMessage.removeListener(handleMessage);
+    if (panelPort !== port) {
+      return;
+    }
     panelPort = null;
     window.postMessage({
       source: EventSourceDevPanel,
