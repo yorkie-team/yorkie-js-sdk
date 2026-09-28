@@ -20,6 +20,7 @@ import {
   Primitive,
   PrimitiveType,
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { bigintToBytesLE } from '@yorkie-js/sdk/src/util/number';
 
 describe('Primitive', function () {
   const primitiveTypes = [
@@ -200,19 +201,40 @@ describe('Primitive', function () {
     );
   });
 
+  it('round-trips a date before 1970', function () {
+    // NOTE(chacha912): `toBytes` writes the offset as a signed int64, so a
+    // pre-1970 date is two's complement on the wire. Reading it unsigned
+    // would answer ~1.8e19 and silently land in the year 275760.
+    for (const date of [new Date(-1), new Date('1969-01-01T00:00:00.000Z')]) {
+      const bytes = Primitive.of(date, InitialTimeTicket).toBytes();
+
+      assert.deepEqual(
+        Primitive.valueFromBytes(PrimitiveType.Date, bytes),
+        date,
+      );
+    }
+  });
+
   it('clamps a date whose millis fall outside the Date range', function () {
     // NOTE(chacha912): An out-of-range offset would otherwise become an
     // Invalid Date, which throws far from here: a RangeError out of
-    // `toJSON`, and `BigInt(NaN)` out of `toBytes`.
-    const primitive = Primitive.fromBytes(
-      PrimitiveType.Date,
-      new Uint8Array(8).fill(0xff),
-      InitialTimeTicket,
-    );
+    // `toJSON`, and `BigInt(NaN)` out of `toBytes`. Both ends are clamped:
+    // the offset is read signed, so it can be too negative as well as too
+    // large.
+    for (const [millis, expected] of [
+      [2n ** 62n, 8640000000000000],
+      [-(2n ** 62n), -8640000000000000],
+    ] as Array<[bigint, number]>) {
+      const primitive = Primitive.fromBytes(
+        PrimitiveType.Date,
+        bigintToBytesLE(millis),
+        InitialTimeTicket,
+      );
 
-    assert.equal((primitive.getValue() as Date).getTime(), 8640000000000000);
-    assert.doesNotThrow(() => primitive.toJSON());
-    assert.doesNotThrow(() => primitive.toBytes());
+      assert.equal((primitive.getValue() as Date).getTime(), expected);
+      assert.doesNotThrow(() => primitive.toJSON());
+      assert.doesNotThrow(() => primitive.toBytes());
+    }
   });
 
   it('keeps the wire type of a double holding a whole number', function () {

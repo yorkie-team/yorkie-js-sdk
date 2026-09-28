@@ -24,14 +24,14 @@ import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 import {
   bigintToBytesLE,
   bigintFromBytesLE,
-  bigintFromBytesLEUnsigned,
   isWithinInt64Range,
 } from '@yorkie-js/sdk/src/util/number';
 
 /**
  * `MaxDateMillis` is the largest millisecond offset a JavaScript `Date` can
- * represent. Beyond it `new Date()` yields an Invalid Date, whose `getTime()`
- * is `NaN` and whose `toISOString()` throws.
+ * represent; the smallest is its negation. Outside `±MaxDateMillis`
+ * `new Date()` yields an Invalid Date, whose `getTime()` is `NaN` and whose
+ * `toISOString()` throws.
  */
 const MaxDateMillis = 8640000000000000;
 
@@ -179,19 +179,27 @@ export class Primitive extends CRDTElement {
       case PrimitiveType.Bytes:
         return bytes;
       case PrimitiveType.Date: {
-        // NOTE(chacha912): A remote peer can hand us a millisecond offset
-        // larger than a JavaScript `Date` can hold. `new Date()` answers an
+        // NOTE(chacha912): `toBytes` writes the millisecond offset as a
+        // *signed* int64, so a date before 1970 goes out as two's complement
+        // (`new Date(-1)` is eight 0xff bytes). Read it back signed: an
+        // unsigned read would turn every pre-1970 date into ~1.8e19, silently
+        // landing it in the year 275760 on the receiving side.
+        const millis = bigintFromBytesLE(bytes);
+
+        // A remote peer can still hand us a millisecond offset larger than a
+        // JavaScript `Date` can hold, at either end. `new Date()` answers an
         // Invalid Date for those, and an Invalid Date throws later and far
         // from here: `toJSON` throws a RangeError out of `toISOString`, and
         // `toBytes` throws on `BigInt(NaN)` when the change is persisted.
         // Clamp instead, the same way the Double case above pads a short
         // payload: every client answers the same value and none of them stall.
-        const millis = bigintFromBytesLEUnsigned(bytes);
-        if (millis > BigInt(MaxDateMillis)) {
+        const maxMillis = BigInt(MaxDateMillis);
+        if (millis > maxMillis || millis < -maxMillis) {
+          const clamped = millis > 0n ? MaxDateMillis : -MaxDateMillis;
           logger.warn(
-            `date value ${millis} is out of the Date range; clamping it to ${MaxDateMillis}`,
+            `date value ${millis} is out of the Date range; clamping it to ${clamped}`,
           );
-          return new Date(MaxDateMillis);
+          return new Date(clamped);
         }
         return new Date(Number(millis));
       }
