@@ -35,7 +35,14 @@ type DevtoolsStatus = 'connected' | 'disconnected' | 'synced';
  * channel, so the status cannot be shared across documents.
  */
 const devtoolsStatusByDocKey = new Map<string, DevtoolsStatus>();
-const unsubsByDocKey = new Map<string, Array<() => void>>();
+
+/**
+ * `teardownByDoc` holds what every `setupDevtools` call has to give back: the
+ * document subscription, the window listener and the recording. They are kept
+ * per Document rather than per key, because one key can have several Documents
+ * behind it and releasing one of them must not release the others.
+ */
+const teardownByDoc = new WeakMap<object, () => void>();
 
 /**
  * `Registration` is one `setupDevtools` call. Each keeps its own recording, so
@@ -124,7 +131,10 @@ function claimKey(docKey: string, registration: Registration): boolean {
  */
 function releaseKey(docKey: string, registration: Registration): boolean {
   if (ownerByDocKey.get(docKey) !== registration.token) {
-    return true;
+    // NOTE(chacha912): Another Document already speaks for the key, so the
+    // panel keeps what it is showing. A key nobody holds is a key whose
+    // Documents have all left, and it has nothing left to announce.
+    return ownerByDocKey.has(docKey);
   }
 
   const successor = (registrationsByDocKey.get(docKey) || [])
@@ -310,6 +320,23 @@ export function setupDevtools<T, P extends Indexable>(
 
   const isOwner = () => ownerByDocKey.get(doc.getKey()) === registration.token;
 
+  /**
+   * `answersForKey` reports whether this registration is the one to answer the
+   * panel about the key. The owner answers while there is one. A key whose
+   * Documents have all detached has no owner at all, and a `devtools::subscribe`
+   * that nobody answers leaves the panel waiting with neither a full sync nor
+   * an error, so the newest registration speaks for such a key until a Document
+   * attaches again.
+   */
+  const answersForKey = () => {
+    if (ownerByDocKey.has(doc.getKey())) {
+      return isOwner();
+    }
+
+    const registered = registrationsByDocKey.get(doc.getKey()) || [];
+    return registered[registered.length - 1] === registration;
+  };
+
   const unsub = doc.subscribe('all', (events) => {
     // NOTE(hackerwins): One transaction can carry both replayable events and
     // events that cannot be replayed, so the batch is split by hand.
@@ -367,6 +394,16 @@ export function setupDevtools<T, P extends Indexable>(
       const attached = event.value.status === DocStatus.Attached;
       registration.attached = attached;
       if (attached) {
+        // NOTE(chacha912): Two Documents of one key can be attached at once: a
+        // remount whose predecessor has not finished detaching, or two clients
+        // collaborating inside a single page. The one that already holds the
+        // key keeps it, because taking it over here would replace the history
+        // the user is watching with this Document's empty recording.
+        const owner = ownerOf(doc.getKey());
+        if (owner && owner !== registration && owner.attached) {
+          continue;
+        }
+
         claimKey(doc.getKey(), registration);
         sendToPanel({ msg: 'doc::available', docKey: doc.getKey() });
         // NOTE(chacha912): The panel may have subscribed to this key while
@@ -392,8 +429,6 @@ export function setupDevtools<T, P extends Indexable>(
       }
     }
   });
-  // TODO(chacha912): Cancel the subscription when the document is removed.
-  unsubsByDocKey.set(doc.getKey(), [unsub]);
 
   // NOTE(chacha912): Send initial message, in case the devtool panel is already open.
   // NOTE(hackerwins): When the panel is already attached to another document on
@@ -447,15 +482,17 @@ export function setupDevtools<T, P extends Indexable>(
         logger.info(`[YD] Devtools disconnected. Doc: ${doc.getKey()}`);
         break;
       case 'devtools::subscribe':
-        if (!isOwner()) {
-          break;
-        }
         // NOTE(hackerwins): The panel watches one document at a time, so
-        // subscribing to another document stops the stream of this one.
+        // subscribing to another document stops the stream of this one. This
+        // runs whoever owns the key: a registration that no longer speaks for
+        // it still has to stop streaming.
         if (message.docKey !== doc.getKey()) {
           if (getDevtoolsStatus(doc.getKey()) === 'synced') {
             devtoolsStatusByDocKey.set(doc.getKey(), 'connected');
           }
+          break;
+        }
+        if (!answersForKey()) {
           break;
         }
 
@@ -467,8 +504,61 @@ export function setupDevtools<T, P extends Indexable>(
   };
   window.addEventListener('message', handleMessage);
 
-  // TODO(hackerwins): Nothing releases a registration. A Document that leaves
-  // the page keeps its subscription and its recording, so that re-attaching
-  // brings the history back, but a page that never reuses the key holds them
-  // until it unloads.
+  // NOTE(chacha912): A Document that stays on the page keeps its subscription
+  // and its recording even while detached, so that attaching again brings the
+  // history back. A Document the page has thrown away has to give them back:
+  // the bindings build a new Document under the same key whenever their effect
+  // re-runs, and a registration nobody releases leaves a window listener, a
+  // subscription and a recording that grows with every event behind on each
+  // remount. `teardownDevtools` is how the holder of the Document says so.
+  teardownByDoc.set(doc, () => {
+    teardownByDoc.delete(doc);
+    unsub();
+    window.removeEventListener('message', handleMessage);
+
+    const remaining = (registrationsByDocKey.get(doc.getKey()) || []).filter(
+      (other) => other !== registration,
+    );
+    if (remaining.length > 0) {
+      registrationsByDocKey.set(doc.getKey(), remaining);
+    } else {
+      registrationsByDocKey.delete(doc.getKey());
+    }
+
+    if (isOwner()) {
+      // NOTE(chacha912): The key goes to another attached Document of the same
+      // key if there is one, and otherwise goes quiet: the panel must not be
+      // left offering a document that nothing on the page can reach any more.
+      const successor = releaseKey(doc.getKey(), registration);
+      sendToPanel({
+        msg: successor ? 'doc::available' : 'doc::unavailable',
+        docKey: doc.getKey(),
+      });
+      if (successor) {
+        sendFullSync(doc.getKey());
+      }
+    }
+
+    // NOTE(chacha912): The status is dropped last, after the messages above
+    // have gone out through it. Nothing is left to answer
+    // `devtools::disconnect` for a key with no Document, so a status left
+    // behind would keep `isPanelConnected` reporting a panel that has closed.
+    if (remaining.length === 0) {
+      devtoolsStatusByDocKey.delete(doc.getKey());
+    }
+  });
+}
+
+/**
+ * `teardownDevtools` releases what `setupDevtools` registered for the given
+ * Document: its subscription, its window listener and its recording. Call it
+ * when the Document is discarded — nothing else reaches those, and a page that
+ * rebuilds Documents under one key accumulates them otherwise. It is a no-op
+ * for a Document that has no devtools registration, and calling it twice is
+ * harmless.
+ */
+export function teardownDevtools<T, P extends Indexable>(
+  doc: Document<T, P>,
+): void {
+  teardownByDoc.get(doc)?.();
 }

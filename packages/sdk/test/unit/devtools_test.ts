@@ -28,6 +28,7 @@ import {
   isDocEventForReplay,
   isDocNotificationEvent,
 } from '@yorkie-js/sdk/src/devtools/types';
+import { teardownDevtools } from '@yorkie-js/sdk/src/devtools';
 import {
   EventSourceDevPanel,
   EventSourceSDK,
@@ -37,11 +38,11 @@ import {
 
 type TestDoc = { key?: string };
 
-// NOTE(hackerwins): `setupDevtools` never removes its window `message`
-// listener and never clears `unsubsByDocKey`, so every document built earlier
-// in this file keeps answering the panel. Each case therefore uses its own doc
-// keys and every assertion filters the captured messages by those keys instead
-// of counting them.
+// NOTE(hackerwins): A document keeps its window `message` listener and its
+// subscription until `teardownDevtools` releases them, so every document built
+// earlier in this file keeps answering the panel. Each case therefore uses its
+// own doc keys and every assertion filters the captured messages by those keys
+// instead of counting them.
 const captured: Array<FullSDKToPanelMessage> = [];
 
 const capture = (event: MessageEvent) => {
@@ -270,6 +271,108 @@ describe('Devtools bridge with multiple documents', () => {
     });
     await flush();
     expect(notificationsOf('doc::sync::partial', key)).toHaveLength(1);
+  });
+
+  it('keeps the recording when another Document attaches under the key', async () => {
+    const key = 'devtools-duplicate-attach-a';
+    const live = newDoc(key);
+    live.applyStatus(DocStatus.Attached);
+    live.update((root) => {
+      root.key = 'from the live instance';
+    });
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+    expect(
+      notificationsOf('doc::sync::full', key)[0].events.length,
+    ).toBeGreaterThan(0);
+
+    // NOTE(chacha912): A second Document of the same key attaches — a remount
+    // whose predecessor has not finished detaching, or two clients inside one
+    // page. Taking the key over here would hand the panel an empty recording
+    // in place of the history the user is watching.
+    captured.length = 0;
+    const second = newDoc(key);
+    second.applyStatus(DocStatus.Attached);
+    await flush();
+    expect(notificationsOf('doc::sync::full', key)).toHaveLength(0);
+
+    captured.length = 0;
+    live.update((root) => {
+      root.key = 'still recording';
+    });
+    await flush();
+    expect(notificationsOf('doc::sync::partial', key)).toHaveLength(1);
+  });
+
+  it('releases the key and stops answering once torn down', async () => {
+    const key = 'devtools-teardown-a';
+    const doc = newDoc(key);
+    doc.applyStatus(DocStatus.Attached);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+
+    captured.length = 0;
+    teardownDevtools(doc);
+    await flush();
+    expect(notificationsOf('doc::unavailable', key)).toHaveLength(1);
+
+    // The Document the page threw away keeps neither its subscription nor its
+    // window listener, so nothing it does reaches the panel any more.
+    captured.length = 0;
+    doc.update((root) => {
+      root.key = 'after the teardown';
+    });
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    expect(notificationsOf('doc::sync::partial', key)).toHaveLength(0);
+    expect(notificationsOf('doc::available', key)).toHaveLength(0);
+  });
+
+  it('hands the key to the surviving Document when one is torn down', async () => {
+    const key = 'devtools-teardown-successor-a';
+    const discarded = newDoc(key);
+    discarded.applyStatus(DocStatus.Attached);
+    const live = newDoc(key);
+    live.applyStatus(DocStatus.Attached);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+
+    captured.length = 0;
+    teardownDevtools(discarded);
+    await flush();
+    expect(notificationsOf('doc::unavailable', key)).toHaveLength(0);
+
+    captured.length = 0;
+    live.update((root) => {
+      root.key = 'still recording';
+    });
+    await flush();
+    expect(notificationsOf('doc::sync::partial', key)).toHaveLength(1);
+  });
+
+  it('answers a subscribe for a key no Document holds', async () => {
+    const key = 'devtools-ownerless-a';
+    const doc = newDoc(key);
+    doc.applyStatus(DocStatus.Attached);
+    postFromPanel({ msg: 'devtools::connect' });
+    await flush();
+    doc.applyStatus(DocStatus.Detached);
+    await flush();
+
+    // NOTE(chacha912): The panel can ask for a key whose Documents have all
+    // detached, because its subscribe and the `doc::unavailable` that removes
+    // the key cross. A subscribe nobody answers leaves the panel waiting with
+    // neither a full sync nor an error.
+    captured.length = 0;
+    postFromPanel({ msg: 'devtools::subscribe', docKey: key });
+    await flush();
+    expect(notificationsOf('doc::sync::full', key)).toHaveLength(1);
   });
 
   it('stops announcing a document that left the page', async () => {
