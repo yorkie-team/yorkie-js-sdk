@@ -60,6 +60,12 @@ export interface RGATreeSplitValue {
   truncate(offset: number): void;
 
   getDataSize(): DataSize;
+
+  /**
+   * `getGCPairs` returns the pairs for the tombstones this value carries, for
+   * a value that has any (`CRDTTextValue`'s removed attributes).
+   */
+  getGCPairs?(): Array<GCPair>;
 }
 
 /**
@@ -629,12 +635,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   private treeByID: LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>>;
 
   /**
-   * `pendingGCPairs` buffers GC pairs for nodes that were created
-   * already-tombstoned by splitting a removed node. Such pieces inherit
-   * `removedAt` without ever passing through `remove()`, so they would
-   * otherwise never be registered for GC. Callers that split nodes
-   * (`edit`, `CRDTText.setStyle`, `CRDTText.removeStyle`) drain this
-   * buffer into their returned GC pairs.
+   * `pendingGCPairs` buffers GC pairs for garbage that no `remove()` call
+   * produced: nodes created already-tombstoned by splitting a removed node,
+   * and attribute tombstones duplicated by a value copy (a split, or
+   * `restore` recreating a purged piece; see `bookCopiedAttrTombstones`).
+   * Either would otherwise never be registered for GC. Callers that split or
+   * restore nodes (`edit`, `CRDTText.setStyle`, `CRDTText.removeStyle`,
+   * `restore`) drain this buffer into their returned GC pairs.
    */
   private pendingGCPairs: Array<GCPair>;
 
@@ -772,8 +779,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * the same way as a normal edit.
    *
    * The caller must, in order: (1) register every pair in `pendingGCPairs`
-   * — these are fragments `splitNode` buffered while isolating a target
-   * range out of a larger tombstoned piece (see `drainPendingGCPairs`);
+   * — fragments `splitNode` buffered while isolating a target range out of
+   * a larger tombstoned piece, and attribute tombstones copied into split or
+   * recreated values (see `drainPendingGCPairs`);
    * (2) unregister GC pairs for `untombstonedNodes`. Registering first is
    * required for `untombstonedNodes` entries whose node was itself one of
    * those split-born fragments (a target isolated from the interior of a
@@ -850,6 +858,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             RGATreeSplitNodeID.of(span.createdAt, cursor),
             value,
           );
+          // `substring` deep-copied the span's attributes, tombstones
+          // included, exactly as a split does. Book them here for the same
+          // reason `splitNode` does -- see `bookCopiedAttrTombstones`. The
+          // buffer is drained below into this call's returned pairs.
+          this.bookCopiedAttrTombstones(value);
           addDataSizes(liveDiff, newNode.getDataSize());
           const prev = this.findRestoreAnchor(
             span.createdAt,
@@ -958,9 +971,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       }
     }
 
-    // Defensive: retombstone only ever isolates live pieces, so splitNode
-    // never buffers anything here — drain anyway to stay consistent with
-    // every other caller of isolateRange/splitNode.
+    // retombstone only isolates live pieces, so splitNode buffers no
+    // born-removed piece here, but a split still books the attribute
+    // tombstones it copies.
     pairs.push(...this.drainPendingGCPairs());
 
     return [pairs, changes, diff];
@@ -1481,21 +1494,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     subDataSize(diff, prvSize);
 
     // A split deep-copies the value's attributes, so every tombstone among
-    // them is duplicated under the new node. The copy was never in
-    // docSize.live -- `getDataSize` excludes removed attributes -- so it
-    // enters gc only, and purge subtracts the same size back out.
-    const splitValue = splitNode.getValue() as unknown as {
-      getRemovedAttrs?: () => Array<GCChild>;
-    };
-    if (typeof splitValue.getRemovedAttrs === 'function') {
-      for (const attr of splitValue.getRemovedAttrs()) {
-        this.pendingGCPairs.push({
-          parent: splitNode.getValue() as unknown as GCParent,
-          child: attr,
-          gcOnlySize: attr.getDataSize(),
-        });
-      }
-    }
+    // them is duplicated under the new node.
+    this.bookCopiedAttrTombstones(splitNode.getValue());
 
     // NOTE: A piece split off an already-tombstoned node inherits
     // `removedAt` without going through `remove()`, so no GC pair is
@@ -1517,8 +1517,25 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
-   * `drainPendingGCPairs` returns the GC pairs buffered for born-tombstoned
-   * split pieces and clears the buffer.
+   * `bookCopiedAttrTombstones` registers the attribute tombstones a freshly
+   * copied value has just duplicated. `CRDTTextValue.substring` -- which both
+   * `splitNode` and `restore`'s recreate path go through -- deep-copies the
+   * whole RHT, tombstones included; it has to, or a piece would resolve a
+   * concurrent style differently from a replica that never split or never lost
+   * it. Each copy is a fresh piece of garbage under a new parent with no
+   * registration of its own: the original's pair names the original's parent,
+   * so without this the copy sits in the RHT forever, uncounted and
+   * unpurgeable. The copy was never in `docSize.live` -- `getDataSize` excludes
+   * removed attributes -- so `gcOnlySize` charges it to gc alone, and `purge`
+   * subtracts the same size back out.
+   */
+  private bookCopiedAttrTombstones(value: T): void {
+    this.pendingGCPairs.push(...(value.getGCPairs?.() ?? []));
+  }
+
+  /**
+   * `drainPendingGCPairs` returns the GC pairs buffered in `pendingGCPairs`
+   * and clears the buffer.
    */
   public drainPendingGCPairs(): Array<GCPair> {
     const pairs = this.pendingGCPairs;
@@ -1665,6 +1682,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         this.treeByIndex.deleteRange(leftBoundary!, rightBoundary);
       }
     }
+  }
+
+  /**
+   * `purgeBarrierAt` implements `GCParent.purgeBarrierAt`. `findNodeWithSplit` skips forward
+   * while the next node was created after the incoming edit, so a tombstone
+   * whose createdAt precedes the edit stops that walk. Unlinking it hands the
+   * next node the stopping decision, which is only the same decision once
+   * that node is causally stable.
+   */
+  public purgeBarrierAt(child: GCChild): TimeTicket | undefined {
+    if (!(child instanceof RGATreeSplitNode)) {
+      return;
+    }
+    return child.getNext()?.getCreatedAt();
   }
 
   /**
