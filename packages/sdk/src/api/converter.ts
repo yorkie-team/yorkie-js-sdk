@@ -1321,63 +1321,6 @@ function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
 }
 
 /**
- * `fromSplitTickets` converts the split tickets a tree edit carries, replacing
- * any the change that sent them could not have issued.
- *
- * These tickets become the identities of the elements a split mints, so a
- * peer free to name them could mint a live node under another actor's id, or
- * under an id a node in the tree already holds. Every producer issues them
- * from the change's own context, after the operation's own ticket: the same
- * actor and lamport, delimiters strictly increasing above it.
- *
- * A ticket outside that shape is replaced with the one the change would have
- * issued in its place -- the next delimiter above the previous ticket, under
- * `executedAt`'s actor and lamport -- which is the same ticket `execute`
- * reconstructs for a change written before the field existed. It is NOT
- * rejected: this runs inside `fromChangePack`, which decodes a whole pull in
- * one go with no per-change tolerance, so a throw here would make one
- * malformed change from any writer wedge the document's sync permanently for
- * every JS client. Every replica normalizes identically, so they still agree
- * on the ids the split mints.
- */
-function fromSplitTickets(
-  pbTickets: Array<PbTimeTicket>,
-  executedAt: TimeTicket,
-  contentCount: number,
-): Array<TimeTicket> {
-  const tickets: Array<TimeTicket> = [];
-  let delimiter = executedAt.getDelimiter();
-  for (const pbTicket of pbTickets) {
-    const ticket = fromTimeTicket(pbTicket);
-    if (
-      !ticket ||
-      ticket.getActorID() !== executedAt.getActorID() ||
-      ticket.getLamport() !== executedAt.getLamport() ||
-      ticket.getDelimiter() <= delimiter
-    ) {
-      // Step past the delimiters the operation's own content holds as well,
-      // the way `execute`'s fallback does, so a replacement cannot land on an
-      // id an inserted node already carries.
-      delimiter =
-        Math.max(delimiter, executedAt.getDelimiter() + contentCount) + 1;
-      tickets.push(
-        TimeTicket.of(
-          executedAt.getLamport(),
-          delimiter,
-          executedAt.getActorID(),
-        ),
-      );
-      continue;
-    }
-
-    delimiter = ticket.getDelimiter();
-    tickets.push(ticket);
-  }
-
-  return tickets;
-}
-
-/**
  * `fromTreeNodesWhenEdit` converts the given Protobuf format to model format.
  */
 function fromTreeNodesWhenEdit(
@@ -1660,11 +1603,12 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRestoreMode,
       treeRetombstoneSpans,
     );
+    // Split tickets are read back as sent, the way yorkie's converter reads
+    // them: the server applies them verbatim, so a replica that rewrote or
+    // refused a ticket here would mint different ids than the snapshot holds.
     treeEdit.setSplitTickets(
-      fromSplitTickets(
-        pbTreeEditOperation!.splitTickets,
-        treeEditExecutedAt,
-        treeEditContents?.length ?? 0,
+      pbTreeEditOperation!.splitTickets.map(
+        (ticket) => fromTimeTicket(ticket)!,
       ),
     );
     return treeEdit;

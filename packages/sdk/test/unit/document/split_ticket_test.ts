@@ -96,10 +96,9 @@ describe('split tickets', function () {
   });
   // A document edited before `client.attach` runs under the initial actor,
   // and attach re-stamps every pending local change with the real one. The
-  // tickets a split issued are part of that change, so they have to be
-  // re-stamped with it: left naming the old actor they no longer look like
-  // tickets the change could have issued, and the decoder replaces them on
-  // every replica -- silently renaming the nodes the split mints.
+  // tickets a split issued are part of that change, so they are re-stamped
+  // with it, the same way its executedAt is: every replica then mints the
+  // split's elements under the actor that sent the change.
   it('re-stamps the tickets when the actor is set after the edit', function () {
     const doc = new Document<{ t: Tree }>('doc');
     doc.update((r) => {
