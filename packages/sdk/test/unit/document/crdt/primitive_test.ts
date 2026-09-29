@@ -20,6 +20,7 @@ import {
   Primitive,
   PrimitiveType,
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
+import { bigintToBytesLE } from '@yorkie-js/sdk/src/util/number';
 
 describe('Primitive', function () {
   const primitiveTypes = [
@@ -196,5 +197,106 @@ describe('Primitive', function () {
       Array.from(shared.slice(16)),
       Array.from(new Uint8Array(8).fill(0xab)),
     );
+  });
+
+  it('reads a truncated double without throwing or writing', function () {
+    // NOTE(chacha912): The bytes come off the wire, so a remote peer can send
+    // fewer than the eight a double needs. Throwing on them would wedge every
+    // client that receives the change, since the server redelivers a change
+    // that fails to apply.
+    const shared = new Uint8Array(16);
+    shared.fill(0xab);
+    const untouched = shared.slice();
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Double,
+      new Uint8Array(shared.buffer, 8, 4),
+    );
+
+    // The four missing bytes read as zero, so the value is the same on every
+    // client rather than whatever else happened to share the buffer.
+    assert.equal(value, 1.4229854124e-314);
+    assert.deepEqual(Array.from(shared), Array.from(untouched));
+  });
+
+  it('reads a truncated long or date without throwing', function () {
+    // NOTE(chacha912): Same wire path as the truncated double above: the
+    // missing bytes read as zero rather than throwing a TypeError out of
+    // `BigInt(undefined)`.
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array([1, 2, 3])),
+      0x030201n,
+    );
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array()),
+      0n,
+    );
+    assert.deepEqual(
+      Primitive.valueFromBytes(PrimitiveType.Date, new Uint8Array([0xe8, 3])),
+      new Date(1000),
+    );
+  });
+
+  it('rejects an Invalid Date built locally', function () {
+    // NOTE(chacha912): An Invalid Date stored as a primitive throws far from
+    // where it was set: a RangeError out of `toJSON`, and `BigInt(NaN)` out
+    // of `toBytes` when the change is encoded. The local path is rejected
+    // where the caller can still see it; the wire path clamps instead, since
+    // a remote change that throws is redelivered forever.
+    assert.throws(() => Primitive.of(new Date('nope'), InitialTimeTicket));
+  });
+
+  it('round-trips a date before 1970', function () {
+    // NOTE(chacha912): `toBytes` writes the offset as a signed int64, so a
+    // pre-1970 date is two's complement on the wire. Reading it unsigned
+    // would answer ~1.8e19 and silently land in the year 275760.
+    for (const date of [new Date(-1), new Date('1969-01-01T00:00:00.000Z')]) {
+      const bytes = Primitive.of(date, InitialTimeTicket).toBytes();
+
+      assert.deepEqual(
+        Primitive.valueFromBytes(PrimitiveType.Date, bytes),
+        date,
+      );
+    }
+  });
+
+  it('clamps a date whose millis fall outside the Date range', function () {
+    // NOTE(chacha912): An out-of-range offset would otherwise become an
+    // Invalid Date, which throws far from here: a RangeError out of
+    // `toJSON`, and `BigInt(NaN)` out of `toBytes`. Both ends are clamped:
+    // the offset is read signed, so it can be too negative as well as too
+    // large.
+    for (const [millis, expected] of [
+      [2n ** 62n, 8640000000000000],
+      [-(2n ** 62n), -8640000000000000],
+    ] as Array<[bigint, number]>) {
+      const primitive = Primitive.fromBytes(
+        PrimitiveType.Date,
+        bigintToBytesLE(millis),
+        InitialTimeTicket,
+      );
+
+      assert.equal((primitive.getValue() as Date).getTime(), expected);
+      assert.doesNotThrow(() => primitive.toJSON());
+      assert.doesNotThrow(() => primitive.toBytes());
+    }
+  });
+
+  it('keeps the wire type of a double holding a whole number', function () {
+    // NOTE(chacha912): Re-deriving the type from the value alone would call
+    // this an Integer and re-serialise it in four bytes, diverging from the
+    // server.
+    const bytes = new Uint8Array(8);
+    new DataView(bytes.buffer).setFloat64(0, 3, true);
+
+    const primitive = Primitive.fromBytes(
+      PrimitiveType.Double,
+      bytes,
+      InitialTimeTicket,
+    );
+
+    assert.equal(primitive.getType(), PrimitiveType.Double);
+    assert.deepEqual(Array.from(primitive.toBytes()), Array.from(bytes));
+    assert.equal(primitive.deepcopy().getType(), PrimitiveType.Double);
   });
 });

@@ -27,6 +27,7 @@ import {
   bigintToBytesLE,
   bigintToInt32,
 } from '@yorkie-js/sdk/src/util/number';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 import { HLL } from '@yorkie-js/sdk/src/document/crdt/hll';
@@ -295,9 +296,7 @@ export class CRDTCounter extends CRDTElement {
         'dedup counter requires actor',
       );
     }
-    const val = v.getValue();
-    const isUnit = v.getType() === PrimitiveType.Long ? val === 1n : val === 1;
-    if (!isUnit) {
+    if (!CRDTCounter.isUnitIncrease(v)) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
         'dedup counter only supports increment by 1',
@@ -307,6 +306,17 @@ export class CRDTCounter extends CRDTElement {
       this.recomputeValue();
     }
     return this;
+  }
+
+  /**
+   * `isUnitIncrease` reports whether the given value is an increment by one,
+   * the only increment a dedup counter accepts. Callers that take the value
+   * off the wire check this before calling `increaseDedup`, which throws on
+   * anything else.
+   */
+  public static isUnitIncrease(v: Primitive): boolean {
+    const val = v.getValue();
+    return v.getType() === PrimitiveType.Long ? val === 1n : val === 1;
   }
 
   /**
@@ -360,11 +370,27 @@ export class CRDTCounter extends CRDTElement {
     checkNumericType(this);
     checkNumericType(v);
 
+    /**
+     * `toIntegerDelta` drops the decimal part of a numeric operand. The
+     * operand comes off the wire on the remote-apply path, so it can be NaN
+     * or ±Infinity, which `BigInt()` rejects with a RangeError. A remote
+     * change that throws is redelivered by the server forever, so read a
+     * non-finite operand as no change instead: every client answers the same
+     * value and none of them stall.
+     */
+    function toIntegerDelta(value: number): number {
+      if (!Number.isFinite(value)) {
+        logger.warn(`counter increase value is ${value}; reading it as 0`);
+        return 0;
+      }
+      return removeDecimal(value);
+    }
+
     if (this.valueType === CounterType.Long) {
       const delta =
         typeof v.getValue() === 'bigint'
           ? (v.getValue() as bigint)
-          : BigInt(Math.trunc(v.getValue() as number));
+          : BigInt(toIntegerDelta(v.getValue() as number));
       this.value = BigInt.asIntN(64, (this.value as bigint) + delta);
     } else {
       if (v.getType() === PrimitiveType.Long) {
@@ -374,7 +400,7 @@ export class CRDTCounter extends CRDTElement {
       } else {
         this.value = bigintToInt32(
           BigInt(
-            (this.value as number) + removeDecimal(v.getValue() as number),
+            (this.value as number) + toIntegerDelta(v.getValue() as number),
           ),
         );
       }

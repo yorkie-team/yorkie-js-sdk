@@ -20,6 +20,15 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
+import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
+import { InitialChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import {
+  PrimitiveType,
+  type PrimitiveValue,
+} from '@yorkie-js/sdk/src/document/crdt/primitive';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -80,6 +89,53 @@ describe('Converter', function () {
     const bytes = converter.objectToBytes(doc.getRootObject());
     const obj = converter.bytesToObject(bytes);
     assert.equal(doc.toSortedJSON(), obj.toSortedJSON());
+  });
+
+  it('should round-trip every primitive type through objectToBytes', function () {
+    // NOTE(chacha912): The types the encode/decode test above leaves
+    // commented out: a double, a long, bytes and a date, including a date
+    // before 1970, whose millisecond offset goes out as a signed int64.
+    const root = new CRDTRoot(
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
+    );
+    const cc = ChangeContext.create(InitialChangeID, root, {});
+    const obj = root.getObject();
+    const values: Record<string, PrimitiveValue> = {
+      double: 1.79,
+      long: 9223372036854775807n,
+      bytes: new Uint8Array([65, 66]),
+      date: new Date('1995-12-17T03:24:00.000Z'),
+      oldDate: new Date('1969-01-01T00:00:00.000Z'),
+    };
+    for (const [key, value] of Object.entries(values)) {
+      const ticket = cc.issueTimeTicket();
+      obj.set(key, Primitive.of(value, ticket), ticket);
+    }
+    // A double holding a whole number: only the declared wire type tells it
+    // apart from an integer, so it has to be built with that type directly.
+    const doubleTicket = cc.issueTimeTicket();
+    obj.set(
+      'wholeDouble',
+      Primitive.of(3, doubleTicket, PrimitiveType.Double),
+      doubleTicket,
+    );
+
+    const decoded = converter.bytesToObject(converter.objectToBytes(obj));
+
+    for (const [key, value] of Object.entries(values)) {
+      assert.deepEqual(
+        (decoded.get(key) as Primitive).getValue(),
+        value,
+        `value of ${key}`,
+      );
+    }
+    // The declared DOUBLE survives the round-trip: re-deriving the type from
+    // the decoded value would call it an Integer and re-serialise it in four
+    // bytes, diverging from the server.
+    const wholeDouble = decoded.get('wholeDouble') as Primitive;
+    assert.equal(wholeDouble.getType(), PrimitiveType.Double);
+    assert.equal(wholeDouble.toBytes().length, 8);
+    assert.equal(obj.toSortedJSON(), decoded.toSortedJSON());
   });
 
   it('convert hex string <-> byte array', function () {

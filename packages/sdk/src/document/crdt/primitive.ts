@@ -24,9 +24,16 @@ import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 import {
   bigintToBytesLE,
   bigintFromBytesLE,
-  bigintFromBytesLEUnsigned,
   isWithinInt64Range,
 } from '@yorkie-js/sdk/src/util/number';
+
+/**
+ * `MaxDateMillis` is the largest millisecond offset a JavaScript `Date` can
+ * represent; the smallest is its negation. Outside `±MaxDateMillis`
+ * `new Date()` yields an Invalid Date, whose `getTime()` is `NaN` and whose
+ * `toISOString()` throws.
+ */
+const MaxDateMillis = 8640000000000000;
 
 export enum PrimitiveType {
   Null,
@@ -55,9 +62,18 @@ export class Primitive extends CRDTElement {
   private valueType: PrimitiveType;
   private value: PrimitiveValue;
 
-  constructor(value: PrimitiveValue, createdAt: TimeTicket) {
+  constructor(
+    value: PrimitiveValue,
+    createdAt: TimeTicket,
+    valueType?: PrimitiveType,
+  ) {
     super(createdAt);
-    this.valueType = Primitive.getPrimitiveType(value)!;
+    // NOTE(chacha912): `valueType` is the type the value was declared as on
+    // the wire. Deriving the type from the value alone cannot tell a Double
+    // holding a whole number apart from an Integer, so a DOUBLE payload would
+    // come back as an Integer and re-serialise in four bytes, diverging from
+    // the server. Callers that know the declared type pass it through.
+    this.valueType = valueType ?? Primitive.getPrimitiveType(value)!;
     if (this.valueType === PrimitiveType.Long) {
       // Both the number path (promoted from out-of-int32 integers) and the
       // bigint path converge here. Reject magnitudes outside the int64 range
@@ -78,6 +94,24 @@ export class Primitive extends CRDTElement {
       }
       this.value = longValue;
     } else {
+      if (
+        this.valueType === PrimitiveType.Date &&
+        Number.isNaN((value as Date).getTime())
+      ) {
+        // NOTE(chacha912): An Invalid Date reaches this constructor from the
+        // local path too (`buildCRDTElement` passes whatever the application
+        // set), and it throws far from here: `toJSON` throws a RangeError out
+        // of `toISOString`, and `toBytes` throws on `BigInt(NaN)` when the
+        // change is encoded. Reject it here, where the caller can still see
+        // which value was at fault. The wire path never lands here: a
+        // millisecond offset outside the Date range is clamped in
+        // `valueFromBytes` rather than rejected, since a remote change that
+        // throws is redelivered by the server forever.
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'invalid Date cannot be stored as a primitive',
+        );
+      }
       this.value = value === undefined ? null : value;
     }
   }
@@ -85,8 +119,29 @@ export class Primitive extends CRDTElement {
   /**
    * `of` creates a new instance of Primitive.
    */
-  public static of(value: PrimitiveValue, createdAt: TimeTicket): Primitive {
-    return new Primitive(value, createdAt);
+  public static of(
+    value: PrimitiveValue,
+    createdAt: TimeTicket,
+    valueType?: PrimitiveType,
+  ): Primitive {
+    return new Primitive(value, createdAt, valueType);
+  }
+
+  /**
+   * `fromBytes` creates a Primitive from the given wire type and payload,
+   * keeping the declared type rather than re-deriving it from the decoded
+   * value.
+   */
+  public static fromBytes(
+    primitiveType: PrimitiveType,
+    bytes: Uint8Array,
+    createdAt: TimeTicket,
+  ): Primitive {
+    return new Primitive(
+      Primitive.valueFromBytes(primitiveType, bytes),
+      createdAt,
+      primitiveType,
+    );
   }
 
   /**
@@ -130,8 +185,31 @@ export class Primitive extends CRDTElement {
         // this one would hand the application a window onto the rest of that
         // buffer, which a later decode is free to write through.
         return bytes.slice();
-      case PrimitiveType.Date:
-        return new Date(Number(bigintFromBytesLEUnsigned(bytes)));
+      case PrimitiveType.Date: {
+        // NOTE(chacha912): `toBytes` writes the millisecond offset as a
+        // *signed* int64, so a date before 1970 goes out as two's complement
+        // (`new Date(-1)` is eight 0xff bytes). Read it back signed: an
+        // unsigned read would turn every pre-1970 date into ~1.8e19, silently
+        // landing it in the year 275760 on the receiving side.
+        const millis = bigintFromBytesLE(bytes);
+
+        // A remote peer can still hand us a millisecond offset larger than a
+        // JavaScript `Date` can hold, at either end. `new Date()` answers an
+        // Invalid Date for those, and an Invalid Date throws later and far
+        // from here: `toJSON` throws a RangeError out of `toISOString`, and
+        // `toBytes` throws on `BigInt(NaN)` when the change is persisted.
+        // Clamp instead, the same way the Double case above pads a short
+        // payload: every client answers the same value and none of them stall.
+        const maxMillis = BigInt(MaxDateMillis);
+        if (millis > maxMillis || millis < -maxMillis) {
+          const clamped = millis > 0n ? MaxDateMillis : -MaxDateMillis;
+          logger.warn(
+            `date value ${millis} is out of the Date range; clamping it to ${clamped}`,
+          );
+          return new Date(clamped);
+        }
+        return new Date(Number(millis));
+      }
       default:
         throw new YorkieError(
           Code.ErrUnimplemented,
@@ -222,7 +300,11 @@ export class Primitive extends CRDTElement {
    * `deepcopy` copies itself deeply.
    */
   public deepcopy(): Primitive {
-    const primitive = Primitive.of(this.value, this.getCreatedAt());
+    const primitive = Primitive.of(
+      this.value,
+      this.getCreatedAt(),
+      this.valueType,
+    );
     primitive.setMovedAt(this.getMovedAt());
     primitive.setRemovedAt(this.getRemovedAt());
     return primitive;

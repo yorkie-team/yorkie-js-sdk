@@ -154,6 +154,8 @@ import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 import { ArraySetOperation } from '../document/operation/array_set_operation';
 import { RevisionSummary } from './revision';
+import { hllRegisterCount } from '@yorkie-js/sdk/src/document/crdt/hll';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -1231,11 +1233,9 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
     case PbValueType.STRING:
     case PbValueType.BYTES:
     case PbValueType.DATE:
-      return Primitive.of(
-        Primitive.valueFromBytes(
-          fromValueType(pbElementSimple.type),
-          pbElementSimple.value,
-        ),
+      return Primitive.fromBytes(
+        fromValueType(pbElementSimple.type),
+        pbElementSimple.value,
         fromTimeTicket(pbElementSimple.createdAt)!,
       );
     case PbValueType.INTEGER_CNT:
@@ -1737,11 +1737,9 @@ function fromArray(pbArray: PbJSONElement_JSONArray): CRDTArray {
  * `fromPrimitive` converts the given Protobuf format to model format.
  */
 function fromPrimitive(pbPrimitive: PbJSONElement_Primitive): Primitive {
-  const primitive = Primitive.of(
-    Primitive.valueFromBytes(
-      fromValueType(pbPrimitive.type),
-      pbPrimitive.value,
-    ),
+  const primitive = Primitive.fromBytes(
+    fromValueType(pbPrimitive.type),
+    pbPrimitive.value,
     fromTimeTicket(pbPrimitive.createdAt)!,
   );
   primitive.setMovedAt(fromTimeTicket(pbPrimitive.movedAt));
@@ -1788,7 +1786,20 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
   counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
   if (counter.isDedup() && pbCounter.hllRegisters.length > 0) {
-    counter.restoreHLL(pbCounter.hllRegisters);
+    // NOTE(chacha912): The registers come off the wire, so a peer can hand us
+    // a payload of any length, and `HLL.restore` rejects everything but
+    // exactly `hllRegisterCount` bytes. A remote change that throws while
+    // being applied is redelivered by the server forever, so throwing here
+    // would wedge every client that receives it. Keep the counter's own
+    // registers instead: the dedup estimate converges again on the next
+    // increase that does carry a well-formed payload.
+    if (pbCounter.hllRegisters.length === hllRegisterCount) {
+      counter.restoreHLL(pbCounter.hllRegisters);
+    } else {
+      logger.warn(
+        `HLL registers are ${pbCounter.hllRegisters.length} bytes, expected ${hllRegisterCount}; ignoring them`,
+      );
+    }
   }
   return counter;
 }

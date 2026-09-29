@@ -15,7 +15,12 @@
  */
 
 const hllPrecision = 14;
-const hllRegisterCount = 1 << hllPrecision;
+/**
+ * `hllRegisterCount` is the number of registers an HLL payload must carry.
+ * Callers decoding an HLL off the wire check the length against this before
+ * handing it to `HLL.restore`, which rejects any other length.
+ */
+export const hllRegisterCount = 1 << hllPrecision;
 
 // xxhash64 constants
 const prime64x1 = 0x9e3779b185ebca87n;

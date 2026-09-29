@@ -27,6 +27,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 
 /**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
@@ -86,11 +87,18 @@ export class IncreaseOperation extends Operation {
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
     if (counter.isDedup()) {
-      if (!this.actor) {
-        throw new YorkieError(
-          Code.ErrInvalidArgument,
-          'dedup counter requires actor',
+      // NOTE(chacha912): Both the actor and the operand come off the wire, so
+      // a peer can send an increase with no actor or with something other
+      // than the increment by one a dedup counter accepts. `increaseDedup`
+      // throws on either, and a remote change that throws is redelivered by
+      // the server forever, so that would wedge every client receiving it.
+      // Drop the increase instead: the dedup estimate is unchanged, which is
+      // what an increase carrying no usable actor means anyway.
+      if (!this.actor || !CRDTCounter.isUnitIncrease(value)) {
+        logger.warn(
+          `ignoring an increase of ${value.toJSON()} by "${this.actor}" on a dedup counter`,
         );
+        return { opInfos: [] };
       }
       counter.increaseDedup(value, this.actor);
     } else {
@@ -119,7 +127,13 @@ export class IncreaseOperation extends Operation {
     const valueType = primitiveValue.getType();
     const value =
       valueType === PrimitiveType.Long
-        ? -(primitiveValue.getValue() as bigint)
+        ? // NOTE(chacha912): The operand comes off the wire, so it can be
+          // MinInt64, whose negation is 2^63 — one past the int64 range the
+          // Primitive constructor rejects. A remote change that throws is
+          // redelivered by the server forever, so that would wedge every
+          // client receiving it. Wrap the negation the way int64 arithmetic
+          // on the server does (MinInt64 negates to itself) instead.
+          BigInt.asIntN(64, -(primitiveValue.getValue() as bigint))
         : (primitiveValue.getValue() as number) * -1;
 
     const reverseOp = IncreaseOperation.create(
