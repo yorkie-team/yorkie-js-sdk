@@ -218,6 +218,8 @@ describe('Tree History - undo/redo OpInfo positions', () => {
       await sync();
       assert.equal(d1.getRoot().t.toXML(), '<doc><p>cd</p></doc>');
 
+      const d1Actor = d1.getChangeID().getActorID();
+      const seenBefore = d2.getVersionVector().get(d1Actor) ?? 0n;
       d1.history.undo();
       await sync();
 
@@ -226,12 +228,27 @@ describe('Tree History - undo/redo OpInfo positions', () => {
       assert.equal(m1.xml(), d1.getRoot().t.toXML(), 'd1 after undo');
       assert.equal(m2.xml(), d2.getRoot().t.toXML(), 'd2 after undo');
 
-      // The undo published no OpInfo, but it still had to reach d2. Undoing
-      // d2's own removal brings the paragraph back, and the text with it only
-      // if d1's restore landed there too.
+      // The undo published no OpInfo, but it still had to reach d2: a change
+      // that mutates one replica and reaches no other is divergence. d2's
+      // version vector moves for d1's actor, which only a delivered change
+      // does, and d1 had nothing else on the wire this round.
+      const seenAfter = d2.getVersionVector().get(d1Actor) ?? 0n;
+      assert.isTrue(seenAfter > seenBefore, 'the undo reached d2');
+
+      // Undoing d2's own removal brings the paragraph back. Whether the text
+      // comes back inside it depends on garbage collection: both peers saw the
+      // deletion in the syncs above, so its tombstone may already be purged,
+      // and a purged node recreated under a removed parent is born tombstoned
+      // (`recreateFromSpan`). Collection runs off the same min version vector
+      // on both peers, so they agree either way -- which is what this asserts.
+      // `test/unit/document/tree_undo_opinfo_test.ts` pins both outcomes
+      // exactly, with and without collection.
       d2.history.undo();
       await sync();
-      assert.equal(d2.getRoot().t.toXML(), '<doc><p>ab</p><p>cd</p></doc>');
+      assert.match(
+        d2.getRoot().t.toXML(),
+        /^<doc><p>(ab)?<\/p><p>cd<\/p><\/doc>$/,
+      );
       assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
     }, task.name);
   });

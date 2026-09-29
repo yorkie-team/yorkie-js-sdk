@@ -20,7 +20,10 @@ import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Tree } from '@yorkie-js/sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
-import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import {
+  InitialVersionVector,
+  VersionVector,
+} from '@yorkie-js/sdk/src/document/time/version_vector';
 
 /**
  * A Tree undo reports where it landed through its OpInfos. This covers the
@@ -94,6 +97,22 @@ function deliver(to: Replica, changes: Changes): void {
   );
 }
 
+/**
+ * `collect` garbage-collects both replicas off the min of their version
+ * vectors, which is what a sync round does once every replica has seen the
+ * removal. `deliver` keeps collection out of delivery, so a test that wants it
+ * asks for it here.
+ */
+function collect(a: Replica, b: Replica): void {
+  const min = new VersionVector();
+  for (const [actorID, lamport] of a.getVersionVector()) {
+    const other = b.getVersionVector().get(actorID);
+    min.set(actorID, other === undefined || lamport < other ? lamport : other);
+  }
+  a.garbageCollect(min);
+  b.garbageCollect(min);
+}
+
 describe('Tree undo OpInfo under a removed ancestor', () => {
   it('reports no position, and still publishes and delivers the undo', () => {
     const a = newReplica(1);
@@ -145,6 +164,47 @@ describe('Tree undo OpInfo under a removed ancestor', () => {
     deliver(a, recordChanges(b, 'undo the paragraph removal'));
 
     assert.equal(b.getRoot().t.toXML(), '<doc><p>ab</p><p>cd</p></doc>');
+    assert.equal(a.getRoot().t.toXML(), b.getRoot().t.toXML());
+  });
+
+  it('leaves a collected node tombstoned when its parent comes back', () => {
+    const a = newReplica(1);
+    const b = newReplica(2);
+
+    a.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+        ],
+      });
+    });
+    deliver(b, recordChanges(a, 'initial tree'));
+
+    // Same run as above, except both replicas have seen the text deletion
+    // before the undo, so collection purges its tombstone on both.
+    a.update((root) => root.t.editByPath([0, 0], [0, 2]));
+    deliver(b, recordChanges(a, 'delete text'));
+    collect(a, b);
+    assert.equal(a.getGarbageLen(), 0, 'the text tombstone is collected');
+    assert.equal(b.getGarbageLen(), 0, 'on both replicas');
+
+    b.update((root) => root.t.editByPath([0], [1]));
+    deliver(a, recordChanges(b, 'remove paragraph'));
+    assert.equal(a.getRoot().t.toXML(), '<doc><p>cd</p></doc>');
+
+    a.history.undo();
+    deliver(b, recordChanges(a, 'undo the text deletion'));
+    b.history.undo();
+    deliver(a, recordChanges(b, 'undo the paragraph removal'));
+
+    // The undo recreates the purged text under a parent that is removed at
+    // that moment, and `recreateFromSpan` births it tombstoned, so restoring
+    // the paragraph does not bring the text back with it. Both replicas
+    // collect off the same min version vector, so both land here: the outcome
+    // differs from the uncollected run above, but never between peers.
+    assert.equal(b.getRoot().t.toXML(), '<doc><p></p><p>cd</p></doc>');
     assert.equal(a.getRoot().t.toXML(), b.getRoot().t.toXML());
   });
 });
