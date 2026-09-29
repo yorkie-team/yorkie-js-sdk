@@ -47,6 +47,14 @@ import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
 // The GC-off control is what makes collection the cause rather than a
 // correlate: the same seeds converge when nothing is collected.
 //
+// The push/pull model is faithful to the server's pushpull: each client's row
+// is stored from its push's version vector, a client's own changes are
+// filtered out of its pull, minVV is the element-wise minimum over the stored
+// rows, and collection runs only inside `applyChangePack` with the vector that
+// pull delivered. The PRNG is not Go's, so seed-for-seed counts differ from
+// Go's; the shape (GC-off clean, GC-on better than before, not zero) is what
+// carries over.
+//
 // WHAT REMAINS, traced on seed 39 of the `all` mix (three clients, the throw is
 // `AddOperation ... cant find the given node: 1:<actor1>:4`):
 //
@@ -283,18 +291,26 @@ describe.skipIf(!process.env.RGA_FUZZ)('RGA collection fuzz (opt-in)', () => {
     assert.equal(counts.ok, 300, JSON.stringify(counts));
   });
 
+  // The seeds are deterministic, so the "after" numbers in the header are
+  // ceilings: a change that makes any mix worse fails here, and one that
+  // improves a mix should lower its ceiling.
   it('reports collection-on outcomes per op mix', () => {
-    const cases: Array<[string, Array<number>]> = [
-      ['insert+delete', [0, 1]],
-      ['insert+delete+move', [0, 1, 2]],
-      ['insert+delete+set', [0, 1, 3]],
-      ['insert+move', [0, 2]],
-      ['insert+set', [0, 3]],
-      ['all', [0, 1, 2, 3]],
+    const cases: Array<[string, Array<number>, number, number]> = [
+      ['insert+delete', [0, 1], 0, 50],
+      ['insert+delete+move', [0, 1, 2], 3, 70],
+      ['insert+delete+set', [0, 1, 3], 0, 18],
+      ['insert+move', [0, 2], 0, 45],
+      ['insert+set', [0, 3], 0, 0],
+      ['all', [0, 1, 2, 3], 73, 20],
     ];
-    const lines = cases.map(([name, ops]) => {
+    const worse: Array<string> = [];
+    const lines = cases.map(([name, ops, maxDiverged, maxError]) => {
       const c = sweep(1000, true, ops);
-      return `${name.padEnd(20)} diverged=${c.diverged} error=${c.error}`;
+      const line = `${name.padEnd(20)} diverged=${c.diverged} error=${c.error}`;
+      if (c.diverged > maxDiverged || c.error > maxError) {
+        worse.push(`${line} (ceiling ${maxDiverged}/${maxError})`);
+      }
+      return line;
     });
     // The test runner swallows console output, so the report can also go to
     // a file: RGA_FUZZ_OUT=/path/to/report.txt.
@@ -302,5 +318,8 @@ describe.skipIf(!process.env.RGA_FUZZ)('RGA collection fuzz (opt-in)', () => {
     if (process.env.RGA_FUZZ_OUT) {
       writeFileSync(process.env.RGA_FUZZ_OUT, lines.join('\n') + '\n');
     }
+    assert.deepEqual(worse, [], 'a mix got worse than its recorded ceiling');
+    // 6000 seeded histories take a few seconds here; the budget is generous
+    // so a slow CI machine does not time out an opt-in run.
   }, 300000);
 });
