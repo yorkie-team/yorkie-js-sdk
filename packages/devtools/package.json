@@ -8,6 +8,7 @@
     "dev": "plasmo dev --build-path=dist",
     "build": "plasmo build --build-path=dist --zip",
     "typecheck": "tsc --noEmit --verbatimModuleSyntax false",
+    "test": "vitest run",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file"
   },
   "dependencies": {
@@ -24,12 +25,16 @@
     "use-resize-observer": "^9.1.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
     "@types/chrome": "0.1.32",
     "@types/node": "24.10.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "jsdom": "^27.2.0",
     "prettier": "3.7.4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11"
   },
   "manifest": {
     "permissions": [

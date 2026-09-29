@@ -21,6 +21,7 @@ import { Code } from './Code';
 import type { RootTreeNode } from './Tree';
 import { CodeIcon, GraphIcon } from '../icons';
 import type { Devtools, CRDTTreeNodeIDStruct } from '@yorkie-js/sdk';
+import { stringifyValue } from '../stringify';
 
 type FlatTreeNodeInfo = Devtools.TreeNodeInfo & {
   depth: number;
@@ -77,7 +78,7 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
         </div>
         <div>
           <span className="title">path: </span>
-          <span className="desc">{JSON.stringify(node.path)}</span>
+          <span className="desc">{stringifyValue(node.path)}</span>
         </div>
         <div>
           <span className="title">pos: </span>
@@ -94,7 +95,7 @@ function TreeNode({ node }: { node: FlatTreeNodeInfo }) {
         {node.type !== 'text' && (
           <div>
             <span className="title">attrs: </span>
-            <span className="desc">{JSON.stringify(node.attributes)}</span>
+            <span className="desc">{stringifyValue(node.attributes)}</span>
           </div>
         )}
       </div>
@@ -174,7 +175,7 @@ export function TreeDetail({
         </button>
       </div>
       {viewType === 'json' && (
-        <JSONDetail json={JSON.stringify(node.value, null, 2)} />
+        <JSONDetail json={stringifyValue(node.value, 2)} />
       )}
       {viewType === 'graph' && tree && <TreeGraph tree={tree} />}
     </div>
