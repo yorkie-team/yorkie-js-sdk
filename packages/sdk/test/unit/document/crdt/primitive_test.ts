@@ -176,6 +176,24 @@ describe('Primitive', function () {
     assert.deepEqual(Array.from(value), [1, 2, 3, 4]);
   });
 
+  it('reads long and date payloads shorter than eight bytes instead of throwing', function () {
+    // A remote peer decides how long these payloads are, and a truncated one
+    // used to read `bytes[i]` past the end and throw a raw TypeError out of
+    // snapshot decode. The missing bytes now read as zero.
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array([2, 1])),
+      258n,
+    );
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array()),
+      0n,
+    );
+    assert.deepEqual(
+      Primitive.valueFromBytes(PrimitiveType.Date, new Uint8Array([1])),
+      new Date(1),
+    );
+  });
+
   it('reads a double out of a shared buffer without writing to it', function () {
     // NOTE(chacha912): A snapshot arrives as one buffer and the decoder hands
     // its values out as views into it, so reading a value must not write.

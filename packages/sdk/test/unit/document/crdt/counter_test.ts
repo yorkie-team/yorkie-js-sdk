@@ -90,3 +90,43 @@ it('Can wrap around Int counter when increased by an out-of-int32 Long', functio
   counter2.increase(Primitive.of(BigInt(2147483648), InitialTimeTicket));
   assert.equal(counter2.getValue(), 2147483647);
 });
+
+it('Can read a long counter payload shorter than eight bytes', function () {
+  // The payload length is whatever a remote peer sent. A truncated one used to
+  // read past the end of the array and throw a raw TypeError out of the
+  // decoder; the bytes it does not carry now read as zero.
+  assert.equal(
+    CRDTCounter.valueFromBytes(CounterType.Long, new Uint8Array([5])),
+    5n,
+  );
+  assert.equal(
+    CRDTCounter.valueFromBytes(CounterType.Long, new Uint8Array()),
+    0n,
+  );
+});
+
+it('Can clamp a malformed HLL register payload instead of throwing', function () {
+  // The converter hands whatever `hllRegisters` a peer sent straight to
+  // restoreHLL, and rejecting a wrong length threw out of snapshot decode,
+  // which has no handler: one malformed dedup counter stopped every other
+  // client from opening the document.
+  const counter = CRDTCounter.create(
+    CounterType.IntDedup,
+    0,
+    InitialTimeTicket,
+  );
+
+  counter.restoreHLL(new Uint8Array(20000).fill(0xff));
+  const overLong = counter.hllBytes()!;
+  assert.equal(overLong.length, 16384);
+  assert.equal(overLong[16383], 0xff);
+
+  // A short payload also leaves the registers it does not cover at zero,
+  // rather than keeping what the previous restore put there.
+  counter.restoreHLL(new Uint8Array([1]));
+  const short = counter.hllBytes()!;
+  assert.equal(short.length, 16384);
+  assert.equal(short[0], 1);
+  assert.equal(short[1], 0);
+  assert.equal(short[16383], 0);
+});

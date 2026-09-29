@@ -94,15 +94,21 @@ export class HLL {
 
   /**
    * `restore` restores the HLL registers from a byte array.
-   * Throws if the data length does not match the register count.
+   *
+   * The payload arrives from a remote peer, so its length is not ours to
+   * trust. A wrong length is clamped rather than rejected: rejecting it threw
+   * out of snapshot decode, which has no handler, so one malformed dedup
+   * counter stopped every other client from opening the document. Registers
+   * the payload does not carry stay zero and surplus bytes are dropped, which
+   * costs nothing but accuracy in an estimate that is approximate anyway.
    */
   public restore(data: Uint8Array): void {
-    if (data.length !== hllRegisterCount) {
-      throw new Error(
-        `invalid HLL register payload: got ${data.length} bytes, want ${hllRegisterCount}`,
-      );
-    }
-    this.registers.set(data);
+    this.registers.fill(0);
+    this.registers.set(
+      data.length > hllRegisterCount
+        ? data.subarray(0, hllRegisterCount)
+        : data,
+    );
   }
 }
 
