@@ -20,6 +20,9 @@ import { Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
 /**
  * The tickets an element split consumes are carried by the operation rather
@@ -90,5 +93,138 @@ describe('split tickets', function () {
       sent.map((t) => t.toTestString()),
       'a replica reads back the tickets the originator issued',
     );
+  });
+  // A document edited before `client.attach` runs under the initial actor,
+  // and attach re-stamps every pending local change with the real one. The
+  // tickets a split issued are part of that change, so they are re-stamped
+  // with it, the same way its executedAt is: every replica then mints the
+  // split's elements under the actor that sent the change.
+  it('re-stamps the tickets when the actor is set after the edit', function () {
+    const doc = new Document<{ t: Tree }>('doc');
+    doc.update((r) => {
+      r.t = new Tree({
+        type: 'r',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    doc.update((r) => r.t.edit(2, 2, { type: 'text', value: 'q' }, 1));
+
+    const actorID = '000000000000000000000009';
+    doc.setActor(actorID);
+
+    const pack = doc.createChangePack();
+    const sent = pack
+      .getChanges()
+      .flatMap((change) => change.getOperations())
+      .filter((op) => op instanceof TreeEditOperation)
+      .flatMap((op) => (op as TreeEditOperation).getSplitTickets());
+    assert.isNotEmpty(sent, 'the edit split an element, so it issued tickets');
+    for (const ticket of sent) {
+      assert.equal(
+        ticket.getActorID(),
+        actorID,
+        'a split ticket carries the change its edit belongs to',
+      );
+    }
+
+    const received = converter
+      .fromChangePack<Indexable>(converter.toChangePack(pack))
+      .getChanges()
+      .flatMap((change) => change.getOperations())
+      .filter((op) => op instanceof TreeEditOperation)
+      .flatMap((op) => (op as TreeEditOperation).getSplitTickets());
+    assert.deepEqual(
+      received.map((t) => t.toTestString()),
+      sent.map((t) => t.toTestString()),
+      'a replica reads back the tickets the originator issued',
+    );
+  });
+
+  /**
+   * `threeBlockDoc` returns `<r><d><p>ab</p></d><d><p>cd</p></d><d><p>ef</p></d></r>`,
+   * the shape two successive L2 merges need, and so the shape that puts two
+   * splitLevel 2 reverses into one undo entry.
+   */
+  function threeBlockDoc(): Document<{ t: Tree }> {
+    const doc = new Document<{ t: Tree }>('doc');
+    doc.setActor('000000000000000000000001');
+    doc.update((r) => {
+      r.t = new Tree({
+        type: 'r',
+        children: ['ab', 'cd', 'ef'].map((value) => ({
+          type: 'd',
+          children: [{ type: 'p', children: [{ type: 'text', value }] }],
+        })),
+      });
+    });
+    return doc;
+  }
+
+  /**
+   * `liveIDs` lists the ids of the live nodes under `t`, in document order.
+   */
+  function liveIDs(doc: Document<{ t: Tree }>): Array<string> {
+    const tree = doc.getRootObject().get('t') as unknown as CRDTTree;
+    const ids: Array<string> = [];
+    tree.getIndexTree().traverseAll((node) => {
+      if (!node.isRemoved) ids.push(node.id.toIDString());
+    });
+    return ids;
+  }
+
+  // An undo issues one ticket per operation, but a splitLevel N reverse
+  // mints N elements. Left to reconstruct those from its own executedAt, a
+  // level 2 reverse walks two delimiters past the ticket it was issued --
+  // onto the ticket of the NEXT operation in the same undo entry. The change
+  // carries both operations, so every replica and the server land two live
+  // nodes under one id. Mirrors yorkie's TestTreeSplitUndo.
+  it('gives each split reverse in one undo entry its own tickets', function () {
+    const doc = threeBlockDoc();
+    const before = doc.getRoot().t.toXML();
+    doc.update((r) => {
+      r.t.edit(4, 8);
+      r.t.edit(6, 10);
+    });
+    assert.equal(doc.getRoot().t.toXML(), '<r><d><p>abcdef</p></d></r>');
+
+    doc.history.undo();
+    assert.equal(doc.getRoot().t.toXML(), before);
+    assert.deepEqual(duplicatedIDs(doc), []);
+
+    // A redo replays the merges and a second undo mints the splits again,
+    // each from its own tickets.
+    doc.history.redo();
+    assert.equal(doc.getRoot().t.toXML(), '<r><d><p>abcdef</p></d></r>');
+    doc.history.undo();
+    assert.equal(doc.getRoot().t.toXML(), before);
+    assert.deepEqual(duplicatedIDs(doc), []);
+  });
+
+  it('applies such an undo entry on a replica across the wire', function () {
+    const doc = threeBlockDoc();
+    doc.update((r) => {
+      r.t.edit(4, 8);
+      r.t.edit(6, 10);
+    });
+    doc.history.undo();
+
+    const pack = converter.fromChangePack<Indexable>(
+      converter.toChangePack(doc.createChangePack()),
+    );
+    const replica = new Document<{ t: Tree }>('doc');
+    replica.setActor('000000000000000000000002');
+    replica.applyChangePack(
+      ChangePack.create(
+        pack.getDocumentKey(),
+        Checkpoint.of(0n, 0),
+        false,
+        pack.getChanges(),
+        InitialVersionVector,
+      ),
+    );
+
+    assert.equal(replica.getRoot().t.toXML(), doc.getRoot().t.toXML());
+    assert.deepEqual(liveIDs(replica), liveIDs(doc));
+    assert.deepEqual(duplicatedIDs(replica), []);
   });
 });

@@ -31,6 +31,7 @@ import { Presence } from '../tabs/Presence';
 import { History } from '../tabs/History';
 import { Notifications } from '../tabs/Notifications';
 import { Separator } from '../components/ResizableSeparator';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const Panel = () => {
   const currentDocKey = useCurrentDocKey();
@@ -207,9 +208,11 @@ const Panel = () => {
  */
 function PanelApp() {
   return (
-    <YorkieSourceProvider>
-      <Panel />
-    </YorkieSourceProvider>
+    <ErrorBoundary>
+      <YorkieSourceProvider>
+        <Panel />
+      </YorkieSourceProvider>
+    </ErrorBoundary>
   );
 }
 

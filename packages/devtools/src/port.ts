@@ -24,20 +24,48 @@ const tabID = chrome.devtools.inspectedWindow.tabId;
 // inspected window of a Devtools extension.
 // For more details: https://developer.chrome.com/docs/extensions/develop/concepts/messaging#connect
 let port: chrome.runtime.Port;
+
+/**
+ * `disconnectPort` closes the channel to the inspected page, if one is open.
+ *
+ * Chrome does not fire `onDisconnect` on the side that disconnects, so the
+ * caller's `onDisconnect` callback does not run: this is a deliberate close,
+ * not the page going away.
+ */
+export const disconnectPort = () => {
+  if (!port) return;
+  port.disconnect();
+  port = undefined;
+};
+
 export const connectPort = (onMessage, onDisconnect) => {
-  port = chrome.tabs.connect(tabID, {
+  // NOTE(hackerwins): The panel connects again whenever the inspected tab
+  // finishes loading, and again when the error boundary remounts the provider.
+  // Leaving the previous channel open would keep a second listener alive, and
+  // its `onDisconnect` would later clear the port this call is about to open,
+  // leaving `sendToSDK` a permanent no-op.
+  disconnectPort();
+
+  // The listeners below close over this channel rather than the module-level
+  // `port`, so a late disconnect can only tear down the channel it belongs to.
+  const connected = chrome.tabs.connect(tabID, {
     name: EventSourceDevPanel,
   });
+  port = connected;
 
-  port.onMessage.addListener(onMessage);
-  port.onDisconnect.addListener(() => {
-    port.onMessage.removeListener(onMessage);
-    onDisconnect();
+  connected.onMessage.addListener(onMessage);
+  connected.onDisconnect.addListener(() => {
+    connected.onMessage.removeListener(onMessage);
+    // A channel that has already been replaced is not the one the panel is
+    // reading from, so its disconnect says nothing about the live one: telling
+    // the caller would reset a document that is still being fed.
+    if (port !== connected) return;
     port = undefined;
+    onDisconnect();
   });
 
   sendToSDK({ msg: 'devtools::connect' });
-  return port;
+  return connected;
 };
 
 export const sendToSDK = (message: PanelToSDKMessage) => {

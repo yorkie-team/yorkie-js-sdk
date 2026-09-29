@@ -1,7 +1,8 @@
+name: yorkie-js-sdk
+
 services:
   yorkie:
     image: "yorkieteam/yorkie:latest"
-    container_name: "yorkie"
     command:
       ["server", "--pprof-enabled"]
     restart: always

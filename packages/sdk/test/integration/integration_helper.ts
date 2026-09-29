@@ -31,7 +31,9 @@ function isYorkieContainerRunning() {
 
   try {
     const result = execSync(
-      'docker ps --filter "name=^/yorkie$" --format "{{.Names}}"',
+      'docker ps --filter "label=com.docker.compose.project=yorkie-js-sdk" ' +
+        '--filter "label=com.docker.compose.service=yorkie" ' +
+        '--format "{{.Names}}"',
       {
         stdio: 'pipe',
       },

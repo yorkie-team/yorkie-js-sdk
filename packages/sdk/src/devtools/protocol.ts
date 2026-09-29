@@ -71,6 +71,15 @@ export type SDKToPanelMessage =
       docKey: string;
     }
   /**
+   * Sent when a document the panel may be watching leaves the page: it
+   * detached, or it was removed. The recording is kept, so the same key can
+   * come back with `doc::available` when the document attaches again.
+   */
+  | {
+      msg: 'doc::unavailable';
+      docKey: string;
+    }
+  /**
    * Sent initially, to synchronize the entire current state of the document.
    */
   | {

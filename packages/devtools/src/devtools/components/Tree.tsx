@@ -33,6 +33,7 @@ import {
   TreeIcon,
   UserIcon,
 } from '../icons';
+import { stringifyValue } from '../stringify';
 
 export type RootTreeNode = Devtools.JSONElement & {
   id: string;
@@ -133,7 +134,7 @@ function RootNodeRenderer(props: NodeRendererProps<RootTreeNode>) {
             </span>
             <span>{props.node.data.key} :&nbsp;</span>
             <span className="tree-value">
-              {JSON.stringify(props.node.data.value)}
+              {stringifyValue(props.node.data.value)}
             </span>
             <span className="timeticket">{props.node.data.createdAt}</span>
           </span>
@@ -186,7 +187,7 @@ function PresenceNodeRenderer(props: NodeRendererProps<PresenceTreeNode>) {
           >
             {props.node.data.key} :&nbsp;
             <span className="tree-value">
-              {JSON.stringify(props.node.data.value)}
+              {stringifyValue(props.node.data.value)}
             </span>
           </span>
         </div>

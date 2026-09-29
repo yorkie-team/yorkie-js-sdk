@@ -6,6 +6,8 @@ Mirrors yorkie#2037 (`1bae6d8`). Issue #1383 lists four server commits to
 mirror; this task takes part 3 only, the docSize accounting. Parts 1, 2 and 4
 (merge-delete span, style reached set, merge lineage) are left for follow-ups —
 each is a convergence-level change in `tree.ts` and does not fit in one pass.
+Parts 1 and 2 are taken by `20260927-tree-convergence-go-ports`; part 4 is
+still open.
 
 ## Problem
 
