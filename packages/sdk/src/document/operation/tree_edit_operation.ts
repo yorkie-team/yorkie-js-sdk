@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
@@ -267,6 +268,27 @@ export class TreeEditOperation extends Operation {
    */
   public setSplitTickets(tickets: Array<TimeTicket>): void {
     this.splitTickets = tickets;
+  }
+
+  /**
+   * `setActor` sets the given actor to this operation and to the tickets its
+   * split issued.
+   *
+   * A document edited before `client.attach` runs under the initial actor, and
+   * `Document.setActor` re-stamps every pending local change once the real
+   * actor arrives. The base implementation rewrites `executedAt` alone, which
+   * would leave the split tickets recorded at edit time naming the old actor:
+   * they are issued from the change's own context, so every reader -- the
+   * decoder's `fromSplitTickets`, and any replica reasoning about which change
+   * minted a node -- expects them to carry the change's actor. Re-stamp them
+   * here. The lamport and the delimiters are untouched, so their order (and
+   * the identities the split mints) is unchanged.
+   */
+  public setActor(actorID: ActorID): void {
+    super.setActor(actorID);
+    this.splitTickets = this.splitTickets.map((ticket) =>
+      ticket.setActor(actorID),
+    );
   }
 
   /**
