@@ -154,6 +154,7 @@ import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 import { ArraySetOperation } from '../document/operation/array_set_operation';
 import { RevisionSummary } from './revision';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -1854,7 +1855,16 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
   counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
   if (counter.isDedup() && pbCounter.hllRegisters.length > 0) {
-    counter.restoreHLL(pbCounter.hllRegisters);
+    // A rejected payload is logged and dropped rather than thrown on: snapshot
+    // decode has no handler, so throwing would stop this client from opening
+    // the document at all over one peer's malformed counter.
+    if (!counter.restoreHLL(pbCounter.hllRegisters)) {
+      logger.warn(
+        `discarding malformed HLL registers for counter ${counter
+          .getCreatedAt()
+          .toTestString()}: ${pbCounter.hllRegisters.length} bytes`,
+      );
+    }
   }
   return counter;
 }

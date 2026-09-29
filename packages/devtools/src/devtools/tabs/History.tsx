@@ -18,6 +18,7 @@ import { useEffect, useState, useRef } from 'react';
 import { DocEventType, Change, Devtools } from '@yorkie-js/sdk';
 import Slider from 'rc-slider';
 import { JSONView } from '../components/JsonView';
+import { replaceBigInts } from '../stringify';
 import { CursorIcon, DocumentIcon } from '../icons';
 import { DocEventScope, useDocEventsForReplay } from '../contexts/YorkieSource';
 
@@ -26,6 +27,10 @@ const SLIDER_MARK_WIDTH = 24;
 
 /**
  * Extracts event information from a Devtools.DocEventsForReplay object.
+ *
+ * The result is handed to `react-json-view`, which stringifies what it is
+ * given, so the bigints an event carries — the value of an increase on a Long
+ * counter, a presence value outside the int32 range — are replaced first.
  *
  * @param event - The Devtools.DocEventsForReplay object to process.
  * @returns An array of event information objects.
@@ -62,7 +67,7 @@ const getEventInfo = (event: Devtools.DocEventsForReplay) => {
       value: docEvent.value,
     });
   }
-  return info;
+  return replaceBigInts(info);
 };
 
 /**

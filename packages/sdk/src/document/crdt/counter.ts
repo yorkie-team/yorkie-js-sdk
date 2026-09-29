@@ -317,14 +317,21 @@ export class CRDTCounter extends CRDTElement {
   }
 
   /**
-   * `restoreHLL` restores the HLL state from serialized bytes.
+   * `restoreHLL` restores the HLL state from serialized bytes, returning
+   * whether the bytes were accepted. A rejected payload leaves both the HLL
+   * and the value as they were, because the value it would recompute is
+   * derived from the registers and a malformed payload does not describe a
+   * cardinality.
    */
-  public restoreHLL(data: Uint8Array): void {
+  public restoreHLL(data: Uint8Array): boolean {
     if (!this.hll) {
       this.hll = new HLL();
     }
-    this.hll.restore(data);
+    if (!this.hll.restore(data)) {
+      return false;
+    }
     this.recomputeValue();
+    return true;
   }
 
   /**
