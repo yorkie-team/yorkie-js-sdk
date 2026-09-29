@@ -48,6 +48,12 @@ then Green, in its own commit.
             The two PRs should merge together.
       - [x] Port Go's nested split scan from yorkie#2070 (42 splits at
             levels 1-2 x 276 ranges) with its counts.
+      - [x] Port the guard's document-order half (yorkie#2070 round 3): a
+            range that began at or before the known member keeps the
+            closure; an unresolvable from-position, including a left
+            sibling a merge moved out of its parent, answers no. Red/Green
+            on the split-and-merge-in-one-change pair Go names
+            `TestStyleBeforeSplitAndMergeInOneChange`.
       - [x] Port Go `tree_style_reached_set_test.go`: the four pinned
             pairs, the thirteen complex-suite goldens and the exhaustive
             split/merge scans with Go's absolute counts.
@@ -81,3 +87,9 @@ then Green, in its own commit.
   `main`, 241 here, 9318 / 33208 reached; 152 of the 241 converged on `main`
   (Go reports the same 152, all a split of the range end's declared element
   before that position). Left open, as in Go.
+- Order half: over one change that splits (levels 1-2) and deletes one or
+  two positions, against every style range (899,668 pairs, scratch scan not
+  in the suite), it closes 4,265 diverging pairs and opens none -- the same
+  4,265 as Go. The nested scan pins do not move. `pnpm sdk test:unit` 663
+  passed; `test/integration/tree_test.ts` 153 passed against a server built
+  from yorkie#2070.

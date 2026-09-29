@@ -34,8 +34,9 @@ closes it and changes none of Go's scan counts.
 
 This started as a JS-only rule: choosing Go's behaviour would have kept two
 JS clients diverging on a pair that converged before the port. Go has since
-adopted the same check verbatim as §9.2 Fix 27 / Port specification rule
-2(c) in yorkie#2070, so the two PRs should merge together; until both
+adopted the check as §9.2 Fix 27 / Port specification rule 2(c) in
+yorkie#2070, widened by a document-order half that JS now carries too (see
+the last section), so the two PRs should merge together; until both
 release, a JS client and the server snapshot differ on that shape.
 
 yorkie#2070 also added a nested scan (42 splits at levels 1-2 x 276 ranges).
@@ -226,3 +227,26 @@ different 241 live nodes diverging, which is the movement the scan exists to
 catch. Both nested assertions are `deepEqual` on the whole scan now, so the
 count is a pin: movement in either direction has to be read against
 yorkie#2070's counts before it is written in.
+
+## Round 5: the order half, and an offset lookup that does not fail
+
+yorkie#2070 widened the guard to "began inside the known member, or at or
+before its Start token in document order". Over the existing scans the extra
+half decides nothing, which made it look speculative. One change that splits
+and then deletes, raced against every style range, is where it decides:
+begins-inside alone leaves 4,265 more pairs diverging, in Go and here alike,
+and the JS results matched Go's pair for pair.
+
+The first port of that half opened 5 pairs Go does not. `findOffset` returns
+-1 for a child that is not there, and `toTreePos` then resolves offset 0,
+where Go's `FindOffset` returns an error and the guard answers no. A left
+sibling a concurrent merge moved out of the declared parent is exactly that
+case, so `beginsAtOrBefore` refuses it explicitly, and the Go port spec now
+names it. Porting a predicate means porting its failure cases; compare the
+two SDKs pair by pair over one generator, not by totals (4,285 against 4,265
+looked like JS doing better).
+
+The same comparison found 129 pairs that diverge in Go and not here: after a
+level-2 split, `edit(11, 13)` merges the split back in JS and leaves it in
+Go. A local-edit difference between the SDKs, not this rule; recorded in
+yorkie's design doc.
