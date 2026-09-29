@@ -50,6 +50,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 import {
   DataSize,
   DocSize,
@@ -3146,9 +3147,23 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return;
     }
 
-    const to = this.toIndex(node.parent, node);
-    const from = to - node.paddedSize();
-    return [from, to, this.indexToPath(from), this.indexToPath(to)];
+    // `toIndex`/`indexToPath` throw on a tree they cannot walk (`invalid pos`,
+    // `out of index range`). Both run here inside `TreeEditOperation.execute`,
+    // which for a remote pack is driven from `Change.execute` off spans that
+    // arrived from the wire: a throw there aborts the pack, the checkpoint
+    // never advances, and the document is wedged for good on every replica
+    // that receives it. Reporting the range is a courtesy to subscribers, not
+    // part of convergence -- the CRDT state is already settled by the time we
+    // measure -- so a tree we cannot measure degrades to "no position
+    // reported", exactly as a node under a removed ancestor does above.
+    try {
+      const to = this.toIndex(node.parent, node);
+      const from = to - node.paddedSize();
+      return [from, to, this.indexToPath(from), this.indexToPath(to)];
+    } catch (err) {
+      logger.warn(`[TR] failed to measure restored node: ${err}`);
+      return;
+    }
   }
 
   /**

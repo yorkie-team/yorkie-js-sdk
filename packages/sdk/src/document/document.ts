@@ -896,7 +896,7 @@ export class Document<
 
         throw err;
       }
-      const { opInfos, reverseOps } = executed;
+      const { operations, opInfos, reverseOps } = executed;
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
       // The history stack may still reference the old element's createdAt,
@@ -929,9 +929,16 @@ export class Document<
       this.changeID = ctx.getNextID();
 
       // 03. Publish the document change event.
-      // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
+      // Gated on the operations that RAN, not on the `OpInfo`s they produced,
+      // matching `executeUndoRedoInternal`: an operation can mutate CRDT state
+      // without yielding anything an editor could render (a style on a node a
+      // peer removed concurrently has no index to report), and the change is
+      // still queued into `localChanges` above and still consumes a
+      // `clientSeq`. Offline persistence appends off this event, so staying
+      // silent here would leave the log a hole the first restored push is
+      // rejected for.
       const event: DocEvents<P> = [];
-      if (opInfos.length) {
+      if (operations.length) {
         event.push({
           type: DocEventType.LocalChange,
           source: OpSource.Local,

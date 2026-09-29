@@ -1422,11 +1422,16 @@ export class Client {
         //     nothing (empty `operations`) — see `executeUndoRedoInternal`,
         //     which gates on operations rather than opInfos precisely so this
         //     subscription sees it.
-        //   - PresenceChanged (local source): a presence-only change appends to
-        //     `localChanges` but runs no operation, so it emits no LocalChange.
-        //     Its content is worthless after a restore, but it consumes a
-        //     `clientSeq` and `restoreFromBytes` does not renumber, so omitting
-        //     it leaves a hole the first restored push is rejected for.
+        //   - PresenceChanged from this client (`Local` or `UndoRedo` source):
+        //     a presence-only change appends to `localChanges` but runs no
+        //     operation, so it emits no LocalChange. Its content is worthless
+        //     after a restore, but it consumes a `clientSeq` and
+        //     `restoreFromBytes` does not renumber, so omitting it leaves a
+        //     hole the first restored push is rejected for. `UndoRedo` matters
+        //     as much as `Local`: undoing a presence-only change queues a
+        //     change the same way (see `executeUndoRedoInternal`). `Remote` is
+        //     the one source to skip -- another client's presence queues
+        //     nothing here.
         //
         // The post-sync checkpoint is written separately in `syncInternal` as
         // `meta`: an ack-only push emits no Remote/Snapshot event, so it cannot
@@ -1532,7 +1537,7 @@ export class Client {
                 if (
                   event.type === DocEventType.LocalChange ||
                   (event.type === DocEventType.PresenceChanged &&
-                    event.source === OpSource.Local)
+                    event.source !== OpSource.Remote)
                 ) {
                   append();
                   break;
