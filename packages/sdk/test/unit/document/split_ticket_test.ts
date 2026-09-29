@@ -94,6 +94,52 @@ describe('split tickets', function () {
       'a replica reads back the tickets the originator issued',
     );
   });
+  // A document edited before `client.attach` runs under the initial actor,
+  // and attach re-stamps every pending local change with the real one. The
+  // tickets a split issued are part of that change, so they are re-stamped
+  // with it, the same way its executedAt is: every replica then mints the
+  // split's elements under the actor that sent the change.
+  it('re-stamps the tickets when the actor is set after the edit', function () {
+    const doc = new Document<{ t: Tree }>('doc');
+    doc.update((r) => {
+      r.t = new Tree({
+        type: 'r',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    doc.update((r) => r.t.edit(2, 2, { type: 'text', value: 'q' }, 1));
+
+    const actorID = '000000000000000000000009';
+    doc.setActor(actorID);
+
+    const pack = doc.createChangePack();
+    const sent = pack
+      .getChanges()
+      .flatMap((change) => change.getOperations())
+      .filter((op) => op instanceof TreeEditOperation)
+      .flatMap((op) => (op as TreeEditOperation).getSplitTickets());
+    assert.isNotEmpty(sent, 'the edit split an element, so it issued tickets');
+    for (const ticket of sent) {
+      assert.equal(
+        ticket.getActorID(),
+        actorID,
+        'a split ticket carries the change its edit belongs to',
+      );
+    }
+
+    const received = converter
+      .fromChangePack<Indexable>(converter.toChangePack(pack))
+      .getChanges()
+      .flatMap((change) => change.getOperations())
+      .filter((op) => op instanceof TreeEditOperation)
+      .flatMap((op) => (op as TreeEditOperation).getSplitTickets());
+    assert.deepEqual(
+      received.map((t) => t.toTestString()),
+      sent.map((t) => t.toTestString()),
+      'a replica reads back the tickets the originator issued',
+    );
+  });
+
   /**
    * `threeBlockDoc` returns `<r><d><p>ab</p></d><d><p>cd</p></d><d><p>ef</p></d></r>`,
    * the shape two successive L2 merges need, and so the shape that puts two

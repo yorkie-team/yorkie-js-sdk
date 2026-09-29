@@ -64,6 +64,17 @@ export function YorkieSourceProvider({ children }: Props) {
   // cannot read `currentDocKey` from the closure. The ref mirrors the state.
   const currentDocKeyRef = useRef<string>('');
   const [docKeys, setDocKeys] = useState<Array<string>>([]);
+  // NOTE(chacha912): `handleSDKMessage` is registered once per port and cannot
+  // read the state from its closure, so the list is held here and the state
+  // follows it. The ref is written before the state on purpose: two documents
+  // leaving one after the other arrive as two messages in the same tick, and a
+  // ref that lagged behind would let the second one pick the first one's key,
+  // which has already gone.
+  const docKeysRef = useRef<Array<string>>([]);
+  const setDocKeyList = useCallback((next: Array<string>) => {
+    docKeysRef.current = next;
+    setDocKeys(next);
+  }, []);
   const [doc, setDoc] = useState(null);
   const [docEventsForReplay, setDocEventsForReplay] = useState<
     Array<Devtools.DocEventsForReplay>
@@ -79,6 +90,7 @@ export function YorkieSourceProvider({ children }: Props) {
   const resetDocument = () => {
     currentDocKeyRef.current = '';
     setCurrentDocKey('');
+    docKeysRef.current = [];
     setDocKeys([]);
     setDocEventsForReplay([]);
     setDocNotifications([]);
@@ -102,9 +114,9 @@ export function YorkieSourceProvider({ children }: Props) {
           sendToSDK({ msg: 'devtools::connect' });
           break;
         case 'doc::available':
-          setDocKeys((keys) =>
-            keys.includes(message.docKey) ? keys : [...keys, message.docKey],
-          );
+          if (!docKeysRef.current.includes(message.docKey)) {
+            setDocKeyList([...docKeysRef.current, message.docKey]);
+          }
           if (!currentDocKeyRef.current) {
             // NOTE(hackerwins): Adopt the first document that announces itself,
             // and keep the user's choice when another one shows up later.
@@ -120,6 +132,22 @@ export function YorkieSourceProvider({ children }: Props) {
             });
           }
           break;
+        case 'doc::unavailable': {
+          const remaining = docKeysRef.current.filter(
+            (key) => key !== message.docKey,
+          );
+          setDocKeyList(remaining);
+          if (currentDocKeyRef.current !== message.docKey) break;
+          // NOTE(chacha912): The document the user was watching is gone. The
+          // selector only appears for two or more documents, so leaving the
+          // choice empty would strand a single-document page with no way back.
+          if (remaining.length > 0) {
+            selectDocument(remaining[0]);
+          } else {
+            resetDocument();
+          }
+          break;
+        }
         case 'doc::sync::full':
           // NOTE(hackerwins): An SDK that ignores the subscribed key answers for
           // every document on the page. Drop what the panel did not ask for.

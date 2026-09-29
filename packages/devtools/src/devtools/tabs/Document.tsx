@@ -26,6 +26,7 @@ import {
   useYorkieDoc,
 } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
+import { stringifyValue } from '../stringify';
 
 /**
  * Renders the Document tab showing the Yorkie tree and selected node details.
@@ -145,9 +146,7 @@ export function Document({ style, hidePresenceTab, setHidePresenceTab }) {
               {selectedNode.type === 'YORKIE_TREE' ? (
                 <TreeDetail node={selectedNode} tree={nodeDetail} />
               ) : (
-                <JSONDetail
-                  json={JSON.stringify(selectedNode.value, null, 2)}
-                />
+                <JSONDetail json={stringifyValue(selectedNode.value, 2)} />
               )}
             </div>
           </div>

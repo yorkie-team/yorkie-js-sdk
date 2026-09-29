@@ -343,12 +343,13 @@ describe('Malformed tree edit content', function () {
 
 /*
  * The split tickets a tree edit carries become the ids of the elements the
- * split mints, so a peer that could name them freely could put a live node
- * under another actor's id, or under one a node in the tree already holds.
- * They are only ever issued from the sending change's own context, after the
- * operation's own ticket.
+ * split mints. yorkie's converter reads them back as sent and the server
+ * applies them verbatim, so every replica has to do the same: a ticket this
+ * decoder refused would wedge the document's sync for every JS client, and one
+ * it rewrote would mint ids the server's snapshot does not hold. Constraining
+ * what a peer may send is a change to both SDKs at once, not to one decoder.
  */
-describe('Malformed tree edit split tickets', function () {
+describe('Tree edit split tickets on the wire', function () {
   /**
    * `splitEditPack` returns the wire form of a change pack whose last
    * operation splits `<p>ab</p>`, so it carries one split ticket.
@@ -380,37 +381,38 @@ describe('Malformed tree edit split tickets', function () {
   }
 
   /**
-   * `decode` decodes the given pack.
+   * `decodedSplitTickets` returns the split tickets of the tree edit the
+   * decoder built from the pack.
    */
-  function decode(pb: PbChangePack) {
-    return converter.fromChangePack<Indexable>(pb);
+  function decodedSplitTickets(pb: PbChangePack) {
+    for (const change of converter.fromChangePack<Indexable>(pb).getChanges()) {
+      for (const op of change.getOperations()) {
+        if (op instanceof TreeEditOperation && op.getSplitTickets().length) {
+          return op.getSplitTickets();
+        }
+      }
+    }
+    throw new Error('no split ticket in the decoded pack');
   }
 
-  it('accepts the tickets the sending change issued', function () {
+  it('reads back the tickets the sending change issued', function () {
     const pb = splitEditPack();
-    assert.equal(splitTicketsOf(pb).length, 1);
-    assert.doesNotThrow(() => decode(pb));
+    const [sent] = splitTicketsOf(pb);
+    const [read] = decodedSplitTickets(pb);
+    assert.equal(read.getLamport(), sent.lamport);
+    assert.equal(read.getDelimiter(), sent.delimiter);
   });
 
-  it('rejects a ticket belonging to another actor', function () {
+  it('reads back a ticket outside the issuable shape as sent', function () {
     const pb = splitEditPack();
-    splitTicketsOf(pb)[0].actorId = new Uint8Array(12).fill(7);
+    const sent = splitTicketsOf(pb)[0];
+    sent.actorId = new Uint8Array(12).fill(7);
+    sent.lamport = sent.lamport + 1n;
+    sent.delimiter = 0;
 
-    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
-  });
-
-  it('rejects a ticket from another lamport', function () {
-    const pb = splitEditPack();
-    const ticket = splitTicketsOf(pb)[0];
-    ticket.lamport = ticket.lamport + 1n;
-
-    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
-  });
-
-  it('rejects a delimiter at or below the operation ticket', function () {
-    const pb = splitEditPack();
-    splitTicketsOf(pb)[0].delimiter = 0;
-
-    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
+    const [read] = decodedSplitTickets(pb);
+    assert.equal(read.getActorID(), '070707070707070707070707');
+    assert.equal(read.getLamport(), sent.lamport);
+    assert.equal(read.getDelimiter(), 0);
   });
 });

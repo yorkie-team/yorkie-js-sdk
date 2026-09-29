@@ -154,6 +154,7 @@ import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 import { ArraySetOperation } from '../document/operation/array_set_operation';
 import { RevisionSummary } from './revision';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -1320,45 +1321,6 @@ function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
 }
 
 /**
- * `fromSplitTickets` converts the split tickets a tree edit carries, refusing
- * any the change that sent them could not have issued.
- *
- * These tickets become the identities of the elements a split mints, so a
- * peer free to name them could mint a live node under another actor's id, or
- * under an id a node in the tree already holds. Every producer issues them
- * from the change's own context, after the operation's own ticket: the same
- * actor and lamport, delimiters strictly increasing above it. Anything else
- * did not come from this change, so the pack is rejected at the boundary
- * rather than executed into node ids.
- */
-function fromSplitTickets(
-  pbTickets: Array<PbTimeTicket>,
-  executedAt: TimeTicket,
-): Array<TimeTicket> {
-  const tickets: Array<TimeTicket> = [];
-  let delimiter = executedAt.getDelimiter();
-  for (const pbTicket of pbTickets) {
-    const ticket = fromTimeTicket(pbTicket);
-    if (
-      !ticket ||
-      ticket.getActorID() !== executedAt.getActorID() ||
-      ticket.getLamport() !== executedAt.getLamport() ||
-      ticket.getDelimiter() <= delimiter
-    ) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        `invalid split ticket: ${ticket?.toTestString()}`,
-      );
-    }
-
-    delimiter = ticket.getDelimiter();
-    tickets.push(ticket);
-  }
-
-  return tickets;
-}
-
-/**
  * `fromTreeNodesWhenEdit` converts the given Protobuf format to model format.
  */
 function fromTreeNodesWhenEdit(
@@ -1626,11 +1588,14 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
           : 'restore';
     }
     const treeEditExecutedAt = fromTimeTicket(pbTreeEditOperation!.executedAt)!;
+    const treeEditContents = fromTreeNodesWhenEdit(
+      pbTreeEditOperation!.contents,
+    );
     const treeEdit = TreeEditOperation.create(
       fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
       fromTreePos(pbTreeEditOperation!.from!),
       fromTreePos(pbTreeEditOperation!.to!),
-      fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
+      treeEditContents,
       pbTreeEditOperation!.splitLevel,
       treeEditExecutedAt,
       treeRestoreMode ? true : undefined,
@@ -1640,8 +1605,13 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRestoreMode,
       treeRetombstoneSpans,
     );
+    // Split tickets are read back as sent, the way yorkie's converter reads
+    // them: the server applies them verbatim, so a replica that rewrote or
+    // refused a ticket here would mint different ids than the snapshot holds.
     treeEdit.setSplitTickets(
-      fromSplitTickets(pbTreeEditOperation!.splitTickets, treeEditExecutedAt),
+      pbTreeEditOperation!.splitTickets.map(
+        (ticket) => fromTimeTicket(ticket)!,
+      ),
     );
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
@@ -1860,7 +1830,16 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
   counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
   if (counter.isDedup() && pbCounter.hllRegisters.length > 0) {
-    counter.restoreHLL(pbCounter.hllRegisters);
+    // A rejected payload is logged and dropped rather than thrown on: snapshot
+    // decode has no handler, so throwing would stop this client from opening
+    // the document at all over one peer's malformed counter.
+    if (!counter.restoreHLL(pbCounter.hllRegisters)) {
+      logger.warn(
+        `discarding malformed HLL registers for counter ${counter
+          .getCreatedAt()
+          .toTestString()}: ${pbCounter.hllRegisters.length} bytes`,
+      );
+    }
   }
   return counter;
 }
