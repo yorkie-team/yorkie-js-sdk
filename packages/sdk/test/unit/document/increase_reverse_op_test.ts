@@ -28,6 +28,8 @@ import {
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
 import { MinInt64 } from '@yorkie-js/sdk/src/util/number';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Counter } from '@yorkie-js/sdk/src/document/json/counter';
 
 describe('IncreaseOperation', function () {
   it('builds a reverse operation for a MinInt64 operand without throwing', function () {
@@ -125,5 +127,56 @@ describe('IncreaseOperation', function () {
       assert.doesNotThrow(() => op.execute(root));
       assert.equal(counter.getValue(), 5);
     }
+  });
+
+  it('ignores a non-numeric operand instead of throwing', function () {
+    // NOTE(chacha912): The operand comes off the wire, so a peer can send a
+    // String/Bytes/Boolean/Null/Date primitive, or a whole object. The first
+    // group throws a TypeError out of `CRDTCounter.increase` and the second
+    // has no `getValue()` at all, and a remote change that throws is
+    // redelivered by the server forever, so either would stall every client.
+    const root = new CRDTRoot(
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
+    );
+    const cc = ChangeContext.create(InitialChangeID, root, {});
+    const ticket = cc.issueTimeTicket();
+    const counter = CRDTCounter.create(CounterType.Int, 5, ticket);
+    root.getObject().set('counter', counter, ticket);
+    root.registerElement(counter, root.getObject());
+
+    const operands = [
+      Primitive.of('hello', InitialTimeTicket),
+      Primitive.of(true, InitialTimeTicket),
+      Primitive.of(new Uint8Array([1, 2, 3]), InitialTimeTicket),
+      Primitive.of(new Date(0), InitialTimeTicket),
+      Primitive.of(null, InitialTimeTicket),
+      new CRDTObject(InitialTimeTicket, ElementRHT.create()),
+    ];
+    for (const operand of operands) {
+      const op = IncreaseOperation.create(counter.getCreatedAt(), operand);
+
+      const result = op.execute(root);
+      assert.deepEqual(result.opInfos, []);
+      assert.equal(counter.getValue(), 5);
+    }
+  });
+
+  it('rejects a non-finite increase locally instead of pushing it', function () {
+    // NOTE(chacha912): A non-finite value has no integer delta to apply, so
+    // the remote side reads it as no change. The local API rejects it rather
+    // than ship a NaN/Infinity double every peer will ignore.
+    const doc = new Document<{ counter: Counter }>('test-doc');
+    doc.update((root) => {
+      root.counter = new Counter(5);
+    });
+
+    for (const value of [NaN, Infinity, -Infinity]) {
+      assert.throws(
+        () => doc.update((root) => root.counter.increase(value)),
+        /must be finite/,
+      );
+    }
+    assert.equal(doc.getRoot().counter.getValue(), 5);
+    assert.equal(doc.toSortedJSON(), '{"counter":5}');
   });
 });

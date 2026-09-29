@@ -120,6 +120,18 @@ export class Counter extends BaseCounter {
   public increase(v: number | bigint): Counter {
     this.ensureInitialized();
 
+    // NOTE(chacha912): A non-finite value has no integer delta to apply, so
+    // the CRDT reads it as no change. Reject it here rather than push an
+    // 8-byte NaN/Infinity double onto the wire for every peer to ignore:
+    // locally supplied garbage fails loudly, only a remote operand is
+    // tolerated.
+    if (typeof v === 'number' && !Number.isFinite(v)) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `Counter increase value must be finite, but got ${v}`,
+      );
+    }
+
     const ticket = this.context!.issueTimeTicket();
     const value = Primitive.of(v, ticket);
     if (!value.isNumericType()) {

@@ -85,7 +85,21 @@ export class IncreaseOperation extends Operation {
       );
     }
     const counter = parentObject as CRDTCounter;
-    const value = this.value.deepcopy() as Primitive;
+    const element = this.value.deepcopy();
+    // NOTE(chacha912): The operand comes off the wire, so it can be any
+    // element type at all: a String/Bytes/Boolean/Null/Date primitive, or a
+    // whole object/array/text/tree. `CRDTCounter.increase` throws a TypeError
+    // on the first group and the second group has no `getValue()` at all, and
+    // a remote change that throws is redelivered by the server forever, so
+    // either would wedge every client receiving it. Drop the increase
+    // instead: an operand with no numeric delta means no change anyway.
+    if (!(element instanceof Primitive) || !element.isNumericType()) {
+      logger.warn(
+        `ignoring an increase of a non-numeric value on a counter at ${this.getParentCreatedAt().toTestString()}`,
+      );
+      return { opInfos: [] };
+    }
+    const value = element;
     if (counter.isDedup()) {
       // NOTE(chacha912): Both the actor and the operand come off the wire, so
       // a peer can send an increase with no actor or with something other
