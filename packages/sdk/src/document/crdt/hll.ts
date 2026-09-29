@@ -16,6 +16,9 @@
 
 const hllPrecision = 14;
 const hllRegisterCount = 1 << hllPrecision;
+// The largest rho `add` can store: the bits left after the register index,
+// plus one. Anything above it did not come from a HyperLogLog.
+const maxRegisterValue = 64 - hllPrecision + 1;
 
 // xxhash64 constants
 const prime64x1 = 0x9e3779b185ebca87n;
@@ -93,22 +96,31 @@ export class HLL {
   }
 
   /**
-   * `restore` restores the HLL registers from a byte array.
+   * `restore` restores the HLL registers from a byte array, reporting whether
+   * the payload was well-formed. A rejected payload leaves the registers
+   * untouched.
    *
-   * The payload arrives from a remote peer, so its length is not ours to
-   * trust. A wrong length is clamped rather than rejected: rejecting it threw
-   * out of snapshot decode, which has no handler, so one malformed dedup
-   * counter stopped every other client from opening the document. Registers
-   * the payload does not carry stay zero and surplus bytes are dropped, which
-   * costs nothing but accuracy in an estimate that is approximate anyway.
+   * The payload arrives from a remote peer, so neither its length nor its
+   * contents are ours to trust. A malformed one is rejected without throwing:
+   * throwing tore out of snapshot decode, which has no handler, so one bad
+   * dedup counter stopped every other client from opening the document. But
+   * it is not clamped and applied either -- `count()` over registers the
+   * payload only partly covered, or over bytes no `add` could have written,
+   * is not an approximation of the sender's cardinality but an unrelated
+   * number, and the caller would store it as the counter's value and
+   * re-serialize it to its own peers.
    */
-  public restore(data: Uint8Array): void {
-    this.registers.fill(0);
-    this.registers.set(
-      data.length > hllRegisterCount
-        ? data.subarray(0, hllRegisterCount)
-        : data,
-    );
+  public restore(data: Uint8Array): boolean {
+    if (data.length !== hllRegisterCount) {
+      return false;
+    }
+    for (const register of data) {
+      if (register > maxRegisterValue) {
+        return false;
+      }
+    }
+    this.registers.set(data);
+    return true;
   }
 }
 
