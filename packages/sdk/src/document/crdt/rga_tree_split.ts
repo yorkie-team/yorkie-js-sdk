@@ -629,12 +629,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   private treeByID: LLRBTree<RGATreeSplitNodeID, RGATreeSplitNode<T>>;
 
   /**
-   * `pendingGCPairs` buffers GC pairs for nodes that were created
-   * already-tombstoned by splitting a removed node. Such pieces inherit
-   * `removedAt` without ever passing through `remove()`, so they would
-   * otherwise never be registered for GC. Callers that split nodes
-   * (`edit`, `CRDTText.setStyle`, `CRDTText.removeStyle`) drain this
-   * buffer into their returned GC pairs.
+   * `pendingGCPairs` buffers GC pairs for garbage that no `remove()` call
+   * produced: nodes created already-tombstoned by splitting a removed node,
+   * and attribute tombstones duplicated by a value copy (a split, or
+   * `restore` recreating a purged piece; see `bookCopiedAttrTombstones`).
+   * Either would otherwise never be registered for GC. Callers that split or
+   * restore nodes (`edit`, `CRDTText.setStyle`, `CRDTText.removeStyle`,
+   * `restore`) drain this buffer into their returned GC pairs.
    */
   private pendingGCPairs: Array<GCPair>;
 
@@ -772,8 +773,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * the same way as a normal edit.
    *
    * The caller must, in order: (1) register every pair in `pendingGCPairs`
-   * — these are fragments `splitNode` buffered while isolating a target
-   * range out of a larger tombstoned piece (see `drainPendingGCPairs`);
+   * — fragments `splitNode` buffered while isolating a target range out of
+   * a larger tombstoned piece, and attribute tombstones copied into split or
+   * recreated values (see `drainPendingGCPairs`);
    * (2) unregister GC pairs for `untombstonedNodes`. Registering first is
    * required for `untombstonedNodes` entries whose node was itself one of
    * those split-born fragments (a target isolated from the interior of a
@@ -963,9 +965,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       }
     }
 
-    // Defensive: retombstone only ever isolates live pieces, so splitNode
-    // never buffers anything here — drain anyway to stay consistent with
-    // every other caller of isolateRange/splitNode.
+    // retombstone only isolates live pieces, so splitNode buffers no
+    // born-removed piece here, but a split still books the attribute
+    // tombstones it copies.
     pairs.push(...this.drainPendingGCPairs());
 
     return [pairs, changes, diff];
@@ -1539,8 +1541,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
-   * `drainPendingGCPairs` returns the GC pairs buffered for born-tombstoned
-   * split pieces and clears the buffer.
+   * `drainPendingGCPairs` returns the GC pairs buffered in `pendingGCPairs`
+   * and clears the buffer.
    */
   public drainPendingGCPairs(): Array<GCPair> {
     const pairs = this.pendingGCPairs;
