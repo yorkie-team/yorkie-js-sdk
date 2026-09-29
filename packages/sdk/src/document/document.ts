@@ -2247,7 +2247,15 @@ export class Document<
     this.changeID = this.disableGC
       ? this.changeID.syncLamport(change.getID())
       : this.changeID.syncClocks(change.getID());
-    if (opInfos.length) {
+    // Gated on the operations that RAN, not on the `OpInfo`s they produced,
+    // for the same reason as the undo/redo path in `executeUndoRedo`: an
+    // operation can change CRDT state without producing anything an editor
+    // could render (a style on a node the sender removed concurrently, a Tree
+    // restore whose revived nodes all sit under a removed ancestor). Such a
+    // change still moved this replica and still occupies a `serverSeq`, so a
+    // peer applying it has to see the event -- otherwise devtools replay and
+    // any subscriber counting changes lose it.
+    if (operations.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       events.push(
         source === OpSource.Remote
