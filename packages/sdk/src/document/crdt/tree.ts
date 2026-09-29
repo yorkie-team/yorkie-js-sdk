@@ -638,6 +638,30 @@ export class CRDTTreeNode
   }
 
   /**
+   * `dropMergeStamps` clears the merge lineage on this node and every one of
+   * its descendants.
+   *
+   * Unlike `dropSplitLinks` this is NOT safe to call on an arbitrary tree: a
+   * tree that really was merged carries the lineage as state, and dropping it
+   * would rewrite the document. It is for a *tree edit's* content, which the
+   * editing client always creates fresh for that one operation, so none of its
+   * nodes can be a merge product. A peer is free to stamp them anyway, and
+   * `declaredBoundaries` then follows `mergedFrom` off the freshly inserted
+   * node into an element the position never named. Clearing them costs nothing
+   * on conforming traffic -- no producer sets them on edit content, here or in
+   * yorkie -- so no replica sees a different tree for a change a client could
+   * legitimately have written. `reissueContentIDs` clears the same three
+   * fields on the content an undo re-inserts, for the same reason.
+   */
+  public dropMergeStamps(): void {
+    traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
+      node.mergedFrom = undefined;
+      node.mergedAt = undefined;
+      node.mergedInto = undefined;
+    });
+  }
+
+  /**
    * `isRemoved` returns whether the node is removed or not.
    */
   get isRemoved(): boolean {
@@ -1272,12 +1296,23 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * doubles as the seen set, guarding against a cycle in a client-supplied
    * `mergedFrom` chain. Mirrors yorkie's `declaredBoundaries` (yorkie#2042).
    */
-  private declaredBoundaries(
-    ...positions: Array<CRDTTreePos>
-  ): Set<CRDTTreeNode> {
+  private declaredBoundaries(...positions: Array<CRDTTreePos>): {
+    boundaries: Set<CRDTTreeNode>;
+    unresolved: boolean;
+  } {
     const boundaries = new Set<CRDTTreeNode>();
+    let unresolved = false;
     for (const pos of positions) {
       let current = this.findMergeNode(pos.getParentID());
+      // `findMergeNode` answers only for an exact match on a live-shaped
+      // element: a parentID naming a split product this replica does not hold
+      // yet, or a text node, resolves to nothing. That is a gap in what this
+      // replica knows, not a statement that the position named no boundary,
+      // and a caller reading the empty answer as "not declared" would act on
+      // the opposite of the truth. Report it so the caller can fall back.
+      if (!current) {
+        unresolved = true;
+      }
       while (current && !boundaries.has(current)) {
         boundaries.add(current);
         current =
@@ -1285,7 +1320,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           (current.parent as CRDTTreeNode | undefined);
       }
     }
-    return boundaries;
+    return { boundaries, unresolved };
   }
 
   /**
@@ -3043,7 +3078,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // The boundaries the edit's own positions name are resolved lazily: §1.1
     // redirects a position away from a merged-away parent, so fromParent
     // and toParent no longer say which boundaries the edit asked for.
-    let declared: Set<CRDTTreeNode> | undefined;
+    let declared:
+      | { boundaries: Set<CRDTTreeNode>; unresolved: boolean }
+      | undefined;
     for (const node of nodesToBeRemoved) {
       if (!node.mergedInto || toBeMergedNodes.includes(node)) {
         continue;
@@ -3057,7 +3094,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // are tombstoned wherever the concurrent merge left them.
       if (node.mergedInto.equals(dest.id)) {
         declared ??= this.declaredBoundaries(range[0], range[1]);
-        if (declared.has(node)) {
+        // A position whose declared parent this replica cannot resolve leaves
+        // the boundary set silently short, and reading that as "the range
+        // spanned this source" would tombstone children the sender kept --
+        // the divergence this skip exists to prevent. Before this set was
+        // consulted the skip was unconditional here, so keep it: an unresolved
+        // declaration falls back to that, and only a boundary set this replica
+        // could actually compute is allowed to turn the skip off.
+        if (declared.unresolved || declared.boundaries.has(node)) {
           continue;
         }
       }

@@ -386,31 +386,90 @@ describe('Malformed tree edit split tickets', function () {
     return converter.fromChangePack<Indexable>(pb);
   }
 
+  /**
+   * `decodedSplitEdit` returns the tree edit the decoder built from the pack.
+   */
+  function decodedSplitEdit(pb: PbChangePack): TreeEditOperation {
+    for (const change of decode(pb).getChanges()) {
+      for (const op of change.getOperations()) {
+        if (op instanceof TreeEditOperation && op.getSplitTickets().length) {
+          return op;
+        }
+      }
+    }
+    throw new Error('no split ticket in the decoded pack');
+  }
+
+  /**
+   * `assertIssuable` asserts every split ticket the decoder produced is one
+   * the sending change could have issued: its own actor and lamport, with
+   * delimiters strictly increasing above the operation's own.
+   *
+   * The decoder replaces a ticket outside that shape rather than throwing:
+   * this runs inside whole-pack decoding on every sync, so a rejection would
+   * wedge the document for every JS client over one malformed change.
+   */
+  function assertIssuable(pb: PbChangePack) {
+    const op = decodedSplitEdit(pb);
+    const executedAt = op.getExecutedAt();
+    let delimiter = executedAt.getDelimiter();
+    for (const ticket of op.getSplitTickets()) {
+      assert.equal(ticket.getActorID(), executedAt.getActorID());
+      assert.equal(ticket.getLamport(), executedAt.getLamport());
+      assert.isAbove(ticket.getDelimiter(), delimiter);
+      delimiter = ticket.getDelimiter();
+    }
+  }
+
   it('accepts the tickets the sending change issued', function () {
     const pb = splitEditPack();
     assert.equal(splitTicketsOf(pb).length, 1);
     assert.doesNotThrow(() => decode(pb));
+    const pbTicket = splitTicketsOf(pb)[0];
+    const decoded = decodedSplitEdit(pb).getSplitTickets();
+    assert.equal(decoded.length, 1);
+    assert.equal(decoded[0].getLamport(), pbTicket.lamport);
+    assert.equal(
+      decoded[0].getDelimiter(),
+      pbTicket.delimiter,
+      'a well-formed ticket is read back unchanged',
+    );
   });
 
-  it('rejects a ticket belonging to another actor', function () {
+  it('replaces a ticket belonging to another actor', function () {
     const pb = splitEditPack();
     splitTicketsOf(pb)[0].actorId = new Uint8Array(12).fill(7);
 
-    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
+    assert.doesNotThrow(() => decode(pb));
+    assertIssuable(pb);
   });
 
-  it('rejects a ticket from another lamport', function () {
+  it('replaces a ticket from another lamport', function () {
     const pb = splitEditPack();
     const ticket = splitTicketsOf(pb)[0];
     ticket.lamport = ticket.lamport + 1n;
 
-    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
+    assert.doesNotThrow(() => decode(pb));
+    assertIssuable(pb);
   });
 
-  it('rejects a delimiter at or below the operation ticket', function () {
+  it('replaces a delimiter at or below the operation ticket', function () {
     const pb = splitEditPack();
     splitTicketsOf(pb)[0].delimiter = 0;
 
-    assert.throws(() => decode(pb), YorkieError, /invalid split ticket/);
+    assert.doesNotThrow(() => decode(pb));
+    assertIssuable(pb);
+  });
+
+  it('replaces the same ticket the same way on every replica', function () {
+    const forged = () => {
+      const pb = splitEditPack();
+      splitTicketsOf(pb)[0].delimiter = 0;
+      return decodedSplitEdit(pb)
+        .getSplitTickets()
+        .map((t) => t.toTestString());
+    };
+
+    assert.deepEqual(forged(), forged());
   });
 });

@@ -1321,20 +1321,29 @@ function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
 }
 
 /**
- * `fromSplitTickets` converts the split tickets a tree edit carries, refusing
+ * `fromSplitTickets` converts the split tickets a tree edit carries, replacing
  * any the change that sent them could not have issued.
  *
  * These tickets become the identities of the elements a split mints, so a
  * peer free to name them could mint a live node under another actor's id, or
  * under an id a node in the tree already holds. Every producer issues them
  * from the change's own context, after the operation's own ticket: the same
- * actor and lamport, delimiters strictly increasing above it. Anything else
- * did not come from this change, so the pack is rejected at the boundary
- * rather than executed into node ids.
+ * actor and lamport, delimiters strictly increasing above it.
+ *
+ * A ticket outside that shape is replaced with the one the change would have
+ * issued in its place -- the next delimiter above the previous ticket, under
+ * `executedAt`'s actor and lamport -- which is the same ticket `execute`
+ * reconstructs for a change written before the field existed. It is NOT
+ * rejected: this runs inside `fromChangePack`, which decodes a whole pull in
+ * one go with no per-change tolerance, so a throw here would make one
+ * malformed change from any writer wedge the document's sync permanently for
+ * every JS client. Every replica normalizes identically, so they still agree
+ * on the ids the split mints.
  */
 function fromSplitTickets(
   pbTickets: Array<PbTimeTicket>,
   executedAt: TimeTicket,
+  contentCount: number,
 ): Array<TimeTicket> {
   const tickets: Array<TimeTicket> = [];
   let delimiter = executedAt.getDelimiter();
@@ -1346,10 +1355,19 @@ function fromSplitTickets(
       ticket.getLamport() !== executedAt.getLamport() ||
       ticket.getDelimiter() <= delimiter
     ) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        `invalid split ticket: ${ticket?.toTestString()}`,
+      // Step past the delimiters the operation's own content holds as well,
+      // the way `execute`'s fallback does, so a replacement cannot land on an
+      // id an inserted node already carries.
+      delimiter =
+        Math.max(delimiter, executedAt.getDelimiter() + contentCount) + 1;
+      tickets.push(
+        TimeTicket.of(
+          executedAt.getLamport(),
+          delimiter,
+          executedAt.getActorID(),
+        ),
       );
+      continue;
     }
 
     delimiter = ticket.getDelimiter();
@@ -1389,11 +1407,15 @@ function fromTreeNodesWhenEdit(
     }
 
     // Operation content is fully client-controlled and is always freshly
-    // created by the editing client, so it can never be a split product.
-    // Drop the split-sibling links the wire format carries anyway: the tree
-    // follows them as trusted structural pointers once `edit` registers
-    // these nodes in nodeMapByID.
+    // created by the editing client, so it can never be a split product nor a
+    // merge product. Drop the split-sibling links AND the merge lineage the
+    // wire format carries anyway: the tree follows both as trusted structural
+    // pointers once `edit` registers these nodes in nodeMapByID -- a stamped
+    // `mergedFrom` steers `declaredBoundaries` off the inserted node into an
+    // element the position never named. No producer sets either on edit
+    // content, so conforming traffic decodes to the same tree as before.
     treeNode.dropSplitLinks();
+    treeNode.dropMergeStamps();
     treeNodes.push(treeNode);
   }
 
@@ -1621,11 +1643,14 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
           : 'restore';
     }
     const treeEditExecutedAt = fromTimeTicket(pbTreeEditOperation!.executedAt)!;
+    const treeEditContents = fromTreeNodesWhenEdit(
+      pbTreeEditOperation!.contents,
+    );
     const treeEdit = TreeEditOperation.create(
       fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
       fromTreePos(pbTreeEditOperation!.from!),
       fromTreePos(pbTreeEditOperation!.to!),
-      fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
+      treeEditContents,
       pbTreeEditOperation!.splitLevel,
       treeEditExecutedAt,
       treeRestoreMode ? true : undefined,
@@ -1636,7 +1661,11 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRetombstoneSpans,
     );
     treeEdit.setSplitTickets(
-      fromSplitTickets(pbTreeEditOperation!.splitTickets, treeEditExecutedAt),
+      fromSplitTickets(
+        pbTreeEditOperation!.splitTickets,
+        treeEditExecutedAt,
+        treeEditContents?.length ?? 0,
+      ),
     );
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
