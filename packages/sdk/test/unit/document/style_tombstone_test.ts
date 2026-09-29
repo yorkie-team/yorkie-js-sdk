@@ -606,6 +606,32 @@ describe('a style over a tombstoned node', () => {
   });
 
   /**
+   * The text half of the same hole. `RGATreeSplit.restore` recreates a purged
+   * piece through `CRDTTextValue.substring`, which deep-copies the RHT with
+   * its tombstones just as a split does, so the copies need the same booking.
+   */
+  it('books the attribute tombstones a recreated text piece carries', () => {
+    const d: TextDoc = new Document('test-doc');
+    d.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'abcd');
+    });
+    // Style then undo it -> the reverse is a removeStyle, which tombstones
+    // the attribute on the piece.
+    d.update((r) => r.t.setStyle(0, 4, { bbbb: 'vvvv' }));
+    d.history.undo();
+
+    // Remove the text, purge it, then undo the removal so it is RECREATED.
+    d.update((r) => r.t.edit(0, 4, ''));
+    d.garbageCollect(maxVectorOf([d.getChangeID().getActorID()]));
+    d.history.undo();
+    assert.equal(d.getRoot().t.toString(), 'abcd');
+    assert.deepEqual(nodeAttrs(d), ['"abcd" [bbbb=vvvv*]']);
+
+    assertLedgerExact(d, 'after the recreate', [d.getChangeID().getActorID()]);
+  });
+
+  /**
    * A style range that opens on a tombstone: the reverse operation's prior
    * values must come from the first LIVE node, not from the dead run the user
    * had already deleted. Capturing from the tombstone made the undo write
