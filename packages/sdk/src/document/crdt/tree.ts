@@ -134,6 +134,18 @@ export type TreeChange =
     };
 
 /**
+ * `TreeVisibleEdit` is a content change an identity-preserving restore or
+ * retombstone made, paired with the visible size it inserted (zero for a
+ * deletion). The change alone does not carry that size — an insertion reports
+ * a collapsed range — and undo-stack reconciliation cannot shift the pending
+ * indices without it.
+ */
+export type TreeVisibleEdit = {
+  change: TreeChange;
+  insertedSize: number;
+};
+
+/**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a
  * position in the tree. It is composed of the parent ID and the left sibling
  * ID. If there's no left sibling in parent's children, then left sibling is
@@ -2931,7 +2943,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
    *   straddler (caller registers them BEFORE unregistering the untombstoned);
    * - `diff`: the metadata overhead of splitting live straddlers (caller `acc`s
    *   it to Live);
-   * - `changes`: one insertion per node that became visible, in the order it
+   * - `edits`: one insertion per node that became visible, in the order it
    *   did. Each is measured right after its node comes back, so applying them
    *   one after another reproduces the result.
    */
@@ -2943,12 +2955,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<CRDTTreeNode>,
     Array<GCPair>,
     DataSize,
-    Array<TreeChange>,
+    Array<TreeVisibleEdit>,
   ] {
     const untombstoned: Array<CRDTTreeNode> = [];
     const recreated: Array<CRDTTreeNode> = [];
     const diff: DataSize = { data: 0, meta: 0 };
-    const changes: Array<TreeChange> = [];
+    const changes: Array<TreeVisibleEdit> = [];
     const revived = (node: CRDTTreeNode) => {
       const change = this.makeInsertionChange(node, editedAt);
       if (change) {
@@ -3073,10 +3085,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
   public retombstone(
     spans: Array<TreeRestoreSpan>,
     executedAt: TimeTicket,
-  ): [Array<GCPair>, DataSize, Array<TreeChange>] {
+  ): [Array<GCPair>, DataSize, Array<TreeVisibleEdit>] {
     const pairs: Array<GCPair> = [];
     const diff: DataSize = { data: 0, meta: 0 };
-    const changes: Array<TreeChange> = [];
+    const changes: Array<TreeVisibleEdit> = [];
     for (const span of spans) {
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
@@ -3100,12 +3112,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (range) {
             const [from, to, fromPath, toPath] = range;
             changes.push({
-              type: TreeChangeType.Content,
-              from,
-              to,
-              fromPath,
-              toPath,
-              actor: executedAt.getActorID(),
+              change: {
+                type: TreeChangeType.Content,
+                from,
+                to,
+                fromPath,
+                toPath,
+                actor: executedAt.getActorID(),
+              },
+              insertedSize: 0,
             });
           }
         }
@@ -3144,21 +3159,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private makeInsertionChange(
     node: CRDTTreeNode,
     editedAt: TimeTicket,
-  ): TreeChange | undefined {
+  ): TreeVisibleEdit | undefined {
     const range = this.visibleRangeOf(node);
     if (!range) {
       return;
     }
 
-    const [from, , path] = range;
+    const [from, to, path] = range;
     return {
-      type: TreeChangeType.Content,
-      from,
-      to: from,
-      fromPath: path,
-      toPath: path,
-      actor: editedAt.getActorID(),
-      value: [toTreeNode(node)],
+      change: {
+        type: TreeChangeType.Content,
+        from,
+        to: from,
+        fromPath: path,
+        toPath: path,
+        actor: editedAt.getActorID(),
+        value: [toTreeNode(node)],
+      },
+      // The change reports a collapsed range, as every insertion does, so the
+      // size it added is not readable from it; reconciliation needs it.
+      insertedSize: to - from,
     };
   }
 

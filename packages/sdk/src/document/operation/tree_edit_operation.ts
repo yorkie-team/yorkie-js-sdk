@@ -107,6 +107,14 @@ export class TreeEditOperation extends Operation {
   private lastFromIdx?: number;
   private lastToIdx?: number;
   private insertedContentSize?: number;
+  /**
+   * `executedRanges` is what the identity-preserving restore/retombstone path
+   * changed the last time it ran: one `[from, to, insertedSize]` per node that
+   * left or came back, in the order it did, each measured against the tree as
+   * it stood at that moment. Only that path sets it; every other edit reports
+   * its single range through `normalizePos`/`getContentSize`.
+   */
+  private executedRanges?: Array<[number, number, number]>;
 
   /**
    * `splitSize` is the visible-index size the boundaries THIS execution's
@@ -366,11 +374,9 @@ export class TreeEditOperation extends Operation {
       // removed ancestor); the change still propagates, since
       // Document.executeUndoRedo gates on executed operations, not opInfos.
       const path = root.createPath(this.getParentCreatedAt());
-      const opInfos: Array<OpInfo> = [
-        ...retombstoneChanges,
-        ...restoreChanges,
-      ].map(
-        ({ from, to, value, fromPath, toPath }) =>
+      const edits = [...retombstoneChanges, ...restoreChanges];
+      const opInfos: Array<OpInfo> = edits.map(
+        ({ change: { from, to, value, fromPath, toPath } }) =>
           ({
             type: 'tree-edit',
             path,
@@ -382,6 +388,15 @@ export class TreeEditOperation extends Operation {
             toPath,
           }) as OpInfo,
       );
+      // Where this execution actually landed, for the undo stack. The stored
+      // `fromIdx`/`toIdx` describe the forward edit this op reverses and never
+      // move (the nodes are addressed by identity), so they would shift the
+      // pending entries by a range this op never touched.
+      this.executedRanges = edits.map(({ change, insertedSize }) => [
+        change.from,
+        change.to,
+        insertedSize,
+      ]);
 
       return {
         opInfos,
@@ -874,6 +889,24 @@ export class TreeEditOperation extends Operation {
     }
     if (!this.contents) return 0;
     return this.contents.reduce((sum, node) => sum + node.paddedSize(), 0);
+  }
+
+  /**
+   * `getExecutedRanges` returns the visible ranges this execution replaced,
+   * each with the size it inserted there, in the order they applied — what the
+   * undo stack has to be reconciled against.
+   *
+   * An identity-preserving restore/retombstone reports one entry per node that
+   * came back or left, measured as it happened; every other edit reports its
+   * single normalized range.
+   */
+  public getExecutedRanges(): Array<[number, number, number]> {
+    if (this.executedRanges) {
+      return this.executedRanges;
+    }
+
+    const [from, to] = this.normalizePos();
+    return [[from, to, this.getContentSize()]];
   }
 
   /**

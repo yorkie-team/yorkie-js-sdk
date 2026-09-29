@@ -2230,13 +2230,18 @@ export class Document<
         );
       }
       if (op instanceof TreeEditOperation) {
-        const [from, to] = op.normalizePos();
-        this.internalHistory.reconcileTreeEdit(
-          op.getParentCreatedAt(),
-          from,
-          to,
-          op.getContentSize(),
-        );
+        // One reconciliation per range the op actually changed, in the order
+        // it changed them: an identity-preserving restore/retombstone revives
+        // or re-removes several nodes at positions its stored indices never
+        // describe, and each measurement is relative to the one before it.
+        for (const [from, to, contentSize] of op.getExecutedRanges()) {
+          this.internalHistory.reconcileTreeEdit(
+            op.getParentCreatedAt(),
+            from,
+            to,
+            contentSize,
+          );
+        }
       }
     }
     this.changeID = this.disableGC
@@ -2897,7 +2902,13 @@ export class Document<
     this.localChanges.push(change);
     this.changeID = ctx.getNextID();
     const events: DocEvents<P> = [];
-    if (opInfos.length) {
+    // Gated on the operations that RAN, not on the `OpInfo`s they produced: an
+    // undo can run and show nothing (a reverse style on a node a peer removed,
+    // a Tree restore whose nodes all land under a removed ancestor), and the
+    // change is still queued above and still consumes a `clientSeq`. Offline
+    // persistence appends off this event, so staying silent here would leave
+    // the log a hole that the first restored push is rejected for.
+    if (operations.length) {
       events.push({
         type: DocEventType.LocalChange,
         source: OpSource.UndoRedo,

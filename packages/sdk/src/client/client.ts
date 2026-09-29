@@ -1417,13 +1417,16 @@ export class Client {
         // logged, not thrown, so a failing store never breaks the editing path.
         //
         // Append on:
-        //   - LocalChange: a new un-pushed edit.
+        //   - LocalChange: a new un-pushed edit. Every queued change that ran
+        //     an operation emits one, including an undo that ran and showed
+        //     nothing (empty `operations`) — see `executeUndoRedoInternal`,
+        //     which gates on operations rather than opInfos precisely so this
+        //     subscription sees it.
         //   - PresenceChanged (local source): a presence-only change appends to
-        //     `localChanges` but emits no LocalChange (gated by
-        //     opInfos.length). Its content is worthless after a restore, but it
-        //     consumes a `clientSeq` and `restoreFromBytes` does not renumber,
-        //     so omitting it leaves a hole the first restored push is rejected
-        //     for.
+        //     `localChanges` but runs no operation, so it emits no LocalChange.
+        //     Its content is worthless after a restore, but it consumes a
+        //     `clientSeq` and `restoreFromBytes` does not renumber, so omitting
+        //     it leaves a hole the first restored push is rejected for.
         //
         // The post-sync checkpoint is written separately in `syncInternal` as
         // `meta`: an ack-only push emits no Remote/Snapshot event, so it cannot

@@ -191,6 +191,51 @@ describe('Tree History - undo/redo OpInfo positions', () => {
     }, task.name);
   });
 
+  it('reports nothing when the undone nodes stay under a removed ancestor', async ({
+    task,
+  }) => {
+    await withTwoClientsAndDocuments<TestDoc>(async (c1, d1, c2, d2) => {
+      d1.update((root) => {
+        root.t = new Tree({ type: 'doc', children: [para('ab'), para('cd')] });
+      });
+      await c1.sync();
+      await c2.sync();
+      const sync = async () => {
+        await c1.sync();
+        await c2.sync();
+        await c1.sync();
+      };
+      const m1 = follow(d1);
+      const m2 = follow(d2);
+
+      // d1 deletes the text in the first paragraph, then d2 removes that
+      // paragraph. d1's pending undo now has nowhere visible to put the text
+      // back: it comes back under a removed ancestor, which takes no room in
+      // the index, so the undo has no position to report.
+      d1.update((root) => root.t.editByPath([0, 0], [0, 2]));
+      await sync();
+      d2.update((root) => root.t.editByPath([0], [1]));
+      await sync();
+      assert.equal(d1.getRoot().t.toXML(), '<doc><p>cd</p></doc>');
+
+      d1.history.undo();
+      await sync();
+
+      assert.deepEqual(m1.undoRedoInfos(), [], 'undo reports no position');
+      assert.equal(d1.getRoot().t.toXML(), '<doc><p>cd</p></doc>');
+      assert.equal(m1.xml(), d1.getRoot().t.toXML(), 'd1 after undo');
+      assert.equal(m2.xml(), d2.getRoot().t.toXML(), 'd2 after undo');
+
+      // The undo published no OpInfo, but it still had to reach d2. Undoing
+      // d2's own removal brings the paragraph back, and the text with it only
+      // if d1's restore landed there too.
+      d2.history.undo();
+      await sync();
+      assert.equal(d2.getRoot().t.toXML(), '<doc><p>ab</p><p>cd</p></doc>');
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    }, task.name);
+  });
+
   it('reports a restored subtree parent first, then its children', async ({
     task,
   }) => {
