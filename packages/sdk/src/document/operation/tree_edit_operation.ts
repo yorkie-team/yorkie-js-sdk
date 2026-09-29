@@ -328,10 +328,8 @@ export class TreeEditOperation extends Operation {
       const diff = { data: 0, meta: 0 };
       // 1. Re-remove (retombstone) by identity. Isolating a straddling piece
       // splits it (live-split overhead accounted to `diff`).
-      const [retombstonePairs, retombstoneDiff] = tree.retombstone(
-        toRetombstone,
-        editedAt,
-      );
+      const [retombstonePairs, retombstoneDiff, retombstoneChanges] =
+        tree.retombstone(toRetombstone, editedAt);
       addDataSizes(diff, retombstoneDiff);
       for (const pair of retombstonePairs) {
         root.registerGCPair(pair);
@@ -343,8 +341,13 @@ export class TreeEditOperation extends Operation {
       // Un-tombstoned nodes move gc->live via unregisterGCPair (after removedAt
       // is cleared, which restore does); recreated nodes are brand new, so add
       // their size to live, plus any live-split overhead.
-      const [untombstoned, recreated, restorePairs, restoreDiff] =
-        tree.restore(toRestore);
+      const [
+        untombstoned,
+        recreated,
+        restorePairs,
+        restoreDiff,
+        restoreChanges,
+      ] = tree.restore(toRestore, editedAt);
       for (const pair of restorePairs) {
         root.registerGCPair(pair);
       }
@@ -357,21 +360,28 @@ export class TreeEditOperation extends Operation {
       }
       root.acc(diff);
 
-      // opInfos must be non-empty or Document.executeUndoRedo drops the undo
-      // change from localChanges (it never propagates to peers). Exact from/to
-      // for editor integration is best-effort here; positions are follow-up.
+      // One opInfo per node that left or came back, in the order it did, so
+      // an editor can apply them one after another like any other edit. It is
+      // empty when nothing visible changed (e.g. everything stays under a
+      // removed ancestor); the change still propagates, since
+      // Document.executeUndoRedo gates on executed operations, not opInfos.
+      const path = root.createPath(this.getParentCreatedAt());
       const opInfos: Array<OpInfo> = [
-        {
-          type: 'tree-edit',
-          path: root.createPath(this.getParentCreatedAt()),
-          from: this.fromIdx ?? 0,
-          to: this.toIdx ?? this.fromIdx ?? 0,
-          value: [],
-          splitLevel: 0,
-          fromPath: [],
-          toPath: [],
-        } as OpInfo,
-      ];
+        ...retombstoneChanges,
+        ...restoreChanges,
+      ].map(
+        ({ from, to, value, fromPath, toPath }) =>
+          ({
+            type: 'tree-edit',
+            path,
+            from,
+            to,
+            value,
+            splitLevel: 0,
+            fromPath,
+            toPath,
+          }) as OpInfo,
+      );
 
       return {
         opInfos,
