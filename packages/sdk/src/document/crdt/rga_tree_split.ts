@@ -60,6 +60,12 @@ export interface RGATreeSplitValue {
   truncate(offset: number): void;
 
   getDataSize(): DataSize;
+
+  /**
+   * `getGCPairs` returns the pairs for the tombstones this value carries, for
+   * a value that has any (`CRDTTextValue`'s removed attributes).
+   */
+  getGCPairs?(): Array<GCPair>;
 }
 
 /**
@@ -1524,20 +1530,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * subtracts the same size back out.
    */
   private bookCopiedAttrTombstones(value: T): void {
-    const holder = value as unknown as {
-      getRemovedAttrs?: () => Array<GCChild>;
-    };
-    if (typeof holder.getRemovedAttrs !== 'function') {
-      return;
-    }
-
-    for (const attr of holder.getRemovedAttrs()) {
-      this.pendingGCPairs.push({
-        parent: value as unknown as GCParent,
-        child: attr,
-        gcOnlySize: attr.getDataSize(),
-      });
-    }
+    this.pendingGCPairs.push(...(value.getGCPairs?.() ?? []));
   }
 
   /**

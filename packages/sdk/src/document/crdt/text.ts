@@ -222,27 +222,6 @@ export class CRDTTextValue {
   /**
    * `getGCPairs` returns the pairs of GC.
    */
-  /**
-   * `getRemovedAttrs` reports the tombstoned attributes this value holds,
-   * which a split has just duplicated from its source. The copy is new garbage
-   * under a new parent with no registration of its own -- the original's pair
-   * names the original's parent -- so without this it could never be
-   * collected.
-   */
-  public getRemovedAttrs(): Array<RHTNode> {
-    const removed: Array<RHTNode> = [];
-    for (const node of this.attributes) {
-      if (node.getRemovedAt()) {
-        removed.push(node);
-      }
-    }
-
-    return removed;
-  }
-
-  /**
-   * `getGCPairs` returns the pairs of GC.
-   */
   public getGCPairs(): Array<GCPair> {
     const pairs = [];
 
