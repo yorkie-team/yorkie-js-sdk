@@ -139,6 +139,7 @@ describe('Primitive', function () {
     assert.throws(() => Primitive.of(maxInt64 + 1n, InitialTimeTicket));
     assert.throws(() => Primitive.of(minInt64 - 1n, InitialTimeTicket));
   });
+
   it('reads a double payload shorter than eight bytes instead of throwing', function () {
     // NOTE(chacha912): A remote payload can arrive truncated, and the decoder
     // answered on one before this change: it read eight bytes from the start
@@ -160,6 +161,19 @@ describe('Primitive', function () {
     const value = Primitive.valueFromBytes(PrimitiveType.Double, bytes);
 
     assert.equal(value, 3.14);
+  });
+
+  it('hands out a copy of a bytes value, not a view into the buffer', function () {
+    const shared = new Uint8Array([1, 2, 3, 4]);
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Bytes,
+      shared,
+    ) as Uint8Array;
+    shared[0] = 9;
+
+    assert.notEqual(value, shared);
+    assert.deepEqual(Array.from(value), [1, 2, 3, 4]);
   });
 
   it('reads a double out of a shared buffer without writing to it', function () {
