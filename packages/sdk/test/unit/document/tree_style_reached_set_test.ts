@@ -880,3 +880,50 @@ describe('Tree style reached set nested scans', () => {
     scanTimeout,
   );
 });
+
+/**
+ * A split and a merge in one change, against a range that began BEFORE the
+ * split paragraph (yorkie's `TestStyleBeforeSplitAndMergeInOneChange`). The
+ * change splits `<p>efgh</p>` after "e" and then deletes across the boundary
+ * before it, merging "e" into `<p>abcd</p>`; the style covers both paragraphs
+ * whole. Applied after the style's change, the merge moves the traversal past
+ * the known half's Start token, and only the split-family closure styles
+ * `<p>fgh</p>`. The range never named that paragraph as its parent, so
+ * begins-inside alone drops the closure there; it began before the
+ * paragraph, and the document-order half of the guard keeps it.
+ */
+describe('Tree style reached set before a split and merge in one change', () => {
+  const edit = (t: Tree) => {
+    t.edit(10, 10, undefined, 1);
+    t.edit(7, 9);
+  };
+
+  it('styles both paragraphs the range covered', () => {
+    const base = nestedScanBase();
+    const [pA, pB] = concurrentTreeChanges(base, edit, (t) =>
+      styleRange(t, 0, 14),
+    );
+    const ab = replayOrder(base, pA, pB);
+    const ba = replayOrder(base, pB, pA);
+    assert.equal(
+      ba.xml,
+      '<r><p b="x"><p b="x"><p b="x">abcde</p><p b="x">fgh</p></p>' +
+        '<p>ijkl</p></p></r>',
+    );
+    assert.deepEqual(ab, ba, 'split-and-merge-then-style diverges');
+  });
+
+  it('clears both paragraphs the range covered', () => {
+    const base = nestedScanBase({ b: 'x' });
+    const [pA, pB] = concurrentTreeChanges(base, edit, (t) =>
+      removeStyleRange(t, 0, 14),
+    );
+    const ab = replayOrder(base, pA, pB);
+    const ba = replayOrder(base, pB, pA);
+    assert.equal(
+      ba.xml,
+      '<r><p><p><p>abcde</p><p>fgh</p></p><p b="x">ijkl</p></p></r>',
+    );
+    assert.deepEqual(ab, ba, 'split-and-merge-then-remove-style diverges');
+  });
+});

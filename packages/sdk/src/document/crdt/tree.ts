@@ -1544,6 +1544,37 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `beginsAtOrBefore` reports whether the change's declared range-start sits
+   * at or before `node`'s Start token in document order, both measured with
+   * removed nodes included so a concurrent removal between the two moves
+   * neither. A position that does not resolve answers no, as Go's
+   * `beginsAtOrInside` does.
+   */
+  private beginsAtOrBefore(node: CRDTTreeNode, from: CRDTTreePos): boolean {
+    if (!node.parent) {
+      return false;
+    }
+    try {
+      const [parent, left] = from.toTreeNodePair(this);
+      // A concurrent merge can move the left sibling out of the declared
+      // parent. Go's FindOffset fails there; findOffset here returns -1 and
+      // toTreePos would resolve offset 0, so the case is refused explicitly.
+      if (left !== parent && left.parent !== parent) {
+        return false;
+      }
+      const offset = node.parent.findOffset(node, true);
+      const nodeIdx = this.indexTree.indexOf(
+        { node: node.parent, offset },
+        true,
+      );
+      const declaredIdx = this.toIndex(parent, left, true);
+      return declaredIdx >= 0 && declaredIdx <= nodeIdx;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * `declaredParentOf` returns the element a position named as its parent,
    * or undefined when this replica cannot resolve the position.
    */
@@ -1987,18 +2018,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // is the one the End-token guard judges. When that guard excludes
         // it, re-adding the family would style the very node it skipped.
         //
-        // The change must also have begun inside that node, which is the
-        // only way its End token alone is in a range (§9.6). A split of more
-        // than one level carries the right half into a new parent, past a
-        // range that began right after the known node, and its End token
-        // then enters the range with nothing to do with the change. This is
-        // rule 2(c) of the Port specification in yorkie's
-        // concurrent-merge-split design doc (§9.2 Fix 27, yorkie#2070).
+        // The change must also have begun at or inside that node. A split of
+        // more than one level carries the right half into a new parent, past
+        // a range that began right after the known node, and its End token
+        // then enters the range with nothing to do with the change. A range
+        // that began BEFORE the known node covered it whole, however the
+        // traversal lost it, and keeps the closure. This is rule 2(c) of the
+        // Port specification in yorkie's concurrent-merge-split design doc
+        // (§9.2 Fix 27, yorkie#2070).
         if (
           family.length &&
           !skipToken([family[0], TokenType.End]) &&
           declaredFrom &&
-          declaredFrom.coversEitherWay(family[0])
+          (declaredFrom.coversEitherWay(family[0]) ||
+            this.beginsAtOrBefore(family[0], from))
         ) {
           family.forEach(add);
         }
