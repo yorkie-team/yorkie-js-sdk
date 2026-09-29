@@ -125,7 +125,11 @@ export class Primitive extends CRDTElement {
       case PrimitiveType.Long:
         return bigintFromBytesLE(bytes);
       case PrimitiveType.Bytes:
-        return bytes;
+        // NOTE(chacha912): Copied for the same reason as the Double case above:
+        // the decoder hands out views into one snapshot buffer, and returning
+        // this one would hand the application a window onto the rest of that
+        // buffer, which a later decode is free to write through.
+        return bytes.slice();
       case PrimitiveType.Date:
         return new Date(Number(bigintFromBytesLEUnsigned(bytes)));
       default:

@@ -142,14 +142,38 @@ describe('Primitive', function () {
 
   it('reads a double payload shorter than eight bytes instead of throwing', function () {
     // NOTE(chacha912): A remote payload can arrive truncated, and the decoder
-    // answered on one before this change. It still does: the bytes that are
-    // missing read as zero instead of as whatever the buffer happened to hold.
+    // answered on one before this change: it read eight bytes from the start
+    // of the underlying buffer, so the bytes the payload did not carry came
+    // from whatever sat there. They now read as zero. The payload below is the
+    // low half of the smallest double, which no other padding would produce.
     const value = Primitive.valueFromBytes(
       PrimitiveType.Double,
-      new Uint8Array([0, 0, 0, 0]),
+      new Uint8Array([1, 0, 0, 0]),
     );
 
-    assert.equal(value, 0);
+    assert.equal(value, Number.MIN_VALUE);
+  });
+
+  it('reads the first eight bytes of a longer double payload', function () {
+    const bytes = new Uint8Array(12).fill(0xff);
+    new DataView(bytes.buffer).setFloat64(0, 3.14, true);
+
+    const value = Primitive.valueFromBytes(PrimitiveType.Double, bytes);
+
+    assert.equal(value, 3.14);
+  });
+
+  it('hands out a copy of a bytes value, not a view into the buffer', function () {
+    const shared = new Uint8Array([1, 2, 3, 4]);
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Bytes,
+      shared,
+    ) as Uint8Array;
+    shared[0] = 9;
+
+    assert.notEqual(value, shared);
+    assert.deepEqual(Array.from(value), [1, 2, 3, 4]);
   });
 
   it('reads a double out of a shared buffer without writing to it', function () {
