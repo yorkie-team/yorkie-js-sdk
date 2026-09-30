@@ -50,6 +50,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 import {
   DataSize,
   DocSize,
@@ -132,6 +133,18 @@ export type TreeChange =
       value?: Array<string>;
       splitLevel?: number;
     };
+
+/**
+ * `TreeVisibleEdit` is a content change an identity-preserving restore or
+ * retombstone made, paired with the visible size it inserted (zero for a
+ * deletion). The change alone does not carry that size — an insertion reports
+ * a collapsed range — and undo-stack reconciliation cannot shift the pending
+ * indices without it.
+ */
+export type TreeVisibleEdit = {
+  change: TreeChange;
+  insertedSize: number;
+};
 
 /**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a
@@ -3458,14 +3471,31 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * - `pairs`: pending GC pairs for born-removed remainders split off a removed
    *   straddler (caller registers them BEFORE unregistering the untombstoned);
    * - `diff`: the metadata overhead of splitting live straddlers (caller `acc`s
-   *   it to Live).
+   *   it to Live);
+   * - `edits`: one insertion per node that became visible, in the order it
+   *   did. Each is measured right after its node comes back, so applying them
+   *   one after another reproduces the result.
    */
   public restore(
     spans: Array<TreeRestoreSpan>,
-  ): [Array<CRDTTreeNode>, Array<CRDTTreeNode>, Array<GCPair>, DataSize] {
+    editedAt: TimeTicket,
+  ): [
+    Array<CRDTTreeNode>,
+    Array<CRDTTreeNode>,
+    Array<GCPair>,
+    DataSize,
+    Array<TreeVisibleEdit>,
+  ] {
     const untombstoned: Array<CRDTTreeNode> = [];
     const recreated: Array<CRDTTreeNode> = [];
     const diff: DataSize = { data: 0, meta: 0 };
+    const changes: Array<TreeVisibleEdit> = [];
+    const revived = (node: CRDTTreeNode) => {
+      const change = this.makeInsertionChange(node, editedAt);
+      if (change) {
+        changes.push(change);
+      }
+    };
 
     for (const span of spans) {
       if (!span.isText) {
@@ -3474,6 +3504,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (node.isRemoved) {
             node.unremove();
             untombstoned.push(node);
+            revived(node);
           }
           continue;
         }
@@ -3484,6 +3515,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         );
         if (created) {
           recreated.push(created);
+          revived(created);
         }
         continue;
       }
@@ -3516,6 +3548,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (target.isRemoved) {
             target.unremove();
             untombstoned.push(target);
+            revived(target);
           }
           cursor = overlapEnd;
           if (overlapEnd >= pieceEnd) pieceIdx++;
@@ -3524,6 +3557,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const created = this.recreateFromSpan(span, cursor, gapEnd - cursor);
           if (created) {
             recreated.push(created);
+            revived(created);
           }
           cursor = gapEnd;
         }
@@ -3535,7 +3569,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // unregistering the un-tombstoned targets, so a target that was itself a
     // split-born piece is walked gc->live correctly (mirrors the Text path).
     const pairs = this.drainPendingGCPairs();
-    return [untombstoned, recreated, pairs, diff];
+    return [untombstoned, recreated, pairs, diff, changes];
   }
 
   /**
@@ -3573,14 +3607,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * straddles a span boundary is split at that boundary so only the in-span
    * range is re-removed (symmetric with restore's isolate, so undo/redo stay
    * mirror images and segmentation stays convergent). Returns the GC pairs for
-   * the newly tombstoned nodes and the live-split metadata overhead.
+   * the newly tombstoned nodes, the live-split metadata overhead, and one
+   * deletion per visible node it removed, each measured right before the
+   * removal so they apply one after another.
    */
   public retombstone(
     spans: Array<TreeRestoreSpan>,
     executedAt: TimeTicket,
-  ): [Array<GCPair>, DataSize] {
+  ): [Array<GCPair>, DataSize, Array<TreeVisibleEdit>] {
     const pairs: Array<GCPair> = [];
     const diff: DataSize = { data: 0, meta: 0 };
+    const changes: Array<TreeVisibleEdit> = [];
     for (const span of spans) {
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
@@ -3597,12 +3634,95 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const to = Math.min(piece.id.getOffset() + piece.value.length, end);
           target = this.isolateTextRange(piece, from, to, diff);
         }
+        // Measure while `target` is still visible.
+        const range = this.visibleRangeOf(target);
         if (target.remove(executedAt)) {
           pairs.push({ parent: this, child: target });
+          if (range) {
+            const [from, to, fromPath, toPath] = range;
+            changes.push({
+              change: {
+                type: TreeChangeType.Content,
+                from,
+                to,
+                fromPath,
+                toPath,
+                actor: executedAt.getActorID(),
+              },
+              insertedSize: 0,
+            });
+          }
         }
       }
     }
-    return [pairs, diff];
+    return [pairs, diff, changes];
+  }
+
+  /**
+   * `visibleRangeOf` returns the index range `node` covers and its paths, or
+   * undefined when it or one of its ancestors is removed and so takes no room
+   * in the index.
+   */
+  private visibleRangeOf(
+    node: CRDTTreeNode,
+  ): [number, number, Array<number>, Array<number>] | undefined {
+    for (let n: CRDTTreeNode | undefined = node; n; n = n.parent) {
+      if (n.isRemoved) {
+        return;
+      }
+    }
+    if (!node.parent) {
+      return;
+    }
+
+    // `toIndex`/`indexToPath` throw on a tree they cannot walk (`invalid pos`,
+    // `out of index range`). Both run here inside `TreeEditOperation.execute`,
+    // which for a remote pack is driven from `Change.execute` off spans that
+    // arrived from the wire: a throw there aborts the pack, the checkpoint
+    // never advances, and the document is wedged for good on every replica
+    // that receives it. Reporting the range is a courtesy to subscribers, not
+    // part of convergence -- the CRDT state is already settled by the time we
+    // measure -- so a tree we cannot measure degrades to "no position
+    // reported", exactly as a node under a removed ancestor does above.
+    try {
+      const to = this.toIndex(node.parent, node);
+      const from = to - node.paddedSize();
+      return [from, to, this.indexToPath(from), this.indexToPath(to)];
+    } catch (err) {
+      logger.warn(`[TR] failed to measure restored node: ${err}`);
+      return;
+    }
+  }
+
+  /**
+   * `makeInsertionChange` describes `node` becoming visible as an insertion
+   * at its current position. A node still hidden under a removed ancestor
+   * produces nothing.
+   */
+  private makeInsertionChange(
+    node: CRDTTreeNode,
+    editedAt: TimeTicket,
+  ): TreeVisibleEdit | undefined {
+    const range = this.visibleRangeOf(node);
+    if (!range) {
+      return;
+    }
+
+    const [from, to, path] = range;
+    return {
+      change: {
+        type: TreeChangeType.Content,
+        from,
+        to: from,
+        fromPath: path,
+        toPath: path,
+        actor: editedAt.getActorID(),
+        value: [toTreeNode(node)],
+      },
+      // The change reports a collapsed range, as every insertion does, so the
+      // size it added is not readable from it; reconciliation needs it.
+      insertedSize: to - from,
+    };
   }
 
   /**
