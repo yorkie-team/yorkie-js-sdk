@@ -17,6 +17,7 @@
 import { describe, it, assert, vi } from 'vitest';
 import {
   yorkieNodesEqual,
+  yorkieNodesEquivalent,
   sameStructure,
   findTextDiffs,
   tryIntraBlockDiff,
@@ -104,6 +105,56 @@ describe('diff', () => {
 
     it('should treat missing children as empty array', () => {
       assert.isTrue(yorkieNodesEqual({ type: 'p' }, yElem('p', [])));
+    });
+  });
+
+  // The CRDT keeps whatever text runs the edits produced, so its copy of a
+  // block holds several text nodes where ProseMirror's holds one. That is not
+  // divergence, and a PM-vs-tree comparison must not read it as such.
+  describe('yorkieNodesEquivalent', () => {
+    it('should ignore how the tree fragmented its text runs', () => {
+      assert.isTrue(
+        yorkieNodesEquivalent(
+          yElem('paragraph', [yText('abcd')]),
+          yElem('paragraph', [yText('ab'), yText('cd')]),
+        ),
+      );
+    });
+
+    it('should still compare the merged text content', () => {
+      assert.isFalse(
+        yorkieNodesEquivalent(
+          yElem('paragraph', [yText('abcd')]),
+          yElem('paragraph', [yText('ab'), yText('ce')]),
+        ),
+      );
+    });
+
+    it('should not merge text across an element sibling', () => {
+      assert.isFalse(
+        yorkieNodesEquivalent(
+          yElem('paragraph', [yText('ab')]),
+          yElem('paragraph', [yText('a'), yElem('span', []), yText('b')]),
+        ),
+      );
+    });
+
+    it('should ignore attribute key order', () => {
+      assert.isTrue(
+        yorkieNodesEquivalent(
+          yElem('heading', [yText('T')], { level: '2', id: 'x' }),
+          yElem('heading', [yText('T')], { id: 'x', level: '2' }),
+        ),
+      );
+    });
+
+    it('should still compare attribute values', () => {
+      assert.isFalse(
+        yorkieNodesEquivalent(
+          yElem('heading', [yText('T')], { level: '2' }),
+          yElem('heading', [yText('T')], { level: '3' }),
+        ),
+      );
     });
   });
 
@@ -801,6 +852,91 @@ describe('diff', () => {
         );
       });
     });
+
+    // A block the user has typed into more than once serializes from the CRDT
+    // as several sibling text nodes while ProseMirror holds a single one. The
+    // documents are in step; only the representation differs.
+    describe('when the tree fragmented its text runs', () => {
+      const fragmented = (children: Array<YorkieTreeJSON>) => ({
+        type: 'doc',
+        children,
+      });
+
+      it('should still use intra-block diff', () => {
+        const oldDoc = doc(p('ab'));
+        const newDoc = doc(p('abX'));
+        const { tree, calls } = createMockTree(
+          fragmented([yElem('paragraph', [yText('a'), yText('b')])]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].method, 'edit');
+        assert.deepEqual(calls[0].args.slice(0, 3), [
+          3,
+          3,
+          { type: 'text', value: 'X' },
+        ]);
+      });
+
+      it('should still push a local edit in a multi-block doc', () => {
+        const oldDoc = doc(p('ab'), p('m'), p('cd'));
+        const newDoc = doc(p('ab'), p('mX'), p('cd'));
+        // The untouched neighbours hold two text nodes each on the tree side.
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem('paragraph', [yText('a'), yText('b')]),
+            yElem('paragraph', [yText('m')]),
+            yElem('paragraph', [yText('c'), yText('d')]),
+          ]),
+        );
+        const onLog = vi.fn();
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args.slice(0, 3), [
+          6,
+          6,
+          { type: 'text', value: 'X' },
+        ]);
+        assert.isFalse(
+          onLog.mock.calls.some((c: Array<unknown>) =>
+            (c[1] as string).includes('skipping upstream sync'),
+          ),
+        );
+      });
+
+      it('should still use native split', () => {
+        const oldDoc = doc(p('abcd'));
+        const newDoc = doc(p('ab'), p('cd'));
+        const { tree, calls } = createMockTree(
+          fragmented([yElem('paragraph', [yText('abc'), yText('d')])]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args, [3, 3, undefined, 1]);
+      });
+
+      it('should still use native merge', () => {
+        const oldDoc = doc(p('ab'), p('cd'));
+        const newDoc = doc(p('abcd'));
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem('paragraph', [yText('a'), yText('b')]),
+            yElem('paragraph', [yText('c'), yText('d')]),
+          ]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args.slice(0, 2), [3, 5]);
+      });
+    });
   });
 
   describe('alignBlockIndex', () => {
@@ -826,6 +962,18 @@ describe('diff', () => {
       const pm = blocks('a', 'b');
       const tree = blocks('a', 'b', 'new');
       assert.equal(alignBlockIndex(pm, tree, 1), 1);
+    });
+
+    it('should treat a fragmented tree block as the same block', () => {
+      const pm = blocks('ab', 'm', 'cd');
+      const tree = [
+        yElem('paragraph', [yText('a'), yText('b')]),
+        yElem('paragraph', [yText('m')]),
+        yElem('paragraph', [yText('c'), yText('d')]),
+      ];
+      assert.equal(alignBlockIndex(pm, tree, 1), 1);
+      assert.equal(alignBlockIndex(pm, tree, 2), 2);
+      assert.equal(alignBlockIndex(pm, tree, 3), 3);
     });
 
     it('should return undefined for a boundary inside the diverged region', () => {

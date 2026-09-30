@@ -29,9 +29,10 @@ import {
 /**
  * Deep compare two Yorkie tree nodes for structural equality.
  *
- * Note: attribute comparison uses JSON.stringify, which is key-order-dependent.
- * This is safe here because both sides are produced by the same `pmToYorkie`
- * path, which always inserts keys in a consistent order.
+ * Both sides must come from the same `pmToYorkie` path: the comparison is
+ * exact, so it is key-order-dependent on attributes and counts text nodes.
+ * To compare a PM-serialized node with the CRDT's own copy of it, use
+ * `yorkieNodesEquivalent` instead.
  */
 export function yorkieNodesEqual(
   a: YorkieTreeJSON,
@@ -50,6 +51,89 @@ export function yorkieNodesEqual(
   if (aChildren.length !== bChildren.length) return false;
   for (let i = 0; i < aChildren.length; i++) {
     if (!yorkieNodesEqual(aChildren[i], bChildren[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Merge adjacent text siblings into a single node.
+ *
+ * The CRDT keeps whatever text runs the edits happened to produce: a paragraph
+ * typed into twice serializes as two sibling text nodes (see
+ * `toTreeNode` in `sdk/src/document/crdt/tree.ts`, which maps `children`
+ * straight through). ProseMirror, by contrast, coalesces adjacent text with
+ * identical marks into one node. So the two sides of a PM-vs-tree comparison
+ * describe the same content with a different number of text nodes, and only
+ * the run-merged forms are comparable.
+ *
+ * Merging is index-safe: a text node's flat size is its length with no
+ * open/close tags (`yorkieNodeSize`), so how a text run is split never shifts
+ * any Yorkie index derived from the merged form.
+ */
+function mergeTextRuns(children: Array<YorkieTreeJSON>): Array<YorkieTreeJSON> {
+  const merged: Array<YorkieTreeJSON> = [];
+  for (const child of children) {
+    const last = merged[merged.length - 1];
+    if (child.type === 'text' && last && last.type === 'text') {
+      merged[merged.length - 1] = {
+        type: 'text',
+        value: (last.value || '') + (child.value || ''),
+      };
+      continue;
+    }
+    merged.push(child);
+  }
+  return merged;
+}
+
+/**
+ * Compare attribute maps by key/value, independent of key order.
+ *
+ * `yorkieNodesEqual` can compare serialized attributes because both of its
+ * sides come from the same `pmToYorkie` path. A PM-vs-tree comparison cannot:
+ * the CRDT's own attribute map decides its key order, so ordering carries no
+ * information about whether the two blocks agree.
+ */
+function attributesEquivalent(
+  a: Record<string, string> | undefined,
+  b: Record<string, string> | undefined,
+): boolean {
+  const aKeys = Object.keys(a || {});
+  const bKeys = Object.keys(b || {});
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (a![key] !== b?.[key]) return false;
+  }
+  return true;
+}
+
+/**
+ * Deep compare a ProseMirror-serialized node with the CRDT tree's own copy of
+ * it, ignoring the two representational differences that carry no meaning:
+ * how the CRDT fragmented its text runs, and what order its attribute map
+ * enumerates in.
+ *
+ * Use this — never `yorkieNodesEqual` — whenever one side is `tree.toJSON()`.
+ * Strict equality reports divergence on a block that is perfectly in step as
+ * soon as it has been typed into twice, which silently disables the
+ * intra-block, split and merge paths and, in `alignBlockIndex`, drops the
+ * local edit altogether.
+ */
+export function yorkieNodesEquivalent(
+  a: YorkieTreeJSON,
+  b: YorkieTreeJSON,
+): boolean {
+  if (!a || !b) return false;
+  if (a.type !== b.type) return false;
+  if (a.type === 'text') return (a.value || '') === (b.value || '');
+
+  if (!attributesEquivalent(a.attributes, b.attributes)) return false;
+
+  const aChildren = mergeTextRuns(a.children || []);
+  const bChildren = mergeTextRuns(b.children || []);
+  if (aChildren.length !== bChildren.length) return false;
+  for (let i = 0; i < aChildren.length; i++) {
+    if (!yorkieNodesEquivalent(aChildren[i], bChildren[i])) return false;
   }
   return true;
 }
@@ -282,6 +366,12 @@ export function detectMerge(
  * Align by the common prefix and suffix, which is the shape whole-block remote
  * insertions and deletions take, and return undefined for a boundary that
  * falls inside the diverged region, where no offset is correct.
+ *
+ * The two sides are different representations of the same content, so the
+ * comparison is `yorkieNodesEquivalent`, not `yorkieNodesEqual`: the CRDT's
+ * text fragmentation is not divergence, and treating it as such would make
+ * every ordinary multi-block edit look like it landed in a diverged region
+ * and get dropped.
  */
 export function alignBlockIndex(
   pmBlocks: Array<YorkieTreeJSON>,
@@ -295,7 +385,7 @@ export function alignBlockIndex(
   while (
     prefix < pmLen &&
     prefix < treeLen &&
-    yorkieNodesEqual(pmBlocks[prefix], treeBlocks[prefix])
+    yorkieNodesEquivalent(pmBlocks[prefix], treeBlocks[prefix])
   ) {
     prefix++;
   }
@@ -307,7 +397,7 @@ export function alignBlockIndex(
   while (
     suffix < pmLen - prefix &&
     suffix < treeLen - prefix &&
-    yorkieNodesEqual(
+    yorkieNodesEquivalent(
       pmBlocks[pmLen - 1 - suffix],
       treeBlocks[treeLen - 1 - suffix],
     )
@@ -421,13 +511,22 @@ export function syncToYorkie(
 
   // The three optimizations below read the tree's copy of a block and index
   // into it with offsets measured on the PM copy, so they hold only while the
-  // two copies are identical. Full block replacement needs no such agreement.
+  // two copies hold the same content. Full block replacement needs no such
+  // agreement.
+  //
+  // "Same content" is `yorkieNodesEquivalent`, not `yorkieNodesEqual`: the
+  // tree's text runs are however the edits left them, so a block the user has
+  // typed into twice is one text node on the PM side and several on the tree
+  // side. That difference never moves an index — a text node's flat size is
+  // its length — so it must not disqualify the optimizations, or every block
+  // past its first edit falls back to whole-block replacement and clobbers
+  // concurrent peer edits.
   const blocksAligned =
     treeToBlock - treeFromBlock === oldEndDiff + 1 - firstDiff &&
     oldBlocks
       .slice(firstDiff, oldEndDiff + 1)
       .every((block, i) =>
-        yorkieNodesEqual(block, currentYorkieBlocks[treeFromBlock + i]),
+        yorkieNodesEquivalent(block, currentYorkieBlocks[treeFromBlock + i]),
       );
 
   // OPTIMIZATION: If exactly one block changed and structure is the same,
