@@ -65,6 +65,36 @@ function feed(doc: TestDoc, batch: PbChangePack): void {
   );
 }
 
+/** `hello world` in an inline in a paragraph — two levels to split. */
+function seed(doc: TestDoc): void {
+  doc.update((r) => {
+    r.t = new Tree({
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [
+            {
+              type: 'inline',
+              children: [{ type: 'text', value: 'hello world' }],
+            },
+          ],
+        },
+      ],
+    });
+  });
+}
+
+/** Purges the tombstones both replicas have seen. */
+function collectBoth(a: TestDoc, b: TestDoc): void {
+  const vector = maxVectorOf([
+    a.getChangeID().getActorID(),
+    b.getChangeID().getActorID(),
+  ]);
+  a.garbageCollect(vector);
+  b.garbageCollect(vector);
+}
+
 describe('Tree redo of a split and a style in one change', () => {
   const cases: Array<{ name: string; edit: (t: Tree) => void }> = [
     {
@@ -81,6 +111,34 @@ describe('Tree redo of a split and a style in one change', () => {
         t.styleByPath([0, 1], { bold: 'true' });
       },
     },
+    {
+      // Two levels: the split mints an inline AND a paragraph, so the
+      // `replacedIDs` -> split-ticket pairing has to line up innermost first.
+      name: 'split two levels, bold the new paragraph',
+      edit: (t) => {
+        t.editByPath([0, 0, 6], [0, 0, 6], undefined, 2);
+        t.styleByPath([1], { bold: 'true' });
+      },
+    },
+    {
+      // ... and here the style names the inner element the second ticket did
+      // NOT mint, which only resolves if the pairing is right.
+      name: 'split two levels, bold the new inline',
+      edit: (t) => {
+        t.editByPath([0, 0, 6], [0, 0, 6], undefined, 2);
+        t.styleByPath([1, 0], { bold: 'true' });
+      },
+    },
+    {
+      // A tree EDIT, not a style, follows the split: its reverse travels as
+      // identity-preserving restore spans, which name the split-created
+      // element as their parent and have to be re-pointed too.
+      name: 'split, then insert into the new element',
+      edit: (t) => {
+        t.editByPath([0, 0, 6], [0, 0, 6], undefined, 1);
+        t.editByPath([0, 1, 0], [0, 1, 0], { type: 'text', value: 'X' });
+      },
+    },
   ];
 
   for (const { name, edit } of cases)
@@ -88,22 +146,7 @@ describe('Tree redo of a split and a style in one change', () => {
       it(`lets a peer apply the redo: ${name}${collect ? ', after GC' : ''}`, () => {
         const a = newActor('000000000000000000000001');
         const b = newActor('000000000000000000000002');
-        a.update((r) => {
-          r.t = new Tree({
-            type: 'root',
-            children: [
-              {
-                type: 'paragraph',
-                children: [
-                  {
-                    type: 'inline',
-                    children: [{ type: 'text', value: 'hello world' }],
-                  },
-                ],
-              },
-            ],
-          });
-        });
+        seed(a);
         a.clearHistory();
         feed(b, grab(a));
 
@@ -114,21 +157,72 @@ describe('Tree redo of a split and a style in one change', () => {
 
         a.history.undo();
         feed(b, grab(a));
-        assert.equal(b.getRoot().t.toXML(), a.getRoot().t.toXML(), 'undo');
-        if (collect) {
-          // Both have seen the undo, so its tombstones can be purged.
-          const vector = maxVectorOf([
-            a.getChangeID().getActorID(),
-            b.getChangeID().getActorID(),
-          ]);
-          a.garbageCollect(vector);
-          b.garbageCollect(vector);
-        }
+        const undone = a.getRoot().t.toXML();
+        assert.equal(b.getRoot().t.toXML(), undone, 'undo');
+        // Both have seen the undo, so its tombstones can be purged.
+        if (collect) collectBoth(a, b);
 
         a.history.redo();
         assert.equal(a.getRoot().t.toXML(), edited, 'redo, locally');
         feed(b, grab(a));
         assert.equal(b.getRoot().t.toXML(), edited, 'redo, on the peer');
+
+        // A second round trip: the redo re-minted the split elements, so the
+        // entry it pushed onto the undo stack has to name the new ones.
+        a.history.undo();
+        feed(b, grab(a));
+        assert.equal(a.getRoot().t.toXML(), undone, 'second undo, locally');
+        assert.equal(b.getRoot().t.toXML(), undone, 'second undo, on the peer');
+        a.history.redo();
+        feed(b, grab(a));
+        assert.equal(a.getRoot().t.toXML(), edited, 'second redo, locally');
+        assert.equal(b.getRoot().t.toXML(), edited, 'second redo, on the peer');
       });
     }
+
+  // The split and the operation naming its elements are in DIFFERENT history
+  // entries here, so nothing in the popped entry re-points the latter: only
+  // `History.reconcileTreeNodeID`, sweeping the stacks, can.
+  for (const collect of [false, true]) {
+    it(`re-points another history entry at the re-split elements${
+      collect ? ', after GC' : ''
+    }`, () => {
+      const a = newActor('000000000000000000000001');
+      const b = newActor('000000000000000000000002');
+      seed(a);
+      a.clearHistory();
+      feed(b, grab(a));
+
+      // Entry 1: the split. Entry 2: a style naming what it created.
+      a.update((r) => r.t.editByPath([0, 0, 6], [0, 0, 6], undefined, 1));
+      const split = a.getRoot().t.toXML();
+      a.update((r) => r.t.styleByPath([0, 1], { bold: 'true' }));
+      const styled = a.getRoot().t.toXML();
+      feed(b, grab(a));
+      assert.equal(b.getRoot().t.toXML(), styled, 'edits');
+
+      // Undo the style, then the split. The redo stack now holds a re-split
+      // entry and, above it, a style entry naming the pre-split element.
+      a.history.undo();
+      feed(b, grab(a));
+      a.history.undo();
+      feed(b, grab(a));
+      const merged = a.getRoot().t.toXML();
+      assert.equal(b.getRoot().t.toXML(), merged, 'both undone');
+      if (collect) collectBoth(a, b);
+
+      // Redoing the split mints new elements; the style entry still on the
+      // stack has to follow them, or the peer cannot apply it.
+      a.history.redo();
+      feed(b, grab(a));
+      assert.equal(a.getRoot().t.toXML(), split, 'redo split, locally');
+      assert.equal(b.getRoot().t.toXML(), split, 'redo split, on the peer');
+      if (collect) collectBoth(a, b);
+
+      a.history.redo();
+      assert.equal(a.getRoot().t.toXML(), styled, 'redo style, locally');
+      feed(b, grab(a));
+      assert.equal(b.getRoot().t.toXML(), styled, 'redo style, on the peer');
+    });
+  }
 });

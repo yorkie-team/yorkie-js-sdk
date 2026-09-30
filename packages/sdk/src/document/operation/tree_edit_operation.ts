@@ -24,6 +24,7 @@ import {
   CRDTTreeNodeID,
   CRDTTreePos,
   TreeRestoreSpan,
+  replaceTreeNodeID,
   toXML,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { RestoreMode } from '@yorkie-js/sdk/src/document/operation/edit_operation';
@@ -98,16 +99,23 @@ function filterChildren(node: CRDTTreeNode, preTombstoned: Set<string>): void {
  * `mergedAwayIDs` returns the ids of the elements a merge removed, innermost
  * first -- the order a split re-creating them issues tickets in, since it
  * splits from the innermost level out.
+ *
+ * `mergedNodes` is the merge-boundary set `CRDTTree.edit` reports, NOT every
+ * node the edit tombstoned: the split reversing the merge re-creates exactly
+ * one element per boundary it crossed, so anything else in the removed set --
+ * a whole element deleted inside the range, a cascade-deleted descendant, a
+ * node already tombstoned -- would shift the positional pairing with the
+ * split's tickets and bind an unrelated element to one of them.
  */
 function mergedAwayIDs(
-  removedNodes: Array<CRDTTreeNode>,
+  mergedNodes: Array<CRDTTreeNode>,
 ): Array<CRDTTreeNodeID> {
   const depth = (node: CRDTTreeNode) => {
     let d = 0;
     for (let n = node.parent; n; n = n.parent) d++;
     return d;
   };
-  return removedNodes
+  return mergedNodes
     .filter((node) => !node.isText)
     .map((node) => ({ node, depth: depth(node) }))
     .sort((a, b) => b.depth - a.depth)
@@ -175,6 +183,11 @@ export class TreeEditOperation extends Operation {
    * that recorded it; never encoded.
    */
   private replacedIDs: Array<CRDTTreeNodeID> = [];
+  /**
+   * `consumedSplitTickets` is how many of `splitTickets` the last execution
+   * handed to the tree. See `getConsumedSplitTicketCount`.
+   */
+  private consumedSplitTickets = 0;
   private restoreSpans?: Array<TreeRestoreSpan>;
   private restoreMode?: RestoreMode;
   private retombstoneSpans?: Array<TreeRestoreSpan>;
@@ -254,10 +267,17 @@ export class TreeEditOperation extends Operation {
    * A restore-mode reverse is left alone: it revives nodes under their
    * original identity by design, which is what makes concurrent undos of one
    * deletion converge rather than duplicate.
+   *
+   * Returns the `[old, new]` pairs it minted, so the caller can re-point
+   * whatever else was recorded against the old ids — the same reconciliation
+   * a split's re-created elements need (`getReplacedIDs`).
    */
-  public reissueContentIDs(issueTimeTicket: () => TimeTicket): void {
+  public reissueContentIDs(
+    issueTimeTicket: () => TimeTicket,
+  ): Array<[CRDTTreeNodeID, CRDTTreeNodeID]> {
+    const reissued: Array<[CRDTTreeNodeID, CRDTTreeNodeID]> = [];
     if (!this.contents || this.restoreMode) {
-      return;
+      return reissued;
     }
 
     // The tickets taken here start at `executedAt.delimiter + 1` and run one
@@ -275,7 +295,9 @@ export class TreeEditOperation extends Operation {
 
     for (const content of this.contents) {
       traverseAll(content, (node) => {
+        const prev = node.id;
         node.id = CRDTTreeNodeID.of(issueTimeTicket(), 0);
+        reissued.push([prev, node.id]);
         // A fresh identity has to be fresh in every field that names a node.
         // The copy came from `deepcopy`, which carries the split chain and the
         // merge lineage of the node it copied: left in place they would splice
@@ -288,6 +310,8 @@ export class TreeEditOperation extends Operation {
         node.mergedInto = undefined;
       });
     }
+
+    return reissued;
   }
 
   /**
@@ -317,10 +341,17 @@ export class TreeEditOperation extends Operation {
     this.toPos = this.toPos.replaceNodeID(prev, curr);
 
     const replace = (id?: CRDTTreeNodeID) =>
-      id && id.equals(prev) ? curr : id;
+      id && replaceTreeNodeID(id, prev, curr);
+    // `span.id` too, not just the anchors: it is the identity `restore` and
+    // `retombstone` look the node up by, and the one they RECREATE the node
+    // under when garbage collection has purged it (`CRDTTree.restore`). Left
+    // naming the element the split has just re-minted under a new ticket, an
+    // identity restore would revive nothing and recreate a duplicate under
+    // the stale id.
     const reconcileSpans = (spans?: Array<TreeRestoreSpan>) =>
       spans?.map((span) => ({
         ...span,
+        id: replace(span.id)!,
         parentID: replace(span.parentID),
         leftSiblingID: replace(span.leftSiblingID),
         rightSiblingID: replace(span.rightSiblingID),
@@ -328,6 +359,16 @@ export class TreeEditOperation extends Operation {
     this.restoreSpans = reconcileSpans(this.restoreSpans);
     this.retombstoneSpans = reconcileSpans(this.retombstoneSpans);
     this.replacedIDs = this.replacedIDs.map((id) => replace(id)!);
+  }
+
+  /**
+   * `getConsumedSplitTicketCount` returns how many of the recorded split
+   * tickets the last execution actually handed to the tree — how many
+   * elements the split really minted. Fewer than `splitLevel` when the split
+   * loop ran out of ancestors, and zero when this operation never ran.
+   */
+  public getConsumedSplitTicketCount(): number {
+    return this.consumedSplitTickets;
   }
 
   /**
@@ -533,6 +574,7 @@ export class TreeEditOperation extends Operation {
       insertedSpans,
       insertedContentSize,
       splitSize,
+      mergedNodes,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -552,14 +594,14 @@ export class TreeEditOperation extends Operation {
       // number of top-level contents — a reconstruction that is wrong as soon
       // as content has descendants, since each of those consumed a ticket too.
       (() => {
-        let issued = 0;
         let delimiter = editedAt.getDelimiter();
         if (this.contents !== undefined) {
           delimiter += this.contents.length;
         }
+        this.consumedSplitTickets = 0;
         const issueTimeTicket = () => {
-          if (issued < this.splitTickets.length) {
-            return this.splitTickets[issued++];
+          if (this.consumedSplitTickets < this.splitTickets.length) {
+            return this.splitTickets[this.consumedSplitTickets++];
           }
 
           return TimeTicket.of(
@@ -600,6 +642,7 @@ export class TreeEditOperation extends Operation {
         mergeLevel,
         removedSpans,
         insertedSpans,
+        mergedNodes,
       );
     } else if (isPureSplit) {
       reverseOp = this.toSplitReverseOperation(tree, preEditFromIdx, splitSize);
@@ -650,6 +693,7 @@ export class TreeEditOperation extends Operation {
     mergeLevel?: number,
     removedSpans?: Array<TreeRestoreSpan>,
     insertedSpans?: Array<TreeRestoreSpan>,
+    mergedNodes: Array<CRDTTreeNode> = [],
   ): Operation | undefined {
     // Identity-preserving reverse: reverse an edit by reviving the nodes it
     // removed (restoreSpans) AND re-removing the nodes it inserted
@@ -695,7 +739,7 @@ export class TreeEditOperation extends Operation {
         preEditFromIdx,
         preEditFromIdx,
       );
-      splitRedoOp.replacedIDs = mergedAwayIDs(removedNodes);
+      splitRedoOp.replacedIDs = mergedAwayIDs(mergedNodes);
       return splitRedoOp;
     }
 
@@ -715,7 +759,7 @@ export class TreeEditOperation extends Operation {
         preEditFromIdx,
         preEditFromIdx,
       );
-      splitUndoOp.replacedIDs = mergedAwayIDs(removedNodes);
+      splitUndoOp.replacedIDs = mergedAwayIDs(mergedNodes);
       return splitUndoOp;
     }
 

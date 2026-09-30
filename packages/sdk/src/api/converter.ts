@@ -1604,13 +1604,34 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRetombstoneSpans,
     );
     // Split tickets are read back as sent, the way yorkie's converter reads
-    // them: the server applies them verbatim, so a replica that rewrote or
-    // refused a ticket here would mint different ids than the snapshot holds.
-    treeEdit.setSplitTickets(
-      pbTreeEditOperation!.splitTickets.map(
-        (ticket) => fromTimeTicket(ticket)!,
-      ),
+    // them: the server applies them verbatim, so a replica that rewrote a
+    // ticket here would mint different ids than the snapshot holds.
+    //
+    // Verbatim is not unchecked, though: each ticket becomes the identity of
+    // an element the split mints, so a peer that sent one naming another
+    // actor, or one at or below the operation's own ticket, could hand this
+    // replica an identity another change already owns -- two live nodes under
+    // one id, which resolves differently per replica. The tickets a split
+    // issues come from the change's own context, so they carry the
+    // operation's actor and strictly follow its `executedAt` in issue order.
+    // Anything else is malformed; reject the change rather than adopt it.
+    const treeEditSplitTickets = pbTreeEditOperation!.splitTickets.map(
+      (ticket) => fromTimeTicket(ticket)!,
     );
+    let prevSplitTicket = treeEditExecutedAt;
+    for (const ticket of treeEditSplitTickets) {
+      if (
+        ticket.getActorID() !== treeEditExecutedAt.getActorID() ||
+        ticket.compare(prevSplitTicket) <= 0
+      ) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `invalid split ticket in tree edit: ${ticket.toTestString()}`,
+        );
+      }
+      prevSplitTicket = ticket;
+    }
+    treeEdit.setSplitTickets(treeEditSplitTickets);
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;

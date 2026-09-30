@@ -305,15 +305,37 @@ export class CRDTTreePos {
     prev: CRDTTreeNodeID,
     curr: CRDTTreeNodeID,
   ): CRDTTreePos {
-    const parentID = this.parentID.equals(prev) ? curr : this.parentID;
-    const leftSiblingID = this.leftSiblingID.equals(prev)
-      ? curr
-      : this.leftSiblingID;
+    const parentID = replaceTreeNodeID(this.parentID, prev, curr);
+    const leftSiblingID = replaceTreeNodeID(this.leftSiblingID, prev, curr);
 
     return parentID === this.parentID && leftSiblingID === this.leftSiblingID
       ? this
       : CRDTTreePos.of(parentID, leftSiblingID);
   }
+}
+
+/**
+ * `replaceTreeNodeID` returns `id` re-pointed from the node `prev` names to
+ * the node `curr` names, or `id` itself when it names a different node.
+ *
+ * The match is on the creation ticket alone, and the offset is carried over
+ * rather than taken from `curr`: a node id names a node by its creation
+ * ticket, while the offset says WHERE in that node the reference lands --
+ * the child index when a position names an element as its left sibling
+ * (`CRDTTreePos.fromTreePos`), the character offset inside a text node.
+ * Comparing the offset too, as `CRDTTreeNodeID.equals` does, would miss every
+ * reference that is not to the node's own head.
+ */
+export function replaceTreeNodeID(
+  id: CRDTTreeNodeID,
+  prev: CRDTTreeNodeID,
+  curr: CRDTTreeNodeID,
+): CRDTTreeNodeID {
+  if (id.getCreatedAt().compare(prev.getCreatedAt()) !== 0) {
+    return id;
+  }
+
+  return CRDTTreeNodeID.of(curr.getCreatedAt(), id.getOffset());
 }
 
 /**
@@ -2783,6 +2805,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<TreeRestoreSpan>,
     number,
     number,
+    Array<CRDTTreeNode>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -3357,6 +3380,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
       spansComplete ? insertedSpans.reverse() : [],
       insertedContentSize,
       splitSize,
+      // The merge-boundary elements this edit removed — the ones whose
+      // children it moved into the merge target, and so the ones a split
+      // reversing it has to re-create. A strict subset of `nodesToBeRemoved`,
+      // which also holds whole elements deleted inside the range, their
+      // cascade-deleted descendants and nodes already tombstoned.
+      toBeMergedNodes,
     ];
   }
 
@@ -3382,6 +3411,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<TreeRestoreSpan>,
     number,
     number,
+    Array<CRDTTreeNode>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);

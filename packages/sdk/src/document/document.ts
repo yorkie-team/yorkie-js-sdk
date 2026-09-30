@@ -2838,6 +2838,37 @@ export class Document<
       this.clone!.presences.get(this.changeID.getActorID()) || ({} as P),
     );
 
+    // Tree node ids this entry re-mints, and what they replace. Collected
+    // while the change is built and applied to the history stacks only once
+    // the operations have run — see the split branch below.
+    const pending: Array<{
+      op: TreeEditOperation;
+      prev: CRDTTreeNodeID;
+      curr: CRDTTreeNodeID;
+      // Which of the operation's split tickets `curr` is, so the drain can
+      // tell whether the split got that far; -1 for a re-issued content id,
+      // which is minted unconditionally.
+      ticketIndex: number;
+    }> = [];
+    /**
+     * `repointRest` re-points the operations that follow `op` in this entry
+     * from `prev` to `curr`.
+     */
+    const repointRest = (
+      op: Operation,
+      prev: CRDTTreeNodeID,
+      curr: CRDTTreeNodeID,
+    ) => {
+      for (const later of ops.slice(ops.indexOf(op) + 1)) {
+        if (
+          later instanceof TreeEditOperation ||
+          later instanceof TreeStyleOperation
+        ) {
+          later.reconcileNodeID(prev, curr);
+        }
+      }
+    };
+
     // apply undo/redo operation in the context to generate a change
     for (const op of ops) {
       if (!(op instanceof Operation)) {
@@ -2884,7 +2915,15 @@ export class Document<
         // A reverse that re-inserts a copy of removed nodes carries their
         // original ids; inserting them again would leave two nodes under one
         // id. Restore-mode reverses revive by identity and keep theirs.
-        op.reissueContentIDs(() => ctx.issueTimeTicket());
+        //
+        // Same hazard as the split below: the nodes come back under brand-new
+        // ids, so anything else recorded against the old ones has to follow.
+        for (const [prev, curr] of op.reissueContentIDs(() =>
+          ctx.issueTimeTicket(),
+        )) {
+          repointRest(op, prev, curr);
+          pending.push({ op, prev, curr, ticketIndex: -1 });
+        }
 
         // A split reverse -- the undo of a merge, or the redo of a split --
         // mints one element per split level, and each needs a ticket the
@@ -2914,21 +2953,22 @@ export class Document<
           // any other entry in the stacks -- still name them. Once garbage
           // collection has purged the old elements, a replica applying such
           // an operation cannot find them and rejects the whole change
-          // (#1425). Re-point them first, so the change is encoded with the
-          // ids every replica will have.
+          // (#1425). Re-point them, so the change is encoded with the ids
+          // every replica will have.
+          //
+          // The rest of THIS entry has to be re-pointed now: those operations
+          // run in this same change, below. They share the split's fate --
+          // same tree element, so `change.execute` skips them together -- and
+          // the ids they would otherwise carry into the change are the ones
+          // that break the peer. The history stacks are a different matter:
+          // nothing reads them until a later undo/redo, so they wait until
+          // the split has run and reported how many elements it really minted
+          // (`pending`, drained below).
           const replaced = op.getReplacedIDs();
-          const rest = ops.slice(ops.indexOf(op) + 1);
           replaced.slice(0, tickets.length).forEach((prev, i) => {
             const curr = CRDTTreeNodeID.of(tickets[i], 0);
-            for (const later of rest) {
-              if (
-                later instanceof TreeEditOperation ||
-                later instanceof TreeStyleOperation
-              ) {
-                later.reconcileNodeID(prev, curr);
-              }
-            }
-            this.internalHistory.reconcileTreeNodeID(prev, curr);
+            repointRest(op, prev, curr);
+            pending.push({ op, prev, curr, ticketIndex: i });
           });
         }
       }
@@ -2955,6 +2995,23 @@ export class Document<
     const reverse = ctx.getReversePresence();
     if (reverse) {
       reverseOps.push({ type: 'presence', value: reverse });
+    }
+
+    // Now that the operations have run, re-point the history stacks at the
+    // ids this entry actually minted. Deferred to here because two things can
+    // make the mapping false, and both are only knowable after the fact:
+    // `change.execute` skips an operation whose target element was removed
+    // during undo/redo, and a split stops as soon as it runs out of ancestors
+    // to split, minting fewer elements than it has levels. Re-pointing an
+    // entry at a ticket no node ever received would leave it naming nothing.
+    // The new reverse ops are built from the executed state, so they already
+    // carry the new ids and must not be pushed before this runs.
+    for (const { op, prev, curr, ticketIndex } of pending) {
+      if (!operations.includes(op)) continue;
+      if (ticketIndex >= 0 && ticketIndex >= op.getConsumedSplitTicketCount()) {
+        continue;
+      }
+      this.internalHistory.reconcileTreeNodeID(prev, curr);
     }
 
     if (reverseOps.length) {
