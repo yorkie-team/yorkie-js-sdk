@@ -1416,22 +1416,12 @@ export class Client {
         // tear it down and re-attaches do not accumulate handlers. Errors are
         // logged, not thrown, so a failing store never breaks the editing path.
         //
-        // Append on:
-        //   - LocalChange: a new un-pushed edit. Every queued change that ran
-        //     an operation emits one, including an undo that ran and showed
-        //     nothing (empty `operations`) — see `executeUndoRedoInternal`,
-        //     which gates on operations rather than opInfos precisely so this
-        //     subscription sees it.
-        //   - PresenceChanged from this client (`Local` or `UndoRedo` source):
-        //     a presence-only change appends to `localChanges` but runs no
-        //     operation, so it emits no LocalChange. Its content is worthless
-        //     after a restore, but it consumes a `clientSeq` and
-        //     `restoreFromBytes` does not renumber, so omitting it leaves a
-        //     hole the first restored push is rejected for. `UndoRedo` matters
-        //     as much as `Local`: undoing a presence-only change queues a
-        //     change the same way (see `executeUndoRedoInternal`). `Remote` is
-        //     the one source to skip -- another client's presence queues
-        //     nothing here.
+        // Observe the local queue directly. Public events do not cover every
+        // queued change: presence.clear() and a failed detach can consume a
+        // clientSeq without emitting one. Presence-only undo/redo and operations
+        // with empty OpInfo must also reach the log. The internal signal runs
+        // after the document commits its state, before public callbacks can
+        // start a sync and remove pending changes. Remote changes do not signal.
         //
         // The post-sync checkpoint is written separately in `syncInternal` as
         // `meta`: an ack-only push emits no Remote/Snapshot event, so it cannot
@@ -1478,8 +1468,8 @@ export class Client {
               if (!state) {
                 return;
               }
-              // Driven off the pending queue rather than the event payload, so a
-              // coalesced or missed event cannot silently drop a change.
+              // Capture all changes after the durable watermark, not just
+              // the change that triggered the internal notification.
               // A previous append failed, so the log has a hole and cannot be
               // replayed. Writing a snapshot loses nothing — it embeds the whole
               // pending queue — while appending into a holed log would lose the
@@ -1529,21 +1519,8 @@ export class Client {
               }
             };
 
-            // Subscribe via 'all': the default `subscribe(fn)` overload only
-            // delivers Local/Remote/Snapshot, but a presence-only local change
-            // surfaces as PresenceChanged, which must also be appended.
-            attachment.unsubscribePersist = doc.subscribe('all', (events) => {
-              for (const event of events) {
-                if (
-                  event.type === DocEventType.LocalChange ||
-                  (event.type === DocEventType.PresenceChanged &&
-                    event.source !== OpSource.Remote)
-                ) {
-                  append();
-                  break;
-                }
-              }
-            });
+            attachment.unsubscribePersist =
+              doc.subscribeLocalChangesInternal(append);
           }
         }
 

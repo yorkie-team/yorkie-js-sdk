@@ -712,6 +712,11 @@ export class Document<
   private eventStream: Observable<DocEvents<P>>;
   private eventStreamObserver!: Observer<DocEvents<P>>;
 
+  // Persistence follows the pending queue, including changes with no public
+  // event. Keep this signal separate from editor and presence subscriptions.
+  private localChangeStream: Observable<void>;
+  private localChangeObserver!: Observer<void>;
+
   // `disableGC`, when true, declares that this document does not produce or
   // consume tombstones (see disable-gc-on-attach in the server repo). It is
   // set by the client on Attach and consumed by applyChange to skip merging
@@ -764,6 +769,10 @@ export class Document<
 
     this.eventStream = createObservable<DocEvents<P>>(
       (observer) => (this.eventStreamObserver = observer),
+    );
+
+    this.localChangeStream = createObservable<void>(
+      (observer) => (this.localChangeObserver = observer),
     );
 
     this.history = {
@@ -927,6 +936,7 @@ export class Document<
         this.internalHistory.clearRedo();
       }
       this.changeID = ctx.getNextID();
+      this.localChangeObserver.next();
 
       // 03. Publish the document change event.
       // Gated on the operations that RAN, not on the `OpInfo`s they produced,
@@ -934,9 +944,8 @@ export class Document<
       // without yielding anything an editor could render (a style on a node a
       // peer removed concurrently has no index to report), and the change is
       // still queued into `localChanges` above and still consumes a
-      // `clientSeq`. Offline persistence appends off this event, so staying
-      // silent here would leave the log a hole the first restored push is
-      // rejected for.
+      // `clientSeq`. Preserve the change event even when its OpInfo is empty;
+      // persistence observes the pending queue through a separate signal.
       const event: DocEvents<P> = [];
       if (operations.length) {
         event.push({
@@ -1658,6 +1667,18 @@ export class Document<
   }
 
   /**
+   * `subscribeLocalChangesInternal` observes newly queued local changes after
+   * the document state and changeID have been committed. It runs before public
+   * events so a subscriber-triggered sync cannot remove changes before the
+   * persistence layer captures them. Public events can be empty or suppressed.
+   *
+   * @internal
+   */
+  public subscribeLocalChangesInternal(callback: () => void): Unsubscribe {
+    return this.localChangeStream.subscribe(callback);
+  }
+
+  /**
    * `getPendingChangesAfter` returns the un-pushed local changes whose
    * `clientSeq` is above the given one, each paired with that sequence.
    *
@@ -1812,6 +1833,7 @@ export class Document<
     // the pre-replay state — the same reasoning `restoreFromBytes` applies.
     this.clone = undefined;
     this.clearHistory();
+    this.localChangeObserver.next();
   }
 
   /**
@@ -2916,13 +2938,13 @@ export class Document<
 
     this.localChanges.push(change);
     this.changeID = ctx.getNextID();
+    this.localChangeObserver.next();
     const events: DocEvents<P> = [];
     // Gated on the operations that RAN, not on the `OpInfo`s they produced: an
     // undo can run and show nothing (a reverse style on a node a peer removed,
     // a Tree restore whose nodes all land under a removed ancestor), and the
-    // change is still queued above and still consumes a `clientSeq`. Offline
-    // persistence appends off this event, so staying silent here would leave
-    // the log a hole that the first restored push is rejected for.
+    // change is still queued above and still consumes a `clientSeq`. Keep
+    // the established public event; persistence uses the separate queue signal.
     if (operations.length) {
       events.push({
         type: DocEventType.LocalChange,
