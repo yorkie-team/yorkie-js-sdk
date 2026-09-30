@@ -34,7 +34,8 @@ export type HistoryOperation<P extends Indexable> =
     };
 
 /**
- * `MaxUndoRedoStackDepth` is the maximum depth of undo/redo stack.
+ * `MaxUndoRedoStackDepth` is the default maximum depth of undo/redo stack.
+ * A document can override it with `DocumentOptions.maxUndoDepth`.
  */
 export const MaxUndoRedoStackDepth = 50;
 
@@ -44,6 +45,19 @@ export const MaxUndoRedoStackDepth = 50;
 export class History<P extends Indexable> {
   private undoStack: Array<Array<HistoryOperation<P>>> = [];
   private redoStack: Array<Array<HistoryOperation<P>>> = [];
+  private readonly maxDepth: number;
+
+  constructor(maxDepth: number = MaxUndoRedoStackDepth) {
+    this.maxDepth = maxDepth;
+  }
+
+  /**
+   * `getMaxDepth` returns how many entries each of the undo and redo stacks
+   * keeps before dropping the oldest.
+   */
+  public getMaxDepth(): number {
+    return this.maxDepth;
+  }
 
   /**
    * `hasUndo` returns true if there are undo operations.
@@ -63,7 +77,7 @@ export class History<P extends Indexable> {
    * `pushUndo` pushes new undo operations of a change to undo stack.
    */
   public pushUndo(undoOps: Array<HistoryOperation<P>>): void {
-    if (this.undoStack.length >= MaxUndoRedoStackDepth) {
+    if (this.undoStack.length >= this.maxDepth) {
       this.undoStack.shift();
     }
     this.undoStack.push(undoOps);
@@ -80,7 +94,7 @@ export class History<P extends Indexable> {
    * `pushRedo` pushes new redo operations of a change to redo stack.
    */
   public pushRedo(redoOps: Array<HistoryOperation<P>>): void {
-    if (this.redoStack.length >= MaxUndoRedoStackDepth) {
+    if (this.redoStack.length >= this.maxDepth) {
       this.redoStack.shift();
     }
     this.redoStack.push(redoOps);

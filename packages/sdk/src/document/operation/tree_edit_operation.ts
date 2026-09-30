@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { ActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
@@ -107,6 +108,14 @@ export class TreeEditOperation extends Operation {
   private lastFromIdx?: number;
   private lastToIdx?: number;
   private insertedContentSize?: number;
+  /**
+   * `executedRanges` is what the identity-preserving restore/retombstone path
+   * changed the last time it ran: one `[from, to, insertedSize]` per node that
+   * left or came back, in the order it did, each measured against the tree as
+   * it stood at that moment. Only that path sets it; every other edit reports
+   * its single range through `normalizePos`/`getContentSize`.
+   */
+  private executedRanges?: Array<[number, number, number]>;
 
   /**
    * `splitSize` is the visible-index size the boundaries THIS execution's
@@ -270,6 +279,27 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
+   * `setActor` sets the given actor to this operation and to the tickets its
+   * split issued.
+   *
+   * A document edited before `client.attach` runs under the initial actor, and
+   * `Document.setActor` re-stamps every pending local change once the real
+   * actor arrives. The base implementation rewrites `executedAt` alone, which
+   * would leave the split tickets recorded at edit time naming the old actor:
+   * they are issued from the change's own context, so every reader -- the
+   * decoder's `fromSplitTickets`, and any replica reasoning about which change
+   * minted a node -- expects them to carry the change's actor. Re-stamp them
+   * here. The lamport and the delimiters are untouched, so their order (and
+   * the identities the split mints) is unchanged.
+   */
+  public setActor(actorID: ActorID): void {
+    super.setActor(actorID);
+    this.splitTickets = this.splitTickets.map((ticket) =>
+      ticket.setActor(actorID),
+    );
+  }
+
+  /**
    * `getRestoreSpans` returns the identity-preserving restore payload, if any.
    */
   public getRestoreSpans(): Array<TreeRestoreSpan> | undefined {
@@ -328,10 +358,8 @@ export class TreeEditOperation extends Operation {
       const diff = { data: 0, meta: 0 };
       // 1. Re-remove (retombstone) by identity. Isolating a straddling piece
       // splits it (live-split overhead accounted to `diff`).
-      const [retombstonePairs, retombstoneDiff] = tree.retombstone(
-        toRetombstone,
-        editedAt,
-      );
+      const [retombstonePairs, retombstoneDiff, retombstoneChanges] =
+        tree.retombstone(toRetombstone, editedAt);
       addDataSizes(diff, retombstoneDiff);
       for (const pair of retombstonePairs) {
         root.registerGCPair(pair);
@@ -343,8 +371,13 @@ export class TreeEditOperation extends Operation {
       // Un-tombstoned nodes move gc->live via unregisterGCPair (after removedAt
       // is cleared, which restore does); recreated nodes are brand new, so add
       // their size to live, plus any live-split overhead.
-      const [untombstoned, recreated, restorePairs, restoreDiff] =
-        tree.restore(toRestore);
+      const [
+        untombstoned,
+        recreated,
+        restorePairs,
+        restoreDiff,
+        restoreChanges,
+      ] = tree.restore(toRestore, editedAt);
       for (const pair of restorePairs) {
         root.registerGCPair(pair);
       }
@@ -357,21 +390,35 @@ export class TreeEditOperation extends Operation {
       }
       root.acc(diff);
 
-      // opInfos must be non-empty or Document.executeUndoRedo drops the undo
-      // change from localChanges (it never propagates to peers). Exact from/to
-      // for editor integration is best-effort here; positions are follow-up.
-      const opInfos: Array<OpInfo> = [
-        {
-          type: 'tree-edit',
-          path: root.createPath(this.getParentCreatedAt()),
-          from: this.fromIdx ?? 0,
-          to: this.toIdx ?? this.fromIdx ?? 0,
-          value: [],
-          splitLevel: 0,
-          fromPath: [],
-          toPath: [],
-        } as OpInfo,
-      ];
+      // One opInfo per node that left or came back, in the order it did, so
+      // an editor can apply them one after another like any other edit. It is
+      // empty when nothing visible changed (e.g. everything stays under a
+      // removed ancestor); the change still propagates, since
+      // Document.executeUndoRedo gates on executed operations, not opInfos.
+      const path = root.createPath(this.getParentCreatedAt());
+      const edits = [...retombstoneChanges, ...restoreChanges];
+      const opInfos: Array<OpInfo> = edits.map(
+        ({ change: { from, to, value, fromPath, toPath } }) =>
+          ({
+            type: 'tree-edit',
+            path,
+            from,
+            to,
+            value,
+            splitLevel: 0,
+            fromPath,
+            toPath,
+          }) as OpInfo,
+      );
+      // Where this execution actually landed, for the undo stack. The stored
+      // `fromIdx`/`toIdx` describe the forward edit this op reverses and never
+      // move (the nodes are addressed by identity), so they would shift the
+      // pending entries by a range this op never touched.
+      this.executedRanges = edits.map(({ change, insertedSize }) => [
+        change.from,
+        change.to,
+        insertedSize,
+      ]);
 
       return {
         opInfos,
@@ -864,6 +911,24 @@ export class TreeEditOperation extends Operation {
     }
     if (!this.contents) return 0;
     return this.contents.reduce((sum, node) => sum + node.paddedSize(), 0);
+  }
+
+  /**
+   * `getExecutedRanges` returns the visible ranges this execution replaced,
+   * each with the size it inserted there, in the order they applied — what the
+   * undo stack has to be reconciled against.
+   *
+   * An identity-preserving restore/retombstone reports one entry per node that
+   * came back or left, measured as it happened; every other edit reports its
+   * single normalized range.
+   */
+  public getExecutedRanges(): Array<[number, number, number]> {
+    if (this.executedRanges) {
+      return this.executedRanges;
+    }
+
+    const [from, to] = this.normalizePos();
+    return [[from, to, this.getContentSize()]];
   }
 
   /**

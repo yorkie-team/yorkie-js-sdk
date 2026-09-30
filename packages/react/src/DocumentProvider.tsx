@@ -30,6 +30,7 @@ import {
   Client,
   RevisionSummary,
   SyncMode,
+  teardownDevtools,
 } from '@yorkie-js/sdk';
 import { useYorkie } from './YorkieProvider';
 import { createDocumentStore } from './createDocumentStore';
@@ -190,6 +191,14 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
       for (const unsub of unsubs) {
         unsub();
       }
+
+      // NOTE(chacha912): This effect builds a new Document every time it
+      // re-runs — StrictMode's double render, a remount, a `syncMode` change —
+      // and the one it leaves behind is unreachable from here on. The devtools
+      // bridge holds a window listener, a subscription and a growing recording
+      // per Document, none of them reachable from the Document itself, so they
+      // are given back here instead of accumulating once per re-run.
+      teardownDevtools(newDoc);
     };
   }, [
     client,

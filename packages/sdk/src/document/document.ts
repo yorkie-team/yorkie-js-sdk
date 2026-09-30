@@ -79,7 +79,11 @@ import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { Channel } from '@yorkie-js/sdk/src/document/presence/presence';
 import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
-import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
+import {
+  History,
+  HistoryOperation,
+  MaxUndoRedoStackDepth,
+} from '@yorkie-js/sdk/src/document/history';
 import {
   Primitive,
   PrimitiveValue,
@@ -116,6 +120,16 @@ export interface DocumentOptions {
    * `enableDevtools` enables devtools if true.
    */
   enableDevtools?: boolean;
+
+  /**
+   * `maxUndoDepth` is how many changes `history.undo()` can go back, and
+   * likewise for `history.redo()`. Each `Document.update` that changes the
+   * document is one entry; the oldest is dropped when the stack is full.
+   * Defaults to `MaxUndoRedoStackDepth` (50). Must be a positive integer.
+   * A reverse entry keeps a copy of the content it would restore, so a
+   * larger depth holds more memory.
+   */
+  maxUndoDepth?: number;
 }
 
 /**
@@ -712,6 +726,11 @@ export class Document<
   private eventStream: Observable<DocEvents<P>>;
   private eventStreamObserver!: Observer<DocEvents<P>>;
 
+  // Persistence follows the pending queue, including changes with no public
+  // event. Keep this signal separate from editor and presence subscriptions.
+  private localChangeStream: Observable<void>;
+  private localChangeObserver!: Observer<void>;
+
   // `disableGC`, when true, declares that this document does not produce or
   // consume tombstones (see disable-gc-on-attach in the server repo). It is
   // set by the client on Attach and consumed by applyChange to skip merging
@@ -759,11 +778,22 @@ export class Document<
     this.root = CRDTRoot.create();
     this.presences = new Map();
     this.onlineClients = new Set();
-    this.internalHistory = new History();
+    const maxUndoDepth = opts?.maxUndoDepth ?? MaxUndoRedoStackDepth;
+    if (!Number.isInteger(maxUndoDepth) || maxUndoDepth < 1) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `maxUndoDepth must be a positive integer: ${maxUndoDepth}`,
+      );
+    }
+    this.internalHistory = new History(maxUndoDepth);
     this.isUpdating = false;
 
     this.eventStream = createObservable<DocEvents<P>>(
       (observer) => (this.eventStreamObserver = observer),
+    );
+
+    this.localChangeStream = createObservable<void>(
+      (observer) => (this.localChangeObserver = observer),
     );
 
     this.history = {
@@ -896,7 +926,7 @@ export class Document<
 
         throw err;
       }
-      const { opInfos, reverseOps } = executed;
+      const { operations, opInfos, reverseOps } = executed;
 
       // NOTE(hackerwins): In update(Set), the element is replaced with a new value.
       // The history stack may still reference the old element's createdAt,
@@ -927,11 +957,18 @@ export class Document<
         this.internalHistory.clearRedo();
       }
       this.changeID = ctx.getNextID();
+      this.localChangeObserver.next();
 
       // 03. Publish the document change event.
-      // NOTE(chacha912): Check opInfos, which represent the actually executed operations.
+      // Gated on the operations that RAN, not on the `OpInfo`s they produced,
+      // matching `executeUndoRedoInternal`: an operation can mutate CRDT state
+      // without yielding anything an editor could render (a style on a node a
+      // peer removed concurrently has no index to report), and the change is
+      // still queued into `localChanges` above and still consumes a
+      // `clientSeq`. Preserve the change event even when its OpInfo is empty;
+      // persistence observes the pending queue through a separate signal.
       const event: DocEvents<P> = [];
-      if (opInfos.length) {
+      if (operations.length) {
         event.push({
           type: DocEventType.LocalChange,
           source: OpSource.Local,
@@ -1651,6 +1688,18 @@ export class Document<
   }
 
   /**
+   * `subscribeLocalChangesInternal` observes newly queued local changes after
+   * the document state and changeID have been committed. It runs before public
+   * events so a subscriber-triggered sync cannot remove changes before the
+   * persistence layer captures them. Public events can be empty or suppressed.
+   *
+   * @internal
+   */
+  public subscribeLocalChangesInternal(callback: () => void): Unsubscribe {
+    return this.localChangeStream.subscribe(callback);
+  }
+
+  /**
    * `getPendingChangesAfter` returns the un-pushed local changes whose
    * `clientSeq` is above the given one, each paired with that sequence.
    *
@@ -1805,6 +1854,7 @@ export class Document<
     // the pre-replay state — the same reasoning `restoreFromBytes` applies.
     this.clone = undefined;
     this.clearHistory();
+    this.localChangeObserver.next();
   }
 
   /**
@@ -2230,19 +2280,32 @@ export class Document<
         );
       }
       if (op instanceof TreeEditOperation) {
-        const [from, to] = op.normalizePos();
-        this.internalHistory.reconcileTreeEdit(
-          op.getParentCreatedAt(),
-          from,
-          to,
-          op.getContentSize(),
-        );
+        // One reconciliation per range the op actually changed, in the order
+        // it changed them: an identity-preserving restore/retombstone revives
+        // or re-removes several nodes at positions its stored indices never
+        // describe, and each measurement is relative to the one before it.
+        for (const [from, to, contentSize] of op.getExecutedRanges()) {
+          this.internalHistory.reconcileTreeEdit(
+            op.getParentCreatedAt(),
+            from,
+            to,
+            contentSize,
+          );
+        }
       }
     }
     this.changeID = this.disableGC
       ? this.changeID.syncLamport(change.getID())
       : this.changeID.syncClocks(change.getID());
-    if (opInfos.length) {
+    // Gated on the operations that RAN, not on the `OpInfo`s they produced,
+    // for the same reason as the undo/redo path in `executeUndoRedo`: an
+    // operation can change CRDT state without producing anything an editor
+    // could render (a style on a node the sender removed concurrently, a Tree
+    // restore whose revived nodes all sit under a removed ancestor). Such a
+    // change still moved this replica and still occupies a `serverSeq`, so a
+    // peer applying it has to see the event -- otherwise devtools replay and
+    // any subscriber counting changes lose it.
+    if (operations.length) {
       const rawChange = this.isEnableDevtools() ? change.toStruct() : undefined;
       events.push(
         source === OpSource.Remote
@@ -2841,6 +2904,28 @@ export class Document<
         // original ids; inserting them again would leave two nodes under one
         // id. Restore-mode reverses revive by identity and keep theirs.
         op.reissueContentIDs(() => ctx.issueTimeTicket());
+
+        // A split reverse -- the undo of a merge, or the redo of a split --
+        // mints one element per split level, and each needs a ticket the
+        // loop above did not issue: it issues exactly one per operation.
+        // Left without them, `TreeEditOperation.execute` falls back to
+        // reconstructing them by counting delimiters up from its own
+        // executedAt, which runs straight over the ticket the NEXT operation
+        // in this same entry was issued -- landing two LIVE elements under
+        // one id, on every replica and on the server, since the change
+        // carries both operations. Recording them on the operation is what
+        // stops any other replica reconstructing them either.
+        //
+        // One per level is an upper bound, not an exact count: the split
+        // stops early when it reaches the root. A ticket nobody consumes
+        // only advances the delimiter, while one short would silently
+        // reopen the fallback. Mirrors yorkie's `executeUndoRedo`.
+        const level = op.getSplitLevel();
+        if (level > 0) {
+          op.setSplitTickets(
+            Array.from({ length: level }, () => ctx.issueTimeTicket()),
+          );
+        }
       }
 
       ctx.push(op);
@@ -2896,8 +2981,14 @@ export class Document<
 
     this.localChanges.push(change);
     this.changeID = ctx.getNextID();
+    this.localChangeObserver.next();
     const events: DocEvents<P> = [];
-    if (opInfos.length) {
+    // Gated on the operations that RAN, not on the `OpInfo`s they produced: an
+    // undo can run and show nothing (a reverse style on a node a peer removed,
+    // a Tree restore whose nodes all land under a removed ancestor), and the
+    // change is still queued above and still consumes a `clientSeq`. Keep
+    // the established public event; persistence uses the separate queue signal.
+    if (operations.length) {
       events.push({
         type: DocEventType.LocalChange,
         source: OpSource.UndoRedo,

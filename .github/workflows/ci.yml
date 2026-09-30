@@ -88,6 +88,7 @@ jobs:
           PARCEL_WORKER_BACKEND: process
         run: |
           pnpm devtools typecheck
+          pnpm devtools test
           pnpm devtools build
 
       - name: Run benchmark

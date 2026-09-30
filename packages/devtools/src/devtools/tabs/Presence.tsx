@@ -20,6 +20,7 @@ import { JSONDetail } from '../components/Detail';
 import { useSelectedPresence } from '../contexts/SelectedPresence';
 import { useYorkieDoc } from '../contexts/YorkieSource';
 import { CloseIcon } from '../icons';
+import { stringifyValue } from '../stringify';
 
 /**
  * Displays the Presence tab, listing self and others, and shows details
@@ -76,9 +77,7 @@ export function Presence() {
                 <CloseIcon />
               </button>
             </div>
-            <JSONDetail
-              json={JSON.stringify(selectedPresence.value, null, 2)}
-            />
+            <JSONDetail json={stringifyValue(selectedPresence.value, 2)} />
           </div>
         )}
       </div>

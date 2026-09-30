@@ -1,6 +1,6 @@
 ---
 created: 2026-09-04
-updated: 2026-09-16
+updated: 2026-09-30
 tags: [offline, persistence, storage, indexeddb, actor]
 ---
 
@@ -109,6 +109,31 @@ the `fake-indexeddb` dev shim), so apps have a verified pattern to copy.
 
 Writing a full snapshot on every keystroke is too much. Append encoded changes
 and compact periodically into a fresh snapshot.
+
+### Local queue notifications
+
+An attached store-backed client observes an internal document queue signal.
+`Document.update` and history undo/redo send it after committing the pending
+change and `changeID`, before public callbacks run. The client captures every
+pending change after its append watermark and schedules writes on the existing
+per-key chain. Restoring appended changes also sends the signal; normal attach
+restores before subscribing and establishes its watermark from the snapshot.
+
+Public event types are not a durable change boundary. A public
+`presence.clear()` queues a change but emits no presence event. Detach clears
+presence before its RPC; if that RPC fails, the document remains attached and
+the clear remains pending. Both must be appended even if no later edit occurs.
+Presence-only undo/redo and forward or reverse operations with empty OpInfo
+also consume sequence numbers and must survive reload. The signal preserves
+public subscriber behavior and does not create an edit event for persistence.
+Remote changes do not trigger local appends.
+
+Tests in `packages/sdk/test/unit/client/offline_local_queue_test.ts` cover the
+silent clear and failed detach, presence history across shutdown and restore,
+empty-OpInfo forward changes, public callback sync ordering, delayed writes
+through shutdown, and snapshot repair after an append failure. The synthetic
+peer consumes actual SDK attach/push packs and rejects sequence gaps. These
+unit tests do not replace real server protocol and browser store checks.
 
 ### Actor identity split
 

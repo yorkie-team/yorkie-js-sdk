@@ -122,6 +122,7 @@ vi.mock('../../src/YorkieProvider', () => ({
 }));
 
 vi.mock('@yorkie-js/sdk', () => ({
+  teardownDevtools: vi.fn(),
   // A JS constructor that returns an object overrides the default `new` instance,
   // so `new Document(...)` will return `currentMockDocument` instead.
   Document: vi.fn(

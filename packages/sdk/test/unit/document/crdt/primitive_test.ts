@@ -139,4 +139,80 @@ describe('Primitive', function () {
     assert.throws(() => Primitive.of(maxInt64 + 1n, InitialTimeTicket));
     assert.throws(() => Primitive.of(minInt64 - 1n, InitialTimeTicket));
   });
+
+  it('reads a double payload shorter than eight bytes instead of throwing', function () {
+    // NOTE(chacha912): A remote payload can arrive truncated, and the decoder
+    // answered on one before this change: it read eight bytes from the start
+    // of the underlying buffer, so the bytes the payload did not carry came
+    // from whatever sat there. They now read as zero. The payload below is the
+    // low half of the smallest double, which no other padding would produce.
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Double,
+      new Uint8Array([1, 0, 0, 0]),
+    );
+
+    assert.equal(value, Number.MIN_VALUE);
+  });
+
+  it('reads the first eight bytes of a longer double payload', function () {
+    const bytes = new Uint8Array(12).fill(0xff);
+    new DataView(bytes.buffer).setFloat64(0, 3.14, true);
+
+    const value = Primitive.valueFromBytes(PrimitiveType.Double, bytes);
+
+    assert.equal(value, 3.14);
+  });
+
+  it('hands out a copy of a bytes value, not a view into the buffer', function () {
+    const shared = new Uint8Array([1, 2, 3, 4]);
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Bytes,
+      shared,
+    ) as Uint8Array;
+    shared[0] = 9;
+
+    assert.notEqual(value, shared);
+    assert.deepEqual(Array.from(value), [1, 2, 3, 4]);
+  });
+
+  it('reads long and date payloads shorter than eight bytes instead of throwing', function () {
+    // A remote peer decides how long these payloads are, and a truncated one
+    // used to read `bytes[i]` past the end and throw a raw TypeError out of
+    // snapshot decode. The missing bytes now read as zero.
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array([2, 1])),
+      258n,
+    );
+    assert.equal(
+      Primitive.valueFromBytes(PrimitiveType.Long, new Uint8Array()),
+      0n,
+    );
+    assert.deepEqual(
+      Primitive.valueFromBytes(PrimitiveType.Date, new Uint8Array([1])),
+      new Date(1),
+    );
+  });
+
+  it('reads a double out of a shared buffer without writing to it', function () {
+    // NOTE(chacha912): A snapshot arrives as one buffer and the decoder hands
+    // its values out as views into it, so reading a value must not write.
+    const shared = new Uint8Array(24);
+    shared.fill(0xab);
+    const view = new DataView(shared.buffer, 8, 8);
+    view.setFloat64(0, 3.14, true);
+    const untouched = shared.slice(0, 8);
+
+    const value = Primitive.valueFromBytes(
+      PrimitiveType.Double,
+      new Uint8Array(shared.buffer, 8, 8),
+    );
+
+    assert.equal(value, 3.14);
+    assert.deepEqual(Array.from(shared.slice(0, 8)), Array.from(untouched));
+    assert.deepEqual(
+      Array.from(shared.slice(16)),
+      Array.from(new Uint8Array(8).fill(0xab)),
+    );
+  });
 });

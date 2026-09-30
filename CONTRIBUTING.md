@@ -82,6 +82,17 @@ Start the test in another terminal session.
 $ pnpm sdk test
 ```
 
+`docker/docker-compose.yml` runs the server on its in-memory backend. A few
+integration cases need the MongoDB backend that CI uses: "gc targeting nodes
+made by deactivated client" in `test/integration/gc_test.ts` deactivates
+synchronously, and the memory backend currently fails that detach with
+"change not found". To run the suite exactly as CI does, use the CI compose
+file instead:
+
+```bash
+$ docker compose -f docker/docker-compose-ci.yml up --build -d
+```
+
 To get the latest server locally, run the command below then restart containers again:
 
 ```bash
