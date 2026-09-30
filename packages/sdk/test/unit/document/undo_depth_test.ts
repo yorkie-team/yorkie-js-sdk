@@ -16,7 +16,11 @@
 
 import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
-import { MaxUndoRedoStackDepth } from '@yorkie-js/sdk/src/document/history';
+import {
+  History,
+  HistoryOperation,
+  MaxUndoRedoStackDepth,
+} from '@yorkie-js/sdk/src/document/history';
 import { Text } from '@yorkie-js/sdk/src/yorkie';
 
 type TestDoc = { t: Text };
@@ -69,18 +73,23 @@ describe('Document maxUndoDepth', () => {
     assert.equal(doc.getRoot().t.toString(), 'aaa');
   });
 
-  it('bounds the redo stack by the same depth', () => {
-    const doc = typed(3, 3);
+  it('bounds the redo stack by the same depth, not the default one', () => {
+    // The depth is deliberately above `MaxUndoRedoStackDepth`: undoing all 60
+    // changes pushes 60 redo entries, so a redo stack still bounded by the
+    // hard-coded default would have dropped the 10 oldest of them.
+    const doc = typed(60, 60);
 
-    undoAll(doc);
+    assert.equal(undoAll(doc), 60);
+    assert.equal(doc.getRoot().t.toString(), '');
+
     let redone = 0;
     while (doc.history.canRedo()) {
       doc.history.redo();
       redone++;
     }
 
-    assert.equal(redone, 3);
-    assert.equal(doc.getRoot().t.toString(), 'aaa');
+    assert.equal(redone, 60);
+    assert.equal(doc.getRoot().t.toString(), 'a'.repeat(60));
   });
 
   for (const value of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
@@ -91,4 +100,57 @@ describe('Document maxUndoDepth', () => {
       );
     });
   }
+});
+
+type Marked = { n: number };
+
+/** Builds a history entry that carries `n` so eviction order is observable. */
+function entry(n: number): Array<HistoryOperation<Marked>> {
+  return [{ type: 'presence', value: { n } }];
+}
+
+/** Reads back the `n` of each entry on a stack. */
+function marks(stack: Array<Array<HistoryOperation<Marked>>>): Array<number> {
+  return stack.map((ops) => (ops[0] as { value: Marked }).value.n);
+}
+
+describe('History depth', () => {
+  it('falls back to the default depth when constructed without one', () => {
+    assert.equal(new History<Marked>().getMaxDepth(), MaxUndoRedoStackDepth);
+  });
+
+  it('reports the depth it was constructed with', () => {
+    assert.equal(new History<Marked>(7).getMaxDepth(), 7);
+  });
+
+  it('drops the oldest redo entry once the depth is exceeded', () => {
+    const history = new History<Marked>(3);
+    for (let n = 0; n < 5; n++) {
+      history.pushRedo(entry(n));
+    }
+
+    assert.deepEqual(marks(history.getRedoStackForTest()), [2, 3, 4]);
+  });
+
+  it('drops the oldest undo entry once the depth is exceeded', () => {
+    const history = new History<Marked>(3);
+    for (let n = 0; n < 5; n++) {
+      history.pushUndo(entry(n));
+    }
+
+    assert.deepEqual(marks(history.getUndoStackForTest()), [2, 3, 4]);
+  });
+
+  it('bounds the redo stack independently of the default depth', () => {
+    const history = new History<Marked>(MaxUndoRedoStackDepth + 5);
+    for (let n = 0; n < MaxUndoRedoStackDepth + 5; n++) {
+      history.pushRedo(entry(n));
+    }
+
+    assert.equal(
+      history.getRedoStackForTest().length,
+      MaxUndoRedoStackDepth + 5,
+    );
+    assert.equal(marks(history.getRedoStackForTest())[0], 0);
+  });
 });
