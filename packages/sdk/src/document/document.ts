@@ -79,7 +79,11 @@ import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { Channel } from '@yorkie-js/sdk/src/document/presence/presence';
 import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
-import { History, HistoryOperation } from '@yorkie-js/sdk/src/document/history';
+import {
+  History,
+  HistoryOperation,
+  MaxUndoRedoStackDepth,
+} from '@yorkie-js/sdk/src/document/history';
 import {
   Primitive,
   PrimitiveValue,
@@ -116,6 +120,16 @@ export interface DocumentOptions {
    * `enableDevtools` enables devtools if true.
    */
   enableDevtools?: boolean;
+
+  /**
+   * `maxUndoDepth` is how many changes `history.undo()` can go back, and
+   * likewise for `history.redo()`. Each `Document.update` that changes the
+   * document is one entry; the oldest is dropped when the stack is full.
+   * Defaults to `MaxUndoRedoStackDepth` (50). Must be a positive integer.
+   * A reverse entry keeps a copy of the content it would restore, so a
+   * larger depth holds more memory.
+   */
+  maxUndoDepth?: number;
 }
 
 /**
@@ -764,7 +778,14 @@ export class Document<
     this.root = CRDTRoot.create();
     this.presences = new Map();
     this.onlineClients = new Set();
-    this.internalHistory = new History();
+    const maxUndoDepth = opts?.maxUndoDepth ?? MaxUndoRedoStackDepth;
+    if (!Number.isInteger(maxUndoDepth) || maxUndoDepth < 1) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `maxUndoDepth must be a positive integer: ${maxUndoDepth}`,
+      );
+    }
+    this.internalHistory = new History(maxUndoDepth);
     this.isUpdating = false;
 
     this.eventStream = createObservable<DocEvents<P>>(
