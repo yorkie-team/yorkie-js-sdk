@@ -2845,11 +2845,11 @@ export class Document<
       op: TreeEditOperation;
       prev: CRDTTreeNodeID;
       curr: CRDTTreeNodeID;
-      // Which of the operation's split tickets `curr` is, so the drain can
-      // tell whether the split got that far; -1 for a re-issued content id,
-      // which is minted unconditionally.
-      ticketIndex: number;
     }> = [];
+    // The splitting operations whose re-pointing hook is still registered,
+    // so it can be taken off once the change has been applied — it closes
+    // over this entry, which outlives nothing here.
+    const splitOps: Array<TreeEditOperation> = [];
     /**
      * `repointRest` re-points the operations that follow `op` in this entry
      * from `prev` to `curr`.
@@ -2922,7 +2922,7 @@ export class Document<
           ctx.issueTimeTicket(),
         )) {
           repointRest(op, prev, curr);
-          pending.push({ op, prev, curr, ticketIndex: -1 });
+          pending.push({ op, prev, curr });
         }
 
         // A split reverse -- the undo of a merge, or the redo of a split --
@@ -2956,20 +2956,38 @@ export class Document<
           // (#1425). Re-point them, so the change is encoded with the ids
           // every replica will have.
           //
-          // The rest of THIS entry has to be re-pointed now: those operations
-          // run in this same change, below. They share the split's fate --
-          // same tree element, so `change.execute` skips them together -- and
-          // the ids they would otherwise carry into the change are the ones
-          // that break the peer. The history stacks are a different matter:
-          // nothing reads them until a later undo/redo, so they wait until
-          // the split has run and reported how many elements it really minted
-          // (`pending`, drained below).
-          const replaced = op.getReplacedIDs();
-          replaced.slice(0, tickets.length).forEach((prev, i) => {
-            const curr = CRDTTreeNodeID.of(tickets[i], 0);
+          // Both re-pointings are driven from the split itself, as it takes
+          // each ticket: only then is it known that the element exists. The
+          // split stops as soon as it runs out of ancestors, so a level it
+          // never reached mints nothing, and re-pointing that level up front
+          // -- on the strength of `splitLevel` alone -- would leave the
+          // operation naming a ticket no node ever received, which
+          // `toTreeNodePair` cannot resolve. The rest of THIS entry cannot
+          // wait for the split to return either: those operations run in the
+          // same change, right after it, so the hook fires mid-execution,
+          // while they are still pending. The history stacks could wait, but
+          // are collected here and applied below for a different reason --
+          // the new reverse ops are built from the executed state and must
+          // not be pushed before the stacks are re-pointed.
+          op.onSplitTicketConsumed((index) => {
+            // Read through the operation rather than off `tickets` and a
+            // captured array: an earlier re-point in this same entry may have
+            // replaced `replacedIDs` wholesale (`reconcileNodeID`).
+            const prev = op.getReplacedIDs()[index];
+            if (!prev) {
+              return;
+            }
+            const curr = CRDTTreeNodeID.of(op.getSplitTickets()[index], 0);
+            // Called once per execution, and the change is executed twice
+            // (clone, then root). `repointRest` no longer finds `prev` the
+            // second time, but the pending entry would be a duplicate.
+            if (pending.some((p) => p.op === op && p.prev.equals(prev))) {
+              return;
+            }
             repointRest(op, prev, curr);
-            pending.push({ op, prev, curr, ticketIndex: i });
+            pending.push({ op, prev, curr });
           });
+          splitOps.push(op);
         }
       }
 
@@ -2992,25 +3010,26 @@ export class Document<
       this.presences,
       OpSource.UndoRedo,
     );
+    for (const splitOp of splitOps) {
+      splitOp.onSplitTicketConsumed();
+    }
+
     const reverse = ctx.getReversePresence();
     if (reverse) {
       reverseOps.push({ type: 'presence', value: reverse });
     }
 
     // Now that the operations have run, re-point the history stacks at the
-    // ids this entry actually minted. Deferred to here because two things can
-    // make the mapping false, and both are only knowable after the fact:
-    // `change.execute` skips an operation whose target element was removed
-    // during undo/redo, and a split stops as soon as it runs out of ancestors
-    // to split, minting fewer elements than it has levels. Re-pointing an
-    // entry at a ticket no node ever received would leave it naming nothing.
-    // The new reverse ops are built from the executed state, so they already
-    // carry the new ids and must not be pushed before this runs.
-    for (const { op, prev, curr, ticketIndex } of pending) {
+    // ids this entry actually minted. Deferred to here because the new
+    // reverse ops are built from the executed state, so they already carry
+    // the new ids and must not be pushed before this runs. Every pair here
+    // names an element that exists: a split contributes one only as it takes
+    // the ticket that creates it, so a level the split stopped short of is
+    // never collected in the first place. What remains to check is whether
+    // the operation ran at all -- `change.execute` skips one whose target
+    // element was removed during undo/redo.
+    for (const { op, prev, curr } of pending) {
       if (!operations.includes(op)) continue;
-      if (ticketIndex >= 0 && ticketIndex >= op.getConsumedSplitTicketCount()) {
-        continue;
-      }
       this.internalHistory.reconcileTreeNodeID(prev, curr);
     }
 

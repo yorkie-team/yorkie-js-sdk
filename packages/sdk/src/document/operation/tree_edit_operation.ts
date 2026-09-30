@@ -184,10 +184,24 @@ export class TreeEditOperation extends Operation {
    */
   private replacedIDs: Array<CRDTTreeNodeID> = [];
   /**
-   * `consumedSplitTickets` is how many of `splitTickets` the last execution
-   * handed to the tree. See `getConsumedSplitTicketCount`.
+   * `consumedSplitTickets` is how many of `splitTickets` the current
+   * execution has handed to the tree — fewer than `splitLevel` when the
+   * split loop ran out of ancestors, and zero before it starts. Doubles as
+   * the index reported to `splitTicketConsumedHandler`.
    */
   private consumedSplitTickets = 0;
+  /**
+   * `splitTicketConsumedHandler` is notified as each recorded split ticket is
+   * handed to the tree, with its index in `splitTickets`. A split stops as
+   * soon as it runs out of ancestors, so how many elements it really mints is
+   * only knowable from inside the split — and re-pointing anything at a
+   * ticket the split never consumed would leave it naming a node that was
+   * never created. Undo/redo registers a handler here so the re-pointing
+   * happens per minted element, while the operations that follow in the same
+   * change are still waiting to run. Local to the replica that registered it;
+   * never encoded, and never copied to another operation.
+   */
+  private splitTicketConsumedHandler?: (index: number) => void;
   private restoreSpans?: Array<TreeRestoreSpan>;
   private restoreMode?: RestoreMode;
   private retombstoneSpans?: Array<TreeRestoreSpan>;
@@ -362,13 +376,18 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
-   * `getConsumedSplitTicketCount` returns how many of the recorded split
-   * tickets the last execution actually handed to the tree — how many
-   * elements the split really minted. Fewer than `splitLevel` when the split
-   * loop ran out of ancestors, and zero when this operation never ran.
+   * `onSplitTicketConsumed` registers `handler`, called with the index of
+   * each recorded split ticket as the split takes it — i.e. once per element
+   * the split really mints, and never for a level it stopped short of. The
+   * operation is executed twice per undo/redo (clone, then root), so the
+   * handler is called twice for the same index and has to be idempotent.
+   * Pass nothing to clear it once both executions are done: the handler
+   * closes over the undo/redo entry, which the operation must not keep alive
+   * -- and must never re-point again from a later execution. See
+   * `splitTicketConsumedHandler`.
    */
-  public getConsumedSplitTicketCount(): number {
-    return this.consumedSplitTickets;
+  public onSplitTicketConsumed(handler?: (index: number) => void): void {
+    this.splitTicketConsumedHandler = handler;
   }
 
   /**
@@ -601,7 +620,15 @@ export class TreeEditOperation extends Operation {
         this.consumedSplitTickets = 0;
         const issueTimeTicket = () => {
           if (this.consumedSplitTickets < this.splitTickets.length) {
-            return this.splitTickets[this.consumedSplitTickets++];
+            const index = this.consumedSplitTickets++;
+            // Reported as the ticket leaves, not after the split returns:
+            // the caller re-points the rest of the change at the element
+            // this ticket identifies, and that has to be in place before
+            // those operations run. `splitElement` always inserts the node
+            // it clones under the ticket it took, so a consumed ticket is
+            // an element that exists.
+            this.splitTicketConsumedHandler?.(index);
+            return this.splitTickets[index];
           }
 
           return TimeTicket.of(
