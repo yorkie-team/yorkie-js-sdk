@@ -2883,6 +2883,28 @@ export class Document<
         // original ids; inserting them again would leave two nodes under one
         // id. Restore-mode reverses revive by identity and keep theirs.
         op.reissueContentIDs(() => ctx.issueTimeTicket());
+
+        // A split reverse -- the undo of a merge, or the redo of a split --
+        // mints one element per split level, and each needs a ticket the
+        // loop above did not issue: it issues exactly one per operation.
+        // Left without them, `TreeEditOperation.execute` falls back to
+        // reconstructing them by counting delimiters up from its own
+        // executedAt, which runs straight over the ticket the NEXT operation
+        // in this same entry was issued -- landing two LIVE elements under
+        // one id, on every replica and on the server, since the change
+        // carries both operations. Recording them on the operation is what
+        // stops any other replica reconstructing them either.
+        //
+        // One per level is an upper bound, not an exact count: the split
+        // stops early when it reaches the root. A ticket nobody consumes
+        // only advances the delimiter, while one short would silently
+        // reopen the fallback. Mirrors yorkie's `executeUndoRedo`.
+        const level = op.getSplitLevel();
+        if (level > 0) {
+          op.setSplitTickets(
+            Array.from({ length: level }, () => ctx.issueTimeTicket()),
+          );
+        }
       }
 
       ctx.push(op);

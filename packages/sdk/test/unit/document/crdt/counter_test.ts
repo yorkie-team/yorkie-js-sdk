@@ -90,3 +90,57 @@ it('Can wrap around Int counter when increased by an out-of-int32 Long', functio
   counter2.increase(Primitive.of(BigInt(2147483648), InitialTimeTicket));
   assert.equal(counter2.getValue(), 2147483647);
 });
+
+it('Can read a long counter payload shorter than eight bytes', function () {
+  // The payload length is whatever a remote peer sent. A truncated one used to
+  // read past the end of the array and throw a raw TypeError out of the
+  // decoder; the bytes it does not carry now read as zero.
+  assert.equal(
+    CRDTCounter.valueFromBytes(CounterType.Long, new Uint8Array([5])),
+    5n,
+  );
+  assert.equal(
+    CRDTCounter.valueFromBytes(CounterType.Long, new Uint8Array()),
+    0n,
+  );
+});
+
+it('Refuses a malformed HLL register payload without throwing', function () {
+  // A non-empty `hllRegisters` is whatever a peer put on the wire, and
+  // restoreHLL derives the counter's value from it, which this client then
+  // re-serializes to its own peers. So a wrong-length or out-of-range payload
+  // is refused rather than clamped -- `count()` over registers a payload only
+  // partly covered is not an estimate, it is an unrelated number. Refusing it
+  // by throwing is no good either: snapshot decode has no handler, so one bad
+  // counter would stop this client from opening the document at all.
+  const counter = CRDTCounter.create(
+    CounterType.IntDedup,
+    0,
+    InitialTimeTicket,
+  );
+  counter.increaseDedup(Primitive.of(1, InitialTimeTicket), 'actor-a');
+  const wellFormed = counter.hllBytes()!;
+  assert.equal(counter.getValue(), 1);
+
+  // Too long, too short, and the right length but carrying a register value
+  // no `add` could ever have written.
+  const malformed = [
+    new Uint8Array(20000).fill(3),
+    new Uint8Array([1]),
+    new Uint8Array(wellFormed.length).fill(0xff),
+  ];
+  for (const data of malformed) {
+    assert.isFalse(counter.restoreHLL(data));
+    assert.deepEqual(counter.hllBytes(), wellFormed);
+    assert.equal(counter.getValue(), 1);
+  }
+
+  // A well-formed payload is still applied.
+  const restored = CRDTCounter.create(
+    CounterType.IntDedup,
+    0,
+    InitialTimeTicket,
+  );
+  assert.isTrue(restored.restoreHLL(wellFormed));
+  assert.equal(restored.getValue(), 1);
+});

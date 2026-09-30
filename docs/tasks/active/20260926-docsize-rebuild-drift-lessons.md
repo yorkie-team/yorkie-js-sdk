@@ -10,6 +10,7 @@ span, style reached set) are convergence changes that rewrite whole blocks of
 all four in one pass would have produced a diff nobody could review as one
 thing, so this branch delivers part 3 — the self-contained docSize accounting —
 and says so in the PR body rather than quietly widening or half-doing the rest.
+Parts 1 and 2 were later picked up by `20260927-tree-convergence-go-ports`.
 
 ## Where the bytes actually sit
 

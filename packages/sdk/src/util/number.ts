@@ -54,25 +54,36 @@ export function bigintToBytesLE(value: bigint): Uint8Array {
 }
 
 /**
+ * `uint64FromBytesLE` reads the first 8 bytes (little-endian) of the given
+ * array as an unsigned 64-bit bigint.
+ *
+ * These bytes come off the wire, so their length is whatever a remote peer
+ * sent. A byte the payload does not carry reads as zero rather than as
+ * `undefined`, which `BigInt()` would reject with a raw TypeError: a truncated
+ * payload would then abort the whole snapshot or change decode for every
+ * client of the document. Zero padding matches how the other fixed-width
+ * primitives read a short payload.
+ */
+function uint64FromBytesLE(bytes: Uint8Array): bigint {
+  let v = 0n;
+  for (let i = 7; i >= 0; i--) {
+    v = (v << 8n) | BigInt(bytes[i] ?? 0);
+  }
+  return v;
+}
+
+/**
  * `bigintFromBytesLE` reads a signed 64-bit bigint from 8 bytes (little-endian).
  */
 export function bigintFromBytesLE(bytes: Uint8Array): bigint {
-  let v = 0n;
-  for (let i = 7; i >= 0; i--) {
-    v = (v << 8n) | BigInt(bytes[i]);
-  }
-  return BigInt.asIntN(64, v);
+  return BigInt.asIntN(64, uint64FromBytesLE(bytes));
 }
 
 /**
  * `bigintFromBytesLEUnsigned` reads an unsigned 64-bit bigint from 8 bytes (little-endian).
  */
 export function bigintFromBytesLEUnsigned(bytes: Uint8Array): bigint {
-  let v = 0n;
-  for (let i = 7; i >= 0; i--) {
-    v = (v << 8n) | BigInt(bytes[i]);
-  }
-  return v;
+  return uint64FromBytesLE(bytes);
 }
 
 /**
