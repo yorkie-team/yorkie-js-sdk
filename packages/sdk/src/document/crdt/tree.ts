@@ -502,7 +502,8 @@ export class CRDTTreeNode
   /**
    * `mergedInto` is a runtime cache set on the source parent pointing
    * at the merge target. Set locally during merge execution and rebuilt
-   * from `mergedFrom` on snapshot load. Used for the fast
+   * from `mergedFrom` on snapshot load — on both paths only while the
+   * source is a tombstone, so `unremove` drops it again. Used for the fast
    * "is this tombstoned parent a merge source?" check in
    * `FindTreeNodesWithSplitText`; the alternative (scanning
    * `nodeMapByID` on every position resolution) would be too expensive.
@@ -714,12 +715,20 @@ export class CRDTTreeNode
    * `unremove` clears the tombstone of this node (identity-preserving
    * restore). Mirrors `remove()`'s ancestor-size bookkeeping so the node
    * becomes visible again in place.
+   *
+   * The forwarding pointer goes with the tombstone: both writers of
+   * `mergedInto` (the merge in `edit` and `rebuildMergeState`) only ever set
+   * it on a source that is already removed, so a live node holding one is a
+   * pointer a snapshot-loading replica would not rebuild. `CRDTTree.restore`
+   * drops the matching `mergedFrom` stamps on the children the merge moved,
+   * so nothing is left for a later re-remove to derive it from either.
    */
   unremove(): void {
     if (!this.removedAt) {
       return;
     }
     this.removedAt = undefined;
+    this.mergedInto = undefined;
     this.updateAncestorsSize(this.paddedSize());
   }
 
@@ -3530,6 +3539,45 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `dissolveMerge` erases the merge lineage a node about to be revived
+   * leaves behind: the forwarding pointer on the source and the
+   * `mergedFrom`/`mergedAt` stamps on the children that merge moved into the
+   * destination.
+   *
+   * `mergedInto` is derivable only for a source that is already a tombstone —
+   * `rebuildMergeState` and the merge in `edit` both require it — so a revived
+   * source that kept either half of the lineage makes the replica running the
+   * undo disagree with one loading a snapshot: keeping `mergedInto` gives the
+   * undoing replica a pointer the snapshot no longer rebuilds, and keeping the
+   * children's `mergedFrom` lets the snapshot rebuild one the moment a redo
+   * (`retombstone`) tombstones the source again. Clearing both leaves nothing
+   * either path can derive, in either direction.
+   *
+   * The destination is resolved through `findMergeNode` for the same reason
+   * the §6.2 cascade does: `mergedInto` is derived from a `mergedFrom` an
+   * element payload may carry, so only an exact element match names a node the
+   * pointer really meant. The source's own pointer is dropped regardless of
+   * whether that lookup succeeds — it is the half that is never persisted.
+   */
+  private dissolveMerge(src: CRDTTreeNode): void {
+    if (!src.mergedInto) {
+      return;
+    }
+    const dest = this.findMergeNode(src.mergedInto);
+    src.mergedInto = undefined;
+    if (!dest) {
+      return;
+    }
+
+    for (const child of dest.allChildren) {
+      if (child.mergedFrom?.equals(src.id)) {
+        child.mergedFrom = undefined;
+        child.mergedAt = undefined;
+      }
+    }
+  }
+
+  /**
    * `restore` re-establishes the nodes described by `spans` under their
    * ORIGINAL identities (identity-preserving Tree undo): live → skip
    * (idempotent), tombstoned → unremove in place, purged → recreate. Spans
@@ -3556,6 +3604,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         const node = this.findFloorNode(span.id);
         if (node && node.id.equals(span.id)) {
           if (node.isRemoved) {
+            this.dissolveMerge(node);
             node.unremove();
             untombstoned.push(node);
           }
