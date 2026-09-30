@@ -49,6 +49,8 @@ function internals(doc: Document<never>) {
   return doc as unknown as {
     clone?: unknown;
     localChanges: Array<Change<never>>;
+    presences: Map<string, unknown>;
+    changeID: { getActorID(): string };
   };
 }
 
@@ -139,6 +141,41 @@ describe('Document clone reset', function () {
     const changes = internals(doc as never).localChanges;
     assert.equal(changes.length, 1);
     assert.equal(changes[0].getID().getClientSeq(), 1);
+  });
+
+  // Pins the other half of that contract: `Change.execute` applies the
+  // presence change only after every operation has succeeded, so a change
+  // that throws partway carries its presence no further than its operations.
+  it('applies no presence for a local change that fails on the root', function () {
+    const doc = new Document<{ a: number; b: number }, { cursor: number }>('d');
+    const actorID = internals(doc as never).changeID.getActorID();
+
+    // The updater mutates the clone through the proxy, so both
+    // `SetOperation.execute` calls are the root pass: `a` lands, `b` throws.
+    throwOnNthCall(2);
+    assert.throws(() => {
+      doc.update((r, p) => {
+        p.set({ cursor: 1 });
+        r.a = 1;
+        r.b = 2;
+      });
+    }, 'boom');
+
+    assert.equal(doc.toSortedJSON(), '{"a":1}');
+    assert.isUndefined(internals(doc as never).clone);
+    assert.isEmpty(internals(doc as never).localChanges);
+    assert.isFalse(internals(doc as never).presences.has(actorID));
+
+    // The same update without a throwing operation does record the presence,
+    // so the assertion above is about the failure and not about presence
+    // never reaching `presences` on this document.
+    doc.update((r, p) => {
+      p.set({ cursor: 2 });
+      r.b = 2;
+    });
+    assert.deepEqual(internals(doc as never).presences.get(actorID), {
+      cursor: 2,
+    });
   });
 
   it('keeps the clone when undo is refused during an update', function () {
