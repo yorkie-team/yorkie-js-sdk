@@ -50,6 +50,13 @@ function treeBridge(tree: Tree) {
   };
 }
 
+/**
+ * Block fixtures below use `paragraph`, the name `pmToYorkie` writes for a
+ * basic-schema paragraph. `syncToYorkie` compares the transaction's blocks
+ * against the tree's own to tell a stale view from an in-step one, so a tree
+ * seeded with a different name for the same block reads as diverged and drops
+ * to full block replacement instead of a native split or merge.
+ */
 describe('ProseMirror native split/merge integration', () => {
   let c1: Client;
   let c2: Client;
@@ -77,48 +84,53 @@ describe('ProseMirror native split/merge integration', () => {
   });
 
   it('native split produces correct CRDT state', async () => {
-    // Setup: <r><p>abcd</p></r>
-    d1.update((root) => {
-      root.t = new Tree({
-        type: 'r',
-        children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
-      });
-    });
-    await c1.sync();
-    await c2.sync();
-
-    // Simulate ProseMirror split: <p>abcd</p> → <p>ab</p><p>cd</p>
-    const oldDoc = doc(p('abcd'));
-    const newDoc = doc(p('ab'), p('cd'));
-    d1.update((root) => {
-      syncToYorkie(treeBridge(root.t), oldDoc, newDoc, defaultMarkMapping);
-    });
-
-    assert.equal(d1.getRoot().t.toXML(), '<r><p>ab</p><p>cd</p></r>');
-  });
-
-  it('native merge produces correct CRDT state', async () => {
-    // Setup: <r><p>ab</p><p>cd</p></r>
+    // Setup: <r><paragraph>abcd</paragraph></r>
     d1.update((root) => {
       root.t = new Tree({
         type: 'r',
         children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'abcd' }] },
         ],
       });
     });
     await c1.sync();
     await c2.sync();
 
-    // Simulate ProseMirror merge: <p>ab</p><p>cd</p> → <p>abcd</p>
+    // Simulate ProseMirror split: one paragraph 'abcd' → 'ab' + 'cd'
+    const oldDoc = doc(p('abcd'));
+    const newDoc = doc(p('ab'), p('cd'));
+    d1.update((root) => {
+      syncToYorkie(treeBridge(root.t), oldDoc, newDoc, defaultMarkMapping);
+    });
+
+    assert.equal(
+      d1.getRoot().t.toXML(),
+      '<r><paragraph>ab</paragraph><paragraph>cd</paragraph></r>',
+    );
+  });
+
+  it('native merge produces correct CRDT state', async () => {
+    // Setup: <r><paragraph>ab</paragraph><paragraph>cd</paragraph></r>
+    d1.update((root) => {
+      root.t = new Tree({
+        type: 'r',
+        children: [
+          { type: 'paragraph', children: [{ type: 'text', value: 'ab' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'cd' }] },
+        ],
+      });
+    });
+    await c1.sync();
+    await c2.sync();
+
+    // Simulate ProseMirror merge: paragraphs 'ab' + 'cd' → one 'abcd'
     const oldDoc = doc(p('ab'), p('cd'));
     const newDoc = doc(p('abcd'));
     d1.update((root) => {
       syncToYorkie(treeBridge(root.t), oldDoc, newDoc, defaultMarkMapping);
     });
 
-    assert.equal(d1.getRoot().t.toXML(), '<r><p>abcd</p></r>');
+    assert.equal(d1.getRoot().t.toXML(), '<r><paragraph>abcd</paragraph></r>');
   });
 
   it('concurrent split + text input converges (CRDT baseline)', async () => {
@@ -126,7 +138,9 @@ describe('ProseMirror native split/merge integration', () => {
     d1.update((root) => {
       root.t = new Tree({
         type: 'r',
-        children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
+        children: [
+          { type: 'paragraph', children: [{ type: 'text', value: 'abcd' }] },
+        ],
       });
     });
     await c1.sync();
@@ -153,7 +167,9 @@ describe('ProseMirror native split/merge integration', () => {
     d1.update((root) => {
       root.t = new Tree({
         type: 'r',
-        children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
+        children: [
+          { type: 'paragraph', children: [{ type: 'text', value: 'abcd' }] },
+        ],
       });
     });
     await c1.sync();
@@ -182,27 +198,27 @@ describe('ProseMirror native split/merge integration', () => {
   });
 
   it('concurrent merge + text input converges', async () => {
-    // Setup: <r><p>ab</p><p>cd</p></r>
+    // Setup: <r><paragraph>ab</paragraph><paragraph>cd</paragraph></r>
     d1.update((root) => {
       root.t = new Tree({
         type: 'r',
         children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'ab' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'cd' }] },
         ],
       });
     });
     await c1.sync();
     await c2.sync();
 
-    // c1: merge <p>ab</p><p>cd</p> → <p>abcd</p> via syncToYorkie
+    // c1: merge paragraphs 'ab' + 'cd' → 'abcd' via syncToYorkie
     d1.update((root) => {
       const oldDoc = doc(p('ab'), p('cd'));
       const newDoc = doc(p('abcd'));
       syncToYorkie(treeBridge(root.t), oldDoc, newDoc, defaultMarkMapping);
     });
 
-    // c2: type 'X' at end of first paragraph (position 3) → <p>abX</p><p>cd</p>
+    // c2: type 'X' at end of the first paragraph (position 3)
     d2.update((root) => {
       root.t.edit(3, 3, { type: 'text', value: 'X' });
     });
@@ -215,26 +231,26 @@ describe('ProseMirror native split/merge integration', () => {
   });
 
   it('concurrent split + split converges', async () => {
-    // Setup: <r><p>abcdef</p></r>
+    // Setup: <r><paragraph>abcdef</paragraph></r>
     d1.update((root) => {
       root.t = new Tree({
         type: 'r',
         children: [
-          { type: 'p', children: [{ type: 'text', value: 'abcdef' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'abcdef' }] },
         ],
       });
     });
     await c1.sync();
     await c2.sync();
 
-    // c1: split at ab|cdef → <p>ab</p><p>cdef</p>
+    // c1: split at ab|cdef → paragraphs 'ab' + 'cdef'
     d1.update((root) => {
       const oldDoc = doc(p('abcdef'));
       const newDoc = doc(p('ab'), p('cdef'));
       syncToYorkie(treeBridge(root.t), oldDoc, newDoc, defaultMarkMapping);
     });
 
-    // c2: split at abcd|ef → <p>abcd</p><p>ef</p>
+    // c2: split at abcd|ef → paragraphs 'abcd' + 'ef'
     d2.update((root) => {
       root.t.edit(5, 5, undefined, 1);
     });
@@ -252,8 +268,8 @@ describe('ProseMirror native split/merge integration', () => {
       root.t = new Tree({
         type: 'r',
         children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'ab' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'cd' }] },
         ],
       });
     });
@@ -278,25 +294,25 @@ describe('ProseMirror native split/merge integration', () => {
   });
 
   it('concurrent split + merge converges (via syncToYorkie)', async () => {
-    // Setup: <r><p>ab</p><p>cd</p></r>
+    // Setup: <r><paragraph>ab</paragraph><paragraph>cd</paragraph></r>
     d1.update((root) => {
       root.t = new Tree({
         type: 'r',
         children: [
-          { type: 'p', children: [{ type: 'text', value: 'ab' }] },
-          { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'ab' }] },
+          { type: 'paragraph', children: [{ type: 'text', value: 'cd' }] },
         ],
       });
     });
     await c1.sync();
     await c2.sync();
 
-    // c1: split first paragraph → <p>a</p><p>b</p><p>cd</p>
+    // c1: split first paragraph → paragraphs 'a' + 'b' + 'cd'
     d1.update((root) => {
       root.t.edit(2, 2, undefined, 1);
     });
 
-    // c2: merge two paragraphs → <p>abcd</p> via syncToYorkie
+    // c2: merge two paragraphs → one 'abcd' via syncToYorkie
     d2.update((root) => {
       const oldDoc = doc(p('ab'), p('cd'));
       const newDoc = doc(p('abcd'));
