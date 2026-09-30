@@ -621,14 +621,13 @@ export class CRDTTreeNode
    * split product — but the wire format carries the links regardless, and the
    * walks that read them treat them as trusted structural pointers.
    *
-   * mergedFrom/mergedAt/mergedInto are deliberately NOT cleared here. They are
-   * on the wire too, but what a decoder does with them is part of a
-   * replicated contract: the server decodes the same bytes to build its
-   * snapshots, so a JS-only strip would leave every JS replica holding a
-   * different tree than the server and than any Go replica. The walks that
-   * read them are cycle-guarded instead (`declaredBoundaries` tree.ts,
-   * `resolveMergeTarget` tree.ts), which is what keeps a forged chain from
-   * spinning a replica without changing what the fields mean.
+   * The merge lineage is deliberately left alone here: unlike operation
+   * content, an element payload can be a deep copy of real document state
+   * (the reverse of a Remove restores the tree as it stood, merges and all),
+   * and erasing mergedFrom/mergedAt would switch off the §1.1 insert redirect
+   * and the §6.2 propagation skip for a tree that legitimately earned them.
+   * Only `dropEngineOnlyLinks`, which runs on content no merge can have
+   * touched, clears those.
    */
   public dropSplitLinks(): void {
     traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
