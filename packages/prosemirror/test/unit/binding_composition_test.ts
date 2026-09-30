@@ -24,8 +24,8 @@ import { doc, p, testSchema, yElem, yText } from './helpers';
  * Minimal `EditorView` stand-in: enough state, DOM event registration and
  * transaction plumbing for the binding to attach to without a real DOM.
  */
-function createMockView() {
-  let state = EditorState.create({ doc: doc(p('hello')), schema: testSchema });
+function createMockView(initialDoc = doc(p('hello'))) {
+  let state = EditorState.create({ doc: initialDoc, schema: testSchema });
   const listeners = new Map<string, () => void>();
   const props: Record<string, unknown> = {};
   const dispatched: Array<Transaction> = [];
@@ -89,11 +89,18 @@ function createMockDoc() {
   const handlers: Array<(event: unknown) => void> = [];
   const tree = {
     text: 'hello',
+    /**
+     * A second paragraph, serialized only once set. It lets a test produce a
+     * remote diff that lands outside the block being composed in the first.
+     */
+    tailText: undefined as string | undefined,
     /** Serialize the tree, matching the mock view's initial PM doc. */
     toJSON() {
-      return JSON.stringify(
-        yElem('doc', [yElem('paragraph', [yText(tree.text)])]),
-      );
+      const paragraphs = [yElem('paragraph', [yText(tree.text)])];
+      if (tree.tailText !== undefined) {
+        paragraphs.push(yElem('paragraph', [yText(tree.tailText)]));
+      }
+      return JSON.stringify(yElem('doc', paragraphs));
     },
     /** Presence writes go through this; the value itself is not asserted. */
     indexRangeToPosRange(range: [number, number]) {
@@ -218,6 +225,67 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     binding.initialize();
     return { view, yorkieDoc, client, binding };
   }
+
+  /**
+   * Build a binding over a two-paragraph document, with the caret — and so the
+   * composing block — in the first one. Editing `tree.tailText` then produces a
+   * remote diff that misses the composing block.
+   */
+  function setupTwoBlocks(syncMode?: SyncMode) {
+    const view = createMockView(doc(p('hello'), p('world')));
+    const yorkieDoc = createMockDoc();
+    yorkieDoc.tree.tailText = 'world';
+    const client = createMockClient();
+    const binding = new YorkieProseMirrorBinding(
+      view as any,
+      yorkieDoc,
+      'tree',
+      { client, syncMode },
+    );
+    binding.initialize();
+    return { view, yorkieDoc, client, binding };
+  }
+
+  /** Emit a remote tree edit, as the document subscription would see it. */
+  function emitTreeEdit(yorkieDoc: ReturnType<typeof createMockDoc>) {
+    yorkieDoc.emit({
+      type: 'remote-change',
+      value: { operations: [{ type: 'tree-edit' }] },
+    });
+  }
+
+  it('should apply a remote change outside the composing block while paused', async () => {
+    const { view, yorkieDoc } = setupTwoBlocks();
+
+    view.fire('compositionstart');
+    await tick();
+
+    // Realtime parks the document in push-only for the composition, so only
+    // the stragglers that beat `changeSyncMode` reach here. Applying one that
+    // misses the composing block keeps the view from falling behind.
+    yorkieDoc.tree.tailText = 'world!';
+    emitTreeEdit(yorkieDoc);
+
+    assert.equal(view.state.doc.textContent, 'helloworld!');
+  });
+
+  it('should defer a remote change outside the composing block when unpaused', async () => {
+    const { view, yorkieDoc } = setupTwoBlocks(SyncMode.Polling);
+
+    view.fire('compositionstart');
+    await tick();
+
+    // Polling is left in its own mode, so remote packs keep arriving for the
+    // whole composition. Applying each one — even outside the composing block
+    // — would redraw the view under the browser's composing text node.
+    yorkieDoc.tree.tailText = 'world!';
+    emitTreeEdit(yorkieDoc);
+    assert.equal(view.state.doc.textContent, 'helloworld');
+
+    view.fire('compositionend');
+    await flushFrames();
+    assert.equal(view.state.doc.textContent, 'helloworld!');
+  });
 
   it('should keep pushing local changes while composing', async () => {
     const { view, client } = setup();

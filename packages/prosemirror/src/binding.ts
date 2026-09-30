@@ -384,13 +384,37 @@ export class YorkieProseMirrorBinding {
    * with the resume queued behind it.
    *
    * Neither mode needs the pause anyway: a remote change that lands mid
-   * composition is deferred by `onRemoteChange`/`onSnapshot` regardless of
-   * sync mode, which is what actually protects the composing text node. The
-   * mode change is only an optimization that stops the changes arriving in
-   * the first place, so the modes where it costs a stream skip it.
+   * composition is deferred by the document subscription regardless of sync
+   * mode, which is what actually protects the composing text node. The mode
+   * change is only an optimization that stops the changes arriving in the
+   * first place, so the modes where it costs a stream skip it. The answer
+   * here also gates `mayApplyDuringComposition()`, which is what keeps that
+   * deferral total for the unpaused modes.
    */
   private managesSyncMode(): boolean {
     return this.baseSyncMode === SyncMode.Realtime;
+  }
+
+  /**
+   * Whether a remote change that misses the composing block may be applied
+   * straight away instead of being deferred to the compositionend flush.
+   *
+   * Only while the pause is also in effect. There the document is held in
+   * `PausedSyncMode` for the whole composition, so this path runs at most for
+   * the stragglers that slip through the window between `compositionstart`
+   * and `changeSyncMode` resolving — a bounded handful, and dispatching them
+   * beats leaving the view a composition behind.
+   *
+   * Without the pause — a `Polling` or `Manual` document, where
+   * `managesSyncMode()` declines to touch the mode — remote packs keep
+   * arriving for the entire composition, and each one would dispatch into the
+   * view while the browser is composing. Whether the diff misses the
+   * composing block is no protection there: ProseMirror redraws from the
+   * dispatched state, and a redraw mid-composition is what detaches the
+   * composing text node. Those modes defer everything and flush once.
+   */
+  private mayApplyDuringComposition(): boolean {
+    return this.managesSyncMode();
   }
 
   private pauseRemoteSync(): void {
@@ -612,6 +636,13 @@ export class YorkieProseMirrorBinding {
       // Not composing — apply immediately
       if (!this.isComposing) {
         this.applyRemoteTreeOps();
+        return;
+      }
+
+      // During composition, with no pause holding the packs back, every
+      // remote change would dispatch into a composing view. Defer them all.
+      if (!this.mayApplyDuringComposition()) {
+        this.hasPendingRemoteChanges = true;
         return;
       }
 
