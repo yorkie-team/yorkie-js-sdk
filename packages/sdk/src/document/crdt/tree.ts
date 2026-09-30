@@ -295,6 +295,25 @@ export class CRDTTreePos {
         other.getLeftSiblingID().getOffset()
     );
   }
+
+  /**
+   * `replaceNodeID` returns this position with `prev` replaced by `curr`
+   * wherever it names the parent or the left sibling, or this position
+   * itself when it names neither.
+   */
+  public replaceNodeID(
+    prev: CRDTTreeNodeID,
+    curr: CRDTTreeNodeID,
+  ): CRDTTreePos {
+    const parentID = this.parentID.equals(prev) ? curr : this.parentID;
+    const leftSiblingID = this.leftSiblingID.equals(prev)
+      ? curr
+      : this.leftSiblingID;
+
+    return parentID === this.parentID && leftSiblingID === this.leftSiblingID
+      ? this
+      : CRDTTreePos.of(parentID, leftSiblingID);
+  }
 }
 
 /**

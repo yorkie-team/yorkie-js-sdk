@@ -19,6 +19,7 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   CRDTTree,
+  CRDTTreeNodeID,
   CRDTTreePos,
   TreeChange,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
@@ -237,6 +238,17 @@ export class TreeStyleOperation extends Operation {
     )
       .map(([k, v]) => `${k}:"${v}"`)
       .join(' ')})`;
+  }
+
+  /**
+   * `reconcileNodeID` points this operation at `curr` wherever it named
+   * `prev`. An undo or redo that re-splits an element mints the element under
+   * a new id; an operation that was recorded against the old one would
+   * otherwise address a node that may no longer exist.
+   */
+  public reconcileNodeID(prev: CRDTTreeNodeID, curr: CRDTTreeNodeID): void {
+    this.fromPos = this.fromPos.replaceNodeID(prev, curr);
+    this.toPos = this.toPos.replaceNodeID(prev, curr);
   }
 
   /**

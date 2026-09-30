@@ -95,6 +95,26 @@ function filterChildren(node: CRDTTreeNode, preTombstoned: Set<string>): void {
 }
 
 /**
+ * `mergedAwayIDs` returns the ids of the elements a merge removed, innermost
+ * first -- the order a split re-creating them issues tickets in, since it
+ * splits from the innermost level out.
+ */
+function mergedAwayIDs(
+  removedNodes: Array<CRDTTreeNode>,
+): Array<CRDTTreeNodeID> {
+  const depth = (node: CRDTTreeNode) => {
+    let d = 0;
+    for (let n = node.parent; n; n = n.parent) d++;
+    return d;
+  };
+  return removedNodes
+    .filter((node) => !node.isText)
+    .map((node) => ({ node, depth: depth(node) }))
+    .sort((a, b) => b.depth - a.depth)
+    .map(({ node }) => node.id);
+}
+
+/**
  * `TreeEditOperation` is an operation representing Tree editing.
  */
 export class TreeEditOperation extends Operation {
@@ -146,6 +166,15 @@ export class TreeEditOperation extends Operation {
    * written before the field existed, which falls back to the reconstruction.
    */
   private splitTickets: Array<TimeTicket> = [];
+  /**
+   * `replacedIDs` is set on a split that re-creates elements a merge removed
+   * -- the redo of a split, or the undo of a merge. It names those elements,
+   * innermost first, in the order the split mints their replacements. The
+   * replacements get new ids (see `setSplitTickets`), so whoever runs this
+   * split re-points every recorded operation at them. Local to the replica
+   * that recorded it; never encoded.
+   */
+  private replacedIDs: Array<CRDTTreeNodeID> = [];
   private restoreSpans?: Array<TreeRestoreSpan>;
   private restoreMode?: RestoreMode;
   private retombstoneSpans?: Array<TreeRestoreSpan>;
@@ -267,6 +296,38 @@ export class TreeEditOperation extends Operation {
    */
   public getSplitTickets(): Array<TimeTicket> {
     return this.splitTickets;
+  }
+
+  /**
+   * `getReplacedIDs` returns the ids of the elements this split re-creates,
+   * innermost first. Empty unless it is the redo of a split or the undo of a
+   * merge.
+   */
+  public getReplacedIDs(): Array<CRDTTreeNodeID> {
+    return this.replacedIDs;
+  }
+
+  /**
+   * `reconcileNodeID` points this operation at `curr` wherever it named
+   * `prev`: its range, and the restore spans an identity-preserving undo
+   * carries. See `TreeStyleOperation.reconcileNodeID`.
+   */
+  public reconcileNodeID(prev: CRDTTreeNodeID, curr: CRDTTreeNodeID): void {
+    this.fromPos = this.fromPos.replaceNodeID(prev, curr);
+    this.toPos = this.toPos.replaceNodeID(prev, curr);
+
+    const replace = (id?: CRDTTreeNodeID) =>
+      id && id.equals(prev) ? curr : id;
+    const reconcileSpans = (spans?: Array<TreeRestoreSpan>) =>
+      spans?.map((span) => ({
+        ...span,
+        parentID: replace(span.parentID),
+        leftSiblingID: replace(span.leftSiblingID),
+        rightSiblingID: replace(span.rightSiblingID),
+      }));
+    this.restoreSpans = reconcileSpans(this.restoreSpans);
+    this.retombstoneSpans = reconcileSpans(this.retombstoneSpans);
+    this.replacedIDs = this.replacedIDs.map((id) => replace(id)!);
   }
 
   /**
@@ -634,6 +695,7 @@ export class TreeEditOperation extends Operation {
         preEditFromIdx,
         preEditFromIdx,
       );
+      splitRedoOp.replacedIDs = mergedAwayIDs(removedNodes);
       return splitRedoOp;
     }
 
@@ -653,6 +715,7 @@ export class TreeEditOperation extends Operation {
         preEditFromIdx,
         preEditFromIdx,
       );
+      splitUndoOp.replacedIDs = mergedAwayIDs(removedNodes);
       return splitUndoOp;
     }
 

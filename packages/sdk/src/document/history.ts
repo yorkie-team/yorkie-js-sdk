@@ -22,6 +22,8 @@ import { AddOperation } from './operation/add_operation';
 import { TimeTicket } from '../yorkie';
 import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
+import { TreeStyleOperation } from './operation/tree_style_operation';
+import { CRDTTreeNodeID } from './crdt/tree';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -180,6 +182,29 @@ export class History<P extends Indexable> {
             op.getParentCreatedAt().compare(parentCreatedAt) === 0
           ) {
             op.reconcileOperation(rangeFrom, rangeTo, contentLength);
+          }
+        }
+      }
+    };
+    replace(this.undoStack);
+    replace(this.redoStack);
+  }
+
+  /**
+   * `reconcileTreeNodeID` re-points every tree edit and tree style in both
+   * stacks from `prev` to `curr`. Used when an undo or redo re-creates an
+   * element under a new id (a split), the tree counterpart of
+   * `reconcileCreatedAt`.
+   */
+  public reconcileTreeNodeID(prev: CRDTTreeNodeID, curr: CRDTTreeNodeID): void {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      for (const ops of stack) {
+        for (const op of ops) {
+          if (
+            op instanceof TreeEditOperation ||
+            op instanceof TreeStyleOperation
+          ) {
+            op.reconcileNodeID(prev, curr);
           }
         }
       }

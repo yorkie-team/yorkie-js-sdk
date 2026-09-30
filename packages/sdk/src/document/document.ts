@@ -90,6 +90,8 @@ import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
+import { TreeStyleOperation } from './operation/tree_style_operation';
+import { CRDTTreeNodeID } from './crdt/tree';
 
 /**
  * `DocumentOptions` are the options to create a new document.
@@ -2901,9 +2903,33 @@ export class Document<
         // reopen the fallback. Mirrors yorkie's `executeUndoRedo`.
         const level = op.getSplitLevel();
         if (level > 0) {
-          op.setSplitTickets(
-            Array.from({ length: level }, () => ctx.issueTimeTicket()),
+          const tickets = Array.from({ length: level }, () =>
+            ctx.issueTimeTicket(),
           );
+          op.setSplitTickets(tickets);
+
+          // The split re-creates elements a merge removed, under the new
+          // tickets. Operations recorded against the old elements -- the
+          // rest of this entry (the style that followed a split, say) and
+          // any other entry in the stacks -- still name them. Once garbage
+          // collection has purged the old elements, a replica applying such
+          // an operation cannot find them and rejects the whole change
+          // (#1425). Re-point them first, so the change is encoded with the
+          // ids every replica will have.
+          const replaced = op.getReplacedIDs();
+          const rest = ops.slice(ops.indexOf(op) + 1);
+          replaced.slice(0, tickets.length).forEach((prev, i) => {
+            const curr = CRDTTreeNodeID.of(tickets[i], 0);
+            for (const later of rest) {
+              if (
+                later instanceof TreeEditOperation ||
+                later instanceof TreeStyleOperation
+              ) {
+                later.reconcileNodeID(prev, curr);
+              }
+            }
+            this.internalHistory.reconcileTreeNodeID(prev, curr);
+          });
         }
       }
 
