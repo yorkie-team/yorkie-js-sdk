@@ -165,10 +165,13 @@ describe('TreeEdit content sanitizing', () => {
       YorkieError,
       /entry with no node/,
     );
+    let thrown: unknown;
     try {
       converter.bytesToOperation(toBinary(PbOperationSchema, pbOp));
     } catch (err) {
-      assert.equal((err as YorkieError).code, Code.ErrInvalidArgument);
+      thrown = err;
     }
+    assert.instanceOf(thrown, YorkieError);
+    assert.equal((thrown as YorkieError).code, Code.ErrInvalidArgument);
   });
 });
