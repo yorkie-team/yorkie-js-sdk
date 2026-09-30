@@ -287,6 +287,50 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     assert.equal(view.state.doc.textContent, 'helloworld!');
   });
 
+  /**
+   * Register a remote selection sitting in the second paragraph — outside the
+   * composing block — and ask the binding to render it.
+   */
+  function dispatchTailSelection(binding: YorkieProseMirrorBinding) {
+    (binding as any).remoteSelections.set(1, {
+      clientID: 1,
+      from: 9,
+      to: 9,
+      color: '#f00',
+    });
+    (binding as any).dispatchSelectionDecorations();
+  }
+
+  it('should apply a selection decoration outside the composing block while paused', async () => {
+    const { view, binding } = setupTwoBlocks();
+
+    view.fire('compositionstart');
+    await tick();
+
+    const before = view.dispatched.length;
+    dispatchTailSelection(binding);
+    assert.equal(view.dispatched.length, before + 1);
+  });
+
+  it('should defer a selection decoration outside the composing block when unpaused', async () => {
+    const { view, binding } = setupTwoBlocks(SyncMode.Polling);
+
+    view.fire('compositionstart');
+    await tick();
+
+    // Same reasoning as the tree-change path: with nothing holding the packs
+    // back, presence events keep arriving for the whole composition, and every
+    // dispatch redraws the view under the composing text node — whichever
+    // block the decoration itself lands in.
+    const before = view.dispatched.length;
+    dispatchTailSelection(binding);
+    assert.equal(view.dispatched.length, before);
+
+    view.fire('compositionend');
+    await flushFrames();
+    assert.isAbove(view.dispatched.length, before);
+  });
+
   it('should keep pushing local changes while composing', async () => {
     const { view, client } = setup();
 

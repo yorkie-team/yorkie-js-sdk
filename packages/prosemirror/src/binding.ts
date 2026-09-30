@@ -773,9 +773,17 @@ export class YorkieProseMirrorBinding {
   }
 
   private dispatchSelectionDecorations(): void {
-    if (this.isComposing && this.selectionsOverlapComposingBlock()) {
+    if (
+      this.isComposing &&
       // Defer: a remote selection decoration touches the composing block,
       // which could insert <span> wrappers around the composing text node.
+      // Without the pause the presence events keep arriving for the whole
+      // composition, and each dispatch redraws the view under the composing
+      // text node whatever block the decoration lands in — so those modes
+      // defer every decoration, exactly as they defer every tree change.
+      (!this.mayApplyDuringComposition() ||
+        this.selectionsOverlapComposingBlock())
+    ) {
       this.hasPendingRemoteChanges = true;
       return;
     }

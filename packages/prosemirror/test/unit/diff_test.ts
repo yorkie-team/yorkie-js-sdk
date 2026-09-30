@@ -23,6 +23,7 @@ import {
   syncToYorkie,
   detectSplit,
   detectMerge,
+  alignBlockIndex,
 } from '../../src/diff';
 import { pmToYorkie } from '../../src/convert';
 import { defaultMarkMapping } from '../../src/defaults';
@@ -755,6 +756,81 @@ describe('diff', () => {
       // First call should have higher indices (right-to-left)
       assert.isTrue(
         (calls[0].args[0] as number) > (calls[1].args[0] as number),
+      );
+    });
+
+    // A composition defers remote changes to the compositionend flush while
+    // local transactions keep syncing upstream, so the tree can hold blocks
+    // the PM doc has not seen. The PM block indices the diff produces have to
+    // be mapped onto the tree's own before they become character indices.
+    describe('when the view is behind the tree', () => {
+      it('should offset the edit by the blocks only the tree has', () => {
+        const oldDoc = doc(p('a'), p('b'));
+        const newDoc = doc(p('a'), p('bX'));
+        // A remote peer prepended a block the composing view has not applied.
+        const yorkieTree = pmToYorkie(
+          doc(p('new'), p('a'), p('b')),
+          markMapping,
+        );
+        const { tree, calls } = createMockTree(yorkieTree);
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        // Tree blocks 0 and 1 are 5 and 3 wide, so the edited block opens at
+        // 8 and the inserted character lands at 10 — not the 7 the PM-side
+        // index would have given.
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args.slice(0, 2), [10, 10]);
+      });
+
+      it('should write nothing when the edited block is one the tree changed', () => {
+        const oldDoc = doc(p('a'), p('b'));
+        const newDoc = doc(p('a'), p('bX'));
+        // Neither block survives as an anchor, so no offset is correct.
+        const yorkieTree = pmToYorkie(doc(p('a2'), p('b2')), markMapping);
+        const { tree, calls } = createMockTree(yorkieTree);
+        const onLog = vi.fn();
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+
+        assert.equal(calls.length, 0);
+        assert.isTrue(
+          onLog.mock.calls.some((c: Array<unknown>) =>
+            (c[1] as string).includes('skipping upstream sync'),
+          ),
+        );
+      });
+    });
+  });
+
+  describe('alignBlockIndex', () => {
+    const blocks = (...texts: Array<string>) =>
+      texts.map((t) => yElem('paragraph', [yText(t)]));
+
+    it('should map every boundary to itself for identical block lists', () => {
+      const pm = blocks('a', 'b');
+      assert.equal(alignBlockIndex(pm, blocks('a', 'b'), 0), 0);
+      assert.equal(alignBlockIndex(pm, blocks('a', 'b'), 1), 1);
+      assert.equal(alignBlockIndex(pm, blocks('a', 'b'), 2), 2);
+    });
+
+    it('should shift boundaries past a block inserted ahead of them', () => {
+      const pm = blocks('a', 'b');
+      const tree = blocks('new', 'a', 'b');
+      assert.equal(alignBlockIndex(pm, tree, 0), 0);
+      assert.equal(alignBlockIndex(pm, tree, 1), 2);
+      assert.equal(alignBlockIndex(pm, tree, 2), 3);
+    });
+
+    it('should leave boundaries before an appended block alone', () => {
+      const pm = blocks('a', 'b');
+      const tree = blocks('a', 'b', 'new');
+      assert.equal(alignBlockIndex(pm, tree, 1), 1);
+    });
+
+    it('should return undefined for a boundary inside the diverged region', () => {
+      assert.isUndefined(
+        alignBlockIndex(blocks('a', 'b'), blocks('x', 'y'), 1),
       );
     });
   });

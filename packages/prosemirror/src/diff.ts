@@ -268,6 +268,58 @@ export function detectMerge(
 }
 
 /**
+ * Map a PM-side top-level block boundary onto the tree's own block indices.
+ *
+ * `syncToYorkie` locates the changed blocks by diffing the transaction's two
+ * ProseMirror docs, then turns those block indices into Yorkie character
+ * indices against the *current* tree. That conversion assumes PM block `i` is
+ * tree block `i`, which only holds while the view is in step with the tree.
+ * It is not during a composition: the binding defers remote changes to the
+ * compositionend flush — totally so in the sync modes it does not pause — while
+ * local composing transactions keep arriving here, so the tree can hold whole
+ * blocks the PM doc has not seen yet.
+ *
+ * Align by the common prefix and suffix, which is the shape whole-block remote
+ * insertions and deletions take, and return undefined for a boundary that
+ * falls inside the diverged region, where no offset is correct.
+ */
+export function alignBlockIndex(
+  pmBlocks: Array<YorkieTreeJSON>,
+  treeBlocks: Array<YorkieTreeJSON>,
+  index: number,
+): number | undefined {
+  const pmLen = pmBlocks.length;
+  const treeLen = treeBlocks.length;
+
+  let prefix = 0;
+  while (
+    prefix < pmLen &&
+    prefix < treeLen &&
+    yorkieNodesEqual(pmBlocks[prefix], treeBlocks[prefix])
+  ) {
+    prefix++;
+  }
+  // Covers the in-step case whole: identical block lists leave `prefix` at
+  // `pmLen`, so every boundary maps to itself.
+  if (index <= prefix) return index;
+
+  let suffix = 0;
+  while (
+    suffix < pmLen - prefix &&
+    suffix < treeLen - prefix &&
+    yorkieNodesEqual(
+      pmBlocks[pmLen - 1 - suffix],
+      treeBlocks[treeLen - 1 - suffix],
+    )
+  ) {
+    suffix++;
+  }
+  if (index >= pmLen - suffix) return treeLen - (pmLen - index);
+
+  return undefined;
+}
+
+/**
  * Sync a ProseMirror transaction to the Yorkie tree (upstream sync).
  *
  * Strategy:
@@ -341,12 +393,49 @@ export function syncToYorkie(
     return;
   }
 
+  // Every index above is PM-side. Map the touched range onto the tree's own
+  // block indices, which differ whenever the view is behind the tree — the
+  // state a composition leaves it in while remote changes are deferred.
+  const treeFromBlock = alignBlockIndex(
+    oldBlocks,
+    currentYorkieBlocks,
+    firstDiff,
+  );
+  const treeToBlock = alignBlockIndex(
+    oldBlocks,
+    currentYorkieBlocks,
+    oldEndDiff + 1,
+  );
+  if (treeFromBlock === undefined || treeToBlock === undefined) {
+    // The edited blocks sit inside the region the tree changed underneath us.
+    // No index here is right, so write nothing: the deferred remote changes
+    // are flushed into the view shortly and the edit can be re-derived from a
+    // doc that is back in step, which beats corrupting the tree at a guessed
+    // index.
+    onLog?.(
+      'error',
+      'Local edit overlaps blocks the tree changed meanwhile; skipping upstream sync',
+    );
+    return;
+  }
+
+  // The three optimizations below read the tree's copy of a block and index
+  // into it with offsets measured on the PM copy, so they hold only while the
+  // two copies are identical. Full block replacement needs no such agreement.
+  const blocksAligned =
+    treeToBlock - treeFromBlock === oldEndDiff + 1 - firstDiff &&
+    oldBlocks
+      .slice(firstDiff, oldEndDiff + 1)
+      .every((block, i) =>
+        yorkieNodesEqual(block, currentYorkieBlocks[treeFromBlock + i]),
+      );
+
   // OPTIMIZATION: If exactly one block changed and structure is the same,
   // use character-level diffing for better concurrent editing support.
-  if (firstDiff === oldEndDiff && firstDiff === newEndDiff) {
+  if (firstDiff === oldEndDiff && firstDiff === newEndDiff && blocksAligned) {
     const blockStartIdx = blockIndexToYorkieIndex(
       currentYorkieBlocks,
-      firstDiff,
+      treeFromBlock,
     );
     if (
       tryIntraBlockDiff(
@@ -369,7 +458,7 @@ export function syncToYorkie(
   const oldCount = oldEndDiff - firstDiff + 1;
   const newCount = newEndDiff - firstDiff + 1;
 
-  if (oldCount === 1 && newCount >= 2) {
+  if (oldCount === 1 && newCount >= 2 && blocksAligned) {
     const oldBlock = oldBlocks[firstDiff];
     const changedNewBlocks = newBlocks.slice(firstDiff, newEndDiff + 1);
     const split = detectSplit(oldBlock, changedNewBlocks);
@@ -377,10 +466,10 @@ export function syncToYorkie(
     if (split) {
       const blockStartIdx = blockIndexToYorkieIndex(
         currentYorkieBlocks,
-        firstDiff,
+        treeFromBlock,
       );
       const splitIdx = findTextSplitOffset(
-        currentYorkieBlocks[firstDiff],
+        currentYorkieBlocks[treeFromBlock],
         split.charOffset,
         blockStartIdx,
       );
@@ -397,17 +486,18 @@ export function syncToYorkie(
   }
 
   // MERGE DETECTION: two or more old blocks → one new block
-  if (oldCount >= 2 && newCount === 1) {
+  if (oldCount >= 2 && newCount === 1 && blocksAligned) {
     const changedOldBlocks = oldBlocks.slice(firstDiff, oldEndDiff + 1);
     const newBlock = newBlocks[firstDiff];
 
     if (detectMerge(changedOldBlocks, newBlock)) {
       // Apply boundary deletions right-to-left to avoid index shifts
       for (let i = oldEndDiff; i > firstDiff; i--) {
+        const treeIdx = treeFromBlock + (i - firstDiff);
         const [bFrom, bTo] = computeMergeBoundary(
           currentYorkieBlocks,
-          i - 1,
-          i,
+          treeIdx - 1,
+          treeIdx,
         );
         tree.edit(bFrom, bTo);
         onLog?.('local', `native-merge: boundary delete idx ${bFrom}-${bTo}`);
@@ -417,11 +507,11 @@ export function syncToYorkie(
   }
 
   // Full block replacement (fallback for structural changes)
-  const yorkieFromIdx = blockIndexToYorkieIndex(currentYorkieBlocks, firstDiff);
-  const yorkieToIdx = blockIndexToYorkieIndex(
+  const yorkieFromIdx = blockIndexToYorkieIndex(
     currentYorkieBlocks,
-    oldEndDiff + 1,
+    treeFromBlock,
   );
+  const yorkieToIdx = blockIndexToYorkieIndex(currentYorkieBlocks, treeToBlock);
 
   const newContent: Array<YorkieTreeJSON> = [];
   for (let i = firstDiff; i <= newEndDiff; i++) {
