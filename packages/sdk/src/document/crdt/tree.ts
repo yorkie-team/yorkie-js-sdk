@@ -955,9 +955,8 @@ export class CRDTTreeNode
       return pairs;
     }
 
-    // NOTE: Only called when a root is built from a snapshot. Removed
-    // attribute nodes are skipped by `getDataSize`, so they were never
-    // counted into docSize.live — hence `gcOnlySize`.
+    // NOTE: Removed attribute nodes are skipped by `getDataSize`, so they
+    // were never counted into docSize.live — hence `gcOnlySize`.
     for (const node of this.attrs) {
       if (node.getRemovedAt()) {
         pairs.push({
@@ -3454,6 +3453,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `purgeBarrierAt` implements `GCParent.purgeBarrierAt`. `findNodesAndSplitText` walks the
+   * parent's children, removed ones included, advancing while the next sibling
+   * was created after the incoming edit; a tombstoned sibling with an older
+   * ticket ends that walk. Purging detaches it from the parent, so the next
+   * sibling inherits the decision and must be causally stable first.
+   */
+  public purgeBarrierAt(node: GCChild): TimeTicket | undefined {
+    if (!(node instanceof CRDTTreeNode) || !node.parent) {
+      return;
+    }
+
+    // Read the children in place: `allChildren` copies, and this runs once
+    // per stable tombstone on every collection pass.
+    const siblings = node.parent._children;
+    const offset = siblings.indexOf(node);
+    if (offset < 0) {
+      return;
+    }
+    return siblings[offset + 1]?.id.getCreatedAt();
+  }
+
+  /**
    * `purge` physically purges the given node.
    */
   public purge(node: CRDTTreeNode): void {
@@ -3721,6 +3742,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
           span.attrs?.deepcopy(),
         );
 
+    // The span's attributes are a deep copy of the node's RHT, tombstones
+    // included -- they have to be, or a recreated node would resolve a
+    // concurrent style differently from a replica that never lost it. Each
+    // copied tombstone is a fresh piece of garbage that no removal path
+    // produced: without a registration it sits in the RHT forever, uncounted
+    // and unpurgeable, and `getDataSize` excludes it so the node's own charge
+    // does not cover it either. `getGCPairs` marks each `gcOnlySize`, which is
+    // what sends it to gc alone. Booked by `attach` for both a live and a
+    // removed parent, as Go's `recreateFromSpan` does.
+    const recreatedAttrPairs = span.isText ? [] : node.getGCPairs();
+
     const siblings = parent.allChildren;
 
     // `attach` finishes every anchor rung below: register the node, then decide
@@ -3753,17 +3785,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // carries `gcOnlySize`: charge the size to `docSize.gc` only and leave live
     // alone. Subtracting from live, as a pair without `gcOnlySize` would, drives
     // live negative by exactly this node's size.
-    //
-    // This is where the JS shape differs from Go's and the mirror has to be
-    // written differently to reach the same numbers. Go splits the two halves:
-    // `RegisterGCPair` only adds to GC, and the live-to-gc move lives in
-    // `AdjustDiffForGCPair`, which the restore path deliberately does not call
-    // for its pairs (operations/tree_edit.go). JS folds both halves into
-    // `registerGCPair`, so the only way to get "GC only, live untouched" here is
-    // `gcOnlySize`. `purge` subtracts `child.getDataSize()` from gc on both
-    // sides, so charging exactly that nets gc back to zero on collection.
+    // Go's `RegisterGCPair` takes the same `GCOnlySize`, so both SDKs reach
+    // the same numbers the same way. `purge` subtracts `child.getDataSize()`
+    // from gc, so charging exactly that nets gc back to zero on collection.
     const attach = (): CRDTTreeNode | undefined => {
       this.registerNode(node);
+      for (const pair of recreatedAttrPairs) {
+        this.pendingGCPairs.push(pair);
+      }
       if (parent.isRemoved) {
         node.remove(parent.removedAt!);
         this.pendingGCPairs.push({
@@ -3874,11 +3903,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const pairs: Array<GCPair> = [];
     // NOTE: `traverse` only visits visible children, which never includes
     // removed nodes. `traverseAll` is required to register tombstones
-    // (including pieces split off a tombstoned node) after snapshot load.
-    // These pairs carry `gcOnlySize` because `getDataSize` of the freshly
-    // built root only counted visible nodes into docSize.live.
+    // (including pieces split off a tombstoned node) when the tree is
+    // registered: snapshot load, a Set/Add/ArraySet payload, an undo re-set.
+    // These pairs carry `gcOnlySize` because the tree's registered live size
+    // only counted visible nodes.
     this.indexTree.traverseAll((node) => {
-      if (node.getRemovedAt()) {
+      // The walk includes the root, and purging is detachment from a parent,
+      // which the root does not have. It is never legitimately removed, but a
+      // crafted Set/Add payload can mark it so; leave it unbooked, as Go does.
+      if (node.getRemovedAt() && node.parent) {
         pairs.push({
           parent: this,
           child: node,
