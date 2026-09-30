@@ -924,6 +924,22 @@ export class Document<
         // root, the same way a failing updater above does.
         this.clone = undefined;
 
+        // The prefix that landed burned this change's TimeTickets into the
+        // root. `changeID` is not advanced here -- the change was never
+        // queued -- so without this the next `update` builds its context from
+        // the same ID, reissues those exact tickets and takes over the
+        // prefix's slots in `elementPairMapByCreatedAt`, leaving two live
+        // elements under one id. Burn the lamport (and this actor's version
+        // vector entry with it) so no later ticket can collide, and restore
+        // `clientSeq`: the counter names queued changes to the server, and
+        // advancing it for a change nobody queued would leave a hole the
+        // server rejects with `change clientSeq must increase by one`.
+        if (!ctx.isPresenceOnlyChange()) {
+          this.changeID = ctx
+            .getNextID()
+            .setClientSeq(this.changeID.getClientSeq());
+        }
+
         throw err;
       }
       const { operations, opInfos, reverseOps } = executed;
@@ -2942,11 +2958,23 @@ export class Document<
         ? deepcopy(this.presences.get(actorID)!)
         : undefined,
     };
-    const { operations, opInfos, reverseOps } = change.execute(
-      this.root,
-      this.presences,
-      OpSource.UndoRedo,
-    );
+    let executed;
+    try {
+      executed = change.execute(this.root, this.presences, OpSource.UndoRedo);
+    } catch (err) {
+      // Same hazard as the root pass in `update()`: the operations that ran
+      // burned their tickets into the root, the change is never queued and
+      // `changeID` never advances, so the next change would reissue them.
+      // Burn the lamport, keep `clientSeq`. The caller (`executeUndoRedo`)
+      // drops the clone.
+      if (!ctx.isPresenceOnlyChange()) {
+        this.changeID = ctx
+          .getNextID()
+          .setClientSeq(this.changeID.getClientSeq());
+      }
+      throw err;
+    }
+    const { operations, opInfos, reverseOps } = executed;
     const reverse = ctx.getReversePresence();
     if (reverse) {
       reverseOps.push({ type: 'presence', value: reverse });

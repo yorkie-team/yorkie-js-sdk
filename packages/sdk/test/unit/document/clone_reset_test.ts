@@ -19,11 +19,15 @@ import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 
 /**
  * `throwOnNthCall` makes `SetOperation.execute` throw on its `n`th call and
- * behave normally otherwise. A change is executed on the clone first and the
- * root second, so `n = 2` fails it after the clone took it.
+ * behave normally otherwise. Which call is which depends on the caller:
+ * `applyChange` and undo/redo execute the change on the clone first and the
+ * root second, so `n = 2` fails those after the clone took it, while
+ * `Document.update` mutates the clone through the proxy without going through
+ * `execute` at all, so every call it makes is the root pass.
  */
 function throwOnNthCall(n: number) {
   let calls = 0;
@@ -48,9 +52,10 @@ function throwOnNthCall(n: number) {
 function internals(doc: Document<never>) {
   return doc as unknown as {
     clone?: unknown;
+    root: CRDTRoot;
     localChanges: Array<Change<never>>;
     presences: Map<string, unknown>;
-    changeID: { getActorID(): string };
+    changeID: { getActorID(): string; getLamport(): bigint };
   };
 }
 
@@ -113,9 +118,8 @@ describe('Document clone reset', function () {
 
   // Pins the known gap the clone reset does not close, so a change in this
   // contract is a deliberate one: a failed `update` records nothing, so the
-  // prefix that reached the root is local-only state and the next change
-  // reuses the failed change's ID. Making the prefix pushable is its own
-  // design issue; see
+  // prefix that reached the root is local-only state. Making the prefix
+  // pushable is its own design issue; see
   // docs/tasks/active/20260926-apply-change-clone-divergence-todo.md.
   it('records nothing for a local change that fails on the root', function () {
     const doc = new Document<{ a: number; b: number; c: number }>('d');
@@ -138,9 +142,51 @@ describe('Document clone reset', function () {
     doc.update((r) => {
       r.c = 3;
     });
+    // The counter is untouched -- nothing was queued, so the next change is
+    // still this client's first and leaves no hole for the server to reject.
     const changes = internals(doc as never).localChanges;
     assert.equal(changes.length, 1);
     assert.equal(changes[0].getID().getClientSeq(), 1);
+  });
+
+  // The other half of that contract, and the reason the failed change still
+  // has to leave a mark: the prefix burned its TimeTickets into the root, so
+  // the next change must not reissue them.
+  it('does not reissue the tickets a failed local change burned', function () {
+    const doc = new Document<{ a: number; b: number; c: number }>('d');
+    const root = internals(doc as never).root;
+    const before = internals(doc as never).changeID.getLamport();
+
+    throwOnNthCall(2);
+    assert.throws(() => {
+      doc.update((r) => {
+        r.a = 1;
+        r.b = 2;
+      });
+    }, 'boom');
+
+    // The lamport the prefix issued its tickets under is spent, even though
+    // the change it belonged to was never recorded.
+    assert.isAbove(
+      Number(internals(doc as never).changeID.getLamport()),
+      Number(before),
+    );
+
+    doc.update((r) => {
+      r.c = 3;
+    });
+
+    const landed = root.getObject().get('a')!;
+    const added = root.getObject().get('c')!;
+    assert.notEqual(
+      landed.getCreatedAt().toIDString(),
+      added.getCreatedAt().toIDString(),
+    );
+    // Both are still reachable, i.e. neither took over the other's slot in
+    // `elementPairMapByCreatedAt`.
+    assert.strictEqual(root.findByCreatedAt(landed.getCreatedAt()), landed);
+    assert.strictEqual(root.findByCreatedAt(added.getCreatedAt()), added);
+    assert.equal(doc.toSortedJSON(), '{"a":1,"c":3}');
   });
 
   // Pins the other half of that contract: `Change.execute` applies the

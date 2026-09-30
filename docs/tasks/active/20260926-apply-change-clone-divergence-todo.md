@@ -24,7 +24,15 @@ the remaining call site, the root pass at the end of `update()`.
   clone and no partial state visible through `getRoot()`.
 - [x] `clone_reset_test.ts`: pin the contract the clone reset does *not*
   change — a failed `update` records nothing, so the prefix that reached the
-  root stays local-only and the next change reuses the failed change's ID.
+  root stays local-only.
+- [x] `update()` and `executeUndoRedoInternal()`: burn the lamport when the
+  root pass throws, keeping `clientSeq` where it is. The prefix that landed
+  wrote its TimeTickets into the root; leaving `changeID` untouched made the
+  next change reissue those exact tickets, so its elements took over the
+  prefix's slots in `elementPairMapByCreatedAt` and the document held two live
+  elements under one id. The counter must *not* advance with the clock here:
+  nothing was queued, and a skipped `clientSeq` is rejected by the server
+  (`change clientSeq must increase by one`).
 
 ## Out of scope
 

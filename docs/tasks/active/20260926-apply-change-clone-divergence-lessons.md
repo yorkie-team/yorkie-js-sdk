@@ -52,6 +52,29 @@ operations already burned into the root, colliding in
 root below operation granularity, so no accumulator of *completed* operations
 describes the root exactly.
 
+## The clock and the counter are not the same position
+
+That pair is only a pair if `changeID` moves as one piece, and it does not.
+`clientSeq` names a change to the server and must stay gapless; the lamport
+(with this actor's version vector entry) names the *tickets* the change issued
+and is already non-contiguous, because every remote change bumps it. So the
+failure path can take the half it needs: burn the lamport, restore the
+counter (`ctx.getNextID().setClientSeq(this.changeID.getClientSeq())`).
+
+Not burning it is the corruption the clone reset alone leaves behind. The
+prefix wrote tickets `(L+1, 1..k, actor)` into the root, the change was never
+recorded, so the next `update` builds its context from the same `changeID`,
+reissues `(L+1, 1, actor)` and its element takes the prefix's slot in
+`elementPairMapByCreatedAt` — `findByCreatedAt` then resolves one id to the
+newer element while the older one is still live in the object tree, and a
+remote operation addressing the prefix edits the wrong element. Overclaiming
+our own lamport is harmless by comparison: the server's `minvv` takes each
+actor's entry from what its *peers* report having seen, and a successful next
+change would have spent `L+1` anyway.
+
+`executeUndoRedoInternal` issues its tickets the same way and gets the same
+treatment, in the same shape, for the same reason.
+
 ## Narrowed after #1394 and #1403
 
 #1394 landed the clone reset for `applyChange` and `executeUndoRedo`, and
