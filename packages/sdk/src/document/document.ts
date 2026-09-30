@@ -2845,6 +2845,12 @@ export class Document<
       op: TreeEditOperation;
       prev: CRDTTreeNodeID;
       curr: CRDTTreeNodeID;
+      // Which of the operation's split tickets `curr` is, so the drain can
+      // tell whether the ROOT execution got that far — the hook that records
+      // the pair fires on the clone pass first, and the two passes need not
+      // mint the same number of elements. -1 for a re-issued content id,
+      // which is minted unconditionally.
+      ticketIndex: number;
     }> = [];
     // The splitting operations whose re-pointing hook is still registered,
     // so it can be taken off once the change has been applied — it closes
@@ -2922,7 +2928,7 @@ export class Document<
           ctx.issueTimeTicket(),
         )) {
           repointRest(op, prev, curr);
-          pending.push({ op, prev, curr });
+          pending.push({ op, prev, curr, ticketIndex: -1 });
         }
 
         // A split reverse -- the undo of a merge, or the redo of a split --
@@ -2985,7 +2991,7 @@ export class Document<
               return;
             }
             repointRest(op, prev, curr);
-            pending.push({ op, prev, curr });
+            pending.push({ op, prev, curr, ticketIndex: index });
           });
           splitOps.push(op);
         }
@@ -3022,14 +3028,24 @@ export class Document<
     // Now that the operations have run, re-point the history stacks at the
     // ids this entry actually minted. Deferred to here because the new
     // reverse ops are built from the executed state, so they already carry
-    // the new ids and must not be pushed before this runs. Every pair here
-    // names an element that exists: a split contributes one only as it takes
-    // the ticket that creates it, so a level the split stopped short of is
-    // never collected in the first place. What remains to check is whether
-    // the operation ran at all -- `change.execute` skips one whose target
-    // element was removed during undo/redo.
-    for (const { op, prev, curr } of pending) {
+    // the new ids and must not be pushed before this runs.
+    //
+    // Two things can still make a collected pair false, and both are only
+    // knowable now. `change.execute` skips an operation whose target element
+    // was removed during undo/redo, so it minted nothing at all. And a pair
+    // is collected as the split takes its ticket on WHICHEVER execution runs
+    // first -- the clone -- while the stacks have to follow the root: the
+    // clone and the root are separate trees, so a split that crossed a level
+    // in the clone can stop short of it in the root, leaving a pair naming a
+    // ticket no node in the root ever received. Check the index against what
+    // the root pass reports consuming (`getConsumedSplitTicketCount`, reset
+    // per execution, so it describes the root pass here). Re-issued content
+    // ids carry -1: those are minted unconditionally, once, up front.
+    for (const { op, prev, curr, ticketIndex } of pending) {
       if (!operations.includes(op)) continue;
+      if (ticketIndex >= 0 && ticketIndex >= op.getConsumedSplitTicketCount()) {
+        continue;
+      }
       this.internalHistory.reconcileTreeNodeID(prev, curr);
     }
 

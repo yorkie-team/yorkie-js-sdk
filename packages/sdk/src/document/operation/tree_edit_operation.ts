@@ -391,6 +391,25 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
+   * `getConsumedSplitTicketCount` returns how many of the recorded split
+   * tickets the LAST execution handed to the tree — how many elements that
+   * execution really minted. Fewer than `splitLevel` when the split loop ran
+   * out of ancestors, and zero when this operation never ran.
+   *
+   * The count is reset at the start of every execution, so after an undo/redo
+   * has applied the change it describes the root pass, not the clone pass
+   * that ran first. The two can disagree: the clone and the root are separate
+   * trees, and a remote change applied between the clone's last sync and now
+   * can leave the split with a different number of ancestors to cross. The
+   * handler above fires per execution and cannot tell which; anything that
+   * must reflect what the ROOT tree actually minted has to check this after
+   * the fact.
+   */
+  public getConsumedSplitTicketCount(): number {
+    return this.consumedSplitTickets;
+  }
+
+  /**
    * `setSplitTickets` records the tickets issued for the nodes an element
    * split created. The originating replica calls this after executing the
    * edit, so every other replica can use them instead of reconstructing them.
