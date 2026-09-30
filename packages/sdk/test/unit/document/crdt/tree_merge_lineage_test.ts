@@ -94,12 +94,30 @@ describe('Tree merge lineage', () => {
 
   it('rebuildMergeState should still rebuild a genuine source', () => {
     const f = buildFixture();
+    // A genuine source is a tombstone: the merge removes the boundary element
+    // before moving its children out of it.
+    f.p3.removedAt = timeT();
     f.text.mergedFrom = f.p3.id;
     f.text.mergedAt = timeT();
 
     new CRDTTree(f.tree.getRoot(), timeT());
 
     assert.isTrue(f.p3.mergedInto?.equals(f.p2.id));
+  });
+
+  it('rebuildMergeState should not plant a pointer on a live source', () => {
+    // The id is exact and names an element, so the shape checks pass; only
+    // the source being live says no merge ever moved these children. Planting
+    // here would arm the §6.2 cascade to tombstone p3's own children the
+    // moment a later, unrelated edit removes p3.
+    const f = buildFixture();
+    f.text.mergedFrom = f.p3.id;
+    f.text.mergedAt = timeT();
+    assert.isUndefined(f.p3.removedAt);
+
+    new CRDTTree(f.tree.getRoot(), timeT());
+
+    assert.isUndefined(f.p3.mergedInto);
   });
 
   it('rebuildMergeState should not name a text node as a source', () => {

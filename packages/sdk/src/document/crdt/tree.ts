@@ -1263,8 +1263,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
         return;
       }
 
+      // A merge only ever names a source the merge itself removed: the
+      // boundary element is tombstoned in step 02 of `edit` before its
+      // children are moved in step 03, so a live element is never a merge
+      // source. `mergedFrom` is client-supplied on an element payload, so
+      // without this check a crafted one plants a forwarding pointer on a
+      // live, unrelated element -- arming the §1.1 position redirect and the
+      // §6.2 delete cascade to fire on that element's own live children the
+      // moment some later, innocent edit removes it.
+      if (!src.removedAt) {
+        return;
+      }
+
       // Back-compat: older snapshots lack mergedAt on moved children.
-      if (!node.mergedAt && src.removedAt) {
+      if (!node.mergedAt) {
         node.mergedAt = src.removedAt;
       }
 
@@ -3109,8 +3121,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // only when the node carries none, so a node that arrived on an element
       // payload keeps the client's value, and this is where that value is
       // read again long after the decode that first saw it.
+      //
+      // The source must also already be a tombstone, the same requirement
+      // `rebuildMergeState` enforces: a boundary element is removed in step 02
+      // above before its children move here, so a live element named by a
+      // client-supplied `mergedFrom` is not a source this merge created.
+      // Checking it on only one of the two paths would make a loaded snapshot
+      // disagree with the replica that applied the op.
       const src = this.findMergeNode(node.mergedFrom);
-      if (src) {
+      if (src && src.removedAt) {
         src.mergedInto = dest.id;
       }
     }

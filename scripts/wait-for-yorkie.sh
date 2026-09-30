@@ -58,7 +58,16 @@ for ((attempt = 1; attempt <= attempts; attempt++)); do
     -d "{\"service\":\"$SERVICE\"}" \
     "$ADDR/grpc.health.v1.Health/Check" 2>&1 || true)
 
-  if [[ "$response" == *SERVING_STATUS_SERVING* ]]; then
+  # Two spellings are in the wild for the same enum value: the canonical
+  # `grpc.health.v1.HealthCheckResponse.ServingStatus` (google.golang.org/grpc)
+  # names it `SERVING`, while connectrpc.com/grpchealth's re-declaration prefixes
+  # it `SERVING_STATUS_SERVING`. Which one the pinned server emits depends on
+  # which health implementation it registers, so accept either -- matching only
+  # one makes the probe time out against a server that is in fact serving.
+  # The `"status":"` prefix is part of the pattern so `NOT_SERVING` and
+  # `SERVICE_UNKNOWN` cannot match; `1` covers a server that emits the enum
+  # numerically instead of by name.
+  if [[ "$response" =~ \"status\"[[:space:]]*:[[:space:]]*(\"SERVING\"|\"SERVING_STATUS_SERVING\"|1) ]]; then
     echo "[wait-for-yorkie] $ADDR is serving $SERVICE (attempt $attempt)"
     exit 0
   fi
