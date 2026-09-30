@@ -191,6 +191,11 @@ export class TreeEditOperation extends Operation {
    */
   private consumedSplitTickets = 0;
   /**
+   * `splitRecreatedIDs` is what the last execution's split re-created, as
+   * `[removed element, its replacement]` pairs. See `getSplitRecreatedIDs`.
+   */
+  private splitRecreatedIDs: Array<[CRDTTreeNodeID, CRDTTreeNodeID]> = [];
+  /**
    * `splitTicketConsumedHandler` is notified as each recorded split ticket is
    * handed to the tree, with its index in `splitTickets`. A split stops as
    * soon as it runs out of ancestors, so how many elements it really mints is
@@ -388,6 +393,21 @@ export class TreeEditOperation extends Operation {
    */
   public onSplitTicketConsumed(handler?: (index: number) => void): void {
     this.splitTicketConsumedHandler = handler;
+  }
+
+  /**
+   * `getSplitRecreatedIDs` returns the `[removed element, its replacement]`
+   * pairs the LAST execution's split produced — the elements a merge had
+   * taken away and that this split re-created under new ids. Reset at every
+   * execution, so after a change has been applied it describes the root pass.
+   *
+   * Unlike `replacedIDs` this is derived from the tree the split ran on, not
+   * from the reverse op this replica recorded, so it is available for a PEER's
+   * split too: the operation on the wire says which tickets the split minted,
+   * never what they replace.
+   */
+  public getSplitRecreatedIDs(): Array<[CRDTTreeNodeID, CRDTTreeNodeID]> {
+    return this.splitRecreatedIDs;
   }
 
   /**
@@ -613,6 +633,7 @@ export class TreeEditOperation extends Operation {
       insertedContentSize,
       splitSize,
       mergedNodes,
+      splitRecreatedIDs,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -672,6 +693,7 @@ export class TreeEditOperation extends Operation {
     this.lastToIdx = preEditFromIdx + removedSize;
     this.insertedContentSize = insertedContentSize;
     this.splitSize = splitSize;
+    this.splitRecreatedIDs = splitRecreatedIDs;
 
     // Create reverse op for undo
     let reverseOp: Operation | undefined;

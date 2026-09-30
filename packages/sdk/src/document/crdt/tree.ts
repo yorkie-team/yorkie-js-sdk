@@ -1390,6 +1390,72 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `mergeSourceOf` returns the id of the removed element whose children a
+   * split has just taken back, or undefined when the split re-creates
+   * nothing.
+   *
+   * A merge moves a boundary element's children into the merge target and
+   * tombstones the element, stamping each moved child with `mergedFrom`
+   * naming it. Reversing that merge is a split, which mints a BRAND-NEW
+   * element -- it cannot revive the tombstone, whose id belongs to a change
+   * every replica already applied -- and moves the stamped children into it.
+   * So a split product holding children stamped for a removed element is the
+   * replacement for that element, and anything recorded against the element
+   * has to follow (#1425).
+   *
+   * Derived from the tree rather than carried on the operation because a peer
+   * has to reach the same conclusion from the change alone: the operation
+   * encodes only the split's tickets, never what they replace.
+   *
+   * Narrow on purpose. A split that merely happens to cut through a merge
+   * target keeps some of the source's children on the left, and its product
+   * is a new sibling rather than the source's stand-in -- re-pointing at it
+   * would move references onto a node holding only part of what they named.
+   * Only a split that takes the source's children back WHOLE reverses the
+   * merge, so `splitTarget` is checked for leftovers.
+   */
+  private mergeSourceOf(
+    splitNode: CRDTTreeNode,
+    splitTarget: CRDTTreeNode,
+  ): CRDTTreeNodeID | undefined {
+    const stampedFor = (node: CRDTTreeNode, id: CRDTTreeNodeID) =>
+      node.allChildren.some(
+        (child) =>
+          child.mergedFrom &&
+          child.mergedFrom.getCreatedAt().compare(id.getCreatedAt()) === 0,
+      );
+
+    for (const child of splitNode.allChildren) {
+      const mergedFrom = child.mergedFrom;
+      if (!mergedFrom) {
+        continue;
+      }
+      // The product carries its own `mergedFrom` copied off the node it split
+      // (`cloneElement`); a child stamped for that same element was merged in
+      // one level up and is not what this split re-created.
+      if (
+        splitNode.mergedFrom &&
+        mergedFrom
+          .getCreatedAt()
+          .compare(splitNode.mergedFrom.getCreatedAt()) === 0
+      ) {
+        continue;
+      }
+      const source = this.findFloorNode(mergedFrom);
+      if (
+        source &&
+        source.isRemoved &&
+        source.id.getCreatedAt().compare(mergedFrom.getCreatedAt()) === 0 &&
+        !stampedFor(splitTarget, source.id)
+      ) {
+        return source.id;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * `mergedAnchorInterloperGuard` prepares the §9.4 per-node filter for a
    * style range whose end position was declared inside a parent that a
    * merge unknown to the styling client removed. The moved anchor child
@@ -2806,6 +2872,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     number,
     Array<CRDTTreeNode>,
+    Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -3176,6 +3243,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 2 * splitLevel, so a split whose product is born tombstoned, or one the
     // tree has no room for, reports the growth it really produced.
     const sizeBeforeSplit = this.getSize();
+    // The `[removed element, its replacement]` pairs this split produced —
+    // see `mergeSourceOf`. Reported so a replica applying the split, its own
+    // or a peer's, can re-point whatever it recorded against the removed one.
+    const splitRecreatedIDs: Array<[CRDTTreeNodeID, CRDTTreeNodeID]> = [];
     if (splitLevel > 0) {
       let splitCount = 0;
       let parent = fromParent;
@@ -3213,13 +3284,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
           editedAt,
           versionVector,
         );
-        const [, splitDiff] = target.split(
+        const [splitNode, splitDiff] = target.split(
           this,
           offset,
           issueTimeTicket,
           versionVector,
         );
         addDataSizes(diff, splitDiff);
+        const recreated = splitNode && this.mergeSourceOf(splitNode, target);
+        if (recreated) {
+          splitRecreatedIDs.push([recreated, splitNode!.id]);
+        }
 
         left = parent;
         parent = parent.parent! as CRDTTreeNode;
@@ -3386,6 +3461,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // which also holds whole elements deleted inside the range, their
       // cascade-deleted descendants and nodes already tombstoned.
       toBeMergedNodes,
+      splitRecreatedIDs,
     ];
   }
 
@@ -3412,6 +3488,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     number,
     Array<CRDTTreeNode>,
+    Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);

@@ -2298,6 +2298,21 @@ export class Document<
         );
       }
       if (op instanceof TreeEditOperation) {
+        // A split re-creates the elements a merge took away, under brand-new
+        // ids -- see `CRDTTree.mergeSourceOf`. That happens whoever sent the
+        // split: `executeUndoRedo` re-points this replica's stacks when the
+        // split is its own, and here when it arrives from a peer. Left
+        // un-re-pointed, an entry still naming the element the peer replaced
+        // addresses a node garbage collection will purge, and the change it
+        // eventually pushes is rejected on every replica (#1425).
+        //
+        // Done before the index reconciliation below and before the event is
+        // published, for the same reason the undo/redo path defers to after
+        // execution: the pairs are only known once the split has run.
+        for (const [prev, curr] of op.getSplitRecreatedIDs()) {
+          this.internalHistory.reconcileTreeNodeID(prev, curr);
+        }
+
         // One reconciliation per range the op actually changed, in the order
         // it changed them: an identity-preserving restore/retombstone revives
         // or re-removes several nodes at positions its stored indices never
