@@ -3134,6 +3134,24 @@ export class Document<
       this.internalHistory.reconcileTreeNodeID(prev, curr);
     }
 
+    // And then what the TREE says the split re-created, the same signal the
+    // local `update()` and remote `applyChangeInternal` paths re-point from.
+    // The pairs above come from the reverse op, which names the merge IT
+    // reverses; the split as executed can reverse one this entry never knew
+    // about -- a peer merged two blocks while the undo sat on the stack, and
+    // the redo of an unrelated split separates them again. Neither signal
+    // subsumes the other: the tree derives a pair only where the merge left
+    // `mergedFrom` stamps behind (`CRDTTree.mergeSourceOf`), which a split's
+    // own boundary-deletion undo does not. Both are applied, in that order;
+    // a pair the other already handled sweeps nothing and costs nothing.
+    for (const op of operations) {
+      if (op instanceof TreeEditOperation) {
+        for (const [prev, curr] of op.getSplitRecreatedIDs()) {
+          this.internalHistory.reconcileTreeNodeID(prev, curr);
+        }
+      }
+    }
+
     if (reverseOps.length) {
       if (isUndo) {
         this.internalHistory.pushRedo(reverseOps);
