@@ -3392,11 +3392,18 @@ export class Client {
       // Judged by the mode the request was sent in, not the mode now: the
       // mode can change while the request is in flight, and it is the
       // request that decided whether anything was pulled.
+      //
+      // The pack's content does not enter the decision. A reply with neither
+      // changes nor a snapshot still carries the version vector, and an
+      // explicit `sync(doc)` sends PushPull regardless of the attachment mode
+      // (see `sync`), so keying on content would let that empty reply reach
+      // `garbageCollect` on a document that is paused mid-composition — the
+      // very collection this guard exists to prevent. While a document is in
+      // PushOnly/SyncOff nothing of the reply but the push ack is taken.
       const dropsRemoteState =
         pushOnly ||
-        ((respPack.hasChanges() || respPack.hasSnapshot()) &&
-          (attachment.syncMode === SyncMode.RealtimePushOnly ||
-            attachment.syncMode === SyncMode.RealtimeSyncOff));
+        attachment.syncMode === SyncMode.RealtimePushOnly ||
+        attachment.syncMode === SyncMode.RealtimeSyncOff;
       if (dropsRemoteState) {
         doc.acknowledgePushedChanges(respPack);
       } else {
