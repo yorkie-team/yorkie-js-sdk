@@ -376,10 +376,16 @@ export function toRebuttalRecords(claims) {
       lens: c.lens,
       file: c.file,
       summary: c.summary,
-      // The pipeline's evidence goes BEFORE the author's note, so a persuasive
-      // note cannot argue past it unread — the same reason the uphold rule is
-      // stated ahead of the fence in `buildAdjudicatorPrompt`.
-      claim: `${preamble}${removalEvidence(c)}\n\nThe author's note:\n${c.note || "(none given)"}`,
+      claim: `${preamble}\n\nThe author's note:\n${c.note || "(none given)"}`,
+      // The pipeline's record of tests the fix round removed, as a FIELD and
+      // never in `claim`: `buildAdjudicatorPrompt` renders `claim` inside the
+      // untrusted <author-rebuttal> fence, where a note could imitate it word for
+      // word. This one is rendered before the fence opens. Only `fixed` claims
+      // carry it — a skipped claim is upheld without a session. No author channel
+      // can set it: both parsers whitelist their fields.
+      ...(c.status === "fixed" && Array.isArray(c.testRemovals) && c.testRemovals.length
+        ? { testRemovals: c.testRemovals.slice(0, 20) }
+        : {}),
       evidence: locationsIn(c.note),
       // Provenance, for the tally and for anyone reading the JSON. Nothing
       // downstream branches on it — a report is adjudicated exactly like a
@@ -388,25 +394,6 @@ export function toRebuttalRecords(claims) {
     });
   }
   return out;
-}
-
-/**
- * The removal record, as a paragraph for a FIXED claim — or "" without one.
- *
- * Only `fixed` claims get it: a skipped claim is upheld without a session, so
- * there is nobody to show it to. Evidence, not a verdict — a test can be removed
- * legitimately, and the adjudicator re-reads the code either way. File names are
- * pipeline-derived (the compare API), but fenced off as data all the same.
- */
-function removalEvidence(c) {
-  if (c.status !== "fixed" || !Array.isArray(c.testRemovals) || c.testRemovals.length === 0) return "";
-  const lines = c.testRemovals.slice(0, 20).map((r) => (r.deleted === true
-    ? `- deleted \`${defence(str(r.file)).slice(0, 300)}\` (${Number(r.removed) || 0} case(s))`
-    : `- \`${defence(str(r.file)).slice(0, 300)}\`: ${Number(r.removed) || 0} active case(s) removed or disabled, ${Number(r.added) || 0} added`));
-  return "\n\nMECHANICAL EVIDENCE (computed by the pipeline from the fix commit, not written by the author): "
-    + "this fix round removed or disabled tests. If one of them exercised THIS finding, a \"fixed\" claim "
-    + "made after deleting the test that showed it still failing is not grounds to overturn.\n"
-    + lines.join("\n");
 }
 
 /**

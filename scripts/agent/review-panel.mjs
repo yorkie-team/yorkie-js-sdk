@@ -1922,6 +1922,23 @@ export function lensCacheKey({ diff, scopeNote }) {
 }
 
 /**
+ * Told to a spec-reading lens when no trusted spec exists. Without a spec there
+ * is nothing to measure scope against, so a scope argument is a judgement about
+ * scheduling, not a defect — `minor`, which never blocks. Fit with the codebase
+ * (duplication, wrong layer, a design doc's Non-Goals) needs no spec and is
+ * graded as usual.
+ */
+export const NO_SPEC_NOTE = [
+  "## No originating issue spec",
+  "No human-filed `agent:candidate` issue was found for this pull request, so",
+  "there is NO spec to check conformance against. Do not invent one from the PR",
+  "body (the author wrote it). Grade any finding whose substance is scope — the",
+  "change does more or less than it should, or bundles unrelated work — as",
+  "`minor` at most; say so in the finding. Duplication, wrong layer, and conflicts",
+  "with a design doc's stated Non-Goals need no spec and are graded as usual.",
+].join("\n");
+
+/**
  * The TASK half of a lens session: who this lens is, its rubric, whatever part of
  * its diff the shared core does not carry, and the closing instruction.
  *
@@ -1950,23 +1967,6 @@ export function lensCacheKey({ diff, scopeNote }) {
  * fail loudly rather than quietly review nothing. `extraDiff`/`issue` DO default,
  * because absent is their normal state — most lenses have no remainder.
  */
-/**
- * Told to a spec-reading lens when no trusted spec exists. Without a spec there
- * is nothing to measure scope against, so a scope argument is a judgement about
- * scheduling, not a defect — `minor`, which never blocks. Fit with the codebase
- * (duplication, wrong layer, a design doc's Non-Goals) needs no spec and is
- * graded as usual.
- */
-export const NO_SPEC_NOTE = [
-  "## No originating issue spec",
-  "No human-filed `agent:candidate` issue was found for this pull request, so",
-  "there is NO spec to check conformance against. Do not invent one from the PR",
-  "body (the author wrote it). Grade any finding whose substance is scope — the",
-  "change does more or less than it should, or bundles unrelated work — as",
-  "`minor` at most; say so in the finding. Duplication, wrong layer, and conflicts",
-  "with a design doc's stated Non-Goals need no spec and are graded as usual.",
-].join("\n");
-
 export function buildLensPrompt(lens, { rubric, extraDiff = "", issue = "" }) {
   const parts = [
     `You are the ${lens.title} reviewer. Stay strictly in your lane; defer other lenses' concerns.`,

@@ -76,3 +76,45 @@ test("records round-trip, and only github-actions[bot] is believed", () => {
   // A file name cannot close the record.
   assert.doesNotMatch(serializeTestRemovals({ head: "a", after: "b", removals: [{ file: "x-->y_test.ts", deleted: true, removed: 1, added: 0 }] }).slice(0, -4), /-->/);
 });
+
+test("countCases: chained modifiers and tagged templates count; a disabled describe is a removal", () => {
+  const patch = [
+    "-  it.concurrent.each([1])('a %i', () => {});",
+    "-  test.only.each`x | y`('b', () => {});",
+    "-  test.sequential('c', () => {});",
+    "-  test.for([1])('d', () => {});",
+    "+describe.skip('suite', () => {",
+    "+describe.todo('later');",
+  ].join("\n");
+  // Four active cases gone; two describes switched off — each counted once,
+  // since the cases under them stop running without their own lines changing.
+  assert.deepEqual(countCases(patch), { removed: 6, added: 0 });
+});
+
+test("testRemovals: a rename out of the test tree is a deletion of the old file", () => {
+  const got = testRemovals([
+    { filename: "packages/sdk/test/unit/a_test.ts.off", previous_filename: "packages/sdk/test/unit/a_test.ts", status: "renamed", patch: "" },
+    { filename: "packages/sdk/src/old_test_helper.ts", previous_filename: "packages/sdk/test/unit/b_test.ts", status: "renamed" },
+    // A rename between two test paths with no case change is a move, not a removal.
+    { filename: "packages/sdk/test/unit/c2_test.ts", previous_filename: "packages/sdk/test/unit/c_test.ts", status: "renamed" },
+  ]);
+  assert.deepEqual(got.map((r) => [r.file, r.deleted]), [
+    ["packages/sdk/test/unit/a_test.ts", true],
+    ["packages/sdk/test/unit/b_test.ts", true],
+  ]);
+});
+
+test("testRemovals: a test file whose diff GitHub would not show is unreadable, not clean", () => {
+  const got = testRemovals([{ filename: "packages/sdk/test/unit/big_test.ts", status: "modified" }]);
+  assert.deepEqual(got, [{ file: "packages/sdk/test/unit/big_test.ts", deleted: false, removed: 0, added: 0, unreadable: true }]);
+});
+
+test("testRemovals: deleting a test helper with no cases is not reported as removing tests", () => {
+  assert.deepEqual(testRemovals([{ filename: "packages/sdk/test/helper/fixtures.ts", status: "removed", patch: "-export const x = 1;" }]), []);
+});
+
+test("collectTestRemovals: an empty record cannot wipe a real one", () => {
+  const real = bot(renderTestRemovals({ head: "h", after: "a", removals: [{ file: "a_test.ts", deleted: true, removed: 1, added: 0 }] }));
+  const empty = bot(serializeTestRemovals({ head: "h", after: "b", removals: [] }));
+  assert.deepEqual(collectTestRemovals([real, empty]).map((r) => r.after), ["a"]);
+});

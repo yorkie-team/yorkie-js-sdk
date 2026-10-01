@@ -951,13 +951,14 @@ jobs:
           PR: ${{ github.event.issue.number }}
           BEFORE: ${{ needs.fix.outputs.before }}
           BRANCH: ${{ needs.fix.outputs.branch }}
+          HEAD_SHA: ${{ needs.fix.outputs.head }}
         run: |
           AFTER="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq .object.sha 2>/dev/null || echo '')"
           if [ -z "$BEFORE" ] || [ -z "$AFTER" ] || [ "$BEFORE" = "$AFTER" ]; then
             echo "the branch head did not advance; nothing to compare"
             exit 0
           fi
-          node scripts/agent/test-removals.mjs post "$PR" --before "$BEFORE" --after "$AFTER"
+          node scripts/agent/test-removals.mjs post "$PR" --before "$BEFORE" --after "$AFTER" --head "$HEAD_SHA"
 
       # Replace the placeholder with what actually happened.
       #

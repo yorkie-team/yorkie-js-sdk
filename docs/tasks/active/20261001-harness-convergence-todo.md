@@ -362,6 +362,25 @@ Within this task, merge PR 1 before PR 2 and develop PR 2 on top of it.
   reproduces a finding. Keep it as `it.fails` and report the item skipped.
 - **D4:** a spec-reading lens with no spec gets `NO_SPEC_NOTE`, and the
   design-fit rubric caps scope findings at `minor` then.
+- **Independent review of PR 2: nothing blocking.** Two majors, both fixed:
+  - The removal evidence had been joined into the claim text, which the
+    adjudicator reads inside the untrusted `<author-rebuttal>` fence. It is
+    now a field rendered before the fence.
+  - **D1 would not have caught #1426's own case.** That test was written and
+    deleted without ever being committed, and on `e6900da` the compare shows
+    removed 3 / added 4, so no record. The limit is now stated in the module
+    and the design doc, and D2's prompt rule is the guard for uncommitted
+    tests.
+  - Minor fixes:
+    - renames that stop a test from running count as a removal;
+    - chained modifiers and tagged `each` are recognized;
+    - `describe.skip`/`.todo` counts as a removal;
+    - a test file whose diff is too large to show is marked unreadable rather
+      than clean;
+    - the compare is paginated;
+    - deleting a helper with no cases is ignored;
+    - an empty record cannot hide a real one;
+    - the record joins on the report's head (`--head`).
 - **E1:** `docs/design/agent-harness.md` records the convergence design, its
   decisions, and the rejected alternatives (overlap rule, refund, C1, retry
   after failure). `lint:check`, `verify:license` and

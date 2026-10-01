@@ -17,7 +17,7 @@ for (const file of ["agent-review-panel.yml", "agent-fix.yml"]) {
     assert.ok(at > 0, "no removal step");
     const block = src.slice(at, src.indexOf("\n      - ", at + 1));
     assert.match(block, /GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
-    assert.match(block, /node scripts\/agent\/test-removals\.mjs post "\$PR" --before "\$BEFORE" --after "\$AFTER"/);
+    assert.match(block, /node scripts\/agent\/test-removals\.mjs post "\$PR" --before "\$BEFORE" --after "\$AFTER" --head "\$HEAD_SHA"/);
     assert.match(block, /continue-on-error: true/, "evidence is best-effort; it must never red the report job");
   });
 

@@ -2582,7 +2582,10 @@ jobs:
           PR: ${{ needs.review-panel.outputs.pr }}
           BEFORE: ${{ needs.fix.outputs.before }}
           AFTER: ${{ steps.after.outputs.sha }}
-        run: node scripts/agent/test-removals.mjs post "$PR" --before "$BEFORE" --after "$AFTER"
+          # The head the fix report names, so the record joins to it even when
+          # the branch moved between CI and the fixer's start.
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/agent/test-removals.mjs post "$PR" --before "$BEFORE" --after "$AFTER" --head "$HEAD_SHA"
 
       # DISPUTES FIRST, then the report, so the report's count includes them.
       # Both are RE-RENDERED, never posted as written: the files came from a

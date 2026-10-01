@@ -119,10 +119,13 @@ for the same question, and it keeps what it learns about failures.
   the pool secrets, so it runs before the branch checkout.
 - **Honest infra pages.** A fixer that fails on an API error with nothing
   pushed is paged with its cause and the next step, not as "the fixer failed".
-- **Evidence beside claims.** When a fix round deletes or disables tests, the
-  trusted report job records it, and the next round's adjudicator sees it beside
-  every "fixed" claim. (#1426's fixer deleted the test that showed its fix
-  incomplete, then reported the finding fixed.)
+- **Evidence beside claims.** When a fix round's commits delete or disable
+  tests, the trusted report job records it. The next round's adjudicator sees
+  that record, ahead of the author's text, beside every "fixed" claim. It only
+  sees COMMITTED tests. #1426's fixer wrote its test, watched it fail and
+  deleted it without ever committing it, and no compare can see that. The
+  fixer prompt's rule (keep it as `it.fails` and report the finding skipped)
+  is the guard for that case.
 - **No spec, no scope verdict.** Without a human-filed `agent:candidate` issue,
   design-fit is told it has no spec, and scope findings are `minor` at most.
 - **Both directions are observed.** The metrics count clean→blocking flips
