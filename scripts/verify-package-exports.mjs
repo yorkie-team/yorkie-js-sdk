@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -52,10 +53,11 @@ try {
       join(root, 'packages', name),
     );
   }
-  const files = execFileSync('ls', [packs], { encoding: 'utf8' })
-    .trim()
-    .split('\n');
-  for (const f of files) tgz[f.match(/^yorkie-js-(\w+)-/)[1]] = join(packs, f);
+  for (const f of readdirSync(packs).filter((f) => f.endsWith('.tgz'))) {
+    const m = f.match(/^yorkie-js-(\w+)-/);
+    if (!m) throw new Error(`Unexpected tarball name: ${f}`);
+    tgz[m[1]] = join(packs, f);
+  }
 
   // The sdk depends on @yorkie-js/schema@workspace:* -> point it at the tarball.
   writeFileSync(
