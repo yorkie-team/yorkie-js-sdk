@@ -154,6 +154,7 @@ import { TreeStyleOperation } from '../document/operation/tree_style_operation';
 import { RHT } from '../document/crdt/rht';
 import { ArraySetOperation } from '../document/operation/array_set_operation';
 import { RevisionSummary } from './revision';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -1330,16 +1331,36 @@ function fromTreeNodesWhenEdit(
   }
 
   const treeNodes: Array<CRDTTreeNode> = [];
-  pbTreeNodes.forEach((node) => {
+  for (const node of pbTreeNodes) {
     const treeNode = fromTreeNodes(node.content);
+    // An entry whose content is empty decodes to no node at all, and neither
+    // keeping nor dropping it is safe. Keeping it puts a hole in the contents
+    // array that every later reader dereferences — `edit` down to `toXML`.
+    // Dropping it changes what the operation means: `CRDTTree.edit` reads an
+    // absent content list as "delete the range", so a payload the sender
+    // wrote as an insert would apply here as a deletion, and the split-ticket
+    // delimiters this replica reconstructs would no longer line up with the
+    // sender's. Reject the pack at the boundary instead, the way every other
+    // malformed field in this decoder does.
+    if (!treeNode) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'tree edit content has an entry with no node',
+      );
+    }
+
     // Operation content is fully client-controlled and is always freshly
-    // created by the editing client, so it can never be a split product.
-    // Drop the split-sibling links the wire format carries anyway: the tree
-    // follows them as trusted structural pointers once `edit` registers
-    // these nodes in nodeMapByID.
-    treeNode?.dropSplitLinks();
-    treeNodes.push(treeNode!);
-  });
+    // created by the editing client, so it can never be a split product nor a
+    // merge product. Drop the split-sibling links AND the merge lineage the
+    // wire format carries anyway: the tree follows both as trusted structural
+    // pointers once `edit` registers these nodes in nodeMapByID -- a stamped
+    // `mergedFrom` steers `declaredBoundaries` off the inserted node into an
+    // element the position never named. No producer sets either on edit
+    // content, so conforming traffic decodes to the same tree as before.
+    treeNode.dropSplitLinks();
+    treeNode.dropMergeStamps();
+    treeNodes.push(treeNode);
+  }
 
   return treeNodes;
 }
@@ -1364,7 +1385,19 @@ function fromTreeNodes(
   depthTable.set(pbTreeNodes[nodes.length - 1].depth, nodes[nodes.length - 1]);
   for (let i = nodes.length - 2; i >= 0; i--) {
     const parent = depthTable.get(pbTreeNodes[i].depth - 1);
-    parent!.prepend(nodes[i]);
+    // The depths come off the wire. A peer can send a node whose parent depth
+    // was never written, or name a text node as a parent; dereferencing the
+    // miss threw a bare TypeError from inside the build. Reject the payload
+    // at the boundary instead, with the error every other malformed field
+    // here raises, so the caller sees a decode failure rather than a crash
+    // part way through assembling a tree.
+    if (!parent || parent.isText) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `invalid tree node depth: ${pbTreeNodes[i].depth}`,
+      );
+    }
+    parent.prepend(nodes[i]);
     depthTable.set(pbTreeNodes[i].depth, nodes[i]);
   }
 
@@ -1552,13 +1585,17 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
           ? 'retombstone'
           : 'restore';
     }
+    const treeEditExecutedAt = fromTimeTicket(pbTreeEditOperation!.executedAt)!;
+    const treeEditContents = fromTreeNodesWhenEdit(
+      pbTreeEditOperation!.contents,
+    );
     const treeEdit = TreeEditOperation.create(
       fromTimeTicket(pbTreeEditOperation!.parentCreatedAt)!,
       fromTreePos(pbTreeEditOperation!.from!),
       fromTreePos(pbTreeEditOperation!.to!),
-      fromTreeNodesWhenEdit(pbTreeEditOperation!.contents),
+      treeEditContents,
       pbTreeEditOperation!.splitLevel,
-      fromTimeTicket(pbTreeEditOperation!.executedAt)!,
+      treeEditExecutedAt,
       treeRestoreMode ? true : undefined,
       undefined,
       undefined,
@@ -1566,6 +1603,16 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRestoreMode,
       treeRetombstoneSpans,
     );
+    // Split tickets are read back as sent, the way yorkie's converter reads
+    // them: the server applies them verbatim, so a replica that rewrote or
+    // refused a ticket here would mint different ids than the snapshot holds.
+    //
+    // This is not a trust boundary, and no check here could make it one. The
+    // only reference a decoder has for these tickets is `executedAt`, off the
+    // same wire, so a shape check would read one of the sender's fields
+    // against another; and the content node ids and restore-span ids beside
+    // them name nodes just as freely. What bounds a hostile id is at the point
+    // of use -- `dropDuplicateContents` and `registerNode` in `CRDTTree`.
     treeEdit.setSplitTickets(
       pbTreeEditOperation!.splitTickets.map(
         (ticket) => fromTimeTicket(ticket)!,
@@ -1788,7 +1835,16 @@ function fromCounter(pbCounter: PbJSONElement_Counter): CRDTCounter {
   counter.setMovedAt(fromTimeTicket(pbCounter.movedAt));
   counter.setRemovedAt(fromTimeTicket(pbCounter.removedAt));
   if (counter.isDedup() && pbCounter.hllRegisters.length > 0) {
-    counter.restoreHLL(pbCounter.hllRegisters);
+    // A rejected payload is logged and dropped rather than thrown on: snapshot
+    // decode has no handler, so throwing would stop this client from opening
+    // the document at all over one peer's malformed counter.
+    if (!counter.restoreHLL(pbCounter.hllRegisters)) {
+      logger.warn(
+        `discarding malformed HLL registers for counter ${counter
+          .getCreatedAt()
+          .toTestString()}: ${pbCounter.hllRegisters.length} bytes`,
+      );
+    }
   }
   return counter;
 }

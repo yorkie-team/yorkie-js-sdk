@@ -222,27 +222,6 @@ export class CRDTTextValue {
   /**
    * `getGCPairs` returns the pairs of GC.
    */
-  /**
-   * `getRemovedAttrs` reports the tombstoned attributes this value holds,
-   * which a split has just duplicated from its source. The copy is new garbage
-   * under a new parent with no registration of its own -- the original's pair
-   * names the original's parent -- so without this it could never be
-   * collected.
-   */
-  public getRemovedAttrs(): Array<RHTNode> {
-    const removed: Array<RHTNode> = [];
-    for (const node of this.attributes) {
-      if (node.getRemovedAt()) {
-        removed.push(node);
-      }
-    }
-
-    return removed;
-  }
-
-  /**
-   * `getGCPairs` returns the pairs of GC.
-   */
   public getGCPairs(): Array<GCPair> {
     const pairs = [];
 
@@ -812,8 +791,9 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    */
   public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
-    // NOTE: Only called when a root is built from a snapshot, where
-    // docSize.live counted visible nodes only. Tombstoned nodes (and the
+    // NOTE: Called when the text is registered (snapshot load, a Set/Add/
+    // ArraySet payload, an undo re-set), where docSize.live counted visible
+    // nodes only. Tombstoned nodes (and the
     // attribute tombstones inside them) were never part of live, so their
     // pairs carry `gcOnlySize`. So do the attribute tombstones of visible
     // nodes: `CRDTTextValue.getDataSize` skips removed attributes, matching

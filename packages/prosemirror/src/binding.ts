@@ -626,9 +626,17 @@ export class YorkieProseMirrorBinding {
       if (this.isSyncing) return;
 
       const { operations } = event.value;
-      const hasTreeOps = operations.some(
-        (op: any) => op.type === 'tree-edit' || op.type === 'tree-style',
-      );
+      // A remote change can move the tree without reporting a single OpInfo:
+      // the SDK degrades to "no position reported" when it cannot resolve an
+      // index for what it changed, and still publishes the change. An empty
+      // list therefore says nothing about the tree, so treat it as a possible
+      // tree change instead of discarding it -- the sync below is diff-based
+      // and does nothing when the document really is unchanged.
+      const hasTreeOps =
+        operations.length === 0 ||
+        operations.some(
+          (op: any) => op.type === 'tree-edit' || op.type === 'tree-style',
+        );
       if (!hasTreeOps) return;
 
       this.onLog?.('remote', `Received ${operations.length} remote operations`);

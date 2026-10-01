@@ -180,34 +180,11 @@ export class CRDTRoot {
     this.gcParentIDs = new WeakMap();
     this.nextGCParentID = 0;
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
-    this.registerElement(rootObject, undefined);
 
     // NOTE(hackerwins): tombstoned elements are not re-registered here:
-    // registerElement above already booked every one of them into gc.
-    rootObject.getDescendants((elem) => {
-      if (elem instanceof CRDTText || elem instanceof CRDTTree) {
-        for (const pair of elem.getGCPairs()) {
-          this.registerGCPair(pair);
-        }
-      }
-      if (elem instanceof CRDTArray) {
-        // Register dead position nodes for GC. A dead position node holds no
-        // element, so the live size this root was just built from never
-        // counted it -- `gcOnlySize` is how a pair says "add to gc, take
-        // nothing out of live". The text and tree scans above say the same
-        // thing through `getGCPairs`.
-        for (const node of elem.getAllRGANodes()) {
-          if (!node.getElementEntry() && node.getRemovedAt()) {
-            this.registerGCPair({
-              parent: elem.getRGATreeList(),
-              child: node,
-              gcOnlySize: node.getDataSize(),
-            });
-          }
-        }
-      }
-      return false;
-    });
+    // registerElement books every one of them into gc, along with the
+    // tombstones its elements carry inside themselves.
+    this.registerElement(rootObject, undefined);
   }
 
   /**
@@ -296,6 +273,57 @@ export class CRDTRoot {
     // subtree, so doing it while the first pass is still walking would move
     // descendants live has not been charged for yet, and drive live negative.
     this.adoptTombstones(element);
+
+    // The two passes above see elements only. A Text/Tree/Array also holds
+    // tombstones *inside* itself -- removed tree nodes, removed text pieces,
+    // removed attributes, dead array positions -- and those are collected
+    // through `gcPairMap`, which only a GC pair reaches.
+    //
+    // Every route that brings such an element in has to book them, not just
+    // snapshot load: a Set/Add/ArraySet payload is decoded by the same readers
+    // a snapshot is, and an undo re-sets a `deepcopy` of a removed container
+    // whose tree may still hold nodes that were tombstoned before it. Left
+    // unbooked they are invisible to every later edit, yet charged to nothing
+    // and collectable by nothing, so the bytes stay in the document forever.
+    this.registerInternalGCPairs(element);
+  }
+
+  /**
+   * `registerInternalGCPairs` books the tombstones the given element and its
+   * descendant elements carry inside themselves into gc. Freshly created
+   * content has none, so this costs one walk of the registered subtree and no
+   * registration in the common case.
+   */
+  private registerInternalGCPairs(element: CRDTElement): void {
+    const register = (elem: CRDTElement) => {
+      if (elem instanceof CRDTText || elem instanceof CRDTTree) {
+        for (const pair of elem.getGCPairs()) {
+          this.registerGCPair(pair);
+        }
+      } else if (elem instanceof CRDTArray) {
+        // A dead position node holds no element, so the live size its array
+        // was registered with never counted it -- `gcOnlySize` is how a pair
+        // says "add to gc, take nothing out of live". The text and tree
+        // pairs say the same thing through `getGCPairs`.
+        for (const node of elem.getAllRGANodes()) {
+          if (!node.getElementEntry() && node.getRemovedAt()) {
+            this.registerGCPair({
+              parent: elem.getRGATreeList(),
+              child: node,
+              gcOnlySize: node.getDataSize(),
+            });
+          }
+        }
+      }
+    };
+
+    register(element);
+    if (element instanceof CRDTContainer) {
+      element.getDescendants((elem) => {
+        register(elem);
+        return false;
+      });
+    }
   }
 
   /**
@@ -737,9 +765,36 @@ export class CRDTRoot {
 
   /**
    * `garbageCollect` purges elements that were removed before the given time.
+   *
+   * A pass can hold a purge back (see `GCParent.purgeBarrierAt`), and holding one back can be
+   * the only reason another is held back: purging a node hands its successor
+   * to the node in front of it, and that successor is one this pass already
+   * found stable. So a pass that both purged and deferred may have more to do,
+   * and the loop repeats until a pass purges nothing new or defers nothing.
+   * Everything held back stays on the worklist for the next vector that covers
+   * it. The repeat also makes the result independent of iteration order, which
+   * decides only how many passes it takes, not what ends up collected.
    */
   public garbageCollect(minSyncedVersionVector: VersionVector): number {
     let count = 0;
+
+    for (;;) {
+      const [purged, deferred] = this.collect(minSyncedVersionVector);
+      count += purged;
+
+      if (purged === 0 || deferred === 0) {
+        return count;
+      }
+    }
+  }
+
+  /**
+   * `collect` runs one collection pass, reporting how much it purged and how
+   * much it held back on a barrier.
+   */
+  private collect(minSyncedVersionVector: VersionVector): [number, number] {
+    let count = 0;
+    let deferred = 0;
 
     for (const createdAt of this.gcElementSetByCreatedAt) {
       // NOTE(hackerwins): Neither lookup is guaranteed to hit. A document
@@ -760,11 +815,24 @@ export class CRDTRoot {
         continue;
       }
       const removedAt = pair.element.getRemovedAt();
-
-      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
-        pair.parent.purge(pair.element);
-        count += this.deregisterElement(pair.element);
+      if (!removedAt || !minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        continue;
       }
+
+      // A tombstone is not only a value that is gone, it is also a place in
+      // its parent that other replicas may still be deciding against.
+      // removedAt covers the value; the barrier covers the place.
+      const elementBarrier = pair.parent.purgeBarrierAt?.(pair.element);
+      if (
+        elementBarrier &&
+        !minSyncedVersionVector.afterOrEqual(elementBarrier)
+      ) {
+        deferred++;
+        continue;
+      }
+
+      pair.parent.purge(pair.element);
+      count += this.deregisterElement(pair.element);
     }
 
     for (const [key, pair] of this.gcPairMap) {
@@ -777,16 +845,24 @@ export class CRDTRoot {
         this.unregisterGCPair(pair);
         continue;
       }
-      if (removedAt && minSyncedVersionVector?.afterOrEqual(removedAt)) {
-        pair.parent.purge(pair.child);
-
-        subDataSize(this.docSize.gc, pair.child.getDataSize());
-        this.gcPairMap.delete(key);
-        count += 1;
+      if (!minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        continue;
       }
+
+      const barrier = pair.parent.purgeBarrierAt?.(pair.child);
+      if (barrier && !minSyncedVersionVector.afterOrEqual(barrier)) {
+        deferred++;
+        continue;
+      }
+
+      pair.parent.purge(pair.child);
+
+      subDataSize(this.docSize.gc, pair.child.getDataSize());
+      this.gcPairMap.delete(key);
+      count += 1;
     }
 
-    return count;
+    return [count, deferred];
   }
 
   /**

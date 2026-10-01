@@ -164,6 +164,7 @@ export {
   type FullPanelToSDKMessage,
   type FullSDKToPanelMessage,
 } from '@yorkie-js/sdk/src/devtools/protocol';
+export { teardownDevtools } from '@yorkie-js/sdk/src/devtools';
 export { Devtools };
 export { YSON };
 

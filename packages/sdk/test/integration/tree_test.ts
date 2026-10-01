@@ -2623,6 +2623,41 @@ describe('Tree.edit(concurrent overlapping range)', () => {
     }, task.name);
   });
 
+  // An unwrap hoists a paragraph's children into the root; a concurrent
+  // delete that covered the same paragraph whole has to take them with it.
+  // Mirrors yorkie's TestTreeUnwrapAndMergeDelete (yorkie#2042).
+  it('Can converge an unwrap with a concurrent delete of the same paragraph', async function ({
+    task,
+  }) {
+    await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
+      // 0   1 2 3    4   5 6 7    8
+      // <r> <p> a b </p> <p> c d </p> </r>
+      d1.update((root) => {
+        root.t = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+            { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+          ],
+        });
+      });
+      await c1.sync();
+      await c2.sync();
+
+      d1.update((r) => r.t.edit(0, 1));
+      d2.update((r) => r.t.edit(0, 5));
+      // The merge appends moved children to the end of the destination.
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r><p>cd</p>ab</r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r>cd</r>`);
+
+      await c1.sync();
+      await c2.sync();
+      await c1.sync();
+      assert.equal(d1.getRoot().t.toXML(), /*html*/ `<r>cd</r>`);
+      assert.equal(d2.getRoot().t.toXML(), /*html*/ `<r>cd</r>`);
+    }, task.name);
+  });
+
   it('Can concurrently delete overlapping text', async function ({ task }) {
     await withTwoClientsAndDocuments<{ t: Tree }>(async (c1, d1, c2, d2) => {
       d1.update((root) => {

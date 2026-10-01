@@ -33,6 +33,7 @@ const mockDocument = {
 };
 
 vi.mock('@yorkie-js/sdk', () => ({
+  teardownDevtools: vi.fn(),
   Document: vi.fn(
     class {
       constructor() {

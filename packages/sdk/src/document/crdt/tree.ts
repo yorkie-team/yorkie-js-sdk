@@ -50,6 +50,7 @@ import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 import {
   DataSize,
   DocSize,
@@ -132,6 +133,18 @@ export type TreeChange =
       value?: Array<string>;
       splitLevel?: number;
     };
+
+/**
+ * `TreeVisibleEdit` is a content change an identity-preserving restore or
+ * retombstone made, paired with the visible size it inserted (zero for a
+ * deletion). The change alone does not carry that size — an insertion reports
+ * a collapsed range — and undo-stack reconciliation cannot shift the pending
+ * indices without it.
+ */
+export type TreeVisibleEdit = {
+  change: TreeChange;
+  insertedSize: number;
+};
 
 /**
  * `CRDTTreePos` represent a position in the tree. It is used to identify a
@@ -282,6 +295,47 @@ export class CRDTTreePos {
         other.getLeftSiblingID().getOffset()
     );
   }
+
+  /**
+   * `replaceNodeID` returns this position with `prev` replaced by `curr`
+   * wherever it names the parent or the left sibling, or this position
+   * itself when it names neither.
+   */
+  public replaceNodeID(
+    prev: CRDTTreeNodeID,
+    curr: CRDTTreeNodeID,
+  ): CRDTTreePos {
+    const parentID = replaceTreeNodeID(this.parentID, prev, curr);
+    const leftSiblingID = replaceTreeNodeID(this.leftSiblingID, prev, curr);
+
+    return parentID === this.parentID && leftSiblingID === this.leftSiblingID
+      ? this
+      : CRDTTreePos.of(parentID, leftSiblingID);
+  }
+}
+
+/**
+ * `replaceTreeNodeID` returns `id` re-pointed from the node `prev` names to
+ * the node `curr` names, or `id` itself when it names a different node.
+ *
+ * The match is on the creation ticket alone, and the offset is carried over
+ * rather than taken from `curr`: a node id names a node by its creation
+ * ticket, while the offset says WHERE in that node the reference lands --
+ * the child index when a position names an element as its left sibling
+ * (`CRDTTreePos.fromTreePos`), the character offset inside a text node.
+ * Comparing the offset too, as `CRDTTreeNodeID.equals` does, would miss every
+ * reference that is not to the node's own head.
+ */
+export function replaceTreeNodeID(
+  id: CRDTTreeNodeID,
+  prev: CRDTTreeNodeID,
+  curr: CRDTTreeNodeID,
+): CRDTTreeNodeID {
+  if (id.getCreatedAt().compare(prev.getCreatedAt()) !== 0) {
+    return id;
+  }
+
+  return CRDTTreeNodeID.of(curr.getCreatedAt(), id.getOffset());
 }
 
 /**
@@ -612,21 +666,52 @@ export class CRDTTreeNode
   }
 
   /**
-   * `dropSplitLinks` clears the split-sibling links on this node and every
-   * one of its descendants.
+   * `dropSplitLinks` clears the split-sibling links on this node and every one
+   * of its descendants.
    *
    * insPrevID/insNextID name positions in a split chain and only
    * `splitElement` may create them. A node arriving as operation content is
    * freshly created by the editing client, so it can never legitimately be a
-   * split product — but the wire format carries the fields regardless, and
-   * the chain walks that read them treat them as trusted structural
-   * pointers. Drop them on the way in rather than let a peer hand the tree a
-   * chain of its choosing.
+   * split product — but the wire format carries the links regardless, and the
+   * walks that read them treat them as trusted structural pointers.
+   *
+   * mergedFrom/mergedAt/mergedInto are deliberately NOT cleared here. They are
+   * on the wire too, but what a decoder does with them is part of a
+   * replicated contract: the server decodes the same bytes to build its
+   * snapshots, so a JS-only strip would leave every JS replica holding a
+   * different tree than the server and than any Go replica. The walks that
+   * read them are cycle-guarded instead (`declaredBoundaries` tree.ts,
+   * `resolveMergeTarget` tree.ts), which is what keeps a forged chain from
+   * spinning a replica without changing what the fields mean.
    */
   public dropSplitLinks(): void {
     traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
       node.insPrevID = undefined;
       node.insNextID = undefined;
+    });
+  }
+
+  /**
+   * `dropMergeStamps` clears the merge lineage on this node and every one of
+   * its descendants.
+   *
+   * Unlike `dropSplitLinks` this is NOT safe to call on an arbitrary tree: a
+   * tree that really was merged carries the lineage as state, and dropping it
+   * would rewrite the document. It is for a *tree edit's* content, which the
+   * editing client always creates fresh for that one operation, so none of its
+   * nodes can be a merge product. A peer is free to stamp them anyway, and
+   * `declaredBoundaries` then follows `mergedFrom` off the freshly inserted
+   * node into an element the position never named. Clearing them costs nothing
+   * on conforming traffic -- no producer sets them on edit content, here or in
+   * yorkie -- so no replica sees a different tree for a change a client could
+   * legitimately have written. `reissueContentIDs` clears the same three
+   * fields on the content an undo re-inserts, for the same reason.
+   */
+  public dropMergeStamps(): void {
+    traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
+      node.mergedFrom = undefined;
+      node.mergedAt = undefined;
+      node.mergedInto = undefined;
     });
   }
 
@@ -901,9 +986,8 @@ export class CRDTTreeNode
       return pairs;
     }
 
-    // NOTE: Only called when a root is built from a snapshot. Removed
-    // attribute nodes are skipped by `getDataSize`, so they were never
-    // counted into docSize.live — hence `gcOnlySize`.
+    // NOTE: Removed attribute nodes are skipped by `getDataSize`, so they
+    // were never counted into docSize.live — hence `gcOnlySize`.
     for (const node of this.attrs) {
       if (node.getRemovedAt()) {
         pairs.push({
@@ -1105,6 +1189,34 @@ class InsNextWalker {
 }
 
 /**
+ * `DeclaredLineage` answers, for one change, the two questions `styleTargets`
+ * asks of every node it visits: is this node the element a position declared
+ * as its parent (or an ancestor of it), matched through the split lineage.
+ *
+ * Both questions used to be answered per node by walking the declared parent's
+ * whole current ancestry and, for each ancestor, its `insPrevID` chain --
+ * pointers a peer controls, so one style message over a wide range bought
+ * O(range x depth x chain) work, with a fresh cycle-guard set per step, on
+ * every replica that applied it. Nothing in those walks depends on the node
+ * being asked about, so they run once per change here: `covers` is then a set
+ * lookup, and `coversEitherWay`'s one remaining direction is memoized per
+ * node, so each node costs its own chain at most once.
+ */
+interface DeclaredLineage {
+  /**
+   * `covers` reports whether `node` is one of the declared ancestors, or a
+   * piece a split cut off one of them.
+   */
+  covers(node: CRDTTreeNode): boolean;
+
+  /**
+   * `coversEitherWay` is `covers` plus the opposite direction: it also matches
+   * when a declared ancestor is a piece a split cut off `node`.
+   */
+  coversEitherWay(node: CRDTTreeNode): boolean;
+}
+
+/**
  * `CRDTTree` is a CRDT implementation of a tree.
  */
 export class CRDTTree extends CRDTElement implements GCParent {
@@ -1200,6 +1312,60 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `findMergeNode` returns the element whose id is exactly `id`, or
+   * undefined. Unlike `findFloorNode` it refuses a floor-only match (a split
+   * product this replica does not hold) and a text node: a merge pointer
+   * names an element, so either would hand merge logic a node the pointer
+   * never named.
+   */
+  private findMergeNode(id?: CRDTTreeNodeID): CRDTTreeNode | undefined {
+    if (!id) {
+      return;
+    }
+    const node = this.findFloorNode(id);
+    if (!node || !node.id.equals(id) || node.isText) {
+      return;
+    }
+    return node;
+  }
+
+  /**
+   * `declaredBoundaries` returns the elements the edit's own positions named
+   * as boundaries: the element each position declared as its parent, and
+   * every ancestor of that element. A range stops at those rather than
+   * covering them -- the edit asks to merge their remaining content away, not
+   * to delete it -- so a concurrent merge that already moved their children
+   * where this edit would have put them did this edit's work rather than
+   * something it now has to undo.
+   *
+   * The declared parent is resolved with `findMergeNode`, not a floor lookup:
+   * a floor lookup matches on createdAt alone, so a parentID naming a split
+   * product this replica does not hold would land on the offset-0 element and
+   * hand the skip to a node the position never named.
+   *
+   * The walk upward prefers `mergedFrom` over the physical parent: a prior
+   * merge moves a node under the merge target, so the parent no longer names
+   * the element that enclosed it when the position was declared. The set
+   * doubles as the seen set, guarding against a cycle in a client-supplied
+   * `mergedFrom` chain. Mirrors yorkie's `declaredBoundaries` (yorkie#2042).
+   */
+  private declaredBoundaries(
+    ...positions: Array<CRDTTreePos>
+  ): Set<CRDTTreeNode> {
+    const boundaries = new Set<CRDTTreeNode>();
+    for (const pos of positions) {
+      let current = this.findMergeNode(pos.getParentID());
+      while (current && !boundaries.has(current)) {
+        boundaries.add(current);
+        current =
+          this.findMergeNode(current.mergedFrom) ??
+          (current.parent as CRDTTreeNode | undefined);
+      }
+    }
+    return boundaries;
+  }
+
+  /**
    * `resolveMergeTarget` follows the `mergedInto` forwarding chain from the
    * given node while the current node is a merge-away tombstone, returning
    * the final live target. When a merge lands on a parent that a prior
@@ -1221,6 +1387,72 @@ export class CRDTTree extends CRDTElement implements GCParent {
       target = next;
     }
     return target;
+  }
+
+  /**
+   * `mergeSourceOf` returns the id of the removed element whose children a
+   * split has just taken back, or undefined when the split re-creates
+   * nothing.
+   *
+   * A merge moves a boundary element's children into the merge target and
+   * tombstones the element, stamping each moved child with `mergedFrom`
+   * naming it. Reversing that merge is a split, which mints a BRAND-NEW
+   * element -- it cannot revive the tombstone, whose id belongs to a change
+   * every replica already applied -- and moves the stamped children into it.
+   * So a split product holding children stamped for a removed element is the
+   * replacement for that element, and anything recorded against the element
+   * has to follow (#1425).
+   *
+   * Derived from the tree rather than carried on the operation because a peer
+   * has to reach the same conclusion from the change alone: the operation
+   * encodes only the split's tickets, never what they replace.
+   *
+   * Narrow on purpose. A split that merely happens to cut through a merge
+   * target keeps some of the source's children on the left, and its product
+   * is a new sibling rather than the source's stand-in -- re-pointing at it
+   * would move references onto a node holding only part of what they named.
+   * Only a split that takes the source's children back WHOLE reverses the
+   * merge, so `splitTarget` is checked for leftovers.
+   */
+  private mergeSourceOf(
+    splitNode: CRDTTreeNode,
+    splitTarget: CRDTTreeNode,
+  ): CRDTTreeNodeID | undefined {
+    const stampedFor = (node: CRDTTreeNode, id: CRDTTreeNodeID) =>
+      node.allChildren.some(
+        (child) =>
+          child.mergedFrom &&
+          child.mergedFrom.getCreatedAt().compare(id.getCreatedAt()) === 0,
+      );
+
+    for (const child of splitNode.allChildren) {
+      const mergedFrom = child.mergedFrom;
+      if (!mergedFrom) {
+        continue;
+      }
+      // The product carries its own `mergedFrom` copied off the node it split
+      // (`cloneElement`); a child stamped for that same element was merged in
+      // one level up and is not what this split re-created.
+      if (
+        splitNode.mergedFrom &&
+        mergedFrom
+          .getCreatedAt()
+          .compare(splitNode.mergedFrom.getCreatedAt()) === 0
+      ) {
+        continue;
+      }
+      const source = this.findFloorNode(mergedFrom);
+      if (
+        source &&
+        source.isRemoved &&
+        source.id.getCreatedAt().compare(mergedFrom.getCreatedAt()) === 0 &&
+        !stampedFor(splitTarget, source.id)
+      ) {
+        return source.id;
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -1312,7 +1544,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * known limitations in yorkie's concurrent-merge-split design doc.
    */
   private reversedFromAnchorRecovery(
-    pos: CRDTTreePos,
+    from: CRDTTreePos,
+    to: CRDTTreePos,
     fromParent: CRDTTreeNode,
     fromLeft: CRDTTreeNode,
     toParent: CRDTTreeNode,
@@ -1325,14 +1558,20 @@ export class CRDTTree extends CRDTElement implements GCParent {
         isInterloper: (node: CRDTTreeNode) => boolean;
       }
     | undefined {
-    const guard = this.mergedAnchorInterloperGuard(pos, versionVector);
+    const guard = this.mergedAnchorInterloperGuard(from, versionVector);
     if (!guard) {
       return;
     }
     // Only a range that actually collapsed needs recovery: when both
     // anchors moved with the merge, the resolved range stays ordered and
-    // still covers what the styling client covered.
-    if (this.toIndex(fromParent, fromLeft) <= this.toIndex(toParent, toLeft)) {
+    // still covers what the styling client covered. A range that resolved
+    // empty counts as collapsed too -- the merge can leave the start anchor
+    // exactly on the end one, and covering nothing loses the client's range
+    // just as completely as covering it backwards. Unless the client's own
+    // range was empty, in which case covering nothing is right.
+    const fromIdx = this.toIndex(fromParent, fromLeft);
+    const toIdx = this.toIndex(toParent, toLeft);
+    if (fromIdx < toIdx || (fromIdx === toIdx && from.equals(to))) {
       return;
     }
     const { declaredParent, target } = guard;
@@ -1354,35 +1593,611 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `styleSkipPredicate` builds the per-token skip checks shared by style
-   * and removeStyle: the End-token unknown-split-sibling exclusion and the
-   * §9.4 merged-anchor interloper filter for the range-end position.
+   * and removeStyle, as two predicates over the same state.
+   *
+   * `skipReached` answers "did the change reach this node at all": the
+   * End-token unknown-split-sibling exclusion (§9.1), the §9.6 range-start
+   * guard and the §9.4 merged-anchor interloper filter for the range-end
+   * position. It is about the change, so it holds for every node a style
+   * writes to, however that node was found.
+   *
+   * `skipToken` adds the one restriction that belongs to the index traversal
+   * alone -- the §9.4 from-side recovery re-anchors the traversal start over
+   * nodes the change never covered, so a recovered traversal may touch only
+   * the interlopers the recovery positively identified. Nodes derived from
+   * the change's own positions are not in that widened span and answer to
+   * `skipReached` only.
+   *
+   * `beganInside` is the set of elements THIS replica's resolved range begins
+   * inside -- the resolved from-parent and its ancestors, the only elements a
+   * token traversal reaches through their End token alone.
    */
   private styleSkipPredicate(
-    pos: CRDTTreePos,
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+    fromParent: CRDTTreeNode,
     versionVector?: VersionVector,
     recoveredInterloper?: (node: CRDTTreeNode) => boolean,
-  ): (node: CRDTTreeNode, tokenType: TokenType) => boolean {
-    const anchorGuard = this.mergedAnchorInterloperGuard(pos, versionVector);
-    return (node: CRDTTreeNode, tokenType: TokenType): boolean => {
-      // Skip styling via End token when the node has an unknown
-      // split sibling. The End token is in the range only because
-      // a concurrent split extended the range into the sibling.
+  ): {
+    skipToken: (token: TreeToken<CRDTTreeNode>) => boolean;
+    skipReached: (token: TreeToken<CRDTTreeNode>) => boolean;
+    declaredTo: DeclaredLineage | undefined;
+    declaredFrom: DeclaredLineage | undefined;
+  } {
+    const isVersionVectorEmpty = !versionVector || versionVector.size() === 0;
+    const anchorGuard = this.mergedAnchorInterloperGuard(to, versionVector);
+    // Resolved once and handed back to `styleTargets`: the lineage walks are
+    // over peer-supplied pointers and depend only on the change's positions.
+    const declaredTo = this.declaredLineage(to);
+    const declaredFrom = this.declaredLineage(from);
+
+    const beganInside = new Set<CRDTTreeNode>();
+    for (
+      let current: CRDTTreeNode | undefined = fromParent;
+      current;
+      current = current.parent as CRDTTreeNode | undefined
+    ) {
+      beganInside.add(current);
+    }
+
+    const skipReached = ([node, tokenType]: TreeToken<CRDTTreeNode>) => {
+      // §9.1: skip styling via the End token when the node has an unknown
+      // split sibling AND the change's range ended inside the node. Only
+      // then is the End token in the range solely because a concurrent
+      // split extended the range into the sibling. When the range ran past
+      // the node's end the End token was in it before any split existed.
       if (
         tokenType === TokenType.End &&
-        versionVector !== undefined &&
-        this.hasUnknownSplitSibling(node, versionVector)
+        !isVersionVectorEmpty &&
+        (!declaredTo || declaredTo.covers(node)) &&
+        this.hasUnknownSplitSibling(node, versionVector!)
       ) {
         return true;
       }
-      // §9.4 from-side: a recovered traversal may only touch nodes the
-      // collapsed range lost, the positively identified interlopers.
-      if (recoveredInterloper && !recoveredInterloper(node)) {
+      // §9.6, the mirror of §9.1 on the range-start side. This replica's
+      // range begins inside the node, so only its End token is in the
+      // range; the change reached it that way only if the change's own
+      // range-start position was declared inside it. A merge that removes a
+      // paragraph's opening tag moves its children, and the start anchor
+      // with them, into an element the change never entered.
+      if (
+        tokenType === TokenType.End &&
+        !isVersionVectorEmpty &&
+        beganInside.has(node) &&
+        declaredFrom &&
+        !declaredFrom.coversEitherWay(node)
+      ) {
         return true;
       }
       // §9.4: the node is in the range only because an unknown merge
       // pulled the range-end anchor past it.
       return !!anchorGuard && anchorGuard.isInterloper(node);
     };
+
+    const skipToken = (token: TreeToken<CRDTTreeNode>) => {
+      if (skipReached(token)) {
+        return true;
+      }
+      // §9.4 from-side: a recovered traversal may only touch nodes the
+      // collapsed range lost, the positively identified interlopers.
+      return !!recoveredInterloper && !recoveredInterloper(token[0]);
+    };
+
+    return { skipToken, skipReached, declaredTo, declaredFrom };
+  }
+
+  /**
+   * `beginsAtOrBefore` reports whether the change's declared range-start sits
+   * at or before `node`'s Start token in document order, both measured with
+   * removed nodes included so a concurrent removal between the two moves
+   * neither. A position that does not resolve answers no, as Go's
+   * `beginsAtOrInside` does.
+   */
+  private beginsAtOrBefore(node: CRDTTreeNode, from: CRDTTreePos): boolean {
+    if (!node.parent) {
+      return false;
+    }
+    try {
+      const [parent, left] = from.toTreeNodePair(this);
+      // A concurrent merge can move the left sibling out of the declared
+      // parent. Go's FindOffset fails there; findOffset here returns -1 and
+      // toTreePos would resolve offset 0, so the case is refused explicitly.
+      if (left !== parent && left.parent !== parent) {
+        return false;
+      }
+      const offset = node.parent.findOffset(node, true);
+      const nodeIdx = this.indexTree.indexOf(
+        { node: node.parent, offset },
+        true,
+      );
+      const declaredIdx = this.toIndex(parent, left, true);
+      return declaredIdx >= 0 && declaredIdx <= nodeIdx;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * `declaredParentOf` returns the element a position named as its parent,
+   * or undefined when this replica cannot resolve the position.
+   */
+  private declaredParentOf(pos: CRDTTreePos): CRDTTreeNode | undefined {
+    const parent = this.findFloorNode(pos.getParentID());
+    if (!parent || !this.findFloorNode(pos.getLeftSiblingID())) {
+      return;
+    }
+    return parent;
+  }
+
+  /**
+   * `splitOriginsOf` walks back along `insPrevID` from `node`, feeding each
+   * element it passes to `visit` and stopping when `visit` returns false.
+   * Only `splitElement` sets `insPrevID` on an element, so the chain is
+   * exactly the split lineage; the walker stops a crafted chain that loops
+   * back on itself, and a text link cuts it.
+   */
+  private splitOriginsOf(
+    node: CRDTTreeNode,
+    visit: (origin: CRDTTreeNode) => boolean,
+  ): void {
+    const walker = new InsNextWalker();
+    let current: CRDTTreeNode | undefined = node;
+    walker.visit(current);
+    while (current && visit(current)) {
+      if (!current.insPrevID) {
+        return;
+      }
+      const prev = this.findFloorNode(current.insPrevID);
+      if (!prev || prev.isText || !walker.visit(prev)) {
+        return;
+      }
+      current = prev;
+    }
+  }
+
+  /**
+   * `declaredLineageOf` resolves, once for a change, everything
+   * `DeclaredLineage` answers about the element a position declared as its
+   * parent: the element's current ancestry, and the split lineage of each
+   * ancestor.
+   */
+  private declaredLineageOf(declaredParent: CRDTTreeNode): DeclaredLineage {
+    // Every element a declared ancestor was split from. `endsInside` asked
+    // this one ancestor at a time; the union answers all of them at once, and
+    // a chain already walked needs no second walk because the chain back from
+    // an element is fixed.
+    const ancestors = new Set<CRDTTreeNode>();
+    const products = new Set<CRDTTreeNode>();
+    for (
+      let ancestor: CRDTTreeNode | undefined = declaredParent;
+      ancestor;
+      ancestor = ancestor.parent as CRDTTreeNode | undefined
+    ) {
+      ancestors.add(ancestor);
+      this.splitOriginsOf(ancestor, (origin) => {
+        if (products.has(origin)) {
+          return false;
+        }
+        products.add(origin);
+
+        return true;
+      });
+    }
+
+    // The opposite direction -- a declared ancestor is a piece split off the
+    // node being asked about -- cannot be precomputed, since it starts from
+    // that node. Memoize it instead: the answer for a node is the answer for
+    // every node whose chain runs through it, so one walk settles the whole
+    // prefix it passed.
+    const reversed = new Map<CRDTTreeNode, boolean>();
+    const reaches = (node: CRDTTreeNode): boolean => {
+      const cached = reversed.get(node);
+      if (cached !== undefined) {
+        return cached;
+      }
+      const walked: Array<CRDTTreeNode> = [];
+      let found = false;
+      this.splitOriginsOf(node, (origin) => {
+        if (ancestors.has(origin)) {
+          found = true;
+
+          return false;
+        }
+        const memo = reversed.get(origin);
+        if (memo !== undefined) {
+          found = memo;
+
+          return false;
+        }
+        walked.push(origin);
+
+        return true;
+      });
+      for (const visited of walked) {
+        reversed.set(visited, found);
+      }
+
+      return found;
+    };
+
+    return {
+      covers: (node: CRDTTreeNode): boolean => products.has(node),
+      coversEitherWay: (node: CRDTTreeNode): boolean =>
+        products.has(node) || reaches(node),
+    };
+  }
+
+  /**
+   * `declaredAncestryHas` walks the CURRENT ancestry of the element a
+   * position named as its parent, up to the root, and reports whether any of
+   * them matches.
+   */
+  private declaredAncestryHas(
+    declaredParent: CRDTTreeNode,
+    match: (ancestor: CRDTTreeNode) => boolean,
+  ): boolean {
+    for (
+      let current: CRDTTreeNode | undefined = declaredParent;
+      current;
+      current = current.parent as CRDTTreeNode | undefined
+    ) {
+      if (match(current)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * `declaredLineage` is `declaredLineageOf` for the element `pos` named as
+   * its parent, or undefined when this replica cannot resolve the position.
+   *
+   * `covers` on the result is "the change's range ended inside this node":
+   * whether the node is the element the position named, or an ancestor of it.
+   * The ancestry is the current one, and a concurrent split moves the children
+   * after the split point into the new right half, so each ancestor is matched
+   * through its split lineage: every product of splitting the node stands for
+   * the node.
+   *
+   * `coversEitherWay` is the same question for the range-start position
+   * (§9.6), matching in BOTH directions along the split lineage: a split of
+   * the element the range began inside leaves the start anchor in whichever
+   * half holds it, and both halves are the element the change began inside.
+   * For the range-end side the extra matches would make a guard that excludes
+   * nodes fail open, so that side uses `covers`.
+   */
+  private declaredLineage(pos: CRDTTreePos): DeclaredLineage | undefined {
+    const declaredParent = this.declaredParentOf(pos);
+
+    return declaredParent ? this.declaredLineageOf(declaredParent) : undefined;
+  }
+
+  /**
+   * `unknownSplitSiblings` returns the elements a split concurrent with the
+   * change produced from `node`: its `insNextID` chain, stopped at the first
+   * sibling the change already knew about. A style that covered `node`
+   * covered these too, because the change resolved its range while `node`
+   * was still one piece.
+   */
+  private unknownSplitSiblings(
+    node: CRDTTreeNode,
+    versionVector?: VersionVector,
+  ): Array<CRDTTreeNode> {
+    const siblings: Array<CRDTTreeNode> = [];
+    const walker = new InsNextWalker();
+    let current = node;
+    walker.visit(current);
+    while (current.insNextID) {
+      const next = this.findFloorNode(current.insNextID);
+      if (!next || next.isText) {
+        break;
+      }
+      // Stop on a chain that loops back on itself; see InsNextWalker.
+      if (!walker.visit(next)) {
+        break;
+      }
+      if (ticketKnown(versionVector, next.id.getCreatedAt())) {
+        break;
+      }
+      siblings.push(next);
+      current = next;
+    }
+    return siblings;
+  }
+
+  /**
+   * `splitFamilyOf` walks back along `insPrevID` from an element whose
+   * creation the change did not know, collecting the products a concurrent
+   * split made of a node it did know. It returns the family in document
+   * order, that known node first, or an empty array when the chain reaches
+   * no such node -- a node simply new to the change.
+   */
+  private splitFamilyOf(
+    node: CRDTTreeNode,
+    versionVector?: VersionVector,
+  ): Array<CRDTTreeNode> {
+    const reversed = [node];
+    const walker = new InsNextWalker();
+    let current = node;
+    walker.visit(current);
+    while (current.insPrevID) {
+      const prev = this.findFloorNode(current.insPrevID);
+      if (!prev || prev.isText || !walker.visit(prev)) {
+        return [];
+      }
+      reversed.push(prev);
+      if (prev.canStyle(versionVector)) {
+        return reversed.reverse();
+      }
+      current = prev;
+    }
+    return [];
+  }
+
+  /**
+   * `boundaryRangeCovers` reports whether the change declared a range that
+   * covers at least one element, so that reconstructing its boundary
+   * elements is repair rather than invention. A range whose two positions
+   * are equal covers nothing on any replica. A range that resolves
+   * backwards covers nothing here either; only a removal collapses a range,
+   * so an inversion with a live declared ancestry on both ends is the
+   * caller's own and gets nothing.
+   */
+  private boundaryRangeCovers(
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+    fromParent: CRDTTreeNode,
+    fromLeft: CRDTTreeNode,
+    toParent: CRDTTreeNode,
+    toLeft: CRDTTreeNode,
+  ): boolean {
+    if (from.equals(to)) {
+      return false;
+    }
+    if (this.toIndex(fromParent, fromLeft) <= this.toIndex(toParent, toLeft)) {
+      return true;
+    }
+    return (
+      this.declaredAncestryRemoved(from) || this.declaredAncestryRemoved(to)
+    );
+  }
+
+  /**
+   * `declaredAncestryRemoved` reports whether the element a position named
+   * as its parent, or any ancestor of it, has been removed -- the only way a
+   * range declared forwards can resolve backwards here.
+   */
+  private declaredAncestryRemoved(pos: CRDTTreePos): boolean {
+    const parent = this.declaredParentOf(pos);
+    return !!parent && this.declaredAncestryHas(parent, (n) => n.isRemoved);
+  }
+
+  /**
+   * `boundaryElements` returns the elements the change reached through a
+   * single token on the replica that issued it: the ancestors of the
+   * range-start position, whose End tokens the range ran past, and the
+   * ancestors of the range-end position, whose Start tokens it ran past --
+   * each chain stopping below the common ancestor of the two. Each element is
+   * returned with the token the range ran past, so the caller can put it
+   * through the same per-token skip checks the traversal applies.
+   *
+   * These come from the positions the change carries, which never move, so
+   * every replica computes the same set whatever a concurrent merge did to
+   * the index space.
+   */
+  private boundaryElements(
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+  ): Array<TreeToken<CRDTTreeNode>> {
+    const fromParent = this.declaredParentOf(from);
+    const toParent = this.declaredParentOf(to);
+    if (!fromParent || !toParent) {
+      return [];
+    }
+
+    const fromAncestors = new Set<CRDTTreeNode>();
+    for (
+      let current: CRDTTreeNode | undefined = fromParent;
+      current;
+      current = current.parent as CRDTTreeNode | undefined
+    ) {
+      fromAncestors.add(current);
+    }
+
+    // The common ancestor is the first ancestor of the range-end position
+    // that also sits above the range-start position.
+    let common: CRDTTreeNode | undefined;
+    const startTokens: Array<TreeToken<CRDTTreeNode>> = [];
+    for (
+      let current: CRDTTreeNode | undefined = toParent;
+      current;
+      current = current.parent as CRDTTreeNode | undefined
+    ) {
+      if (fromAncestors.has(current)) {
+        common = current;
+        break;
+      }
+      startTokens.push([current, TokenType.Start]);
+    }
+    if (!common) {
+      return [];
+    }
+
+    const elements: Array<TreeToken<CRDTTreeNode>> = [];
+    for (
+      let current: CRDTTreeNode | undefined = fromParent;
+      current && current !== common;
+      current = current.parent as CRDTTreeNode | undefined
+    ) {
+      elements.push([current, TokenType.End]);
+    }
+    return elements.concat(startTokens);
+  }
+
+  /**
+   * `styleTargets` resolves the nodes a style or removeStyle applies to,
+   * without repeats, along with the size the boundary text splits added to
+   * live. Traversed nodes come in document order; boundary elements
+   * recovered from the change's positions follow them, as in Go.
+   *
+   * The two operations are one range resolution asked to write two
+   * different things, so the resolution lives here once. A node is reported
+   * at most once even though a fully covered element is visited on both its
+   * Start and End tokens; the second write was already a no-op, since RHT
+   * rejects a ticket that is not after the one it holds.
+   *
+   * NOTE(cross-implementation): the set this returns is a replicated
+   * contract -- every SDK and the server have to reach the same nodes for
+   * the same change. It mirrors yorkie's `styleTargets`; the rules are the
+   * "Port specification" in yorkie's docs/design/concurrent-merge-split.md.
+   */
+  private styleTargets(
+    from: CRDTTreePos,
+    to: CRDTTreePos,
+    editedAt: TimeTicket,
+    versionVector?: VersionVector,
+  ): [Array<CRDTTreeNode>, DataSize] {
+    const diff = { data: 0, meta: 0 };
+    const [[resolvedFromParent, fromLeftRaw], diffFrom] =
+      this.findNodesAndSplitText(from, editedAt, 'range');
+    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
+      to,
+      editedAt,
+      'range',
+    );
+    addDataSizes(diff, diffTo, diffFrom);
+
+    // skipActorID for the same reason as edit's Phase 2: a same-boundary
+    // empty run has to resolve here the way the split loop resolves it.
+    const styleActorID = editedAt.getActorID();
+    let fromParent = resolvedFromParent;
+    let fromLeft =
+      fromLeftRaw !== fromParent
+        ? this.advancePastUnknownSplitSiblings(
+            fromLeftRaw,
+            versionVector,
+            false,
+            styleActorID,
+          )
+        : fromLeftRaw;
+    const toLeft =
+      toLeftRaw !== toParent
+        ? this.advancePastUnknownSplitSiblings(
+            toLeftRaw,
+            versionVector,
+            false,
+            styleActorID,
+          )
+        : toLeftRaw;
+
+    const isVersionVectorEmpty = !versionVector || versionVector.size() === 0;
+    const recovery = this.reversedFromAnchorRecovery(
+      from,
+      to,
+      fromParent,
+      fromLeft,
+      toParent,
+      toLeft,
+      versionVector,
+    );
+    if (recovery) {
+      fromParent = recovery.fromParent;
+      fromLeft = recovery.fromLeft;
+    }
+    const { skipToken, skipReached, declaredTo, declaredFrom } =
+      this.styleSkipPredicate(
+        from,
+        to,
+        fromParent,
+        versionVector,
+        recovery?.isInterloper,
+      );
+
+    const targets: Array<CRDTTreeNode> = [];
+    const seen = new Set<CRDTTreeNode>();
+    const add = (node: CRDTTreeNode) => {
+      if (!seen.has(node)) {
+        seen.add(node);
+        targets.push(node);
+      }
+    };
+
+    this.traverseInPosRange(fromParent, fromLeft, toParent, toLeft, (token) => {
+      const [node, tokenType] = token;
+      // A fully covered element arrives twice, on its Start token and on
+      // its End token. Everything below depends only on the node, so the
+      // second visit would redo the lineage walks for nothing.
+      if (seen.has(node) || skipToken(token)) {
+        return;
+      }
+
+      if (node.canStyle(versionVector)) {
+        add(node);
+        // Carry the style onto split products the change could not have
+        // known, so a range resolved before the split still covers the piece
+        // the split cut off. Which token reached the node does not decide
+        // this: a node the range covered whole arrives on its Start token,
+        // or on its End token alone when the range began inside it.
+        for (const sibling of this.unknownSplitSiblings(node, versionVector)) {
+          add(sibling);
+        }
+        return;
+      }
+
+      // The change did not know this node was created, so it cannot have
+      // named it -- unless a concurrent split produced it from one the
+      // change did name. An End token the range genuinely ran past says the
+      // change styled that element while it was still one piece, so the
+      // whole split family carries the style, including the half the change
+      // knew and the traversal no longer reaches.
+      if (
+        tokenType === TokenType.End &&
+        !isVersionVectorEmpty &&
+        declaredTo &&
+        !declaredTo.covers(node)
+      ) {
+        const family = this.splitFamilyOf(node, versionVector);
+        // The family is reached only through the node the change knew, which
+        // is the one the End-token guard judges. When that guard excludes
+        // it, re-adding the family would style the very node it skipped.
+        //
+        // The change must also have begun at or inside that node. A split of
+        // more than one level carries the right half into a new parent, past
+        // a range that began right after the known node, and its End token
+        // then enters the range with nothing to do with the change. A range
+        // that began BEFORE the known node covered it whole, however the
+        // traversal lost it, and keeps the closure. This is rule 2(c) of the
+        // Port specification in yorkie's concurrent-merge-split design doc
+        // (§9.2 Fix 27, yorkie#2070).
+        if (
+          family.length &&
+          !skipToken([family[0], TokenType.End]) &&
+          declaredFrom &&
+          (declaredFrom.coversEitherWay(family[0]) ||
+            this.beginsAtOrBefore(family[0], from))
+        ) {
+          family.forEach(add);
+        }
+      }
+    });
+
+    // Add back the boundary elements the change itself reached. Without a
+    // concurrent merge the traversal has already found every one of them;
+    // with one, they are the nodes the resolved range can no longer see.
+    if (
+      this.boundaryRangeCovers(from, to, fromParent, fromLeft, toParent, toLeft)
+    ) {
+      for (const token of this.boundaryElements(from, to)) {
+        // The §9.4 interloper filters and the End-token split guard are
+        // about which nodes the change reached, not about how the traversal
+        // found them, so a boundary element answers to them too.
+        if (!skipReached(token) && token[0].canStyle(versionVector)) {
+          add(token[0]);
+        }
+      }
+    }
+
+    return [targets, diff];
   }
 
   /**
@@ -1866,178 +2681,59 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<string>,
   ] {
     const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
-
-    const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
+    const [targets, diff] = this.styleTargets(
       range[0],
-      editedAt,
-      'range',
-    );
-    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
-      'range',
-    );
-
-    addDataSizes(size.live, diffTo, diffFrom);
-
-    // skipActorID for the same reason as edit's Phase 2: a same-boundary
-    // empty run has to resolve here the way the split loop resolves it.
-    const styleActorID = editedAt.getActorID();
-    const fromLeft =
-      fromLeftRaw !== fromParent
-        ? this.advancePastUnknownSplitSiblings(
-            fromLeftRaw,
-            versionVector,
-            false,
-            styleActorID,
-          )
-        : fromLeftRaw;
-    const toLeft =
-      toLeftRaw !== toParent
-        ? this.advancePastUnknownSplitSiblings(
-            toLeftRaw,
-            versionVector,
-            false,
-            styleActorID,
-          )
-        : toLeftRaw;
-
-    const recovery = this.reversedFromAnchorRecovery(
-      range[0],
-      fromParent,
-      fromLeft,
-      toParent,
-      toLeft,
       versionVector,
     );
-    const [traverseFromParent, traverseFromLeft] = recovery
-      ? [recovery.fromParent, recovery.fromLeft]
-      : [fromParent, fromLeft];
-    const shouldSkipToken = this.styleSkipPredicate(
-      range[1],
-      versionVector,
-      recovery?.isInterloper,
-    );
+    addDataSizes(size.live, diff);
 
     const changes: Array<TreeChange> = [];
-    const attrs: { [key: string]: any } = attributes
-      ? parseObjectValues(attributes)
-      : {};
     const pairs: Array<GCPair> = [];
     const prevAttributes = new Map<string, string>();
     const newAttrKeys: Array<string> = [];
-    let capturedPrev = false;
-    this.traverseInPosRange(
-      traverseFromParent,
-      traverseFromLeft,
-      toParent,
-      toLeft,
-      ([node, tokenType]) => {
-        if (node.canStyle(versionVector) && attributes) {
-          if (shouldSkipToken(node, tokenType)) {
-            return;
-          }
-
-          // Capture previous attribute values from first styled node
-          // for reverse operation (undo).
-          if (!capturedPrev) {
-            for (const key of Object.keys(attributes)) {
-              if (node.attrs?.has(key)) {
-                prevAttributes.set(key, node.attrs.get(key)!);
-              } else {
-                newAttrKeys.push(key);
-              }
+    if (attributes) {
+      const attrs: { [key: string]: any } = parseObjectValues(attributes);
+      targets.forEach((node, i) => {
+        // Capture previous attribute values from the first styled node for
+        // the reverse operation (undo).
+        if (i === 0) {
+          for (const key of Object.keys(attributes)) {
+            if (node.attrs?.has(key)) {
+              prevAttributes.set(key, node.attrs.get(key)!);
+            } else {
+              newAttrKeys.push(key);
             }
-            capturedPrev = true;
           }
+        }
 
-          const updatedAttrPairs = node.setAttrs(attributes, editedAt);
-          const affectedAttrs = updatedAttrPairs.reduce(
-            (acc: { [key: string]: string }, write) => {
-              if (!write.installed) {
-                return acc;
-              }
+        const writes = node.setAttrs(attributes, editedAt);
+        const affectedAttrs: { [key: string]: string } = {};
+        for (const write of writes) {
+          if (write.installed) {
+            const key = write.installed.getKey();
+            affectedAttrs[key] = attrs[key];
+          }
+          accAttrWrite(write, node, !node.isRemoved, pairs, size);
+        }
 
-              acc[write.installed.getKey()] = attrs[write.installed.getKey()];
-              return acc;
-            },
-            {},
-          );
-
-          const parentOfNode = node.parent!;
-          const previousNode = node.prevSibling || node.parent!;
-
-          // A tombstoned node is not part of the rendered document, and
-          // `toIndex` on one yields a zero-width range that means nothing to
-          // an editor. The text half makes the same exclusion.
-          if (Object.keys(affectedAttrs).length > 0 && !node.isRemoved) {
+        // A tombstoned node is not part of the rendered document, and
+        // `toIndex` on one yields a zero-width range that means nothing to
+        // an editor. The text half makes the same exclusion.
+        if (Object.keys(affectedAttrs).length > 0 && !node.isRemoved) {
+          const range = this.styleChangeRange(node);
+          if (range) {
             changes.push({
               type: TreeChangeType.Style,
-              from: this.toIndex(parentOfNode, previousNode),
-              to: this.toIndex(node, node),
-              fromPath: this.toPath(parentOfNode, previousNode),
-              toPath: this.toPath(node, node),
+              ...range,
               actor: editedAt.getActorID(),
               value: affectedAttrs,
             });
           }
-
-          for (const write of updatedAttrPairs) {
-            accAttrWrite(write, node, !node.isRemoved, pairs, size);
-          }
-
-          // Propagate style to unknown split siblings so that a
-          // style operation whose range was determined before the
-          // split also covers the right part of the split.
-          if (tokenType === TokenType.Start && versionVector !== undefined) {
-            let current: CRDTTreeNode = node;
-            const walker = new InsNextWalker();
-            walker.visit(current);
-            while (current.insNextID) {
-              const next = this.findFloorNode(current.insNextID);
-              if (!next || next.isText) {
-                break;
-              }
-              // Stop on a chain that loops back on itself; see InsNextWalker.
-              if (!walker.visit(next)) {
-                break;
-              }
-              if (ticketKnown(versionVector, next.id.getCreatedAt())) {
-                break;
-              }
-              const siblingPairs = next.setAttrs(attributes, editedAt);
-              const siblingAffectedAttrs = siblingPairs.reduce(
-                (acc: { [key: string]: string }, write) => {
-                  if (write.installed) {
-                    acc[write.installed.getKey()] =
-                      attrs[write.installed.getKey()];
-                  }
-                  return acc;
-                },
-                {},
-              );
-              if (Object.keys(siblingAffectedAttrs).length > 0) {
-                const parentOfNext = next.parent!;
-                const previousNext = next.prevSibling || parentOfNext;
-                changes.push({
-                  type: TreeChangeType.Style,
-                  from: this.toIndex(parentOfNext, previousNext),
-                  to: this.toIndex(next, next),
-                  fromPath: this.toPath(parentOfNext, previousNext),
-                  toPath: this.toPath(next, next),
-                  actor: editedAt.getActorID(),
-                  value: siblingAffectedAttrs,
-                });
-              }
-              for (const write of siblingPairs) {
-                accAttrWrite(write, next, !next.isRemoved, pairs, size);
-              }
-              current = next;
-            }
-          }
         }
-      },
-    );
+      });
+    }
 
     pairs.push(...this.drainPendingGCPairs());
 
@@ -2054,185 +2750,102 @@ export class CRDTTree extends CRDTElement implements GCParent {
     versionVector?: VersionVector,
   ): [Array<GCPair>, Array<TreeChange>, DocSize, Map<string, string>] {
     const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
-
-    const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
+    const [targets, diff] = this.styleTargets(
       range[0],
-      editedAt,
-      'range',
-    );
-    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
       range[1],
       editedAt,
-      'range',
-    );
-
-    addDataSizes(size.live, diffTo, diffFrom);
-
-    // skipActorID for the same reason as edit's Phase 2: a same-boundary
-    // empty run has to resolve here the way the split loop resolves it.
-    const styleActorID = editedAt.getActorID();
-    const fromLeft =
-      fromLeftRaw !== fromParent
-        ? this.advancePastUnknownSplitSiblings(
-            fromLeftRaw,
-            versionVector,
-            false,
-            styleActorID,
-          )
-        : fromLeftRaw;
-    const toLeft =
-      toLeftRaw !== toParent
-        ? this.advancePastUnknownSplitSiblings(
-            toLeftRaw,
-            versionVector,
-            false,
-            styleActorID,
-          )
-        : toLeftRaw;
-
-    const recovery = this.reversedFromAnchorRecovery(
-      range[0],
-      fromParent,
-      fromLeft,
-      toParent,
-      toLeft,
       versionVector,
     );
-    const [traverseFromParent, traverseFromLeft] = recovery
-      ? [recovery.fromParent, recovery.fromLeft]
-      : [fromParent, fromLeft];
-    const shouldSkipToken = this.styleSkipPredicate(
-      range[1],
-      versionVector,
-      recovery?.isInterloper,
-    );
+    addDataSizes(size.live, diff);
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
     const prevAttributes = new Map<string, string>();
-    let capturedPrev = false;
-    this.traverseInPosRange(
-      traverseFromParent,
-      traverseFromLeft,
-      toParent,
-      toLeft,
-      ([node, tokenType]) => {
-        if (node.canStyle(versionVector) && attributesToRemove) {
-          if (shouldSkipToken(node, tokenType)) {
-            return;
-          }
-          if (!node.attrs) {
-            node.attrs = new RHT();
-          }
+    if (attributesToRemove) {
+      targets.forEach((node, i) => {
+        if (!node.attrs) {
+          node.attrs = new RHT();
+        }
 
-          // Capture previous attribute values from first styled node
-          // for reverse operation (undo).
-          if (!capturedPrev) {
-            for (const key of attributesToRemove) {
-              if (node.attrs.has(key)) {
-                prevAttributes.set(key, node.attrs.get(key)!);
-              }
-            }
-            capturedPrev = true;
-          }
-
-          // `canStyle` admits a node removed concurrently with this change,
-          // so `nodeIsLive` is the third question `attrGCPair` asks.
-          const nodeIsLive = !node.isRemoved;
-          for (const value of attributesToRemove) {
-            let wasLive = node.attrs.has(value);
-            const { gcNodes, valueDropped } = node.attrs.remove(
-              value,
-              editedAt,
-            );
-
-            // The tombstone is not charged for its value; those bytes leave
-            // whichever side was holding them. See `attrGCPair` for the split.
-            subDataSize(nodeIsLive ? size.live : size.gc, valueDropped);
-
-            for (const rhtNode of gcNodes) {
-              pairs.push(attrGCPair(node, rhtNode, wasLive, nodeIsLive));
-              // Only the node replacing the live value takes a size out of
-              // live; a second one in the same call is the tombstone it
-              // superseded.
-              wasLive = false;
-            }
-          }
-
-          const parentOfNode = node.parent!;
-          const previousNode = node.prevSibling || node.parent!;
-
-          // See `style`: a tombstoned node reports no change to editors.
-          if (!node.isRemoved) {
-            changes.push({
-              actor: editedAt.getActorID()!,
-              type: TreeChangeType.RemoveStyle,
-              from: this.toIndex(parentOfNode, previousNode),
-              to: this.toIndex(node, node),
-              fromPath: this.toPath(parentOfNode, previousNode),
-              toPath: this.toPath(node, node),
-              value: attributesToRemove,
-            });
-          }
-
-          // Propagate remove-style to unknown split siblings.
-          if (tokenType === TokenType.Start && versionVector !== undefined) {
-            let current: CRDTTreeNode = node;
-            const walker = new InsNextWalker();
-            walker.visit(current);
-            while (current.insNextID) {
-              const next = this.findFloorNode(current.insNextID);
-              if (!next || next.isText) {
-                break;
-              }
-              // Stop on a chain that loops back on itself; see InsNextWalker.
-              if (!walker.visit(next)) {
-                break;
-              }
-              if (ticketKnown(versionVector, next.id.getCreatedAt())) {
-                break;
-              }
-              if (!next.attrs) {
-                next.attrs = new RHT();
-              }
-              let removedAny = false;
-              const nextIsLive = !next.isRemoved;
-              for (const value of attributesToRemove) {
-                let wasLive = next.attrs.has(value);
-                const { gcNodes, valueDropped } = next.attrs.remove(
-                  value,
-                  editedAt,
-                );
-                removedAny = removedAny || gcNodes.length > 0;
-                subDataSize(nextIsLive ? size.live : size.gc, valueDropped);
-                for (const rhtNode of gcNodes) {
-                  pairs.push(attrGCPair(next, rhtNode, wasLive, nextIsLive));
-                  wasLive = false;
-                }
-              }
-              if (removedAny) {
-                const parentOfNext = next.parent!;
-                const previousNext = next.prevSibling || parentOfNext;
-                changes.push({
-                  actor: editedAt.getActorID()!,
-                  type: TreeChangeType.RemoveStyle,
-                  from: this.toIndex(parentOfNext, previousNext),
-                  to: this.toIndex(next, next),
-                  fromPath: this.toPath(parentOfNext, previousNext),
-                  toPath: this.toPath(next, next),
-                  value: attributesToRemove,
-                });
-              }
-              current = next;
+        // Capture previous attribute values from the first styled node for
+        // the reverse operation (undo).
+        if (i === 0) {
+          for (const key of attributesToRemove) {
+            if (node.attrs.has(key)) {
+              prevAttributes.set(key, node.attrs.get(key)!);
             }
           }
         }
-      },
-    );
+
+        // `canStyle` admits a node removed concurrently with this change,
+        // so `nodeIsLive` is the third question `attrGCPair` asks.
+        const nodeIsLive = !node.isRemoved;
+        let removedAny = false;
+        for (const key of attributesToRemove) {
+          let wasLive = node.attrs.has(key);
+          const { gcNodes, valueDropped } = node.attrs.remove(key, editedAt);
+          removedAny = removedAny || gcNodes.length > 0;
+
+          // The tombstone is not charged for its value; those bytes leave
+          // whichever side was holding them. See `attrGCPair` for the split.
+          subDataSize(nodeIsLive ? size.live : size.gc, valueDropped);
+
+          for (const rhtNode of gcNodes) {
+            pairs.push(attrGCPair(node, rhtNode, wasLive, nodeIsLive));
+            // Only the node replacing the live value takes a size out of
+            // live; a second one in the same call is the tombstone it
+            // superseded.
+            wasLive = false;
+          }
+        }
+
+        // See `style`: a tombstoned node reports no change to editors, and
+        // neither does a node that held none of the attributes -- the
+        // `style` half reports only what it actually wrote, so a removal
+        // that took nothing off is the same no-op and stays silent.
+        if (nodeIsLive && removedAny) {
+          const range = this.styleChangeRange(node);
+          if (range) {
+            changes.push({
+              type: TreeChangeType.RemoveStyle,
+              ...range,
+              actor: editedAt.getActorID(),
+              value: attributesToRemove,
+            });
+          }
+        }
+      });
+    }
 
     pairs.push(...this.drainPendingGCPairs());
 
     return [pairs, changes, size, prevAttributes];
+  }
+
+  /**
+   * `styleChangeRange` returns the index and path range a style change on
+   * the given node reports to editors, or undefined when the node is not in
+   * the document.
+   *
+   * The targets come from walks over ids -- split families, merge lineage --
+   * so one can be a node that is live by `isRemoved` but detached from the
+   * tree, with no parent. `prevSibling` dereferences `parent!` and would
+   * throw on it; a node with no parent has no place in the rendered
+   * document to report either, so the caller reports nothing.
+   */
+  private styleChangeRange(node: CRDTTreeNode) {
+    const parent = node.parent;
+    if (!parent) {
+      return undefined;
+    }
+
+    const previous = node.prevSibling || parent;
+    return {
+      from: this.toIndex(parent, previous),
+      to: this.toIndex(node, node),
+      fromPath: this.toPath(parent, previous),
+      toPath: this.toPath(node, node),
+    };
   }
 
   /**
@@ -2258,6 +2871,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<TreeRestoreSpan>,
     number,
     number,
+    Array<CRDTTreeNode>,
+    Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -2564,19 +3179,32 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 03-1. Propagate deletes to children moved by prior merges.
     // When a merge-source node is fully deleted (not a merge boundary),
     // its former children in the merge target should also be deleted.
-    // Skip when `mergedInto` points to the merge destination (concurrent
-    // merge). Compare against the resolved `dest`, not `fromParent`: the
-    // forwarding pointers above point at the flattened target (§6.3), so a
-    // chained merge (dest !== fromParent) must recognize a concurrent-merge
-    // boundary by `dest`. The list of moved children is recomputed on the
-    // fly from the merge target's children filtered by `mergedFrom`.
+    // Compare against the resolved `dest`, not `fromParent`: the forwarding
+    // pointers above point at the flattened target (§6.3), so a chained
+    // merge (dest !== fromParent) must recognize a concurrent-merge boundary
+    // by `dest`. The list of moved children is recomputed on the fly from
+    // the merge target's children filtered by `mergedFrom`.
+    //
+    // The boundaries the edit's own positions name are resolved lazily: §1.1
+    // redirects a position away from a merged-away parent, so fromParent
+    // and toParent no longer say which boundaries the edit asked for.
+    let declared: Set<CRDTTreeNode> | undefined;
     for (const node of nodesToBeRemoved) {
-      if (
-        !node.mergedInto ||
-        toBeMergedNodes.includes(node) ||
-        node.mergedInto.equals(dest.id)
-      ) {
+      if (!node.mergedInto || toBeMergedNodes.includes(node)) {
         continue;
+      }
+      // A source whose children already sit in this edit's own destination
+      // stands for a merge the edit itself asks for only when one of the
+      // edit's positions named that source: the range then stops at the
+      // source instead of covering it, and keeping the children is what
+      // makes the two replicas agree (§6.2). A source the range merely spans
+      // is a plain delete of everything that was inside it, so its children
+      // are tombstoned wherever the concurrent merge left them.
+      if (node.mergedInto.equals(dest.id)) {
+        declared ??= this.declaredBoundaries(range[0], range[1]);
+        if (declared.has(node)) {
+          continue;
+        }
       }
       const mergeTarget = this.findFloorNode(node.mergedInto);
       if (!mergeTarget) {
@@ -2615,6 +3243,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 2 * splitLevel, so a split whose product is born tombstoned, or one the
     // tree has no room for, reports the growth it really produced.
     const sizeBeforeSplit = this.getSize();
+    // The `[removed element, its replacement]` pairs this split produced —
+    // see `mergeSourceOf`. Reported so a replica applying the split, its own
+    // or a peer's, can re-point whatever it recorded against the removed one.
+    const splitRecreatedIDs: Array<[CRDTTreeNodeID, CRDTTreeNodeID]> = [];
     if (splitLevel > 0) {
       let splitCount = 0;
       let parent = fromParent;
@@ -2652,13 +3284,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
           editedAt,
           versionVector,
         );
-        const [, splitDiff] = target.split(
+        const [splitNode, splitDiff] = target.split(
           this,
           offset,
           issueTimeTicket,
           versionVector,
         );
         addDataSizes(diff, splitDiff);
+        const recreated = splitNode && this.mergeSourceOf(splitNode, target);
+        if (recreated) {
+          splitRecreatedIDs.push([recreated, splitNode!.id]);
+        }
 
         left = parent;
         parent = parent.parent! as CRDTTreeNode;
@@ -2819,6 +3455,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
       spansComplete ? insertedSpans.reverse() : [],
       insertedContentSize,
       splitSize,
+      // The merge-boundary elements this edit removed — the ones whose
+      // children it moved into the merge target, and so the ones a split
+      // reversing it has to re-create. A strict subset of `nodesToBeRemoved`,
+      // which also holds whole elements deleted inside the range, their
+      // cascade-deleted descendants and nodes already tombstoned.
+      toBeMergedNodes,
+      splitRecreatedIDs,
     ];
   }
 
@@ -2844,6 +3487,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     Array<TreeRestoreSpan>,
     number,
     number,
+    Array<CRDTTreeNode>,
+    Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
@@ -2878,6 +3523,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
     path: Array<number>,
   ): ReturnType<typeof this.indexTree.pathToTreePos> {
     return this.indexTree.pathToTreePos(path);
+  }
+
+  /**
+   * `purgeBarrierAt` implements `GCParent.purgeBarrierAt`. `findNodesAndSplitText` walks the
+   * parent's children, removed ones included, advancing while the next sibling
+   * was created after the incoming edit; a tombstoned sibling with an older
+   * ticket ends that walk. Purging detaches it from the parent, so the next
+   * sibling inherits the decision and must be causally stable first.
+   */
+  public purgeBarrierAt(node: GCChild): TimeTicket | undefined {
+    if (!(node instanceof CRDTTreeNode) || !node.parent) {
+      return;
+    }
+
+    // Read the children in place: `allChildren` copies, and this runs once
+    // per stable tombstone on every collection pass.
+    const siblings = node.parent._children;
+    const offset = siblings.indexOf(node);
+    if (offset < 0) {
+      return;
+    }
+    return siblings[offset + 1]?.id.getCreatedAt();
   }
 
   /**
@@ -2930,14 +3597,31 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * - `pairs`: pending GC pairs for born-removed remainders split off a removed
    *   straddler (caller registers them BEFORE unregistering the untombstoned);
    * - `diff`: the metadata overhead of splitting live straddlers (caller `acc`s
-   *   it to Live).
+   *   it to Live);
+   * - `edits`: one insertion per node that became visible, in the order it
+   *   did. Each is measured right after its node comes back, so applying them
+   *   one after another reproduces the result.
    */
   public restore(
     spans: Array<TreeRestoreSpan>,
-  ): [Array<CRDTTreeNode>, Array<CRDTTreeNode>, Array<GCPair>, DataSize] {
+    editedAt: TimeTicket,
+  ): [
+    Array<CRDTTreeNode>,
+    Array<CRDTTreeNode>,
+    Array<GCPair>,
+    DataSize,
+    Array<TreeVisibleEdit>,
+  ] {
     const untombstoned: Array<CRDTTreeNode> = [];
     const recreated: Array<CRDTTreeNode> = [];
     const diff: DataSize = { data: 0, meta: 0 };
+    const changes: Array<TreeVisibleEdit> = [];
+    const revived = (node: CRDTTreeNode) => {
+      const change = this.makeInsertionChange(node, editedAt);
+      if (change) {
+        changes.push(change);
+      }
+    };
 
     for (const span of spans) {
       if (!span.isText) {
@@ -2946,6 +3630,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (node.isRemoved) {
             node.unremove();
             untombstoned.push(node);
+            revived(node);
           }
           continue;
         }
@@ -2956,6 +3641,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         );
         if (created) {
           recreated.push(created);
+          revived(created);
         }
         continue;
       }
@@ -2988,6 +3674,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (target.isRemoved) {
             target.unremove();
             untombstoned.push(target);
+            revived(target);
           }
           cursor = overlapEnd;
           if (overlapEnd >= pieceEnd) pieceIdx++;
@@ -2996,6 +3683,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const created = this.recreateFromSpan(span, cursor, gapEnd - cursor);
           if (created) {
             recreated.push(created);
+            revived(created);
           }
           cursor = gapEnd;
         }
@@ -3007,7 +3695,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // unregistering the un-tombstoned targets, so a target that was itself a
     // split-born piece is walked gc->live correctly (mirrors the Text path).
     const pairs = this.drainPendingGCPairs();
-    return [untombstoned, recreated, pairs, diff];
+    return [untombstoned, recreated, pairs, diff, changes];
   }
 
   /**
@@ -3045,14 +3733,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * straddles a span boundary is split at that boundary so only the in-span
    * range is re-removed (symmetric with restore's isolate, so undo/redo stay
    * mirror images and segmentation stays convergent). Returns the GC pairs for
-   * the newly tombstoned nodes and the live-split metadata overhead.
+   * the newly tombstoned nodes, the live-split metadata overhead, and one
+   * deletion per visible node it removed, each measured right before the
+   * removal so they apply one after another.
    */
   public retombstone(
     spans: Array<TreeRestoreSpan>,
     executedAt: TimeTicket,
-  ): [Array<GCPair>, DataSize] {
+  ): [Array<GCPair>, DataSize, Array<TreeVisibleEdit>] {
     const pairs: Array<GCPair> = [];
     const diff: DataSize = { data: 0, meta: 0 };
+    const changes: Array<TreeVisibleEdit> = [];
     for (const span of spans) {
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
@@ -3069,12 +3760,95 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const to = Math.min(piece.id.getOffset() + piece.value.length, end);
           target = this.isolateTextRange(piece, from, to, diff);
         }
+        // Measure while `target` is still visible.
+        const range = this.visibleRangeOf(target);
         if (target.remove(executedAt)) {
           pairs.push({ parent: this, child: target });
+          if (range) {
+            const [from, to, fromPath, toPath] = range;
+            changes.push({
+              change: {
+                type: TreeChangeType.Content,
+                from,
+                to,
+                fromPath,
+                toPath,
+                actor: executedAt.getActorID(),
+              },
+              insertedSize: 0,
+            });
+          }
         }
       }
     }
-    return [pairs, diff];
+    return [pairs, diff, changes];
+  }
+
+  /**
+   * `visibleRangeOf` returns the index range `node` covers and its paths, or
+   * undefined when it or one of its ancestors is removed and so takes no room
+   * in the index.
+   */
+  private visibleRangeOf(
+    node: CRDTTreeNode,
+  ): [number, number, Array<number>, Array<number>] | undefined {
+    for (let n: CRDTTreeNode | undefined = node; n; n = n.parent) {
+      if (n.isRemoved) {
+        return;
+      }
+    }
+    if (!node.parent) {
+      return;
+    }
+
+    // `toIndex`/`indexToPath` throw on a tree they cannot walk (`invalid pos`,
+    // `out of index range`). Both run here inside `TreeEditOperation.execute`,
+    // which for a remote pack is driven from `Change.execute` off spans that
+    // arrived from the wire: a throw there aborts the pack, the checkpoint
+    // never advances, and the document is wedged for good on every replica
+    // that receives it. Reporting the range is a courtesy to subscribers, not
+    // part of convergence -- the CRDT state is already settled by the time we
+    // measure -- so a tree we cannot measure degrades to "no position
+    // reported", exactly as a node under a removed ancestor does above.
+    try {
+      const to = this.toIndex(node.parent, node);
+      const from = to - node.paddedSize();
+      return [from, to, this.indexToPath(from), this.indexToPath(to)];
+    } catch (err) {
+      logger.warn(`[TR] failed to measure restored node: ${err}`);
+      return;
+    }
+  }
+
+  /**
+   * `makeInsertionChange` describes `node` becoming visible as an insertion
+   * at its current position. A node still hidden under a removed ancestor
+   * produces nothing.
+   */
+  private makeInsertionChange(
+    node: CRDTTreeNode,
+    editedAt: TimeTicket,
+  ): TreeVisibleEdit | undefined {
+    const range = this.visibleRangeOf(node);
+    if (!range) {
+      return;
+    }
+
+    const [from, to, path] = range;
+    return {
+      change: {
+        type: TreeChangeType.Content,
+        from,
+        to: from,
+        fromPath: path,
+        toPath: path,
+        actor: editedAt.getActorID(),
+        value: [toTreeNode(node)],
+      },
+      // The change reports a collapsed range, as every insertion does, so the
+      // size it added is not readable from it; reconciliation needs it.
+      insertedSize: to - from,
+    };
   }
 
   /**
@@ -3148,6 +3922,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
           span.attrs?.deepcopy(),
         );
 
+    // The span's attributes are a deep copy of the node's RHT, tombstones
+    // included -- they have to be, or a recreated node would resolve a
+    // concurrent style differently from a replica that never lost it. Each
+    // copied tombstone is a fresh piece of garbage that no removal path
+    // produced: without a registration it sits in the RHT forever, uncounted
+    // and unpurgeable, and `getDataSize` excludes it so the node's own charge
+    // does not cover it either. `getGCPairs` marks each `gcOnlySize`, which is
+    // what sends it to gc alone. Booked by `attach` for both a live and a
+    // removed parent, as Go's `recreateFromSpan` does.
+    const recreatedAttrPairs = span.isText ? [] : node.getGCPairs();
+
     const siblings = parent.allChildren;
 
     // `attach` finishes every anchor rung below: register the node, then decide
@@ -3180,17 +3965,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // carries `gcOnlySize`: charge the size to `docSize.gc` only and leave live
     // alone. Subtracting from live, as a pair without `gcOnlySize` would, drives
     // live negative by exactly this node's size.
-    //
-    // This is where the JS shape differs from Go's and the mirror has to be
-    // written differently to reach the same numbers. Go splits the two halves:
-    // `RegisterGCPair` only adds to GC, and the live-to-gc move lives in
-    // `AdjustDiffForGCPair`, which the restore path deliberately does not call
-    // for its pairs (operations/tree_edit.go). JS folds both halves into
-    // `registerGCPair`, so the only way to get "GC only, live untouched" here is
-    // `gcOnlySize`. `purge` subtracts `child.getDataSize()` from gc on both
-    // sides, so charging exactly that nets gc back to zero on collection.
+    // Go's `RegisterGCPair` takes the same `GCOnlySize`, so both SDKs reach
+    // the same numbers the same way. `purge` subtracts `child.getDataSize()`
+    // from gc, so charging exactly that nets gc back to zero on collection.
     const attach = (): CRDTTreeNode | undefined => {
       this.registerNode(node);
+      for (const pair of recreatedAttrPairs) {
+        this.pendingGCPairs.push(pair);
+      }
       if (parent.isRemoved) {
         node.remove(parent.removedAt!);
         this.pendingGCPairs.push({
@@ -3301,11 +4083,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const pairs: Array<GCPair> = [];
     // NOTE: `traverse` only visits visible children, which never includes
     // removed nodes. `traverseAll` is required to register tombstones
-    // (including pieces split off a tombstoned node) after snapshot load.
-    // These pairs carry `gcOnlySize` because `getDataSize` of the freshly
-    // built root only counted visible nodes into docSize.live.
+    // (including pieces split off a tombstoned node) when the tree is
+    // registered: snapshot load, a Set/Add/ArraySet payload, an undo re-set.
+    // These pairs carry `gcOnlySize` because the tree's registered live size
+    // only counted visible nodes.
     this.indexTree.traverseAll((node) => {
-      if (node.getRemovedAt()) {
+      // The walk includes the root, and purging is detachment from a parent,
+      // which the root does not have. It is never legitimately removed, but a
+      // crafted Set/Add payload can mark it so; leave it unbooked, as Go does.
+      if (node.getRemovedAt() && node.parent) {
         pairs.push({
           parent: this,
           child: node,
