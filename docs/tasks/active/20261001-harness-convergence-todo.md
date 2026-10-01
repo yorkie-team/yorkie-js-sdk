@@ -182,15 +182,15 @@ any failure after that is refunded.
 
 ### Phase C: keep verdicts stable across rounds (D3, D4)
 
-- [x] C1. ~~Dropped~~ (see the PR 2 review). Persist lane decisions, keyed by `finding-key`, in the review
-  state. A finding demoted in an earlier round stays demoted unless
-  `since..head` touches the lines it cites. Re-raising it as blocking then
-  needs new evidence.
-- [x] C2. Make `detectFlips` count both directions and surface
-  clean→blocking-on-unchanged-diff as a harness defect in the summary, not
-  as a review result.
-- [x] C3. Only the C2 part: the escalation test. Tests: replay rounds 4 and 5 of #1426 (same finding, moved
-  merge-base) and assert that the lane holds.
+- [x] C1. **Dropped.** The plan was to keep earlier demotions across
+  rounds. Measured on #1426, it would not have held the flip (see the PR 2
+  review).
+- [x] C2. Make `detectFlips` also report adjacent clean→blocking transitions
+  (`escalations`), rendered as advisory in the summary. It does not compare
+  diffs. On an unchanged diff, carry means no lens re-runs, so no escalation
+  can come from one.
+- [x] C3. Test that a clean→blocking transition is reported as an
+  escalation, separately from `flips`, and that infra rounds are skipped.
 
 ### Phase D: fix claims need evidence, and rounds must not widen the PR (D7, D8)
 
@@ -199,8 +199,9 @@ any failure after that is refunded.
   attach that fact to every `--fixed` claim in the commit and send it to
   the adjudicator.
 - [x] D2. Add a fixer prompt rule: a test that shows the finding still
-  reproduces must not be deleted. Commit it as `it.fails`/`it.todo` with
-  the reason and report the item `--skipped`.
+  reproduces must not be deleted. Keep it as `it.fails` (which still runs)
+  with a comment naming the finding, and report the item `--skipped`.
+  `.skip`/`.todo` count as removals.
 - [ ] D3. **Split into a follow-up task.** It needs a new command and a human
   acknowledgement flow. Scope: add a `defer` outcome for a finding about behaviour the PR
   did not set out to change. The fixer files it with a proposed follow-up
@@ -210,13 +211,19 @@ any failure after that is refunded.
 - [x] D4. design-fit without a spec: scope-creep findings are advisory,
   and fit-with-codebase findings still gate (Decision 3). Update
   `lenses/design-fit.md` with an explicit no-spec section.
-- [x] D5. Tests: a fixture of the `e6900da` shape (a test added and then
-  deleted in the same fix round) is flagged.
+- [x] D5. Tests: a test committed and then deleted inside one fix round is
+  flagged (`aggregateCommits`). `e6900da` itself is not: that test was never
+  committed, as recorded in the review.
 
 ### Phase E: process and docs
 
-- [x] E1. Record the decisions above in `docs/design/agent-harness.md`:
-  carry-forward, infra refunds, lane persistence and scope deferral.
+- [x] E1. Record in `docs/design/agent-harness.md`:
+  - What shipped: carry, reuse, the credential probe, infra pages, removal
+    evidence, no-spec design-fit, escalations.
+  - The alternatives that were dropped: the main-overlap carry rule, infra
+    refunds, keeping demotions across rounds (C1), and retrying the fixer
+    after it fails.
+  - The scope `defer` flow (D3) is a follow-up and is not recorded there.
 - [x] E2. Until A lands, add a caution to the `maintainer-merge` skill:
   `update-branch` on an `agent:managed` PR re-runs the panel and can drop
   `agent:ready`, so bring main in right before the merge instead.
