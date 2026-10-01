@@ -12,7 +12,7 @@ pnpm lint                    # ESLint with auto-fix (zero warnings enforced)
 
 # Tests require a running Yorkie server:
 docker compose -f docker/docker-compose.yml up --build -d
-pnpm sdk test                # Run all SDK tests
+pnpm sdk test                # Run all SDK tests (waits for the server first)
 pnpm sdk test test/integration/tree_test.ts  # Specific test file
 ```
 

@@ -1350,15 +1350,22 @@ function fromTreeNodesWhenEdit(
     }
 
     // Operation content is fully client-controlled and is always freshly
-    // created by the editing client, so it can never be a split product nor a
-    // merge product. Drop the split-sibling links AND the merge lineage the
-    // wire format carries anyway: the tree follows both as trusted structural
-    // pointers once `edit` registers these nodes in nodeMapByID -- a stamped
-    // `mergedFrom` steers `declaredBoundaries` off the inserted node into an
-    // element the position never named. No producer sets either on edit
-    // content, so conforming traffic decodes to the same tree as before.
-    treeNode.dropSplitLinks();
-    treeNode.dropMergeStamps();
+    // created by the editing client, so it can never be a split product,
+    // carry a merge lineage, or arrive already tombstoned -- `edit` stamps
+    // the lineage on the content it inserts from the merge parent it
+    // resolves locally, and tombstones it itself when the parent it lands in
+    // is removed. Drop the engine-only links and the tombstones the wire
+    // format carries anyway: the tree follows the links as trusted
+    // structural pointers once `edit` registers these nodes in nodeMapByID,
+    // and a node born tombstoned under a live parent is counted as live
+    // content that no GC pair will ever collect. The ATTRIBUTE tombstones
+    // `fromRHT` decodes verbatim are left alone -- the undo copy-reinsert
+    // path produces genuine ones, and stripping them here would diverge from
+    // every other producer and decoder of the same bytes. `CRDTTree.edit`
+    // books them into gc instead, so a crafted one is counted and
+    // collectable; see `clearTombstones`.
+    treeNode.dropEngineOnlyLinks();
+    treeNode.clearTombstones();
     treeNodes.push(treeNode);
   }
 

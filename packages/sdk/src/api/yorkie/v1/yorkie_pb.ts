@@ -261,6 +261,12 @@ export type WatchRequest = Message<"yorkie.v1.WatchRequest"> & {
   clientId: string;
 
   /**
+   * resources lists what the stream delivers. It must hold between 1 and 100
+   * descriptors, and the server must recognize every one of them: a request
+   * naming a resource the server cannot subscribe to is rejected whole rather
+   * than served in part, so a client never watches fewer resources than it
+   * asked for without being told.
+   *
    * @generated from field: repeated yorkie.v1.ResourceDescriptor resources = 2;
    */
   resources: ResourceDescriptor[];

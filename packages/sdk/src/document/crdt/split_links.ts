@@ -32,10 +32,10 @@ import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
  * pointers all the same. Drop them, for the same reason
  * `fromTreeNodesWhenEdit` drops them from operation content.
  *
- * Merge stamps (mergedFrom/mergedAt/mergedInto) are left alone: unlike the
- * split links they are read by the server too, so dropping them here only on
- * the JS side would make a restored element differ between replicas. See
- * `CRDTTreeNode.dropSplitLinks`.
+ * Merge stamps (mergedFrom/mergedAt/mergedInto) are left alone: unlike
+ * TreeEdit content, an element payload can be a copy of real document state,
+ * such as the tree a reverse of Remove restores, and that tree legitimately
+ * carries the merges it underwent. See `CRDTTreeNode.dropSplitLinks`.
  *
  * Both ways into the document have to agree: the converter calls this on the
  * element bytes it decodes, and `executeUndoRedo` calls it on the copy a
