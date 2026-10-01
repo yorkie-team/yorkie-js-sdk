@@ -47,6 +47,19 @@ head — `gh api repos/yorkie-team/yorkie-js-sdk/commits/<sha>/check-runs` —
 before merging. `agent-review-docs` and `agent-deferred-findings` finish
 `neutral` normally; `build (22.x)` and `test` are the ones that must pass.
 
+**On an `agent:managed` PR the new head re-runs the panel**, and the panel is
+a sample. A merge of main that leaves the PR's own diff unchanged (same
+`git patch-id --stable`) carries an approval instead: the lens checks on the
+new head read "carried from <sha>" and `agent:ready` stays. A merge that
+touched the PR's hunks or their context, such as a conflict resolution, is
+a full review again. With the fix budget spent, that review can move a ready
+PR to `agent:blocked` on code nobody changed. That happened on #1426 before
+carry existed. So check the panel's verdict on the new head, not only CI,
+before you merge.
+
+`@claude rerun` on a head that already has verdicts reuses them. To ask for a
+fresh review, use `@claude rerun review`.
+
 ## PRs touching `.github/workflows/*`
 
 `gh pr merge` fails with *refusing to allow an OAuth App to create or update

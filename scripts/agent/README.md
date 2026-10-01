@@ -44,6 +44,7 @@ monorepo. Everything else is as vendored.
 | `agent-iterate-ci.yml` | Diagnoses from the failed-step log only: this `ci.yml` has no lane reports |
 | `agent-fix.yml`, `agent-loop.yml`, `agent-scripts.yml` | Comments describe this `ci.yml`; decline messages (with `agent-rerun.yml`) link yorkie's design doc by URL |
 | `npm-publish.yml`, `devtools-publish.yml` | Refuse a release authored by `yorkie-team-agent[bot]`, as yorkie's `docker-publish.yml` does |
+| `review-state.mjs`, `review-scope.mjs`, `carry-verdicts.mjs`, `rounds.mjs`, `fix-outcome.mjs`, `pick-fix-credential.mjs`, `agent-review-panel.yml`, `agent-rerun.yml` | **Ahead of yorkie**, not adapted from it: carry an approval across a diff-neutral head, reuse a same-head verdict, probe the fixer credential, refund infra-failed rounds (`docs/tasks/active/20261001-harness-convergence-todo.md`). A sync must keep these, and they are to be ported to yorkie and wafflebase |
 
 `agent-summarize.yml` is unchanged.
 
