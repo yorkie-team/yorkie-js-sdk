@@ -22,6 +22,8 @@ import { AddOperation } from './operation/add_operation';
 import { TimeTicket } from '../yorkie';
 import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
+import { TreeStyleOperation } from './operation/tree_style_operation';
+import { CRDTTreeNodeID } from './crdt/tree';
 
 /**
  * `HistoryOperation` is a type of history operation.
@@ -194,6 +196,40 @@ export class History<P extends Indexable> {
             op.getParentCreatedAt().compare(parentCreatedAt) === 0
           ) {
             op.reconcileOperation(rangeFrom, rangeTo, contentLength);
+          }
+        }
+      }
+    };
+    replace(this.undoStack);
+    replace(this.redoStack);
+  }
+
+  /**
+   * `reconcileTreeNodeID` re-points the tree edits and tree styles in both
+   * stacks that target the tree `parentCreatedAt` names, from `prev` to
+   * `curr`. Used when a split re-creates an element under a new id, the tree
+   * counterpart of `reconcileCreatedAt`.
+   *
+   * Scoped to one tree element, like `reconcileTextEdit` and
+   * `reconcileTreeEdit`: a node id is only unique within its own tree, and the
+   * pairs reach here from a peer's change as well as this replica's own, so an
+   * unscoped sweep would let one tree's split re-point entries recorded
+   * against a different tree.
+   */
+  public reconcileTreeNodeID(
+    parentCreatedAt: TimeTicket,
+    prev: CRDTTreeNodeID,
+    curr: CRDTTreeNodeID,
+  ): void {
+    const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
+      for (const ops of stack) {
+        for (const op of ops) {
+          if (
+            (op instanceof TreeEditOperation ||
+              op instanceof TreeStyleOperation) &&
+            op.getParentCreatedAt().compare(parentCreatedAt) === 0
+          ) {
+            op.reconcileNodeID(prev, curr);
           }
         }
       }
