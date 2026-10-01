@@ -6,7 +6,21 @@
   "publishConfig": {
     "access": "public",
     "main": "./dist/yorkie-js-prosemirror.js",
-    "typings": "./dist/yorkie-js-prosemirror.d.ts"
+    "module": "./dist/yorkie-js-prosemirror.es.mjs",
+    "typings": "./dist/yorkie-js-prosemirror.d.ts",
+    "exports": {
+      ".": {
+        "import": {
+          "types": "./dist/yorkie-js-prosemirror.d.mts",
+          "default": "./dist/yorkie-js-prosemirror.es.mjs"
+        },
+        "require": {
+          "types": "./dist/yorkie-js-prosemirror.d.ts",
+          "default": "./dist/yorkie-js-prosemirror.js"
+        }
+      },
+      "./package.json": "./package.json"
+    }
   },
   "files": [
     "dist",

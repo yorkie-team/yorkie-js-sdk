@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import { copyFileSync } from 'fs';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -15,7 +16,7 @@ export default defineConfig({
       fileName: (format) =>
         format === 'umd'
           ? 'yorkie-js-prosemirror.js'
-          : `yorkie-js-prosemirror.${format}.js`,
+          : 'yorkie-js-prosemirror.es.mjs',
     },
     rollupOptions: {
       external: [
@@ -48,6 +49,12 @@ export default defineConfig({
   plugins: [
     dts({
       rollupTypes: true,
+      // Node ESM resolves types per module format, so ship a .d.mts twin.
+      afterBuild: () =>
+        copyFileSync(
+          'dist/yorkie-js-prosemirror.d.ts',
+          'dist/yorkie-js-prosemirror.d.mts',
+        ),
     }),
   ],
 });
