@@ -23,10 +23,12 @@ import {
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { TreeEditOperation } from '@yorkie-js/sdk/src/document/operation/tree_edit_operation';
 import {
+  CRDTTree,
   CRDTTreeNode,
   CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { RHT } from '@yorkie-js/sdk/src/document/crdt/rht';
 import {
   InitialTimeTicket,
   TimeTicket,
@@ -108,15 +110,45 @@ describe('TreeEdit content sanitizing', () => {
     assert.equal(content.paddedSize(), 'hello'.length + 2);
   });
 
+  /**
+   * `craftMergeLineage` stamps a lineage the decoder really does derive a
+   * `mergedInto` from: `text` names its own parent as the parent a merge
+   * moved it out of, and that parent is a tombstone, which is the only shape
+   * `rebuildMergeState` plants a forwarding pointer for.
+   */
+  function craftMergeLineage(paragraph: CRDTTreeNode, text: CRDTTreeNode) {
+    paragraph.mergedFrom = CRDTTreeNodeID.of(ticket(5), 0);
+    paragraph.mergedAt = ticket(7);
+    paragraph.removedAt = ticket(6);
+    text.mergedFrom = paragraph.id;
+    text.mergedAt = ticket(7);
+  }
+
   it('should drop a merge lineage the content carries', () => {
     // Only a merge may stamp mergedFrom/mergedAt; the §1.1 redirect and the
     // §6.2 delete propagation read them as trusted structural pointers.
     const [paragraph, text] = buildContent();
-    paragraph.mergedFrom = CRDTTreeNodeID.of(ticket(5), 0);
-    paragraph.mergedAt = ticket(7);
-    // Naming its own parent, so the decoder derives a mergedInto from it.
-    text.mergedFrom = paragraph.id;
-    text.mergedAt = ticket(7);
+    craftMergeLineage(paragraph, text);
+
+    // The same bytes read by the same decoder without the sanitizer: without
+    // this the `mergedInto` assertion below would hold for a fixture the
+    // decoder never derives one from, and would keep holding if the drop were
+    // deleted.
+    const rawText = new CRDTTreeNode(
+      CRDTTreeNodeID.of(ticket(3), 0),
+      'text',
+      'hello',
+    );
+    const rawParagraph = new CRDTTreeNode(CRDTTreeNodeID.of(ticket(2), 0), 'p');
+    // `prepend`, as `fromTreeNodes` links its nodes: the constructor's child
+    // array leaves `parent` unset, and `rebuildMergeState` reads it.
+    rawParagraph.prepend(rawText);
+    craftMergeLineage(rawParagraph, rawText);
+    CRDTTree.create(rawParagraph, ticket(8));
+    assert.isTrue(
+      rawParagraph.mergedInto?.equals(rawParagraph.id),
+      'fixture does not make the decoder derive a mergedInto',
+    );
 
     const content = roundTrip(paragraph);
 
@@ -125,10 +157,44 @@ describe('TreeEdit content sanitizing', () => {
     assert.isUndefined(content.mergedAt);
     assert.isUndefined(decodedText.mergedFrom);
     assert.isUndefined(decodedText.mergedAt);
-    // The decoder derives mergedInto from mergedFrom while it builds the
-    // content, so it has to go too: a source must not keep pointing at a
-    // destination no field records any more.
+    // The decoder really does derive mergedInto from mergedFrom while it
+    // builds this content -- the guard above proves it -- so it has to go
+    // too: a source must not keep pointing at a destination no field records
+    // any more. Two halves of the sanitizer erase it, the lineage drop and
+    // `unremove` (a derived pointer only ever sits on a tombstone), and the
+    // assertion is on the end state rather than on either one.
     assert.isUndefined(content.mergedInto);
+  });
+
+  it('should drop an attribute tombstone the content carries', () => {
+    // An attribute tombstone on content nobody ever styled is storage that
+    // `getDataSize` charges to no one and the TreeEdit insert path registers
+    // no GC pair for: unbounded growth the document size cannot see.
+    const [, text] = buildContent();
+    const attrs = new RHT();
+    attrs.set('live', 'yes', ticket(2));
+    attrs.set('crafted', 'x'.repeat(64), ticket(2));
+    attrs.remove('crafted', ticket(3));
+    const paragraph = new CRDTTreeNode(
+      CRDTTreeNodeID.of(ticket(2), 0),
+      'p',
+      [text],
+      attrs,
+    );
+    assert.isTrue(
+      paragraph.attrs!.getNodeMapByKey().get('crafted')!.isRemoved(),
+    );
+
+    const content = roundTrip(paragraph);
+
+    // The live entry proves the attributes made the round trip at all, so the
+    // missing one is the purge and not a decode that dropped them wholesale.
+    assert.equal(content.attrs?.get('live'), 'yes');
+    assert.isFalse(
+      content.attrs!.getNodeMapByKey().has('crafted'),
+      'content kept a crafted attribute tombstone',
+    );
+    assert.equal(content.attrs!.size(), 1);
   });
 
   it('should drop split links the content carries', () => {

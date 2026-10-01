@@ -26,9 +26,18 @@ set -euo pipefail
 # later pass, so the run looks flaky rather than unstarted.
 #
 # A TCP probe is not enough for the same reason: the port is bound before the
-# handlers are. This asks the service the tests actually call, over the same
-# Connect endpoint they use, so a SERVING answer means requests are being
-# served and not merely accepted.
+# handlers are. This asks over the same Connect endpoint the tests use, so a
+# positive answer means requests are being served and not merely accepted.
+#
+# Nothing in this repository pins what the server registers in its health
+# checker -- the image is `yorkieteam/yorkie:latest` and its health service
+# names are chosen in another repository -- so the probe never depends on a
+# single answer. It tries, in order: the health service named for
+# `yorkie.v1.YorkieService`, the health service for the server as a whole
+# (the empty service name), and finally the RPC endpoint the suites
+# themselves call. Any of the three answering is enough; a health checker
+# that does not know the name, or that is not registered at all, degrades to
+# the next probe instead of timing the whole lane out.
 #
 # The server-dependent package scripts (`sdk test`, `sdk test:ci`) run this
 # first, so neither CI nor a local run has to remember to. `sdk test:unit` is
@@ -47,36 +56,90 @@ if ! [[ "$TIMEOUT" =~ ^[0-9]+$ ]] || [ "$TIMEOUT" -eq 0 ]; then
   exit 2
 fi
 
-attempts=$(awk -v t="$TIMEOUT" -v i="$INTERVAL" 'BEGIN { printf "%d", t / i }')
+# Without this the first probe fails like every pre-boot one does and the
+# script reports a server that never came up, which is the one diagnosis that
+# sends the reader to the wrong machine.
+if ! command -v curl >/dev/null 2>&1; then
+  echo "[wait-for-yorkie] curl is required but not installed" >&2
+  exit 2
+fi
+
+body_file="$(mktemp)"
+trap 'rm -f "$body_file"' EXIT
+
+# `post PATH BODY` echoes the HTTP status (000 when nothing answered) and
+# leaves the response body in $body_file. `|| code=000` because a refused or
+# dropped connection is the expected state while the server boots, and
+# `set -e` would abort the wait on the first one.
+post() {
+  local code
+  code=$(curl -sS --max-time 2 -o "$body_file" -w '%{http_code}' -X POST \
+    -H 'Content-Type: application/json' -d "$2" "$ADDR/$1" 2>/dev/null) || code=000
+  echo "${code:-000}"
+}
+
+# Two spellings are in the wild for the same enum value: the canonical
+# `grpc.health.v1.HealthCheckResponse.ServingStatus` (google.golang.org/grpc)
+# names it `SERVING`, while connectrpc.com/grpchealth's re-declaration prefixes
+# it `SERVING_STATUS_SERVING`. Which one a server emits depends on which health
+# implementation it registers, so accept either -- matching only one makes the
+# probe time out against a server that is in fact serving. The `"status":`
+# prefix is part of the pattern so `NOT_SERVING` and `SERVICE_UNKNOWN` cannot
+# match; the numeric alternative covers a server that emits the enum by number
+# instead of by name, and is closed off by a JSON delimiter so it cannot match
+# the `1` inside some other value.
+is_serving() {
+  [[ "$1" == 200 ]] &&
+    [[ "$(cat "$body_file")" =~ \"status\"[[:space:]]*:[[:space:]]*(\"SERVING\"|\"SERVING_STATUS_SERVING\"|1[[:space:]]*[,}]) ]]
+}
+
+# `SECONDS` is a wall-clock bound: counting attempts instead would overshoot
+# the timeout by however long the probes themselves took (up to --max-time
+# each), which on a server that accepts and never answers is many times over.
+deadline=$((SECONDS + TIMEOUT))
+attempt=0
+how=''
 response=''
 
-for ((attempt = 1; attempt <= attempts; attempt++)); do
-  # `|| true` because a refused or dropped connection is the expected state
-  # while the server boots, and `set -e` would abort the wait on the first one.
-  response=$(curl -sS --max-time 2 -X POST \
-    -H 'Content-Type: application/json' \
-    -d "{\"service\":\"$SERVICE\"}" \
-    "$ADDR/grpc.health.v1.Health/Check" 2>&1 || true)
+while ((SECONDS < deadline)); do
+  attempt=$((attempt + 1))
 
-  # Two spellings are in the wild for the same enum value: the canonical
-  # `grpc.health.v1.HealthCheckResponse.ServingStatus` (google.golang.org/grpc)
-  # names it `SERVING`, while connectrpc.com/grpchealth's re-declaration prefixes
-  # it `SERVING_STATUS_SERVING`. Which one the pinned server emits depends on
-  # which health implementation it registers, so accept either -- matching only
-  # one makes the probe time out against a server that is in fact serving.
-  # The `"status":"` prefix is part of the pattern so `NOT_SERVING` and
-  # `SERVICE_UNKNOWN` cannot match; `1` covers a server that emits the enum
-  # numerically instead of by name.
-  if [[ "$response" =~ \"status\"[[:space:]]*:[[:space:]]*(\"SERVING\"|\"SERVING_STATUS_SERVING\"|1) ]]; then
-    echo "[wait-for-yorkie] $ADDR is serving $SERVICE (attempt $attempt)"
+  code=$(post "grpc.health.v1.Health/Check" "{\"service\":\"$SERVICE\"}")
+  if is_serving "$code"; then
+    how="health check for $SERVICE"
+  else
+    response="$code $(cat "$body_file")"
+
+    # The server as a whole, for a health checker that registers no per-service
+    # entry under that name.
+    code=$(post "grpc.health.v1.Health/Check" '{}')
+    if is_serving "$code"; then
+      how='health check for the server'
+    else
+      # No usable health service. Ask the RPC the suites themselves call: a
+      # Connect handler that answers at all -- with success or with a
+      # structured error such as invalid_argument -- is a registered,
+      # serving handler, which is the whole question here. A 404/501 is the
+      # mux answering for a route that is not mounted yet, so it keeps
+      # waiting.
+      code=$(post "$SERVICE/ActivateClient" '{}')
+      case "$code" in
+        200 | 400 | 401 | 403) how="$SERVICE/ActivateClient answering ($code)" ;;
+      esac
+    fi
+  fi
+
+  if [ -n "$how" ]; then
+    echo "[wait-for-yorkie] $ADDR is serving -- $how (attempt $attempt)"
     exit 0
   fi
 
   sleep "$INTERVAL"
 done
 
-echo "[wait-for-yorkie] $ADDR did not serve $SERVICE within ${TIMEOUT}s" >&2
-echo "[wait-for-yorkie] last response: ${response:-<none>}" >&2
+echo "[wait-for-yorkie] $ADDR did not answer any probe within ${TIMEOUT}s" >&2
+echo "[wait-for-yorkie] last health response: ${response:-<none>}" >&2
+echo "[wait-for-yorkie] last RPC response: ${code:-<none>} $(cat "$body_file" 2>/dev/null)" >&2
 
 # The container logs are the only thing that separates "still booting" from
 # "crashed on boot", and they are gone by the time anyone reads the failure.

@@ -1358,7 +1358,9 @@ function fromTreeNodesWhenEdit(
     // format carries anyway: the tree follows the links as trusted
     // structural pointers once `edit` registers these nodes in nodeMapByID,
     // and a node born tombstoned under a live parent is counted as live
-    // content that no GC pair will ever collect.
+    // content that no GC pair will ever collect. `clearTombstones` covers the
+    // attribute tombstones `fromRHT` decodes verbatim for the same reason:
+    // they are charged to nobody and collected by nobody.
     treeNode.dropEngineOnlyLinks();
     treeNode.clearTombstones();
     treeNodes.push(treeNode);

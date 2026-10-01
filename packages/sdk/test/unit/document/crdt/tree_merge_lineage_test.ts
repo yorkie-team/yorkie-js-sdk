@@ -80,6 +80,10 @@ function forgedIDOf(node: CRDTTreeNode): CRDTTreeNodeID {
 describe('Tree merge lineage', () => {
   it('rebuildMergeState should not plant a pointer through a forged source', () => {
     const f = buildFixture();
+    // Tombstoned, so the "a live element is never a merge source" guard is
+    // satisfied and the forged offset is the only thing left to reject it:
+    // the test fails if `findMergeNode` here goes back to a floor lookup.
+    f.p3.removedAt = timeT();
     f.text.mergedFrom = forgedIDOf(f.p3);
     f.text.mergedAt = timeT();
 
@@ -122,6 +126,9 @@ describe('Tree merge lineage', () => {
 
   it('rebuildMergeState should not name a text node as a source', () => {
     const f = buildFixture();
+    // Removed as a genuine source would be, so only its being a text node
+    // rejects it: the id is exact and the child's parent is an element.
+    f.text.removedAt = timeT();
     f.p2.mergedFrom = f.text.id;
     f.p2.mergedAt = timeT();
 
@@ -135,6 +142,9 @@ describe('Tree merge lineage', () => {
     // text node cannot be one a merge moved. `prepend` refuses the shape, so
     // plant it directly, as a decoder that did not check would.
     const f = buildFixture();
+    // Exact and tombstoned, so the source passes every other guard and only
+    // the destination being a text node is left to reject the pointer.
+    f.p3.removedAt = timeT();
     const child = new CRDTTreeNode(posT(), 'text', 'x');
     child.mergedFrom = f.p3.id;
     child.mergedAt = timeT();
@@ -152,17 +162,54 @@ describe('Tree merge lineage', () => {
     // Resolved by floor there, the forged offset would plant on p3 the
     // pointer the decode refused to.
     const f = buildFixture();
+    // Tombstoned, as a genuine source is, so the merge's own "the source must
+    // already be removed" guard cannot be what rejects this: the forged
+    // offset has to be, which is what `findMergeNode` is here for.
+    f.p3.removedAt = timeT();
     f.text.mergedFrom = forgedIDOf(f.p3);
     f.text.mergedAt = timeT();
 
     // An ordinary merge of p2 into p1 moves the text carrying the lineage.
     f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
-    assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
+    assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p></r>`);
 
     assert.isUndefined(
       f.p3.mergedInto,
       'an ordinary merge must not plant a pointer on an unrelated node',
     );
+  });
+
+  it('a merge should not re-derive a pointer onto a live source', () => {
+    // Same path, the other half of the rule: the id is exact and names an
+    // element, so only p3 still being live says no merge ever moved this
+    // text out of it. Planting here would arm the §6.2 cascade to tombstone
+    // p3's own children the moment a later, unrelated edit removes p3.
+    const f = buildFixture();
+    f.text.mergedFrom = f.p3.id;
+    f.text.mergedAt = timeT();
+    assert.isUndefined(f.p3.removedAt);
+
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
+
+    assert.isUndefined(
+      f.p3.mergedInto,
+      'an ordinary merge must not plant a pointer on a live node',
+    );
+  });
+
+  it('a merge should still re-derive a pointer from its own source', () => {
+    // The positive control for both guards above: in a merge the engine
+    // itself stamps, the source is the boundary element step 02 tombstoned,
+    // named exactly, so the pointer must still be planted.
+    const f = buildFixture();
+
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
+
+    assert.isTrue(f.text.mergedFrom?.equals(f.p2.id));
+    assert.isTrue(f.p2.isRemoved);
+    assert.isTrue(f.p2.mergedInto?.equals(f.p1.id));
   });
 
   it('a delete should not cascade through a floor-only destination', () => {

@@ -690,11 +690,43 @@ export class CRDTTreeNode
    * ancestors. `traverseAll` is post-order, so a child is revived before its
    * parent, and the parent's own size already includes the child when the
    * parent hands it further up.
+   *
+   * A node's attribute table carries tombstones of its own, and they arrive on
+   * the same client-controlled bytes (`fromRHT` decodes `isRemoved` verbatim),
+   * so they go the same way -- see `purgeAttrTombstones`.
    */
   public clearTombstones(): void {
     traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
       node.unremove();
+      node.purgeAttrTombstones();
     });
+  }
+
+  /**
+   * `purgeAttrTombstones` drops the removed entries of this node's attribute
+   * table.
+   *
+   * A removed RHT entry is retained in the live document on purpose: it is
+   * what makes a concurrent, older `setAttributes` lose. That only applies to
+   * an entry some replica's `removeStyle` actually created. On operation
+   * content -- which the editing client creates fresh for this one edit, so
+   * no attribute of it can have been removed by anyone -- a removed entry is
+   * a crafted one, and one nothing ever collects: `getDataSize` charges its
+   * value to no one (rht.ts) and the TreeEdit insert path registers no attr
+   * GC pair for content, so it is unbounded growth that `docSize` cannot see.
+   * The content-building paths clear them too (`cloneAndDropPreTombstoned`),
+   * so a conforming TreeEdit carries none either way.
+   */
+  public purgeAttrTombstones(): void {
+    if (!this.attrs) {
+      return;
+    }
+    // Snapshot first: `purge` deletes from the map this iterates.
+    for (const attr of Array.from(this.attrs)) {
+      if (attr.isRemoved()) {
+        this.attrs.purge(attr);
+      }
+    }
   }
 
   /**

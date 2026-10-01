@@ -60,6 +60,11 @@ function cloneAndDropPreTombstoned(
   // from children's `paddedSize`; text nodes use their value length.
   traverseAll(clone, (n) => {
     n.removedAt = undefined;
+    // The attribute tombstones go with the node tombstone: the decoder drops
+    // them from the content it reads (`clearTombstones`), so a replica that
+    // kept the ones its own clone carried would hold an RHT the replicas that
+    // decoded the same edit do not.
+    n.purgeAttrTombstones();
     if (n.isText) {
       n.visibleSize = n.value.length;
       n.totalSize = n.value.length;
