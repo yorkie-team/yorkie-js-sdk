@@ -50,6 +50,9 @@ import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
  */
 const PausedSyncMode = SyncMode.RealtimePushOnly;
 
+/** Whether the missing-`client` warning has been shown on this page. */
+let warnedMissingClient = false;
+
 /**
  * How many times a single sync-mode transition is attempted before giving up.
  *
@@ -138,6 +141,15 @@ export class YorkieProseMirrorBinding {
     this.publishSelection = options.publishSelection;
     this.onLog = options.onLog;
     this.client = options.client;
+    if (!this.client && !warnedMissingClient) {
+      warnedMissingClient = true;
+      console.warn(
+        '[yorkie-prosemirror] No `client` option was given, so the binding ' +
+          'cannot pause incoming sync during IME composition. Remote edits ' +
+          'to the block being composed may end a composition early. Pass ' +
+          'the Yorkie client the document is attached with.',
+      );
+    }
     this.baseSyncMode = options.syncMode ?? SyncMode.Realtime;
     this.desiredSyncMode = this.baseSyncMode;
 
@@ -188,7 +200,7 @@ export class YorkieProseMirrorBinding {
     // Subscribe to presence for cursor display
     this.setupPresenceSubscription();
 
-    // Track IME composition to defer remote updates
+    // Track IME composition to pause incoming sync while composing
     this.setupCompositionListeners();
 
     // Watch prop updates so an `editable` flip is acted on right away
@@ -394,15 +406,20 @@ export class YorkieProseMirrorBinding {
    * Whether a remote cursor decoration that misses the composing block may be
    * drawn straight away instead of being deferred to the compositionend flush.
    *
-   * Only while the pause is also in effect, so presence events arrive at most
-   * as a bounded handful of stragglers. Without the pause they keep arriving
+   * Only while the pause is in effect or on its way — not without a `client`
+   * to pause through, nor after the pause gave up — so presence events arrive
+   * at most as a bounded handful of stragglers. Without the pause they keep arriving
    * for the whole composition, and each decoration dispatch redraws the view
    * under the composing text node. Decorations, unlike content, can wait:
    * they are not part of the document, so deferring them never puts the view
    * out of step with the tree.
    */
   private mayApplyDuringComposition(): boolean {
-    return this.managesSyncMode();
+    return (
+      this.managesSyncMode() &&
+      !!this.client &&
+      (this.isSyncPaused || this.desiredSyncMode === PausedSyncMode)
+    );
   }
 
   private pauseRemoteSync(): void {

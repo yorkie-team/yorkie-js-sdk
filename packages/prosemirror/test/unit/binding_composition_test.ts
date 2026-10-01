@@ -231,16 +231,20 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
    * composing block — in the first one. Editing `tree.tailText` then produces a
    * remote diff that misses the composing block.
    */
-  function setupTwoBlocks(syncMode?: SyncMode) {
+  function setupTwoBlocks(
+    syncMode?: SyncMode,
+    client:
+      | ReturnType<typeof createMockClient>
+      | undefined = createMockClient(),
+  ) {
     const view = createMockView(doc(p('hello'), p('world')));
     const yorkieDoc = createMockDoc();
     yorkieDoc.tree.tailText = 'world';
-    const client = createMockClient();
     const binding = new YorkieProseMirrorBinding(
       view as any,
       yorkieDoc,
       'tree',
-      { client, syncMode },
+      { client: client ?? undefined, syncMode },
     );
     binding.initialize();
     return { view, yorkieDoc, client, binding };
@@ -306,6 +310,19 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     const before = view.dispatched.length;
     dispatchTailSelection(binding);
     assert.equal(view.dispatched.length, before + 1);
+  });
+
+  it('should defer a selection decoration outside the composing block without a client', async () => {
+    // No client means no pause, so presence keeps arriving for the whole
+    // composition even on a Realtime document.
+    const { view, binding } = setupTwoBlocks(undefined, null);
+
+    view.fire('compositionstart');
+    await tick();
+
+    const before = view.dispatched.length;
+    dispatchTailSelection(binding);
+    assert.equal(view.dispatched.length, before);
   });
 
   it('should defer a selection decoration outside the composing block when unpaused', async () => {

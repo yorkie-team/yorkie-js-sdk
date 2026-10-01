@@ -98,7 +98,13 @@ export type YorkieProseMirrorOptions = {
   publishSelection?: boolean;
   /** Callback for sync log messages. */
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void;
-  /** Yorkie client instance used to pause/resume sync during IME composition. */
+  /**
+   * The Yorkie client the document is attached with. The binding uses it to
+   * hold incoming sync while an IME composition is active, so remote edits
+   * cannot redraw the text being composed. Without it the binding still
+   * syncs both ways, but a remote edit to the block being composed may end
+   * that composition early.
+   */
   client?: {
     changeSyncMode(doc: any, syncMode: SyncMode): Promise<any>;
   };
@@ -116,8 +122,9 @@ export type YorkieProseMirrorOptions = {
    * `Manual` are stream-less, and `changeSyncMode` opens a watch stream on
    * the way out of one and cancels it on the way back — network the host
    * opted out of, on every composition. For those the binding leaves the
-   * mode alone and relies on deferring the remote changes that arrive, which
-   * is what protects the composing text node in every mode anyway.
+   * mode alone: remote changes keep arriving and are applied straight away,
+   * so a remote edit to the block being composed may end that composition
+   * early. Neither mode is meant for collaborative editing.
    *
    * Defaults to `SyncMode.Realtime`.
    */

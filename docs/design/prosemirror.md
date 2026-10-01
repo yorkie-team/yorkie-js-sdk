@@ -123,6 +123,7 @@ import {
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 
 const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+  client, // the client `doc` is attached with; enables the IME pause
   markMapping: { strong: 'strong', em: 'em', code: 'code', link: 'link' },
   cursors: {
     enabled: true,
@@ -179,7 +180,7 @@ IME input (Korean, Chinese, Japanese) uses browser composition events. During ac
 
 The binding protects a composition by keeping remote changes from arriving, not by holding them back from the view:
 
-**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack carrying remote state — changes *or* a snapshot — that arrives anyway is dropped, including from an explicit `client.sync(doc)`, which always pulls). Only the *apply* direction threatens the composing text node, so only it needs to stop. Only a `Realtime` document is paused: `Polling` and `Manual` are stream-less, pausing them would open and tear down a watch stream on every composition, and neither is meant for collaborative editing.
+**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack carrying remote state — changes *or* a snapshot — that arrives anyway is dropped, including from an explicit `client.sync(doc)`, which always pulls). Only the *apply* direction threatens the composing text node, so only it needs to stop. Only a `Realtime` document is paused: `Polling` and `Manual` are stream-less, pausing them would open and tear down a watch stream on every composition, and neither is meant for collaborative editing. The pause goes through the `client` option, since a `Document` does not expose the client it is attached with; without it the binding still syncs both ways but cannot pause, and warns once.
 
 **When a remote change or snapshot arrives during composition anyway** — one that beat the asynchronous pause, or any change on an unpaused document — it is applied to the view straight away, exactly as outside composition and as the CodeMirror and Quill bindings do. It is never deferred: a deferred change leaves the tree ahead of the view, and a local edit made meanwhile is measured on the view, so in a block the tree already changed it could not be placed and was lost. Applying it keeps the view in step with the tree, so local edits always land at the right index and the CRDT merges both sides. The cost is that such a change can end the composition early: ProseMirror only protects the composing text node while its text is unchanged (`protectLocalComposition`), so a remote edit to the same text run redraws it. The pause is what keeps that rare.
 
@@ -192,6 +193,7 @@ The binding protects a composition by keeping remote changes from arriving, not 
 Both sync directions include fallback paths:
 
 - **Upstream**: If `syncToYorkie` throws, the binding calls `syncToPM` to re-sync the PM view from the Yorkie tree (source of truth).
+- **During composition**: Recovery is the same as outside it. A full `syncToPM` rebuild mid-composition ends the composition, but deferring the repair instead would leave the view behind the tree — the state that loses local edits.
 - **Downstream**: If `syncToPMIncremental` fails (e.g., the intra-block diff produces an invalid step), it falls back to `syncToPM` which does a full document rebuild.
 
 ### Risks and Mitigation

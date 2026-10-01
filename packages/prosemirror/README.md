@@ -32,6 +32,9 @@ npm install prosemirror-model prosemirror-state prosemirror-view
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 
 const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+  // The client `doc` is attached with. The binding uses it to hold incoming
+  // sync while an IME composition (Korean, Japanese, Chinese) is active.
+  client,
   markMapping: { strong: 'strong', em: 'em', code: 'code', link: 'link' },
   cursors: {
     enabled: true,

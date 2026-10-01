@@ -19,7 +19,10 @@ push-only on the *apply* side too, not merely on the request side:
   single line is the whole behavioural difference for the sync loop.
 
 So nothing reaches the tree during composition under either mode; the only
-thing that changes is that local changes leave.
+thing that changes is that local changes leave. (Later rounds narrowed this:
+the pause is asynchronous, a snapshot-only pack needed its own drop, and
+`Polling`/`Manual` documents are not paused at all — see the human round
+below for what the binding does with what still gets through.)
 
 ## The paused flag is a two-place invariant
 
@@ -180,6 +183,19 @@ under a throttled network. Plain JS replicas did not reproduce it; the
 branch then lacked `main`'s Go-parity convergence and GC fixes (#1404,
 #1405), which are merged in now. To re-check after merge.
 
+## Why the agent loop could not converge
+
+Panel round 11 flagged applying a remote change mid-composition on an
+unpaused (Polling) document as blocking — the #1179 symptom — and asked for
+deferral; round 12 then flagged the deferral for desyncing view and tree;
+rounds 14 and 15 flagged the index compensation added for that. The two
+demands exclude each other: deferring *is* desyncing. This branch picks
+applying immediately, so a panel finding shaped like round 11 is expected
+again and is disputed on these grounds: its worst case is a composition
+ending early, deferral's is a lost edit; `SyncMode.Polling` is documented as
+unsuitable for collaborative editing; and the CodeMirror and Quill bindings
+make the same choice.
+
 ## Self-review log (harness `/code-review`, not the CI lens panel)
 
 - Round 1 and 2 reviewed the abandoned `TreeRebase` approach. Their central
@@ -187,3 +203,17 @@ branch then lacked `main`'s Go-parity convergence and GC fixes (#1404,
   large remote edits, the rebase engages on representational differences in
   normal editing — are what led to dropping it for the immediate-apply fix
   above.
+- Round 3 (on the immediate-apply branch): 10 findings, the loop's bound.
+  Fixed: a binding created without `client` (the README's Quick Start) had no
+  composition pause at all — the README and design doc now pass `client` and
+  the binding warns once without it; the decoration gate ignored whether a
+  pause was actually in effect; stale "deferral protects" wording in the
+  `syncMode` option docs. Disputed: "a failed incremental sync mid-composition
+  falls back to a full rebuild" (`binding.ts`, `applyRemoteTreeOps`) — the
+  alternative is deferring, which reintroduces the lost-edit state; the
+  rebuild only ends a composition. Deferred as follow-ups on the `convert.ts`
+  sanitizer: the blocked-URL placeholder can be laundered back to the
+  original by copy/paste within the page; schemas that keep URLs in other
+  attribute names are not checked; the placeholder registry caps at 1024 and
+  then blanks values; `isScriptUrl` scans whole values; and a render-time
+  sanitizer would avoid swapping values inside the document model.

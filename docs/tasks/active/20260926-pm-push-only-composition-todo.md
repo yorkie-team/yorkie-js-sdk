@@ -41,6 +41,9 @@ change while composing, Quill gates only selection updates on `isComposing`.
 - [x] Real-replica regression tests for a remote change touching the
       composing block (`binding_remote_composition_test.ts`).
 - [x] Merge `origin/main` (Go-parity tree convergence and GC fixes).
+- [x] Without `client` there is no pause: pass it in the README and design
+      doc examples, warn once when it is missing, and defer every remote
+      cursor decoration mid-composition while no pause is in effect.
 
 ## Out of scope
 
@@ -61,7 +64,22 @@ are left alone:
   applied at once and may end that composition early. It no longer loses an
   edit.
 
-## Follow-ups (pre-existing on `main`)
+## Follow-ups
+
+On the `convert.ts` URL sanitizer this branch adds (self-review round 3):
+
+- The blocked-URL placeholder sits in the page's DOM, so a copied link pasted
+  back is restored to the peer's original `javascript:` value and written to
+  the tree again under the local user.
+- Only the fixed `UrlAttrNames` are checked; a custom schema keeping its URL
+  in another attribute name is not.
+- The placeholder registry caps at 1024 entries and then blanks values, which
+  are echoed to every peer.
+- `isScriptUrl` copies and lowercases whole values; only the scheme matters.
+- Sanitizing at render time (`toDOM` / mark views) would keep the PM doc an
+  exact mirror of the tree.
+
+Pre-existing on `main`:
 
 - Native merge reorders text when the second block mixes bare text and marks.
 - Native split inside such a block splits only the `span` wrapper.
