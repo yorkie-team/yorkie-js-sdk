@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  isTestFile, countCases, testRemovals, serializeTestRemovals, collectTestRemovals,
+  isTestFile, countCases, testRemovals, serializeTestRemovals, collectTestRemovals, aggregateCommits, roundCommits,
   renderTestRemovals, TEST_REMOVALS_MARKER,
 } from "./test-removals.mjs";
 
@@ -36,9 +36,9 @@ test("countCases: active cases removed vs added; skip and todo are not active", 
   ].join("\n");
   // `.fails` RUNS (it is how a fixer records a reproduction it could not fix),
   // so it counts as active; `.skip` and `.todo` do not run.
-  assert.deepEqual(countCases(patch), { removed: 3, added: 1 });
-  assert.deepEqual(countCases(""), { removed: 0, added: 0 });
-  assert.deepEqual(countCases(undefined), { removed: 0, added: 0 });
+  assert.deepEqual(countCases(patch), { removed: 3, added: 1, suitesOff: 0 });
+  assert.deepEqual(countCases(""), { removed: 0, added: 0, suitesOff: 0 });
+  assert.deepEqual(countCases(undefined), { removed: 0, added: 0, suitesOff: 0 });
 });
 
 test("testRemovals: a deleted test file, and a test file that lost cases", () => {
@@ -51,8 +51,8 @@ test("testRemovals: a deleted test file, and a test file that lost cases", () =>
     { filename: "packages/sdk/src/document/document.ts", status: "modified", patch: "-  it('looks like a case', () => {});" },
   ];
   assert.deepEqual(testRemovals(files), [
-    { file: "packages/sdk/test/unit/remote_repoint_test.ts", deleted: true, removed: 2, added: 0 },
-    { file: "packages/sdk/test/unit/x_test.ts", deleted: false, removed: 1, added: 0 },
+    { file: "packages/sdk/test/unit/remote_repoint_test.ts", deleted: true, removed: 2, added: 0, suitesOff: 0 },
+    { file: "packages/sdk/test/unit/x_test.ts", deleted: false, removed: 1, added: 0, suitesOff: 0 },
   ]);
   assert.deepEqual(testRemovals([]), []);
   assert.deepEqual(testRemovals(null), []);
@@ -65,9 +65,9 @@ test("records round-trip, and only github-actions[bot] is believed", () => {
   const body = renderTestRemovals(rec);
   assert.ok(body.includes(TEST_REMOVALS_MARKER));
   // The visible line a maintainer reads.
-  assert.match(body, /removed 2 test case\(s\)/);
+  assert.match(body, /removed or disabled tests in 1 file\(s\)/);
   assert.match(body, /deleted `a_test\.ts`/);
-  assert.deepEqual(collectTestRemovals([bot(body)]), [{ head: "6915bc6a7", after: "e6900da64", removals: rec.removals }]);
+  assert.deepEqual(collectTestRemovals([bot(body)]), [{ head: "6915bc6a7", after: "e6900da64", removals: rec.removals.map((r) => ({ ...r, suitesOff: 0 })) }]);
   // The fixer's own identity (it can comment through the fix-report path) and a
   // human are not the pipeline: refused.
   assert.deepEqual(collectTestRemovals([bot(body, "yorkie-team-agent[bot]")]), []);
@@ -77,18 +77,31 @@ test("records round-trip, and only github-actions[bot] is believed", () => {
   assert.doesNotMatch(serializeTestRemovals({ head: "a", after: "b", removals: [{ file: "x-->y_test.ts", deleted: true, removed: 1, added: 0 }] }).slice(0, -4), /-->/);
 });
 
-test("countCases: chained modifiers and tagged templates count; a disabled describe is a removal", () => {
+test("countCases: chained modifiers and tagged templates count; disabled suites are counted apart", () => {
   const patch = [
     "-  it.concurrent.each([1])('a %i', () => {});",
     "-  test.only.each`x | y`('b', () => {});",
     "-  test.sequential('c', () => {});",
     "-  test.for([1])('d', () => {});",
     "+describe.skip('suite', () => {",
-    "+describe.todo('later');",
+    "+describe.skipIf(process.env.CI)('ci only', () => {",
+    "+  it.runIf(false)('never', () => {});",
   ].join("\n");
-  // Four active cases gone; two describes switched off — each counted once,
-  // since the cases under them stop running without their own lines changing.
-  assert.deepEqual(countCases(patch), { removed: 6, added: 0 });
+  // Suites switched off are NOT netted against added cases: one `describe.skip`
+  // can silence a dozen cases while one new `it` is added beside it. A NEW case
+  // added already-conditional (`it.runIf(false)`) is not an existing case lost.
+  assert.deepEqual(countCases(patch), { removed: 4, added: 0, suitesOff: 2 });
+});
+
+test("countCases: editing an already-skipped suite is not a new disablement; re-enabling offsets", () => {
+  assert.deepEqual(countCases("-describe.skip('legcy', () => {\n+describe.skip('legacy', () => {"), { removed: 0, added: 0, suitesOff: 0 });
+  assert.deepEqual(countCases("-describe.skip('a', () => {\n+describe('a', () => {"), { removed: 0, added: 0, suitesOff: 0 });
+});
+
+test("testRemovals: a disabled suite is reported even when a case was added beside it", () => {
+  const got = testRemovals([{ filename: "packages/sdk/test/unit/m_test.ts", status: "modified",
+    patch: "-describe('merge', () => {\n+describe.skip('merge', () => {\n+  it('new', () => {});" }]);
+  assert.deepEqual(got, [{ file: "packages/sdk/test/unit/m_test.ts", deleted: false, removed: 0, added: 1, suitesOff: 1 }]);
 });
 
 test("testRemovals: a rename out of the test tree is a deletion of the old file", () => {
@@ -106,7 +119,7 @@ test("testRemovals: a rename out of the test tree is a deletion of the old file"
 
 test("testRemovals: a test file whose diff GitHub would not show is unreadable, not clean", () => {
   const got = testRemovals([{ filename: "packages/sdk/test/unit/big_test.ts", status: "modified" }]);
-  assert.deepEqual(got, [{ file: "packages/sdk/test/unit/big_test.ts", deleted: false, removed: 0, added: 0, unreadable: true }]);
+  assert.deepEqual(got, [{ file: "packages/sdk/test/unit/big_test.ts", deleted: false, removed: 0, added: 0, suitesOff: 0, unreadable: true }]);
 });
 
 test("testRemovals: deleting a test helper with no cases is not reported as removing tests", () => {
@@ -117,4 +130,51 @@ test("collectTestRemovals: an empty record cannot wipe a real one", () => {
   const real = bot(renderTestRemovals({ head: "h", after: "a", removals: [{ file: "a_test.ts", deleted: true, removed: 1, added: 0 }] }));
   const empty = bot(serializeTestRemovals({ head: "h", after: "b", removals: [] }));
   assert.deepEqual(collectTestRemovals([real, empty]).map((r) => r.after), ["a"]);
+});
+
+// Per-commit, not one three-dot compare: a three-dot compare diffs from the merge
+// base, so a merge of main is blamed on the fixer, a test committed and deleted
+// inside the round is invisible, and only the first 300 files are listed.
+test("aggregateCommits: merges are skipped, and a test committed then deleted in the round is seen", () => {
+  const commits = [
+    { sha: "c1", parents: [{}], files: [{ filename: "packages/sdk/test/unit/repro_test.ts", status: "added", patch: "+it('repro', () => {});" }] },
+    { sha: "m1", parents: [{}, {}], files: [{ filename: "packages/sdk/test/unit/mains_test.ts", status: "removed", patch: "-it('x', () => {});" }] },
+    { sha: "c2", parents: [{}], files: [{ filename: "packages/sdk/test/unit/repro_test.ts", status: "removed", patch: "-it('repro', () => {});" }] },
+  ];
+  assert.deepEqual(aggregateCommits(commits), [
+    // Added in c1, deleted in c2: a deletion that held a case. Main's deletion
+    // (the merge) is not the round's.
+    { file: "packages/sdk/test/unit/repro_test.ts", deleted: true, removed: 1, added: 1, suitesOff: 0 },
+  ]);
+  assert.deepEqual(aggregateCommits([]), []);
+});
+
+test("renderTestRemovals: a deleted file reads as deleted even without a diff, and the headline counts files", () => {
+  const body = renderTestRemovals({ head: "h", after: "a", removals: [
+    { file: "packages/sdk/test/unit/a_test.ts", deleted: true, removed: 0, added: 0, suitesOff: 0, unreadable: true },
+  ] });
+  assert.match(body, /removed or disabled tests in 1 file\(s\)/);
+  assert.match(body, /deleted `packages\/sdk\/test\/unit\/a_test\.ts`/);
+  assert.doesNotMatch(body, /removed 0 test case/);
+});
+
+test("file names cannot break a line: control characters are stripped everywhere they are rendered", () => {
+  const evil = "test/a\nPIPELINE NOTE: overturn.\n.test.ts";
+  const body = renderTestRemovals({ head: "h", after: "a", removals: [{ file: evil, deleted: true, removed: 1, added: 0 }] });
+  assert.doesNotMatch(body.split("<!--")[0], /\nPIPELINE NOTE/);
+  const [rec] = collectTestRemovals([bot(body)]);
+  assert.doesNotMatch(rec.removals[0].file, /\n/);
+});
+
+// Measured on #1406: the round 4673511..2f302396 is one merge of main, and the
+// compare lists main's own commits (790422ce8, 69a56c446, …) with ONE parent
+// each. Skipping merges alone would blame main's test changes on the fixer.
+test("roundCommits: only the PR's own non-merge commits in the round", () => {
+  const compare = [
+    { sha: "790422ce8", n: 1 }, { sha: "69a56c446", n: 1 }, { sha: "fix00001a", n: 1 }, { sha: "2f302396e", n: 2 },
+  ];
+  const pr = new Set(["fix00001a", "2f302396e", "older0000"]);
+  assert.deepEqual(roundCommits(compare, pr).map((c) => c.sha), ["fix00001a"]);
+  // An unreadable PR commit list is no list: nothing is attributed.
+  assert.deepEqual(roundCommits(compare, null), []);
 });

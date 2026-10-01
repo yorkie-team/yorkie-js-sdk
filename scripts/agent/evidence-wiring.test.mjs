@@ -26,3 +26,11 @@ for (const file of ["agent-review-panel.yml", "agent-fix.yml"]) {
     assert.match(WF(file), /Keep it as `it\.fails\(\.\.\.\)`/);
   });
 }
+
+for (const file of ["agent-review-panel.yml", "agent-review-on-demand.yml"]) {
+  test(`${file}: an unreadable issue is recorded, and the panel is told`, () => {
+    const src = WF(file);
+    assert.match(src, /fs\.writeFileSync\('\/tmp\/issue\.state', 'unreadable'\);/);
+    assert.match(src, /--issue-file \/tmp\/issue\.txt\n\s+--issue-state \/tmp\/issue\.state/);
+  });
+}

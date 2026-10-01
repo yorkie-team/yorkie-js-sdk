@@ -444,7 +444,8 @@ export function aggregatePanelStats(entries) {
  * Shape-safe: records without `lensStats` (pre-instrumentation) or a `kept`
  * missing a severity key are tolerated and contribute nothing.
  *
- * @returns {{ flips: {lens: string, fromRound: number, toRound: number}[], byLens: Record<string, number> }}
+ * @returns {{ flips: {lens: string, fromRound: number, toRound: number}[], byLens: Record<string, number>, escalations: {lens: string, fromRound: number, toRound: number}[] }}
+ *   `escalations` is the clean→blocking direction, kept apart so `flips` keeps its meaning.
  */
 export function detectFlips(reviewRecords) {
   const list = Array.isArray(reviewRecords) ? reviewRecords : [];

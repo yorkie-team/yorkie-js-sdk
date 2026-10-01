@@ -119,9 +119,12 @@ for the same question, and it keeps what it learns about failures.
   the pool secrets, so it runs before the branch checkout.
 - **Honest infra pages.** A fixer that fails on an API error with nothing
   pushed is paged with its cause and the next step, not as "the fixer failed".
-- **Evidence beside claims.** When a fix round's commits delete or disable
-  tests, the trusted report job records it. The next round's adjudicator sees
-  that record, ahead of the author's text, beside every "fixed" claim. It only
+- **Evidence beside claims.** When a fix round's own commits delete or
+  disable tests, the trusted report job records it. "Own commits" means the
+  round's commits that are in the PR's commit list and are not merges, so
+  main's changes are not blamed on the fixer. The next round's adjudicator
+  sees the record, ahead of the author's text, for every claim and dispute it
+  adjudicates. It only
   sees COMMITTED tests. #1426's fixer wrote its test, watched it fail and
   deleted it without ever committing it, and no compare can see that. The
   fixer prompt's rule (keep it as `it.fails` and report the finding skipped)

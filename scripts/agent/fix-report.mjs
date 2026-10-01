@@ -308,7 +308,7 @@ export function latestReport(reports) {
  */
 export function authorClaims(reports, rebuttals = []) {
   const report = latestReport(reports);
-  if (!report) return { adjudicate: [], skipped: [], deferred: [] };
+  if (!report) return { adjudicate: [], skipped: [], deferred: [], testRemovals: [] };
   const claims = flattenClaims([report]);
   const disputed = Array.isArray(rebuttals) ? rebuttals : [];
   const covered = (c) => disputed.some((r) =>
@@ -324,7 +324,21 @@ export function authorClaims(reports, rebuttals = []) {
     adjudicate: toRebuttalRecords(fixed.slice(0, MAX_FIX_ADJUDICATIONS)),
     skipped,
     deferred: fixed.slice(MAX_FIX_ADJUDICATIONS),
+    // The round's removal record, for the caller to attach to the GENUINE
+    // rebuttals too (`withRoundEvidence`): a finding the fixer disputes instead
+    // of claiming fixed is adjudicated from a rebuttal, which carries none.
+    testRemovals: Array.isArray(report.testRemovals) ? report.testRemovals : [],
   };
+}
+
+/**
+ * Every record the round adjudicates, carrying the round's removal record.
+ * A record that already has its own (a converted `fixed` claim) keeps it.
+ */
+export function withRoundEvidence(records, testRemovals) {
+  const list = Array.isArray(records) ? records : [];
+  if (!Array.isArray(testRemovals) || testRemovals.length === 0) return list;
+  return list.map((r) => (Array.isArray(r?.testRemovals) ? r : { ...r, testRemovals: testRemovals.slice(0, 20) }));
 }
 
 /**

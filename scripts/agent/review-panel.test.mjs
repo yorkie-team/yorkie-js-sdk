@@ -3969,3 +3969,12 @@ test("buildLensPrompt: a spec-reading lens with no spec is told so; with one, it
   // The closing instruction is still last.
   assert.ok(none.trimEnd().endsWith(LENS_CLOSING_INSTRUCTION.trimEnd()));
 });
+
+// review: the workflow's issue fetch swallows API errors and writes an empty
+// spec. An UNREAD spec is not "no spec": telling design-fit there is none would
+// cap a real out-of-spec finding at minor because GitHub returned a 5xx.
+test("buildLensPrompt: an unreadable spec is NOT reported as no spec", () => {
+  const lens = { title: "Design-fit", needsIssueSpec: true };
+  assert.doesNotMatch(buildLensPrompt(lens, { rubric: "# r", issue: "", issueUnreadable: true }), /No originating issue spec/);
+  assert.match(buildLensPrompt(lens, { rubric: "# r", issue: "" }), /No originating issue spec/);
+});

@@ -381,6 +381,26 @@ Within this task, merge PR 1 before PR 2 and develop PR 2 on top of it.
     - deleting a helper with no cases is ignored;
     - an empty record cannot hide a real one;
     - the record joins on the report's head (`--head`).
+- **`/code-review high` on #1432: 10 findings, all fixed.**
+  - The adjudicator saw a deleted file without a diff as "changed". It now
+    reads as deleted.
+  - Disputed findings got no evidence. The round's record now goes to every
+    adjudicated record (`withRoundEvidence`).
+  - A three-dot compare blames a merge of main on the fixer. The record is
+    now built per commit from the round's own commits. Measured on #1406:
+    main's commits enter the compare with one parent each, so they are
+    excluded by the PR's commit list, not by "skip merges". This also sees a
+    test committed and deleted inside the round, and avoids the 300-file
+    cap.
+  - Suites switched off (`describe.skip`/`skipIf`/`runIf`) are counted
+    apart from cases and never netted against added cases. Editing an
+    already-skipped suite is not a disablement.
+  - Branch-supplied paths have control characters stripped wherever they
+    are rendered.
+  - An issue fetch that failed is recorded (`/tmp/issue.state`), and the
+    lens is not told "no spec".
+  - The headline counts files.
+  - JSDoc fixes.
 - **E1:** `docs/design/agent-harness.md` records the convergence design, its
   decisions, and the rejected alternatives (overlap rule, refund, C1, retry
   after failure). `lint:check`, `verify:license` and

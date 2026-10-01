@@ -43,6 +43,7 @@
 // "I am unable", on purpose: such a rebuttal is upheld, re-raised, rebutted
 // again, and pages at two. That is the right destination for it.
 
+import { describeRemoval } from "./test-removals.mjs";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -480,15 +481,6 @@ export function exhaustedFindings(findings) {
 }
 
 /**
- * The adjudicator's prompt. The rebuttal is fenced as DATA with the same framing
- * the diff gets, because it is written by the party with the most to gain from
- * steering this decision — and unlike the diff, it is addressed AT the reviewer.
- *
- * The instruction ordering matters: the default (uphold) is stated before the
- * author's text is shown, so the model reads the argument already knowing what
- * happens if it is merely plausible.
- */
-/**
  * The pipeline's record of tests the fix round removed (test-removals.mjs), as
  * prompt lines placed BEFORE the author's fence — or nothing. Only records built
  * by `fix-report.mjs::toRebuttalRecords` carry `testRemovals`; the rebuttal
@@ -505,17 +497,22 @@ function pipelineEvidence(removals) {
     "them exercised THIS finding, a \"fixed\" claim made after removing the test that",
     "showed it still failing is not grounds to overturn. Removing a test can also be",
     "legitimate — read the code.",
-    ...list.map((x) => {
-      const file = `\`${defence(str(x?.file)).replace(/`/g, "'").slice(0, 300)}\``;
-      if (x?.unreadable === true) return `- ${file}: changed, but the diff was too large to read`;
-      return x?.deleted === true
-        ? `- deleted ${file} (${Number(x?.removed) || 0} case(s))`
-        : `- ${file}: ${Number(x?.removed) || 0} active case(s) removed or disabled, ${Number(x?.added) || 0} added`;
-    }),
+    // One renderer for the PR comment and this prompt (deletion first, control
+    // characters stripped), then the fence tags neutralized like every field here.
+    ...list.map((x) => defence(describeRemoval(x))),
     "",
   ];
 }
 
+/**
+ * The adjudicator's prompt. The rebuttal is fenced as DATA with the same framing
+ * the diff gets, because it is written by the party with the most to gain from
+ * steering this decision — and unlike the diff, it is addressed AT the reviewer.
+ *
+ * The instruction ordering matters: the default (uphold) is stated before the
+ * author's text is shown, so the model reads the argument already knowing what
+ * happens if it is merely plausible.
+ */
 export function buildAdjudicatorPrompt(finding, rebuttal) {
   const f = finding && typeof finding === "object" ? finding : {};
   const r = rebuttal && typeof rebuttal === "object" ? rebuttal : {};
