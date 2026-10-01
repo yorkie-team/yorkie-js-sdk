@@ -383,6 +383,69 @@ export function collectFixDispatches(comments) {
     .sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
 }
 
+// --- refunds ------------------------------------------------------------------
+//
+// A dispatch is recorded BEFORE the fixer starts (see the workflow's "Record the
+// fix-round dispatch" for why it cannot be later). So a fixer that dies of an
+// INFRASTRUCTURE failure — a closed usage window, a rejected credential, an API
+// that stopped answering — has already been charged a round it never had. On
+// #1426 two of them in a row, one after 25 turns and one 0.5 s after init, each
+// spent a round and paged a human as "the fixer agent failed".
+//
+// A refund record cancels the dispatch it names. Same author gate as a dispatch
+// (`github-actions[bot]`, posted by the trusted `fix-report` job), and the same
+// fail direction: anything doubtful is not a refund, which costs a round rather
+// than granting one.
+//
+// THE CAP IS THE REAL BOUND. The refund is decided from the fixer's execution
+// log, and the fixer has a shell on the runner that log is written on, so a
+// fixer could write an "infra" result to buy itself rounds. The author gate
+// does not stop that — the trusted job posts what the log says. `MAX_FIX_REFUNDS`
+// per budget window (a `@claude rerun` opens a new one) bounds what a lying log
+// can buy, and a refund is only ever granted for a round that pushed nothing.
+
+/** Hidden-comment marker for one refunded dispatch. */
+export const FIX_REFUND_MARKER = "<!-- agent-fix-refund ";
+
+/** Bumped only if the record shape changes; an unknown version parses as absent. */
+export const FIX_REFUND_VERSION = 1;
+
+/** The most dispatches one budget window may have refunded. */
+export const MAX_FIX_REFUNDS = 2;
+
+/** Serialize one refund record. `code` is a closed-vocabulary infra code. */
+export function serializeFixRefund({ from = "", code = "" } = {}) {
+  const payload = {
+    v: FIX_REFUND_VERSION,
+    from: String(from ?? "").slice(0, 64),
+    code: String(code ?? "").replace(/[^A-Z_]/g, "").slice(0, 40),
+  };
+  return `${FIX_REFUND_MARKER}${JSON.stringify(payload).replace(/-->/g, "-\\u002d>")} -->`;
+}
+
+/** Every believable refund record on the PR, oldest first. Undatable ones are dropped. */
+export function collectFixRefunds(comments) {
+  const out = [];
+  for (const c of Array.isArray(comments) ? comments : []) {
+    const user = c && typeof c.user === "object" && c.user ? c.user : {};
+    if (user.type !== "Bot" || user.login !== FIX_DISPATCH_AUTHOR_LOGIN) continue;
+    const m = new RegExp(`${FIX_REFUND_MARKER}([\\s\\S]*?) -->`).exec(String(c.body ?? ""));
+    if (!m) continue;
+    let d;
+    try {
+      d = JSON.parse(m[1]);
+    } catch {
+      continue;
+    }
+    if (!d || typeof d !== "object" || d.v !== FIX_REFUND_VERSION || typeof d.from !== "string" || d.from === "") continue;
+    // An undatable refund cannot be placed after its dispatch, so it is not one.
+    const at = Date.parse(String(c.created_at ?? ""));
+    if (!Number.isFinite(at)) continue;
+    out.push({ from: d.from, code: typeof d.code === "string" ? d.code : "", at });
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
 /**
  * How much of the fix budget has this PR spent?
  *
@@ -419,7 +482,20 @@ export function fixRoundsUsed(comments, commits, requiredCheckNames, { since = n
   // The baseline belongs to the FIRST record; a rerun that cut it away took the
   // pre-rerun history with it.
   const baseline = kept.length === all.length ? all[0].prior : 0;
-  return kept.length + baseline;
+  // Each kept dispatch can be cancelled by ONE refund that names it and was
+  // posted after it, up to the cap. A refund naming nothing kept refunds nothing,
+  // so no record can mint budget the window never spent.
+  const refunds = collectFixRefunds(comments).filter((r) => sinceMs === null || r.at > sinceMs);
+  const used = new Set();
+  let refunded = 0;
+  for (const d of kept) {
+    if (refunded >= MAX_FIX_REFUNDS) break;
+    const i = refunds.findIndex((r, j) => !used.has(j) && r.from === d.from && (d.at === null || r.at >= d.at));
+    if (i < 0) continue;
+    used.add(i);
+    refunded++;
+  }
+  return kept.length + baseline - refunded;
 }
 
 // --- convergence detection ---------------------------------------------------

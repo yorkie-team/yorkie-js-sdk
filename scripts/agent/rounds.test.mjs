@@ -25,6 +25,10 @@ import {
   parseFixDispatchComment,
   collectFixDispatches,
   fixRoundsUsed,
+  FIX_REFUND_MARKER,
+  MAX_FIX_REFUNDS,
+  serializeFixRefund,
+  collectFixRefunds,
 } from "./rounds.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -829,4 +833,72 @@ test("close-stuck-checks distinguishes superseded from broken", skipWithout(PANE
   const job = PANEL_WORKFLOW.slice(PANEL_WORKFLOW.indexOf("close-stuck-checks:"));
   assert.match(job, /PANEL_RESULT: \$\{\{ needs\.review-panel\.result \}\}/);
   assert.match(job, /superseded \? 'cancelled' : 'failure'/);
+});
+
+// --- refunds: an infra failure is not a fix round ----------------------------
+//
+// #1426: after a rerun, fix round 2 died with `is_error` after 25 turns ($0.90),
+// and the next one died 0.5 s after init at $0. Both spent a round and paged a
+// human as "the fixer agent failed". Neither was the fixer giving up.
+
+const refund = (over = {}, rec = {}) => ({
+  user: { login: FIX_DISPATCH_AUTHOR_LOGIN, type: "Bot" },
+  body: serializeFixRefund({ from: "e6900da64", code: "NO_RESPONSE", ...rec }),
+  created_at: "2026-09-30T17:28:00Z",
+  ...over,
+});
+const at = (t, rec) => dispatch({ created_at: t }, rec);
+
+test("FIX_REFUND_MARKER is pinned, and a refund is never read as a dispatch", () => {
+  assert.equal(FIX_REFUND_MARKER, "<!-- agent-fix-refund ");
+  assert.equal(MAX_FIX_REFUNDS, 2);
+  assert.equal(parseFixDispatchComment(refund()), null);
+  assert.equal(collectFixDispatches([refund()]).length, 0);
+});
+
+test("fixRoundsUsed: a refund cancels the dispatch it names (#1426)", () => {
+  const ledger = [
+    at("2026-09-30T16:36:00Z", { from: "6915bc6a7" }),
+    at("2026-09-30T17:16:00Z", { from: "e6900da64" }),
+  ];
+  assert.equal(fixRoundsUsed(ledger, [], []), 2);
+  assert.equal(fixRoundsUsed([...ledger, refund()], [], []), 1);
+});
+
+test("fixRoundsUsed: a refund only cancels a dispatch that exists, once", () => {
+  const ledger = [at("2026-09-30T17:16:00Z", { from: "e6900da64" })];
+  // Two refunds for one dispatch are one refund.
+  assert.equal(fixRoundsUsed([...ledger, refund(), refund({ created_at: "2026-09-30T17:29:00Z" })], [], []), 0);
+  // A refund naming no dispatch refunds nothing — it cannot mint budget.
+  assert.equal(fixRoundsUsed([...ledger, refund({}, { from: "deadbeef0" })], [], []), 1);
+  // A refund BEFORE its dispatch is not about it (the sha came round again).
+  assert.equal(fixRoundsUsed([...ledger, refund({ created_at: "2026-09-30T17:00:00Z" })], [], []), 1);
+  // With no ledger at all a refund is ignored: the fallback counts commits.
+  assert.equal(fixRoundsUsed([refund()], PR648, ROUND_NAMES), countFailedReviewRounds(PR648, ROUND_NAMES));
+});
+
+test("fixRoundsUsed: refunds are forged-proof and capped", () => {
+  const ledger = ["a", "b", "c", "d"].map((x, i) => at(`2026-09-30T1${i}:00:00Z`, { from: `${x}`.repeat(9) }));
+  // Only github-actions[bot] writes refunds, as only it writes dispatches. The
+  // execution log a refund is decided from is agent-writable, so the author gate
+  // is not enough on its own: the cap bounds what a lying log can buy.
+  const forged = refund({ user: { login: "yorkie-team-agent[bot]", type: "Bot" } }, { from: "aaaaaaaaa" });
+  assert.equal(fixRoundsUsed([...ledger, forged], [], []), 4);
+  const all = ledger.map((d, i) => refund({ created_at: `2026-09-30T1${i}:30:00Z` }, { from: parseFixDispatchComment(d).from }));
+  assert.equal(fixRoundsUsed([...ledger, ...all], [], []), 4 - MAX_FIX_REFUNDS);
+  // A rerun cuts refunds with the dispatches they belong to, and the cap
+  // restarts with the budget.
+  assert.equal(fixRoundsUsed([...ledger, ...all], [], [], { since: "2026-09-30T11:45:00Z" }), 0);
+});
+
+test("collectFixRefunds: round-trips, and refuses anything it does not understand", () => {
+  const got = collectFixRefunds([refund()]);
+  assert.equal(got.length, 1);
+  assert.equal(got[0].from, "e6900da64");
+  assert.equal(got[0].code, "NO_RESPONSE");
+  for (const body of ["<!-- agent-fix-refund {nope} -->", "<!-- agent-fix-refund {\"v\":9,\"from\":\"x\"} -->", "plain"]) {
+    assert.equal(collectFixRefunds([refund({ body })]).length, 0, body);
+  }
+  // The terminator is escaped, like every other record here.
+  assert.doesNotMatch(serializeFixRefund({ from: "a-->b", code: "X" }).slice(0, -4), /-->/);
 });
