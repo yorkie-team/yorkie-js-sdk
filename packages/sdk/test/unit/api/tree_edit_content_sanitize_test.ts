@@ -166,15 +166,16 @@ describe('TreeEdit content sanitizing', () => {
     assert.isUndefined(content.mergedInto);
   });
 
-  it('should drop an attribute tombstone the content carries', () => {
-    // An attribute tombstone on content nobody ever styled is storage that
-    // `getDataSize` charges to no one and the TreeEdit insert path registers
-    // no GC pair for: unbounded growth the document size cannot see.
+  /**
+   * `buildStyledContent` builds <p live="yes">hello</p> whose attribute table
+   * also holds one removed entry.
+   */
+  function buildStyledContent(): CRDTTreeNode {
     const [, text] = buildContent();
     const attrs = new RHT();
     attrs.set('live', 'yes', ticket(2));
-    attrs.set('crafted', 'x'.repeat(64), ticket(2));
-    attrs.remove('crafted', ticket(3));
+    attrs.set('removed', 'x'.repeat(64), ticket(2));
+    attrs.remove('removed', ticket(3));
     const paragraph = new CRDTTreeNode(
       CRDTTreeNodeID.of(ticket(2), 0),
       'p',
@@ -182,19 +183,50 @@ describe('TreeEdit content sanitizing', () => {
       attrs,
     );
     assert.isTrue(
-      paragraph.attrs!.getNodeMapByKey().get('crafted')!.isRemoved(),
+      paragraph.attrs!.getNodeMapByKey().get('removed')!.isRemoved(),
     );
+    return paragraph;
+  }
 
-    const content = roundTrip(paragraph);
+  it('should keep an attribute tombstone the content carries', () => {
+    // Unlike the node tombstone above, a removed RHT entry on content is NOT
+    // forgeable-only: the undo copy-reinsert path re-sends a `deepcopy` of
+    // nodes a real `removeStyle` tombstoned, and the reinserted node has to
+    // keep rejecting the stale styles the original rejects. Dropping it here
+    // would also make this decoder disagree with every other producer and
+    // decoder of the same bytes -- an older SDK, the Go SDK, `fromRHT` on the
+    // snapshot and Set/Add paths -- which is divergence, not hardening.
+    const content = roundTrip(buildStyledContent());
 
-    // The live entry proves the attributes made the round trip at all, so the
-    // missing one is the purge and not a decode that dropped them wholesale.
     assert.equal(content.attrs?.get('live'), 'yes');
-    assert.isFalse(
-      content.attrs!.getNodeMapByKey().has('crafted'),
-      'content kept a crafted attribute tombstone',
+    const removed = content.attrs!.getNodeMapByKey().get('removed');
+    assert.isDefined(removed, 'content lost an attribute tombstone');
+    assert.isTrue(removed!.isRemoved());
+  });
+
+  it('should book an attribute tombstone the content carries into gc', () => {
+    // What makes the kept entry harmless is that `edit` registers it, the way
+    // the snapshot and Set/Add payload paths register theirs. Without a pair
+    // it is storage `getDataSize` charges to no one and nothing ever purges:
+    // growth the document size cannot see.
+    const content = roundTrip(buildStyledContent());
+    const root = new CRDTTreeNode(CRDTTreeNodeID.of(ticket(1), 0), 'r');
+    const tree = CRDTTree.create(root, ticket(1));
+    let lamport = 20;
+    const [, pairs] = tree.editT([0, 0], [content], 0, ticket(10), () =>
+      ticket(lamport++),
     );
-    assert.equal(content.attrs!.size(), 1);
+
+    const attrPairs = pairs.filter((pair) => pair.parent !== tree);
+    assert.equal(attrPairs.length, 1, 'no GC pair for the attribute tombstone');
+    assert.equal(
+      attrPairs[0].child,
+      content.attrs!.getNodeMapByKey().get('removed'),
+    );
+    // Removed entries are skipped by `getDataSize`, so these bytes never
+    // entered live: the pair has to carry its own size to gc rather than move
+    // it out of live, which would drive live down by bytes it never held.
+    assert.isDefined(attrPairs[0].gcOnlySize);
   });
 
   it('should drop split links the content carries', () => {

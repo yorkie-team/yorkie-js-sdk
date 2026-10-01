@@ -60,11 +60,12 @@ function cloneAndDropPreTombstoned(
   // from children's `paddedSize`; text nodes use their value length.
   traverseAll(clone, (n) => {
     n.removedAt = undefined;
-    // The attribute tombstones go with the node tombstone: the decoder drops
-    // them from the content it reads (`clearTombstones`), so a replica that
-    // kept the ones its own clone carried would hold an RHT the replicas that
-    // decoded the same edit do not.
-    n.purgeAttrTombstones();
+    // NOTE: The attribute tombstones are deliberately kept. They record real
+    // `removeStyle` intent, and the reinserted node has to keep rejecting the
+    // same stale styles the original rejects. They survive the wire intact
+    // (`fromRHT` decodes `isRemoved` verbatim, and `clearTombstones` clears
+    // only the node tombstone), so sender and receiver hold the same RHT, and
+    // `CRDTTree.edit` books each one into gc on both sides.
     if (n.isText) {
       n.visibleSize = n.value.length;
       n.totalSize = n.value.length;

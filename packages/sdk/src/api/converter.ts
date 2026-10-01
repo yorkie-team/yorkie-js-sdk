@@ -1358,9 +1358,12 @@ function fromTreeNodesWhenEdit(
     // format carries anyway: the tree follows the links as trusted
     // structural pointers once `edit` registers these nodes in nodeMapByID,
     // and a node born tombstoned under a live parent is counted as live
-    // content that no GC pair will ever collect. `clearTombstones` covers the
-    // attribute tombstones `fromRHT` decodes verbatim for the same reason:
-    // they are charged to nobody and collected by nobody.
+    // content that no GC pair will ever collect. The ATTRIBUTE tombstones
+    // `fromRHT` decodes verbatim are left alone -- the undo copy-reinsert
+    // path produces genuine ones, and stripping them here would diverge from
+    // every other producer and decoder of the same bytes. `CRDTTree.edit`
+    // books them into gc instead, so a crafted one is counted and
+    // collectable; see `clearTombstones`.
     treeNode.dropEngineOnlyLinks();
     treeNode.clearTombstones();
     treeNodes.push(treeNode);

@@ -691,42 +691,24 @@ export class CRDTTreeNode
    * parent, and the parent's own size already includes the child when the
    * parent hands it further up.
    *
-   * A node's attribute table carries tombstones of its own, and they arrive on
-   * the same client-controlled bytes (`fromRHT` decodes `isRemoved` verbatim),
-   * so they go the same way -- see `purgeAttrTombstones`.
+   * A node's attribute table carries tombstones of its own, and those are
+   * deliberately NOT cleared here. Unlike `removedAt` on the node, a removed
+   * RHT entry on content can be genuine: the undo copy-reinsert path re-sends
+   * a `deepcopy` of nodes a real `removeStyle` tombstoned, and it has to, or
+   * the reinserted node would stop rejecting the stale styles the original
+   * rejects. Stripping them on decode would also make this replica disagree
+   * with every other producer of the same bytes -- an older yorkie-js-sdk, the
+   * Go SDK, and the snapshot the server rebuilds from this very operation --
+   * which is divergence, not hardening. A crafted one is instead made
+   * harmless the way every other decode path already makes it harmless:
+   * `edit` books it into gc through `CRDTTreeNode.getGCPairs`, the same
+   * routing the snapshot and the Set/Add element payload take through
+   * `CRDTTree.getGCPairs`.
    */
   public clearTombstones(): void {
     traverseAll(this as CRDTTreeNode, (node: CRDTTreeNode) => {
       node.unremove();
-      node.purgeAttrTombstones();
     });
-  }
-
-  /**
-   * `purgeAttrTombstones` drops the removed entries of this node's attribute
-   * table.
-   *
-   * A removed RHT entry is retained in the live document on purpose: it is
-   * what makes a concurrent, older `setAttributes` lose. That only applies to
-   * an entry some replica's `removeStyle` actually created. On operation
-   * content -- which the editing client creates fresh for this one edit, so
-   * no attribute of it can have been removed by anyone -- a removed entry is
-   * a crafted one, and one nothing ever collects: `getDataSize` charges its
-   * value to no one (rht.ts) and the TreeEdit insert path registers no attr
-   * GC pair for content, so it is unbounded growth that `docSize` cannot see.
-   * The content-building paths clear them too (`cloneAndDropPreTombstoned`),
-   * so a conforming TreeEdit carries none either way.
-   */
-  public purgeAttrTombstones(): void {
-    if (!this.attrs) {
-      return;
-    }
-    // Snapshot first: `purge` deletes from the map this iterates.
-    for (const attr of Array.from(this.attrs)) {
-      if (attr.isRemoved()) {
-        this.attrs.purge(attr);
-      }
-    }
   }
 
   /**
@@ -3069,6 +3051,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     // 02. Delete: delete the nodes that are marked as removed.
     const pairs: Array<GCPair> = [];
+    // Attribute tombstones ridden in on the inserted content. Held aside and
+    // appended only after `spansComplete` is decided: that test reads
+    // `pairs.length` as "did anything beyond the plain deletes produce
+    // garbage", and these say nothing about whether the captured spans
+    // describe the deletion.
+    const contentAttrPairs: Array<GCPair> = [];
     const removedSpans: Array<TreeRestoreSpan> = [];
     // Captured in the insert phase: identity spans of the nodes this edit
     // inserts, so an undo re-removes them by identity (not by index, which
@@ -3392,6 +3380,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
           this.registerNode(node);
 
+          // NOTE: Content can arrive carrying attribute tombstones. The undo
+          // copy-reinsert path legitimately produces them -- it re-sends a
+          // `deepcopy` of nodes a `removeStyle` tombstoned, tombstones
+          // included, so the reinserted node keeps rejecting the stale styles
+          // the original rejects -- and a crafted payload can invent them,
+          // since `fromRHT` decodes `isRemoved` verbatim. Either way they are
+          // garbage this insert created in this tree: no removal path ran for
+          // them here, so without this nothing would ever collect them.
+          //
+          // `getDataSize` skips removed attributes, so these bytes never
+          // entered live and `gcOnlySize` (inside `CRDTTreeNode.getGCPairs`)
+          // sends them straight to docSize.gc, which purge gives back. This is
+          // the same routing a split (`splitElement`), a snapshot load and a
+          // Set/Add element payload (`CRDTTree.getGCPairs`) already use; the
+          // pair map keys on the parent's identity, so a clone wearing the
+          // original's RHTNode ids is a distinct pair, not a cancellation.
+          for (const attrPair of node.getGCPairs()) {
+            contentAttrPairs.push(attrPair);
+          }
+
           // Capture this inserted node's identity span (parent-before-child
           // via traverseAll) for identity-preserving insert undo/redo.
           const p = node.parent as CRDTTreeNode | undefined;
@@ -3447,6 +3455,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // spans don't fully describe the deletion → signal the op layer (empty
     // spans) to keep the copy-reinsert reverse.
     const spansComplete = mergeLevel === 0 && pairs.length === deletePairCount;
+    pairs.push(...contentAttrPairs);
 
     return [
       changes,

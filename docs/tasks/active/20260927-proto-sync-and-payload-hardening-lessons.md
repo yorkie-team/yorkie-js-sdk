@@ -66,3 +66,41 @@ from the wire, charged to nobody by `getDataSize`, and registered with no GC
 pair on the insert path — unbounded growth `docSize` cannot see. They are
 purged with the node tombstone now, and `cloneAndDropPreTombstoned` purges
 them on the locally built content too so the two paths produce the same RHT.
+
+## Review panel round: sanitizing on decode is divergence, booking is not
+
+The previous round's answer to the uncollectable attribute tombstone was to
+purge it in the decoder. Two lenses converged on the same objection, and both
+are right:
+
+- A removed RHT entry on content is **not** forgeable-only. The undo
+  copy-reinsert path re-sends a `deepcopy` of nodes a real `removeStyle`
+  tombstoned, tombstones included, because the reinserted node has to keep
+  rejecting the stale styles the original rejects. Stripping it on the way in
+  deletes genuine CRDT state.
+- Only *this* build's decoder stripped it. An older yorkie-js-sdk, the Go SDK
+  and the snapshot the server rebuilds from the very same operation all keep
+  it, so the purge made the receiving replica's RHT disagree with the
+  sender's, with every other replica's, and with the snapshot of itself.
+  `fromRHT` on the snapshot and Set/Add payload paths kept it verbatim in the
+  same file, for the stated opposite reason.
+
+A decoder that changes what an operation means is divergence, not hardening.
+The real gap was narrower than it looked: the snapshot and Set/Add paths
+already made these harmless, by booking each one into gc through
+`CRDTTree.getGCPairs` → `CRDTTreeNode.getGCPairs`, and `splitElement` does the
+same for the tombstones a split deep-copies. The TreeEdit insert path was the
+*only* one that registered nothing. It now books them the same way, so the
+entry is counted and collectable wherever it came from, and every producer and
+decoder still agrees on the bytes.
+
+One wrinkle: `spansComplete` tests `pairs.length === deletePairCount` to ask
+"did anything past the plain deletes produce garbage". The new pairs answer a
+different question, so they are held aside and appended after that test —
+otherwise content carrying any attribute tombstone would silently lose the
+identity-preserving restore path.
+
+Lesson: when a payload field is uncollectable, check whether a *sibling* decode
+path has already solved it before inventing a second answer. Matching the
+existing routing keeps the replicas in agreement; sanitizing at one boundary
+cannot.
