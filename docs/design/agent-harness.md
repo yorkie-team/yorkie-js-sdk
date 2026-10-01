@@ -96,6 +96,38 @@ repository's shape — file classification, what CI already proves, CI-defining
 paths, lens scopes, fixer prompts — are rewritten here; the rest is copied
 with its source commit recorded.
 
+### The review loop converges on what it already judged
+
+The panel is a sample, not an oracle. On #1426 it approved a head, then
+re-reviewed a merge of main that left the PR's own diff unchanged and turned
+blocking, and with the fix budget spent the PR went from `agent:ready` to
+`agent:blocked` on code nobody had touched. So the loop refuses to pay twice
+for the same question, and it keeps what it learns about failures.
+
+- **Carry.** Every review stamps a PR-diff fingerprint (`git patch-id
+  --verbatim` of the unfiltered diff) into each lens's check-run state. A new
+  head that fingerprints the same as a head every lens approved has that
+  approval re-stamped on it, and no lens runs. Carries are capped at 2 in a
+  row, and promote still needs green CI on the new head. A merge that touched
+  the PR's hunks or their context changes the fingerprint and is reviewed.
+- **Reuse.** A rerun on a commit that already has verdicts re-stamps them, so a
+  blocking verdict goes straight to the fixer. `@claude rerun review` asks for a
+  fresh sample.
+- **Probe before dispatch.** The fixer's credential is proven with a one-word
+  query before the round is recorded. Only a closed usage window or a rejected
+  credential counts as a refusal; a transient overload proceeds. The probe holds
+  the pool secrets, so it runs before the branch checkout.
+- **Honest infra pages.** A fixer that fails on an API error with nothing
+  pushed is paged with its cause and the next step, not as "the fixer failed".
+- **Evidence beside claims.** When a fix round deletes or disables tests, the
+  trusted report job records it, and the next round's adjudicator sees it beside
+  every "fixed" claim. (#1426's fixer deleted the test that showed its fix
+  incomplete, then reported the finding fixed.)
+- **No spec, no scope verdict.** Without a human-filed `agent:candidate` issue,
+  design-fit is told it has no spec, and scope findings are `minor` at most.
+- **Both directions are observed.** The metrics count clean→blocking flips
+  (escalations) as well as blocking→clean ones.
+
 ### Risks and Mitigation
 
 | Risk | Mitigation |
@@ -106,6 +138,8 @@ with its source commit recorded.
 | Three vendored copies of `scripts/agent/` drift | Record the source commit per sync and diff before the next one |
 | Fork contributors rebase onto `upstream/main` while their fork's `main` lags | The trust guard treats both `origin/main` and `upstream/main` as the default branch |
 | The commit gate refuses files CI never lints | lint-staged filters out `examples/`, which the root `eslint .` ignores |
+| Main changes what an unchanged diff MEANS, and a carry hides it | CI must pass on the carried head before promote, and the third carry in a row is a full review |
+| A fixer forges an execution log to look like an infra failure | The worst it can choose is which page a human reads; the PR is latched either way |
 
 ### Design Decisions
 
@@ -117,6 +151,10 @@ with its source commit recorded.
 | Generated `*_pb.ts` stay in the licence scan | `buf generate` carries the header; a plugin change that dropped it is worth seeing |
 | The `.proto` copies are guarded like generated files | The source of truth is the server's `api/`; an edit made only here diverges |
 | Reuse the server's App rather than create one | Same bot login, so the vendored trust list needs no change |
+| The carry key is `patch-id --verbatim`, not `--stable` | `--stable` discards whitespace, so an indentation-only change that alters behaviour would carry an approval |
+| Only an approval carries | Carrying a blocking verdict to a new head would dispatch a fixer on findings read against another commit |
+| Credentials are probed before the round, not retried after | Nothing may run after the agent in its own job, and a probe spends no round at all |
+| Test removals are evidence for the adjudicator, not a gate | Removing a test can be legitimate; the adjudicator already re-reads the code |
 
 ## Alternatives Considered
 
@@ -126,7 +164,12 @@ with its source commit recorded.
 | A tracked `.claude/settings.json` | Claude Code runs what it names straight out of a checkout |
 | `verify:fast` with integration against docker | Makes every push depend on docker running; CI already covers it |
 | Share `scripts/agent/` as a package now | Two copies exist; extract once the third shows what actually varies |
+| Refuse to carry when main changed a file the PR touches | #1426's own merge (#1424) touched two of the PR's files, so the rule blocked the carry it was built for; CI covers the same risk |
+| Refund fix rounds lost to infra failures | The infra page latches the PR and only a rerun lifts it, which restarts the budget anyway; the refund could never change a decision |
+| Keep earlier demotions across rounds (by finding identity) | On #1426 the finding that flipped blocking was raised against different files (`client.ts`, `change.ts`) from the one demoted (`converter.ts`); identity matching would not have held it, and wider matching drops real findings off the gate. Carry removes the re-review that caused the flip |
+| Retry the fixer on another credential after it fails | Nothing may run after the agent in its own job |
 
 ## Tasks
 
 - `docs/tasks/active/20260925-agent-pipeline-port-todo.md`
+- `docs/tasks/active/20261001-harness-convergence-todo.md`

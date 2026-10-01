@@ -182,39 +182,40 @@ any failure after that is refunded.
 
 ### Phase C: keep verdicts stable across rounds (D3, D4)
 
-- [ ] C1. Persist lane decisions, keyed by `finding-key`, in the review
+- [x] C1. ~~Dropped~~ (see the PR 2 review). Persist lane decisions, keyed by `finding-key`, in the review
   state. A finding demoted in an earlier round stays demoted unless
   `since..head` touches the lines it cites. Re-raising it as blocking then
   needs new evidence.
-- [ ] C2. Make `detectFlips` count both directions and surface
+- [x] C2. Make `detectFlips` count both directions and surface
   clean→blocking-on-unchanged-diff as a harness defect in the summary, not
   as a review result.
-- [ ] C3. Tests: replay rounds 4 and 5 of #1426 (same finding, moved
+- [x] C3. Only the C2 part: the escalation test. Tests: replay rounds 4 and 5 of #1426 (same finding, moved
   merge-base) and assert that the lane holds.
 
 ### Phase D: fix claims need evidence, and rounds must not widen the PR (D7, D8)
 
-- [ ] D1. Run a mechanical check in `fix-report`. If the fix commit deletes
+- [x] D1. Run a mechanical check in `fix-report`. If the fix commit deletes
   a test file, or lowers the `it(`/`test(` count in a touched test file,
   attach that fact to every `--fixed` claim in the commit and send it to
   the adjudicator.
-- [ ] D2. Add a fixer prompt rule: a test that shows the finding still
+- [x] D2. Add a fixer prompt rule: a test that shows the finding still
   reproduces must not be deleted. Commit it as `it.fails`/`it.todo` with
   the reason and report the item `--skipped`.
-- [ ] D3. Scope: add a `defer` outcome for a finding about behaviour the PR
+- [ ] D3. **Split into a follow-up task.** It needs a new command and a human
+  acknowledgement flow. Scope: add a `defer` outcome for a finding about behaviour the PR
   did not set out to change. The fixer files it with a proposed follow-up
   issue body. It moves to backlog only when a human acknowledges it, for
   example with `@claude defer <id>`. A scope argument still never
   overturns a finding on its own.
-- [ ] D4. design-fit without a spec: scope-creep findings are advisory,
+- [x] D4. design-fit without a spec: scope-creep findings are advisory,
   and fit-with-codebase findings still gate (Decision 3). Update
   `lenses/design-fit.md` with an explicit no-spec section.
-- [ ] D5. Tests: a fixture of the `e6900da` shape (a test added and then
+- [x] D5. Tests: a fixture of the `e6900da` shape (a test added and then
   deleted in the same fix round) is flagged.
 
 ### Phase E: process and docs
 
-- [ ] E1. Record the decisions above in `docs/design/agent-harness.md`:
+- [x] E1. Record the decisions above in `docs/design/agent-harness.md`:
   carry-forward, infra refunds, lane persistence and scope deferral.
 - [x] E2. Until A lands, add a caution to the `maintainer-merge` skill:
   `update-branch` on an `agent:managed` PR re-runs the panel and can drop
@@ -332,7 +333,38 @@ Within this task, merge PR 1 before PR 2 and develop PR 2 on top of it.
     lenses review the PR's diff, and the fingerprint proves it unchanged.
   - Not worth it: fetching comments lazily. It is one paginated call plus a
     memoized permission lookup per rerun author.
-- `scripts/agent`: all tests pass. `lint:check`, `verify:license` and
+- `scripts/agent`: all tests pass.
+
+### PR 2 (C2, D1, D2, D4, E1)
+
+- **C1 was rejected after measuring it on #1426.**
+  - The finding demoted in round 4 was raised against `converter.ts`.
+  - The ones that turned blocking in round 5 were raised against
+    `client.ts:3366` and `change.ts:264`: the same concern, raised at its call
+    sites.
+  - `findingSimilarity` matches only within a lens and a file, so keeping
+    demotions by finding identity would not have held them.
+  - Matching more loosely would drop real findings off the gate.
+  - The flip's cause, a re-review of an unchanged diff, is removed by PR 1's
+    carry.
+- **D3 moved to a follow-up task.** It needs a new `@claude defer` command, a
+  human acknowledgement flow and workflow changes. D4 covers part of it: with
+  no spec, scope findings no longer block.
+- **C2:** `detectFlips` now also returns `escalations` (clean→blocking), and
+  the summary renders it. `flips` keeps its meaning.
+- **D1:** `test-removals.mjs`. The trusted report job compares the heads
+  before and after a fix round through the API. When a test file was deleted
+  or lost active cases (`.skip`/`.todo` count as lost, `.fails` does not), it
+  posts an `agent-fix-tests` record as `github-actions[bot]`. The record is
+  joined to the fix report with the same head, and its contents are put ahead
+  of the author's note on every "fixed" claim the adjudicator reads.
+- **D2:** both fixer prompts say not to delete or disable a test that still
+  reproduces a finding. Keep it as `it.fails` and report the item skipped.
+- **D4:** a spec-reading lens with no spec gets `NO_SPEC_NOTE`, and the
+  design-fit rubric caps scope findings at `minor` then.
+- **E1:** `docs/design/agent-harness.md` records the convergence design, its
+  decisions, and the rejected alternatives (overlap rule, refund, C1, retry
+  after failure). `lint:check`, `verify:license` and
   `verify:doc-links` pass.
 - Not verified until it runs on GitHub: the workflow wiring end to end.
   The structural tests (`carry-wiring`, `infra-wiring`) pin the step order
