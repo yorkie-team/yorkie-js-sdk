@@ -1246,7 +1246,7 @@ export function resolveReviewScope(args, changedFiles) {
         base: a["base-sha"],
         since: reviewMode === "incremental" ? a["since-sha"] : "",
         mode: reviewMode,
-        // `git patch-id --stable` of the PR's own diff, from the workflow. What
+        // `git patch-id --verbatim` of the PR's own diff, from the workflow. What
         // lets a later head with an identical diff carry this verdict.
         fp: a["diff-fingerprint"] || "",
       })

@@ -239,7 +239,7 @@ test("resolveReviewMode: boundary values", () => {
 // re-reviewed it from scratch as `merge-in-range`, a fresh sample turned two
 // demoted findings blocking, and with the fix budget spent the PR went from
 // agent:ready to agent:blocked on code nobody had touched. Both heads have the
-// same `git patch-id --stable` fingerprint.
+// same `git patch-id --verbatim` fingerprint.
 
 const FP = "f".repeat(40);
 const FP2 = "e".repeat(40);

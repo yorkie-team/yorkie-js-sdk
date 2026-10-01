@@ -230,9 +230,10 @@ any failure after that is refunded.
    - The first draft also refused to carry when main had changed a file the
      PR touches. Checking that rule against #1426 rejected it: #1424 changed
      `document.ts` and `history.ts`, both in the PR. So the rule would have
-     blocked the one carry this task exists for, even though
-     `git patch-id --stable` gives `ac6ab9f3…` for both `b9a3ecc` and
-     `d593a98`.
+     blocked the one carry this task exists for, even though both
+     `b9a3ecc` and `d593a98` fingerprint the same (`b0832c12…` with the
+     `--verbatim` fingerprint that shipped; `ac6ab9f3…` with the first
+     draft's `--stable`).
    - The rule was not protecting anything CI does not already cover. Main
      can change what the PR's code means through any file, not only the
      ones the PR touches, and CI on the merged head is the check that sees

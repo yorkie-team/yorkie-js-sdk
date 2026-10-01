@@ -49,7 +49,7 @@ before merging. `agent-review-docs` and `agent-deferred-findings` finish
 
 **On an `agent:managed` PR the new head re-runs the panel**, and the panel is
 a sample. A merge of main that leaves the PR's own diff unchanged (same
-`git patch-id --stable`) carries an approval instead: the lens checks on the
+`git patch-id --verbatim`) carries an approval instead: the lens checks on the
 new head read "carried from <sha>" and `agent:ready` stays. A merge that
 touched the PR's hunks or their context, such as a conflict resolution, is
 a full review again. With the fix budget spent, that review can move a ready
