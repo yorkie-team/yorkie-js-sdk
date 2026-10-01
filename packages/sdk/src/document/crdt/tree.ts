@@ -3373,7 +3373,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (fromParent.isRemoved) {
             node.remove(editedAt);
 
-            pairs.push({ parent: this, child: node });
+            // The node is born dead: this branch adds nothing to `diff`, so
+            // its bytes never entered docSize.live. A pair without
+            // `gcOnlySize` would debit live for them anyway, driving live
+            // below the tree's real size until purge. Register the
+            // post-`remove` size (tombstone ticket included) so gc is
+            // charged exactly what `purge` later gives back, and leave live
+            // untouched -- the same routing the attribute tombstones a few
+            // lines below use.
+            pairs.push({
+              parent: this,
+              child: node,
+              gcOnlySize: node.getDataSize(),
+            });
           } else {
             addDataSizes(diff, node.getDataSize());
           }

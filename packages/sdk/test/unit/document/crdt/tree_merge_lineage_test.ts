@@ -254,14 +254,15 @@ describe('Tree merge lineage', () => {
     f.p1.mergedInto = f.text.id;
 
     const pos = CRDTTreePos.of(f.p1.id, f.p1.id);
-    f.tree.edit(
-      [pos, pos],
-      [new CRDTTreeNode(posT(), 'text', 'x')],
-      0,
-      timeT(),
-      timeT,
-    );
+    const inserted = new CRDTTreeNode(posT(), 'text', 'x');
+    f.tree.edit([pos, pos], [inserted], 0, timeT(), timeT);
 
+    // `toXML` renders a text node's own value and never walks its children,
+    // so the XML is identical whether the redirect fired or not: assert on
+    // where the node actually landed instead. The fall-through parks it
+    // under the removed p1, where the born-dead branch tombstones it.
+    assert.strictEqual(inserted.parent, f.p1);
+    assert.equal(f.text.allChildren.length, 0);
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
   });
 });

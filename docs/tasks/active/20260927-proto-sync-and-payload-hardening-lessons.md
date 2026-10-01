@@ -33,12 +33,16 @@ fields there, so both sides agree.
   accept (Go rejects the same empty group). Noted but left out: the
   `GCPairs` root guard (no crash in JS) — see the todo review.
 
-## `YORKIE_ALLOW_FOREIGN_TREE` breaks the pre-push hook's own tests
+## Scope `YORKIE_ALLOW_FOREIGN_TREE` to the one command that needs it
 
 A branch stacked on someone else's commits trips the foreign-tree guard.
-Setting `YORKIE_ALLOW_FOREIGN_TREE=1` gets past it on commit, but on push the
-variable leaks into the hook suite that tests the guard, and those cases
-fail. Run `pnpm verify:fast` by hand and push with `--no-verify` instead.
+Setting `YORKIE_ALLOW_FOREIGN_TREE=1` gets past it on commit, but exporting it
+for the shell leaks it into the pre-push hook's own suite — the suite that
+tests the guard — and those cases fail. The failure is the leak, not the hook:
+scope the variable to the single command (`YORKIE_ALLOW_FOREIGN_TREE=1 git
+commit ...`), or `unset` it before pushing, and the push verification runs
+clean. Never reach for `--no-verify`: it skips the whole suite to hide one
+self-inflicted env var, and the next real failure goes with it.
 
 ## Review panel round: guard tests have to isolate one guard
 
