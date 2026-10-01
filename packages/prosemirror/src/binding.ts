@@ -21,14 +21,7 @@ import type { MarkMapping, YorkieProseMirrorOptions } from './types';
 import { buildMarkMapping, invertMapping } from './defaults';
 import { pmToYorkie } from './convert';
 import { syncToYorkie } from './diff';
-import {
-  syncToPM,
-  syncToPMIncremental,
-  buildDocFromYorkieTree,
-  diffDocs,
-  applyDocDiff,
-  type DocDiff,
-} from './sync';
+import { syncToPM, syncToPMIncremental } from './sync';
 import {
   buildPositionMap,
   pmPosToYorkieIdx,
@@ -44,13 +37,16 @@ import { remoteSelectionsKey, type RemoteSelection } from './selection-plugin';
  * incoming changes: the request carries `pushOnly`, and the client drops a
  * response pack carrying remote state — changes or a snapshot — that arrives
  * anyway, including from an explicit `client.sync(doc)` (which always pulls).
- * That is all the composition guard needs — applying a remote change
- * mid-composition is what breaks the browser's composing text node, pushing a
- * local one is not.
+ * Applying a remote change mid-composition is what can break the browser's
+ * composing text node, pushing a local one is not, so this keeps the
+ * composition undisturbed without holding back the user's own edits.
  *
- * The pause is still asynchronous, so a snapshot can land in the window
- * between compositionstart and `changeSyncMode` resolving; `onSnapshot()`
- * defers that one to the compositionend flush.
+ * It narrows the window rather than closing it: the pause is asynchronous, and
+ * a document attached as `Polling` or `Manual` is never paused (see
+ * `managesSyncMode()`). A remote change that still arrives mid-composition is
+ * applied to the view straight away, as the CodeMirror and Quill bindings do:
+ * deferring it would leave the view behind the tree, and a local edit made
+ * meanwhile could then not be placed in the tree at all.
  */
 const PausedSyncMode = SyncMode.RealtimePushOnly;
 
@@ -110,7 +106,7 @@ export class YorkieProseMirrorBinding {
   private syncModeChangeQueue: Promise<void> = Promise.resolve();
   private composingBlockRange: { from: number; to: number } | undefined =
     undefined;
-  private hasPendingRemoteChanges = false;
+  private hasPendingDecorations = false;
   private pendingFlushHandle: number | undefined = undefined;
   private isDestroyed = false;
   private cursorManager: CursorManager | undefined = undefined;
@@ -217,7 +213,7 @@ export class YorkieProseMirrorBinding {
     this.unsubscribeDoc?.();
     this.unsubscribePresence?.();
     this.cursorManager?.destroy();
-    this.hasPendingRemoteChanges = false;
+    this.hasPendingDecorations = false;
     this.composingBlockRange = undefined;
     this.isComposing = false;
     // `isSyncPaused` is owned by the sync-mode queue: clearing it here while
@@ -383,35 +379,27 @@ export class YorkieProseMirrorBinding {
    * compositionstart — network the host opted out of by attaching that way,
    * with the resume queued behind it.
    *
-   * Neither mode needs the pause anyway: a remote change that lands mid
-   * composition is deferred by the document subscription regardless of sync
-   * mode, which is what actually protects the composing text node. The mode
-   * change is only an optimization that stops the changes arriving in the
-   * first place, so the modes where it costs a stream skip it. The answer
-   * here also gates `mayApplyDuringComposition()`, which is what keeps that
-   * deferral total for the unpaused modes.
+   * Those modes are not meant for collaborative editing anyway (see
+   * `SyncMode.Polling`), so the pause is an optimization they can do without:
+   * a remote change that lands mid-composition there is applied straight
+   * away, at worst ending that composition early, never losing an edit. The
+   * answer here also gates `mayApplyDuringComposition()` for remote cursor
+   * decorations.
    */
   private managesSyncMode(): boolean {
     return this.baseSyncMode === SyncMode.Realtime;
   }
 
   /**
-   * Whether a remote change that misses the composing block may be applied
-   * straight away instead of being deferred to the compositionend flush.
+   * Whether a remote cursor decoration that misses the composing block may be
+   * drawn straight away instead of being deferred to the compositionend flush.
    *
-   * Only while the pause is also in effect. There the document is held in
-   * `PausedSyncMode` for the whole composition, so this path runs at most for
-   * the stragglers that slip through the window between `compositionstart`
-   * and `changeSyncMode` resolving — a bounded handful, and dispatching them
-   * beats leaving the view a composition behind.
-   *
-   * Without the pause — a `Polling` or `Manual` document, where
-   * `managesSyncMode()` declines to touch the mode — remote packs keep
-   * arriving for the entire composition, and each one would dispatch into the
-   * view while the browser is composing. Whether the diff misses the
-   * composing block is no protection there: ProseMirror redraws from the
-   * dispatched state, and a redraw mid-composition is what detaches the
-   * composing text node. Those modes defer everything and flush once.
+   * Only while the pause is also in effect, so presence events arrive at most
+   * as a bounded handful of stragglers. Without the pause they keep arriving
+   * for the whole composition, and each decoration dispatch redraws the view
+   * under the composing text node. Decorations, unlike content, can wait:
+   * they are not part of the document, so deferring them never puts the view
+   * out of step with the tree.
    */
   private mayApplyDuringComposition(): boolean {
     return this.managesSyncMode();
@@ -428,17 +416,6 @@ export class YorkieProseMirrorBinding {
   }
 
   /**
-   * Check whether a block-level diff overlaps the block being composed.
-   */
-  private diffOverlapsComposingBlock(diff: DocDiff): boolean {
-    if (!this.composingBlockRange) return true;
-    return (
-      diff.fromPos < this.composingBlockRange.to &&
-      diff.toPos > this.composingBlockRange.from
-    );
-  }
-
-  /**
    * Check whether any remote selection overlaps the block being composed.
    */
   private selectionsOverlapComposingBlock(): boolean {
@@ -451,7 +428,8 @@ export class YorkieProseMirrorBinding {
   }
 
   /**
-   * Flush all deferred remote changes after composition ends.
+   * After a composition ends, resume realtime sync and draw the remote cursor
+   * decorations that were deferred while it lasted.
    */
   private flushPendingRemoteChanges(): void {
     // `isSyncPaused` only flips once the queued `changeSyncMode` resolves, so a
@@ -460,8 +438,8 @@ export class YorkieProseMirrorBinding {
     // Treat the requested mode as paused too, so the resume always happens.
     const isPausedOrPausing =
       this.isSyncPaused || this.desiredSyncMode === PausedSyncMode;
-    if (!this.hasPendingRemoteChanges && !isPausedOrPausing) return;
-    this.hasPendingRemoteChanges = false;
+    if (!this.hasPendingDecorations && !isPausedOrPausing) return;
+    this.hasPendingDecorations = false;
 
     // Wait for the browser to finish processing the compositionend event
     // and check that a new composition hasn't started immediately after.
@@ -474,11 +452,11 @@ export class YorkieProseMirrorBinding {
       if (this.isComposing) {
         // A new composition started (e.g. user continued typing Korean).
         // Re-defer until that composition ends.
-        this.hasPendingRemoteChanges = true;
+        this.hasPendingDecorations = true;
         return;
       }
 
-      // Resume sync first so accumulated remote changes arrive
+      // Resume sync so the changes the pause held back arrive
       this.resumeRemoteSync();
 
       // The view can be destroyed before the binding is, leaving this frame
@@ -486,28 +464,8 @@ export class YorkieProseMirrorBinding {
       // run — it is what takes the document back out of `PausedSyncMode`.
       if (!this.canTouchView()) return;
 
-      // Apply any accumulated remote content changes
-      try {
-        this.isSyncing = true;
-        syncToPMIncremental(
-          this.view,
-          this.getTree(),
-          this.view.state.schema,
-          this.elementToMarkMapping,
-          this.onLog,
-          this.wrapperElementName,
-        );
-      } catch (e) {
-        this.onLog?.(
-          'error',
-          `Deferred remote sync failed: ${(e as Error).message}`,
-        );
-      } finally {
-        this.isSyncing = false;
-      }
-      this.cursorManager?.repositionAll(this.view);
-
       // Apply any deferred decoration updates
+      this.cursorManager?.repositionAll(this.view);
       this.applySelectionDecorations();
     });
   }
@@ -641,49 +599,16 @@ export class YorkieProseMirrorBinding {
 
       this.onLog?.('remote', `Received ${operations.length} remote operations`);
 
-      // Not composing — apply immediately
-      if (!this.isComposing) {
-        this.applyRemoteTreeOps();
-        return;
+      // Applied straight away, composing or not. Deferring a change until
+      // compositionend would leave the view behind the tree, and a local edit
+      // made meanwhile is measured on the view: in a block the tree already
+      // changed, it could not be placed and was lost. The pause keeps such
+      // changes rare; one that still arrives may end the composition early,
+      // which the CodeMirror and Quill bindings accept too.
+      this.applyRemoteTreeOps();
+      if (this.isComposing) {
+        this.composingBlockRange = this.getComposingBlockRange();
       }
-
-      // During composition, with no pause holding the packs back, every
-      // remote change would dispatch into a composing view. Defer them all.
-      if (!this.mayApplyDuringComposition()) {
-        this.hasPendingRemoteChanges = true;
-        return;
-      }
-
-      // During composition: check if the diff touches the composing block
-      try {
-        const newDoc = buildDocFromYorkieTree(
-          this.getTree(),
-          this.view.state.schema,
-          this.elementToMarkMapping,
-          this.wrapperElementName,
-        );
-        const diff = diffDocs(this.view.state.doc, newDoc);
-        if (!diff) return;
-
-        if (!this.diffOverlapsComposingBlock(diff)) {
-          // Safe: changes are in a different block — apply immediately
-          try {
-            this.isSyncing = true;
-            applyDocDiff(this.view, diff);
-            // Update composing block range in case positions shifted
-            this.composingBlockRange = this.getComposingBlockRange();
-          } finally {
-            this.isSyncing = false;
-          }
-          this.cursorManager?.repositionAll(this.view);
-          return;
-        }
-      } catch {
-        // On any error, fall through to defer
-      }
-
-      // Overlaps composing block or couldn't determine — defer
-      this.hasPendingRemoteChanges = true;
     });
     this.unsubscribeDoc = unsubscribe;
   }
@@ -691,16 +616,15 @@ export class YorkieProseMirrorBinding {
   /**
    * Handle a snapshot the document applied. It replaces the whole root and
    * emits no `remote-change`, so without this the view would silently fall
-   * behind the tree. While composing, defer it to the compositionend flush:
-   * a replaced root gives no trustworthy block-level diff to apply in part.
+   * behind the tree. Applied straight away, composing or not, for the same
+   * reason as a remote change.
    */
   private onSnapshot(): void {
     this.onLog?.('remote', 'Received a remote snapshot');
-    if (this.isComposing) {
-      this.hasPendingRemoteChanges = true;
-      return;
-    }
     this.applyRemoteTreeOps();
+    if (this.isComposing) {
+      this.composingBlockRange = this.getComposingBlockRange();
+    }
   }
 
   private applyRemoteTreeOps(): void {
@@ -788,11 +712,11 @@ export class YorkieProseMirrorBinding {
       // Without the pause the presence events keep arriving for the whole
       // composition, and each dispatch redraws the view under the composing
       // text node whatever block the decoration lands in — so those modes
-      // defer every decoration, exactly as they defer every tree change.
+      // defer every decoration.
       (!this.mayApplyDuringComposition() ||
         this.selectionsOverlapComposingBlock())
     ) {
-      this.hasPendingRemoteChanges = true;
+      this.hasPendingDecorations = true;
       return;
     }
     this.applySelectionDecorations();

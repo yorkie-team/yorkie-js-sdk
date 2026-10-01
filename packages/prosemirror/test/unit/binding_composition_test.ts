@@ -269,21 +269,17 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     assert.equal(view.state.doc.textContent, 'helloworld!');
   });
 
-  it('should defer a remote change outside the composing block when unpaused', async () => {
+  it('should apply a remote change mid-composition when unpaused', async () => {
     const { view, yorkieDoc } = setupTwoBlocks(SyncMode.Polling);
 
     view.fire('compositionstart');
     await tick();
 
     // Polling is left in its own mode, so remote packs keep arriving for the
-    // whole composition. Applying each one — even outside the composing block
-    // — would redraw the view under the browser's composing text node.
+    // whole composition. Each is applied straight away: deferring would leave
+    // the view behind the tree for the local edits made meanwhile.
     yorkieDoc.tree.tailText = 'world!';
     emitTreeEdit(yorkieDoc);
-    assert.equal(view.state.doc.textContent, 'helloworld');
-
-    view.fire('compositionend');
-    await flushFrames();
     assert.equal(view.state.doc.textContent, 'helloworld!');
   });
 
@@ -359,8 +355,8 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     // Polling is a stream-less mode: `Client.changeSyncMode` awaits
     // `runWatchLoop()` on the way into RealtimePushOnly and cancels the
     // stream on the way back, so pausing here would open and tear down a
-    // watch stream on every composition. The deferral in `onRemoteChange`
-    // guards the composing text node without any of that.
+    // watch stream on every composition. Polling is not meant for
+    // collaborative editing, so it goes without the pause.
     const { view, client } = setup(createMockClient(), SyncMode.Polling);
 
     view.fire('compositionstart');
@@ -450,19 +446,15 @@ describe('YorkieProseMirrorBinding – composition sync mode', () => {
     assert.equal(view.state.doc.textContent, 'hello world');
   });
 
-  it('should defer a snapshot applied mid-composition until it ends', async () => {
+  it('should apply a snapshot mid-composition right away', async () => {
     const { view, yorkieDoc } = setup();
 
     view.fire('compositionstart');
     await tick();
     // An explicit client.sync(doc) pulls even in push-only mode, so a
-    // snapshot can land mid-composition; the view must not change under it.
+    // snapshot can land mid-composition; the view must follow it at once.
     yorkieDoc.tree.text = 'hello world';
     yorkieDoc.emit({ type: 'snapshot', source: 'remote' });
-    assert.equal(view.state.doc.textContent, 'hello');
-
-    view.fire('compositionend');
-    await flushFrames();
     assert.equal(view.state.doc.textContent, 'hello world');
   });
 

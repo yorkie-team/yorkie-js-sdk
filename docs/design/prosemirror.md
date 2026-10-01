@@ -177,20 +177,15 @@ Remote edit → doc.subscribe('remote-change')
 
 IME input (Korean, Chinese, Japanese) uses browser composition events. During active composition, the browser maintains a temporary text node that must not be disturbed by DOM mutations. If a remote transaction modifies the DOM during composition, the browser fires `compositionend` prematurely, breaking the input.
 
-Rather than deferring all remote changes during composition, the binding inspects each remote change to determine whether it affects the composing block:
+The binding protects a composition by keeping remote changes from arriving, not by holding them back from the view:
 
-**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, matching the CodeMirror and Quill bindings, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack carrying remote state — changes *or* a snapshot — that arrives anyway is dropped, including from an explicit `client.sync(doc)`, which always pulls). Only the *apply* direction threatens the composing text node, so only it needs to stop. The pause is asynchronous, so a snapshot can still land before `changeSyncMode` resolves; the binding defers that `snapshot` event itself until `compositionend`.
+**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack carrying remote state — changes *or* a snapshot — that arrives anyway is dropped, including from an explicit `client.sync(doc)`, which always pulls). Only the *apply* direction threatens the composing text node, so only it needs to stop. Only a `Realtime` document is paused: `Polling` and `Manual` are stream-less, pausing them would open and tear down a watch stream on every composition, and neither is meant for collaborative editing.
 
-**When a remote change arrives during composition**:
-1. Build the new PM doc from the Yorkie tree.
-2. Compute the block-level diff against the current PM doc.
-3. Check if `diff.fromPos..diff.toPos` overlaps `composingBlockRange`.
-4. **No overlap**: Apply immediately. Update `composingBlockRange` in case positions shifted.
-5. **Overlap**: Set `hasPendingRemoteChanges = true` to defer.
+**When a remote change or snapshot arrives during composition anyway** — one that beat the asynchronous pause, or any change on an unpaused document — it is applied to the view straight away, exactly as outside composition and as the CodeMirror and Quill bindings do. It is never deferred: a deferred change leaves the tree ahead of the view, and a local edit made meanwhile is measured on the view, so in a block the tree already changed it could not be placed and was lost. Applying it keeps the view in step with the tree, so local edits always land at the right index and the CRDT merges both sides. The cost is that such a change can end the composition early: ProseMirror only protects the composing text node while its text is unchanged (`protectLocalComposition`), so a remote edit to the same text run redraws it. The pause is what keeps that rare.
 
-**When a snapshot is applied**: The document replaces its whole root and emits a `snapshot` event, not `remote-change`. Outside composition the binding syncs the view right away. During composition it always defers (`hasPendingRemoteChanges = true`), since a replaced root gives no trustworthy block-level diff to apply in part.
+**Remote cursor decorations** are the one thing still deferred. They are not document content, so holding them back never puts the view out of step. During composition a decoration that overlaps `composingBlockRange` (or any decoration, on an unpaused document) is held until the flush.
 
-**On `compositionend`**: Restore `SyncMode.Realtime` and flush pending changes via `requestAnimationFrame`. The `requestAnimationFrame` ensures we don't flush between a `compositionend` → `compositionstart` pair (common in Korean where syllables trigger back-to-back events). Deferring only affects the PM view render — the Yorkie document is always up-to-date. When multiple remote changes arrive during composition, `syncToPMIncremental` reads the latest Yorkie tree state on flush, so a single sync captures all accumulated changes.
+**On `compositionend`**: Restore `SyncMode.Realtime` and, via `requestAnimationFrame`, draw the deferred decorations. The `requestAnimationFrame` ensures we don't flush between a `compositionend` → `compositionstart` pair (common in Korean where syllables trigger back-to-back events); the resume then waits for that next composition to end too.
 
 #### Error Recovery
 
@@ -198,14 +193,13 @@ Both sync directions include fallback paths:
 
 - **Upstream**: If `syncToYorkie` throws, the binding calls `syncToPM` to re-sync the PM view from the Yorkie tree (source of truth).
 - **Downstream**: If `syncToPMIncremental` fails (e.g., the intra-block diff produces an invalid step), it falls back to `syncToPM` which does a full document rebuild.
-- **Composition guard**: If the diff computation fails during composition, the binding defers the change (safe fallback) rather than risking a broken apply.
 
 ### Risks and Mitigation
 
 | Risk | Mitigation |
 |---|---|
 | Remote changes may cause cursor jumps | Intra-block character-level diff (`tryIntraBlockDiff`) produces precise `ReplaceStep` so ProseMirror's `StepMap` correctly maps cursor positions; block-level replacement is only a fallback for structural changes |
-| IME composition broken by remote changes | Fine-grained composition guard defers only changes that overlap the composing block; non-overlapping changes apply immediately |
+| IME composition broken by remote changes | `RealtimePushOnly` during composition keeps remote changes from arriving; one that slips through is applied at once (never deferred, so local edits are never lost) and may end that composition early |
 | Position map is O(n) per character lookup | Acceptable for typical document sizes; can be optimized with binary search if needed |
 | Mark wrapper elements increase Yorkie tree size | Minimal overhead for typical documents; only affects formatted text spans |
 | Block-level replacement can overwrite concurrent edits in same block | Character-level diffing is used when possible; native split/merge preserves CRDT convergence; block replacement is only a fallback for non-decomposable structural changes |

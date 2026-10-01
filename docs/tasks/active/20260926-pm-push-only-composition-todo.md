@@ -32,6 +32,15 @@ change while composing, Quill gates only selection updates on `isComposing`.
       `compositionstart` → push-only, `compositionend` → realtime, and that a
       `compositionend`/`compositionstart` pair does not resume early.
 - [x] Note the push-only mode in `docs/design/prosemirror.md`'s IME section.
+- [x] Apply remote changes and snapshots to the view at once, even mid
+      composition, instead of deferring the ones that overlap the composing
+      block. Deferring left the view behind the tree and lost local edits
+      made meanwhile. Only remote cursor decorations stay deferred.
+- [x] Drop the `alignBlockIndex` / `yorkieNodesEquivalent` compensation,
+      which only existed for the deferred state; `syncToYorkie` is `main`'s.
+- [x] Real-replica regression tests for a remote change touching the
+      composing block (`binding_remote_composition_test.ts`).
+- [x] Merge `origin/main` (Go-parity tree convergence and GC fixes).
 
 ## Out of scope
 
@@ -44,6 +53,20 @@ are left alone:
 - Whether `syncPresence()` should be suppressed during composition. Presence
   now flows during composition, which is what "local edits keep flowing"
   means; suppressing it is a separate behavioural decision.
+
+## Known limitations
+
+- A remote change that still arrives mid-composition — before the pause
+  resolves, or on a `Polling`/`Manual` document, which is never paused — is
+  applied at once and may end that composition early. It no longer loses an
+  edit.
+
+## Follow-ups (pre-existing on `main`)
+
+- Native merge reorders text when the second block mixes bare text and marks.
+- Native split inside such a block splits only the `span` wrapper.
+- `tree.edit` fails to delete text that follows an empty element; deleting the
+  only character of a mark leaves such an empty wrapper.
 
 ## Verification
 
