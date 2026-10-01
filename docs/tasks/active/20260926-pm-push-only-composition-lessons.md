@@ -186,15 +186,15 @@ branch then lacked `main`'s Go-parity convergence and GC fixes (#1404,
 ## Why the agent loop could not converge
 
 Panel round 11 flagged applying a remote change mid-composition on an
-unpaused (Polling) document as blocking — the #1179 symptom — and asked for
-deferral; round 12 then flagged the deferral for desyncing view and tree;
-rounds 14 and 15 flagged the index compensation added for that. The two
-demands exclude each other: deferring *is* desyncing. This branch picks
-applying immediately, so a panel finding shaped like round 11 is expected
-again and is disputed on these grounds: its worst case is a composition
-ending early, deferral's is a lost edit; `SyncMode.Polling` is documented as
-unsuitable for collaborative editing; and the CodeMirror and Quill bindings
-make the same choice.
+unpaused (Polling) document — the #1179 symptom — and the fix agent answered
+with total deferral; round 12 then flagged that deferral for desyncing view
+and tree, and rounds 14–16 flagged the index compensation built on top of it.
+The two directions exclude each other, since deferring is what desyncs the
+view. The decision taken here: apply remote changes immediately and accept
+that a rare one may end a composition early, because the alternative loses
+edits. `SyncMode.Polling` is documented as unsuitable for collaborative
+editing, and the CodeMirror and Quill bindings make the same choice. Round 17
+on that design raised no blocking finding.
 
 ## Self-review log (harness `/code-review`, not the CI lens panel)
 

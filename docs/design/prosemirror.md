@@ -77,6 +77,10 @@ A `MarkMapping` (e.g., `{ strong: 'strong', em: 'em' }`) defines how PM marks tr
 
 Yorkie requires a parent's children to be homogeneous (all text or all element). When a paragraph contains both bare text and mark wrapper elements, bare text nodes are wrapped in `<span>` elements to satisfy this constraint. These are unwrapped transparently during Yorkie→PM conversion.
 
+#### Remote URL Attributes
+
+Attribute values come from peers, and `toDOM` would render a `javascript:` (or `vbscript:`, `livescript:`, non-raster `data:`) URL as a live link. `yorkieToJSON` therefore replaces such a value in a URL attribute (`href`, `src`, …) with an inert `about:blank#yorkie-blocked-<token>` placeholder, and `pmToYorkie` swaps the original back in, so the shared tree stays byte-identical however the check decides — a local rendering choice is never echoed to peers. Attribute maps are built on null-prototype objects and remote node types are looked up as own keys only, so names like `__proto__` or `constructor` cannot reach inherited members. Known gaps are tracked in the task's follow-ups: the placeholder registry is page-global and capped, only fixed attribute names are checked, and a copied placeholder is restored when pasted back.
+
 #### Two-Level Diff (Upstream Sync: PM → Yorkie)
 
 When the user edits in ProseMirror, `syncToYorkie()` uses a two-level diffing strategy:

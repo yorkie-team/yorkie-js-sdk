@@ -48,6 +48,29 @@ binding.initialize();
 binding.destroy();
 ```
 
+### IME composition (Korean, Japanese, Chinese)
+
+While the user composes, the binding switches the document to
+`SyncMode.RealtimePushOnly`: local edits keep reaching peers, and incoming
+changes wait until the composition ends, so they cannot redraw the text being
+composed. This needs the `client` option above; without it the binding still
+syncs both ways but cannot pause, and logs a warning once.
+
+If the document is attached in a mode other than `Realtime`, pass it as
+`syncMode` so the binding returns to it after each composition:
+
+```typescript
+await client.attach(doc, { syncMode: SyncMode.Polling });
+const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+  client,
+  syncMode: SyncMode.Polling,
+});
+```
+
+Only `Realtime` documents are paused. `Polling` and `Manual` documents are not
+meant for collaborative editing; there a remote change that arrives
+mid-composition is applied at once and may end that composition early.
+
 ### Read-only viewers
 
 A view made read-only the ProseMirror way still dispatches selection-only
