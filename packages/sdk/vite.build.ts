@@ -3,6 +3,7 @@ import dts from 'vite-plugin-dts';
 import { copyFileSync } from 'fs';
 import commonjs from 'vite-plugin-commonjs';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import { nodeEsmEntry } from '../../scripts/node-esm-entry.mjs';
 
 export default defineConfig({
   build: {
@@ -18,6 +19,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   plugins: [
+    nodeEsmEntry(),
     dts({
       rollupTypes: true,
       // Node ESM resolves types per module format, so ship a .d.mts twin.
