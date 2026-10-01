@@ -43,7 +43,14 @@ function isYorkieContainerRunning() {
     return false;
   }
 }
-export const webhookAddr = isYorkieContainerRunning() && 'host.docker.internal';
+/**
+ * `webhookAddress` returns a reachable host for the local webhook listener.
+ * A listener's wildcard address is a bind target, not a client URL host.
+ */
+export function webhookAddress(isContainer: boolean): string {
+  return isContainer ? 'host.docker.internal' : '127.0.0.1';
+}
+export const webhookAddr = webhookAddress(isYorkieContainerRunning());
 
 export function toDocKey(title: string): string {
   return title

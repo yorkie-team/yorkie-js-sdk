@@ -116,8 +116,7 @@ describe('Auth Webhook', () => {
   beforeAll(async () => {
     // Start webhook server
     webhookServerInstance = webhookServer.listen(webhookServerPort, () => {
-      const addr = webhookServerInstance.address();
-      webhookServerAddress = webhookAddr || addr.address;
+      webhookServerAddress = webhookAddr;
     });
 
     // Login to yorkie
