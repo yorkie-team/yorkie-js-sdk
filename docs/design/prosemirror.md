@@ -194,6 +194,8 @@ The binding protects a composition by keeping remote changes from arriving, not 
 
 **On `compositionend`**: Restore `SyncMode.Realtime` and, via `requestAnimationFrame`, draw the deferred decorations. The `requestAnimationFrame` ensures we don't flush between a `compositionend` → `compositionstart` pair (common in Korean where syllables trigger back-to-back events); the resume then waits for that next composition to end too.
 
+**Why there is no content deferral left.** #1167 added one, because a remote change that redraws the composing text node ends the composition. #1179 found that deferral desynced view and tree and replaced it with `RealtimeSyncOff`; #1372 proposes `RealtimePushOnly` instead, and describes the deferral as something it keeps. It does not: a composing-block deferral was tried on this branch and removed again, because the two mechanisms protect against different losses and only one of them is recoverable. Not pulling (what `RealtimePushOnly` does) is what preserves #1179's protection — the tree does not move, so the view cannot fall behind it. Deferring is the opposite: the tree moves and the view does not, and a local edit made in that window is measured on the stale view, cannot be placed in the tree, and is erased by the flush. An ended composition costs the user a keystroke they can retype; a dropped edit is silent and unrecoverable. `binding_remote_composition_test.ts` pins all three cases against two real replicas.
+
 #### Error Recovery
 
 Both sync directions include fallback paths:
