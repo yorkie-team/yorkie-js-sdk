@@ -16,7 +16,13 @@
 
 import { describe, it, assert } from 'vitest';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
-import { Tree } from '@yorkie-js/sdk/src/yorkie';
+import { Tree, TimeTicket } from '@yorkie-js/sdk/src/yorkie';
+import { History } from '@yorkie-js/sdk/src/document/history';
+import { TreeStyleOperation } from '@yorkie-js/sdk/src/document/operation/tree_style_operation';
+import {
+  CRDTTreeNodeID,
+  CRDTTreePos,
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack as PbChangePack } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
@@ -287,5 +293,49 @@ describe('Tree split that re-creates a block a merge took away', () => {
     b.history.undo();
     feed(a, grab(b));
     assert.equal(a.getRoot().t.toXML(), b.getRoot().t.toXML());
+  });
+});
+
+// A node id is only unique inside its own tree, and the pairs that drive the
+// sweep arrive from a peer's change as well as this replica's own. An entry
+// recorded against a DIFFERENT tree element must come through untouched, or a
+// split in one tree silently re-addresses pending work in another.
+describe('History.reconcileTreeNodeID', () => {
+  it('re-points only the entries targeting the same tree', () => {
+    const actor = '000000000000000000000001';
+    const tick = (lamport: number) => TimeTicket.of(BigInt(lamport), 0, actor);
+    const treeA = tick(1);
+    const treeB = tick(2);
+    const prev = CRDTTreeNodeID.of(tick(10), 0);
+    const curr = CRDTTreeNodeID.of(tick(20), 0);
+    const posAt = (id: CRDTTreeNodeID) => CRDTTreePos.of(id, id);
+    const styleOn = (parentCreatedAt: TimeTicket) =>
+      TreeStyleOperation.create(
+        parentCreatedAt,
+        posAt(prev),
+        posAt(prev),
+        new Map([['bold', 'true']]),
+        tick(30),
+      );
+
+    const history = new History<Indexable>();
+    const onA = styleOn(treeA);
+    const onB = styleOn(treeB);
+    history.pushUndo([onA, onB]);
+
+    history.reconcileTreeNodeID(treeA, prev, curr);
+
+    const parentOf = (op: TreeStyleOperation) =>
+      op.getFromPos().getParentID().getCreatedAt();
+    assert.equal(
+      parentOf(onA).compare(curr.getCreatedAt()),
+      0,
+      'the entry on the split tree follows the new id',
+    );
+    assert.equal(
+      parentOf(onB).compare(prev.getCreatedAt()),
+      0,
+      'the entry on another tree keeps its own id',
+    );
   });
 });

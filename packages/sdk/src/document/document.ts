@@ -966,7 +966,11 @@ export class Document<
       for (const op of operations) {
         if (op instanceof TreeEditOperation) {
           for (const [prevID, currID] of op.getSplitRecreatedIDs()) {
-            this.internalHistory.reconcileTreeNodeID(prevID, currID);
+            this.internalHistory.reconcileTreeNodeID(
+              op.getParentCreatedAt(),
+              prevID,
+              currID,
+            );
           }
         }
       }
@@ -2323,7 +2327,11 @@ export class Document<
         // published, for the same reason the undo/redo path defers to after
         // execution: the pairs are only known once the split has run.
         for (const [prev, curr] of op.getSplitRecreatedIDs()) {
-          this.internalHistory.reconcileTreeNodeID(prev, curr);
+          this.internalHistory.reconcileTreeNodeID(
+            op.getParentCreatedAt(),
+            prev,
+            curr,
+          );
         }
 
         // One reconciliation per range the op actually changed, in the order
@@ -3131,7 +3139,11 @@ export class Document<
       if (ticketIndex >= 0 && ticketIndex >= op.getConsumedSplitTicketCount()) {
         continue;
       }
-      this.internalHistory.reconcileTreeNodeID(prev, curr);
+      this.internalHistory.reconcileTreeNodeID(
+        op.getParentCreatedAt(),
+        prev,
+        curr,
+      );
     }
 
     // And then what the TREE says the split re-created, the same signal the
@@ -3147,7 +3159,11 @@ export class Document<
     for (const op of operations) {
       if (op instanceof TreeEditOperation) {
         for (const [prev, curr] of op.getSplitRecreatedIDs()) {
-          this.internalHistory.reconcileTreeNodeID(prev, curr);
+          this.internalHistory.reconcileTreeNodeID(
+            op.getParentCreatedAt(),
+            prev,
+            curr,
+          );
         }
       }
     }

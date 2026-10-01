@@ -205,18 +205,29 @@ export class History<P extends Indexable> {
   }
 
   /**
-   * `reconcileTreeNodeID` re-points every tree edit and tree style in both
-   * stacks from `prev` to `curr`. Used when an undo or redo re-creates an
-   * element under a new id (a split), the tree counterpart of
-   * `reconcileCreatedAt`.
+   * `reconcileTreeNodeID` re-points the tree edits and tree styles in both
+   * stacks that target the tree `parentCreatedAt` names, from `prev` to
+   * `curr`. Used when a split re-creates an element under a new id, the tree
+   * counterpart of `reconcileCreatedAt`.
+   *
+   * Scoped to one tree element, like `reconcileTextEdit` and
+   * `reconcileTreeEdit`: a node id is only unique within its own tree, and the
+   * pairs reach here from a peer's change as well as this replica's own, so an
+   * unscoped sweep would let one tree's split re-point entries recorded
+   * against a different tree.
    */
-  public reconcileTreeNodeID(prev: CRDTTreeNodeID, curr: CRDTTreeNodeID): void {
+  public reconcileTreeNodeID(
+    parentCreatedAt: TimeTicket,
+    prev: CRDTTreeNodeID,
+    curr: CRDTTreeNodeID,
+  ): void {
     const replace = (stack: Array<Array<HistoryOperation<P>>>) => {
       for (const ops of stack) {
         for (const op of ops) {
           if (
-            op instanceof TreeEditOperation ||
-            op instanceof TreeStyleOperation
+            (op instanceof TreeEditOperation ||
+              op instanceof TreeStyleOperation) &&
+            op.getParentCreatedAt().compare(parentCreatedAt) === 0
           ) {
             op.reconcileNodeID(prev, curr);
           }
