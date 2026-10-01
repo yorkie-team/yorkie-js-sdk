@@ -46,25 +46,27 @@ The binding (`YorkieProseMirrorBinding`) orchestrates both directions through:
 - **Downstream sync**: Yorkie remote operations → ProseMirror transaction (`sync.ts`)
 - **Presence sync**: Local cursor → Yorkie presence → Remote cursor decorations
 
-| File                  | Responsibility                                          |
-|-----------------------|---------------------------------------------------------|
-| `binding.ts`          | Orchestrator: wires upstream, downstream, presence, IME |
-| `diff.ts`             | Upstream: PM doc diff → Yorkie `tree.edit()` calls      |
-| `sync.ts`             | Downstream: Yorkie tree → PM doc diff → `view.dispatch()` |
-| `convert.ts`          | Format conversion: PM JSON ↔ Yorkie tree JSON           |
+| File                  | Responsibility                                                |
+| --------------------- | ------------------------------------------------------------- |
+| `binding.ts`          | Orchestrator: wires upstream, downstream, presence, IME       |
+| `diff.ts`             | Upstream: PM doc diff → Yorkie `tree.edit()` calls            |
+| `sync.ts`             | Downstream: Yorkie tree → PM doc diff → `view.dispatch()`     |
+| `convert.ts`          | Format conversion: PM JSON ↔ Yorkie tree JSON                 |
 | `position.ts`         | Bidirectional position mapping: PM positions ↔ Yorkie indices |
-| `cursor.ts`           | DOM overlay for remote cursor carets                    |
-| `selection-plugin.ts` | ProseMirror plugin for remote selection decorations     |
-| `defaults.ts`         | Default mark mappings and cursor colors                 |
+| `cursor.ts`           | DOM overlay for remote cursor carets                          |
+| `selection-plugin.ts` | ProseMirror plugin for remote selection decorations           |
+| `defaults.ts`         | Default mark mappings and cursor colors                       |
 
 The binding bridges two different document models:
 
 **ProseMirror**: Marks (bold, italic) are metadata on text nodes.
+
 ```text
 paragraph > [text("hello", marks=[strong]), text(" world")]
 ```
 
 **Yorkie Tree**: No mark concept — formatting is represented as wrapper elements.
+
 ```xml
 <paragraph><strong><text>hello</text></strong><text> world</text></paragraph>
 ```
@@ -106,18 +108,18 @@ The full-rebuild `syncToPM()` is retained as a fallback (used on initialization 
 
 ```typescript
 import {
-  pmToYorkie,             // PM Node → Yorkie tree JSON
-  yorkieToJSON,           // Yorkie tree JSON → PM-compatible JSON
-  syncToYorkie,           // Upstream sync orchestrator
-  syncToPMIncremental,    // Downstream sync (incremental block-level diff)
-  syncToPM,               // Downstream sync fallback (full doc rebuild)
-  diffDocs,               // Block-level doc differ (returns DocDiff)
+  pmToYorkie, // PM Node → Yorkie tree JSON
+  yorkieToJSON, // Yorkie tree JSON → PM-compatible JSON
+  syncToYorkie, // Upstream sync orchestrator
+  syncToPMIncremental, // Downstream sync (incremental block-level diff)
+  syncToPM, // Downstream sync fallback (full doc rebuild)
+  diffDocs, // Block-level doc differ (returns DocDiff)
   buildDocFromYorkieTree, // Yorkie tree → PM Node
-  applyDocDiff,           // Apply a DocDiff to the PM view
-  buildPositionMap,       // Bidirectional position map
-  pmPosToYorkieIdx,       // PM position → Yorkie index
-  yorkieIdxToPmPos,       // Yorkie index → PM position
-  CursorManager,          // Remote cursor overlay manager
+  applyDocDiff, // Apply a DocDiff to the PM view
+  buildPositionMap, // Bidirectional position map
+  pmPosToYorkieIdx, // PM position → Yorkie index
+  yorkieIdxToPmPos, // Yorkie index → PM position
+  CursorManager, // Remote cursor overlay manager
 } from '@yorkie-js/prosemirror';
 ```
 
@@ -138,7 +140,7 @@ const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
 
 binding.initialize(); // Load/create tree, set up subscriptions
 // ... user edits ...
-binding.destroy();    // Clean up
+binding.destroy(); // Clean up
 ```
 
 #### Intra-Block Character-Level Diff (Downstream)
@@ -184,7 +186,7 @@ IME input (Korean, Chinese, Japanese) uses browser composition events. During ac
 
 The binding protects a composition by keeping remote changes from arriving, not by holding them back from the view:
 
-**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack carrying remote state — changes *or* a snapshot — that arrives anyway is dropped, including from an explicit `client.sync(doc)`, which always pulls). Only the *apply* direction threatens the composing text node, so only it needs to stop. Only a `Realtime` document is paused: `Polling` and `Manual` are stream-less, pausing them would open and tear down a watch stream on every composition, and neither is meant for collaborative editing. The pause goes through the `client` option, since a `Document` does not expose the client it is attached with; without it the binding still syncs both ways but cannot pause, and warns once.
+**On `compositionstart`**: Set `isComposing = true`, capture `composingBlockRange` (the PM position range of the top-level block containing the selection), and put the document into `SyncMode.RealtimePushOnly`. Push-only is deliberate: local edits keep reaching peers while the user composes, while the client refuses incoming changes (the request carries `pushOnly`, and a response pack carrying remote state — changes _or_ a snapshot — that arrives anyway is dropped, including from an explicit `client.sync(doc)`, which always pulls). Only the _apply_ direction threatens the composing text node, so only it needs to stop. The client also takes the reply to a push-only request as a push ack only — never its version vector — because the server attaches the minimum version vector to every reply, and collecting with it would purge tombstones that the remote changes still waiting to be pulled anchor on; the document would then be unable to apply them once it resumes (`cannot find node`), stuck on a pack the server redelivers. A composition is exactly the regime that makes this reachable: many push-only round trips with nothing pulled in between. Only a `Realtime` document is paused: `Polling` and `Manual` are stream-less, pausing them would open and tear down a watch stream on every composition, and neither is meant for collaborative editing. The pause goes through the `client` option, since a `Document` does not expose the client it is attached with; without it the binding still syncs both ways but cannot pause, and warns once.
 
 **When a remote change or snapshot arrives during composition anyway** — one that beat the asynchronous pause, or any change on an unpaused document — it is applied to the view straight away, exactly as outside composition and as the CodeMirror and Quill bindings do. It is never deferred: a deferred change leaves the tree ahead of the view, and a local edit made meanwhile is measured on the view, so in a block the tree already changed it could not be placed and was lost. Applying it keeps the view in step with the tree, so local edits always land at the right index and the CRDT merges both sides. The cost is that such a change can end the composition early: ProseMirror only protects the composing text node while its text is unchanged (`protectLocalComposition`), so a remote edit to the same text run redraws it. The pause is what keeps that rare.
 
@@ -202,10 +204,10 @@ Both sync directions include fallback paths:
 
 ### Risks and Mitigation
 
-| Risk | Mitigation |
-|---|---|
-| Remote changes may cause cursor jumps | Intra-block character-level diff (`tryIntraBlockDiff`) produces precise `ReplaceStep` so ProseMirror's `StepMap` correctly maps cursor positions; block-level replacement is only a fallback for structural changes |
-| IME composition broken by remote changes | `RealtimePushOnly` during composition keeps remote changes from arriving; one that slips through is applied at once (never deferred, so local edits are never lost) and may end that composition early |
-| Position map is O(n) per character lookup | Acceptable for typical document sizes; can be optimized with binary search if needed |
-| Mark wrapper elements increase Yorkie tree size | Minimal overhead for typical documents; only affects formatted text spans |
-| Block-level replacement can overwrite concurrent edits in same block | Character-level diffing is used when possible; native split/merge preserves CRDT convergence; block replacement is only a fallback for non-decomposable structural changes |
+| Risk                                                                 | Mitigation                                                                                                                                                                                                          |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Remote changes may cause cursor jumps                                | Intra-block character-level diff (`tryIntraBlockDiff`) produces precise `ReplaceStep` so ProseMirror's `StepMap` correctly maps cursor positions; block-level replacement is only a fallback for structural changes |
+| IME composition broken by remote changes                             | `RealtimePushOnly` during composition keeps remote changes from arriving; one that slips through is applied at once (never deferred, so local edits are never lost) and may end that composition early              |
+| Position map is O(n) per character lookup                            | Acceptable for typical document sizes; can be optimized with binary search if needed                                                                                                                                |
+| Mark wrapper elements increase Yorkie tree size                      | Minimal overhead for typical documents; only affects formatted text spans                                                                                                                                           |
+| Block-level replacement can overwrite concurrent edits in same block | Character-level diffing is used when possible; native split/merge preserves CRDT convergence; block replacement is only a fallback for non-decomposable structural changes                                          |

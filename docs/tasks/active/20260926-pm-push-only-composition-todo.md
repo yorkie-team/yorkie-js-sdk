@@ -41,6 +41,9 @@ change while composing, Quill gates only selection updates on `isComposing`.
 - [x] Real-replica regression tests for a remote change touching the
       composing block (`binding_remote_composition_test.ts`).
 - [x] Merge `origin/main` (Go-parity tree convergence and GC fixes).
+- [x] SDK: take the reply to a push-only request as a push ack only, never
+      its version vector; a composing client otherwise purged tombstones the
+      deferred remote changes anchored on (`pushonly_gc_test.ts`).
 - [x] Without `client` there is no pause: pass it in the README and design
       doc examples, warn once when it is missing, and defer every remote
       cursor decoration mid-composition while no pause is in effect.

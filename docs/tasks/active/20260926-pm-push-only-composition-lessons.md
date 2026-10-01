@@ -196,6 +196,42 @@ edits. `SyncMode.Polling` is documented as unsuitable for collaborative
 editing, and the CodeMirror and Quill bindings make the same choice. Round 17
 on that design raised no blocking finding.
 
+## Manual IME round: push-only replies were driving garbage collection
+
+The browser check with a scripted peer (per-syllable push-only toggling on
+one side, typing and Enter on the other) hit `ChangeApplyError … cannot find
+node of CRDTTreePos` on the composing tab, after which the server redelivered
+the same pack forever and the tab never converged. Reproduced against a real
+server with two SDK clients and no editor at all, so it is not the binding:
+5 of 6 seeds failed in `RealtimePushOnly`, none in `RealtimeSyncOff` (what
+`main` used), and none with GC disabled.
+
+Cause: the server attaches the minimum version vector to every reply,
+including the reply to a push-only request, which carries no changes. The
+client did not treat that reply as a push ack — it went through
+`applyChangePack`, whose last step is `garbageCollect(vector)`. A composing
+client therefore kept purging tombstones (each jamo step removes the previous
+syllable's node) while the remote changes anchored on those tombstones were
+exactly what it was deliberately not pulling. On the first full pull they
+could not be applied. This is the "insert anchor still unprotected" gap
+#1405 notes, made reachable by a mode that advances the vector without
+pulling. `main` never hit it because `RealtimeSyncOff` sends no requests at
+all; this PR is the first to spend real time in push-only.
+
+Fix (`client.ts`): the reply to a push-only request is a push ack, judged by
+the mode the request was sent in — `acknowledgePushedChanges`, which takes
+the client-seq ack and pack metadata and nothing else. Resuming then pulls the
+deferred changes first and collects with that pull's vector afterwards, the
+order a full pull always had. `pushonly_gc_test.ts` is the deterministic
+version of the scenario; it fails on the unfixed client with the exact
+production error. Follow-up outside this repo: the Go SDK's push-only path
+should be checked for the same thing, and the server could stop attaching a
+vector to push-only replies.
+
+Lesson: the agent loop's review panel reads diffs; it cannot see a protocol
+interaction that only shows up with a server and time. The first real IME
+session found in minutes what seventeen review rounds could not.
+
 ## Self-review log (harness `/code-review`, not the CI lens panel)
 
 - Round 1 and 2 reviewed the abandoned `TreeRebase` approach. Their central
