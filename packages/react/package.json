@@ -10,6 +10,16 @@
     "typings": "./dist/yorkie-js-react.d.ts",
     "exports": {
       ".": {
+        "node": {
+          "import": {
+            "types": "./dist/yorkie-js-react.node.d.mts",
+            "default": "./dist/yorkie-js-react.node.mjs"
+          },
+          "require": {
+            "types": "./dist/yorkie-js-react.d.ts",
+            "default": "./dist/yorkie-js-react.js"
+          }
+        },
         "import": {
           "types": "./dist/yorkie-js-react.d.mts",
           "default": "./dist/yorkie-js-react.es.mjs"

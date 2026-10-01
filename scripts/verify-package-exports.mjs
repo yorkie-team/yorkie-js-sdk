@@ -16,8 +16,9 @@
 
 /*
  * Packs sdk/react/prosemirror with pnpm (what CI publishes) and loads the
- * tarballs from a consumer outside the workspace, as ESM, CJS, and NodeNext
- * TypeScript. Run `pnpm build:packages` first.
+ * tarballs from a consumer outside the workspace, as ESM, CJS, mixed modules,
+ * and NodeNext TypeScript (with skipLibCheck for existing declaration errors).
+ * Build schema/sdk/react/prosemirror first.
  *
  *   node scripts/verify-package-exports.mjs
  */
@@ -108,19 +109,100 @@ for (const [n, v] of Object.entries({ Document, YorkieProvider, YorkieProseMirro
 if (typeof sdk.default?.Client !== 'function') throw new Error('sdk default missing in CJS');
 `,
   );
-  // Types: each format resolves its own declaration file under NodeNext.
-  const ts = `import { Document } from '@yorkie-js/sdk';
+  // Both load orders must share implementations and the full public surface.
+  w(
+    'mixed.mjs',
+    `import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const require = createRequire(import.meta.url);
+const packages = {};
+for (const name of ['sdk', 'react', 'prosemirror']) {
+  const id = '@yorkie-js/' + name;
+  let esm, cjs;
+  if (process.argv[2] === 'cjs-first') {
+    cjs = require(id);
+    esm = await import(id);
+  } else {
+    esm = await import(id);
+    cjs = require(id);
+  }
+  const keys = Object.keys(esm).sort();
+  assert.deepEqual(keys, Object.keys(cjs).filter(k => k !== '__esModule').sort());
+  for (const key of keys) assert.equal(esm[key], cjs[key], id + ':' + key);
+  packages[name] = { esm, cjs };
+}
+const { esm, cjs } = packages.sdk;
+assert.equal(esm.default, cjs.default);
+assert.equal(esm.default.Document, cjs.Document);
+for (const [documentApi, valueApi] of [[esm, cjs], [cjs, esm]]) {
+  const doc = new documentApi.Document('mixed');
+  doc.update(root => {
+    root.text = new valueApi.Text();
+    root.text.edit(0, 0, 'hello');
+    root.tree = new valueApi.Tree({ type: 'root', children: [] });
+    root.tree.edit(0, 0, { type: 'text', value: 'hello' });
+    root.counter = new valueApi.Counter(1);
+    root.counter.increase(2);
+  });
+  assert.equal(doc.getRoot().text.toString(), 'hello');
+  assert.equal(doc.getRoot().tree.toXML(), '<root>hello</root>');
+  assert.equal(doc.getRoot().counter.getValue(), 3);
+  assert.deepEqual(JSON.parse(doc.toJSON()).text, [{ val: 'hello' }]);
+}
+// The browser-facing ES bundles retain the same public exports.
+for (const name of Object.keys(packages)) {
+  const id = '@yorkie-js/' + name;
+  const pkg = require(id + '/package.json');
+  assert.equal(pkg.exports['.'].import.default, pkg.module);
+  const browser = await import(pathToFileURL(resolve(dirname(require.resolve(id + '/package.json')), pkg.module)));
+  assert.deepEqual(Object.keys(browser).sort(), Object.keys(packages[name].esm).sort());
+}
+`,
+  );
+  // Node ESM declarations forward to CJS declarations to share class types.
+  w(
+    'types.mts',
+    `import yorkie, { Document, Text, Tree, Counter } from '@yorkie-js/sdk';
 import { YorkieProvider } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
-export const used = [Document, YorkieProvider, YorkieProseMirrorBinding];
-`;
-  w('types.mts', ts);
+import sdk = require('@yorkie-js/sdk');
+import react = require('@yorkie-js/react');
+import prosemirror = require('@yorkie-js/prosemirror');
+import { document, text } from './types.cjs';
+export const mixedDocument: Document<{ text: Text }> = document;
+export const mixedText: Text = text;
+export const reverseDocument: sdk.Document<{ text: sdk.Text }> = new Document<{ text: Text }>('reverse');
+export const defaultConstructor: typeof Document = yorkie.Document;
+export const provider: typeof react.YorkieProvider = YorkieProvider;
+export const binding: typeof prosemirror.YorkieProseMirrorBinding = YorkieProseMirrorBinding;
+const doc = new Document<{ text: Text; tree: Tree; counter: Counter }>('types');
+doc.update(root => {
+  root.text = new sdk.Text();
+  root.text.edit(0, 0, 'hello');
+  root.tree = new sdk.Tree();
+  root.tree.edit(0, 0, { type: 'text', value: 'hello' });
+  root.counter = new sdk.Counter(1);
+  root.counter.increase(2);
+});
+// @ts-expect-error Document keys must remain typed as strings.
+new Document(123);
+`,
+  );
   w(
     'types.cts',
-    ts.replace(
-      /import \{ (\w+) \} from ('[^']+');/g,
-      'const { $1 } = require($2) as typeof import($2);',
-    ),
+    `import sdk = require('@yorkie-js/sdk');
+import react = require('@yorkie-js/react');
+import prosemirror = require('@yorkie-js/prosemirror');
+export const document = new sdk.Document<{ text: sdk.Text }>('cjs-types');
+export const text = new sdk.Text();
+export const used = [react.YorkieProvider, prosemirror.YorkieProseMirrorBinding];
+document.update(root => {
+  root.text = new sdk.Text();
+  root.text.edit(0, 0, 'hello');
+});
+`,
   );
   w(
     'tsconfig.json',
@@ -139,6 +221,8 @@ export const used = [Document, YorkieProvider, YorkieProseMirrorBinding];
 
   run('node', ['esm.mjs'], app);
   run('node', ['cjs.cjs'], app);
+  run('node', ['mixed.mjs', 'esm-first'], app);
+  run('node', ['mixed.mjs', 'cjs-first'], app);
   run('npx', ['tsc', '-p', 'tsconfig.json'], app);
 
   // ATTW on the pnpm-made tarballs (its own --pack would use npm).
@@ -167,7 +251,7 @@ export const used = [Document, YorkieProvider, YorkieProseMirrorBinding];
     readFileSync(join(app, 'node_modules/@yorkie-js/sdk/package.json'), 'utf8'),
   );
   console.log(
-    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS and NodeNext types on ${process.version}`,
+    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS, mixed modules and NodeNext types (skipLibCheck) on ${process.version}`,
   );
 } finally {
   rmSync(tmp, { recursive: true, force: true });
