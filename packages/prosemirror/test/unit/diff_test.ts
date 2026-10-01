@@ -842,9 +842,12 @@ describe('diff', () => {
         const { tree, calls } = createMockTree(yorkieTree);
         const onLog = vi.fn();
 
-        syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+        const result = syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
 
         assert.equal(calls.length, 0);
+        // The caller has to see the skip: everything downstream of an upstream
+        // sync assumes the view and the tree agree, which they do not here.
+        assert.equal(result, 'skipped');
         assert.isTrue(
           onLog.mock.calls.some((c: Array<unknown>) =>
             (c[1] as string).includes('skipping upstream sync'),

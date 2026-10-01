@@ -43,6 +43,7 @@ export {
 } from './position';
 
 // Upstream sync
+export type { SyncToYorkieResult } from './diff';
 export { syncToYorkie } from './diff';
 
 // Downstream sync

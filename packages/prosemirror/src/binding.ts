@@ -561,7 +561,7 @@ export class YorkieProseMirrorBinding {
       this.doc.update((root: any, presence: any) => {
         try {
           this.isSyncing = true;
-          syncToYorkie(
+          const result = syncToYorkie(
             root[this.treePath],
             oldDoc,
             newDoc,
@@ -569,6 +569,17 @@ export class YorkieProseMirrorBinding {
             this.onLog,
             this.wrapperElementName,
           );
+
+          // A skipped sync wrote nothing because the view is knowingly ahead
+          // of the tree — the state a composition leaves behind while remote
+          // changes are deferred. `buildPositionMap` below compares the two
+          // character for character and throws on exactly that mismatch, and
+          // the recovery path treats a throw as divergence and rebuilds the
+          // view from the tree, which would discard the local edit the skip
+          // deliberately left in the view for the flush to reconcile. Leave
+          // the selection alone; the next transaction that does reach the
+          // tree republishes it.
+          if (result === 'skipped') return;
 
           // Sync cursor position after content edit
           if (this.shouldPublishSelection()) {

@@ -410,6 +410,13 @@ export function alignBlockIndex(
 }
 
 /**
+ * Outcome of an upstream sync: `'synced'` means the tree now holds the
+ * transaction's content, `'skipped'` means nothing was written because the
+ * edit could not be mapped onto the tree.
+ */
+export type SyncToYorkieResult = 'synced' | 'skipped';
+
+/**
  * Sync a ProseMirror transaction to the Yorkie tree (upstream sync).
  *
  * Strategy:
@@ -418,6 +425,12 @@ export function alignBlockIndex(
  *    do character-level diffing (best for concurrent editing)
  * 3. Detect splits/merges and use native CRDT operations
  * 4. Otherwise, fall back to full block replacement
+ *
+ * Returns `'skipped'` when the edit could not be mapped onto the tree and
+ * nothing was written, `'synced'` otherwise. The caller has to tell the two
+ * apart: after `'skipped'` the view is knowingly ahead of the tree, so any
+ * further work that assumes the two agree — building a position map for the
+ * selection, say — would fail and be misread as divergence.
  */
 export function syncToYorkie(
   tree: {
@@ -439,7 +452,7 @@ export function syncToYorkie(
   markMapping: MarkMapping,
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
   wrapperElementName: string = 'span',
-): void {
+): SyncToYorkieResult {
   // Both docs are re-serialized wholesale, so every block this function
   // rewrites is pushed to peers as whatever the local PM doc holds — including
   // blocks the user never touched. `pmToYorkie` therefore has to be
@@ -480,7 +493,7 @@ export function syncToYorkie(
 
   if (firstDiff > oldEndDiff && firstDiff > newEndDiff) {
     onLog?.('local', 'No block-level changes detected');
-    return;
+    return 'synced';
   }
 
   // Every index above is PM-side. Map the touched range onto the tree's own
@@ -506,7 +519,7 @@ export function syncToYorkie(
       'error',
       'Local edit overlaps blocks the tree changed meanwhile; skipping upstream sync',
     );
-    return;
+    return 'skipped';
   }
 
   // The three optimizations below read the tree's copy of a block and index
@@ -545,7 +558,7 @@ export function syncToYorkie(
         onLog,
       )
     ) {
-      return;
+      return 'synced';
     }
     onLog?.(
       'local',
@@ -579,7 +592,7 @@ export function syncToYorkie(
           'local',
           `native-split: at idx ${splitIdx}, splitLevel=${split.splitLevel}`,
         );
-        return;
+        return 'synced';
       }
     }
   }
@@ -601,7 +614,7 @@ export function syncToYorkie(
         tree.edit(bFrom, bTo);
         onLog?.('local', `native-merge: boundary delete idx ${bFrom}-${bTo}`);
       }
-      return;
+      return 'synced';
     }
   }
 
@@ -629,4 +642,6 @@ export function syncToYorkie(
   } else {
     tree.editBulk(yorkieFromIdx, yorkieToIdx, newContent);
   }
+
+  return 'synced';
 }

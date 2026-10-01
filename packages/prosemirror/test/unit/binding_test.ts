@@ -29,10 +29,10 @@ import { doc, p, testSchema } from './helpers';
  * `environment`, so these tests run in node with no DOM, while
  * `prosemirror-state` itself is DOM-free.
  */
-function createFakeView(editable = true) {
+function createFakeView(editable = true, initialDoc = doc(p('hello'))) {
   const state = EditorState.create({
     schema: testSchema,
-    doc: doc(p('hello')),
+    doc: initialDoc,
   });
   const view = {
     state,
@@ -254,6 +254,43 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
     assert.isAbove(yorkieDoc.edits.length, 0, 'content must reach the tree');
     assert.equal(yorkieDoc.presenceUpdates.length, 2);
     assert.isDefined(yorkieDoc.presenceUpdates[1].selection);
+  });
+
+  it('keeps a local edit the tree could not be indexed for', function () {
+    // The tree moved underneath the view — the state a composition leaves
+    // behind while remote changes are deferred — so no block survives as an
+    // anchor and `syncToYorkie` writes nothing. Publishing the selection here
+    // would build a position map over a view and a tree that hold different
+    // characters, and the mismatch it throws on would be read as divergence
+    // and recovered from by rebuilding the view, dropping the local edit.
+    const view = createFakeView(true, doc(p('a'), p('b')));
+    let treeDoc = doc(p('a'), p('b'));
+    const yorkieDoc = createFakeDoc(() => treeDoc);
+    const errors: Array<string> = [];
+    bind(view, yorkieDoc, {
+      /** Record the upstream path's errors instead of failing on them. */
+      onLog(type, message) {
+        if (type === 'error') errors.push(message);
+      },
+    });
+    const presenceBefore = yorkieDoc.presenceUpdates.length;
+    // Peers rewrote both blocks while the view was held back.
+    treeDoc = doc(p('a2'), p('b2'));
+
+    typeText(view, 'X', 5);
+
+    assert.equal(yorkieDoc.edits.length, 0, 'nothing may reach the tree');
+    assert.deepEqual(
+      errors.filter((m) => m.includes('Upstream sync failed')),
+      [],
+      'the skip must not surface as a sync failure',
+    );
+    assert.equal(
+      view.state.doc.textBetween(0, view.state.doc.content.size, '\n'),
+      'a\nbX',
+      'the local edit must survive in the view',
+    );
+    assert.equal(yorkieDoc.presenceUpdates.length, presenceBefore);
   });
 
   it('publishes no selection on a content edit when publishing is off', function () {
