@@ -958,6 +958,19 @@ export class Document<
         }
       }
 
+      // A plain local split can re-create an element a merge took away, too
+      // (a peer merged two blocks and this user splits them again), and the
+      // stacks may still name the merged-away element. Re-point them the way
+      // `applyChangeInternal` does for a peer's split and `executeUndoRedo`
+      // for an undo/redo one, before this change's own reverse is pushed.
+      for (const op of operations) {
+        if (op instanceof TreeEditOperation) {
+          for (const [prevID, currID] of op.getSplitRecreatedIDs()) {
+            this.internalHistory.reconcileTreeNodeID(prevID, currID);
+          }
+        }
+      }
+
       const reversePresence = ctx.getReversePresence();
       if (reversePresence) {
         reverseOps.push({
@@ -3053,8 +3066,6 @@ export class Document<
     }
 
     const change = ctx.toChange();
-    change.execute(this.clone!.root, this.clone!.presences, OpSource.UndoRedo);
-
     const actorID = this.changeID.getActorID();
     const prev = {
       hadPresence: this.presences.has(actorID),
@@ -3065,22 +3076,30 @@ export class Document<
     };
     let executed;
     try {
-      executed = change.execute(this.root, this.presences, OpSource.UndoRedo);
-    } catch (err) {
-      // Same hazard as the root pass in `update()`: the operations that ran
-      // burned their tickets into the root, the change is never queued and
-      // `changeID` never advances, so the next change would reissue them.
-      // Burn the lamport, keep `clientSeq`. The caller (`executeUndoRedo`)
-      // drops the clone.
-      if (!ctx.isPresenceOnlyChange()) {
-        this.changeID = ctx
-          .getNextID()
-          .setClientSeq(this.changeID.getClientSeq());
+      change.execute(
+        this.clone!.root,
+        this.clone!.presences,
+        OpSource.UndoRedo,
+      );
+      try {
+        executed = change.execute(this.root, this.presences, OpSource.UndoRedo);
+      } catch (err) {
+        // Same hazard as the root pass in `update()`: the operations that ran
+        // burned their tickets into the root, the change is never queued and
+        // `changeID` never advances, so the next change would reissue them.
+        // Burn the lamport, keep `clientSeq`. The caller (`executeUndoRedo`)
+        // drops the clone.
+        if (!ctx.isPresenceOnlyChange()) {
+          this.changeID = ctx
+            .getNextID()
+            .setClientSeq(this.changeID.getClientSeq());
+        }
+        throw err;
       }
-      throw err;
     } finally {
-      // Detach the handlers whether or not the root pass succeeded, so a
-      // later execution of these operations cannot re-point anything.
+      // Detach the handlers whether or not either pass succeeded, so a later
+      // execution of these operations cannot re-point anything and the
+      // closures do not keep the popped entry alive.
       for (const splitOp of splitOps) {
         splitOp.onSplitTicketConsumed();
       }

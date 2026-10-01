@@ -85,6 +85,19 @@ function seed(doc: TestDoc): void {
   });
 }
 
+/** `<p>ab</p><p>cd</p>` — two blocks to merge and split again. */
+function seedBlocks(doc: TestDoc): void {
+  doc.update((r) => {
+    r.t = new Tree({
+      type: 'root',
+      children: [
+        { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+        { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+      ],
+    });
+  });
+}
+
 /** Purges the tombstones both replicas have seen. */
 function collectBoth(a: TestDoc, b: TestDoc): void {
   const vector = maxVectorOf([
@@ -225,4 +238,54 @@ describe('Tree redo of a split and a style in one change', () => {
       assert.equal(b.getRoot().t.toXML(), styled, 'redo style, on the peer');
     });
   }
+});
+
+// Not an undo/redo: a peer merges two blocks, then a plain split separates
+// them again, re-creating the merged-away block under a new id. A history
+// entry naming the old block has to follow it, whichever replica split.
+describe('Tree split that re-creates a block a merge took away', () => {
+  it('re-points the history when the split is a local edit', () => {
+    const a = newActor('000000000000000000000001');
+    const b = newActor('000000000000000000000002');
+    seedBlocks(a);
+    a.clearHistory();
+    feed(b, grab(a));
+
+    // a's entry names the second block; b merges it into the first.
+    a.update((r) => r.t.styleByPath([1], { bold: 'true' }));
+    feed(b, grab(a));
+    b.update((r) => r.t.editByPath([0, 2], [1, 0]));
+    feed(a, grab(b));
+
+    // a splits the blocks apart again, then the merged-away block is purged.
+    a.update((r) => r.t.editByPath([0, 2], [0, 2], undefined, 1));
+    feed(b, grab(a));
+    collectBoth(a, b);
+
+    a.history.undo();
+    feed(b, grab(a));
+    a.history.undo();
+    feed(b, grab(a));
+    assert.equal(b.getRoot().t.toXML(), a.getRoot().t.toXML());
+  });
+
+  it('re-points the history when the split arrives from a peer', () => {
+    const a = newActor('000000000000000000000001');
+    const b = newActor('000000000000000000000002');
+    seedBlocks(a);
+    a.clearHistory();
+    feed(b, grab(a));
+
+    // b's entry names the second block; a merges it away and splits again.
+    b.update((r) => r.t.styleByPath([1], { bold: 'true' }));
+    feed(a, grab(b));
+    a.update((r) => r.t.editByPath([0, 2], [1, 0]));
+    a.update((r) => r.t.editByPath([0, 2], [0, 2], undefined, 1));
+    feed(b, grab(a));
+    collectBoth(a, b);
+
+    b.history.undo();
+    feed(a, grab(b));
+    assert.equal(a.getRoot().t.toXML(), b.getRoot().t.toXML());
+  });
 });
