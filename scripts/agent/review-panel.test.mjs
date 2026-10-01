@@ -214,7 +214,10 @@ test("incremental review is inert without a scope note: identical rendered prefi
 // instruction has to stay LAST, with nothing after it (see the source guard far
 // below, and the injection-framing test that follows).
 test("the lens user prompt is identity + rubric + coverage note + closing, and carries no shared diff", () => {
-  const p = buildLensPrompt(LENS, { rubric: PROMPT_IN.rubric });
+  // `needsIssueSpec: false`, as the real correctness lens has it: a spec-reading
+  // lens with no spec is told so (NO_SPEC_NOTE, tested below), which is not the
+  // base shape this pins.
+  const p = buildLensPrompt({ ...LENS, needsIssueSpec: false }, { rubric: PROMPT_IN.rubric });
   assert.equal(p, [
     "You are the Correctness reviewer. Stay strictly in your lane; defer other lenses' concerns.",
     "",
@@ -3947,4 +3950,22 @@ test("agent-scripts.yml runs whenever a file the coverage-note test reads change
     const listed = wf.split("\n").filter((l) => l.trim() === `- "${file}"`).length;
     assert.equal(listed, 2, `${file} must be in both push.paths and pull_request.paths`);
   }
+});
+
+// D4: design-fit used to run with NO SPEC silently — the issue block was just
+// absent — while its rubric still told it to judge "unrequested scope creep"
+// against a spec it did not have. On #1426 (no `agent:candidate` issue) that
+// made scope arguments blocking. The lens is now TOLD there is no spec, and the
+// rubric caps what it can say about scope then.
+test("buildLensPrompt: a spec-reading lens with no spec is told so; with one, it is not", () => {
+  const lens = { title: "Design-fit", needsIssueSpec: true };
+  const none = buildLensPrompt(lens, { rubric: "# r", issue: "" });
+  assert.match(none, /## No originating issue spec/);
+  assert.match(none, /scope.*`minor`/is);
+  const withSpec = buildLensPrompt(lens, { rubric: "# r", issue: "the spec" });
+  assert.doesNotMatch(withSpec, /## No originating issue spec/);
+  // A lens that never reads a spec is not told about its absence.
+  assert.doesNotMatch(buildLensPrompt({ title: "Docs", needsIssueSpec: false }, { rubric: "# r", issue: "" }), /No originating issue spec/);
+  // The closing instruction is still last.
+  assert.ok(none.trimEnd().endsWith(LENS_CLOSING_INSTRUCTION.trimEnd()));
 });

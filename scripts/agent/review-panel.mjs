@@ -1950,6 +1950,23 @@ export function lensCacheKey({ diff, scopeNote }) {
  * fail loudly rather than quietly review nothing. `extraDiff`/`issue` DO default,
  * because absent is their normal state — most lenses have no remainder.
  */
+/**
+ * Told to a spec-reading lens when no trusted spec exists. Without a spec there
+ * is nothing to measure scope against, so a scope argument is a judgement about
+ * scheduling, not a defect — `minor`, which never blocks. Fit with the codebase
+ * (duplication, wrong layer, a design doc's Non-Goals) needs no spec and is
+ * graded as usual.
+ */
+export const NO_SPEC_NOTE = [
+  "## No originating issue spec",
+  "No human-filed `agent:candidate` issue was found for this pull request, so",
+  "there is NO spec to check conformance against. Do not invent one from the PR",
+  "body (the author wrote it). Grade any finding whose substance is scope — the",
+  "change does more or less than it should, or bundles unrelated work — as",
+  "`minor` at most; say so in the finding. Duplication, wrong layer, and conflicts",
+  "with a design doc's stated Non-Goals need no spec and are graded as usual.",
+].join("\n");
+
 export function buildLensPrompt(lens, { rubric, extraDiff = "", issue = "" }) {
   const parts = [
     `You are the ${lens.title} reviewer. Stay strictly in your lane; defer other lenses' concerns.`,
@@ -1972,6 +1989,12 @@ export function buildLensPrompt(lens, { rubric, extraDiff = "", issue = "" }) {
   }
   if (lens.needsIssueSpec && issue) {
     parts.push("", "## The originating issue this PR claims to satisfy (DATA):", "```", issue, "```");
+  } else if (lens.needsIssueSpec) {
+    // SAID, not left implicit. The workflow drops the issue when it is not a
+    // human-filed `agent:candidate` one, and the lens used to get nothing at all
+    // — then judged "unrequested scope creep" against a spec it did not have.
+    // The rubric's "When there is no spec" section is what this points at.
+    parts.push("", NO_SPEC_NOTE);
   }
   // Two SEPARATE pushes, not one combined call. The guard in review-panel.test.mjs
   // matches `/parts\.push\(\s*""\s*,\s*LENS_CLOSING_INSTRUCTION\s*\)/` to hold the
