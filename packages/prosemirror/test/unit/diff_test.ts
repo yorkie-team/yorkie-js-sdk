@@ -757,5 +757,85 @@ describe('diff', () => {
         (calls[0].args[0] as number) > (calls[1].args[0] as number),
       );
     });
+
+    // A block the user has typed into more than once serializes from the CRDT
+    // as several sibling text nodes while ProseMirror holds a single one. The
+    // documents are in step; only the representation differs.
+    describe('when the tree fragmented its text runs', () => {
+      const fragmented = (children: Array<YorkieTreeJSON>) => ({
+        type: 'doc',
+        children,
+      });
+
+      it('should still use intra-block diff', () => {
+        const oldDoc = doc(p('ab'));
+        const newDoc = doc(p('abX'));
+        const { tree, calls } = createMockTree(
+          fragmented([yElem('paragraph', [yText('a'), yText('b')])]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].method, 'edit');
+        assert.deepEqual(calls[0].args.slice(0, 3), [
+          3,
+          3,
+          { type: 'text', value: 'X' },
+        ]);
+      });
+
+      it('should still push a local edit in a multi-block doc', () => {
+        const oldDoc = doc(p('ab'), p('m'), p('cd'));
+        const newDoc = doc(p('ab'), p('mX'), p('cd'));
+        // The untouched neighbours hold two text nodes each on the tree side.
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem('paragraph', [yText('a'), yText('b')]),
+            yElem('paragraph', [yText('m')]),
+            yElem('paragraph', [yText('c'), yText('d')]),
+          ]),
+        );
+        const onLog = vi.fn();
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping, onLog);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args.slice(0, 3), [
+          6,
+          6,
+          { type: 'text', value: 'X' },
+        ]);
+      });
+
+      it('should still use native split', () => {
+        const oldDoc = doc(p('abcd'));
+        const newDoc = doc(p('ab'), p('cd'));
+        const { tree, calls } = createMockTree(
+          fragmented([yElem('paragraph', [yText('abc'), yText('d')])]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args, [3, 3, undefined, 1]);
+      });
+
+      it('should still use native merge', () => {
+        const oldDoc = doc(p('ab'), p('cd'));
+        const newDoc = doc(p('abcd'));
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem('paragraph', [yText('a'), yText('b')]),
+            yElem('paragraph', [yText('c'), yText('d')]),
+          ]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args.slice(0, 2), [3, 5]);
+      });
+    });
   });
 });

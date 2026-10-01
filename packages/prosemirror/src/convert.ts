@@ -18,17 +18,198 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { MarkMapping, YorkieTreeJSON, PMNodeJSON } from './types';
 
 /**
+ * Attribute names a ProseMirror schema resolves as a URL when it renders.
+ * The default `link` mark puts `href` straight into `['a', {href}, 0]`, so
+ * these values reach the DOM exactly as a remote peer wrote them.
+ */
+const UrlAttrNames = new Set([
+  'href',
+  'src',
+  'srcset',
+  'xlink:href',
+  'action',
+  'formaction',
+  'background',
+  'poster',
+  'cite',
+  'longdesc',
+  'data',
+  'codebase',
+  'profile',
+]);
+
+/**
+ * Whether a URL string can run script in the local origin.
+ *
+ * A deny-list, not an allow-list, and deliberately so: an app's own custom
+ * scheme, or a relative URL, must survive the round trip untouched. Control
+ * characters and whitespace are stripped first because browsers ignore them
+ * when resolving the scheme (`java\tscript:alert(1)` navigates just fine).
+ */
+function isScriptUrl(raw: string): boolean {
+  // Strip C0 controls and space in one pass. Nothing at or below U+0020 is a
+  // surrogate, so walking code units is equivalent to walking code points
+  // without the per-character array the previous `Array.from` allocated.
+  let stripped = '';
+  for (let i = 0; i < raw.length; i++) {
+    if (raw.charCodeAt(i) > 0x20) stripped += raw[i];
+  }
+  const normalized = stripped.toLowerCase();
+  if (/^(?:javascript|vbscript|livescript):/.test(normalized)) return true;
+  // `data:` can carry markup that runs script (`data:text/html,<script>`),
+  // and an SVG payload is markup too. Raster images cannot.
+  return (
+    normalized.startsWith('data:') &&
+    !/^data:image\/(?:png|jpe?g|gif|webp|bmp|x-icon)[;,]/.test(normalized)
+  );
+}
+
+/**
+ * Inert stand-in for a URL value the sanitizer refuses to hand to `toDOM`,
+ * and the registry that maps it back to what the peer actually wrote.
+ *
+ * Blanking the value in place is not enough on its own: the PM doc this
+ * converter produces is also the input to the upstream path — `syncToYorkie`
+ * re-serializes the local doc with `pmToYorkie` on every local transaction —
+ * so a blanked value is pushed back into the shared tree the first time the
+ * containing block is replaced, and every peer loses the attribute. A local
+ * rendering decision must not become a destructive edit for everyone, least
+ * of all on a false positive. So the sanitizer substitutes an inert
+ * `about:blank#…` placeholder on the way in and `restoreBlockedUrl` swaps the
+ * original back on the way out, leaving the CRDT byte-identical.
+ *
+ * The registry is keyed by the stringified original, so re-rendering the same
+ * document does not grow it, and it is capped so a peer streaming distinct
+ * blocked URLs cannot grow it without bound. Past the cap the value falls
+ * back to the empty string — safe, but no longer round-trip preserving.
+ *
+ * Two properties keep the restore side from becoming a laundering channel,
+ * because restoring means writing a live script URL back into the shared
+ * tree under *this* client's identity:
+ *
+ * 1. Each placeholder carries 128 bits of randomness rather than a counter.
+ *    A counter is a predictable token, so a peer could send the literal
+ *    string `about:blank#yorkie-blocked-3` as an attribute value, have it
+ *    pass the inbound check untouched (it is an inert `about:` URL), and be
+ *    handed back whatever the third blocked URL in this page was — its own
+ *    primed `javascript:` payload, or a value blocked in a different
+ *    document sharing the module. An unguessable token cannot be named by
+ *    someone who never saw it, and the placeholder is only ever rendered
+ *    locally; it is never pushed upstream.
+ * 2. Restoring is gated on the same attribute names the blocking was, so a
+ *    placeholder planted under a key the sanitizer never inspects — where
+ *    condition 1 does not apply because the peer could have observed a token
+ *    leak — is left as the inert string it is.
+ */
+const BlockedUrlPrefix = 'about:blank#yorkie-blocked-';
+const MaxBlockedUrls = 1024;
+const blockedUrlByOriginal = new Map<string, string>();
+const originalByBlockedUrl = new Map<string, string>();
+
+/** 128 unguessable bits, hex-encoded, for one placeholder. */
+function randomPlaceholderToken(): string {
+  const bytes = new Uint8Array(16);
+  const webCrypto = globalThis.crypto;
+  if (webCrypto && typeof webCrypto.getRandomValues === 'function') {
+    webCrypto.getRandomValues(bytes);
+  } else {
+    // No WebCrypto (an old jsdom, a non-secure context). `Math.random` is not
+    // a CSPRNG, but the alternative is a predictable counter, which is the
+    // exact thing the token exists to avoid.
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  let hex = '';
+  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
+  return hex;
+}
+
+/** The placeholder standing in for `raw`, registering it on first sight. */
+function blockUrlValue(raw: string): string {
+  const existing = blockedUrlByOriginal.get(raw);
+  if (existing !== undefined) return existing;
+  if (blockedUrlByOriginal.size >= MaxBlockedUrls) return '';
+  const placeholder = `${BlockedUrlPrefix}${randomPlaceholderToken()}`;
+  blockedUrlByOriginal.set(raw, placeholder);
+  originalByBlockedUrl.set(placeholder, raw);
+  return placeholder;
+}
+
+/**
+ * The original a placeholder stands in for, or the value itself.
+ *
+ * `key` is not decoration: only a value this client blocked under a URL
+ * attribute may be restored, which is the same gate `deserializeAttrs`
+ * applies inbound. Restoring unconditionally would let any attribute value
+ * that merely looks like a placeholder be swapped for a blocked URL on its
+ * way into the shared tree.
+ */
+function restoreBlockedUrl(key: string, value: string): string {
+  if (!UrlAttrNames.has(key)) return value;
+  if (!value.startsWith(BlockedUrlPrefix)) return value;
+  return originalByBlockedUrl.get(value) ?? value;
+}
+
+/**
+ * The replacement for a remote URL attribute value, or `undefined` to keep it.
+ *
+ * `unknown` rather than `string` is the honest input type: attributes arrive
+ * as `JSON.parse` output (`parseObjectValues` in the SDK decodes every stored
+ * attribute), so a peer calling `tree.style(from, to, { href:
+ * ['javascript:alert(1)'] })` delivers an array here. `toDOM`/`setAttribute`
+ * stringify it straight back into a live scheme, so the check has to see the
+ * string the DOM would see.
+ */
+function blockedUrlReplacement(value: unknown): string | undefined {
+  let raw: string;
+  try {
+    raw = String(value);
+  } catch {
+    // Fail closed. A value whose primitive conversion throws cannot be
+    // inspected, and an uninspectable value is not one to hand to `toDOM`;
+    // there is also no string to key the registry with, so this is the one
+    // case that blanks rather than round-trips.
+    return '';
+  }
+  return isScriptUrl(raw) ? blockUrlValue(raw) : undefined;
+}
+
+/**
  * Coerce Yorkie string attributes back to their original types.
  * Yorkie stores all attribute values as strings, so numeric-looking
  * strings (e.g., "2" from heading level) must be converted back to numbers
  * for ProseMirror's `Node.fromJSON` compatibility.
+ *
+ * Values arrive from remote peers, so a URL attribute carrying an executable
+ * scheme is blanked rather than handed to the schema's `toDOM`.
+ *
+ * The values are typed `string` upstream but are not: `CRDTTree.toJSON` runs
+ * every stored attribute through `JSON.parse`, so a remote peer can put a
+ * number, boolean, array or object here. The URL check therefore runs on
+ * every value regardless of type, and only the string-shaped coercions below
+ * are type-gated — a non-string is already the type `JSON.parse` decided.
  */
 function deserializeAttrs(
-  attrs: Record<string, string>,
+  attrs: Record<string, unknown>,
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+  // `Object.create(null)`, not `{}`: an attribute literally named `__proto__`
+  // is an own-property write on a null-prototype object but a *prototype
+  // assignment* on an object literal. On a literal, a peer sending
+  // `__proto__: { href: 'javascript:alert(1)' }` would leave no own `href`
+  // for the sanitizer above to see while ProseMirror's `computeAttrs` — which
+  // reads `attrs[name]` straight through the prototype chain — still resolves
+  // one. With no prototype there is no chain to smuggle anything along.
+  const result: Record<string, unknown> = Object.create(null);
   for (const [key, value] of Object.entries(attrs)) {
-    if (/^-?\d+(\.\d+)?$/.test(value)) {
+    const blocked = UrlAttrNames.has(key)
+      ? blockedUrlReplacement(value)
+      : undefined;
+    if (blocked !== undefined) {
+      result[key] = blocked;
+    } else if (typeof value !== 'string') {
+      result[key] = value;
+    } else if (/^-?\d+(\.\d+)?$/.test(value)) {
       result[key] = Number(value);
     } else if (value === 'true') {
       result[key] = true;
@@ -43,6 +224,10 @@ function deserializeAttrs(
 
 /**
  * Extract non-null attributes from a PM node as string key-value pairs.
+ *
+ * A URL the sanitizer replaced with a placeholder is restored to the peer's
+ * original value here, so re-serializing a locally rendered doc leaves the
+ * shared tree exactly as it was.
  */
 function serializeAttrs(
   attrs: Record<string, unknown> | undefined,
@@ -52,7 +237,7 @@ function serializeAttrs(
   let hasAttrs = false;
   for (const [key, value] of Object.entries(attrs)) {
     if (value != null) {
-      result[key] = String(value);
+      result[key] = restoreBlockedUrl(key, String(value));
       hasAttrs = true;
     }
   }
@@ -158,7 +343,12 @@ export function pmToYorkie(
         ) {
           wrapper.attributes = {};
           for (const [k, v] of Object.entries(mark.attrs)) {
-            if (v != null) wrapper.attributes[k] = String(v);
+            // Same restore as `serializeAttrs`: a sanitized `href` must go
+            // back to the tree as the peer wrote it, not as the placeholder
+            // this client rendered.
+            if (v != null) {
+              wrapper.attributes[k] = restoreBlockedUrl(k, String(v));
+            }
           }
         }
         yorkieNode = wrapper;
@@ -244,8 +434,18 @@ export function yorkieToJSON(
     return flatChildren;
   }
 
-  // Check if this is a mark element (strong, em, etc.)
-  const markName = elementToMarkMapping[yorkieNode.type];
+  // Check if this is a mark element (strong, em, etc.).
+  // `yorkieNode.type` is remote-controlled and the mapping is a plain object,
+  // so a node named `constructor` or `toString` would otherwise resolve to an
+  // inherited function and be spliced into the mark stack as a mark type.
+  // Own keys only; anything else is a regular element, which is what the
+  // remote tree says it is.
+  const markName = Object.prototype.hasOwnProperty.call(
+    elementToMarkMapping,
+    yorkieNode.type,
+  )
+    ? elementToMarkMapping[yorkieNode.type]
+    : undefined;
   if (markName) {
     const markEntry: { type: string; attrs?: Record<string, unknown> } = {
       type: markName,

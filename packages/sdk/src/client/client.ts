@@ -104,6 +104,12 @@ export enum SyncMode {
 
   /**
    * `RealtimePushOnly` mode indicates that only local changes are automatically pushed.
+   *
+   * The reply to a push-only request is taken as a push ack only: its
+   * client-seq acknowledgement and pack metadata, never remote state and never
+   * its version vector. Garbage-collecting with that vector would purge
+   * tombstones that the remote changes this document has not pulled yet may
+   * anchor on, leaving them unapplicable once it resumes pulling.
    */
   RealtimePushOnly = 'realtime-pushonly',
 
@@ -3351,13 +3357,14 @@ export class Client {
     const { resourceID: docID } = attachment;
 
     const reqPack = doc.createChangePack();
+    const pushOnly = syncMode === SyncMode.RealtimePushOnly;
     try {
       const res = await this.rpcClient.pushPullChanges(
         {
           clientId: this.id!,
           documentId: docID,
           changePack: converter.toChangePack(reqPack),
-          pushOnly: syncMode === SyncMode.RealtimePushOnly,
+          pushOnly,
           disableGc: attachment.disableGC,
         },
         { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
@@ -3373,10 +3380,30 @@ export class Client {
       // client seq ack rather than push the same changes again — along with
       // the pack's metadata (compaction epoch, removal flag), which describes
       // the document rather than the content being skipped.
+      //
+      // The response to a push-only request is a push ack as well, even
+      // though it carries no changes: the server still attaches the minimum
+      // version vector, and applying that would garbage-collect tombstones
+      // while the changes anchored on them are precisely what this document
+      // has not pulled yet. Those changes arrive on the first full pull after
+      // the pause and are applied before that pull's vector collects anything;
+      // collecting here instead leaves the document unable to apply them
+      // ("cannot find node"), stuck on a pack the server redelivers forever.
+      // Judged by the mode the request was sent in, not the mode now: the
+      // mode can change while the request is in flight, and it is the
+      // request that decided whether anything was pulled.
+      //
+      // The pack's content does not enter the decision. A reply with neither
+      // changes nor a snapshot still carries the version vector, and an
+      // explicit `sync(doc)` sends PushPull regardless of the attachment mode
+      // (see `sync`), so keying on content would let that empty reply reach
+      // `garbageCollect` on a document that is paused mid-composition — the
+      // very collection this guard exists to prevent. While a document is in
+      // PushOnly/SyncOff nothing of the reply but the push ack is taken.
       const dropsRemoteState =
-        (respPack.hasChanges() || respPack.hasSnapshot()) &&
-        (attachment.syncMode === SyncMode.RealtimePushOnly ||
-          attachment.syncMode === SyncMode.RealtimeSyncOff);
+        pushOnly ||
+        attachment.syncMode === SyncMode.RealtimePushOnly ||
+        attachment.syncMode === SyncMode.RealtimeSyncOff;
       if (dropsRemoteState) {
         doc.acknowledgePushedChanges(respPack);
       } else {
