@@ -57,6 +57,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MAX_SLOTS, TOKEN_ENV, slotSuffix, readPoolSlots } from "./token-pool.mjs";
 import { SESSION_LIMIT_RE } from "./redact.mjs";
+import { classifyFixResult } from "./metrics.mjs";
 
 // Re-exported, not redefined: `token-pool.mjs` owns the slot naming, and a second
 // copy of this mapping is exactly the drift its docblock warns about.
@@ -143,11 +144,14 @@ export function candidateNames(state, configuredNames) {
   return configured.filter((n) => live.has(n));
 }
 
-// Ported from wafflebase's auth-smoke.mjs. Deliberately NOT a catch-all: each
-// list matches only what it is confident about, and the rest is `unknown` —
-// which PROCEEDS. A quota error read as auth sends someone after a good secret;
-// an auth error read as quota sends them to wait for a reset that never helps.
-const QUOTA = [SESSION_LIMIT_RE, /rate[ _-]?limit/i, /\b429\b/, /overloaded/i, /quota/i, /too many requests/i];
+// After wafflebase's auth-smoke.mjs, NARROWED. A "refused" answer here pauses
+// the PR behind the paged latch until a human reruns it, so only a refusal that
+// STAYS refused counts: a closed usage window (until it resets) or a rejected
+// credential. A plain 429, "rate limit" or "overloaded" is transient — on an
+// API-wide blip every slot would read as dead and the PR would latch for
+// nothing — so it is `unknown`, which proceeds. The same line the panel's own
+// failover draws: `isAccountLimit` keys on USAGE_LIMIT, not on RATE_LIMITED.
+const QUOTA = [SESSION_LIMIT_RE];
 const AUTH = [
   /\b401\b/, /\b403\b/, /unauthorized/i, /authentication[ _-]?(error|failed)/i,
   /invalid[ _-]?(api[ _-]?key|token|credential)/i, /expired[ _-]?(token|credential)/i,
@@ -221,7 +225,9 @@ function sdkCheck(query, model, token, timeoutMs = 30_000) {
         },
       })) {
         if (m.type !== "result") continue;
-        if (m.subtype === "success" && !m.is_error) return { ok: true };
+        // The repo's one success rule for a session result (it also reads
+        // `api_error_status` and `terminal_reason`), not a second copy of it.
+        if (classifyFixResult(m)?.ok) return { ok: true };
         failure = `${m.subtype ?? ""} ${m.api_error_status ?? ""} ${m.result ?? ""}`;
       }
     } catch (err) {

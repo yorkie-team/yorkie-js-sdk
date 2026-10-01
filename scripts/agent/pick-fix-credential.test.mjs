@@ -358,7 +358,6 @@ test("candidateNames: the panel's live slots first, filtered to what is configur
 
 test("classifyProbeFailure: quota and auth are named; everything else is unknown", () => {
   assert.equal(classifyProbeFailure("You've hit your weekly limit · resets 11pm"), "quota");
-  assert.equal(classifyProbeFailure("429 Too Many Requests"), "quota");
   assert.equal(classifyProbeFailure("Not logged in · Please run /login"), "auth");
   assert.equal(classifyProbeFailure("401 Unauthorized"), "auth");
   assert.equal(classifyProbeFailure("socket hang up"), "unknown");
@@ -399,4 +398,14 @@ test("probeEnv: a probe child sees ONE token and no real home", () => {
   } finally {
     process.env = prev;
   }
+});
+
+test("classifyProbeFailure: a transient overload is NOT a refusal — it must not latch a PR", () => {
+  // review: a 30 s API-wide 429/529 made every slot look dead, `available=false`
+  // posted the paged latch, and the PR stalled until a human reran it. Only a
+  // closed usage WINDOW (it stays closed until it resets) is a refusal.
+  for (const msg of ["429 Too Many Requests", "rate limit exceeded", "Overloaded (529)", "quota exceeded, retry later"]) {
+    assert.equal(classifyProbeFailure(msg), "unknown", msg);
+  }
+  assert.equal(classifyProbeFailure("429 · You've hit your session limit · resets 3am"), "quota");
 });

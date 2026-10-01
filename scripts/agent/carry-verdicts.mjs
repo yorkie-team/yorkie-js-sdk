@@ -96,7 +96,12 @@ export function carryVerdicts(opts) {
     if (mode === "carry" && conclusion === "failure") return refuse(`${lens.id} did not approve ${from}; a blocking verdict is not carried`);
     const prior = parseReviewState(run.external_id);
     if (!prior && conclusion !== "skipped") return refuse(`${lens.id}'s run on ${from} carries no review state`);
-    const text = typeof run.output?.text === "string" && run.output.text !== "" ? run.output.text : "[]";
+    const hasText = typeof run.output?.text === "string" && run.output.text !== "";
+    // A BLOCKING verdict's findings are the fixer's work list. Missing text is a
+    // failed full-output fetch (the list copy omits it), not "no findings" —
+    // reusing it as `[]` would spend a fix round on an empty list.
+    if (conclusion === "failure" && !hasText) return refuse(`${lens.id}'s findings on ${from} could not be read`);
+    const text = hasText ? run.output.text : "[]";
     try {
       if (!Array.isArray(JSON.parse(text))) return refuse(`${lens.id}'s findings payload is not a list`);
     } catch {

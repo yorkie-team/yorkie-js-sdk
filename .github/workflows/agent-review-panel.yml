@@ -2233,6 +2233,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ needs.review-panel.outputs.pr }}
           CAPACITY: ${{ steps.cred.outputs.capacity }}
+          CRED_REASON: ${{ steps.cred.outputs.reason }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         # Body assembled with printf into a file, then posted with --body-file. An
         # UNQUOTED heredoc would interpolate the marker and the backticks as shell;
@@ -2242,7 +2243,14 @@ jobs:
         run: |
           {
             printf '%s\n' '<!-- agent-review-paged -->'
-            printf '%s\n\n' '🛑 The fix agent was **not dispatched**: no Claude credential answered — each was refused on a closed usage window or on authentication — so a fix round would have been spent on a session that could not start.'
+            # Two different findings, said differently: the probe TRIED every
+            # slot and each refused, or the panel's pool state already showed
+            # every slot retired and nothing was tried.
+            if [ "$CRED_REASON" = "probe-all-refused" ]; then
+              printf '%s\n\n' '🛑 The fix agent was **not dispatched**: every Claude credential was probed and each refused — a closed usage window or a rejected credential — so a fix round would have been spent on a session that could not start.'
+            else
+              printf '%s\n\n' '🛑 The fix agent was **not dispatched**: the review panel had already retired every Claude credential this round (closed usage windows), so a fix round would have been spent on a session that could not start.'
+            fi
             printf '%s\n\n' '**No fix round was consumed** — this PR'"'"'s budget is untouched.'
             printf 'Credential capacity: %s\n\n' "${CAPACITY:-unknown}"
             printf '%s\n\n' 'This often clears by itself, because usage windows reset. Comment `@claude rerun` once they have, or register more `CLAUDE_CODE_OAUTH_TOKEN_N` repository secrets so a heavy review round cannot starve the fixer.'

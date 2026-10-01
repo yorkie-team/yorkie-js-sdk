@@ -147,20 +147,30 @@ export function reviewingLensIds(manifest, changedFiles) {
  *
  * `@claude rerun review` is the opt-out from `reuse`: a rerun on the same head
  * otherwise re-stamps its verdicts rather than drawing a new sample. Only the
- * LATEST trusted rerun speaks, and only when it is newer than `after` (the
- * newest lens verdict) — an older request was already answered by that verdict.
+ * LATEST rerun speaks, and only when it is newer than `after` — the newest lens
+ * run's START. A verdict from a round already in flight when the request was
+ * made finishes after it but did not answer it.
  *
- * Trust is `isRerunCommand`'s, the one `agent-rerun.yml` and the round guard
- * use, so a request that did not reset the budget cannot force a review either.
- *
- * FAILS TOWARD REVIEWING: `comments === null` is "could not read them", and an
- * unread request may have been exactly this one. A review costs tokens; a
- * skipped one costs the answer a human asked for.
+ * FAILS TOWARD REVIEWING, in both places a fact can be missing:
+ *   - `comments === null` is "could not read them", and an unread request may
+ *     have been exactly this one;
+ *   - a commenter whose permission lookup FAILED (`trusts` → null) is not a
+ *     "no" — the request stands. Only a definite "no" (`false`) or a bot is
+ *     ignored, so nobody untrusted can force anything but a review, and a
+ *     review costs only tokens.
  */
 export function reviewRequested(comments, { trusts, after } = {}) {
   if (comments === null) return true;
+  const believed = (c) => {
+    if (c?.user?.type === "Bot") return false;
+    if (typeof trusts === "function") {
+      if (parseCommand(String(c?.body ?? ""), { surface: "pr" }).command !== "rerun") return false;
+      return trusts(String(c?.user?.login ?? "")) !== false;
+    }
+    return isRerunCommand(c, { trusts });
+  };
   const reruns = (Array.isArray(comments) ? comments : [])
-    .filter((c) => isRerunCommand(c, { trusts }))
+    .filter(believed)
     .map((c) => ({ c, at: Date.parse(String(c.created_at ?? "")) }))
     .filter((x) => Number.isFinite(x.at))
     .sort((a, b) => a.at - b.at);
@@ -206,8 +216,9 @@ export async function decideScope(opts) {
   // From the SAME runs the pointers come from, so a verdict and the state it is
   // read beside cannot belong to different rounds.
   const priorConclusions = new Map([...latest].map(([name, r]) => [name, r?.conclusion]));
+  // STARTED, not completed: see `reviewRequested`.
   const newest = [...latest.values()]
-    .map((r) => Date.parse(String(r?.completed_at ?? "")))
+    .map((r) => Date.parse(String(r?.started_at ?? r?.completed_at ?? "")))
     .filter((n) => Number.isFinite(n));
   const forceReview = reviewRequested(comments, {
     trusts,

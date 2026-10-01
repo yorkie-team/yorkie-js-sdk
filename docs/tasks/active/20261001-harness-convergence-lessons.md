@@ -22,9 +22,10 @@
   building it. The "no file overlap with main" carry rule looked safe in the
   abstract and would have blocked #1426's own carry: #1424 touched
   `document.ts` and `history.ts`, both in the PR.
-- Test the primitive before relying on it. `git patch-id --stable` was
+- Test the primitive before relying on it. The patch-id fingerprint was
   checked on a scratch repo and on #1426's real commits before it became the
-  carry key.
+  carry key. That first check used `--stable` and only proved stability; the
+  carry key that shipped is `--verbatim` (see the lesson below).
 - Read the trust rules before designing a retry. "Nothing after the agent in
   its own job" (`checks.test.mjs`) rules out a fallback in that job, and
   moving the check to before dispatch gives a stronger guarantee anyway: no

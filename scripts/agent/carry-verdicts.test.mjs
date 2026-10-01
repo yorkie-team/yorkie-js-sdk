@@ -116,3 +116,15 @@ test("writeCarried: lays the files out exactly where the post step reads them", 
   // fallback (`[]`) is the right value there.
   assert.equal(existsSync(path.join(dir, "docs", "carried-text.json")), false);
 });
+
+test("carryVerdicts: a blocking verdict whose findings could not be read is refused, not reused empty", () => {
+  // review: the full-output fetch failed, the list copy carried no output.text,
+  // it became "[]", and a reused failure sent the fixer an empty work list.
+  const noText = run("correctness", 10, "failure", "[]", { output: { title: "t", summary: "s" } });
+  const got = carryVerdicts({
+    mode: "reuse", source: A, head: A, base: C, fingerprint: FP, manifest: MANIFEST, changedFiles: CODE,
+    api: apiFor([noText, run("security", 11, "success")]), log: quiet,
+  });
+  assert.equal(got.ok, false);
+  assert.match(got.reason, /findings/);
+});

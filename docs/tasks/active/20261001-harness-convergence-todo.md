@@ -312,6 +312,26 @@ Within this task, merge PR 1 before PR 2 and develop PR 2 on top of it.
   - carried findings are read only on a carried round;
   - each probe child gets one token and a throwaway HOME, with a 30 s
     timeout.
+- `/code-review high` on #1428 raised 10 unverified findings; 8 were fixed:
+  - A transient 429/overload no longer counts as a refusal. Only a closed
+    usage window or a rejected credential does, so an API blip cannot
+    latch a PR.
+  - A reused blocking verdict whose findings cannot be read is refused,
+    not reused empty.
+  - `rerun review` is answered only by a round that *started* after it, and
+    a failed permission lookup fails toward reviewing.
+  - The probe uses `classifyFixResult` as its success rule.
+  - The lens-key lookup is shared.
+  - The no-credential page now says whether slots were probed or the pool
+    state had already retired them.
+  - The stale lesson was corrected.
+- Not fixed:
+  - Disputed: "a carry skips the merge-in-range review of the next round".
+    Before this change M was fully reviewed and stamped `reviewed=M`, and F
+    was then reviewed incrementally from M, so the path is the same. The
+    lenses review the PR's diff, and the fingerprint proves it unchanged.
+  - Not worth it: fetching comments lazily. It is one paginated call plus a
+    memoized permission lookup per rerun author.
 - `scripts/agent`: all tests pass. `lint:check`, `verify:license` and
   `verify:doc-links` pass.
 - Not verified until it runs on GitHub: the workflow wiring end to end.

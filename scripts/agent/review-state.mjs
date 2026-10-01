@@ -211,25 +211,30 @@ export function latestLensRuns(runs, lensCheckNames) {
  * Never throws. Reasons are the state-only subset: `invalid-input`,
  * `no-prior-state`, `lens-state-gap`, `lens-state-divergence`, or `ok`.
  */
+/**
+ * One lens's entry in `bag`, keyed by lens id (`correctness`) OR by check name
+ * (`agent-review-correctness`) — `latestLensRuns` returns the latter and
+ * `lensIds` are the former. `Object.hasOwn` rather than a bare index: a lens id
+ * of `constructor` would otherwise pick up `Object.prototype.constructor`.
+ */
+function lensEntry(bag, id) {
+  const pick = (k) => {
+    if (bag instanceof Map) return bag.get(k);
+    return bag && typeof bag === "object" && Object.hasOwn(bag, k) ? bag[k] : undefined;
+  };
+  return pick(id) ?? pick(`agent-review-${id}`);
+}
+
 export function agreedReviewedSha(lensIds, states) {
   const none = (reason) => ({ sha: "", reason, state: null });
   const ids = (Array.isArray(lensIds) ? lensIds : []).filter((id) => typeof id === "string" && id !== "");
   if (ids.length === 0) return none("invalid-input");
 
-  // Keyed by lens id (`correctness`) OR by check name (`agent-review-correctness`),
-  // because `latestLensRuns` returns the latter and `lensIds` are the former.
-  // Accepting both removes a silent trap: the natural composition of the two would
-  // otherwise find no state for any lens, report `no-prior-state` forever, and
-  // never narrow anything with nothing to indicate a mistake.
-  //
-  // `Object.hasOwn` rather than a bare index: a lens id of `constructor` would
-  // otherwise pick up `Object.prototype.constructor` as if it were state.
-  const pick = (k) => {
-    if (states instanceof Map) return states.get(k);
-    return states && typeof states === "object" && Object.hasOwn(states, k) ? states[k] : undefined;
-  };
+  // Both key spaces are accepted (see `lensEntry`): the natural composition of
+  // `latestLensRuns` and `lensIds` would otherwise find no state for any lens,
+  // report `no-prior-state` forever, and never narrow anything.
   const get = (id) => {
-    const v = pick(id) ?? pick(`agent-review-${id}`);
+    const v = lensEntry(states, id);
     // Either a raw external_id string or an already-parsed record — both go
     // through the same validation, so pre-parsing cannot skip it.
     return typeof v === "string" ? parseReviewState(v) : normalizeState(v);
@@ -310,12 +315,7 @@ export function resolveReviewMode(opts) {
   // Every lens's verdict on the head it last reviewed, or null when any one is
   // missing or is not a verdict. `neutral` is a lens that did not apply.
   const verdictOf = (id) => {
-    const pick = (k) => {
-      if (priorConclusions instanceof Map) return priorConclusions.get(k);
-      return priorConclusions && typeof priorConclusions === "object" && Object.hasOwn(priorConclusions, k)
-        ? priorConclusions[k] : undefined;
-    };
-    const c = pick(id) ?? pick(`agent-review-${id}`);
+    const c = lensEntry(priorConclusions, id);
     return c === "success" || c === "failure" || c === "neutral" ? c : null;
   };
   const prior = lensIds.map(verdictOf);

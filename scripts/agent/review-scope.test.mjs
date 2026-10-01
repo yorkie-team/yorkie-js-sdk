@@ -329,3 +329,16 @@ test("decideScope: comments that cannot be read force a review — never a reuse
   assert.equal(got.mode, "full");
   assert.equal(got.reason, "review-requested");
 });
+
+test("reviewRequested: answered only by a round that STARTED after the request; an unresolved author fails toward reviewing", async () => {
+  const { reviewRequested } = await import("./review-scope.mjs");
+  const ask = human("@claude rerun review", "2026-07-21T00:00:00Z");
+  // A panel already in flight when the request was made finished after it — it
+  // did not answer it, so `after` is the newest START, and the request stands.
+  assert.equal(reviewRequested([ask], { trusts: trustAll, after: "2026-07-20T23:00:00Z" }), true);
+  assert.equal(reviewRequested([ask], { trusts: trustAll, after: "2026-07-21T00:05:00Z" }), false);
+  // A permission lookup that FAILED (null) is not a "no": the request stands.
+  assert.equal(reviewRequested([ask], { trusts: () => null }), true);
+  // A definite "no" is still ignored.
+  assert.equal(reviewRequested([ask], { trusts: () => false }), false);
+});
