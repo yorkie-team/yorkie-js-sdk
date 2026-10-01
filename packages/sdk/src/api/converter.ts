@@ -1613,6 +1613,13 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     // Split tickets are read back as sent, the way yorkie's converter reads
     // them: the server applies them verbatim, so a replica that rewrote or
     // refused a ticket here would mint different ids than the snapshot holds.
+    //
+    // This is not a trust boundary, and no check here could make it one. The
+    // only reference a decoder has for these tickets is `executedAt`, off the
+    // same wire, so a shape check would read one of the sender's fields
+    // against another; and the content node ids and restore-span ids beside
+    // them name nodes just as freely. What bounds a hostile id is at the point
+    // of use -- `dropDuplicateContents` and `registerNode` in `CRDTTree`.
     treeEdit.setSplitTickets(
       pbTreeEditOperation!.splitTickets.map(
         (ticket) => fromTimeTicket(ticket)!,

@@ -192,19 +192,36 @@ It now throws `ErrInvalidArgument`, like the depth miss beside it.
 Lesson: when a value's absence already means something to its consumer,
 "drop the bad one" silently rewrites the operation. Reject at the boundary.
 
-## Round 4: split tickets were wire data used as node identities
+## Round 4: a decoder shape check does not bind a node identity
 
-`fromOperation` handed `pbTreeEditOperation.splitTickets` straight to
+`fromOperation` hands `pbTreeEditOperation.splitTickets` straight to
 `setSplitTickets`, and `execute` hands them to `edit` as the ids of the
-elements a split mints. A peer could therefore mint a live element under any
-actor's id, or under an id a node in the tree already holds -- ids are the
-one thing every replica agrees by, so a collision is not recoverable.
+elements a split mints. A check was added here -- each ticket must carry the
+operation's actor and strictly follow its `executedAt` -- and then removed
+again, because it did not buy what it looked like it bought:
 
-Every producer issues them from the change's own context, after the
-operation's own ticket: same actor, same lamport, delimiters strictly
-increasing above `executedAt`'s. That is now checked in `fromSplitTickets`,
-which is a shape check on the sender's own claims rather than a rule about
-the tree, so it costs nothing in cross-implementation agreement.
+- Its anchor, `executedAt`, comes off the same wire as the tickets. A sender
+  that wants an id naming actor X sends `executedAt` naming X too, and the
+  whole list passes. The check reads one field against another field the same
+  peer wrote, so it is a well-formedness check, never an authentication.
+- Two sibling fields of the same operation also name nodes: the content node
+  ids and the restore-span ids. Neither can be bound to the sender at all --
+  a span legitimately names a node any actor created -- so the identities the
+  check claimed to constrain stayed reachable beside it.
+- The server applies the tickets verbatim and so does yorkie's converter. A
+  list this decoder drops leaves the JS replica minting ids the snapshot and
+  the other SDKs do not hold, which trades a bound it never had for a
+  divergence it certainly causes.
+
+What does bound the damage sits at the point of use, where the id is about to
+enter the tree and the field it arrived in no longer matters:
+`dropDuplicateContents` drops content naming another change whose id a node
+already holds, and `registerNode` keeps the live node over a tombstone on a
+collision. Constraining what a peer may *send* is a change to both SDKs at
+once, in its own PR, not to one decoder here.
+
+Lesson: a check whose reference value is attacker-supplied is a shape check.
+Say so in its comment, or the next reader takes it for a trust boundary.
 
 ## Round 4: removeStyle emitted changes for nodes it did not change
 
