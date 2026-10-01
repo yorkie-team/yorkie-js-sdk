@@ -344,21 +344,10 @@ describe('Malformed tree edit content', function () {
 /*
  * The split tickets a tree edit carries become the ids of the elements the
  * split mints. yorkie's converter reads them back as sent and the server
- * applies them verbatim, so every replica has to read the VALUE as sent: one
- * this decoder rewrote would mint ids the server's snapshot does not hold.
- *
- * Verbatim is not unchecked. A split issues its tickets from the change's own
- * context, so each carries the operation's actor and strictly follows its
- * `executedAt`; a list outside that shape cannot have come from a split and
- * would hand this replica identities some other change owns. It is DROPPED,
- * not rejected: the split then falls back to the tickets it reconstructs from
- * `executedAt`, while a throw out of the decoder would take the whole pack --
- * and the offline-restore path -- down with it.
- *
- * This is a well-formedness check on one field, not an authentication of the
- * node identities the operation carries: the content ids and the restore-span
- * ids beside it name nodes too, and a span legitimately names a node any actor
- * created, so neither is bound to the sender here.
+ * applies them verbatim, so every replica has to do the same: a ticket this
+ * decoder refused would wedge the document's sync for every JS client, and one
+ * it rewrote would mint ids the server's snapshot does not hold. Constraining
+ * what a peer may send is a change to both SDKs at once, not to one decoder.
  */
 describe('Tree edit split tickets on the wire', function () {
   /**
@@ -398,12 +387,12 @@ describe('Tree edit split tickets on the wire', function () {
   function decodedSplitTickets(pb: PbChangePack) {
     for (const change of converter.fromChangePack<Indexable>(pb).getChanges()) {
       for (const op of change.getOperations()) {
-        if (op instanceof TreeEditOperation && op.getSplitLevel() > 0) {
+        if (op instanceof TreeEditOperation && op.getSplitTickets().length) {
           return op.getSplitTickets();
         }
       }
     }
-    throw new Error('no splitting tree edit in the decoded pack');
+    throw new Error('no split ticket in the decoded pack');
   }
 
   it('reads back the tickets the sending change issued', function () {
@@ -414,41 +403,16 @@ describe('Tree edit split tickets on the wire', function () {
     assert.equal(read.getDelimiter(), sent.delimiter);
   });
 
-  it('drops a ticket naming another actor', function () {
+  it('reads back a ticket outside the issuable shape as sent', function () {
     const pb = splitEditPack();
-    splitTicketsOf(pb)[0].actorId = new Uint8Array(12).fill(7);
+    const sent = splitTicketsOf(pb)[0];
+    sent.actorId = new Uint8Array(12).fill(7);
+    sent.lamport = sent.lamport + 1n;
+    sent.delimiter = 0;
 
-    assert.deepEqual(decodedSplitTickets(pb), []);
-  });
-
-  it('drops a ticket at or before the operation that issued it', function () {
-    for (const back of [0, 1]) {
-      const pb = splitEditPack();
-      const sent = splitTicketsOf(pb)[0];
-      sent.delimiter = sent.delimiter - back;
-      // The executedAt this ticket has to follow sits one delimiter below the
-      // first split ticket, so `back` walks it onto and then past that bound.
-      sent.delimiter = sent.delimiter - 1;
-
-      assert.deepEqual(decodedSplitTickets(pb), []);
-    }
-  });
-
-  it('drops a second ticket that does not follow the first', function () {
-    const pb = splitEditPack();
-    const tickets = splitTicketsOf(pb);
-    tickets.push({ ...tickets[0] });
-
-    assert.deepEqual(decodedSplitTickets(pb), []);
-  });
-
-  it('decodes the rest of the pack around a dropped ticket list', function () {
-    const pb = splitEditPack();
-    splitTicketsOf(pb)[0].actorId = new Uint8Array(12).fill(7);
-
-    // The whole pack still decodes: a change the server accepted must never
-    // be undecodable here, or attach, sync and offline restore wedge for good.
-    const pack = converter.fromChangePack<Indexable>(pb);
-    assert.isAbove(pack.getChanges().length, 0);
+    const [read] = decodedSplitTickets(pb);
+    assert.equal(read.getActorID(), '070707070707070707070707');
+    assert.equal(read.getLamport(), sent.lamport);
+    assert.equal(read.getDelimiter(), 0);
   });
 });

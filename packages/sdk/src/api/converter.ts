@@ -1604,47 +1604,13 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
       treeRetombstoneSpans,
     );
     // Split tickets are read back as sent, the way yorkie's converter reads
-    // them: the server applies them verbatim, so a replica that rewrote a
-    // ticket here would mint different ids than the snapshot holds.
-    //
-    // Verbatim is not unchecked, but the check is a WELL-FORMEDNESS check on
-    // this one field, not an authentication of the node identities the
-    // operation carries -- the content node ids and the restore-span ids
-    // beside it name nodes too, and a span legitimately names a node any
-    // actor created, so neither can be bound to the sender this way. What is
-    // knowable here is only the shape: a split issues its tickets from the
-    // change's own context, so they carry the operation's actor and strictly
-    // follow its `executedAt` in issue order, and a list outside that shape
-    // cannot be one a split produced.
-    //
-    // Such a list is DROPPED rather than adopted or rejected. Adopting it
-    // would let one operation's elements be minted under an identity another
-    // change owns -- two live nodes under one id, resolved differently per
-    // replica. Rejecting it (a throw out of the decoder) would be worse than
-    // either: every `fromChangePack` caller in the client decodes a whole
-    // pack with no way to skip one change, and `Change.fromStruct` decodes
-    // the locally persisted ones, so a single nonconforming change the server
-    // already accepted and persisted would wedge attach, sync and offline
-    // restore for that document permanently. Dropped, the split falls back to
-    // the tickets it reconstructs from `executedAt`, which carry the
-    // operation's own actor by construction.
-    const treeEditSplitTickets = pbTreeEditOperation!.splitTickets.map(
-      (ticket) => fromTimeTicket(ticket)!,
+    // them: the server applies them verbatim, so a replica that rewrote or
+    // refused a ticket here would mint different ids than the snapshot holds.
+    treeEdit.setSplitTickets(
+      pbTreeEditOperation!.splitTickets.map(
+        (ticket) => fromTimeTicket(ticket)!,
+      ),
     );
-    let prevSplitTicket = treeEditExecutedAt;
-    const splitTicketsWellFormed = treeEditSplitTickets.every((ticket) => {
-      if (
-        ticket.getActorID() !== treeEditExecutedAt.getActorID() ||
-        ticket.compare(prevSplitTicket) <= 0
-      ) {
-        return false;
-      }
-      prevSplitTicket = ticket;
-      return true;
-    });
-    if (splitTicketsWellFormed) {
-      treeEdit.setSplitTickets(treeEditSplitTickets);
-    }
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;
