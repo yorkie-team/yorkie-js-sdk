@@ -51,7 +51,8 @@
 // Always exits 0. Writes `slot=` / `available=` / `reason=` to $GITHUB_OUTPUT when
 // set, and always logs a human line.
 
-import { readFileSync, existsSync, statSync, appendFileSync } from "node:fs";
+import { readFileSync, existsSync, statSync, appendFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { MAX_SLOTS, TOKEN_ENV, slotSuffix, readPoolSlots } from "./token-pool.mjs";
@@ -188,10 +189,25 @@ export async function probeCredentials({ names, check, log = console.log }) {
   return { slot: "", available: false, reason: "probe-all-refused" };
 }
 
-/** One credential, one word, no tools, a hard timeout. */
-function sdkCheck(query, model, token, timeoutMs = 60_000) {
+/**
+ * One credential, one word, no tools, a hard timeout.
+ *
+ * The child gets ONLY the token under test, PATH, and a throwaway HOME and
+ * CLAUDE_CONFIG_DIR. Not `process.env`: this step holds every pool secret, and
+ * the CLI it starts would otherwise inherit all nine. And not the real HOME: the
+ * CLI writes state there, on the runner the fixer later gets a shell on.
+ *
+ * 30 s, serial. Nine dead slots cost at most 4.5 minutes of the fix job's
+ * 55-minute wall; a healthy pool answers on the first.
+ */
+export function probeEnv(token, home) {
+  return { PATH: process.env.PATH ?? "", HOME: home, CLAUDE_CONFIG_DIR: home, CLAUDE_CODE_OAUTH_TOKEN: token };
+}
+
+function sdkCheck(query, model, token, timeoutMs = 30_000) {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs);
+  const home = mkdtempSync(path.join(tmpdir(), "probe-"));
   return (async () => {
     let failure = "(no result message)";
     try {
@@ -200,8 +216,8 @@ function sdkCheck(query, model, token, timeoutMs = 60_000) {
         options: {
           model, allowedTools: [], permissionMode: "dontAsk", settingSources: [], maxTurns: 1,
           abortController: abort,
-          // `env` REPLACES the child environment (see ask.mjs), so keep PATH.
-          env: { ...process.env, CLAUDE_CODE_OAUTH_TOKEN: token },
+          // `env` REPLACES the child environment (see ask.mjs).
+          env: probeEnv(token, home),
         },
       })) {
         if (m.type !== "result") continue;
@@ -212,6 +228,7 @@ function sdkCheck(query, model, token, timeoutMs = 60_000) {
       failure = abort.signal.aborted ? "timeout" : String(err?.message ?? err);
     } finally {
       clearTimeout(timer);
+      rmSync(home, { recursive: true, force: true });
     }
     return { ok: false, kind: classifyProbeFailure(failure) };
   })();

@@ -61,13 +61,16 @@ test("carry wiring: the fingerprint reaches both the scope decision and the stam
   assert.match(step("Carry the prior verdicts").text, /--fingerprint "\$DIFF_FP"/);
   // Unfiltered: a generated-file change must break the fingerprint too.
   const fp = step("Fingerprint the PR diff").text;
-  assert.match(fp, /git diff --no-color "\$\(git merge-base origin\/main HEAD\)" HEAD \| git patch-id --stable/);
+  assert.match(fp, /git patch-id --verbatim/);
   assert.doesNotMatch(fp, /:\(exclude\)/);
 });
 
 test("carry wiring: the post step publishes the carried findings verbatim and labels the title", () => {
   const post = step("Post per-lens check runs").text;
   assert.match(post, /carried-text\.json/);
+  // Read ONLY on a carried round: files a half-finished carry left behind must
+  // never replace the findings a reviewed round just produced.
+  assert.match(post, /if \(carriedFrom\) \{\s+try \{ carriedText = fs\.readFileSync\(`\.agent-review\/\$\{lens\.id\}\/carried-text\.json`/);
   assert.match(post, /CARRIED_FROM: \$\{\{ steps\.carry\.outputs\.ok == 'true' && steps\.scope\.outputs\.source \|\| '' \}\}/);
   assert.match(post, /\(carried from \$\{carriedFrom\.slice\(0, 12\)\}\)/);
 });

@@ -495,12 +495,18 @@ jobs:
             git diff origin/main...HEAD > /tmp/pr.diff
           fi
 
-      # THE PR-DIFF FINGERPRINT: `git patch-id --stable` of the PR's own diff.
-      # It survives a merge of main that touches none of the PR's hunks or their
-      # context, and a clean rebase, and changes on anything else — including a
-      # merge that resolved a conflict. On #1426 the approved b9a3ecc and the
-      # `update-branch` merge d593a98 both fingerprint to `ac6ab9f3…`; the
-      # conflict-resolving 6915bc6 does not. Stamped into every lens's review
+      # THE PR-DIFF FINGERPRINT: `git patch-id --verbatim` of the PR's own diff.
+      # It ignores line numbers, so it survives a merge of main that touches none
+      # of the PR's hunks or their context, and a clean rebase; it changes on
+      # anything else — including a merge that resolved a conflict. On #1426 the
+      # approved b9a3ecc and the `update-branch` merge d593a98 both fingerprint
+      # to `b0832c12…`; the conflict-resolving 6915bc6 does not.
+      #
+      # `--verbatim`, NOT `--stable`: `--stable` discards whitespace, so moving
+      # a Python call out of an `if` by indentation alone fingerprinted the same
+      # and would have carried an approval over a change in behaviour.
+      # `--no-ext-diff --no-textconv` so no driver can rewrite what is hashed.
+      # fingerprint.test.mjs runs this exact line against real repositories. Stamped into every lens's review
       # state, it is what lets a later head carry an approval instead of
       # re-sampling it (see review-state.mjs).
       #
@@ -514,7 +520,7 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
-          FP="$(git diff --no-color "$(git merge-base origin/main HEAD)" HEAD | git patch-id --stable | cut -d' ' -f1)"
+          FP="$(git diff --no-color --no-ext-diff --no-textconv "$(git merge-base origin/main HEAD)" HEAD | git patch-id --verbatim | cut -d' ' -f1)"
           echo "fp=$FP" >> "$GITHUB_OUTPUT"
           echo "PR-diff fingerprint: ${FP:-<empty>}" >&2
 
@@ -1079,8 +1085,13 @@ jobs:
               // source run, VERBATIM — it was filtered to the gating findings when
               // it was first written, and on a reuse it is the fixer's work list.
               // carry-verdicts.mjs refused the carry if it did not parse as a list.
+              // ONLY on a carried round: a carry that crashed half-way could leave
+              // these files behind, and on a reviewed round they would replace
+              // the findings the panel just produced.
               let carriedText = null;
-              try { carriedText = fs.readFileSync(`.agent-review/${lens.id}/carried-text.json`, 'utf8'); } catch {}
+              if (carriedFrom) {
+                try { carriedText = fs.readFileSync(`.agent-review/${lens.id}/carried-text.json`, 'utf8'); } catch {}
+              }
               if (carriedText !== null && carriedText.length <= 60000) {
                 findingsText = carriedText;
               } else if (p && p.infraError) {
@@ -2563,33 +2574,33 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: node scripts/agent/fix-report.mjs republish "$PR" --from "$RUNNER_TEMP/agent-output/fix-report.md" --head "$HEAD_SHA"
 
-      # AN INFRA FAILURE IS NOT A FIX ROUND. On #1426, fix rounds died with
-      # `is_error` after 25 turns and 0.5 s after init — an API that stopped
-      # answering, not a fixer that gave up — and each was charged a round and
-      # paged by `stalled` as "the fixer agent failed". When the fixer step FAILED,
-      # nothing was pushed, and the session ended on an API error, this posts a
-      # refund record (rounds.mjs caps what a lying execution log can buy) and the
-      # page itself, naming the cause and the next step. Otherwise it does
-      # nothing and the existing nets page as before.
+      # AN INFRA FAILURE IS NOT A FIXER THAT GAVE UP. On #1426, fix rounds died
+      # with `is_error` after 25 turns and 0.5 s after init — an API that stopped
+      # answering — and `stalled` paged each as "the fixer agent failed", sending
+      # a human after a fixer that could not converge. When the fixer step
+      # FAILED, nothing is KNOWN to have been pushed, and the session ended on an
+      # API error, this pages with the cause and the next step, and `stalled`
+      # stands down. Otherwise it does nothing and the existing nets page.
       #
-      # GITHUB_TOKEN, not the App token: the refund is believed only from
-      # `github-actions[bot]`, the identity that writes the dispatch it cancels.
       # NOT continue-on-error: a page that failed to post must red this job, so
       # `stalled` (which tests `fix-report` failing) still pages.
-      - name: Refund and page an infrastructure failure
+      - name: Page an infrastructure failure
         id: infra
-        if: always() && needs.fix.outputs.fixer == 'failure' && steps.after.outputs.advanced != 'true'
+        # `steps.after.outcome == 'success'`: "nothing was pushed" must be KNOWN.
+        # When the head could not be read, `stalled` pages as before.
+        if: >-
+          always() && needs.fix.outputs.fixer == 'failure' &&
+          steps.after.outcome == 'success' && steps.after.outputs.advanced == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR: ${{ needs.review-panel.outputs.pr }}
           FIXER_OUTCOME: ${{ needs.fix.outputs.fixer }}
-          ADVANCED: ${{ steps.after.outputs.advanced || 'false' }}
-          FROM: ${{ github.event.workflow_run.head_sha }}
+          ADVANCED: ${{ steps.after.outputs.advanced }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node scripts/agent/fix-outcome.mjs page "$PR" \
             --execution "$RUNNER_TEMP/agent-output/claude-execution-output.json" \
-            --fixer "$FIXER_OUTCOME" --advanced "$ADVANCED" --from "$FROM" --run-url "$RUN_URL"
+            --fixer "$FIXER_OUTCOME" --advanced "$ADVANCED" --run-url "$RUN_URL"
           if grep -q '^paged=true$' "$GITHUB_OUTPUT"; then
             node scripts/agent/set-state.mjs "$PR" blocked || true
           fi

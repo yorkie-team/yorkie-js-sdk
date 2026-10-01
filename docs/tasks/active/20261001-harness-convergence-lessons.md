@@ -31,3 +31,11 @@
   round is spent at all.
 - A step that holds every pool secret must run before the branch is checked
   out. Where the probe sits matters as much as what it does.
+- Know what a primitive ignores before trusting it as a gate. `--stable`
+  patch-ids drop whitespace, and in Python, YAML or a string literal
+  whitespace is meaning. I checked that the fingerprint was stable where it
+  should be, but not that it changed where it must. A test needs both
+  directions.
+- Trace a mechanism to the decision it is meant to change. The refund
+  ledger was correct arithmetic that no guard could ever read, because the
+  page it rode with latched the PR and the only way out reset the budget.

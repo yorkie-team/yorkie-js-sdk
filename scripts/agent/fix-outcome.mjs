@@ -2,45 +2,45 @@
 //
 // WHY THIS EXISTS. On #1426, after a rerun, fix round 2 died with
 // `is_error: true` after 25 turns ($0.90) and the next one died 0.5 s after init
-// ($0). Each had already been charged a round — the dispatch is recorded before
-// the fixer starts — and each was paged by the `stalled` net as "the fixer agent
-// failed and the branch head is unchanged". The cause (an API that stopped
-// answering) was computed by `classifyFixResult`, but only into the job summary,
-// which nobody paged reads.
+// ($0). Each was paged by the `stalled` net as "the fixer agent failed and the
+// branch head is unchanged" — which sent a human looking for a fixer that could
+// not converge, when the API had stopped answering. The cause was computed by
+// `classifyFixResult`, but only into the job summary, which nobody paged reads.
 //
 // This runs in the trusted `fix-report` job, on a runner the agent never had a
 // shell on, and decides from the fixer's execution log:
 //
-//   infra  the fixer job FAILED, the branch head did NOT advance, and the
-//          session ended on an API error (no response, a closed usage window, a
-//          rejected credential, a rate limit). The round is refunded (a
-//          `<!-- agent-fix-refund -->` record, see rounds.mjs) and the page
-//          names the cause and the next step.
+//   infra  the fixer step FAILED, the branch head is KNOWN not to have
+//          advanced, and the session ended on an API error (no response, a
+//          closed usage window, a rejected credential, a rate limit). It pages
+//          with the cause and the next step, and `stalled` stands down.
 //   not    anything else — a turn ceiling, a clean finish, a cancellation, a
-//          round that pushed, a log with no result. Charged and paged exactly
-//          as before.
+//          round that pushed, a log with no result. The existing nets page as
+//          before.
+//
+// NO REFUND. A first version also refunded the round. The page latches the PR,
+// only `@claude rerun` lifts the latch, and a rerun restarts the fix budget — so
+// a refund in the old window could never change a decision. The page says what
+// is true instead.
 //
 // THE LOG IS AGENT-WRITABLE: the action writes it on the runner the agent ran
 // on, with a shell. So nothing from it reaches the PR except `classifyResult`'s
-// closed vocabulary, and the refund it can earn is capped (rounds.mjs).
+// closed vocabulary. The worst a forged log can do is choose which page a
+// human reads; the PR is latched either way.
 //
 // Usage:
 //   node fix-outcome.mjs page <pr> --execution <file> --fixer <outcome>
-//     --advanced <true|false> --from <sha> [--run-url <url>]
-// Writes `infra=` and `paged=` to $GITHUB_OUTPUT. On infra it posts the refund
-// record, then the page. Exits non-zero only if the page itself could not be
-// posted, so the `stalled` net still sees a failed job.
+//     --advanced <true|false> [--run-url <url>]
+// Writes `infra=` and `paged=` to $GITHUB_OUTPUT. Exits non-zero only if the
+// page itself could not be posted, so the `stalled` net still sees a failed job.
 
 import { appendFileSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyFixResult } from "./metrics.mjs";
-import {
-  PAGED_LATCH, MAX_FIX_REFUNDS, serializeFixRefund, collectFixRefunds,
-  collectFixDispatches, rerunPointFrom,
-} from "./rounds.mjs";
-import { gh, permissionResolver, parseArgs } from "./gh-checks.mjs";
+import { PAGED_LATCH } from "./rounds.mjs";
+import { parseArgs } from "./gh-checks.mjs";
 
 /**
  * Decide from the execution log and the two facts the workflow knows. Pure.
@@ -49,7 +49,7 @@ import { gh, permissionResolver, parseArgs } from "./gh-checks.mjs";
 export function classifyFixOutcome({ messages, fixer, advanced } = {}) {
   const no = { infra: false };
   // Only a round that pushed NOTHING. One that pushed did work, and the next
-  // panel judges it; refunding it would hand back a round that was used.
+  // panel judges it; calling it infra would hide that it did work.
   if (advanced !== false && advanced !== "false") return no;
   // Only a FAILED fixer step. A clean finish with no commit is the no-commit
   // page's case, and a cancellation is the job wall's.
@@ -75,21 +75,16 @@ function adviceFor(code) {
 }
 
 /** The page body. Every `<!--` after the latch is broken, as fix-report.mjs does. */
-export function renderInfraPage({ outcome, refunded, refundsLeft, runUrl = "" }) {
-  const charged = refunded
-    ? `**No fix round was consumed** — this round has been refunded (${Math.max(0, refundsLeft)} infra refund(s) left in this budget window).`
-    : `This round still counts: the refund cap (${MAX_FIX_REFUNDS}) for this budget window is used up, because the log a refund is decided from is one the fixer can write.`;
+export function renderInfraPage({ outcome, runUrl = "" }) {
   const body = [
     `🛑 The fix agent did not get to finish: **${outcome.reason}**. That is an infrastructure failure, not a verdict on this pull request — nothing was pushed.`,
     "",
-    charged,
-    "",
     outcome.advice,
     "",
-    "A rerun on this commit reuses the verdicts already on this commit and dispatches the fixer directly, without spending a new review.",
+    "`@claude rerun` restarts the fix budget, and on this commit it reuses the verdicts already on this commit and dispatches the fixer directly, without spending a new review.",
     "",
     runUrl ? `Where to look: [this run](${runUrl}) → job \`fix\`, step "Address panel findings".` : null,
-  ].filter((l) => l !== null).join("\n").replace(/<!--/g, "<!-‌-");
+  ].filter((l) => l !== null).join("\n").replace(/<!--/g, "<!-\u200c-");
   return `${PAGED_LATCH}\n${body}`;
 }
 
@@ -101,7 +96,7 @@ function main() {
     if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`);
   };
   if (verb !== "page" || !/^\d+$/.test(String(pr ?? ""))) {
-    console.error("usage: fix-outcome.mjs page <pr> --execution <file> --fixer <outcome> --advanced <bool> --from <sha>");
+    console.error("usage: fix-outcome.mjs page <pr> --execution <file> --fixer <outcome> --advanced <bool>");
     out("infra", "false");
     out("paged", "false");
     return;
@@ -119,31 +114,13 @@ function main() {
     return;
   }
 
-  // How many refunds this budget window has already had, read the way the
-  // round guard reads the window (rerunPointFrom with the permission resolver).
-  let left = MAX_FIX_REFUNDS;
-  try {
-    const comments = gh(["api", "--paginate", `repos/{owner}/{repo}/issues/${pr}/comments?per_page=100`]);
-    const since = Date.parse(String(rerunPointFrom(comments, { trusts: permissionResolver({ api: gh }) }) ?? ""));
-    const inWindow = (x) => !Number.isFinite(since) || (x.at ?? 0) > since;
-    const dispatched = new Set(collectFixDispatches(comments).filter(inWindow).map((d) => d.from));
-    left = MAX_FIX_REFUNDS - collectFixRefunds(comments).filter(inWindow).filter((r) => dispatched.has(r.from)).length;
-  } catch (err) {
-    console.error(`fix-outcome: could not count prior refunds (${err.message}); the round guard's cap still applies.`);
-  }
-  const refunded = left > 0;
-  const from = String(a.from ?? "").slice(0, 64);
-  // GITHUB_TOKEN, so the record is `github-actions[bot]`'s — the one identity the
-  // dispatch and refund readers believe.
-  const post = (body) => execFileSync("gh", ["pr", "comment", pr, "--body-file", "-"], { input: body, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
-  if (refunded && from) {
-    try {
-      post(`${serializeFixRefund({ from, code: outcome.code })}\n↩️ Refunded the fix round dispatched on \`${from.slice(0, 9)}\`: it ended on an infrastructure failure (\`${outcome.code}\`).`);
-    } catch (err) {
-      console.error(`fix-outcome: could not post the refund record (${err.message}).`);
-    }
-  }
-  post(renderInfraPage({ outcome, refunded: refunded && Boolean(from), refundsLeft: left - 1, runUrl: a["run-url"] || "" }));
+  // GITHUB_TOKEN in the workflow: `github-actions[bot]` is a latch author the
+  // gate believes (rounds.mjs PAGE_AUTHOR_LOGINS).
+  execFileSync("gh", ["pr", "comment", pr, "--body-file", "-"], {
+    input: renderInfraPage({ outcome, runUrl: a["run-url"] || "" }),
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
   out("paged", "true");
 }
 

@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { slotSuffix, chooseCredential, readPoolState, capacityNote, candidateNames, probeCredentials, classifyProbeFailure } from "./pick-fix-credential.mjs";
+import { slotSuffix, chooseCredential, readPoolState, capacityNote, candidateNames, probeCredentials, classifyProbeFailure, probeEnv } from "./pick-fix-credential.mjs";
 import { MAX_SLOTS, TOKEN_ENV } from "./token-pool.mjs";
 
 // --- slotSuffix: the name→suffix map, and the security boundary ---------------
@@ -385,4 +385,18 @@ test("probeCredentials: anything inconclusive proceeds, as the picker always has
   assert.deepEqual(await probeCredentials({ names: [T1], check: throws }), { slot: "1", available: true, reason: "probe-inconclusive" });
   // Nothing to probe is not a verdict either: the caller falls back to the state.
   assert.equal(await probeCredentials({ names: [], check }), null);
+});
+
+test("probeEnv: a probe child sees ONE token and no real home", () => {
+  const prev = { ...process.env };
+  process.env[`${TOKEN_ENV}_2`] = "other-slot-secret";
+  try {
+    const env = probeEnv("the-one", "/tmp/probe-x");
+    assert.deepEqual(Object.keys(env).sort(), ["CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR", "HOME", "PATH"]);
+    assert.equal(env.CLAUDE_CODE_OAUTH_TOKEN, "the-one");
+    assert.equal(env.HOME, "/tmp/probe-x");
+    assert.ok(!Object.values(env).includes("other-slot-secret"));
+  } finally {
+    process.env = prev;
+  }
 });

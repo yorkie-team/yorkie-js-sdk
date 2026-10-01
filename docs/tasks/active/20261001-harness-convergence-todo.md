@@ -111,8 +111,9 @@ token. A human with `workflow` scope has to apply them.
 ### Phase A: stop paying for unchanged code (D1, D2, D9)
 
 - [x] A1. Add a **PR-diff fingerprint** to the review state for each
-  reviewed head: `git patch-id --stable` of the unfiltered
-  `git diff $(merge-base) head`. Unfiltered on purpose: a generated-file
+  reviewed head: `git patch-id --verbatim` of the unfiltered
+  `git diff $(merge-base) head` (not `--stable`, which discards whitespace;
+  see Review). Unfiltered on purpose: a generated-file
   change must also break the fingerprint.
 - [x] A2. In `resolveReviewMode`, before the `merge-in-range` and
   `no-new-commits` checks, add a `carry` mode. If the new head's fingerprint
@@ -163,12 +164,10 @@ any failure after that is refunded.
   runner) with `classifyFixResult` on the execution log. `infra` means the
   fixer failed, the head did not advance, and the cause is one of:
   `USAGE_LIMIT`, `AUTH_REJECTED`, a retryable API error, or ≤1 turn at $0.
-- [x] B3. **Refund.** On `infra`, post
-  `<!-- agent-fix-refund {"v":1,"from":<sha>,"code":…} -->` as
-  `github-actions[bot]`. `fixRoundsUsed` subtracts the refunds that match a
-  counted dispatch. The execution log is agent-writable, so a fixer could
-  fake an infra error to buy rounds. Refunds are capped at 2 per PR, and
-  only a round that pushed nothing is refunded.
+- [x] B3. ~~**Refund.**~~ Dropped in review. The infra page latches the
+  PR, only `@claude rerun` lifts the latch, and a rerun restarts the fix
+  budget, so a refund in the old window could never change a decision. B4's
+  honest page is what was needed.
 - [x] B4. **Honest page.** On `infra`, `fix-report` posts the page itself:
   the cause, "no fix round was consumed", and when to `@claude rerun`
   (reusing `renderFixEffort`'s advice). `stalled` stands down when
@@ -298,7 +297,21 @@ Within this task, merge PR 1 before PR 2 and develop PR 2 on top of it.
   the real SDK, the probe classified a bogus token as `auth` and returned
   `available=false`. It has not been run with a valid token; the code path
   is the one wafflebase's `auth-smoke.mjs` already uses.
-- `scripts/agent`: 958 tests pass. `lint:check`, `verify:license` and
+- Review (an independent agent over the whole diff) found one blocking
+  defect. `git patch-id --stable` discards whitespace, so moving a Python
+  call out of an `if` by indentation alone fingerprinted the same and would
+  have carried an approval over a change in behaviour. The fix is
+  `--verbatim`, plus `--no-ext-diff --no-textconv`. `fingerprint.test.mjs`
+  runs the workflow's exact command on real repositories, and it was Red
+  before the fix. #1426 still carries: `b9a3ecc` = `d593a98` = `b0832c12…`,
+  and `6915bc6` differs.
+- The same review showed the refund ledger (B3) could never take effect,
+  so it was removed. Also fixed in review:
+  - the infra page now requires a known-unpushed head;
+  - carried findings are read only on a carried round;
+  - each probe child gets one token and a throwaway HOME, with a 30 s
+    timeout.
+- `scripts/agent`: all tests pass. `lint:check`, `verify:license` and
   `verify:doc-links` pass.
 - Not verified until it runs on GitHub: the workflow wiring end to end.
   The structural tests (`carry-wiring`, `infra-wiring`) pin the step order
