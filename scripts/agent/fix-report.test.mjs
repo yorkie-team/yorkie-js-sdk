@@ -612,3 +612,44 @@ test("neutralising the visible body does not break the hidden record", () => {
   assert.equal(parsed.fixed[0].summary, "quotes <!-- agent-metric {} --> verbatim",
     "the record must round-trip byte for byte; only the transport is neutralised");
 });
+
+// --- removed tests reach the adjudicator (D1) -----------------------------------
+//
+// #1426 e6900da: a "fixed" claim whose fix commit deleted the test that showed
+// the finding still reproduced. The adjudicator was told claims are not evidence
+// and given no evidence either way. The pipeline's own record of what the fix
+// round removed now rides on the claim it belongs to.
+
+import { renderTestRemovals } from "./test-removals.mjs";
+
+const PIPELINE = { login: "github-actions[bot]", type: "Bot" };
+const removalsComment = (head) => ({
+  id: 9, user: PIPELINE,
+  body: renderTestRemovals({ head, after: "e6900da64", removals: [{ file: "packages/sdk/test/unit/remote_repoint_test.ts", deleted: true, removed: 1, added: 0 }] }),
+});
+
+test("readFixReports: the removal record for a report's head rides on that report", () => {
+  const report = agentComment(serializeFixReport({ ...REC, head: "6915bc6a7" }));
+  const other = removalsComment("aaaaaaaaa");
+  const got = readFixReports("1426", { api: () => [report, other, removalsComment("6915bc6a7")] });
+  assert.equal(got.length, 1);
+  assert.deepEqual(got[0].testRemovals.map((r) => r.file), ["packages/sdk/test/unit/remote_repoint_test.ts"]);
+  // No record for the head: no field, so nothing downstream changes.
+  const none = readFixReports("1426", { api: () => [report, other] });
+  assert.equal(none[0].testRemovals, undefined);
+});
+
+test("toRebuttalRecords: a FIXED claim carries the pipeline's removal evidence, labelled as not the author's", () => {
+  const [report] = readFixReports("1426", { api: () => [agentComment(serializeFixReport({ ...REC, head: "6915bc6a7" })), removalsComment("6915bc6a7")] });
+  const { adjudicate } = authorClaims([report]);
+  assert.ok(adjudicate.length > 0, "the fixture must carry a fixed claim");
+  for (const r of adjudicate) {
+    assert.match(r.claim, /MECHANICAL EVIDENCE \(computed by the pipeline from the fix commit, not written by the author\)/);
+    assert.match(r.claim, /deleted `packages\/sdk\/test\/unit\/remote_repoint_test\.ts`/);
+    // Placed BEFORE the author's note, so the note cannot argue past it unread.
+    assert.ok(r.claim.indexOf("MECHANICAL EVIDENCE") < r.claim.indexOf("The author's note"));
+  }
+  // Without a record, the claim text is exactly what it was.
+  const plain = authorClaims([readFixReports("1426", { api: () => [agentComment(serializeFixReport({ ...REC, head: "6915bc6a7" }))] })[0]]);
+  for (const r of plain.adjudicate) assert.doesNotMatch(r.claim, /MECHANICAL EVIDENCE/);
+});

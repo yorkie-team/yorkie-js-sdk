@@ -35,6 +35,7 @@ import { fileURLToPath } from "node:url";
 import { findingSimilarity, DEFAULT_SIMILARITY } from "./rounds.mjs";
 import { fromRebuttalAuthor, readRebuttals } from "./rebuttal.mjs";
 import { emitBestEffortWarning } from "./guard-verdict.mjs";
+import { collectTestRemovals } from "./test-removals.mjs";
 
 // `maxBuffer`: node's default is 1 MiB, and `gh api --paginate` over a busy PR
 // blows through it. When it does, `execFileSync` throws `ENOBUFS` — not an API
@@ -197,7 +198,12 @@ export function flattenClaims(reports) {
         // exactly `agent-review-` reduces to empty and is just as unmatchable.
         const item = normalizeItem(i);
         if (item.lens === "" || item.file === "") continue;
-        out.push({ ...item, status, head: str(r.head), createdAt: str(r.createdAt) });
+        out.push({
+          ...item, status, head: str(r.head), createdAt: str(r.createdAt),
+          // The pipeline's record of tests the round removed, when there is one.
+          // It belongs to the ROUND, so every claim from the report carries it.
+          ...(Array.isArray(r.testRemovals) && r.testRemovals.length ? { testRemovals: r.testRemovals } : {}),
+        });
       }
     }
   }
@@ -370,7 +376,10 @@ export function toRebuttalRecords(claims) {
       lens: c.lens,
       file: c.file,
       summary: c.summary,
-      claim: `${preamble}\n\nThe author's note:\n${c.note || "(none given)"}`,
+      // The pipeline's evidence goes BEFORE the author's note, so a persuasive
+      // note cannot argue past it unread — the same reason the uphold rule is
+      // stated ahead of the fence in `buildAdjudicatorPrompt`.
+      claim: `${preamble}${removalEvidence(c)}\n\nThe author's note:\n${c.note || "(none given)"}`,
       evidence: locationsIn(c.note),
       // Provenance, for the tally and for anyone reading the JSON. Nothing
       // downstream branches on it — a report is adjudicated exactly like a
@@ -379,6 +388,25 @@ export function toRebuttalRecords(claims) {
     });
   }
   return out;
+}
+
+/**
+ * The removal record, as a paragraph for a FIXED claim — or "" without one.
+ *
+ * Only `fixed` claims get it: a skipped claim is upheld without a session, so
+ * there is nobody to show it to. Evidence, not a verdict — a test can be removed
+ * legitimately, and the adjudicator re-reads the code either way. File names are
+ * pipeline-derived (the compare API), but fenced off as data all the same.
+ */
+function removalEvidence(c) {
+  if (c.status !== "fixed" || !Array.isArray(c.testRemovals) || c.testRemovals.length === 0) return "";
+  const lines = c.testRemovals.slice(0, 20).map((r) => (r.deleted === true
+    ? `- deleted \`${defence(str(r.file)).slice(0, 300)}\` (${Number(r.removed) || 0} case(s))`
+    : `- \`${defence(str(r.file)).slice(0, 300)}\`: ${Number(r.removed) || 0} active case(s) removed or disabled, ${Number(r.added) || 0} added`));
+  return "\n\nMECHANICAL EVIDENCE (computed by the pipeline from the fix commit, not written by the author): "
+    + "this fix round removed or disabled tests. If one of them exercised THIS finding, a \"fixed\" claim "
+    + "made after deleting the test that showed it still failing is not grounds to overturn.\n"
+    + lines.join("\n");
 }
 
 /**
@@ -514,7 +542,16 @@ function gh(args) {
  */
 export function readFixReports(pr, { api = gh, log = console.error } = {}) {
   try {
-    return collectFixReports(api(["api", "--paginate", `repos/{owner}/{repo}/issues/${pr}/comments?per_page=100`]));
+    const comments = api(["api", "--paginate", `repos/{owner}/{repo}/issues/${pr}/comments?per_page=100`]);
+    // Join each report to the pipeline's removal record for the same head (the
+    // commit the fix round started from). Prefix-matched: either side may carry
+    // a short sha. The LAST record for a head wins.
+    const removals = collectTestRemovals(comments);
+    const same = (a, b) => a.length >= 7 && b.length >= 7 && (a.startsWith(b) || b.startsWith(a));
+    return collectFixReports(comments).map((r) => {
+      const rec = removals.filter((x) => same(str(x.head), str(r.head))).at(-1);
+      return rec ? { ...r, testRemovals: rec.removals } : r;
+    });
   } catch (err) {
     // Degrades to "no reports", which is exactly the pre-existing behaviour: every
     // finding is re-verified with no author context. The panel must never fail

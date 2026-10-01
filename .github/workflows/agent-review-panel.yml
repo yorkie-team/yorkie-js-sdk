@@ -2328,6 +2328,13 @@ jobs:
               re-runs them in CI anyway.
             - Never hand-edit generated code: packages/sdk/src/api/yorkie/v1/*_pb.ts
               or packages/schema/antlr/*.ts.
+            - NEVER DELETE OR DISABLE A TEST THAT SHOWS A FINDING STILL REPRODUCES.
+              If a test you wrote (or found) still fails, the finding is not
+              fixed. Keep it as `it.fails(...)` with a comment naming the
+              finding, and report that item `--skipped` with the reason. Do not
+              claim it `--fixed`. The pipeline records every test a fix round
+              removes or turns into `.skip`/`.todo` and shows it to the next
+              round's adjudicator beside your claims.
 
             YOUR WALL IS ABOUT FIFTY MINUTES, and it is the credential's rather
             than a budget: the job is killed at 55 and the token you push with
@@ -2559,6 +2566,23 @@ jobs:
           else
             echo "advanced=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # WHAT THE ROUND TOOK AWAY FROM THE TESTS. On #1426 (e6900da) a fixer wrote a
+      # test, watched it fail, deleted it, and reported the finding "Fixed". This
+      # compares the heads before and after through the API (never a checkout the
+      # agent touched) and, when a test file was deleted or lost active cases,
+      # posts a `<!-- agent-fix-tests -->` record as github-actions[bot]. The next
+      # round puts it in front of the adjudicator beside every "fixed" claim
+      # (fix-report.mjs). Evidence, not a gate; best-effort.
+      - name: Record tests the fix round removed
+        if: always() && steps.after.outputs.advanced == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ needs.review-panel.outputs.pr }}
+          BEFORE: ${{ needs.fix.outputs.before }}
+          AFTER: ${{ steps.after.outputs.sha }}
+        run: node scripts/agent/test-removals.mjs post "$PR" --before "$BEFORE" --after "$AFTER"
 
       # DISPUTES FIRST, then the report, so the report's count includes them.
       # Both are RE-RENDERED, never posted as written: the files came from a

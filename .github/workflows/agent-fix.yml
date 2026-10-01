@@ -680,6 +680,13 @@ jobs:
               re-runs them in CI anyway.
             - Never hand-edit generated code: packages/sdk/src/api/yorkie/v1/*_pb.ts
               or packages/schema/antlr/*.ts.
+            - NEVER DELETE OR DISABLE A TEST THAT SHOWS A FINDING STILL REPRODUCES.
+              If a test you wrote (or found) still fails, the finding is not
+              fixed. Keep it as `it.fails(...)` with a comment naming the
+              finding, and report that item `--skipped` with the reason. Do not
+              claim it `--fixed`. The pipeline records every test a fix round
+              removes or turns into `.skip`/`.todo` and shows it to the next
+              round's adjudicator beside your claims.
 
             YOUR WALL IS ABOUT FIFTY MINUTES, and it is the credential's rather
             than a budget: the job is killed at 55 and the token you push with
@@ -932,6 +939,25 @@ jobs:
             exit 0
           fi
           node scripts/agent/disclose-pr.mjs "$PR"
+
+      # WHAT THE ROUND TOOK AWAY FROM THE TESTS — the same record the panel's
+      # fix-report job posts (see agent-review-panel.yml), so a `@claude fix`
+      # round's "fixed" claims reach the next adjudicator with it too.
+      - name: Record tests the fix round removed
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.issue.number }}
+          BEFORE: ${{ needs.fix.outputs.before }}
+          BRANCH: ${{ needs.fix.outputs.branch }}
+        run: |
+          AFTER="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq .object.sha 2>/dev/null || echo '')"
+          if [ -z "$BEFORE" ] || [ -z "$AFTER" ] || [ "$BEFORE" = "$AFTER" ]; then
+            echo "the branch head did not advance; nothing to compare"
+            exit 0
+          fi
+          node scripts/agent/test-removals.mjs post "$PR" --before "$BEFORE" --after "$AFTER"
 
       # Replace the placeholder with what actually happened.
       #
