@@ -348,6 +348,12 @@ describe('Malformed tree edit content', function () {
  * decoder refused would wedge the document's sync for every JS client, and one
  * it rewrote would mint ids the server's snapshot does not hold. Constraining
  * what a peer may send is a change to both SDKs at once, not to one decoder.
+ *
+ * Nor would one field be the place: the content node ids and the restore-span
+ * ids of the same operation name nodes too, and the only reference a decoder
+ * holds for any of them is `executedAt`, which the same sender wrote. These
+ * tests pin the decode as transparent; `CRDTTree` is where a hostile id meets
+ * a bound.
  */
 describe('Tree edit split tickets on the wire', function () {
   /**
