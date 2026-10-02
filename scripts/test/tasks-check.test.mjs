@@ -27,6 +27,8 @@ import {
   checkTasks,
   hasOpenBoxes,
   issueRefs,
+  lookupGitHub,
+  parseArgs,
   trackedRefs,
 } from '../tasks-check.mjs';
 
@@ -59,6 +61,12 @@ describe('tasks-check', () => {
       path.join(repo, 'docs/tasks/active/20260901-old-todo.md'),
       todo('#100', false),
     );
+    // The shape that produced the real false positive: a live task whose
+    // opening paragraph is *about* a merged PR it explicitly does not fix.
+    writeFileSync(
+      path.join(repo, 'docs/tasks/active/20260901-case-study-todo.md'),
+      '# Case study\n\n**Created**: 2026-09-01\n\nPR #500 (fix for #501) is the case study. This task fixes the harness\ndefects behind it. It does not fix #500 itself. See issue #502.\n\n- [ ] Still working on it\n',
+    );
     git(repo, 'add', '-A');
     git(repo, 'commit', '-q', '-m', 'base');
     git(repo, 'checkout', '-q', '-b', 'topic');
@@ -70,8 +78,9 @@ describe('tasks-check', () => {
       path.join(repo, 'docs/tasks/active/20261002-wip-todo.md'),
       todo('#300', true),
     );
-    // Its first number is a server-repo PR that does not exist here; the PR
-    // it opened is named further down, next to the word "PR".
+    // Mentions numbers but declares none, so --remote has nothing to ask
+    // about it: the server-repo number is not ours, and "Open the PR (#400)"
+    // is a step this task performed, not the number it is tracked by.
     writeFileSync(
       path.join(repo, 'docs/tasks/active/20261002-port-todo.md'),
       '# Port\n\n**Created**: 2026-10-02\n\nMirror of yorkie #2020 -> #2040.\n\n- [x] Open the PR (#400); green\n',
@@ -95,22 +104,41 @@ describe('tasks-check', () => {
       ),
       [1384],
     );
-    // Tracking-line numbers first, then the rest, each once.
+    // Only a declaration counts, and a number mentioned elsewhere does not.
     assert.deepEqual(
       trackedRefs('Ported from #1300.\n\nTracked as #1433.\n\nSee #1375.'),
       [1433],
     );
-    // The keyword has to sit next to the number: a passing mention of
-    // another task's PR on a line that also says "issue" is not tracking.
+    assert.deepEqual(trackedRefs('Fixes #1433; closes (#1375)'), [1433, 1375]);
     assert.deepEqual(
       trackedRefs('- [x] File the defect #1375 left open as its own issue.'),
       [],
     );
+    assert.deepEqual(trackedRefs('Mentions #1500 in passing'), []);
+    // The two shapes that misfired on this repository's own active todos:
+    // a PR named in prose, and a checklist step that opened one. Both would
+    // have judged a live task by somebody else's merged PR.
+    assert.deepEqual(
+      trackedRefs(
+        'PR #1426 (fix for #1425) is the case study.\n\nIt does not fix #1426 itself.',
+      ),
+      [],
+    );
     assert.deepEqual(
       trackedRefs('- [x] Open the Phase 0 PR (#1384); CI green'),
-      [1384],
+      [],
     );
-    assert.deepEqual(trackedRefs('Mentions #1500 in passing'), []);
+  });
+
+  it('parses arguments and rejects a flag with no value', () => {
+    assert.deepEqual(parseArgs(['--base', 'main', '--remote', '--strict']), {
+      base: 'main',
+      remote: true,
+      strict: true,
+    });
+    assert.throws(() => parseArgs(['--base', '--strict']), /needs a value/);
+    assert.throws(() => parseArgs(['--base']), /needs a value/);
+    assert.throws(() => parseArgs(['--nope']), /unknown argument/);
   });
 
   it('flags a finished todo the branch leaves in active/, and only notes a WIP one', () => {
@@ -130,32 +158,193 @@ describe('tasks-check', () => {
     assert.ok(!findings.some((f) => f.file.includes('old-todo')));
   });
 
+  it('archives cleanly: a branch that moves its todo out of active/ is clean', () => {
+    const moved = mkdtempSync(path.join(os.tmpdir(), 'tasks-check-moved-'));
+    try {
+      git(moved, 'init', '-q', '-b', 'main');
+      git(moved, 'config', 'user.email', 'test@example.com');
+      git(moved, 'config', 'user.name', 'test');
+      mkdirSync(path.join(moved, 'docs/tasks/active'), { recursive: true });
+      writeFileSync(
+        path.join(moved, 'docs/tasks/active/20261002-a-todo.md'),
+        todo('#700', true),
+      );
+      git(moved, 'add', '-A');
+      git(moved, 'commit', '-q', '-m', 'base');
+      git(moved, 'checkout', '-q', '-b', 'topic');
+      mkdirSync(path.join(moved, 'docs/tasks/archive/2026/10'), {
+        recursive: true,
+      });
+      git(
+        moved,
+        'mv',
+        'docs/tasks/active/20261002-a-todo.md',
+        'docs/tasks/archive/2026/10/20261002-a-todo.md',
+      );
+      git(moved, 'commit', '-q', '-m', 'archive it');
+      const { findings, notes, errors } = checkTasks({
+        base: 'main',
+        cwd: moved,
+      });
+      assert.deepEqual(findings, []);
+      assert.deepEqual(notes, []);
+      assert.deepEqual(errors, []);
+    } finally {
+      rmSync(moved, { recursive: true, force: true });
+    }
+  });
+
   it('with --remote, flags active todos whose issue closed or PR merged', () => {
     const lookup = (_repo, n) =>
       ({
         100: { kind: 'issue', state: 'closed', merged: false },
         200: { kind: 'pr', state: 'open', merged: false },
         300: { kind: 'pr', state: 'closed', merged: true },
+        // Mentioned by the port and case-study todos, but declared by
+        // neither, so it is never asked about.
         400: { kind: 'pr', state: 'closed', merged: true },
+        500: { kind: 'pr', state: 'closed', merged: true },
       })[n];
-    const { findings } = checkTasks({ remote: true, cwd: repo, lookup });
+    const { findings, errors } = checkTasks({
+      remote: true,
+      cwd: repo,
+      lookup,
+    });
     const files = findings.map((f) => f.file).sort();
     assert.deepEqual(files, [
       'docs/tasks/active/20260901-old-todo.md',
-      'docs/tasks/active/20261002-port-todo.md',
       'docs/tasks/active/20261002-wip-todo.md',
     ]);
+    assert.deepEqual(errors, []);
     const wip = findings.find((f) => f.file.includes('wip'));
     assert.match(wip.message, /unticked boxes/);
   });
 
-  it('skips a reference it cannot resolve', () => {
-    const { findings } = checkTasks({
+  it('skips a reference GitHub answers "no such number" for', () => {
+    const { findings, errors } = checkTasks({
       remote: true,
       cwd: repo,
       lookup: () => undefined,
     });
     assert.deepEqual(findings, []);
+    assert.deepEqual(errors, []);
+  });
+
+  it('reports an unreachable GitHub as an error, not as a clean pass', () => {
+    const { findings, errors } = checkTasks({
+      remote: true,
+      cwd: repo,
+      lookup: () => ({ error: 'gh could not be run: spawn gh ENOENT' }),
+    });
+    assert.deepEqual(findings, []);
+    // Every todo that declares a number is unchecked, and says so.
+    assert.deepEqual(errors.map((e) => e.file).sort(), [
+      'docs/tasks/active/20260901-old-todo.md',
+      'docs/tasks/active/20261002-done-todo.md',
+      'docs/tasks/active/20261002-wip-todo.md',
+    ]);
+    assert.match(errors[0].message, /was not checked.*ENOENT/);
+  });
+
+  it('reports a diff that could not run as an error, and still runs --remote', () => {
+    const { findings, errors } = checkTasks({
+      base: 'no-such-ref',
+      remote: true,
+      cwd: repo,
+      run: () => {
+        throw new Error('git diff failed:\nno merge base');
+      },
+      lookup: (_r, n) =>
+        n === 100
+          ? { kind: 'issue', state: 'closed', merged: false }
+          : undefined,
+    });
+    assert.deepEqual(
+      findings.map((f) => f.file),
+      ['docs/tasks/active/20260901-old-todo.md'],
+    );
+    assert.equal(errors.length, 1);
+    assert.match(errors[0].message, /could not diff against no-such-ref/);
+    // The message is one line, so it cannot forge a workflow command.
+    assert.doesNotMatch(errors[0].message, /\n/);
+  });
+
+  describe('lookupGitHub', () => {
+    const call = (result) => {
+      const seen = [];
+      const exec = (cmd, args, opts) => {
+        seen.push({ cmd, args, opts });
+        if (result instanceof Error) throw result;
+        return result;
+      };
+      return { out: lookupGitHub('o/r', 1234, exec), seen };
+    };
+
+    it('asks gh for the right thing', () => {
+      const { seen } = call({ status: 0, stdout: '{"state":"open"}' });
+      assert.equal(seen.length, 1);
+      assert.equal(seen[0].cmd, 'gh');
+      assert.deepEqual(seen[0].args.slice(0, 3), [
+        'api',
+        'repos/o/r/issues/1234',
+        '--jq',
+      ]);
+      assert.match(seen[0].args[3], /pull_request/);
+      assert.equal(seen[0].opts.encoding, 'utf8');
+    });
+
+    it('reads a merged PR and an open issue', () => {
+      assert.deepEqual(
+        call({
+          status: 0,
+          stdout: '{"state":"closed","pr":true,"merged":true}\n',
+        }).out,
+        { kind: 'pr', state: 'closed', merged: true },
+      );
+      assert.deepEqual(
+        call({
+          status: 0,
+          stdout: '{"state":"open","pr":false,"merged":false}\n',
+        }).out,
+        { kind: 'issue', state: 'open', merged: false },
+      );
+    });
+
+    it('treats a 404 as an answer: the number is not ours', () => {
+      assert.equal(
+        call({ status: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' }).out,
+        undefined,
+      );
+    });
+
+    for (const [name, result] of [
+      ['gh is missing', new Error('spawn gh ENOENT')],
+      ['gh cannot be spawned', { error: new Error('EACCES'), status: null }],
+      [
+        'the credential is rejected',
+        { status: 1, stdout: '', stderr: 'gh: Bad credentials (HTTP 401)' },
+      ],
+      [
+        'the API is rate limited',
+        {
+          status: 1,
+          stdout: '',
+          stderr: 'gh: API rate limit exceeded (HTTP 403)',
+        },
+      ],
+      [
+        'the network is down',
+        { status: 1, stdout: '', stderr: 'dial tcp: lookup api.github.com' },
+      ],
+      ['gh exits 0 saying nothing', { status: 0, stdout: '' }],
+      ['the output is not JSON', { status: 0, stdout: 'not json' }],
+    ]) {
+      it(`refuses to answer when ${name}`, () => {
+        const { out } = call(result);
+        assert.ok(out?.error, `expected an error, got ${JSON.stringify(out)}`);
+        assert.equal(out.kind, undefined);
+      });
+    }
   });
 
   it('exits 1 only under --strict, and prints plain lines off Actions', () => {

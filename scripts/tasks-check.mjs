@@ -31,14 +31,30 @@
 //
 // 2. "Is anything in active/ already finished?" Read from GitHub: an active
 //    todo whose tracked issue is closed, or whose PR merged, is stale
-//    whatever its boxes say. Needs `gh` and network, so it is opt-in
-//    (`--remote`), on in CI.
+//    whatever its boxes say. Needs an authenticated `gh` and network, so it
+//    is opt-in (`--remote`), and it belongs on the maintainer's machine
+//    rather than in CI: the CI step executes the pull request's OWN copy of
+//    this file, so a token in that step's environment is a token handed to
+//    branch-authored code, on a workflow any fork PR can trigger.
+//
+//    ci.yml still passes `--remote` with `GH_TOKEN` today. Removing it, and
+//    adding the `permissions:` block ci.yml lacks, is a `.github/workflows/`
+//    edit the agent token cannot push; it needs a human with `workflow`
+//    scope. Until then, this file's own hardening is what stands: the
+//    tracking regex below refuses to guess, and nothing here fails open.
 //
 // WARN, DON'T FAIL, by default. The archive step belongs at the end of the
 // branch, so a todo legitimately sits in active/ for the whole review; a red
 // check during review would be noise and get ignored. `--strict` exits 1 on
 // a finding and is what the maintainer runs right before merging, when the
 // finding is a real blocker.
+//
+// NEVER FAIL OPEN. Both halves can be prevented from running at all -- a
+// shallow clone with no merge base, a `gh` that is missing, unauthenticated
+// or rate-limited. That is not "nothing to report": it is "nothing was
+// checked", so it is collected as an `error`, printed, and under `--strict`
+// it exits 1 exactly like a finding would. A green line here has to mean the
+// check ran.
 //
 // Under GITHUB_ACTIONS each finding is a `::warning` annotation on the file,
 // so it shows up on the PR's Files tab next to the todo itself.
@@ -54,11 +70,25 @@ const ISSUE_REF = /(?<![\w/#])#(\d{3,6})\b/g;
 // A number that belongs to the server repository, not this one:
 // `yorkie #2020`, `yorkie-team/yorkie#2030`, `yorkie#2077`.
 const FOREIGN_REF = /yorkie(?:-team\/yorkie)?\s*#\d{3,6}\b/g;
-// A number the todo is *for*, as opposed to one it mentions: the keyword
-// has to sit right in front of it -- `Tracked as #N`, `Fixes #N`,
-// `issue #N`, `PR (#N)`.
+// A number the todo *declares* it is for, as opposed to one it mentions:
+// `Tracked as #N`, `Tracked by #N`, `Fixes #N`, `Closes #N`, `Resolves #N`.
+//
+// Only a declaration counts. The looser `PR #N` / `issue #N` keywords were
+// tried first and withdrawn: they matched prose and checklist lines about
+// *other* tasks' numbers, and all three occurrences in this repository's own
+// active/ were false ones -- "PR #1426 ... is the case study" on a todo that
+// then says "It does not fix #1426 itself", and "- [x] Open the Phase 0 PR
+// (#1384)". Each would have judged a live task by a merged PR, under the
+// `--strict` run that blocks a merge.
 const TRACKING_REF =
-  /(?:tracked as|fixes|closes|resolves|\bissue|\bpr)\s*:?\s*\(?#(\d{3,6})\b/gi;
+  /(?:tracked as|tracked by|fixes|closes|resolves)\s*:?\s*\(?#(\d{3,6})\b/gi;
+
+/** Annotation-safe: `::warning file=X::Y` is terminated by a newline. */
+function oneLine(s) {
+  // eslint-disable-next-line no-control-regex
+  const CONTROL = /[\u0000-\u001f\u007f]+/g;
+  return String(s).replace(CONTROL, ' ').trim();
+}
 
 /**
  * Active todo files under `tasksDir`, as repo-relative paths.
@@ -92,13 +122,17 @@ export function issueRefs(text) {
 }
 
 /**
- * The numbers the todo may be tracking, in order of appearance: those a
- * tracking keyword stands right in front of ("Tracked as #N", "Fixes #N",
- * "... PR (#N)"). A number mentioned elsewhere is not a candidate -- a todo
- * that cites another task's PR would otherwise be judged by that PR. The
- * caller takes the first candidate GitHub resolves, because a number that
- * belongs to the server repository (`yorkie #2020` is stripped, `yorkie
- * PR #2020` is not) does not exist here and is skipped that way.
+ * The numbers the todo declares it is tracking, in order of appearance:
+ * those a closing keyword stands right in front of ("Tracked as #N",
+ * "Fixes #N"). A number merely mentioned -- in prose, in a checklist line,
+ * next to the word "PR" -- is not a candidate, because a todo that cites
+ * another task's number would otherwise be judged by that task. A todo that
+ * declares nothing is simply not checked against GitHub.
+ *
+ * The caller takes the first candidate GitHub resolves, because a number
+ * that belongs to the server repository (`yorkie #2020` is stripped,
+ * `yorkie-team/yorkie fixes #2020` is not) does not exist here and is
+ * skipped that way.
  */
 export function trackedRefs(text) {
   const seen = new Set();
@@ -139,33 +173,68 @@ function runGit(args, cwd) {
 }
 
 /**
- * Looks a number up on GitHub: `{ kind: 'pr'|'issue', state, merged }` or
- * undefined when it cannot be resolved. `repo` is `owner/name`.
+ * Looks a number up on GitHub. Three outcomes, which the caller must keep
+ * apart:
+ *
+ * - `{ kind: 'pr'|'issue', state, merged }` -- answered.
+ * - `undefined` -- answered with "no such number in this repository" (HTTP
+ *   404). The todo cites something that is not ours; skip it.
+ * - `{ error }` -- NOT answered: `gh` is missing, unauthenticated, rate
+ *   limited, the network is down, the output did not parse. Nothing is known
+ *   about this number, and treating that as a skip is how a `--strict` run
+ *   reports a clean pass having checked nothing.
+ *
+ * `repo` is `owner/name`. `exec` is injectable for tests.
  */
 export function lookupGitHub(repo, number, exec = spawnSync) {
-  const r = exec(
-    'gh',
-    [
-      'api',
-      `repos/${repo}/issues/${number}`,
-      '--jq',
-      '{state: .state, pr: (.pull_request != null), merged: (.pull_request.merged_at != null)}',
-    ],
-    { encoding: 'utf8' },
-  );
-  if (r.status !== 0 || !r.stdout) return undefined;
+  const api = `repos/${repo}/issues/${number}`;
+  let r;
   try {
-    const j = JSON.parse(r.stdout);
-    return { kind: j.pr ? 'pr' : 'issue', state: j.state, merged: j.merged };
-  } catch {
-    return undefined;
+    r = exec(
+      'gh',
+      [
+        'api',
+        api,
+        '--jq',
+        '{state: .state, pr: (.pull_request != null), merged: (.pull_request.merged_at != null)}',
+      ],
+      { encoding: 'utf8' },
+    );
+  } catch (err) {
+    return { error: `gh could not be run: ${err.message}` };
   }
+  // spawnSync reports a failure to launch in `.error`, not by throwing.
+  if (!r || r.error) {
+    return {
+      error: `gh could not be run: ${r?.error?.message ?? 'no result'}`,
+    };
+  }
+  if (r.status === 0) {
+    try {
+      const j = JSON.parse(r.stdout);
+      return {
+        kind: j.pr ? 'pr' : 'issue',
+        state: j.state,
+        merged: !!j.merged,
+      };
+    } catch {
+      return { error: `gh ${api} returned output that is not JSON` };
+    }
+  }
+  const stderr = String(r.stderr ?? '');
+  if (/HTTP 404|not found/i.test(stderr)) return undefined;
+  return {
+    error: `gh ${api} failed (exit ${r.status}): ${oneLine(stderr) || 'no stderr'}`,
+  };
 }
 
 /**
- * Runs both checks. Returns `{ findings, notes }`; a finding is an active
- * todo that should have been archived, a note is context that is not a
- * finding on its own (a touched todo that is still in progress).
+ * Runs both checks. Returns `{ findings, notes, errors }`; a finding is an
+ * active todo that should have been archived, a note is context that is not
+ * a finding on its own (a touched todo that is still in progress), and an
+ * error is a check that could not run at all. Errors are never silent: they
+ * suppress the clean line and fail a `--strict` run, so "no findings" cannot
+ * mean "nothing was looked at".
  */
 export function checkTasks({
   tasksDir = 'docs/tasks',
@@ -178,10 +247,23 @@ export function checkTasks({
 } = {}) {
   const findings = [];
   const notes = [];
+  const errors = [];
   const read = (file) => readFileSync(path.join(cwd, file), 'utf8');
 
   if (base) {
-    for (const file of touchedActiveTodos({ tasksDir, base, cwd, run })) {
+    // A shallow clone with no merge base makes `git diff base...HEAD` fail.
+    // Record that and carry on, so the failure is reported and the remote
+    // half still runs instead of dying with the exception.
+    let touched = [];
+    try {
+      touched = touchedActiveTodos({ tasksDir, base, cwd, run });
+    } catch (err) {
+      errors.push({
+        file: `${tasksDir}/active`,
+        message: `could not diff against ${base}, so no todo was checked against this branch: ${oneLine(err.message)}`,
+      });
+    }
+    for (const file of touched) {
       if (!existsSync(path.join(cwd, file))) continue;
       if (hasOpenBoxes(read(file))) {
         notes.push({
@@ -207,8 +289,17 @@ export function checkTasks({
       let first;
       let info;
       for (const ref of trackedRefs(text)) {
-        info = lookup(repo, ref);
-        if (info) {
+        const got = lookup(repo, ref);
+        if (got?.error) {
+          errors.push({
+            file,
+            message: `could not resolve #${ref} on GitHub, so this todo was not checked: ${oneLine(got.error)}`,
+          });
+          info = undefined;
+          break;
+        }
+        if (got) {
+          info = got;
           first = ref;
           break;
         }
@@ -226,41 +317,51 @@ export function checkTasks({
     }
   }
 
-  return { findings, notes };
+  return { findings, notes, errors };
 }
 
 /**
  * Prints findings as GitHub annotations under Actions, plain lines
- * otherwise.
+ * otherwise. A path or message is squashed to one line first: both sides of
+ * a `::warning file=X::Y` are newline-terminated, and both can carry
+ * branch-supplied text.
  */
-export function report({ findings, notes }, out = console) {
+export function report({ findings, notes, errors = [] }, out = console) {
   const annotate = !!process.env.GITHUB_ACTIONS;
-  for (const n of notes) {
+  const emit = (level, prefix, items) => {
+    for (const i of items) {
+      out.log(
+        annotate
+          ? `::${level} file=${oneLine(i.file)}::${oneLine(i.message)}`
+          : `[tasks-check] ${prefix}${oneLine(i.file)}: ${oneLine(i.message)}`,
+      );
+    }
+  };
+  emit('notice', 'note: ', notes);
+  emit('warning', '', findings);
+  emit('error', 'error: ', errors);
+  if (errors.length > 0) {
     out.log(
-      annotate
-        ? `::notice file=${n.file}::${n.message}`
-        : `[tasks-check] note: ${n.file}: ${n.message}`,
+      '[tasks-check] The check could not complete; the result above is not a pass.',
     );
-  }
-  for (const f of findings) {
-    out.log(
-      annotate
-        ? `::warning file=${f.file}::${f.message}`
-        : `[tasks-check] ${f.file}: ${f.message}`,
-    );
-  }
-  if (findings.length === 0) {
+  } else if (findings.length === 0) {
     out.log('[tasks-check] No finished task left in docs/tasks/active/.');
   }
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const opts = { remote: false, strict: false };
+  const value = (name, v) => {
+    if (v === undefined || v.startsWith('--')) {
+      throw new Error(`${name} needs a value`);
+    }
+    return v;
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--base') opts.base = argv[++i];
-    else if (a === '--tasks') opts.tasksDir = argv[++i];
-    else if (a === '--repo') opts.repo = argv[++i];
+    if (a === '--base') opts.base = value(a, argv[++i]);
+    else if (a === '--tasks') opts.tasksDir = value(a, argv[++i]);
+    else if (a === '--repo') opts.repo = value(a, argv[++i]);
     else if (a === '--remote') opts.remote = true;
     else if (a === '--strict') opts.strict = true;
     else throw new Error(`unknown argument: ${a}`);
@@ -272,5 +373,8 @@ if (isDirectRun(import.meta.url)) {
   const opts = parseArgs(process.argv.slice(2));
   const result = checkTasks(opts);
   report(result);
-  if (opts.strict && result.findings.length > 0) process.exit(1);
+  // An error fails --strict as hard as a finding does: the maintainer's
+  // pre-merge gate must not pass on a check that did not run.
+  const blocking = result.findings.length + result.errors.length;
+  if (opts.strict && blocking > 0) process.exit(1);
 }
