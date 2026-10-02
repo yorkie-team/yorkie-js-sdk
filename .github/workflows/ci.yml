@@ -9,6 +9,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,6 +20,10 @@ jobs:
         node-version: [22.x]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The task-record check diffs against the base branch, which a
+          # shallow clone cannot reach a merge base for.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -59,15 +66,20 @@ jobs:
       # with --strict before merging; see .claude/skills/maintainer-merge.
       - name: Check task records
         if: github.event_name == 'pull_request'
-        # A warning check: a shallow clone that cannot reach the merge base
-        # must not turn the whole job red.
+        # A warning check; it must not turn the whole job red. No token and
+        # no --remote here: this step runs the pull request's own copy of the
+        # script, so a credential in its environment would be handed to
+        # branch-authored code. The remote half is the maintainer's, before
+        # the merge (see .claude/skills/maintainer-merge).
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-          git fetch --no-tags --deepen=200 origin "${{ github.base_ref }}" HEAD
-          node scripts/tasks-check.mjs --base "origin/${{ github.base_ref }}" --remote
+          # `|| true`: a fetch failure must still reach the checker, which
+          # reports "could not diff" instead of being skipped under `set -e`.
+          git fetch --no-tags origin \
+            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" || true
+          node scripts/tasks-check.mjs --base "origin/$BASE_REF"
 
       - name: Build and Test SDK
         run: |

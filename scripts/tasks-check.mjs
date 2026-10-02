@@ -37,17 +37,9 @@
 //    this file, so a token in that step's environment is a token handed to
 //    branch-authored code, on a workflow any fork PR can trigger.
 //
-//    BLOCKED ON A HUMAN WITH `workflow` SCOPE. ci.yml still passes `--remote`
-//    with `GH_TOKEN`, and its checkout is still shallow, so the diff half
-//    cannot reach a merge base either. The fix was written and is NOT in this
-//    branch: GitHub rejects the push outright ("refusing to allow a GitHub
-//    App to create or update workflow `.github/workflows/ci.yml` without
-//    `workflows` permission"), so no agent can land it. The exact edit is in
-//    scripts/README.md; it is four lines and needs no judgement.
-//
-//    Until then, this file's own hardening is what stands: the tracking regex
-//    below refuses to guess, the git environment is scoped, and nothing here
-//    fails open.
+//    (The CI step did pass `--remote` with a token at first, on a shallow
+//    clone; both were taken out once a human with `workflow` scope could
+//    touch ci.yml.)
 //
 // WARN, DON'T FAIL, by default. The archive step belongs at the end of the
 // branch, so a todo legitimately sits in active/ for the whole review; a red
