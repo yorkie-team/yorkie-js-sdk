@@ -87,6 +87,15 @@ after d1's product. Each side is self-consistent; they disagree.
 - [x] `pnpm verify:fast`: every gate green except the `sdk test:unit` step,
       which fails only in that pre-existing file; the prosemirror, react,
       devtools and schema suites run separately pass (266 / 54 / 20 / 40).
+- [ ] **Blocking, and not fixable in this repository.** The mirror change to
+      `orderSameBoundarySplit` in yorkie-team/yorkie is merged and released.
+      Until it is, a patched client restoring a snapshot from an unpatched
+      server gets the old order back, so this branch is a regression for
+      anyone on a current server (see the gate above). No commit here can
+      close this box; a maintainer with access to yorkie-team/yorkie has to.
+- [ ] `docker/docker-compose-ci.yml` and `docker/docker-compose.yml`
+      repointed off `yorkieteam/yorkie:latest` onto a tag carrying the
+      mirror.
 - [ ] `pnpm sdk test` against a server carrying the Go mirror.
 
 ## Measured

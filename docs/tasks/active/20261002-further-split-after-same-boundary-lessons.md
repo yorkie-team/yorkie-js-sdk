@@ -39,3 +39,17 @@
   splits a|b) -- as diverging by node ID on `main` and here alike. My probe
   shows identical XML on both sides for both versions; the node-ID shape was
   not re-checked. Listed as out of scope in the todo.
+
+## `@claude` lens panel
+
+- Blast radius, round 1: one major finding, and a correct one -- this
+  branch changes a replicated convergence rule on the JS side only, while
+  integration CI still pins an unpatched `yorkieteam/yorkie:latest`. It is
+  the same hazard the todo's rollout gate already describes, raised as a
+  merge blocker rather than as a note. Nothing in this repository can close
+  it: the remedy is a change to `orderSameBoundarySplit` in
+  yorkie-team/yorkie, which needs a maintainer with access there. Recorded
+  as two unchecked boxes under Verification and as a standstill rebuttal,
+  so the blocker stays tracked rather than argued away. **Do not merge this
+  branch on a green CI alone** -- CI exercises a server without the mirror,
+  so green here means the gate is still open, not that it is satisfied.
