@@ -105,7 +105,24 @@ both from the trusted copy, never the branch's:
 bash "$trusted/scripts/tasks-archive.sh" && bash "$trusted/scripts/tasks-index.sh"
 ```
 
-and only after reading the branch's diff to them. Also read the todo's "Out
+and only after reading the branch's diff to them.
+
+**Push that commit with `--no-verify`.** The commit itself goes through:
+`.githooks/pre-commit` returns before its trusted-tree check when nothing but
+markdown is staged, and an archive commit moves only `.md`, so `commit-msg`
+still checks your message. `pre-push` is the one that refuses — it runs
+`pnpm verify:fast`, and `.githooks/trusted-tree.sh` will not hand that a
+checkout carrying commits this clone did not write. **Take the refusal's first
+bypass, not its second.** `git push --no-verify` skips the gate, so none of the
+branch's code runs. `YORKIE_ALLOW_FOREIGN_TREE=1` instead runs the gate *on the
+branch's tree* — its package scripts, its lint configs, its test files — which
+is the exposure this whole section is avoiding, with your authenticated `gh` in
+the environment. CONTRIBUTING.md offers the two side by side without ranking
+them; standing in someone else's checkout there is only one. Nothing is lost by
+skipping: CI re-runs `verify:fast` on the pushed head, where that tree's code is
+supposed to run.
+
+Also read the todo's "Out
 of scope" / "Open" / "Known limitations" section before it goes to the
 archive — anything there that is a defect needs an issue, because nobody
 reads an archived todo again. CI runs the diff half of the same check (no
