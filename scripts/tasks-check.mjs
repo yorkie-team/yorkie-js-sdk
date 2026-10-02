@@ -83,8 +83,14 @@ const FOREIGN_REF = /yorkie(?:-team\/yorkie)?\s*#\d{3,6}\b/g;
 // then says "It does not fix #1426 itself", and "- [x] Open the Phase 0 PR
 // (#1384)". Each would have judged a live task by a merged PR, under the
 // `--strict` run that blocks a merge.
+// `[ \t]*`, not `\s*`: the keyword and the number have to sit on one line, or
+// a paragraph ending in "fixes" would claim the number opening the next.
 const TRACKING_REF =
-  /(?:tracked as|tracked by|fixes|closes|resolves)\s*:?\s*\(?#(\d{3,6})\b/gi;
+  /\b(?:tracked as|tracked by|fixes|closes|resolves)[ \t]*:?[ \t]*\(?#(\d{3,6})\b/gi;
+// The `**Created**: YYYY-MM-DD` line `tasks-archive.sh` buckets by. A todo
+// without one is skipped by the archiver, so the checker has to say so, or
+// its finding is one the prescribed fix cannot clear.
+const CREATED_LINE = /^\*\*Created\*\*:[ \t]*\d{4}-\d{2}/m;
 
 /** Annotation-safe: `::warning file=X::Y` is terminated by a newline. */
 function oneLine(s) {
@@ -247,6 +253,34 @@ export function lookupGitHub(repo, number, exec = spawnSync) {
 }
 
 /**
+ * `lookupRepo` asks GitHub whether `repo` is visible to this `gh` at all.
+ * `{ ok: true }`, or `{ error }` naming why not (404 included: a repository
+ * this token cannot see is indistinguishable from a wrong name, and either
+ * way nothing below can be trusted).
+ */
+export function lookupRepo(repo, exec = spawnSync) {
+  let r;
+  try {
+    r = exec('gh', ['api', `repos/${repo}`, '--jq', '.full_name'], {
+      encoding: 'utf8',
+    });
+  } catch (err) {
+    return { error: `gh could not be run: ${err.message}` };
+  }
+  if (!r || r.error) {
+    return {
+      error: `gh could not be run: ${r?.error?.message ?? 'no result'}`,
+    };
+  }
+  if (r.status !== 0) {
+    return {
+      error: `gh repos/${repo} failed (exit ${r.status}): ${oneLine(r.stderr ?? '') || 'no stderr'}`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * Runs both checks. Returns `{ findings, notes, errors }`; a finding is an
  * active todo that should have been archived, a note is context that is not
  * a finding on its own (a touched todo that is still in progress), and an
@@ -262,6 +296,7 @@ export function checkTasks({
   cwd = process.cwd(),
   run = runGit,
   lookup = lookupGitHub,
+  probeRepo = lookupRepo,
 } = {}) {
   const findings = [];
   const notes = [];
@@ -302,6 +337,12 @@ export function checkTasks({
           message:
             'in progress; archive it before merging once its boxes are ticked',
         });
+      } else if (!CREATED_LINE.test(read(file))) {
+        findings.push({
+          file,
+          message:
+            'every box is ticked but the todo is still in active/, and it has no `**Created**: YYYY-MM-DD` line, so `tasks-archive.sh` will skip it; add the line, then archive',
+        });
       } else {
         findings.push({
           file,
@@ -313,9 +354,21 @@ export function checkTasks({
   }
 
   if (remote) {
-    for (const file of listActiveTodos(path.join(cwd, tasksDir)).map((f) =>
-      path.relative(cwd, f),
-    )) {
+    // A wrong --repo or a token that cannot see the repository makes every
+    // issue lookup a 404, which the loop below reads as "not our number" --
+    // a clean pass having checked nothing. Ask about the repository first.
+    const probe = probeRepo(repo);
+    if (probe?.error) {
+      errors.push({
+        file: `${tasksDir}/active`,
+        message: `could not reach ${repo} on GitHub, so no todo was checked against it: ${oneLine(probe.error)}`,
+      });
+    }
+    for (const file of probe?.error
+      ? []
+      : listActiveTodos(path.join(cwd, tasksDir)).map((f) =>
+          path.relative(cwd, f),
+        )) {
       const text = read(file);
       let first;
       let info;

@@ -24,6 +24,12 @@ jobs:
           # The task-record check diffs against the base branch, which a
           # shallow clone cannot reach a merge base for.
           fetch-depth: 0
+          # This job runs the pull request's own code (pnpm install, lint,
+          # the scripts). Nothing after checkout needs git credentials -- the
+          # base-branch fetch below is of a public branch -- so do not leave
+          # the token in .git/config for that code to read, as every other
+          # workflow here already does.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -68,7 +74,8 @@ jobs:
         if: github.event_name == 'pull_request'
         # A warning check; it must not turn the whole job red. No token and
         # no --remote here: this step runs the pull request's own copy of the
-        # script, so a credential in its environment would be handed to
+        # script, so a credential in its environment (or, without
+        # persist-credentials: false above, in .git/config) would be handed to
         # branch-authored code. The remote half is the maintainer's, before
         # the merge (see .claude/skills/maintainer-merge).
         continue-on-error: true

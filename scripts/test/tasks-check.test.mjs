@@ -297,6 +297,7 @@ describe('tasks-check', () => {
     const { findings, errors } = checkTasks({
       remote: true,
       cwd: repo,
+      probeRepo: () => ({ ok: true }),
       lookup,
     });
     const files = findings.map((f) => f.file).sort();
@@ -313,6 +314,7 @@ describe('tasks-check', () => {
     const { findings, errors } = checkTasks({
       remote: true,
       cwd: repo,
+      probeRepo: () => ({ ok: true }),
       lookup: () => undefined,
     });
     assert.deepEqual(findings, []);
@@ -323,6 +325,7 @@ describe('tasks-check', () => {
     const { findings, errors } = checkTasks({
       remote: true,
       cwd: repo,
+      probeRepo: () => ({ ok: true }),
       lookup: () => ({ error: 'gh could not be run: spawn gh ENOENT' }),
     });
     assert.deepEqual(findings, []);
@@ -340,6 +343,7 @@ describe('tasks-check', () => {
       base: 'no-such-ref',
       remote: true,
       cwd: repo,
+      probeRepo: () => ({ ok: true }),
       run: () => {
         throw new Error('git diff failed:\nno merge base');
       },
@@ -537,5 +541,50 @@ describe('tasks-check', () => {
       r.stdout,
       /^::notice file=docs\/tasks\/active\/20261002-wip-todo\.md::in progress/m,
     );
+  });
+
+  it('treats a repository gh cannot see as "nothing checked", not as "no findings"', () => {
+    const { findings, errors } = checkTasks({
+      remote: true,
+      cwd: repo,
+      probeRepo: () => ({ error: 'gh repos/x/y failed (exit 1): HTTP 404' }),
+      lookup: () => {
+        throw new Error('must not be called when the repository probe failed');
+      },
+    });
+    assert.deepEqual(findings, []);
+    assert.equal(errors.length, 1);
+    assert.match(
+      errors[0].message,
+      /could not reach x?.*GitHub|could not reach/,
+    );
+  });
+
+  it('keeps the tracking keyword and its number on one line', () => {
+    assert.deepEqual(
+      trackedRefs('This change fixes\n\n#1500 is unrelated'),
+      [],
+    );
+    assert.deepEqual(trackedRefs('Tracked as #1433'), [1433]);
+    assert.deepEqual(
+      trackedRefs('prefixes #1500'),
+      [],
+      'a longer word is not the keyword',
+    );
+  });
+
+  it('names the missing Created line when the archiver would skip the todo', () => {
+    const nodate = path.join(repo, 'docs/tasks/active/20261002-nodate-todo.md');
+    writeFileSync(nodate, '# No date\n\n- [x] done\n');
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'nodate');
+    try {
+      const { findings } = checkTasks({ base: 'main', cwd: repo });
+      const f = findings.find((x) => x.file.endsWith('nodate-todo.md'));
+      assert.ok(f, 'the finished todo is still reported');
+      assert.match(f.message, /no `\*\*Created\*\*: YYYY-MM-DD` line/);
+    } finally {
+      git(repo, 'reset', '-q', '--hard', 'HEAD~1');
+    }
   });
 });

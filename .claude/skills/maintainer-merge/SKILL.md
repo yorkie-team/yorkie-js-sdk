@@ -66,67 +66,41 @@ CLAUDE.md step 5 archives the PR's task record before the merge. It kept
 being skipped (twelve finished tasks were sitting in `docs/tasks/active/` on
 2026-10-02), so check it here, on the PR's head.
 
-**Run `main`'s copy of the scripts, never the branch's.** The PR's head
-carries its own `scripts/` — `tasks-check.mjs`, `direct-run.mjs`,
-`tasks-archive.sh`, `tasks-index.sh` — and your shell has an authenticated
-`gh`. Executing a branch's scripts with that credential in the environment
-hands the credential to whoever wrote the branch: the same exposure the CI
-step is sandboxed against, moved to a higher-privilege machine. So check the
-PR out for its *data* and take *every* script you run from `main`.
-
-**Resolve `main` by full ref, then by sha.** `gh pr checkout <N>` creates a
-local branch named after the PR's head, so a head branch named `origin/main`
-makes the short rev `origin/main` resolve to *that branch*: the attacker's
-tree would become the "trusted" worktree, and `--base origin/main` would
-compare the branch to itself and pass vacuously. `refs/remotes/origin/main`
-cannot be shadowed — pin it to a sha once, and use the sha everywhere after:
+**Do not check the PR out into the tree you work from.** Your working tree
+is where this skill, `CLAUDE.md` and `.claude/settings.json` are read from,
+and your shell has an authenticated `gh`. `gh pr checkout` would replace all
+three with the branch's copies and put its `scripts/` where yours were. Take
+the PR's tree as *data*, in a throwaway worktree, and run only code that is
+already on `main`:
 
 ```bash
-gh pr checkout <N>
-git fetch --no-tags origin main
-main_sha=$(git rev-parse --verify refs/remotes/origin/main)  # unambiguous
-trusted=$(mktemp -d)                                         # not a fixed path
-git worktree add --detach "$trusted" "$main_sha"             # trusted scripts
-node "$trusted/scripts/tasks-check.mjs" --base "$main_sha" --remote --strict
+git fetch --no-tags origin main "pull/<N>/head:refs/pr/<N>"
+main_sha=$(git rev-parse --verify refs/remotes/origin/main)  # full ref: a branch named origin/main cannot shadow it
+data=$(mktemp -d)
+git worktree add --detach "$data" "refs/pr/<N>"               # the PR's files, nothing executed
+(cd "$data" && node "$OLDPWD/scripts/tasks-check.mjs" --base "$main_sha" --remote --strict)
+git worktree remove --force "$data"
 ```
 
-The script reads task records from the current directory, so this reports on
-the PR's `docs/tasks/` while running only code already on `main`. Keep
-`$trusted` until the steps below are done, then `git worktree remove
-"$trusted"`. If the PR itself changes `scripts/tasks-check.mjs`, read that
-diff before trusting either copy.
+`$OLDPWD/scripts/tasks-check.mjs` is your checkout's copy, which is `main`'s
+as long as you are on `main`; `git status -sb` says so. If the PR changes
+`scripts/tasks-check.mjs` or `tasks-archive.sh`, read that diff before
+trusting the result.
 
-A finding is a blocker, not a note: ask the author for a commit that runs
-`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`. Pushing that
-yourself on a same-repo PR means running those two in your own shell, so take
-both from the trusted copy, never the branch's:
+A finding is a blocker, not a note. **Ask the author for the archive
+commit** (`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`); on
+an `agent:managed` PR the fixer can push it. Do not make that commit yourself
+from the PR's tree: committing and pushing there runs the branch's hooks,
+lint-staged config and `verify:fast`, and `.githooks/trusted-tree.sh` refuses
+exactly that checkout for exactly that reason. Its `--no-verify` bypass skips
+the gate rather than running the branch's code, which is the right one if you
+ever must, but asking is simpler.
 
-```bash
-bash "$trusted/scripts/tasks-archive.sh" && bash "$trusted/scripts/tasks-index.sh"
-```
-
-and only after reading the branch's diff to them.
-
-**Push that commit with `--no-verify`.** The commit itself goes through:
-`.githooks/pre-commit` returns before its trusted-tree check when nothing but
-markdown is staged, and an archive commit moves only `.md`, so `commit-msg`
-still checks your message. `pre-push` is the one that refuses — it runs
-`pnpm verify:fast`, and `.githooks/trusted-tree.sh` will not hand that a
-checkout carrying commits this clone did not write. **Take the refusal's first
-bypass, not its second.** `git push --no-verify` skips the gate, so none of the
-branch's code runs. `YORKIE_ALLOW_FOREIGN_TREE=1` instead runs the gate *on the
-branch's tree* — its package scripts, its lint configs, its test files — which
-is the exposure this whole section is avoiding, with your authenticated `gh` in
-the environment. CONTRIBUTING.md offers the two side by side without ranking
-them; standing in someone else's checkout there is only one. Nothing is lost by
-skipping: CI re-runs `verify:fast` on the pushed head, where that tree's code is
-supposed to run.
-
-Also read the todo's "Out
-of scope" / "Open" / "Known limitations" section before it goes to the
-archive — anything there that is a defect needs an issue, because nobody
-reads an archived todo again. CI runs the diff half of the same check (no
-`--remote`, no `--strict`) and surfaces it as a warning annotation on the PR.
+Also read the todo's "Out of scope" / "Open" / "Known limitations" section
+before it goes to the archive — anything there that is a defect needs an
+issue, because nobody reads an archived todo again. CI runs the diff half of
+the same check (no `--remote`, no `--strict`) and surfaces it as a warning
+annotation on the PR.
 
 ## PRs touching `.github/workflows/*`
 
