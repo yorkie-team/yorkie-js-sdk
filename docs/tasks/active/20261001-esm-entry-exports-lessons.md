@@ -29,6 +29,23 @@ it, preserving TypeScript class identity as well. The `node` export condition
 comes before the generic import condition; browser bundlers still receive the
 actual `.es.mjs` bundle and its `.d.mts` declarations.
 
+## A CommonJS default import means different things to Node and Rollup
+
+A Rollup UMD build of an entry with a default export flags `module.exports`
+with `__esModule`. Node, esbuild and webpack (importing from `.mjs`) ignore the
+flag: `import cjs from` yields `module.exports`. Rollup, and so Vite SSR with
+`ssr.noExternal`, honours it: the same import yields `module.exports.default`.
+The first wrapper used a default import, so a Vite SSR bundle saw `Document`
+(it is also on the default object) but lost `converter` and the default export.
+
+The wrapper now uses a namespace import and takes `ns.default` when it still
+carries `__esModule`, `ns` otherwise. Entries without a default export are not
+flagged, so every tool agrees on their default import and it stays as is.
+
+Checking plain Node alone could not catch this: the export check now bundles
+the tarballs with Vite SSR and esbuild, and the generator has unit tests for
+both shapes.
+
 ## Verify the `pnpm pack` tarball, not the source tree
 
 Unit tests resolve through aliases and `src`, so a wrong published `package.json`

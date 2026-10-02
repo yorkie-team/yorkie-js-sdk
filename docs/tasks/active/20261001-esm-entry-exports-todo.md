@@ -41,6 +41,19 @@ preserving the actual ES bundle for browser bundlers.
       "already open in another tab"; the same happens on `main` without this
       change, and both pass on Node 22
 
+## Review follow-ups (#1431)
+
+- [x] Make the sdk wrapper pick module.exports whether the importer hands it over
+      whole (Node, esbuild, webpack) or honours `__esModule` (Rollup, Vite SSR
+      `noExternal` left `converter` and the default export undefined)
+- [x] Unit-test `nodeEsmEntry` in `scripts/test`, so CI covers the generator
+- [x] Bundle the tarballs with Vite SSR and esbuild in `verify:exports`
+- [x] Type-check under `moduleResolution: bundler` and assert the plain `.d.mts`
+      twins are the declarations it loads
+- [x] Add a trailing `default` condition (the UMD build) to the exports maps
+- [x] Fail when a tarball is missing, install with `--ignore-scripts`, pin ATTW
+- [x] Updated verification passes on Node 20.19.0, 22.23.2, 24.1.0 and 24.21.0
+
 ## Follow-ups
 
 - [ ] prosemirror's rolled-up `.d.ts` imports `../../sdk/src/yorkie.ts`, which does
