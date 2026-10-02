@@ -60,6 +60,25 @@ before you merge.
 `@claude rerun` on a head that already has verdicts reuses them. To ask for a
 fresh review, use `@claude rerun review`.
 
+## Task records before merge
+
+CLAUDE.md step 5 archives the PR's task record before the merge. It kept
+being skipped (twelve finished tasks were sitting in `docs/tasks/active/` on
+2026-10-02), so check it here, on the PR's head:
+
+```bash
+gh pr checkout <N>
+node scripts/tasks-check.mjs --base origin/main --remote --strict
+```
+
+A finding is a blocker, not a note: ask the author for (or push yourself,
+on a same-repo PR) a commit that runs
+`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`. Also read the
+todo's "Out of scope" / "Open" / "Known limitations" section before it goes
+to the archive — anything there that is a defect needs an issue, because
+nobody reads an archived todo again. CI runs the same check without
+`--strict` and surfaces it as a warning annotation on the PR.
+
 ## PRs touching `.github/workflows/*`
 
 `gh pr merge` fails with *refusing to allow an OAuth App to create or update

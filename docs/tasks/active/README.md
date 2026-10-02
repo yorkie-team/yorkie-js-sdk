@@ -19,3 +19,8 @@ When work is complete:
 bash scripts/tasks-archive.sh  # moves the pair into archive/YYYY/MM/
 bash scripts/tasks-index.sh    # regenerates ../README.md and ../archive/README.md
 ```
+
+Before the PR merges, the pair has to be out of this directory, and any
+defect it lists as out of scope has to have an issue.
+`node scripts/tasks-check.mjs --base origin/main --remote` reports what is
+still here and finished; CI runs it on every PR.

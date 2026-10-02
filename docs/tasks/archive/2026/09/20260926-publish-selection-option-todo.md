@@ -32,9 +32,9 @@ others' presence and renders their cursors.
 
 ## Tasks
 
-- [ ] `packages/prosemirror/src/types.ts` — add `publishSelection?: boolean`
+- [x] `packages/prosemirror/src/types.ts` — add `publishSelection?: boolean`
       with a doc comment that spells out the direction (outbound only).
-- [ ] `packages/prosemirror/src/binding.ts` — store the option; add
+- [x] `packages/prosemirror/src/binding.ts` — store the option; add
       `shouldPublishSelection()`, evaluated at publish time (not at
       construction) so a view whose `editable` prop flips later is honoured.
       Guard both publish sites:
@@ -43,7 +43,7 @@ others' presence and renders their cursors.
         `setupDispatchTransaction()`.
       Returning before `doc.update()` is what matters: no update, no change to
       push.
-- [ ] `packages/prosemirror/test/unit/binding_test.ts` — new unit suite over a
+- [x] `packages/prosemirror/test/unit/binding_test.ts` — new unit suite over a
       fake `EditorView` (the package's vitest runs in node, no DOM):
       - default + editable view publishes,
       - `publishSelection: false` publishes nothing on initialize or on a
@@ -51,7 +51,7 @@ others' presence and renders their cursors.
       - non-editable view publishes nothing by default,
       - `publishSelection: true` on a non-editable view still publishes,
       - `publishSelection: false` still subscribes to others' presence.
-- [ ] `packages/prosemirror/README.md` — document the option.
+- [x] `packages/prosemirror/README.md` — document the option.
 
 ## Out of scope
 

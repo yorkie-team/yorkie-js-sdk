@@ -9,6 +9,7 @@ setup with its hooks. None of it is published.
 |---|---|---|
 | `tasks-archive.sh` | `bash scripts/tasks-archive.sh` | Moves finished todos from `docs/tasks/active/` into `docs/tasks/archive/YYYY/MM/`, bucketed by each todo's `**Created**` line. A todo has to clear two bars: no unchecked boxes, and a parseable `**Created**` date — one missing the date is warned about and left alone. A matching `-lessons.md` rides along if it exists; a todo without one still moves. Neither bar reads the prose, so check a todo's Review section before trusting the result. |
 | `tasks-index.sh` | `bash scripts/tasks-index.sh` | Regenerates `docs/tasks/README.md` and `docs/tasks/archive/README.md`. Never hand-edit those two. `docs/tasks/active/README.md` is hand-written prose and is left alone. |
+| `tasks-check.mjs` | `node scripts/tasks-check.mjs --base origin/main [--remote] [--strict]` | Reports finished task records still in `docs/tasks/active/`: a todo the branch added or edited whose boxes are all ticked (from the diff against `--base`), and, with `--remote`, any active todo whose first referenced issue is closed or PR is merged (via `gh api`). Warnings by default -- a todo sits in active/ for the whole review on purpose -- as `::warning` annotations under Actions; `--strict` exits 1 and is the maintainer's pre-merge gate. Runs in CI on every PR. |
 
 Both take an optional tasks directory argument, defaulting to `docs/tasks`.
 

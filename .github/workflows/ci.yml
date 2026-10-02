@@ -53,6 +53,19 @@ jobs:
       - name: Test the scripts
         run: pnpm test:scripts
 
+      # Warns (never fails) on a finished task record still in
+      # docs/tasks/active/: one this PR ticked off without archiving, or one
+      # whose issue is closed / PR merged. The maintainer runs the same check
+      # with --strict before merging; see .claude/skills/maintainer-merge.
+      - name: Check task records
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git fetch --no-tags --deepen=200 origin "${{ github.base_ref }}" HEAD
+          node scripts/tasks-check.mjs --base "origin/${{ github.base_ref }}" --remote
+
       - name: Build and Test SDK
         run: |
           pnpm sdk build
