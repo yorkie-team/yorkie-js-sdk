@@ -30,8 +30,11 @@ archived=0
 for todo in "$ACTIVE_DIR"/*-todo.md; do
   [ -f "$todo" ] || continue
 
-  # Skip if uncompleted checkboxes remain
-  if grep -q '\- \[ \]' "$todo"; then
+  # Skip if uncompleted checkboxes remain. Anchored to the start of a line,
+  # so a `- [ ]` quoted inside a sentence or a fenced example is prose, not an
+  # open box. `hasOpenBoxes` in scripts/tasks-check.mjs applies the same rule:
+  # the two must agree, or that check flags a todo this script will not move.
+  if grep -qE '^[[:space:]]*- \[ \]' "$todo"; then
     continue
   fi
 

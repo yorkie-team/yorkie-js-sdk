@@ -37,11 +37,17 @@
 //    this file, so a token in that step's environment is a token handed to
 //    branch-authored code, on a workflow any fork PR can trigger.
 //
-//    ci.yml still passes `--remote` with `GH_TOKEN` today. Removing it, and
-//    adding the `permissions:` block ci.yml lacks, is a `.github/workflows/`
-//    edit the agent token cannot push; it needs a human with `workflow`
-//    scope. Until then, this file's own hardening is what stands: the
-//    tracking regex below refuses to guess, and nothing here fails open.
+//    BLOCKED ON A HUMAN WITH `workflow` SCOPE. ci.yml still passes `--remote`
+//    with `GH_TOKEN`, and its checkout is still shallow, so the diff half
+//    cannot reach a merge base either. The fix was written and is NOT in this
+//    branch: GitHub rejects the push outright ("refusing to allow a GitHub
+//    App to create or update workflow `.github/workflows/ci.yml` without
+//    `workflows` permission"), so no agent can land it. The exact edit is in
+//    scripts/README.md; it is four lines and needs no judgement.
+//
+//    Until then, this file's own hardening is what stands: the tracking regex
+//    below refuses to guess, the git environment is scoped, and nothing here
+//    fails open.
 //
 // WARN, DON'T FAIL, by default. The archive step belongs at the end of the
 // branch, so a todo legitimately sits in active/ for the whole review; a red
@@ -64,7 +70,12 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { isDirectRun } from './direct-run.mjs';
 
-const UNCHECKED = /^\s*- \[ \]/m;
+// "Still open" has to mean the same thing here and in the archiver, or this
+// check reports a todo as finished that `scripts/tasks-archive.sh` then
+// refuses to move -- a blocker whose prescribed fix cannot clear it. Both
+// anchor the box to the start of a line, so a `- [ ]` quoted mid-sentence is
+// prose in both; keep them in step (tasks-archive.sh's `grep -qE`).
+const UNCHECKED = /^[ \t]*- \[ \]/m;
 // `#1234`, but not `##` headings or `#N` inside a URL path.
 const ISSUE_REF = /(?<![\w/#])#(\d{3,6})\b/g;
 // A number that belongs to the server repository, not this one:
@@ -164,8 +175,23 @@ export function touchedActiveTodos({ tasksDir, base, cwd, run = runGit }) {
     .filter((l) => l.endsWith('-todo.md'));
 }
 
+/**
+ * `process.env` with every GIT_* variable removed, so `cwd` is what decides
+ * which repository git reads. It otherwise is not: git exports GIT_DIR and
+ * friends into every hook it runs, and this script is reachable from one, so
+ * an inherited GIT_DIR would have it diff a different repository than the one
+ * it was pointed at -- and answer confidently about it.
+ */
+function gitEnv(base = process.env) {
+  const env = { ...base };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GIT_')) delete env[key];
+  }
+  return env;
+}
+
 function runGit(args, cwd) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: gitEnv() });
   if (r.status !== 0) {
     throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`);
   }

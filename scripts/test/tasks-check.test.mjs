@@ -29,18 +29,44 @@ import {
   issueRefs,
   lookupGitHub,
   parseArgs,
+  report,
   trackedRefs,
 } from '../tasks-check.mjs';
+
+/**
+ * `base` with every GIT_* variable removed. `pnpm test:scripts` runs inside
+ * the pre-push hook, and git exports GIT_DIR, GIT_INDEX_FILE and friends into
+ * every hook it runs: a fixture that inherits them writes into the
+ * developer's real checkout instead of its scratch repository. The quiet one
+ * is GIT_INDEX_FILE, which leaves the suite green and the real index
+ * corrupt. Stripping by prefix is blunter than a list and cannot drift --
+ * same rule as the sibling suite in this directory.
+ */
+function withoutGitVars(base = process.env) {
+  const env = { ...base };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('GIT_')) delete env[key];
+  }
+  return env;
+}
+
+/** Environment for a throwaway repository: GIT_DIR pinned, no discovery. */
+function fixtureGitEnv(dir, base = process.env) {
+  const abs = path.resolve(dir);
+  return {
+    ...withoutGitVars(base),
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_DIR: path.join(abs, '.git'),
+    GIT_WORK_TREE: abs,
+  };
+}
 
 const git = (cwd, ...args) => {
   const r = spawnSync('git', args, {
     cwd,
     encoding: 'utf8',
-    env: {
-      ...process.env,
-      GIT_CONFIG_GLOBAL: '/dev/null',
-      GIT_CONFIG_NOSYSTEM: '1',
-    },
+    env: fixtureGitEnv(cwd),
   });
   assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr}`);
   return r.stdout;
@@ -93,6 +119,11 @@ describe('tasks-check', () => {
   it('reads boxes and references', () => {
     assert.equal(hasOpenBoxes('- [x] a\n- [ ] b\n'), true);
     assert.equal(hasOpenBoxes('- [x] a\n'), false);
+    assert.equal(hasOpenBoxes('  - [ ] nested\n'), true);
+    // Anchored, like tasks-archive.sh's grep: a box quoted mid-sentence is
+    // prose. The two rules have to agree, or this check flags a todo the
+    // archive script then refuses to move.
+    assert.equal(hasOpenBoxes('Write `- [ ]` for an open box.\n'), false);
     assert.deepEqual(
       issueRefs('Fixes #1433, see #1375 and #1433; ## heading; url/pull/1'),
       [1433, 1375],
@@ -151,6 +182,28 @@ describe('tasks-check', () => {
       notes.map((n) => n.file),
       ['docs/tasks/active/20261002-wip-todo.md'],
     );
+  });
+
+  // `pnpm test:scripts` runs inside the pre-push hook, where git has exported
+  // GIT_DIR and GIT_INDEX_FILE for the real checkout. `cwd` must still decide
+  // which repository is diffed, or the check answers about another one.
+  it('diffs the repository cwd names, not the one GIT_DIR names', () => {
+    const prev = { ...process.env };
+    process.env.GIT_DIR = path.resolve('.git');
+    process.env.GIT_WORK_TREE = path.resolve('.');
+    process.env.GIT_INDEX_FILE = path.resolve('.git/index');
+    try {
+      const { findings } = checkTasks({ base: 'main', cwd: repo });
+      assert.deepEqual(findings.map((f) => f.file).sort(), [
+        'docs/tasks/active/20261002-done-todo.md',
+        'docs/tasks/active/20261002-port-todo.md',
+      ]);
+    } finally {
+      for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) {
+        if (prev[key] === undefined) delete process.env[key];
+        else process.env[key] = prev[key];
+      }
+    }
   });
 
   it('says nothing about a todo the branch did not touch, without --remote', () => {
@@ -352,7 +405,7 @@ describe('tasks-check', () => {
     // The CLI switches to `::warning` annotations under GITHUB_ACTIONS, so
     // pin the plain format with the variable removed, whatever this test
     // itself runs under.
-    const env = { ...process.env };
+    const env = fixtureGitEnv(repo);
     delete env.GITHUB_ACTIONS;
     const lax = spawnSync('node', [script, '--base', 'main'], {
       cwd: repo,
@@ -369,12 +422,75 @@ describe('tasks-check', () => {
     assert.equal(strict.status, 1);
   });
 
+  // The file's headline invariant: a check that could not run is reported as
+  // an error, never as a clean pass, and blocks --strict exactly like a
+  // finding. Both halves of that, at the report layer and through the CLI.
+  it('report: an error suppresses the clean line, in both formats', () => {
+    const run = (actions) => {
+      const lines = [];
+      const prev = process.env.GITHUB_ACTIONS;
+      if (actions) process.env.GITHUB_ACTIONS = 'true';
+      else delete process.env.GITHUB_ACTIONS;
+      try {
+        report(
+          {
+            findings: [],
+            notes: [],
+            errors: [
+              {
+                file: 'docs/tasks/active',
+                message: 'could not diff against main\nno merge base',
+              },
+            ],
+          },
+          { log: (l) => lines.push(l) },
+        );
+      } finally {
+        if (prev === undefined) delete process.env.GITHUB_ACTIONS;
+        else process.env.GITHUB_ACTIONS = prev;
+      }
+      return lines;
+    };
+
+    const plain = run(false);
+    assert.match(plain[0], /^\[tasks-check\] error: docs\/tasks\/active: /);
+    assert.match(plain.join('\n'), /is not a pass/);
+    assert.doesNotMatch(plain.join('\n'), /No finished task/);
+
+    const annotated = run(true);
+    assert.match(annotated[0], /^::error file=docs\/tasks\/active::could not/);
+    // Squashed to one line, so it cannot forge a second workflow command.
+    assert.doesNotMatch(annotated[0], /\n/);
+    assert.doesNotMatch(annotated.join('\n'), /No finished task/);
+  });
+
+  it('exits 1 under --strict on an error alone, with no finding', () => {
+    const script = path.resolve('scripts/tasks-check.mjs');
+    const env = fixtureGitEnv(repo);
+    delete env.GITHUB_ACTIONS;
+    // The ref does not exist, so the diff cannot run: nothing is checked and
+    // nothing is found. That must not read as a pass.
+    const args = [script, '--base', 'no-such-ref'];
+    const lax = spawnSync('node', args, { cwd: repo, encoding: 'utf8', env });
+    assert.equal(lax.status, 0, lax.stderr);
+    assert.match(lax.stdout, /error: .*could not diff against no-such-ref/);
+    assert.match(lax.stdout, /is not a pass/);
+    assert.doesNotMatch(lax.stdout, /No finished task/);
+    const strict = spawnSync('node', [...args, '--strict'], {
+      cwd: repo,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(strict.status, 1, strict.stdout);
+    assert.doesNotMatch(strict.stdout, /No finished task/);
+  });
+
   it('prints annotations on the file under GITHUB_ACTIONS', () => {
     const script = path.resolve('scripts/tasks-check.mjs');
     const r = spawnSync('node', [script, '--base', 'main'], {
       cwd: repo,
       encoding: 'utf8',
-      env: { ...process.env, GITHUB_ACTIONS: 'true' },
+      env: { ...fixtureGitEnv(repo), GITHUB_ACTIONS: 'true' },
     });
     assert.equal(r.status, 0, r.stderr);
     assert.match(

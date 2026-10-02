@@ -9,9 +9,49 @@ setup with its hooks. None of it is published.
 |---|---|---|
 | `tasks-archive.sh` | `bash scripts/tasks-archive.sh` | Moves finished todos from `docs/tasks/active/` into `docs/tasks/archive/YYYY/MM/`, bucketed by each todo's `**Created**` line. A todo has to clear two bars: no unchecked boxes, and a parseable `**Created**` date — one missing the date is warned about and left alone. A matching `-lessons.md` rides along if it exists; a todo without one still moves. Neither bar reads the prose, so check a todo's Review section before trusting the result. |
 | `tasks-index.sh` | `bash scripts/tasks-index.sh` | Regenerates `docs/tasks/README.md` and `docs/tasks/archive/README.md`. Never hand-edit those two. `docs/tasks/active/README.md` is hand-written prose and is left alone. |
-| `tasks-check.mjs` | `node scripts/tasks-check.mjs --base origin/main [--remote] [--strict]` | Reports finished task records still in `docs/tasks/active/`: a todo the branch added or edited whose boxes are all ticked (from the diff against `--base`), and, with `--remote`, any active todo that *declares* a tracking number (`Tracked as #N`, `Fixes #N`) whose issue is closed or PR is merged (via `gh api`). A number the todo only mentions is not a tracking number. Warnings by default -- a todo sits in active/ for the whole review on purpose -- as `::warning` annotations under Actions; a check that could not run at all is an `::error` line, never a silent pass. `--strict` exits 1 on either and is the maintainer's pre-merge gate. Runs in CI on every PR. **Pending a human with `workflow` scope:** the CI step still passes `--remote` and still exports `GH_TOKEN` into a step that runs the pull request's own copy of this script; that step should drop both, and `ci.yml` should declare `permissions: contents: read` and take `fetch-depth: 0` on its checkout. See the fix report on PR #1437 for the exact edit — the agent token cannot push `.github/workflows/`. |
+| `tasks-check.mjs` | `node scripts/tasks-check.mjs --base origin/main [--remote] [--strict]` | Reports finished task records still in `docs/tasks/active/`: a todo the branch added or edited whose boxes are all ticked (from the diff against `--base`), and, with `--remote`, any active todo that *declares* a tracking number (`Tracked as #N`, `Fixes #N`) whose issue is closed or PR is merged (via `gh api`). A number the todo only mentions is not a tracking number. Warnings by default -- a todo sits in active/ for the whole review on purpose -- as `::warning` annotations under Actions; a check that could not run at all is an `::error` line, never a silent pass. `--strict` exits 1 on either and is the maintainer's pre-merge gate. Runs in CI on every PR. **Blocked on a human with `workflow` scope** — see below. |
 
-Both take an optional tasks directory argument, defaulting to `docs/tasks`.
+### The pending `ci.yml` edit
+
+The "Check task records" step in `.github/workflows/ci.yml` is wrong in two
+ways, and no agent can correct it: GitHub rejects any push from an App without
+`workflows` permission that touches `.github/workflows/`, so the edit below was
+written, verified and then had to be left out of PR #1437.
+
+1. The step exports `GH_TOKEN: ${{ github.token }}` into a `run:` whose only
+   action is to execute `scripts/tasks-check.mjs` **as the pull request
+   supplies it**. Drop the `env:` block and the `--remote` flag; `--remote`
+   belongs on the maintainer's machine, where the `gh` credential is already
+   theirs.
+2. The checkout is shallow, so on a `pull_request` event HEAD is a depth-1
+   merge commit that git treats as parentless and `origin/<base>...HEAD` has no
+   merge base — the diff half never runs. Give `actions/checkout@v4`
+   `fetch-depth: 0` and delete the two `--depth`/`--deepen` fetches.
+
+Also: add `permissions: contents: read` at the top of the workflow (it declares
+none, unlike every other workflow here), and pass `github.base_ref` through
+`env: BASE_REF:` rather than interpolating it into the shell body. The whole
+step then reads:
+
+```yaml
+      - name: Check task records
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # `|| true`: a fetch failure must still reach the checker, which
+          # reports "could not diff" instead of being skipped under `set -e`.
+          git fetch --no-tags origin \
+            "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF" || true
+          node scripts/tasks-check.mjs --base "origin/$BASE_REF"
+```
+
+`tasks-archive.sh` and `tasks-index.sh` take an optional tasks directory
+argument, defaulting to `docs/tasks`; `tasks-check.mjs` spells it `--tasks`.
+`tasks-archive.sh` and `tasks-check.mjs` apply the same "is this todo
+finished" rule — an unticked box at the start of a line — so a todo the check
+flags is always one the archiver will move.
 
 ## Verification
 
