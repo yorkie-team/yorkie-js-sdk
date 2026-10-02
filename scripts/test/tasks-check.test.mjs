@@ -363,6 +363,23 @@ describe('tasks-check', () => {
   });
 
   describe('lookupGitHub', () => {
+    it('reads only gh\'s own 404 line as "not ours"', () => {
+      const exec = (stderr) => () => ({ status: 1, stdout: '', stderr });
+      assert.equal(
+        lookupGitHub('o/r', 1, exec('gh: Not Found (HTTP 404)')),
+        undefined,
+      );
+      assert.match(
+        lookupGitHub('o/r', 1, exec('config file not found')).error,
+        /failed/,
+      );
+      assert.match(
+        lookupGitHub('o/r', 1, exec('error connecting to api.github.com'))
+          .error,
+        /failed/,
+      );
+    });
+
     const call = (result) => {
       const seen = [];
       const exec = (cmd, args, opts) => {

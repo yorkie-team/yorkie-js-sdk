@@ -85,7 +85,10 @@ git worktree remove --force "$data"
 `$OLDPWD/scripts/tasks-check.mjs` is your checkout's copy, which is `main`'s
 as long as you are on `main`; `git status -sb` says so. If the PR changes
 `scripts/tasks-check.mjs` or `tasks-archive.sh`, read that diff before
-trusting the result.
+trusting the result. When `main` has no copy yet -- the PR that adds the
+script, or a clone behind `main` -- do not run the branch's: check by hand,
+`ls "$data/docs/tasks/active"` and a look at each todo's boxes and tracked
+issue, and say in the merge message that the check was manual.
 
 A finding is a blocker, not a note. **Ask the author for the archive
 commit** (`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`); on

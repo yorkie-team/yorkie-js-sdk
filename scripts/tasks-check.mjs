@@ -90,7 +90,9 @@ const TRACKING_REF =
 // The `**Created**: YYYY-MM-DD` line `tasks-archive.sh` buckets by. A todo
 // without one is skipped by the archiver, so the checker has to say so, or
 // its finding is one the prescribed fix cannot clear.
-const CREATED_LINE = /^\*\*Created\*\*:[ \t]*\d{4}-\d{2}/m;
+// Same boundary as the archiver's `([^0-9]|$)` and month range, so the two
+// agree on `2026-101` (rejected) as they do on `2026-10-02`.
+const CREATED_LINE = /^\*\*Created\*\*:[ \t]*\d{4}-(?:0[1-9]|1[0-2])(?!\d)/m;
 
 /** Annotation-safe: `::warning file=X::Y` is terminated by a newline. */
 function oneLine(s) {
@@ -246,7 +248,10 @@ export function lookupGitHub(repo, number, exec = spawnSync) {
     }
   }
   const stderr = String(r.stderr ?? '');
-  if (/HTTP 404|not found/i.test(stderr)) return undefined;
+  // Only gh's own 404 line says "no such number"; any other failure that
+  // happens to mention "not found" is an error, or --strict would read it as
+  // a skip and pass.
+  if (/\(HTTP 404\)/.test(stderr)) return undefined;
   return {
     error: `gh ${api} failed (exit ${r.status}): ${oneLine(stderr) || 'no stderr'}`,
   };

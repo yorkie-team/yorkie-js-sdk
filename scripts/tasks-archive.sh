@@ -53,7 +53,7 @@ for todo in "$ACTIVE_DIR"/*-todo.md; do
   # `git mv` target. `#*:` stops at the FIRST colon, so nothing after the date
   # is reachable either.
   date_str=${created_line#*:}
-  if [[ ! $date_str =~ ^[[:space:]]*([0-9]{4})-([0-9]{2})([^0-9]|$) ]]; then
+  if [[ ! $date_str =~ ^[[:space:]]*([0-9]{4})-(0[1-9]|1[0-2])([^0-9]|$) ]]; then
     echo "Warning: cannot parse date from $(basename "$todo"), skipping" >&2
     continue
   fi
