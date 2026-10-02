@@ -49,10 +49,10 @@
 //
 // NEVER FAIL OPEN. Both halves can be prevented from running at all -- a
 // shallow clone with no merge base, a `gh` that is missing, unauthenticated
-// or rate-limited. That is not "nothing to report": it is "nothing was
-// checked", so it is collected as an `error`, printed, and under `--strict`
-// it exits 1 exactly like a finding would. A green line here has to mean the
-// check ran.
+// or rate-limited, or neither half being asked for in the first place. That
+// is not "nothing to report": it is "nothing was checked", so it is collected
+// as an `error`, printed, and under `--strict` it exits 1 exactly like a
+// finding would. A green line here has to mean the check ran.
 //
 // Under GITHUB_ACTIONS each finding is a `::warning` annotation on the file,
 // so it shows up on the PR's Files tab next to the todo itself.
@@ -268,6 +268,19 @@ export function checkTasks({
   const errors = [];
   const read = (file) => readFileSync(path.join(cwd, file), 'utf8');
 
+  // Neither half was asked for, so neither ran. That is the same "nothing was
+  // checked" as an unreachable `gh`, and it has to read the same way: without
+  // this, `tasks-check.mjs --strict` prints the clean line and exits 0 having
+  // looked at nothing, which is exactly the pass a pre-merge gate must not
+  // give.
+  if (!base && !remote) {
+    errors.push({
+      file: `${tasksDir}/active`,
+      message:
+        'nothing was checked: pass --base <ref> to check this branch against its base, --remote to check active todos against GitHub, or both',
+    });
+  }
+
   if (base) {
     // A shallow clone with no merge base makes `git diff base...HEAD` fail.
     // Record that and carry on, so the failure is reported and the remote
@@ -370,7 +383,10 @@ export function report({ findings, notes, errors = [] }, out = console) {
 export function parseArgs(argv) {
   const opts = { remote: false, strict: false };
   const value = (name, v) => {
-    if (v === undefined || v.startsWith('--')) {
+    // An empty value is rejected rather than taken: `--base ""` (an unset
+    // shell variable in a caller's command line) is otherwise accepted and
+    // then falsy, which silently turns the half it names off.
+    if (v === undefined || v === '' || v.startsWith('--')) {
       throw new Error(`${name} needs a value`);
     }
     return v;

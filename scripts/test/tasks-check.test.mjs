@@ -169,7 +169,43 @@ describe('tasks-check', () => {
     });
     assert.throws(() => parseArgs(['--base', '--strict']), /needs a value/);
     assert.throws(() => parseArgs(['--base']), /needs a value/);
+    // `--base ""` is an unset shell variable in the caller's command line.
+    // Taking it would leave `base` falsy and turn the diff half off quietly.
+    assert.throws(() => parseArgs(['--base', '']), /needs a value/);
+    assert.throws(() => parseArgs(['--repo', '']), /needs a value/);
     assert.throws(() => parseArgs(['--nope']), /unknown argument/);
+  });
+
+  // Asking for neither half is "nothing was checked", not a pass: the same
+  // invariant as an unreachable `gh`, at the one place it used to leak --
+  // `--strict` with no selector printed the clean line and exited 0.
+  it('reports asking for no check at all as an error, not a clean pass', () => {
+    const { findings, notes, errors } = checkTasks({ cwd: repo });
+    assert.deepEqual(findings, []);
+    assert.deepEqual(notes, []);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0].message, /nothing was checked/);
+  });
+
+  it('exits 1 under --strict when neither half was asked for', () => {
+    const script = path.resolve('scripts/tasks-check.mjs');
+    const env = fixtureGitEnv(repo);
+    delete env.GITHUB_ACTIONS;
+    const lax = spawnSync('node', [script], {
+      cwd: repo,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(lax.status, 0, lax.stderr);
+    assert.match(lax.stdout, /error: .*nothing was checked/);
+    assert.doesNotMatch(lax.stdout, /No finished task/);
+    const strict = spawnSync('node', [script, '--strict'], {
+      cwd: repo,
+      encoding: 'utf8',
+      env,
+    });
+    assert.equal(strict.status, 1, strict.stdout);
+    assert.doesNotMatch(strict.stdout, /No finished task/);
   });
 
   it('flags a finished todo the branch leaves in active/, and only notes a WIP one', () => {

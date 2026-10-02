@@ -64,20 +64,38 @@ fresh review, use `@claude rerun review`.
 
 CLAUDE.md step 5 archives the PR's task record before the merge. It kept
 being skipped (twelve finished tasks were sitting in `docs/tasks/active/` on
-2026-10-02), so check it here, on the PR's head:
+2026-10-02), so check it here, on the PR's head.
+
+**Run `main`'s copy of the scripts, never the branch's.** The PR's head
+carries its own `scripts/` — `tasks-check.mjs`, `direct-run.mjs`,
+`tasks-archive.sh` — and your shell has an authenticated `gh`. Executing a
+branch's scripts with that credential in the environment hands the credential
+to whoever wrote the branch: the same exposure the CI step withholds a token
+for, moved to a higher-privilege machine. So check the PR out for its *data*
+and take the *code* from `origin/main`:
 
 ```bash
 gh pr checkout <N>
-node scripts/tasks-check.mjs --base origin/main --remote --strict
+git fetch --no-tags origin main
+git worktree add --detach /tmp/tasks-check origin/main   # trusted scripts
+node /tmp/tasks-check/scripts/tasks-check.mjs --base origin/main --remote --strict
+git worktree remove /tmp/tasks-check
 ```
 
-A finding is a blocker, not a note: ask the author for (or push yourself,
-on a same-repo PR) a commit that runs
-`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`. Also read the
-todo's "Out of scope" / "Open" / "Known limitations" section before it goes
-to the archive — anything there that is a defect needs an issue, because
-nobody reads an archived todo again. CI runs the same check without
-`--strict` and surfaces it as a warning annotation on the PR.
+The script reads task records from the current directory, so this reports on
+the PR's `docs/tasks/` while running only code already on `main`. If the PR
+itself changes `scripts/tasks-check.mjs`, read that diff before trusting
+either copy.
+
+A finding is a blocker, not a note: ask the author for a commit that runs
+`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`. Pushing that
+yourself on a same-repo PR runs those two against the branch as well — use
+`bash /tmp/tasks-check/scripts/tasks-archive.sh` for the same reason, and
+only after reading the branch's diff to them. Also read the todo's "Out of
+scope" / "Open" / "Known limitations" section before it goes to the archive
+— anything there that is a defect needs an issue, because nobody reads an
+archived todo again. CI runs the diff half of the same check (no `--remote`,
+no `--strict`) and surfaces it as a warning annotation on the PR.
 
 ## PRs touching `.github/workflows/*`
 

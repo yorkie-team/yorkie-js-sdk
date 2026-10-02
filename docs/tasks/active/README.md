@@ -23,4 +23,10 @@ bash scripts/tasks-index.sh    # regenerates ../README.md and ../archive/README.
 Before the PR merges, the pair has to be out of this directory, and any
 defect it lists as out of scope has to have an issue.
 `node scripts/tasks-check.mjs --base origin/main --remote` reports what is
-still here and finished; CI runs it on every PR.
+still here and finished.
+
+CI runs only the diff half of that check — `--base "origin/<base>"`, no
+`--remote` — on every PR, because the step executes the pull request's own
+copy of the script and so gets no GitHub token. The `--remote` half is the
+maintainer's, on their own machine before the merge; see
+[scripts/README.md](../../../scripts/README.md).
