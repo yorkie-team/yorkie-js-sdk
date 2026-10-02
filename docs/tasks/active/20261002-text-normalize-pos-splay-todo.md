@@ -52,13 +52,13 @@ Measured locally (`vitest bench`, and a scratch script for remote apply):
 Gates: `pnpm verify:fast` green; `pnpm sdk test` green (3367 passed) against a
 MongoDB-backed server, as CI runs it.
 
-Self review, round 1 (correctness/tests): no blocking findings. The reviewer
-traced the invariant on every path (insertAfter is the only way in, purge the
-only way out; deleteRange/cutOffRight keep tombstones at weight zero;
-converter and deepcopy rebuild through insertAfter) and ran a scratch
-3-replica harness through protobuf change packs, checking the root, the
-clone, a deepcopy and a bytes snapshot: 14.5M checks over 100 seeds, 0
-mismatches against the old walk. Non-blocking findings:
+Self review, round 1 (correctness/tests) — what the author's own pass covered,
+not a verdict on the change. It traced the invariant on every path (insertAfter
+is the only way in, purge the only way out; deleteRange/cutOffRight keep
+tombstones at weight zero; converter and deepcopy rebuild through insertAfter)
+and ran a scratch 3-replica harness through protobuf change packs, checking the
+root, the clone, a deepcopy and a bytes snapshot: 14.5M checks over 100 seeds, 0
+mismatches against the old walk. Gaps that pass left open:
 
 - The shipped test is single-replica and queries exact node ids only, so
   remote deletes, the applyChange call site, deepcopy, snapshots and

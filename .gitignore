@@ -155,3 +155,8 @@ packages/prosemirror/lib/
 # Claude Code hook wiring, written per clone by scripts/hooks/install.mjs.
 # Never tracked: Claude Code runs what it names straight out of a checkout.
 .claude/settings.local.json
+
+# Review-panel scratch output (`.github/workflows/agent-review-panel.yml` writes
+# verdicts and per-lens summaries here). Never tracked: a committed verdict is
+# text that pre-judges the very change a later reviewer is reading.
+.agent-review/
