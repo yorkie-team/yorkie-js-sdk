@@ -53,14 +53,3 @@
   so the blocker stays tracked rather than argued away. **Do not merge this
   branch on a green CI alone** -- CI exercises a server without the mirror,
   so green here means the gate is still open, not that it is satisfied.
-- Design fit / blast radius, round 2: one real finding -- moving §7.8 onto
-  the shared `ticketKnown` left its four siblings in the same walk family
-  (`advancePastUnknownSplitSiblings`, `emptyRunReachesActor`,
-  `hasUnknownSplitSibling`, and §7.3 in `index_tree.ts`) on an inline
-  lamport comparison that reads an empty version vector the *opposite* way,
-  so one causality question had two answers in a replicated rule. All four
-  now call `ticketKnown`. The reading that won is the server's
-  (`len(vv) == 0` means "local change, everything known"), which is also the
-  only one the inline copies got wrong: with an empty-but-defined vector
-  §7.3 migrated every right-hand child leftward. The compose pin is
-  unchanged -- still nothing in this repository can close it.
