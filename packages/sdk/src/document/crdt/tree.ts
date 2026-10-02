@@ -2360,7 +2360,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (createdAt.getActorID() === editedAt.getActorID()) {
         break;
       }
-      if (ticketKnown(versionVector, createdAt)) {
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= createdAt.getLamport()
+      ) {
         break;
       }
       if (!createdAt.after(editedAt)) {
@@ -2396,18 +2400,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * alone would miss it and let the walk run past the right half (#1433).
    * A node with no known content anywhere below it is an empty same-boundary
    * product, or one a peer has typed into since.
-   *
-   * The per-child test is the shared `ticketKnown`, not an inline lamport
-   * comparison: this is a replicated rule, so its reading of an empty version
-   * vector ("local change, everything known", as the server reads
-   * `len(vv) == 0`) has to be the one every other call site uses.
    */
   private holdsKnownChild(
     node: CRDTTreeNode,
     versionVector: VersionVector,
   ): boolean {
     for (const child of node.allChildren) {
-      if (ticketKnown(versionVector, child.id.getCreatedAt())) {
+      const createdAt = child.id.getCreatedAt();
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= createdAt.getLamport()
+      ) {
         return true;
       }
       if (!child.isText && this.holdsKnownChild(child, versionVector)) {

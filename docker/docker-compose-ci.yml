@@ -2,12 +2,6 @@ name: yorkie-js-sdk
 
 services:
   yorkie:
-    # The server is a replica: it applies operations and builds the snapshots
-    # clients restore from, so a convergence rule changed here has to be
-    # running in this image before the change can ship. #1433 is waiting on
-    # that -- yorkie-team/yorkie#2098 is still open, no release carries it,
-    # and until one does this pin has to move onto that tag (see
-    # docs/tasks/active/20261002-further-split-after-same-boundary-todo.md).
     image: "yorkieteam/yorkie:latest"
     command:
       [
