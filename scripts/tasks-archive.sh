@@ -25,6 +25,9 @@ if [ ! -d "$ACTIVE_DIR" ]; then
   exit 1
 fi
 
+# Physical path, so it compares with `pwd -P` below.
+REPO_ROOT=$(cd "$(git rev-parse --show-toplevel)" && pwd -P)
+
 archived=0
 
 for todo in "$ACTIVE_DIR"/*-todo.md; do
@@ -61,6 +64,22 @@ for todo in "$ACTIVE_DIR"/*-todo.md; do
   month="${BASH_REMATCH[2]}"
 
   dest="$ARCHIVE_DIR/$year/$month"
+
+  # The match fixes the path's text, not where it resolves: a branch can commit
+  # a symlink at `archive/<year>` (or above it), and `mkdir -p` / `git mv`
+  # follow it out of the repository. Resolve the deepest part of `dest` that
+  # already exists and refuse unless it is a real directory inside the repo;
+  # whatever `mkdir -p` adds below it is then a real directory too.
+  probe=$dest
+  while [ ! -e "$probe" ] && [ ! -L "$probe" ]; do
+    probe=$(dirname "$probe")
+  done
+  if [ -L "$probe" ] || ! resolved=$(cd "$probe" && pwd -P) ||
+    [[ "$resolved/" != "$REPO_ROOT/"* ]]; then
+    echo "Warning: $dest leaves the repository through a symlink, skipping $(basename "$todo")" >&2
+    continue
+  fi
+
   mkdir -p "$dest"
 
   # Move todo file

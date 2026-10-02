@@ -75,7 +75,7 @@ the PR's tree as *data*, in a throwaway worktree, and run only code that is
 already on `main`:
 
 ```bash
-git fetch --no-tags origin main "pull/<N>/head:refs/pr/<N>"
+git fetch --no-tags origin main "+pull/<N>/head:refs/pr/<N>"   # `+`: a force-pushed PR replaces the old ref instead of being refused
 main_sha=$(git rev-parse --verify refs/remotes/origin/main)  # full ref: a branch named origin/main cannot shadow it
 data=$(mktemp -d)
 git worktree add --detach "$data" "refs/pr/<N>"               # the PR's files, nothing executed

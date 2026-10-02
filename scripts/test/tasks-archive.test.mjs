@@ -21,7 +21,9 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -63,8 +65,10 @@ function archive(repo) {
 
 describe('tasks-archive', () => {
   let repo;
+  let outside;
   before(() => {
     repo = mkdtempSync(path.join(os.tmpdir(), 'tasks-archive-'));
+    outside = mkdtempSync(path.join(os.tmpdir(), 'tasks-archive-outside-'));
     git(repo, 'init', '-q', '-b', 'main');
     git(repo, 'config', 'user.email', 'test@example.com');
     git(repo, 'config', 'user.name', 'test');
@@ -108,10 +112,22 @@ describe('tasks-archive', () => {
       '20260908-prefix-todo.md',
       '# Prefix\n\n**Created**: 2026-101\n\n- [x] a\n',
     );
+    // The date parses, but the branch committed its year bucket as a symlink
+    // out of the repository.
+    mkdirSync(path.join(repo, 'docs/tasks/archive'), { recursive: true });
+    symlinkSync(outside, path.join(repo, 'docs/tasks/archive/2027'));
+    plant(
+      repo,
+      '20260909-symlink-todo.md',
+      '# Symlink\n\n**Created**: 2027-01-01\n\n- [x] a\n',
+    );
     git(repo, 'add', '-A');
     git(repo, 'commit', '-q', '-m', 'base');
   });
-  after(() => rmSync(repo, { recursive: true, force: true }));
+  after(() => {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  });
 
   it('moves finished pairs by their Created month and leaves the rest', () => {
     const r = archive(repo);
@@ -163,5 +179,18 @@ describe('tasks-archive', () => {
       ),
     );
     assert.ok(!existsSync(path.join(repo, 'docs/tasks/archive/2026/09/x')));
+  });
+
+  it('refuses a destination that a committed symlink sends out of the repo', () => {
+    const r = archive(repo);
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(
+      existsSync(path.join(repo, 'docs/tasks/active/20260909-symlink-todo.md')),
+    );
+    assert.deepEqual(readdirSync(outside), [], 'nothing written outside');
+    assert.match(
+      r.stderr,
+      /leaves the repository through a symlink, skipping 20260909-symlink-todo\.md/,
+    );
   });
 });

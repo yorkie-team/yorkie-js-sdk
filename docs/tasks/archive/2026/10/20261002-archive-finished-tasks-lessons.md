@@ -14,6 +14,10 @@
   rewrites the instructions, not just the code, and switching back to `main`
   does not unread them. The merge belongs in a session that never held the
   branch's tree.
+- **A path's text is not where it goes.** Pinning the archive date to digits
+  stopped `../`, but a committed `archive/2027 -> /tmp/x` symlink still sent
+  `mkdir -p` and `git mv` (which does not refuse it) out of the repository.
+  Resolve the destination physically before writing through it.
 - **Cross-repo numbers look like ours.** The agent-pipeline todo's first
   `#N` is a yorkie server PR; a naive "first reference" lookup would have
   queried the wrong repository. Strip `yorkie #N` / `yorkie-team/yorkie#N`
