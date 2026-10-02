@@ -27,7 +27,8 @@
         "require": {
           "types": "./dist/yorkie-js-react.d.ts",
           "default": "./dist/yorkie-js-react.js"
-        }
+        },
+        "default": "./dist/yorkie-js-react.js"
       },
       "./package.json": "./package.json"
     }

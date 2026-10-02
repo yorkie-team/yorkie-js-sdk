@@ -27,7 +27,8 @@
         "require": {
           "types": "./dist/yorkie-js-prosemirror.d.ts",
           "default": "./dist/yorkie-js-prosemirror.js"
-        }
+        },
+        "default": "./dist/yorkie-js-prosemirror.js"
       },
       "./package.json": "./package.json"
     }
