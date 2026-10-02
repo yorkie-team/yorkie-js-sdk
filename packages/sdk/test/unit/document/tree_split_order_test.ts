@@ -294,7 +294,12 @@ function paragraphReplicas(n: number, text: string): Array<TestDoc> {
  * holds the content rather than go on to the follow-up's empty product.
  */
 describe('Tree further split after concurrent same-boundary splits', () => {
-  type Step = [replica: number, index: number, content?: string];
+  // A step is one edit by one replica: a split at `index`, an insert of
+  // `content` there, or a delete of the range `index`..`to`.
+  type Step =
+    | [replica: number, index: number]
+    | [replica: number, index: number, content: string]
+    | [replica: number, index: number, to: number];
   const cases: Array<[string, string, Array<Step>]> = [
     // The three-operation minimum from #1433: both split "a|b", then the
     // newer actor splits again at the end of its right piece.
@@ -372,6 +377,30 @@ describe('Tree further split after concurrent same-boundary splits', () => {
         [1, 7, 'y'],
       ],
     ],
+    // The right half deleted before the follow-up split, so the stopping
+    // node's only known child is a tombstone -- the shape `holdsKnownChild`
+    // reads `allChildren` for. Both converge under `children` as well, so
+    // these pin the shape rather than isolate the tombstone read.
+    [
+      'the newer actor deletes "b", then splits at the end of the piece',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 5],
+        [1, 4],
+      ],
+    ],
+    [
+      'the same, deleting "b" before its own same-boundary split',
+      'abc',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 5],
+        [1, 5],
+      ],
+    ],
     // Delta-debugged minima of a split-only fuzz over <p>abcdef</p>.
     [
       'two follow-up splits',
@@ -415,12 +444,14 @@ describe('Tree further split after concurrent same-boundary splits', () => {
   for (const [name, text, steps] of cases) {
     it(`${name}: two replicas`, () => {
       const docs = paragraphReplicas(2, text);
-      for (const [replica, index, content] of steps) {
+      for (const [replica, index, arg] of steps) {
         docs[replica].update((root) => {
-          if (content === undefined) {
+          if (arg === undefined) {
             root.t.edit(index, index, undefined, 1);
+          } else if (typeof arg === 'number') {
+            root.t.edit(index, arg);
           } else {
-            root.t.edit(index, index, { type: 'text', value: content });
+            root.t.edit(index, index, { type: 'text', value: arg });
           }
         });
       }
@@ -430,6 +461,30 @@ describe('Tree further split after concurrent same-boundary splits', () => {
       assert.equal(treeShape(docs[1]), treeShape(docs[0]));
     });
   }
+
+  // The flat cases above cannot reach the multi-level shape: a text split
+  // keeps the original `createdAt`, so the right half's text child is known
+  // by itself. Split `<p><span>abcde</span></p>` at both levels and the outer
+  // right-half product holds a freshly ticketed `<span>` instead, with the
+  // known text one level further down -- which is why `holdsKnownChild`
+  // descends. A pin, not a regression: this script converges on `main` too.
+  it('the same shape nested one level deeper', () => {
+    const docs = replicas(2);
+    docs.forEach((doc) =>
+      doc.update((root) =>
+        root.t.editByPath([0, 0, 3], [0, 0, 3], undefined, 2),
+      ),
+    );
+    // The newer actor splits again at the end of its right piece, both
+    // levels, before it has seen the other's split.
+    docs[1].update((root) => root.t.edit(11, 11, undefined, 2));
+    exchange(docs, [[1], [0]]);
+
+    assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+    assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+    assert.include(docs[0].getRoot().t.toXML(), 'abc');
+    assert.include(docs[0].getRoot().t.toXML(), 'de');
+  });
 
   it('a third replica agrees in both arrival orders', () => {
     const docs = paragraphReplicas(3, 'ab');

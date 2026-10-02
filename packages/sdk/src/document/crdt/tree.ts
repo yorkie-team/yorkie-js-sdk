@@ -2376,7 +2376,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // `next` holds the right half: whatever follows it in the chain was
       // split off at a boundary to the right of ours. Tombstones count --
       // `splitElement` partitions `allChildren`, so a child removed in the
-      // meantime still marks where that later boundary was.
+      // meantime still marks where that later boundary was -- and so do
+      // deeper descendants, which is where a multi-level split puts it.
       if (this.holdsKnownChild(next, versionVector)) {
         break;
       }
@@ -2386,9 +2387,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `holdsKnownChild` reports whether any child of `node`, tombstones
+   * `holdsKnownChild` reports whether any descendant of `node`, tombstones
    * included, was created within `versionVector` -- content the editor had
    * seen, as opposed to content a peer inserted concurrently.
+   *
+   * It descends because a multi-level split hides the marker one level down.
+   * A text split keeps the original `createdAt`, so at a flat `<p>text</p>`
+   * the right half's text child is known by itself; but an element split
+   * product is minted with a fresh ticket, so the outer right-half product of
+   * a `<p><span>..</span></p>` split has a single unknown `<span>` child, and
+   * only below it sits the text the editor knew. Looking at direct children
+   * alone would miss it and let the walk run past the right half (#1433).
+   * A node with no known content anywhere below it is an empty same-boundary
+   * product, or one a peer has typed into since.
    */
   private holdsKnownChild(
     node: CRDTTreeNode,
@@ -2401,6 +2412,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
         knownLamport !== undefined &&
         knownLamport >= createdAt.getLamport()
       ) {
+        return true;
+      }
+      if (!child.isText && this.holdsKnownChild(child, versionVector)) {
         return true;
       }
     }

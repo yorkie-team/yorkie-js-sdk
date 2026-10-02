@@ -3,10 +3,32 @@
 **Created**: 2026-10-02
 
 Tracked as #1433. Follow-up to #1375 (#1373), which ordered concurrent
-splits of one boundary by ticket. The server-side `orderSameBoundarySplit`
-in yorkie-team/yorkie has the same walk and needs the same change; a
-snapshot built by an unpatched server would otherwise flip a patched client
-(see the lessons of `20260923-same-boundary-split-order`).
+splits of one boundary by ticket.
+
+## Rollout gate — DO NOT MERGE BEFORE THE GO MIRROR
+
+`orderSameBoundarySplit` is a *replicated convergence rule*: every replica
+that applies an operation has to run it identically, and the server is one
+of those replicas — it applies operations and builds the snapshots clients
+restore from. The server-side `orderSameBoundarySplit` in yorkie-team/yorkie
+has the same walk and needs the same stop condition.
+
+Until the Go change is released, a patched client talking to an unpatched
+server converges *against* the server: the client orders the products by the
+new rule, the snapshot orders them by the old one, and the snapshot wins on
+the next restore (see the lessons of `20260923-same-boundary-split-order`,
+which recorded exactly this flip for #1375).
+
+So, in order:
+
+1. Land the mirror change in yorkie-team/yorkie and cut a release.
+2. Repoint this repo's integration CI off `yorkieteam/yorkie:latest` onto a
+   tag carrying it, and run `pnpm sdk test` green against it
+   (the unchecked box under Verification below).
+3. Only then merge this PR.
+
+Shipping the JS side alone is a regression for every user on a current
+server, not just an incomplete fix.
 
 ## Problem
 
@@ -46,7 +68,10 @@ after d1's product. Each side is self-consistent; they disagree.
       child was in the parent when the concurrent split moved it, so it marks
       the right half; an unknown one may have been typed into an empty
       product afterwards, and a split after it is still a same-boundary
-      split. Tombstones count, as `splitElement` partitions `allChildren`.
+      split. Tombstones count, as `splitElement` partitions `allChildren`,
+      and so do deeper descendants: an element split product carries a fresh
+      ticket, so at a multi-level split the known text sits below the outer
+      product's direct children.
 
 ## Verification
 
@@ -86,6 +111,16 @@ interleavings, trees compared by node ID (scratch scripts, not in the suite):
   it as not covered; it has no issue of its own yet.
 - yorkie-team/yorkie#2077 (the `KNOWN` skips in the same file) and #1408:
   different mechanisms, unchanged by this fix.
+- A multi-level divergence family, found while answering review round 3's
+  "nested splits overshoot" finding. Over `<p><span>abcde</span></p>`, an
+  exhaustive sweep of 3744 two-replica scripts of the form "both split at
+  one index, then the newer actor splits again" leaves 6 divergent, all
+  `[[0,i,2],[1,i,2],[1,i+4,2]]` for i in 2..7 — the newer actor's follow-up
+  is a *level-2* split at offset 0 of its own product, and the two empty
+  products end up in opposite orders. Tracing §7.8 on those scripts shows
+  the walk never advances a single step (it breaks on the first sibling), so
+  this is not the stop condition and `holdsKnownChild`'s depth does not
+  change any of the 3744 outcomes. Needs its own issue.
 - Reported by review round 2, not verified by node ID here: a same-boundary
   split whose right half was deleted before the concurrent split arrives
   (`<p>ab</p>`: d2 splits a|b and deletes "b", d1 splits a|b) diverges by
