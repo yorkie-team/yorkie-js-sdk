@@ -1270,6 +1270,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   /**
    * `normalizePos` converts a local position `(id, rel)` into a single
    * absolute offset measured from the head `(0:0)` of the physical chain.
+   *
+   * The offset is the live length of every node before the position's node,
+   * read from `treeByIndex` rather than summed over the `prev` chain: every
+   * node on the chain is in it, in chain order, weighted by its live length
+   * (a tombstone stays in with weight zero; only `purge` takes a node out,
+   * and `purge` unlinks it from the chain too). Every Edit execution calls
+   * this, so a linear walk here makes typing a document quadratic.
    */
   public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
     const node = this.findFloorNode(pos.getID());
@@ -1280,17 +1287,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       );
     }
 
-    let total = pos.getRelativeOffset();
-    let curr = node;
-    let prev = node.getPrev();
-
-    while (prev) {
-      total += prev.getLength();
-      curr = prev;
-      prev = prev.getPrev();
+    const index = this.treeByIndex.indexOf(node);
+    if (index < 0) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be indexed: ${pos.getID().toTestString()}`,
+      );
     }
 
-    return RGATreeSplitPos.of(curr.getID(), total);
+    return RGATreeSplitPos.of(
+      this.head.getID(),
+      index + pos.getRelativeOffset(),
+    );
   }
 
   /**

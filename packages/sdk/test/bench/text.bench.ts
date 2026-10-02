@@ -228,4 +228,10 @@ describe('Text', () => {
   bench('text 1000', () => {
     benchmarkText(1000);
   });
+
+  // Ten times "text 1000": a local edit must stay sublinear in the text's
+  // length, so this should cost about ten times as much, not a hundred.
+  bench('text 10000', () => {
+    benchmarkText(10000);
+  });
 });
