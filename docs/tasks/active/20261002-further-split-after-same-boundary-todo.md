@@ -95,7 +95,10 @@ after d1's product. Each side is self-consistent; they disagree.
       regression for anyone on a current server (see the gate above).
 - [ ] `docker/docker-compose-ci.yml` and `docker/docker-compose.yml`
       repointed off `yorkieteam/yorkie:latest` onto a tag carrying the
-      mirror.
+      mirror. Still open as of 2026-10-02: yorkie-team/yorkie#2098 is
+      unmerged and the newest release (v0.7.23) predates it, so there is no
+      tag to pin to yet. `docker/docker-compose-ci.yml` carries the gate at
+      the `image:` line a repoint has to touch.
 - [ ] `pnpm sdk test` against a server carrying the Go mirror.
 
 ## Measured
