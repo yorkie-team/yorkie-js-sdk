@@ -86,3 +86,7 @@ interleavings, trees compared by node ID (scratch scripts, not in the suite):
   it as not covered; it has no issue of its own yet.
 - yorkie-team/yorkie#2077 (the `KNOWN` skips in the same file) and #1408:
   different mechanisms, unchanged by this fix.
+- Reported by review round 2, not verified by node ID here: a same-boundary
+  split whose right half was deleted before the concurrent split arrives
+  (`<p>ab</p>`: d2 splits a|b and deletes "b", d1 splits a|b) diverges by
+  node ID on `main` and on this branch alike; the XML matches on both.

@@ -30,3 +30,12 @@
   at the first sibling holding a child within the editor's version vector
   (`holdsKnownChild`); the reviewer's two scripts and a mixed one are in the
   suite.
+- Round 2 (design fit, blast radius): no blocking findings; loop ended.
+  The reviewer's differential fuzz (1500 seeds, two mixes) found no seed
+  that converges on `main` and diverges here, and 84 split-only seeds that
+  flip the other way. It reported one pre-existing §7.8 gap outside this
+  change -- a same-boundary split whose right half was deleted before the
+  concurrent split arrives (`<p>ab</p>`: d2 splits a|b and deletes "b", d1
+  splits a|b) -- as diverging by node ID on `main` and here alike. My probe
+  shows identical XML on both sides for both versions; the node-ID shape was
+  not re-checked. Listed as out of scope in the todo.
