@@ -59,6 +59,9 @@ jobs:
       # with --strict before merging; see .claude/skills/maintainer-merge.
       - name: Check task records
         if: github.event_name == 'pull_request'
+        # A warning check: a shallow clone that cannot reach the merge base
+        # must not turn the whole job red.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
