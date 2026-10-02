@@ -27,7 +27,8 @@
         "require": {
           "types": "./dist/yorkie-js-sdk.d.ts",
           "default": "./dist/yorkie-js-sdk.js"
-        }
+        },
+        "default": "./dist/yorkie-js-sdk.js"
       },
       "./package.json": "./package.json"
     }
