@@ -2299,6 +2299,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * ticket and split the last of them at its start. The right half lives in
    * that sibling on this replica, so it moves into our product exactly as it
    * would have moved out of `parent` on a replica that applied us first.
+   *
+   * The walk ends at the first sibling that holds children. The
+   * same-boundary products sit in the chain as a run of empty nodes that ends
+   * at the one holding the right half (#1375 orders every newer product in
+   * front of it), so a sibling further down the chain was split off *that*
+   * node at an offset past its children -- a different, later boundary that
+   * the replica applying us first resolves by position, after the right half.
+   * Walking on to it would put our product after that later boundary here
+   * and before it there (#1433).
    */
   private orderSameBoundarySplit(
     parent: CRDTTreeNode,
@@ -2360,6 +2369,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
 
       target = next;
+
+      // `next` holds the right half: whatever follows it in the chain was
+      // split off at a boundary to the right of ours. Tombstones count --
+      // `splitElement` partitions `allChildren`, so a child removed in the
+      // meantime still marks where that later boundary was.
+      if (next.allChildren.length > 0) {
+        break;
+      }
     }
 
     return target === parent ? [parent, offset] : [target, 0];
