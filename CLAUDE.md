@@ -39,7 +39,10 @@ pnpm sdk test      # plus the integration suites, with the server above running
    goes there with evidence.
 4. **Open PR** — rebase onto the base first (`origin/main`, or
    `upstream/main` from a fork). Body = Summary + Test plan.
-5. **Before merge** — `bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`.
+5. **Before merge** — `bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`,
+   and turn anything left under "Out of scope" / "Open" in the todo into an
+   issue. `node scripts/tasks-check.mjs --base origin/main --remote` (CI runs
+   it on every PR) warns when a finished task is still in `active/`.
 
 ## Project Docs
 
