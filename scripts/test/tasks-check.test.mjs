@@ -158,18 +158,43 @@ describe('tasks-check', () => {
     assert.deepEqual(findings, []);
   });
 
-  it('exits 1 only under --strict', () => {
+  it('exits 1 only under --strict, and prints plain lines off Actions', () => {
     const script = path.resolve('scripts/tasks-check.mjs');
+    // The CLI switches to `::warning` annotations under GITHUB_ACTIONS, so
+    // pin the plain format with the variable removed, whatever this test
+    // itself runs under.
+    const env = { ...process.env };
+    delete env.GITHUB_ACTIONS;
     const lax = spawnSync('node', [script, '--base', 'main'], {
       cwd: repo,
       encoding: 'utf8',
+      env,
     });
     assert.equal(lax.status, 0, lax.stderr);
     assert.match(lax.stdout, /done-todo\.md: every box is ticked/);
     const strict = spawnSync('node', [script, '--base', 'main', '--strict'], {
       cwd: repo,
       encoding: 'utf8',
+      env,
     });
     assert.equal(strict.status, 1);
+  });
+
+  it('prints annotations on the file under GITHUB_ACTIONS', () => {
+    const script = path.resolve('scripts/tasks-check.mjs');
+    const r = spawnSync('node', [script, '--base', 'main'], {
+      cwd: repo,
+      encoding: 'utf8',
+      env: { ...process.env, GITHUB_ACTIONS: 'true' },
+    });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(
+      r.stdout,
+      /^::warning file=docs\/tasks\/active\/20261002-done-todo\.md::every box is ticked/m,
+    );
+    assert.match(
+      r.stdout,
+      /^::notice file=docs\/tasks\/active\/20261002-wip-todo\.md::in progress/m,
+    );
   });
 });
