@@ -2300,14 +2300,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * that sibling on this replica, so it moves into our product exactly as it
    * would have moved out of `parent` on a replica that applied us first.
    *
-   * The walk ends at the first sibling that holds children. The
-   * same-boundary products sit in the chain as a run of empty nodes that ends
-   * at the one holding the right half (#1375 orders every newer product in
-   * front of it), so a sibling further down the chain was split off *that*
+   * The walk ends at the first sibling that holds a child the editor knew.
+   * The same-boundary products sit in the chain as a run of empty nodes that
+   * ends at the one holding the right half (#1375 orders every newer product
+   * in front of it), so a sibling further down the chain was split off *that*
    * node at an offset past its children -- a different, later boundary that
    * the replica applying us first resolves by position, after the right half.
    * Walking on to it would put our product after that later boundary here
-   * and before it there (#1433).
+   * and before it there (#1433). A child the editor knew was in `parent`
+   * when the concurrent split moved it, so it marks the right half; a child
+   * it did not know may have been typed into an empty product afterwards,
+   * and a split after that text is still a same-boundary split to us.
    */
   private orderSameBoundarySplit(
     parent: CRDTTreeNode,
@@ -2374,12 +2377,34 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // split off at a boundary to the right of ours. Tombstones count --
       // `splitElement` partitions `allChildren`, so a child removed in the
       // meantime still marks where that later boundary was.
-      if (next.allChildren.length > 0) {
+      if (this.holdsKnownChild(next, versionVector)) {
         break;
       }
     }
 
     return target === parent ? [parent, offset] : [target, 0];
+  }
+
+  /**
+   * `holdsKnownChild` reports whether any child of `node`, tombstones
+   * included, was created within `versionVector` -- content the editor had
+   * seen, as opposed to content a peer inserted concurrently.
+   */
+  private holdsKnownChild(
+    node: CRDTTreeNode,
+    versionVector: VersionVector,
+  ): boolean {
+    for (const child of node.allChildren) {
+      const createdAt = child.id.getCreatedAt();
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= createdAt.getLamport()
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

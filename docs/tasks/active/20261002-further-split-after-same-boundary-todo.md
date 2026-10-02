@@ -37,18 +37,23 @@ after d1's product. Each side is self-consistent; they disagree.
       the issue, the follow-up split at offset 0, four delta-debugged minima
       of a split-only fuzz over `<p>abcdef</p>`, and a third replica in both
       arrival orders.
-- [x] End the §7.8 walk at the first sibling that holds children. The
-      same-boundary products form a run of empty nodes ending at the one
-      holding the right half (#1375 puts every newer product in front of it);
-      anything after that node in the chain was split off *it* at a later
-      boundary, which the other replica resolves by position after the right
-      half. Tombstones count, as `splitElement` partitions `allChildren`.
+- [x] End the §7.8 walk at the first sibling that holds a child the
+      editor's version vector knows (`holdsKnownChild`). The same-boundary
+      products form a run of empty nodes ending at the one holding the right
+      half (#1375 puts every newer product in front of it); anything after
+      that node in the chain was split off *it* at a later boundary, which
+      the other replica resolves by position after the right half. A known
+      child was in the parent when the concurrent split moved it, so it marks
+      the right half; an unknown one may have been typed into an empty
+      product afterwards, and a split after it is still a same-boundary
+      split. Tombstones count, as `splitElement` partitions `allChildren`.
 
 ## Verification
 
-- [x] New cases: 6 of the 9 two-replica cases and the three-replica case
+- [x] New cases: 6 of the 12 two-replica cases and the three-replica case
       fail on `main`, all pass here; the 20 existing cases in the file keep
-      their results (4 `KNOWN` skips untouched).
+      their results (4 `KNOWN` skips untouched). Three of the passing ones
+      pin the typed-into-the-product shape review round 1 found.
 - [x] `pnpm sdk test:unit`: only `test/unit/client/offline_persist_sync_test.ts`
       fails, with "already open in another tab under offline persistence";
       it fails the same way on unmodified `main` in this checkout.
@@ -65,7 +70,7 @@ interleavings, trees compared by node ID (scratch scripts, not in the suite):
 | Mix | main | this branch |
 |---|---|---|
 | paragraph splits only, `<p>abcdef</p>`, 300 runs | 74 diverge | 0 |
-| inserts + splits, `<p>ab</p>`, 500 runs | 130 diverge | 99 |
+| inserts + splits, `<p>ab</p>`, 500 runs | 69 diverge | 42 |
 | inserts only, 500 runs | 0 | 0 |
 
 ## Out of scope

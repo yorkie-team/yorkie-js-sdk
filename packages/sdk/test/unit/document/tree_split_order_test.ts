@@ -338,6 +338,40 @@ describe('Tree further split after concurrent same-boundary splits', () => {
         [1, 4],
       ],
     ],
+    // Text typed into the empty right piece is not the right half: a split
+    // after it is still a same-boundary split, and the walk has to go on.
+    // Converged before the fix; found by review of the first version.
+    [
+      'the newer actor types into its empty right piece, then splits',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 'x'],
+        [1, 5],
+      ],
+    ],
+    [
+      'the same with an empty right half',
+      'a',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 'x'],
+        [1, 5],
+      ],
+    ],
+    [
+      'typed text and the right half on either side of the follow-up split',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 'x'],
+        [1, 5],
+        [1, 7, 'y'],
+      ],
+    ],
     // Delta-debugged minima of a split-only fuzz over <p>abcdef</p>.
     [
       'two follow-up splits',

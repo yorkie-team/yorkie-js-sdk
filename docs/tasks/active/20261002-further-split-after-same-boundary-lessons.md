@@ -15,3 +15,18 @@
   writes an empty patch.** `git checkout` then discards the change for real.
   Diff from the repository root, and check the patch is non-empty before
   checking anything out.
+- **"Holds children" is not "holds the right half".** The first version
+  stopped the §7.8 walk at any non-empty sibling. Review found the hole:
+  text typed into an empty same-boundary product makes it non-empty too,
+  and a split after that text is still a same-boundary split. A child the
+  editor's version vector knows is the marker that survives both cases.
+
+## Review rounds (harness `/code-review`, not the `@claude` lens panel)
+
+- Round 1 (correctness, tests): one medium finding -- the stop condition
+  mistook typed-in text for the right half; `<p>a</p>` / `<p>ab</p>`, both
+  split at the end, the newer actor types `x` into its product and splits
+  after it, converged on `main` and diverged here. Fixed: the walk now stops
+  at the first sibling holding a child within the editor's version vector
+  (`holdsKnownChild`); the reviewer's two scripts and a mixed one are in the
+  suite.
