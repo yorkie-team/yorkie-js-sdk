@@ -2400,7 +2400,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * The per-child test is the shared `ticketKnown`, not an inline lamport
    * comparison: this is a replicated rule, so its reading of an empty version
    * vector ("local change, everything known", as the server reads
-   * `len(vv) == 0`) has to be the one every other call site uses.
+   * `len(vv) == 0`) has to be the one every other call site uses. The rest of
+   * the split walk -- §7.3 boundary migration, §7.5, §7.7 -- now reads it
+   * through the same helper, so one causality question has one answer.
    */
   private holdsKnownChild(
     node: CRDTTreeNode,
@@ -2494,11 +2496,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
-      const knownLamport = versionVector.get(actorID);
-      if (
-        knownLamport !== undefined &&
-        knownLamport >= next.id.getCreatedAt().getLamport()
-      ) {
+      if (ticketKnown(versionVector, next.id.getCreatedAt())) {
         break;
       }
 
@@ -2537,10 +2535,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (createdAt.getActorID() === actorID) {
         return current !== node;
       }
-      const knownLamport = versionVector.get(createdAt.getActorID());
       if (
         current.allChildren.length > 0 ||
-        (knownLamport !== undefined && knownLamport >= createdAt.getLamport())
+        ticketKnown(versionVector, createdAt)
       ) {
         return false;
       }
@@ -2575,13 +2572,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // the split sibling may have been moved to a different parent by the
     // recursive ancestor split. The End-token guard must still fire because
     // the node WAS split — insNextID is only set by SplitElement.
-    const actorID = next.id.getCreatedAt().getActorID();
-    const knownLamport = versionVector.get(actorID);
-
-    return (
-      knownLamport === undefined ||
-      knownLamport < next.id.getCreatedAt().getLamport()
-    );
+    return !ticketKnown(versionVector, next.id.getCreatedAt());
   }
 
   /**

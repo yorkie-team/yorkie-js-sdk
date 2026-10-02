@@ -15,6 +15,7 @@
  */
 
 import { TimeTicket, VersionVector } from '../yorkie';
+import { ticketKnown } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { Code, YorkieError } from './error';
 import {
   DataSize,
@@ -681,12 +682,11 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
             remaining.push(child);
             continue;
           }
-          const actorID = (child as any).id.getCreatedAt().getActorID();
-          const knownLamport = versionVector.get(actorID);
-          if (
-            knownLamport === undefined ||
-            knownLamport < (child as any).id.getCreatedAt().getLamport()
-          ) {
+          // The shared `ticketKnown`, not an inline lamport comparison: this
+          // is a replicated rule, so an empty version vector has to read as
+          // "local change, everything known" here exactly as it does at
+          // §7.5/§7.7/§7.8 and on the server (`len(vv) == 0`).
+          if (!ticketKnown(versionVector, (child as any).id.getCreatedAt())) {
             movedToLeft.push(child);
             continue;
           }

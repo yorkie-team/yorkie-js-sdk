@@ -2,6 +2,11 @@ name: yorkie-js-sdk
 
 services:
   yorkie:
+    # Same rollout gate as docker/docker-compose-ci.yml: this image does not
+    # carry the Go mirror of the #1433 split-ordering rule, so a local run
+    # against it is a patched client against an unpatched replica. The pin has
+    # to move onto the tag that ships yorkie-team/yorkie#2098 before that
+    # change can merge.
     image: "yorkieteam/yorkie:latest"
     command:
       ["server", "--pprof-enabled"]
