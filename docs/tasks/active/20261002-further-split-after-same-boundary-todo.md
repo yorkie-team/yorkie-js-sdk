@@ -95,7 +95,8 @@ after d1's product. Each side is self-consistent; they disagree.
       regression for anyone on a current server (see the gate above).
 - [ ] `docker/docker-compose-ci.yml` and `docker/docker-compose.yml`
       repointed off `yorkieteam/yorkie:latest` onto a tag carrying the
-      mirror.
+      mirror. No such tag yet as of 2026-10-02: yorkie#2098 is open and the
+      newest release (v0.7.23, 2026-09-22) predates it.
 - [ ] `pnpm sdk test` against a server carrying the Go mirror.
 
 ## Measured

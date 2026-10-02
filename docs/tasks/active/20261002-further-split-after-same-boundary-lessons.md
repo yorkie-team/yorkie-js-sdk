@@ -53,3 +53,26 @@
   so the blocker stays tracked rather than argued away. **Do not merge this
   branch on a green CI alone** -- CI exercises a server without the mirror,
   so green here means the gate is still open, not that it is satisfied.
+
+## Panel rounds after `@claude rerun review` (rounds 4-6)
+
+- The one substantive blocker stayed the Go mirror, now yorkie#2098; the
+  fixer filed it as a standstill twice, the adjudicator upheld it twice, and
+  the loop paged a human. Correct outcome: it is a release-ordering decision.
+- The fixer also pushed two commits (`bfe00eca`, `010bba78`) that moved every
+  version-vector comparison in the split walk and in `index_tree.ts` §7.3
+  onto `ticketKnown`, which reads an empty-but-defined vector as "everything
+  known" where the inline comparisons read it as "nothing known". **Reverted
+  here.** It is outside #1433 -- the new stop condition has to agree with
+  Go's `holdsKnownChild`, which uses the inline comparison, and the other
+  sites were untouched by this task -- and it changes replicated rules
+  without a test: the panel's round 6 found `tree_boundary_anchor_test.ts`
+  made vacuous by it, and `hasUnknownSplitSibling` would have read an empty
+  vector opposite to Go (Go's inline `Get` says unknown there). Whether the
+  JS and Go split walks agree on an empty vector everywhere (Go guards §7.3
+  and the §7.5 advance with `len(vv) == 0`; JS's §7.3 inline comparison moves
+  every right-hand child left on an empty vector) is a real question, but a
+  separate one: it needs its own issue with a reproduction, not a refactor
+  riding on this fix.
+- The compose-file comments the same commits added went with the revert; the
+  gate lives in the todo's Verification boxes and in the PR body.
