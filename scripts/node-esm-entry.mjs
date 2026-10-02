@@ -29,8 +29,18 @@ export function nodeEsmEntry() {
         const target = `./${chunk.fileName}`;
         const named = chunk.exports.filter((name) => name !== 'default').sort();
         const hasDefault = chunk.exports.includes('default');
+        // An entry with a default export makes the UMD flag itself __esModule.
+        // Node, esbuild and webpack still import module.exports as the default;
+        // Rollup honours the flag, imports module.exports.default instead and
+        // spreads the exports onto the namespace. Take whichever holds them.
+        const load = hasDefault
+          ? [
+              `import * as ns from '${target}';`,
+              'const cjs = ns.default && ns.default.__esModule ? ns.default : ns;',
+            ]
+          : [`import cjs from '${target}';`];
         const runtime = [
-          `import cjs from '${target}';`,
+          ...load,
           ...named.map((name) => `export const ${name} = cjs.${name};`),
           ...(hasDefault ? ['export default cjs.default;'] : []),
         ];
