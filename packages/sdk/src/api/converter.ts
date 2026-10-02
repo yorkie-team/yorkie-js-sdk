@@ -1066,11 +1066,18 @@ export function isErrorCode(
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   // TODO(hackerwins): Remove BigInt conversion. Some of the bigint values are
   // passed as string in the protobuf. We should fix this in the future.
+  //
+  // `versionVector` is an optional Protobuf field, so a peer that omits it
+  // leaves `fromVersionVector` returning undefined. A non-null assertion is a
+  // compile-time claim only, and an undefined vector reaching the causality
+  // tests downstream reads as "the editor knew everything" before it throws
+  // in `hasClocks`. Fall back to the empty vector instead: it knows nothing,
+  // which is the conservative reading of a change that told us nothing.
   return ChangeID.of(
     pbChangeID.clientSeq,
     BigInt(pbChangeID.lamport),
     toHexString(pbChangeID.actorId),
-    fromVersionVector(pbChangeID.versionVector)!,
+    fromVersionVector(pbChangeID.versionVector) ?? new VersionVector(),
     BigInt(pbChangeID.serverSeq),
   );
 }

@@ -2320,7 +2320,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): [CRDTTreeNode, number] {
     // A concurrent split of the same boundary took everything to the right of
     // it, so only a split at the end of `parent` can be one.
-    if (!versionVector || offset !== parent.allChildren.length) {
+    //
+    // An empty vector is read as a local change here, the way `ticketKnown`
+    // and the server's `len(vv) == 0` read it: everything is known, so there
+    // is no concurrent split to order against. It reaches us either from a
+    // local edit or from a remote change that omitted the optional Protobuf
+    // field, and in both cases walking the chain with a vector that knows
+    // nothing would reorder against siblings it has no causality for.
+    if (
+      !versionVector ||
+      versionVector.size() === 0 ||
+      offset !== parent.allChildren.length
+    ) {
       return [parent, offset];
     }
 

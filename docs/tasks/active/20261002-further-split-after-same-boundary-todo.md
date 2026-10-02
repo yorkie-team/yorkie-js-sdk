@@ -98,6 +98,20 @@ after d1's product. Each side is self-consistent; they disagree.
       mirror. No such tag yet as of 2026-10-02: yorkie#2098 is open and the
       newest release (v0.7.23, 2026-09-22) predates it.
 - [ ] `pnpm sdk test` against a server carrying the Go mirror.
+- [ ] **Blocking.** The stop condition reads *current* tree content, so it is
+      not obviously stable under delivery order: a follow-up split of the
+      right-half holder at offset 0, concurrent with the incoming split,
+      moves every child into a fresh product and flips
+      `holdsKnownChild(next)` from true to false. A replica that applied the
+      incoming split first stops at `next`; one that applied the follow-up
+      first walks past it. Raised by review round 4 (correctness). The
+      multi-level sweep below says the walk never advances on the scripts
+      that family produces at level 2, but the sweep was over `<p><span>`
+      only and is not a proof for the general shape — this needs a
+      by-node-ID interleaving sweep that delivers the follow-up split before
+      and after the incoming one, not just whole-pack exchanges. Anchoring
+      the marker to something immutable (identity, not content) is the
+      likely fix, and it has to land in the Go mirror too.
 
 ## Measured
 
