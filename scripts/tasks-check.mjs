@@ -103,6 +103,11 @@ function oneLine(s) {
 
 /**
  * Active todo files under `tasksDir`, as repo-relative paths.
+ *
+ * An absent directory is an empty list HERE and an `error` in `checkTasks`,
+ * which refuses to run either half without it: "no todos" and "no directory to
+ * read todos from" are the same empty list, and only the caller knows that the
+ * second one must not read as a pass.
  */
 export function listActiveTodos(tasksDir) {
   const dir = path.join(tasksDir, 'active');
@@ -321,7 +326,24 @@ export function checkTasks({
     });
   }
 
-  if (base) {
+  // The directory both halves read is missing, so neither can answer anything
+  // about it -- `listActiveTodos` enumerates nothing and the diff half's
+  // pathspec matches nothing, and an empty list is indistinguishable from "all
+  // clear". A mistyped `--tasks`, a run from the wrong directory, and a branch
+  // that deletes or renames `active/` all land here, and all three would
+  // otherwise print the green line and pass `--strict`. The directory is
+  // tracked (it carries a README), so on a real checkout it is always there:
+  // absent means the question was asked of the wrong tree.
+  const active = path.join(cwd, tasksDir, 'active');
+  const haveActive = existsSync(active);
+  if (!haveActive) {
+    errors.push({
+      file: `${tasksDir}/active`,
+      message: `nothing was checked: ${tasksDir}/active does not exist under ${cwd}; run from the repository root, or point --tasks at the task records`,
+    });
+  }
+
+  if (base && haveActive) {
     // A shallow clone with no merge base makes `git diff base...HEAD` fail.
     // Record that and carry on, so the failure is reported and the remote
     // half still runs instead of dying with the exception.
@@ -358,7 +380,7 @@ export function checkTasks({
     }
   }
 
-  if (remote) {
+  if (remote && haveActive) {
     // A wrong --repo or a token that cannot see the repository makes every
     // issue lookup a 404, which the loop below reads as "not our number" --
     // a clean pass having checked nothing. Ask about the repository first.

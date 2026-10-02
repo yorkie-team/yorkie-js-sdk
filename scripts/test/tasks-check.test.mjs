@@ -283,6 +283,29 @@ describe('tasks-check', () => {
     }
   });
 
+  it('reports a missing active/ as an error, not as a clean pass', () => {
+    // A mistyped --tasks, a run from the wrong directory, or a branch that
+    // renames active/ used to enumerate nothing and print the green line --
+    // the fail-open this script exists to refuse. Both halves have to say
+    // "nothing was checked", including the --remote one that reads the
+    // directory directly.
+    for (const opts of [
+      { base: 'main' },
+      { remote: true, probeRepo: () => ({ ok: true }) },
+      { base: 'main', remote: true, probeRepo: () => ({ ok: true }) },
+    ]) {
+      const { findings, errors } = checkTasks({
+        ...opts,
+        tasksDir: 'docs/nope',
+        cwd: repo,
+        lookup: () => ({ kind: 'issue', state: 'closed', merged: false }),
+      });
+      assert.deepEqual(findings, []);
+      assert.equal(errors.length, 1);
+      assert.match(errors[0].message, /docs\/nope\/active does not exist/);
+    }
+  });
+
   it('with --remote, flags active todos whose issue closed or PR merged', () => {
     const lookup = (_repo, n) =>
       ({
