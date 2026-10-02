@@ -54,9 +54,11 @@ after d1's product. Each side is self-consistent; they disagree.
       fail on `main`, all pass here; the 20 existing cases in the file keep
       their results (4 `KNOWN` skips untouched). Three of the passing ones
       pin the typed-into-the-product shape review round 1 found.
-- [x] `pnpm sdk test:unit`: only `test/unit/client/offline_persist_sync_test.ts`
-      fails, with "already open in another tab under offline persistence";
-      it fails the same way on unmodified `main` in this checkout.
+- [x] `pnpm sdk test:unit`: 722 pass; the only failures are the offline
+      persistence lock tests (`offline_persist_sync_test.ts`,
+      `persist_disabled_test.ts`), all with "already open in another tab
+      under offline persistence" (`navigator.locks` under Node 24). They fail
+      the same way on unmodified `main` in this checkout.
 - [x] `pnpm verify:fast`: every gate green except the `sdk test:unit` step,
       which fails only in that pre-existing file; the prosemirror, react,
       devtools and schema suites run separately pass (266 / 54 / 20 / 40).
