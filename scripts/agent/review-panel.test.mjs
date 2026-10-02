@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hasWorkflow } from "./workflow-presence.mjs";
-import { readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -59,6 +59,7 @@ import {
   stageDetailDiffContentEnabled,
   buildStageDetail,
   writeStageDetail,
+  stageOutsideRepo,
 } from "./review-panel.mjs";
 import { SYSTEM_PROMPT_DYNAMIC_BOUNDARY, EFFORT_LEVELS } from "./ask.mjs";
 import { classify, normalizeSeverity } from "./severity.mjs";
@@ -2907,6 +2908,57 @@ test("writeStageDetail: disabled writes nothing at all", () => {
     assert.throws(() => readFileSync(path.join(lensOut, "stage-detail.json"), "utf8"));
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("stageOutsideRepo: an --out inside the repo is hidden until publish()", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "stage-outside-"));
+  try {
+    const repo = path.join(root, "workspace");
+    const outDir = path.join(repo, ".agent-review");
+    // A carried verdict from a previous round, already sitting in the repo.
+    mkdirSync(path.join(outDir, "security"), { recursive: true });
+    writeFileSync(path.join(outDir, "security", "verdict.json"), '{"carried":true}\n');
+
+    const staged = stageOutsideRepo(outDir, repo);
+    // The work dir is OUTSIDE the tree the lenses read, and the in-repo copy is
+    // gone for the duration — this is the whole point: a concurrently running
+    // lens must not be able to open a peer's verdict.
+    assert.ok(
+      path.relative(repo, staged.workDir).startsWith(".."),
+      "the staging directory must not be reachable from inside the branch checkout",
+    );
+    assert.equal(existsSync(outDir), false);
+    // The carried round came with it, so nothing is lost.
+    assert.equal(readFileSync(path.join(staged.workDir, "security", "verdict.json"), "utf8"), '{"carried":true}\n');
+
+    writeFileSync(path.join(staged.workDir, "panel.json"), "[]\n");
+    staged.publish();
+    assert.equal(readFileSync(path.join(outDir, "panel.json"), "utf8"), "[]\n");
+    assert.equal(readFileSync(path.join(outDir, "security", "verdict.json"), "utf8"), '{"carried":true}\n');
+    // Idempotent: the crash path calls publish() too, and main() still calls it
+    // on the way out of a run that recovered.
+    staged.publish();
+    assert.equal(readFileSync(path.join(outDir, "panel.json"), "utf8"), "[]\n");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("stageOutsideRepo: an --out already outside the repo is left alone", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "stage-outside-"));
+  try {
+    const repo = path.join(root, "workspace");
+    mkdirSync(repo, { recursive: true });
+    const outDir = path.join(root, "elsewhere");
+    const staged = stageOutsideRepo(outDir, repo);
+    assert.equal(staged.workDir, outDir, "no untrusted reader to hide from → no staging");
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(path.join(outDir, "panel.json"), "[]\n");
+    staged.publish();
+    assert.equal(readFileSync(path.join(outDir, "panel.json"), "utf8"), "[]\n");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

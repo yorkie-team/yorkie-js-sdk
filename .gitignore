@@ -156,7 +156,18 @@ packages/prosemirror/lib/
 # Never tracked: Claude Code runs what it names straight out of a checkout.
 .claude/settings.local.json
 
-# Review-panel scratch output (`.github/workflows/agent-review-panel.yml` writes
-# verdicts and per-lens summaries here). Never tracked: a committed verdict is
-# text that pre-judges the very change a later reviewer is reading.
+# Review-panel scratch output (`.github/workflows/agent-review-panel.yml` and
+# `agent-review-on-demand.yml` point the orchestrator's `--out` here, and
+# `carry-verdicts.mjs` writes the same shape). Never tracked: a committed
+# verdict is text that pre-judges the very change a later reviewer is reading.
+# The LIVE copy is kept out of a reviewer's reach separately — the orchestrator
+# stages it outside the repo and publishes only once no lens is still reading
+# (`review-panel.mjs::stageOutsideRepo`).
 .agent-review/
+
+# Harness scratch output. `scripts/agent/novelty.test.mjs` and the capture-upload
+# note in `agent-review-panel.yml` both already describe this directory as
+# gitignored, and the test plants REAL git repositories under it — so an
+# interrupted run leaves a nested `.git` that `git add -A` would otherwise
+# commit as a gitlink.
+.harness-reports/

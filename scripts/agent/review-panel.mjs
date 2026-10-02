@@ -40,7 +40,8 @@
 // here for existing importers.
 
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, cpSync, rmSync, mkdtempSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { classify, renderSummaryMd, BLOCKING, normalizeSeverity, KNOWN } from "./severity.mjs";
@@ -2633,6 +2634,12 @@ async function main() {
   const repo = path.resolve(args.repo ?? process.cwd());
   const lensesDir = path.resolve(args["lenses-dir"] ?? path.join(HERE, "lenses"));
   const outDir = path.resolve(args.out ?? ".agent-review");
+  // Everything below writes to `workDir`, never to `outDir` — see
+  // `stageOutsideRepo`: `--out` is inside the untrusted checkout the lenses
+  // read, so verdicts are published only after the last session has closed.
+  const staged = stageOutsideRepo(outDir, repo);
+  const workDir = staged.workDir;
+  publishStaged = staged.publish;
   // Fail closed on a missing/empty diff. Defaulting to "" would hand every lens
   // an empty change to review → no findings → all-pass → an UNREVIEWED PR
   // promoted. A thrown error here exits non-zero, panel.json is never written,
@@ -2829,7 +2836,7 @@ async function main() {
   const prefixSessions = countPrefixSessions(allLenses, { changedFiles, fileBlocks, scopeNote, coreClasses });
 
   await Promise.all(allLenses.map(async (lens) => {
-    const lensOut = path.join(outDir, lens.id);
+    const lensOut = path.join(workDir, lens.id);
     const blocking = String(lens.gating ?? "blocking") === "blocking";
     const samples = sampleCountFor(lens);
 
@@ -3262,17 +3269,17 @@ async function main() {
     }));
   }));
 
-  mkdirSync(outDir, { recursive: true });
-  writeFileSync(path.join(outDir, "panel.json"), JSON.stringify(panel, null, 2) + "\n");
+  mkdirSync(workDir, { recursive: true });
+  writeFileSync(path.join(workDir, "panel.json"), JSON.stringify(panel, null, 2) + "\n");
   // Metrics inputs for the workflow's "record --kind review" step (best-effort;
   // consumed by metrics.mjs which is itself fail-safe on missing/malformed input).
-  writeFileSync(path.join(outDir, "review-execution.json"), JSON.stringify(sessionLog));
-  writeFileSync(path.join(outDir, "review-lens-stats.json"), JSON.stringify(lensStats));
+  writeFileSync(path.join(workDir, "review-execution.json"), JSON.stringify(sessionLog));
+  writeFileSync(path.join(workDir, "review-lens-stats.json"), JSON.stringify(lensStats));
   // True wall-clock elapsed for THIS round — metrics.mjs reads it as the sibling
   // of review-execution.json and uses it as the round's Total-time (see the
   // wallStart note at the top of main()).
   writeFileSync(
-    path.join(outDir, "review-timing.json"),
+    path.join(workDir, "review-timing.json"),
     JSON.stringify({ wallMs: Date.now() - wallStart, startedAt: wallStart, endedAt: Date.now() }),
   );
   // WHICH CREDENTIALS SURVIVED THIS ROUND. The hand-off the fixer needs and could
@@ -3292,7 +3299,7 @@ async function main() {
   try {
     const pool = tokenPool();
     writeFileSync(
-      path.join(outDir, "review-pool-state.json"),
+      path.join(workDir, "review-pool-state.json"),
       JSON.stringify({
         v: 1,
         size: pool.size,
@@ -3304,6 +3311,11 @@ async function main() {
   } catch (err) {
     console.error(`could not record pool state: ${String(err?.message ?? err)}`);
   }
+  // Every lens session is closed by now — `Promise.all(allLenses.map(...))`
+  // above awaited the last of them — so this is the first moment at which
+  // moving the round's verdicts into the branch checkout exposes them to no
+  // reader. See `stageOutsideRepo`.
+  staged.publish();
   process.stdout.write(panel.map((p) => `${p.id}: ${p.conclusion}${p.infraError ? " (infra)" : ""}`).join("\n") + "\n");
   // If EVERY applicable blocking lens failed on an API/quota error, the panel
   // never actually ran — surface it loudly so the workflow pages honestly (and
@@ -3485,6 +3497,59 @@ export function buildStageDetail({ lensDiff, scopeNote, samples, fresh, freshVer
 }
 
 /**
+ * Keep the round's verdicts OUT of the tree the lenses are reading.
+ *
+ * The orchestrator runs with cwd = `$GITHUB_WORKSPACE`, the UNTRUSTED branch
+ * checkout, and both workflows pass `--out .agent-review` — so every file
+ * `writeVerdict` persists landed inside the very directory each lens walks with
+ * Read/Grep/Glob (`cwd: repo`, see the note above `buildLensPrompt`). The
+ * lenses run CONCURRENTLY under one `Promise.all`, so a lens that finished
+ * published its verdict.json where the lenses still running could open it:
+ * measured from inside a running session mid-round, four finished peers were
+ * readable and only the two still working were absent. A peer verdict is text
+ * that pre-judges the change a reviewer has not finished reading, and six
+ * INDEPENDENT reads is the entire reason the panel runs six lenses. (The
+ * `.gitignore` rule for `.agent-review/` closes only the committed case; this
+ * closes the live one, which is the one a lens can actually reach.) Carried
+ * verdicts from a previous round, which `carry-verdicts.mjs` writes into the
+ * same directory BEFORE this script starts, are the same hazard and are moved
+ * out of the way by the same mechanism.
+ *
+ * So: work in a staging directory outside the repo and publish into `--out`
+ * once no session is left to read it. `publish()` is idempotent and is called
+ * on the crash path too — a panel that dies half-way must still put the
+ * carried verdicts back, or the workflow's post step fails lenses closed that
+ * a previous round had already decided.
+ *
+ * An `--out` that is already outside `repo` (how the unit tests drive this) is
+ * left exactly where it is: there is no untrusted reader to hide it from.
+ */
+export function stageOutsideRepo(outDir, repo, { tmpRoot = os.tmpdir() } = {}) {
+  const rel = path.relative(repo, outDir);
+  const inside = rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+  if (!inside) return { workDir: outDir, publish: () => {} };
+  const workDir = mkdtempSync(path.join(tmpRoot, "agent-review-stage-"));
+  if (existsSync(outDir)) {
+    cpSync(outDir, workDir, { recursive: true });
+    rmSync(outDir, { recursive: true, force: true });
+  }
+  let published = false;
+  return {
+    workDir,
+    publish() {
+      if (published) return;
+      published = true;
+      mkdirSync(outDir, { recursive: true });
+      cpSync(workDir, outDir, { recursive: true });
+      rmSync(workDir, { recursive: true, force: true });
+    },
+  };
+}
+
+/** Set by `main()` once staging exists, so the crash path can still publish. */
+let publishStaged = () => {};
+
+/**
  * Write one lens's stage detail, or don't. Returns whether it landed.
  *
  * **This must never fail a review.** The capture is a diagnostic; the round is the
@@ -3542,5 +3607,13 @@ function writeVerdict(lensOut, lens, findings, summary, { valid, conclusion, adv
 
 // Only run main() when executed directly (not when imported for tests).
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((err) => { console.error("panel orchestrator crashed:", err); process.exit(1); });
+  main().catch((err) => {
+    // Publish whatever the staging directory holds before dying: it carries the
+    // previous round's carried verdicts, which `stageOutsideRepo` moved out of
+    // `--out`. Losing them would fail lenses closed that an earlier round had
+    // already decided. Best-effort — a failure here must not mask the crash.
+    try { publishStaged(); } catch (e) { console.error("could not publish staged verdicts:", e); }
+    console.error("panel orchestrator crashed:", err);
+    process.exit(1);
+  });
 }
