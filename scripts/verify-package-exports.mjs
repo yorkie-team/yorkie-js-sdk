@@ -16,9 +16,10 @@
 
 /*
  * Packs sdk/react/prosemirror with pnpm (what CI publishes) and loads the
- * tarballs from a consumer outside the workspace, as ESM, CJS, mixed modules,
- * and NodeNext TypeScript (with skipLibCheck for existing declaration errors).
- * Build schema/sdk/react/prosemirror first.
+ * tarballs from a consumer outside the workspace: as ESM, CJS and mixed
+ * modules in Node, bundled for Node by Vite SSR and esbuild, and as TypeScript
+ * under NodeNext and bundler resolution (with skipLibCheck for existing
+ * declaration errors). Build schema/sdk/react/prosemirror first.
  *
  *   node scripts/verify-package-exports.mjs
  */
@@ -35,8 +36,22 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
+const PACKAGES = ['schema', 'sdk', 'react', 'prosemirror'];
+const ATTW = '@arethetypeswrong/cli@0.18.5';
+const VITE = JSON.parse(
+  readFileSync(join(root, 'packages/sdk/package.json'), 'utf8'),
+).devDependencies.vite;
 const run = (cmd, args, cwd) =>
   execFileSync(cmd, args, { cwd, stdio: 'inherit', encoding: 'utf8' });
+const capture = (cmd, args, cwd) => {
+  try {
+    return execFileSync(cmd, args, { cwd, encoding: 'utf8' });
+  } catch (e) {
+    process.stdout.write(e.stdout ?? '');
+    process.stderr.write(e.stderr ?? '');
+    throw e;
+  }
+};
 
 const tmp = mkdtempSync(join(tmpdir(), 'yorkie-exports-'));
 const packs = join(tmp, 'packs');
@@ -46,7 +61,7 @@ mkdirSync(app);
 
 try {
   const tgz = {};
-  for (const name of ['schema', 'sdk', 'react', 'prosemirror']) {
+  for (const name of PACKAGES) {
     run(
       'pnpm',
       ['pack', '--pack-destination', packs],
@@ -57,6 +72,9 @@ try {
     const m = f.match(/^yorkie-js-(\w+)-/);
     if (!m) throw new Error(`Unexpected tarball name: ${f}`);
     tgz[m[1]] = join(packs, f);
+  }
+  for (const name of PACKAGES) {
+    if (!tgz[name]) throw new Error(`No tarball was packed for ${name}`);
   }
 
   // The sdk depends on @yorkie-js/schema@workspace:* -> point it at the tarball.
@@ -77,6 +95,7 @@ try {
         typescript: '^5.9.3',
         '@types/node': '^22',
         '@types/react': '^19',
+        vite: VITE,
       },
       overrides: {
         '@yorkie-js/sdk': `file:${tgz.sdk}`,
@@ -84,7 +103,7 @@ try {
       },
     }),
   );
-  run('npm', ['install', '--no-audit', '--no-fund'], app);
+  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], app);
 
   const w = (f, s) => writeFileSync(join(app, f), s);
   // Runtime: ESM named imports and CJS require.
@@ -220,12 +239,93 @@ document.update(root => {
       files: ['types.mts', 'types.cts'],
     }),
   );
+  // Bundlers resolve the `node` condition too, and Rollup reads a default
+  // import of a module flagged __esModule differently from Node: the bundled
+  // wrapper must still expose every export and the default.
+  w(
+    'bundle-entry.mjs',
+    `import yorkie, { Document, converter, setLogLevel } from '@yorkie-js/sdk';
+import { YorkieProvider } from '@yorkie-js/react';
+import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
+const found = { Document, setLogLevel, YorkieProvider, YorkieProseMirrorBinding, 'default.Client': yorkie?.Client };
+for (const [n, v] of Object.entries(found))
+  if (typeof v !== 'function') throw new Error(n + ' missing in the bundle');
+if (typeof converter !== 'object' || converter === null) throw new Error('converter missing in the bundle');
+if (yorkie.Document !== Document) throw new Error('default and named Document differ in the bundle');
+`,
+  );
+  w(
+    'vite.config.mjs',
+    `export default {
+  logLevel: 'error',
+  ssr: { noExternal: true },
+  build: {
+    ssr: 'bundle-entry.mjs',
+    outDir: 'vite-out',
+    emptyOutDir: true,
+    minify: false,
+    rollupOptions: { output: { entryFileNames: '[name].mjs' } },
+  },
+};
+`,
+  );
+  // Bundler resolution never sets `node`, so it reads the plain .d.mts twins.
+  w(
+    'types.bundler.ts',
+    `import yorkie, { Document, Text, converter } from '@yorkie-js/sdk';
+import { YorkieProvider } from '@yorkie-js/react';
+import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
+export const doc: Document<{ text: Text }> = new yorkie.Document<{ text: Text }>('bundler');
+export const used = [converter, YorkieProvider, YorkieProseMirrorBinding];
+`,
+  );
+  w(
+    'tsconfig.bundler.json',
+    JSON.stringify({
+      compilerOptions: {
+        module: 'esnext',
+        moduleResolution: 'bundler',
+        strict: true,
+        noEmit: true,
+        skipLibCheck: true,
+        types: ['node'],
+      },
+      files: ['types.bundler.ts'],
+    }),
+  );
 
   run('node', ['esm.mjs'], app);
   run('node', ['cjs.cjs'], app);
   run('node', ['mixed.mjs', 'esm-first'], app);
   run('node', ['mixed.mjs', 'cjs-first'], app);
+  run('npx', ['vite', 'build'], app);
+  run('node', ['vite-out/bundle-entry.mjs'], app);
+  run(
+    'npx',
+    [
+      'esbuild',
+      'bundle-entry.mjs',
+      '--bundle',
+      '--platform=node',
+      '--format=esm',
+      '--outfile=esbuild-out.mjs',
+      '--log-level=warning',
+    ],
+    app,
+  );
+  run('node', ['esbuild-out.mjs'], app);
   run('npx', ['tsc', '-p', 'tsconfig.json'], app);
+  const listed = capture(
+    'npx',
+    ['tsc', '-p', 'tsconfig.bundler.json', '--listFiles'],
+    app,
+  ).split('\n');
+  for (const name of ['sdk', 'react', 'prosemirror']) {
+    const dts = `/node_modules/@yorkie-js/${name}/dist/yorkie-js-${name}.d.mts`;
+    if (!listed.some((line) => line.endsWith(dts))) {
+      throw new Error(`Bundler resolution did not load ${dts}`);
+    }
+  }
 
   // ATTW on the pnpm-made tarballs (its own --pack would use npm).
   for (const name of ['sdk', 'react', 'prosemirror']) {
@@ -235,25 +335,14 @@ document.update(root => {
       name === 'prosemirror'
         ? ['--ignore-rules', 'internal-resolution-error']
         : [];
-    run(
-      'npx',
-      [
-        '--yes',
-        '@arethetypeswrong/cli',
-        tgz[name],
-        '--profile',
-        'node16',
-        ...skip,
-      ],
-      app,
-    );
+    run('npx', ['--yes', ATTW, tgz[name], '--profile', 'node16', ...skip], app);
   }
 
   const pkg = JSON.parse(
     readFileSync(join(app, 'node_modules/@yorkie-js/sdk/package.json'), 'utf8'),
   );
   console.log(
-    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS, mixed modules and NodeNext types (skipLibCheck) on ${process.version}`,
+    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS and mixed modules, bundled by Vite SSR and esbuild, with NodeNext and bundler types (skipLibCheck) on ${process.version}`,
   );
 } finally {
   rmSync(tmp, { recursive: true, force: true });
