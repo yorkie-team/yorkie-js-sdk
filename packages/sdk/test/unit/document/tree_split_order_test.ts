@@ -259,3 +259,248 @@ describe('Tree concurrent split after an older split of the same boundary', () =
     }
   }
 });
+
+/**
+ * `paragraphReplicas` returns `n` replicas seeded with
+ * `<doc><p>{text}</p></doc>`, for scripts written in index positions.
+ */
+function paragraphReplicas(n: number, text: string): Array<TestDoc> {
+  const docs: Array<TestDoc> = [];
+  for (let i = 0; i < n; i++) {
+    const doc: TestDoc = new Document('test-doc');
+    doc.setActor(String(i + 1).padStart(24, '0'));
+    docs.push(doc);
+  }
+  docs[0].update((root) => {
+    root.t = new Tree({
+      type: 'doc',
+      children: [{ type: 'p', children: [{ type: 'text', value: text }] }],
+    });
+  });
+  exchange(
+    docs,
+    docs.map((_, i) => (i === 0 ? [] : [0])),
+  );
+  return docs;
+}
+
+/**
+ * A split that follows the concurrent same-boundary splits above, made by one
+ * of the two actors before it has seen the other's split (#1433).
+ *
+ * The §7.8 ordering walks the insNextID chain to find the node that holds
+ * the right half. The follow-up split is in that chain too, but it cut the
+ * right half at a *later* boundary, so the walk must stop at the node that
+ * holds the content rather than go on to the follow-up's empty product.
+ */
+describe('Tree further split after concurrent same-boundary splits', () => {
+  // A step is one edit by one replica: a split at `index`, an insert of
+  // `content` there, or a delete of the range `index`..`to`.
+  type Step =
+    | [replica: number, index: number]
+    | [replica: number, index: number, content: string]
+    | [replica: number, index: number, to: number];
+  const cases: Array<[string, string, Array<Step>]> = [
+    // The three-operation minimum from #1433: both split "a|b", then the
+    // newer actor splits again at the end of its right piece.
+    [
+      'the newer actor splits again at the end of "b"',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 5],
+      ],
+    ],
+    // Converged before the fix; pinned so the asymmetry does not come back.
+    [
+      'the older actor splits again at the end of "b"',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [0, 5],
+      ],
+    ],
+    [
+      "with an insert ahead of the newer actor's splits",
+      'ab',
+      [
+        [0, 2],
+        [1, 1, 'ㅂ'],
+        [1, 3],
+        [1, 6],
+      ],
+    ],
+    // The follow-up split at offset 0 of the right piece is a same-boundary
+    // split as well, so the walk has to pass its empty product.
+    [
+      'the newer actor splits again at the start of "b"',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4],
+      ],
+    ],
+    // Text typed into the empty right piece is not the right half: a split
+    // after it is still a same-boundary split, and the walk has to go on.
+    // Converged before the fix; found by review of the first version.
+    [
+      'the newer actor types into its empty right piece, then splits',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 'x'],
+        [1, 5],
+      ],
+    ],
+    [
+      'the same with an empty right half',
+      'a',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 'x'],
+        [1, 5],
+      ],
+    ],
+    [
+      'typed text and the right half on either side of the follow-up split',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 'x'],
+        [1, 5],
+        [1, 7, 'y'],
+      ],
+    ],
+    // The right half deleted before the follow-up split, so the stopping
+    // node's only known child is a tombstone -- the shape `holdsKnownChild`
+    // reads `allChildren` for. Both converge under `children` as well, so
+    // these pin the shape rather than isolate the tombstone read.
+    [
+      'the newer actor deletes "b", then splits at the end of the piece',
+      'ab',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 5],
+        [1, 4],
+      ],
+    ],
+    [
+      'the same, deleting "b" before its own same-boundary split',
+      'abc',
+      [
+        [0, 2],
+        [1, 2],
+        [1, 4, 5],
+        [1, 5],
+      ],
+    ],
+    // Delta-debugged minima of a split-only fuzz over <p>abcdef</p>.
+    [
+      'two follow-up splits',
+      'abcdef',
+      [
+        [1, 3],
+        [0, 3],
+        [1, 3],
+        [1, 10],
+      ],
+    ],
+    [
+      'a follow-up split in the left piece',
+      'abcdef',
+      [
+        [1, 5],
+        [0, 3],
+        [1, 3],
+      ],
+    ],
+    [
+      'a follow-up split at the start, then in the right piece',
+      'abcdef',
+      [
+        [1, 1],
+        [1, 4],
+        [0, 1],
+      ],
+    ],
+    [
+      'a follow-up split in the middle of the right piece',
+      'abcdef',
+      [
+        [0, 4],
+        [1, 4],
+        [1, 7],
+      ],
+    ],
+  ];
+
+  for (const [name, text, steps] of cases) {
+    it(`${name}: two replicas`, () => {
+      const docs = paragraphReplicas(2, text);
+      for (const [replica, index, arg] of steps) {
+        docs[replica].update((root) => {
+          if (arg === undefined) {
+            root.t.edit(index, index, undefined, 1);
+          } else if (typeof arg === 'number') {
+            root.t.edit(index, arg);
+          } else {
+            root.t.edit(index, index, { type: 'text', value: arg });
+          }
+        });
+      }
+      exchange(docs, [[1], [0]]);
+
+      assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+      assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+    });
+  }
+
+  // The flat cases above cannot reach the multi-level shape: a text split
+  // keeps the original `createdAt`, so the right half's text child is known
+  // by itself. Split `<p><span>abcde</span></p>` at both levels and the outer
+  // right-half product holds a freshly ticketed `<span>` instead, with the
+  // known text one level further down -- which is why `holdsKnownChild`
+  // descends. A pin, not a regression: this script converges on `main` too.
+  it('the same shape nested one level deeper', () => {
+    const docs = replicas(2);
+    docs.forEach((doc) =>
+      doc.update((root) =>
+        root.t.editByPath([0, 0, 3], [0, 0, 3], undefined, 2),
+      ),
+    );
+    // The newer actor splits again at the end of its right piece, both
+    // levels, before it has seen the other's split.
+    docs[1].update((root) => root.t.edit(11, 11, undefined, 2));
+    exchange(docs, [[1], [0]]);
+
+    assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+    assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+    assert.include(docs[0].getRoot().t.toXML(), 'abc');
+    assert.include(docs[0].getRoot().t.toXML(), 'de');
+  });
+
+  it('a third replica agrees in both arrival orders', () => {
+    const docs = paragraphReplicas(3, 'ab');
+    docs[0].update((root) => root.t.edit(2, 2, undefined, 1));
+    docs[1].update((root) => root.t.edit(2, 2, undefined, 1));
+    docs[1].update((root) => root.t.edit(5, 5, undefined, 1));
+    exchange(docs, [[1], [0], [0, 1]]);
+    const shape = treeShape(docs[0]);
+    assert.equal(treeShape(docs[1]), shape);
+    assert.equal(treeShape(docs[2]), shape);
+
+    const more = paragraphReplicas(3, 'ab');
+    more[0].update((root) => root.t.edit(2, 2, undefined, 1));
+    more[1].update((root) => root.t.edit(2, 2, undefined, 1));
+    more[1].update((root) => root.t.edit(5, 5, undefined, 1));
+    exchange(more, [[1], [0], [1, 0]]);
+    assert.equal(treeShape(more[2]), shape);
+  });
+});

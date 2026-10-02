@@ -2299,6 +2299,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * ticket and split the last of them at its start. The right half lives in
    * that sibling on this replica, so it moves into our product exactly as it
    * would have moved out of `parent` on a replica that applied us first.
+   *
+   * The walk ends at the first sibling that holds a child the editor knew.
+   * The same-boundary products sit in the chain as a run of empty nodes that
+   * ends at the one holding the right half (#1375 orders every newer product
+   * in front of it), so a sibling further down the chain was split off *that*
+   * node at an offset past its children -- a different, later boundary that
+   * the replica applying us first resolves by position, after the right half.
+   * Walking on to it would put our product after that later boundary here
+   * and before it there (#1433). A child the editor knew was in `parent`
+   * when the concurrent split moved it, so it marks the right half; a child
+   * it did not know may have been typed into an empty product afterwards,
+   * and a split after that text is still a same-boundary split to us.
    */
   private orderSameBoundarySplit(
     parent: CRDTTreeNode,
@@ -2308,7 +2320,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): [CRDTTreeNode, number] {
     // A concurrent split of the same boundary took everything to the right of
     // it, so only a split at the end of `parent` can be one.
-    if (!versionVector || offset !== parent.allChildren.length) {
+    //
+    // An empty vector is read as a local change here, the way `ticketKnown`
+    // and the server's `len(vv) == 0` read it: everything is known, so there
+    // is no concurrent split to order against. It reaches us either from a
+    // local edit or from a remote change that omitted the optional Protobuf
+    // field, and in both cases walking the chain with a vector that knows
+    // nothing would reorder against siblings it has no causality for.
+    if (
+      !versionVector ||
+      versionVector.size() === 0 ||
+      offset !== parent.allChildren.length
+    ) {
       return [parent, offset];
     }
 
@@ -2360,9 +2383,53 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
 
       target = next;
+
+      // `next` holds the right half: whatever follows it in the chain was
+      // split off at a boundary to the right of ours. Tombstones count --
+      // `splitElement` partitions `allChildren`, so a child removed in the
+      // meantime still marks where that later boundary was -- and so do
+      // deeper descendants, which is where a multi-level split puts it.
+      if (this.holdsKnownChild(next, versionVector)) {
+        break;
+      }
     }
 
     return target === parent ? [parent, offset] : [target, 0];
+  }
+
+  /**
+   * `holdsKnownChild` reports whether any descendant of `node`, tombstones
+   * included, was created within `versionVector` -- content the editor had
+   * seen, as opposed to content a peer inserted concurrently.
+   *
+   * It descends because a multi-level split hides the marker one level down.
+   * A text split keeps the original `createdAt`, so at a flat `<p>text</p>`
+   * the right half's text child is known by itself; but an element split
+   * product is minted with a fresh ticket, so the outer right-half product of
+   * a `<p><span>..</span></p>` split has a single unknown `<span>` child, and
+   * only below it sits the text the editor knew. Looking at direct children
+   * alone would miss it and let the walk run past the right half (#1433).
+   * A node with no known content anywhere below it is an empty same-boundary
+   * product, or one a peer has typed into since.
+   */
+  private holdsKnownChild(
+    node: CRDTTreeNode,
+    versionVector: VersionVector,
+  ): boolean {
+    for (const child of node.allChildren) {
+      const createdAt = child.id.getCreatedAt();
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= createdAt.getLamport()
+      ) {
+        return true;
+      }
+      if (!child.isText && this.holdsKnownChild(child, versionVector)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

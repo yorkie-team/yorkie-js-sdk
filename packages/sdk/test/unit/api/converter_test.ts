@@ -236,4 +236,19 @@ describe('Converter', function () {
     assert.isTrue(foundGCElementWithValueA);
     assert.equal(obj.toSortedJSON(), doc.getRootObject().toSortedJSON());
   });
+
+  it('should decode a ChangeID whose version vector field is absent', function () {
+    // `versionVector` is an optional Protobuf field, so a peer -- or a
+    // crafted pack -- can leave it out. An all-defaults ChangeID message is
+    // the smallest such payload. The decoded ChangeID has to carry a real
+    // VersionVector: an undefined one is only a compile-time assertion away
+    // from reaching `hasClocks()` and throwing there.
+    const changeID = converter.bytesToChangeID(new Uint8Array());
+    const vector = changeID.getVersionVector();
+
+    assert.isDefined(vector);
+    assert.equal(vector.size(), 0);
+    assert.doesNotThrow(() => changeID.hasClocks());
+    assert.isFalse(changeID.hasClocks());
+  });
 });
