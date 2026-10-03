@@ -17,7 +17,13 @@
 import { describe, it, assert } from 'vitest';
 import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
-import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import {
+  RGATreeSplitNodeID,
+  RGATreeSplitPos,
+} from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
 /**
@@ -34,11 +40,46 @@ function mulberry32(seed: number): (n: number) => number {
 }
 
 /**
+ * `crossSync` delivers each replica's pending changes to the other and
+ * acknowledges them, so the next call does not resend them.
+ */
+function crossSync<T>(d1: Document<T>, d2: Document<T>): void {
+  const p1 = d1.createChangePack();
+  const p2 = d2.createChangePack();
+  const deliver = (
+    pack: ReturnType<Document<T>['createChangePack']>,
+    changes: ReturnType<typeof pack.getChanges>,
+    serverSeq: bigint,
+    clientSeq: number,
+  ) =>
+    ChangePack.create(
+      pack.getDocumentKey(),
+      Checkpoint.of(serverSeq, clientSeq),
+      false,
+      changes,
+      InitialVersionVector,
+    );
+  const lastSeq = (pack: ReturnType<Document<T>['createChangePack']>) => {
+    const changes = pack.getChanges();
+    return changes.length
+      ? changes[changes.length - 1].getID().getClientSeq()
+      : 0;
+  };
+
+  d2.applyChangePack(deliver(p1, p1.getChanges(), 0n, 0));
+  d1.applyChangePack(deliver(p2, p2.getChanges(), 0n, 0));
+  d1.applyChangePack(deliver(p1, [], 0n, lastSeq(p1)));
+  d2.applyChangePack(deliver(p2, [], 0n, lastSeq(p2)));
+}
+
+/**
  * `assertNormalizePosMatchesChainWalk` checks `normalizePos` against its
  * definition at every offset of every node: anchored on the head, offset by
  * the live length of every node before the position's node plus the offset
  * inside it. Tombstones are included, since remote edits and reverse
- * operations anchor on them.
+ * operations anchor on them. Each offset inside a node is also queried by an
+ * ID that only a floor lookup resolves, as a replica that has not split the
+ * node yet would send it.
  */
 function assertNormalizePosMatchesChainWalk(
   text: CRDTText,
@@ -63,6 +104,25 @@ function assertNormalizePosMatchesChainWalk(
           `seed ${seed} step ${step}: ${pos.toTestString()} normalized to ` +
             `${normalized.toTestString()}, want offset ${prefix + offset} ` +
             `in ${text.toTestString()}`,
+        );
+      }
+      checks++;
+
+      if (offset === 0 || offset === node.getContentLength()) continue;
+      const id = node.getID();
+      const floor = RGATreeSplitPos.of(
+        RGATreeSplitNodeID.of(id.getCreatedAt(), id.getOffset() + offset),
+        0,
+      );
+      const floorNormalized = text.normalizePos(floor);
+      if (
+        !floorNormalized.getID().equals(head) ||
+        floorNormalized.getRelativeOffset() !== prefix
+      ) {
+        assert.fail(
+          `seed ${seed} step ${step}: floor ${floor.toTestString()} ` +
+            `normalized to ${floorNormalized.toTestString()}, want offset ` +
+            `${prefix} in ${text.toTestString()}`,
         );
       }
       checks++;
@@ -133,5 +193,58 @@ describe('Text.normalizePos', () => {
     assert.isAbove(counts.redo, 10);
     assert.isAbove(counts.purged, 100);
     assert.isAbove(counts.checks, 100000);
+  });
+
+  it('should match the chain walk on replicas applying remote edits', () => {
+    const counts = { checks: 0, purged: 0 };
+
+    for (let seed = 1; seed <= 20; seed++) {
+      const rnd = mulberry32(seed);
+      const actors = ['000000000000000000000001', '000000000000000000000002'];
+      const docs = actors.map((actor) => {
+        const doc = new Document<{ t: Text }>(`normalize-pos-remote-${seed}`);
+        doc.setActor(actor);
+        return doc;
+      });
+      docs[0].update((root) => {
+        root.t = new Text();
+      });
+      crossSync(docs[0], docs[1]);
+
+      for (let step = 0; step < 100; step++) {
+        const doc = docs[rnd(2)];
+        const op = rnd(10);
+        if (op < 5) {
+          doc.update((root) => {
+            const at = rnd(root.t.length + 1);
+            root.t.edit(at, at, 'ab😀가'.slice(0, 1 + rnd(4)));
+          });
+        } else if (op < 8) {
+          doc.update((root) => {
+            if (!root.t.length) return;
+            const from = rnd(root.t.length);
+            root.t.edit(from, Math.min(root.t.length, from + 1 + rnd(3)), '');
+          });
+        } else if (op < 9) {
+          crossSync(docs[0], docs[1]);
+        } else {
+          crossSync(docs[0], docs[1]);
+          for (const d of docs) {
+            counts.purged += d.garbageCollect(maxVectorOf(actors));
+          }
+        }
+
+        for (const d of docs) {
+          const text = d.getRootObject().get('t') as unknown as CRDTText;
+          counts.checks += assertNormalizePosMatchesChainWalk(text, seed, step);
+        }
+      }
+
+      crossSync(docs[0], docs[1]);
+      assert.equal(docs[0].toSortedJSON(), docs[1].toSortedJSON());
+    }
+
+    assert.isAbove(counts.purged, 50);
+    assert.isAbove(counts.checks, 50000);
   });
 });

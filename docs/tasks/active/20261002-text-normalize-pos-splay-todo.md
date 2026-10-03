@@ -60,10 +60,10 @@ and ran a scratch 3-replica harness through protobuf change packs, checking the
 root, the clone, a deepcopy and a bytes snapshot: 14.5M checks over 100 seeds, 0
 mismatches against the old walk. Gaps that pass left open:
 
-- The shipped test is single-replica and queries exact node ids only, so
-  remote deletes, the applyChange call site, deepcopy, snapshots and
-  floor-node positions are covered by the scratch harness, not the suite --
-  left as a known limitation.
+- The shipped test now covers two replicas applying each other's edits and
+  deletes (the applyChange call site), and positions that only a floor
+  lookup resolves. The clone, deepcopy and snapshot rebuilds are still
+  covered by the scratch harness only, not the suite.
 - Under 3 replicas with concurrent undo/redo, replicas sometimes do not
   converge, and with GC on some changes fail to apply. Identical with the old
   walk, so not caused by this change. The Go self review saw the same
