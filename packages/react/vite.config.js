@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
+import { copyFileSync } from 'fs';
 import react from '@vitejs/plugin-react';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { nodeEsmEntry } from '../../scripts/node-esm-entry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,9 +16,7 @@ export default defineConfig({
       entry: 'src/index.ts',
       name: 'yorkie-js-react',
       fileName: (format) =>
-        format === 'umd'
-          ? 'yorkie-js-react.js'
-          : `yorkie-js-react.${format}.js`,
+        format === 'umd' ? 'yorkie-js-react.js' : 'yorkie-js-react.es.mjs',
     },
     rollupOptions: {
       external: ['react', 'react-dom', 'react/jsx-runtime'],
@@ -38,9 +38,13 @@ export default defineConfig({
     },
   },
   plugins: [
+    nodeEsmEntry(),
     react(),
     dts({
       rollupTypes: true,
+      // Node ESM resolves types per module format, so ship a .d.mts twin.
+      afterBuild: () =>
+        copyFileSync('dist/yorkie-js-react.d.ts', 'dist/yorkie-js-react.d.mts'),
     }),
   ],
 });

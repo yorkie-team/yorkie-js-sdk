@@ -6,7 +6,32 @@
   "publishConfig": {
     "access": "public",
     "main": "./dist/yorkie-js-sdk.js",
-    "typings": "./dist/yorkie-js-sdk.d.ts"
+    "module": "./dist/yorkie-js-sdk.es.mjs",
+    "typings": "./dist/yorkie-js-sdk.d.ts",
+    "exports": {
+      ".": {
+        "node": {
+          "import": {
+            "types": "./dist/yorkie-js-sdk.node.d.mts",
+            "default": "./dist/yorkie-js-sdk.node.mjs"
+          },
+          "require": {
+            "types": "./dist/yorkie-js-sdk.d.ts",
+            "default": "./dist/yorkie-js-sdk.js"
+          }
+        },
+        "import": {
+          "types": "./dist/yorkie-js-sdk.d.mts",
+          "default": "./dist/yorkie-js-sdk.es.mjs"
+        },
+        "require": {
+          "types": "./dist/yorkie-js-sdk.d.ts",
+          "default": "./dist/yorkie-js-sdk.js"
+        },
+        "default": "./dist/yorkie-js-sdk.js"
+      },
+      "./package.json": "./package.json"
+    }
   },
   "files": [
     "dist",
