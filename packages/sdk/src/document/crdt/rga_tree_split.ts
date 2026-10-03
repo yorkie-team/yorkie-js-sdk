@@ -1177,10 +1177,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         `the node of the given id should be found: ${absoluteID.toTestString()}`,
       );
     }
+    // `index` cannot be -1 here: `indexOf` only rejects a node outside
+    // `treeByIndex`, and `purge` - the only way out of it - drops the node
+    // from `treeByID` too, so `findFloorNode` never returns one.
     const index = this.treeByIndex.indexOf(node!);
+    // The offset inside the floor node is clamped to its content: when GC has
+    // purged the piece the id addressed, the floor lookup lands on an earlier
+    // survivor and the raw difference runs past the end of it, which would
+    // place the position after characters it was never meant to cover.
     const offset = node!.isRemoved()
       ? 0
-      : absoluteID.getOffset() - node!.getID().getOffset();
+      : Math.min(
+          absoluteID.getOffset() - node!.getID().getOffset(),
+          node!.getContentLength(),
+        );
     return index + offset;
   }
 
@@ -1297,17 +1307,28 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
 
     const index = this.treeByIndex.indexOf(node);
-    if (index < 0) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        `the node of the given id should be indexed: ${pos.getID().toTestString()}`,
+    if (index >= 0) {
+      return RGATreeSplitPos.of(
+        this.head.getID(),
+        index + pos.getRelativeOffset(),
       );
     }
 
-    return RGATreeSplitPos.of(
-      this.head.getID(),
-      index + pos.getRelativeOffset(),
-    );
+    // `indexOf` answers -1 only for a node that is not in `treeByIndex`, and
+    // `purge` is the only way to take one out - which also removes it from
+    // `treeByID`, so the floor lookup above cannot hand us one. Fall back to
+    // the chain walk this read replaces rather than throw: this runs unguarded
+    // on the remote-apply path (`Document.applyChangeInternal`), where an
+    // exception leaves the change unacknowledged and the server redelivering
+    // it forever, so a lookup this code believes impossible must not be the
+    // thing that wedges a client's sync.
+    let total = pos.getRelativeOffset();
+    let curr = node;
+    for (let prev = node.getPrev(); prev; prev = prev.getPrev()) {
+      total += prev.getLength();
+      curr = prev;
+    }
+    return RGATreeSplitPos.of(curr.getID(), total);
   }
 
   /**

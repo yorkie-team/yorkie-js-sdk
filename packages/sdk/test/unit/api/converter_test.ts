@@ -15,8 +15,10 @@
  */
 
 import { describe, it, assert } from 'vitest';
+import { fromBinary, toBinary } from '@bufbuild/protobuf';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { OperationSchema as PbOperationSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
@@ -235,5 +237,42 @@ describe('Converter', function () {
     }
     assert.isTrue(foundGCElementWithValueA);
     assert.equal(obj.toSortedJSON(), doc.getRootObject().toSortedJSON());
+  });
+
+  it('should reject a text position carrying a negative offset', function () {
+    const doc = new Document<{ k1: Text }>('test-doc');
+    doc.update((root) => {
+      root.k1 = new Text();
+      root.k1.edit(0, 0, 'ABCD');
+    });
+
+    const pbOps = doc
+      .createChangePack()
+      .getChanges()
+      .flatMap((change) => change.getOperations())
+      .map((op) =>
+        fromBinary(PbOperationSchema, converter.operationToBinary(op)),
+      );
+    const pbOp = pbOps.find((candidate) => candidate.body.case === 'edit');
+    if (pbOp?.body.case !== 'edit') {
+      assert.fail('the text edit should encode as an edit operation');
+    }
+    const edit = pbOp.body.value;
+    // The untampered operation round-trips, so a rejection below is the
+    // offset and not the encoding.
+    assert.isOk(converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)));
+
+    // `offset` and `relative_offset` are int32 on the wire, so a peer can
+    // send a negative one; it has to be refused before it reaches the
+    // position arithmetic in RGATreeSplit.
+    for (const field of ['offset', 'relativeOffset'] as const) {
+      const original = edit.from![field];
+      edit.from![field] = -1;
+      assert.throws(
+        () => converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)),
+        /non-negative integer/,
+      );
+      edit.from![field] = original;
+    }
   });
 });

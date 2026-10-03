@@ -18,6 +18,7 @@ import { describe, it, assert } from 'vitest';
 import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
+  RGATreeSplitNode,
   RGATreeSplitNodeID,
   RGATreeSplitPos,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
@@ -90,6 +91,18 @@ function assertNormalizePosMatchesChainWalk(
   const head = split.getHead().getID();
   let checks = 0;
   let prefix = 0;
+
+  // A position anchored on the head itself: the only node the chain walk
+  // never steps over, and the id every other position normalizes to.
+  const atHead = text.normalizePos(RGATreeSplitPos.of(head, 0));
+  if (!atHead.getID().equals(head) || atHead.getRelativeOffset() !== 0) {
+    assert.fail(
+      `seed ${seed} step ${step}: head ${head.toTestString()} normalized to ` +
+        `${atHead.toTestString()}, want offset 0 in ${text.toTestString()}`,
+    );
+  }
+  checks++;
+
   for (let node = split.getHead().getNext(); node; node = node.getNext()) {
     for (let offset = 0; offset <= node.getContentLength(); offset++) {
       const pos = RGATreeSplitPos.of(node.getID(), offset);
@@ -130,6 +143,43 @@ function assertNormalizePosMatchesChainWalk(
     prefix += node.getLength();
   }
   return checks;
+}
+
+/**
+ * `countChainSteps` counts the `prev` hops taken while `body` runs. Summing
+ * the chain costs one hop per node before the position, so this measures the
+ * cost `normalizePos` is meant to have shed - deterministically, without
+ * timing a loop on a shared CI runner.
+ */
+function countChainSteps(body: () => void): number {
+  let hops = 0;
+  const proto = RGATreeSplitNode.prototype;
+  const original = proto.getPrev;
+  proto.getPrev = function () {
+    hops++;
+    return original.call(this);
+  };
+  try {
+    body();
+  } finally {
+    proto.getPrev = original;
+  }
+  return hops;
+}
+
+/**
+ * `typeText` returns a document whose text holds `size` single-character
+ * nodes, typed one edit at a time the way an editor would.
+ */
+function typeText(size: number): Document<{ t: Text }> {
+  const doc = new Document<{ t: Text }>(`normalize-pos-cost-${size}`);
+  doc.update((root) => {
+    root.t = new Text();
+    for (let i = 0; i < size; i++) {
+      root.t.edit(i, i, 'a');
+    }
+  });
+  return doc;
 }
 
 describe('Text.normalizePos', () => {
@@ -246,5 +296,49 @@ describe('Text.normalizePos', () => {
 
     assert.isAbove(counts.purged, 50);
     assert.isAbove(counts.checks, 50000);
+  });
+
+  it('should cost the same to normalize at any document length', () => {
+    const lookups = 100;
+    const hops: Record<number, number> = {};
+
+    for (const size of [1000, 8000]) {
+      const doc = typeText(size);
+      const text = doc.getRootObject().get('t') as unknown as CRDTText;
+      const split = text.getRGATreeSplit();
+      // Spread across the document, so the lookups cannot all land on
+      // whatever node the previous one left at the root of the splay tree.
+      const positions: Array<RGATreeSplitPos> = [];
+      for (let i = 0; i < lookups; i++) {
+        positions.push(split.indexToPos(Math.floor((i * size) / lookups)));
+      }
+
+      hops[size] = countChainSteps(() => {
+        for (const pos of positions) {
+          text.normalizePos(pos);
+        }
+      });
+    }
+
+    // The chain walk spent one hop per node before the position: ~50k hops
+    // for these 100 lookups at 1000 nodes and ~400k at 8000, growing with the
+    // document. Reading the index spends none, so hold it to at most one hop
+    // per lookup at either size and require the cost not to grow with length.
+    assert.isAtMost(hops[1000], lookups);
+    assert.isAtMost(hops[8000], lookups);
+    assert.isAtMost(hops[8000], Math.max(hops[1000], lookups));
+  });
+
+  it('should keep typing linear in the length of the text', () => {
+    const sizes = [500, 2000];
+    const hops = sizes.map((size) => countChainSteps(() => typeText(size)));
+
+    // Every edit normalizes its `fromPos`, so a lookup that sums the chain
+    // made typing quadratic: ~125k hops for 500 characters and ~2M for 2000,
+    // a 16x step for 4x the text. Bound the cost per edit by a constant
+    // instead, which is what keeps the total linear.
+    for (const [i, size] of sizes.entries()) {
+      assert.isAtMost(hops[i], size);
+    }
   });
 });

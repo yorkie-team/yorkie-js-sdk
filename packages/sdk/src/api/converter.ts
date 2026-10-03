@@ -1254,15 +1254,35 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
 }
 
 /**
+ * `fromTextOffset` validates an offset carried by a text position or id.
+ *
+ * Both are `int32` on the wire, so a peer can send a negative one, and the
+ * value is not looked up before it is used: `RGATreeSplit` adds it to a node
+ * id (`getAbsoluteID`) and to an index read off the splay tree, so a negative
+ * offset resolves to a position before the one it names - and is re-broadcast
+ * inside the reverse operation this replica records. Reject it at the
+ * boundary instead, the way a malformed tree restore span is rejected.
+ */
+function fromTextOffset(offset: number, field: string): number {
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `malformed text position: ${field} should be a non-negative integer, but ${offset}`,
+    );
+  }
+  return offset;
+}
+
+/**
  * `fromTextNodePos` converts the given Protobuf format to model format.
  */
 function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
   return RGATreeSplitPos.of(
     RGATreeSplitNodeID.of(
       fromTimeTicket(pbTextNodePos.createdAt)!,
-      pbTextNodePos.offset,
+      fromTextOffset(pbTextNodePos.offset, 'offset'),
     ),
-    pbTextNodePos.relativeOffset,
+    fromTextOffset(pbTextNodePos.relativeOffset, 'relativeOffset'),
   );
 }
 
@@ -1272,7 +1292,7 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   return RGATreeSplitNodeID.of(
     fromTimeTicket(pbTextNodeID.createdAt)!,
-    pbTextNodeID.offset,
+    fromTextOffset(pbTextNodeID.offset, 'offset'),
   );
 }
 
