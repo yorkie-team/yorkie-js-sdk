@@ -84,26 +84,39 @@ construction (`indexOf(node)` is the sum of the prev chain's live lengths);
 a semantics argument is not, and the callers that disagree are two files
 away in a suite the unit tests cannot reach.
 
-## Panel round: a guard added to one deserializer is half a guard
+## Hardening added mid-review changed placement, so it was taken out
 
-Round N-1 added offset validation at the protobuf boundary and at the text
-*struct* boundary, and gave the tree's *wire* decoder the same check. The
-panel's blast-radius lens found the fourth corner of that square left open:
-`CRDTTreePos.fromStruct` / `CRDTTreeNodeID.fromStruct` copied a remote peer's
-presence offsets straight into `CRDTTreeNodeID.of`, reached from
-`Tree.posRangeToIndexRange` / `posRangeToPathRange` -- the exact route the
-text guard's own doc comment cites as the reason to distrust structs.
+Rounds 3 to 7 of the review loop added more and more around the port:
+offset validation in the protobuf and struct decoders of Text and Tree, and a
+`Math.min(..., getContentLength())` clamp in `posToIndex` and then in
+`findNodeWithSplit`. Each addition got its own finding in the next round,
+usually "the same guard is missing at a sibling site". The clamp in
+`findNodeWithSplit` then changed behaviour. It turned an offset that
+`splitNode` used to reject into a split at the end of whatever piece survived
+GC on that replica. Which pieces survive differs per replica, so the edit
+landed in a different place on each one. Go
+(`pkg/document/crdt/rga_tree_split.go`) has neither the clamps nor the
+validators, so the two SDKs also stopped agreeing.
 
-The lesson is about how to close such a hole, not that it existed: each of
-the two types has a wire decoder and a struct decoder, so a guard is only
-done when all four cells are filled. `CRDTTreePos.fromStruct` now delegates
-to `CRDTTreeNodeID.fromStruct` instead of rebuilding ids inline, so the
-struct path has one place left to forget.
+All of it was taken out. The branch is back to the Go diff of yorkie#2107:
+`normalizePos` reads `indexOf(node) + rel` anchored on the head, and rejects
+an unindexed node the way Go does. `findNodeWithSplit`, `posToIndex`,
+`findRestoreAnchor` and the decoders are byte-identical to `main`, so restore
+anchoring and the edit path are the same as before and the same as Go. The
+tests hold that line instead of guarding new behaviour:
 
-The same shape showed up in the clamp: `posToIndex` clamps
-`absoluteID.getOffset() - node.getID().getOffset()` to the floor node's
-content, and `findNodeWithSplit` computes the identical difference and hands
-it to `splitNode`, which throws on the overshoot the clamp exists for. Both
-run on the remote-apply path, where a throw leaves the change unacknowledged
-and the server redelivering it. A fix written for one call site needs a grep
-for its own arithmetic.
+- Positions captured before GC are normalized after it and compared with the
+  literal chain walk. That covers floor lookups onto an earlier piece, `rel`
+  at and past the floor piece's end, and the refusal when no piece of the
+  insertion survives. Clamping `rel` fails it.
+- An undo that only the undoing replica can rebuild through the restore
+  anchor ladder, because only it purged, has to converge with a peer that
+  still holds the tombstones. That is tested with the left neighbour both
+  surviving and purged.
+
+The lesson: in a performance port justified as "same result, cheaper", a
+review finding that asks for a different result belongs in its own change,
+next to the matching change in Go. The other SDK is part of the
+specification, so a JS-only safety net is a divergence even when it looks
+safer locally. The decoder validation and the purged-offset handling in
+`posToIndex` are worth doing, in both SDKs, as separate work.

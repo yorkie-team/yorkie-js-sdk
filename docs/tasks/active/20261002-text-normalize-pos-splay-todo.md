@@ -35,6 +35,11 @@ from the index tree. This ports that fix 1:1.
       zero; only `purge` takes a node out, and it unlinks the chain too
 - [x] Verify: Red -> Green, `pnpm verify:fast`, `pnpm sdk test`
 - [x] Self review, PR
+- [x] Review loop: take the decoder validation and the offset clamps back
+      out, so the diff is the Go diff again and restore anchoring and the
+      edit path match `main` and Go (see lessons)
+- [x] Test positions captured before GC, and an undo after only one replica
+      purged, against the old behaviour
 
 ## Review
 
