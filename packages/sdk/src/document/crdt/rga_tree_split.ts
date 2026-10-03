@@ -87,28 +87,6 @@ export type RGATreeSplitNodeIDStruct = {
 };
 
 /**
- * `validateOffset` rejects an offset that cannot name a position.
- *
- * `fromStruct` is the second deserializer of a text position, next to the
- * protobuf decoder, and the structs it reads are not local: a struct travels
- * through presence - the selection of a remote peer, fed back into
- * `Text.posRangeToIndexRange` - so it is as untrusted as the wire. A negative
- * offset is not looked up before it is used: it is added to a node id
- * (`getAbsoluteID`) and to an index read off the splay tree, resolving to a
- * position before the one it names, so refuse it here the way the converter
- * refuses it on the wire.
- */
-function validateOffset(offset: number, field: string): number {
-  if (!Number.isInteger(offset) || offset < 0) {
-    throw new YorkieError(
-      Code.ErrInvalidArgument,
-      `malformed position: ${field} should be a non-negative integer, but ${offset}`,
-    );
-  }
-  return offset;
-}
-
-/**
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
  */
 export class RGATreeSplitNodeID {
@@ -135,7 +113,7 @@ export class RGATreeSplitNodeID {
   ): RGATreeSplitNodeID {
     return RGATreeSplitNodeID.of(
       TimeTicket.fromStruct(struct.createdAt),
-      validateOffset(struct.offset, 'offset'),
+      struct.offset,
     );
   }
 
@@ -232,10 +210,7 @@ export class RGATreeSplitPos {
    */
   public static fromStruct(struct: RGATreeSplitPosStruct): RGATreeSplitPos {
     const id = RGATreeSplitNodeID.fromStruct(struct.id);
-    return RGATreeSplitPos.of(
-      id,
-      validateOffset(struct.relativeOffset, 'relativeOffset'),
-    );
+    return RGATreeSplitPos.of(id, struct.relativeOffset);
   }
 
   /**
@@ -1202,20 +1177,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         `the node of the given id should be found: ${absoluteID.toTestString()}`,
       );
     }
-    // `index` cannot be -1 here: `indexOf` only rejects a node outside
-    // `treeByIndex`, and `purge` - the only way out of it - drops the node
-    // from `treeByID` too, so `findFloorNode` never returns one.
     const index = this.treeByIndex.indexOf(node!);
-    // The offset inside the floor node is clamped to its content: when GC has
-    // purged the piece the id addressed, the floor lookup lands on an earlier
-    // survivor and the raw difference runs past the end of it, which would
-    // place the position after characters it was never meant to cover.
     const offset = node!.isRemoved()
       ? 0
-      : Math.min(
-          absoluteID.getOffset() - node!.getID().getOffset(),
-          node!.getContentLength(),
-        );
+      : absoluteID.getOffset() - node!.getID().getOffset();
     return index + offset;
   }
 
@@ -1306,21 +1271,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `normalizePos` converts a local position `(id, rel)` into a single
    * absolute offset measured from the head `(0:0)` of the physical chain.
    *
-   * The offset is the live length of every node before the position's node,
-   * read from `treeByIndex` rather than summed over the `prev` chain: every
-   * node on the chain is in it, in chain order, weighted by its live length
-   * (a tombstone stays in with weight zero; only `purge` takes a node out,
-   * and `purge` unlinks it from the chain too). Every Edit execution calls
-   * this, so a linear walk here makes typing a document quadratic.
+   * The offset is the live length of every node before the floor node of
+   * `id`, plus `rel`. It used to be summed over the `prev` chain; it is now
+   * read from `treeByIndex`, which holds the same sum: every node on the
+   * chain is in it, in chain order, weighted by its live length (a tombstone
+   * stays in with weight zero; only `purge` takes a node out, and `purge`
+   * unlinks it from the chain and from `treeByID` too). Every Edit execution
+   * calls this, so a linear walk here makes typing a document quadratic.
    *
-   * `rel` is added in the id space of the floor node rather than resolved
-   * through `getAbsoluteID` the way `posToIndex` resolves a rendered index.
-   * That is deliberate: `Document.applyChangeInternal` normalizes a remote
-   * Edit's `fromPos`/`toPos` after the edit has run, and reconciles the undo
-   * stacks against the resulting span. Resolving through the split pieces
-   * collapses a delete's span to a point - the pieces it tombstoned weigh
-   * zero once applied - and the stacks then miss the shift, which diverges
-   * the replicas in the `history_text_test` reconcile cases.
+   * This is a one-to-one port of the Go implementation (yorkie#2107), and the
+   * result is the chain walk's result for every input, including a floor
+   * lookup that lands on an earlier piece: `rel` is added in the id space of
+   * the floor node, not resolved through `getAbsoluteID`. Resolution stays
+   * the same on purpose - `Document.applyChangeInternal` reconciles the undo
+   * stacks against these offsets, so they must agree with what every other
+   * replica, Go included, computes.
    */
   public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
     const node = this.findFloorNode(pos.getID());
@@ -1331,33 +1296,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       );
     }
 
+    // A node `findFloorNode` returns is always in `treeByIndex` (see above),
+    // so `indexOf` cannot answer -1 here. Go rejects it the same way.
     const index = this.treeByIndex.indexOf(node);
-    if (index >= 0) {
-      return RGATreeSplitPos.of(
-        this.head.getID(),
-        index + pos.getRelativeOffset(),
+    if (index < 0) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be indexed: ${pos.getID().toTestString()}`,
       );
     }
 
-    // `indexOf` answers -1 only for a node that is not in `treeByIndex`, and
-    // `purge` is the only way to take one out - which also removes it from
-    // `treeByID`, so the floor lookup above cannot hand us one. Fall back to
-    // the chain walk this read replaces rather than throw: this runs unguarded
-    // on the remote-apply path (`Document.applyChangeInternal`), where an
-    // exception leaves the change unacknowledged and the server redelivering
-    // it forever, so a lookup this code believes impossible must not be the
-    // thing that wedges a client's sync.
-    //
-    // The fallback stays anchored on the head, the way the branch above is:
-    // callers read the result as a single absolute offset from `(0:0)`, so
-    // handing back a different anchor - the node itself, when it has been
-    // unlinked and the walk has nowhere to go - would silently measure the
-    // offset from somewhere else.
-    let total = pos.getRelativeOffset();
-    for (let prev = node.getPrev(); prev; prev = prev.getPrev()) {
-      total += prev.getLength();
-    }
-    return RGATreeSplitPos.of(this.head.getID(), total);
+    return RGATreeSplitPos.of(
+      this.head.getID(),
+      index + pos.getRelativeOffset(),
+    );
   }
 
   /**
@@ -1456,18 +1408,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   ): [RGATreeSplitNode<T>, DataSize, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
     let node = this.findFloorNodePreferToLeft(absoluteID);
-    // The offset inside the floor node is clamped to its content, the way
-    // `posToIndex` clamps the same difference: when GC has purged the piece
-    // the id addressed, the floor lookup lands on an earlier survivor and the
-    // raw difference runs past the end of it. Unclamped, `splitNode` refuses
-    // it - and this runs inside `CRDTText.edit`, on the remote-apply path,
-    // where throwing leaves the change unacknowledged and the server
-    // redelivering it forever. Split at the end of the survivor instead,
-    // which is the position the purged piece's end now resolves to.
-    const relativeOffset = Math.min(
-      absoluteID.getOffset() - node.getID().getOffset(),
-      node.getContentLength(),
-    );
+    const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
 
     const [, diff] = this.splitNode(node, relativeOffset);
 

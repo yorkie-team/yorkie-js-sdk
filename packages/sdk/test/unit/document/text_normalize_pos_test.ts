@@ -182,6 +182,28 @@ function typeText(size: number): Document<{ t: Text }> {
   return doc;
 }
 
+/**
+ * `chainWalk` is the definition `normalizePos` replaced, kept literally: find
+ * the floor node of the position's id (only among pieces of the same
+ * insertion), then sum the live length of every node on its `prev` chain.
+ * It answers `undefined` where the old code threw: no piece of the insertion
+ * survives.
+ */
+function chainWalk(text: CRDTText, pos: RGATreeSplitPos): number | undefined {
+  const entry = text.getRGATreeSplit().getTreeByID().floorEntry(pos.getID());
+  if (
+    !entry ||
+    (!entry.key.equals(pos.getID()) && !entry.key.hasSameCreatedAt(pos.getID()))
+  ) {
+    return;
+  }
+  let total = pos.getRelativeOffset();
+  for (let prev = entry.value.getPrev(); prev; prev = prev.getPrev()) {
+    total += prev.getLength();
+  }
+  return total;
+}
+
 describe('Text.normalizePos', () => {
   it('should match the chain walk across edit, style, undo, redo and GC', () => {
     const counts = { checks: 0, undo: 0, redo: 0, purged: 0 };
@@ -329,61 +351,80 @@ describe('Text.normalizePos', () => {
     assert.isAtMost(hops[8000], Math.max(hops[1000], lookups));
   });
 
-  it('should answer the same from the chain walk when the index read fails', () => {
-    const doc = new Document<{ t: Text }>('normalize-pos-fallback');
-    doc.update((root) => {
-      root.t = new Text();
-      root.t.edit(0, 0, 'ABCD');
-      // Split the node and leave a tombstone in the chain, so the walk has to
-      // step over nodes of differing live length to agree with the index.
-      root.t.edit(2, 2, 'XY');
-      root.t.edit(1, 2, '');
-    });
-    const text = doc.getRootObject().get('t') as unknown as CRDTText;
-    const split = text.getRGATreeSplit();
-    const head = split.getHead().getID();
+  it('should resolve positions whose pieces GC purged as the chain walk did', () => {
+    // Positions taken before GC still arrive after it: a remote Edit and the
+    // undo stack both carry them. Purging takes their pieces out of both
+    // trees, so the floor lookup lands on an earlier surviving piece of the
+    // same insertion, or on none. Each case must resolve exactly as the walk
+    // did - the same offset, or the same refusal.
+    const counts = { stale: 0, refused: 0, floored: 0, boundary: 0 };
 
-    const positions: Array<RGATreeSplitPos> = [];
-    for (let node = split.getHead().getNext(); node; node = node.getNext()) {
-      for (let offset = 0; offset <= node.getContentLength(); offset++) {
-        positions.push(RGATreeSplitPos.of(node.getID(), offset));
+    for (let seed = 1; seed <= 20; seed++) {
+      const rnd = mulberry32(seed);
+      const doc = new Document<{ t: Text }>(`normalize-pos-purged-${seed}`);
+      doc.update((root) => {
+        root.t = new Text();
+        root.t.edit(0, 0, 'abcdefghij');
+        root.t.edit(5, 5, '0123456789');
+      });
+
+      for (let step = 0; step < 40; step++) {
+        const text = doc.getRootObject().get('t') as unknown as CRDTText;
+        const split = text.getRGATreeSplit();
+        const stale: Array<RGATreeSplitPos> = [];
+        for (let n = split.getHead().getNext(); n; n = n.getNext()) {
+          // Past the content too: a floor piece shorter than the purged one
+          // it stands in for sees `rel` run beyond its own end.
+          for (let o = 0; o <= n.getContentLength() + 1; o++) {
+            stale.push(RGATreeSplitPos.of(n.getID(), o));
+          }
+        }
+
+        doc.update((root) => {
+          if (rnd(3) === 0 || root.t.length < 4) {
+            const at = rnd(root.t.length + 1);
+            root.t.edit(at, at, 'xyz'.slice(0, 1 + rnd(3)));
+            return;
+          }
+          const from = rnd(root.t.length);
+          root.t.edit(from, Math.min(root.t.length, from + 1 + rnd(4)), '');
+        });
+        doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
+
+        const head = split.getHead().getID();
+        for (const pos of stale) {
+          counts.stale++;
+          const want = chainWalk(text, pos);
+          if (want === undefined) {
+            assert.throws(
+              () => text.normalizePos(pos),
+              /should be found/,
+              `seed ${seed} step ${step}: ${pos.toTestString()}`,
+            );
+            counts.refused++;
+            continue;
+          }
+          const node = split.getTreeByID().floorEntry(pos.getID())!.value;
+          if (!node.getID().equals(pos.getID())) counts.floored++;
+          if (pos.getRelativeOffset() >= node.getContentLength()) {
+            counts.boundary++;
+          }
+          const got = text.normalizePos(pos);
+          if (!got.getID().equals(head) || got.getRelativeOffset() !== want) {
+            assert.fail(
+              `seed ${seed} step ${step}: ${pos.toTestString()} normalized ` +
+                `to ${got.toTestString()}, want offset ${want} in ` +
+                `${text.toTestString()}`,
+            );
+          }
+        }
       }
     }
-    assert.isAbove(positions.length, 3);
-    const expected = positions.map((pos) => text.normalizePos(pos));
 
-    // The fallback is unreachable through the model - only `purge` takes a
-    // node out of `treeByIndex`, and it unlinks the node from `treeByID` too -
-    // so force the index read to abstain the way it would if that ever
-    // stopped holding. The branch must still answer, head-anchored, with what
-    // the index read answered.
-    const treeByIndex = split.getTreeByIndex();
-    const original = treeByIndex.indexOf;
-    let abstained = 0;
-    treeByIndex.indexOf = () => {
-      abstained++;
-      return -1;
-    };
-    try {
-      positions.forEach((pos, i) => {
-        const got = text.normalizePos(pos);
-        assert.isTrue(
-          got.getID().equals(head),
-          `${pos.toTestString()} fell back to ${got.toTestString()}, ` +
-            `want the head ${head.toTestString()}`,
-        );
-        assert.equal(
-          got.getRelativeOffset(),
-          expected[i].getRelativeOffset(),
-          `${pos.toTestString()} fell back to offset ${got.getRelativeOffset()}`,
-        );
-      });
-    } finally {
-      treeByIndex.indexOf = original;
-    }
-    // Guard the harness: every lookup above has to have reached the stub,
-    // otherwise the fallback was never the thing that answered.
-    assert.equal(abstained, positions.length);
+    // Guard the harness: every branch above has to have been reached.
+    assert.isAbove(counts.refused, 100);
+    assert.isAbove(counts.floored, 100);
+    assert.isAbove(counts.boundary, 100);
   });
 
   it('should keep typing linear in the length of the text', () => {

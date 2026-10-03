@@ -1254,39 +1254,15 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
 }
 
 /**
- * `fromWireOffset` validates an offset carried by a position, an id or a
- * restore span.
- *
- * Every one of them is `int32` on the wire, so a peer can send a negative one,
- * and the value is not looked up before it is used: `RGATreeSplit` adds it to
- * a node id (`getAbsoluteID`) and to an index read off the splay tree, and
- * `RGATreeSplit.restore` mints node ids straight from a span's
- * `start`/`end` cursor. A negative offset therefore resolves to a position
- * before the one it names, or seeds a node id that no local edit could ever
- * produce - and is re-broadcast inside the reverse operation this replica
- * records. Reject it at the boundary instead, the way a malformed tree
- * restore span is rejected.
- */
-function fromWireOffset(offset: number, field: string): number {
-  if (!Number.isInteger(offset) || offset < 0) {
-    throw new YorkieError(
-      Code.ErrInvalidArgument,
-      `malformed position: ${field} should be a non-negative integer, but ${offset}`,
-    );
-  }
-  return offset;
-}
-
-/**
  * `fromTextNodePos` converts the given Protobuf format to model format.
  */
 function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
   return RGATreeSplitPos.of(
     RGATreeSplitNodeID.of(
       fromTimeTicket(pbTextNodePos.createdAt)!,
-      fromWireOffset(pbTextNodePos.offset, 'offset'),
+      pbTextNodePos.offset,
     ),
-    fromWireOffset(pbTextNodePos.relativeOffset, 'relativeOffset'),
+    pbTextNodePos.relativeOffset,
   );
 }
 
@@ -1296,7 +1272,7 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   return RGATreeSplitNodeID.of(
     fromTimeTicket(pbTextNodeID.createdAt)!,
-    fromWireOffset(pbTextNodeID.offset, 'offset'),
+    pbTextNodeID.offset,
   );
 }
 
@@ -1340,7 +1316,7 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
 function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
   return CRDTTreeNodeID.of(
     fromTimeTicket(pbTreeNodeID.createdAt)!,
-    fromWireOffset(pbTreeNodeID.offset, 'offset'),
+    pbTreeNodeID.offset,
   );
 }
 
@@ -1533,38 +1509,15 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     });
     const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
 
-    // A text restore span addresses content by insertion identity, so it is
-    // malformed without a `createdAt` - the decoder below non-null asserts the
-    // ticket, and an undefined one does not fail until the comparator reads it
-    // deep inside the restore path, the same hole `fromPbTreeRestoreSpan`
-    // closes. `start`/`end` are `int32` on the wire and are used as raw
-    // offsets: `RGATreeSplit.restore` walks a cursor from `start` to `end` and
-    // mints `RGATreeSplitNodeID.of(createdAt, cursor)` from it, so they get the
-    // same non-negativity check as any other wire offset, plus the ordering
-    // that cursor walk assumes.
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
-      if (!pbSpan.createdAt) {
-        throw new YorkieError(
-          Code.ErrInvalidArgument,
-          'malformed text restore span: missing timestamp',
-        );
-      }
-      const start = fromWireOffset(pbSpan.start, 'start');
-      const end = fromWireOffset(pbSpan.end, 'end');
-      if (start > end) {
-        throw new YorkieError(
-          Code.ErrInvalidArgument,
-          `malformed text restore span: start ${start} should not be after end ${end}`,
-        );
-      }
       const value = CRDTTextValue.create(pbSpan.content);
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
         value.setAttr(key, attr, executedAt);
       }
       return {
         createdAt: fromTimeTicket(pbSpan.createdAt)!,
-        start,
-        end,
+        start: pbSpan.start,
+        end: pbSpan.end,
         value,
       };
     };

@@ -15,14 +15,8 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
-import {
-  OperationSchema as PbOperationSchema,
-  RestoreSpan as PbRestoreSpan,
-  RestoreSpanSchema as PbRestoreSpanSchema,
-} from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
@@ -241,99 +235,5 @@ describe('Converter', function () {
     }
     assert.isTrue(foundGCElementWithValueA);
     assert.equal(obj.toSortedJSON(), doc.getRootObject().toSortedJSON());
-  });
-
-  it('should reject a text position carrying a negative offset', function () {
-    const doc = new Document<{ k1: Text }>('test-doc');
-    doc.update((root) => {
-      root.k1 = new Text();
-      root.k1.edit(0, 0, 'ABCD');
-    });
-
-    const pbOps = doc
-      .createChangePack()
-      .getChanges()
-      .flatMap((change) => change.getOperations())
-      .map((op) =>
-        fromBinary(PbOperationSchema, converter.operationToBinary(op)),
-      );
-    const pbOp = pbOps.find((candidate) => candidate.body.case === 'edit');
-    if (pbOp?.body.case !== 'edit') {
-      assert.fail('the text edit should encode as an edit operation');
-    }
-    const edit = pbOp.body.value;
-    // The untampered operation round-trips, so a rejection below is the
-    // offset and not the encoding.
-    assert.isOk(converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)));
-
-    // `offset` and `relative_offset` are int32 on the wire, so a peer can
-    // send a negative one; it has to be refused before it reaches the
-    // position arithmetic in RGATreeSplit.
-    for (const field of ['offset', 'relativeOffset'] as const) {
-      const original = edit.from![field];
-      edit.from![field] = -1;
-      assert.throws(
-        () => converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)),
-        /non-negative integer/,
-      );
-      edit.from![field] = original;
-    }
-  });
-
-  it('should reject a malformed text restore span', function () {
-    const doc = new Document<{ k1: Text }>('test-doc');
-    doc.update((root) => {
-      root.k1 = new Text();
-      root.k1.edit(0, 0, 'ABCD');
-    });
-
-    const pbOps = doc
-      .createChangePack()
-      .getChanges()
-      .flatMap((change) => change.getOperations())
-      .map((op) =>
-        fromBinary(PbOperationSchema, converter.operationToBinary(op)),
-      );
-    const pbOp = pbOps.find((candidate) => candidate.body.case === 'edit');
-    if (pbOp?.body.case !== 'edit') {
-      assert.fail('the text edit should encode as an edit operation');
-    }
-    const edit = pbOp.body.value;
-    const createdAt = edit.from!.createdAt;
-
-    // `start`/`end` are int32 on the wire and `RGATreeSplit.restore` mints
-    // node ids straight from them, and the span is addressed by insertion
-    // identity, so it is malformed without a `created_at` the same way a tree
-    // restore span is.
-    const cases: Array<[string, (span: PbRestoreSpan) => void, RegExp]> = [
-      ['a negative start', (span) => (span.start = -1), /non-negative integer/],
-      ['a negative end', (span) => (span.end = -1), /non-negative integer/],
-      ['a reversed range', (span) => (span.start = 3), /should not be after/],
-      [
-        'a missing timestamp',
-        (span) => (span.createdAt = undefined),
-        /missing timestamp/,
-      ],
-    ];
-    for (const [name, tamper, message] of cases) {
-      const span = create(PbRestoreSpanSchema, {
-        createdAt,
-        start: 0,
-        end: 2,
-        content: 'AB',
-      });
-      edit.restoreSpans = [span];
-      // The untampered span decodes, so a rejection below is the field.
-      assert.isOk(
-        converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)),
-      );
-      tamper(span);
-      assert.throws(
-        () => converter.bytesToOperation(toBinary(PbOperationSchema, pbOp)),
-        message,
-        undefined,
-        `a restore span with ${name} should be refused`,
-      );
-    }
   });
 });

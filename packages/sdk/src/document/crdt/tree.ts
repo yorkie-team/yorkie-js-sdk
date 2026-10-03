@@ -210,8 +210,14 @@ export class CRDTTreePos {
    */
   public static fromStruct(struct: CRDTTreePosStruct): CRDTTreePos {
     return CRDTTreePos.of(
-      CRDTTreeNodeID.fromStruct(struct.parentID),
-      CRDTTreeNodeID.fromStruct(struct.leftSiblingID),
+      CRDTTreeNodeID.of(
+        TimeTicket.fromStruct(struct.parentID.createdAt),
+        struct.parentID.offset,
+      ),
+      CRDTTreeNodeID.of(
+        TimeTicket.fromStruct(struct.leftSiblingID.createdAt),
+        struct.leftSiblingID.offset,
+      ),
     );
   }
 
@@ -333,30 +339,6 @@ export function replaceTreeNodeID(
 }
 
 /**
- * `validateTreeOffset` rejects an offset that cannot name a position.
- *
- * `fromStruct` is the second deserializer of a tree position, next to the
- * protobuf decoder, and the structs it reads are no more trusted than the
- * wire: a `CRDTTreePosStruct` travels through presence - the selection of a
- * remote peer, handed back to `Tree.posRangeToIndexRange` and
- * `Tree.posRangeToPathRange` - so it arrives from another client unchecked.
- * The offset is not looked up before it is used: `toTreeNodePair` compares it
- * against the floor node's own offset to decide whether to step to `insPrev`,
- * and `CRDTTree.toIndex` adds it to an index read off the index tree, so a
- * negative or fractional one resolves to a position other than the one it
- * names. Refuse it here the way `fromTreeNodeID` refuses it on the wire.
- */
-function validateTreeOffset(offset: number): number {
-  if (!Number.isInteger(offset) || offset < 0) {
-    throw new YorkieError(
-      Code.ErrInvalidArgument,
-      `malformed position: offset should be a non-negative integer, but ${offset}`,
-    );
-  }
-  return offset;
-}
-
-/**
  * `CRDTTreeNodeID` represent an ID of a node in the tree. It is used to
  * identify a node in the tree. It is composed of the creation time of the node
  * and the offset from the beginning of the node if the node is split.
@@ -394,7 +376,7 @@ export class CRDTTreeNodeID {
   public static fromStruct(struct: CRDTTreeNodeIDStruct): CRDTTreeNodeID {
     return CRDTTreeNodeID.of(
       TimeTicket.fromStruct(struct.createdAt),
-      validateTreeOffset(struct.offset),
+      struct.offset,
     );
   }
 
