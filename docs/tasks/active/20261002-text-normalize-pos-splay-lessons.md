@@ -37,7 +37,11 @@ webhook, and the token-refresh tests retry until the run looks hung.
 
 ## Self review log
 
-- Round 1 (correctness/tests): no blocking findings; stopped there. Two
-  mutations the shipped test does not catch (dropping the splay after
-  restore, or the weight update in splitNode) are redundant today: a later
-  indexOf or the node constructor recomputes the same weight.
+This is a record of what the author's own pass covered, not a verdict on the
+change; review stands with the reviewer.
+
+- Round 1 (correctness/tests): one round run, covering the invariant that
+  every chain node is also in `treeByIndex`, and the test's mutation
+  coverage. Two mutations the shipped test does not catch (dropping the splay
+  after restore, or the weight update in `splitNode`) are redundant today: a
+  later `indexOf` or the node constructor recomputes the same weight.
