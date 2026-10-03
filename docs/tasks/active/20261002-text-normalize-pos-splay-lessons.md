@@ -48,25 +48,38 @@ change; review stands with the reviewer.
 
 ## Review panel, round 1
 
-Two blocking findings, both about what `normalizePos` means for a pos whose
-id only a floor lookup resolves. Both were fair: the old chain walk (and so
-the first version of the test) added `rel` to the *start* of the floor node,
-dropping the offset the id carries into that node and counting tombstones
-between the pieces as live.
+Two findings, both about what `normalizePos` means for a pos whose id only
+a floor lookup resolves: the chain walk adds `rel` to the *start* of the
+floor node, dropping the offset the id carries into that node and counting
+tombstones between the pieces as live. Acting on them -- resolving through
+`getAbsoluteID` and `findFloorNodePreferToLeft`, the pair
+`findNodeWithSplit` uses -- turned out to be wrong, and CI caught it:
+`history_text_test` reconcile cases 2, 4 and 7 diverged the two replicas.
 
-The resolution to copy next time: `normalizePos` must agree with
-`findNodeWithSplit`, because that is what decides where the edit it is
-reporting actually lands. That means `getAbsoluteID` plus
-`findFloorNodePreferToLeft`, i.e. `posToIndex(pos, true)` - not the plain
-floor lookup `posToIndex(pos, false)` uses, which disagrees at a split
-boundary once a concurrent insertion has pushed the two pieces apart.
+One thing the randomized harness surfaced only after the semantics changed:
+undo in the two-replica test throws on apply, because `garbageCollect` is
+driven by `maxVectorOf`, which claims both replicas have seen everything and
+purges nodes a peer's pending undo still anchors on. Not a product bug
+reachable this way; modelling it needs per-replica acked vectors that the
+stub `crossSync` does not carry. Left out, with a note in the test.
 
-Two things the randomized harness surfaced only after the semantics changed:
+## `normalizePos` is not `posToIndex`, however much it looks like one
 
-- `purge` leaves a hole in the id space, so `absoluteOffset - node.offset`
-  can run past the piece that survived. Clamp to its content length.
-- Undo in the two-replica test throws on apply, because `garbageCollect` is
-  driven by `maxVectorOf`, which claims both replicas have seen everything
-  and purges nodes a peer's pending undo still anchors on. Not a product
-  bug reachable this way; modelling it needs per-replica acked vectors that
-  the stub `crossSync` does not carry. Left out, with a note in the test.
+It reads like a rendered-index query, so "resolve it the way the edit path
+resolves the same pos" reads like a strict improvement. It is not.
+`Document.applyChangeInternal` normalizes a remote Edit's `fromPos`/`toPos`
+*after* the edit has run, and feeds the span to `reconcileTextEdit` to shift
+the undo stacks. Resolving through the split pieces makes a delete's span
+collapse to a point -- the pieces it just tombstoned weigh zero -- so the
+stacks never shift and the replicas diverge after undo/redo.
+
+The id-space `rel` is what preserves the pre-edit span. Keeping the chain
+walk's arithmetic is the whole contract here; the branch's only licence is
+to compute that same number in O(log n).
+
+The general lesson: when a perf change is justified as "identical result,
+cheaper", any later finding that argues the *result* should change is out of
+scope for the branch. Faithfulness to the old behaviour is testable by
+construction (`indexOf(node)` is the sum of the prev chain's live lengths);
+a semantics argument is not, and the callers that disagree are two files
+away in a suite the unit tests cannot reach.
