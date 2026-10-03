@@ -1254,20 +1254,24 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
 }
 
 /**
- * `fromTextOffset` validates an offset carried by a text position or id.
+ * `fromWireOffset` validates an offset carried by a position, an id or a
+ * restore span.
  *
- * Both are `int32` on the wire, so a peer can send a negative one, and the
- * value is not looked up before it is used: `RGATreeSplit` adds it to a node
- * id (`getAbsoluteID`) and to an index read off the splay tree, so a negative
- * offset resolves to a position before the one it names - and is re-broadcast
- * inside the reverse operation this replica records. Reject it at the
- * boundary instead, the way a malformed tree restore span is rejected.
+ * Every one of them is `int32` on the wire, so a peer can send a negative one,
+ * and the value is not looked up before it is used: `RGATreeSplit` adds it to
+ * a node id (`getAbsoluteID`) and to an index read off the splay tree, and
+ * `RGATreeSplit.restore` mints node ids straight from a span's
+ * `start`/`end` cursor. A negative offset therefore resolves to a position
+ * before the one it names, or seeds a node id that no local edit could ever
+ * produce - and is re-broadcast inside the reverse operation this replica
+ * records. Reject it at the boundary instead, the way a malformed tree
+ * restore span is rejected.
  */
-function fromTextOffset(offset: number, field: string): number {
+function fromWireOffset(offset: number, field: string): number {
   if (!Number.isInteger(offset) || offset < 0) {
     throw new YorkieError(
       Code.ErrInvalidArgument,
-      `malformed text position: ${field} should be a non-negative integer, but ${offset}`,
+      `malformed position: ${field} should be a non-negative integer, but ${offset}`,
     );
   }
   return offset;
@@ -1280,9 +1284,9 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
   return RGATreeSplitPos.of(
     RGATreeSplitNodeID.of(
       fromTimeTicket(pbTextNodePos.createdAt)!,
-      fromTextOffset(pbTextNodePos.offset, 'offset'),
+      fromWireOffset(pbTextNodePos.offset, 'offset'),
     ),
-    fromTextOffset(pbTextNodePos.relativeOffset, 'relativeOffset'),
+    fromWireOffset(pbTextNodePos.relativeOffset, 'relativeOffset'),
   );
 }
 
@@ -1292,7 +1296,7 @@ function fromTextNodePos(pbTextNodePos: PbTextNodePos): RGATreeSplitPos {
 function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
   return RGATreeSplitNodeID.of(
     fromTimeTicket(pbTextNodeID.createdAt)!,
-    fromTextOffset(pbTextNodeID.offset, 'offset'),
+    fromWireOffset(pbTextNodeID.offset, 'offset'),
   );
 }
 
@@ -1336,7 +1340,7 @@ function fromTreePos(pbTreePos: PbTreePos): CRDTTreePos {
 function fromTreeNodeID(pbTreeNodeID: PbTreeNodeID): CRDTTreeNodeID {
   return CRDTTreeNodeID.of(
     fromTimeTicket(pbTreeNodeID.createdAt)!,
-    pbTreeNodeID.offset,
+    fromWireOffset(pbTreeNodeID.offset, 'offset'),
   );
 }
 
@@ -1529,15 +1533,38 @@ function fromOperation(pbOperation: PbOperation): Operation | undefined {
     });
     const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
 
+    // A text restore span addresses content by insertion identity, so it is
+    // malformed without a `createdAt` - the decoder below non-null asserts the
+    // ticket, and an undefined one does not fail until the comparator reads it
+    // deep inside the restore path, the same hole `fromPbTreeRestoreSpan`
+    // closes. `start`/`end` are `int32` on the wire and are used as raw
+    // offsets: `RGATreeSplit.restore` walks a cursor from `start` to `end` and
+    // mints `RGATreeSplitNodeID.of(createdAt, cursor)` from it, so they get the
+    // same non-negativity check as any other wire offset, plus the ordering
+    // that cursor walk assumes.
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
+      if (!pbSpan.createdAt) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'malformed text restore span: missing timestamp',
+        );
+      }
+      const start = fromWireOffset(pbSpan.start, 'start');
+      const end = fromWireOffset(pbSpan.end, 'end');
+      if (start > end) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `malformed text restore span: start ${start} should not be after end ${end}`,
+        );
+      }
       const value = CRDTTextValue.create(pbSpan.content);
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
         value.setAttr(key, attr, executedAt);
       }
       return {
         createdAt: fromTimeTicket(pbSpan.createdAt)!,
-        start: pbSpan.start,
-        end: pbSpan.end,
+        start,
+        end,
         value,
       };
     };

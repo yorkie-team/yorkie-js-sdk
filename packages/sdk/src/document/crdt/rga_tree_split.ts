@@ -87,6 +87,28 @@ export type RGATreeSplitNodeIDStruct = {
 };
 
 /**
+ * `validateOffset` rejects an offset that cannot name a position.
+ *
+ * `fromStruct` is the second deserializer of a text position, next to the
+ * protobuf decoder, and the structs it reads are not local: a struct travels
+ * through presence - the selection of a remote peer, fed back into
+ * `Text.posRangeToIndexRange` - so it is as untrusted as the wire. A negative
+ * offset is not looked up before it is used: it is added to a node id
+ * (`getAbsoluteID`) and to an index read off the splay tree, resolving to a
+ * position before the one it names, so refuse it here the way the converter
+ * refuses it on the wire.
+ */
+function validateOffset(offset: number, field: string): number {
+  if (!Number.isInteger(offset) || offset < 0) {
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      `malformed position: ${field} should be a non-negative integer, but ${offset}`,
+    );
+  }
+  return offset;
+}
+
+/**
  * `RGATreeSplitNodeID` is an ID of RGATreeSplitNode.
  */
 export class RGATreeSplitNodeID {
@@ -113,7 +135,7 @@ export class RGATreeSplitNodeID {
   ): RGATreeSplitNodeID {
     return RGATreeSplitNodeID.of(
       TimeTicket.fromStruct(struct.createdAt),
-      struct.offset,
+      validateOffset(struct.offset, 'offset'),
     );
   }
 
@@ -210,7 +232,10 @@ export class RGATreeSplitPos {
    */
   public static fromStruct(struct: RGATreeSplitPosStruct): RGATreeSplitPos {
     const id = RGATreeSplitNodeID.fromStruct(struct.id);
-    return RGATreeSplitPos.of(id, struct.relativeOffset);
+    return RGATreeSplitPos.of(
+      id,
+      validateOffset(struct.relativeOffset, 'relativeOffset'),
+    );
   }
 
   /**
@@ -1322,13 +1347,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // exception leaves the change unacknowledged and the server redelivering
     // it forever, so a lookup this code believes impossible must not be the
     // thing that wedges a client's sync.
+    //
+    // The fallback stays anchored on the head, the way the branch above is:
+    // callers read the result as a single absolute offset from `(0:0)`, so
+    // handing back a different anchor - the node itself, when it has been
+    // unlinked and the walk has nowhere to go - would silently measure the
+    // offset from somewhere else.
     let total = pos.getRelativeOffset();
-    let curr = node;
     for (let prev = node.getPrev(); prev; prev = prev.getPrev()) {
       total += prev.getLength();
-      curr = prev;
     }
-    return RGATreeSplitPos.of(curr.getID(), total);
+    return RGATreeSplitPos.of(this.head.getID(), total);
   }
 
   /**

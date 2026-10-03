@@ -329,6 +329,63 @@ describe('Text.normalizePos', () => {
     assert.isAtMost(hops[8000], Math.max(hops[1000], lookups));
   });
 
+  it('should answer the same from the chain walk when the index read fails', () => {
+    const doc = new Document<{ t: Text }>('normalize-pos-fallback');
+    doc.update((root) => {
+      root.t = new Text();
+      root.t.edit(0, 0, 'ABCD');
+      // Split the node and leave a tombstone in the chain, so the walk has to
+      // step over nodes of differing live length to agree with the index.
+      root.t.edit(2, 2, 'XY');
+      root.t.edit(1, 2, '');
+    });
+    const text = doc.getRootObject().get('t') as unknown as CRDTText;
+    const split = text.getRGATreeSplit();
+    const head = split.getHead().getID();
+
+    const positions: Array<RGATreeSplitPos> = [];
+    for (let node = split.getHead().getNext(); node; node = node.getNext()) {
+      for (let offset = 0; offset <= node.getContentLength(); offset++) {
+        positions.push(RGATreeSplitPos.of(node.getID(), offset));
+      }
+    }
+    assert.isAbove(positions.length, 3);
+    const expected = positions.map((pos) => text.normalizePos(pos));
+
+    // The fallback is unreachable through the model - only `purge` takes a
+    // node out of `treeByIndex`, and it unlinks the node from `treeByID` too -
+    // so force the index read to abstain the way it would if that ever
+    // stopped holding. The branch must still answer, head-anchored, with what
+    // the index read answered.
+    const treeByIndex = split.getTreeByIndex();
+    const original = treeByIndex.indexOf;
+    let abstained = 0;
+    treeByIndex.indexOf = () => {
+      abstained++;
+      return -1;
+    };
+    try {
+      positions.forEach((pos, i) => {
+        const got = text.normalizePos(pos);
+        assert.isTrue(
+          got.getID().equals(head),
+          `${pos.toTestString()} fell back to ${got.toTestString()}, ` +
+            `want the head ${head.toTestString()}`,
+        );
+        assert.equal(
+          got.getRelativeOffset(),
+          expected[i].getRelativeOffset(),
+          `${pos.toTestString()} fell back to offset ${got.getRelativeOffset()}`,
+        );
+      });
+    } finally {
+      treeByIndex.indexOf = original;
+    }
+    // Guard the harness: every lookup above has to have reached the stub,
+    // otherwise the fallback was never the thing that answered.
+    assert.equal(abstained, positions.length);
+  });
+
   it('should keep typing linear in the length of the text', () => {
     const sizes = [500, 2000];
     const hops = sizes.map((size) => countChainSteps(() => typeText(size)));
