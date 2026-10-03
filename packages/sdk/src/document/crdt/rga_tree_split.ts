@@ -1277,28 +1277,38 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * (a tombstone stays in with weight zero; only `purge` takes a node out,
    * and `purge` unlinks it from the chain too). Every Edit execution calls
    * this, so a linear walk here makes typing a document quadratic.
+   *
+   * The position is resolved exactly as `findNodeWithSplit` resolves the same
+   * pos when the edit is applied: through `getAbsoluteID`, preferring the
+   * piece to the left of a split boundary. So an `(id, rel)` whose pieces this
+   * replica has since split - the shape a peer sends when it has not applied
+   * our splits - lands on the piece that actually holds the character, rather
+   * than adding `rel` to the start of the floor node and losing both the
+   * offset the id carries into that node and the tombstones in between. A
+   * tombstone holds no live character, so a position inside one normalizes to
+   * where it sits.
    */
   public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
-    const node = this.findFloorNode(pos.getID());
-    if (!node) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        `the node of the given id should be found: ${pos.getID().toTestString()}`,
-      );
-    }
-
+    const absoluteID = pos.getAbsoluteID();
+    const node = this.findFloorNodePreferToLeft(absoluteID);
     const index = this.treeByIndex.indexOf(node);
     if (index < 0) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
-        `the node of the given id should be indexed: ${pos.getID().toTestString()}`,
+        `the node of the given id should be indexed: ${absoluteID.toTestString()}`,
       );
     }
 
-    return RGATreeSplitPos.of(
-      this.head.getID(),
-      index + pos.getRelativeOffset(),
-    );
+    // Clamped because `purge` leaves a hole in the id space: the piece that
+    // held these offsets can be gone, in which case the position sits at the
+    // end of the piece that survived before it.
+    const offset = node.isRemoved()
+      ? 0
+      : Math.min(
+          absoluteID.getOffset() - node.getID().getOffset(),
+          node.getContentLength(),
+        );
+    return RGATreeSplitPos.of(this.head.getID(), index + offset);
   }
 
   /**
