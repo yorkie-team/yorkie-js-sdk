@@ -83,3 +83,27 @@ scope for the branch. Faithfulness to the old behaviour is testable by
 construction (`indexOf(node)` is the sum of the prev chain's live lengths);
 a semantics argument is not, and the callers that disagree are two files
 away in a suite the unit tests cannot reach.
+
+## Panel round: a guard added to one deserializer is half a guard
+
+Round N-1 added offset validation at the protobuf boundary and at the text
+*struct* boundary, and gave the tree's *wire* decoder the same check. The
+panel's blast-radius lens found the fourth corner of that square left open:
+`CRDTTreePos.fromStruct` / `CRDTTreeNodeID.fromStruct` copied a remote peer's
+presence offsets straight into `CRDTTreeNodeID.of`, reached from
+`Tree.posRangeToIndexRange` / `posRangeToPathRange` -- the exact route the
+text guard's own doc comment cites as the reason to distrust structs.
+
+The lesson is about how to close such a hole, not that it existed: each of
+the two types has a wire decoder and a struct decoder, so a guard is only
+done when all four cells are filled. `CRDTTreePos.fromStruct` now delegates
+to `CRDTTreeNodeID.fromStruct` instead of rebuilding ids inline, so the
+struct path has one place left to forget.
+
+The same shape showed up in the clamp: `posToIndex` clamps
+`absoluteID.getOffset() - node.getID().getOffset()` to the floor node's
+content, and `findNodeWithSplit` computes the identical difference and hands
+it to `splitNode`, which throws on the overshoot the clamp exists for. Both
+run on the remote-apply path, where a throw leaves the change unacknowledged
+and the server redelivering it. A fix written for one call site needs a grep
+for its own arithmetic.

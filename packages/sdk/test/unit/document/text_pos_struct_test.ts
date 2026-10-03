@@ -17,6 +17,8 @@
 import { describe, it, assert } from 'vitest';
 import { Document, Text } from '@yorkie-js/sdk/src/yorkie';
 import { TextPosStructRange } from '@yorkie-js/sdk/src/document/json/text';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
+import { RGATreeSplitPos } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 
 /**
  * `textDoc` returns a document whose text holds `ABCD` as a single node.
@@ -69,6 +71,38 @@ describe('Text.posRangeToIndexRange', () => {
       to,
       doc.getRoot().t.length,
       'the clamped offset should stay inside the text',
+    );
+  });
+});
+
+describe('RGATreeSplit.findNodeWithSplit', () => {
+  it('should clamp an offset running past the node it resolves to', () => {
+    const doc = textDoc();
+    const text = doc.getRootObject().get('t') as unknown as CRDTText;
+    const split = text.getRGATreeSplit();
+    const node = split.getHead().getNext()!;
+
+    // The same arithmetic `posToIndex` clamps: the floor lookup answers with
+    // the node whose id is the greatest one at or before the position, so an
+    // offset past that node's content - what GC leaves behind when it purges
+    // the piece the id addressed - overshoots it. `splitNode` refuses an
+    // overshooting offset, and this runs on the remote-apply path, so the
+    // position must resolve to the end of the survivor instead of throwing.
+    const overshoot = RGATreeSplitPos.of(
+      node.getID(),
+      node.getContentLength() + 100,
+    );
+    const [left, , right] = split.findNodeWithSplit(
+      overshoot,
+      doc.getChangeID().next().createTimeTicket(1),
+    );
+
+    assert.equal(left, node, 'the split should land at the end of the node');
+    assert.isUndefined(right, 'the node is the last one in the chain');
+    assert.equal(
+      split.posToIndex(overshoot, true),
+      doc.getRoot().t.length,
+      'the clamped position stays inside the text',
     );
   });
 });

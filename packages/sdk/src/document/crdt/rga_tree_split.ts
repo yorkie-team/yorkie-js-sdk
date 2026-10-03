@@ -1456,7 +1456,18 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   ): [RGATreeSplitNode<T>, DataSize, RGATreeSplitNode<T>] {
     const absoluteID = pos.getAbsoluteID();
     let node = this.findFloorNodePreferToLeft(absoluteID);
-    const relativeOffset = absoluteID.getOffset() - node.getID().getOffset();
+    // The offset inside the floor node is clamped to its content, the way
+    // `posToIndex` clamps the same difference: when GC has purged the piece
+    // the id addressed, the floor lookup lands on an earlier survivor and the
+    // raw difference runs past the end of it. Unclamped, `splitNode` refuses
+    // it - and this runs inside `CRDTText.edit`, on the remote-apply path,
+    // where throwing leaves the change unacknowledged and the server
+    // redelivering it forever. Split at the end of the survivor instead,
+    // which is the position the purged piece's end now resolves to.
+    const relativeOffset = Math.min(
+      absoluteID.getOffset() - node.getID().getOffset(),
+      node.getContentLength(),
+    );
 
     const [, diff] = this.splitNode(node, relativeOffset);
 
