@@ -91,14 +91,12 @@ function arrayTraceArbitrary(
     maxLength: 3,
   });
 
-  // Fixed lengths preserve one mutation from every client while shrinking.
+  // Every client pushes at least once, even after shrinking. A delete on an
+  // empty array is a no-op, so a fixed delete could leave a trace that never
+  // mutates the array.
   return fc
     .record({
       clientOrder: fc.shuffledSubarray(clientIndexes, {
-        minLength: clientCount,
-        maxLength: clientCount,
-      }),
-      mutations: fc.array(mutationArbitrary, {
         minLength: clientCount,
         maxLength: clientCount,
       }),
@@ -107,14 +105,11 @@ function arrayTraceArbitrary(
         maxLength: clientCount + 1,
       }),
     })
-    .map(({ clientOrder, mutations, gaps }) => {
+    .map(({ clientOrder, gaps }) => {
       const trace: Array<ArrayStep> = [...gaps[0]];
 
       for (let index = 0; index < clientCount; index++) {
-        trace.push({
-          ...mutations[index],
-          client: clientOrder[index],
-        });
+        trace.push({ kind: 'push', client: clientOrder[index] });
         trace.push(...gaps[index + 1]);
       }
 
