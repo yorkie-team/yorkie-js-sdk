@@ -75,6 +75,17 @@ after d1's product. Each side is self-consistent; they disagree.
 
 ## Verification
 
+- [x] One reading of an empty version vector across the split path: the §7.5
+      advance (`advancePastUnknownSplitSiblings`, and `emptyRunReachesActor`
+      below it) returns early on `size() === 0`, the way §7.8 does and the
+      way Go guards the same advance. `hasUnknownSplitSibling` and the inline
+      `get` comparisons keep Go's inline reading; see the round 6 lesson.
+- [x] An absent `versionVector` field decodes to the change's own
+      actor/lamport entry, not the empty vector, so `hasClocks()` stays true
+      and `syncClocks` still advances the lamport
+      (`test/unit/api/converter_test.ts`). The pack-level field is taken as
+      optional by `applySnapshot` and the GC sweep instead of asserted
+      (`test/unit/document/snapshot_vector_absent_test.ts`).
 - [x] New cases: 6 of the 12 two-replica cases and the three-replica case
       fail on `main`, all pass here; the 20 existing cases in the file keep
       their results (4 `KNOWN` skips untouched). Three of the passing ones

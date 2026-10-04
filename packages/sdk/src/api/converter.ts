@@ -26,6 +26,7 @@ import {
   PresenceChangeType,
 } from '@yorkie-js/sdk/src/document/presence/change';
 import {
+  InitialLamport,
   InitialTimeTicket,
   TimeTicket,
 } from '@yorkie-js/sdk/src/document/time/ticket';
@@ -1066,20 +1067,52 @@ export function isErrorCode(
 function fromChangeID(pbChangeID: PbChangeID): ChangeID {
   // TODO(hackerwins): Remove BigInt conversion. Some of the bigint values are
   // passed as string in the protobuf. We should fix this in the future.
-  //
-  // `versionVector` is an optional Protobuf field, so a peer that omits it
-  // leaves `fromVersionVector` returning undefined. A non-null assertion is a
-  // compile-time claim only, and an undefined vector reaching the causality
-  // tests downstream reads as "the editor knew everything" before it throws
-  // in `hasClocks`. Fall back to the empty vector instead: it knows nothing,
-  // which is the conservative reading of a change that told us nothing.
+  const lamport = BigInt(pbChangeID.lamport);
+  const actorID = toHexString(pbChangeID.actorId);
+
   return ChangeID.of(
     pbChangeID.clientSeq,
-    BigInt(pbChangeID.lamport),
-    toHexString(pbChangeID.actorId),
-    fromVersionVector(pbChangeID.versionVector) ?? new VersionVector(),
+    lamport,
+    actorID,
+    fromChangeVersionVector(pbChangeID.versionVector, actorID, lamport),
     BigInt(pbChangeID.serverSeq),
   );
+}
+
+/**
+ * `fromChangeVersionVector` converts a change's optional `versionVector`
+ * field, standing in for a peer that omitted it.
+ *
+ * A non-null assertion is a compile-time claim only: an undefined vector
+ * reaching the causality tests downstream reads as "the editor knew
+ * everything" (`ticketKnown`) before it throws in `hasClocks`. The empty
+ * vector is no better a stand-in, because the split walk and the server both
+ * read `len(vv) == 0` as a local change -- again "knows everything" -- while
+ * `hasClocks` reads it as "no clocks at all", so `syncClocks` would silently
+ * skip the lamport advance for a change this replica just applied.
+ *
+ * Fall back to the one entry the change states about itself instead. It is
+ * the conservative reading (no other actor's ticket is known), it is not the
+ * empty vector, and it keeps `hasClocks` true exactly when the change carries
+ * a lamport. A change with no lamport has no clocks to begin with -- the
+ * field is only sent for changes with operations -- so the empty vector is
+ * the right answer there.
+ */
+function fromChangeVersionVector(
+  pbVersionVector: PbVersionVector | undefined,
+  actorID: string,
+  lamport: bigint,
+): VersionVector {
+  const vector = fromVersionVector(pbVersionVector);
+  if (vector) {
+    return vector;
+  }
+
+  const fallback = new VersionVector();
+  if (lamport !== InitialLamport) {
+    fallback.set(actorID, lamport);
+  }
+  return fallback;
 }
 
 /**

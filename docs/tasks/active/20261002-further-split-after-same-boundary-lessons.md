@@ -76,3 +76,25 @@
   riding on this fix.
 - The compose-file comments the same commits added went with the revert; the
   gate lives in the todo's Verification boxes and in the PR body.
+
+## Panel round 7
+
+- **An empty vector has to mean one thing per code path, and the narrow
+  guard is the one Go has.** The panel found `orderSameBoundarySplit`
+  returning early on `size() === 0` while `advancePastUnknownSplitSiblings`,
+  which runs back to back with it over the same boundary, still read the
+  empty vector as "knows nothing". Guarded the §7.5 advance on the same
+  condition -- Go guards it there too, so this closes a parity gap rather
+  than opening one. `hasUnknownSplitSibling` and the inline `get`
+  comparisons stay as they are, for the reason round 6 recorded: Go's inline
+  `Get` reads an empty vector as unknown there, and moving them is a
+  separate issue.
+- **An absent optional field needs a stand-in that is true, not just
+  non-crashing.** The empty vector stopped `fromChangeID` throwing in
+  `hasClocks()`, but it also made `hasClocks()` *false*, turning
+  `syncClocks` into a silent no-op: the replica applies the change and never
+  advances its lamport past it. A vector holding the change's own
+  actor/lamport is the conservative reading that still carries clocks.
+- **The same assertion was still one level up.** `pack.getVersionVector()!`
+  fed `applySnapshot` (which dereferences it immediately) and
+  `garbageCollect`. Both now take the field as the optional it is.

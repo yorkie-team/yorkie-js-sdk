@@ -1442,9 +1442,14 @@ export class Document<
     // may be carried into it.
     try {
       if (pack.hasSnapshot()) {
+        // `versionVector` is optional on the pack as well as on the change,
+        // so this is the same omitted-field hazard `fromChangeID` guards --
+        // one level up, where the assertion used to hand `applySnapshot` an
+        // undefined it dereferences right away. `applySnapshot` normalizes
+        // it; pass it through as it came.
         this.applySnapshot(
           pack.getCheckpoint().getServerSeq(),
-          pack.getVersionVector()!,
+          pack.getVersionVector(),
           pack.getSnapshot()!,
           pack.getCheckpoint().getClientSeq(),
         );
@@ -1469,8 +1474,13 @@ export class Document<
     this.epoch = pack.getEpoch();
 
     // 03. Do Garbage collection.
-    if (!pack.hasSnapshot()) {
-      this.garbageCollect(pack.getVersionVector()!);
+    //
+    // The same optional field as above: with no min-synced vector there is no
+    // node we can prove every peer has seen, so collect nothing rather than
+    // assert an undefined into the sweep.
+    const minSyncedVersionVector = pack.getVersionVector();
+    if (!pack.hasSnapshot() && minSyncedVersionVector) {
+      this.garbageCollect(minSyncedVersionVector);
     }
 
     // 04. Update the status.
@@ -2157,20 +2167,25 @@ export class Document<
 
   /**
    * `applySnapshot` applies the given snapshot into this document.
+   *
+   * `snapshotVector` is optional on the wire (`ChangePack.versionVector`), so
+   * a pack that omits it arrives here as undefined. Take it as such rather
+   * than letting the caller assert it away onto the `maxLamport()` below:
+   * an empty vector leaves `setClocks` advancing this replica's lamport by
+   * one and keeping its own vector, which is what a snapshot carrying no
+   * clocks can tell us.
    */
   public applySnapshot(
     serverSeq: bigint,
-    snapshotVector: VersionVector,
+    snapshotVector: VersionVector | undefined,
     snapshot?: Uint8Array,
     clientSeq: number = -1,
   ) {
+    const vector = snapshotVector ?? new VersionVector();
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    this.changeID = this.changeID.setClocks(
-      snapshotVector.maxLamport(),
-      snapshotVector,
-    );
+    this.changeID = this.changeID.setClocks(vector.maxLamport(), vector);
 
     // drop clone because it is contaminated.
     this.clone = undefined;
@@ -2192,7 +2207,7 @@ export class Document<
           snapshot: this.isEnableDevtools()
             ? converter.bytesToHex(snapshot)
             : undefined,
-          snapshotVector: converter.versionVectorToHex(snapshotVector),
+          snapshotVector: converter.versionVectorToHex(vector),
         },
       },
     ]);

@@ -15,8 +15,12 @@
  */
 
 import { describe, it, assert } from 'vitest';
+import { create, toBinary } from '@bufbuild/protobuf';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { ChangeIDSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import { ChangeID } from '@yorkie-js/sdk/src/document/change/change_id';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
@@ -250,5 +254,36 @@ describe('Converter', function () {
     assert.equal(vector.size(), 0);
     assert.doesNotThrow(() => changeID.hasClocks());
     assert.isFalse(changeID.hasClocks());
+  });
+
+  it('should keep the clocks of a ChangeID whose vector field is absent', function () {
+    // The same omitted field, but on a change that does carry a lamport.
+    // Decoding it to the empty vector would make `hasClocks()` false, and
+    // `syncClocks`/`syncLamport` return the receiver untouched -- this
+    // replica would apply the change and never advance past it. The one
+    // entry the change states about itself keeps the clocks moving.
+    const actorID = new Uint8Array([
+      0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb,
+    ]);
+    const bytes = toBinary(
+      ChangeIDSchema,
+      create(ChangeIDSchema, {
+        clientSeq: 3,
+        lamport: 7n,
+        actorId: actorID,
+        serverSeq: 9n,
+      }),
+    );
+
+    const changeID = converter.bytesToChangeID(bytes);
+    assert.isTrue(changeID.hasClocks());
+    assert.equal(changeID.getVersionVector().size(), 1);
+    assert.equal(changeID.getVersionVector().get(changeID.getActorID()), 7n);
+
+    const vector = new VersionVector();
+    vector.set('000000000000000000000001', 2n);
+    const receiver = ChangeID.of(1, 2n, '000000000000000000000001', vector);
+    assert.equal(receiver.syncClocks(changeID).getLamport(), 8n);
+    assert.equal(receiver.syncLamport(changeID).getLamport(), 8n);
   });
 });

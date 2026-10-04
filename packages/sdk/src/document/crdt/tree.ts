@@ -2476,7 +2476,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
     relaxParentCheck = false,
     skipActorID?: string,
   ): CRDTTreeNode {
-    if (!versionVector || !node) {
+    // An empty vector is a local change, read the way `ticketKnown` and the
+    // server's `len(vv) == 0` read it -- everything is known, so no sibling
+    // in the chain is a concurrent split to advance past. The §7.8 walk in
+    // `orderSameBoundarySplit` returns on the same condition, and the two run
+    // back to back over one boundary (the edit split loop below and the style
+    // path above): reading the empty vector as "knows nothing" here and as
+    // "knows everything" there would resolve the two halves of one split by
+    // opposite conventions. The Go §7.5 advance guards on `len(vv) == 0` too.
+    //
+    // The raw `versionVector.get` comparisons below stay as they are, as does
+    // `hasUnknownSplitSibling`'s: they mirror Go's inline `Get`, and a
+    // non-empty vector means the same thing to both spellings.
+    if (!versionVector || versionVector.size() === 0 || !node) {
       return node;
     }
 
