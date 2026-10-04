@@ -1270,6 +1270,22 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   /**
    * `normalizePos` converts a local position `(id, rel)` into a single
    * absolute offset measured from the head `(0:0)` of the physical chain.
+   *
+   * The offset is the live length of every node before the floor node of
+   * `id`, plus `rel`. It used to be summed over the `prev` chain; it is now
+   * read from `treeByIndex`, which holds the same sum: every node on the
+   * chain is in it, in chain order, weighted by its live length (a tombstone
+   * stays in with weight zero; only `purge` takes a node out, and `purge`
+   * unlinks it from the chain and from `treeByID` too). Every Edit execution
+   * calls this, so a linear walk here makes typing a document quadratic.
+   *
+   * This is a one-to-one port of the Go implementation (yorkie#2107), and the
+   * result is the chain walk's result for every input, including a floor
+   * lookup that lands on an earlier piece: `rel` is added in the id space of
+   * the floor node, not resolved through `getAbsoluteID`. Resolution stays
+   * the same on purpose - `Document.applyChangeInternal` reconciles the undo
+   * stacks against these offsets, so they must agree with what every other
+   * replica, Go included, computes.
    */
   public normalizePos(pos: RGATreeSplitPos): RGATreeSplitPos {
     const node = this.findFloorNode(pos.getID());
@@ -1280,17 +1296,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       );
     }
 
-    let total = pos.getRelativeOffset();
-    let curr = node;
-    let prev = node.getPrev();
-
-    while (prev) {
-      total += prev.getLength();
-      curr = prev;
-      prev = prev.getPrev();
+    // A node `findFloorNode` returns is always in `treeByIndex` (see above),
+    // so `indexOf` cannot answer -1 here. Go rejects it the same way.
+    const index = this.treeByIndex.indexOf(node);
+    if (index < 0) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the node of the given id should be indexed: ${pos.getID().toTestString()}`,
+      );
     }
 
-    return RGATreeSplitPos.of(curr.getID(), total);
+    return RGATreeSplitPos.of(
+      this.head.getID(),
+      index + pos.getRelativeOffset(),
+    );
   }
 
   /**
