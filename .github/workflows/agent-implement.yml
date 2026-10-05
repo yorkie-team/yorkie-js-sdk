@@ -555,7 +555,10 @@ jobs:
           Execute the standard yorkie-js-sdk task workflow, in order:
 
           1. PLAN: create docs/tasks/active/__TODAY__-<slug>-todo.md and its paired
-             -lessons.md. The todo starts with a `**Created**: YYYY-MM-DD` line.
+             -lessons.md. The todo starts with a `**Created**: YYYY-MM-DD` line,
+             and a second line that is exactly `Tracked as #__ISSUE_NUMBER__` —
+             that wording, unbolded, is what `scripts/tasks-check.mjs --remote`
+             asks GitHub about, and a todo without it is never checked at all.
              If the change alters architecture, also create or update
              docs/design/<topic>.md from docs/design/TEMPLATE.md and add it to
              docs/design/README.md.
