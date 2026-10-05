@@ -522,3 +522,55 @@ describe('YorkieProseMirrorBinding presence publishing', function () {
     assert.equal(dispatched.length, 0);
   });
 });
+
+describe('YorkieProseMirrorBinding upstream sync failure', function () {
+  it('keeps a failing rollback re-sync inside dispatchTransaction', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const errors: Array<string> = [];
+    bind(view, yorkieDoc, {
+      /** Collect what the sync path reports. */
+      onLog(type, message) {
+        if (type === 'error') errors.push(message);
+      },
+    });
+
+    // The upstream sync throws, as an edit at an index the tree rejects does,
+    // and the tree the rollback re-reads is itself unreadable. A throw from
+    // the recovery would escape into ProseMirror's own dispatch.
+    yorkieDoc.update = () => {
+      throw new Error('edit rejected');
+    };
+    (yorkieDoc.getRoot().content as { toJSON(): string }).toJSON = () => {
+      throw new Error('tree unreadable');
+    };
+
+    assert.doesNotThrow(() => typeText(view, 'x', 3));
+    assert.equal(errors.length, 2);
+    assert.include(errors[0], 'edit rejected');
+    assert.include(errors[1], 'tree unreadable');
+  });
+
+  it('reports the failure when the rolled-back tree is gone', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const errors: Array<string> = [];
+    bind(view, yorkieDoc, {
+      /** Collect what the sync path reports. */
+      onLog(type, message) {
+        if (type === 'error') errors.push(message);
+      },
+    });
+
+    const root = yorkieDoc.getRoot() as { content?: unknown };
+    yorkieDoc.update = () => {
+      // The failure took the whole root with it, so there is nothing left to
+      // re-sync the view from.
+      delete root.content;
+      throw new Error('edit rejected');
+    };
+
+    assert.doesNotThrow(() => typeText(view, 'x', 3));
+    assert.deepEqual(errors, ['Upstream sync failed: edit rejected']);
+  });
+});

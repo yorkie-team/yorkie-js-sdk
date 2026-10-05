@@ -579,15 +579,32 @@ export class YorkieProseMirrorBinding {
         // `Document.update` rolled the change back, so the tree still holds
         // the pre-transaction state. Re-sync the view from it to drop the
         // steps that never reached Yorkie.
+        //
+        // The recovery is itself fallible: `syncToPM` rebuilds the whole
+        // document from the tree and dispatches it, so a node the schema
+        // rejects throws here too. Nothing above us can act on that — we are
+        // inside `dispatchTransaction`, and a throw from there escapes into
+        // ProseMirror's own dispatch, leaving the view in a worse state than
+        // the un-rolled-back one we were trying to repair. Log and keep the
+        // view as it is instead. The tree can also be missing (the same
+        // `getTree()` guard the sync path makes at the top of this closure)
+        // when the failure took the whole root with it.
+        const rolledBackTree = this.getTree();
+        if (!rolledBackTree) return;
         try {
           this.isSyncing = true;
           syncToPM(
             this.view,
-            this.getTree(),
+            rolledBackTree,
             this.view.state.schema,
             this.elementToMarkMapping,
             this.onLog,
             this.wrapperElementName,
+          );
+        } catch (recoveryError) {
+          this.onLog?.(
+            'error',
+            `Rollback re-sync failed: ${(recoveryError as Error).message}`,
           );
         } finally {
           this.isSyncing = false;
