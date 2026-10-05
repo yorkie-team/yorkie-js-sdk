@@ -57,7 +57,7 @@ where it becomes a CRDT position. This is the JS half.
 - Undo after a delete across a level-2 split is broken in JS with ASCII text
   too: on `<r><section><p>aXYb</p><p>cXYd</p></section></r>`,
   `edit(11,11,undefined,2)`, `edit(0,3)`, undo, undo throws "index is out of
-  range: 15 > 13". Unrelated to surrogates; needs its own issue.
+  range: 15 > 13". Unrelated to surrogates; filed as #1448.
 - Lone surrogates inside inserted content (`edit(0, 0, 'a\uD83D')`) also
   diverge (Go stores U+FFFD). Go #2085 does not validate content either; a
   content rule is a separate cross-SDK change.
