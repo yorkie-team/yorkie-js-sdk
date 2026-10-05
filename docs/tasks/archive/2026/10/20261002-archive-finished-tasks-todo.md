@@ -34,7 +34,29 @@ again, so what is written there is lost.
       own — the placeholder the branch name and the PR body already use,
       substituted at line 644. The agent App token cannot push it
       ("refusing to allow a GitHub App to create or update workflow ...
-      without `workflows` permission"), so it is not in this branch.
+      without `workflows` permission"), so it is not in this branch. The
+      panel re-raised this on 2026-10-05 and the push was refused a second
+      time, so the patch is written out verbatim below to apply as-is.
+
+      Replace the first two lines of the PLAN step with:
+
+      ```
+          1. PLAN: create docs/tasks/active/__TODAY__-<slug>-todo.md and its paired
+             -lessons.md. The todo starts with a `**Created**: YYYY-MM-DD` line,
+             and a second line that is exactly `Tracked as #__ISSUE_NUMBER__` —
+             that wording, unbolded, is what `scripts/tasks-check.mjs --remote`
+             asks GitHub about, and a todo without it is never checked at all.
+      ```
+
+      Unbolded, and with no colon, ON PURPOSE. `TRACKING_REF`
+      (`scripts/tasks-check.mjs:100-101`) allows only spaces, tabs and one
+      optional colon between the keyword and `#`, so the bold
+      `**Tracked as**: #1437` form that the neighbouring `**Created**` line
+      invites does NOT match and the todo stays unchecked exactly as if the
+      line were absent. Verified by running the regex against both forms:
+      `Tracked as #1437` → true, `**Tracked as**: #1437` → false. Whoever
+      applies this should keep the plain form, or widen `TRACKING_REF` in
+      the same change.
 
 ## Verification
 
