@@ -154,6 +154,10 @@ for (const name of ['sdk', 'react', 'prosemirror']) {
   for (const key of keys) assert.equal(esm[key], cjs[key], id + ':' + key);
   packages[name] = { esm, cjs };
 }
+// react re-exports SDK values, so it must hand out the SDK's own classes.
+for (const format of ['esm', 'cjs'])
+  for (const key of ['Text', 'Tree', 'Counter', 'SyncMode'])
+    assert.equal(packages.react[format][key], packages.sdk[format][key], 'react:' + format + ':' + key);
 const { esm, cjs } = packages.sdk;
 assert.equal(esm.default, cjs.default);
 assert.equal(esm.default.Document, cjs.Document);
@@ -244,14 +248,15 @@ document.update(root => {
   // wrapper must still expose every export and the default.
   w(
     'bundle-entry.mjs',
-    `import yorkie, { Document, converter, setLogLevel } from '@yorkie-js/sdk';
-import { YorkieProvider } from '@yorkie-js/react';
+    `import yorkie, { Document, Text, converter, setLogLevel } from '@yorkie-js/sdk';
+import { YorkieProvider, Text as ReactText } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 const found = { Document, setLogLevel, YorkieProvider, YorkieProseMirrorBinding, 'default.Client': yorkie?.Client };
 for (const [n, v] of Object.entries(found))
   if (typeof v !== 'function') throw new Error(n + ' missing in the bundle');
 if (typeof converter !== 'object' || converter === null) throw new Error('converter missing in the bundle');
 if (yorkie.Document !== Document) throw new Error('default and named Document differ in the bundle');
+if (ReactText !== Text) throw new Error('react and sdk Text differ in the bundle');
 `,
   );
   w(
