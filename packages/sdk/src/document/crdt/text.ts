@@ -29,6 +29,7 @@ import {
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import {
+  ensureNoLoneSurrogate,
   ensureUTF16Boundary,
   escapeString,
 } from '@yorkie-js/sdk/src/document/json/strings';
@@ -660,8 +661,24 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
    * `createRange` returns the position range of the given index range for a
    * local edit or style. Unlike `indexRangeToPosRange`, it rejects an index
    * that splits a UTF-16 surrogate pair.
+   *
+   * `content` is given for an edit and omitted for a style. It is checked for
+   * lone surrogates: storing one diverges across SDKs on its own, and the half
+   * then pairs with whatever code unit it is stored next to, which would turn
+   * the index at that seam into one `validateUTF16Boundary` refuses for the
+   * lifetime of the text. A peer running an SDK without this check can still
+   * send such content — the guard is a local-edit contract, not a trust
+   * boundary — but nothing a client of this SDK does can create it.
    */
-  public createRange(fromIdx: number, toIdx: number): RGATreeSplitPosRange {
+  public createRange(
+    fromIdx: number,
+    toIdx: number,
+    content?: string,
+  ): RGATreeSplitPosRange {
+    if (content) {
+      ensureNoLoneSurrogate(content);
+    }
+
     const range = this.indexRangeToPosRange(fromIdx, toIdx);
     this.validateUTF16Boundary(range[0]);
     if (fromIdx !== toIdx) {

@@ -58,3 +58,25 @@ over `origin/main...HEAD`), not the CI lens panel.
   index, so the node layout is replica-local, and "offset 0 or length" says
   nothing about whether the index sits inside a character. A check on
   replica-local structure has to look past the node's ends.
+- Review panel round 1 (blast radius, security, correctness): four blocking
+  findings, all taken.
+  - The relocated try/catch in the PM binding caught `Document.update`'s own
+    throws (removed document, schema validation, size limit) and answered
+    them with the sync rollback, wiping the user's input on every keystroke
+    for as long as the condition held. The inner catch now records the error
+    it rethrows so the outer one can tell the two apart by identity.
+  - Rejecting the index was only half the contract: content carrying a lone
+    surrogate diverges across SDKs on its own and, once stored, pairs with
+    its neighbour and makes the index at that seam permanently unusable.
+    Local edits now refuse it (`ensureNoLoneSurrogate`), which also retires
+    the "lone halves in content are out of scope" note above.
+  - Only `diffText` had been widened; `detectSplit`'s `charOffset` is the
+    binding's other character-derived index and now declines a mid-pair
+    split. The merge and block-replacement indexes are `yorkieNodeSize`
+    sums and were documented as boundary-safe rather than changed.
+  - The editor examples do call the now-throwing API with raw editor
+    offsets. Both wrap the update and re-sync the editor from the document,
+    so a refused edit is visibly undone instead of silently diverging.
+- Lesson: a fuzz generator is a caller too. `text_normalize_pos_test.ts`
+  sliced `'ab😀가'` by code unit and was the first thing the content guard
+  caught.

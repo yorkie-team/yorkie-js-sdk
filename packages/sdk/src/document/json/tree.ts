@@ -43,6 +43,7 @@ import type {
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { ensureNoLoneSurrogate } from '@yorkie-js/sdk/src/document/json/strings';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in
@@ -161,7 +162,11 @@ function comparePath(a: Array<number>, b: Array<number>): number {
 }
 
 /**
- * `validateTextNode` ensures that a text node has a non-empty string value.
+ * `validateTextNode` ensures that a text node has a non-empty string value
+ * that does not carry a lone half of a UTF-16 surrogate pair. The index guard
+ * in `CRDTTree.findPos` refuses to split a pair; this is the other half of the
+ * same contract, since a stored lone half pairs with the code unit next to it
+ * and makes the index at that seam permanently unusable.
  */
 function validateTextNode(textNode: TextNode): boolean {
   if (!textNode.value.length) {
@@ -170,6 +175,7 @@ function validateTextNode(textNode: TextNode): boolean {
       'text node cannot have empty value',
     );
   }
+  ensureNoLoneSurrogate(textNode.value);
 
   return true;
 }

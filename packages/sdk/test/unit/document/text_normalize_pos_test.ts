@@ -221,6 +221,11 @@ function chainWalk(text: CRDTText, pos: RGATreeSplitPos): number | undefined {
   return total;
 }
 
+// The inserted content is drawn whole characters at a time: a local edit may
+// not carry a lone half of a surrogate pair, so slicing 'ab😀가' by code unit
+// would feed the generator content `Text.edit` refuses.
+const alphabet = [...'ab😀가'];
+
 describe('Text.normalizePos', () => {
   it('should match the chain walk across edit, style, undo, redo and GC', () => {
     const counts = { checks: 0, undo: 0, redo: 0, purged: 0 };
@@ -240,7 +245,7 @@ describe('Text.normalizePos', () => {
           doc.update((root) => {
             const bounds = textBoundaries(root.t);
             const at = bounds[rnd(bounds.length)];
-            root.t.edit(at, at, 'ab😀가'.slice(0, 1 + rnd(4)));
+            root.t.edit(at, at, alphabet.slice(0, 1 + rnd(4)).join(''));
           });
         } else if (op < 6) {
           doc.update((root) => {
@@ -312,7 +317,7 @@ describe('Text.normalizePos', () => {
           doc.update((root) => {
             const bounds = textBoundaries(root.t);
             const at = bounds[rnd(bounds.length)];
-            root.t.edit(at, at, 'ab😀가'.slice(0, 1 + rnd(4)));
+            root.t.edit(at, at, alphabet.slice(0, 1 + rnd(4)).join(''));
           });
         } else if (op < 8) {
           doc.update((root) => {

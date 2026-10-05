@@ -84,7 +84,8 @@ export class Text<A extends Indexable = Indexable> {
 
   /**
    * `edit` edits this text with the given content.
-   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`, and
+   * so does content holding a lone half of one.
    */
   edit(
     fromIdx: number,
@@ -106,7 +107,7 @@ export class Text<A extends Indexable = Indexable> {
       );
     }
 
-    const range = this.text.createRange(fromIdx, toIdx);
+    const range = this.text.createRange(fromIdx, toIdx, content);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `EDIT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} c:${content}`,

@@ -177,6 +177,52 @@ describe('isUTF16Boundary', () => {
   });
 });
 
+describe('Reject lone-surrogate content', () => {
+  const lone = /content must not contain a lone UTF-16 surrogate/;
+
+  // A lone half diverges across SDKs on its own, and once stored it pairs
+  // with whatever code unit it is kept next to, which makes the index at
+  // that seam one the index guard refuses for the lifetime of the text.
+  const cases: Array<[string, string]> = [
+    ['a lone high surrogate', 'a\ud83d'],
+    ['a lone low surrogate', '\ude00b'],
+    ['a reversed pair', '\ude00\ud83d'],
+    ['a half beside a whole pair', '😀\ud83d'],
+  ];
+
+  for (const [name, value] of cases) {
+    it(`Text.edit refuses ${name}`, () => {
+      const doc = newSurrogateDoc();
+      const before = doc.toSortedJSON();
+      assert.throws(
+        () => doc.update((root) => root.text.edit(0, 0, value)),
+        lone,
+      );
+      assert.equal(doc.toSortedJSON(), before);
+    });
+
+    it(`Tree.edit refuses ${name}`, () => {
+      const doc = newSurrogateDoc();
+      const before = doc.toSortedJSON();
+      assert.throws(
+        () => doc.update((root) => root.tree.edit(1, 1, textNode(value))),
+        lone,
+      );
+      assert.equal(doc.toSortedJSON(), before);
+    });
+  }
+
+  it('accepts whole characters on both sides of a pair', () => {
+    const doc = newSurrogateDoc();
+    doc.update((root) => {
+      root.text.edit(0, 0, 'a😀b');
+      root.tree.edit(1, 1, textNode('a😀b'));
+    });
+    assert.equal(doc.getRoot().tree.toXML(), '<r><p>a😀b😀x</p></r>');
+    assert.equal(doc.getRoot().text.toString(), 'a😀b😀x');
+  });
+});
+
 describe('Reject mid-surrogate-pair indexes', () => {
   it('Text.edit', () => {
     const doc = newSurrogateDoc();

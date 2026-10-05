@@ -273,6 +273,19 @@ export function detectSplit(
   const charOffset = collectText(newBlocks[0]).length;
   if (charOffset === 0 || charOffset === oldText.length) return undefined;
 
+  // `charOffset` counts UTF-16 code units, so a split between the halves of a
+  // surrogate pair would reach `findTextSplitOffset` — and then `tree.edit` —
+  // as a mid-pair index, which the tree now rejects, rolling the whole
+  // transaction back. Decline the split instead: the caller falls through to
+  // block replacement, whose indexes are sums of `yorkieNodeSize` and so
+  // always land on node boundaries.
+  if (
+    isHighSurrogate(oldText.charCodeAt(charOffset - 1)) &&
+    isLowSurrogate(oldText.charCodeAt(charOffset))
+  ) {
+    return undefined;
+  }
+
   const splitLevel = computeSplitLevel(oldBlock, newBlocks);
   if (splitLevel === 0) return undefined;
 
@@ -429,6 +442,11 @@ export function syncToYorkie(
     const newBlock = newBlocks[firstDiff];
 
     if (detectMerge(changedOldBlocks, newBlock)) {
+      // Both ends of each boundary come from `computeMergeBoundary`, which
+      // walks whole nodes and sums `yorkieNodeSize` — the indexes land on node
+      // boundaries, never part-way through a text node, so they cannot split a
+      // surrogate pair the way a character offset can.
+      //
       // Apply boundary deletions right-to-left to avoid index shifts
       for (let i = oldEndDiff; i > firstDiff; i--) {
         const [bFrom, bTo] = computeMergeBoundary(
@@ -443,7 +461,9 @@ export function syncToYorkie(
     }
   }
 
-  // Full block replacement (fallback for structural changes)
+  // Full block replacement (fallback for structural changes). Both indexes are
+  // `yorkieNodeSize` sums over whole blocks, so they sit on block boundaries
+  // and can never fall inside a text node — and so never inside a pair.
   const yorkieFromIdx = blockIndexToYorkieIndex(currentYorkieBlocks, firstDiff);
   const yorkieToIdx = blockIndexToYorkieIndex(
     currentYorkieBlocks,

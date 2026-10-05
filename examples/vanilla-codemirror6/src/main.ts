@@ -73,11 +73,30 @@ async function main() {
           continue;
         }
         let adj = 0;
+        let rejected = false;
         tr.changes.iterChanges((fromA, toA, _, __, inserted) => {
+          // `iterChanges` cannot be stopped early, so skip the rest of the
+          // transaction once one of its changes was refused.
+          if (rejected) return;
+
           const insertText = inserted.toJSON().join('\n');
-          doc.update((root) => {
-            root.content.edit(fromA + adj, toA + adj, insertText);
-          }, `update content byA ${client.getID()}`);
+          try {
+            doc.update((root) => {
+              root.content.edit(fromA + adj, toA + adj, insertText);
+            }, `update content byA ${client.getID()}`);
+          } catch (err) {
+            // `Text.edit` refuses an index that splits a UTF-16 surrogate
+            // pair, and content carrying a lone half of one, so a local
+            // CodeMirror change is not guaranteed to reach the document.
+            // Rebuild the editor from the document so the refused change is
+            // visibly undone instead of leaving the two silently diverged.
+            // The rebuild is deferred: dispatching from inside an update
+            // listener re-enters CodeMirror's update cycle.
+            rejected = true;
+            console.error('local edit rejected, re-syncing editor:', err);
+            queueMicrotask(() => syncText());
+            return;
+          }
           adj += insertText.length - (toA - fromA);
         });
       }

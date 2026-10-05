@@ -83,3 +83,32 @@ export function ensureUTF16Boundary(before: number, after: number): void {
     );
   }
 }
+
+/**
+ * `ensureNoLoneSurrogate` throws when `value` holds a surrogate code unit that
+ * is not part of a pair. Rejecting the index that would split a pair is only
+ * half of the contract: content carrying a lone half has the same divergence
+ * (Go stores U+FFFD, JS the raw code unit), and once stored it also pairs up
+ * with whatever code unit it lands against, so the index at that seam becomes
+ * one `ensureUTF16Boundary` refuses for as long as the text lives. Refusing
+ * the content keeps a local edit from manufacturing either.
+ */
+export function ensureNoLoneSurrogate(value: string): void {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    if (code < 0xd800 || code > 0xdfff) {
+      continue;
+    }
+    // A high surrogate followed by a low one is a whole character; step over
+    // both. Anything else reaching here is a half on its own.
+    if (splitsSurrogatePair(code, value.charCodeAt(i + 1))) {
+      i++;
+      continue;
+    }
+
+    throw new YorkieError(
+      Code.ErrInvalidArgument,
+      'content must not contain a lone UTF-16 surrogate',
+    );
+  }
+}

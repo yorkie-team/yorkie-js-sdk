@@ -535,14 +535,23 @@ describe('YorkieProseMirrorBinding upstream sync failure', function () {
       },
     });
 
-    // The upstream sync throws, as an edit at an index the tree rejects does,
-    // and the tree the rollback re-reads is itself unreadable. A throw from
-    // the recovery would escape into ProseMirror's own dispatch.
-    yorkieDoc.update = () => {
+    // The upstream sync throws from inside the updater, as an edit at an
+    // index the tree rejects does, and the tree the rollback re-reads is
+    // itself unreadable afterwards. A throw from the recovery would escape
+    // into ProseMirror's own dispatch.
+    const tree = yorkieDoc.getRoot().content as {
+      toJSON(): string;
+      edit(...args: Array<unknown>): void;
+    };
+    const readTree = tree.toJSON.bind(tree);
+    let failed = false;
+    tree.edit = () => {
+      failed = true;
       throw new Error('edit rejected');
     };
-    (yorkieDoc.getRoot().content as { toJSON(): string }).toJSON = () => {
-      throw new Error('tree unreadable');
+    tree.toJSON = () => {
+      if (failed) throw new Error('tree unreadable');
+      return readTree();
     };
 
     assert.doesNotThrow(() => typeText(view, 'x', 3));
@@ -562,8 +571,10 @@ describe('YorkieProseMirrorBinding upstream sync failure', function () {
       },
     });
 
-    const root = yorkieDoc.getRoot() as { content?: unknown };
-    yorkieDoc.update = () => {
+    const root = yorkieDoc.getRoot() as {
+      content?: { edit(...args: Array<unknown>): void };
+    };
+    root.content!.edit = () => {
       // The failure took the whole root with it, so there is nothing left to
       // re-sync the view from.
       delete root.content;
@@ -572,5 +583,35 @@ describe('YorkieProseMirrorBinding upstream sync failure', function () {
 
     assert.doesNotThrow(() => typeText(view, 'x', 3));
     assert.deepEqual(errors, ['Upstream sync failed: edit rejected']);
+  });
+
+  it('does not roll the view back when Document.update itself refuses', function () {
+    const view = createFakeView();
+    const yorkieDoc = createFakeDoc(() => view.state.doc);
+    const errors: Array<string> = [];
+    bind(view, yorkieDoc, {
+      /** Collect what the sync path reports. */
+      onLog(type, message) {
+        if (type === 'error') errors.push(message);
+      },
+    });
+
+    // `Document.update` throws around the updater, not from it:
+    // `ErrDocumentRemoved` before it runs, schema validation and the size
+    // limit after. Those conditions persist, so rolling the view back would
+    // discard the user's input on every keystroke for as long as they last.
+    const update = yorkieDoc.update.bind(yorkieDoc);
+    yorkieDoc.update = (fn) => {
+      update(fn);
+      throw new Error('document is removed');
+    };
+
+    const before = view.state.doc.textContent;
+    assert.doesNotThrow(() => typeText(view, 'x', 3));
+    assert.deepEqual(errors, ['Document update failed: document is removed']);
+    // The transaction the user typed is still in the view, untouched by a
+    // rollback re-sync.
+    assert.notEqual(view.state.doc.textContent, before);
+    assert.equal(view.state.doc.textContent, 'hexllo');
   });
 });

@@ -538,6 +538,19 @@ export class YorkieProseMirrorBinding {
       // inside a surrogate pair, say) must reach `Document.update` for it to
       // discard the whole change. Catching inside would keep the edits that
       // ran before the throw and leave this replica diverged.
+      //
+      // `Document.update` also throws on its own account, around the updater
+      // rather than from it: `ErrDocumentRemoved` before it runs,
+      // `ErrDocumentSchemaValidationFailed` and `ErrDocumentSizeExceedsLimit`
+      // after. Those are not sync failures and the rollback below is the wrong
+      // answer for them — they persist, so re-syncing the view from the
+      // unchanged tree would silently wipe what the user typed on every
+      // keystroke for as long as the condition lasts. The inner catch records
+      // the error it is about to rethrow so the outer one can tell the two
+      // apart by identity (`Document.update` rethrows the updater's error
+      // object unchanged, document.ts:846-851).
+      let syncFailure: unknown;
+      let hadSyncFailure = false;
       try {
         this.doc.update((root: any, presence: any) => {
           try {
@@ -570,11 +583,26 @@ export class YorkieProseMirrorBinding {
               presence.set({ selection: undefined });
               this.hasPublishedSelection = false;
             }
+          } catch (e) {
+            syncFailure = e;
+            hadSyncFailure = true;
+            throw e;
           } finally {
             this.isSyncing = false;
           }
         });
       } catch (e) {
+        if (!hadSyncFailure || e !== syncFailure) {
+          // `Document.update` itself refused the change (removed document,
+          // schema violation, size limit). The tree never moved and the view
+          // still holds the user's input; rebuilding it from the tree would
+          // throw that input away. Report it and leave the view alone.
+          this.onLog?.(
+            'error',
+            `Document update failed: ${(e as Error).message}`,
+          );
+          return;
+        }
         this.onLog?.('error', `Upstream sync failed: ${(e as Error).message}`);
         // `Document.update` rolled the change back, so the tree still holds
         // the pre-transaction state. Re-sync the view from it to drop the
