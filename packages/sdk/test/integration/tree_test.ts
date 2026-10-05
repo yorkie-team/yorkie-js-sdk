@@ -1633,9 +1633,12 @@ describe('Tree.style', function () {
     doc.update((root) =>
       root.t.style(0, 1, { img: { src: 'yorkie.png' }, rep: 'false' }),
     );
+    // The quotes of the stored JSON are escaped for the attribute they sit in
+    // rather than with a JSON escape: a `\"` here would still close the
+    // attribute, which is how a peer-chosen value forged markup.
     assert.equal(
       doc.getRoot().t.toXML(),
-      /*html*/ `<doc><p img="{\\"src\\":\\"yorkie.png\\"}" rep="false">hello</p></doc>`,
+      /*html*/ `<doc><p img="{&quot;src&quot;:&quot;yorkie.png&quot;}" rep="false">hello</p></doc>`,
     );
   });
 
