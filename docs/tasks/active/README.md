@@ -13,6 +13,12 @@ Each todo should open with a `**Created**: YYYY-MM-DD` line — both
 the archive script and the index script read it (with a filename
 fallback) to bucket and date entries.
 
+A todo should also say, on one line, which number it is tracked by —
+`Tracked as #N`, or `Fixes #N` — as soon as there is one. That line is
+the only thing the `--remote` check below can ask GitHub about: a todo
+without it is reported as *not checked*, and a run where no todo has one
+checked nothing and says so instead of passing.
+
 When work is complete:
 
 ```sh

@@ -49,7 +49,8 @@
 //
 // NEVER FAIL OPEN. Both halves can be prevented from running at all -- a
 // shallow clone with no merge base, a `gh` that is missing, unauthenticated
-// or rate-limited, or neither half being asked for in the first place. That
+// or rate-limited, no todo in active/ declaring a number the remote half
+// could ask about, or neither half being asked for in the first place. That
 // is not "nothing to report": it is "nothing was checked", so it is collected
 // as an `error`, printed, and under `--strict` it exits 1 exactly like a
 // finding would. A green line here has to mean the check ran.
@@ -142,13 +143,16 @@ export function issueRefs(text) {
  * those a closing keyword stands right in front of ("Tracked as #N",
  * "Fixes #N"). A number merely mentioned -- in prose, in a checklist line,
  * next to the word "PR" -- is not a candidate, because a todo that cites
- * another task's number would otherwise be judged by that task. A todo that
- * declares nothing is simply not checked against GitHub.
+ * another task's number would otherwise be judged by that task.
  *
  * The caller takes the first candidate GitHub resolves, because a number
  * that belongs to the server repository (`yorkie #2020` is stripped,
  * `yorkie-team/yorkie fixes #2020` is not) does not exist here and is
  * skipped that way.
+ *
+ * A todo that declares nothing cannot be asked about -- but it is then one
+ * more todo the remote half did NOT check, which the caller has to count and
+ * say out loud rather than pass over in silence.
  */
 export function trackedRefs(text) {
   const seen = new Set();
@@ -291,12 +295,13 @@ export function lookupRepo(repo, exec = spawnSync) {
 }
 
 /**
- * Runs both checks. Returns `{ findings, notes, errors }`; a finding is an
- * active todo that should have been archived, a note is context that is not
- * a finding on its own (a touched todo that is still in progress), and an
- * error is a check that could not run at all. Errors are never silent: they
- * suppress the clean line and fail a `--strict` run, so "no findings" cannot
- * mean "nothing was looked at".
+ * Runs both checks. Returns `{ findings, notes, errors, unchecked }`; a
+ * finding is an active todo that should have been archived, a note is context
+ * that is not a finding on its own (a touched todo that is still in
+ * progress), an error is a check that could not run at all, and `unchecked`
+ * lists the active todos the remote half could not ask GitHub about. Errors
+ * are never silent: they suppress the clean line and fail a `--strict` run, so
+ * "no findings" cannot mean "nothing was looked at".
  */
 export function checkTasks({
   tasksDir = 'docs/tasks',
@@ -311,6 +316,7 @@ export function checkTasks({
   const findings = [];
   const notes = [];
   const errors = [];
+  const unchecked = [];
   const read = (file) => readFileSync(path.join(cwd, file), 'utf8');
 
   // Neither half was asked for, so neither ran. That is the same "nothing was
@@ -381,6 +387,7 @@ export function checkTasks({
   }
 
   if (remote && haveActive) {
+    const errorsBefore = errors.length;
     // A wrong --repo or a token that cannot see the repository makes every
     // issue lookup a 404, which the loop below reads as "not our number" --
     // a clean pass having checked nothing. Ask about the repository first.
@@ -391,14 +398,17 @@ export function checkTasks({
         message: `could not reach ${repo} on GitHub, so no todo was checked against it: ${oneLine(probe.error)}`,
       });
     }
-    for (const file of probe?.error
+    const files = probe?.error
       ? []
       : listActiveTodos(path.join(cwd, tasksDir)).map((f) =>
           path.relative(cwd, f),
-        )) {
+        );
+    let answered = 0;
+    for (const file of files) {
       const text = read(file);
       let first;
       let info;
+      let reported = false;
       for (const ref of trackedRefs(text)) {
         const got = lookup(repo, ref);
         if (got?.error) {
@@ -407,6 +417,7 @@ export function checkTasks({
             message: `could not resolve #${ref} on GitHub, so this todo was not checked: ${oneLine(got.error)}`,
           });
           info = undefined;
+          reported = true;
           break;
         }
         if (got) {
@@ -415,7 +426,23 @@ export function checkTasks({
           break;
         }
       }
-      if (!info) continue;
+      if (!info) {
+        // GitHub was asked nothing about this todo, or answered "not ours"
+        // about every number it declares. Either way it was NOT checked, and
+        // staying quiet about it is how the green line comes to stand for
+        // todos nobody looked at. (The lookup-error branch above already said
+        // so for this file; don't say it twice.)
+        if (!reported) {
+          unchecked.push(file);
+          notes.push({
+            file,
+            message:
+              'not checked against GitHub: it declares no tracking number this repository has. Add `Tracked as #N` (or `Fixes #N`) on one line, or check it by hand',
+          });
+        }
+        continue;
+      }
+      answered++;
       const done = info.kind === 'pr' ? info.merged : info.state === 'closed';
       if (!done) continue;
       const boxes = hasOpenBoxes(text)
@@ -426,9 +453,30 @@ export function checkTasks({
         message: `tracks #${first}, which is ${info.kind === 'pr' ? 'merged' : 'closed'}, but is still in active/${boxes}`,
       });
     }
+    // The remote half ran and resolved not one todo: every todo in active/
+    // declares no number of ours, so GitHub was asked nothing at all. That is
+    // the fail-open this file forbids -- without it, `--remote --strict`
+    // prints the clean line and exits 0 having examined zero todos, which is
+    // this repository's state today -- so it is an error like an unreachable
+    // `gh`. (`answered > 0` means the half did work; the todos it could not
+    // ask about are still listed as notes and counted in `unchecked`.)
+    //
+    // `errorsBefore`: an unreachable repository or a `gh` that cannot resolve
+    // anything already reported, per file, that nothing was checked. Saying it
+    // a second time in summary form adds no information.
+    if (
+      answered === 0 &&
+      unchecked.length > 0 &&
+      errors.length === errorsBefore
+    ) {
+      errors.push({
+        file: `${tasksDir}/active`,
+        message: `nothing was checked against GitHub: none of the ${unchecked.length} todo(s) in ${tasksDir}/active declares a tracking number this repository has (\`Tracked as #N\`, \`Fixes #N\`), so --remote examined none of them`,
+      });
+    }
   }
 
-  return { findings, notes, errors };
+  return { findings, notes, errors, unchecked };
 }
 
 /**
@@ -437,7 +485,10 @@ export function checkTasks({
  * a `::warning file=X::Y` are newline-terminated, and both can carry
  * branch-supplied text.
  */
-export function report({ findings, notes, errors = [] }, out = console) {
+export function report(
+  { findings, notes, errors = [], unchecked = [] },
+  out = console,
+) {
   const annotate = !!process.env.GITHUB_ACTIONS;
   const emit = (level, prefix, items) => {
     for (const i of items) {
@@ -456,7 +507,14 @@ export function report({ findings, notes, errors = [] }, out = console) {
       '[tasks-check] The check could not complete; the result above is not a pass.',
     );
   } else if (findings.length === 0) {
-    out.log('[tasks-check] No finished task left in docs/tasks/active/.');
+    // The clean line says what was covered, not just what was found: with
+    // `--remote`, a todo declaring no number of ours is one the half skipped,
+    // and a bare "no finished task left" would speak for it too.
+    out.log(
+      unchecked.length > 0
+        ? `[tasks-check] No finished task left in docs/tasks/active/, among those checked; ${unchecked.length} todo(s) above were not checked against GitHub.`
+        : '[tasks-check] No finished task left in docs/tasks/active/.',
+    );
   }
 }
 

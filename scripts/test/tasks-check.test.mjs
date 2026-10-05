@@ -317,7 +317,7 @@ describe('tasks-check', () => {
         400: { kind: 'pr', state: 'closed', merged: true },
         500: { kind: 'pr', state: 'closed', merged: true },
       })[n];
-    const { findings, errors } = checkTasks({
+    const { findings, errors, unchecked } = checkTasks({
       remote: true,
       cwd: repo,
       probeRepo: () => ({ ok: true }),
@@ -331,17 +331,74 @@ describe('tasks-check', () => {
     assert.deepEqual(errors, []);
     const wip = findings.find((f) => f.file.includes('wip'));
     assert.match(wip.message, /unticked boxes/);
+    // Three todos were resolved, so the half did run; the two that declare no
+    // number of ours are still named as todos it did not check.
+    assert.deepEqual(unchecked.sort(), [
+      'docs/tasks/active/20260901-case-study-todo.md',
+      'docs/tasks/active/20261002-port-todo.md',
+    ]);
   });
 
-  it('skips a reference GitHub answers "no such number" for', () => {
-    const { findings, errors } = checkTasks({
+  it('names every todo it could not ask GitHub about', () => {
+    const { notes, unchecked } = checkTasks({
+      remote: true,
+      cwd: repo,
+      probeRepo: () => ({ ok: true }),
+      lookup: (_repo, n) =>
+        n === 100 ? { kind: 'issue', state: 'open', merged: false } : undefined,
+    });
+    // Resolved: #100. Declared but not ours: #200, #300. Declares nothing:
+    // the case-study and port todos. All four of the latter are unchecked.
+    assert.deepEqual(unchecked.length, 4);
+    for (const file of unchecked) {
+      assert.ok(
+        notes.some(
+          (n) => n.file === file && /not checked against/.test(n.message),
+        ),
+        `${file} has a note saying it was not checked`,
+      );
+    }
+  });
+
+  // The fail-open this half shipped with: a reference GitHub answers "no such
+  // number" for is skipped per reference, but when that leaves NO todo
+  // resolved, the run examined nothing and must not print the clean line --
+  // the state of this repository's own active/, where no todo declares a
+  // tracking number at all.
+  it('reports "every todo skipped" as an error, not as a clean pass', () => {
+    const { findings, errors, unchecked } = checkTasks({
       remote: true,
       cwd: repo,
       probeRepo: () => ({ ok: true }),
       lookup: () => undefined,
     });
     assert.deepEqual(findings, []);
-    assert.deepEqual(errors, []);
+    assert.equal(unchecked.length, 5);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0].message, /nothing was checked against GitHub/);
+    assert.match(errors[0].message, /declares a tracking number/);
+  });
+
+  // The clean line speaks only for what was looked at: with todos left
+  // unchecked it has to say so, or it stands for them too.
+  it('report: the clean line names the todos that were not checked', () => {
+    const lines = [];
+    const prev = process.env.GITHUB_ACTIONS;
+    delete process.env.GITHUB_ACTIONS;
+    try {
+      report(
+        {
+          findings: [],
+          notes: [],
+          errors: [],
+          unchecked: ['docs/tasks/active/a-todo.md'],
+        },
+        { log: (l) => lines.push(l) },
+      );
+    } finally {
+      if (prev !== undefined) process.env.GITHUB_ACTIONS = prev;
+    }
+    assert.match(lines.join('\n'), /1 todo\(s\).*were not checked/);
   });
 
   it('reports an unreachable GitHub as an error, not as a clean pass', () => {
