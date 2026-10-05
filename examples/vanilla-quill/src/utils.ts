@@ -7,15 +7,21 @@ export function displayPeers(
   peers: Array<{ clientID: string; presence: Indexable }>,
   myClientID: string,
 ) {
-  const usernames = [];
+  // `presence` is whatever a peer set for itself, so each username goes in as
+  // a text node. Interpolating it into `innerHTML` let any collaborator run
+  // script in every other participant's page just by attaching with a username
+  // like `<img src=x onerror=...>`; `JSON.stringify` escapes quotes, not tags.
+  elem.textContent = '';
+  elem.appendChild(document.createTextNode('['));
   for (const { clientID, presence } of peers) {
-    usernames.push(
-      myClientID === clientID
-        ? `<b>${presence.username}</b>`
-        : presence.username,
-    );
+    if (elem.childNodes.length > 1) {
+      elem.appendChild(document.createTextNode(','));
+    }
+    const name = document.createElement(myClientID === clientID ? 'b' : 'span');
+    name.textContent = JSON.stringify(String(presence.username));
+    elem.appendChild(name);
   }
-  elem.innerHTML = JSON.stringify(usernames);
+  elem.appendChild(document.createTextNode(']'));
 }
 
 // function to display document content

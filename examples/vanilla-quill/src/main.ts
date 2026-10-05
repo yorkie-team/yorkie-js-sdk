@@ -256,69 +256,80 @@ async function main() {
       let from = 0,
         to = 0;
       console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
-      doc.update((root, presence) => {
-        for (const op of delta.ops) {
-          if (op.attributes !== undefined || op.insert !== undefined) {
-            if (op.retain !== undefined && typeof op.retain === 'number') {
-              to = from + op.retain;
-            }
-            console.log(
-              `%c local: ${from}-${to}: ${op.insert} ${
-                op.attributes ? JSON.stringify(op.attributes) : '{}'
-              }`,
-              'color: green',
-            );
+      try {
+        doc.update((root, presence) => {
+          for (const op of delta.ops) {
+            if (op.attributes !== undefined || op.insert !== undefined) {
+              if (op.retain !== undefined && typeof op.retain === 'number') {
+                to = from + op.retain;
+              }
+              console.log(
+                `%c local: ${from}-${to}: ${op.insert} ${
+                  op.attributes ? JSON.stringify(op.attributes) : '{}'
+                }`,
+                'color: green',
+              );
 
-            let range;
-            if (op.attributes !== undefined && op.insert === undefined) {
-              root.content.setStyle(from, to, op.attributes as Indexable);
-              from = to;
-            } else if (op.insert !== undefined) {
-              if (to < from) {
+              let range;
+              if (op.attributes !== undefined && op.insert === undefined) {
+                root.content.setStyle(from, to, op.attributes as Indexable);
+                from = to;
+              } else if (op.insert !== undefined) {
+                if (to < from) {
+                  to = from;
+                }
+
+                if (typeof op.insert === 'object') {
+                  range = root.content.edit(from, to, ' ', {
+                    embed: JSON.stringify(op.insert),
+                    ...op.attributes,
+                  });
+                } else {
+                  range = root.content.edit(
+                    from,
+                    to,
+                    op.insert,
+                    op.attributes as Indexable,
+                  );
+                }
+                from =
+                  to + (typeof op.insert === 'string' ? op.insert.length : 1);
                 to = from;
               }
 
-              if (typeof op.insert === 'object') {
-                range = root.content.edit(from, to, ' ', {
-                  embed: JSON.stringify(op.insert),
-                  ...op.attributes,
+              if (range) {
+                presence.set({
+                  selection: root.content.indexRangeToPosRange(range),
                 });
-              } else {
-                range = root.content.edit(
-                  from,
-                  to,
-                  op.insert,
-                  op.attributes as Indexable,
-                );
               }
-              from =
-                to + (typeof op.insert === 'string' ? op.insert.length : 1);
+            } else if (op.delete !== undefined) {
+              to = from + op.delete;
+              console.log(`%c local: ${from}-${to}: ''`, 'color: green');
+
+              const range = root.content.edit(from, to, '');
+              if (range) {
+                presence.set({
+                  selection: root.content.indexRangeToPosRange(range),
+                });
+              }
+              // After delete, 'to' should stay at 'from' since content was removed
+              to = from;
+            } else if (op.retain !== undefined && typeof op.retain === 'number') {
+              from += op.retain;
               to = from;
             }
-
-            if (range) {
-              presence.set({
-                selection: root.content.indexRangeToPosRange(range),
-              });
-            }
-          } else if (op.delete !== undefined) {
-            to = from + op.delete;
-            console.log(`%c local: ${from}-${to}: ''`, 'color: green');
-
-            const range = root.content.edit(from, to, '');
-            if (range) {
-              presence.set({
-                selection: root.content.indexRangeToPosRange(range),
-              });
-            }
-            // After delete, 'to' should stay at 'from' since content was removed
-            to = from;
-          } else if (op.retain !== undefined && typeof op.retain === 'number') {
-            from += op.retain;
-            to = from;
           }
-        }
-      });
+        });
+      } catch (err) {
+        // `Text.edit` refuses an index that splits a UTF-16 surrogate pair,
+        // and content carrying a lone half of one, so a local Quill change is
+        // not guaranteed to reach the document. `doc.update` discarded the
+        // whole delta, so rebuild the editor from the document instead of
+        // leaving the two silently diverged.
+        console.error('local edit rejected, re-syncing editor:', err);
+        syncText();
+        updateAllCursors();
+      }
     })
     .on('selection-change', (range, _, source) => {
       if (!range) {
