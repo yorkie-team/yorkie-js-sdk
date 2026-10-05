@@ -55,9 +55,10 @@ server cannot even replay such a pack on a fresh document.
 
 `Client.attach` calls `doc.setActor(actor, { reissue })`, where `reissue` is
 what `claimReissue` allows: only a client whose key was generated, and only
-once per document key. The option is internal. Without it `setActor` is
-unchanged, so the re-anchor paths, `remove`, channels and devtools replay keep
-their behavior.
+once per document key. The option is marked `@internal`, though the typings
+still carry it. Without it `setActor` is unchanged, so the re-anchor paths,
+`remove`, the detach in `applyStatus` and devtools replay keep their
+behavior.
 
 ```text
 setActor(actor, { reissue: true }):
@@ -196,14 +197,14 @@ the root anyway; the re-issue only matters when it finds none.
 | A position taken before the attach (app state, a presence) names the initial actor and throws when resolved | Documented above; take positions after the attach. Devtools raw changes from before the attach keep the old actor |
 | The wire loses a value's in-memory state that a later edit relies on | Text node links are now encoded; a seeded test checks random histories keep their content |
 | A pre-attach Undo that restored a removed Text pushes that Text empty | Existing wire gap; the local root keeps the content |
-| A conversion or replay error | The document is left untouched and `attach` throws before any RPC |
+| A conversion or replay error | The document is left untouched and `attach` throws before any RPC; the claim is taken, so a retry on the same client attaches without a re-issue, as on `main` |
 | The server trusts a pushed change's actor | Out of scope, yorkie#2114 |
 
 ### Design Decisions
 
 | Decision | Reason |
 |----------|--------|
-| `setActor(actor, { reissue })`, marked internal, rather than a new method | Every other caller is unchanged; only the client knows whether the re-issue is sound |
+| `setActor(actor, { reissue })`, marked `@internal`, rather than a new method | Every other caller is unchanged; only the client knows whether the re-issue is sound |
 | Guard on "never synced", with an absorbed flag set on the remote and restore paths only | `applyChanges` also replays local changes in this SDK |
 | Re-issue only for a generated client key | An explicit key's actor spans sessions the client cannot see |
 | No map re-keying | Only attribute maps would be reached, and renaming one changes user data |

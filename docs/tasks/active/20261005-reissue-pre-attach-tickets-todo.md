@@ -6,7 +6,7 @@
 
 A `Document` edited before `Client.attach` mints every ticket under
 `InitialActorID`. `Document.setActor` rewrites only the change IDs and each
-operation's `executedAt` (it carries a TODO saying so); the root and the
+operation's `executedAt` (it carried a TODO saying so); the root and the
 tickets inside the operations keep the initial actor. Two clients that fill
 the same key before attaching push values with identical `createdAt`s, and
 the replicas diverge.
@@ -33,9 +33,10 @@ need it before any collision rule is safe.
       re-keys version vectors, rebuilds root and presences by replay on a
       fresh `CRDTRoot`, renames the online-client entry, swaps all or
       nothing, drops the clone and clears history
-- [x] `Client.attach`: claim registry per (actor, doc key) at module scope,
-      re-issue only when the claim allows; error rejects the attach before
-      any RPC
+- [x] `Client.attach`: re-issue only for a generated client key, with a
+      per-Client claim per document key as in Go, after option validation;
+      a re-issue error throws before any RPC
+- [x] Encode the insertion links of text nodes (`insPrevId`, Go parity)
 - [x] Unit tests: `unit/api/reissue_test.ts`,
       `unit/document/set_actor_reissue_test.ts` (local root byte-equal to a
       server-style rebuild, no initial-actor ticket left, synced/absorbed/
@@ -44,13 +45,15 @@ need it before any collision rule is safe.
       `unit/client/reissue_claim_test.ts`
 - [x] Integration: `integration/pre_attach_test.ts` (3 rounds of two clients
       converge, the attach re-issues to the client actor, a second document
-      of a key under one client key is declined). A failed attach keeping
+      of a key on one client is declined, an explicit key's reload keeps the
+      earlier session's element). A failed attach keeping
       the re-issued state is in the unit claim test: a fake RPC fails it
 - [x] Design doc `docs/design/pre-attach-ticket-reissue.md`, README index,
       update `offline-local-persistence.md` TODO references
-- [ ] Verify: Red -> Green, `pnpm verify:fast`, `pnpm sdk test` against the
+- [x] Verify: Red -> Green, `pnpm verify:fast`, `pnpm sdk test` against the
       compose server (`yorkieteam/yorkie:latest`; the change is client-only)
-- [ ] Self review, PR
+- [x] Self review: 3 rounds (see lessons)
+- [ ] PR
 
 ## Review
 
@@ -58,9 +61,12 @@ need it before any collision rule is safe.
   rebuild of a pre-attach pack throws `ChangeApplyError` (the Edit names a
   text node the root never held). Against a real server the two clients of
   round 0 already disagree on the winner.
-- Green: 23 unit tests and 3 integration tests. Mutations caught: no Text
-  special case, no nested element walk, re-issuing lamport 0, no absorbed
-  flag on `applySnapshot`/`fromBytes`, no claim.
+- Green: 30 new unit tests and 4 integration tests; `verify:fast` and the
+  full `pnpm sdk test` (3409 passed). Mutations caught: no Text special case,
+  no nested element walk, re-issuing lamport 0, no absorbed flag on
+  `applySnapshot`/`fromBytes`, no claim, no generated-key gate (the server
+  then drops the earlier session's element), re-issue before option
+  validation, and no `insPrevId` encoding (the 300-seed test, seed 152).
 
 ## Open
 

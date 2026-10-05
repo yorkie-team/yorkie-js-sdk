@@ -47,11 +47,12 @@ const JSONElementSimpleTypeName = 'yorkie.v1.JSONElementSimple';
  * with lamport 0 is never re-issued: that is `InitialTimeTicket`, the root
  * object's and every sentinel node's identity, shared by all replicas.
  *
- * It goes through the wire format on purpose: the operations come back exactly
- * as the server would decode them, and the walk reaches every TimeTicket the
- * protocol carries -- positions, node IDs, split tickets, restore spans and the
- * elements nested inside a Set/Add/ArraySet value -- without a per-type list
- * that a new field could silently fall out of.
+ * It goes through the wire format on purpose: the operations come back as the
+ * server would decode them (except a Text value, see below), and the walk
+ * reaches every TimeTicket the protocol carries -- positions, node IDs, split
+ * tickets, restore spans and the elements nested inside a Set/Add/ArraySet
+ * value -- without a per-type list that a new field could silently fall out
+ * of.
  *
  * It is only sound when every ticket naming `from` was issued locally and has
  * never left this replica, which is the case for a document that has never
