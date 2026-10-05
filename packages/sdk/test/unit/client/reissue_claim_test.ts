@@ -134,6 +134,26 @@ describe('Client.attach re-issues pre-attach tickets', function () {
     assert.isAbove(actors.get(actorB) ?? 0, 0);
   });
 
+  it('does not re-issue when the attach options are rejected', async function () {
+    const pushed: Array<PbChangePack> = [];
+    const client = fakeClient(actorA, pushed);
+    const doc = filled('reissue-claim-invalid', 'hello');
+
+    let rejected: unknown;
+    try {
+      await client.attach(doc, { documentPollInterval: 0 });
+    } catch (err) {
+      rejected = err;
+    }
+    assert.include((rejected as Error).message, 'documentPollInterval');
+    assert.equal(doc.getChangeID().getActorID(), InitialActorID);
+    assert.isTrue(doc.history.canUndo());
+
+    // The claim was not taken either, so the valid retry still re-issues.
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    assert.isUndefined(countActors(ticketsOf(pushed[0])).get(InitialActorID));
+  });
+
   it('declines a second never-synced document of a key under one actor', async function () {
     // The re-issue keeps each lamport, so the second document re-issued to
     // the same actor would mint the tickets the first one already pushed.

@@ -110,6 +110,29 @@ The root and presences are rebuilt by replaying the re-issued changes with
 for pending changes. Rewriting tickets inside the root would mean re-keying
 the element map, GC pairs, split and tree node indexes.
 
+### What the round trip must keep
+
+The replay sees only what the wire carries, so anything a later edit relies
+on has to survive the element encoding. A Text that an undo restored resolves
+later Edits through its insertion links (`insPrev`/`insNext`): `abxef` edited
+to `xxef` replays as `xef` without them. The Go converter writes a text node's
+`insPrevId`; this SDK's `toTextNodes` did not, which also dropped the links
+from every snapshot and every Text nested in a pushed Object or Array value.
+It writes them now. A seeded test replays random pre-attach histories --
+text, tree, array and object edits, removals, undo and redo -- and checks
+that the content is unchanged after the re-issue.
+
+### Positions held outside the document
+
+A position is a ticket. A `TextPosStructRange`, an array element's ID or a
+`CRDTTreePos` that the app or a presence took before the attach names the
+initial actor; after a re-issue the root no longer holds that ticket, and
+converting the position back to an index throws. A presence set before the
+attach is pushed with the stale position. Under the plain `setActor` these
+stayed valid locally, because the root kept the initial actor. An app that
+binds an editor before attaching should take positions again after the
+attach.
+
 ### One actor, two never-synced documents of one key
 
 The re-issue keeps each lamport, which starts at 1 in every fresh document, so
@@ -143,15 +166,25 @@ There is no rollback, as in Go: a re-issued document is a valid detached
 document, a retry under the same client re-issues nothing, and a retry under
 another client re-issues to that actor.
 
+When the first attach did reach the server and only its response was lost,
+that retry pushes the pre-attach changes a second time under the other actor:
+the content appears twice, as two distinct elements. The old path pushed it
+twice too, with colliding tickets.
+
+Option validation runs before the re-issue, so an attach rejected for a bad
+option leaves the document and the claim alone. A re-issue that fails throws
+from `attach` before any RPC, like the other pre-RPC checks.
+
 ### Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
 | A reload with an explicit client key re-issues to an actor an earlier session already used | Narrower than before; documented above and left to yorkie#2114 |
 | Undo of a pre-attach edit is no longer possible after attach | A successful attach clears the history already |
-| An editor binding or devtools holds a position or raw change from before the attach | Content is unchanged; positions minted before the attach go stale, as they would across any `setActor` |
+| A position taken before the attach (app state, a presence) names the initial actor and throws when resolved | Documented above; take positions after the attach. Devtools raw changes from before the attach keep the old actor |
+| The wire loses a value's in-memory state that a later edit relies on | Text node links are now encoded; a seeded test checks random histories keep their content |
 | A pre-attach Undo that restored a removed Text pushes that Text empty | Existing wire gap; the local root keeps the content |
-| A conversion or replay error | The document is left untouched and `attach` rejects before any RPC |
+| A conversion or replay error | The document is left untouched and `attach` throws before any RPC |
 | The server trusts a pushed change's actor | Out of scope, yorkie#2114 |
 
 ### Design Decisions

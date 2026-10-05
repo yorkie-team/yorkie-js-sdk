@@ -2007,7 +2007,8 @@ export class Document<
    * Without `reissue` it rewrites only the change IDs and each operation's
    * `executedAt`; the root and the tickets inside the operations keep the
    * actor they were minted under. With `reissue`, a never-synced document
-   * re-issues every ticket of its previous actor to the given one. See
+   * re-issues every ticket of its previous actor to the given one, so a
+   * position or element ID taken from it before then no longer resolves. See
    * docs/design/pre-attach-ticket-reissue.md.
    */
   public setActor(actorID: ActorID, opts?: SetActorOptions): void {

@@ -956,14 +956,6 @@ export class Client {
       );
     }
 
-    // Stamp the actor before any local elements are rehydrated. A document
-    // edited before this attach re-issues the tickets it minted under the
-    // initial actor to this one; the restore (which repopulates the root/
-    // changeID/pending changes under their persisted actor) must run after
-    // this call. The restore itself is deferred into the enqueued task
-    // because the store load is async; see the `store.load` step below.
-    const actor = (this.actorID ?? this.id)!;
-    doc.setActor(actor, { reissue: claimReissue(actor, doc.getKey()) });
     // Resolve the effective presence-disabled state at attach time. The
     // local option wins; absent that, the Document's seeded value (from
     // construction or a prior attach response on this instance) is used;
@@ -992,6 +984,18 @@ export class Client {
       : syncMode === SyncMode.Polling
         ? DefaultDocumentPollIntervalMs
         : 0;
+
+    // Stamp the actor once the options are known to be valid, and before any
+    // local elements are rehydrated. A document edited before this attach
+    // re-issues the tickets it minted under the initial actor to this one; a
+    // rejected option must not have re-issued it or taken the claim. The
+    // restore (which repopulates the root/changeID/pending changes under
+    // their persisted actor) must run after this call; it is deferred into
+    // the enqueued task because the store load is async; see the
+    // `store.load` step below.
+    const actor = (this.actorID ?? this.id)!;
+    doc.setActor(actor, { reissue: claimReissue(actor, doc.getKey()) });
+
     // Mark the attach in flight synchronously so a concurrent duplicate
     // attach of the same key is rejected by the guard above before it is
     // enqueued. Cleared in the task's `finally`.

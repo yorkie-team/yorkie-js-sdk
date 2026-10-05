@@ -164,6 +164,105 @@ function rootBytes(doc: TestDoc): Uint8Array {
   return converter.objectToBytes(doc.getRootObject());
 }
 
+/**
+ * `mulberry32` is a small seeded PRNG, so a seed replays the same history.
+ */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * `fillRandomly` edits a detached document with a seeded mix of text, tree,
+ * array and object edits, removals and undo/redo. An edit the current state
+ * cannot take is skipped.
+ */
+function fillRandomly(doc: TestDoc, seed: number): void {
+  const rnd = mulberry32(seed);
+  const pick = (n: number) => Math.floor(rnd() * n);
+
+  doc.update((r) => {
+    r.t = new Text();
+    r.t.edit(0, 0, 'abcdef');
+    r.o = { k: 'v', t: new Text() };
+    r.o.t.edit(0, 0, 'ghij');
+    r.a = [1, new Text()];
+    r.a[1].edit(0, 0, 'klmn');
+    r.tree = new Tree({
+      type: 'doc',
+      children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
+    });
+  });
+
+  const texts = [(r: any) => r.t, (r: any) => r.o.t, (r: any) => r.a[1]];
+  for (let step = 0; step < 16; step++) {
+    try {
+      switch (pick(8)) {
+        case 0:
+        case 1:
+          doc.update((r) => {
+            const text = texts[pick(texts.length)](r);
+            const from = pick(text.length + 1);
+            const to = from + pick(text.length - from + 1);
+            text.edit(from, to, pick(2) ? 'x' : '');
+          });
+          break;
+        case 2:
+          doc.update((r) => {
+            const text = texts[pick(texts.length)](r);
+            const from = pick(text.length + 1);
+            text.setStyle(from, from + pick(text.length - from + 1), {
+              b: `${pick(3)}`,
+            });
+          });
+          break;
+        case 3:
+          doc.update((r) => {
+            const size = r.tree.getSize();
+            const at = 1 + pick(size - 1);
+            if (pick(2)) {
+              r.tree.edit(at, at, { type: 'text', value: 'q' });
+            } else {
+              r.tree.edit(at, at, undefined, 1);
+            }
+          });
+          break;
+        case 4:
+          doc.update((r) => {
+            if (pick(2)) {
+              r.a.push(pick(10));
+            } else {
+              r.o.k = `${pick(10)}`;
+            }
+          });
+          break;
+        case 5:
+          doc.update((r) => {
+            const which = pick(3);
+            if (which === 0) delete r.t;
+            if (which === 1) delete r.o;
+            if (which === 2) r.a.delete(1);
+          });
+          break;
+        case 6:
+          if (doc.history.canUndo()) doc.history.undo();
+          break;
+        case 7:
+          if (doc.history.canRedo()) doc.history.redo();
+          break;
+      }
+    } catch {
+      // The picked target is gone or the range does not fit; skip it.
+    }
+  }
+}
+
 describe('Document.setActor with reissue', function () {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -374,6 +473,40 @@ describe('Document.setActor with reissue', function () {
     });
   }
 
+  for (const wrap of ['none', 'object', 'array'] as const) {
+    it(`keeps the split links of a Text restored by undo (wrap: ${wrap})`, function () {
+      // An Edit after the undo resolves its position through the restored
+      // Text's insertion links. The value goes through its element encoding,
+      // which has to carry them, or the replay puts the Edit elsewhere.
+      const doc: TestDoc = new Document('d');
+      const text = (r: any) =>
+        wrap === 'none' ? r.t : wrap === 'object' ? r.o.t : r.a[0];
+      doc.update((r) => {
+        if (wrap === 'none') r.t = new Text();
+        if (wrap === 'object') r.o = { t: new Text() };
+        if (wrap === 'array') r.a = [new Text()];
+        text(r).edit(0, 0, 'abcdef');
+      });
+      doc.update((r) => text(r).edit(2, 4, 'x'));
+      doc.update((r) => {
+        if (wrap === 'none') delete r.t;
+        if (wrap === 'object') delete r.o;
+        if (wrap === 'array') r.a.delete(0);
+      });
+      doc.history.undo();
+      doc.update((r) => text(r).edit(0, 2, 'x'));
+      const before = doc.toSortedJSON();
+
+      reissue(doc, actorA);
+      assert.equal(doc.toSortedJSON(), before);
+      assert.isUndefined(actorsOf(doc).get(InitialActorID));
+      if (wrap === 'object') {
+        // A nested Text travels with its content, so the server builds it.
+        assert.equal(serverBuild(doc).toSortedJSON(), before);
+      }
+    });
+  }
+
   it('keeps tree splits, undo/redo, tree style and array set', function () {
     const doc: TestDoc = new Document('d');
     doc.update((r) => {
@@ -470,5 +603,19 @@ describe('Document.setActor with reissue', function () {
     assert.equal(doc.toSortedJSON(), before);
     assert.equal(doc.getChangeID().getActorID(), InitialActorID);
     assert.isTrue(doc.history.canUndo());
+  });
+
+  it('keeps the content of random pre-attach histories', function () {
+    // Anything the wire drops from a value that a later edit relies on shows
+    // up here as content that changes at attach.
+    for (let seed = 1; seed <= 300; seed++) {
+      const doc: TestDoc = new Document('d');
+      fillRandomly(doc, seed);
+      const before = doc.toSortedJSON();
+
+      reissue(doc, actorA);
+      assert.equal(doc.toSortedJSON(), before, `seed ${seed}`);
+      assert.isUndefined(actorsOf(doc).get(InitialActorID), `seed ${seed}`);
+    }
   });
 });
