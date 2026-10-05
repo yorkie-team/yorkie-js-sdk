@@ -179,7 +179,10 @@ export interface ClientOptions {
 
   /**
    * `key` is the client key. It is used to identify the client.
-   * If not set, a random key is generated.
+   * If not set, a random key is generated from the runtime's CSPRNG; a
+   * runtime with no Web Crypto cannot generate one unguessably, so the
+   * constructor throws `ErrInvalidArgument` there rather than activate under
+   * a key another client can predict. Pass `key` to support such a runtime.
    *
    * That random default is minted per `Client` instance, so it differs on every
    * launch. **Offline persistence requires a stable key**: the server derives
@@ -554,8 +557,9 @@ export class Client {
   private attachingDocs: Set<string>;
   // `keyGenerated` is true when the client key was minted for this instance
   // from the runtime's CSPRNG rather than passed in, which makes the actor
-  // this client's alone. A key minted from the `Math.random` fallback does
-  // not: see `claimReissue`.
+  // this client's alone. The constructor refuses to mint a key at all when
+  // the CSPRNG is missing, so a generated key is always unguessable here:
+  // see `claimReissue`.
   private keyGenerated: boolean;
   // `reissueClaims` maps a document key to the actor this client last
   // attached it under. See `claimReissue`.
@@ -618,20 +622,27 @@ export class Client {
     opts = opts || DefaultClientOptions;
 
     const rpcAddr = opts.rpcAddr || DefaultClientOptions.rpcAddr;
-    this.key = opts.key || uuid();
-    // A generated key only names an actor this client alone can reach when
-    // it is unguessable. Without Web Crypto `uuid` falls back to
-    // `Math.random`, so another client of the project can land on the same
-    // key and so on the same server-derived actor; that is the one case the
-    // re-issue must not run in. See `claimReissue` and `util/uuid`.
-    this.keyGenerated = !opts.key && hasStrongRandomSource();
-    if (!opts.key && !this.keyGenerated) {
-      logger.warn(
-        `[CL] the runtime has no Web Crypto, so the generated client key is ` +
-          `not unguessable. Pass \`key\` to scope this client to an actor no ` +
-          `other client can derive.`,
+    // The client key is the identity the server trusts verbatim: it derives
+    // this client's actor from it, so a key another client of the project can
+    // land on is a key that client can activate under. A generated one is
+    // therefore only usable when `uuid` draws from the runtime's CSPRNG;
+    // without Web Crypto it falls back to `Math.random`, which is guessable,
+    // so refuse to mint an identity at all rather than send a weak one. Such
+    // a runtime has to pass its own `key`. See `claimReissue` and
+    // `util/uuid`.
+    if (!opts.key && !hasStrongRandomSource()) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the runtime has no Web Crypto, so a client key cannot be generated ` +
+          `unguessably. Pass \`key\` as an opaque random value your app mints ` +
+          `itself (not a user id or a device id).`,
       );
     }
+    this.key = opts.key || uuid();
+    // A generated key names an actor this client alone can reach, which is
+    // what the pre-attach re-issue rests on; an explicit one is shared by
+    // every session that passes it. See `claimReissue`.
+    this.keyGenerated = !opts.key;
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
@@ -924,11 +935,12 @@ export class Client {
    * client's alone, so only then does the re-issue run; other documents keep
    * the initial actor, as before the re-issue existed.
    *
-   * "Generated" also has to mean unguessable, which is why `keyGenerated`
-   * requires the CSPRNG: a key from `uuid`'s `Math.random` fallback can be
-   * landed on by another client of the project, and the actor is derived
-   * from the key server-side, so that client would share this actor exactly
-   * as a second session of an explicit key does.
+   * "Generated" also has to mean unguessable: a key from `uuid`'s
+   * `Math.random` fallback can be landed on by another client of the
+   * project, and the actor is derived from the key server-side, so that
+   * client would share this actor exactly as a second session of an explicit
+   * key does. The constructor keeps that case out of reach by refusing to
+   * generate a key without the CSPRNG, so `keyGenerated` implies it.
    *
    * Within this client, a second never-synced document of a key re-issued to
    * the same actor would mint the tickets the first one already pushed, so a

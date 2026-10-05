@@ -26,6 +26,7 @@ import {
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { AttachDocumentResponseSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
+import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { countActors, ticketsOf } from '@yorkie-js/sdk/test/helper/helper';
 
 const actorA = '0000000000000000000000a1';
@@ -206,12 +207,12 @@ describe('Client.attach re-issues pre-attach tickets', function () {
     assert.equal(second.getRoot().t.toString(), 'two');
   });
 
-  it('does not re-issue when the generated key is not unguessable', async function () {
+  it('refuses to generate a key when it cannot be unguessable', async function () {
     // Without Web Crypto `uuid` falls back to `Math.random`, so another
-    // client of the project can land on this key -- and the actor is derived
-    // from the key server-side, so it would share this actor exactly as a
-    // second session of an explicit key does. The gate has to be the random
-    // source, not merely the absence of `opts.key`.
+    // client of the project could land on the generated key -- and the actor
+    // is derived from the key server-side, so that client would share this
+    // actor. The key is the identity the server trusts verbatim, so such a
+    // runtime gets no generated key at all; it has to pass its own.
     const saved = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
     Object.defineProperty(globalThis, 'crypto', {
       value: undefined,
@@ -220,9 +221,16 @@ describe('Client.attach re-issues pre-attach tickets', function () {
     });
 
     const pushed: Array<PbChangePack> = [];
-    let client: ReturnType<typeof fakeClient>;
+    let thrown: unknown;
+    let explicit: ReturnType<typeof fakeClient> | undefined;
     try {
-      client = fakeClient(actorA, pushed);
+      try {
+        fakeClient(actorA, pushed);
+      } catch (err) {
+        thrown = err;
+      }
+      // An explicit key needs no generated randomness, so it still works.
+      explicit = fakeClient(actorA, pushed, undefined, 'reissue-claim-weak');
     } finally {
       if (saved) {
         Object.defineProperty(globalThis, 'crypto', saved);
@@ -230,9 +238,17 @@ describe('Client.attach re-issues pre-attach tickets', function () {
         delete (globalThis as any).crypto;
       }
     }
-    const doc = filled('reissue-claim-weak-random', 'hello');
 
-    await client.attach(doc, { syncMode: SyncMode.Manual });
+    assert.equal(
+      (thrown as YorkieError)?.code,
+      Code.ErrInvalidArgument,
+      `${thrown}`,
+    );
+    assert.include((thrown as Error).message, 'Web Crypto');
+
+    // ...and, being explicit, does not re-issue either.
+    const doc = filled('reissue-claim-weak-random', 'hello');
+    await explicit!.attach(doc, { syncMode: SyncMode.Manual });
     assert.isAbove(
       countActors(ticketsOf(pushed[0])).get(InitialActorID) ?? 0,
       0,

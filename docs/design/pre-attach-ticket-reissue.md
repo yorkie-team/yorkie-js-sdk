@@ -48,9 +48,10 @@ server cannot even replay such a pack on a fresh document.
 
 - Repairing documents already stored with colliding `createdAt`s.
 - Undo/redo of edits made before the attach.
-- Documents attached by a client with an explicit key, or by one whose
-  generated key came from `uuid`'s `Math.random` fallback (see "One actor,
-  many sessions"): they keep the initial actor, as before.
+- Documents attached by a client with an explicit key: they keep the initial
+  actor, as before (see "One actor, many sessions"). A runtime with no Web
+  Crypto has to pass such a key, since the constructor will not generate a
+  guessable one.
 
 ## Design
 
@@ -185,9 +186,12 @@ A generated key only rules the collision out while it is unguessable. `uuid`
 draws from the runtime's CSPRNG, but falls back to `Math.random` where no Web
 Crypto exists, and the actor is derived from the key server-side -- so on such
 a runtime another client of the project can land on this key and share this
-actor, which is the explicit-key case again. `keyGenerated` therefore requires
-`hasStrongRandomSource()` as well as the absence of `opts.key`; the fallback
-runtime warns at construction and keeps the initial-actor tickets.
+actor, which is the explicit-key case again. A guessable key is worse than a
+missed re-issue, though: it is the identity the server trusts verbatim, so the
+constructor refuses to mint one at all (`ErrInvalidArgument`) when
+`hasStrongRandomSource()` is false and no `opts.key` was passed. Such a runtime
+has to supply its own key, and an explicit key does not re-issue -- so
+`keyGenerated` is simply the absence of `opts.key`, and it implies the CSPRNG.
 
 ### One actor, two never-synced documents of one key
 
