@@ -137,13 +137,16 @@ export interface DocumentOptions {
 
 /**
  * `SetActorOptions` are the options of `Document.setActor`.
+ *
+ * @internal
  */
 export interface SetActorOptions {
   /**
    * `reissue` re-issues the tickets a never-synced document minted under its
    * previous actor to the new one, in the local changes and the root alike.
-   * Only the attaching client may ask for it. A document that has synced
-   * falls back to the plain `setActor`.
+   * A document that has synced falls back to the plain `setActor`. Only
+   * `Client.attach` passes it: whether the re-issue is sound depends on what
+   * else the actor has minted, which only the client knows.
    */
   reissue?: boolean;
 }

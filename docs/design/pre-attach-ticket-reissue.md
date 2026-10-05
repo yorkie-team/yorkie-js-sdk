@@ -48,14 +48,16 @@ server cannot even replay such a pack on a fresh document.
 
 - Repairing documents already stored with colliding `createdAt`s.
 - Undo/redo of edits made before the attach.
-- Collisions with tickets an earlier session of the same client key pushed
-  (see "One actor, many sessions").
+- Documents attached by a client with an explicit key (see "One actor, many
+  sessions"): they keep the initial actor, as before.
 
 ## Design
 
 `Client.attach` calls `doc.setActor(actor, { reissue })`, where `reissue` is
-what `claimReissue` allows. Without the option `setActor` is unchanged, so the
-re-anchor paths, `remove`, channels and devtools replay keep their behavior.
+what `claimReissue` allows: only a client whose key was generated, and only
+once per document key. The option is internal. Without it `setActor` is
+unchanged, so the re-anchor paths, `remove`, channels and devtools replay keep
+their behavior.
 
 ```text
 setActor(actor, { reissue: true }):
@@ -118,9 +120,12 @@ later Edits through its insertion links (`insPrev`/`insNext`): `abxef` edited
 to `xxef` replays as `xef` without them. The Go converter writes a text node's
 `insPrevId`; this SDK's `toTextNodes` did not, which also dropped the links
 from every snapshot and every Text nested in a pushed Object or Array value.
-It writes them now. A seeded test replays random pre-attach histories --
-text, tree, array and object edits, removals, undo and redo -- and checks
-that the content is unchanged after the re-issue.
+It writes them now. The decoders link a node to an earlier node of the same
+insertion and Go rejects a link it cannot find; a single replica's history
+keeps that order, and every value a change pushes is a deepcopy, which links
+only to nodes already copied. A seeded test replays random pre-attach
+histories -- text, tree, array and object edits, removals, undo and redo --
+and checks that the content is unchanged after the re-issue.
 
 ### Positions held outside the document
 
@@ -133,32 +138,36 @@ stayed valid locally, because the root kept the initial actor. An app that
 binds an editor before attaching should take positions again after the
 attach.
 
-### One actor, two never-synced documents of one key
-
-The re-issue keeps each lamport, which starts at 1 in every fresh document, so
-a second never-synced document of a key re-issued to the same actor would mint
-the tickets the first one already pushed. `claimReissue` records each
-`(actor, document key)` it has seen and declines a repeat; those tickets keep
-the initial actor, as before this design.
-
-The claims live at module scope, not on the `Client` as in Go. The actor here
-is the stable actor of the client key, shared by every `Client` of that key in
-the page, so a per-`Client` record would miss a new `Client` created after a
-sign-out.
-
 ### One actor, many sessions
 
 Go attaches under the per-session client id. This SDK attaches under the
-stable actor, which every session of a client key shares. A reload starts with
-no claims, so a fresh pre-attach document re-issued after a reload can mint
-tickets an earlier session already pushed under the same actor.
+stable actor derived from the client key. With a generated key, the default,
+that actor is the `Client`'s alone. With an explicit key every session of the
+key -- a reload, another tab, a new `Client` after a sign-out -- shares it.
 
-That collision is narrower than the one this design removes: before, every
-client collided with every other under the initial actor; now only sessions of
-one client key on one document key can. Closing it needs state the client does
-not hold before the attach round trip (the actor's lamport on the server) and
-belongs with the client identity work in yorkie#2114. An app that gives each
-session a fresh key, which is the default, does not meet it.
+The re-issue keeps each lamport, which starts at 1 in every fresh document. A
+pre-attach document re-issued in a second session of an explicit key would
+mint the tickets the first session's first edits carry when that session
+attached a fresh document: `1:A:1` twice. The server keeps one of the two
+elements, so the first session's edit disappears -- data that survived on
+`main`, where the pre-attach tickets kept the initial actor. No record the
+client holds can rule this out: the earlier session may be another tab or a
+previous launch.
+
+So `claimReissue` re-issues only for a generated key. A document attached
+with an explicit key keeps its initial-actor tickets and can still collide
+with another client's pre-attach tickets, which is the state `main` is in.
+Closing that needs the actor's lamport on the server before the attach round
+trip, which belongs with the client identity work in yorkie#2114.
+
+### One actor, two never-synced documents of one key
+
+Within one client with a generated key, a second never-synced document of a
+key re-issued to the same actor would mint the tickets the first one may
+already have pushed. As in Go, `claimReissue` records per document key the
+actor it was attached under and declines a repeat; those tickets keep the
+initial actor. The mark is taken before the round trip, since an attach whose
+response is lost may still have pushed, and is never cleared.
 
 ### A failed attach
 
@@ -173,13 +182,16 @@ twice too, with colliding tickets.
 
 Option validation runs before the re-issue, so an attach rejected for a bad
 option leaves the document and the claim alone. A re-issue that fails throws
-from `attach` before any RPC, like the other pre-RPC checks.
+from `attach` before any RPC, like the other pre-RPC checks. A failure after
+the re-issue -- the session lock, the store, the RPC -- keeps the re-issued
+document as above. A store-backed attach that restores an envelope replaces
+the root anyway; the re-issue only matters when it finds none.
 
 ### Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
-| A reload with an explicit client key re-issues to an actor an earlier session already used | Narrower than before; documented above and left to yorkie#2114 |
+| A re-issue under an actor an earlier session already minted with would drop that session's element | Only a generated key re-issues; explicit keys keep the initial actor, as on `main` |
 | Undo of a pre-attach edit is no longer possible after attach | A successful attach clears the history already |
 | A position taken before the attach (app state, a presence) names the initial actor and throws when resolved | Documented above; take positions after the attach. Devtools raw changes from before the attach keep the old actor |
 | The wire loses a value's in-memory state that a later edit relies on | Text node links are now encoded; a seeded test checks random histories keep their content |
@@ -191,9 +203,9 @@ from `attach` before any RPC, like the other pre-RPC checks.
 
 | Decision | Reason |
 |----------|--------|
-| `setActor(actor, { reissue })` rather than a new method | Keeps the `Attachable` interface; every other caller is unchanged |
+| `setActor(actor, { reissue })`, marked internal, rather than a new method | Every other caller is unchanged; only the client knows whether the re-issue is sound |
 | Guard on "never synced", with an absorbed flag set on the remote and restore paths only | `applyChanges` also replays local changes in this SDK |
-| Claims at module scope | The actor is per client key, not per `Client` |
+| Re-issue only for a generated client key | An explicit key's actor spans sessions the client cannot see |
 | No map re-keying | Only attribute maps would be reached, and renaming one changes user data |
 
 ## Alternatives Considered
@@ -202,7 +214,8 @@ from `attach` before any RPC, like the other pre-RPC checks.
 |-------------|---------|
 | Rewrite tickets in place in the root and the operations | Touches every index and operation type; a miss is silent divergence |
 | Re-issue to the per-session client id | Changes after the attach carry the stable actor; one document would author under two actors |
-| Persist the claims in the `DocStore` | Covers only apps with a store, and still not a store that was cleared |
+| Re-issue for explicit keys too, with claims shared across the page | A reload or another tab starts with no claims, and the server then drops an earlier session's element |
+| Persist the claims in the `DocStore` | Covers only apps with a store, and still not a store that was cleared or another device |
 | Shift lamports past what the actor already used | Needs the server's lamport for the actor before the attach, a protocol change |
 
 ## Tasks

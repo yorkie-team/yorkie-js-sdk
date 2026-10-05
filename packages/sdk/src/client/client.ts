@@ -532,38 +532,6 @@ function namespaceOf(
 }
 
 /**
- * `reissueClaims` records, per actor, the document keys attached under it in
- * this realm. See `claimReissue`.
- */
-const reissueClaims = new Set<string>();
-
-/**
- * `claimReissue` marks the given key as attached under the given actor and
- * returns whether a pre-attach document of that key may re-issue its tickets
- * to the actor.
- *
- * A re-issue keeps each ticket's lamport, which starts at 1 in every fresh
- * document, so a second never-synced document of a key re-issued to the same
- * actor would mint the tickets the first one already pushed. Those tickets
- * keep the initial actor instead, as they did before the re-issue existed.
- * The mark is taken before the round trip, since an attach whose response is
- * lost may still have pushed, and is never cleared: a detach does not take
- * pushed tickets back.
- *
- * The claims live at module scope rather than on a `Client` because the actor
- * is the stable actor of the client key, shared by every `Client` of that key.
- * They do not survive a reload; see docs/design/pre-attach-ticket-reissue.md.
- */
-function claimReissue(actor: ActorID, docKey: string): boolean {
-  const claim = `${actor}/${docKey}`;
-  if (reissueClaims.has(claim)) {
-    return false;
-  }
-  reissueClaims.add(claim);
-  return true;
-}
-
-/**
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
@@ -584,6 +552,12 @@ export class Client {
   // only populated after the attach round-trip resolves, so this set is
   // needed to reject a concurrent duplicate attach of the same key.
   private attachingDocs: Set<string>;
+  // `keyGenerated` is true when the client key was minted for this instance
+  // rather than passed in, which makes the actor this client's alone.
+  private keyGenerated: boolean;
+  // `reissueClaims` maps a document key to the actor this client last
+  // attached it under. See `claimReissue`.
+  private reissueClaims: Map<string, ActorID>;
 
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
@@ -643,10 +617,12 @@ export class Client {
 
     const rpcAddr = opts.rpcAddr || DefaultClientOptions.rpcAddr;
     this.key = opts.key || uuid();
+    this.keyGenerated = !opts.key;
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.attachingDocs = new Set();
+    this.reissueClaims = new Map();
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
@@ -921,6 +897,36 @@ export class Client {
   }
 
   /**
+   * `claimReissue` marks the given document key as attached under the given
+   * actor and returns whether a document of that key edited before this
+   * attach may re-issue its tickets to the actor.
+   *
+   * A re-issue keeps each ticket's lamport, which starts at 1 in every fresh
+   * document, so it is sound only for an actor that has minted nothing else
+   * in the document. An explicit client key gives every session of that key
+   * -- a reload, another tab -- one stable actor, and a re-issued ticket
+   * would equal one an earlier session's first edits carry: the server would
+   * keep one of the two elements. Only a generated key makes the actor this
+   * client's alone, so only then does the re-issue run; other documents keep
+   * the initial actor, as before the re-issue existed.
+   *
+   * Within this client, a second never-synced document of a key re-issued to
+   * the same actor would mint the tickets the first one already pushed, so a
+   * repeat is declined too. The mark is taken before the round trip, since
+   * an attach whose response is lost may still have pushed, and is never
+   * cleared: a detach does not take pushed tickets back.
+   */
+  private claimReissue(actor: ActorID, docKey: string): boolean {
+    if (!this.keyGenerated) {
+      return false;
+    }
+
+    const claimed = this.reissueClaims.get(docKey) === actor;
+    this.reissueClaims.set(docKey, actor);
+    return !claimed;
+  }
+
+  /**
    * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */
@@ -994,7 +1000,9 @@ export class Client {
     // the enqueued task because the store load is async; see the
     // `store.load` step below.
     const actor = (this.actorID ?? this.id)!;
-    doc.setActor(actor, { reissue: claimReissue(actor, doc.getKey()) });
+    doc.setActor(actor, {
+      reissue: this.claimReissue(actor, doc.getKey()),
+    });
 
     // Mark the attach in flight synchronously so a concurrent duplicate
     // attach of the same key is rejected by the guard above before it is

@@ -62,8 +62,9 @@ function fakeClient(
     docKey,
     pack,
   ) => Promise.resolve(attachResponse(docKey, pack)),
+  key?: string,
 ) {
-  const client = new yorkie.Client({ rpcAddr: 'http://localhost' });
+  const client = new yorkie.Client({ rpcAddr: 'http://localhost', key });
   (client as any).status = 'activated';
   (client as any).id = actor;
   (client as any).actorID = actor;
@@ -154,29 +155,55 @@ describe('Client.attach re-issues pre-attach tickets', function () {
     assert.isUndefined(countActors(ticketsOf(pushed[0])).get(InitialActorID));
   });
 
-  it('declines a second never-synced document of a key under one actor', async function () {
+  it('declines a second never-synced document of a key on one client', async function () {
     // The re-issue keeps each lamport, so the second document re-issued to
-    // the same actor would mint the tickets the first one already pushed.
+    // the same actor would mint the tickets the first one may have pushed.
+    // The claim is taken before the round trip, so a lost response counts.
     const docKey = 'reissue-claim-second';
     const pushed: Array<PbChangePack> = [];
-    const client = fakeClient(actorA, pushed);
+    let calls = 0;
+    const client = fakeClient(actorA, pushed, (key, pack) =>
+      calls++ === 0
+        ? Promise.reject(new Error('lost'))
+        : Promise.resolve(attachResponse(key, pack)),
+    );
 
     const first = filled(docKey, 'one');
-    await client.attach(first, { syncMode: SyncMode.Manual });
-
-    // The claim is per actor rather than per Client: every Client of a client
-    // key shares its stable actor, so another Client of it declines too.
-    const second = filled(docKey, 'two');
-    const sibling = fakeClient(actorA, pushed);
-    await sibling.attach(second, { syncMode: SyncMode.Manual });
-
+    await client
+      .attach(first, { syncMode: SyncMode.Manual })
+      .catch(() => undefined);
     assert.isUndefined(countActors(ticketsOf(pushed[0])).get(InitialActorID));
+
+    const second = filled(docKey, 'two');
+    await client.attach(second, { syncMode: SyncMode.Manual });
+
     // Declined, the plain setActor rewrites only the change IDs and each
     // operation's executedAt; the minted tickets keep the initial actor.
     assert.isAbove(
-      countActors(ticketsOf(pushed.at(-1))).get(InitialActorID) ?? 0,
+      countActors(ticketsOf(pushed[1])).get(InitialActorID) ?? 0,
       0,
     );
     assert.equal(second.getChangeID().getActorID(), actorA);
+  });
+
+  it('does not re-issue under an explicit client key', async function () {
+    // Every session of an explicit key shares its stable actor, so a ticket
+    // re-issued after a reload would equal one an earlier session's first
+    // edits carry, and the server would keep one of the two elements.
+    const pushed: Array<PbChangePack> = [];
+    const client = fakeClient(
+      actorA,
+      pushed,
+      undefined,
+      'reissue-claim-explicit-client',
+    );
+    const doc = filled('reissue-claim-explicit', 'hello');
+
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    assert.isAbove(
+      countActors(ticketsOf(pushed[0])).get(InitialActorID) ?? 0,
+      0,
+    );
+    assert.equal(doc.getChangeID().getActorID(), actorA);
   });
 });

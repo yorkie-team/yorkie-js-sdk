@@ -145,17 +145,50 @@ describe('Pre-attach edits', function () {
     // A re-issue keeps the lamports, and a fresh document starts them at 1,
     // so re-issuing this one to the same actor would mint the createdAt the
     // first attach already pushed. The tickets keep the initial actor.
-    //
-    // Two Clients of one client key share the stable actor, which is the
-    // usual way a JS app meets this: a new Client after a sign-out, say.
+    const docKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
+    const [client, observer] = await activeClients(2);
+
+    const doc1: TextDoc = new yorkie.Document(docKey);
+    fill(doc1, 'first', 'a');
+    await client.attach(doc1, { syncMode: SyncMode.Manual });
+    assert.equal(creatorOf(doc1, 'first'), client.getActorID());
+    await client.detach(doc1);
+
+    const doc2: TextDoc = new yorkie.Document(docKey);
+    fill(doc2, 'second', 'b');
+    await client.attach(doc2, { syncMode: SyncMode.Manual });
+    assert.equal(creatorOf(doc2, 'second'), InitialActorID);
+
+    // Both elements survive. Read them through another client: a pull drops
+    // the changes the pulling actor itself pushed up to its checkpoint's
+    // clientSeq, and doc2 repeated the clientSeq doc1 pushed under, so its
+    // own pull filters doc1's change out (yorkie#2123).
+    const observed: TextDoc = new yorkie.Document(docKey);
+    await observer.attach(observed, { syncMode: SyncMode.Manual });
+    assert.equal(
+      observed.toSortedJSON(),
+      '{"first":[{"val":"a"}],"second":[{"val":"b"}]}',
+    );
+
+    await client.deactivate();
+    await observer.deactivate();
+  });
+
+  it('keeps an earlier session of an explicit client key', async function ({
+    task,
+  }) {
+    // Every session of an explicit key shares its stable actor. A re-issue
+    // in the second session would mint the tickets the first session's
+    // first edits carry, and the server would keep one of the two elements,
+    // so pre-attach tickets under an explicit key keep the initial actor.
     const docKey = `${toDocKey(task.name)}-${new Date().getTime()}`;
     const clientKey = `${docKey}-client`;
 
     const [first] = await activeClients(1, { key: clientKey });
     const doc1: TextDoc = new yorkie.Document(docKey);
-    fill(doc1, 'first', 'a');
     await first.attach(doc1, { syncMode: SyncMode.Manual });
-    assert.equal(creatorOf(doc1, 'first'), first.getActorID());
+    fill(doc1, 'first', 'a');
+    await first.sync();
     await first.deactivate();
 
     const [second] = await activeClients(1, { key: clientKey });
@@ -165,10 +198,6 @@ describe('Pre-attach edits', function () {
     await second.attach(doc2, { syncMode: SyncMode.Manual });
     assert.equal(creatorOf(doc2, 'second'), InitialActorID);
 
-    // Both elements survive. Read them through another client: a pull drops
-    // the changes the pulling actor itself pushed up to its checkpoint's
-    // clientSeq, and doc2 repeated the clientSeq doc1 pushed under, so its
-    // own pull filters doc1's change out (yorkie#2123).
     const [observer] = await activeClients(1);
     const observed: TextDoc = new yorkie.Document(docKey);
     await observer.attach(observed, { syncMode: SyncMode.Manual });

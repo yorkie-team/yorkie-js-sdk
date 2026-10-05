@@ -765,6 +765,8 @@ function toTextNodes(
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
+    // The decoders resolve the link against the nodes already decoded, so it
+    // must name an earlier node; the Go decoder rejects one it cannot find.
     if (textNode.getInsPrev()) {
       pbTextNode.insPrevId = toTextNodeID(textNode.getInsPrevID());
     }

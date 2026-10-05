@@ -64,8 +64,12 @@ need it before any collision rule is safe.
 
 ## Open
 
-- The JS actor is the `StableActorID`, the same for every session of one
-  client key. A fresh pre-attach document re-issued after a reload can
-  collide with tickets an earlier session pushed under the same actor. The
-  in-process claim cannot see that; it is the gap Go leaves to yorkie#2114,
-  but in JS it is the common case for apps with an explicit key.
+- A client with an explicit key does not re-issue, so its pre-attach tickets
+  can still collide with another client's, as on `main`. Closing it needs the
+  actor's lamport before the attach round trip (yorkie#2114). File as a
+  follow-up.
+- Round 2 found, on `main` as well, two-replica histories with GC where a
+  split piece's `insPrev` is later in list order or was purged. Go's decoder
+  rejects such a Text (`insPrevNode should be presence`); pushes never carry
+  one today because pushed values are deepcopies. File as a follow-up after
+  reproducing it with real clients.

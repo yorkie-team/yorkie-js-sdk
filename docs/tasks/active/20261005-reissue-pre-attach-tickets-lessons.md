@@ -52,3 +52,24 @@ over `origin/main...HEAD`), not the CI lens panel.
     is derived from (project, client key), so an actor already names one
     project. Only the session-id fallback against an old server lacks it,
     and a false hit there only falls back to the old behavior.
+- Round 2 (design fit, blast radius): blocked on a regression. Under an
+  explicit client key, a pre-attach document re-issued after a reload took
+  the tickets the first session's first edits carry (`1:A:1`), and the server
+  dropped that session's element; `main` kept both. Reproduced in a unit
+  probe and against the server.
+  - Fixed: only a generated key re-issues; claims went back to per-Client as
+    in Go. The user re-decided this: the earlier "same as Go, document it"
+    choice rested on my claim that the collision was narrower than before,
+    which was wrong for this case.
+  - Fixed: `SetActorOptions` is `@internal`; the doc states the decoder
+    invariant and why pushes satisfy it; the failed-attach section covers the
+    session lock and store paths.
+  - Not done: moving `reissueTextValue` before `fromOperation` (style only),
+    and a shared `wire` helper (the integration test has none to share).
+
+## Lesson
+
+- When the user picks between options I framed, the framing is part of the
+  decision. "Narrower than before" was a claim about collision classes I had
+  not checked against the actor's own post-attach tickets. Reproduce a
+  claimed trade-off before offering it as one.
