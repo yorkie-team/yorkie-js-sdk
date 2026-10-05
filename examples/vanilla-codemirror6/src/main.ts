@@ -63,8 +63,17 @@ async function main() {
 
   // 03-1. define function that bind the document with the codemirror(broadcast local changes to peers)
   const updateListener = EditorView.updateListener.of((viewUpdate) => {
+    // One refused change invalidates the whole update, not just its own
+    // transaction: the editor now holds text the document does not, so every
+    // later index in this update - including the selection used for presence
+    // below - is measured against a document that never moved. Nothing may be
+    // translated through `root.content` again until `syncText` has run.
+    let rejected = false;
     if (viewUpdate.docChanged) {
       for (const tr of viewUpdate.transactions) {
+        if (rejected) {
+          break;
+        }
         const events = ['select', 'input', 'delete', 'move'];
         if (!events.map((event) => tr.isUserEvent(event)).some(Boolean)) {
           continue;
@@ -73,7 +82,6 @@ async function main() {
           continue;
         }
         let adj = 0;
-        let rejected = false;
         tr.changes.iterChanges((fromA, toA, _, __, inserted) => {
           // `iterChanges` cannot be stopped early, so skip the rest of the
           // transaction once one of its changes was refused.
@@ -100,6 +108,12 @@ async function main() {
           adj += insertText.length - (toA - fromA);
         });
       }
+    }
+
+    if (rejected) {
+      // The deferred `syncText` dispatches its own update, and the presence
+      // selection is recomputed there against a document the editor matches.
+      return;
     }
 
     const hasFocus =

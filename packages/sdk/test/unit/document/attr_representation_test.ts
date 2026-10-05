@@ -87,6 +87,37 @@ describe('an attribute written by a peer that stores values raw', () => {
     assert.include(d.toSortedJSON(), '"color":"red"');
   });
 
+  /**
+   * `CRDTTextValue.toJSON` builds JSON by concatenation, and used to splice a
+   * parsed non-string in with `String(value)` -- unquoted and unescaped. A
+   * peer storing an array or object raw could therefore forge structure in,
+   * or simply break, `Document.toJSON` for everyone who read the document.
+   */
+  it('cannot forge JSON structure through a text attribute', () => {
+    const d = new Document<{ k: Text }>('test-doc');
+    d.update((r) => {
+      r.k = new Text();
+      r.k.edit(0, 0, 'abcdefghij');
+    });
+    styleRawOnText(d, 'evil', '["x","y"]');
+
+    const parsed = JSON.parse(d.toJSON());
+    assert.deepEqual(parsed.k[0].attrs.evil, ['x', 'y']);
+  });
+
+  it('cannot break JSON parsing through an object-valued text attribute', () => {
+    const d = new Document<{ k: Text }>('test-doc');
+    d.update((r) => {
+      r.k = new Text();
+      r.k.edit(0, 0, 'abcdefghij');
+    });
+    styleRawOnText(d, 'evil', '{"val":"forged"}');
+
+    const parsed = JSON.parse(d.toJSON());
+    assert.deepEqual(parsed.k[0].attrs.evil, { val: 'forged' });
+    assert.equal(parsed.k[0].val, 'abcdefghij', 'the real value is untouched');
+  });
+
   it('reads back as the string the peer wrote, not as a dropped key', () => {
     const d = new Document<{ t: Tree }>('test-doc');
     d.update((r) => {

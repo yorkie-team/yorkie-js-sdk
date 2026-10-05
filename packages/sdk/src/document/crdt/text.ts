@@ -187,10 +187,15 @@ export class CRDTTextValue {
       // See `parseAttrValue`: a peer that stores values raw writes ones this
       // cannot parse, and rendering must not throw on them.
       const value = parseAttrValue(v);
+      // A non-string is re-encoded, never interpolated: `String(value)` on an
+      // object or array emits `[object Object]` and on a parsed string-shaped
+      // value emits it unquoted, either of which breaks out of the JSON this
+      // builds and lets a peer-chosen attribute forge structure in
+      // `Document.toJSON`.
       const item =
         typeof value === 'string'
           ? `"${escapeString(key)}":"${escapeString(value)}"`
-          : `"${escapeString(key)}":${String(value)}`;
+          : `"${escapeString(key)}":${JSON.stringify(value)}`;
       attrs.push(item);
     }
     attrs.sort();
