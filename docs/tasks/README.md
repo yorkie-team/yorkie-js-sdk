@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-05
 ---
 
 # Tasks Index
@@ -21,7 +21,6 @@ Track task-specific plan/review and lessons files using the active/archive layou
 | Task | Todo | Lessons |
 |---|---|---|
 | A further split after concurrent same-boundary splits lands on different sides (2026-10-02) | [20261002-further-split-after-same-boundary-todo.md](./active/20261002-further-split-after-same-boundary-todo.md) | [20261002-further-split-after-same-boundary-lessons.md](./active/20261002-further-split-after-same-boundary-lessons.md) |
-| Make the agent loop converge instead of re-litigating unchanged code (2026-10-01) | [20261001-harness-convergence-todo.md](./active/20261001-harness-convergence-todo.md) | [20261001-harness-convergence-lessons.md](./active/20261001-harness-convergence-lessons.md) |
 | Port three tree convergence fixes from Go (2026-09-27) | [20260927-tree-convergence-go-ports-todo.md](./active/20260927-tree-convergence-go-ports-todo.md) | [20260927-tree-convergence-go-ports-lessons.md](./active/20260927-tree-convergence-go-ports-lessons.md) |
 | Sync the protos with Go and harden crafted tree payloads (2026-09-27) | [20260927-proto-sync-and-payload-hardening-todo.md](./active/20260927-proto-sync-and-payload-hardening-todo.md) | [20260927-proto-sync-and-payload-hardening-lessons.md](./active/20260927-proto-sync-and-payload-hardening-lessons.md) |
 | Offline persistence needs a stable, caller-supplied `clientKey` (2026-09-27) | [20260927-persistence-stable-client-key-todo.md](./active/20260927-persistence-stable-client-key-todo.md) | [20260927-persistence-stable-client-key-lessons.md](./active/20260927-persistence-stable-client-key-lessons.md) |
@@ -39,5 +38,5 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Archive
 
-- Archived task count: 25
+- Archived task count: 27
 - Archive index: [archive/README.md](./archive/README.md)
