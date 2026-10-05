@@ -24,6 +24,18 @@ again, so what is written there is lost.
       say so.
 - [x] File the defect #1375 left as "not covered" as its own issue.
 
+## Needs a human with `workflow` scope
+
+- `.github/workflows/agent-implement.yml`, the PLAN step (around line
+      557): the todo it asks the agent to write declares only
+      `**Created**: YYYY-MM-DD`, so every agent-authored record reaches
+      `active/` with nothing `tasks-check.mjs --remote` can ask GitHub
+      about. Have it carry `Tracked as #__ISSUE_NUMBER__` on a line of its
+      own — the placeholder the branch name and the PR body already use,
+      substituted at line 644. The agent App token cannot push it
+      ("refusing to allow a GitHub App to create or update workflow ...
+      without `workflows` permission"), so it is not in this branch.
+
 ## Verification
 
 - [x] `pnpm test:scripts`, `pnpm lint`, `pnpm verify:license`,
