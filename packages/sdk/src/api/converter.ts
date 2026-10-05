@@ -765,6 +765,9 @@ function toTextNodes(
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
+    if (textNode.getInsPrev()) {
+      pbTextNode.insPrevId = toTextNodeID(textNode.getInsPrevID());
+    }
 
     const pbNodeAttrsMap = pbTextNode.attributes;
     const attrs = textNode.getValue().getAttrs();

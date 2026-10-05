@@ -18,6 +18,8 @@ import { describe, it, assert } from 'vitest';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
+import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { Counter, Text } from '@yorkie-js/sdk/src/yorkie';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
@@ -59,6 +61,38 @@ describe('snapshotToBytes', function () {
       Array.from(presences.entries()),
       Array.from(restored.presences.entries()),
     );
+  });
+
+  it('should round-trip the insertion links of split text nodes', function () {
+    // A position that names a split node's original ID resolves through the
+    // insertion links (insPrev/insNext); a copy without them resolves the
+    // same position elsewhere. The Go converter writes `insPrevId` too.
+    const doc = new Document<{ text: Text }>('test-doc');
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'abcdef');
+    });
+    doc.update((root) => root.text.edit(2, 4, 'x'));
+
+    const linksOf = (root: CRDTObject) => {
+      const links: Array<string> = [];
+      const text = root.get('text') as CRDTText;
+      for (const node of text.getRGATreeSplit()) {
+        links.push(
+          `${node.getID().toTestString()}` +
+            ` <${node.getInsPrev()?.getID().toTestString() ?? '-'}` +
+            ` >${node.getInsNext()?.getID().toTestString() ?? '-'}`,
+        );
+      }
+      return links;
+    };
+    const before = linksOf(doc.getRootObject());
+    assert.isTrue(before.some((link) => !link.endsWith('<- >-')));
+
+    const restored = converter.bytesToSnapshot(
+      converter.snapshotToBytes(doc.getRootObject(), new Map()),
+    );
+    assert.deepEqual(linksOf(restored.root), before);
   });
 
   it('should round-trip an empty document', function () {
