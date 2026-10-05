@@ -659,6 +659,23 @@ describe('Mid-surrogate-pair indexes the document computed', () => {
     assert.match(tree.toXML(), /^<r><p>012[\ud800-\udfff]B456789<\/p><\/r>$/);
   });
 
+  // The single-path form of `styleByPath` goes through `pathToPosRange`, which
+  // derives the end of the range itself as `fromIdx + 1`. The caller named a
+  // node, so a derived index that happens to land between the halves of the
+  // following pair must not refuse the request.
+  it('styles a single path whose derived end lands inside a pair', () => {
+    const doc = newSurrogateDoc();
+    // Path [0, 0] is the start of the text under the first <p>: index 1, a
+    // whole-character boundary. The derived end, index 2, is not.
+    doc.update((root) => {
+      const tree = (root.tree as any).tree as CRDTTree;
+      assert.equal(tree.pathToIndex([0, 0]), 1);
+      assert.throws(() => tree.findPos(2), midPair);
+      (root.tree as any).styleByPath([0, 0], { bold: 'true' });
+    });
+    assert.include(doc.getRoot().tree.toXML(), '😀');
+  });
+
   it('builds reverse operations at indexes inside a pair', () => {
     const tree = new CRDTTree(new CRDTTreeNode(posT(), 'r'), timeT());
     tree.editT([0, 0], [new CRDTTreeNode(posT(), 'p')], 0, timeT(), timeT);

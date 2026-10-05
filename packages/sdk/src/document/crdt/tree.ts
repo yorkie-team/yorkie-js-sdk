@@ -4368,10 +4368,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `pathToPosRange` converts the given path of the node to the range of the position.
+   *
+   * The end index is derived here rather than supplied by the caller, so it
+   * goes through `findPosUnchecked`: the caller named a node by path, and
+   * refusing the range because the index one past that node happens to land
+   * inside a surrogate pair would reject a request that is valid as given.
    */
   public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
     const fromIdx = this.pathToIndex(path);
-    return [this.findPos(fromIdx), this.findPos(fromIdx + 1)];
+    return [this.findPos(fromIdx), this.findPosUnchecked(fromIdx + 1)];
   }
 
   /**

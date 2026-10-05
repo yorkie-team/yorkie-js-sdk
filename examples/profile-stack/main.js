@@ -64,14 +64,29 @@ const bindGlobalClickDismiss = () => {
 };
 
 // user profile
+// `color` is peer-controlled presence just like `name`, so it never reaches an
+// HTML parser: a value like `red" onerror="...` would break out of the `src`
+// attribute if it were interpolated into `innerHTML`. The icon is built as
+// elements, the URL is assigned through the `src` property, and the colour is
+// clamped to the palette the example actually ships images for so a peer cannot
+// point the image anywhere else either.
+const PROFILE_COLORS = ['red', 'yellow', 'orange', 'green', 'blue', 'purple'];
+const profileImageSrc = (color) =>
+  `./images/profile-${
+    PROFILE_COLORS.includes(color) ? color : PROFILE_COLORS[0]
+  }.svg`;
+
 const createUserIcon = (color) => {
   const $peer = document.createElement('div');
   $peer.className = 'peer';
-  $peer.innerHTML = `
-    <div class="profile">
-      <img src="./images/profile-${color}.svg" alt="profile" class="profile-img"/>
-    </div>
-  `;
+  const $profile = document.createElement('div');
+  $profile.className = 'profile';
+  const $img = document.createElement('img');
+  $img.className = 'profile-img';
+  $img.alt = 'profile';
+  $img.src = profileImageSrc(color);
+  $profile.appendChild($img);
+  $peer.appendChild($profile);
   return $peer;
 };
 
@@ -213,7 +228,7 @@ const initEditProfileModal = () => {
   const $editProfileModalSaveBtn = $editProfileModal.querySelector('.save');
   $editProfileModalSaveBtn.addEventListener('click', saveEditProfile);
   const $editProfileModalImg = $editProfileModal.querySelector('.profile-img');
-  $editProfileModalImg.src = `./images/profile-${myPresence?.color}.svg`;
+  $editProfileModalImg.src = profileImageSrc(myPresence?.color);
 };
 
 const openEditModal = () => {

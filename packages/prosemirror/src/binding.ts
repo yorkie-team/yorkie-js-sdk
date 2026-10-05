@@ -169,15 +169,31 @@ export class YorkieProseMirrorBinding {
 
     // If tree doesn't exist yet, create it from current PM doc
     if (!tree) {
-      this.doc.update((root: any) => {
-        const yorkieDoc = pmToYorkie(
-          this.view.state.doc,
-          this.markMapping,
-          this.wrapperElementName,
+      // `new Tree(...)` validates every text node it builds, so a PM document
+      // carrying content the CRDT refuses — a lone surrogate, say — throws
+      // here. Without handling, that escaped into the host that called
+      // `initialize()` after `isDestroyed` was already cleared and before the
+      // dispatch override and subscriptions were installed, leaving a live
+      // binding that never syncs in either direction. Log it and finish
+      // initializing instead: every path that needs the tree already guards on
+      // `getTree()`, so the binding stays inert but consistent, and a peer that
+      // creates a valid tree later is picked up by the doc subscription below.
+      try {
+        this.doc.update((root: any) => {
+          const yorkieDoc = pmToYorkie(
+            this.view.state.doc,
+            this.markMapping,
+            this.wrapperElementName,
+          );
+          this.onLog?.('local', `Initializing Yorkie tree: ${yorkieDoc.type}`);
+          root[this.treePath] = new Tree(yorkieDoc as any);
+        });
+      } catch (e) {
+        this.onLog?.(
+          'error',
+          `Yorkie tree initialization failed: ${(e as Error).message}`,
         );
-        this.onLog?.('local', `Initializing Yorkie tree: ${yorkieDoc.type}`);
-        root[this.treePath] = new Tree(yorkieDoc as any);
-      });
+      }
     } else {
       // Tree already existed (second client) — load its state into PM
       syncToPM(
