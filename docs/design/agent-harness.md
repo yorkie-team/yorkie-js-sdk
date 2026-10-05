@@ -178,4 +178,4 @@ for the same question, and it keeps what it learns about failures.
 ## Tasks
 
 - `docs/tasks/active/20260925-agent-pipeline-port-todo.md`
-- `docs/tasks/active/20261001-harness-convergence-todo.md`
+- `docs/tasks/archive/2026/10/20261001-harness-convergence-todo.md`

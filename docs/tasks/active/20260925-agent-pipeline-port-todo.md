@@ -77,14 +77,16 @@ Design: `docs/design/agent-harness.md`.
 - [x] `/self-review` over the branch: 3 rounds, round 3 clean (see lessons)
 - [x] Open the Phase 0 PR (#1384); CI green, including the new licence and
       prosemirror steps
-- [ ] Port the hook fixes back to yorkie: worktree common dir, `pull`
+- [x] Port the hook fixes back to yorkie: worktree common dir, `pull`
       reflog subjects, `rebase (finish)` after a fast-forward, `upstream/main`
       as a trusted base for forks, lowercase `fast-forward` from
       `cherry-pick --ff`, raw `%ae` instead of mailmapped `%aE`, `commit (amend)` /
       `commit (merge)` subjects
-- [ ] Port the advisory-verb hardening back to yorkie: summarize's missing
+      *Audit 2026-10-05:* Ported in yorkie#2062 (6f8978a7).
+- [x] Port the advisory-verb hardening back to yorkie: summarize's missing
       `github_token` (it has never run there), write access to trigger
       review/summarize, and `DENIED_READ_PATHS` in `ask.mjs`
+      *Audit 2026-10-05:* Ported in yorkie#2061 (0b4bc634).
 
 ## Phase 1 — vendor the pipeline, enable the advisory verbs
 
@@ -144,9 +146,13 @@ is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
 
 ## Phase 2 — gating panel (`loop`, `rerun`, `agent-iterate-ci`)
 
-- [ ] App per decision 2; secrets `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY`
-- [ ] Create the eight `agent:*` labels
-- [ ] (workflows land in Phase 1; this phase is the GitHub-side enablement)
+- [x] App per decision 2; secrets `AGENT_APP_ID` / `AGENT_APP_PRIVATE_KEY`
+      *Audit 2026-10-05:* Both secrets set 2026-09-25; the App-gated verbs
+      run.
+- [x] Create the eight `agent:*` labels
+      *Audit 2026-10-05:* All eight labels exist.
+- [x] (workflows land in Phase 1; this phase is the GitHub-side enablement)
+      *Audit 2026-10-05:* A note, not a task.
 - [ ] Decide whether to add a `paths-ignore` to `ci.yml` so docs-only PRs skip
       the panel as on yorkie — `verify:doc-links` runs in `ci.yml` here, so it
       would need its own workflow first
@@ -154,7 +160,9 @@ is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
 
 ## Phase 3 — PR fix and reply (`fix`, bare mention)
 
-- [ ] `agent-fix.yml`, `agent-review-reply.yml` with the pnpm toolchain
+- [x] `agent-fix.yml`, `agent-review-reply.yml` with the pnpm toolchain
+      *Audit 2026-10-05:* Both workflows are on main and have run
+      successfully.
 - [ ] Confirm the fixer's `.github/workflows/` edits surface for a human
 
 ## Phase I — issue → PR (`fix` on an issue)
@@ -162,7 +170,9 @@ is out of scope; `agent-iterate-ci` keeps its log-tail fallback here.
 - [ ] `main` protection: `require_last_push_approval: true`; turn off
       `allow_force_pushes` (the workflow refuses otherwise — and force-push
       on `main` is a hole regardless)
-- [ ] App `Administration: read`
+- [x] App `Administration: read`
+      *Audit 2026-10-05:* Inferred: `check-protection.mjs` fails closed
+      without it, and agent-implement still opened #1397.
 - [ ] `agent-implement.yml`; `agent-task.yml` issue form so `design-fit`
       has a spec on human-opened work (open gap on yorkie too)
 - [x] `npm-publish.yml` / `devtools-publish.yml`: refuse a release authored
