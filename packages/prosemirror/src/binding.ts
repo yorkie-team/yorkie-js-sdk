@@ -177,7 +177,8 @@ export class YorkieProseMirrorBinding {
       // binding that never syncs in either direction. Log it and finish
       // initializing instead: every path that needs the tree already guards on
       // `getTree()`, so the binding stays inert but consistent, and a peer that
-      // creates a valid tree later is picked up by the doc subscription below.
+      // creates a valid tree later is picked up by the doc subscription below
+      // through the root 'set' that creates it.
       try {
         this.doc.update((root: any) => {
           const yorkieDoc = pmToYorkie(
@@ -678,11 +679,16 @@ export class YorkieProseMirrorBinding {
       // index for what it changed, and still publishes the change. An empty
       // list therefore says nothing about the tree, so treat it as a possible
       // tree change instead of discarding it -- the sync below is diff-based
-      // and does nothing when the document really is unchanged.
+      // and does nothing when the document really is unchanged. A peer that
+      // creates or replaces the tree reports a root 'set' of its key instead,
+      // which is how a binding whose own initialize() failed gets its tree.
       const hasTreeOps =
         operations.length === 0 ||
         operations.some(
-          (op: any) => op.type === 'tree-edit' || op.type === 'tree-style',
+          (op: any) =>
+            op.type === 'tree-edit' ||
+            op.type === 'tree-style' ||
+            (op.type === 'set' && op.path === '$' && op.key === this.treePath),
         );
       if (!hasTreeOps) return;
 

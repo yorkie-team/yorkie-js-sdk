@@ -100,3 +100,11 @@ content validation and the Case 5 undo snap (Out of scope).
 Public behavior change for the release notes: `Text.edit`/`setStyle` and
 `Tree.edit`/`editBulk`/`style`/`removeStyle` and their `ByPath` forms throw
 `ErrInvalidArgument` for an index inside a surrogate pair.
+
+Panel round 9 (blast-radius): the init catch relied on the doc
+subscription to pick up a peer's tree, but that subscription dropped the
+root `set` op that creates it. It now treats a root `set` of `treePath` as
+a tree change. Red first: `a tree created after a failed init` in
+`binding_remote_composition_test.ts`. The round's security finding is in
+the SDK's dev pages (`index.html`, `public/*.html`) and was waived by the
+maintainer as dev-only code.
