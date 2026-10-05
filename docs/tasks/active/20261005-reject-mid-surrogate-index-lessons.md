@@ -48,3 +48,7 @@ over `origin/main...HEAD`), not the CI lens panel.
 - Lesson: a check added in the SDK turns every caller that computes indexes
   itself into a possible regression. Grep the other packages for the entry
   points before calling the SDK change done.
+- Round 2 (design fit, simplification, blast radius): no blocking finding,
+  so the loop stopped. Took the JSDoc throw notes and the
+  `createRangeForTest` comment; left the error message as Go's and the
+  binding's local surrogate predicates (sharing them needs a public export).

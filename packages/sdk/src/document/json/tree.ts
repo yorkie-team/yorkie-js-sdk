@@ -506,6 +506,7 @@ export class Tree {
 
   /**
    * `style` sets the attributes to the elements of the given range.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public style(
     fromIdx: number,
@@ -819,6 +820,7 @@ export class Tree {
 
   /**
    * `edit` edits this tree with the given nodes.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public edit(
     fromIdx: number,
@@ -852,6 +854,7 @@ export class Tree {
 
   /**
    * `editBulk` edits this tree with the given nodes.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public editBulk(
     fromIdx: number,

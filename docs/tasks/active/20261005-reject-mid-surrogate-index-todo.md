@@ -68,3 +68,15 @@ where it becomes a CRDT position. This is the JS half.
   after; `pnpm prosemirror test`: 278 passed.
 
 ## Review
+
+Two self-review rounds (log in the lessons file). Round 1 found that the
+ProseMirror binding's `diffText` produced mid-pair indexes for an emoji
+replaced by one sharing a surrogate; fixed with its own commit. Round 2 had
+no blocking finding; its minor notes added the throw to the `Text`/`Tree`
+edit JSDoc and a comment on `createRangeForTest`. Not taken: an offset in
+the error message (it matches Go's byte for byte; change both together),
+and sharing the binding's surrogate predicates (a new public SDK export).
+
+Public behavior change for the release notes: `Text.edit`/`setStyle` and
+`Tree.edit`/`editBulk`/`style`/`removeStyle` and their `ByPath` forms throw
+`ErrInvalidArgument` for an index inside a surrogate pair.

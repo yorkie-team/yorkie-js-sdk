@@ -84,6 +84,7 @@ export class Text<A extends Indexable = Indexable> {
 
   /**
    * `edit` edits this text with the given content.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   edit(
     fromIdx: number,
@@ -156,6 +157,7 @@ export class Text<A extends Indexable = Indexable> {
 
   /**
    * `setStyle` styles this text with the given attributes.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   setStyle(fromIdx: number, toIdx: number, attributes: A): boolean {
     if (!this.context || !this.text) {
@@ -336,6 +338,8 @@ export class Text<A extends Indexable = Indexable> {
   /**
    * `createRangeForTest` returns pair of RGATreeSplitNodePos of the given indexes
    * for testing purpose.
+   * Unlike `CRDTText.createRange`, it does not reject an index inside a
+   * surrogate pair.
    */
   createRangeForTest(fromIdx: number, toIdx: number): RGATreeSplitPosRange {
     if (!this.context || !this.text) {
