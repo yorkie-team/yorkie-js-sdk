@@ -73,9 +73,12 @@ over `origin/main...HEAD`), not the CI lens panel.
   decision. "Narrower than before" was a claim about collision classes I had
   not checked against the actor's own post-attach tickets. Reproduce a
   claimed trade-off before offering it as one.
-- Round 3 (security, docs): no blocking findings; the loop ends here. Fixed
-  the minor ones: stale todo lines, JSDoc of `SetActorOptions` and
+- Round 3: fixed stale todo lines, JSDoc of `SetActorOptions` and
   `reissueOperations`, the design doc's caller list, the claim a failed
   re-issue takes, and "internal" now says the typings still carry it. Not
-  done: the first commit's body still says the claim is module-wide; the PR
-  is squash-merged, and its body describes the final behavior.
+  done: the first commit's body still says the claim is module-wide; the
+  PR body describes the final behavior.
+
+This section records what the local self-review rounds changed. It is not a
+review verdict: the CI lens panel reviews this branch independently, and
+nothing here speaks for it.

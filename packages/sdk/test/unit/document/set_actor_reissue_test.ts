@@ -343,6 +343,46 @@ describe('Document.setActor with reissue', function () {
     assert.isUndefined(internals(doc).clone);
   });
 
+  it('replays an undone change under the source it ran with', function () {
+    // `SetOperation`/`RemoveOperation` skip an operation whose target sits
+    // under a removed parent, and `OpSource.UndoRedo` is the only source they
+    // look at. A change an undo produced must therefore be replayed as
+    // `UndoRedo`, or the rebuilt root can differ from the live one.
+    const doc: TestDoc = new Document('d');
+    doc.update((r) => {
+      r.obj = { k: 'v' };
+    });
+    doc.update((r) => {
+      r.obj.k = 'w';
+    });
+    doc.history.undo();
+    const before = doc.toSortedJSON();
+
+    const sources: Array<OpSource> = [];
+    const execute = Change.prototype.execute;
+    vi.spyOn(Change.prototype, 'execute').mockImplementation(function (
+      this: Change<Indexable>,
+      root: CRDTRoot,
+      presences: Map<ActorID, Indexable>,
+      source: OpSource,
+    ) {
+      sources.push(source);
+      return execute.call(this, root, presences, source);
+    } as typeof Change.prototype.execute);
+
+    reissue(doc, actorA);
+    vi.restoreAllMocks();
+
+    assert.equal(sources.length, internals(doc).localChanges.length);
+    assert.deepEqual(sources, [
+      OpSource.Local,
+      OpSource.Local,
+      OpSource.UndoRedo,
+    ]);
+    assert.equal(doc.toSortedJSON(), before);
+    assert.isUndefined(actorsOf(doc).get(InitialActorID));
+  });
+
   it('does not re-issue a document that has synced', function () {
     const doc: TestDoc = new Document('d');
     fillEverything(doc);

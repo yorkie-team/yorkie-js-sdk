@@ -759,17 +759,28 @@ function toTextNodes(
   rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
 ): Array<PbTextNode> {
   const pbTextNodes = [];
+  // The decoders resolve `insPrevId` against the nodes they have already
+  // decoded -- the Go one rejects a link it cannot find, and a JS decoder
+  // that floor-matched would link the wrong node -- so a link is written
+  // only when its target has already been emitted in this very iteration.
+  // A split product's `insPrev` always precedes it here, so this drops
+  // nothing the re-issue or a snapshot needs; what it does drop is a
+  // dangling link into a node that is no longer in this split (a purged
+  // tombstone), which no decoder could have resolved.
+  const emitted = new Set<string>();
 
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = create(PbTextNodeSchema);
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
-    // The decoders resolve the link against the nodes already decoded, so it
-    // must name an earlier node; the Go decoder rejects one it cannot find.
-    if (textNode.getInsPrev()) {
+    if (
+      textNode.getInsPrev() &&
+      emitted.has(textNode.getInsPrevID().toIDString())
+    ) {
       pbTextNode.insPrevId = toTextNodeID(textNode.getInsPrevID());
     }
+    emitted.add(textNode.getID().toIDString());
 
     const pbNodeAttrsMap = pbTextNode.attributes;
     const attrs = textNode.getValue().getAttrs();
@@ -1816,14 +1827,29 @@ function fromText<A extends Indexable>(
 ): CRDTText<A> {
   const rgaTreeSplit = new RGATreeSplit<CRDTTextValue>();
 
+  // A Text can arrive inside a client-supplied Set/Add/ArraySet payload, where
+  // its split links are as untrusted as the tree links `dropSplitLinksInElement`
+  // strips from the same payloads. They are kept rather than dropped -- such a
+  // payload can be a copy of real document state, the Text a reverse of Remove
+  // restores, whose nodes a later Edit still targets -- so each link is
+  // resolved by EXACT id against the nodes already decoded. `findNode` is
+  // `findFloorNode`, which answers a missing id with whatever node sorts below
+  // it: a dangling or forward link would silently become a link to the wrong
+  // node. An unresolvable link is dropped instead, which is what a Text with no
+  // links at all already looks like.
+  const decoded = new Map<string, RGATreeSplitNode<CRDTTextValue>>();
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.nodes) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
     if (pbNode.insPrevId) {
-      current.setInsPrev(
-        rgaTreeSplit.findNode(fromTextNodeID(pbNode.insPrevId!)),
+      const insPrev = decoded.get(
+        fromTextNodeID(pbNode.insPrevId).toIDString(),
       );
+      if (insPrev) {
+        current.setInsPrev(insPrev);
+      }
     }
+    decoded.set(current.getID().toIDString(), current);
     prev = current;
   }
   const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);

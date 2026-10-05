@@ -186,6 +186,26 @@ describe('Client.attach re-issues pre-attach tickets', function () {
     assert.equal(second.getChangeID().getActorID(), actorA);
   });
 
+  it('re-issues a second never-synced document of another key', async function () {
+    // The claim is per document key: the tickets the first document minted
+    // live in that document alone, so a second one under another key has
+    // nothing to collide with and still re-issues.
+    const pushed: Array<PbChangePack> = [];
+    const client = fakeClient(actorA, pushed);
+
+    const first = filled('reissue-claim-key-one', 'one');
+    await client.attach(first, { syncMode: SyncMode.Manual });
+
+    const second = filled('reissue-claim-key-two', 'two');
+    await client.attach(second, { syncMode: SyncMode.Manual });
+
+    assert.equal(pushed.length, 2);
+    const actors = countActors(ticketsOf(pushed[1]));
+    assert.isUndefined(actors.get(InitialActorID), `${[...actors]}`);
+    assert.isAbove(actors.get(actorA) ?? 0, 0);
+    assert.equal(second.getRoot().t.toString(), 'two');
+  });
+
   it('does not re-issue under an explicit client key', async function () {
     // Every session of an explicit key shares its stable actor, so a ticket
     // re-issued after a reload would equal one an earlier session's first

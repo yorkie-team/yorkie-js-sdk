@@ -91,7 +91,10 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { Rule } from '@yorkie-js/schema';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
-import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
+import {
+  resetDevtoolsRecording,
+  setupDevtools,
+} from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
@@ -742,6 +745,15 @@ export class Document<
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
 
+  // `undoRedoChanges` marks the queued local changes an undo or a redo
+  // produced. Those were executed with `OpSource.UndoRedo`, the only source
+  // the skip guards in `SetOperation`/`RemoveOperation` look at, so a replay
+  // of the queue has to use that source again to land on the same root. It is
+  // a WeakSet rather than a field on `Change` because the mark never leaves
+  // this instance: a change rebuilt from a struct has absorbed remote state
+  // and is never replayed by `reissueActor`.
+  private undoRedoChanges: WeakSet<Change<P>>;
+
   // `absorbedRemote` records that this document took in state it did not
   // mint itself: a snapshot, a remote change or a persisted envelope. Such a
   // document is not "never synced" even when its checkpoint, status and
@@ -817,6 +829,7 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.undoRedoChanges = new WeakSet();
     this.absorbedRemote = false;
     this.epoch = 0n;
     this.docID = '';
@@ -2044,6 +2057,16 @@ export class Document<
       return false;
     }
 
+    // Each change keeps the source it was originally executed with. An
+    // undo or a redo ran its change with `OpSource.UndoRedo`, and that source
+    // is what `SetOperation.execute`/`RemoveOperation.execute` consult to skip
+    // an operation whose target now sits under a removed parent: replaying
+    // such a change as `Local` would run an operation that never ran, so the
+    // rebuilt root would differ from the one the user is looking at (and
+    // `ElementRHT.delete` can throw out of the replay).
+    const sources = this.localChanges.map((change) =>
+      this.undoRedoChanges.has(change) ? OpSource.UndoRedo : OpSource.Local,
+    );
     const changes = this.localChanges.map((change) => {
       const id = change.getID();
       return Change.create<P>({
@@ -2060,9 +2083,9 @@ export class Document<
 
     const root = CRDTRoot.create();
     const presences = new Map<ActorID, P>();
-    for (const change of changes) {
-      change.execute(root, presences, OpSource.Local);
-    }
+    changes.forEach((change, i) => {
+      change.execute(root, presences, sources[i]);
+    });
 
     const onlineClients = new Set(this.onlineClients);
     if (onlineClients.delete(prev)) {
@@ -2070,6 +2093,11 @@ export class Document<
     }
 
     this.localChanges = changes;
+    changes.forEach((change, i) => {
+      if (sources[i] === OpSource.UndoRedo) {
+        this.undoRedoChanges.add(change);
+      }
+    });
     this.root = root;
     this.presences = presences;
     this.onlineClients = onlineClients;
@@ -2079,9 +2107,21 @@ export class Document<
         reissueVersionVector(this.changeID.getVersionVector(), prev, actor),
       );
 
-    // The clone and the undo/redo stacks hold the old tickets.
+    // The clone and the undo/redo stacks hold the old tickets. The stacks
+    // cannot be re-issued the way the local changes are: a reverse operation
+    // has no `executedAt` until the undo runs it (`converter.toOperation`
+    // rejects it), and it carries local-only state the wire format does not
+    // name -- the split tickets and re-issued content ids `executeUndoRedo`
+    // records on it. They are dropped, which is the state every other path
+    // that rewrites the root (`applySnapshot`, `restoreFromBytes`,
+    // `resetForReanchor`) leaves them in. The drop follows from the re-issue
+    // itself, not from whether the attach that asked for it then succeeds.
     this.clone = undefined;
     this.clearHistory();
+
+    // The devtools recording holds the raw changes as they were minted, which
+    // no longer replay onto this root.
+    resetDevtoolsRecording(this);
     return true;
   }
 
@@ -3344,6 +3384,9 @@ export class Document<
     }
 
     this.localChanges.push(change);
+    // Remember the source this change ran under: a replay of the queue has to
+    // use it again. See `undoRedoChanges`.
+    this.undoRedoChanges.add(change);
     this.changeID = ctx.getNextID();
     this.localChangeObserver.next();
     const events: DocEvents<P> = [];

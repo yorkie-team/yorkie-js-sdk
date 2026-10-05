@@ -45,6 +45,12 @@ const devtoolsStatusByDocKey = new Map<string, DevtoolsStatus>();
 const teardownByDoc = new WeakMap<object, () => void>();
 
 /**
+ * `recordingResetByDoc` holds, per Document, the way to throw its replay
+ * recording away. See `resetDevtoolsRecording`.
+ */
+const recordingResetByDoc = new WeakMap<object, () => void>();
+
+/**
  * `Registration` is one `setupDevtools` call. Each keeps its own recording, so
  * handing a key from one Document to another hands over a complete history
  * instead of whatever the previous holder had collected.
@@ -511,8 +517,18 @@ export function setupDevtools<T, P extends Indexable>(
   // re-runs, and a registration nobody releases leaves a window listener, a
   // subscription and a recording that grows with every event behind on each
   // remount. `teardownDevtools` is how the holder of the Document says so.
+  recordingResetByDoc.set(doc, () => {
+    // The array is the one `claimKey` handed to `docEventsForReplayByDocKey`,
+    // so it is emptied in place rather than replaced.
+    registration.events.length = 0;
+    if (isOwner()) {
+      sendFullSync(doc.getKey());
+    }
+  });
+
   teardownByDoc.set(doc, () => {
     teardownByDoc.delete(doc);
+    recordingResetByDoc.delete(doc);
     unsub();
     window.removeEventListener('message', handleMessage);
 
@@ -547,6 +563,26 @@ export function setupDevtools<T, P extends Indexable>(
       devtoolsStatusByDocKey.delete(doc.getKey());
     }
   });
+}
+
+/**
+ * `resetDevtoolsRecording` drops the replay events recorded for the given
+ * Document and tells the panel, which has no way to notice on its own.
+ *
+ * The panel replays a document from its initial root by applying the raw
+ * changes the recording carries. A document that re-issues its pre-attach
+ * tickets to the client's actor (`Document.setActor` with `reissue`) rewrites
+ * those changes in place: the recorded copies name an actor nothing in the
+ * document uses any more, so replaying them and then the changes that follow
+ * the attach diverges from the live root, or throws on an operation whose
+ * target the replay never created. Nothing can repair the recorded copies
+ * from here, so the history is dropped and the panel restarts from the
+ * re-issued document. It is a no-op for a Document with no registration.
+ */
+export function resetDevtoolsRecording<T, P extends Indexable>(
+  doc: Document<T, P>,
+): void {
+  recordingResetByDoc.get(doc)?.();
 }
 
 /**
