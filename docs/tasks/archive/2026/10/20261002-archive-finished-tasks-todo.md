@@ -23,40 +23,12 @@ again, so what is written there is lost.
       `maintainer-merge` skill; CLAUDE.md step 5 and `docs/tasks/active/README.md`
       say so.
 - [x] File the defect #1375 left as "not covered" as its own issue.
-
-## Needs a human with `workflow` scope
-
-- `.github/workflows/agent-implement.yml`, the PLAN step (around line
-      557): the todo it asks the agent to write declares only
-      `**Created**: YYYY-MM-DD`, so every agent-authored record reaches
-      `active/` with nothing `tasks-check.mjs --remote` can ask GitHub
-      about. Have it carry `Tracked as #__ISSUE_NUMBER__` on a line of its
-      own — the placeholder the branch name and the PR body already use,
-      substituted at line 644. The agent App token cannot push it
-      ("refusing to allow a GitHub App to create or update workflow ...
-      without `workflows` permission"), so it is not in this branch. The
-      panel re-raised this on 2026-10-05 and the push was refused a second
-      time, so the patch is written out verbatim below to apply as-is.
-
-      Replace the first two lines of the PLAN step with:
-
-      ```
-          1. PLAN: create docs/tasks/active/__TODAY__-<slug>-todo.md and its paired
-             -lessons.md. The todo starts with a `**Created**: YYYY-MM-DD` line,
-             and a second line that is exactly `Tracked as #__ISSUE_NUMBER__` —
-             that wording, unbolded, is what `scripts/tasks-check.mjs --remote`
-             asks GitHub about, and a todo without it is never checked at all.
-      ```
-
-      Unbolded, and with no colon, ON PURPOSE. `TRACKING_REF`
-      (`scripts/tasks-check.mjs:100-101`) allows only spaces, tabs and one
-      optional colon between the keyword and `#`, so the bold
-      `**Tracked as**: #1437` form that the neighbouring `**Created**` line
-      invites does NOT match and the todo stays unchecked exactly as if the
-      line were absent. Verified by running the regex against both forms:
-      `Tracked as #1437` → true, `**Tracked as**: #1437` → false. Whoever
-      applies this should keep the plain form, or widen `TRACKING_REF` in
-      the same change.
+- [x] `agent-implement.yml`'s PLAN step has every agent-authored todo
+      carry `Tracked as #__ISSUE_NUMBER__` on a line of its own. The agent
+      App token cannot push a workflow file, so a maintainer applied it.
+      Plain and unbolded on purpose: `TRACKING_REF` allows only spaces, tabs
+      and one optional colon between the keyword and `#`, so
+      `**Tracked as**: #N` would not match.
 
 ## Verification
 
