@@ -202,12 +202,15 @@ any failure after that is refunded.
   reproduces must not be deleted. Keep it as `it.fails` (which still runs)
   with a comment naming the finding, and report the item `--skipped`.
   `.skip`/`.todo` count as removals.
-- [ ] D3. **Split into a follow-up task.** It needs a new command and a human
+- [x] D3. **Split into a follow-up task.** It needs a new command and a human
   acknowledgement flow. Scope: add a `defer` outcome for a finding about behaviour the PR
   did not set out to change. The fixer files it with a proposed follow-up
   issue body. It moves to backlog only when a human acknowledges it, for
   example with `@claude defer <id>`. A scope argument still never
   overturns a finding on its own.
+  *Audit 2026-10-05:* Superseded. yorkie#2117 took a different route, with no
+  human ack: an out-of-diff finding goes to the backlog lane and is filed as
+  an `agent:follow-up` issue. Porting that to this repo is its own task.
 - [x] D4. design-fit without a spec: scope-creep findings are advisory,
   and fit-with-codebase findings still gate (Decision 3). Update
   `lenses/design-fit.md` with an explicit no-spec section.
@@ -227,8 +230,10 @@ any failure after that is refunded.
 - [x] E2. Until A lands, add a caution to the `maintainer-merge` skill:
   `update-branch` on an `agent:managed` PR re-runs the panel and can drop
   `agent:ready`, so bring main in right before the merge instead.
-- [ ] E3. File the follow-up task for porting to yorkie and wafflebase
+- [x] E3. File the follow-up task for porting to yorkie and wafflebase
   (PRs 3 and 4 below) once PRs 1 and 2 have run on real PRs here.
+  *Audit 2026-10-05:* Ported directly as PRs instead of a follow-up task:
+  yorkie#2086 and wafflebase#1095, both merged 2026-10-01.
 
 ## Decisions (2026-10-01)
 
