@@ -63,3 +63,13 @@ The verification script uses npm `overrides` to point it at the local tarball.
 The rolled-up sdk `.d.ts` has declarations that fail a full `skipLibCheck: false`
 pass (TS1183 "implementation in ambient context"). That is a separate issue, so
 the NodeNext check relies on resolution plus ATTW rather than lib checking.
+
+## One implementation must hold across packages, not only across formats
+
+Making Node `import` and `require` share one sdk build was not enough: the
+react build left `@yorkie-js/sdk` out of `external`, so it inlined a whole SDK
+copy and re-exported that copy's `Text`/`Tree`/`Counter`. Calling it
+pre-existing did not make it out of scope, because it breaks the invariant this
+change exists for. `verify:exports` now compares react's re-exports with the
+sdk's own (it failed with `react:esm:Text` before the fix). Code-review on the
+fix: one round, no findings.

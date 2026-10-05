@@ -19,11 +19,14 @@ export default defineConfig({
         format === 'umd' ? 'yorkie-js-react.js' : 'yorkie-js-react.es.mjs',
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'react/jsx-runtime'],
+      // Keep the SDK external: a bundled copy would hand out its own Text,
+      // Tree and Counter classes, which the user's SDK cannot recognize.
+      external: ['react', 'react-dom', 'react/jsx-runtime', '@yorkie-js/sdk'],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
+          '@yorkie-js/sdk': 'yorkie-js-sdk',
         },
       },
     },

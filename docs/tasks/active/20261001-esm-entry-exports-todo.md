@@ -53,6 +53,9 @@ preserving the actual ES bundle for browser bundlers.
 - [x] Add a trailing `default` condition (the UMD build) to the exports maps
 - [x] Fail when a tarball is missing, install with `--ignore-scripts`, pin ATTW
 - [x] Updated verification passes on Node 20.19.0, 22.23.2, 24.1.0 and 24.21.0
+- [x] Keep `@yorkie-js/sdk` external in the react build (it inlined a whole SDK
+      copy, so react's `Text`/`Tree`/`Counter` were foreign to the user's SDK),
+      and assert in `verify:exports` that react re-exports the SDK's own values
 
 ## Follow-ups
 
