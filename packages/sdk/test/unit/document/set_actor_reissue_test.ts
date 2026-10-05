@@ -267,6 +267,16 @@ function fillRandomly(doc: TestDoc, seed: number): void {
   }
 }
 
+/**
+ * `fuzzTimeout` is the budget the seeded sweep gets. CI caps `testTimeout` at
+ * 5s, and 300 seeded histories replayed through a re-issue run past that once
+ * coverage instrumentation is in the way. The sweep is synchronous, so the cap
+ * cannot interrupt it: it only turns a sweep that already finished, and
+ * passed, into a failure. Locally the config sets no limit and this keeps it
+ * that way.
+ */
+const fuzzTimeout = process.env.CI === 'true' ? 180_000 : Infinity;
+
 describe('Document.setActor with reissue', function () {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -714,17 +724,21 @@ describe('Document.setActor with reissue', function () {
     assert.isTrue(doc.history.canUndo());
   });
 
-  it('keeps the content of random pre-attach histories', function () {
-    // Anything the wire drops from a value that a later edit relies on shows
-    // up here as content that changes at attach.
-    for (let seed = 1; seed <= 300; seed++) {
-      const doc: TestDoc = new Document('d');
-      fillRandomly(doc, seed);
-      const before = doc.toSortedJSON();
+  it(
+    'keeps the content of random pre-attach histories',
+    function () {
+      // Anything the wire drops from a value that a later edit relies on shows
+      // up here as content that changes at attach.
+      for (let seed = 1; seed <= 300; seed++) {
+        const doc: TestDoc = new Document('d');
+        fillRandomly(doc, seed);
+        const before = doc.toSortedJSON();
 
-      reissue(doc, actorA);
-      assert.equal(doc.toSortedJSON(), before, `seed ${seed}`);
-      assert.isUndefined(actorsOf(doc).get(InitialActorID), `seed ${seed}`);
-    }
-  });
+        reissue(doc, actorA);
+        assert.equal(doc.toSortedJSON(), before, `seed ${seed}`);
+        assert.isUndefined(actorsOf(doc).get(InitialActorID), `seed ${seed}`);
+      }
+    },
+    fuzzTimeout,
+  );
 });

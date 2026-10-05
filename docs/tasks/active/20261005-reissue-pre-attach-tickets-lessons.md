@@ -82,3 +82,10 @@ over `origin/main...HEAD`), not the CI lens panel.
 This section records what the local self-review rounds changed. It is not a
 review verdict: the CI lens panel reviews this branch independently, and
 nothing here speaks for it.
+
+- CI: the 300-seed sweep in `set_actor_reissue_test.ts` passed locally and
+  timed out on CI. `vitest.config.ts` sets `testTimeout` to `Infinity`
+  locally and 5s on CI, so a synchronous sweep that runs ~5.1s under
+  coverage instrumentation only fails there. Fixed with the per-test budget
+  `tree_style_reached_set_test.ts` already uses. A local green run says
+  nothing about a long test's CI budget.
