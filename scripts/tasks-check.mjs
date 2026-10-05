@@ -49,11 +49,22 @@
 //
 // NEVER FAIL OPEN. Both halves can be prevented from running at all -- a
 // shallow clone with no merge base, a `gh` that is missing, unauthenticated
-// or rate-limited, no todo in active/ declaring a number the remote half
-// could ask about, or neither half being asked for in the first place. That
+// or rate-limited, or neither half being asked for in the first place. That
 // is not "nothing to report": it is "nothing was checked", so it is collected
 // as an `error`, printed, and under `--strict` it exits 1 exactly like a
 // finding would. A green line here has to mean the check ran.
+//
+// ONE EXCEPTION, because a gate has to be clearable. A todo declaring no
+// tracking number is data, not a broken check: the remote half ran and found
+// nothing it could ask about. Repository-wide it is a state no single PR can
+// clear -- on 2026-10-05 not one of the four active todos declared a number --
+// so making it an error on its own turns `--base ... --remote --strict`, the
+// maintainer's pre-merge gate, red on every merge for a reason unrelated to
+// the PR. It is therefore an error only when the diff half did not run
+// either, i.e. when the run really did check nothing; with `--base` given it
+// is a note, and the skipped todos are still named one by one and counted in
+// the clean line. New todos carry the line (`docs/tasks/active/README.md`,
+// and the PLAN step of `agent-implement.yml`), so coverage grows from here.
 //
 // Under GITHUB_ACTIONS each finding is a `::warning` annotation on the file,
 // so it shows up on the PR's Files tab next to the todo itself.
@@ -349,6 +360,11 @@ export function checkTasks({
     });
   }
 
+  // Whether the diff half actually ran, which decides the severity of a
+  // remote half that resolved nothing (see below). A `--base` that was asked
+  // for and then failed does not count.
+  let diffRan = false;
+
   if (base && haveActive) {
     // A shallow clone with no merge base makes `git diff base...HEAD` fail.
     // Record that and carry on, so the failure is reported and the remote
@@ -356,6 +372,7 @@ export function checkTasks({
     let touched = [];
     try {
       touched = touchedActiveTodos({ tasksDir, base, cwd, run });
+      diffRan = true;
     } catch (err) {
       errors.push({
         file: `${tasksDir}/active`,
@@ -454,12 +471,19 @@ export function checkTasks({
       });
     }
     // The remote half ran and resolved not one todo: every todo in active/
-    // declares no number of ours, so GitHub was asked nothing at all. That is
-    // the fail-open this file forbids -- without it, `--remote --strict`
-    // prints the clean line and exits 0 having examined zero todos, which is
-    // this repository's state today -- so it is an error like an unreachable
-    // `gh`. (`answered > 0` means the half did work; the todos it could not
-    // ask about are still listed as notes and counted in `unchecked`.)
+    // declares no number of ours, so GitHub was asked nothing at all.
+    // (`answered > 0` means the half did work; the todos it could not ask
+    // about are still listed as notes and counted in `unchecked`.)
+    //
+    // Severity depends on whether the RUN checked anything. On its own --
+    // `--remote --strict` and nothing else -- this is the fail-open this file
+    // forbids: the clean line would stand for todos nobody looked at, so it is
+    // an error like an unreachable `gh`. Alongside a diff half that ran, the
+    // run did ask a question and answer it, and the untracked todos are a
+    // backlog item rather than a broken check: every one of them is named
+    // above and counted in the clean line. Keeping it an error there would
+    // make the maintainer's `--base ... --remote --strict` gate red on every
+    // merge until todos nobody is touching grow a tracking line.
     //
     // `errorsBefore`: an unreachable repository or a `gh` that cannot resolve
     // anything already reported, per file, that nothing was checked. Saying it
@@ -469,9 +493,10 @@ export function checkTasks({
       unchecked.length > 0 &&
       errors.length === errorsBefore
     ) {
-      errors.push({
+      const what = `none of the ${unchecked.length} todo(s) in ${tasksDir}/active declares a tracking number this repository has (\`Tracked as #N\`, \`Fixes #N\`), so --remote examined none of them`;
+      (diffRan ? notes : errors).push({
         file: `${tasksDir}/active`,
-        message: `nothing was checked against GitHub: none of the ${unchecked.length} todo(s) in ${tasksDir}/active declares a tracking number this repository has (\`Tracked as #N\`, \`Fixes #N\`), so --remote examined none of them`,
+        message: diffRan ? what : `nothing was checked against GitHub: ${what}`,
       });
     }
   }

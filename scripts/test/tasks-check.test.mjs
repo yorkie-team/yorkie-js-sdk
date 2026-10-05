@@ -379,6 +379,50 @@ describe('tasks-check', () => {
     assert.match(errors[0].message, /declares a tracking number/);
   });
 
+  // ...but not when the diff half ran. A gate has to be clearable by the PR
+  // it gates: the maintainer runs `--base <main> --remote --strict`, and on
+  // this repository's own active/ no todo declares a number, so an error here
+  // would be exit 1 on every merge for a reason no PR can fix. The run did
+  // ask its branch question, each skipped todo is still named, and the clean
+  // line still counts them.
+  it('with the diff half run, "no todo declares a number" is a note', () => {
+    const { findings, notes, errors, unchecked } = checkTasks({
+      // `topic` is HEAD, so the diff half runs and touches nothing.
+      base: 'topic',
+      remote: true,
+      cwd: repo,
+      probeRepo: () => ({ ok: true }),
+      lookup: () => undefined,
+    });
+    assert.deepEqual(findings, []);
+    assert.deepEqual(errors, []);
+    assert.equal(unchecked.length, 5);
+    assert.ok(
+      notes.some((n) => /--remote examined none of them/.test(n.message)),
+      'a summary note says the remote half resolved nothing',
+    );
+  });
+
+  // A `--base` that was asked for and failed is not a diff half that ran, so
+  // the summary goes back to being an error: that run really did check
+  // nothing.
+  it('keeps the error when the diff half was asked for and failed', () => {
+    const { errors } = checkTasks({
+      base: 'no-such-ref',
+      remote: true,
+      cwd: repo,
+      probeRepo: () => ({ ok: true }),
+      lookup: () => undefined,
+      run: () => {
+        throw new Error('fatal: no merge base');
+      },
+    });
+    assert.equal(errors.length, 2);
+    assert.ok(
+      errors.some((e) => /nothing was checked against GitHub/.test(e.message)),
+    );
+  });
+
   // The clean line speaks only for what was looked at: with todos left
   // unchecked it has to say so, or it stands for them too.
   it('report: the clean line names the todos that were not checked', () => {

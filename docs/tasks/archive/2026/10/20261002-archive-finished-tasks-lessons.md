@@ -22,3 +22,13 @@
   `#N` is a yorkie server PR; a naive "first reference" lookup would have
   queried the wrong repository. Strip `yorkie #N` / `yorkie-team/yorkie#N`
   and prefer the line that says "Tracked as" / "Fixes" / "PR (#N)".
+- **A gate the PR in front of it cannot clear is not a gate.** Refusing a
+  green `--remote` run that resolved no todo is right in principle, but no
+  todo in this repository's `active/` declares a tracking number, so as an
+  error it was exit 1 on *every* merge for a reason belonging to records
+  nobody was touching. The invariant is about the run, not the half: with
+  `--base` alongside it the run did check something, so the untracked todos
+  are a note (still named one by one, still counted in the closing line);
+  a bare `--remote --strict` really did check nothing and still errors.
+  Coverage comes from the other end — `agent-implement.yml` now has every
+  new todo declare `Tracked as #N`.

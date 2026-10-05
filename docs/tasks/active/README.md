@@ -16,8 +16,11 @@ fallback) to bucket and date entries.
 A todo should also say, on one line, which number it is tracked by —
 `Tracked as #N`, or `Fixes #N` — as soon as there is one. That line is
 the only thing the `--remote` check below can ask GitHub about: a todo
-without it is reported as *not checked*, and a run where no todo has one
-checked nothing and says so instead of passing.
+without it is reported as *not checked*, and counted in the check's
+closing line so the green never speaks for it. A run where no todo has
+one examined nothing: that is an error on a bare `--remote`, and a note
+when `--base` ran too, since todos nobody is touching are not something
+the PR in front of the gate can fix.
 
 When work is complete:
 

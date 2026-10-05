@@ -29,5 +29,9 @@ again, so what is written there is lost.
 - [x] `pnpm test:scripts`, `pnpm lint`, `pnpm verify:license`,
       `pnpm verify:doc-links`.
 - [x] `node scripts/tasks-check.mjs --base origin/main --remote` on this
-      branch reports the two remaining active tasks whose PRs merged
-      (#1384, #1426) and nothing else.
+      branch is clean: no todo left in active/ declares a tracking number
+      (only a declaration counts, so the `#1384`/`#1426` the port and
+      case-study todos *mention* are not looked up), so all four are
+      reported as not checked and counted in the closing line. A bare
+      `--remote --strict`, which would then have checked nothing at all,
+      still exits 1.
