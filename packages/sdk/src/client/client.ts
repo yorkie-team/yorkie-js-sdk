@@ -532,6 +532,38 @@ function namespaceOf(
 }
 
 /**
+ * `reissueClaims` records, per actor, the document keys attached under it in
+ * this realm. See `claimReissue`.
+ */
+const reissueClaims = new Set<string>();
+
+/**
+ * `claimReissue` marks the given key as attached under the given actor and
+ * returns whether a pre-attach document of that key may re-issue its tickets
+ * to the actor.
+ *
+ * A re-issue keeps each ticket's lamport, which starts at 1 in every fresh
+ * document, so a second never-synced document of a key re-issued to the same
+ * actor would mint the tickets the first one already pushed. Those tickets
+ * keep the initial actor instead, as they did before the re-issue existed.
+ * The mark is taken before the round trip, since an attach whose response is
+ * lost may still have pushed, and is never cleared: a detach does not take
+ * pushed tickets back.
+ *
+ * The claims live at module scope rather than on a `Client` because the actor
+ * is the stable actor of the client key, shared by every `Client` of that key.
+ * They do not survive a reload; see docs/design/pre-attach-ticket-reissue.md.
+ */
+function claimReissue(actor: ActorID, docKey: string): boolean {
+  const claim = `${actor}/${docKey}`;
+  if (reissueClaims.has(claim)) {
+    return false;
+  }
+  reissueClaims.add(claim);
+  return true;
+}
+
+/**
  * `Client` is a normal client that can communicate with the server.
  * It has documents and sends changes of the documents in local
  * to the server to synchronize with other replicas in remote.
@@ -924,13 +956,14 @@ export class Client {
       );
     }
 
-    // Stamp the actor before any local elements are rehydrated. `setActor`
-    // has a known limitation: it does not rewrite the actor of existing
-    // elements, so the restore (which repopulates the root/changeID/pending
-    // changes under their persisted actor) must run after this call. The
-    // restore itself is deferred into the enqueued task because the store
-    // load is async; see the `store.load` step below.
-    doc.setActor((this.actorID ?? this.id)!);
+    // Stamp the actor before any local elements are rehydrated. A document
+    // edited before this attach re-issues the tickets it minted under the
+    // initial actor to this one; the restore (which repopulates the root/
+    // changeID/pending changes under their persisted actor) must run after
+    // this call. The restore itself is deferred into the enqueued task
+    // because the store load is async; see the `store.load` step below.
+    const actor = (this.actorID ?? this.id)!;
+    doc.setActor(actor, { reissue: claimReissue(actor, doc.getKey()) });
     // Resolve the effective presence-disabled state at attach time. The
     // local option wins; absent that, the Document's seeded value (from
     // construction or a prior attach response on this instance) is used;

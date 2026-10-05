@@ -1,0 +1,474 @@
+/*
+ * Copyright 2026 The Yorkie Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { describe, it, assert, afterEach, vi } from 'vitest';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
+import { Counter, Text, Tree, JSONArray } from '@yorkie-js/sdk/src/yorkie';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { fromBinary } from '@bufbuild/protobuf';
+import { SnapshotSchema as PbSnapshotSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import {
+  ActorID,
+  InitialActorID,
+} from '@yorkie-js/sdk/src/document/time/actor_id';
+import { Change } from '@yorkie-js/sdk/src/document/change/change';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
+import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { countActors, ticketsOf } from '@yorkie-js/sdk/test/helper/helper';
+
+const actorA = '000000000000000000000001';
+const actorB = '000000000000000000000002';
+
+type TestDoc = Document<any, Indexable>;
+
+/**
+ * `internals` exposes the private state under test.
+ */
+function internals(doc: TestDoc) {
+  return doc as unknown as {
+    clone?: unknown;
+    root: CRDTRoot;
+    localChanges: Array<Change<Indexable>>;
+    presences: Map<ActorID, Indexable>;
+    onlineClients: Set<ActorID>;
+  };
+}
+
+/**
+ * `fillEverything` edits a detached document with every kind of element, so
+ * every place a ticket can hide is populated before the attach.
+ */
+function fillEverything(doc: TestDoc): void {
+  doc.update((r, p) => {
+    const text = new Text();
+    r.text = text;
+    r.text.edit(0, 0, 'hello');
+    r.text.edit(1, 3, 'XY');
+    r.text.setStyle(0, 2, { b: '1' });
+
+    r.obj = { k: 'v', arr: [1, 2, 3] };
+
+    r.cnt = new Counter(1);
+    r.cnt.increase(2);
+
+    r.tree = new Tree({
+      type: 'doc',
+      children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+    });
+
+    r.gone = 'x';
+    p.set({ cursor: '1' });
+  });
+  doc.update((r) => {
+    r.tree.edit(2, 2, { type: 'text', value: 'c' });
+    r.text.edit(0, 1, '');
+    delete r.gone;
+    const arr = r.obj.arr as JSONArray<number>;
+    const first = arr.getElementByIndex!(0);
+    const last = arr.getElementByIndex!(2);
+    arr.moveBefore!(first.getID!(), last.getID!());
+  });
+}
+
+/**
+ * `actorsOf` counts, per actor, the non-initial tickets in the document's
+ * root and in the change pack it would push.
+ */
+function actorsOf(doc: TestDoc): Map<string, number> {
+  const snapshot = fromBinary(
+    PbSnapshotSchema,
+    converter.snapshotToBytes(doc.getRootObject(), new Map()),
+  );
+  const pack = converter.toChangePack(doc.createChangePack());
+
+  return countActors([...ticketsOf(snapshot), ...ticketsOf(pack)]);
+}
+
+/**
+ * `serverBuild` rebuilds a document from the change packs the given documents
+ * would push, the way the server does.
+ */
+function serverBuild(...docs: Array<TestDoc>): TestDoc {
+  const built: TestDoc = new Document(docs[0].getKey());
+  for (const doc of docs) {
+    built.applyChanges(wire(doc), OpSource.Remote);
+  }
+  return built;
+}
+
+/**
+ * `wire` returns the local changes of the given document as they arrive on
+ * another replica.
+ */
+function wire(doc: TestDoc): Array<Change<Indexable>> {
+  const pb = converter.toChangePack(doc.createChangePack());
+  return converter.fromChangePack<Indexable>(pb).getChanges();
+}
+
+/**
+ * `reissue` re-issues the document's tickets as `Client.attach` does.
+ */
+function reissue(doc: TestDoc, actor: ActorID): void {
+  doc.setActor(actor, { reissue: true });
+}
+
+/**
+ * `localActorsOf` returns the actor of every local change the document would
+ * push.
+ */
+function localActorsOf(doc: TestDoc): Array<ActorID> {
+  return doc
+    .createChangePack()
+    .getChanges()
+    .map((c) => c.getID().getActorID());
+}
+
+/**
+ * `assertLocalVectors` checks that every local change the document would
+ * push carries a version vector naming only the given actor, at that
+ * change's own lamport. An entry left under the initial actor would make
+ * every replica wait on an actor that never syncs again.
+ */
+function assertLocalVectors(doc: TestDoc, actor: ActorID): void {
+  const changes = doc.createChangePack().getChanges();
+  assert.isNotEmpty(changes);
+  for (const [i, c] of changes.entries()) {
+    const vector = c.getID().getVersionVector();
+    for (const [id] of vector) {
+      assert.equal(id, actor, `change ${i}`);
+    }
+    assert.equal(vector.get(actor), c.getID().getLamport(), `change ${i}`);
+  }
+}
+
+/**
+ * `rootBytes` encodes the root of the given document.
+ */
+function rootBytes(doc: TestDoc): Uint8Array {
+  return converter.objectToBytes(doc.getRootObject());
+}
+
+describe('Document.setActor with reissue', function () {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('leaves no ticket under the initial actor', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    const before = doc.toSortedJSON();
+    assert.isAbove(actorsOf(doc).get(InitialActorID) ?? 0, 0);
+
+    reissue(doc, actorA);
+
+    const actors = actorsOf(doc);
+    assert.isUndefined(actors.get(InitialActorID), `${[...actors]}`);
+    assert.isAbove(actors.get(actorA) ?? 0, 0);
+    assert.equal(doc.toSortedJSON(), before);
+
+    const vector = doc.getVersionVector();
+    assert.isFalse(vector.has(InitialActorID));
+    assert.equal(vector.get(actorA), doc.getChangeID().getLamport());
+    assert.equal(doc.getChangeID().getActorID(), actorA);
+
+    assertLocalVectors(doc, actorA);
+
+    const presences = internals(doc).presences;
+    assert.isTrue(presences.has(actorA));
+    assert.isFalse(presences.has(InitialActorID));
+  });
+
+  it('builds the same root the server builds', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    reissue(doc, actorA);
+
+    const built = serverBuild(doc);
+    assert.equal(doc.toSortedJSON(), built.toSortedJSON());
+    assert.deepEqual(rootBytes(doc), rootBytes(built));
+  });
+
+  it('continues edits under the new actor', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    reissue(doc, actorA);
+
+    doc.update((r) => {
+      r.text.edit(0, 0, 'Z');
+      r.tree.edit(1, 1, { type: 'text', value: 'Q' });
+      r.obj.k = 'w';
+    });
+    assert.isUndefined(actorsOf(doc).get(InitialActorID));
+    assert.isAbove(actorsOf(doc).get(actorA) ?? 0, 0);
+    assertLocalVectors(doc, actorA);
+
+    assert.equal(doc.toSortedJSON(), serverBuild(doc).toSortedJSON());
+  });
+
+  it('re-issues a retried attach to the next actor', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    reissue(doc, actorA);
+    reissue(doc, actorB);
+
+    const actors = actorsOf(doc);
+    assert.isUndefined(actors.get(InitialActorID));
+    assert.isUndefined(actors.get(actorA));
+    assert.isAbove(actors.get(actorB) ?? 0, 0);
+    assertLocalVectors(doc, actorB);
+  });
+
+  it('clears the undo history it invalidates', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    assert.isTrue(doc.history.canUndo());
+
+    reissue(doc, actorA);
+    assert.isFalse(doc.history.canUndo());
+    assert.isUndefined(internals(doc).clone);
+  });
+
+  it('does not re-issue a document that has synced', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    const pack = doc.createChangePack();
+    doc.applyChangePack(
+      ChangePack.create(
+        doc.getKey(),
+        pack.getCheckpoint().increaseClientSeq(0).forward(Checkpoint.of(1n, 0)),
+        false,
+        [],
+        doc.getVersionVector(),
+      ),
+    );
+    doc.update((r) => {
+      r.late = 'v';
+    });
+
+    reissue(doc, actorA);
+    assert.isAbove(actorsOf(doc).get(InitialActorID) ?? 0, 0);
+
+    // The fallback is what sets the actor on a document that has synced, so
+    // it has to reach the change ID and every buffered local change.
+    assert.equal(doc.getChangeID().getActorID(), actorA);
+    const local = localActorsOf(doc);
+    assert.isNotEmpty(local);
+    for (const actor of local) {
+      assert.equal(actor, actorA);
+    }
+  });
+
+  it('does not re-issue a document that absorbed a snapshot', function () {
+    // The checkpoint, the status and the version vector all still look
+    // untouched after a snapshot pack carrying the initial checkpoint, so
+    // only the absorbed guard keeps the rebuild -- which can reproduce the
+    // local changes and nothing else -- away from the root.
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    const snapshot = converter.snapshotToBytes(doc.getRootObject(), new Map());
+    doc.applyChangePack(
+      ChangePack.create(
+        doc.getKey(),
+        Checkpoint.of(0n, 0),
+        false,
+        [],
+        doc.getVersionVector(),
+        snapshot,
+      ),
+    );
+    assert.isTrue(doc.hasLocalChanges());
+    const before = doc.toSortedJSON();
+
+    reissue(doc, actorA);
+
+    assert.equal(doc.toSortedJSON(), before);
+    assert.isAbove(actorsOf(doc).get(InitialActorID) ?? 0, 0);
+  });
+
+  it('does not re-issue a document restored from bytes', function () {
+    const source: TestDoc = new Document('d');
+    fillEverything(source);
+    const doc = Document.fromBytes<Indexable, Indexable>(
+      'd',
+      source.toBytes(),
+    ) as TestDoc;
+    assert.isTrue(doc.hasLocalChanges());
+
+    reissue(doc, actorA);
+    assert.isAbove(actorsOf(doc).get(InitialActorID) ?? 0, 0);
+  });
+
+  it('is plain setActor without the option', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    const before = doc.toSortedJSON();
+    const initial = actorsOf(doc).get(InitialActorID) ?? 0;
+    assert.isTrue(doc.history.canUndo());
+
+    doc.setActor(actorA);
+
+    assert.equal(doc.getChangeID().getActorID(), actorA);
+    assert.equal(doc.toSortedJSON(), before);
+    assert.isTrue(doc.history.canUndo());
+    for (const actor of localActorsOf(doc)) {
+      assert.equal(actor, actorA);
+    }
+    // The tickets inside the operations and the root keep the initial actor.
+    const left = actorsOf(doc).get(InitialActorID) ?? 0;
+    assert.isAbove(left, 0);
+    assert.isBelow(left, initial);
+  });
+
+  it('only sets the actor of an empty document', function () {
+    const doc: TestDoc = new Document('d');
+    reissue(doc, actorA);
+    assert.equal(doc.getChangeID().getActorID(), actorA);
+    assert.equal(doc.toSortedJSON(), '{}');
+  });
+
+  for (const editAfterUndo of [false, true]) {
+    it(`keeps the content of a Text restored by undo (edit after: ${editAfterUndo})`, function () {
+      // The wire carries a Text value without its content, so a re-issue
+      // that round-trips a restoring Set would empty the Text locally, and
+      // the replay of a later Edit on its nodes would fail.
+      const doc: TestDoc = new Document('d');
+      doc.update((r) => {
+        r.t = new Text();
+        r.t.edit(0, 0, 'hello');
+        r.a = [new Text()];
+        r.a[0].edit(0, 0, 'world');
+      });
+      doc.update((r) => {
+        delete r.t;
+        r.a.delete(0);
+      });
+      doc.history.undo();
+      if (editAfterUndo) {
+        doc.update((r) => {
+          r.t.edit(2, 4, 'ZZ');
+          r.a[0].edit(0, 1, 'W');
+        });
+      }
+      const before = doc.toSortedJSON();
+
+      reissue(doc, actorA);
+      assert.equal(doc.toSortedJSON(), before);
+      assert.isUndefined(actorsOf(doc).get(InitialActorID));
+      assert.isAbove(actorsOf(doc).get(actorA) ?? 0, 0);
+    });
+  }
+
+  it('keeps tree splits, undo/redo, tree style and array set', function () {
+    const doc: TestDoc = new Document('d');
+    doc.update((r) => {
+      r.tree = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'abcd' }] }],
+      });
+    });
+    doc.update((r) => {
+      r.tree.edit(3, 3, undefined, 1);
+    });
+    doc.history.undo();
+    doc.history.redo();
+    doc.update((r) => {
+      r.tree.style(0, 1, { a: 'b' });
+      r.arr = [1, 2];
+      r.arr.setValue!(0, 9);
+      r.c = new Counter(1);
+      r.c.increase(3);
+    });
+    const before = doc.toSortedJSON();
+    const size = doc.getDocSize();
+    const garbage = doc.getGarbageLen();
+
+    reissue(doc, actorA);
+    assert.equal(doc.toSortedJSON(), before);
+    assert.deepEqual(doc.getDocSize(), size);
+    assert.equal(doc.getGarbageLen(), garbage);
+    assert.isUndefined(actorsOf(doc).get(InitialActorID));
+    assert.isAbove(actorsOf(doc).get(actorA) ?? 0, 0);
+    assert.equal(doc.toSortedJSON(), serverBuild(doc).toSortedJSON());
+  });
+
+  it('converges two documents that filled the same key', function () {
+    const doc1: TestDoc = new Document('d');
+    const doc2: TestDoc = new Document('d');
+    for (const [doc, content] of [
+      [doc1, 'one'],
+      [doc2, 'two'],
+    ] as const) {
+      doc.update((r) => {
+        r.k1 = new Text();
+        r.k1.edit(0, 0, content);
+      });
+    }
+    reissue(doc1, actorA);
+    reissue(doc2, actorB);
+
+    // The values no longer share a createdAt.
+    const created1 = doc1.getRootObject().get('k1')!.getCreatedAt();
+    const created2 = doc2.getRootObject().get('k1')!.getCreatedAt();
+    assert.notEqual(created1.toIDString(), created2.toIDString());
+
+    // doc1 reaches the server first; doc2's later Set wins by LWW on the
+    // actor tie-break (same lamport, larger actor).
+    const built = serverBuild(doc1, doc2);
+    assert.equal(built.toSortedJSON(), '{"k1":[{"val":"two"}]}');
+
+    const from1 = wire(doc1);
+    const from2 = wire(doc2);
+    doc1.applyChanges(from2, OpSource.Remote);
+    doc2.applyChanges(from1, OpSource.Remote);
+    assert.equal(doc1.toSortedJSON(), built.toSortedJSON());
+    assert.equal(doc2.toSortedJSON(), built.toSortedJSON());
+  });
+
+  it('renames an online client entry to the re-issued actor', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    doc.addOnlineClient(InitialActorID);
+
+    reissue(doc, actorA);
+
+    const online = internals(doc).onlineClients;
+    assert.isTrue(online.has(actorA));
+    assert.isFalse(online.has(InitialActorID));
+  });
+
+  it('leaves the document untouched when the replay fails', function () {
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    const before = doc.toSortedJSON();
+    const changes = internals(doc).localChanges;
+    const root = internals(doc).root;
+
+    vi.spyOn(SetOperation.prototype, 'execute').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    assert.throws(() => reissue(doc, actorA), 'boom');
+    vi.restoreAllMocks();
+
+    assert.strictEqual(internals(doc).localChanges, changes);
+    assert.strictEqual(internals(doc).root, root);
+    assert.equal(doc.toSortedJSON(), before);
+    assert.equal(doc.getChangeID().getActorID(), InitialActorID);
+    assert.isTrue(doc.history.canUndo());
+  });
+});

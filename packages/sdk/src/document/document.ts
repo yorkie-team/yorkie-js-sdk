@@ -15,6 +15,7 @@
  */
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { reissueOperations } from '@yorkie-js/sdk/src/api/reissue';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import {
   ChangeApplyError,
@@ -132,6 +133,19 @@ export interface DocumentOptions {
    * larger depth holds more memory.
    */
   maxUndoDepth?: number;
+}
+
+/**
+ * `SetActorOptions` are the options of `Document.setActor`.
+ */
+export interface SetActorOptions {
+  /**
+   * `reissue` re-issues the tickets a never-synced document minted under its
+   * previous actor to the new one, in the local changes and the root alike.
+   * Only the attaching client may ask for it. A document that has synced
+   * falls back to the plain `setActor`.
+   */
+  reissue?: boolean;
 }
 
 /**
@@ -628,6 +642,30 @@ type OpInfoOf<
 type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 
 /**
+ * `reissueVersionVector` returns a copy of the given vector whose entry for
+ * `from` is moved to `to`.
+ */
+function reissueVersionVector(
+  vector: VersionVector,
+  from: ActorID,
+  to: ActorID,
+): VersionVector {
+  const reissued = vector.deepcopy();
+  const lamport = reissued.get(from);
+  if (lamport === undefined) {
+    return reissued;
+  }
+
+  reissued.unset(from);
+  const existing = reissued.get(to);
+  reissued.set(
+    to,
+    existing !== undefined && existing > lamport ? existing : lamport,
+  );
+  return reissued;
+}
+
+/**
  * `packBlobs` concatenates the given byte blobs into a single, self-contained
  * envelope. Each blob is prefixed with its length as a 4-byte little-endian
  * uint32, so `unpackBlobs` can split them back out without a shared schema.
@@ -700,6 +738,13 @@ export class Document<
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
 
+  // `absorbedRemote` records that this document took in state it did not
+  // mint itself: a snapshot, a remote change or a persisted envelope. Such a
+  // document is not "never synced" even when its checkpoint, status and
+  // version vector still look untouched (a snapshot pack can carry the
+  // initial checkpoint), so `setActor` with `reissue` leaves it alone.
+  private absorbedRemote: boolean;
+
   // `epoch` is the document's last-known compaction epoch (proto int64). The
   // client learns it from every server response pack (`applyChangePack`) and
   // presents it back on the next attach/sync (`createChangePack`). A resumed
@@ -768,6 +813,7 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.absorbedRemote = false;
     this.epoch = 0n;
     this.docID = '';
     this.disableGC = false;
@@ -1627,6 +1673,7 @@ export class Document<
     // The docID blob is optional: envelopes written before docID support have
     // only five blobs, so treat an absent blob as an empty string.
     doc.docID = docIDBytes ? decoder.decode(docIDBytes) : '';
+    doc.absorbedRemote = true;
 
     return doc;
   }
@@ -1672,6 +1719,7 @@ export class Document<
     this.localChanges = restored.localChanges;
     this.epoch = restored.epoch;
     this.docID = restored.docID;
+    this.absorbedRemote = true;
     // Drop any stale clone so the next `update` re-clones from the restored
     // root/presences rather than the pre-restore state.
     this.clone = undefined;
@@ -1884,6 +1932,7 @@ export class Document<
     if (lastID.getClientSeq() >= this.changeID.getClientSeq()) {
       this.changeID = lastID;
     }
+    this.absorbedRemote = true;
 
     // The clone predates the replay, and the history's reverse-ops reference
     // the pre-replay state — the same reasoning `restoreFromBytes` applies.
@@ -1907,6 +1956,7 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.absorbedRemote = false;
     this.epoch = 0n;
     this.docID = '';
     this.root = CRDTRoot.create();
@@ -1953,15 +2003,104 @@ export class Document<
   /**
    * `setActor` sets actor into this document. This is also applied in the local
    * changes the document has.
+   *
+   * Without `reissue` it rewrites only the change IDs and each operation's
+   * `executedAt`; the root and the tickets inside the operations keep the
+   * actor they were minted under. With `reissue`, a never-synced document
+   * re-issues every ticket of its previous actor to the given one. See
+   * docs/design/pre-attach-ticket-reissue.md.
    */
-  public setActor(actorID: ActorID): void {
+  public setActor(actorID: ActorID, opts?: SetActorOptions): void {
+    if (opts?.reissue && this.reissueActor(actorID)) {
+      return;
+    }
+
     for (const change of this.localChanges) {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
+  }
 
-    // TODO(hackerwins): If the given actorID is not IntialActorID, we need to
-    // update InitialActor of the root and clone.
+  /**
+   * `reissueActor` re-issues the tickets of a never-synced document to the
+   * given actor and returns true, or returns false and changes nothing when
+   * the document has synced, has no local changes or already has the actor.
+   *
+   * The local changes go through `reissueOperations`, and the root and
+   * presences are rebuilt by replaying them on a fresh root: a never-synced
+   * root is exactly the initial root plus its local changes, and the replay
+   * is the computation the server performs on the pushed changes. Everything
+   * is built aside and swapped in at the end, so a throw leaves the document
+   * untouched.
+   */
+  private reissueActor(actor: ActorID): boolean {
+    const prev = this.changeID.getActorID();
+    if (prev === actor || !this.localChanges.length || !this.neverSynced()) {
+      return false;
+    }
+
+    const changes = this.localChanges.map((change) => {
+      const id = change.getID();
+      return Change.create<P>({
+        id: id
+          .setActor(actor)
+          .setVersionVector(
+            reissueVersionVector(id.getVersionVector(), prev, actor),
+          ),
+        operations: reissueOperations(change.getOperations(), prev, actor),
+        presenceChange: change.getPresenceChange(),
+        message: change.getMessage(),
+      });
+    });
+
+    const root = CRDTRoot.create();
+    const presences = new Map<ActorID, P>();
+    for (const change of changes) {
+      change.execute(root, presences, OpSource.Local);
+    }
+
+    const onlineClients = new Set(this.onlineClients);
+    if (onlineClients.delete(prev)) {
+      onlineClients.add(actor);
+    }
+
+    this.localChanges = changes;
+    this.root = root;
+    this.presences = presences;
+    this.onlineClients = onlineClients;
+    this.changeID = this.changeID
+      .setActor(actor)
+      .setVersionVector(
+        reissueVersionVector(this.changeID.getVersionVector(), prev, actor),
+      );
+
+    // The clone and the undo/redo stacks hold the old tickets.
+    this.clone = undefined;
+    this.clearHistory();
+    return true;
+  }
+
+  /**
+   * `neverSynced` returns whether every ticket naming this document's actor
+   * was minted by a local change still in `localChanges`: nothing has been
+   * pushed and nothing pulled.
+   */
+  private neverSynced(): boolean {
+    if (
+      this.absorbedRemote ||
+      this.status !== DocStatus.Detached ||
+      !this.checkpoint.equals(InitialCheckpoint)
+    ) {
+      return false;
+    }
+
+    const actor = this.changeID.getActorID();
+    for (const [id] of this.changeID.getVersionVector()) {
+      if (id !== actor) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -2167,6 +2306,7 @@ export class Document<
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
+    this.absorbedRemote = true;
     this.changeID = this.changeID.setClocks(
       snapshotVector.maxLamport(),
       snapshotVector,
@@ -2281,6 +2421,9 @@ export class Document<
    * `applyChangeInternal` applies the given change into the clone and the root.
    */
   private applyChangeInternal(change: Change<P>, source: OpSource) {
+    if (source === OpSource.Remote) {
+      this.absorbedRemote = true;
+    }
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 

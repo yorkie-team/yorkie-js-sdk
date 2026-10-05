@@ -970,7 +970,7 @@ function toTree(tree: CRDTTree): PbJSONElement {
 /**
  * `toElement` converts the given model to Protobuf format.
  */
-function toElement(element: CRDTElement): PbJSONElement {
+export function toElement(element: CRDTElement): PbJSONElement {
   if (element instanceof CRDTObject) {
     return toObject(element);
   }
@@ -1469,7 +1469,7 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
 /**
  * `fromOperation` converts the given Protobuf format to model format.
  */
-function fromOperation(pbOperation: PbOperation): Operation | undefined {
+export function fromOperation(pbOperation: PbOperation): Operation | undefined {
   if (pbOperation.body.case === 'set') {
     const pbSetOperation = pbOperation.body.value;
     return SetOperation.create(
@@ -1874,7 +1874,7 @@ function fromTree(pbTree: PbJSONElement_Tree): CRDTTree {
 /**
  * `fromElement` converts the given Protobuf format to model format.
  */
-function fromElement(pbElement: PbJSONElement): CRDTElement {
+export function fromElement(pbElement: PbJSONElement): CRDTElement {
   if (pbElement.body.case === 'jsonObject') {
     return fromObject(pbElement.body.value!);
   } else if (pbElement.body.case === 'jsonArray') {
