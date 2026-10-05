@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-05
 ---
 
 # Tasks Index
@@ -20,11 +20,10 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
-| Make the agent loop converge instead of re-litigating unchanged code (2026-10-01) | [20261001-harness-convergence-todo.md](./active/20261001-harness-convergence-todo.md) | [20261001-harness-convergence-lessons.md](./active/20261001-harness-convergence-lessons.md) |
 | Port the `@claude` agent pipeline from yorkie (2026-09-25) | [20260925-agent-pipeline-port-todo.md](./active/20260925-agent-pipeline-port-todo.md) | [20260925-agent-pipeline-port-lessons.md](./active/20260925-agent-pipeline-port-lessons.md) |
 | Incremental Persistence Engine (S2) (2026-09-16) | [20260916-incremental-persistence-engine-todo.md](./active/20260916-incremental-persistence-engine-todo.md) | [20260916-incremental-persistence-engine-lessons.md](./active/20260916-incremental-persistence-engine-lessons.md) |
 
 ## Archive
 
-- Archived task count: 38
+- Archived task count: 40
 - Archive index: [archive/README.md](./archive/README.md)

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-02
+updated: 2026-10-05
 ---
 
 # Tasks Archive
@@ -8,13 +8,15 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 38
+Total archived tasks: 40
 
-## 2026/10 (1 task)
+## 2026/10 (3 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Text: normalizePos walks the whole chain on every edit (2026-10-02) | [20261002-text-normalize-pos-splay-todo.md](./2026/10/20261002-text-normalize-pos-splay-todo.md) | [20261002-text-normalize-pos-splay-lessons.md](./2026/10/20261002-text-normalize-pos-splay-lessons.md) |
 | Archive the finished task records and warn when one is left behind (2026-10-02) | [20261002-archive-finished-tasks-todo.md](./2026/10/20261002-archive-finished-tasks-todo.md) | [20261002-archive-finished-tasks-lessons.md](./2026/10/20261002-archive-finished-tasks-lessons.md) |
+| Make the agent loop converge instead of re-litigating unchanged code (2026-10-01) | [20261001-harness-convergence-todo.md](./2026/10/20261001-harness-convergence-todo.md) | [20261001-harness-convergence-lessons.md](./2026/10/20261001-harness-convergence-lessons.md) |
 
 ## 2026/09 (19 tasks)
 
