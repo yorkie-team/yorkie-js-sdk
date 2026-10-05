@@ -18,8 +18,43 @@ import { describe, it, assert } from 'vitest';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Text } from '@yorkie-js/sdk/src/yorkie';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
 const ACTOR = '000000000000000000000001';
+const PEER = '000000000000000000000002';
+
+/**
+ * `crossSync` delivers each replica's pending changes to the other and
+ * acknowledges them, without a server and without moving GC forward.
+ */
+function crossSync<T>(d1: Document<T>, d2: Document<T>): void {
+  const p1 = d1.createChangePack();
+  const p2 = d2.createChangePack();
+  const pack = (
+    from: ReturnType<Document<T>['createChangePack']>,
+    clientSeq: number,
+    changes: ReturnType<typeof from.getChanges>,
+  ) =>
+    ChangePack.create(
+      from.getDocumentKey(),
+      Checkpoint.of(0n, clientSeq),
+      false,
+      changes,
+      InitialVersionVector,
+    );
+  const lastSeq = (from: ReturnType<Document<T>['createChangePack']>) => {
+    const changes = from.getChanges();
+    return changes.length
+      ? changes[changes.length - 1].getID().getClientSeq()
+      : 0;
+  };
+  d2.applyChangePack(pack(p1, 0, p1.getChanges()));
+  d1.applyChangePack(pack(p2, 0, p2.getChanges()));
+  d1.applyChangePack(pack(p1, lastSeq(p1), []));
+  d2.applyChangePack(pack(p2, lastSeq(p2), []));
+}
 
 /**
  * Regression for the reversed-text undo (wafflebase#629). Typing character by
@@ -73,4 +108,49 @@ describe('Text restore after GC', () => {
     doc.history.undo();
     assert.equal(doc.getRoot().t.toString(), 'hello my name is');
   });
+
+  // Which pieces survive is per-replica GC state, so where a restore anchors
+  // must not depend on it. Here only the undoing replica has purged, so it
+  // rebuilds the run through the anchor ladder, while the peer still holds the
+  // tombstones and revives them in place. In the second case the text left of
+  // the run is purged as well, so no piece of any neighbour survives on the
+  // undoing replica and the first fragment falls back to the operation's own
+  // position.
+  for (const [name, purgeLeft] of [
+    ['its neighbours survive', false],
+    ['its left neighbour is purged too', true],
+  ] as const) {
+    it(`converges when only the undoing replica purged the run (${name})`, () => {
+      const d1 = new Document<{ t: Text }>('text-restore-after-gc-peer');
+      const d2 = new Document<{ t: Text }>('text-restore-after-gc-peer');
+      d1.setActor(ACTOR);
+      d2.setActor(PEER);
+      d1.update((r) => {
+        r.t = new Text();
+      });
+      const s = 'hello my name is';
+      for (let i = 0; i < s.length; i++) {
+        d1.update((r) => r.t.edit(i, i, s[i]));
+      }
+      crossSync(d1, d2);
+      d1.clearHistory();
+
+      if (purgeLeft) {
+        d2.update((r) => r.t.edit(0, 6, '')); // the peer deletes "hello "
+        crossSync(d1, d2);
+      }
+      const from = purgeLeft ? 0 : 6;
+      d1.update((r) => r.t.edit(from, from + 7, '')); // delete "my name"
+      crossSync(d1, d2);
+
+      assert.isAbove(d1.garbageCollect(maxVectorOf([ACTOR, PEER])), 0);
+      d1.history.undo();
+      crossSync(d1, d2);
+
+      const want = purgeLeft ? 'my name is' : s;
+      assert.equal(d1.getRoot().t.toString(), want);
+      assert.equal(d2.getRoot().t.toString(), want);
+      assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+    });
+  }
 });

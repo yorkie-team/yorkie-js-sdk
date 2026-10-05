@@ -98,7 +98,11 @@ jobs:
         with:
           files: ./coverage/lcov.info
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          # This job has already run the pull request's own code (pnpm
+          # install, tests). Hand the upload token to pushes to main only;
+          # pull requests upload tokenless, and the action does not fail CI
+          # when an upload is refused.
+          CODECOV_TOKEN: ${{ github.event_name == 'push' && secrets.CODECOV_TOKEN || '' }}
 
       - name: Test ProseMirror
         run: pnpm prosemirror test

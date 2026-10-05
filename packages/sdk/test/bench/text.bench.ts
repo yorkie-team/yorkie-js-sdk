@@ -228,4 +228,13 @@ describe('Text', () => {
   bench('text 1000', () => {
     benchmarkText(1000);
   });
+
+  // Ten times "text 1000": a local edit must stay sublinear in the text's
+  // length, so this should cost about ten times as much, not a hundred.
+  // The cost itself is asserted, not eyeballed, in
+  // test/unit/document/text_normalize_pos_test.ts, which counts the work a
+  // position lookup does instead of timing it.
+  bench('text 10000', () => {
+    benchmarkText(10000);
+  });
 });
