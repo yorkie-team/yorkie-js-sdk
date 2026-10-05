@@ -24,6 +24,8 @@ import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { posT, timeT } from '@yorkie-js/sdk/test/helper/helper';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTText, CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
+import { RGATreeSplit } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
@@ -272,6 +274,36 @@ describe('Reject mid-surrogate-pair indexes', () => {
       });
       clone.update((root) => root.tree.edit(idx, idx, textNode('y')));
       assert.equal(clone.getRoot().tree.toXML(), expected, `index ${idx}`);
+    }
+  });
+
+  // The Text counterpart of the Tree seam above. An operation carrying a
+  // mid-pair offset -- a style from an older client, here -- splits the node
+  // there, so the emoji sits in two RGATreeSplit nodes on this replica and in
+  // one on every other. `indexToPos` resolves the seam to the node on its
+  // left, where the offset is at the END of the node, so the check only sees
+  // the pair by reading the node that follows.
+  it('rejects a Text index at a local seam inside a pair', () => {
+    const text = new CRDTText(RGATreeSplit.create<CRDTTextValue>(), timeT());
+    text.edit(text.indexRangeToPosRange(0, 0), surrogateText, timeT());
+    assert.throws(() => text.createRange(1, 1), midPair);
+
+    // `indexRangeToPosRange` is the unchecked lookup remote operations use.
+    text.setStyle(text.indexRangeToPosRange(0, 1), { bold: 'true' }, timeT());
+    assert.equal(text.toString(), surrogateText, 'the pair is still intact');
+    assert.throws(() => text.createRange(1, 1), midPair);
+    assert.throws(() => text.createRange(0, 1), midPair);
+    assert.throws(() => text.createRange(1, 3), midPair);
+
+    // The boundaries around the seam still resolve.
+    for (const [from, to] of [
+      [0, 0],
+      [0, 2],
+      [2, 2],
+      [2, 3],
+      [0, 3],
+    ] as const) {
+      assert.isDefined(text.createRange(from, to), `range ${from},${to}`);
     }
   });
 

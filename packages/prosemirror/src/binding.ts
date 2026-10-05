@@ -533,46 +533,57 @@ export class YorkieProseMirrorBinding {
       const oldDoc = transaction.before;
       const newDoc = newState.doc;
 
-      this.doc.update((root: any, presence: any) => {
+      // The try/catch has to sit OUTSIDE `doc.update`: `syncToYorkie` applies
+      // the diff as several edits, and a throw from one of them (an index
+      // inside a surrogate pair, say) must reach `Document.update` for it to
+      // discard the whole change. Catching inside would keep the edits that
+      // ran before the throw and leave this replica diverged.
+      try {
+        this.doc.update((root: any, presence: any) => {
+          try {
+            this.isSyncing = true;
+            syncToYorkie(
+              root[this.treePath],
+              oldDoc,
+              newDoc,
+              this.markMapping,
+              this.onLog,
+              this.wrapperElementName,
+            );
+
+            // Sync cursor position after content edit
+            if (this.shouldPublishSelection()) {
+              const treeJSON = JSON.parse(root[this.treePath].toJSON());
+              const map = buildPositionMap(newDoc, treeJSON);
+              const sel = newState.selection;
+              const yorkieFrom = pmPosToYorkieIdx(map, sel.from);
+              const yorkieTo = pmPosToYorkieIdx(map, sel.to);
+              presence.set({
+                selection: root[this.treePath].indexRangeToPosRange([
+                  yorkieFrom,
+                  yorkieTo,
+                ]),
+              });
+              this.hasPublishedSelection = true;
+            } else if (this.hasPublishedSelection) {
+              // Publishing just turned off — retract what peers still render.
+              presence.set({ selection: undefined });
+              this.hasPublishedSelection = false;
+            }
+          } finally {
+            this.isSyncing = false;
+          }
+        });
+      } catch (e) {
+        this.onLog?.('error', `Upstream sync failed: ${(e as Error).message}`);
+        // `Document.update` rolled the change back, so the tree still holds
+        // the pre-transaction state. Re-sync the view from it to drop the
+        // steps that never reached Yorkie.
         try {
           this.isSyncing = true;
-          syncToYorkie(
-            root[this.treePath],
-            oldDoc,
-            newDoc,
-            this.markMapping,
-            this.onLog,
-            this.wrapperElementName,
-          );
-
-          // Sync cursor position after content edit
-          if (this.shouldPublishSelection()) {
-            const treeJSON = JSON.parse(root[this.treePath].toJSON());
-            const map = buildPositionMap(newDoc, treeJSON);
-            const sel = newState.selection;
-            const yorkieFrom = pmPosToYorkieIdx(map, sel.from);
-            const yorkieTo = pmPosToYorkieIdx(map, sel.to);
-            presence.set({
-              selection: root[this.treePath].indexRangeToPosRange([
-                yorkieFrom,
-                yorkieTo,
-              ]),
-            });
-            this.hasPublishedSelection = true;
-          } else if (this.hasPublishedSelection) {
-            // Publishing just turned off — retract what peers still render.
-            presence.set({ selection: undefined });
-            this.hasPublishedSelection = false;
-          }
-        } catch (e) {
-          this.onLog?.(
-            'error',
-            `Upstream sync failed: ${(e as Error).message}`,
-          );
-          // Re-sync from Yorkie to recover from diverged state
           syncToPM(
             this.view,
-            root[this.treePath],
+            this.getTree(),
             this.view.state.schema,
             this.elementToMarkMapping,
             this.onLog,
@@ -581,7 +592,7 @@ export class YorkieProseMirrorBinding {
         } finally {
           this.isSyncing = false;
         }
-      });
+      }
     };
 
     (this.view as any).setProps({

@@ -246,6 +246,36 @@ export class CRDTTextValue {
 }
 
 /**
+ * `indexedContent` returns the text the given node contributes to the index:
+ * empty for the head node, which holds no value, and for a tombstone, whose
+ * text the index no longer counts.
+ */
+function indexedContent(node: RGATreeSplitNode<CRDTTextValue>): string {
+  const value: CRDTTextValue | undefined = node.getValue();
+  return node.isRemoved() || !value ? '' : value.getContent();
+}
+
+/**
+ * `neighborContent` returns the content of the nearest node on the given side
+ * that still contributes text, or an empty string when there is none.
+ */
+function neighborContent(
+  node: RGATreeSplitNode<CRDTTextValue>,
+  step: (
+    n: RGATreeSplitNode<CRDTTextValue>,
+  ) => RGATreeSplitNode<CRDTTextValue> | undefined,
+): string {
+  for (let n = step(node); n; n = step(n)) {
+    const content = indexedContent(n);
+    if (content) {
+      return content;
+    }
+  }
+
+  return '';
+}
+
+/**
  *  `CRDTText` is a custom CRDT data type to represent the contents of text editors.
  *
  */
@@ -643,24 +673,29 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
 
   /**
    * `validateUTF16Boundary` throws when the given position splits a surrogate
-   * pair in the node that holds it.
+   * pair. At either end of the node it reads the neighbouring node: an edit or
+   * a style carrying a mid-pair offset splits the node there, so a pair can
+   * sit in two nodes on this replica while it is one node on every other, and
+   * an index at that seam is still inside it. `indexToPos` resolves a seam to
+   * the node on its left, so the `offset === content.length` side is the one
+   * an index normally reaches.
    */
   private validateUTF16Boundary(pos: RGATreeSplitPos): void {
-    // Offset 0 never splits a pair, and it is where the head node, which
-    // holds no value, is addressed.
+    const node = this.rgaTreeSplit.findNode(pos.getID());
     const offset = pos.getRelativeOffset();
+    const content = indexedContent(node);
+
+    let before = content.charCodeAt(offset - 1);
+    let after = content.charCodeAt(offset);
     if (offset === 0) {
-      return;
+      const prev = neighborContent(node, (n) => n.getPrev());
+      before = prev.charCodeAt(prev.length - 1);
+    }
+    if (offset === content.length) {
+      after = neighborContent(node, (n) => n.getNext()).charCodeAt(0);
     }
 
-    const content = this.rgaTreeSplit
-      .findNode(pos.getID())
-      .getValue()
-      .getContent();
-    ensureUTF16Boundary(
-      content.charCodeAt(offset - 1),
-      content.charCodeAt(offset),
-    );
+    ensureUTF16Boundary(before, after);
   }
 
   /**
