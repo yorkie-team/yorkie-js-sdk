@@ -306,6 +306,8 @@ export class Tree {
 
   /**
    * `splitByPath` splits the tree by the given path.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public splitByPath(path: Array<number>) {
     if (!this.context || !this.tree) {
@@ -420,6 +422,8 @@ export class Tree {
    * `styleByPath` sets the attributes to the elements of the given
    * path. When called with two paths, it styles the range between
    * them.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public styleByPath(
     fromPathOrPath: Array<number>,
@@ -554,6 +558,7 @@ export class Tree {
 
   /**
    * `removeStyle` removes the attributes to the elements of the given range.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public removeStyle(
     fromIdx: number,
@@ -605,6 +610,8 @@ export class Tree {
   /**
    * `removeStyleByPath` removes the attributes of the elements in
    * the given path range.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public removeStyleByPath(
     fromPath: Array<number>,
@@ -747,6 +754,8 @@ export class Tree {
 
   /**
    * `editByPath` edits this tree with the given node and path.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public editByPath(
     fromPath: Array<number>,
@@ -786,6 +795,8 @@ export class Tree {
 
   /**
    * `editBulkByPath` edits this tree with the given node and path.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public editBulkByPath(
     fromPath: Array<number>,

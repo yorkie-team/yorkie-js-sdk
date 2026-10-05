@@ -39,6 +39,9 @@ where it becomes a CRDT position. This is the JS half.
 - [x] `docs/design/`: nothing to update here. The rule is written in
       yorkie's `docs/design/document-editing.md`, which covers both SDKs.
 - [x] `pnpm verify:fast`, `pnpm sdk test` with the server running.
+- [x] Tree: read the neighbouring text node at either end of a node, so a
+      pair split locally by a selection conversion is still rejected at its
+      seam (found by `/code-review`).
 - [x] ProseMirror binding: `diffText` widens its range to whole characters
       so an emoji replaced by one sharing a surrogate is not rejected (found
       in self review round 1).
@@ -55,6 +58,11 @@ where it becomes a CRDT position. This is the JS half.
   too: on `<r><section><p>aXYb</p><p>cXYd</p></section></r>`,
   `edit(11,11,undefined,2)`, `edit(0,3)`, undo, undo throws "index is out of
   range: 15 > 13". Unrelated to surrogates; needs its own issue.
+- Lone surrogates inside inserted content (`edit(0, 0, 'a\uD83D')`) also
+  diverge (Go stores U+FFFD). Go #2085 does not validate content either; a
+  content rule is a separate cross-SDK change.
+- An undo whose reconciled index lands inside a pair still sends a mid-pair
+  operation (Case 5 above); snapping it outward is the same cross-SDK change.
 
 ## Verification
 
@@ -76,6 +84,18 @@ no blocking finding; its minor notes added the throw to the `Text`/`Tree`
 edit JSDoc and a comment on `createRangeForTest`. Not taken: an offset in
 the error message (it matches Go's byte for byte; change both together),
 and sharing the binding's surrogate predicates (a new public SDK export).
+
+`/code-review` (high) after the self review: fixed the Tree seam bypass
+(Red first: a selection conversion splits the emoji's node locally, and an
+edit at the seam passed the per-node check while naming a mid-pair offset in
+the node every other replica keeps whole), and added the throw note to every
+Tree entry point. Disputed and left as is: the same seam in Text, which has
+no local-only split, so a seam there only comes from an older client's
+mid-pair op that already split the pair on every replica (inserting there
+adds no new divergence); the fuzz's lone-high insert (legacy-data stand-in);
+the second floor lookup in `validateUTF16Boundary` (O(log n), Go does the
+same); and the `createRange` name (mirrors Go's `CreateRange`). Deferred:
+content validation and the Case 5 undo snap (Out of scope).
 
 Public behavior change for the release notes: `Text.edit`/`setStyle` and
 `Tree.edit`/`editBulk`/`style`/`removeStyle` and their `ByPath` forms throw

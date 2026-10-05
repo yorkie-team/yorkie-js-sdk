@@ -653,8 +653,14 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       return;
     }
 
-    const node = this.rgaTreeSplit.findNode(pos.getID());
-    ensureUTF16Boundary(node.getValue().getContent(), offset);
+    const content = this.rgaTreeSplit
+      .findNode(pos.getID())
+      .getValue()
+      .getContent();
+    ensureUTF16Boundary(
+      content.charCodeAt(offset - 1),
+      content.charCodeAt(offset),
+    );
   }
 
   /**

@@ -52,3 +52,9 @@ over `origin/main...HEAD`), not the CI lens panel.
   so the loop stopped. Took the JSDoc throw notes and the
   `createRangeForTest` comment; left the error message as Go's and the
   binding's local surrogate predicates (sharing them needs a public export).
+- `/code-review` after the loop found what both self-review rounds missed:
+  a per-node boundary check is not a per-character one. JS splits text
+  nodes locally with no operation when it converts a position back to an
+  index, so the node layout is replica-local, and "offset 0 or length" says
+  nothing about whether the index sits inside a character. A check on
+  replica-local structure has to look past the node's ends.

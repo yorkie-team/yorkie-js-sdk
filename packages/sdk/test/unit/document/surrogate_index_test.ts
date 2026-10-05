@@ -241,6 +241,40 @@ describe('Reject mid-surrogate-pair indexes', () => {
     }
   });
 
+  // Converting a position back to an index splits the text node there, with
+  // no operation, so a mid-pair selection from a peer leaves this replica's
+  // emoji in two nodes while every other replica keeps it in one. The seam
+  // then looks like a node boundary, but an edit there still names an offset
+  // inside the pair in the original node, which other replicas split.
+  it('rejects a Tree index at a local seam inside a pair', () => {
+    const doc = newSurrogateDoc();
+    doc.update((root) => {
+      const midPair = root.tree.indexRangeToPosRange([2, 2]);
+      assert.deepEqual(root.tree.posRangeToIndexRange(midPair), [2, 2]);
+    });
+
+    assertRejectsMidSurrogate(doc, (root) =>
+      root.tree.edit(2, 2, textNode('y')),
+    );
+    for (const [idx, expected] of [
+      [1, '<r><p>y😀x</p></r>'],
+      [3, '<r><p>😀yx</p></r>'],
+    ] as const) {
+      const clone = new Document('surrogate-index') as TestDoc;
+      clone.update((root) => {
+        root.tree = new Tree({
+          type: 'r',
+          children: [
+            { type: 'p', children: [{ type: 'text', value: surrogateText }] },
+          ],
+        });
+        root.tree.posRangeToIndexRange(root.tree.indexRangeToPosRange([2, 2]));
+      });
+      clone.update((root) => root.tree.edit(idx, idx, textNode('y')));
+      assert.equal(clone.getRoot().tree.toXML(), expected, `index ${idx}`);
+    }
+  });
+
   it('resolves Tree indexes after a split', () => {
     // An earlier edit splits <p>'s text node, so every offset has to be
     // resolved relative to the node that holds it.

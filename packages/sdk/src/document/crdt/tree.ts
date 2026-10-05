@@ -4303,10 +4303,35 @@ export class CRDTTree extends CRDTElement implements GCParent {
   public findPos(index: number, preferText = true): CRDTTreePos {
     const treePos = this.indexTree.findTreePos(index, preferText);
     if (treePos.node.isText) {
-      ensureUTF16Boundary(treePos.node.value, treePos.offset);
+      this.validateUTF16Boundary(treePos);
     }
 
     return CRDTTreePos.fromTreePos(treePos);
+  }
+
+  /**
+   * `validateUTF16Boundary` throws when the given text position splits a
+   * surrogate pair. At either end of the node it reads the neighbouring text
+   * node: converting a position back to an index splits text nodes with no
+   * operation, so a pair can sit in two nodes on this replica while it is
+   * one node on every other, and an index at that seam is still inside it.
+   */
+  private validateUTF16Boundary({ node, offset }: TreePos<CRDTTreeNode>) {
+    const value = node.value;
+    let before = value.charCodeAt(offset - 1);
+    let after = value.charCodeAt(offset);
+    if (offset === 0) {
+      const prev = node.prevSibling;
+      before = prev?.isText
+        ? prev.value.charCodeAt(prev.value.length - 1)
+        : NaN;
+    }
+    if (offset === value.length) {
+      const next = node.nextSibling;
+      after = next?.isText ? next.value.charCodeAt(0) : NaN;
+    }
+
+    ensureUTF16Boundary(before, after);
   }
 
   /**
