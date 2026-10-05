@@ -1837,14 +1837,26 @@ function fromText<A extends Indexable>(
   // it: a dangling or forward link would silently become a link to the wrong
   // node. An unresolvable link is dropped instead, which is what a Text with no
   // links at all already looks like.
+  //
+  // Being decoded earlier is not enough. Every producer of a link points it at
+  // an earlier piece of the SAME insertion -- `splitNode` links a split product
+  // to its left half and relinks the following piece, and the restore path
+  // links a recreated fragment to the piece covering the offset below it -- so
+  // a link naming another insertion, or an offset at or above this node's own,
+  // is one no local edit could have made. Accepting it would let a forged
+  // payload mis-link a node, and a later Edit resolving through
+  // `findFloorNodePreferToLeft` would then compute an out-of-range offset.
   const decoded = new Map<string, RGATreeSplitNode<CRDTTextValue>>();
   let prev = rgaTreeSplit.getHead();
   for (const pbNode of pbText.nodes) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
     if (pbNode.insPrevId) {
-      const insPrev = decoded.get(
-        fromTextNodeID(pbNode.insPrevId).toIDString(),
-      );
+      const id = current.getID();
+      const insPrevID = fromTextNodeID(pbNode.insPrevId);
+      const insPrev =
+        insPrevID.hasSameCreatedAt(id) && insPrevID.getOffset() < id.getOffset()
+          ? decoded.get(insPrevID.toIDString())
+          : undefined;
       if (insPrev) {
         current.setInsPrev(insPrev);
       }

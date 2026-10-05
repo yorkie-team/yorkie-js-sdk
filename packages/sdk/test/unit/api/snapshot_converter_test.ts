@@ -186,6 +186,34 @@ describe('snapshotToBytes', function () {
     assert.isUndefined(nodes[0].getInsPrev());
   });
 
+  it('should drop an insertion link that names another insertion', function () {
+    // Every producer of a link points it at an earlier piece of the SAME
+    // insertion, so a link across insertions is one no local edit could have
+    // made. Being decoded earlier is not enough to accept it: a later Edit
+    // resolving through such a link in `findFloorNodePreferToLeft` computes an
+    // offset relative to a node of a different insertion, which lands out of
+    // range or negative.
+    const doc = new Document<{ text: Text }>('cross-insertion-doc');
+    doc.update((root) => {
+      root.text = new Text();
+      root.text.edit(0, 0, 'abc');
+    });
+    doc.update((root) => root.text.edit(3, 3, 'def'));
+
+    const pbRoot = encodeRoot(doc);
+    const pbText = pbTextOf(pbRoot);
+    assert.equal(pbText.nodes.length, 2);
+    // The second insertion decodes after the first, so this link resolves by
+    // exact id — only the same-insertion check rejects it.
+    pbText.nodes[1].insPrevId = pbText.nodes[0].id;
+
+    const decoded = converter.bytesToObject(
+      toBinary(PbJSONElementSchema, pbRoot),
+    );
+    const nodes = [...(decoded.get('text') as CRDTText).getRGATreeSplit()];
+    assert.isUndefined(nodes[1].getInsPrev());
+  });
+
   it('should round-trip an empty document', function () {
     const doc = new Document<Record<string, never>>('empty-doc');
     const rootObj = doc.getRootObject();

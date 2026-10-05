@@ -727,6 +727,24 @@ function unpackBlobs(bytes: Uint8Array): Array<Uint8Array> {
 }
 
 /**
+ * `replaySourceOf` returns the source a queued local change has to be executed
+ * under when it is replayed.
+ *
+ * A change an undo or a redo produced ran with `OpSource.UndoRedo`, which is
+ * the only source `SetOperation.execute`/`RemoveOperation.execute` consult to
+ * skip an operation whose target sits under a removed parent. Replaying it as
+ * `Local` runs an operation that never ran -- the rebuilt root then differs
+ * from the one the user is looking at, and `ElementRHT.delete` can throw out
+ * of the replay. Every path that replays the queue (`applySnapshot`,
+ * `reissueActor`, `restoreAppendedChanges`) goes through this.
+ */
+function replaySourceOf<P extends Indexable>(
+  change: Change<P>,
+): OpSource.Local | OpSource.UndoRedo {
+  return change.isUndoRedo() ? OpSource.UndoRedo : OpSource.Local;
+}
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  * It implements Attachable interface to be managed by Attachment.
@@ -744,15 +762,6 @@ export class Document<
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
-
-  // `undoRedoChanges` marks the queued local changes an undo or a redo
-  // produced. Those were executed with `OpSource.UndoRedo`, the only source
-  // the skip guards in `SetOperation`/`RemoveOperation` look at, so a replay
-  // of the queue has to use that source again to land on the same root. It is
-  // a WeakSet rather than a field on `Change` because the mark never leaves
-  // this instance: a change rebuilt from a struct has absorbed remote state
-  // and is never replayed by `reissueActor`.
-  private undoRedoChanges: WeakSet<Change<P>>;
 
   // `absorbedRemote` records that this document took in state it did not
   // mint itself: a snapshot, a remote change or a persisted envelope. Such a
@@ -829,7 +838,6 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
-    this.undoRedoChanges = new WeakSet();
     this.absorbedRemote = false;
     this.epoch = 0n;
     this.docID = '';
@@ -1925,7 +1933,11 @@ export class Document<
     // current content, so skipping an acked one would leave the root behind.
     // Only the unacked ones are queued: re-pushing what the server has already
     // taken presents a `clientSeq` it will skip.
-    this.applyChanges(changes, OpSource.Local);
+    //
+    // A change an undo or a redo produced carries that through the struct
+    // (`Change.isUndoRedo`) and is replayed under `OpSource.UndoRedo`: see
+    // `replaySourceOf`.
+    this.replayLocalChanges(changes);
     this.localChanges.push(
       ...changes.filter(
         (change) => change.getID().getClientSeq() > ackedClientSeq,
@@ -2057,16 +2069,14 @@ export class Document<
       return false;
     }
 
-    // Each change keeps the source it was originally executed with. An
-    // undo or a redo ran its change with `OpSource.UndoRedo`, and that source
-    // is what `SetOperation.execute`/`RemoveOperation.execute` consult to skip
-    // an operation whose target now sits under a removed parent: replaying
-    // such a change as `Local` would run an operation that never ran, so the
-    // rebuilt root would differ from the one the user is looking at (and
+    // Each rebuilt change carries over the source it was originally executed
+    // with (`Change.isUndoRedo`). An undo or a redo ran its change with
+    // `OpSource.UndoRedo`, and that source is what
+    // `SetOperation.execute`/`RemoveOperation.execute` consult to skip an
+    // operation whose target now sits under a removed parent: replaying such a
+    // change as `Local` would run an operation that never ran, so the rebuilt
+    // root would differ from the one the user is looking at (and
     // `ElementRHT.delete` can throw out of the replay).
-    const sources = this.localChanges.map((change) =>
-      this.undoRedoChanges.has(change) ? OpSource.UndoRedo : OpSource.Local,
-    );
     const changes = this.localChanges.map((change) => {
       const id = change.getID();
       return Change.create<P>({
@@ -2078,14 +2088,15 @@ export class Document<
         operations: reissueOperations(change.getOperations(), prev, actor),
         presenceChange: change.getPresenceChange(),
         message: change.getMessage(),
+        undoRedo: change.isUndoRedo(),
       });
     });
 
     const root = CRDTRoot.create();
     const presences = new Map<ActorID, P>();
-    changes.forEach((change, i) => {
-      change.execute(root, presences, sources[i]);
-    });
+    for (const change of changes) {
+      change.execute(root, presences, replaySourceOf(change));
+    }
 
     const onlineClients = new Set(this.onlineClients);
     if (onlineClients.delete(prev)) {
@@ -2093,11 +2104,6 @@ export class Document<
     }
 
     this.localChanges = changes;
-    changes.forEach((change, i) => {
-      if (sources[i] === OpSource.UndoRedo) {
-        this.undoRedoChanges.add(change);
-      }
-    });
     this.root = root;
     this.presences = presences;
     this.onlineClients = onlineClients;
@@ -2120,9 +2126,40 @@ export class Document<
     this.clearHistory();
 
     // The devtools recording holds the raw changes as they were minted, which
-    // no longer replay onto this root.
-    resetDevtoolsRecording(this);
+    // no longer replay onto this root. Emptying it is not enough on its own:
+    // the panel replays a history onto a freshly built empty Document, so a
+    // recording that starts after the attach would be replayed onto a root
+    // that never had the pre-attach changes -- the replay diverges, or throws
+    // on an operation whose target it never created, in a panel that has no
+    // error boundary. The re-issued root is handed over as the recording's
+    // first event, so what the panel holds is a complete history again.
+    resetDevtoolsRecording(
+      this,
+      this.isEnableDevtools() ? [this.toReplayBaseline()] : undefined,
+    );
     return true;
+  }
+
+  /**
+   * `toReplayBaseline` returns a snapshot event carrying this document's
+   * current root and presences, as the devtools replay consumes it
+   * (`applyDocEventsForReplay`). It is how a recording that no longer starts
+   * at the initial root is given one to start from.
+   */
+  private toReplayBaseline(): Devtools.DocEventForReplay<P> {
+    return {
+      type: DocEventType.Snapshot,
+      source: OpSource.Remote,
+      value: {
+        serverSeq: this.checkpoint.getServerSeq().toString(),
+        snapshot: converter.bytesToHex(
+          converter.snapshotToBytes(this.root.getObject(), this.presences),
+        ),
+        snapshotVector: converter.versionVectorToHex(
+          this.changeID.getVersionVector(),
+        ),
+      },
+    };
   }
 
   /**
@@ -2366,7 +2403,10 @@ export class Document<
     // them after applying the snapshot, as local changes are not included in the snapshot data.
     // Afterward, we should publish a snapshot event with the latest
     // version of the document to ensure the user receives the most up-to-date snapshot.
-    this.applyChanges(this.localChanges, OpSource.Local);
+    //
+    // Each queued change is replayed under the source it originally ran with:
+    // see `replaySourceOf`.
+    this.replayLocalChanges(this.localChanges);
     this.clearHistory();
     this.publish([
       {
@@ -2425,6 +2465,18 @@ export class Document<
           `elements:${this.root.getElementMapSize()}, ` +
           ` removeds:${this.root.getGarbageElementSetSize()}`,
       );
+    }
+  }
+
+  /**
+   * `replayLocalChanges` applies the given queued local changes, each under
+   * the source it originally ran with (`replaySourceOf`). A plain
+   * `applyChanges(changes, OpSource.Local)` would run an operation an undo had
+   * skipped, so every replay of the queue goes through here instead.
+   */
+  private replayLocalChanges(changes: Array<Change<P>>): void {
+    for (const change of changes) {
+      this.applyChange(change, replaySourceOf(change));
     }
   }
 
@@ -3385,8 +3437,8 @@ export class Document<
 
     this.localChanges.push(change);
     // Remember the source this change ran under: a replay of the queue has to
-    // use it again. See `undoRedoChanges`.
-    this.undoRedoChanges.add(change);
+    // use it again. See `Change.isUndoRedo`.
+    change.markAsUndoRedo();
     this.changeID = ctx.getNextID();
     this.localChangeObserver.next();
     const events: DocEvents<P> = [];

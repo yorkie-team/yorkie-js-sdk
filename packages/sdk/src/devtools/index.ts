@@ -48,7 +48,10 @@ const teardownByDoc = new WeakMap<object, () => void>();
  * `recordingResetByDoc` holds, per Document, the way to throw its replay
  * recording away. See `resetDevtoolsRecording`.
  */
-const recordingResetByDoc = new WeakMap<object, () => void>();
+const recordingResetByDoc = new WeakMap<
+  object,
+  (baseline?: DocEventsForReplay) => void
+>();
 
 /**
  * `Registration` is one `setupDevtools` call. Each keeps its own recording, so
@@ -517,10 +520,13 @@ export function setupDevtools<T, P extends Indexable>(
   // re-runs, and a registration nobody releases leaves a window listener, a
   // subscription and a recording that grows with every event behind on each
   // remount. `teardownDevtools` is how the holder of the Document says so.
-  recordingResetByDoc.set(doc, () => {
+  recordingResetByDoc.set(doc, (baseline?: DocEventsForReplay) => {
     // The array is the one `claimKey` handed to `docEventsForReplayByDocKey`,
     // so it is emptied in place rather than replaced.
     registration.events.length = 0;
+    if (baseline?.length) {
+      registration.events.push(baseline);
+    }
     if (isOwner()) {
       sendFullSync(doc.getKey());
     }
@@ -578,11 +584,21 @@ export function setupDevtools<T, P extends Indexable>(
  * target the replay never created. Nothing can repair the recorded copies
  * from here, so the history is dropped and the panel restarts from the
  * re-issued document. It is a no-op for a Document with no registration.
+ *
+ * The panel replays onto a freshly built empty Document and has no way to be
+ * told "start from here", so a recording that merely started over would be a
+ * history missing its beginning: the events recorded after the reset would be
+ * replayed onto a root that never had the ones before it, which diverges or
+ * throws on an operation whose target the replay never created. The caller
+ * therefore hands over a `baseline` -- a snapshot event carrying the document
+ * as it stands -- which becomes the recording's first entry so that what the
+ * panel holds is a complete history again.
  */
 export function resetDevtoolsRecording<T, P extends Indexable>(
   doc: Document<T, P>,
+  baseline?: DocEventsForReplay,
 ): void {
-  recordingResetByDoc.get(doc)?.();
+  recordingResetByDoc.get(doc)?.(baseline);
 }
 
 /**

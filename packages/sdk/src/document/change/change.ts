@@ -44,6 +44,11 @@ export type ChangeStruct<P extends Indexable> = {
     type: PresenceChangeType;
     presence?: P;
   };
+  // `undoRedo` marks a change an undo or a redo produced. It is serialized
+  // because a queued change outlives this process -- the offline-persistence
+  // layer writes it and replays it after a reload -- and a replay has to reuse
+  // the source the change originally ran under. See `Change.isUndoRedo`.
+  undoRedo?: boolean;
 };
 
 /**
@@ -61,21 +66,33 @@ export class Change<P extends Indexable> {
   // `message` is used to save a description of the change.
   private message?: string;
 
+  // `undoRedo` records that this change was produced by an undo or a redo, so
+  // it ran with `OpSource.UndoRedo`. That source is the only thing
+  // `SetOperation.execute`/`RemoveOperation.execute` consult to skip an
+  // operation whose target now sits under a removed parent, so anything that
+  // replays a queued change -- `Document.applySnapshot`, `reissueActor`, the
+  // persisted-log replay -- has to execute it under that source again or it
+  // runs an operation that never ran.
+  private undoRedo: boolean;
+
   constructor({
     id,
     operations,
     presenceChange,
     message,
+    undoRedo,
   }: {
     id: ChangeID;
     operations?: Array<Operation>;
     presenceChange?: PresenceChange<P>;
     message?: string;
+    undoRedo?: boolean;
   }) {
     this.id = id;
     this.operations = operations || [];
     this.presenceChange = presenceChange;
     this.message = message;
+    this.undoRedo = undoRedo || false;
   }
 
   /**
@@ -86,13 +103,15 @@ export class Change<P extends Indexable> {
     operations,
     presenceChange,
     message,
+    undoRedo,
   }: {
     id: ChangeID;
     operations?: Array<Operation>;
     presenceChange?: PresenceChange<P>;
     message?: string;
+    undoRedo?: boolean;
   }): Change<P> {
-    return new Change({ id, operations, presenceChange, message });
+    return new Change({ id, operations, presenceChange, message, undoRedo });
   }
 
   /**
@@ -132,6 +151,21 @@ export class Change<P extends Indexable> {
     }
 
     this.id = this.id.setActor(actorID);
+  }
+
+  /**
+   * `isUndoRedo` returns whether an undo or a redo produced this change, which
+   * is to say whether a replay of it has to use `OpSource.UndoRedo`.
+   */
+  public isUndoRedo(): boolean {
+    return this.undoRedo;
+  }
+
+  /**
+   * `markAsUndoRedo` records that an undo or a redo produced this change.
+   */
+  public markAsUndoRedo(): void {
+    this.undoRedo = true;
   }
 
   /**
@@ -248,6 +282,9 @@ export class Change<P extends Indexable> {
         converter.bytesToHex(converter.operationToBinary(op)),
       ),
       presenceChange: this.getPresenceChange(),
+      // Written only when set, so a change no undo produced serializes exactly
+      // as it did before this field existed.
+      undoRedo: this.undoRedo || undefined,
     };
   }
 
@@ -257,7 +294,7 @@ export class Change<P extends Indexable> {
   public static fromStruct<P extends Indexable>(
     struct: ChangeStruct<P>,
   ): Change<P> {
-    const { changeID, operations, presenceChange, message } = struct;
+    const { changeID, operations, presenceChange, message, undoRedo } = struct;
     return Change.create<P>({
       id: converter.bytesToChangeID(converter.hexToBytes(changeID)),
       operations: operations?.map((op) => {
@@ -265,6 +302,7 @@ export class Change<P extends Indexable> {
       }),
       presenceChange: presenceChange as any,
       message,
+      undoRedo,
     });
   }
 }

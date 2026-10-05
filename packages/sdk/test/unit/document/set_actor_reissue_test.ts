@@ -30,7 +30,11 @@ import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { SetOperation } from '@yorkie-js/sdk/src/document/operation/set_operation';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
-import { countActors, ticketsOf } from '@yorkie-js/sdk/test/helper/helper';
+import {
+  countActors,
+  maxVectorOf,
+  ticketsOf,
+} from '@yorkie-js/sdk/test/helper/helper';
 
 const actorA = '000000000000000000000001';
 const actorB = '000000000000000000000002';
@@ -381,6 +385,71 @@ describe('Document.setActor with reissue', function () {
     ]);
     assert.equal(doc.toSortedJSON(), before);
     assert.isUndefined(actorsOf(doc).get(InitialActorID));
+  });
+
+  it('replays an undone change under its own source after a snapshot', function () {
+    // `applySnapshot` re-applies the queued local changes on top of the
+    // snapshot root, and `reissueActor` is not the only replay that has to
+    // honour the source each change ran under: a change an undo produced is
+    // replayed as `UndoRedo` here too. See `replaySourceOf`.
+    const doc: TestDoc = new Document('d');
+    doc.update((r) => {
+      r.obj = { k: 'v' };
+    });
+    doc.update((r) => {
+      r.obj.k = 'w';
+    });
+    doc.history.undo();
+    const undoSeq = internals(doc).localChanges[2].getID().getClientSeq();
+
+    const replayed: Array<[number, OpSource]> = [];
+    const execute = Change.prototype.execute;
+    vi.spyOn(Change.prototype, 'execute').mockImplementation(function (
+      this: Change<Indexable>,
+      root: CRDTRoot,
+      presences: Map<ActorID, Indexable>,
+      source: OpSource,
+    ) {
+      replayed.push([this.getID().getClientSeq(), source]);
+      return execute.call(this, root, presences, source);
+    } as typeof Change.prototype.execute);
+
+    doc.applySnapshot(1n, maxVectorOf([]), undefined);
+    vi.restoreAllMocks();
+
+    const sources = replayed
+      .filter(([clientSeq]) => clientSeq === undoSeq)
+      .map(([, source]) => source);
+    assert.isNotEmpty(sources);
+    assert.deepEqual([...new Set(sources)], [OpSource.UndoRedo]);
+  });
+
+  it('carries the undo mark through the persisted change log', function () {
+    // The offline-persistence layer writes the queued changes as structs and
+    // replays them after a reload (`restoreAppendedChanges`). The mark that
+    // says a change ran as `UndoRedo` has to survive that round trip, or the
+    // replay runs an operation the undo had skipped.
+    const doc: TestDoc = new Document('d');
+    doc.update((r) => {
+      r.obj = { k: 'v' };
+    });
+    doc.update((r) => {
+      r.obj.k = 'w';
+    });
+    doc.history.undo();
+
+    const changes = internals(doc).localChanges;
+    assert.deepEqual(
+      changes.map((change) => change.isUndoRedo()),
+      [false, false, true],
+    );
+    const restored = changes.map((change) =>
+      Change.fromStruct<Indexable>(change.toStruct()),
+    );
+    assert.deepEqual(
+      restored.map((change) => change.isUndoRedo()),
+      [false, false, true],
+    );
   });
 
   it('does not re-issue a document that has synced', function () {

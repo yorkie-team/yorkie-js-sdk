@@ -108,10 +108,24 @@ the actor would be renamed. The only actor-keyed map, the deprecated
 
 ### Rebuilding the root
 
-The root and presences are rebuilt by replaying the re-issued changes with
-`OpSource.Local` on `CRDTRoot.create()`, the same replay `applySnapshot` does
-for pending changes. Rewriting tickets inside the root would mean re-keying
-the element map, GC pairs, split and tree node indexes.
+The root and presences are rebuilt by replaying the re-issued changes on
+`CRDTRoot.create()`, the same replay `applySnapshot` does for pending changes.
+Rewriting tickets inside the root would mean re-keying the element map, GC
+pairs, split and tree node indexes.
+
+Each change is replayed under the source it originally ran with
+(`replaySourceOf`): a change an undo or a redo produced ran as
+`OpSource.UndoRedo`, which is the only source `SetOperation`/`RemoveOperation`
+consult to skip an operation whose target now sits under a removed parent.
+Replaying it as `Local` runs an operation that never ran. The mark lives on
+the `Change` and is serialized, so the persisted-log replay
+(`restoreAppendedChanges`) honours it after a reload too.
+
+The devtools recording is dropped, because it holds the changes as they were
+minted. The panel replays a history onto a freshly built empty document, so a
+recording that merely started over would be missing its beginning; the
+re-issued root is handed to `resetDevtoolsRecording` as a snapshot event that
+becomes the recording's first entry.
 
 ### What the round trip must keep
 
@@ -124,7 +138,12 @@ from every snapshot and every Text nested in a pushed Object or Array value.
 It writes them now. The decoders link a node to an earlier node of the same
 insertion and Go rejects a link it cannot find; a single replica's history
 keeps that order, and every value a change pushes is a deepcopy, which links
-only to nodes already copied. A seeded test replays random pre-attach
+only to nodes already copied. `fromText` enforces exactly that invariant --
+the link must resolve by exact id to an already-decoded node of the same
+insertion at a lower offset -- because a Text travels inside client-supplied
+payloads: a forged link would otherwise make a later Edit compute an
+out-of-range or negative offset, and `splitNode` now rejects a negative one
+rather than letting `substring` clamp it into a silent divergence. A seeded test replays random pre-attach
 histories -- text, tree, array and object edits, removals, undo and redo --
 and checks that the content is unchanged after the re-issue.
 
