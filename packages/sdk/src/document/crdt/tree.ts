@@ -47,7 +47,10 @@ import {
 } from '@yorkie-js/sdk/src/util/object';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import {
+  ensureUTF16Boundary,
+  escapeString,
+} from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
@@ -4294,9 +4297,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `findPos` finds the position of the given index in the tree.
+   * `findPos` finds the position of the given index in the tree. It rejects
+   * an index inside a UTF-16 surrogate pair.
    */
   public findPos(index: number, preferText = true): CRDTTreePos {
+    const treePos = this.indexTree.findTreePos(index, preferText);
+    if (treePos.node.isText) {
+      ensureUTF16Boundary(treePos.node.value, treePos.offset);
+    }
+
+    return CRDTTreePos.fromTreePos(treePos);
+  }
+
+  /**
+   * `findPosUnchecked` is `findPos` without the surrogate pair check. It is
+   * for indexes the document computed itself, such as an undo range
+   * reconciled against a remote edit, which can land inside a pair through no
+   * fault of the caller. Refusing such an index would only drop the undo, so
+   * it resolves the way it did before the check existed.
+   */
+  public findPosUnchecked(index: number, preferText = true): CRDTTreePos {
     const treePos = this.indexTree.findTreePos(index, preferText);
     return CRDTTreePos.fromTreePos(treePos);
   }
@@ -4531,28 +4551,32 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `indexRangeToPosRange` returns the position range from the given index range.
+   * It converts a selection, not an edit range, so it skips the surrogate pair
+   * check.
    */
   public indexRangeToPosRange(range: [number, number]): TreePosRange {
-    const fromPos = this.findPos(range[0]);
+    const fromPos = this.findPosUnchecked(range[0]);
     if (range[0] === range[1]) {
       return [fromPos, fromPos];
     }
-    return [fromPos, this.findPos(range[1])];
+    return [fromPos, this.findPosUnchecked(range[1])];
   }
 
   /**
    * `indexRangeToPosStructRange` converts the integer index range into the Tree position range structure.
+   * Like `indexRangeToPosRange`, it is for selections and skips the surrogate
+   * pair check.
    */
   public indexRangeToPosStructRange(
     range: [number, number],
   ): TreePosStructRange {
     const [fromIdx, toIdx] = range;
-    const fromPos = this.findPos(fromIdx);
+    const fromPos = this.findPosUnchecked(fromIdx);
     if (fromIdx === toIdx) {
       return [fromPos.toStruct(), fromPos.toStruct()];
     }
 
-    return [fromPos.toStruct(), this.findPos(toIdx).toStruct()];
+    return [fromPos.toStruct(), this.findPosUnchecked(toIdx).toStruct()];
   }
 
   /**

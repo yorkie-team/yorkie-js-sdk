@@ -28,7 +28,10 @@ import {
   RestoreSpan,
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import {
+  ensureUTF16Boundary,
+  escapeString,
+} from '@yorkie-js/sdk/src/document/json/strings';
 import {
   parseAttrValue,
   parseObjectValues,
@@ -621,6 +624,37 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     }
 
     return [fromPos, this.rgaTreeSplit.indexToPos(toIdx)];
+  }
+
+  /**
+   * `createRange` returns the position range of the given index range for a
+   * local edit or style. Unlike `indexRangeToPosRange`, it rejects an index
+   * that splits a UTF-16 surrogate pair.
+   */
+  public createRange(fromIdx: number, toIdx: number): RGATreeSplitPosRange {
+    const range = this.indexRangeToPosRange(fromIdx, toIdx);
+    this.validateUTF16Boundary(range[0]);
+    if (fromIdx !== toIdx) {
+      this.validateUTF16Boundary(range[1]);
+    }
+
+    return range;
+  }
+
+  /**
+   * `validateUTF16Boundary` throws when the given position splits a surrogate
+   * pair in the node that holds it.
+   */
+  private validateUTF16Boundary(pos: RGATreeSplitPos): void {
+    // Offset 0 never splits a pair, and it is where the head node, which
+    // holds no value, is addressed.
+    const offset = pos.getRelativeOffset();
+    if (offset === 0) {
+      return;
+    }
+
+    const node = this.rgaTreeSplit.findNode(pos.getID());
+    ensureUTF16Boundary(node.getValue().getContent(), offset);
   }
 
   /**

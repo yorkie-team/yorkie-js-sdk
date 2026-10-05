@@ -26,6 +26,23 @@ import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
+import { isUTF16Boundary } from '@yorkie-js/sdk/src/document/json/strings';
+
+/**
+ * `textBoundaries` returns the character boundaries of text, from 0 to its
+ * length, in UTF-16 code units. The index between the two units of a
+ * surrogate pair is not among them: Text rejects it.
+ */
+function textBoundaries(text: Text): Array<number> {
+  const value = text.toString();
+  const bounds: Array<number> = [];
+  for (let i = 0; i <= value.length; i++) {
+    if (isUTF16Boundary(value, i)) {
+      bounds.push(i);
+    }
+  }
+  return bounds;
+}
 
 /**
  * `mulberry32` is a small seeded PRNG, so a failing seed reproduces.
@@ -221,20 +238,25 @@ describe('Text.normalizePos', () => {
         const op = rnd(10);
         if (op < 4) {
           doc.update((root) => {
-            const at = rnd(root.t.length + 1);
+            const bounds = textBoundaries(root.t);
+            const at = bounds[rnd(bounds.length)];
             root.t.edit(at, at, 'ab😀가'.slice(0, 1 + rnd(4)));
           });
         } else if (op < 6) {
           doc.update((root) => {
-            if (!root.t.length) return;
-            const from = rnd(root.t.length);
-            root.t.edit(from, Math.min(root.t.length, from + 1 + rnd(3)), '');
+            const bounds = textBoundaries(root.t);
+            if (bounds.length === 1) return;
+            const from = rnd(bounds.length - 1);
+            const to = Math.min(bounds.length - 1, from + 1 + rnd(3));
+            root.t.edit(bounds[from], bounds[to], '');
           });
         } else if (op < 7) {
           doc.update((root) => {
-            if (!root.t.length) return;
-            const from = rnd(root.t.length);
-            root.t.setStyle(from, Math.min(root.t.length, from + 1 + rnd(3)), {
+            const bounds = textBoundaries(root.t);
+            if (bounds.length === 1) return;
+            const from = rnd(bounds.length - 1);
+            const to = Math.min(bounds.length - 1, from + 1 + rnd(3));
+            root.t.setStyle(bounds[from], bounds[to], {
               b: '1',
             });
           });
@@ -288,14 +310,17 @@ describe('Text.normalizePos', () => {
         const op = rnd(10);
         if (op < 5) {
           doc.update((root) => {
-            const at = rnd(root.t.length + 1);
+            const bounds = textBoundaries(root.t);
+            const at = bounds[rnd(bounds.length)];
             root.t.edit(at, at, 'ab😀가'.slice(0, 1 + rnd(4)));
           });
         } else if (op < 8) {
           doc.update((root) => {
-            if (!root.t.length) return;
-            const from = rnd(root.t.length);
-            root.t.edit(from, Math.min(root.t.length, from + 1 + rnd(3)), '');
+            const bounds = textBoundaries(root.t);
+            if (bounds.length === 1) return;
+            const from = rnd(bounds.length - 1);
+            const to = Math.min(bounds.length - 1, from + 1 + rnd(3));
+            root.t.edit(bounds[from], bounds[to], '');
           });
         } else if (op < 9) {
           crossSync(docs[0], docs[1]);

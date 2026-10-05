@@ -105,7 +105,7 @@ export class Text<A extends Indexable = Indexable> {
       );
     }
 
-    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
+    const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `EDIT: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} c:${content}`,
@@ -172,7 +172,7 @@ export class Text<A extends Indexable = Indexable> {
       );
     }
 
-    const range = this.text.indexRangeToPosRange(fromIdx, toIdx);
+    const range = this.text.createRange(fromIdx, toIdx);
     if (logger.isEnabled(LogLevel.Debug)) {
       logger.debug(
         `STYL: f:${fromIdx}->${range[0].toTestString()}, t:${toIdx}->${range[1].toTestString()} a:${JSON.stringify(
