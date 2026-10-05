@@ -25,3 +25,26 @@
 - vitest here swallows `console.log`, and `YorkieError.stack` came back
   undefined through the change-apply wrapper. Putting `new Error().stack` in
   the thrown message temporarily was the fastest way to get the frame.
+
+## Self review
+
+Reviewer: `superpowers:requesting-code-review` (a general-purpose subagent
+over `origin/main...HEAD`), not the CI lens panel.
+
+- Round 1 (correctness, test adequacy): one blocking finding. The ProseMirror
+  binding's `diffText` compared code units, so replacing an emoji with one
+  that shares a surrogate (U+1F600 -> U+1F603, or U+1F600 -> U+1FA00) put
+  `from` or `to` inside the pair; `tree.edit` now threw and the binding
+  rolled the user's edit back. Fixed: snap the common prefix and suffix to
+  character boundaries (Red: 4 new tests failed first). Before this branch
+  the same diff inserted lone halves into separate nodes, so the binding was
+  itself a source of the yorkie#2065 divergence. Minor: the
+  `isUTF16Boundary` oracle restated the implementation; rebuilt it from a
+  code-point walk. Not taken: the fuzz's `'ab😀가'.slice(0, 3)` lone high
+  predates this branch and acts as old-client data, and `findNode(...)!` in
+  `validateUTF16Boundary` cannot miss because `indexToPos` returns the node
+  it resolved. Declined by the reviewer and agreed: the Quill/CodeMirror
+  demos in `packages/sdk/public` are examples, not shipped packages.
+- Lesson: a check added in the SDK turns every caller that computes indexes
+  itself into a possible regression. Grep the other packages for the entry
+  points before calling the SDK change done.

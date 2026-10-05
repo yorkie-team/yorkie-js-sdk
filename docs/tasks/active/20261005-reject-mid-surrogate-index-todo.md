@@ -39,6 +39,9 @@ where it becomes a CRDT position. This is the JS half.
 - [x] `docs/design/`: nothing to update here. The rule is written in
       yorkie's `docs/design/document-editing.md`, which covers both SDKs.
 - [x] `pnpm verify:fast`, `pnpm sdk test` with the server running.
+- [x] ProseMirror binding: `diffText` widens its range to whole characters
+      so an emoji replaced by one sharing a surrogate is not rejected (found
+      in self review round 1).
 
 ## Out of scope
 
@@ -61,5 +64,7 @@ where it becomes a CRDT position. This is the JS half.
   Case 5 undo at the undo index resolution); all 23 pass after.
 - `pnpm verify:fast` green (770 SDK unit tests).
 - `pnpm sdk test` against the local server: 3398 passed, 17 skipped.
+- `diff_test.ts`: 4 new cases failed before the `diffText` fix (Red), pass
+  after; `pnpm prosemirror test`: 278 passed.
 
 ## Review

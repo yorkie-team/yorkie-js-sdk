@@ -24,6 +24,8 @@ import {
   detectSplit,
   detectMerge,
 } from '../../src/diff';
+import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Tree, type ElementNode } from '@yorkie-js/sdk/src/yorkie';
 import { pmToYorkie } from '../../src/convert';
 import { defaultMarkMapping } from '../../src/defaults';
 import type { YorkieTreeJSON, TextEdit } from '../../src/types';
@@ -229,6 +231,29 @@ describe('diff', () => {
       assert.equal(edits[0].from, 2);
       assert.equal(edits[0].to, 4);
       assert.equal(edits[0].text, 'XY');
+    });
+
+    // Two non-BMP characters can share a surrogate, and comparing code units
+    // would then end the common prefix or suffix between a pair's halves. The
+    // SDK rejects such an index, so the range must widen to whole characters.
+    it('should not split a surrogate pair shared at the start', () => {
+      // U+1F600 and U+1F603 share the high surrogate D83D.
+      const edits: Array<TextEdit> = [];
+      findTextDiffs(yText('a\u{1F600}b'), yText('a\u{1F603}b'), 0, edits);
+      assert.deepEqual(edits, [{ from: 1, to: 3, text: '\u{1F603}' }]);
+    });
+
+    it('should not split a surrogate pair shared at the end', () => {
+      // U+1F600 and U+1FA00 share the low surrogate DE00.
+      const edits: Array<TextEdit> = [];
+      findTextDiffs(yText('a\u{1F600}b'), yText('a\u{1FA00}b'), 0, edits);
+      assert.deepEqual(edits, [{ from: 1, to: 3, text: '\u{1FA00}' }]);
+    });
+
+    it('should keep whole emojis when inserting next to one', () => {
+      const edits: Array<TextEdit> = [];
+      findTextDiffs(yText('\u{1F600}'), yText('\u{1F603}\u{1F600}'), 0, edits);
+      assert.deepEqual(edits, [{ from: 0, to: 0, text: '\u{1F603}' }]);
     });
 
     it('should respect currentIdx offset', () => {
@@ -586,6 +611,23 @@ describe('diff', () => {
       // Should use char-level edit, not editBulk
       assert.isTrue(calls.every((c) => c.method === 'edit'));
       assert.isTrue(calls.length > 0);
+    });
+
+    it('should replace an emoji with one sharing its surrogate', () => {
+      const oldDoc = doc(p('a\u{1F600}b'));
+      const newDoc = doc(p('a\u{1F603}b'));
+      const d = new Document<{ t: Tree }>('emoji');
+      d.update((root) => {
+        root.t = new Tree(pmToYorkie(oldDoc, markMapping) as ElementNode);
+      });
+
+      d.update((root) => {
+        syncToYorkie(root.t, oldDoc, newDoc, markMapping);
+      });
+      assert.equal(
+        d.getRoot().t.toXML(),
+        '<doc><paragraph>a\u{1F603}b</paragraph></doc>',
+      );
     });
 
     it('should fall back to block replacement when structure changes', () => {

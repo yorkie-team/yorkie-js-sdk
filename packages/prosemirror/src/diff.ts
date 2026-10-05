@@ -93,6 +93,20 @@ export function sameStructure(a: YorkieTreeJSON, b: YorkieTreeJSON): boolean {
 }
 
 /**
+ * `isHighSurrogate` reports whether the code unit opens a surrogate pair.
+ */
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
+/**
+ * `isLowSurrogate` reports whether the code unit closes a surrogate pair.
+ */
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+
+/**
  * Compute a minimal text edit (insert/delete/replace) between two strings.
  * Uses longest common prefix + suffix to find the changed range.
  */
@@ -114,6 +128,14 @@ function diffText(
     prefixLen++;
   }
 
+  // Two characters can share a surrogate (U+1F600 and U+1F603 share the high
+  // one), so a code-unit comparison can stop between a pair's halves. Widen
+  // the range to whole characters: the tree rejects an index inside a pair,
+  // and a split there would leave lone halves that replicas store differently.
+  if (prefixLen > 0 && isHighSurrogate(oldText.charCodeAt(prefixLen - 1))) {
+    prefixLen--;
+  }
+
   // Find longest common suffix (not overlapping with prefix)
   let oldEnd = oldText.length - 1;
   let newEnd = newText.length - 1;
@@ -124,6 +146,11 @@ function diffText(
   ) {
     oldEnd--;
     newEnd--;
+  }
+
+  if (isLowSurrogate(oldText.charCodeAt(oldEnd + 1))) {
+    oldEnd++;
+    newEnd++;
   }
 
   const from = startIdx + prefixLen;

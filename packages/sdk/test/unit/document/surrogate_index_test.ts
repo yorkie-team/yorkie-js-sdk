@@ -129,17 +129,20 @@ function feed(doc: TestDoc, batch: PbChangePack): void {
 }
 
 describe('isUTF16Boundary', () => {
-  // The straightforward definition: offset falls between a high and a low
-  // surrogate.
+  // An independent definition: the boundaries are where a walk over the
+  // value's code points stops, plus everything outside the value.
   const encodedBoundary = (value: string, offset: number) => {
     if (offset <= 0 || offset >= value.length) {
       return true;
     }
-    const prev = value.charCodeAt(offset - 1);
-    const next = value.charCodeAt(offset);
-    const isHigh = prev >= 0xd800 && prev < 0xdc00;
-    const isLow = next >= 0xdc00 && next < 0xe000;
-    return !isHigh || !isLow;
+    let at = 0;
+    for (const ch of value) {
+      if (at === offset) {
+        return true;
+      }
+      at += ch.length;
+    }
+    return false;
   };
 
   it('matches the encoded definition at every offset', () => {
