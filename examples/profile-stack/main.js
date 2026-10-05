@@ -83,7 +83,11 @@ const createSmallUserProfile = (color, name) => {
   $peer.appendChild($userIcon);
   $peer.appendChild(document.createElement('span'));
   $peer.querySelector('span').className = 'name';
-  $peer.querySelector('span').innerHTML = name;
+  // `name` is whatever a peer typed into its own presence, so it goes in as
+  // text. Interpolating it into `innerHTML` let any collaborator run script in
+  // every other participant's page just by saving a display name like
+  // `<img src=x onerror=...>`.
+  $peer.querySelector('span').textContent = name;
   return $peer;
 };
 
@@ -145,9 +149,12 @@ const createUserNameSpeechBubble = (name, isMe) => {
   $editProfileBtn.className = 'edit-profile-btn';
   $editProfileBtn.innerHTML = 'Edit Profile';
   $editProfileBtn.addEventListener('click', openEditModal);
-  $speechBubbleContainer.innerHTML = `<span class="name">${name}${
-    isMe ? ' (me)' : ''
-  }</span>`;
+  // See `createSmallUserProfile`: `name` is peer-controlled, so the bubble is
+  // built as an element with a text child rather than interpolated markup.
+  const $name = document.createElement('span');
+  $name.className = 'name';
+  $name.textContent = `${name}${isMe ? ' (me)' : ''}`;
+  $speechBubbleContainer.appendChild($name);
   if (isMe) {
     $speechBubbleContainer.classList.add('me');
     $speechBubbleContainer.appendChild($editProfileBtn);

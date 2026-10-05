@@ -47,10 +47,7 @@ import {
 } from '@yorkie-js/sdk/src/util/object';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import {
-  ensureUTF16Boundary,
-  escapeString,
-} from '@yorkie-js/sdk/src/document/json/strings';
+import { ensureUTF16Boundary } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
@@ -1155,6 +1152,29 @@ function toTreeNode(node: CRDTTreeNode): TreeNode {
   return treeNode;
 }
 
+const xmlEscapes: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&apos;',
+};
+
+/**
+ * `escapeXMLAttr` escapes a name or a value for interpolation into a
+ * double-quoted XML attribute.
+ *
+ * Both halves are peer-chosen: the key is whatever `Style` was called with,
+ * and the value is what `parseAttrValue` read back -- including, for a peer
+ * that stores values raw, the raw string itself. Interpolated unescaped, a
+ * `"` closes the attribute and a `<` opens an element, so an attribute could
+ * forge structure in the markup `toXML` builds. This is the same forging
+ * `CRDTTextValue.toJSON` closes for the JSON encoding of a Text attribute.
+ */
+function escapeXMLAttr(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => xmlEscapes[character]);
+}
+
 /**
  * `toXML` converts the given CRDTNode to XML string.
  */
@@ -1173,12 +1193,12 @@ export function toXML(node: CRDTTreeNode): string {
         .sort((a, b) => a.getKey().localeCompare(b.getKey()))
         .map((n) => {
           // See `parseAttrValue`: a peer that stores values raw writes ones
-          // this cannot parse, and rendering must not throw on them.
+          // this cannot parse, and rendering must not throw on them. The raw
+          // string it falls back to is rendered as the value; anything else
+          // keeps the JSON form it is stored as.
           const obj = parseAttrValue(n.getValue());
-          if (typeof obj === 'string') {
-            return `${n.getKey()}="${obj}"`;
-          }
-          return `${n.getKey()}="${escapeString(n.getValue())}"`;
+          const value = typeof obj === 'string' ? obj : n.getValue();
+          return `${escapeXMLAttr(n.getKey())}="${escapeXMLAttr(value)}"`;
         })
         .join(' ');
   }

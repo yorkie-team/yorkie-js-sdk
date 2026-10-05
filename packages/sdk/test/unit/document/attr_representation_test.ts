@@ -118,6 +118,30 @@ describe('an attribute written by a peer that stores values raw', () => {
     assert.equal(parsed.k[0].val, 'abcdefghij', 'the real value is untouched');
   });
 
+  /**
+   * `toXML` builds markup by concatenation, and used to interpolate the raw
+   * string `parseAttrValue` falls back to without escaping it. A peer storing
+   * a value holding `"` or `<` could therefore forge an attribute or an
+   * element into the markup every reader rendered -- the XML half of the
+   * forging `CRDTTextValue.toJSON` closes for JSON.
+   */
+  it('cannot forge XML structure through a tree attribute', () => {
+    const d = new Document<{ t: Tree }>('test-doc');
+    d.update((r) => {
+      r.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    styleRawOnTree(d, 'color', 'red" onload="<script>');
+
+    const xml = (d as any).root.getObject().get('t').toXML();
+    assert.equal(
+      xml,
+      '<doc><p color="red&quot; onload=&quot;&lt;script&gt;">ab</p></doc>',
+    );
+  });
+
   it('reads back as the string the peer wrote, not as a dropped key', () => {
     const d = new Document<{ t: Tree }>('test-doc');
     d.update((r) => {
