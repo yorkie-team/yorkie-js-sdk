@@ -206,6 +206,40 @@ describe('Client.attach re-issues pre-attach tickets', function () {
     assert.equal(second.getRoot().t.toString(), 'two');
   });
 
+  it('does not re-issue when the generated key is not unguessable', async function () {
+    // Without Web Crypto `uuid` falls back to `Math.random`, so another
+    // client of the project can land on this key -- and the actor is derived
+    // from the key server-side, so it would share this actor exactly as a
+    // second session of an explicit key does. The gate has to be the random
+    // source, not merely the absence of `opts.key`.
+    const saved = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+    Object.defineProperty(globalThis, 'crypto', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+
+    const pushed: Array<PbChangePack> = [];
+    let client: ReturnType<typeof fakeClient>;
+    try {
+      client = fakeClient(actorA, pushed);
+    } finally {
+      if (saved) {
+        Object.defineProperty(globalThis, 'crypto', saved);
+      } else {
+        delete (globalThis as any).crypto;
+      }
+    }
+    const doc = filled('reissue-claim-weak-random', 'hello');
+
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    assert.isAbove(
+      countActors(ticketsOf(pushed[0])).get(InitialActorID) ?? 0,
+      0,
+    );
+    assert.equal(doc.getChangeID().getActorID(), actorA);
+  });
+
   it('does not re-issue under an explicit client key', async function () {
     // Every session of an explicit key shares its stable actor, so a ticket
     // re-issued after a reload would equal one an earlier session's first

@@ -46,7 +46,7 @@ import {
   YorkieError,
 } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
-import { uuid } from '@yorkie-js/sdk/src/util/uuid';
+import { hasStrongRandomSource, uuid } from '@yorkie-js/sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js/sdk/src/client/attachment';
 import {
   Document,
@@ -553,7 +553,9 @@ export class Client {
   // needed to reject a concurrent duplicate attach of the same key.
   private attachingDocs: Set<string>;
   // `keyGenerated` is true when the client key was minted for this instance
-  // rather than passed in, which makes the actor this client's alone.
+  // from the runtime's CSPRNG rather than passed in, which makes the actor
+  // this client's alone. A key minted from the `Math.random` fallback does
+  // not: see `claimReissue`.
   private keyGenerated: boolean;
   // `reissueClaims` maps a document key to the actor this client last
   // attached it under. See `claimReissue`.
@@ -617,7 +619,19 @@ export class Client {
 
     const rpcAddr = opts.rpcAddr || DefaultClientOptions.rpcAddr;
     this.key = opts.key || uuid();
-    this.keyGenerated = !opts.key;
+    // A generated key only names an actor this client alone can reach when
+    // it is unguessable. Without Web Crypto `uuid` falls back to
+    // `Math.random`, so another client of the project can land on the same
+    // key and so on the same server-derived actor; that is the one case the
+    // re-issue must not run in. See `claimReissue` and `util/uuid`.
+    this.keyGenerated = !opts.key && hasStrongRandomSource();
+    if (!opts.key && !this.keyGenerated) {
+      logger.warn(
+        `[CL] the runtime has no Web Crypto, so the generated client key is ` +
+          `not unguessable. Pass \`key\` to scope this client to an actor no ` +
+          `other client can derive.`,
+      );
+    }
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
@@ -909,6 +923,12 @@ export class Client {
    * keep one of the two elements. Only a generated key makes the actor this
    * client's alone, so only then does the re-issue run; other documents keep
    * the initial actor, as before the re-issue existed.
+   *
+   * "Generated" also has to mean unguessable, which is why `keyGenerated`
+   * requires the CSPRNG: a key from `uuid`'s `Math.random` fallback can be
+   * landed on by another client of the project, and the actor is derived
+   * from the key server-side, so that client would share this actor exactly
+   * as a second session of an explicit key does.
    *
    * Within this client, a second never-synced document of a key re-issued to
    * the same actor would mint the tickets the first one already pushed, so a

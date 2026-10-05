@@ -48,8 +48,9 @@ server cannot even replay such a pack on a fresh document.
 
 - Repairing documents already stored with colliding `createdAt`s.
 - Undo/redo of edits made before the attach.
-- Documents attached by a client with an explicit key (see "One actor, many
-  sessions"): they keep the initial actor, as before.
+- Documents attached by a client with an explicit key, or by one whose
+  generated key came from `uuid`'s `Math.random` fallback (see "One actor,
+  many sessions"): they keep the initial actor, as before.
 
 ## Design
 
@@ -179,6 +180,14 @@ with an explicit key keeps its initial-actor tickets and can still collide
 with another client's pre-attach tickets, which is the state `main` is in.
 Closing that needs the actor's lamport on the server before the attach round
 trip, which belongs with the client identity work in yorkie#2114.
+
+A generated key only rules the collision out while it is unguessable. `uuid`
+draws from the runtime's CSPRNG, but falls back to `Math.random` where no Web
+Crypto exists, and the actor is derived from the key server-side -- so on such
+a runtime another client of the project can land on this key and share this
+actor, which is the explicit-key case again. `keyGenerated` therefore requires
+`hasStrongRandomSource()` as well as the absence of `opts.key`; the fallback
+runtime warns at construction and keeps the initial-actor tickets.
 
 ### One actor, two never-synced documents of one key
 
