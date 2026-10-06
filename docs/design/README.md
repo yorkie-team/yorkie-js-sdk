@@ -8,6 +8,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 - [Channel Lifecycle via RefreshChannel Only](channel-refresh-only.md): Align the SDK with the server's consolidated channel RPC — `RefreshChannel` alone, a TTL/3 heartbeat, and `PeekChannel` for read-only counts
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
 - [Polling Sync Mode](polling-sync-mode.md): Stream-less `SyncMode.Polling` for Channel and Document, opt-in alternative to watch streams
+- [Pre-Attach Ticket Re-issue](pre-attach-ticket-reissue.md): Re-issue the tickets a document minted before its first attach to the client's actor, so two clients filling one key no longer share `createdAt`s
 - [ProseMirror Binding](prosemirror.md): Bidirectional sync between ProseMirror and Yorkie Tree CRDT
 - [ProseMirror Native Split/Merge](prosemirror-native-split-merge.md): Use Tree.Edit splitLevel and boundary deletion for splits and merges instead of block replacement
 - [One Node per CRDTTreeNodeID](tree-node-id-identity.md): Rules that keep a Tree position resolvable when two nodes claim one ID, mirroring the server

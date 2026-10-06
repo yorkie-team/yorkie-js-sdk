@@ -106,8 +106,8 @@ const Panel = () => {
 
     // NOTE(hackerwins): A re-announced document answers `devtools::subscribe`
     // with a fresh, shorter log while the slider still points at an old
-    // position. Walking past the end would throw and unmount the panel, which
-    // has no error boundary.
+    // position. Walking past the end would throw and take the whole panel down
+    // to the error boundary.
     while (
       filteredEventIndex <= selectedEventIndexInfo.index &&
       eventIndex < originalEvents.length
@@ -116,7 +116,25 @@ const Panel = () => {
         filteredEventIndex++;
       }
 
-      doc.applyDocEventsForReplay(originalEvents[eventIndex].event);
+      // NOTE(hackerwins): The replay assumes the log is a complete history
+      // from the document's start, and a log that is not one makes it throw:
+      // an operation whose target this replay never created, a position no
+      // node of its root resolves. The SDK avoids that by seeding a dropped
+      // recording with a snapshot of the document it restarts from
+      // (`resetDevtoolsRecording`), but the panel cannot verify that a log it
+      // was handed is complete, and the alternative to stopping here is the
+      // error boundary replacing the whole panel. Show the state reached so
+      // far instead, and report the event that could not be applied.
+      try {
+        doc.applyDocEventsForReplay(originalEvents[eventIndex].event);
+      } catch (error) {
+        console.error(
+          `[YD] Failed to replay event ${eventIndex} of ${currentDocKey}. ` +
+            `Showing the document as of the previous event.`,
+          error,
+        );
+        break;
+      }
       eventIndex++;
     }
 

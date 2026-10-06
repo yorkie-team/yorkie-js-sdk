@@ -1480,10 +1480,19 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   ): [RGATreeSplitNode<T> | undefined, DataSize] {
     const diff = { data: 0, meta: 0 };
 
-    if (offset > node.getContentLength()) {
+    // A negative offset is as out of range as one past the end, and is
+    // rejected the same way. `findNodeWithSplit` derives the offset by
+    // subtracting the node's own offset from the position's, so a position
+    // resolved through an `insPrev` link into a node of a HIGHER offset --
+    // which only a forged link can produce, since every link points at an
+    // earlier piece of the same insertion -- arrives here negative. `split`
+    // would not notice: `substring`/`truncate` clamp a negative to zero, which
+    // empties the live node and inserts a duplicate of it under a rolled-back
+    // id, diverging this replica from the others in silence.
+    if (offset < 0 || offset > node.getContentLength()) {
       throw new YorkieError(
         Code.ErrInvalidArgument,
-        `offset should be less than or equal to length`,
+        `offset should be between 0 and the length of the node`,
       );
     }
 

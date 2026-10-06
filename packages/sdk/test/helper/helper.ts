@@ -15,6 +15,7 @@
  */
 
 import { assert } from 'vitest';
+import { fromBinary } from '@bufbuild/protobuf';
 
 import yorkie, {
   Tree,
@@ -44,6 +45,11 @@ import { ElementRHT } from '@yorkie-js/sdk/src/document/crdt/element_rht';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import {
+  JSONElementSchema as PbJSONElementSchema,
+  ValueType as PbValueType,
+} from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 
 export const DefaultSnapshotThreshold = 500;
 
@@ -317,4 +323,63 @@ export function vectorOf(
     vector.set(actor, lamport);
   });
   return new VersionVector(vector);
+}
+
+/**
+ * `ticketsOf` collects every TimeTicket reachable from the given protobuf
+ * message as `[actor, lamport]`, decoding the element bytes a Set/Add/
+ * ArraySet value carries. It walks the plain message objects on purpose, so
+ * it does not share code with the walk under test in `api/reissue.ts`.
+ */
+export function ticketsOf(
+  value: unknown,
+  out: Array<[string, bigint]> = [],
+): Array<[string, bigint]> {
+  if (value === null || typeof value !== 'object') return out;
+  if (value instanceof Uint8Array) return out;
+  if (Array.isArray(value)) {
+    for (const v of value) ticketsOf(v, out);
+    return out;
+  }
+
+  const msg = value as Record<string, unknown>;
+  if (msg.$typeName === 'yorkie.v1.TimeTicket') {
+    out.push([
+      converter.toHexString(msg.actorId as Uint8Array),
+      BigInt(msg.lamport as bigint),
+    ]);
+    return out;
+  }
+  if (msg.$typeName === 'yorkie.v1.JSONElementSimple') {
+    const type = msg.type as PbValueType;
+    const bytes = msg.value as Uint8Array;
+    if (
+      bytes.length > 0 &&
+      (type === PbValueType.JSON_OBJECT ||
+        type === PbValueType.JSON_ARRAY ||
+        type === PbValueType.TREE)
+    ) {
+      ticketsOf(fromBinary(PbJSONElementSchema, bytes), out);
+    }
+  }
+  for (const [k, v] of Object.entries(msg)) {
+    if (k !== '$typeName') ticketsOf(v, out);
+  }
+  return out;
+}
+
+/**
+ * `countActors` counts, per actor, the given tickets whose lamport is not 0.
+ * The lamport-0 ticket is the root's and every sentinel's identity, shared by
+ * all replicas.
+ */
+export function countActors(
+  tickets: Array<[string, bigint]>,
+): Map<string, number> {
+  const actors = new Map<string, number>();
+  for (const [actor, lamport] of tickets) {
+    if (lamport === 0n) continue;
+    actors.set(actor, (actors.get(actor) ?? 0) + 1);
+  }
+  return actors;
 }
