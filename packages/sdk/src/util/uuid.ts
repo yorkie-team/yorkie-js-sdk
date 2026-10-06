@@ -17,12 +17,26 @@
 export type UUID = string;
 
 /**
- * `webCrypto` is the ambient Web Crypto implementation, if the runtime has
- * one. Browsers and Node >= 19 expose it as `globalThis.crypto`; the lookup is
- * guarded so a runtime without it still loads this module.
+ * `webCrypto` returns the ambient Web Crypto implementation, if the runtime
+ * has one. Browsers and Node >= 19 expose it as `globalThis.crypto`; the
+ * lookup is guarded so a runtime without it still loads this module, and it
+ * is read per call so {@link hasStrongRandomSource} cannot disagree with what
+ * {@link uuid} will actually draw from.
  */
-const webCrypto: Crypto | undefined =
-  typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+function webCrypto(): Crypto | undefined {
+  return typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+}
+
+/**
+ * `hasStrongRandomSource` reports whether {@link uuid} draws from the
+ * runtime's CSPRNG rather than the `Math.random` fallback. A caller that
+ * needs a generated UUID to be unguessable -- not merely unique -- has to
+ * check this before relying on it; see {@link randomBytes}.
+ */
+export function hasStrongRandomSource(): boolean {
+  const crypto = webCrypto();
+  return !!(crypto?.randomUUID || crypto?.getRandomValues);
+}
 
 const HEX: Array<string> = [];
 for (let i = 0; i < 256; i++) {
@@ -42,8 +56,9 @@ for (let i = 0; i < 256; i++) {
  */
 function randomBytes(): Uint8Array {
   const bytes = new Uint8Array(16);
-  if (webCrypto?.getRandomValues) {
-    webCrypto.getRandomValues(bytes);
+  const crypto = webCrypto();
+  if (crypto?.getRandomValues) {
+    crypto.getRandomValues(bytes);
     return bytes;
   }
   for (let i = 0; i < bytes.length; i++) {
@@ -58,8 +73,9 @@ function randomBytes(): Uint8Array {
  * @see http://www.ietf.org/rfc/rfc4122.txt
  */
 export function uuid(): UUID {
-  if (webCrypto?.randomUUID) {
-    return webCrypto.randomUUID();
+  const crypto = webCrypto();
+  if (crypto?.randomUUID) {
+    return crypto.randomUUID();
   }
 
   const b = randomBytes();

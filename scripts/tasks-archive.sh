@@ -25,13 +25,19 @@ if [ ! -d "$ACTIVE_DIR" ]; then
   exit 1
 fi
 
+# Physical path, so it compares with `pwd -P` below.
+REPO_ROOT=$(cd "$(git rev-parse --show-toplevel)" && pwd -P)
+
 archived=0
 
 for todo in "$ACTIVE_DIR"/*-todo.md; do
   [ -f "$todo" ] || continue
 
-  # Skip if uncompleted checkboxes remain
-  if grep -q '\- \[ \]' "$todo"; then
+  # Skip if uncompleted checkboxes remain. Anchored to the start of a line,
+  # so a `- [ ]` quoted inside a sentence or a fenced example is prose, not an
+  # open box. `hasOpenBoxes` in scripts/tasks-check.mjs applies the same rule:
+  # the two must agree, or that check flags a todo this script will not move.
+  if grep -qE '^[[:space:]]*- \[ \]' "$todo"; then
     continue
   fi
 
@@ -42,16 +48,38 @@ for todo in "$ACTIVE_DIR"/*-todo.md; do
     continue
   fi
 
-  date_str=$(echo "$created_line" | sed 's/.*: *//')
-  year=$(echo "$date_str" | cut -d'-' -f1)
-  month=$(echo "$date_str" | cut -d'-' -f2)
-
-  if [ -z "$year" ] || [ -z "$month" ]; then
+  # The destination is built from a line INSIDE the todo, and a todo is
+  # branch-authored content — a maintainer archiving a pull request's checkout
+  # runs this script over data they did not write. So match the two fields as
+  # digits and build the path out of the MATCH, never out of the line: a
+  # `**Created**: ../../../../tmp/x` would otherwise pick the `mkdir -p` and
+  # `git mv` target. `#*:` stops at the FIRST colon, so nothing after the date
+  # is reachable either.
+  date_str=${created_line#*:}
+  if [[ ! $date_str =~ ^[[:space:]]*([0-9]{4})-(0[1-9]|1[0-2])([^0-9]|$) ]]; then
     echo "Warning: cannot parse date from $(basename "$todo"), skipping" >&2
     continue
   fi
+  year="${BASH_REMATCH[1]}"
+  month="${BASH_REMATCH[2]}"
 
   dest="$ARCHIVE_DIR/$year/$month"
+
+  # The match fixes the path's text, not where it resolves: a branch can commit
+  # a symlink at `archive/<year>` (or above it), and `mkdir -p` / `git mv`
+  # follow it out of the repository. Resolve the deepest part of `dest` that
+  # already exists and refuse unless it is a real directory inside the repo;
+  # whatever `mkdir -p` adds below it is then a real directory too.
+  probe=$dest
+  while [ ! -e "$probe" ] && [ ! -L "$probe" ]; do
+    probe=$(dirname "$probe")
+  done
+  if [ -L "$probe" ] || ! resolved=$(cd "$probe" && pwd -P) ||
+    [[ "$resolved/" != "$REPO_ROOT/"* ]]; then
+    echo "Warning: $dest leaves the repository through a symlink, skipping $(basename "$todo")" >&2
+    continue
+  fi
+
   mkdir -p "$dest"
 
   # Move todo file

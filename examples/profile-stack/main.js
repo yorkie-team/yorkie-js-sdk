@@ -64,14 +64,29 @@ const bindGlobalClickDismiss = () => {
 };
 
 // user profile
+// `color` is peer-controlled presence just like `name`, so it never reaches an
+// HTML parser: a value like `red" onerror="...` would break out of the `src`
+// attribute if it were interpolated into `innerHTML`. The icon is built as
+// elements, the URL is assigned through the `src` property, and the colour is
+// clamped to the palette the example actually ships images for so a peer cannot
+// point the image anywhere else either.
+const PROFILE_COLORS = ['red', 'yellow', 'orange', 'green', 'blue', 'purple'];
+const profileImageSrc = (color) =>
+  `./images/profile-${
+    PROFILE_COLORS.includes(color) ? color : PROFILE_COLORS[0]
+  }.svg`;
+
 const createUserIcon = (color) => {
   const $peer = document.createElement('div');
   $peer.className = 'peer';
-  $peer.innerHTML = `
-    <div class="profile">
-      <img src="./images/profile-${color}.svg" alt="profile" class="profile-img"/>
-    </div>
-  `;
+  const $profile = document.createElement('div');
+  $profile.className = 'profile';
+  const $img = document.createElement('img');
+  $img.className = 'profile-img';
+  $img.alt = 'profile';
+  $img.src = profileImageSrc(color);
+  $profile.appendChild($img);
+  $peer.appendChild($profile);
   return $peer;
 };
 
@@ -83,7 +98,11 @@ const createSmallUserProfile = (color, name) => {
   $peer.appendChild($userIcon);
   $peer.appendChild(document.createElement('span'));
   $peer.querySelector('span').className = 'name';
-  $peer.querySelector('span').innerHTML = name;
+  // `name` is whatever a peer typed into its own presence, so it goes in as
+  // text. Interpolating it into `innerHTML` let any collaborator run script in
+  // every other participant's page just by saving a display name like
+  // `<img src=x onerror=...>`.
+  $peer.querySelector('span').textContent = name;
   return $peer;
 };
 
@@ -145,9 +164,12 @@ const createUserNameSpeechBubble = (name, isMe) => {
   $editProfileBtn.className = 'edit-profile-btn';
   $editProfileBtn.innerHTML = 'Edit Profile';
   $editProfileBtn.addEventListener('click', openEditModal);
-  $speechBubbleContainer.innerHTML = `<span class="name">${name}${
-    isMe ? ' (me)' : ''
-  }</span>`;
+  // See `createSmallUserProfile`: `name` is peer-controlled, so the bubble is
+  // built as an element with a text child rather than interpolated markup.
+  const $name = document.createElement('span');
+  $name.className = 'name';
+  $name.textContent = `${name}${isMe ? ' (me)' : ''}`;
+  $speechBubbleContainer.appendChild($name);
   if (isMe) {
     $speechBubbleContainer.classList.add('me');
     $speechBubbleContainer.appendChild($editProfileBtn);
@@ -206,7 +228,7 @@ const initEditProfileModal = () => {
   const $editProfileModalSaveBtn = $editProfileModal.querySelector('.save');
   $editProfileModalSaveBtn.addEventListener('click', saveEditProfile);
   const $editProfileModalImg = $editProfileModal.querySelector('.profile-img');
-  $editProfileModalImg.src = `./images/profile-${myPresence?.color}.svg`;
+  $editProfileModalImg.src = profileImageSrc(myPresence?.color);
 };
 
 const openEditModal = () => {

@@ -7,6 +7,39 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.24] - 2026-10-06
+
+### Added
+
+- Warn when offline persistence is used without a client key by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1402
+- Report where Tree undo and redo landed in their OpInfo by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1421
+- Let a document choose its undo/redo depth by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1424
+
+### Changed
+
+- Name the change and operation that cannot be applied by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1403
+- Sync the protos with Go and harden crafted tree payloads by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1406
+- Reject indexes that split a UTF-16 surrogate pair by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1447
+
+### Fixed
+
+- Order concurrent splits of one boundary by ticket by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1375
+- Make docSize agree with a rebuild (issue #1383, part 3) by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1392
+- Push local edits during IME composition in the PM binding by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1393
+- Guard empty-text anchors and reset the clone on failed applies by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1394
+- Fix clientSeq rewind, leaked sizeInGC record, tombstone removedAt by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1395
+- Stop read-only viewers publishing selection presence in the PM binding by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1396
+- Burn the lamport when a change's root pass throws by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1397
+- Fix losing ElementRHT values against tombstones by @Yeongeunn in https://github.com/yorkie-team/yorkie-js-sdk/pull/1398
+- Drop snapshots in push-only mode but keep the push ack by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1401
+- Port three tree convergence fixes from the Go SDK by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1404
+- Port three GC correctness fixes from the Go SDK by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1405
+- Keep a value the panel cannot render from blanking it by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1414
+- Give a document key to the document that is attached by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1415
+- Read a double without writing to the buffer it shares by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1422
+- Re-point operations at the elements a redo split re-creates by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1426
+- Read Text.normalizePos from the index tree instead of the chain by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1442
+
 ## [v0.7.23] - 2026-09-22
 
 ### Added

@@ -119,7 +119,7 @@ yorkie_require_own_work() {
     echo "$hook: no origin/main to tell your commits from a branch you are" >&2
     echo "        reviewing, and $runs runs this tree's code. Fetch it with" >&2
     echo "        'git fetch origin main', or see the bypass below." >&2
-    yorkie_print_bypass "$hook"
+    yorkie_print_bypass "$hook" "$runs"
     return 1
   fi
 
@@ -129,7 +129,7 @@ yorkie_require_own_work() {
     echo "        compare this branch's commits against. Set one with" >&2
     echo "        'git config user.email you@example.com', or see the bypass" >&2
     echo "        below." >&2
-    yorkie_print_bypass "$hook"
+    yorkie_print_bypass "$hook" "$runs"
     return 1
   fi
 
@@ -145,7 +145,7 @@ yorkie_require_own_work() {
     echo "$hook: could not list this branch's commits against" >&2
     echo "        ${upstream#refs/remotes/}, so there is no way to tell whose code" >&2
     echo "        $runs would run. See the bypass below." >&2
-    yorkie_print_bypass "$hook"
+    yorkie_print_bypass "$hook" "$runs"
     return 1
   fi
   # An empty range — HEAD at or behind upstream — has nothing to distrust.
@@ -187,18 +187,29 @@ yorkie_require_own_work() {
     echo "        and $runs runs the WORKING TREE's code: that branch's package.json," >&2
     echo "        its lint configs, its test files. If you checked this branch out to" >&2
     echo "        review it, that is not what you want." >&2
-    yorkie_print_bypass "$hook"
+    yorkie_print_bypass "$hook" "$runs"
     return 1
   fi
 
   return 0
 }
 
+# THE TWO BYPASSES ARE NOT EQUIVALENT, so the refusal ranks them instead of
+# listing them. `--no-verify` drops the gate and with it everything the gate
+# would have run, which is the whole point when you are standing in a branch
+# you only checked out to read — archiving its task records before a merge, say
+# (.claude/skills/maintainer-merge). `YORKIE_ALLOW_FOREIGN_TREE=1` does the
+# opposite: it lets the gate proceed, i.e. runs that tree's code, which is what
+# the refusal was about. Naming it second without that contrast reads as the
+# tidier option and sends the reader straight into the exposure.
 yorkie_print_bypass() {
-  local hook="$1" verb="commit"
+  local hook="$1" runs="${2:-the gate}" verb="commit"
   if [ "$hook" = "pre-push" ]; then
     verb="push"
   fi
-  echo "        Skip the gate with 'git $verb --no-verify', or, having read the diff:" >&2
+  echo "        To $verb without running it: 'git $verb --no-verify' — the gate is" >&2
+  echo "        skipped, so none of this tree's code runs. That is what you want" >&2
+  echo "        in a branch you checked out to review." >&2
+  echo "        To run $runs on this tree anyway, having read the diff:" >&2
   echo "          YORKIE_ALLOW_FOREIGN_TREE=1 git $verb ..." >&2
 }

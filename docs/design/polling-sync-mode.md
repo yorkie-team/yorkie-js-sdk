@@ -1,6 +1,6 @@
 ---
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-10-06
 tags: [sync-mode, channel, document, polling, scaling]
 ---
 
@@ -207,6 +207,37 @@ Document transition matrix:
 
 Tear-down precedes state change, which precedes start-up. If the user
 did not pin the interval, it is recomputed for the new mode.
+
+A switch into `RealtimePushOnly` or `RealtimeSyncOff` waits on the task
+queue like any other, possibly behind a sync that has already sent a
+pull. The pause still covers that pull: `changeSyncMode` counts the
+request on the attachment (`pendingPullPauses`) before enqueueing, and
+the response guard in `syncInternal` drops remote state while the count
+is above zero, the same way it does in those modes. Without this, the
+pull's changes landed after the caller had asked to stop receiving
+(#1452). A switch back to `Realtime` is not counted, so pulling resumes
+in queue order.
+
+A pull dropped for a count alone — the attachment's own mode still
+pulls — has to be re-driven, and which mechanism does it depends on the
+mode the document is still in:
+
+- `Realtime`: the guard re-arms `changeEventReceived`, because the sync
+  loop clears that flag before driving each sync and a switch that never
+  lands (it rejects on a deactivate or detach that raced it) would
+  otherwise leave the dropped changes with nothing to pull them again.
+  Re-arming is harmless when the switch does land: `needRealtimeSync`
+  ignores the flag in `RealtimePushOnly`/`RealtimeSyncOff`, and the
+  resume sets it anyway.
+- `Polling`: the interval timer pulls again at the next tick, so the
+  re-arm is not needed (and `needRealtimeSync` does not read the flag in
+  this mode).
+- `Manual`: neither applies — `needRealtimeSync` is false for a Manual
+  document unconditionally, so the sync loop never revisits it and the
+  re-arm is a no-op. The guard therefore does **not** drop on a pending
+  count for a Manual document: the only request in flight there is an
+  explicit `sync(doc)`, and dropping its pack would resolve that call
+  having discarded the state it asked for with nothing left to re-pull.
 
 ### Server-side impact
 

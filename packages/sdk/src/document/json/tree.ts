@@ -43,6 +43,7 @@ import type {
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { ensureNoLoneSurrogate } from '@yorkie-js/sdk/src/document/json/strings';
 
 /**
  * NOTE(hackerwins): In normal case, we should define the following types in
@@ -161,7 +162,11 @@ function comparePath(a: Array<number>, b: Array<number>): number {
 }
 
 /**
- * `validateTextNode` ensures that a text node has a non-empty string value.
+ * `validateTextNode` ensures that a text node has a non-empty string value
+ * that does not carry a lone half of a UTF-16 surrogate pair. The index guard
+ * in `CRDTTree.findPos` refuses to split a pair; this is the other half of the
+ * same contract, since a stored lone half pairs with the code unit next to it
+ * and makes the index at that seam permanently unusable.
  */
 function validateTextNode(textNode: TextNode): boolean {
   if (!textNode.value.length) {
@@ -170,6 +175,7 @@ function validateTextNode(textNode: TextNode): boolean {
       'text node cannot have empty value',
     );
   }
+  ensureNoLoneSurrogate(textNode.value);
 
   return true;
 }
@@ -306,6 +312,8 @@ export class Tree {
 
   /**
    * `splitByPath` splits the tree by the given path.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public splitByPath(path: Array<number>) {
     if (!this.context || !this.tree) {
@@ -420,6 +428,8 @@ export class Tree {
    * `styleByPath` sets the attributes to the elements of the given
    * path. When called with two paths, it styles the range between
    * them.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public styleByPath(
     fromPathOrPath: Array<number>,
@@ -506,6 +516,7 @@ export class Tree {
 
   /**
    * `style` sets the attributes to the elements of the given range.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public style(
     fromIdx: number,
@@ -553,6 +564,7 @@ export class Tree {
 
   /**
    * `removeStyle` removes the attributes to the elements of the given range.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public removeStyle(
     fromIdx: number,
@@ -604,6 +616,8 @@ export class Tree {
   /**
    * `removeStyleByPath` removes the attributes of the elements in
    * the given path range.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public removeStyleByPath(
     fromPath: Array<number>,
@@ -746,6 +760,8 @@ export class Tree {
 
   /**
    * `editByPath` edits this tree with the given node and path.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public editByPath(
     fromPath: Array<number>,
@@ -785,6 +801,8 @@ export class Tree {
 
   /**
    * `editBulkByPath` edits this tree with the given node and path.
+   * A path whose text offset falls inside a UTF-16 surrogate pair throws
+   * `ErrInvalidArgument`.
    */
   public editBulkByPath(
     fromPath: Array<number>,
@@ -819,6 +837,7 @@ export class Tree {
 
   /**
    * `edit` edits this tree with the given nodes.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public edit(
     fromIdx: number,
@@ -852,6 +871,7 @@ export class Tree {
 
   /**
    * `editBulk` edits this tree with the given nodes.
+   * An index inside a UTF-16 surrogate pair throws `ErrInvalidArgument`.
    */
   public editBulk(
     fromIdx: number,

@@ -9,8 +9,24 @@ setup with its hooks. None of it is published.
 |---|---|---|
 | `tasks-archive.sh` | `bash scripts/tasks-archive.sh` | Moves finished todos from `docs/tasks/active/` into `docs/tasks/archive/YYYY/MM/`, bucketed by each todo's `**Created**` line. A todo has to clear two bars: no unchecked boxes, and a parseable `**Created**` date — one missing the date is warned about and left alone. A matching `-lessons.md` rides along if it exists; a todo without one still moves. Neither bar reads the prose, so check a todo's Review section before trusting the result. |
 | `tasks-index.sh` | `bash scripts/tasks-index.sh` | Regenerates `docs/tasks/README.md` and `docs/tasks/archive/README.md`. Never hand-edit those two. `docs/tasks/active/README.md` is hand-written prose and is left alone. |
+| `tasks-check.mjs` | `node scripts/tasks-check.mjs --base origin/main [--remote] [--strict]` | Reports finished task records still in `docs/tasks/active/`: a todo the branch added or edited whose boxes are all ticked (from the diff against `--base`), and, with `--remote`, any active todo that *declares* a tracking number (`Tracked as #N`, `Fixes #N`) whose issue is closed or PR is merged (via `gh api`). A number the todo only mentions is not a tracking number. A finished todo with no `**Created**: YYYY-MM-DD` line is reported as such, since the archiver would skip it; a repository `gh` cannot see is an error, not an empty result. An active todo that declares no number of ours is one `--remote` could not check: it is named as such and counted in the clean line. When that leaves no todo resolved at all, a bare `--remote` run examined nothing and reports an error, because that is not a pass; with `--base` given as well the run did check something, so it is a note instead — otherwise the pre-merge gate would be red on every merge until todos no PR is touching grow a tracking line. Warnings by default -- a todo sits in active/ for the whole review on purpose -- as `::warning` annotations under Actions; a check that could not run at all is an `::error` line, never a silent pass. `--strict` exits 1 on either and is the maintainer's pre-merge gate. Runs in CI on every PR, diff half only. |
 
-Both take an optional tasks directory argument, defaulting to `docs/tasks`.
+### Why the CI step is diff-only
+
+The "Check task records" step in `.github/workflows/ci.yml` runs the pull
+request's **own copy** of `tasks-check.mjs`, on a workflow any fork PR can
+trigger, so it gets no token and no `--remote`: a credential in that step's
+environment would be handed to branch-authored code. The remote half belongs
+on the maintainer's machine, where the `gh` credential is already theirs. The
+checkout uses `fetch-depth: 0`, because on a `pull_request` event a depth-1
+HEAD is a merge commit git treats as parentless and `origin/<base>...HEAD`
+has no merge base.
+
+`tasks-archive.sh` and `tasks-index.sh` take an optional tasks directory
+argument, defaulting to `docs/tasks`; `tasks-check.mjs` spells it `--tasks`.
+`tasks-archive.sh` and `tasks-check.mjs` apply the same "is this todo
+finished" rule — an unticked box at the start of a line — so a todo the check
+flags is always one the archiver will move.
 
 ## Verification
 

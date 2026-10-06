@@ -93,6 +93,20 @@ export function sameStructure(a: YorkieTreeJSON, b: YorkieTreeJSON): boolean {
 }
 
 /**
+ * `isHighSurrogate` reports whether the code unit opens a surrogate pair.
+ */
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
+/**
+ * `isLowSurrogate` reports whether the code unit closes a surrogate pair.
+ */
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+
+/**
  * Compute a minimal text edit (insert/delete/replace) between two strings.
  * Uses longest common prefix + suffix to find the changed range.
  */
@@ -114,6 +128,14 @@ function diffText(
     prefixLen++;
   }
 
+  // Two characters can share a surrogate (U+1F600 and U+1F603 share the high
+  // one), so a code-unit comparison can stop between a pair's halves. Widen
+  // the range to whole characters: the tree rejects an index inside a pair,
+  // and a split there would leave lone halves that replicas store differently.
+  if (prefixLen > 0 && isHighSurrogate(oldText.charCodeAt(prefixLen - 1))) {
+    prefixLen--;
+  }
+
   // Find longest common suffix (not overlapping with prefix)
   let oldEnd = oldText.length - 1;
   let newEnd = newText.length - 1;
@@ -124,6 +146,11 @@ function diffText(
   ) {
     oldEnd--;
     newEnd--;
+  }
+
+  if (isLowSurrogate(oldText.charCodeAt(oldEnd + 1))) {
+    oldEnd++;
+    newEnd++;
   }
 
   const from = startIdx + prefixLen;
@@ -245,6 +272,19 @@ export function detectSplit(
   // Find split point: text length of first new block
   const charOffset = collectText(newBlocks[0]).length;
   if (charOffset === 0 || charOffset === oldText.length) return undefined;
+
+  // `charOffset` counts UTF-16 code units, so a split between the halves of a
+  // surrogate pair would reach `findTextSplitOffset` — and then `tree.edit` —
+  // as a mid-pair index, which the tree now rejects, rolling the whole
+  // transaction back. Decline the split instead: the caller falls through to
+  // block replacement, whose indexes are sums of `yorkieNodeSize` and so
+  // always land on node boundaries.
+  if (
+    isHighSurrogate(oldText.charCodeAt(charOffset - 1)) &&
+    isLowSurrogate(oldText.charCodeAt(charOffset))
+  ) {
+    return undefined;
+  }
 
   const splitLevel = computeSplitLevel(oldBlock, newBlocks);
   if (splitLevel === 0) return undefined;
@@ -402,6 +442,11 @@ export function syncToYorkie(
     const newBlock = newBlocks[firstDiff];
 
     if (detectMerge(changedOldBlocks, newBlock)) {
+      // Both ends of each boundary come from `computeMergeBoundary`, which
+      // walks whole nodes and sums `yorkieNodeSize` — the indexes land on node
+      // boundaries, never part-way through a text node, so they cannot split a
+      // surrogate pair the way a character offset can.
+      //
       // Apply boundary deletions right-to-left to avoid index shifts
       for (let i = oldEndDiff; i > firstDiff; i--) {
         const [bFrom, bTo] = computeMergeBoundary(
@@ -416,7 +461,9 @@ export function syncToYorkie(
     }
   }
 
-  // Full block replacement (fallback for structural changes)
+  // Full block replacement (fallback for structural changes). Both indexes are
+  // `yorkieNodeSize` sums over whole blocks, so they sit on block boundaries
+  // and can never fall inside a text node — and so never inside a pair.
   const yorkieFromIdx = blockIndexToYorkieIndex(currentYorkieBlocks, firstDiff);
   const yorkieToIdx = blockIndexToYorkieIndex(
     currentYorkieBlocks,

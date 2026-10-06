@@ -1,0 +1,110 @@
+# Reject indexes that split a UTF-16 surrogate pair
+
+**Created**: 2026-10-05
+Tracked as #1441
+
+## Problem
+
+Text and Tree indexes count UTF-16 code units, so the index between the two
+halves of a non-BMP character (an emoji) is accepted and splits the node
+mid-pair. Go turns each lone half into U+FFFD while JS keeps the raw code
+unit, so the same operation leaves different text on the two SDKs
+(yorkie#2065). yorkie#2085 fixed the Go half by rejecting such a local index
+where it becomes a CRDT position. This is the JS half.
+
+## Plan
+
+- [x] Red: port yorkie#2085's `surrogate_index_test.go` scenarios to a JS unit
+      test and watch the rejection cases fail on `main` (17 failed).
+- [x] Add `isUTF16Boundary`/`ensureUTF16Boundary` next to `escapeString` in
+      `json/strings.ts` (Go keeps it in `crdt/strings.go`) and reject a
+      mid-pair offset with `ErrInvalidArgument` and Go's message.
+- [x] Text: add a checked `CRDTText.createRange` (Go's `Text.CreateRange`) and
+      use it from `Text.edit` and `Text.setStyle`. Selection conversion
+      (`Text.indexRangeToPosRange`) stays unchecked.
+- [x] Tree: make `CRDTTree.findPos` checked (Go's `Tree.FindPos`), so
+      `edit`, `editBulk`, `style`, `removeStyle`, their `ByPath` twins and
+      `splitByPath` are covered. Add `findPosUnchecked` (Go's
+      `FindPosUnchecked`) for indexes the document computed itself: the
+      undo/redo and reverse builders in `tree_edit_operation.ts`, and the
+      selection conversions (`indexRangeToPosRange`,
+      `indexRangeToPosStructRange`).
+- [x] Port the internal-path tests: a reconciled undo index inside a pair
+      (Case 5), reverse builders inside a pair, a remote mid-pair op from an
+      older client still applying along with the receiver's undo/redo. Go's
+      split-history scenario does not build in JS (see lessons); a fuzz found
+      a JS-native one instead: a remote change whose reverse lands inside a
+      pair on the receiver.
+- [x] Keep the `normalizePos` fuzz test on character boundaries.
+- [x] `docs/design/`: nothing to update here. The rule is written in
+      yorkie's `docs/design/document-editing.md`, which covers both SDKs.
+- [x] `pnpm verify:fast`, `pnpm sdk test` with the server running.
+- [x] Tree: read the neighbouring text node at either end of a node, so a
+      pair split locally by a selection conversion is still rejected at its
+      seam (found by `/code-review`).
+- [x] ProseMirror binding: `diffText` widens its range to whole characters
+      so an emoji replaced by one sharing a surrogate is not rejected (found
+      in self review round 1).
+
+## Out of scope
+
+- `Document.update` already resets the clone when the updater throws
+  (`document.ts` catch). yorkie#2085's deferred discard fixed a Go-only panic
+  path; JS needs nothing there.
+- Case 5 reconciliation arithmetic that can itself split a pair on undo. Both
+  SDKs share the formula; changing it is a separate cross-SDK change.
+- The Go "does not allocate" test: JS checks two `charCodeAt`s.
+- Undo after a delete across a level-2 split is broken in JS with ASCII text
+  too: on `<r><section><p>aXYb</p><p>cXYd</p></section></r>`,
+  `edit(11,11,undefined,2)`, `edit(0,3)`, undo, undo throws "index is out of
+  range: 15 > 13". Unrelated to surrogates; filed as #1448.
+- Lone surrogates inside inserted content (`edit(0, 0, 'a\uD83D')`) also
+  diverge (Go stores U+FFFD). Go #2085 does not validate content either; a
+  content rule is a separate cross-SDK change.
+- An undo whose reconciled index lands inside a pair still sends a mid-pair
+  operation (Case 5 above); snapping it outward is the same cross-SDK change.
+
+## Verification
+
+- `surrogate_index_test.ts`: 17 failed on `main` behavior (Red); after the
+  check without `findPosUnchecked`, the 4 internal-path cases failed with the
+  surrogate error (remote apply at `tree_edit_operation.ts` reverse builder,
+  Case 5 undo at the undo index resolution); all 23 pass after.
+- `pnpm verify:fast` green (770 SDK unit tests).
+- `pnpm sdk test` against the local server: 3398 passed, 17 skipped.
+- `diff_test.ts`: 4 new cases failed before the `diffText` fix (Red), pass
+  after; `pnpm prosemirror test`: 278 passed.
+
+## Review
+
+Two self-review rounds (log in the lessons file). Round 1 found that the
+ProseMirror binding's `diffText` produced mid-pair indexes for an emoji
+replaced by one sharing a surrogate; fixed with its own commit. Round 2 had
+no blocking finding; its minor notes added the throw to the `Text`/`Tree`
+edit JSDoc and a comment on `createRangeForTest`. Not taken: an offset in
+the error message (it matches Go's byte for byte; change both together),
+and sharing the binding's surrogate predicates (a new public SDK export).
+
+`/code-review` (high) after the self review: fixed the Tree seam bypass
+(Red first: a selection conversion splits the emoji's node locally, and an
+edit at the seam passed the per-node check while naming a mid-pair offset in
+the node every other replica keeps whole), and added the throw note to every
+Tree entry point. Disputed and left as is: the same seam in Text, which has
+no local-only split, so a seam there only comes from an older client's
+mid-pair op that already split the pair on every replica (inserting there
+adds no new divergence); the fuzz's lone-high insert (legacy-data stand-in);
+the second floor lookup in `validateUTF16Boundary` (O(log n), Go does the
+same); and the `createRange` name (mirrors Go's `CreateRange`). Deferred:
+content validation and the Case 5 undo snap (Out of scope).
+
+Public behavior change for the release notes: `Text.edit`/`setStyle` and
+`Tree.edit`/`editBulk`/`style`/`removeStyle` and their `ByPath` forms throw
+`ErrInvalidArgument` for an index inside a surrogate pair.
+
+Panel round 9 (blast-radius): the init catch relied on the doc
+subscription to pick up a peer's tree, but that subscription dropped the
+root `set` op that creates it. It now treats a root `set` of `treePath` as
+a tree change. Red first: `a tree created after a failed init` in
+`binding_remote_composition_test.ts`. The round's security finding is in
+the SDK's dev pages (`index.html`, `public/*.html`) and was waived by the
+maintainer as dev-only code.

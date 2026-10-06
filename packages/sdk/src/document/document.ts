@@ -15,6 +15,7 @@
  */
 import { DocEventType as PbDocEventType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { reissueOperations } from '@yorkie-js/sdk/src/api/reissue';
 import { logger, LogLevel } from '@yorkie-js/sdk/src/util/logger';
 import {
   ChangeApplyError,
@@ -90,7 +91,10 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { Rule } from '@yorkie-js/schema';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
-import { setupDevtools } from '@yorkie-js/sdk/src/devtools';
+import {
+  resetDevtoolsRecording,
+  setupDevtools,
+} from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
@@ -132,6 +136,36 @@ export interface DocumentOptions {
    * larger depth holds more memory.
    */
   maxUndoDepth?: number;
+}
+
+/**
+ * `ReissueToken` is the capability `Document.setActor` demands before it
+ * re-issues anything. It is a module-private symbol: nothing stores it on a
+ * `Document`, the published bundle does not re-export it (`yorkie.ts`), and
+ * `Symbol` identity cannot be reconstructed, so holding a `Document` handle
+ * is not enough to ask for a re-issue -- only the owning `Client`, which
+ * imports this module, can. The re-issue rewrites element identity under a
+ * caller-chosen actor, so it must not be reachable from application code.
+ *
+ * @internal
+ */
+export const ReissueToken: unique symbol = Symbol('yorkie.setActor.reissue');
+
+/**
+ * `SetActorOptions` are the options of `Document.setActor`.
+ *
+ * @internal
+ */
+export interface SetActorOptions {
+  /**
+   * `reissue` re-issues the tickets a never-synced document minted under its
+   * previous actor to the new one, in the local changes and the root alike.
+   * A document that has synced, has no local changes or already has the
+   * actor falls back to the plain `setActor`. It has to be `ReissueToken`:
+   * only `Client.attach` holds it, because whether the re-issue is sound
+   * depends on what else the actor has minted, which only the client knows.
+   */
+  reissue?: typeof ReissueToken;
 }
 
 /**
@@ -628,6 +662,30 @@ type OpInfoOf<
 type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 
 /**
+ * `reissueVersionVector` returns a copy of the given vector whose entry for
+ * `from` is moved to `to`.
+ */
+function reissueVersionVector(
+  vector: VersionVector,
+  from: ActorID,
+  to: ActorID,
+): VersionVector {
+  const reissued = vector.deepcopy();
+  const lamport = reissued.get(from);
+  if (lamport === undefined) {
+    return reissued;
+  }
+
+  reissued.unset(from);
+  const existing = reissued.get(to);
+  reissued.set(
+    to,
+    existing !== undefined && existing > lamport ? existing : lamport,
+  );
+  return reissued;
+}
+
+/**
  * `packBlobs` concatenates the given byte blobs into a single, self-contained
  * envelope. Each blob is prefixed with its length as a 4-byte little-endian
  * uint32, so `unpackBlobs` can split them back out without a shared schema.
@@ -682,6 +740,24 @@ function unpackBlobs(bytes: Uint8Array): Array<Uint8Array> {
 }
 
 /**
+ * `replaySourceOf` returns the source a queued local change has to be executed
+ * under when it is replayed.
+ *
+ * A change an undo or a redo produced ran with `OpSource.UndoRedo`, which is
+ * the only source `SetOperation.execute`/`RemoveOperation.execute` consult to
+ * skip an operation whose target sits under a removed parent. Replaying it as
+ * `Local` runs an operation that never ran -- the rebuilt root then differs
+ * from the one the user is looking at, and `ElementRHT.delete` can throw out
+ * of the replay. Every path that replays the queue (`applySnapshot`,
+ * `reissueActor`, `restoreAppendedChanges`) goes through this.
+ */
+function replaySourceOf<P extends Indexable>(
+  change: Change<P>,
+): OpSource.Local | OpSource.UndoRedo {
+  return change.isUndoRedo() ? OpSource.UndoRedo : OpSource.Local;
+}
+
+/**
  * `Document` is a CRDT-based data type. We can represent the model
  * of the application and edit it even while offline.
  * It implements Attachable interface to be managed by Attachment.
@@ -699,6 +775,23 @@ export class Document<
   private changeID: ChangeID;
   private checkpoint: Checkpoint;
   private localChanges: Array<Change<P>>;
+
+  // `absorbedRemote` records that this document took in state it did not
+  // mint itself: a snapshot, a remote change or a persisted envelope. Such a
+  // document is not "never synced" even when its checkpoint, status and
+  // version vector still look untouched (a snapshot pack can carry the
+  // initial checkpoint), so `setActor` with `reissue` leaves it alone.
+  private absorbedRemote: boolean;
+
+  // `mintedOperations` records that this document has produced at least one
+  // local change carrying operations, so tickets naming its actor may already
+  // be in the document the key names. Decoding a persisted envelope
+  // (`fromBytes`, `restoreFromBytes`) sets it too: that state was minted under
+  // an actor in an earlier session. It is never cleared -- a push cannot be
+  // taken back -- and it is what `Client` consults to decide whether the
+  // actor's lamport space in a document key is still free for a re-issue
+  // (`Client.claimReissue`).
+  private mintedOperations: boolean;
 
   // `epoch` is the document's last-known compaction epoch (proto int64). The
   // client learns it from every server response pack (`applyChangePack`) and
@@ -768,6 +861,8 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.absorbedRemote = false;
+    this.mintedOperations = false;
     this.epoch = 0n;
     this.docID = '';
     this.disableGC = false;
@@ -984,6 +1079,7 @@ export class Document<
       }
 
       this.localChanges.push(change);
+      this.mintedOperations ||= operations.length > 0;
       if (reverseOps.length) {
         this.internalHistory.pushUndo(reverseOps);
       }
@@ -1637,6 +1733,15 @@ export class Document<
     // The docID blob is optional: envelopes written before docID support have
     // only five blobs, so treat an absent blob as an empty string.
     doc.docID = docIDBytes ? decoder.decode(docIDBytes) : '';
+    doc.absorbedRemote = true;
+    // A persisted envelope is state an actor already held under this key: its
+    // root carries tickets that actor minted, and its pending changes are
+    // about to be pushed under it. Mark the decoded document as having minted,
+    // so an app that restores through this public factory and attaches the
+    // result takes the re-issue claim (`Client.markReissueClaim`) exactly as
+    // the in-place `restoreFromBytes` path does -- otherwise a later document
+    // of the same key would re-issue onto lamports this one has consumed.
+    doc.mintedOperations = true;
 
     return doc;
   }
@@ -1682,6 +1787,12 @@ export class Document<
     this.localChanges = restored.localChanges;
     this.epoch = restored.epoch;
     this.docID = restored.docID;
+    this.absorbedRemote = true;
+    // A persisted envelope is state this actor already held under this key,
+    // so treat it as minted: the claim bookkeeping must not hand the actor's
+    // lamport space to a later re-issue. The decoded `restored` carries the
+    // same flag; it is set here too because the fields are copied one by one.
+    this.mintedOperations = true;
     // Drop any stale clone so the next `update` re-clones from the restored
     // root/presences rather than the pre-restore state.
     this.clone = undefined;
@@ -1870,11 +1981,18 @@ export class Document<
     // current content, so skipping an acked one would leave the root behind.
     // Only the unacked ones are queued: re-pushing what the server has already
     // taken presents a `clientSeq` it will skip.
-    this.applyChanges(changes, OpSource.Local);
+    //
+    // A change an undo or a redo produced carries that through the struct
+    // (`Change.isUndoRedo`) and is replayed under `OpSource.UndoRedo`: see
+    // `replaySourceOf`.
+    this.replayLocalChanges(changes);
     this.localChanges.push(
       ...changes.filter(
         (change) => change.getID().getClientSeq() > ackedClientSeq,
       ),
+    );
+    this.mintedOperations ||= changes.some(
+      (change) => change.getOperations().length > 0,
     );
 
     // Adopt the last replayed change's ID as the document's own counter.
@@ -1894,6 +2012,7 @@ export class Document<
     if (lastID.getClientSeq() >= this.changeID.getClientSeq()) {
       this.changeID = lastID;
     }
+    this.absorbedRemote = true;
 
     // The clone predates the replay, and the history's reverse-ops reference
     // the pre-replay state — the same reasoning `restoreFromBytes` applies.
@@ -1917,6 +2036,7 @@ export class Document<
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
+    this.absorbedRemote = false;
     this.epoch = 0n;
     this.docID = '';
     this.root = CRDTRoot.create();
@@ -1962,16 +2082,181 @@ export class Document<
 
   /**
    * `setActor` sets actor into this document. This is also applied in the local
-   * changes the document has.
+   * changes the document has. It returns whether the tickets were re-issued.
+   *
+   * Without `reissue` it rewrites only the change IDs and each operation's
+   * `executedAt`; the root and the tickets inside the operations keep the
+   * actor they were minted under. With `reissue`, a never-synced document
+   * re-issues every ticket of its previous actor to the given one, so a
+   * position or element ID taken from it before then no longer resolves. See
+   * docs/design/pre-attach-ticket-reissue.md.
+   *
+   * `reissue` has to carry `ReissueToken`, which only the owning `Client`
+   * holds: rewriting element identity under a caller-chosen actor is not a
+   * capability a holder of this handle gets.
    */
-  public setActor(actorID: ActorID): void {
+  public setActor(actorID: ActorID, opts?: SetActorOptions): boolean {
+    if (opts?.reissue !== undefined && opts.reissue !== ReissueToken) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'setActor: reissue is internal to Client.attach',
+      );
+    }
+
+    if (opts?.reissue === ReissueToken && this.reissueActor(actorID)) {
+      return true;
+    }
+
     for (const change of this.localChanges) {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
+    return false;
+  }
 
-    // TODO(hackerwins): If the given actorID is not IntialActorID, we need to
-    // update InitialActor of the root and clone.
+  /**
+   * `reissueActor` re-issues the tickets of a never-synced document to the
+   * given actor and returns true, or returns false and changes nothing when
+   * the document has synced, has no local changes or already has the actor.
+   *
+   * The local changes go through `reissueOperations`, and the root and
+   * presences are rebuilt by replaying them on a fresh root: a never-synced
+   * root is exactly the initial root plus its local changes, and the replay
+   * is the computation the server performs on the pushed changes. Everything
+   * is built aside and swapped in at the end, so a throw leaves the document
+   * untouched.
+   */
+  private reissueActor(actor: ActorID): boolean {
+    const prev = this.changeID.getActorID();
+    if (prev === actor || !this.localChanges.length || !this.neverSynced()) {
+      return false;
+    }
+
+    // Each rebuilt change carries over the source it was originally executed
+    // with (`Change.isUndoRedo`). An undo or a redo ran its change with
+    // `OpSource.UndoRedo`, and that source is what
+    // `SetOperation.execute`/`RemoveOperation.execute` consult to skip an
+    // operation whose target now sits under a removed parent: replaying such a
+    // change as `Local` would run an operation that never ran, so the rebuilt
+    // root would differ from the one the user is looking at (and
+    // `ElementRHT.delete` can throw out of the replay).
+    const changes = this.localChanges.map((change) => {
+      const id = change.getID();
+      return Change.create<P>({
+        id: id
+          .setActor(actor)
+          .setVersionVector(
+            reissueVersionVector(id.getVersionVector(), prev, actor),
+          ),
+        operations: reissueOperations(change.getOperations(), prev, actor),
+        presenceChange: change.getPresenceChange(),
+        message: change.getMessage(),
+        undoRedo: change.isUndoRedo(),
+      });
+    });
+
+    const root = CRDTRoot.create();
+    const presences = new Map<ActorID, P>();
+    for (const change of changes) {
+      change.execute(root, presences, replaySourceOf(change));
+    }
+
+    const onlineClients = new Set(this.onlineClients);
+    if (onlineClients.delete(prev)) {
+      onlineClients.add(actor);
+    }
+
+    this.localChanges = changes;
+    this.root = root;
+    this.presences = presences;
+    this.onlineClients = onlineClients;
+    this.changeID = this.changeID
+      .setActor(actor)
+      .setVersionVector(
+        reissueVersionVector(this.changeID.getVersionVector(), prev, actor),
+      );
+
+    // The clone and the undo/redo stacks hold the old tickets. The stacks
+    // cannot be re-issued the way the local changes are: a reverse operation
+    // has no `executedAt` until the undo runs it (`converter.toOperation`
+    // rejects it), and it carries local-only state the wire format does not
+    // name -- the split tickets and re-issued content ids `executeUndoRedo`
+    // records on it. They are dropped, which is the state every other path
+    // that rewrites the root (`applySnapshot`, `restoreFromBytes`,
+    // `resetForReanchor`) leaves them in. The drop follows from the re-issue
+    // itself, not from whether the attach that asked for it then succeeds.
+    this.clone = undefined;
+    this.clearHistory();
+
+    // The devtools recording holds the raw changes as they were minted, which
+    // no longer replay onto this root. Emptying it is not enough on its own:
+    // the panel replays a history onto a freshly built empty Document, so a
+    // recording that starts after the attach would be replayed onto a root
+    // that never had the pre-attach changes -- the replay diverges, or throws
+    // on an operation whose target it never created, in a panel that has no
+    // error boundary. The re-issued root is handed over as the recording's
+    // first event, so what the panel holds is a complete history again.
+    resetDevtoolsRecording(
+      this,
+      this.isEnableDevtools() ? [this.toReplayBaseline()] : undefined,
+    );
+    return true;
+  }
+
+  /**
+   * `toReplayBaseline` returns a snapshot event carrying this document's
+   * current root and presences, as the devtools replay consumes it
+   * (`applyDocEventsForReplay`). It is how a recording that no longer starts
+   * at the initial root is given one to start from.
+   */
+  private toReplayBaseline(): Devtools.DocEventForReplay<P> {
+    return {
+      type: DocEventType.Snapshot,
+      source: OpSource.Remote,
+      value: {
+        serverSeq: this.checkpoint.getServerSeq().toString(),
+        snapshot: converter.bytesToHex(
+          converter.snapshotToBytes(this.root.getObject(), this.presences),
+        ),
+        snapshotVector: converter.versionVectorToHex(
+          this.changeID.getVersionVector(),
+        ),
+      },
+    };
+  }
+
+  /**
+   * `neverSynced` returns whether every ticket naming this document's actor
+   * was minted by a local change still in `localChanges`: nothing has been
+   * pushed and nothing pulled.
+   */
+  private neverSynced(): boolean {
+    if (
+      this.absorbedRemote ||
+      this.status !== DocStatus.Detached ||
+      !this.checkpoint.equals(InitialCheckpoint)
+    ) {
+      return false;
+    }
+
+    const actor = this.changeID.getActorID();
+    for (const [id] of this.changeID.getVersionVector()) {
+      if (id !== actor) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * `hasMintedOperations` returns whether this document has produced a local
+   * change carrying operations, i.e. whether tickets naming its actor may
+   * already be in the document its key names. The client reads it to decide
+   * whether a re-issue -- which starts the actor's lamports back at 1 -- can
+   * still be sound for that key. See `Client.claimReissue`.
+   */
+  public hasMintedOperations(): boolean {
+    return this.mintedOperations;
   }
 
   /**
@@ -2185,6 +2470,7 @@ export class Document<
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
+    this.absorbedRemote = true;
     this.changeID = this.changeID.setClocks(vector.maxLamport(), vector);
 
     // drop clone because it is contaminated.
@@ -2196,7 +2482,10 @@ export class Document<
     // them after applying the snapshot, as local changes are not included in the snapshot data.
     // Afterward, we should publish a snapshot event with the latest
     // version of the document to ensure the user receives the most up-to-date snapshot.
-    this.applyChanges(this.localChanges, OpSource.Local);
+    //
+    // Each queued change is replayed under the source it originally ran with:
+    // see `replaySourceOf`.
+    this.replayLocalChanges(this.localChanges);
     this.clearHistory();
     this.publish([
       {
@@ -2259,6 +2548,18 @@ export class Document<
   }
 
   /**
+   * `replayLocalChanges` applies the given queued local changes, each under
+   * the source it originally ran with (`replaySourceOf`). A plain
+   * `applyChanges(changes, OpSource.Local)` would run an operation an undo had
+   * skipped, so every replay of the queue goes through here instead.
+   */
+  private replayLocalChanges(changes: Array<Change<P>>): void {
+    for (const change of changes) {
+      this.applyChange(change, replaySourceOf(change));
+    }
+  }
+
+  /**
    * `applyChange` applies the given change into this document.
    */
   public applyChange(change: Change<P>, source: OpSource) {
@@ -2296,6 +2597,9 @@ export class Document<
    * `applyChangeInternal` applies the given change into the clone and the root.
    */
   private applyChangeInternal(change: Change<P>, source: OpSource) {
+    if (source === OpSource.Remote) {
+      this.absorbedRemote = true;
+    }
     this.ensureClone();
     change.execute(this.clone!.root, this.clone!.presences, source);
 
@@ -3211,6 +3515,10 @@ export class Document<
     }
 
     this.localChanges.push(change);
+    this.mintedOperations ||= operations.length > 0;
+    // Remember the source this change ran under: a replay of the queue has to
+    // use it again. See `Change.isUndoRedo`.
+    change.markAsUndoRedo();
     this.changeID = ctx.getNextID();
     this.localChangeObserver.next();
     const events: DocEvents<P> = [];
