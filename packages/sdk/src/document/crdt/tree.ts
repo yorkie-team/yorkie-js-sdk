@@ -3387,6 +3387,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
       let splitCount = 0;
       let parent = fromParent;
       let left: CRDTTreeNode = fromLeft;
+      // Where the split is reported. `fromIdx`/`fromPath` say where the
+      // editor asked for it, but the split itself decides where it opens on
+      // this replica: concurrent inserts at the boundary stay on its left
+      // (§7.3), and the per-iteration advance below can move past unknown
+      // split siblings (§7.5). Reporting the requested position then tells a
+      // binding to move those nodes into the new element, which this tree
+      // did not do. So the first level is measured once it has split, at the
+      // end of what stayed in the node: the split only adds to the right of
+      // it, so that is also its index and path before the split.
+      //
+      // That holds while what stayed is a prefix of the node's children. When
+      // §7.3 keeps an insert that sat after a split sibling, the split also
+      // reorders them, and no single split position describes that.
+      let splitFromIdx = fromIdx;
+      let splitFromPath = fromPath;
       while (splitCount < splitLevel) {
         // §7.5 Per-Iteration Advance: advance past unknown element
         // split siblings at the current ancestor level. skipActorID
@@ -3432,16 +3447,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
           splitRecreatedIDs.push([recreated, splitNode!.id]);
         }
 
+        // `parent`, not `target`: when `orderSameBoundarySplit` redirects to
+        // a concurrent split product, the split is at the end of `parent`
+        // (it only redirects there), and the next level splits after
+        // `parent` too, so that is where a binding has to split.
+        if (splitCount === 0 && splitNode) {
+          const children = parent.allChildren;
+          const last = children.length ? children[children.length - 1] : parent;
+          splitFromIdx = this.toIndex(parent, last);
+          splitFromPath = this.toPath(parent, last);
+        }
+
         left = parent;
         parent = parent.parent! as CRDTTreeNode;
         splitCount++;
       }
       changes.push({
         type: TreeChangeType.Content,
-        from: fromIdx,
-        to: fromIdx,
-        fromPath,
-        toPath: fromPath,
+        from: splitFromIdx,
+        to: splitFromIdx,
+        fromPath: splitFromPath,
+        toPath: splitFromPath,
         actor: editedAt.getActorID(),
       });
     }
