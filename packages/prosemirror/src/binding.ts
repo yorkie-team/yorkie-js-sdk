@@ -169,15 +169,32 @@ export class YorkieProseMirrorBinding {
 
     // If tree doesn't exist yet, create it from current PM doc
     if (!tree) {
-      this.doc.update((root: any) => {
-        const yorkieDoc = pmToYorkie(
-          this.view.state.doc,
-          this.markMapping,
-          this.wrapperElementName,
+      // `new Tree(...)` validates every text node it builds, so a PM document
+      // carrying content the CRDT refuses — a lone surrogate, say — throws
+      // here. Without handling, that escaped into the host that called
+      // `initialize()` after `isDestroyed` was already cleared and before the
+      // dispatch override and subscriptions were installed, leaving a live
+      // binding that never syncs in either direction. Log it and finish
+      // initializing instead: every path that needs the tree already guards on
+      // `getTree()`, so the binding stays inert but consistent, and a peer that
+      // creates a valid tree later is picked up by the doc subscription below
+      // through the root 'set' that creates it.
+      try {
+        this.doc.update((root: any) => {
+          const yorkieDoc = pmToYorkie(
+            this.view.state.doc,
+            this.markMapping,
+            this.wrapperElementName,
+          );
+          this.onLog?.('local', `Initializing Yorkie tree: ${yorkieDoc.type}`);
+          root[this.treePath] = new Tree(yorkieDoc as any);
+        });
+      } catch (e) {
+        this.onLog?.(
+          'error',
+          `Yorkie tree initialization failed: ${(e as Error).message}`,
         );
-        this.onLog?.('local', `Initializing Yorkie tree: ${yorkieDoc.type}`);
-        root[this.treePath] = new Tree(yorkieDoc as any);
-      });
+      }
     } else {
       // Tree already existed (second client) — load its state into PM
       syncToPM(
@@ -533,55 +550,111 @@ export class YorkieProseMirrorBinding {
       const oldDoc = transaction.before;
       const newDoc = newState.doc;
 
-      this.doc.update((root: any, presence: any) => {
-        try {
-          this.isSyncing = true;
-          syncToYorkie(
-            root[this.treePath],
-            oldDoc,
-            newDoc,
-            this.markMapping,
-            this.onLog,
-            this.wrapperElementName,
-          );
+      // The try/catch has to sit OUTSIDE `doc.update`: `syncToYorkie` applies
+      // the diff as several edits, and a throw from one of them (an index
+      // inside a surrogate pair, say) must reach `Document.update` for it to
+      // discard the whole change. Catching inside would keep the edits that
+      // ran before the throw and leave this replica diverged.
+      //
+      // `Document.update` also throws on its own account, around the updater
+      // rather than from it: `ErrDocumentRemoved` before it runs,
+      // `ErrDocumentSchemaValidationFailed` and `ErrDocumentSizeExceedsLimit`
+      // after. Those are not sync failures and the rollback below is the wrong
+      // answer for them — they persist, so re-syncing the view from the
+      // unchanged tree would silently wipe what the user typed on every
+      // keystroke for as long as the condition lasts. The inner catch records
+      // the error it is about to rethrow so the outer one can tell the two
+      // apart by identity (`Document.update` rethrows the updater's error
+      // object unchanged, document.ts:846-851).
+      let syncFailure: unknown;
+      let hadSyncFailure = false;
+      try {
+        this.doc.update((root: any, presence: any) => {
+          try {
+            this.isSyncing = true;
+            syncToYorkie(
+              root[this.treePath],
+              oldDoc,
+              newDoc,
+              this.markMapping,
+              this.onLog,
+              this.wrapperElementName,
+            );
 
-          // Sync cursor position after content edit
-          if (this.shouldPublishSelection()) {
-            const treeJSON = JSON.parse(root[this.treePath].toJSON());
-            const map = buildPositionMap(newDoc, treeJSON);
-            const sel = newState.selection;
-            const yorkieFrom = pmPosToYorkieIdx(map, sel.from);
-            const yorkieTo = pmPosToYorkieIdx(map, sel.to);
-            presence.set({
-              selection: root[this.treePath].indexRangeToPosRange([
-                yorkieFrom,
-                yorkieTo,
-              ]),
-            });
-            this.hasPublishedSelection = true;
-          } else if (this.hasPublishedSelection) {
-            // Publishing just turned off — retract what peers still render.
-            presence.set({ selection: undefined });
-            this.hasPublishedSelection = false;
+            // Sync cursor position after content edit
+            if (this.shouldPublishSelection()) {
+              const treeJSON = JSON.parse(root[this.treePath].toJSON());
+              const map = buildPositionMap(newDoc, treeJSON);
+              const sel = newState.selection;
+              const yorkieFrom = pmPosToYorkieIdx(map, sel.from);
+              const yorkieTo = pmPosToYorkieIdx(map, sel.to);
+              presence.set({
+                selection: root[this.treePath].indexRangeToPosRange([
+                  yorkieFrom,
+                  yorkieTo,
+                ]),
+              });
+              this.hasPublishedSelection = true;
+            } else if (this.hasPublishedSelection) {
+              // Publishing just turned off — retract what peers still render.
+              presence.set({ selection: undefined });
+              this.hasPublishedSelection = false;
+            }
+          } catch (e) {
+            syncFailure = e;
+            hadSyncFailure = true;
+            throw e;
+          } finally {
+            this.isSyncing = false;
           }
-        } catch (e) {
+        });
+      } catch (e) {
+        if (!hadSyncFailure || e !== syncFailure) {
+          // `Document.update` itself refused the change (removed document,
+          // schema violation, size limit). The tree never moved and the view
+          // still holds the user's input; rebuilding it from the tree would
+          // throw that input away. Report it and leave the view alone.
           this.onLog?.(
             'error',
-            `Upstream sync failed: ${(e as Error).message}`,
+            `Document update failed: ${(e as Error).message}`,
           );
-          // Re-sync from Yorkie to recover from diverged state
+          return;
+        }
+        this.onLog?.('error', `Upstream sync failed: ${(e as Error).message}`);
+        // `Document.update` rolled the change back, so the tree still holds
+        // the pre-transaction state. Re-sync the view from it to drop the
+        // steps that never reached Yorkie.
+        //
+        // The recovery is itself fallible: `syncToPM` rebuilds the whole
+        // document from the tree and dispatches it, so a node the schema
+        // rejects throws here too. Nothing above us can act on that — we are
+        // inside `dispatchTransaction`, and a throw from there escapes into
+        // ProseMirror's own dispatch, leaving the view in a worse state than
+        // the un-rolled-back one we were trying to repair. Log and keep the
+        // view as it is instead. The tree can also be missing (the same
+        // `getTree()` guard the sync path makes at the top of this closure)
+        // when the failure took the whole root with it.
+        const rolledBackTree = this.getTree();
+        if (!rolledBackTree) return;
+        try {
+          this.isSyncing = true;
           syncToPM(
             this.view,
-            root[this.treePath],
+            rolledBackTree,
             this.view.state.schema,
             this.elementToMarkMapping,
             this.onLog,
             this.wrapperElementName,
           );
+        } catch (recoveryError) {
+          this.onLog?.(
+            'error',
+            `Rollback re-sync failed: ${(recoveryError as Error).message}`,
+          );
         } finally {
           this.isSyncing = false;
         }
-      });
+      }
     };
 
     (this.view as any).setProps({
@@ -606,11 +679,16 @@ export class YorkieProseMirrorBinding {
       // index for what it changed, and still publishes the change. An empty
       // list therefore says nothing about the tree, so treat it as a possible
       // tree change instead of discarding it -- the sync below is diff-based
-      // and does nothing when the document really is unchanged.
+      // and does nothing when the document really is unchanged. A peer that
+      // creates or replaces the tree reports a root 'set' of its key instead,
+      // which is how a binding whose own initialize() failed gets its tree.
       const hasTreeOps =
         operations.length === 0 ||
         operations.some(
-          (op: any) => op.type === 'tree-edit' || op.type === 'tree-style',
+          (op: any) =>
+            op.type === 'tree-edit' ||
+            op.type === 'tree-style' ||
+            (op.type === 'set' && op.path === '$' && op.key === this.treePath),
         );
       if (!hasTreeOps) return;
 

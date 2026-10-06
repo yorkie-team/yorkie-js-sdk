@@ -47,7 +47,7 @@ import {
 } from '@yorkie-js/sdk/src/util/object';
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import { ensureUTF16Boundary } from '@yorkie-js/sdk/src/document/json/strings';
 import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
@@ -1152,6 +1152,29 @@ function toTreeNode(node: CRDTTreeNode): TreeNode {
   return treeNode;
 }
 
+const xmlEscapes: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&apos;',
+};
+
+/**
+ * `escapeXMLAttr` escapes a name or a value for interpolation into a
+ * double-quoted XML attribute.
+ *
+ * Both halves are peer-chosen: the key is whatever `Style` was called with,
+ * and the value is what `parseAttrValue` read back -- including, for a peer
+ * that stores values raw, the raw string itself. Interpolated unescaped, a
+ * `"` closes the attribute and a `<` opens an element, so an attribute could
+ * forge structure in the markup `toXML` builds. This is the same forging
+ * `CRDTTextValue.toJSON` closes for the JSON encoding of a Text attribute.
+ */
+function escapeXMLAttr(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => xmlEscapes[character]);
+}
+
 /**
  * `toXML` converts the given CRDTNode to XML string.
  */
@@ -1170,12 +1193,12 @@ export function toXML(node: CRDTTreeNode): string {
         .sort((a, b) => a.getKey().localeCompare(b.getKey()))
         .map((n) => {
           // See `parseAttrValue`: a peer that stores values raw writes ones
-          // this cannot parse, and rendering must not throw on them.
+          // this cannot parse, and rendering must not throw on them. The raw
+          // string it falls back to is rendered as the value; anything else
+          // keeps the JSON form it is stored as.
           const obj = parseAttrValue(n.getValue());
-          if (typeof obj === 'string') {
-            return `${n.getKey()}="${obj}"`;
-          }
-          return `${n.getKey()}="${escapeString(n.getValue())}"`;
+          const value = typeof obj === 'string' ? obj : n.getValue();
+          return `${escapeXMLAttr(n.getKey())}="${escapeXMLAttr(value)}"`;
         })
         .join(' ');
   }
@@ -4294,19 +4317,66 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `findPos` finds the position of the given index in the tree.
+   * `findPos` finds the position of the given index in the tree. It rejects
+   * an index inside a UTF-16 surrogate pair.
    */
   public findPos(index: number, preferText = true): CRDTTreePos {
+    const treePos = this.indexTree.findTreePos(index, preferText);
+    if (treePos.node.isText) {
+      this.validateUTF16Boundary(treePos);
+    }
+
+    return CRDTTreePos.fromTreePos(treePos);
+  }
+
+  /**
+   * `validateUTF16Boundary` throws when the given text position splits a
+   * surrogate pair. At either end of the node it reads the neighbouring text
+   * node: converting a position back to an index splits text nodes with no
+   * operation, so a pair can sit in two nodes on this replica while it is
+   * one node on every other, and an index at that seam is still inside it.
+   */
+  private validateUTF16Boundary({ node, offset }: TreePos<CRDTTreeNode>) {
+    const value = node.value;
+    let before = value.charCodeAt(offset - 1);
+    let after = value.charCodeAt(offset);
+    if (offset === 0) {
+      const prev = node.prevSibling;
+      before = prev?.isText
+        ? prev.value.charCodeAt(prev.value.length - 1)
+        : NaN;
+    }
+    if (offset === value.length) {
+      const next = node.nextSibling;
+      after = next?.isText ? next.value.charCodeAt(0) : NaN;
+    }
+
+    ensureUTF16Boundary(before, after);
+  }
+
+  /**
+   * `findPosUnchecked` is `findPos` without the surrogate pair check. It is
+   * for indexes the document computed itself, such as an undo range
+   * reconciled against a remote edit, which can land inside a pair through no
+   * fault of the caller. Refusing such an index would only drop the undo, so
+   * it resolves the way it did before the check existed.
+   */
+  public findPosUnchecked(index: number, preferText = true): CRDTTreePos {
     const treePos = this.indexTree.findTreePos(index, preferText);
     return CRDTTreePos.fromTreePos(treePos);
   }
 
   /**
    * `pathToPosRange` converts the given path of the node to the range of the position.
+   *
+   * The end index is derived here rather than supplied by the caller, so it
+   * goes through `findPosUnchecked`: the caller named a node by path, and
+   * refusing the range because the index one past that node happens to land
+   * inside a surrogate pair would reject a request that is valid as given.
    */
   public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
     const fromIdx = this.pathToIndex(path);
-    return [this.findPos(fromIdx), this.findPos(fromIdx + 1)];
+    return [this.findPos(fromIdx), this.findPosUnchecked(fromIdx + 1)];
   }
 
   /**
@@ -4531,28 +4601,32 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
   /**
    * `indexRangeToPosRange` returns the position range from the given index range.
+   * It converts a selection, not an edit range, so it skips the surrogate pair
+   * check.
    */
   public indexRangeToPosRange(range: [number, number]): TreePosRange {
-    const fromPos = this.findPos(range[0]);
+    const fromPos = this.findPosUnchecked(range[0]);
     if (range[0] === range[1]) {
       return [fromPos, fromPos];
     }
-    return [fromPos, this.findPos(range[1])];
+    return [fromPos, this.findPosUnchecked(range[1])];
   }
 
   /**
    * `indexRangeToPosStructRange` converts the integer index range into the Tree position range structure.
+   * Like `indexRangeToPosRange`, it is for selections and skips the surrogate
+   * pair check.
    */
   public indexRangeToPosStructRange(
     range: [number, number],
   ): TreePosStructRange {
     const [fromIdx, toIdx] = range;
-    const fromPos = this.findPos(fromIdx);
+    const fromPos = this.findPosUnchecked(fromIdx);
     if (fromIdx === toIdx) {
       return [fromPos.toStruct(), fromPos.toStruct()];
     }
 
-    return [fromPos.toStruct(), this.findPos(toIdx).toStruct()];
+    return [fromPos.toStruct(), this.findPosUnchecked(toIdx).toStruct()];
   }
 
   /**

@@ -28,7 +28,11 @@ import {
   RestoreSpan,
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { escapeString } from '@yorkie-js/sdk/src/document/json/strings';
+import {
+  ensureNoLoneSurrogate,
+  ensureUTF16Boundary,
+  escapeString,
+} from '@yorkie-js/sdk/src/document/json/strings';
 import {
   parseAttrValue,
   parseObjectValues,
@@ -183,10 +187,15 @@ export class CRDTTextValue {
       // See `parseAttrValue`: a peer that stores values raw writes ones this
       // cannot parse, and rendering must not throw on them.
       const value = parseAttrValue(v);
+      // A non-string is re-encoded, never interpolated: `String(value)` on an
+      // object or array emits `[object Object]` and on a parsed string-shaped
+      // value emits it unquoted, either of which breaks out of the JSON this
+      // builds and lets a peer-chosen attribute forge structure in
+      // `Document.toJSON`.
       const item =
         typeof value === 'string'
           ? `"${escapeString(key)}":"${escapeString(value)}"`
-          : `"${escapeString(key)}":${String(value)}`;
+          : `"${escapeString(key)}":${JSON.stringify(value)}`;
       attrs.push(item);
     }
     attrs.sort();
@@ -240,6 +249,36 @@ export class CRDTTextValue {
 
     return pairs;
   }
+}
+
+/**
+ * `indexedContent` returns the text the given node contributes to the index:
+ * empty for the head node, which holds no value, and for a tombstone, whose
+ * text the index no longer counts.
+ */
+function indexedContent(node: RGATreeSplitNode<CRDTTextValue>): string {
+  const value: CRDTTextValue | undefined = node.getValue();
+  return node.isRemoved() || !value ? '' : value.getContent();
+}
+
+/**
+ * `neighborContent` returns the content of the nearest node on the given side
+ * that still contributes text, or an empty string when there is none.
+ */
+function neighborContent(
+  node: RGATreeSplitNode<CRDTTextValue>,
+  step: (
+    n: RGATreeSplitNode<CRDTTextValue>,
+  ) => RGATreeSplitNode<CRDTTextValue> | undefined,
+): string {
+  for (let n = step(node); n; n = step(n)) {
+    const content = indexedContent(n);
+    if (content) {
+      return content;
+    }
+  }
+
+  return '';
 }
 
 /**
@@ -621,6 +660,64 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     }
 
     return [fromPos, this.rgaTreeSplit.indexToPos(toIdx)];
+  }
+
+  /**
+   * `createRange` returns the position range of the given index range for a
+   * local edit or style. Unlike `indexRangeToPosRange`, it rejects an index
+   * that splits a UTF-16 surrogate pair.
+   *
+   * `content` is given for an edit and omitted for a style. It is checked for
+   * lone surrogates: storing one diverges across SDKs on its own, and the half
+   * then pairs with whatever code unit it is stored next to, which would turn
+   * the index at that seam into one `validateUTF16Boundary` refuses for the
+   * lifetime of the text. A peer running an SDK without this check can still
+   * send such content — the guard is a local-edit contract, not a trust
+   * boundary — but nothing a client of this SDK does can create it.
+   */
+  public createRange(
+    fromIdx: number,
+    toIdx: number,
+    content?: string,
+  ): RGATreeSplitPosRange {
+    if (content) {
+      ensureNoLoneSurrogate(content);
+    }
+
+    const range = this.indexRangeToPosRange(fromIdx, toIdx);
+    this.validateUTF16Boundary(range[0]);
+    if (fromIdx !== toIdx) {
+      this.validateUTF16Boundary(range[1]);
+    }
+
+    return range;
+  }
+
+  /**
+   * `validateUTF16Boundary` throws when the given position splits a surrogate
+   * pair. At either end of the node it reads the neighbouring node: an edit or
+   * a style carrying a mid-pair offset splits the node there, so a pair can
+   * sit in two nodes on this replica while it is one node on every other, and
+   * an index at that seam is still inside it. `indexToPos` resolves a seam to
+   * the node on its left, so the `offset === content.length` side is the one
+   * an index normally reaches.
+   */
+  private validateUTF16Boundary(pos: RGATreeSplitPos): void {
+    const node = this.rgaTreeSplit.findNode(pos.getID());
+    const offset = pos.getRelativeOffset();
+    const content = indexedContent(node);
+
+    let before = content.charCodeAt(offset - 1);
+    let after = content.charCodeAt(offset);
+    if (offset === 0) {
+      const prev = neighborContent(node, (n) => n.getPrev());
+      before = prev.charCodeAt(prev.length - 1);
+    }
+    if (offset === content.length) {
+      after = neighborContent(node, (n) => n.getNext()).charCodeAt(0);
+    }
+
+    ensureUTF16Boundary(before, after);
   }
 
   /**

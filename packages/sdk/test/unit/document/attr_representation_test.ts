@@ -87,6 +87,61 @@ describe('an attribute written by a peer that stores values raw', () => {
     assert.include(d.toSortedJSON(), '"color":"red"');
   });
 
+  /**
+   * `CRDTTextValue.toJSON` builds JSON by concatenation, and used to splice a
+   * parsed non-string in with `String(value)` -- unquoted and unescaped. A
+   * peer storing an array or object raw could therefore forge structure in,
+   * or simply break, `Document.toJSON` for everyone who read the document.
+   */
+  it('cannot forge JSON structure through a text attribute', () => {
+    const d = new Document<{ k: Text }>('test-doc');
+    d.update((r) => {
+      r.k = new Text();
+      r.k.edit(0, 0, 'abcdefghij');
+    });
+    styleRawOnText(d, 'evil', '["x","y"]');
+
+    const parsed = JSON.parse(d.toJSON());
+    assert.deepEqual(parsed.k[0].attrs.evil, ['x', 'y']);
+  });
+
+  it('cannot break JSON parsing through an object-valued text attribute', () => {
+    const d = new Document<{ k: Text }>('test-doc');
+    d.update((r) => {
+      r.k = new Text();
+      r.k.edit(0, 0, 'abcdefghij');
+    });
+    styleRawOnText(d, 'evil', '{"val":"forged"}');
+
+    const parsed = JSON.parse(d.toJSON());
+    assert.deepEqual(parsed.k[0].attrs.evil, { val: 'forged' });
+    assert.equal(parsed.k[0].val, 'abcdefghij', 'the real value is untouched');
+  });
+
+  /**
+   * `toXML` builds markup by concatenation, and used to interpolate the raw
+   * string `parseAttrValue` falls back to without escaping it. A peer storing
+   * a value holding `"` or `<` could therefore forge an attribute or an
+   * element into the markup every reader rendered -- the XML half of the
+   * forging `CRDTTextValue.toJSON` closes for JSON.
+   */
+  it('cannot forge XML structure through a tree attribute', () => {
+    const d = new Document<{ t: Tree }>('test-doc');
+    d.update((r) => {
+      r.t = new Tree({
+        type: 'doc',
+        children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      });
+    });
+    styleRawOnTree(d, 'color', 'red" onload="<script>');
+
+    const xml = (d as any).root.getObject().get('t').toXML();
+    assert.equal(
+      xml,
+      '<doc><p color="red&quot; onload=&quot;&lt;script&gt;">ab</p></doc>',
+    );
+  });
+
   it('reads back as the string the peer wrote, not as a dropped key', () => {
     const d = new Document<{ t: Tree }>('test-doc');
     d.update((r) => {

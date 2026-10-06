@@ -146,9 +146,12 @@ describe('CRDTTreeNode', function () {
       MTT,
     );
 
+    // The quotes of the stored JSON are escaped for the attribute they sit
+    // in, not with the JSON escape `escapeString` applies: a `\"` here still
+    // closes the attribute, which is how a peer-chosen value forged markup.
     assert.equal(
       toXML(elemWithAttrs),
-      /*html*/ `<p b="t" i="true" img="{\\"src\\":\\"yorkie.png\\"}">hello</p>`,
+      /*html*/ `<p b="t" i="true" img="{&quot;src&quot;:&quot;yorkie.png&quot;}">hello</p>`,
     );
   });
 });

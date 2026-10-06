@@ -258,3 +258,36 @@ describe('YorkieProseMirrorBinding – a remote change mid-composition', () => {
     binding.destroy();
   });
 });
+
+// initialize() logs a tree it cannot build and finishes binding without one.
+// A peer that later creates the tree sends a 'set' op, not a tree op, and the
+// view must still pick that tree up.
+describe('YorkieProseMirrorBinding – a tree created after a failed init', () => {
+  it('should load a tree a peer creates later', () => {
+    const d1: TestDoc = new Document('test-doc');
+    const d2: TestDoc = new Document('test-doc');
+    d1.setActor('000000000000000000000001');
+    d2.setActor('000000000000000000000002');
+
+    // A lone high surrogate: `new Tree(...)` refuses it, so init fails.
+    const view = createView(doc(p('\uD83D')));
+    const errors: Array<string> = [];
+    const binding = new YorkieProseMirrorBinding(view as any, d2, 't', {
+      onLog: (type, message) => {
+        if (type === 'error') errors.push(message);
+      },
+    });
+    binding.initialize();
+    assert.isUndefined(d2.getRoot().t, 'init must leave no tree');
+    assert.isNotEmpty(errors, 'init must log its failure');
+
+    d1.update((root) => {
+      root.t = new Tree(pmToYorkie(doc(p('hi')), defaultMarkMapping) as any);
+    });
+    crossSync(d1, d2);
+
+    assert.equal(text(d2), 'hi');
+    assert.equal(view.state.doc.textContent, 'hi');
+    binding.destroy();
+  });
+});

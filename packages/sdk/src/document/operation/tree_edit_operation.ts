@@ -606,17 +606,20 @@ export class TreeEditOperation extends Operation {
       };
     }
 
-    // For undo ops: convert stored integer indices to CRDTTreePos
+    // For undo ops: convert stored integer indices to CRDTTreePos. These are
+    // the document's own indexes, not the caller's: reconciliation and the
+    // edits since can move one inside a surrogate pair, so they resolve
+    // without the pair check that guards caller-supplied indexes.
     if (
       this.isUndoOp &&
       this.fromIdx !== undefined &&
       this.toIdx !== undefined
     ) {
-      this.fromPos = tree.findPos(this.fromIdx);
+      this.fromPos = tree.findPosUnchecked(this.fromIdx);
       if (this.fromIdx === this.toIdx) {
         this.toPos = this.fromPos;
       } else {
-        this.toPos = tree.findPos(this.toIdx);
+        this.toPos = tree.findPosUnchecked(this.toIdx);
       }
     }
 
@@ -753,7 +756,7 @@ export class TreeEditOperation extends Operation {
    * The reverse op stores both CRDTTreePos (for initial use) and integer
    * indices (for reconciliation adjustment when remote edits arrive).
    * At undo execution time, the integer indices take precedence and are
-   * converted to CRDTTreePos via tree.findPos().
+   * converted to CRDTTreePos via tree.findPosUnchecked().
    *
    * @param tree - The CRDTTree after the edit has been applied
    * @param removedNodes - Nodes that were removed by this edit
@@ -801,7 +804,7 @@ export class TreeEditOperation extends Operation {
     if (this.redoSplitLevel !== undefined && this.redoSplitLevel > 0) {
       // After the boundary deletion has been applied, the merged position is
       // preEditFromIdx. We re-split there.
-      const splitRedoFromPos = tree.findPos(preEditFromIdx);
+      const splitRedoFromPos = tree.findPosUnchecked(preEditFromIdx);
       const splitRedoOp = TreeEditOperation.create(
         this.getParentCreatedAt(),
         splitRedoFromPos,
@@ -821,7 +824,7 @@ export class TreeEditOperation extends Operation {
     // A merge deletes element boundaries (e.g., </p><p>), moving children
     // into the target. The undo re-creates those boundaries via split.
     if (mergeLevel && mergeLevel > 0) {
-      const splitFromPos = tree.findPos(preEditFromIdx);
+      const splitFromPos = tree.findPosUnchecked(preEditFromIdx);
       const splitUndoOp = TreeEditOperation.create(
         this.getParentCreatedAt(),
         splitFromPos,
@@ -876,13 +879,17 @@ export class TreeEditOperation extends Operation {
           )
         : undefined;
 
-    // Compute CRDTTreePos for the reverse range using findPos on the
-    // post-edit tree with the pre-edit from index.
-    const reverseFromPos = tree.findPos(preEditFromIdx);
+    // Compute CRDTTreePos for the reverse range on the post-edit tree with
+    // the pre-edit from index. The reverse is built for remote changes too,
+    // from indexes on this replica's tree, so it skips the pair check:
+    // refusing one would refuse a remote change the caller never controlled.
+    const reverseFromPos = tree.findPosUnchecked(preEditFromIdx);
 
     let reverseToPos: CRDTTreePos;
     if (insertedContentSize > 0) {
-      reverseToPos = tree.findPos(preEditFromIdx + insertedContentSize);
+      reverseToPos = tree.findPosUnchecked(
+        preEditFromIdx + insertedContentSize,
+      );
     } else {
       reverseToPos = reverseFromPos;
     }
@@ -943,8 +950,8 @@ export class TreeEditOperation extends Operation {
       return undefined;
     }
 
-    const reverseFromPos = tree.findPos(reverseFromIdx);
-    const reverseToPos = tree.findPos(reverseToIdx);
+    const reverseFromPos = tree.findPosUnchecked(reverseFromIdx);
+    const reverseToPos = tree.findPosUnchecked(reverseToIdx);
 
     const boundaryDeletionOp = TreeEditOperation.create(
       this.getParentCreatedAt(),
