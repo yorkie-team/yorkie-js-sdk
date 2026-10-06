@@ -536,6 +536,28 @@ describe('Document.setActor with reissue', function () {
     assert.isAbove(actorsOf(doc).get(InitialActorID) ?? 0, 0);
   });
 
+  it('reports a document decoded from bytes as having minted', function () {
+    // `Client.attachDocument` only takes the re-issue claim for a document
+    // that minted something, so the public `fromBytes` factory has to report
+    // the way the in-place `restoreFromBytes` does: an app that restores an
+    // envelope and attaches the result pushes tickets under the actor, and a
+    // later document of that key must not re-issue onto those lamports.
+    const source: TestDoc = new Document('d');
+    fillEverything(source);
+    const bytes = source.toBytes();
+
+    const decoded = Document.fromBytes<Indexable, Indexable>('d', bytes);
+    assert.isTrue(decoded.hasMintedOperations());
+
+    const inPlace: TestDoc = new Document('d');
+    inPlace.restoreFromBytes(bytes);
+    assert.isTrue(inPlace.hasMintedOperations());
+
+    // An untouched document still mints nothing, so the relaxed claim keeps
+    // its point: a plain attach of one leaves the key free for a re-issue.
+    assert.isFalse(new Document('d').hasMintedOperations());
+  });
+
   it('refuses a re-issue asked for without the token', function () {
     // The re-issue rewrites element identity under a caller-chosen actor, so
     // a holder of the document handle must not be able to ask for it: only

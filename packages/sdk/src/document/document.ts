@@ -785,7 +785,9 @@ export class Document<
 
   // `mintedOperations` records that this document has produced at least one
   // local change carrying operations, so tickets naming its actor may already
-  // be in the document the key names. It is never cleared -- a push cannot be
+  // be in the document the key names. Decoding a persisted envelope
+  // (`fromBytes`, `restoreFromBytes`) sets it too: that state was minted under
+  // an actor in an earlier session. It is never cleared -- a push cannot be
   // taken back -- and it is what `Client` consults to decide whether the
   // actor's lamport space in a document key is still free for a re-issue
   // (`Client.claimReissue`).
@@ -1722,6 +1724,14 @@ export class Document<
     // only five blobs, so treat an absent blob as an empty string.
     doc.docID = docIDBytes ? decoder.decode(docIDBytes) : '';
     doc.absorbedRemote = true;
+    // A persisted envelope is state an actor already held under this key: its
+    // root carries tickets that actor minted, and its pending changes are
+    // about to be pushed under it. Mark the decoded document as having minted,
+    // so an app that restores through this public factory and attaches the
+    // result takes the re-issue claim (`Client.markReissueClaim`) exactly as
+    // the in-place `restoreFromBytes` path does -- otherwise a later document
+    // of the same key would re-issue onto lamports this one has consumed.
+    doc.mintedOperations = true;
 
     return doc;
   }
@@ -1770,7 +1780,8 @@ export class Document<
     this.absorbedRemote = true;
     // A persisted envelope is state this actor already held under this key,
     // so treat it as minted: the claim bookkeeping must not hand the actor's
-    // lamport space to a later re-issue.
+    // lamport space to a later re-issue. The decoded `restored` carries the
+    // same flag; it is set here too because the fields are copied one by one.
     this.mintedOperations = true;
     // Drop any stale clone so the next `update` re-clones from the restored
     // root/presences rather than the pre-restore state.
