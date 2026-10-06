@@ -2492,42 +2492,42 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `seenGone` reports whether the editor of a change with `versionVector`
-   * had already seen `node` removed.
+   * `sawMergedBack` reports whether the editor of a change with
+   * `versionVector` had itself merged `next` back into its left split
+   * neighbour `current` -- i.e. whether `next` was already empty, and gone,
+   * for that editor.
    *
-   * `node.removedAt` alone cannot answer this: it keeps only the newest
-   * tombstone, so a concurrent delete that won the LWW hides the removal the
-   * editor did know. For the removal that matters here -- a merge, which is
-   * what empties a split sibling back into its neighbour -- the children the
-   * merge moved carry its immutable ticket in `mergedAt`, kept for exactly
-   * this reason (see the field's note). So when the surviving tombstone is
-   * unknown, ask the moved children instead.
+   * The witness is the one the merge leaves behind on the children it moved:
+   * each lands under the merge target stamped with the source it came out of
+   * in `mergedFrom` and the merge's own ticket in `mergedAt`. Both are
+   * written once, at merge time, and both are persisted in the snapshot
+   * encoding, so every replica that holds the merge holds the same answer.
+   *
+   * Deliberately NOT asked here:
+   *
+   * - `next.removedAt`. It keeps only the newest tombstone, so a concurrent
+   *   delete that wins the LWW rewrites it. A replica that applied that
+   *   delete first would read a different value than one that applied it
+   *   last, and the two would cascade differently and diverge.
+   * - `next.mergedInto`. A runtime cache, not persisted: GC purge and
+   *   `dissolveMerge` drop it, so it answers by how a replica happened to
+   *   obtain its state rather than by what the editor saw.
+   *
+   * A `mergedAt` that `rebuildMergeState` back-filled from the source's
+   * `removedAt` (pre-`mergedAt` snapshots) cannot turn this into a wrong
+   * "yes": whatever tombstone it copied is still a tombstone of `next`, so
+   * an editor that knew that ticket saw `next` removed either way. It can
+   * turn a "yes" into a "no", which only stops the walk early.
    */
-  private seenGone(
-    node: CRDTTreeNode,
+  private sawMergedBack(
+    current: CRDTTreeNode,
+    next: CRDTTreeNode,
     versionVector: VersionVector | undefined,
   ): boolean {
-    if (!node.removedAt) {
-      return false;
-    }
-    if (ticketKnown(versionVector, node.removedAt)) {
-      return true;
-    }
-    if (!node.mergedInto) {
-      return false;
-    }
-
-    // `findMergeNode`, as everywhere `mergedInto` is followed: the pointer is
-    // derived from client-supplied `mergedFrom`, so the target has to be the
-    // element it names exactly.
-    const target = this.findMergeNode(node.mergedInto);
-    if (!target) {
-      return false;
-    }
-    for (const child of target.allChildren) {
+    for (const child of current.allChildren) {
       if (
         child.mergedFrom &&
-        child.mergedFrom.equals(node.id) &&
+        child.mergedFrom.equals(next.id) &&
         child.mergedAt &&
         ticketKnown(versionVector, child.mergedAt)
       ) {
@@ -2546,19 +2546,29 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * Only element siblings in `node`'s own split family are followed, as in
    * `advancePastUnknownSplitSiblings` and `orderSameBoundarySplit`.
    *
-   * The walk passes a sibling the editor knew only if the editor saw it
-   * gone (`seenGone`: removed by a change the editor knew -- merged back
-   * into `node`, say), or enclosed whole by this delete. What lies past it
-   * was then
-   * inside `node` or inside the deleted range for the editor too. Any other
-   * known sibling ends the walk. The chain is in document order and a split
-   * product lands right after the node it was split off (or, under §7.8,
-   * after the same-boundary products ordered ahead of it), so an unknown
-   * sibling past such a sibling holds content the editor saw inside that
-   * sibling, not inside `node`. Walking on tombstoned it: after a split at
-   * offset 0 and a delete of the empty left piece, the concurrent
-   * same-boundary product that holds the moved content sits right after the
-   * editor's own product (#1408).
+   * The walk ends at the first sibling the editor knew. The chain is in
+   * document order and a split product lands right after the node it was
+   * split off (or, under §7.8, after the same-boundary products ordered
+   * ahead of it), so an unknown sibling past a known one holds content the
+   * editor saw inside that known sibling, not inside `node`: after a split
+   * at offset 0 and a delete of the empty left piece, the concurrent
+   * same-boundary product holding the moved text sits right after the
+   * editor's own product, and the old unbounded walk tombstoned it (#1408).
+   *
+   * Two known siblings are passed rather than stopped at, because for the
+   * editor there was nothing of its own left there to hold content:
+   *
+   * - one the editor merged back into its left neighbour (`sawMergedBack`),
+   *   which is how a split sibling is emptied in the first place;
+   * - one this very delete encloses whole (`enclosed`), which the editor is
+   *   removing in the same breath.
+   *
+   * Both tests read only immutable ids, the persisted merge stamps, and this
+   * change's own range and version vector -- never `removedAt`, which the
+   * LWW rewrites, and never the `mergedInto` cache. A stop rule reading
+   * mutable local state would cascade on the replica that happened to hold
+   * one shape and not on the replica that held another, and the two would
+   * diverge: the very failure this cascade exists to avoid.
    */
   private collectUnknownSplitSiblings(
     node: CRDTTreeNode,
@@ -2591,14 +2601,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
 
       if (ticketKnown(versionVector, next.id.getCreatedAt())) {
-        if (!this.seenGone(next, versionVector) && !enclosed(next)) {
+        if (
+          !this.sawMergedBack(current, next, versionVector) &&
+          !enclosed(next)
+        ) {
           break;
         }
       } else {
-        // Cascade through the full subtree, not just immediate children,
-        // in pre-order: `out` is `nodesToBeRemoved`, which `restore()`
-        // reads expecting a parent to precede its children. `traverseAll`
-        // is post-order, so it cannot be used here.
+        // Cascade through the full subtree, not just immediate children, in
+        // pre-order: `out` is `nodesToBeRemoved`, which `restore()` reads
+        // expecting a parent to precede its children. `traverseAll` is
+        // post-order, so it cannot be used here.
         const stack = [next];
         while (stack.length) {
           const n = stack.pop()!;
@@ -3198,8 +3211,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const toBeMergedNodes: Array<CRDTTreeNode> = [];
     const preTombstoned = new Set<string>();
 
-    // `enclosed` reports whether the range covers the element whole, start
-    // and end tokens both. Collected on first use; most deletes never ask.
+    // `enclosed` reports whether this change's own range covers the element
+    // whole, start and end tokens both. It is the range the delete already
+    // resolves to decide what it removes, asked a second time -- not extra
+    // local state. Collected on first use; most deletes never ask.
     let enclosedNodes: Set<CRDTTreeNode> | undefined;
     const enclosed = (n: CRDTTreeNode): boolean => {
       if (!enclosedNodes) {

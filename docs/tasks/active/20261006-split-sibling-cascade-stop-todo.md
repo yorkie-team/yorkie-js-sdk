@@ -29,8 +29,9 @@ became a real split in v0.7.23 (#1358).
 - [x] Red: `tree_split_sibling_cascade_test.ts`, ten split/merge/delete races,
       each in both role assignments and both actor orders (40 runs),
       comparing XML and tree shape, then GC. 22 of 40 fail on `main`.
-- [x] Pass a known sibling only if the editor saw it gone (its `removedAt` is
-      known to the editor) or this delete encloses it whole; stop at any
+- [x] Pass a known sibling only if the editor merged it back into its left
+      split neighbour (`sawMergedBack`, off the persisted `mergedFrom`/
+      `mergedAt` stamps) or this delete encloses it whole; stop at any
       other known sibling (`collectUnknownSplitSiblings`).
 - [x] Keep the cascade gated on `canDelete`; pin the scenarios where
       cascading on a lost LWW loses text nobody deleted
@@ -56,12 +57,14 @@ became a real split in v0.7.23 (#1358).
   one replica. In 10,000 random two-round races (round 2 review) 9 seeds do
   this where `main` leaves none; in the two traced, `main`'s over-delete hid
   an existing divergence.
-- `removedAt` keeps only the newest tombstone, so a concurrent delete with a
-  newer ticket than the merge the editor knew would hide that merge from the
-  walk. `seenGone` therefore falls back to the moved children's immutable
-  `mergedAt` (the field already carried for this exact problem). That covers
-  a merge that moved children; a merge of an already-empty sibling leaves no
-  witness, so the walk still stops there and a product split off it
+- The walk's stop rule reads no mutable local state, so every replica
+  computes the same cascade for the same change: not `removedAt` (the LWW
+  rewrites it, so the answer would depend on apply order) and not the
+  `mergedInto` cache (GC purge and `dissolveMerge` drop it). The only
+  "editor saw it gone" witness used is the persisted `mergedFrom`/`mergedAt`
+  stamp the merge left on the children it moved (`sawMergedBack`). That
+  covers a merge that moved children; a merge of an already-empty sibling
+  leaves no witness, so the walk stops there and a product split off it
   concurrently survives on that replica only.
 - A sibling merged back by a change the editor did not know ends the walk. A
   product split off it concurrently survives on the splitter's own replica
