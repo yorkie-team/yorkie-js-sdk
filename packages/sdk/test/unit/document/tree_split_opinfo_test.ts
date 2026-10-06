@@ -139,12 +139,25 @@ function hasText(node: JSONNode): boolean {
  * an editor binding that keeps its own model does. An edit with
  * `fromPath == toPath` and no value is a split. OpInfos do not carry its
  * `splitLevel` today, so the caller passes the level the sender used.
+ *
+ * A split edit that also inserts content is reported as one change when the
+ * split opened where the edit asked for it -- the insert is merged onto the
+ * split change, value and all -- and as two (split, then insert) when the
+ * split migrated elsewhere. `splitWithContent` says the sender's split
+ * carried content, which is the only way to tell that merged change from a
+ * plain insert; the pure-split probe below then picks whichever of the two
+ * shapes the sender actually emitted. The content lands left of the boundary
+ * (it is inserted after the position's left sibling, which stays in the left
+ * node), so a merged change inserts at `from` and splits after the insert.
  */
 function replay(
   mirror: JSONNode,
   ops: Array<TreeEditOpInfo>,
   splitLevel: number,
+  splitWithContent = false,
 ): JSONNode {
+  const mergedSplit =
+    splitWithContent && !ops.some((o) => o.from === o.to && !o.value?.length);
   const root = JSON.parse(JSON.stringify(mirror)) as JSONNode;
   const at = (path: Array<number>): [Array<JSONNode>, JSONNode] => {
     const chain: Array<JSONNode> = [root];
@@ -166,14 +179,17 @@ function replay(
     const [chain, parent] = at(fromPath);
     const from = fromPath[fromPath.length - 1];
     const to = toPath[toPath.length - 1];
+    let insertedSize = 0;
     if (hasText(parent)) {
       const text = parent.children![0];
       const inserted = (value ?? [])
         .map((v) => (v as JSONNode).value ?? '')
         .join('');
+      insertedSize = inserted.length;
       text.value =
         text.value!.slice(0, from) + inserted + text.value!.slice(to);
     } else {
+      insertedSize = (value ?? []).length;
       parent.children!.splice(
         from,
         to - from,
@@ -181,11 +197,11 @@ function replay(
       );
     }
 
-    if (from === to && !value?.length) {
+    if (from === to && (!value?.length || mergedSplit)) {
       // Split: `splitLevel` levels, starting with the parent of the position.
       let levels = op.splitLevel || splitLevel;
       let node = parent;
-      let offset = from;
+      let offset = from + insertedSize;
       let depth = chain.length - 1;
       while (levels-- > 0 && depth > 0) {
         let right: Array<JSONNode>;
@@ -239,6 +255,8 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
     insert: (t: Tree) => void;
     split: (t: Tree) => void;
     splitLevel?: number;
+    /** Set when `split` also inserts content, so `replay` can tell. */
+    splitContent?: boolean;
     /** Set when the case is a known, unfixed gap; the text says which. */
     fails?: boolean;
   };
@@ -308,6 +326,33 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
       insert: insertXY,
       split: (t) => t.editByPath([0, 0, 2], [0, 0, 2], undefined, 1),
     },
+    {
+      // The split boundary migrates past the concurrent `XY`, so it no
+      // longer coincides with the position the content was inserted at and
+      // the insert is emitted as its own change after the split one.
+      name: 'text split that also inserts content, at the insert boundary',
+      insert: insertXY,
+      split: (t) =>
+        t.editByPath([0, 0, 3], [0, 0, 3], { type: 'text', value: 'Z' }, 1),
+      splitContent: true,
+    },
+    {
+      // Nothing migrates the boundary here, so the split and the insert
+      // still share a position and the insert merges onto the split change.
+      name: 'text split that also inserts content, away from the insert',
+      insert: insertXY,
+      split: (t) =>
+        t.editByPath([0, 0, 2], [0, 0, 2], { type: 'text', value: 'Z' }, 1),
+      splitContent: true,
+    },
+    {
+      name: 'text and paragraph split in one edit, with inserted content',
+      insert: insertXY,
+      split: (t) =>
+        t.editByPath([0, 0, 3], [0, 0, 3], { type: 'text', value: 'Z' }, 2),
+      splitLevel: 2,
+      splitContent: true,
+    },
   ];
   // [name, A's actor, B's actor, local changes A makes first]. B syncs its
   // clock to A's on the seed exchange, so without a head start B's split
@@ -353,7 +398,7 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
             `B replay of ${JSON.stringify(opsB)}`,
           );
           assert.equal(
-            render(replay(mirrorA, opsA, c.splitLevel ?? 1)),
+            render(replay(mirrorA, opsA, c.splitLevel ?? 1, c.splitContent)),
             render(snapshot(a)),
             `A replay of ${JSON.stringify(
               opsA.map(({ fromPath, toPath, from, to, value, splitLevel }) => ({

@@ -50,3 +50,18 @@ own tests, a local v0.7.24 server) and tried to break the change.
   applied before this one, so post-delete/post-merge *is* the space a binding
   replaying them in order is in, and nothing this edit removes or moves sits
   left of `fromIdx`. Written down at the measurement instead of re-derived.
+- Round 3 (PR review panel: test adequacy): one blocking finding. The
+  split-with-content branch at step 05 — the insert change merges onto the
+  split change only while `changes[last].from === fromIdx`, which a migrated
+  split position makes false — had no test, since every case split with
+  `undefined` contents. Added three cases that pass contents *and* a split
+  level. They cover both sides of the branch: migrated boundary → two changes
+  (split at `[0, 0, 5]`, then the insert at `[0, 0, 3]`), un-migrated → one
+  merged change carrying the value. The migrated ones fail on the pre-fix
+  `from: fromIdx` (checked by reverting it), so they are not vacuous.
+  `replay` had to learn the merged shape: a change that both splits and
+  inserts puts the content *left* of the boundary — step 05 inserts after the
+  position's left sibling, which stayed in the left node — so it inserts at
+  `from` and splits at `from + insertedSize`. OpInfos still do not carry
+  `splitLevel`, so the harness is told out of band which side's split carried
+  content, the same way it is already told the level.
