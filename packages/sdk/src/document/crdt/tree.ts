@@ -1383,11 +1383,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
   /**
    * `rebuildMergeState` reconstructs the `mergedInto` cache on source
    * parents from the persisted `mergedFrom` field on moved children.
-   * For snapshots written before `mergedAt` was added to the proto,
-   * it also falls back to the source's `removedAt` — an approximation
-   * that may be wrong if the source was later overwritten by a
-   * concurrent delete, but this is the best we can do without the
-   * persisted merge ticket.
+   * For snapshots written before `mergedAt` was added to the proto — and for
+   * one whose ticket this reader rejects as out of the source's lifetime — it
+   * falls back to the source's `removedAt`, flagged `mergedAtApproximated`
+   * because a concurrent delete may have overwritten it. Every reader of the
+   * ticket declines a flagged one, so the fallback is a placeholder that
+   * keeps `mergedInto` rebuildable rather than a merge boundary anyone acts
+   * on.
    */
   private rebuildMergeState(): void {
     this.indexTree.traverseAll((node) => {
@@ -1425,11 +1427,42 @@ export class CRDTTree extends CRDTElement implements GCParent {
         return;
       }
 
+      // `mergedAt` is as client-supplied as `mergedFrom` is -- it rides the
+      // same element payload (Set/Add/ArraySet) and this is the only reader
+      // between the wire and the merge logic -- so it is bounded before it is
+      // kept. A merge stamps the ticket that removed the source, so a genuine
+      // one always sits inside the window the source was in the tree for:
+      //
+      // - at or after `src.id.getCreatedAt()`, because the merge cannot have
+      //   removed the source before the source existed;
+      // - at or before `src.removedAt`, because `remove` keeps the NEWEST
+      //   tombstone (LWW), so the ticket that first removed the source is at
+      //   or before whatever stands there now.
+      //
+      // Both bounds hold for every genuine state, so no honest replica is
+      // reclassified by them and the ops route and the snapshot route still
+      // agree. What they reject is the crafted ticket the window excludes --
+      // in particular a low-lamport one, which every replica's version vector
+      // reports as known and which would therefore drive `sawMergedBack` and
+      // the §4.1 cascade through a sibling into live content.
+      //
+      // A rejected ticket is not merely dropped: it falls through to the
+      // back-fill below and is flagged, so every reader declines it rather
+      // than silently finding none.
+      if (
+        node.mergedAt &&
+        (node.mergedAt.compare(src.id.getCreatedAt()) < 0 ||
+          node.mergedAt.compare(src.removedAt) > 0)
+      ) {
+        node.mergedAt = undefined;
+      }
+
       // Back-compat: older snapshots lack mergedAt on moved children. The
       // copied ticket is flagged, because it is the source's current
       // tombstone rather than the merge's own: a later concurrent delete may
-      // have won the LWW there. Readers that need the merge boundary itself
-      // (`sawMergedBack`) decline a flagged ticket.
+      // have won the LWW there. Every reader of the ticket declines a flagged
+      // one -- `sawMergedBack`, `mergeSourceOf`, and Fix 8's split placement
+      // in `util/index_tree.ts`.
       if (!node.mergedAt) {
         node.mergedAt = src.removedAt;
         node.mergedAtApproximated = true;
@@ -1574,6 +1607,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * would move references onto a node holding only part of what they named.
    * Only a split that takes the source's children back WHOLE reverses the
    * merge, so `splitTarget` is checked for leftovers.
+   *
+   * The stamp has to be a trustworthy one -- present and not
+   * `mergedAtApproximated` -- for the same reason `sawMergedBack` and Fix 8's
+   * split placement (`util/index_tree.ts`) require it. The placement this
+   * reads is what Fix 8 decides, so the two have to decline the same stamps
+   * or a flagged child lands on the right and is then read here as proof the
+   * split reversed the merge. Requiring the ticket to be PRESENT matters as
+   * much as the flag: a demoted stamp keeps a flagged ticket on the replica
+   * that applied the ops, while the one that loads the snapshot gets no
+   * ticket at all (the converter does not encode a flagged one, and
+   * `rebuildMergeState` back-fills only from a source that is still a
+   * tombstone). Declining both shapes is the one answer every route gives.
    */
   private mergeSourceOf(
     splitNode: CRDTTreeNode,
@@ -1589,6 +1634,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     for (const child of splitNode.allChildren) {
       const mergedFrom = child.mergedFrom;
       if (!mergedFrom) {
+        continue;
+      }
+      if (!child.mergedAt || child.mergedAtApproximated) {
         continue;
       }
       // The product carries its own `mergedFrom` copied off the node it split

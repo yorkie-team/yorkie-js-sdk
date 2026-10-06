@@ -84,3 +84,29 @@
   Fixed by giving Fix 8 the same `!mergedAtApproximated` guard the witness
   has, with a positive control in `tree_merge_lineage_test.ts` so the
   unflagged path is still shown to keep the child at its level.
+
+- Round 4 (blast radius + security): two blocking findings, both on the
+  consequences of making `mergedAtApproximated` the gate every reader
+  consults. Blast radius: Fix 8's new guard moves a flagged child from the
+  left half into the split product, and `CRDTTree.mergeSourceOf` — out of
+  that diff — derives undo-history re-pointing from exactly that placement,
+  so a stamp Fix 8 declined came back as proof the split reversed the merge.
+  Correct, and the lesson is the mirror of round 3's: adding a reader to the
+  "declines a flagged ticket" set changes the *placement* other code reads,
+  so the placement's readers join the set too. Fixed by requiring a stamp
+  that is present and unflagged in `mergeSourceOf`. Presence matters as much
+  as the flag — a demoted stamp keeps a flagged ticket on the ops route and
+  no ticket at all on the snapshot route, so declining only the flag would
+  have re-pointed by route.
+- Security: `mergedAt` rides the same client-supplied element payload
+  (Set/Add/ArraySet) `mergedFrom` does, and `rebuildMergeState` checked the
+  source exhaustively while accepting any ticket at all. A crafted
+  low-lamport one is reported as known by every replica's version vector, so
+  `sawMergedBack` says yes everywhere and the §4.1 cascade walks through a
+  sibling into live content. Fixed by bounding a supplied ticket to the
+  window the source was in the tree for — at or after `src.id.getCreatedAt()`,
+  at or before `src.removedAt` (monotone under `remove`'s LWW). Both bounds
+  hold for every genuine state, which is what keeps the check from
+  reclassifying an honest replica and reintroducing a route disagreement; a
+  rejected ticket falls through to the flagged back-fill, so it is declined
+  rather than silently missing.

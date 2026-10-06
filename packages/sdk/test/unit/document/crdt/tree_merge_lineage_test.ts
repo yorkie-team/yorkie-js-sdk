@@ -111,6 +111,40 @@ function buildSplitFixture(approximated: boolean): {
 }
 
 /**
+ * `buildRecreateFixture` builds <r><p><p></p></p><p>cd</p></r>: `target` is
+ * the node a split cut, holding the merge source tombstone and no leftover
+ * stamp, and `product` is the split product holding the moved child whole --
+ * the shape `mergeSourceOf` reads as "this split reversed that merge". The
+ * stamp on the moved child is varied, because that is what the reader has to
+ * agree with Fix 8's split placement about.
+ */
+function buildRecreateFixture(stamp: 'exact' | 'approximated' | 'absent'): {
+  tree: CRDTTree;
+  target: CRDTTreeNode;
+  product: CRDTTreeNode;
+  source: CRDTTreeNode;
+  moved: CRDTTreeNode;
+} {
+  const root = new CRDTTreeNode(posT(), 'r');
+  const target = new CRDTTreeNode(posT(), 'p');
+  const product = new CRDTTreeNode(posT(), 'p');
+  root.append(target, product);
+  const source = new CRDTTreeNode(posT(), 'p');
+  target.append(source);
+  const moved = new CRDTTreeNode(posT(), 'text', 'cd');
+  product.append(moved);
+  // A merge tombstones the boundary element before moving its children out.
+  source.removedAt = timeT();
+
+  const tree = new CRDTTree(root, timeT());
+  moved.mergedFrom = source.id;
+  moved.mergedAt = stamp === 'absent' ? undefined : source.removedAt;
+  moved.mergedAtApproximated = stamp === 'approximated' ? true : undefined;
+
+  return { tree, target, product, source, moved };
+}
+
+/**
  * `forgedIDOf` returns an id with the node's createdAt and an offset the node
  * never had: a floor lookup answers with the node, an exact lookup does not.
  */
@@ -404,6 +438,102 @@ describe('Tree merge lineage', () => {
 
     assert.deepEqual(f.p._children, [f.a]);
     assert.deepEqual(clone!._children, [f.b]);
+  });
+
+  it('mergeSourceOf should name the source behind an exact merge stamp', () => {
+    // Positive control for the two tests below: the split product holds the
+    // source's children whole and the stamp is the merge's own, so the
+    // product is the source's stand-in and undo history re-points at it.
+    const f = buildRecreateFixture('exact');
+
+    const recreated = (f.tree as any).mergeSourceOf(f.product, f.target);
+
+    assert.isTrue(recreated?.equals(f.source.id));
+  });
+
+  it('mergeSourceOf should decline a merge stamp only approximated', () => {
+    // `mergeSourceOf` reads the placement Fix 8 decides, and Fix 8 declines a
+    // flagged stamp -- so a flagged child now lands in the product rather
+    // than being held on the left. Reading it here as proof the split
+    // reversed the merge would re-point undo history off an approximation
+    // neither reader of the ticket trusts.
+    const f = buildRecreateFixture('approximated');
+
+    const recreated = (f.tree as any).mergeSourceOf(f.product, f.target);
+
+    assert.isUndefined(recreated);
+  });
+
+  it('mergeSourceOf should decline a stamp the snapshot route has none of', () => {
+    // A demoted stamp keeps a flagged ticket on the replica that applied the
+    // ops, while the replica that loads the snapshot gets no ticket at all:
+    // the converter does not encode a flagged one. Both shapes have to be
+    // declined, or the two replicas re-point undo history differently.
+    const f = buildRecreateFixture('absent');
+
+    const recreated = (f.tree as any).mergeSourceOf(f.product, f.target);
+
+    assert.isUndefined(recreated);
+  });
+
+  it('rebuildMergeState should keep a merge ticket inside the source lifetime', () => {
+    // Positive control for the two tests below: a ticket within the window
+    // the source was in the tree for is one a genuine merge could have
+    // stamped, so it survives the decode as the merge's own.
+    const f = buildFixture();
+    f.p3.removedAt = timeT();
+    f.text.mergedFrom = f.p3.id;
+    f.text.mergedAt = f.p3.removedAt;
+
+    new CRDTTree(f.tree.getRoot(), timeT());
+
+    assert.isTrue(f.text.mergedAt?.equals(f.p3.removedAt!));
+    assert.isUndefined(f.text.mergedAtApproximated);
+  });
+
+  it('rebuildMergeState should reject a merge ticket predating the source', () => {
+    // `mergedAt` rides the same client-supplied element payload `mergedFrom`
+    // does. A low-lamport ticket is reported as known by every replica's
+    // version vector, so an unflagged one would make `sawMergedBack` answer
+    // yes everywhere and drive the §4.1 cascade through a sibling into live
+    // content. No merge can have removed the source before it existed.
+    const f = buildFixture();
+    f.p3.removedAt = timeT();
+    const createdAt = f.p3.id.getCreatedAt();
+    f.text.mergedFrom = f.p3.id;
+    f.text.mergedAt = TimeTicket.of(
+      createdAt.getLamport() - 1n,
+      0,
+      createdAt.getActorID(),
+    );
+
+    new CRDTTree(f.tree.getRoot(), timeT());
+
+    // Replaced by the back-fill and flagged, so every reader declines it.
+    assert.isTrue(f.text.mergedAt?.equals(f.p3.removedAt!));
+    assert.isTrue(f.text.mergedAtApproximated);
+    // The pointer itself is still rebuilt: the source checks all passed.
+    assert.isTrue(f.p3.mergedInto?.equals(f.p2.id));
+  });
+
+  it('rebuildMergeState should reject a merge ticket past the source tombstone', () => {
+    // `remove` keeps the NEWEST tombstone, so the ticket that first removed
+    // the source is at or before whatever stands in `removedAt` now. A later
+    // one names a merge that cannot have happened.
+    const f = buildFixture();
+    f.p3.removedAt = timeT();
+    const removedAt = f.p3.removedAt;
+    f.text.mergedFrom = f.p3.id;
+    f.text.mergedAt = TimeTicket.of(
+      removedAt.getLamport() + 1n,
+      0,
+      removedAt.getActorID(),
+    );
+
+    new CRDTTree(f.tree.getRoot(), timeT());
+
+    assert.isTrue(f.text.mergedAt?.equals(f.p3.removedAt!));
+    assert.isTrue(f.text.mergedAtApproximated);
   });
 
   it('resolveMergeTarget should not forward to a text node', () => {
