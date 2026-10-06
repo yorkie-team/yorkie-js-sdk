@@ -3626,6 +3626,47 @@ export class CRDTTree extends CRDTElement implements GCParent {
       let splitCount = 0;
       let parent = fromParent;
       let left: CRDTTreeNode = fromLeft;
+      // Where the split is reported. `fromIdx`/`fromPath` say where the
+      // editor asked for it, but the split itself decides where it opens on
+      // this replica: concurrent inserts at the boundary stay on its left
+      // (§7.3), and the per-iteration advance below can move past unknown
+      // split siblings (§7.5). Reporting the requested position then tells a
+      // binding to move those nodes into the new element, which this tree
+      // did not do. So the first level is measured once it has split, at the
+      // end of what stayed in the node: the split only adds to the right of
+      // it, so that is also its index and path before the split.
+      //
+      // That holds while what stayed is a prefix of the node's children. When
+      // §7.3 keeps an insert that sat after a split sibling, the split also
+      // reorders them, and no single split position describes that -- at the
+      // first level or at an ancestor one. `tree_split_opinfo_test.ts` keeps
+      // an `it.fails` case for the ancestor variant, and `splitBoundaryIdx`
+      // below reports the levels disagreeing so the gap is visible in a log
+      // rather than only in that test.
+      //
+      // The measurement is taken on the tree as it stands once the split has
+      // run, i.e. after step 02 tombstoned the deleted nodes and step 03
+      // moved the merged children, so it is NOT in the pre-edit space
+      // `fromIdx` was measured in. That is deliberate: the deletion changes
+      // built above are pushed before this one and a subscriber applies them
+      // in order, so by the time it reads this position its model already
+      // has the deletions and the merge applied -- the same space `toIndex`
+      // measures in, since it does not count tombstones. (The weaker claim
+      // that nothing removed sits left of the split position does not hold:
+      // the deleted range starts at `fromIdx`, and §7.3/§7.5 can put the
+      // split boundary to its right, past deleted nodes. What makes the two
+      // agree is the replay order, not the absence of deletions.)
+      //
+      // The insert change at the end of step 05 keeps `fromIdx`: the content
+      // lands at the requested position, which a migrated boundary moves
+      // away from. So once this position differs the two stop coinciding and
+      // that change is emitted separately rather than merged onto this one.
+      let splitFromIdx = fromIdx;
+      let splitFromPath = fromPath;
+      // The first level that measured a boundary, and which level it was, so
+      // the levels above can be checked against it.
+      let splitBoundaryIdx: number | undefined;
+      let splitBoundaryLevel = 0;
       while (splitCount < splitLevel) {
         // §7.5 Per-Iteration Advance: advance past unknown element
         // split siblings at the current ancestor level. skipActorID
@@ -3671,16 +3712,80 @@ export class CRDTTree extends CRDTElement implements GCParent {
           splitRecreatedIDs.push([recreated, splitNode!.id]);
         }
 
+        // `parent`, not `target`: when `orderSameBoundarySplit` redirects to
+        // a concurrent split product, the split is at the end of `parent`
+        // (it only redirects there), and the next level splits after
+        // `parent` too, so that is where a binding has to split.
+        if (splitNode) {
+          // Live children only. A tombstone takes no room in the index, so
+          // the last live child measures the same boundary, while
+          // `toIndex`/`toPath` on a removed node is a position the walk
+          // cannot resolve.
+          const children = parent.children;
+          const last = children.length ? children[children.length - 1] : parent;
+          // This measurement only refines a position the change already has:
+          // `fromIdx`/`fromPath` are valid, just the requested boundary
+          // rather than the one the split opened. So the pair is computed
+          // first and published only once both calls returned -- a half
+          // assignment would emit an index and a path describing different
+          // positions, which is worse than the un-refined pair -- and a
+          // throw degrades to that pair.
+          //
+          // `toIndex`/`toPath` throw on a tree they cannot walk (`invalid
+          // pos`, `out of index range`), and `last` is picked by the
+          // heuristic above rather than handed to us, so this is a plausible
+          // failure even where the edit itself is sound. Catching is right
+          // *here* because there is a correct fallback and the value is a
+          // courtesy to subscribers, not part of convergence; the
+          // load-bearing `toIndex`/`toPath` at the top of this method have
+          // no fallback to degrade to -- the edit cannot proceed without
+          // them -- so they stay unguarded and are not made safe by this.
+          // `visibleRangeOf` guards its calls on the same "there is a
+          // correct degradation" ground: it reports no range at all.
+          try {
+            const idx = this.toIndex(parent, last);
+            const path = this.toPath(parent, last);
+            if (splitCount === 0) {
+              splitFromIdx = idx;
+              splitFromPath = path;
+            }
+            if (splitBoundaryIdx === undefined) {
+              splitBoundaryIdx = idx;
+              splitBoundaryLevel = splitCount;
+            } else if (
+              idx !==
+              splitBoundaryIdx + (splitCount - splitBoundaryLevel)
+            ) {
+              // Nesting alone moves the boundary one to the right per level
+              // (the close tag of the level below). Anything else means this
+              // level split somewhere the level below did not -- §7.3 kept a
+              // concurrent insert on its left, or §7.5 advanced past a split
+              // sibling -- and the levels describe different boundaries. The
+              // change carries one position, so it still reports the first
+              // level's and a binding replaying it moves the nodes this
+              // level left behind. Expressing it would need the change to
+              // carry a move; until then, say so.
+              logger.warn(
+                `[TR] split level ${splitCount} opened at ${idx}, not at ${
+                  splitBoundaryIdx + (splitCount - splitBoundaryLevel)
+                } as level ${splitBoundaryLevel} implies; the reported split position describes the inner level only`,
+              );
+            }
+          } catch (err) {
+            logger.warn(`[TR] failed to measure split position: ${err}`);
+          }
+        }
+
         left = parent;
         parent = parent.parent! as CRDTTreeNode;
         splitCount++;
       }
       changes.push({
         type: TreeChangeType.Content,
-        from: fromIdx,
-        to: fromIdx,
-        fromPath,
-        toPath: fromPath,
+        from: splitFromIdx,
+        to: splitFromIdx,
+        fromPath: splitFromPath,
+        toPath: splitFromPath,
         actor: editedAt.getActorID(),
       });
     }
@@ -3845,6 +3950,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
       if (aliveContents.length) {
         const value = aliveContents.map((content) => toTreeNode(content));
+        // `fromIdx`, not the split position: the content was inserted at
+        // `fromParent`/`fromLeft` above, i.e. where the edit asked for it,
+        // which is where a migrated split boundary moves away from. The
+        // comparison below is what keeps the two apart -- when the split
+        // reported a different boundary it no longer matches, and the insert
+        // is emitted as its own change instead of being merged onto a split
+        // that happened somewhere else.
         if (changes.length && changes[changes.length - 1].from === fromIdx) {
           changes[changes.length - 1].value = value;
         } else {
