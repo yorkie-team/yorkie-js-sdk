@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Stop the split-sibling cascade at a sibling the editor saw alive (2026-10-06) | [20261006-split-sibling-cascade-stop-todo.md](./active/20261006-split-sibling-cascade-stop-todo.md) | [20261006-split-sibling-cascade-stop-lessons.md](./active/20261006-split-sibling-cascade-stop-lessons.md) |
 | Drop a pull already in flight when switching to push-only (2026-10-06) | [20261006-pushonly-switch-in-flight-pull-todo.md](./active/20261006-pushonly-switch-in-flight-pull-todo.md) | [20261006-pushonly-switch-in-flight-pull-lessons.md](./active/20261006-pushonly-switch-in-flight-pull-lessons.md) |
 | Re-issue pre-attach tickets to the client's actor on attach (2026-10-05) | [20261005-reissue-pre-attach-tickets-todo.md](./active/20261005-reissue-pre-attach-tickets-todo.md) | [20261005-reissue-pre-attach-tickets-lessons.md](./active/20261005-reissue-pre-attach-tickets-lessons.md) |
 | Port the `@claude` agent pipeline from yorkie (2026-09-25) | [20260925-agent-pipeline-port-todo.md](./active/20260925-agent-pipeline-port-todo.md) | [20260925-agent-pipeline-port-lessons.md](./active/20260925-agent-pipeline-port-lessons.md) |
