@@ -56,11 +56,13 @@ became a real split in v0.7.23 (#1358).
   one replica. In 10,000 random two-round races (round 2 review) 9 seeds do
   this where `main` leaves none; in the two traced, `main`'s over-delete hid
   an existing divergence.
-- `removedAt` keeps only the newest tombstone. If a concurrent delete of a
-  sibling the editor merged back has a newer ticket than the merge, the walk
-  stops there and a product split off it concurrently survives on that
-  replica only. Enter, Undo and a delete of both spans against a concurrent
-  Enter at the same place is one such case; `main` converges there.
+- `removedAt` keeps only the newest tombstone, so a concurrent delete with a
+  newer ticket than the merge the editor knew would hide that merge from the
+  walk. `seenGone` therefore falls back to the moved children's immutable
+  `mergedAt` (the field already carried for this exact problem). That covers
+  a merge that moved children; a merge of an already-empty sibling leaves no
+  witness, so the walk still stops there and a product split off it
+  concurrently survives on that replica only.
 - A sibling merged back by a change the editor did not know ends the walk. A
   product split off it concurrently survives on the splitter's own replica
   in every delivery order. Over six delivery orders `main` diverges in

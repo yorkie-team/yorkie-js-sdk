@@ -2492,13 +2492,64 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `seenGone` reports whether the editor of a change with `versionVector`
+   * had already seen `node` removed.
+   *
+   * `node.removedAt` alone cannot answer this: it keeps only the newest
+   * tombstone, so a concurrent delete that won the LWW hides the removal the
+   * editor did know. For the removal that matters here -- a merge, which is
+   * what empties a split sibling back into its neighbour -- the children the
+   * merge moved carry its immutable ticket in `mergedAt`, kept for exactly
+   * this reason (see the field's note). So when the surviving tombstone is
+   * unknown, ask the moved children instead.
+   */
+  private seenGone(
+    node: CRDTTreeNode,
+    versionVector: VersionVector | undefined,
+  ): boolean {
+    if (!node.removedAt) {
+      return false;
+    }
+    if (ticketKnown(versionVector, node.removedAt)) {
+      return true;
+    }
+    if (!node.mergedInto) {
+      return false;
+    }
+
+    // `findMergeNode`, as everywhere `mergedInto` is followed: the pointer is
+    // derived from client-supplied `mergedFrom`, so the target has to be the
+    // element it names exactly.
+    const target = this.findMergeNode(node.mergedInto);
+    if (!target) {
+      return false;
+    }
+    for (const child of target.allChildren) {
+      if (
+        child.mergedFrom &&
+        child.mergedFrom.equals(node.id) &&
+        child.mergedAt &&
+        ticketKnown(versionVector, child.mergedAt)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * `collectUnknownSplitSiblings` appends to `out` the split siblings of the
    * deleted element `node` that the editor did not know, with their
    * subtrees (§4.1 of yorkie's docs/design/concurrent-merge-split.md).
    *
+   * Only element siblings in `node`'s own split family are followed, as in
+   * `advancePastUnknownSplitSiblings` and `orderSameBoundarySplit`.
+   *
    * The walk passes a sibling the editor knew only if the editor saw it
-   * gone: removed by a change the editor knew (merged back into `node`,
-   * say), or enclosed whole by this delete. What lies past it was then
+   * gone (`seenGone`: removed by a change the editor knew -- merged back
+   * into `node`, say), or enclosed whole by this delete. What lies past it
+   * was then
    * inside `node` or inside the deleted range for the editor too. Any other
    * known sibling ends the walk. The chain is in document order and a split
    * product lands right after the node it was split off (or, under §7.8,
@@ -2517,28 +2568,49 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): void {
     const walker = new InsNextWalker();
     walker.visit(node);
-    let next = node.insNextID ? this.findFloorNode(node.insNextID) : undefined;
-    // Stop on a chain that loops back on itself; see InsNextWalker.
-    // Unbounded here would also grow `out` without limit.
-    while (next && walker.visit(next)) {
+    let current = node;
+    while (current.insNextID) {
+      const next = this.findFloorNode(current.insNextID);
+      // Only an element in the same split family is a split sibling of
+      // `current`. insNextID arrives verbatim from client-supplied bytes
+      // (see InsNextWalker), so without these two checks a pointer that
+      // never came from `splitElement` would cascade this delete onto an
+      // arbitrary subtree elsewhere in the tree.
+      if (
+        !next ||
+        next.isText ||
+        !this.sharesSplitFamilyParent(current, next)
+      ) {
+        break;
+      }
+
+      // Stop on a chain that loops back on itself; see InsNextWalker.
+      // Unbounded here would also grow `out` without limit.
+      if (!walker.visit(next)) {
+        break;
+      }
+
       if (ticketKnown(versionVector, next.id.getCreatedAt())) {
-        const seenGone =
-          !!next.removedAt && ticketKnown(versionVector, next.removedAt);
-        if (!seenGone && !enclosed(next)) {
+        if (!this.seenGone(next, versionVector) && !enclosed(next)) {
           break;
         }
       } else {
-        out.push(next);
-        // Cascade through the full subtree, not just immediate children.
-        const sibling = next;
-        traverseAll(sibling, (n) => {
-          if (n !== sibling) {
-            out.push(n);
+        // Cascade through the full subtree, not just immediate children,
+        // in pre-order: `out` is `nodesToBeRemoved`, which `restore()`
+        // reads expecting a parent to precede its children. `traverseAll`
+        // is post-order, so it cannot be used here.
+        const stack = [next];
+        while (stack.length) {
+          const n = stack.pop()!;
+          out.push(n);
+          const children = n.allChildren;
+          for (let i = children.length - 1; i >= 0; i--) {
+            stack.push(children[i]);
           }
-        });
+        }
       }
-      if (!next.insNextID) break;
-      next = this.findFloorNode(next.insNextID);
+
+      current = next;
     }
   }
 
