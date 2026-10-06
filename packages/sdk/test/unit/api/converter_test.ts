@@ -20,6 +20,7 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { Counter, Primitive, Text, Tree } from '@yorkie-js/sdk/src/yorkie';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { InitialTimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 
 describe('Converter', function () {
   it('should encode/decode bytes', function () {
@@ -193,6 +194,58 @@ describe('Converter', function () {
     assert.isTrue(
       sourceParent.mergedInto!.equals(firstP.id),
       'mergedInto should point at the merge target',
+    );
+  });
+
+  // The wire format has no field for `mergedAtApproximated`, so encoding a
+  // flagged `mergedAt` would hand the reader a back-filled stand-in presented
+  // as the merge's own ticket -- accepted as a §4.1 cascade witness
+  // (`sawMergedBack`) by the very replicas whose own copy declines it. The
+  // encode drops it instead and `rebuildMergeState` re-derives it, flagged.
+  it('should not encode an approximated mergedAt as a genuine one', function () {
+    const doc = new Document<{ t: Tree }>('test-doc');
+    doc.update((root) => {
+      root.t = new Tree({
+        type: 'root',
+        children: [
+          { type: 'p', children: [{ type: 'text', value: 'a' }] },
+          { type: 'p', children: [{ type: 'text', value: 'b' }] },
+        ],
+      });
+      root.t.edit(2, 4);
+    });
+
+    const tree = doc.getRootObject().get('t') as unknown as CRDTTree;
+    const firstP = tree.getRoot().allChildren[0];
+    const moved = firstP.allChildren.find((child) => !!child.mergedFrom)!;
+    assert.isDefined(moved, 'moved child should carry mergedFrom');
+    // Stand in for what `rebuildMergeState` leaves on a pre-`mergedAt`
+    // snapshot: a flagged ticket that is not the merge's own.
+    const flagged = InitialTimeTicket;
+    moved.mergedAt = flagged;
+    moved.mergedAtApproximated = true;
+
+    const cloned = converter.bytesToObject(
+      converter.objectToBytes(doc.getRootObject()),
+    );
+    const clonedTree = cloned.get('t') as unknown as CRDTTree;
+    const clonedRoot = clonedTree.getRoot();
+    const clonedMoved = clonedRoot.allChildren[0].allChildren.find(
+      (child) => !!child.mergedFrom,
+    )!;
+    assert.isDefined(clonedMoved, 'moved child should survive the roundtrip');
+    assert.isTrue(
+      clonedMoved.mergedAtApproximated,
+      'the approximation must arrive as an approximation',
+    );
+    assert.isFalse(
+      clonedMoved.mergedAt!.equals(flagged),
+      'the flagged ticket must not survive as a genuine merge ticket',
+    );
+    // What arrives instead is the back-fill `rebuildMergeState` derives: the
+    // source parent's own tombstone.
+    assert.isTrue(
+      clonedMoved.mergedAt!.equals(clonedRoot.allChildren[1].removedAt!),
     );
   });
 

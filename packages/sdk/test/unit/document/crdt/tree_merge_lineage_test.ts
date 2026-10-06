@@ -234,6 +234,110 @@ describe('Tree merge lineage', () => {
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>ab</p><p></p></r>`);
   });
 
+  it('a redirected insert should keep an exact merge ticket exact', () => {
+    // Positive control for the two tests below: the sibling the merge moved
+    // still carries the merge's own ticket, so the content copied from it is
+    // a genuine witness and must not be flagged.
+    const f = buildFixture();
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    const mergedAt = f.text.mergedAt!;
+
+    const pos = CRDTTreePos.of(f.p2.id, f.p2.id);
+    const inserted = new CRDTTreeNode(posT(), 'text', 'x');
+    f.tree.edit([pos, pos], [inserted], 0, timeT(), timeT);
+
+    assert.strictEqual(inserted.parent, f.p1);
+    assert.isTrue(inserted.mergedAt?.equals(mergedAt));
+    assert.isUndefined(inserted.mergedAtApproximated);
+  });
+
+  it('a redirected insert should flag a merge ticket it only approximated', () => {
+    // §9.4 stamps content redirected into the merge target with the ticket it
+    // reads off a sibling the merge moved. An approximation does not become
+    // exact by being copied: unflagged, it would be accepted as a §4.1
+    // cascade witness (`sawMergedBack`) on a replica whose own copy declines.
+    const f = buildFixture();
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.isTrue(f.text.mergedFrom?.equals(f.p2.id));
+    // As `rebuildMergeState` leaves it on a pre-`mergedAt` snapshot.
+    f.text.mergedAtApproximated = true;
+
+    const pos = CRDTTreePos.of(f.p2.id, f.p2.id);
+    const inserted = new CRDTTreeNode(posT(), 'text', 'x');
+    f.tree.edit([pos, pos], [inserted], 0, timeT(), timeT);
+
+    assert.strictEqual(inserted.parent, f.p1);
+    assert.isTrue(inserted.mergedFrom?.equals(f.p2.id));
+    assert.isTrue(inserted.mergedAtApproximated);
+  });
+
+  it('a redirected insert should flag a fallback to the source tombstone', () => {
+    // No moved sibling left to read the merge's own ticket from, so the stamp
+    // falls back to the source's `removedAt` -- the LWW-mutable value the flag
+    // exists to reject.
+    const f = buildFixture();
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    f.text.mergedAt = undefined;
+
+    const pos = CRDTTreePos.of(f.p2.id, f.p2.id);
+    const inserted = new CRDTTreeNode(posT(), 'text', 'y');
+    f.tree.edit([pos, pos], [inserted], 0, timeT(), timeT);
+
+    assert.isTrue(inserted.mergedAt?.equals(f.p2.removedAt!));
+    assert.isTrue(inserted.mergedAtApproximated);
+  });
+
+  it('purgeBarrierAt should hold back a subtree holding a merge witness', () => {
+    // `purge` unlinks the node together with its whole subtree in one
+    // `removeChild`, and the collector consults the barrier only for the pair
+    // it is about to purge. A witness below the node therefore has to hold
+    // the node itself back, or it disappears while the source it speaks for
+    // is still linked.
+    const f = buildFixture();
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.isTrue(f.text.mergedFrom?.equals(f.p2.id));
+    // Tombstone the merge target itself; the witness rides along inside it.
+    f.p1.remove(timeT());
+
+    const barrier = f.tree.purgeBarrierAt(f.p1);
+
+    assert.isTrue(
+      barrier?.equals(f.p2.removedAt!),
+      'the barrier must cover the removal of the source the witness speaks for',
+    );
+  });
+
+  it('restore should demote the merge stamps of a witness it revives', () => {
+    // A `TreeRestoreSpan` carries no merge lineage, so a replica that purged
+    // the witness recreates it without stamps. The replica that still held
+    // the tombstone must not come back with a genuine witness the other one
+    // cannot have.
+    const f = buildFixture();
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.isTrue(f.text.mergedFrom?.equals(f.p2.id));
+    assert.isUndefined(f.text.mergedAtApproximated);
+
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+    assert.isTrue(f.text.isRemoved);
+
+    f.tree.restore(
+      [
+        {
+          id: f.text.id,
+          nodeType: 'text',
+          isText: true,
+          length: 2,
+          value: 'cd',
+          parentID: f.p1.id,
+        },
+      ],
+      timeT(),
+    );
+
+    assert.isFalse(f.text.isRemoved);
+    assert.isTrue(f.text.mergedAtApproximated);
+  });
+
   it('resolveMergeTarget should not forward to a text node', () => {
     const f = buildFixture();
     f.p1.removedAt = timeT();

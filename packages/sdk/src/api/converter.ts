@@ -864,7 +864,17 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     if (n.mergedFrom) {
       pbTreeNode.mergedFrom = toTreeNodeID(n.mergedFrom);
     }
-    if (n.mergedAt) {
+    // An approximated `mergedAt` is deliberately NOT encoded. The wire format
+    // has no field for `mergedAtApproximated`, so writing the ticket would
+    // present a back-filled stand-in (see `CRDTTree.rebuildMergeState`) as the
+    // merge's own, and the reader would accept as a §4.1 cascade witness
+    // (`sawMergedBack`) what the writer itself declined. Omitting it keeps the
+    // approximation an approximation: `mergedFrom` still arrives, so
+    // `rebuildMergeState` back-fills the same ticket on load and flags it
+    // again -- and when the source is no longer in the tree to back-fill from,
+    // Fix 8's split check (which requires the source to be a sibling at the
+    // same level) would not have read the ticket either way.
+    if (n.mergedAt && !n.mergedAtApproximated) {
       pbTreeNode.mergedAt = toTimeTicket(n.mergedAt);
     }
 
@@ -1473,6 +1483,9 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
     node.mergedFrom = fromTreeNodeID(pbTreeNode.mergedFrom);
   }
 
+  // A decoded `mergedAt` is always the merge's own ticket: `toTreeNodes` does
+  // not encode an approximated one, and `CRDTTree.rebuildMergeState` re-derives
+  // and re-flags the approximation for the nodes that arrive without it.
   if (pbTreeNode.mergedAt) {
     node.mergedAt = fromTimeTicket(pbTreeNode.mergedAt);
   }
