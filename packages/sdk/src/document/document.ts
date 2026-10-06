@@ -139,6 +139,19 @@ export interface DocumentOptions {
 }
 
 /**
+ * `ReissueToken` is the capability `Document.setActor` demands before it
+ * re-issues anything. It is a module-private symbol: nothing stores it on a
+ * `Document`, the published bundle does not re-export it (`yorkie.ts`), and
+ * `Symbol` identity cannot be reconstructed, so holding a `Document` handle
+ * is not enough to ask for a re-issue -- only the owning `Client`, which
+ * imports this module, can. The re-issue rewrites element identity under a
+ * caller-chosen actor, so it must not be reachable from application code.
+ *
+ * @internal
+ */
+export const ReissueToken: unique symbol = Symbol('yorkie.setActor.reissue');
+
+/**
  * `SetActorOptions` are the options of `Document.setActor`.
  *
  * @internal
@@ -148,11 +161,11 @@ export interface SetActorOptions {
    * `reissue` re-issues the tickets a never-synced document minted under its
    * previous actor to the new one, in the local changes and the root alike.
    * A document that has synced, has no local changes or already has the
-   * actor falls back to the plain `setActor`. Only
-   * `Client.attach` passes it: whether the re-issue is sound depends on what
-   * else the actor has minted, which only the client knows.
+   * actor falls back to the plain `setActor`. It has to be `ReissueToken`:
+   * only `Client.attach` holds it, because whether the re-issue is sound
+   * depends on what else the actor has minted, which only the client knows.
    */
-  reissue?: boolean;
+  reissue?: typeof ReissueToken;
 }
 
 /**
@@ -770,6 +783,14 @@ export class Document<
   // initial checkpoint), so `setActor` with `reissue` leaves it alone.
   private absorbedRemote: boolean;
 
+  // `mintedOperations` records that this document has produced at least one
+  // local change carrying operations, so tickets naming its actor may already
+  // be in the document the key names. It is never cleared -- a push cannot be
+  // taken back -- and it is what `Client` consults to decide whether the
+  // actor's lamport space in a document key is still free for a re-issue
+  // (`Client.claimReissue`).
+  private mintedOperations: boolean;
+
   // `epoch` is the document's last-known compaction epoch (proto int64). The
   // client learns it from every server response pack (`applyChangePack`) and
   // presents it back on the next attach/sync (`createChangePack`). A resumed
@@ -839,6 +860,7 @@ export class Document<
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
     this.absorbedRemote = false;
+    this.mintedOperations = false;
     this.epoch = 0n;
     this.docID = '';
     this.disableGC = false;
@@ -1055,6 +1077,7 @@ export class Document<
       }
 
       this.localChanges.push(change);
+      this.mintedOperations ||= operations.length > 0;
       if (reverseOps.length) {
         this.internalHistory.pushUndo(reverseOps);
       }
@@ -1745,6 +1768,10 @@ export class Document<
     this.epoch = restored.epoch;
     this.docID = restored.docID;
     this.absorbedRemote = true;
+    // A persisted envelope is state this actor already held under this key,
+    // so treat it as minted: the claim bookkeeping must not hand the actor's
+    // lamport space to a later re-issue.
+    this.mintedOperations = true;
     // Drop any stale clone so the next `update` re-clones from the restored
     // root/presences rather than the pre-restore state.
     this.clone = undefined;
@@ -1943,6 +1970,9 @@ export class Document<
         (change) => change.getID().getClientSeq() > ackedClientSeq,
       ),
     );
+    this.mintedOperations ||= changes.some(
+      (change) => change.getOperations().length > 0,
+    );
 
     // Adopt the last replayed change's ID as the document's own counter.
     //
@@ -2031,7 +2061,7 @@ export class Document<
 
   /**
    * `setActor` sets actor into this document. This is also applied in the local
-   * changes the document has.
+   * changes the document has. It returns whether the tickets were re-issued.
    *
    * Without `reissue` it rewrites only the change IDs and each operation's
    * `executedAt`; the root and the tickets inside the operations keep the
@@ -2039,16 +2069,28 @@ export class Document<
    * re-issues every ticket of its previous actor to the given one, so a
    * position or element ID taken from it before then no longer resolves. See
    * docs/design/pre-attach-ticket-reissue.md.
+   *
+   * `reissue` has to carry `ReissueToken`, which only the owning `Client`
+   * holds: rewriting element identity under a caller-chosen actor is not a
+   * capability a holder of this handle gets.
    */
-  public setActor(actorID: ActorID, opts?: SetActorOptions): void {
-    if (opts?.reissue && this.reissueActor(actorID)) {
-      return;
+  public setActor(actorID: ActorID, opts?: SetActorOptions): boolean {
+    if (opts?.reissue !== undefined && opts.reissue !== ReissueToken) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'setActor: reissue is internal to Client.attach',
+      );
+    }
+
+    if (opts?.reissue === ReissueToken && this.reissueActor(actorID)) {
+      return true;
     }
 
     for (const change of this.localChanges) {
       change.setActor(actorID);
     }
     this.changeID = this.changeID.setActor(actorID);
+    return false;
   }
 
   /**
@@ -2183,6 +2225,17 @@ export class Document<
       }
     }
     return true;
+  }
+
+  /**
+   * `hasMintedOperations` returns whether this document has produced a local
+   * change carrying operations, i.e. whether tickets naming its actor may
+   * already be in the document its key names. The client reads it to decide
+   * whether a re-issue -- which starts the actor's lamports back at 1 -- can
+   * still be sound for that key. See `Client.claimReissue`.
+   */
+  public hasMintedOperations(): boolean {
+    return this.mintedOperations;
   }
 
   /**
@@ -3436,6 +3489,7 @@ export class Document<
     }
 
     this.localChanges.push(change);
+    this.mintedOperations ||= operations.length > 0;
     // Remember the source this change ran under: a replay of the queue has to
     // use it again. See `Change.isUndoRedo`.
     change.markAsUndoRedo();

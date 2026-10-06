@@ -15,7 +15,11 @@
  */
 
 import { describe, it, assert, afterEach, vi } from 'vitest';
-import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
+import {
+  Document,
+  Indexable,
+  ReissueToken,
+} from '@yorkie-js/sdk/src/document/document';
 import { Counter, Text, Tree, JSONArray } from '@yorkie-js/sdk/src/yorkie';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { fromBinary } from '@bufbuild/protobuf';
@@ -129,7 +133,7 @@ function wire(doc: TestDoc): Array<Change<Indexable>> {
  * `reissue` re-issues the document's tickets as `Client.attach` does.
  */
 function reissue(doc: TestDoc, actor: ActorID): void {
-  doc.setActor(actor, { reissue: true });
+  doc.setActor(actor, { reissue: ReissueToken });
 }
 
 /**
@@ -530,6 +534,33 @@ describe('Document.setActor with reissue', function () {
 
     reissue(doc, actorA);
     assert.isAbove(actorsOf(doc).get(InitialActorID) ?? 0, 0);
+  });
+
+  it('refuses a re-issue asked for without the token', function () {
+    // The re-issue rewrites element identity under a caller-chosen actor, so
+    // a holder of the document handle must not be able to ask for it: only
+    // the owning Client has `ReissueToken`. A forged option bag -- including
+    // a look-alike symbol -- throws and leaves the document as it was.
+    const doc: TestDoc = new Document('d');
+    fillEverything(doc);
+    const before = doc.toSortedJSON();
+    const initial = actorsOf(doc).get(InitialActorID) ?? 0;
+
+    for (const forged of [
+      true,
+      Symbol('yorkie.setActor.reissue'),
+      Symbol.for('yorkie.setActor.reissue'),
+    ]) {
+      assert.throws(
+        () => doc.setActor(actorA, { reissue: forged } as any),
+        /reissue is internal/,
+      );
+    }
+
+    assert.equal(doc.getChangeID().getActorID(), InitialActorID);
+    assert.equal(doc.toSortedJSON(), before);
+    assert.equal(actorsOf(doc).get(InitialActorID) ?? 0, initial);
+    assert.isTrue(doc.history.canUndo());
   });
 
   it('is plain setActor without the option', function () {

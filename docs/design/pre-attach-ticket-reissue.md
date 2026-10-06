@@ -56,14 +56,17 @@ server cannot even replay such a pack on a fresh document.
 ## Design
 
 `Client.attach` calls `doc.setActor(actor, { reissue })`, where `reissue` is
-what `claimReissue` allows: only a client whose key was generated, and only
-once per document key. The option is marked `@internal`, though the typings
-still carry it. Without it `setActor` is unchanged, so the re-anchor paths,
-`remove`, the detach in `applyStatus` and devtools replay keep their
-behavior.
+`ReissueToken` when `claimReissue` allows it: only a client whose key was
+generated, and only while the actor has minted nothing in that document key.
+The option carries a capability, not a boolean: `ReissueToken` is a
+module-private symbol that nothing stores on a `Document` and the published
+bundle does not re-export, so a holder of a document handle cannot ask for a
+re-issue -- `setActor` throws `ErrInvalidArgument` on any other value.
+Without the option `setActor` is unchanged, so the re-anchor paths, `remove`,
+the detach in `applyStatus` and devtools replay keep their behavior.
 
 ```text
-setActor(actor, { reissue: true }):
+setActor(actor, { reissue: ReissueToken }):
   prev := current actor
   if prev == actor || no local changes || !neverSynced():
       plain setActor(actor)
@@ -197,10 +200,19 @@ has to supply its own key, and an explicit key does not re-issue -- so
 
 Within one client with a generated key, a second never-synced document of a
 key re-issued to the same actor would mint the tickets the first one may
-already have pushed. As in Go, `claimReissue` records per document key the
-actor it was attached under and declines a repeat; those tickets keep the
-initial actor. The mark is taken before the round trip, since an attach whose
-response is lost may still have pushed, and is never cleared.
+already have pushed. So `claimReissue` records, per document key, the actor
+whose lamport space there is already spoken for and declines a repeat; those
+tickets keep the initial actor.
+
+The claim records what the actor minted, not that it once attached: a plain
+attach of an untouched document takes nothing, so the next document of that
+key can still re-issue. It is taken where tickets naming the actor enter the
+document -- at attach for a document that already carries them
+(`Document.hasMintedOperations`, true once a local change with operations was
+produced), and in `detachInternal` for one that minted them while attached,
+which is the only way another document of the key gets attached at all. Taken
+before the round trip, since an attach whose response is lost may still have
+pushed, and never released: a detach does not take pushed tickets back.
 
 ### A failed attach
 
@@ -229,14 +241,15 @@ the root anyway; the re-issue only matters when it finds none.
 | A position taken before the attach (app state, a presence) names the initial actor and throws when resolved | Documented above; take positions after the attach. Devtools raw changes from before the attach keep the old actor |
 | The wire loses a value's in-memory state that a later edit relies on | Text node links are now encoded; a seeded test checks random histories keep their content |
 | A pre-attach Undo that restored a removed Text pushes that Text empty | Existing wire gap; the local root keeps the content |
-| A conversion or replay error | The document is left untouched and `attach` throws before any RPC; the claim is taken, so a retry on the same client attaches without a re-issue, as on `main` |
+| A conversion or replay error | The document is left untouched and `attach` throws before any RPC; its pre-attach changes still carry operations, so the claim is taken and a retry on the same client attaches without a re-issue, as on `main` |
+| Application code asking for a re-issue on a document it holds | The option demands `ReissueToken`, which only the owning `Client` holds; anything else throws |
 | The server trusts a pushed change's actor | Out of scope, yorkie#2114 |
 
 ### Design Decisions
 
 | Decision | Reason |
 |----------|--------|
-| `setActor(actor, { reissue })`, marked `@internal`, rather than a new method | Every other caller is unchanged; only the client knows whether the re-issue is sound |
+| `setActor(actor, { reissue })` behind a module-private token, rather than a new method | Every other caller is unchanged; and only the owning client -- not a holder of the handle -- can rewrite element identity |
 | Guard on "never synced", with an absorbed flag set on the remote and restore paths only | `applyChanges` also replays local changes in this SDK |
 | Re-issue only for a generated client key | An explicit key's actor spans sessions the client cannot see |
 | No map re-keying | Only attribute maps would be reached, and renaming one changes user data |

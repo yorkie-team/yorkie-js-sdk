@@ -24,7 +24,10 @@ import {
   ChangePackSchema,
   CheckpointSchema,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
-import { AttachDocumentResponseSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
+import {
+  AttachDocumentResponseSchema,
+  DetachDocumentResponseSchema,
+} from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 import { InitialActorID } from '@yorkie-js/sdk/src/document/time/actor_id';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { countActors, ticketsOf } from '@yorkie-js/sdk/test/helper/helper';
@@ -77,6 +80,18 @@ function fakeClient(
       pushed.push(req.changePack);
       return respond(req.documentKey, req.changePack);
     },
+    detachDocument: (req: { changePack: PbChangePack }) =>
+      Promise.resolve(
+        create(DetachDocumentResponseSchema, {
+          changePack: create(ChangePackSchema, {
+            documentKey: req.changePack.documentKey,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: BigInt(req.changePack.changes.length),
+              clientSeq: req.changePack.checkpoint!.clientSeq,
+            }),
+          }),
+        }),
+      ),
   };
   return client;
 }
@@ -180,6 +195,54 @@ describe('Client.attach re-issues pre-attach tickets', function () {
 
     // Declined, the plain setActor rewrites only the change IDs and each
     // operation's executedAt; the minted tickets keep the initial actor.
+    assert.isAbove(
+      countActors(ticketsOf(pushed[1])).get(InitialActorID) ?? 0,
+      0,
+    );
+    assert.equal(second.getChangeID().getActorID(), actorA);
+  });
+
+  it('re-issues a later document of a key the first left untouched', async function () {
+    // A plain attach takes no claim. The first document minted no operation
+    // ticket under the actor, so its lamports in that key are still free and
+    // the next document of the key re-issues onto them -- the claim records
+    // what the actor minted, not that it once attached.
+    const docKey = 'reissue-claim-untouched';
+    const pushed: Array<PbChangePack> = [];
+    const client = fakeClient(actorA, pushed);
+
+    const first = new Document<{ t: Text }, Indexable>(docKey);
+    await client.attach(first, { syncMode: SyncMode.Manual });
+    await client.detach(first);
+
+    const second = filled(docKey, 'two');
+    await client.attach(second, { syncMode: SyncMode.Manual });
+
+    const actors = countActors(ticketsOf(pushed[1]));
+    assert.isUndefined(actors.get(InitialActorID), `${[...actors]}`);
+    assert.isAbove(actors.get(actorA) ?? 0, 0);
+    assert.equal(second.getRoot().t.toString(), 'two');
+  });
+
+  it('declines a later document when the first minted while attached', async function () {
+    // The first document minted its tickets under the actor after it was
+    // attached, so the claim is taken on the way out (`detachInternal`): a
+    // re-issue of the second one would mint the lamports the first pushed.
+    const docKey = 'reissue-claim-minted-attached';
+    const pushed: Array<PbChangePack> = [];
+    const client = fakeClient(actorA, pushed);
+
+    const first = new Document<{ t: Text }, Indexable>(docKey);
+    await client.attach(first, { syncMode: SyncMode.Manual });
+    first.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'one');
+    });
+    await client.detach(first);
+
+    const second = filled(docKey, 'two');
+    await client.attach(second, { syncMode: SyncMode.Manual });
+
     assert.isAbove(
       countActors(ticketsOf(pushed[1])).get(InitialActorID) ?? 0,
       0,

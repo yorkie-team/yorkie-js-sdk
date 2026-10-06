@@ -56,6 +56,7 @@ import {
   StreamConnectionStatus,
   DocSyncStatus,
   LocalChangesDroppedReason,
+  ReissueToken,
 } from '@yorkie-js/sdk/src/document/document';
 import { ChangeStruct } from '@yorkie-js/sdk/src/document/change/change';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
@@ -942,20 +943,34 @@ export class Client {
    * key does. The constructor keeps that case out of reach by refusing to
    * generate a key without the CSPRNG, so `keyGenerated` implies it.
    *
-   * Within this client, a second never-synced document of a key re-issued to
-   * the same actor would mint the tickets the first one already pushed, so a
-   * repeat is declined too. The mark is taken before the round trip, since
-   * an attach whose response is lost may still have pushed, and is never
-   * cleared: a detach does not take pushed tickets back.
+   * Within this client, a second never-synced document of a key whose actor
+   * has already minted operation tickets there would mint the tickets the
+   * first document pushed, so such a repeat is declined. That is what the
+   * claim records, and only that: asking is free, and `markReissueClaim`
+   * takes the claim where tickets naming the actor actually enter the
+   * document -- at attach for a document that already carries them
+   * (`Document.hasMintedOperations`), and at `detachInternal` for one that
+   * minted them while attached. A plain attach of an untouched document
+   * takes nothing, so the next document of that key may still re-issue.
+   *
+   * A taken claim is never released: an attach whose response was lost may
+   * still have pushed, and a detach does not take pushed tickets back.
    */
   private claimReissue(actor: ActorID, docKey: string): boolean {
     if (!this.keyGenerated) {
       return false;
     }
 
-    const claimed = this.reissueClaims.get(docKey) === actor;
+    return this.reissueClaims.get(docKey) !== actor;
+  }
+
+  /**
+   * `markReissueClaim` records that the given actor has minted tickets in the
+   * document the given key names, so no later document of that key may
+   * re-issue onto this actor. See `claimReissue`.
+   */
+  private markReissueClaim(actor: ActorID, docKey: string): void {
     this.reissueClaims.set(docKey, actor);
-    return !claimed;
   }
 
   /**
@@ -1032,9 +1047,22 @@ export class Client {
     // the enqueued task because the store load is async; see the
     // `store.load` step below.
     const actor = (this.actorID ?? this.id)!;
-    doc.setActor(actor, {
-      reissue: this.claimReissue(actor, doc.getKey()),
+    const reissued = doc.setActor(actor, {
+      reissue: this.claimReissue(actor, doc.getKey())
+        ? ReissueToken
+        : undefined,
     });
+    // Take the claim where the actor's lamport space in this key stops being
+    // free: the re-issue just minted tickets under it, or pre-attach edits
+    // the re-issue declined are about to be pushed with their `executedAt`
+    // re-stamped to it. It is taken before the round trip, since an attach
+    // whose response is lost may still have pushed. A document that has
+    // minted nothing leaves the claim alone, so a later document of the key
+    // can still re-issue; `detachInternal` takes it if this one mints while
+    // attached.
+    if (reissued || doc.hasMintedOperations()) {
+      this.markReissueClaim(actor, doc.getKey());
+    }
 
     // Mark the attach in flight synchronously so a concurrent duplicate
     // attach of the same key is rejected by the guard above before it is
@@ -3301,6 +3329,19 @@ export class Client {
       attachment.sessionLockHandle = undefined;
     }
     if (attachment.resource instanceof Document) {
+      // Take the re-issue claim if the document minted operation tickets
+      // while it was attached: those tickets are in the document this key
+      // names, so the actor's lamports there are no longer free for a later
+      // document of the key to re-issue onto. One that minted nothing leaves
+      // the claim alone. See `claimReissue`.
+      //
+      // The actor comes from this client, not from the document: a detach
+      // resets the document's own actor to the initial one
+      // (`applyStatus(Detached)`) before this runs.
+      const actor = this.actorID ?? this.id;
+      if (actor && attachment.resource.hasMintedOperations()) {
+        this.markReissueClaim(actor, key);
+      }
       attachment.resource.resetOnlineClients();
     }
     this.attachmentMap.delete(key);

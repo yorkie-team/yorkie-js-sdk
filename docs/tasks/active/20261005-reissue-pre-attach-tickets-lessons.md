@@ -89,3 +89,20 @@ nothing here speaks for it.
   coverage instrumentation only fails there. Fixed with the per-test budget
   `tree_style_reached_set_test.ts` already uses. A local green run says
   nothing about a long test's CI budget.
+
+- Panel round (fix pass): two blocking findings.
+  - Security: `setActor(actor, { reissue: true })` was runtime-public, so any
+    holder of a never-synced document handle could rewrite element identity
+    under an actor of its choosing. `@internal` in a JSDoc comment is not a
+    guard. The option now demands `ReissueToken`, a module-private symbol
+    the published bundle does not re-export and nothing stores on a
+    `Document`; any other value throws.
+  - Correctness: the claim was burned on *every* attach, so the common
+    `new Document(key)` -> `attach` with no pre-attach edits disabled the
+    re-issue for every later document of that key. The claim now records
+    what the actor minted, not that it once attached: taken at attach when
+    the document already carries operation tickets, and in `detachInternal`
+    when it minted them while attached -- which is the only way another
+    document of that key gets attached. The lesson is that "conservative" is
+    not an excuse for a mark that does not mean what its name says; the
+    precise fact (`Document.hasMintedOperations`) was one flag away.
