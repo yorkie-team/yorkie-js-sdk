@@ -49,3 +49,26 @@
   separate issue: Go's Phase 3 range narrowing lacks the `toLeft != toParent`
   guard that JS has (#1237).
 
+## PR Review Panel
+
+- Round 1 (blast radius): three blocking findings, all on the same point —
+  the rework's comments called `mergedFrom`/`mergedAt` immutable and
+  always-present, while out-of-diff code takes them away: `purge` unlinks a
+  stamped child, `dissolveMerge` clears both on undo, `reissueContentIDs`
+  strips them from reverse-op content, and `rebuildMergeState` back-fills
+  `mergedAt` from the LWW-mutable `removedAt`. Correct: a witness one replica
+  can lose and another keep makes the cascade answer by route, not by what
+  the editor saw.
+  Fixed by making each route answer the same way rather than by rewording:
+  `purgeBarrierAt` holds a merge-moved child until its source is collectable
+  too (once both go the walk skips the source, which is what a live witness
+  decides); `sawMergedBack` stops on a live sibling first, so a revived
+  source needs no stamp to be cleared; a back-filled `mergedAt` is flagged
+  `mergedAtApproximated` and refused as a witness.
+- Tried first and reverted: replacing the witness with "a tombstone holding
+  no live child the editor knew". Fully route-independent, and wrong — it
+  passes through a sibling tombstoned by a delete the editor never knew, so
+  15 of the 46 cascade runs lost text (#1408 among them). Only a ticket the
+  version vector can be asked about separates "the editor saw it gone" from
+  "someone else deleted it", and the merge stamp is the only durable one.
+

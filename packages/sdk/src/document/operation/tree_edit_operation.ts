@@ -332,6 +332,7 @@ export class TreeEditOperation extends Operation {
         node.insNextID = undefined;
         node.mergedFrom = undefined;
         node.mergedAt = undefined;
+        node.mergedAtApproximated = undefined;
         node.mergedInto = undefined;
       });
     }
