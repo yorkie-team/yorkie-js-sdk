@@ -941,6 +941,88 @@ describe.sequential('Client', function () {
     }, task.name);
   });
 
+  it.for([SyncMode.RealtimePushOnly, SyncMode.RealtimeSyncOff])(
+    'Should drop a pull already in flight when switching to %s',
+    async (pauseMode, { task }) => {
+      type TestDoc = { counter: Counter };
+      await withTwoClientsAndDocuments<TestDoc>(
+        async (c1, d1, c2, d2) => {
+          d1.update((r) => (r.counter = new Counter(0)));
+          await c1.sync();
+          await c2.sync();
+
+          // Hold c1's next pull that brings changes back, after the server
+          // has answered and before c1 handles the answer. This is the sync
+          // the pause below has to wait behind on the task queue.
+          const rpc = (c1 as any).rpcClient;
+          const origPushPull = rpc.pushPullChanges.bind(rpc);
+          let holding = true;
+          let enteredHold!: () => void;
+          const pullInFlight = new Promise<void>((r) => (enteredHold = r));
+          let releaseHold!: () => void;
+          const held = new Promise<void>((r) => (releaseHold = r));
+          rpc.pushPullChanges = async (...args: Array<any>) => {
+            const res = await origPushPull(...args);
+            if (
+              holding &&
+              !args[0].pushOnly &&
+              res.changePack?.changes?.length
+            ) {
+              holding = false;
+              enteredHold();
+              await held;
+            }
+            return res;
+          };
+          const remoteChanges: Array<string> = [];
+          let caughtUp!: () => void;
+          const caughtUpPromise = new Promise<void>((r) => (caughtUp = r));
+          const unsub = d1.subscribe((e) => {
+            if (e.type !== 'remote-change') return;
+            remoteChanges.push(e.type);
+            if (d1.getRoot().counter.getValue() === 1) caughtUp();
+          });
+          const within = (p: Promise<void>, what: string) =>
+            Promise.race([
+              p,
+              new Promise<void>((_, reject) =>
+                setTimeout(() => reject(new Error(`timed out: ${what}`)), 5000),
+              ),
+            ]);
+
+          try {
+            // 01. c2 changes the counter; c1 starts pulling it in realtime.
+            d2.update((r) => r.counter.increase(1));
+            await c2.sync();
+            await within(pullInFlight, 'c1 pulls the change');
+
+            // 02. While that pull is in flight, c1 asks to stop receiving
+            // (an IME composition starts). Then the pull's answer arrives.
+            const switching = c1.changeSyncMode(d1, pauseMode);
+            releaseHold();
+            await switching;
+
+            // 03. The pulled change must not be applied after the pause.
+            assert.equal(remoteChanges.length, 0);
+            assert.equal(d1.getRoot().counter.getValue(), 0);
+
+            // 04. Back in realtime, the sync loop picks up what was dropped
+            // by itself.
+            await c1.changeSyncMode(d1, SyncMode.Realtime);
+            await within(caughtUpPromise, 'c1 catches up in realtime');
+            assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+          } finally {
+            releaseHold();
+            rpc.pushPullChanges = origPushPull;
+            unsub();
+          }
+        },
+        task.name,
+        SyncMode.Realtime,
+      );
+    },
+  );
+
   it('Should cancel watch stream when changing to manual sync mode', async function ({
     task,
   }) {
