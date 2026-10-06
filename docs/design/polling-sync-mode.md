@@ -1,6 +1,6 @@
 ---
 created: 2026-05-04
-updated: 2026-05-04
+updated: 2026-10-06
 tags: [sync-mode, channel, document, polling, scaling]
 ---
 
@@ -207,6 +207,16 @@ Document transition matrix:
 
 Tear-down precedes state change, which precedes start-up. If the user
 did not pin the interval, it is recomputed for the new mode.
+
+A switch into `RealtimePushOnly` or `RealtimeSyncOff` waits on the task
+queue like any other, possibly behind a sync that has already sent a
+pull. The pause still covers that pull: `changeSyncMode` counts the
+request on the attachment (`pendingPullPauses`) before enqueueing, and
+the response guard in `syncInternal` drops remote state while the count
+is above zero, the same way it does in those modes. Without this, the
+pull's changes landed after the caller had asked to stop receiving
+(#1452). A switch back to `Realtime` is not counted, so pulling resumes
+in queue order.
 
 ### Server-side impact
 

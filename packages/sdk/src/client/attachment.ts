@@ -47,6 +47,14 @@ export class Attachment<R extends Attachable> {
   resourceID: string;
   syncMode?: SyncMode;
   changeEventReceived?: boolean;
+  /**
+   * `pendingPullPauses` counts `Client.changeSyncMode` calls that stop pulling
+   * (`RealtimePushOnly` or `RealtimeSyncOff`) and have not run yet. The switch
+   * itself waits on the client task queue, behind a sync that may already
+   * have pulled; the response guard reads this so that pull is dropped as
+   * soon as the caller asks for the pause. Documents only.
+   */
+  pendingPullPauses = 0;
   lastHeartbeatTime: number;
   pollInterval: number;
   pollIntervalPinned: boolean;

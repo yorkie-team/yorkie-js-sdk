@@ -1823,11 +1823,34 @@ export class Client {
     resource: Document<any, any> | Channel,
     syncMode: SyncMode,
   ): Promise<Document<any, any> | Channel> {
+    // The switch runs on the task queue, so it waits for a sync that is
+    // already pulling. A pause must still cover that pull: by the time its
+    // response arrives the caller has asked not to receive anything (an IME
+    // composition, for example), so mark the request now and let the
+    // response guard in `syncInternal` see it. A document that is not
+    // attached yet has no attachment to mark; its switch still applies once
+    // the queue reaches it.
+    const pausing =
+      resource instanceof Document &&
+      (syncMode === SyncMode.RealtimePushOnly ||
+        syncMode === SyncMode.RealtimeSyncOff)
+        ? this.attachmentMap.get(resource.getKey())
+        : undefined;
+    if (pausing) {
+      pausing.pendingPullPauses += 1;
+    }
+
     return this.enqueueTask(async () => {
-      if (resource instanceof Channel) {
-        return this.changeChannelSyncMode(resource, syncMode);
+      try {
+        if (resource instanceof Channel) {
+          return await this.changeChannelSyncMode(resource, syncMode);
+        }
+        return await this.changeDocumentSyncMode(resource, syncMode);
+      } finally {
+        if (pausing) {
+          pausing.pendingPullPauses -= 1;
+        }
       }
-      return this.changeDocumentSyncMode(resource, syncMode);
     });
   }
 
@@ -3400,10 +3423,15 @@ export class Client {
       // `garbageCollect` on a document that is paused mid-composition — the
       // very collection this guard exists to prevent. While a document is in
       // PushOnly/SyncOff nothing of the reply but the push ack is taken.
+      //
+      // A pause the caller has asked for but the task queue has not run yet
+      // counts as well (`pendingPullPauses`): this request may be the very
+      // sync the switch is waiting behind.
       const dropsRemoteState =
         pushOnly ||
         attachment.syncMode === SyncMode.RealtimePushOnly ||
-        attachment.syncMode === SyncMode.RealtimeSyncOff;
+        attachment.syncMode === SyncMode.RealtimeSyncOff ||
+        attachment.pendingPullPauses > 0;
       if (dropsRemoteState) {
         doc.acknowledgePushedChanges(respPack);
       } else {
