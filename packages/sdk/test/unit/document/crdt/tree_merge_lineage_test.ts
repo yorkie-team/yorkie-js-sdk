@@ -15,13 +15,15 @@
  */
 
 import { describe, it, assert } from 'vitest';
-import { posT, timeT } from '@yorkie-js/sdk/test/helper/helper';
+import { posT, timeT, vectorOf } from '@yorkie-js/sdk/test/helper/helper';
 import {
   CRDTTree,
   CRDTTreeNode,
   CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 
 /**
  * A merge pointer (`mergedFrom`, and the `mergedInto` derived from it) is not
@@ -67,6 +69,45 @@ function buildFixture(): Fixture {
     p3: tree.findFloorNode(p3ID)!,
     text: tree.findFloorNode(textID)!,
   };
+}
+
+/**
+ * `buildSplitFixture` builds <r><p><p></p><p></p></p></r> where the second
+ * inner element carries a merge stamp naming the first -- the shape Fix 8 in
+ * `splitElement` reads: a merge-moved child whose source is a sibling at the
+ * same level. The merge ticket carries a lamport past both ids, so the
+ * returned version vector knows the children but not the merge.
+ */
+function buildSplitFixture(approximated: boolean): {
+  p: CRDTTreeNode;
+  a: CRDTTreeNode;
+  b: CRDTTreeNode;
+  versionVector: VersionVector;
+} {
+  const root = new CRDTTreeNode(posT(), 'r');
+  const p = new CRDTTreeNode(posT(), 'p');
+  root.append(p);
+  const a = new CRDTTreeNode(posT(), 'p');
+  const b = new CRDTTreeNode(posT(), 'p');
+  p.append(a, b);
+
+  const createdAt = b.id.getCreatedAt();
+  b.mergedFrom = a.id;
+  b.mergedAt = TimeTicket.of(
+    createdAt.getLamport() + 1n,
+    0,
+    createdAt.getActorID(),
+  );
+  b.mergedAtApproximated = approximated ? true : undefined;
+
+  // Knows b's own creation -- otherwise §7.3 boundary insert migration would
+  // pull b left on its own and hide what Fix 8 decided -- but not the merge.
+  const versionVector = vectorOf([
+    { c: createdAt.getActorID(), l: createdAt.getLamport() },
+  ]);
+  assert.isFalse(versionVector.afterOrEqual(b.mergedAt));
+
+  return { p, a, b, versionVector };
 }
 
 /**
@@ -336,6 +377,33 @@ describe('Tree merge lineage', () => {
 
     assert.isFalse(f.text.isRemoved);
     assert.isTrue(f.text.mergedAtApproximated);
+  });
+
+  it('splitElement should keep an exact merge stamp in the left half', () => {
+    // Positive control for the test below: an unflagged ticket is the merge's
+    // own, the snapshot encoding carries it verbatim, so Fix 8 reads the same
+    // value on every replica and holds the merge-moved child at its level.
+    const f = buildSplitFixture(false);
+
+    const [clone] = f.p.splitElement(1, timeT, f.versionVector);
+
+    assert.deepEqual(f.p._children, [f.a, f.b]);
+    assert.deepEqual(clone!._children, []);
+  });
+
+  it('splitElement should decline a merge stamp it only approximated', () => {
+    // The flag is not on the wire, so `toTreeNodes` does not encode a flagged
+    // ticket at all: a replica that loads the snapshot re-derives it from the
+    // source's LWW-mutable `removedAt`, or -- when the source is no longer a
+    // tombstone in the tree -- never gets one. Comparing it here would place
+    // this child by how a replica reached its state. Declining is the one
+    // answer both routes can give.
+    const f = buildSplitFixture(true);
+
+    const [clone] = f.p.splitElement(1, timeT, f.versionVector);
+
+    assert.deepEqual(f.p._children, [f.a]);
+    assert.deepEqual(clone!._children, [f.b]);
   });
 
   it('resolveMergeTarget should not forward to a text node', () => {

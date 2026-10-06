@@ -589,9 +589,13 @@ export class CRDTTreeNode
    *
    * Not a ticket of its own: it records that this `mergedAt` is an
    * approximation of the merge, so a reader that needs the real merge boundary
-   * (`sawMergedBack`) can decline it instead of trusting an LWW-mutable value.
-   * Fix 8's split check keeps using it: there an approximation that is at or
-   * after the merge is still a usable boundary.
+   * can decline it instead of trusting an LWW-mutable value. Both readers of
+   * the ticket do decline -- `sawMergedBack` here and Fix 8's split placement
+   * in `util/index_tree.ts` -- because the flag is not on the wire: a flagged
+   * ticket is not encoded, and the snapshot reader re-derives it from the
+   * source's current tombstone, or not at all when the source is no longer a
+   * tombstone in the tree. A reader that trusted it would answer by how a
+   * replica reached its state.
    */
   mergedAtApproximated?: boolean;
 
@@ -4248,12 +4252,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * which is the narrower of the two answers and the one the purged replica
    * cannot avoid giving.
    *
-   * `mergedFrom`/`mergedAt` themselves stay: Fix 8's split check only reads
-   * them when the source is a sibling at the same level, i.e. still in the
-   * tree, where `rebuildMergeState` re-derives the same approximation on a
-   * snapshot load. The flag is monotone -- only `dissolveMerge` clears it,
-   * from an operation every replica applies -- so a second restore of the
-   * same node reaches the same state.
+   * `mergedFrom`/`mergedAt` themselves stay: the flag is what every reader of
+   * the ticket consults, so a demoted stamp is already declined by both of
+   * them (`sawMergedBack` and Fix 8's split placement), and keeping the pair
+   * leaves `mergedInto` rebuildable on a snapshot load. The flag is monotone
+   * -- only `dissolveMerge` clears it, from an operation every replica applies
+   * -- so a second restore of the same node reaches the same state.
    */
   private demoteRevivedMergeWitness(node: CRDTTreeNode): void {
     if (node.mergedFrom && node.mergedAt) {

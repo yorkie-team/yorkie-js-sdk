@@ -72,3 +72,15 @@
   version vector can be asked about separates "the editor saw it gone" from
   "someone else deleted it", and the merge stamp is the only durable one.
 
+- Round 3 (blast radius): one blocking finding, the other half of the
+  approximation rule. Flagging a back-filled `mergedAt` and declining to
+  encode it closed the `sawMergedBack` route but left the *other* reader of
+  the ticket — Fix 8's split placement in `util/index_tree.ts` — comparing a
+  value the snapshot route cannot reproduce: `rebuildMergeState` re-derives
+  it from the source's LWW-mutable `removedAt`, or not at all when the source
+  is no longer a tombstone in the tree. Correct, and the lesson is that
+  "don't encode it" is only half a fix: a field the wire drops has to be
+  declined by *every* reader, or the ones left reading it answer by route.
+  Fixed by giving Fix 8 the same `!mergedAtApproximated` guard the witness
+  has, with a positive control in `tree_merge_lineage_test.ts` so the
+  unflagged path is still shown to keep the child at its level.

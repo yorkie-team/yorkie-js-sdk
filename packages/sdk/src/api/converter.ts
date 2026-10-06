@@ -870,10 +870,13 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
     // merge's own, and the reader would accept as a §4.1 cascade witness
     // (`sawMergedBack`) what the writer itself declined. Omitting it keeps the
     // approximation an approximation: `mergedFrom` still arrives, so
-    // `rebuildMergeState` back-fills the same ticket on load and flags it
-    // again -- and when the source is no longer in the tree to back-fill from,
-    // Fix 8's split check (which requires the source to be a sibling at the
-    // same level) would not have read the ticket either way.
+    // `rebuildMergeState` back-fills a ticket on load and flags it again.
+    // The back-filled ticket need not be the one the writer held -- the
+    // source's `removedAt` is LWW-mutable, and when the source is no longer a
+    // tombstone in the tree there is nothing to back-fill from at all -- so
+    // every reader of the ticket declines a flagged one rather than comparing
+    // it: `sawMergedBack`, and Fix 8's split placement in
+    // `util/index_tree.ts`.
     if (n.mergedAt && !n.mergedAtApproximated) {
       pbTreeNode.mergedAt = toTimeTicket(n.mergedAt);
     }
