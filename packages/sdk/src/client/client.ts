@@ -3545,13 +3545,27 @@ export class Client {
       // A pause the caller has asked for but the task queue has not run yet
       // counts as well (`pendingPullPauses`): this request may be the very
       // sync the switch is waiting behind.
-      const dropsRemoteState =
+      const modeDropsRemoteState =
         pushOnly ||
         attachment.syncMode === SyncMode.RealtimePushOnly ||
-        attachment.syncMode === SyncMode.RealtimeSyncOff ||
-        attachment.pendingPullPauses > 0;
+        attachment.syncMode === SyncMode.RealtimeSyncOff;
+      const dropsRemoteState =
+        modeDropsRemoteState || attachment.pendingPullPauses > 0;
       if (dropsRemoteState) {
         doc.acknowledgePushedChanges(respPack);
+
+        // A pack dropped only for a pause that has not run yet still has to be
+        // re-pulled, and nothing else re-drives it: the sync loop cleared
+        // `changeEventReceived` before driving this very sync, and a switch
+        // that never lands (it rejects because the client deactivated or the
+        // document detached while it waited, or the caller gave up on it)
+        // leaves the mode in Realtime with no pending event. Re-arm the flag
+        // so the next tick pulls again. Idempotent either way: a pause that
+        // does land makes `needRealtimeSync` ignore the flag, and the resume
+        // to Realtime sets it again.
+        if (!modeDropsRemoteState) {
+          attachment.changeEventReceived = true;
+        }
       } else {
         doc.applyChangePack(respPack);
       }

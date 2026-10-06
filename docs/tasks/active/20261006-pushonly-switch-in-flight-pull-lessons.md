@@ -29,3 +29,15 @@ Reviewer: a general-purpose subagent over the working-tree diff against
 - Lesson: `return promise` inside `try` lets `finally` run before the promise
   settles. When `finally` undoes a guard, `return await`.
 
+## CI review panel
+
+- Round 1 (blast radius): took the one blocking finding. Dropping a pull for
+  `pendingPullPauses` alone relied on the queued switch landing to get the
+  changes re-pulled — the sync loop had already cleared
+  `changeEventReceived`, and a switch that rejects (deactivate/detach racing
+  it) left nothing to re-drive the pull. The drop now re-arms
+  `changeEventReceived` when the attachment's own mode still pulls.
+- Lesson: when a guard discards work on behalf of a state change that has not
+  happened yet, the recovery path cannot be the state change itself. Re-arm
+  the retry signal at the point of the drop.
+

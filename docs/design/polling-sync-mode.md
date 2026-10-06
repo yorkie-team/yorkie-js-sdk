@@ -218,6 +218,14 @@ pull's changes landed after the caller had asked to stop receiving
 (#1452). A switch back to `Realtime` is not counted, so pulling resumes
 in queue order.
 
+A pull dropped for a count alone — the attachment's own mode still
+pulls — re-arms `changeEventReceived`, because the sync loop clears that
+flag before driving each sync and a switch that never lands (it rejects
+on a deactivate or detach that raced it) would otherwise leave the
+dropped changes with nothing to pull them again. Re-arming is harmless
+when the switch does land: `needRealtimeSync` ignores the flag in
+`RealtimePushOnly`/`RealtimeSyncOff`, and the resume sets it anyway.
+
 ### Server-side impact
 
 None. The server already supports the polling pattern:
