@@ -27,3 +27,26 @@ own tests, a local v0.7.24 server) and tried to break the change.
   §7.3 move. Both fixed here. It also found pre-existing divergences outside
   this change (three replicas inserting at the same boundary, merge vs a
   boundary split); they are not addressed here.
+- Round 2 (PR review panel: blast radius, correctness, test adequacy): three
+  blocking findings.
+  - The new `toIndex`/`toPath` ran unguarded on a path the codebase documents
+    as must-not-throw (`visibleRangeOf` wraps the identical calls because a
+    throw inside `TreeEditOperation.execute` aborts a remote pack and wedges
+    the document). Fixed: measuring now degrades to the requested position,
+    and it reads the last *live* child, since a tombstone measures the same
+    boundary but is not a position the walk can resolve.
+  - Only the first split level is corrected. Confirmed with a new case:
+    `<t>XY</t>` inserted at the paragraph boundary against a `splitLevel: 2`
+    edit converges to `<p><t>abc</t><t>XY</t></p><p><t></t></p>`, i.e. the two
+    children reordered as well as split. Left open as `it.fails` — this is
+    the reorder the first-level comment already calls out, and no split
+    position at any level describes a reorder. Closing it needs the change to
+    carry a move, which is a bigger change than this one.
+  - Split-vs-split at the same boundary, the case the `parent`-not-`target`
+    branch is written for, had no test. Added at both the text and the
+    paragraph level; both already pass.
+- A reviewer asked whether measuring after step 02/03 mixes coordinate spaces
+  with the deletion changes of the same edit. It does not: those changes are
+  applied before this one, so post-delete/post-merge *is* the space a binding
+  replaying them in order is in, and nothing this edit removes or moves sits
+  left of `fromIdx`. Written down at the measurement instead of re-derived.

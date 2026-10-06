@@ -239,6 +239,8 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
     insert: (t: Tree) => void;
     split: (t: Tree) => void;
     splitLevel?: number;
+    /** Set when the case is a known, unfixed gap; the text says which. */
+    fails?: boolean;
   };
   const insertXY = (t: Tree) =>
     t.editByPath([0, 0, 3], [0, 0, 3], { type: 'text', value: 'XY' });
@@ -272,6 +274,36 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
       splitLevel: 2,
     },
     {
+      // Known gap, reported but not fixed: the split is corrected at its
+      // first level only. Here the *paragraph* level is the one §7.3 makes
+      // keep the concurrent `<t>XY</t>` on its left, and it keeps it across
+      // the `<t></t>` the first level minted, so the result
+      // (`<p><t>abc</t><t>XY</t></p><p><t></t></p>`) is the two children
+      // reordered as well as split. No split position, at any level,
+      // describes a reorder, so the change still reports the first level's
+      // boundary and a binding replaying it moves `XY` into the new
+      // paragraph. Expressing it would need the change to carry a move.
+      name: 'concurrent element insert at the paragraph boundary, split level 2',
+      insert: (t) =>
+        t.editByPath([0, 1], [0, 1], {
+          type: 't',
+          children: [{ type: 'text', value: 'XY' }],
+        }),
+      split: (t) => t.editByPath([0, 0, 3], [0, 0, 3], undefined, 2),
+      splitLevel: 2,
+      fails: true,
+    },
+    {
+      name: 'both split the same text boundary',
+      insert: (t) => t.editByPath([0, 0, 3], [0, 0, 3], undefined, 1),
+      split: (t) => t.editByPath([0, 0, 3], [0, 0, 3], undefined, 1),
+    },
+    {
+      name: 'both split the same paragraph boundary',
+      insert: (t) => t.splitByPath([0, 1]),
+      split: (t) => t.splitByPath([0, 1]),
+    },
+    {
       name: 'split away from the insert (control)',
       insert: insertXY,
       split: (t) => t.editByPath([0, 0, 2], [0, 0, 2], undefined, 1),
@@ -289,49 +321,53 @@ describe('Tree split OpInfo with a concurrent insert at the split boundary', () 
 
   for (const c of cases) {
     for (const [order, actorA, actorB, headStart] of orders) {
-      it(`${c.name} (${order}): replaying the OpInfos matches the tree`, () => {
-        // Given: A inserts at the boundary while B splits there.
-        const [a, b] = replicas(actorA, actorB);
-        for (let i = 0; i < headStart; i++) {
-          a.update((root) => {
-            (root as unknown as { n: number }).n = i;
-          });
-        }
-        a.update((root) => c.insert(root.t));
-        b.update((root) => c.split(root.t));
-        const mirrorA = snapshot(a);
-        const mirrorB = snapshot(b);
-        const opsA = listen(a);
-        const opsB = listen(b);
+      const run = c.fails ? it.fails : it;
+      run(
+        `${c.name} (${order}): replaying the OpInfos matches the tree`,
+        () => {
+          // Given: A inserts at the boundary while B splits there.
+          const [a, b] = replicas(actorA, actorB);
+          for (let i = 0; i < headStart; i++) {
+            a.update((root) => {
+              (root as unknown as { n: number }).n = i;
+            });
+          }
+          a.update((root) => c.insert(root.t));
+          b.update((root) => c.split(root.t));
+          const mirrorA = snapshot(a);
+          const mirrorB = snapshot(b);
+          const opsA = listen(a);
+          const opsB = listen(b);
 
-        // When: they exchange.
-        exchange(a, b);
+          // When: they exchange.
+          exchange(a, b);
 
-        // Then: both converge, and replaying each side's remote OpInfos on
-        // that side's own model reproduces its tree.
-        const xmlA = a.getRoot().t.toXML();
-        const xmlB = b.getRoot().t.toXML();
-        assert.equal(xmlA, xmlB, 'replicas diverged');
-        assert.equal(
-          render(replay(mirrorB, opsB, c.splitLevel ?? 1)),
-          render(snapshot(b)),
-          `B replay of ${JSON.stringify(opsB)}`,
-        );
-        assert.equal(
-          render(replay(mirrorA, opsA, c.splitLevel ?? 1)),
-          render(snapshot(a)),
-          `A replay of ${JSON.stringify(
-            opsA.map(({ fromPath, toPath, from, to, value, splitLevel }) => ({
-              fromPath,
-              toPath,
-              from,
-              to,
-              value,
-              splitLevel,
-            })),
-          )}; A tree ${xmlA}`,
-        );
-      });
+          // Then: both converge, and replaying each side's remote OpInfos on
+          // that side's own model reproduces its tree.
+          const xmlA = a.getRoot().t.toXML();
+          const xmlB = b.getRoot().t.toXML();
+          assert.equal(xmlA, xmlB, 'replicas diverged');
+          assert.equal(
+            render(replay(mirrorB, opsB, c.splitLevel ?? 1)),
+            render(snapshot(b)),
+            `B replay of ${JSON.stringify(opsB)}`,
+          );
+          assert.equal(
+            render(replay(mirrorA, opsA, c.splitLevel ?? 1)),
+            render(snapshot(a)),
+            `A replay of ${JSON.stringify(
+              opsA.map(({ fromPath, toPath, from, to, value, splitLevel }) => ({
+                fromPath,
+                toPath,
+                from,
+                to,
+                value,
+                splitLevel,
+              })),
+            )}; A tree ${xmlA}`,
+          );
+        },
+      );
     }
   }
 });

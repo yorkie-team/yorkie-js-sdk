@@ -3399,7 +3399,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
       //
       // That holds while what stayed is a prefix of the node's children. When
       // §7.3 keeps an insert that sat after a split sibling, the split also
-      // reorders them, and no single split position describes that.
+      // reorders them, and no single split position describes that -- at the
+      // first level or at an ancestor one. `tree_split_opinfo_test.ts` keeps
+      // an `it.fails` case for the ancestor variant.
+      //
+      // The measurement is taken on the tree as it stands once the split has
+      // run, i.e. after step 02 tombstoned the deleted nodes and step 03
+      // moved the merged children. That is the same coordinate space the
+      // changes already pushed above put a subscriber in: they are applied
+      // before this one, and `toIndex` does not count tombstones, so the
+      // boundary it reports is where a binding that replayed them in order
+      // has it. Nothing this edit removes or moves sits left of `fromIdx`
+      // -- the deleted range starts there -- so the space never shifts
+      // under the split position itself.
       let splitFromIdx = fromIdx;
       let splitFromPath = fromPath;
       while (splitCount < splitLevel) {
@@ -3452,10 +3464,27 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // (it only redirects there), and the next level splits after
         // `parent` too, so that is where a binding has to split.
         if (splitCount === 0 && splitNode) {
-          const children = parent.allChildren;
+          // Live children only. A tombstone takes no room in the index, so
+          // the last live child measures the same boundary, while
+          // `toIndex`/`toPath` on a removed node is a position the walk
+          // cannot resolve.
+          const children = parent.children;
           const last = children.length ? children[children.length - 1] : parent;
-          splitFromIdx = this.toIndex(parent, last);
-          splitFromPath = this.toPath(parent, last);
+          // `toIndex`/`toPath` throw on a tree they cannot walk (`invalid
+          // pos`, `out of index range`). This runs inside
+          // `TreeEditOperation.execute`, which for a remote pack is driven
+          // from `Change.execute`: a throw there aborts the pack, the
+          // checkpoint never advances and the document is wedged for good on
+          // every replica that receives it -- the same reason
+          // `visibleRangeOf` guards the identical calls. Where the split is
+          // reported is a courtesy to subscribers, not part of convergence,
+          // so a tree we cannot measure degrades to the requested position.
+          try {
+            splitFromIdx = this.toIndex(parent, last);
+            splitFromPath = this.toPath(parent, last);
+          } catch (err) {
+            logger.warn(`[TR] failed to measure split position: ${err}`);
+          }
         }
 
         left = parent;
