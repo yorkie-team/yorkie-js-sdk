@@ -219,12 +219,25 @@ pull's changes landed after the caller had asked to stop receiving
 in queue order.
 
 A pull dropped for a count alone — the attachment's own mode still
-pulls — re-arms `changeEventReceived`, because the sync loop clears that
-flag before driving each sync and a switch that never lands (it rejects
-on a deactivate or detach that raced it) would otherwise leave the
-dropped changes with nothing to pull them again. Re-arming is harmless
-when the switch does land: `needRealtimeSync` ignores the flag in
-`RealtimePushOnly`/`RealtimeSyncOff`, and the resume sets it anyway.
+pulls — has to be re-driven, and which mechanism does it depends on the
+mode the document is still in:
+
+- `Realtime`: the guard re-arms `changeEventReceived`, because the sync
+  loop clears that flag before driving each sync and a switch that never
+  lands (it rejects on a deactivate or detach that raced it) would
+  otherwise leave the dropped changes with nothing to pull them again.
+  Re-arming is harmless when the switch does land: `needRealtimeSync`
+  ignores the flag in `RealtimePushOnly`/`RealtimeSyncOff`, and the
+  resume sets it anyway.
+- `Polling`: the interval timer pulls again at the next tick, so the
+  re-arm is not needed (and `needRealtimeSync` does not read the flag in
+  this mode).
+- `Manual`: neither applies — `needRealtimeSync` is false for a Manual
+  document unconditionally, so the sync loop never revisits it and the
+  re-arm is a no-op. The guard therefore does **not** drop on a pending
+  count for a Manual document: the only request in flight there is an
+  explicit `sync(doc)`, and dropping its pack would resolve that call
+  having discarded the state it asked for with nothing left to re-pull.
 
 ### Server-side impact
 

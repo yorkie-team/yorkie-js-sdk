@@ -41,3 +41,13 @@ Reviewer: a general-purpose subagent over the working-tree diff against
   happened yet, the recovery path cannot be the state change itself. Re-arm
   the retry signal at the point of the drop.
 
+- Round 2 (blast radius): took the one blocking finding. Round 1's re-arm of
+  `changeEventReceived` is dead weight in `Manual`, where `needRealtimeSync`
+  returns false unconditionally, so a pull dropped for a pending count alone
+  had nothing to re-drive it. The guard no longer drops on that count for a
+  Manual document — the only request in flight there is an explicit
+  `sync(doc)`. `Polling` keeps dropping: it ignores the flag too, but its
+  interval timer re-pulls at the next tick.
+- Lesson: a retry signal only recovers work in the modes that read it. Check
+  every mode the drop condition admits against the consumer of the signal,
+  not just the mode the bug was reported in.

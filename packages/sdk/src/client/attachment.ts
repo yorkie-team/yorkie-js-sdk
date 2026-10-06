@@ -52,9 +52,15 @@ export class Attachment<R extends Attachable> {
    * (`RealtimePushOnly` or `RealtimeSyncOff`) and have not run yet. The switch
    * itself waits on the client task queue, behind a sync that may already
    * have pulled; the response guard reads this so that pull is dropped as
-   * soon as the caller asks for the pause. A pull dropped for this count
-   * alone re-arms `changeEventReceived`, so it is pulled again even if the
-   * switch behind it never lands. Documents only.
+   * soon as the caller asks for the pause.
+   *
+   * A pull dropped for this count alone is always re-driven: in `Realtime` the
+   * guard re-arms `changeEventReceived`, so it is pulled again even if the
+   * switch behind it never lands, and in `Polling` the interval timer pulls at
+   * the next tick. In `Manual` neither holds — `needRealtimeSync` returns
+   * false for it unconditionally, so the sync loop never revisits the document
+   * and the re-arm would be a no-op — so the guard does not drop on this count
+   * for a Manual document at all. Documents only.
    */
   pendingPullPauses = 0;
   lastHeartbeatTime: number;

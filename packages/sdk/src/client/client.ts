@@ -3544,26 +3544,42 @@ export class Client {
       //
       // A pause the caller has asked for but the task queue has not run yet
       // counts as well (`pendingPullPauses`): this request may be the very
-      // sync the switch is waiting behind.
+      // sync the switch is waiting behind. Not for a `Manual` document,
+      // though. Dropping is only safe while something still re-drives the
+      // pull: `Realtime` has the re-arm below, and `Polling` has its own
+      // interval timer (`updateHeartbeatTime` just below starts the next
+      // tick). `Manual` has neither — `needRealtimeSync` returns false for it
+      // unconditionally, so the sync loop never visits the document and the
+      // re-arm is a no-op — and the only request in flight there is an
+      // explicit `sync(doc)` the caller made by hand. Dropping its pack would
+      // resolve that call having silently discarded the state it asked for,
+      // with nothing left to pull it again.
       const modeDropsRemoteState =
         pushOnly ||
         attachment.syncMode === SyncMode.RealtimePushOnly ||
         attachment.syncMode === SyncMode.RealtimeSyncOff;
       const dropsRemoteState =
-        modeDropsRemoteState || attachment.pendingPullPauses > 0;
+        modeDropsRemoteState ||
+        (attachment.pendingPullPauses > 0 &&
+          attachment.syncMode !== SyncMode.Manual);
       if (dropsRemoteState) {
         doc.acknowledgePushedChanges(respPack);
 
         // A pack dropped only for a pause that has not run yet still has to be
-        // re-pulled, and nothing else re-drives it: the sync loop cleared
-        // `changeEventReceived` before driving this very sync, and a switch
-        // that never lands (it rejects because the client deactivated or the
-        // document detached while it waited, or the caller gave up on it)
+        // re-pulled, and in `Realtime` nothing else re-drives it: the sync loop
+        // cleared `changeEventReceived` before driving this very sync, and a
+        // switch that never lands (it rejects because the client deactivated or
+        // the document detached while it waited, or the caller gave up on it)
         // leaves the mode in Realtime with no pending event. Re-arm the flag
         // so the next tick pulls again. Idempotent either way: a pause that
         // does land makes `needRealtimeSync` ignore the flag, and the resume
-        // to Realtime sets it again.
-        if (!modeDropsRemoteState) {
+        // to Realtime sets it again. `Polling` does not read the flag — its
+        // interval timer re-drives the pull — and `Manual` never gets here,
+        // because a pending pause alone does not drop its pack.
+        if (
+          !modeDropsRemoteState &&
+          attachment.changeEventReceived !== undefined
+        ) {
           attachment.changeEventReceived = true;
         }
       } else {
