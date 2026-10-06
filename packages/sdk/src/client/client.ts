@@ -46,7 +46,7 @@ import {
   YorkieError,
 } from '@yorkie-js/sdk/src/util/error';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
-import { uuid } from '@yorkie-js/sdk/src/util/uuid';
+import { hasStrongRandomSource, uuid } from '@yorkie-js/sdk/src/util/uuid';
 import { Attachment, WatchStream } from '@yorkie-js/sdk/src/client/attachment';
 import {
   Document,
@@ -56,6 +56,7 @@ import {
   StreamConnectionStatus,
   DocSyncStatus,
   LocalChangesDroppedReason,
+  ReissueToken,
 } from '@yorkie-js/sdk/src/document/document';
 import { ChangeStruct } from '@yorkie-js/sdk/src/document/change/change';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
@@ -179,7 +180,10 @@ export interface ClientOptions {
 
   /**
    * `key` is the client key. It is used to identify the client.
-   * If not set, a random key is generated.
+   * If not set, a random key is generated from the runtime's CSPRNG; a
+   * runtime with no Web Crypto cannot generate one unguessably, so the
+   * constructor throws `ErrInvalidArgument` there rather than activate under
+   * a key another client can predict. Pass `key` to support such a runtime.
    *
    * That random default is minted per `Client` instance, so it differs on every
    * launch. **Offline persistence requires a stable key**: the server derives
@@ -552,6 +556,15 @@ export class Client {
   // only populated after the attach round-trip resolves, so this set is
   // needed to reject a concurrent duplicate attach of the same key.
   private attachingDocs: Set<string>;
+  // `keyGenerated` is true when the client key was minted for this instance
+  // from the runtime's CSPRNG rather than passed in, which makes the actor
+  // this client's alone. The constructor refuses to mint a key at all when
+  // the CSPRNG is missing, so a generated key is always unguessable here:
+  // see `claimReissue`.
+  private keyGenerated: boolean;
+  // `reissueClaims` maps a document key to the actor this client last
+  // attached it under. See `claimReissue`.
+  private reissueClaims: Map<string, ActorID>;
 
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
@@ -610,11 +623,32 @@ export class Client {
     opts = opts || DefaultClientOptions;
 
     const rpcAddr = opts.rpcAddr || DefaultClientOptions.rpcAddr;
+    // The client key is the identity the server trusts verbatim: it derives
+    // this client's actor from it, so a key another client of the project can
+    // land on is a key that client can activate under. A generated one is
+    // therefore only usable when `uuid` draws from the runtime's CSPRNG;
+    // without Web Crypto it falls back to `Math.random`, which is guessable,
+    // so refuse to mint an identity at all rather than send a weak one. Such
+    // a runtime has to pass its own `key`. See `claimReissue` and
+    // `util/uuid`.
+    if (!opts.key && !hasStrongRandomSource()) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `the runtime has no Web Crypto, so a client key cannot be generated ` +
+          `unguessably. Pass \`key\` as an opaque random value your app mints ` +
+          `itself (not a user id or a device id).`,
+      );
+    }
     this.key = opts.key || uuid();
+    // A generated key names an actor this client alone can reach, which is
+    // what the pre-attach re-issue rests on; an explicit one is shared by
+    // every session that passes it. See `claimReissue`.
+    this.keyGenerated = !opts.key;
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
     this.attachingDocs = new Set();
+    this.reissueClaims = new Map();
 
     // TODO(hackerwins): Consider to group the options as a single object.
     this.apiKey = opts.apiKey || '';
@@ -889,6 +923,57 @@ export class Client {
   }
 
   /**
+   * `claimReissue` marks the given document key as attached under the given
+   * actor and returns whether a document of that key edited before this
+   * attach may re-issue its tickets to the actor.
+   *
+   * A re-issue keeps each ticket's lamport, which starts at 1 in every fresh
+   * document, so it is sound only for an actor that has minted nothing else
+   * in the document. An explicit client key gives every session of that key
+   * -- a reload, another tab -- one stable actor, and a re-issued ticket
+   * would equal one an earlier session's first edits carry: the server would
+   * keep one of the two elements. Only a generated key makes the actor this
+   * client's alone, so only then does the re-issue run; other documents keep
+   * the initial actor, as before the re-issue existed.
+   *
+   * "Generated" also has to mean unguessable: a key from `uuid`'s
+   * `Math.random` fallback can be landed on by another client of the
+   * project, and the actor is derived from the key server-side, so that
+   * client would share this actor exactly as a second session of an explicit
+   * key does. The constructor keeps that case out of reach by refusing to
+   * generate a key without the CSPRNG, so `keyGenerated` implies it.
+   *
+   * Within this client, a second never-synced document of a key whose actor
+   * has already minted operation tickets there would mint the tickets the
+   * first document pushed, so such a repeat is declined. That is what the
+   * claim records, and only that: asking is free, and `markReissueClaim`
+   * takes the claim where tickets naming the actor actually enter the
+   * document -- at attach for a document that already carries them
+   * (`Document.hasMintedOperations`), and at `detachInternal` for one that
+   * minted them while attached. A plain attach of an untouched document
+   * takes nothing, so the next document of that key may still re-issue.
+   *
+   * A taken claim is never released: an attach whose response was lost may
+   * still have pushed, and a detach does not take pushed tickets back.
+   */
+  private claimReissue(actor: ActorID, docKey: string): boolean {
+    if (!this.keyGenerated) {
+      return false;
+    }
+
+    return this.reissueClaims.get(docKey) !== actor;
+  }
+
+  /**
+   * `markReissueClaim` records that the given actor has minted tickets in the
+   * document the given key names, so no later document of that key may
+   * re-issue onto this actor. See `claimReissue`.
+   */
+  private markReissueClaim(actor: ActorID, docKey: string): void {
+    this.reissueClaims.set(docKey, actor);
+  }
+
+  /**
    * `attach` attaches the given document to this client. It tells the server that
    * this client will synchronize the given document.
    */
@@ -924,13 +1009,6 @@ export class Client {
       );
     }
 
-    // Stamp the actor before any local elements are rehydrated. `setActor`
-    // has a known limitation: it does not rewrite the actor of existing
-    // elements, so the restore (which repopulates the root/changeID/pending
-    // changes under their persisted actor) must run after this call. The
-    // restore itself is deferred into the enqueued task because the store
-    // load is async; see the `store.load` step below.
-    doc.setActor((this.actorID ?? this.id)!);
     // Resolve the effective presence-disabled state at attach time. The
     // local option wins; absent that, the Document's seeded value (from
     // construction or a prior attach response on this instance) is used;
@@ -959,6 +1037,33 @@ export class Client {
       : syncMode === SyncMode.Polling
         ? DefaultDocumentPollIntervalMs
         : 0;
+
+    // Stamp the actor once the options are known to be valid, and before any
+    // local elements are rehydrated. A document edited before this attach
+    // re-issues the tickets it minted under the initial actor to this one; a
+    // rejected option must not have re-issued it or taken the claim. The
+    // restore (which repopulates the root/changeID/pending changes under
+    // their persisted actor) must run after this call; it is deferred into
+    // the enqueued task because the store load is async; see the
+    // `store.load` step below.
+    const actor = (this.actorID ?? this.id)!;
+    const reissued = doc.setActor(actor, {
+      reissue: this.claimReissue(actor, doc.getKey())
+        ? ReissueToken
+        : undefined,
+    });
+    // Take the claim where the actor's lamport space in this key stops being
+    // free: the re-issue just minted tickets under it, or pre-attach edits
+    // the re-issue declined are about to be pushed with their `executedAt`
+    // re-stamped to it. It is taken before the round trip, since an attach
+    // whose response is lost may still have pushed. A document that has
+    // minted nothing leaves the claim alone, so a later document of the key
+    // can still re-issue; `detachInternal` takes it if this one mints while
+    // attached.
+    if (reissued || doc.hasMintedOperations()) {
+      this.markReissueClaim(actor, doc.getKey());
+    }
+
     // Mark the attach in flight synchronously so a concurrent duplicate
     // attach of the same key is rejected by the guard above before it is
     // enqueued. Cleared in the task's `finally`.
@@ -3247,6 +3352,19 @@ export class Client {
       attachment.sessionLockHandle = undefined;
     }
     if (attachment.resource instanceof Document) {
+      // Take the re-issue claim if the document minted operation tickets
+      // while it was attached: those tickets are in the document this key
+      // names, so the actor's lamports there are no longer free for a later
+      // document of the key to re-issue onto. One that minted nothing leaves
+      // the claim alone. See `claimReissue`.
+      //
+      // The actor comes from this client, not from the document: a detach
+      // resets the document's own actor to the initial one
+      // (`applyStatus(Detached)`) before this runs.
+      const actor = this.actorID ?? this.id;
+      if (actor && attachment.resource.hasMintedOperations()) {
+        this.markReissueClaim(actor, key);
+      }
       attachment.resource.resetOnlineClients();
     }
     this.attachmentMap.delete(key);

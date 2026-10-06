@@ -42,6 +42,17 @@ import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
  * reverse operation captured, which never passes the converter on the replica
  * that runs the undo. Removed members are walked too — they are still
  * registered in nodeMapByID.
+ *
+ * A Text inside such a payload is deliberately NOT stripped here, even though
+ * its `insPrev` links are just as client-supplied. Unlike a tree in an
+ * operation's content, a Text payload is routinely a copy of real document
+ * state — the Text a reverse of Remove restores — whose split products a later
+ * Edit still targets by id, and dropping the links would lose the structure
+ * the re-issue and every snapshot depend on. The links are sanitized at the
+ * decoder instead: `fromText` resolves each one by exact id against the nodes
+ * already decoded and drops any that does not resolve, so no payload can point
+ * a node at a link target the encoder never emitted. See `fromText` in
+ * api/converter.ts and docs/design/pre-attach-ticket-reissue.md.
  */
 export function dropSplitLinksInElement(elem: CRDTElement): CRDTElement {
   if (elem instanceof CRDTTree) {
