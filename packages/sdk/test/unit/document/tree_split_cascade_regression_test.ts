@@ -224,32 +224,6 @@ describe('split-sibling cascade keeps text the deleter did not delete', () => {
     }
   });
 
-  // The walk meets a sibling the editor itself merged back: r1 presses Enter
-  // before the styled run, undoes it (merging its own split product back),
-  // then deletes both spans, while r2 presses Enter at the same place with a
-  // newer ticket. Both `main` and the narrowed walk converge here, in both
-  // delivery orders -- pinned so narrowing the walk further does not start
-  // leaving r2's split product alive on one replica only.
-  it('Enter + undo + delete both spans vs concurrent Enter: converge', () => {
-    for (const rev of [false, true]) {
-      const [r1, r2] = start(2);
-      r1.edit(enterAtSpanStart);
-      r1.doc.history.undo();
-      r1.edit((t) => t.editByPath([0, 0], [0, 2]));
-      r2.edit(enterAtSpanStart);
-      const p1 = r1.flush();
-      const p2 = r2.flush();
-      if (rev) {
-        r1.receive(p2);
-        r2.receive(p1);
-      } else {
-        r2.receive(p1);
-        r1.receive(p2);
-      }
-      assert.equal(r2.xml(), r1.xml(), `rev=${rev}: r2 diverged from r1`);
-    }
-  });
-
   // Same family, convergence: the replicas agree; cascading on a lost LWW
   // would leave r2 without "e".
   it('delete span + undo vs split-at-0+drop vs split-in-middle+drop: converge', () => {

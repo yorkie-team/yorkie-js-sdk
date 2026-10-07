@@ -29,13 +29,9 @@ became a real split in v0.7.23 (#1358).
 - [x] Red: `tree_split_sibling_cascade_test.ts`, ten split/merge/delete races,
       each in both role assignments and both actor orders (40 runs),
       comparing XML and tree shape, then GC. 22 of 40 fail on `main`.
-- [x] Pass a known sibling only if the editor merged it back into its left
-      split neighbour (`sawMergedBack`, off the persisted `mergedFrom`/
-      `mergedAt` stamps) or this delete encloses it whole; stop at any
+- [x] Pass a known sibling only if the editor saw it gone (its `removedAt` is
+      known to the editor) or this delete encloses it whole; stop at any
       other known sibling (`collectUnknownSplitSiblings`).
-- [x] Keep the witness answering the same on every replica: a GC barrier for
-      a merge-moved child, a live-sibling stop for the undo path, and a flag
-      on a `mergedAt` back-filled from an LWW `removedAt` (review round 2).
 - [x] Keep the cascade gated on `canDelete`; pin the scenarios where
       cascading on a lost LWW loses text nobody deleted
       (`tree_split_cascade_regression_test.ts`; 4 of 5 pass on `main`, the
@@ -60,29 +56,11 @@ became a real split in v0.7.23 (#1358).
   one replica. In 10,000 random two-round races (round 2 review) 9 seeds do
   this where `main` leaves none; in the two traced, `main`'s over-delete hid
   an existing divergence.
-- The walk's stop rule reads no `removedAt` value (the LWW rewrites it, so
-  the answer would depend on apply order) and not the `mergedInto` cache (GC
-  purge and `dissolveMerge` drop it). The only "editor saw it gone" witness
-  used is the persisted `mergedFrom`/`mergedAt` stamp the merge left on the
-  children it moved (`sawMergedBack`), plus the truthiness of the sibling's
-  `removedAt`, which is monotone and undone only by a reverse operation every
-  replica applies. The stamps are persisted but removable, so each way they
-  go is pinned:
-  - GC purge would unlink the witness child. `purgeBarrierAt` now holds a
-    stamped child until the source it witnesses is collectable as well, and
-    once the source is purged the walk skips it entirely (`purge` relinks the
-    split chain past it), which is the decision a live witness gives.
-  - `dissolveMerge` (undo) and `reissueContentIDs` clear the stamps, both
-    from an operation every replica applies. A revived source is live again,
-    and `sawMergedBack` stops on a live sibling regardless of the stamps.
-  - `rebuildMergeState` back-fills `mergedAt` from the source's `removedAt`
-    on pre-`mergedAt` snapshots. That copy is now flagged
-    `mergedAtApproximated` and refused as a witness, so the cascade never
-    rests on an LWW value; such a replica stops the walk where a newer
-    snapshot passes it, which only narrows the cascade.
-  A merge of an already-empty sibling moves no child and so leaves no
-  witness: the walk stops there and a product split off it concurrently
-  survives on that replica only.
+- `removedAt` keeps only the newest tombstone. If a concurrent delete of a
+  sibling the editor merged back has a newer ticket than the merge, the walk
+  stops there and a product split off it concurrently survives on that
+  replica only. Enter, Undo and a delete of both spans against a concurrent
+  Enter at the same place is one such case; `main` converges there.
 - A sibling merged back by a change the editor did not know ends the walk. A
   product split off it concurrently survives on the splitter's own replica
   in every delivery order. Over six delivery orders `main` diverges in

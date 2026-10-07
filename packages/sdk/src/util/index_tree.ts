@@ -634,15 +634,6 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
     // should stay in the original (left) node. When the source is
     // external (e.g., a sibling element that was merged), the content
     // should flow naturally to the split (right) node.
-    //
-    // A `mergedAt` flagged `mergedAtApproximated` is declined, like the §4.1
-    // cascade witness declines one: the flag is not on the wire, so the
-    // converter does not encode a flagged ticket at all, and a replica that
-    // loads the snapshot re-derives the stamp from the source's LWW-mutable
-    // `removedAt` (`CRDTTree.rebuildMergeState`) -- or, when the source is no
-    // longer a tombstone in the tree, does not re-derive it at all. Reading
-    // the ticket here would therefore answer by how a replica reached its
-    // state. Declining is the one answer both routes can give.
     const allChildren = [...left, ...right];
     const actualRight: Array<T> = [];
     for (const child of right) {
@@ -650,8 +641,7 @@ export abstract class IndexTreeNode<T extends IndexTreeNode<T>> {
         'mergedFrom' in child &&
         (child as any).mergedFrom != null &&
         'mergedAt' in child &&
-        (child as any).mergedAt != null &&
-        !(child as any).mergedAtApproximated
+        (child as any).mergedAt != null
       ) {
         if (versionVector) {
           const mergedAt = (child as any).mergedAt as TimeTicket;

@@ -500,12 +500,6 @@ export type TreePosStructRange = [CRDTTreePosStruct, CRDTTreePosStruct];
  * purpose: since a run's spans are carried together, restore can rebuild the
  * run's internal order from the op itself and needs only ONE surviving
  * boundary to place it (id-order is not sibling-order in a tree).
- *
- * Merge lineage (`mergedFrom`/`mergedAt`) is NOT carried: the wire format has
- * no field for it, so a recreated node claims none. `restore` therefore
- * demotes the stamps of a node it revives in place instead, so a replica that
- * purged the node and one that did not read the same answer out of it --
- * see `CRDTTree.demoteRevivedMergeWitness`.
  */
 export type TreeRestoreSpan = {
   id: CRDTTreeNodeID;
@@ -518,24 +512,6 @@ export type TreeRestoreSpan = {
   leftSiblingID?: CRDTTreeNodeID; // undefined → was first child
   rightSiblingID?: CRDTTreeNodeID; // undefined → was last child
 };
-
-/**
- * `laterOf` returns whichever of the two tickets comes last, or the one that
- * is defined. Used to combine GC barriers: a purge waits for every decision
- * the node carries, so the barrier is the latest of them.
- */
-function laterOf(
-  a: TimeTicket | undefined,
-  b: TimeTicket | undefined,
-): TimeTicket | undefined {
-  if (!a) {
-    return b;
-  }
-  if (!b) {
-    return a;
-  }
-  return a.after(b) ? a : b;
-}
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It includes the logical clock and
@@ -576,28 +552,6 @@ export class CRDTTreeNode
    * Fix 8 version-vector check.
    */
   mergedAt?: TimeTicket;
-
-  /**
-   * `mergedAtApproximated` marks a `mergedAt` that is a stand-in for the
-   * merge's own ticket rather than the ticket itself: `rebuildMergeState`
-   * back-fills it from the source's `removedAt` on snapshots that predate the
-   * `mergedAt` field, the §9.4 insert path copies a stand-in it had no better
-   * source for, and `demoteRevivedMergeWitness` downgrades the stamps of a
-   * witness an undo revived in place. The wire format has no field for it, so
-   * a flagged ticket is not encoded either (`toTreeNodes`) -- the reader
-   * re-derives it, flag included, instead of receiving it as genuine.
-   *
-   * Not a ticket of its own: it records that this `mergedAt` is an
-   * approximation of the merge, so a reader that needs the real merge boundary
-   * can decline it instead of trusting an LWW-mutable value. Both readers of
-   * the ticket do decline -- `sawMergedBack` here and Fix 8's split placement
-   * in `util/index_tree.ts` -- because the flag is not on the wire: a flagged
-   * ticket is not encoded, and the snapshot reader re-derives it from the
-   * source's current tombstone, or not at all when the source is no longer a
-   * tombstone in the tree. A reader that trusted it would answer by how a
-   * replica reached its state.
-   */
-  mergedAtApproximated?: boolean;
 
   /**
    * `mergedInto` is a runtime cache set on the source parent pointing
@@ -678,7 +632,6 @@ export class CRDTTreeNode
     clone.insNextID = this.insNextID;
     clone.mergedFrom = this.mergedFrom;
     clone.mergedAt = this.mergedAt;
-    clone.mergedAtApproximated = this.mergedAtApproximated;
     clone.mergedInto = this.mergedInto;
     return clone;
   }
@@ -759,7 +712,6 @@ export class CRDTTreeNode
       node.insNextID = undefined;
       node.mergedFrom = undefined;
       node.mergedAt = undefined;
-      node.mergedAtApproximated = undefined;
       node.mergedInto = undefined;
     });
   }
@@ -861,7 +813,6 @@ export class CRDTTreeNode
     );
     clone.mergedFrom = this.mergedFrom;
     clone.mergedAt = this.mergedAt;
-    clone.mergedAtApproximated = this.mergedAtApproximated;
     return clone;
   }
 
@@ -880,7 +831,6 @@ export class CRDTTreeNode
     // it carries the same merge stamp (as cloneText does).
     clone.mergedFrom = this.mergedFrom;
     clone.mergedAt = this.mergedAt;
-    clone.mergedAtApproximated = this.mergedAtApproximated;
     return clone;
   }
 
@@ -1383,13 +1333,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
   /**
    * `rebuildMergeState` reconstructs the `mergedInto` cache on source
    * parents from the persisted `mergedFrom` field on moved children.
-   * For snapshots written before `mergedAt` was added to the proto — and for
-   * one whose ticket this reader rejects as out of the source's lifetime — it
-   * falls back to the source's `removedAt`, flagged `mergedAtApproximated`
-   * because a concurrent delete may have overwritten it. Every reader of the
-   * ticket declines a flagged one, so the fallback is a placeholder that
-   * keeps `mergedInto` rebuildable rather than a merge boundary anyone acts
-   * on.
+   * For snapshots written before `mergedAt` was added to the proto,
+   * it also falls back to the source's `removedAt` — an approximation
+   * that may be wrong if the source was later overwritten by a
+   * concurrent delete, but this is the best we can do without the
+   * persisted merge ticket.
    */
   private rebuildMergeState(): void {
     this.indexTree.traverseAll((node) => {
@@ -1427,45 +1375,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
         return;
       }
 
-      // `mergedAt` is as client-supplied as `mergedFrom` is -- it rides the
-      // same element payload (Set/Add/ArraySet) and this is the only reader
-      // between the wire and the merge logic -- so it is bounded before it is
-      // kept. A merge stamps the ticket that removed the source, so a genuine
-      // one always sits inside the window the source was in the tree for:
-      //
-      // - at or after `src.id.getCreatedAt()`, because the merge cannot have
-      //   removed the source before the source existed;
-      // - at or before `src.removedAt`, because `remove` keeps the NEWEST
-      //   tombstone (LWW), so the ticket that first removed the source is at
-      //   or before whatever stands there now.
-      //
-      // Both bounds hold for every genuine state, so no honest replica is
-      // reclassified by them and the ops route and the snapshot route still
-      // agree. What they reject is the crafted ticket the window excludes --
-      // in particular a low-lamport one, which every replica's version vector
-      // reports as known and which would therefore drive `sawMergedBack` and
-      // the §4.1 cascade through a sibling into live content.
-      //
-      // A rejected ticket is not merely dropped: it falls through to the
-      // back-fill below and is flagged, so every reader declines it rather
-      // than silently finding none.
-      if (
-        node.mergedAt &&
-        (node.mergedAt.compare(src.id.getCreatedAt()) < 0 ||
-          node.mergedAt.compare(src.removedAt) > 0)
-      ) {
-        node.mergedAt = undefined;
-      }
-
-      // Back-compat: older snapshots lack mergedAt on moved children. The
-      // copied ticket is flagged, because it is the source's current
-      // tombstone rather than the merge's own: a later concurrent delete may
-      // have won the LWW there. Every reader of the ticket declines a flagged
-      // one -- `sawMergedBack`, `mergeSourceOf`, and Fix 8's split placement
-      // in `util/index_tree.ts`.
+      // Back-compat: older snapshots lack mergedAt on moved children.
       if (!node.mergedAt) {
         node.mergedAt = src.removedAt;
-        node.mergedAtApproximated = true;
       }
 
       if (!src.mergedInto) {
@@ -1607,18 +1519,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * would move references onto a node holding only part of what they named.
    * Only a split that takes the source's children back WHOLE reverses the
    * merge, so `splitTarget` is checked for leftovers.
-   *
-   * The stamp has to be a trustworthy one -- present and not
-   * `mergedAtApproximated` -- for the same reason `sawMergedBack` and Fix 8's
-   * split placement (`util/index_tree.ts`) require it. The placement this
-   * reads is what Fix 8 decides, so the two have to decline the same stamps
-   * or a flagged child lands on the right and is then read here as proof the
-   * split reversed the merge. Requiring the ticket to be PRESENT matters as
-   * much as the flag: a demoted stamp keeps a flagged ticket on the replica
-   * that applied the ops, while the one that loads the snapshot gets no
-   * ticket at all (the converter does not encode a flagged one, and
-   * `rebuildMergeState` back-fills only from a source that is still a
-   * tombstone). Declining both shapes is the one answer every route gives.
    */
   private mergeSourceOf(
     splitNode: CRDTTreeNode,
@@ -1634,9 +1534,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
     for (const child of splitNode.allChildren) {
       const mergedFrom = child.mergedFrom;
       if (!mergedFrom) {
-        continue;
-      }
-      if (!child.mergedAt || child.mergedAtApproximated) {
         continue;
       }
       // The product carries its own `mergedFrom` copied off the node it split
@@ -2595,123 +2492,22 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `sawMergedBack` reports whether the editor of a change with
-   * `versionVector` had itself merged `next` back into its left split
-   * neighbour `current` -- i.e. whether `next` was already empty, and gone,
-   * for that editor.
-   *
-   * The witness is the one the merge leaves behind on the children it moved:
-   * each lands under the merge target stamped with the source it came out of
-   * in `mergedFrom` and the merge's own ticket in `mergedAt`. The merge
-   * writes both once (step 03 of `edit`, first move only) and the snapshot
-   * encoding persists both, so a replica cannot reach a different answer by
-   * loading a snapshot instead of applying the ops.
-   *
-   * The stamps are persisted, not indestructible, and each way they can go
-   * is held to the same standard -- the answer must not depend on how a
-   * replica reached its state:
-   *
-   * - GC purge detaches a stamped child from its parent (`purge`), which
-   *   would take the witness away. `purgeBarrierAt` therefore holds a
-   *   stamped child back until the source it witnesses is itself
-   *   collectable, and once the source is purged the walk no longer sees it
-   *   at all: `purge` relinks `current.insNextID` past it, so the walk
-   *   carries on to the sibling beyond -- the same decision a surviving
-   *   witness produces. The state that would differ, source still linked
-   *   but witness collected, is the one the barrier rules out.
-   * - `dissolveMerge` clears both stamps when an undo revives the source,
-   *   and `reissueContentIDs` strips them from reverse-operation content so
-   *   a re-created node claims no merge lineage. Both run from an operation
-   *   every replica applies, not from local bookkeeping. A revived source is
-   *   also live again, and the `removedAt` check below stops the walk on a
-   *   live sibling whether or not `dissolveMerge` found the destination to
-   *   clear -- the one case where a stamp could outlive the merge it
-   *   recorded.
-   * - `rebuildMergeState` back-fills `mergedAt` from the source's
-   *   LWW-mutable `removedAt` on pre-`mergedAt` snapshots. That ticket is an
-   *   approximation of the merge, so it is marked `mergedAtApproximated` and
-   *   not accepted as a witness here: the walk stops instead, which only
-   *   narrows the cascade. The §9.4 insert path, which copies a merge ticket
-   *   onto redirected content, carries that flag through for the same reason,
-   *   and the converter declines to encode a flagged ticket as a real one.
-   * - An identity-preserving undo revives a tombstoned witness in place but
-   *   recreates a purged one without its stamps (`TreeRestoreSpan` carries no
-   *   merge lineage). `demoteRevivedMergeWitness` flags the survivor so both
-   *   routes decline here.
-   *
-   * Deliberately NOT asked:
-   *
-   * - `ticketKnown(versionVector, next.removedAt)`, the old test. It reads a
-   *   `removedAt` value, which keeps only the newest tombstone, so a
-   *   concurrent delete that wins the LWW rewrites it: a replica that
-   *   applied that delete first would read a different ticket than one that
-   *   applied it last, and the two would cascade differently and diverge.
-   *   Only the truthiness of `removedAt` is read below -- being a tombstone
-   *   is monotone, and is undone only by the reverse operation above.
-   * - `next.mergedInto`. A runtime cache, not persisted: GC purge and
-   *   `dissolveMerge` drop it, so it answers by how a replica happened to
-   *   obtain its state rather than by what the editor saw.
-   */
-  private sawMergedBack(
-    current: CRDTTreeNode,
-    next: CRDTTreeNode,
-    versionVector: VersionVector | undefined,
-  ): boolean {
-    // A live sibling is one the editor may still be keeping content in, even
-    // when it is empty right now: an undo that revived a merge source put it
-    // back for every replica.
-    if (!next.removedAt) {
-      return false;
-    }
-
-    for (const child of current.allChildren) {
-      if (
-        child.mergedFrom &&
-        child.mergedFrom.equals(next.id) &&
-        child.mergedAt &&
-        !child.mergedAtApproximated &&
-        ticketKnown(versionVector, child.mergedAt)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  /**
    * `collectUnknownSplitSiblings` appends to `out` the split siblings of the
    * deleted element `node` that the editor did not know, with their
    * subtrees (§4.1 of yorkie's docs/design/concurrent-merge-split.md).
    *
-   * Only element siblings in `node`'s own split family are followed, as in
-   * `advancePastUnknownSplitSiblings` and `orderSameBoundarySplit`.
-   *
-   * The walk ends at the first sibling the editor knew. The chain is in
-   * document order and a split product lands right after the node it was
-   * split off (or, under §7.8, after the same-boundary products ordered
-   * ahead of it), so an unknown sibling past a known one holds content the
-   * editor saw inside that known sibling, not inside `node`: after a split
-   * at offset 0 and a delete of the empty left piece, the concurrent
-   * same-boundary product holding the moved text sits right after the
-   * editor's own product, and the old unbounded walk tombstoned it (#1408).
-   *
-   * Two known siblings are passed rather than stopped at, because for the
-   * editor there was nothing of its own left there to hold content:
-   *
-   * - one the editor merged back into its left neighbour (`sawMergedBack`),
-   *   which is how a split sibling is emptied in the first place;
-   * - one this very delete encloses whole (`enclosed`), which the editor is
-   *   removing in the same breath.
-   *
-   * Both tests read only immutable ids, the merge stamps the snapshot
-   * persists, whether a node is a tombstone, and this change's own range and
-   * version vector -- never a `removedAt` value, which the LWW rewrites, and
-   * never the `mergedInto` cache. A stop rule resting on state one replica
-   * can lose and another keep would cascade on the one and not the other,
-   * and the two would diverge: the very failure this cascade exists to
-   * avoid. `sawMergedBack` documents what keeps the stamps answering the
-   * same way on a replica that has collected, loaded a snapshot, or undone.
+   * The walk passes a sibling the editor knew only if the editor saw it
+   * gone: removed by a change the editor knew (merged back into `node`,
+   * say), or enclosed whole by this delete. What lies past it was then
+   * inside `node` or inside the deleted range for the editor too. Any other
+   * known sibling ends the walk. The chain is in document order and a split
+   * product lands right after the node it was split off (or, under §7.8,
+   * after the same-boundary products ordered ahead of it), so an unknown
+   * sibling past such a sibling holds content the editor saw inside that
+   * sibling, not inside `node`. Walking on tombstoned it: after a split at
+   * offset 0 and a delete of the empty left piece, the concurrent
+   * same-boundary product that holds the moved content sits right after the
+   * editor's own product (#1408).
    */
   private collectUnknownSplitSiblings(
     node: CRDTTreeNode,
@@ -2721,52 +2517,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): void {
     const walker = new InsNextWalker();
     walker.visit(node);
-    let current = node;
-    while (current.insNextID) {
-      const next = this.findFloorNode(current.insNextID);
-      // Only an element in the same split family is a split sibling of
-      // `current`. insNextID arrives verbatim from client-supplied bytes
-      // (see InsNextWalker), so without these two checks a pointer that
-      // never came from `splitElement` would cascade this delete onto an
-      // arbitrary subtree elsewhere in the tree.
-      if (
-        !next ||
-        next.isText ||
-        !this.sharesSplitFamilyParent(current, next)
-      ) {
-        break;
-      }
-
-      // Stop on a chain that loops back on itself; see InsNextWalker.
-      // Unbounded here would also grow `out` without limit.
-      if (!walker.visit(next)) {
-        break;
-      }
-
+    let next = node.insNextID ? this.findFloorNode(node.insNextID) : undefined;
+    // Stop on a chain that loops back on itself; see InsNextWalker.
+    // Unbounded here would also grow `out` without limit.
+    while (next && walker.visit(next)) {
       if (ticketKnown(versionVector, next.id.getCreatedAt())) {
-        if (
-          !this.sawMergedBack(current, next, versionVector) &&
-          !enclosed(next)
-        ) {
+        const seenGone =
+          !!next.removedAt && ticketKnown(versionVector, next.removedAt);
+        if (!seenGone && !enclosed(next)) {
           break;
         }
       } else {
-        // Cascade through the full subtree, not just immediate children, in
-        // pre-order: `out` is `nodesToBeRemoved`, which `restore()` reads
-        // expecting a parent to precede its children. `traverseAll` is
-        // post-order, so it cannot be used here.
-        const stack = [next];
-        while (stack.length) {
-          const n = stack.pop()!;
-          out.push(n);
-          const children = n.allChildren;
-          for (let i = children.length - 1; i >= 0; i--) {
-            stack.push(children[i]);
+        out.push(next);
+        // Cascade through the full subtree, not just immediate children.
+        const sibling = next;
+        traverseAll(sibling, (n) => {
+          if (n !== sibling) {
+            out.push(n);
           }
-        }
+        });
       }
-
-      current = next;
+      if (!next.insNextID) break;
+      next = this.findFloorNode(next.insNextID);
     }
   }
 
@@ -3354,10 +3126,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const toBeMergedNodes: Array<CRDTTreeNode> = [];
     const preTombstoned = new Set<string>();
 
-    // `enclosed` reports whether this change's own range covers the element
-    // whole, start and end tokens both. It is the range the delete already
-    // resolves to decide what it removes, asked a second time -- not extra
-    // local state. Collected on first use; most deletes never ask.
+    // `enclosed` reports whether the range covers the element whole, start
+    // and end tokens both. Collected on first use; most deletes never ask.
     let enclosedNodes: Set<CRDTTreeNode> | undefined;
     const enclosed = (n: CRDTTreeNode): boolean => {
       if (!enclosedNodes) {
@@ -3873,31 +3643,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
           ? declaredFromParent
           : undefined;
       let intendedMergedAt: TimeTicket | undefined;
-      // Whether `intendedMergedAt` is the merge's own ticket or only a stand-in
-      // for it. Carried onto the content as `mergedAtApproximated` so a reader
-      // that needs the real merge boundary (`sawMergedBack`) declines it
-      // instead of trusting a value the LWW can rewrite -- the same standard
-      // `rebuildMergeState`'s back-fill is held to.
-      let intendedMergedAtApproximated = false;
       if (intendedParent) {
         // Take the merge ticket from a sibling the merge moved; the parent's
         // own removedAt may have been overwritten by a later LWW tombstone.
         for (const child of fromParent.allChildren) {
           if (child.mergedFrom?.equals(intendedParent.id) && child.mergedAt) {
             intendedMergedAt = child.mergedAt;
-            // That sibling's ticket may itself be a back-fill; an
-            // approximation does not become exact by being copied.
-            intendedMergedAtApproximated = !!child.mergedAtApproximated;
             break;
           }
         }
-        if (!intendedMergedAt) {
-          // No moved sibling left to read the merge's own ticket from, so fall
-          // back to the source's current tombstone -- exactly the LWW-mutable
-          // value, hence flagged.
-          intendedMergedAt = intendedParent.removedAt;
-          intendedMergedAtApproximated = intendedMergedAt !== undefined;
-        }
+        intendedMergedAt ??= intendedParent.removedAt;
       }
 
       const aliveContents: Array<CRDTTreeNode> = [];
@@ -3915,13 +3670,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
         if (intendedParent) {
           content.mergedFrom = intendedParent.id;
           content.mergedAt = intendedMergedAt;
-          // Written on both branches, never only when true: content is
-          // stripped of its merge lineage before it gets here
-          // (`dropEngineOnlyLinks`, `reissueContentIDs`), and leaving a flag
-          // from a previous life would launder in the other direction.
-          content.mergedAtApproximated = intendedMergedAtApproximated
-            ? true
-            : undefined;
         }
 
         leftInChildren = content;
@@ -4125,21 +3873,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * was created after the incoming edit; a tombstoned sibling with an older
    * ticket ends that walk. Purging detaches it from the parent, so the next
    * sibling inherits the decision and must be causally stable first.
-   *
-   * A child a merge moved carries a second decision: it is the only witness
-   * that its `mergedFrom` source was merged away, which `sawMergedBack` reads
-   * to decide the §4.1 cascade. Unlinking it while that source is still in
-   * the tree would leave the cascade answering by whether a replica had
-   * collected, so such a child waits for its source to be collectable too
-   * (`mergeWitnessBarrierAt`). Once both go the walk never reaches the
-   * source: `purge` relinks the split chain past it.
-   *
-   * `purge` unlinks the node together with its whole subtree in one
-   * `removeChild`, and `CRDTRoot.collect` consults the barrier only for the
-   * pair it is about to purge -- never for that pair's descendants. So the
-   * witness barrier is taken over the subtree, not just the node: a stamped
-   * child under a tombstoned merge target would otherwise vanish with its
-   * parent while the source it speaks for is still linked.
    */
   public purgeBarrierAt(node: GCChild): TimeTicket | undefined {
     if (!(node instanceof CRDTTreeNode) || !node.parent) {
@@ -4153,61 +3886,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     if (offset < 0) {
       return;
     }
-    return laterOf(
-      siblings[offset + 1]?.id.getCreatedAt(),
-      this.mergeWitnessBarrierIn(node),
-    );
-  }
-
-  /**
-   * `mergeWitnessBarrierIn` is `mergeWitnessBarrierAt` taken over the subtree
-   * `purge` would unlink in one go: the node itself and every descendant,
-   * removed ones included. The latest of their barriers holds the whole
-   * subtree back, because no descendant gets a barrier check of its own.
-   */
-  private mergeWitnessBarrierIn(node: CRDTTreeNode): TimeTicket | undefined {
-    let barrier = this.mergeWitnessBarrierAt(node);
-    // Read the children in place: `allChildren` copies, and this runs once per
-    // stable tombstone on every collection pass.
-    const stack = [...node._children];
-    while (stack.length) {
-      const descendant = stack.pop()!;
-      barrier = laterOf(barrier, this.mergeWitnessBarrierAt(descendant));
-      for (const child of descendant._children) {
-        stack.push(child);
-      }
-    }
-    return barrier;
-  }
-
-  /**
-   * `mergeWitnessBarrierAt` returns the ticket a merge-moved child must also
-   * see causally stable before it can be unlinked: the removal of the source
-   * it witnesses, and that source's own barrier, so the witness never
-   * outlives its usefulness by less than the source it speaks for.
-   *
-   * Returns undefined when the node witnesses nothing collectable-later: it
-   * carries no stamp, the source is already purged (nothing to witness), or
-   * the source is live again after an undo (`dissolveMerge` clears the
-   * stamps, and a live sibling stops the walk on its own).
-   */
-  private mergeWitnessBarrierAt(node: CRDTTreeNode): TimeTicket | undefined {
-    if (!node.mergedFrom || !node.mergedAt) {
-      return;
-    }
-    const src = this.findMergeNode(node.mergedFrom);
-    if (!src || !src.removedAt) {
-      return;
-    }
-
-    const srcSiblings = src.parent?._children;
-    const srcOffset = srcSiblings ? srcSiblings.indexOf(src) : -1;
-    return laterOf(
-      src.removedAt,
-      srcOffset < 0
-        ? undefined
-        : srcSiblings![srcOffset + 1]?.id.getCreatedAt(),
-    );
+    return siblings[offset + 1]?.id.getCreatedAt();
   }
 
   /**
@@ -4282,34 +3961,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (child.mergedFrom?.equals(src.id)) {
         child.mergedFrom = undefined;
         child.mergedAt = undefined;
-        child.mergedAtApproximated = undefined;
       }
-    }
-  }
-
-  /**
-   * `demoteRevivedMergeWitness` downgrades the merge stamps of a node a
-   * restore brought back in place to an approximation.
-   *
-   * `TreeRestoreSpan` carries id, type, length, value, attrs and anchors --
-   * not the merge lineage -- so a replica that had already purged the node
-   * recreates it with no stamps at all (`recreateFromSpan`), while a replica
-   * that still held the tombstone revives it with them intact. Left alone the
-   * two would answer `sawMergedBack` differently, and the §4.1 cascade would
-   * run on one and not the other. Flagging the survivor makes both decline,
-   * which is the narrower of the two answers and the one the purged replica
-   * cannot avoid giving.
-   *
-   * `mergedFrom`/`mergedAt` themselves stay: the flag is what every reader of
-   * the ticket consults, so a demoted stamp is already declined by both of
-   * them (`sawMergedBack` and Fix 8's split placement), and keeping the pair
-   * leaves `mergedInto` rebuildable on a snapshot load. The flag is monotone
-   * -- only `dissolveMerge` clears it, from an operation every replica applies
-   * -- so a second restore of the same node reaches the same state.
-   */
-  private demoteRevivedMergeWitness(node: CRDTTreeNode): void {
-    if (node.mergedFrom && node.mergedAt) {
-      node.mergedAtApproximated = true;
     }
   }
 
@@ -4359,7 +4011,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
           if (node.isRemoved) {
             this.dissolveMerge(node);
             node.unremove();
-            this.demoteRevivedMergeWitness(node);
             untombstoned.push(node);
             revived(node);
           }
@@ -4404,7 +4055,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
           const target = this.isolateTextRange(piece, cursor, overlapEnd, diff);
           if (target.isRemoved) {
             target.unremove();
-            this.demoteRevivedMergeWitness(target);
             untombstoned.push(target);
             revived(target);
           }
