@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-07
 ---
 
 # Tasks Index
@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Stop the split-sibling cascade at a sibling the editor saw alive (2026-10-06) | [20261006-split-sibling-cascade-stop-todo.md](./active/20261006-split-sibling-cascade-stop-todo.md) | [20261006-split-sibling-cascade-stop-lessons.md](./active/20261006-split-sibling-cascade-stop-lessons.md) |
 | Report a remote split where it landed, not where it was asked for (2026-10-06) | [20261006-split-opinfo-concurrent-insert-todo.md](./active/20261006-split-opinfo-concurrent-insert-todo.md) | [20261006-split-opinfo-concurrent-insert-lessons.md](./active/20261006-split-opinfo-concurrent-insert-lessons.md) |
 | Drop a pull already in flight when switching to push-only (2026-10-06) | [20261006-pushonly-switch-in-flight-pull-todo.md](./active/20261006-pushonly-switch-in-flight-pull-todo.md) | [20261006-pushonly-switch-in-flight-pull-lessons.md](./active/20261006-pushonly-switch-in-flight-pull-lessons.md) |
 | Re-issue pre-attach tickets to the client's actor on attach (2026-10-05) | [20261005-reissue-pre-attach-tickets-todo.md](./active/20261005-reissue-pre-attach-tickets-todo.md) | [20261005-reissue-pre-attach-tickets-lessons.md](./active/20261005-reissue-pre-attach-tickets-lessons.md) |

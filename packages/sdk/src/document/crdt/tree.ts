@@ -2492,6 +2492,57 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `collectUnknownSplitSiblings` appends to `out` the split siblings of the
+   * deleted element `node` that the editor did not know, with their
+   * subtrees (§4.1 of yorkie's docs/design/concurrent-merge-split.md).
+   *
+   * The walk passes a sibling the editor knew only if the editor saw it
+   * gone: removed by a change the editor knew (merged back into `node`,
+   * say), or enclosed whole by this delete. What lies past it was then
+   * inside `node` or inside the deleted range for the editor too. Any other
+   * known sibling ends the walk. The chain is in document order and a split
+   * product lands right after the node it was split off (or, under §7.8,
+   * after the same-boundary products ordered ahead of it), so an unknown
+   * sibling past such a sibling holds content the editor saw inside that
+   * sibling, not inside `node`. Walking on tombstoned it: after a split at
+   * offset 0 and a delete of the empty left piece, the concurrent
+   * same-boundary product that holds the moved content sits right after the
+   * editor's own product (#1408).
+   */
+  private collectUnknownSplitSiblings(
+    node: CRDTTreeNode,
+    versionVector: VersionVector | undefined,
+    enclosed: (node: CRDTTreeNode) => boolean,
+    out: Array<CRDTTreeNode>,
+  ): void {
+    const walker = new InsNextWalker();
+    walker.visit(node);
+    let next = node.insNextID ? this.findFloorNode(node.insNextID) : undefined;
+    // Stop on a chain that loops back on itself; see InsNextWalker.
+    // Unbounded here would also grow `out` without limit.
+    while (next && walker.visit(next)) {
+      if (ticketKnown(versionVector, next.id.getCreatedAt())) {
+        const seenGone =
+          !!next.removedAt && ticketKnown(versionVector, next.removedAt);
+        if (!seenGone && !enclosed(next)) {
+          break;
+        }
+      } else {
+        out.push(next);
+        // Cascade through the full subtree, not just immediate children.
+        const sibling = next;
+        traverseAll(sibling, (n) => {
+          if (n !== sibling) {
+            out.push(n);
+          }
+        });
+      }
+      if (!next.insNextID) break;
+      next = this.findFloorNode(next.insNextID);
+    }
+  }
+
+  /**
    * `emptyRunReachesActor` reports whether the insNextID chain starting at
    * `node` runs through empty, unknown element split siblings only and then
    * reaches a node created by `actorID`.
@@ -3075,6 +3126,29 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const toBeMergedNodes: Array<CRDTTreeNode> = [];
     const preTombstoned = new Set<string>();
 
+    // `enclosed` reports whether the range covers the element whole, start
+    // and end tokens both. Collected on first use; most deletes never ask.
+    let enclosedNodes: Set<CRDTTreeNode> | undefined;
+    const enclosed = (n: CRDTTreeNode): boolean => {
+      if (!enclosedNodes) {
+        const found = new Set<CRDTTreeNode>();
+        this.traverseInPosRange(
+          collectFromParent,
+          collectFromLeft,
+          toParent,
+          toLeft,
+          ([token, tokenType], ended) => {
+            if (tokenType === TokenType.Start && ended) {
+              found.add(token);
+            }
+          },
+          true,
+        );
+        enclosedNodes = found;
+      }
+      return enclosedNodes.has(n);
+    };
+
     this.traverseInPosRange(
       collectFromParent,
       collectFromLeft,
@@ -3130,32 +3204,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
             }
             nodesToBeRemoved.push(node);
 
-            // Cascade delete to split siblings created by concurrent
+            // §4.1 Cascade delete to split siblings created by concurrent
             // SplitElement. Only for element nodes.
             if (
               !node.isText &&
               node.insNextID &&
               !toBeMergedNodes.includes(node)
             ) {
-              const walker = new InsNextWalker();
-              walker.visit(node);
-              let next = this.findFloorNode(node.insNextID);
-              // Stop on a chain that loops back on itself; see
-              // InsNextWalker. Unbounded here would also grow
-              // nodesToBeRemoved without limit.
-              while (next && walker.visit(next)) {
-                if (!ticketKnown(versionVector, next.id.getCreatedAt())) {
-                  nodesToBeRemoved.push(next);
-                  // Cascade through the full subtree, not just immediate children.
-                  traverseAll(next, (n) => {
-                    if (n !== next) {
-                      nodesToBeRemoved.push(n);
-                    }
-                  });
-                }
-                if (!next.insNextID) break;
-                next = this.findFloorNode(next.insNextID);
-              }
+              this.collectUnknownSplitSiblings(
+                node,
+                versionVector,
+                enclosed,
+                nodesToBeRemoved,
+              );
             }
           }
           tokensToBeRemoved.push([node, tokenType]);
