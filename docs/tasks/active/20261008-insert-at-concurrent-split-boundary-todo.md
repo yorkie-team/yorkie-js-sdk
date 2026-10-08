@@ -59,12 +59,32 @@ Two sides of the same boundary, both in `packages/sdk/src/document/crdt/tree.ts`
       `tree_split_order_test.ts` and `tree_split_sibling_cascade_test.ts`.
 - [x] `pnpm verify:fast` green.
 
+## Blocks merge: the rule has to land in yorkie too
+
+Not an "out of scope" item — a merge gate, and it needs a maintainer, not
+this branch.
+
+Where a same-boundary split lands is a **replicated convergence contract**:
+the server and every SDK have to pick the same node for the same change.
+Step 1 of the approach changes that pick in JS only. Until the same rule
+lands in yorkie-team/yorkie, a JS replica and a Go/server replica can place
+the same split differently — which is the #1436 divergence moved, not
+removed, for a mixed-SDK document. The JS-only fix converges a JS-only
+fleet and is a regression for a mixed one, so shipping it is a trade a
+maintainer has to make knowingly.
+
+- [ ] Issue filed against yorkie-team/yorkie porting
+      `orderSameBoundarySplit`'s boundary-insert-run rule (and
+      `boundaryInsertRunOf`) to the Go tree, and the rule written into
+      `docs/design/concurrent-merge-split.md` there — it is a §7.3 reading
+      that document does not spell out today.
+- [ ] Maintainer decision recorded on the PR: merge JS-first with the port
+      tracked, or hold this branch until the Go side is ready.
+
+`boundaryInsertRunOf` carries a `NOTE(cross-implementation)` pointing here.
+
 ## Out of scope
 
-- The Go SDK and the server carry the same code and presumably diverge the
-  same way; not measured, not changed here. Where a same-boundary split
-  lands is a replicated contract, so until the rule lands there too a JS
-  replica and a Go one can place one differently. File this against
-  yorkie-team/yorkie before merge; the two helpers carry a
-  `NOTE(cross-implementation)` pointing back here.
+- Measuring the Go SDK and the server: they carry the same code and
+  presumably diverge the same way, but that is not verified here.
 - The fuzz harness behind the issue is not in this repo.

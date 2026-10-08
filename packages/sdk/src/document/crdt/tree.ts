@@ -2416,9 +2416,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * contract -- the server and every other SDK have to pick the same node
    * for the same change. This rule is a §7.3 reading that yorkie's
    * `docs/design/concurrent-merge-split.md` does not spell out, and only
-   * this SDK applies it today, so a JS replica and a Go one can place a
-   * same-boundary split differently until the rule lands there too. Issue
-   * #1436 tracks that; see "Out of scope" in
+   * this SDK applies it today, so a JS replica and a Go/server one can
+   * place a same-boundary split differently until the rule lands there
+   * too: #1436's divergence is moved for a mixed-SDK document, not
+   * removed. Porting it is NOT tracked by #1436, which is the JS bug --
+   * it needs its own issue against yorkie-team/yorkie, and it gates
+   * merging this rule. See "Blocks merge" in
    * `docs/tasks/active/20261008-insert-at-concurrent-split-boundary-todo.md`.
    */
   private boundaryInsertRunOf(
@@ -3739,9 +3742,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
           // them -- so they stay unguarded and are not made safe by this.
           // `visibleRangeOf` guards its calls on the same "there is a
           // correct degradation" ground: it reports no range at all.
+          //
+          // Both calls take `measured`, the node `last` was picked out of.
+          // Handing them `parent` instead would be wrong whenever `measured`
+          // is `target`: `toTreePos` resolves an element `last` through
+          // `parent.findOffset(last)`, which returns -1 for a non-child and
+          // is then incremented to 0 -- the start of `parent`, reported
+          // without a throw for this `catch` to degrade on.
           try {
-            const idx = this.toIndex(parent, last);
-            const path = this.toPath(parent, last);
+            const idx = this.toIndex(measured, last);
+            const path = this.toPath(measured, last);
             if (splitCount === 0) {
               splitFromIdx = idx;
               splitFromPath = path;
