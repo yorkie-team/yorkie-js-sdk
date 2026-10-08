@@ -4137,7 +4137,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
         const range = this.visibleRangeOf(target);
         if (target.remove(executedAt)) {
           first ??= target;
-          last = target;
+          // `last` is only usable as a right boundary while it still sits
+          // beside `first`: a span records ONE parent, and an element split
+          // can scatter a text insertion's pieces across parents, which
+          // `findPiecesOverlapping` (matching on creation ticket and offset
+          // alone) happily returns together. A right anchor taken from a piece
+          // under another parent is stored as a sibling that cannot resolve
+          // there, and `recreateFromSpan`'s rung (c) checks the parent of
+          // whatever the anchor resolves to -- so the mismatch would be
+          // silent, quietly demoting the recreate to the id-order fallback.
+          if (target.parent === first.parent) {
+            last = target;
+          }
           pairs.push({ parent: this, child: target });
           if (range) {
             const [from, to, fromPath, toPath] = range;
@@ -4449,9 +4460,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `spanAnchors` returns the parent and sibling anchors to store on a restore
    * span covering `first`..`last` — one node for an element or a whole text
    * node, the leftmost and rightmost piece when a text span spans several.
-   * Both must be siblings in the tree as it stands right now: these anchors
+   * The parent is `first`'s, since a span records exactly one: these anchors
    * are a snapshot of where the span sat at the instant they were taken, and
    * `recreateFromSpan` can only use them while they still resolve.
+   *
+   * `last` contributes the right boundary only while it is a child of that
+   * same parent. A piece that has moved out from under it — an element split
+   * scatters a text insertion's pieces across parents — would otherwise hand
+   * back a sibling id that cannot resolve under `parentID`, which
+   * `recreateFromSpan`'s rung (c) rejects silently: the recreate would drop to
+   * the id-order fallback instead of landing beside its siblings. Falling back
+   * to `first`'s own slot gives a narrower but resolvable boundary.
    */
   private spanAnchors(
     first: CRDTTreeNode,
@@ -4463,7 +4482,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     }
     const siblings = parent.allChildren;
     const firstIdx = siblings.indexOf(first);
-    const lastIdx = siblings.indexOf(last);
+    const lastIdx =
+      last === first || last.parent !== parent
+        ? firstIdx
+        : siblings.indexOf(last);
     return {
       parentID: parent.id,
       leftSiblingID:

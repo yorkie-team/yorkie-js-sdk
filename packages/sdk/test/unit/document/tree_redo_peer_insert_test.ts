@@ -123,6 +123,43 @@ function buildPeerInsertBefore(): [Doc, Doc] {
   return [d1, d2];
 }
 
+/**
+ * `buildSplitTextWithPeerInsert` has d1 type `abc` as ONE insert, then d2
+ * split that text node in two by inserting `Q` inside it and insert `XYZ` in
+ * front of it. d1's single insert is left on its undo stack, and its span now
+ * covers TWO live pieces (`ab` at offset 0 and `c` at offset 2) — the
+ * multi-piece `first !== last` path through `spanAnchors`.
+ */
+function buildSplitTextWithPeerInsert(): [Doc, Doc] {
+  const d1: Doc = new Document<{ t: Tree }>('test-doc');
+  const d2: Doc = new Document<{ t: Tree }>('test-doc');
+  d1.setActor(A1);
+  d2.setActor(A2);
+
+  d1.update((root) => {
+    root.t = new Tree({ type: 'doc', children: [{ type: 'p', children: [] }] });
+  });
+  crossSync(d1, d2);
+
+  d1.update((root) =>
+    root.t.editByPath([0, 0], [0, 0], { type: 'text', value: 'abc' }),
+  );
+  crossSync(d1, d2);
+
+  // Splits d1's text node at offset 2, so one insertion now owns two pieces.
+  d2.update((root) =>
+    root.t.editByPath([0, 2], [0, 2], { type: 'text', value: 'Q' }),
+  );
+  d2.update((root) =>
+    root.t.editByPath([0, 0], [0, 0], { type: 'text', value: 'XYZ' }),
+  );
+  crossSync(d1, d2);
+
+  assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZabQc</p></doc>');
+  assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+  return [d1, d2];
+}
+
 describe('tree redo across a peer insert (#1418)', () => {
   it('restores a garbage-collected node after the peer text, not before it', () => {
     const [d1, d2] = buildPeerInsertBefore();
@@ -178,6 +215,56 @@ describe('tree redo across a peer insert (#1418)', () => {
     crossSync(d1, d2);
 
     assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZa</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+  });
+
+  it('re-anchors a span that tombstoned several text pieces', () => {
+    const [d1, d2] = buildSplitTextWithPeerInsert();
+
+    // The undo re-removes both pieces of the one insertion, so the span's
+    // anchors come from the leftmost (`ab`) and the rightmost (`c`) piece.
+    d1.history.undo();
+    crossSync(d1, d2);
+    collect(d1, d2);
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZQ</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    // Both pieces were purged, so the redo recreates the span as one node and
+    // places it by its anchors: after `XYZ`, which is what the left anchor
+    // (re-read at the undo) says. Falling back to id order would put `abc`
+    // first, since it carries an earlier ticket than `XYZ`.
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZabcQ</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+  });
+
+  it('re-anchors a span whose pieces no longer share a parent', () => {
+    const [d1, d2] = buildSplitTextWithPeerInsert();
+
+    // Splitting the paragraph inside d1's text moves the `c` piece out from
+    // under the `ab` piece's parent, so the span's two pieces end up in
+    // different elements. A span records ONE parent, so the right anchor has
+    // to come from a piece that still sits under it.
+    d2.update((root) => root.t.editByPath([0, 5], [0, 5], undefined, 1));
+    crossSync(d1, d2);
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZab</p><p>Qc</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+
+    d1.history.undo();
+    crossSync(d1, d2);
+    collect(d1, d2);
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZ</p><p>Q</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    // The recreated node lands under the first paragraph, after `XYZ`: the
+    // parent and the left anchor both come from the `ab` piece, the only one
+    // still there to read them from.
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZabc</p><p>Q</p></doc>');
     assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
   });
 
