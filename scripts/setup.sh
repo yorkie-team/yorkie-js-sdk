@@ -46,6 +46,50 @@ git config core.hooksPath "$HOOKS_PATH"
 rm -rf "$GIT_COMMON/githooks"
 echo "Git hooks now run from .githooks/ (core.hooksPath=$HOOKS_PATH)"
 
+# THE RE-RUN WOULD PERSIST A BRANCH'S HOOKS. Run inside a checkout of somebody's
+# pull request, the install below would make that branch's `scripts/hooks/*.sh`
+# the clone's checkout-proof Claude Code hooks. So compare what the install
+# runs and copies against the default branch and refuse when it differs. The
+# escape hatch is an environment variable rather than a prompt, because this
+# script is also run non-interactively.
+#
+# This guards against ACCIDENT only. A malicious branch's setup.sh can simply
+# leave the check out, and running that file is already running the branch's
+# code. Run setup on `main`.
+#
+# `:(glob)scripts/*.mjs` because `install.mjs` imports `../direct-run.mjs`;
+# `:(glob)` keeps `*` from spanning `/` into `scripts/agent/**`.
+HOOK_SOURCES=(scripts/hooks scripts/setup.sh ':(glob)scripts/*.mjs')
+
+# `upstream/main` first: in a fork, `origin/main` is the fork's and may lag.
+UPSTREAM_REF=""
+for ref in refs/remotes/upstream/main refs/remotes/origin/main refs/remotes/origin/HEAD; do
+  if git -C "$REPO_ROOT" rev-parse --verify --quiet "$ref" >/dev/null; then
+    UPSTREAM_REF="$ref"
+    break
+  fi
+done
+
+if [ -z "$UPSTREAM_REF" ]; then
+  echo "setup: no origin/main to compare the Claude Code hook sources against;" >&2
+  echo "       installing this worktree's copies as-is." >&2
+elif ! git -C "$REPO_ROOT" diff --quiet "$UPSTREAM_REF" -- "${HOOK_SOURCES[@]}"; then
+  if [ "${YORKIE_ALLOW_LOCAL_HOOKS:-}" != "1" ]; then
+    echo "setup: this worktree's Claude Code hook sources differ from ${UPSTREAM_REF#refs/remotes/}:" >&2
+    git -C "$REPO_ROOT" diff --stat "$UPSTREAM_REF" -- "${HOOK_SOURCES[@]}" >&2
+    echo >&2
+    echo "       Installing would snapshot THESE copies into \$GIT_DIR, where no later" >&2
+    echo "       checkout can replace them. If this is a branch you are reviewing rather" >&2
+    echo "       than one you wrote, that is not what you want. The git hooks above are" >&2
+    echo "       already enabled." >&2
+    echo "       Re-run on the default branch, or, if you meant it:" >&2
+    echo "         YORKIE_ALLOW_LOCAL_HOOKS=1 bash scripts/setup.sh" >&2
+    exit 1
+  fi
+  echo "setup: Claude Code hook sources differ from ${UPSTREAM_REF#refs/remotes/};" >&2
+  echo "       installing them anyway because YORKIE_ALLOW_LOCAL_HOOKS=1." >&2
+fi
+
 # Claude Code hooks: snapshotted into `$GIT_DIR/agent-hooks` and wired in the
 # gitignored `.claude/settings.local.json`, never a tracked settings file —
 # Claude Code runs what that names on opening a session, before any git

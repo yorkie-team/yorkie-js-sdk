@@ -758,3 +758,48 @@ test('a hook change applies on the next commit, with no re-install', () => {
     assert.equal(r.status, 0, `the edited hook must run: ${r.stderr}`);
   });
 });
+
+test('setup.sh refuses Claude Code hook sources that differ from origin/main', () => {
+  // The Claude Code hooks are still snapshotted, so a re-run inside a reviewed
+  // branch would make that branch's `scripts/hooks/*.sh` permanent for every
+  // session. The git hooks are enabled before the refusal: they run from the
+  // tree anyway.
+  inScratchClone((ctx) => {
+    const { clone, at, env } = ctx;
+    plantSetup(ctx);
+    writeFileSync(
+      path.join(clone, 'scripts', 'hooks', 'session-prime.sh'),
+      '#!/usr/bin/env bash\nexit 0\n',
+    );
+    const r = runSetup(clone, env);
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /YORKIE_ALLOW_LOCAL_HOOKS=1/);
+    assert.equal(
+      existsSync(path.join(clone, '.claude', 'settings.local.json')),
+      false,
+      'the branch copies must not be wired',
+    );
+    assert.equal(
+      at(clone)('config', '--get', 'core.hooksPath').stdout.trim(),
+      '.githooks',
+    );
+
+    const forced = runSetup(clone, { ...env, YORKIE_ALLOW_LOCAL_HOOKS: '1' });
+    assert.equal(forced.status, 0, forced.stderr);
+  });
+});
+
+test('setup.sh does not refuse a .githooks/ change', () => {
+  // `.githooks/` is no longer copied anywhere, so a local edit to it persists
+  // nothing and must not block the install.
+  inScratchClone((ctx) => {
+    const { clone, env } = ctx;
+    plantSetup(ctx);
+    writeFileSync(
+      path.join(clone, '.githooks', 'pre-push'),
+      '#!/usr/bin/env bash\nexit 0\n',
+    );
+    const r = runSetup(clone, env);
+    assert.equal(r.status, 0, r.stderr);
+  });
+});

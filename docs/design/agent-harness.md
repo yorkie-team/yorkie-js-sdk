@@ -70,7 +70,11 @@ the defence is the same: read someone else's diff first. Claude Code runs its
 hooks the moment a session opens in a checkout, before anything has been read,
 so those stay in `$GIT_DIR`, where `git checkout` never writes. Their cost is
 staleness: an improved Claude Code hook reaches a clone when someone re-runs
-`setup.sh`.
+`setup.sh`. And because a re-run inside a reviewed branch would snapshot that
+branch's copies, `setup.sh` refuses to install them when `scripts/hooks`,
+`setup.sh` or `scripts/*.mjs` differ from `upstream/main` or `origin/main`
+(override: `YORKIE_ALLOW_LOCAL_HOOKS=1`). It guards against accident only: a
+hostile branch's `setup.sh` can leave the check out.
 
 Until 2026-10 the git hooks were snapshotted too, into `$GIT_DIR/githooks`,
 and `.githooks/trusted-tree.sh` refused to run `lint-staged` or `verify:fast`

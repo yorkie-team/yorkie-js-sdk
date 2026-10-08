@@ -27,7 +27,9 @@ The maintainer chose wafflebase's simpler model: hooks run from the tracked
       pnpm-missing refusals.
 - [x] `scripts/setup.sh`: set `core.hooksPath=.githooks` (relative, so every
       worktree runs its own checkout), remove the old `$GIT_DIR/githooks`
-      copy; `--check` compares against `.githooks`.
+      copy; `--check` compares against `.githooks`. Keep the
+      `YORKIE_ALLOW_LOCAL_HOOKS` source check, narrowed to the Claude Code
+      hook sources (matching yorkie).
 - [x] Decide on a wafflebase-style `postinstall`: no — `prepare` keeps
       `setup.sh --check` (see the design doc's decisions).
 - [x] Decide on `scripts/hooks/install.mjs`: keep the Claude Code snapshot;
