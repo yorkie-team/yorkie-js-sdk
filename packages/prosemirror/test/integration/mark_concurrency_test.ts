@@ -139,6 +139,41 @@ describe('ProseMirror concurrent mark change integration', () => {
     assert.deepEqual(texts(d1), ['abcdef', 'Qsecond']);
   });
 
+  // The two reproductions #1438 reports as failing. Narrowing the replacement
+  // to the children that changed — the issue's direction 1, which this PR
+  // implements — cannot reach either of them: both start from a paragraph
+  // whose only child is a text node, and `IndexTree` indexes an element by
+  // whether *every* child is text, so that text node cannot survive beside the
+  // mark wrappers the change introduces. The whole child list is rewritten and
+  // the concurrent insert goes with it. Keeping the text node alive needs the
+  // issue's direction 2 — marks as element attributes, changed with
+  // `tree.style`, which never deletes a node. These stay here failing rather
+  // than deleted so the gap is visible until that lands.
+  it.fails('keeps a concurrent insert when a whole run is marked', async () => {
+    await concurrently(
+      doc(p('abcdef')),
+      doc(p(strong('abcdef'))),
+      doc(p('abcQdef')),
+    );
+
+    assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    assert.deepEqual(texts(d1), ['abcQdef']);
+  });
+
+  it.fails(
+    'keeps a concurrent insert when part of a run is marked',
+    async () => {
+      await concurrently(
+        doc(p('abcdef')),
+        doc(p('a', strong('bc'), 'def')),
+        doc(p('abcdefQ')),
+      );
+
+      assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+      assert.deepEqual(texts(d1), ['abcdefQ']);
+    },
+  );
+
   it('converges when a mark is added to a block another client types into', async () => {
     // Known limitation of storing marks as wrapper elements: marking a run of
     // an *unmarked* paragraph turns the paragraph's single text child into

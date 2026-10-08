@@ -30,7 +30,16 @@ import { Tree, type ElementNode } from '@yorkie-js/sdk/src/yorkie';
 import { pmToYorkie } from '../../src/convert';
 import { defaultMarkMapping } from '../../src/defaults';
 import type { YorkieTreeJSON, TextEdit } from '../../src/types';
-import { doc, p, strong, em, yText, yElem, createMockTree } from './helpers';
+import {
+  doc,
+  p,
+  strong,
+  em,
+  heading,
+  yText,
+  yElem,
+  createMockTree,
+} from './helpers';
 
 describe('diff', () => {
   describe('yorkieNodesEqual', () => {
@@ -606,6 +615,69 @@ describe('diff', () => {
         undefined,
       ]);
     });
+
+    it('should delete the children a block drops', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('strong', [yText('cd')]),
+      ]);
+      const newBlock = yElem('paragraph', [yElem('span', [yText('ab')])]);
+      assert.isTrue(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].args, [5, 9, undefined, undefined]);
+    });
+
+    it('should decline when the block type changed too', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('span', [yText('cd')]),
+      ]);
+      const newBlock = yElem(
+        'heading',
+        [yElem('span', [yText('ab')]), yElem('span', [yText('Xd')])],
+        { level: '1' },
+      );
+      assert.isFalse(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 0);
+    });
+
+    it('should decline when the block attributes changed too', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem(
+        'heading',
+        [yElem('span', [yText('ab')]), yElem('span', [yText('cd')])],
+        { level: '1' },
+      );
+      const newBlock = yElem(
+        'heading',
+        [yElem('span', [yText('ab')]), yElem('span', [yText('Xd')])],
+        { level: '2' },
+      );
+      assert.isFalse(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 0);
+    });
+
+    it('should keep a block change reached through syncToYorkie', () => {
+      // A heading input rule retypes the block and rewrites the text it
+      // consumed in one transaction. Narrowing to the changed child would keep
+      // the stored `paragraph` open tag and drop the block half of the change,
+      // leaving the tree permanently out of step with the PM doc.
+      const oldDoc = doc(p(strong('abc'), 'def'));
+      const newDoc = doc(heading(1, strong('abc'), 'defX'));
+      const { tree, calls } = createMockTree(
+        pmToYorkie(oldDoc, defaultMarkMapping),
+      );
+      syncToYorkie(tree, oldDoc, newDoc, defaultMarkMapping);
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].args, [
+        0,
+        12,
+        (pmToYorkie(newDoc, defaultMarkMapping).children || [])[0],
+        undefined,
+      ]);
+    });
   });
 
   describe('detectSplit', () => {
@@ -996,6 +1068,35 @@ describe('diff', () => {
 
         assert.equal(calls.length, 1);
         assert.deepEqual(calls[0].args, [3, 3, undefined, 1]);
+      });
+
+      it('should decline the narrowed replacement on a stale block', () => {
+        // `tryNarrowedBlockReplace` derives its range from the sizes of
+        // `oldBlocks[i].children`, so those indexes only address the tree
+        // while the stored block still serializes the same way. Here the
+        // tree's `strong` holds two text runs where the PM doc holds one, so
+        // the narrowed range would cut inside the tree's first run; fall back
+        // to replacing the whole block, whose indexes come from the tree.
+        const oldDoc = doc(p(strong('abc'), 'def'));
+        const newDoc = doc(p(em('abc'), 'def'));
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem('paragraph', [
+              yElem('strong', [yText('a'), yText('bc')]),
+              yElem('span', [yText('def')]),
+            ]),
+          ]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args, [
+          0,
+          12,
+          (pmToYorkie(newDoc, markMapping).children || [])[0],
+          undefined,
+        ]);
       });
 
       it('should still use native merge', () => {

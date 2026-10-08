@@ -264,7 +264,14 @@ export function tryIntraBlockDiff(
  * - the surviving children would mix text and element nodes. `IndexTree`
  *   indexes a node by whether *every* child is text (`hasTextChild`), and
  *   `pmToYorkie` wraps bare text in `<span>` for exactly this reason, so a
- *   mixed parent is not a shape this binding may create.
+ *   mixed parent is not a shape this binding may create;
+ * - the block node itself changed. An edit over a range of children keeps the
+ *   block's own open tag, so its type and attributes stay whatever the tree
+ *   already held. A transaction that retypes the block *and* touches a child —
+ *   a heading input rule, which replaces `paragraph` with `heading` while
+ *   rewriting the text it consumed — would otherwise land here and lose the
+ *   block half of the change for good, leaving the CRDT permanently out of
+ *   step with the PM doc.
  */
 export function tryNarrowedBlockReplace(
   tree: {
@@ -281,6 +288,18 @@ export function tryNarrowedBlockReplace(
   onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
 ): boolean {
   if (oldBlock.type === 'text' || newBlock.type === 'text') return false;
+
+  // The block node itself has to be untouched for a children-only edit to be
+  // faithful. Both sides come from `pmToYorkie`, so — as in `yorkieNodesEqual`
+  // — the key order of the two attribute objects agrees and `JSON.stringify`
+  // is a sound comparison.
+  if (oldBlock.type !== newBlock.type) return false;
+  if (
+    JSON.stringify(oldBlock.attributes || {}) !==
+    JSON.stringify(newBlock.attributes || {})
+  ) {
+    return false;
+  }
 
   const oldChildren = oldBlock.children || [];
   const newChildren = newBlock.children || [];
@@ -305,8 +324,9 @@ export function tryNarrowedBlockReplace(
     newEnd--;
   }
 
-  // Identical child lists: the blocks differ only in their own attributes,
-  // which a child-range edit cannot express.
+  // Identical child lists. The block nodes compared equal above, so the two
+  // blocks are equal and the caller should never have asked — decline rather
+  // than emit a zero-width edit.
   if (prefix > oldEnd && prefix > newEnd) return false;
 
   // Nothing survives the edit, so narrowing buys nothing.

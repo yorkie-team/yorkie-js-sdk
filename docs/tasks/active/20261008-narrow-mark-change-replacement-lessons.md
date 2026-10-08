@@ -42,3 +42,25 @@ autonomous run, so it is left for the issue to settle.
 
 `/self-review` was not run: this run is granted no tool that can dispatch the
 reviewer subagent. Review is left to CI, `@claude review`, and a human.
+
+## Panel round 1
+
+Three blocking findings, all acted on in one pass:
+
+- **The narrowed path ignored the block node itself.** It diffed only
+  `children`, so a transaction that retyped the block *and* touched a child —
+  a heading input rule is the everyday case — emitted a children-only edit and
+  dropped the block half for good, diverging the CRDT from the PM doc with no
+  later edit able to notice. `tryNarrowedBlockReplace` now compares `type` and
+  `attributes` first and declines, which is a fallback to full block
+  replacement, not a loss.
+- **The staleness guard had no test.** The guard is what stands between a
+  stored tree that no longer matches the old serialization and an edit over
+  the wrong range, so it earns a test that drives it false:
+  `should decline the narrowed replacement on a stale block`, in the suite
+  built for exactly that shape. Removing the guard makes it fail.
+- **Neither of the issue's two reproductions is fixed.** Correct, and not
+  fixable from direction 1 — see the todo's "Out of scope". Both now live in
+  `mark_concurrency_test.ts` as `it.fails`, asserting the outcome the issue
+  asks for rather than the lossy one, so direction 2 landing will flip them
+  green and the gap cannot be read as covered in the meantime.

@@ -54,7 +54,14 @@ Out of scope — needs a maintainer decision, see the lessons file:
 - Direction 2 from the issue (every text run in an inline element, marks as
   that element's attributes). It is the only one of the two that also saves
   typing *inside* the run whose mark changed, but it changes the stored tree
-  format for every existing document.
+  format for every existing document. **Both reproductions #1438 lists as
+  failing need it**: each starts from a paragraph whose only child is a text
+  node, and `IndexTree` indexes an element by whether every child is text, so
+  the text node cannot survive beside the mark wrappers the change adds.
+  Narrowing therefore declines and the fallback deletes the run. The two cases
+  are in `mark_concurrency_test.ts` as `it.fails`, asserting the outcome the
+  issue asks for, so the gap stays visible. File as a follow-up issue before
+  merge.
 
 ## Verification
 
