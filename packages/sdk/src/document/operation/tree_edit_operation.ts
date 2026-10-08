@@ -524,8 +524,24 @@ export class TreeEditOperation extends Operation {
       const diff = { data: 0, meta: 0 };
       // 1. Re-remove (retombstone) by identity. Isolating a straddling piece
       // splits it (live-split overhead accounted to `diff`).
-      const [retombstonePairs, retombstoneDiff, retombstoneChanges] =
-        tree.retombstone(toRetombstone, editedAt);
+      const [
+        retombstonePairs,
+        retombstoneDiff,
+        retombstoneChanges,
+        reanchored,
+      ] = tree.retombstone(toRetombstone, editedAt);
+      // Keep the anchors `retombstone` just re-read. The reverse op below is
+      // the one that will revive these nodes, and after garbage collection
+      // has purged them it can only put them back where the anchors say —
+      // the ones captured when the span was first built describe a tree that
+      // no longer exists. This writes through to the wire too: the spans are
+      // encoded from the operation after it has run, so a peer recreating the
+      // node reads the same anchors this replica does.
+      if (isRetombstone) {
+        this.restoreSpans = reanchored;
+      } else {
+        this.retombstoneSpans = reanchored;
+      }
       addDataSizes(diff, retombstoneDiff);
       for (const pair of retombstonePairs) {
         root.registerGCPair(pair);

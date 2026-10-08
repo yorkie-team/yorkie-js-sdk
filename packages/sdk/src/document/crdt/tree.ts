@@ -3264,19 +3264,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // are excluded automatically. `nodesToBeRemoved` is in traversal
         // order → parents precede children, which `restore()` relies on when
         // recreating purged subtrees.
-        const parent = node.parent as CRDTTreeNode | undefined;
-        let leftSiblingID: CRDTTreeNodeID | undefined;
-        let rightSiblingID: CRDTTreeNodeID | undefined;
-        if (parent) {
-          const siblings = parent.allChildren;
-          const idx = siblings.indexOf(node);
-          if (idx > 0) {
-            leftSiblingID = this.leftAnchorID(siblings[idx - 1]);
-          }
-          if (idx >= 0 && idx < siblings.length - 1) {
-            rightSiblingID = siblings[idx + 1].id;
-          }
-        }
         removedSpans.push({
           id: node.id,
           nodeType: node.type,
@@ -3284,9 +3271,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
           length: node.isText ? node.value.length : 0,
           value: node.isText ? node.value : undefined,
           attrs: node.attrs?.deepcopy(),
-          parentID: parent?.id,
-          leftSiblingID,
-          rightSiblingID,
+          ...this.spanAnchors(node, node),
         });
       }
     }
@@ -3719,18 +3704,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
 
           // Capture this inserted node's identity span (parent-before-child
-          // via traverseAll) for identity-preserving insert undo/redo.
-          const p = node.parent as CRDTTreeNode | undefined;
-          let leftSiblingID: CRDTTreeNodeID | undefined;
-          let rightSiblingID: CRDTTreeNodeID | undefined;
-          if (p) {
-            const sibs = p.allChildren;
-            const idx = sibs.indexOf(node);
-            if (idx > 0) leftSiblingID = this.leftAnchorID(sibs[idx - 1]);
-            if (idx >= 0 && idx < sibs.length - 1) {
-              rightSiblingID = sibs[idx + 1].id;
-            }
-          }
+          // via traverseAll) for identity-preserving insert undo/redo. The
+          // anchors are the ones this insert sees, which is NOT where the
+          // node will sit when an undo tombstones it and a redo has to put it
+          // back: `retombstone` re-reads them at the removal for that reason.
           insertedSpans.push({
             id: node.id,
             nodeType: node.type,
@@ -3738,9 +3715,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
             length: node.isText ? node.value.length : 0,
             value: node.isText ? node.value : undefined,
             attrs: node.attrs?.deepcopy(),
-            parentID: p?.id,
-            leftSiblingID,
-            rightSiblingID,
+            ...this.spanAnchors(node, node),
           });
         });
 
@@ -4118,14 +4093,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * the newly tombstoned nodes, the live-split metadata overhead, and one
    * deletion per visible node it removed, each measured right before the
    * removal so they apply one after another.
+   *
+   * Also returns the spans with their anchors re-read from the tree as it
+   * stands at this removal. A span's anchors are only a hint, but they are the
+   * hint `recreateFromSpan` leans on once garbage collection has purged the
+   * node, and the ones recorded when the span was first captured can be
+   * arbitrarily old — an insert's span is captured at the insert and not used
+   * for placement until the redo, by which time a peer may have inserted
+   * beside it. Dropping to the id-order fallback there is wrong whenever
+   * sibling order disagrees with id order, which a peer inserting to the LEFT
+   * with a later ticket does. Same ids, same order; only the anchors move.
    */
   public retombstone(
     spans: Array<TreeRestoreSpan>,
     executedAt: TimeTicket,
-  ): [Array<GCPair>, DataSize, Array<TreeVisibleEdit>] {
+  ): [Array<GCPair>, DataSize, Array<TreeVisibleEdit>, Array<TreeRestoreSpan>] {
     const pairs: Array<GCPair> = [];
     const diff: DataSize = { data: 0, meta: 0 };
     const changes: Array<TreeVisibleEdit> = [];
+    const reanchored: Array<TreeRestoreSpan> = [];
     for (const span of spans) {
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
@@ -4134,6 +4120,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
         : [this.findFloorNode(span.id)].filter(
             (n): n is CRDTTreeNode => !!n && n.id.equals(span.id),
           );
+      // The leftmost and rightmost piece this span actually tombstoned, in
+      // tree order: `findPiecesOverlapping` yields a text insertion's pieces
+      // by ascending offset, which is their left-to-right order.
+      let first: CRDTTreeNode | undefined;
+      let last: CRDTTreeNode | undefined;
       for (const piece of pieces) {
         if (piece.isRemoved) continue;
         let target = piece;
@@ -4145,6 +4136,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // Measure while `target` is still visible.
         const range = this.visibleRangeOf(target);
         if (target.remove(executedAt)) {
+          first ??= target;
+          last = target;
           pairs.push({ parent: this, child: target });
           if (range) {
             const [from, to, fromPath, toPath] = range;
@@ -4162,8 +4155,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
           }
         }
       }
+      // Nothing of this span was live here — it is already a tombstone, or
+      // this replica never had it. Its old anchors are all there is.
+      reanchored.push(
+        first && last ? { ...span, ...this.spanAnchors(first, last) } : span,
+      );
     }
-    return [pairs, diff, changes];
+    return [pairs, diff, changes, reanchored];
   }
 
   /**
@@ -4445,6 +4443,36 @@ export class CRDTTree extends CRDTElement implements GCParent {
       sibling.id.getCreatedAt(),
       sibling.id.getOffset() + sibling.value.length - 1,
     );
+  }
+
+  /**
+   * `spanAnchors` returns the parent and sibling anchors to store on a restore
+   * span covering `first`..`last` — one node for an element or a whole text
+   * node, the leftmost and rightmost piece when a text span spans several.
+   * Both must be siblings in the tree as it stands right now: these anchors
+   * are a snapshot of where the span sat at the instant they were taken, and
+   * `recreateFromSpan` can only use them while they still resolve.
+   */
+  private spanAnchors(
+    first: CRDTTreeNode,
+    last: CRDTTreeNode,
+  ): Pick<TreeRestoreSpan, 'parentID' | 'leftSiblingID' | 'rightSiblingID'> {
+    const parent = first.parent as CRDTTreeNode | undefined;
+    if (!parent) {
+      return {};
+    }
+    const siblings = parent.allChildren;
+    const firstIdx = siblings.indexOf(first);
+    const lastIdx = siblings.indexOf(last);
+    return {
+      parentID: parent.id,
+      leftSiblingID:
+        firstIdx > 0 ? this.leftAnchorID(siblings[firstIdx - 1]) : undefined,
+      rightSiblingID:
+        lastIdx >= 0 && lastIdx < siblings.length - 1
+          ? siblings[lastIdx + 1].id
+          : undefined,
+    };
   }
 
   /**
