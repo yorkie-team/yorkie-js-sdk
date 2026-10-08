@@ -230,6 +230,72 @@ describe('Client.resync', () => {
     assert.equal(doc.getRoot().text, 'refused edit');
     // Nothing was lost, so nothing is reported as lost.
     assert.equal(dropped.length, 0);
+
+    // "Exactly as it was found" includes writable: the hole the discard left
+    // was filled back in, so the app may mint again.
+    doc.update((root) => {
+      root.text = 'edited after the rollback';
+    });
+    assert.equal(doc.getRoot().text, 'edited after the rollback');
+  });
+
+  it('refuses an edit minted inside the resync window', async () => {
+    const key = 'resync-window';
+    const detachPacks: Array<any> = [];
+    let refused: unknown;
+    const doc = new Document<{ text?: string }>(key);
+    const rpcClient = {
+      attachDocument: async () =>
+        create(AttachDocumentResponseSchema, {
+          documentId: 'doc-id',
+          changePack: emptyPack(key, 0),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      detachDocument: async (req: any) => {
+        // The app edits while the detach RPC is in flight — the widest part of
+        // the window, since `resync` awaits a task-queued detach here.
+        try {
+          doc.update((root) => {
+            root.text = 'minted mid-resync';
+          });
+        } catch (err) {
+          refused = err;
+        }
+        detachPacks.push(converter.fromChangePack(req.changePack));
+        return create(DetachDocumentResponseSchema, {
+          changePack: emptyPack(key, 1),
+        });
+      },
+    };
+
+    const client = activatedClient(rpcClient);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    doc.update((root) => {
+      root.text = 'refused edit';
+    });
+
+    await client.resync(doc, { discardLocalChanges: true });
+
+    // The edit is refused loudly rather than wedging the detach with
+    // `ErrInvalidClientSeq` (it would mint over the hole the discard left) or
+    // being wiped by `resetForReanchor` with nothing reported.
+    assert.equal((refused as any)?.code, Code.ErrRefused);
+    assert.equal(detachPacks.length, 1);
+    assert.equal(
+      detachPacks[0].getChanges().length,
+      0,
+      'the refused edit never reached the detach pack',
+    );
+
+    // The window closes with the re-anchor: the document is writable again.
+    assert.equal(doc.getStatus(), DocStatus.Attached);
+    doc.update((root) => {
+      root.text = 'edited after the re-anchor';
+    });
+    assert.equal(doc.getRoot().text, 'edited after the re-anchor');
+
+    await client.detach(doc);
   });
 
   it('refuses a resync that does not opt into discarding', async () => {

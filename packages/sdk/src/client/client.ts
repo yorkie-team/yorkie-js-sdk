@@ -1836,6 +1836,14 @@ export class Client {
    *
    * Keeping the instance is the point: the app's subscriptions and the editor
    * bound to the document survive, where re-creating the client remounts them.
+   * It also means the app can still call `Document.update` while steps 1–4 are
+   * in flight, and between the discard and the re-anchor the change queue has
+   * a `clientSeq` hole no new change may be minted over. So the discard
+   * suspends minting for exactly that span: `update` and undo/redo throw
+   * `ErrRefused` until step 3 (or the rollback below) lifts it, instead of the
+   * edit wedging the detach with `ErrInvalidClientSeq` or being wiped by
+   * `resetForReanchor` with nothing reported. An edit that lands before step 1
+   * is simply part of the discarded set and reported with the rest.
    *
    * Returns the discarded changes so the app can report them ("N edits were not
    * saved"). Re-applying them is deliberately not the default — the server

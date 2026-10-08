@@ -823,6 +823,18 @@ export class Document<
   private isUpdating: boolean;
   private onlineClients: Set<ActorID>;
 
+  // `mintingSuspended` is set while the change queue has a hole relative to
+  // the acked checkpoint: `discardLocalChanges` has taken the un-pushed
+  // changes out without rewinding `clientSeq`, so the next sequence this
+  // document would mint is past the one the server will validate against.
+  // While it is set, every minting entry point (`update`, undo/redo) refuses
+  // rather than queueing a change that can only be rejected with
+  // `ErrInvalidClientSeq` — or be wiped, unreported, by the re-anchor. It is
+  // lifted by `resetForReanchor` (counter back to zero) or by
+  // `restoreLocalChanges` (hole filled back in), which are the only two ways
+  // out of that state. See {@link Document.discardLocalChanges}.
+  private mintingSuspended = false;
+
   private eventStream: Observable<DocEvents<P>>;
   private eventStreamObserver!: Observer<DocEvents<P>>;
 
@@ -918,6 +930,7 @@ export class Document<
     if (this.getStatus() === DocStatus.Removed) {
       throw new YorkieError(Code.ErrDocumentRemoved, `${this.key} is removed`);
     }
+    this.ensureMintable('Update');
 
     // 01. Update the clone object and create a change.
     this.ensureClone();
@@ -1851,20 +1864,51 @@ export class Document<
    * and the offline-persistence watermarks assume the counter only rises. The
    * cost of not rewinding is that the queue now has a hole relative to the
    * acked checkpoint, so **no change may be minted before the document is
-   * re-anchored**: `Client.resync` detaches without the usual presence clear
-   * precisely so nothing is minted in that window, and `resetForReanchor`
-   * returns the counter to zero a moment later.
+   * re-anchored**. That is not left to the caller to remember: the discard
+   * suspends minting outright, so `update` and undo/redo refuse with
+   * `ErrRefused` until the hole is closed. `Client.resync` spans several
+   * awaits — a detach that enqueues a task and does an RPC, then a re-attach —
+   * and the app keeps hold of the `Document` throughout, so without the
+   * suspension a single edit in that window either wedges the detach with
+   * `ErrInvalidClientSeq` or is wiped by `resetForReanchor` without ever
+   * appearing in the data-loss event. A loud refusal the app can catch is the
+   * one outcome that loses nothing. `resync` also detaches without the usual
+   * presence clear, so the recovery itself mints nothing.
+   *
+   * Only that window is closed. An edit landing *before* the discard is taken
+   * by it and reported in the data-loss event, and one landing after the
+   * re-anchor is ordinary pre-attach editing; neither is at risk.
    *
    * This does **not** undo the discarded changes on `root`: they are already
    * applied and there is no server-confirmed copy to fall back on. The caller
    * is expected to follow with `resetForReanchor` and a fresh attach, which
    * replaces the local state with the server's — or, if that fails, to hand the
-   * changes back with {@link Document.restoreLocalChanges}.
+   * changes back with {@link Document.restoreLocalChanges}. Both lift the
+   * suspension; they are the only two ways out of it.
    */
   public discardLocalChanges(): Array<Change<P>> {
     const discarded = this.localChanges;
     this.localChanges = [];
+    // An empty discard leaves no hole, so it must not suspend minting: there
+    // would be nothing to hand back, and `restoreLocalChanges([])` is a no-op.
+    if (discarded.length) {
+      this.mintingSuspended = true;
+    }
     return discarded;
+  }
+
+  /**
+   * `ensureMintable` refuses a caller that would queue a local change while
+   * the queue has the `clientSeq` hole `discardLocalChanges` left behind.
+   */
+  private ensureMintable(action: string): void {
+    if (this.mintingSuspended) {
+      throw new YorkieError(
+        Code.ErrRefused,
+        `${action} is not allowed on "${this.key}" while it is being ` +
+          `re-anchored after the server refused its changes`,
+      );
+    }
   }
 
   /**
@@ -1876,8 +1920,12 @@ export class Document<
    *
    * The restored changes are older than anything queued since, so they go in
    * front; `clientSeq` is untouched because the discard never moved it.
+   *
+   * Putting them back closes the hole, so minting is allowed again — the
+   * document is left exactly as the discard found it, writable included.
    */
   public restoreLocalChanges(changes: Array<Change<P>>): void {
+    this.mintingSuspended = false;
     if (!changes.length) {
       return;
     }
@@ -2074,6 +2122,10 @@ export class Document<
    * reference it already holds.
    */
   public resetForReanchor(): void {
+    // The counter goes back to zero, so whatever hole `discardLocalChanges`
+    // left is gone and the document may mint again — the re-attach itself
+    // mints the initial presence change.
+    this.mintingSuspended = false;
     this.changeID = InitialChangeID;
     this.checkpoint = InitialCheckpoint;
     this.localChanges = [];
@@ -3231,6 +3283,7 @@ export class Document<
         `${isUndo ? 'Undo' : 'Redo'} is not allowed during an update`,
       );
     }
+    this.ensureMintable(isUndo ? 'Undo' : 'Redo');
 
     // NOTE: The refusal above must not drop the clone: an updater is holding
     // a proxy over it, and `update` reads it again after the updater returns.
