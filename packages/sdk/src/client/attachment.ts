@@ -112,7 +112,6 @@ export class Attachment<R extends Attachable> {
   private watchAbortController?: AbortController;
   private syncPromise?: Promise<void>;
   private _detaching = false;
-  private _writeRejected = false;
 
   constructor(
     reconnectStreamDelay: number,
@@ -262,34 +261,6 @@ export class Attachment<R extends Attachable> {
    */
   public resetDetaching(): void {
     this._detaching = false;
-  }
-
-  /**
-   * `markWriteRejected` marks this attachment as holding changes the server
-   * refused to store (`ErrDocumentSizeExceedsLimit`, `ErrChangeTooLarge`).
-   * The sync loop then skips this attachment alone, instead of the rejection
-   * taking down the loop shared by every other attachment of the client.
-   * Documents only.
-   */
-  public markWriteRejected(): void {
-    this._writeRejected = true;
-  }
-
-  /**
-   * `isWriteRejected` returns whether the sync loop should skip this
-   * attachment because the server rejected its last push outright.
-   */
-  public isWriteRejected(): boolean {
-    return this._writeRejected;
-  }
-
-  /**
-   * `clearWriteRejected` lets the sync loop pick this attachment up again,
-   * once a push has been accepted — an explicit `client.sync(doc)` after the
-   * document was shrunk is the way back in.
-   */
-  public clearWriteRejected(): void {
-    this._writeRejected = false;
   }
 
   /**

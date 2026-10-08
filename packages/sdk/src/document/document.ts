@@ -514,11 +514,6 @@ export type LocalChangesDroppedReason =
   | 'document-purged'
   | 'actor-mismatch'
   | 'restore-failed'
-  // The server refused to store what was pushed for a reason resending cannot
-  // fix (over the size limit, or a single change too large), and the document
-  // was then detached on the checkpoint the server already holds. The refused
-  // changes reach neither the server nor the store, so they are reported here.
-  | 'write-rejected'
   // The persisted change log had a `clientSeq` hole — an append that never
   // landed — so it could not be replayed: the server rejects a discontinuous
   // run, and a document restored from one would never sync again.
