@@ -246,14 +246,113 @@ export function tryIntraBlockDiff(
 }
 
 /**
- * Sync a ProseMirror transaction to the Yorkie tree (upstream sync).
+ * Replace only the children of a changed block that actually differ.
  *
- * Strategy:
- * 1. Find which top-level blocks changed (by diffing Yorkie-format trees)
- * 2. If exactly one block changed and its structure is the same,
- *    do character-level diffing (best for concurrent editing)
- * 3. Otherwise, fall back to full block replacement
+ * A mark is stored as a wrapper element, so changing one changes the block's
+ * structure: `sameStructure` rejects it, it is neither a split nor a merge, and
+ * it used to fall all the way through to full block replacement. That deletes
+ * every text node in the block, so a peer's concurrent insert into any of them
+ * lands in a removed node and is gone — the replicas still converge, which is
+ * why nothing reports it. Deleting only the run whose mark changed leaves the
+ * other runs, and anything a peer typed into them, alive.
+ *
+ * Declines, leaving the caller to replace the whole block, when:
+ *
+ * - nothing would be kept. With no common prefix or suffix the narrowed edit
+ *   rewrites the entire child list, which is no less destructive than the
+ *   fallback;
+ * - the surviving children would mix text and element nodes. `IndexTree`
+ *   indexes a node by whether *every* child is text (`hasTextChild`), and
+ *   `pmToYorkie` wraps bare text in `<span>` for exactly this reason, so a
+ *   mixed parent is not a shape this binding may create.
  */
+export function tryNarrowedBlockReplace(
+  tree: {
+    edit(fromIdx: number, toIdx: number, content?: YorkieTreeJSON): void;
+    editBulk(
+      fromIdx: number,
+      toIdx: number,
+      contents: Array<YorkieTreeJSON>,
+    ): void;
+  },
+  oldBlock: YorkieTreeJSON,
+  newBlock: YorkieTreeJSON,
+  blockStartIdx: number,
+  onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
+): boolean {
+  if (oldBlock.type === 'text' || newBlock.type === 'text') return false;
+
+  const oldChildren = oldBlock.children || [];
+  const newChildren = newBlock.children || [];
+
+  let prefix = 0;
+  while (
+    prefix < oldChildren.length &&
+    prefix < newChildren.length &&
+    yorkieNodesEqual(oldChildren[prefix], newChildren[prefix])
+  ) {
+    prefix++;
+  }
+
+  let oldEnd = oldChildren.length - 1;
+  let newEnd = newChildren.length - 1;
+  while (
+    oldEnd >= prefix &&
+    newEnd >= prefix &&
+    yorkieNodesEqual(oldChildren[oldEnd], newChildren[newEnd])
+  ) {
+    oldEnd--;
+    newEnd--;
+  }
+
+  // Identical child lists: the blocks differ only in their own attributes,
+  // which a child-range edit cannot express.
+  if (prefix > oldEnd && prefix > newEnd) return false;
+
+  // Nothing survives the edit, so narrowing buys nothing.
+  if (prefix === 0 && oldEnd === oldChildren.length - 1) return false;
+
+  const kept = [
+    ...oldChildren.slice(0, prefix),
+    ...newChildren.slice(prefix, newEnd + 1),
+    ...oldChildren.slice(oldEnd + 1),
+  ];
+  if (
+    kept.some((c) => c.type === 'text') &&
+    kept.some((c) => c.type !== 'text')
+  ) {
+    return false;
+  }
+
+  // Both indexes are sums of `yorkieNodeSize` over whole children, so they sit
+  // on node boundaries and can never fall inside a text node — and so never
+  // inside a surrogate pair.
+  let fromIdx = blockStartIdx + 1; // skip the block's open tag
+  for (let i = 0; i < prefix; i++) {
+    fromIdx += yorkieNodeSize(oldChildren[i]);
+  }
+  let toIdx = fromIdx;
+  for (let i = prefix; i <= oldEnd; i++) {
+    toIdx += yorkieNodeSize(oldChildren[i]);
+  }
+
+  const newContent = newChildren.slice(prefix, newEnd + 1);
+
+  onLog?.(
+    'local',
+    `narrowed-replace: children[${prefix}..${oldEnd}] -> ${newContent.length} new (idx: ${fromIdx}-${toIdx})`,
+  );
+
+  if (newContent.length === 0) {
+    tree.edit(fromIdx, toIdx);
+  } else if (newContent.length === 1) {
+    tree.edit(fromIdx, toIdx, newContent[0]);
+  } else {
+    tree.editBulk(fromIdx, toIdx, newContent);
+  }
+  return true;
+}
+
 /**
  * Detect a split: one old block became two or more new blocks with
  * text content preserved. Returns the split char offset and splitLevel,
@@ -459,6 +558,26 @@ export function syncToYorkie(
       }
       return;
     }
+  }
+
+  // NARROWED REPLACEMENT: one block changed into one block — a mark change is
+  // neither a split nor a merge, and `sameStructure` rejected it, so this is
+  // where it lands. Replace only the children that differ. The indexes come
+  // from the stored tree, so trust them only while it still matches the old
+  // serialization.
+  if (
+    oldCount === 1 &&
+    newCount === 1 &&
+    yorkieNodesEqual(currentYorkieBlocks[firstDiff], oldBlocks[firstDiff]) &&
+    tryNarrowedBlockReplace(
+      tree,
+      oldBlocks[firstDiff],
+      newBlocks[firstDiff],
+      blockIndexToYorkieIndex(currentYorkieBlocks, firstDiff),
+      onLog,
+    )
+  ) {
+    return;
   }
 
   // Full block replacement (fallback for structural changes). Both indexes are

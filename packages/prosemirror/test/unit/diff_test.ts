@@ -20,6 +20,7 @@ import {
   sameStructure,
   findTextDiffs,
   tryIntraBlockDiff,
+  tryNarrowedBlockReplace,
   syncToYorkie,
   detectSplit,
   detectMerge,
@@ -29,7 +30,7 @@ import { Tree, type ElementNode } from '@yorkie-js/sdk/src/yorkie';
 import { pmToYorkie } from '../../src/convert';
 import { defaultMarkMapping } from '../../src/defaults';
 import type { YorkieTreeJSON, TextEdit } from '../../src/types';
-import { doc, p, strong, yText, yElem, createMockTree } from './helpers';
+import { doc, p, strong, em, yText, yElem, createMockTree } from './helpers';
 
 describe('diff', () => {
   describe('yorkieNodesEqual', () => {
@@ -470,6 +471,140 @@ describe('diff', () => {
       assert.equal(editArgs[0][0], 3);
       assert.equal(editArgs[0][1], 6);
       assert.isUndefined(editArgs[0][2]);
+    });
+  });
+
+  describe('tryNarrowedBlockReplace', () => {
+    it('should replace only the child whose mark changed', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('strong', [yText('abc')]),
+        yElem('span', [yText('def')]),
+      ]);
+      const newBlock = yElem('paragraph', [
+        yElem('em', [yText('abc')]),
+        yElem('span', [yText('def')]),
+      ]);
+      assert.isTrue(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 1);
+      // <strong>abc</strong> spans [1, 6): open tag, 3 chars, close tag.
+      assert.deepEqual(calls[0].args, [
+        1,
+        6,
+        yElem('em', [yText('abc')]),
+        undefined,
+      ]);
+    });
+
+    it('should keep a trailing child when a leading mark is removed', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('strong', [yText('cd')]),
+        yElem('span', [yText('ef')]),
+      ]);
+      const newBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('span', [yText('cd')]),
+        yElem('span', [yText('ef')]),
+      ]);
+      assert.isTrue(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.deepEqual(calls[0].args, [
+        5,
+        9,
+        yElem('span', [yText('cd')]),
+        undefined,
+      ]);
+    });
+
+    it('should use editBulk when one child becomes several', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('span', [yText('cd')]),
+      ]);
+      const newBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('strong', [yText('c')]),
+        yElem('span', [yText('d')]),
+      ]);
+      assert.isTrue(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls[0].method, 'editBulk');
+      assert.deepEqual(calls[0].args, [
+        5,
+        9,
+        [yElem('strong', [yText('c')]), yElem('span', [yText('d')])],
+      ]);
+    });
+
+    it('should decline when nothing would be kept', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [yText('abcdef')]);
+      const newBlock = yElem('paragraph', [
+        yElem('span', [yText('a')]),
+        yElem('strong', [yText('bc')]),
+        yElem('span', [yText('def')]),
+      ]);
+      assert.isFalse(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 0);
+    });
+
+    it('should decline when the kept children would mix text and elements', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('strong', [yText('cd')]),
+      ]);
+      const newBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yText('cd'),
+      ]);
+      assert.isFalse(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 0);
+    });
+
+    it('should decline when the child lists are identical', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const children = [yElem('span', [yText('ab')])];
+      const oldBlock = yElem('paragraph', children);
+      const newBlock = yElem('paragraph', children, { align: 'right' });
+      assert.isFalse(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 0));
+      assert.equal(calls.length, 0);
+    });
+
+    it('should offset the edit by the block start index', () => {
+      const { tree, calls } = createMockTree(yElem('r', []));
+      const oldBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('strong', [yText('cd')]),
+      ]);
+      const newBlock = yElem('paragraph', [
+        yElem('span', [yText('ab')]),
+        yElem('em', [yText('cd')]),
+      ]);
+      assert.isTrue(tryNarrowedBlockReplace(tree, oldBlock, newBlock, 10));
+      assert.deepEqual(calls[0].args, [
+        15,
+        19,
+        yElem('em', [yText('cd')]),
+        undefined,
+      ]);
+    });
+
+    it('should narrow a mark change reached through syncToYorkie', () => {
+      const oldDoc = doc(p(strong('abc'), 'def'));
+      const newDoc = doc(p(em('abc'), 'def'));
+      const { tree, calls } = createMockTree(
+        pmToYorkie(oldDoc, defaultMarkMapping),
+      );
+      syncToYorkie(tree, oldDoc, newDoc, defaultMarkMapping);
+      assert.equal(calls.length, 1);
+      assert.deepEqual(calls[0].args, [
+        1,
+        6,
+        yElem('em', [yText('abc')]),
+        undefined,
+      ]);
     });
   });
 
