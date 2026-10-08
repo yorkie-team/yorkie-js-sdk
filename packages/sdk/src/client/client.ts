@@ -2911,6 +2911,15 @@ export class Client {
               continue;
             }
 
+            // Skip a document whose last push the server rejected outright:
+            // resending the same pack cannot change its verdict. Only this
+            // attachment is parked; the loop keeps syncing the rest and keeps
+            // the channel heartbeats going. An explicit `client.sync(doc)`
+            // after the document is shrunk clears it.
+            if (attachment.isWriteRejected()) {
+              continue;
+            }
+
             // Reset changeEventReceived for Document resources
             if (attachment.changeEventReceived !== undefined) {
               attachment.changeEventReceived = false;
@@ -2943,6 +2952,22 @@ export class Client {
                       },
                     },
                   ]);
+                }
+
+                // A rejected write is this document's problem, not the
+                // client's: park the attachment and swallow the error here,
+                // so it never reaches `Promise.all` below. Letting it through
+                // would take `handleConnectError` down the non-retry path and
+                // stop the loop for every other attached document and for the
+                // channel heartbeats that keep their sessions alive.
+                // `syncInternal` has already published `write-rejected` on the
+                // document, so the app still learns why this one stopped.
+                if (
+                  isErrorCode(e, Code.ErrDocumentSizeExceedsLimit) ||
+                  isErrorCode(e, Code.ErrChangeTooLarge)
+                ) {
+                  attachment.markWriteRejected();
+                  return;
                 }
 
                 throw e;
@@ -3693,6 +3718,11 @@ export class Client {
         },
       ]);
 
+      // The push the server rejected is behind us, so let the sync loop take
+      // this document again. Reaching here from an explicit `client.sync(doc)`
+      // is the way back for a document parked by a size rejection.
+      attachment.clearWriteRejected();
+
       // NOTE(chacha912): If a document has been removed, watchStream should
       // be disconnected to not receive an event for that document.
       if (doc.getStatus() === DocStatus.Removed) {
@@ -3726,8 +3756,8 @@ export class Client {
       ]);
 
       // The server refused to store what was pushed, and will refuse it again:
-      // `handleConnectError` stops the sync loop for these codes rather than
-      // retrying. `sync-failed` alone cannot be told apart from a network
+      // the push is not retried for these codes, and the sync loop parks this
+      // document. `sync-failed` alone cannot be told apart from a network
       // blip, so report the reason too. Published here, next to the status the
       // app already gets, so it covers the sync loop and an explicit
       // `sync(doc)` alike.
@@ -3766,11 +3796,16 @@ export class Client {
     // 'ErrChangeTooLarge', the server refused to store the pushed changes and
     // will refuse the same pack again: the size gate re-evaluates it on every
     // attempt and nothing the client resends changes its verdict. Retrying
-    // also blocks pulls, because push and pull share one `PushPull` RPC. Stop
-    // the sync loop instead, as with `ErrEpochMismatch`; `syncInternal`
-    // publishes a `write-rejected` event carrying the code so the app can say
-    // why. This is checked ahead of the generic retry block below because the
-    // server sends both as `ResourceExhausted`.
+    // also blocks pulls, because push and pull share one `PushPull` RPC. So
+    // report it as not retryable; `syncInternal` publishes a `write-rejected`
+    // event carrying the code so the app can say why. This is checked ahead of
+    // the generic retry block below because the server sends both as
+    // `ResourceExhausted`.
+    //
+    // The sync loop never consults this for a document rejection — it parks
+    // that one attachment itself (see `runSyncLoop`) rather than letting the
+    // error reach the client-wide handler, which would stop the loop for every
+    // other document and for the channel heartbeats.
     if (
       errorCodeOf(err) === Code.ErrDocumentSizeExceedsLimit ||
       errorCodeOf(err) === Code.ErrChangeTooLarge

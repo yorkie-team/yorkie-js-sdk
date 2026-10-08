@@ -14,5 +14,24 @@
 
 ## Self review
 
-Not run: this branch was produced by an autonomous run with no reviewer
-subagent available. Review is left to CI, `@claude review` and a human.
+### Round 1 (review panel on PR #1462)
+
+- Blocking, three lenses on one defect: `handleConnectError`'s `false` is
+  consumed by `runSyncLoop` on the **aggregate** of `Promise.all` over every
+  attachment, so a single document's size rejection stopped push/pull for all
+  other attached documents *and* the channel heartbeats that keep channel
+  sessions alive against the server TTL. "Do not retry this push" and "stop the
+  client's sync loop" are not the same decision, and the shared handler cannot
+  tell them apart.
+  Fixed by containing the rejection at the attachment: `runSyncLoop`'s
+  per-attachment catch marks the attachment (`Attachment.markWriteRejected`)
+  and swallows the error so it never reaches the client-wide handler; the loop
+  skips that one attachment on later ticks. A successful push clears the mark,
+  so an explicit `client.sync(doc)` after shrinking the document is the way
+  back in (in-place recovery is still #1458).
+- Blocking: the typed `subscribe('write-rejected', …)` overload was never
+  exercised — the test subscribed with `'all'` and filtered by hand. Added a
+  per-type subscription test, a negative test for the publish guard, and a
+  sync-loop test with two attached documents that asserts the rejected one is
+  pushed exactly once while the other keeps syncing. That last test was
+  verified to fail without the containment fix.
