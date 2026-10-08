@@ -185,7 +185,18 @@ export function useYorkieDocument<R, P extends Indexable = Indexable>(
 
     return () => {
       if (client && client.has(docKey)) {
-        client.detach(newDoc);
+        // `detach` can fail, and an unmount cleanup has nowhere to put the
+        // failure: the component is already going away, and an exception
+        // thrown here aborts the rest of this cleanup (the subscriptions and
+        // the devtools teardown below). It can also fail *synchronously* —
+        // before the detach RPC is ever enqueued — when the client is no
+        // longer activated or the document is mid-recovery, so both sides of
+        // the call are covered.
+        try {
+          void Promise.resolve(client.detach(newDoc)).catch(() => {});
+        } catch {
+          // The detach could not even be started. Nothing a cleanup can do.
+        }
       }
 
       for (const unsub of unsubs) {
