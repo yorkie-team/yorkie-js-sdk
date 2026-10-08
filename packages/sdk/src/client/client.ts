@@ -59,6 +59,7 @@ import {
   ReissueToken,
 } from '@yorkie-js/sdk/src/document/document';
 import { ChangeStruct } from '@yorkie-js/sdk/src/document/change/change';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
@@ -1734,19 +1735,54 @@ export class Client {
     // Mark as detaching immediately so the sync loop skips this document.
     attachment.markDetaching();
 
+    // `DetachDocument` carries a change pack, so it runs the same server-side
+    // size gate a push does. A document parked by a write rejection would send
+    // the very pack that was just refused and fail here too — leaving it in
+    // `attachmentMap` forever, pinning its session lock and its store entry.
+    // Those changes are never reaching the server, so a parked document
+    // detaches on the checkpoint the server already has, dropping them.
+    const detachPack = (): ChangePack<P> =>
+      attachment.isWriteRejected()
+        ? ChangePack.create<P>(
+            doc.getKey(),
+            doc.getCheckpoint(),
+            false,
+            [],
+            doc.getVersionVector(),
+            undefined,
+            doc.getEpoch(),
+          )
+        : doc.createChangePack();
+
+    const sendDetach = () =>
+      this.rpcClient.detachDocument(
+        {
+          clientId: this.id!,
+          documentId: attachment.resourceID,
+          changePack: converter.toChangePack(detachPack()),
+        },
+        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+      );
+
     const task = async () => {
       try {
         // Wait for any in-progress sync to finish before detaching.
         await attachment.waitForSyncComplete();
 
-        const res = await this.rpcClient.detachDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.resourceID,
-            changePack: converter.toChangePack(doc.createChangePack()),
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-        );
+        let res;
+        try {
+          res = await sendDetach();
+        } catch (err) {
+          // The gate refused this detach's pack, and it was not already the
+          // emptied one: park the document and detach without the changes,
+          // rather than reporting a document that cannot be detached at all.
+          if (attachment.isWriteRejected() || !Client.isWriteRejection(err)) {
+            throw err;
+          }
+
+          attachment.markWriteRejected();
+          res = await sendDetach();
+        }
 
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
@@ -2161,27 +2197,77 @@ export class Client {
     }
 
     return this.enqueueTask(async () => {
-      const promises = [];
+      const promises: Array<Promise<Attachable | undefined>> = [];
       for (const [, attachment] of this.attachmentMap) {
         // Only sync Document resources that have syncMode defined
         if (
           attachment.syncMode !== undefined &&
           attachment.resource instanceof Document
         ) {
+          // The same containment the sync loop applies: a document on its way
+          // out, or one the server has already refused, is skipped instead of
+          // dragging every other document's sync into the client-wide error
+          // handler below. `sync(doc)` on that one document is the way back.
+          if (attachment.isDetaching() || attachment.isWriteRejected()) {
+            continue;
+          }
+
+          const typed = attachment as Attachment<Document<R, P>>;
           promises.push(
-            this.syncInternal(
-              attachment as Attachment<Document<R, P>>,
-              attachment.syncMode,
-            ),
+            this.syncInternal(typed, attachment.syncMode).catch((err) => {
+              // A rejected write is that document's problem, not the client's,
+              // and `syncInternal` has already published `write-rejected` on
+              // it. Park it and leave the rest of the batch alone.
+              if (this.parkOnWriteRejection(typed, err)) {
+                return undefined;
+              }
+
+              throw err;
+            }),
           );
         }
       }
-      return Promise.all(promises).catch(async (err) => {
+      try {
+        const synced = await Promise.all(promises);
+        return synced.filter((doc) => doc !== undefined);
+      } catch (err) {
         logger.error(`[SY] c:"${this.getKey()}" err :`, err);
         await this.handleConnectError(err);
         throw err;
-      });
+      }
     }) as Promise<Array<Document<R, P>>>;
+  }
+
+  /**
+   * `isWriteRejection` returns whether the given error is the server refusing
+   * to store what was pushed for a reason resending cannot fix — the document
+   * is over its size limit, or a single change is too large.
+   */
+  private static isWriteRejection(err: unknown): boolean {
+    return (
+      isErrorCode(err, Code.ErrDocumentSizeExceedsLimit) ||
+      isErrorCode(err, Code.ErrChangeTooLarge)
+    );
+  }
+
+  /**
+   * `parkOnWriteRejection` marks the attachment as write-rejected and returns
+   * true when the error is one the server will give again for the same pack,
+   * so the caller can swallow it. Parking is per attachment on purpose: the
+   * rejection is the document's problem, and letting it reach the client-wide
+   * `handleConnectError` would stop syncing for every other attached document
+   * and for the channel heartbeats that keep their sessions alive.
+   */
+  private parkOnWriteRejection(
+    attachment: Attachment<Attachable>,
+    err: unknown,
+  ): boolean {
+    if (!Client.isWriteRejection(err)) {
+      return false;
+    }
+
+    attachment.markWriteRejected();
+    return true;
   }
 
   /**
@@ -2962,11 +3048,7 @@ export class Client {
                 // channel heartbeats that keep their sessions alive.
                 // `syncInternal` has already published `write-rejected` on the
                 // document, so the app still learns why this one stopped.
-                if (
-                  isErrorCode(e, Code.ErrDocumentSizeExceedsLimit) ||
-                  isErrorCode(e, Code.ErrChangeTooLarge)
-                ) {
-                  attachment.markWriteRejected();
+                if (this.parkOnWriteRejection(attachment, e)) {
                   return;
                 }
 

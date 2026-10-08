@@ -32,6 +32,7 @@ import {
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   AttachDocumentResponseSchema,
+  DetachDocumentResponseSchema,
   PushPullChangesResponseSchema,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 
@@ -281,6 +282,221 @@ describe('A rejected document does not take the whole client down', () => {
     );
     assert.isFalse(
       (client as any).attachmentMap.get('small').isWriteRejected(),
+    );
+  });
+
+  /**
+   * `twoDocClient` attaches a `big` document the server always refuses and a
+   * `small` one it always accepts, counting the pushes each one received.
+   */
+  async function twoDocClient(err: ConnectError) {
+    const pushes: Record<string, number> = { big: 0, small: 0 };
+    const client = new yorkie.Client({ rpcAddr: 'http://localhost' });
+    (client as any).status = 'activated';
+    (client as any).id = actorHex;
+    (client as any).actorID = actorHex;
+    (client as any).rpcClient = {
+      attachDocument: async (req: any) =>
+        create(AttachDocumentResponseSchema, {
+          documentId: req.changePack.documentKey,
+          changePack: create(ChangePackSchema, {
+            documentKey: req.changePack.documentKey,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: 0,
+            }),
+          }),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      pushPullChanges: async (req: any) => {
+        pushes[req.documentId]++;
+        if (req.documentId === 'big') {
+          throw err;
+        }
+        return create(PushPullChangesResponseSchema, {
+          changePack: create(ChangePackSchema, {
+            documentKey: req.documentId,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: 0,
+            }),
+          }),
+        });
+      },
+    };
+
+    const big = new Document<{ text?: string }>('big');
+    const small = new Document<{ text?: string }>('small');
+    for (const doc of [big, small]) {
+      await client.attach(doc, {
+        syncMode: SyncMode.Manual,
+        disablePresence: true,
+      });
+    }
+    big.update((root) => {
+      root.text = 'over the limit';
+    });
+    small.update((root) => {
+      root.text = 'well within it';
+    });
+
+    return { client, big, small, pushes };
+  }
+
+  it('parks only the rejected document on a no-arg `client.sync()`', async () => {
+    const err = rejection(
+      Code.ErrDocumentSizeExceedsLimit,
+      'document size exceeds limit',
+    );
+    const { client, big, pushes } = await twoDocClient(err);
+
+    const rejected: Array<any> = [];
+    big.subscribe('write-rejected', (event) => {
+      rejected.push(event);
+    });
+
+    // The aggregate sync keeps going: the one refused document must not take
+    // the whole batch into the client-wide error handler.
+    const synced = await client.sync();
+    assert.deepEqual(
+      synced.map((doc) => doc.getKey()),
+      ['small'],
+      'the accepted document is still returned',
+    );
+    assert.lengthOf(rejected, 1, 'the rejection is reported to its document');
+    assert.isTrue((client as any).attachmentMap.get('big').isWriteRejected());
+
+    // And the next one skips the parked document rather than resending the
+    // pack the server already refused.
+    await client.sync();
+    assert.strictEqual(pushes.big, 1, 'the rejected push is sent once');
+    assert.strictEqual(pushes.small, 2, 'the other document keeps syncing');
+  });
+
+  it('still fails a no-arg `client.sync()` on an unrelated error', async () => {
+    const { client } = await twoDocClient(
+      new ConnectError('slow down', ConnectCode.ResourceExhausted),
+    );
+
+    await client.sync().then(
+      () => assert.fail('an unrelated failure should still surface'),
+      (e) => assert.instanceOf(e, ConnectError),
+    );
+  });
+});
+
+describe('Detaching a document the server refused to store', () => {
+  /**
+   * `attachedWithRejectingPush` attaches one document to a client whose pushes
+   * are refused with `err`, and whose `DetachDocument` fails the same way for
+   * any pack that still carries changes. It records every detach pack seen.
+   */
+  async function attachedWithRejectingPush(err: ConnectError) {
+    const key = 'big';
+    const detachPacks: Array<any> = [];
+    const client = new yorkie.Client({ rpcAddr: 'http://localhost' });
+    (client as any).status = 'activated';
+    (client as any).id = actorHex;
+    (client as any).actorID = actorHex;
+    (client as any).rpcClient = {
+      attachDocument: async () =>
+        create(AttachDocumentResponseSchema, {
+          documentId: 'doc-id',
+          changePack: create(ChangePackSchema, {
+            documentKey: key,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: 0,
+            }),
+          }),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      pushPullChanges: async () => {
+        throw err;
+      },
+      detachDocument: async (req: any) => {
+        detachPacks.push(req.changePack);
+        // The server runs the same size gate on a detach that carries changes.
+        if (req.changePack.changes.length > 0) {
+          throw err;
+        }
+        return create(DetachDocumentResponseSchema, {
+          changePack: create(ChangePackSchema, {
+            documentKey: key,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: 0,
+            }),
+          }),
+        });
+      },
+    };
+
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, {
+      syncMode: SyncMode.Manual,
+      disablePresence: true,
+    });
+    doc.update((root) => {
+      root.text = 'over the limit';
+    });
+
+    return { client, doc, detachPacks };
+  }
+
+  it('detaches a parked document by dropping the changes it cannot push', async () => {
+    const err = rejection(
+      Code.ErrDocumentSizeExceedsLimit,
+      'document size exceeds limit',
+    );
+    const { client, doc, detachPacks } = await attachedWithRejectingPush(err);
+
+    // The aggregate sync is what parks the attachment, as the sync loop does.
+    await client.sync();
+    assert.isTrue((client as any).attachmentMap.get('big').isWriteRejected());
+
+    await client.detach(doc);
+
+    assert.lengthOf(detachPacks, 1, 'the refused pack is never sent again');
+    assert.isEmpty(detachPacks[0].changes);
+    assert.isFalse(
+      (client as any).attachmentMap.has('big'),
+      'the attachment is released, so the session lock is not pinned',
+    );
+  });
+
+  it('retries a detach the server refuses, without the refused changes', async () => {
+    const err = rejection(Code.ErrChangeTooLarge, 'change is too large');
+    const { client, doc, detachPacks } = await attachedWithRejectingPush(err);
+
+    // Never synced, so nothing parked this document: the first detach is the
+    // one that learns the server will not take its changes.
+    assert.isFalse((client as any).attachmentMap.get('big').isWriteRejected());
+
+    await client.detach(doc);
+
+    assert.lengthOf(detachPacks, 2, 'the detach is retried once');
+    assert.isNotEmpty(detachPacks[0].changes);
+    assert.isEmpty(detachPacks[1].changes);
+    assert.isFalse((client as any).attachmentMap.has('big'));
+  });
+
+  it('does not retry a detach that failed for an unrelated reason', async () => {
+    const { client, doc, detachPacks } = await attachedWithRejectingPush(
+      new ConnectError('nope', ConnectCode.Unavailable),
+    );
+
+    await client.detach(doc).then(
+      () => assert.fail('an unrelated failure should still surface'),
+      (e) => assert.instanceOf(e, ConnectError),
+    );
+
+    assert.lengthOf(detachPacks, 1, 'no second attempt is made');
+    assert.isTrue(
+      (client as any).attachmentMap.has('big'),
+      'the document stays attached so the caller can retry',
     );
   });
 });
