@@ -2414,15 +2414,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
    *
    * NOTE(cross-implementation): where a split lands is a replicated
    * contract -- the server and every other SDK have to pick the same node
-   * for the same change. This rule is a §7.3 reading that yorkie's
-   * `docs/design/concurrent-merge-split.md` does not spell out, and only
-   * this SDK applies it today, so a JS replica and a Go/server one can
-   * place a same-boundary split differently until the rule lands there
-   * too: #1436's divergence is moved for a mixed-SDK document, not
-   * removed. Porting it is NOT tracked by #1436, which is the JS bug --
-   * it needs its own issue against yorkie-team/yorkie, and it gates
-   * merging this rule. See "Blocks merge" in
-   * `docs/tasks/active/20261008-insert-at-concurrent-split-boundary-todo.md`.
+   * for the same change -- and this rule is a §7.3 reading that only this
+   * SDK applies today, so a JS replica and a Go/server one can place a
+   * same-boundary split differently. `docs/design/split-boundary-insert-side.md`
+   * records the deviation, what a port to the Go tree has to cover, and the
+   * state of the decision to ship it.
    */
   private boundaryInsertRunOf(
     node: CRDTTreeNode,

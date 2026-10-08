@@ -31,6 +31,23 @@ disagreeing about where the boundary went. Element children at that boundary
 are already §7.8's business. Crossing only a run of *text* children leaves
 that path untouched, and all 905 unit tests pass.
 
+## A deviation from a replicated contract needs a design doc, not a comment
+
+The review panel's design-fit lens read the `NOTE(cross-implementation)` on
+`boundaryInsertRunOf` and raised the obvious consequence: the branch changes
+a replicated convergence contract in JS alone and knows it. The finding is
+right, and nothing in this branch can close it — one gate item is an issue
+on another repository, the other is a maintainer's call.
+
+What *was* wrong was where the deviation lived. A source comment that
+encodes merge policy goes stale the moment the policy changes, and a task
+todo is archived once the task lands, taking the only record of the
+deviation with it. So the measured state of the Go side (`tree.go`'s
+`orderSameBoundarySplit` orders by ticket, with no boundary-insert run and
+no counterpart to `advanceIntoSplitProducts`), the risk, and what a port has
+to cover moved into `docs/design/split-boundary-insert-side.md`; the comment
+now points there and the todo keeps only the two unticked gate items.
+
 ## Review rounds
 
 `/self-review` was not run: this run is granted no tool that can dispatch

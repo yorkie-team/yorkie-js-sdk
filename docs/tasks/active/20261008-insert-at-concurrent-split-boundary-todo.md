@@ -66,25 +66,38 @@ this branch.
 
 Where a same-boundary split lands is a **replicated convergence contract**:
 the server and every SDK have to pick the same node for the same change.
-Step 1 of the approach changes that pick in JS only. Until the same rule
-lands in yorkie-team/yorkie, a JS replica and a Go/server replica can place
-the same split differently — which is the #1436 divergence moved, not
-removed, for a mixed-SDK document. The JS-only fix converges a JS-only
-fleet and is a regression for a mixed one, so shipping it is a trade a
-maintainer has to make knowingly.
+Both steps of the approach change that pick in JS only. Until the same
+rules land in yorkie-team/yorkie, a JS replica and a Go/server replica can
+place the same split differently — which is the #1436 divergence moved, not
+removed, for a mixed-SDK document: before these rules both sides applied
+ticket order and *agreed*, on a position both now consider wrong. The
+JS-only fix converges a JS-only fleet and is a regression for a mixed one,
+so shipping it is a trade a maintainer has to make knowingly.
+
+Neither item below is something this branch can close — one is an issue on
+another repository, the other is a decision. They are recorded here and in
+the design doc so the next reader does not have to rediscover them.
 
 - [ ] Issue filed against yorkie-team/yorkie porting
-      `orderSameBoundarySplit`'s boundary-insert-run rule (and
-      `boundaryInsertRunOf`) to the Go tree, and the rule written into
-      `docs/design/concurrent-merge-split.md` there — it is a §7.3 reading
-      that document does not spell out today.
+      `orderSameBoundarySplit`'s boundary-insert-run rule (with
+      `boundaryInsertRunOf`) and `advanceIntoSplitProducts` to the Go tree,
+      and the rules written into `docs/design/concurrent-merge-split.md`
+      there — it is a §7.3 reading that document does not spell out today.
 - [ ] Maintainer decision recorded on the PR: merge JS-first with the port
       tracked, or hold this branch until the Go side is ready.
 
-`boundaryInsertRunOf` carries a `NOTE(cross-implementation)` pointing here.
+The deviation itself is documented in
+[docs/design/split-boundary-insert-side.md](../../design/split-boundary-insert-side.md),
+not only here, so it survives this task's archival: it carries the measured
+state of the Go side, what a port has to cover, and the risk table.
+`boundaryInsertRunOf` carries a `NOTE(cross-implementation)` pointing at
+that document.
 
 ## Out of scope
 
-- Measuring the Go SDK and the server: they carry the same code and
-  presumably diverge the same way, but that is not verified here.
+- Running the Go SDK and the server against the three minima. Their *code*
+  was read for the design doc — `pkg/document/crdt/tree.go` has
+  `orderSameBoundarySplit` ordering by ticket with no boundary-insert run,
+  and no counterpart to `advanceIntoSplitProducts` — but no Go replica was
+  executed here.
 - The fuzz harness behind the issue is not in this repo.
