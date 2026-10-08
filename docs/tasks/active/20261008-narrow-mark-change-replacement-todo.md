@@ -63,6 +63,13 @@ Out of scope — needs a maintainer decision, see the lessons file:
   issue asks for, so the gap stays visible. File as a follow-up issue before
   merge.
 
+  **This PR therefore does not deliver the issue's stated outcome**, and the
+  review panel is right to say so — twice now. It delivers the adjacent case
+  (a run re-marked in a block that already has element children) and leaves
+  both reproductions failing in the open. Merging it is a decision to take a
+  partial improvement; the outcome itself waits on direction 2. See the
+  lessons file, "Panel round 2 — a standstill, not a disagreement".
+
 ## Verification
 
 - [x] `pnpm verify:fast`
