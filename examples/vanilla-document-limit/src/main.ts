@@ -38,7 +38,9 @@ async function main() {
         clientID: string;
         presence: { username: string };
       }>;
-      displayPeers(peersElem!, presences, client.getID()!);
+      // Presences are keyed by the client's actor, not by the per-session id
+      // that `client.getID()` returns.
+      displayPeers(peersElem!, presences, client.getActorID()!);
     }
   });
 
@@ -72,7 +74,7 @@ async function main() {
         counter: 0,
       },
       initialPresence: {
-        username: client.getID()!.slice(-2),
+        username: client.getActorID()!.slice(-2),
       },
     })
     .catch((error) => {

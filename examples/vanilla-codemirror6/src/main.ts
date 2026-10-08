@@ -35,12 +35,14 @@ async function main() {
   });
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
-      displayPeers(peersElem, doc.getPresences(), client.getID()!);
+      // Presences are keyed by the client's actor, not by the per-session id
+      // that `client.getID()` returns.
+      displayPeers(peersElem, doc.getPresences(), client.getActorID()!);
     }
   });
   await client.attach(doc, {
     initialPresence: {
-      username: client.getID()!.slice(-2),
+      username: client.getActorID()!.slice(-2),
     },
   });
   doc.update((root) => {
