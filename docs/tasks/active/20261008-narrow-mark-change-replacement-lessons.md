@@ -102,3 +102,14 @@ the finding is right, and the change that satisfies it is a data-at-rest
 decision that is not an autonomous run's to make. Either merge this as the
 partial improvement it is — one real case fixed, both reproductions visibly
 failing, nothing asserting the loss — or hold it until direction 2 is settled.
+
+## Panel round 3 and the maintainer's call
+
+The maintainer took the partial-fix option: merge as direction 1, keep #1438
+open for direction 2. Round 3 also showed the round-2 "convergence only" test
+was too weak: an `it.fails` case passes whenever it throws anywhere, so it
+cannot guard convergence, and a convergence-only test accepts any shared loss.
+Both reproductions now also have passing tests pinning convergence and the
+current lossy text, so more loss or a divergence fails, and a direction-2 fix
+flips them visibly. Test comments describe the tests; review arguments belong
+in the PR thread, not the code.

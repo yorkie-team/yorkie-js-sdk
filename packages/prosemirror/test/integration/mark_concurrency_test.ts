@@ -139,30 +139,13 @@ describe('ProseMirror concurrent mark change integration', () => {
     assert.deepEqual(texts(d1), ['abcdef', 'Qsecond']);
   });
 
-  // The two reproductions #1438 reports as failing. BOTH STILL FAIL: the
-  // panel's "the issue's stated outcome is not achieved for either of its two
-  // failing cases" is correct and this PR does not fix it.
-  //
-  // Narrowing the replacement to the children that changed — the issue's
-  // direction 1, which this PR implements — cannot reach either of them. Both
-  // start from a paragraph whose only child is a bare text node, and a parent
-  // may hold either all-text or all-element children but not a mix
-  // (`convert.ts:374-385`, enforced by `IndexTree.hasTextChild` and the
-  // explicit "does not consider the situation where Element and Text nodes are
-  // mixed" TODO at `packages/sdk/src/util/index_tree.ts:1172-1174`). So the old
-  // text node cannot survive beside the mark wrappers the change introduces,
-  // under any choice of edit range: the whole child list is rewritten and the
-  // concurrent insert goes with it. The issue's own note that direction 1
-  // "keeps typing outside the marked range (case 2)" assumes a text node may
-  // sit next to the new wrappers, which this format forbids.
-  //
-  // Keeping the text node alive needs the issue's direction 2 — every run in an
-  // inline element with marks as that element's attributes, changed with
-  // `tree.style`, which never deletes a node. That changes the stored format of
-  // every existing document, so the issue asks for a maintainer's decision
-  // before either direction is built; nothing in the binding calls `tree.style`
-  // today. These stay here failing rather than deleted so the gap stays visible
-  // until that lands, and so direction 2 flips them green.
+  // The two reproductions from #1438. Both start from a paragraph whose only
+  // child is a bare text node; marking any of it turns the children into mark
+  // wrappers, and a parent cannot mix text and element children, so the
+  // narrowed replacement declines and the whole block is still replaced. The
+  // wrapper-element mark format cannot keep the concurrent insert here; that
+  // needs storing marks as inline-element attributes (direction 2 in #1438).
+  // They are `it.fails` so they turn green when that lands.
   it.fails('keeps a concurrent insert when a whole run is marked', async () => {
     await concurrently(
       doc(p('abcdef')),
@@ -188,14 +171,22 @@ describe('ProseMirror concurrent mark change integration', () => {
     },
   );
 
-  it('converges when a mark is added to a block another client types into', async () => {
-    // Deliberately asserts convergence ONLY. The `it.fails` case above covers
-    // the same scenario and owns the text assertion, because that is the
-    // outcome #1438 asks for and does not hold yet; asserting the lossy
-    // `['abcdef']` here as well would both contradict it and enshrine the data
-    // loss as expected behaviour. Convergence is a separate invariant that does
-    // hold today, and under `it.fails` an assertion that passes proves nothing
-    // (the test only has to fail *somewhere*), so it needs its own passing test.
+  // The same two cases with today's outcome pinned: both replicas converge,
+  // and the concurrent insert is lost (#1438). A change that loses more text
+  // or diverges fails here. A fix for #1438 fails these as well; drop them
+  // then and turn the `it.fails` cases above into plain `it`.
+  it('converges, dropping the insert, when a whole run is marked', async () => {
+    await concurrently(
+      doc(p('abcdef')),
+      doc(p(strong('abcdef'))),
+      doc(p('abcQdef')),
+    );
+
+    assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    assert.deepEqual(texts(d1), ['abcdef']);
+  });
+
+  it('converges, dropping the insert, when part of a run is marked', async () => {
     await concurrently(
       doc(p('abcdef')),
       doc(p('a', strong('bc'), 'def')),
@@ -203,5 +194,6 @@ describe('ProseMirror concurrent mark change integration', () => {
     );
 
     assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    assert.deepEqual(texts(d1), ['abcdef']);
   });
 });

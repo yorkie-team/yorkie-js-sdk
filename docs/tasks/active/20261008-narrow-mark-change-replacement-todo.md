@@ -60,18 +60,16 @@ Out of scope — needs a maintainer decision, see the lessons file:
   the text node cannot survive beside the mark wrappers the change adds.
   Narrowing therefore declines and the fallback deletes the run. The two cases
   are in `mark_concurrency_test.ts` as `it.fails`, asserting the outcome the
-  issue asks for, so the gap stays visible. File as a follow-up issue before
-  merge.
+  issue asks for, next to passing tests that pin today's outcome (converged,
+  insert lost).
 
-  **This PR therefore does not deliver the issue's stated outcome**, and the
-  review panel is right to say so — twice now. It delivers the adjacent case
-  (a run re-marked in a block that already has element children) and leaves
-  both reproductions failing in the open. Merging it is a decision to take a
-  partial improvement; the outcome itself waits on direction 2. See the
-  lessons file, "Panel round 2 — a standstill, not a disagreement".
+  **This PR is a partial fix of #1438.** It delivers the adjacent case (a run
+  re-marked in a block that already has element children); the issue's two
+  reproductions still lose the insert. The maintainer accepted it on that
+  basis, and #1438 stays open for the direction-2 stored-format decision.
 
 ## Verification
 
 - [x] `pnpm verify:fast`
-- [ ] `pnpm prosemirror test` — the integration suites need a running Yorkie
-      server, which the autonomous run had no way to stand up. Left to CI.
+- [x] `mark_concurrency_test.ts` and `split_merge_test.ts` against a local
+      Yorkie server: 12 passed, 2 expected fail (the #1438 reproductions)
