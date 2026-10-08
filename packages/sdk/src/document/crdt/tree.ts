@@ -2379,13 +2379,59 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
       if (!createdAt.after(editedAt)) {
+        // The ticket order keeps our product in front of `next`, so the two
+        // boundaries would coincide -- unless `next` begins with inserts
+        // made at that boundary concurrently with us. §7.3 keeps such an
+        // insert on the left of a split boundary, and a replica that
+        // applied us first put it at the end of what we split. So our
+        // boundary is not `next`'s after all: it is inside `next`, past
+        // that run, and the products are ordered by content rather than by
+        // ticket.
+        const run = this.boundaryInsertRunOf(next, versionVector);
+        if (run > 0) {
+          return [next, run];
+        }
         break;
       }
 
       target = next;
     }
 
-    return target === parent ? [parent, offset] : [target, 0];
+    // Same reason at the other end of the comparison: a newer product we
+    // step over may itself begin with a concurrent boundary insert, which
+    // belongs on our left too.
+    return target === parent
+      ? [parent, offset]
+      : [target, this.boundaryInsertRunOf(target, versionVector)];
+  }
+
+  /**
+   * `boundaryInsertRunOf` counts the children at the start of `node` that
+   * were inserted concurrently with the editing change -- the run §7.3
+   * migrates to the left of a split boundary. Element split products are
+   * not inserts and end the run, as they do in §7.3; text split siblings
+   * carry their original's ticket and so end it by being known.
+   */
+  private boundaryInsertRunOf(
+    node: CRDTTreeNode,
+    versionVector: VersionVector,
+  ): number {
+    let run = 0;
+    for (const child of node.allChildren) {
+      if (!child.isText && child.insPrevID !== undefined) {
+        break;
+      }
+      const createdAt = child.id.getCreatedAt();
+      const knownLamport = versionVector.get(createdAt.getActorID());
+      if (
+        knownLamport !== undefined &&
+        knownLamport >= createdAt.getLamport()
+      ) {
+        break;
+      }
+      run++;
+    }
+    return run;
   }
 
   /**
@@ -2824,9 +2870,88 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
         leftNode = next;
       }
+
+      return [
+        this.advanceIntoSplitProducts(realParent, leftNode, editedAt),
+        diff,
+      ];
     }
 
     return [[realParent, leftNode], diff];
+  }
+
+  /**
+   * `advanceIntoSplitProducts` continues the RGA scan of step 04 into the
+   * products of a concurrent split of `parent`.
+   *
+   * `parent`'s children are not the whole sequence once such a split has
+   * been applied: what followed `left` has moved into the product. Stopping
+   * at `parent`'s last child would order this insert before concurrent
+   * inserts that RGA puts ahead of it -- and the replica that applied the
+   * insert before the split, where the whole run was still in one node, put
+   * it after them. Only a run of newer tickets is crossed, the same rule
+   * step 04 applies inside one node, so an insert at the boundary with
+   * nothing newer beyond it still stays on the left of it (§7.3).
+   */
+  private advanceIntoSplitProducts(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    editedAt: TimeTicket,
+  ): TreeNodePair {
+    const walker = new InsNextWalker();
+    walker.visit(parent);
+
+    let current = parent;
+    let leftNode = left;
+    while (current.insNextID) {
+      // Only a position at the very end of `current` can continue into the
+      // product: anything else has its right neighbour here already.
+      const children = current.allChildren;
+      const atEnd = children.length
+        ? children[children.length - 1] === leftNode
+        : leftNode === current;
+      if (!atEnd) {
+        break;
+      }
+
+      const next = this.findFloorNode(current.insNextID);
+      if (!next || next.isText || !next.parent) {
+        break;
+      }
+      // Stop on a chain that loops back on itself; see InsNextWalker.
+      if (!walker.visit(next)) {
+        break;
+      }
+      if (!this.sharesSplitFamilyParent(current, next)) {
+        break;
+      }
+      // A product older than this edit was already in the sequence the
+      // editor saw, so the position it resolved to is the whole story.
+      if (next.isRemoved || !next.id.getCreatedAt().after(editedAt)) {
+        break;
+      }
+
+      const nextChildren = next.allChildren;
+      let i = 0;
+      while (
+        i < nextChildren.length &&
+        nextChildren[i].isText &&
+        nextChildren[i].id.getCreatedAt().after(editedAt)
+      ) {
+        i++;
+      }
+      if (i === 0) {
+        break;
+      }
+
+      current = next;
+      leftNode = nextChildren[i - 1];
+      if (i < nextChildren.length) {
+        break;
+      }
+    }
+
+    return [current, leftNode];
   }
 
   /**
