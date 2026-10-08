@@ -55,8 +55,11 @@ the `.tgz` that `pnpm pack` made, since CI publishes with pnpm.
 
 ## `pnpm pack` rewrites `workspace:*`
 
-Consumers of the sdk tarball would fetch `@yorkie-js/schema` from the registry.
-The verification script uses npm `overrides` to point it at the local tarball.
+Each tarball names the others by exact version, so a consumer would fetch them
+from the registry. The verification consumer installs all four tarballs in one
+offline `npm install`, so those names resolve to the local copies. It used
+npm `overrides` at first, but an override also hides a nested second SDK,
+which is the very thing the react checks look for.
 
 ## `skipLibCheck` in the type check
 
@@ -71,5 +74,56 @@ react build left `@yorkie-js/sdk` out of `external`, so it inlined a whole SDK
 copy and re-exported that copy's `Text`/`Tree`/`Counter`. Calling it
 pre-existing did not make it out of scope, because it breaks the invariant this
 change exists for. `verify:exports` now compares react's re-exports with the
-sdk's own (it failed with `react:esm:Text` before the fix). Code-review on the
-fix: one round, no findings.
+sdk's own (it failed with `react:esm:Text` before the fix).
+
+## Externalizing a dependency is half the fix
+
+Marking the SDK external stopped react from inlining it, but react still listed
+it under `dependencies`, which `pnpm publish` pins to an exact version. A host
+on another SDK version then gets a nested second SDK under react, and the
+foreign classes are back. As a peer, a mismatch fails the install (`ERESOLVE`)
+instead. `verify:exports` checks both: react resolves the host's SDK, and a
+repacked SDK with another version is rejected.
+
+## Changing `main` moves what CDNs serve
+
+react's UMD bundle was its `main`, so unpkg and jsDelivr served it for a bare
+package URL. With the SDK external, that bundle would need a new SDK global,
+and pointing `main` at `.cjs` would hand CDNs a file that calls `require`. So
+the UMD build stays self-contained (it bundles the SDK, as before) and is named
+by the `unpkg` and `jsdelivr` fields. unpkg resolves `exports` with `default`
+unless an `unpkg` condition exists, so the map has one.
+
+## Generated code is source code
+
+The wrapper spliced export names into JavaScript. ESM allows arbitrary string
+export names, so `chunk.exports` is not guaranteed to hold identifiers. Names
+are now validated and aliased onto fixed locals, and paths are JSON-quoted.
+
+## A verification consumer needs a lockfile
+
+`npx --yes` and floating ranges ran whatever the registry served that day. The
+consumer now installs from `scripts/fixtures/package-exports/package-lock.json`
+and runs its tools from there. That lockfile also pins the sdk's runtime
+dependencies, because the tarballs install offline, so it has to be
+regenerated when those change.
+
+## Review rounds
+
+- **Panel, round 2 (c480d2fb)**: 4 blocking — unvalidated export names in the
+  generated wrapper, `verify:exports` in no CI lane, the SDK as react's regular
+  dependency, react's UMD no longer self-contained. All four fixed, along with
+  most suggestions. Left as they were, with reasons:
+  - The exact peer pin (`workspace:*`) matches prosemirror.
+  - prosemirror's `YorkieSdk` global predates this change, and renaming it
+    breaks pages that set it.
+  - schema's `publishConfig` is out of scope.
+  - The wrapper's non-live bindings are fine, because UMD exports never change
+    after load.
+- **Self-review before re-requesting**: 4 findings, all fixed.
+  - The strict type-check test hand-wrote a `.d.cts` with a default export
+    that the shipped helper never emitted, so the generator now emits it
+    (dropping the line fails the test).
+  - One UMD assertion compared a value with itself.
+  - The task docs still said CI was unchanged and that `overrides` were in use.
+  - Nothing told users to install the now-peer SDK.
