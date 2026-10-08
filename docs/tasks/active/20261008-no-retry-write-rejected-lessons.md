@@ -11,6 +11,10 @@
 - Publishing the new event from `syncInternal`'s catch (next to the existing
   `SyncFailed`) covers both the sync loop and an explicit `sync(doc)` in one
   place, whereas `epoch-mismatch` is published at two call sites.
+- Rounds of review can pull a narrow fix into a redesign. Rounds 2–4 added
+  park state and emptied-pack handling; they were reverted because recovery
+  belongs to `Client.resync` (#1463) and per-document isolation needs its own
+  issue. Check each review request against the issue's scope before acting.
 
 ## Self review
 

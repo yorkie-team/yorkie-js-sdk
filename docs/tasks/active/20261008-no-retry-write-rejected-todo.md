@@ -39,7 +39,9 @@ server-side size gate every time, and nothing the client does changes it.
 5. `yorkie.ts` — export `WriteRejectedEvent`.
 6. Unit test (`test/unit/client/write_rejected_test.ts`): a stubbed PushPull
    that fails with each code must publish `write-rejected` with that code and
-   must not be retried.
+   must not be retried; the typed `subscribe('write-rejected')` overload
+   receives the code; `client.resync(doc, { discardLocalChanges: true })`
+   (from #1463) recovers a size-rejected document with no refused pack sent.
 
 ## Out of scope
 
@@ -50,10 +52,24 @@ server-side size gate every time, and nothing the client does changes it.
   generic `ResourceExhausted` retry and so never runs for a server error that
   uses that Connect code.
 
+## Final scope
+
+Review rounds 2–4 grew this PR past #1459: a parked state for the rejected
+document, detach/remove/attach handling for a pack emptied by the rejection,
+and a `write-rejected` reason on `local-changes-dropped`. All three were
+reverted (ade3092) to return to the original commit, because they widened the
+change into per-document recovery that #1463's `Client.resync` now covers and
+that deserves its own design. Recovery is `resync` with
+`discardLocalChanges: true`, proven by a unit test here.
+
+Follow-up issue (to be filed): the sync loop still stops for the whole client
+rather than only the rejected document, and detach/remove/attach still send a
+refused pack as-is when the app does not resync first.
+
 ## Acceptance criteria
 
-- [ ] `ErrDocumentSizeExceedsLimit` and `ErrChangeTooLarge` from `PushPull`
+- [x] `ErrDocumentSizeExceedsLimit` and `ErrChangeTooLarge` from `PushPull`
       are not retried.
-- [ ] The sync loop stops for that client, as with `ErrEpochMismatch`.
-- [ ] An event carrying the error code reaches the app.
-- [ ] `pnpm verify:fast` green.
+- [x] The sync loop stops for that client, as with `ErrEpochMismatch`.
+- [x] An event carrying the error code reaches the app.
+- [x] `pnpm verify:fast` green.
