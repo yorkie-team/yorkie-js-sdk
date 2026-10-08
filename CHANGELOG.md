@@ -7,6 +7,10 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Identify the local user with `getActorID()` in the examples by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/issues/1457
+
 ## [v0.7.24] - 2026-10-06
 
 ### Added
@@ -88,6 +92,43 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 ### Added
 
 - Add offline local persistence (serialize, store, resume, multi-tab) by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1338
+
+### Breaking Changes
+
+- A client now has two ids, and the one a document reports is no longer the
+  one `client.getID()` returns (part of #1338, with
+  [yorkie-team/yorkie#1969](https://github.com/yorkie-team/yorkie/pull/1969)):
+  - `client.getID()` is the per-session `clientId` used for RPC routing. It
+    changes on every `activate()`.
+  - `client.getActorID()` is the actor the server derives from the project and
+    the client key (`ActivateClientResponse.actorId`), and it is what a
+    document is stamped with. Every id inside a document is this actor:
+    `doc.getPresences()[].clientID`, the `clientID` of a presence event, the
+    author of a change, and the argument of `doc.getPresence(id)`.
+
+  So `presence.clientID === client.getID()` is never true against a server of
+  v0.7.20 or later. Against an older server `actorId` is empty and the SDK
+  falls back to the session id, which makes the two ids match again and hides
+  the break.
+
+  To migrate, identify the local user with `client.getActorID()` instead of
+  `client.getID()`, or skip the id and use `doc.getMyPresence()` /
+  `doc.getPresences()`:
+
+  ```js
+  // Before
+  const me = doc.getPresence(client.getID());
+  const others = doc.getPresences().filter((p) => p.clientID !== client.getID());
+
+  // After
+  const me = doc.getMyPresence();
+  const others = doc.getPresences().filter((p) => p.clientID !== client.getActorID());
+  ```
+
+  Note that the actor is stable only as long as the client key is. The key
+  defaults to a random value per `Client`, so for most apps the actor still
+  changes on every page load; it answers "is this presence mine", not "is this
+  the same user as last time".
 
 ### Fixed
 

@@ -80,14 +80,16 @@ async function main() {
   });
   doc.subscribe('presence', (event) => {
     if (event.type !== DocEventType.PresenceChanged) {
-      displayPeers(peersElem, doc.getPresences(), client.getID()!);
+      // Presences are keyed by the client's actor, not by the per-session id
+      // that `client.getID()` returns.
+      displayPeers(peersElem, doc.getPresences(), client.getActorID()!);
     }
   });
 
   await client.attach(doc, {
     initialPresence: {
-      username: client.getID()!.slice(-2),
-      color: colorHash.hex(client.getID()!.slice(-2)),
+      username: client.getActorID()!.slice(-2),
+      color: colorHash.hex(client.getActorID()!.slice(-2)),
       selection: undefined,
     },
   });
@@ -130,7 +132,7 @@ async function main() {
 
   function updateCursor(user: { clientID: string; presence: YorkiePresence }) {
     const { clientID, presence } = user;
-    if (clientID === client.getID()) return;
+    if (clientID === client.getActorID()) return;
     // TODO(chacha912): After resolving the presence initialization issue(#608),
     // remove the following check.
     if (!presence) return;
