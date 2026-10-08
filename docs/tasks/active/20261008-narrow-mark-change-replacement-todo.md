@@ -58,5 +58,6 @@ Out of scope — needs a maintainer decision, see the lessons file:
 
 ## Verification
 
-- `pnpm verify:fast`
-- `pnpm prosemirror test` (integration; needs a running Yorkie server)
+- [x] `pnpm verify:fast`
+- [ ] `pnpm prosemirror test` — the integration suites need a running Yorkie
+      server, which the autonomous run had no way to stand up. Left to CI.
