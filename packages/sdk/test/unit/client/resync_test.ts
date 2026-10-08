@@ -19,7 +19,7 @@ import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { create } from '@bufbuild/protobuf';
 import { ErrorInfoSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
-import { SyncMode } from '@yorkie-js/sdk/src/client/client';
+import { ClientCondition, SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Document, DocStatus } from '@yorkie-js/sdk/src/document/document';
 import { Code } from '@yorkie-js/sdk/src/util/error';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
@@ -124,21 +124,17 @@ describe('Client.resync', () => {
       'the refused content change is handed back',
     );
 
-    // The detach pack carries presence only: a webhook that allows
-    // presence-only packs while denying content writes can still permit it.
+    // The detach pack carries nothing at all: the queue is discarded and the
+    // presence clear is suppressed, so a webhook refusing this client's writes
+    // has nothing left to refuse — and, crucially, no `clientSeq` is minted
+    // over the hole the discarded changes left, which would be rejected with
+    // `ErrInvalidClientSeq`.
     assert.equal(detachPacks.length, 1);
-    const detachChanges = detachPacks[0].getChanges();
-    for (const change of detachChanges) {
-      assert.equal(
-        change.getOperations().length,
-        0,
-        'the detach pack carries no content operations',
-      );
-    }
-    // And it continues from the sequence the server acked (0), not from the
-    // one the discarded changes consumed — otherwise the server would reject
-    // the detach itself with `ErrInvalidClientSeq`.
-    assert.equal(detachChanges[0].getID().getClientSeq(), 1);
+    assert.equal(
+      detachPacks[0].getChanges().length,
+      0,
+      'the detach pack mints no change',
+    );
 
     // The same instance is attached again, re-anchored on the server state.
     assert.equal(attaches, 2);
@@ -147,7 +143,93 @@ describe('Client.resync', () => {
     // Presence is not what the server refused, so it is carried over.
     assert.deepEqual(doc.getMyPresence(), { cursor: 7 });
 
+    // The denial that triggers a resync stops the sync loop, and re-attaching
+    // does not restart it on its own: without this the recovered document sits
+    // attached and never syncs again.
+    assert.isTrue(client.getCondition(ClientCondition.SyncLoop));
+
     await client.detach(doc);
+  });
+
+  it('reports the discarded changes as a data-loss event', async () => {
+    const key = 'resync-event';
+    const rpcClient = {
+      attachDocument: async () =>
+        create(AttachDocumentResponseSchema, {
+          documentId: 'doc-id',
+          changePack: emptyPack(key, 0),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      detachDocument: async () =>
+        create(DetachDocumentResponseSchema, { changePack: emptyPack(key, 1) }),
+    };
+    const client = activatedClient(rpcClient);
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    doc.update((root) => {
+      root.text = 'refused edit';
+    });
+
+    const dropped: Array<{ reason: string; changes: Array<unknown> }> = [];
+    doc.subscribe('local-changes-dropped', (event) => {
+      dropped.push(event.value);
+    });
+
+    await client.resync(doc, { discardLocalChanges: true });
+
+    // The loss reaches the app through the same event the other discard paths
+    // use, so it is reported even when the caller never sees the return value.
+    assert.equal(dropped.length, 1);
+    assert.equal(dropped[0].reason, 'write-denied');
+    // Both un-pushed changes: the attach-time presence change (never pushed in
+    // Manual mode) and the refused edit.
+    assert.equal(dropped[0].changes.length, 2);
+
+    await client.detach(doc);
+  });
+
+  it('restores the queue when the detach is itself refused', async () => {
+    const key = 'resync-detach-denied';
+    const rpcClient = {
+      attachDocument: async () =>
+        create(AttachDocumentResponseSchema, {
+          documentId: 'doc-id',
+          changePack: emptyPack(key, 0),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      detachDocument: async () => {
+        throw permissionDeniedError('document is locked');
+      },
+    };
+    const client = activatedClient(rpcClient);
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    doc.update((root) => {
+      root.text = 'refused edit';
+    });
+    const pendingBefore = doc.getPendingChangeStructs();
+
+    const dropped: Array<unknown> = [];
+    doc.subscribe('local-changes-dropped', (event) => dropped.push(event));
+
+    let failed = false;
+    try {
+      await client.resync(doc, { discardLocalChanges: true });
+    } catch {
+      failed = true;
+    }
+
+    // A refused detach is the one failure the premise makes likely, so it must
+    // not destroy the work: the document is left exactly as it was found and
+    // the call can be retried.
+    assert.isTrue(failed);
+    assert.equal(doc.getStatus(), DocStatus.Attached);
+    assert.deepEqual(doc.getPendingChangeStructs(), pendingBefore);
+    assert.equal(doc.getRoot().text, 'refused edit');
+    // Nothing was lost, so nothing is reported as lost.
+    assert.equal(dropped.length, 0);
   });
 
   it('refuses a resync that does not opt into discarding', async () => {

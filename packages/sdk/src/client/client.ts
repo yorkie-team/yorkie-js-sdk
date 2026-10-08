@@ -1730,11 +1730,18 @@ export class Client {
    * To collect garbage things like CRDT tombstones left on the document, all
    * the changes should be applied to other replicas before GC time. For this,
    * if the document is no longer used by this client, it should be detached.
+   *
+   * `skipPresenceClear` suppresses the presence-clear change the detach
+   * normally mints. It exists for `resync`, whose whole premise is that this
+   * client may mint no further change: the server is refusing its writes, and
+   * the discarded queue has left a `clientSeq` hole that any new change would
+   * present. The server drops the client's presence on detach regardless.
    */
   private detachDocument<R, P extends Indexable>(
     doc: Document<R, P>,
     opts: {
       keepalive?: boolean;
+      skipPresenceClear?: boolean;
     } = { keepalive: false },
   ): Promise<Document<R, P>> {
     if (!this.isActive()) {
@@ -1750,7 +1757,9 @@ export class Client {
         `${doc.getKey()} is not attached`,
       );
     }
-    doc.update((_, p) => p.clear());
+    if (!opts.skipPresenceClear) {
+      doc.update((_, p) => p.clear());
+    }
 
     // Mark as detaching immediately so the sync loop skips this document.
     attachment.markDetaching();
@@ -1816,11 +1825,14 @@ export class Client {
    *
    * 1. wait for any in-flight sync, then take the un-pushed changes out of the
    *    queue and keep them for the caller,
-   * 2. detach — with the queue empty the pack carries presence only, which a
-   *    webhook that allows presence-only packs can still permit,
+   * 2. detach — with the queue empty, and the presence clear a detach usually
+   *    mints suppressed, the pack carries no changes at all, so a webhook that
+   *    refuses this client's writes has nothing left to refuse and the counter
+   *    never has to be rewound over sequences the server may already hold,
    * 3. `resetForReanchor()`, and
    * 4. attach the **same** `Document` instance again, under the sync mode it
-   *    had, so the server snapshot arrives through the usual events.
+   *    had, so the server snapshot arrives through the usual events, and
+   *    restart the sync loop that the denial stopped.
    *
    * Keeping the instance is the point: the app's subscriptions and the editor
    * bound to the document survive, where re-creating the client remounts them.
@@ -1828,6 +1840,15 @@ export class Client {
    * Returns the discarded changes so the app can report them ("N edits were not
    * saved"). Re-applying them is deliberately not the default — the server
    * refused them.
+   *
+   * Failure is accounted for rather than left half-done. If the detach is
+   * itself refused, the queue is handed back and the document is left attached
+   * exactly as it was, so the call can be retried. Once the detach has gone
+   * through the changes are gone for good, so they are published as a
+   * `local-changes-dropped` event at that moment — before the re-attach, which
+   * is the one step that can still fail with the edits already discarded. An
+   * app that only listens to that event therefore sees the loss on every path
+   * that loses something.
    */
   public async resync<R, P extends Indexable>(
     doc: Document<R, P>,
@@ -1878,13 +1899,53 @@ export class Client {
       : undefined;
     const initialPresence = opts.initialPresence ?? doc.getMyPresence();
 
+    // Take the offline-persistence layer out of the picture before the queue is
+    // emptied. Its log is keyed by `clientSeq` and its watermark only moves
+    // forward, so a log left holding the discarded changes would survive the
+    // re-anchor and be replayed into a document the server has already refused
+    // them for. Unsubscribing first also stops an append from firing against a
+    // queue that is about to be emptied.
+    if (attachment.unsubscribePersist) {
+      attachment.unsubscribePersist();
+      attachment.unsubscribePersist = undefined;
+    }
+    this.persistStates.delete(this.storeKey(doc.getKey()));
+    await this.removeFromStore(doc.getKey());
+
     const discarded = doc.discardLocalChanges();
+    const structs = discarded.map((change) => change.toStruct());
     logger.info(
       `[RS] c:"${this.getKey()}" resync d:"${doc.getKey()}", ` +
         `discarded:${discarded.length}`,
     );
 
-    await this.detachDocument(doc);
+    try {
+      // Detach without the presence clear a detach normally mints: the queue is
+      // empty and `discardLocalChanges` leaves the counter past the acked
+      // checkpoint, so any change minted here would present a `clientSeq` hole
+      // and be rejected with `ErrInvalidClientSeq` — turning the recovery into
+      // a second dead end. The server drops this client's presence on detach
+      // anyway, and `resetForReanchor` clears it locally a moment later.
+      await this.detachDocument(doc, { skipPresenceClear: true });
+    } catch (err) {
+      // The detach is the point of no return, and it did not happen: hand the
+      // refused changes back so the document is left exactly as it was found —
+      // still attached, queue intact, counter untouched — and the call can be
+      // retried once the webhook relents.
+      doc.restoreLocalChanges(discarded);
+      logger.error(
+        `[RS] c:"${this.getKey()}" resync d:"${doc.getKey()}" detach failed; ` +
+          `local changes restored`,
+        err,
+      );
+      throw err;
+    }
+
+    // Past here the changes are gone for good, so report them before the step
+    // that can still fail. An app listening for the data-loss event gets them
+    // even if the re-attach below throws.
+    this.emitLocalChangesDropped(doc, 'write-denied', structs);
+
     doc.resetForReanchor();
     await this.attachDocument(doc, {
       syncMode,
@@ -1893,7 +1954,16 @@ export class Client {
       initialPresence,
     });
 
-    return discarded;
+    // The `ErrPermissionDenied` that led here stopped the sync loop:
+    // `handleConnectError` does not retry it, so the loop's catch cleared
+    // `SyncLoop` and scheduled no further tick. Re-attaching alone does not
+    // revive it — unlike `attachChannel`, `attachDocument` never starts the
+    // loop — so a recovered document would sit attached and never sync again.
+    if (!this.conditions[ClientCondition.SyncLoop]) {
+      this.runSyncLoop();
+    }
+
+    return structs;
   }
 
   /**

@@ -489,6 +489,11 @@ export type LocalChangesDroppedReason =
   | 'document-purged'
   | 'actor-mismatch'
   | 'restore-failed'
+  // The server refused this client's writes (`ErrPermissionDenied`) and
+  // `Client.resync` took the refused changes out of the queue to re-anchor the
+  // document on the server state. Raised once the detach has succeeded, i.e.
+  // once the changes are gone for good.
+  | 'write-denied'
   // The persisted change log had a `clientSeq` hole — an append that never
   // landed — so it could not be replayed: the server rejects a discontinuous
   // run, and a document restored from one would never sync again.
@@ -1835,28 +1840,48 @@ export class Document<
 
   /**
    * `discardLocalChanges` takes the un-pushed local changes out of the queue
-   * and returns their serialized structs. Used by `Client.resync` when the
-   * server has refused this client's writes: the queued changes would be
-   * re-sent and re-denied by every later sync, so the only way forward is to
-   * stop presenting them.
+   * and returns them. Used by `Client.resync` when the server has refused this
+   * client's writes: the queued changes would be re-sent and re-denied by every
+   * later sync, so the only way forward is to stop presenting them.
    *
-   * The counter rewind is the part that is easy to miss. The discarded changes
-   * already consumed `clientSeq`, and the server validates continuity from the
-   * sequence it has acked, so a change minted after a bare drop would present a
-   * hole and be rejected with `ErrInvalidClientSeq` — including the presence
-   * clear that `detach` emits. Rewinding to the acked checkpoint makes the next
-   * change continue exactly where the server stands.
+   * The `clientSeq` counter is deliberately left where it is. The discarded
+   * changes already minted those sequences, and rewinding would mint them a
+   * second time — the hazard {@link Document.advanceClientSeqTo} exists to rule
+   * out: the server skips a `clientSeq` it has already taken as a duplicate,
+   * and the offline-persistence watermarks assume the counter only rises. The
+   * cost of not rewinding is that the queue now has a hole relative to the
+   * acked checkpoint, so **no change may be minted before the document is
+   * re-anchored**: `Client.resync` detaches without the usual presence clear
+   * precisely so nothing is minted in that window, and `resetForReanchor`
+   * returns the counter to zero a moment later.
    *
    * This does **not** undo the discarded changes on `root`: they are already
    * applied and there is no server-confirmed copy to fall back on. The caller
    * is expected to follow with `resetForReanchor` and a fresh attach, which
-   * replaces the local state with the server's.
+   * replaces the local state with the server's — or, if that fails, to hand the
+   * changes back with {@link Document.restoreLocalChanges}.
    */
-  public discardLocalChanges(): Array<ChangeStruct<P>> {
-    const discarded = this.localChanges.map((change) => change.toStruct());
+  public discardLocalChanges(): Array<Change<P>> {
+    const discarded = this.localChanges;
     this.localChanges = [];
-    this.changeID = this.changeID.setClientSeq(this.checkpoint.getClientSeq());
     return discarded;
+  }
+
+  /**
+   * `restoreLocalChanges` puts changes taken by `discardLocalChanges` back at
+   * the head of the queue, undoing the discard. It is the rollback for a
+   * recovery that could not go through: `Client.resync` restores the queue when
+   * the detach it needs is itself refused, so a failed recovery leaves the
+   * document exactly as it found it rather than with its edits destroyed.
+   *
+   * The restored changes are older than anything queued since, so they go in
+   * front; `clientSeq` is untouched because the discard never moved it.
+   */
+  public restoreLocalChanges(changes: Array<Change<P>>): void {
+    if (!changes.length) {
+      return;
+    }
+    this.localChanges = [...changes, ...this.localChanges];
   }
 
   /**

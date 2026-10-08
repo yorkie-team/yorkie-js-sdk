@@ -69,26 +69,40 @@ the document on the server state, reusing the machinery the store-backed
 
 1. `await attachment.waitForSyncComplete()` — an in-flight response still
    removes pushed changes by checkpoint, so the queue must not move under it.
-2. `doc.discardLocalChanges()` — take the un-pushed changes out of the queue,
-   keep their structs for the caller, and **rewind the `clientSeq` counter to
-   the acked checkpoint**.
-3. `detach` — with the queue empty the pack carries presence only (the presence
-   clear `detach` itself emits), which a webhook that permits presence-only
-   packs can still allow.
-4. `doc.resetForReanchor()`.
-5. `attach` the same instance again, under the sync mode, poll interval, GC
-   setting, and presence it had.
+2. Tear down offline persistence for the document (unsubscribe the appender,
+   drop the watermark, remove the stored envelope) — its log is keyed by
+   `clientSeq` and would otherwise outlive the re-anchor holding exactly the
+   changes the server refused.
+3. `doc.discardLocalChanges()` — take the un-pushed changes out of the queue
+   and hand them to the caller. The `clientSeq` counter is **not** rewound; see
+   the risk table.
+4. `detach`, with the presence clear suppressed — the queue is empty and no
+   change may be minted over the hole it left, so the pack carries nothing at
+   all. A webhook refusing this client's writes has nothing to refuse.
+5. `doc.resetForReanchor()`, which returns the counter to zero.
+6. `attach` the same instance again, under the sync mode, poll interval, GC
+   setting, and presence it had, and restart the sync loop the denial stopped.
 
 `resync` returns the discarded change structs, so the app can tell the user
-"N edits were not saved".
+"N edits were not saved", and publishes them as a `local-changes-dropped`
+event with reason `write-denied` once the detach has made the loss final.
+
+**Failure.** The detach is the point of no return. Before it, a failure rolls
+back: the queue is handed straight back with `doc.restoreLocalChanges`, the
+document stays attached, and the call can be retried. After it, the changes are
+gone, which is why the data-loss event is published at that moment rather than
+at the end — a re-attach that fails then still leaves the app holding the
+edits.
 
 ### Risks and Mitigation
 
 | Risk | Mitigation |
 |------|------------|
-| A bare queue drop leaves a `clientSeq` hole, and the detach pack is then rejected with `ErrInvalidClientSeq` — a recovery path that dead-ends | `discardLocalChanges` rewinds `changeID`'s client sequence to `checkpoint.getClientSeq()`, so the next change continues from what the server acked |
+| A queue drop leaves a `clientSeq` hole, and a change minted after it is rejected with `ErrInvalidClientSeq` — a recovery path that dead-ends | Nothing is minted in that window: the detach suppresses its presence clear, so the pack carries no change, and `resetForReanchor` zeroes the counter before the re-attach. Rewinding the counter instead was rejected — the counter records which sequences this client has already minted, some of which the server may hold, so replaying them risks a silent duplicate-skip and breaks the watermarks the offline log depends on (`Document.advanceClientSeqTo`) |
+| A failed detach leaves the document attached with its edits already destroyed | `discardLocalChanges` no longer moves the counter, so the discard is exactly reversible: `restoreLocalChanges` puts the queue back and the document is left as it was found |
 | `resync` deadlocks if it is queued | It calls `detach`/`attach`, which enqueue tasks of their own on a strictly sequential queue, so `resync` itself is not enqueued; ordering against an in-flight sync comes from `waitForSyncComplete` instead |
-| The detach is itself refused, if the webhook denies even presence-only packs | Nothing the SDK can do; the error surfaces from `resync` and the app falls back to re-creating the client |
+| The detach is itself refused, if the webhook denies even an empty pack | The queue is restored and the error surfaces from `resync`; the call is retryable, and the app can still fall back to re-creating the client |
+| The denial stopped the sync loop, and the re-attach does not restart it | `resync` restarts it after the attach, the way `attachChannel` does; otherwise the recovered document never syncs again |
 | Data loss is implicit | `discardLocalChanges: true` is required at the call site, and the discarded changes are returned |
 
 ### Design Decisions
