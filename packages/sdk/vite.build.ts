@@ -1,14 +1,18 @@
 import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
-import { copyFileSync } from 'fs';
+import { fileURLToPath } from 'node:url';
 import commonjs from 'vite-plugin-commonjs';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { nodeEsmEntry } from '../../scripts/node-esm-entry.mjs';
+import {
+  copyEsmDeclarations,
+  nodeEsmEntry,
+} from '../../scripts/node-esm-entry.mjs';
 
 export default defineConfig({
+  root: fileURLToPath(new URL('.', import.meta.url)),
   build: {
     lib: {
-      entry: 'src/yorkie.ts',
+      entry: fileURLToPath(new URL('./src/yorkie.ts', import.meta.url)),
       name: 'yorkie-js-sdk',
       fileName: (format) =>
         format === 'umd' ? 'yorkie-js-sdk.js' : 'yorkie-js-sdk.es.mjs',
@@ -24,7 +28,9 @@ export default defineConfig({
       rollupTypes: true,
       // Node ESM resolves types per module format, so ship a .d.mts twin.
       afterBuild: () =>
-        copyFileSync('dist/yorkie-js-sdk.d.ts', 'dist/yorkie-js-sdk.d.mts'),
+        copyEsmDeclarations(
+          fileURLToPath(new URL('./dist/yorkie-js-sdk', import.meta.url)),
+        ),
     }),
     commonjs(),
     tsconfigPaths({
