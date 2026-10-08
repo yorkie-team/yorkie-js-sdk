@@ -34,6 +34,7 @@ import {
   AttachDocumentResponseSchema,
   DetachDocumentResponseSchema,
   PushPullChangesResponseSchema,
+  RemoveDocumentResponseSchema,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 
 const actorHex = '000000000000000000000001';
@@ -395,6 +396,7 @@ describe('Detaching a document the server refused to store', () => {
   async function attachedWithRejectingPush(err: ConnectError) {
     const key = 'big';
     const detachPacks: Array<any> = [];
+    const removePacks: Array<any> = [];
     const client = new yorkie.Client({ rpcAddr: 'http://localhost' });
     (client as any).status = 'activated';
     (client as any).id = actorHex;
@@ -432,6 +434,23 @@ describe('Detaching a document the server refused to store', () => {
           }),
         });
       },
+      // `RemoveDocument` carries a pack too, so it runs the same gate.
+      removeDocument: async (req: any) => {
+        removePacks.push(req.changePack);
+        if (req.changePack.changes.length > 0) {
+          throw err;
+        }
+        return create(RemoveDocumentResponseSchema, {
+          changePack: create(ChangePackSchema, {
+            documentKey: key,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: 0,
+            }),
+            isRemoved: true,
+          }),
+        });
+      },
     };
 
     const doc = new Document<{ text?: string }>(key);
@@ -439,11 +458,17 @@ describe('Detaching a document the server refused to store', () => {
       syncMode: SyncMode.Manual,
       disablePresence: true,
     });
+
+    const events: Array<any> = [];
+    doc.subscribe('all', (docEvents) => {
+      events.push(...docEvents);
+    });
+
     doc.update((root) => {
       root.text = 'over the limit';
     });
 
-    return { client, doc, detachPacks };
+    return { client, doc, detachPacks, removePacks, events };
   }
 
   it('detaches a parked document by dropping the changes it cannot push', async () => {
@@ -494,6 +519,79 @@ describe('Detaching a document the server refused to store', () => {
     );
 
     assert.lengthOf(detachPacks, 1, 'no second attempt is made');
+    assert.isTrue(
+      (client as any).attachmentMap.has('big'),
+      'the document stays attached so the caller can retry',
+    );
+  });
+
+  it('reports the changes a dropped-pack detach loses', async () => {
+    const err = rejection(Code.ErrChangeTooLarge, 'change is too large');
+    const { client, doc, events } = await attachedWithRejectingPush(err);
+
+    await client.detach(doc);
+
+    // The changes reach neither the server nor the store, so the loss has to
+    // be app-visible rather than silent.
+    const dropped = events.filter(
+      (e) => e.type === DocEventType.LocalChangesDropped,
+    );
+    assert.lengthOf(dropped, 1, 'the loss is reported once');
+    assert.strictEqual(dropped[0].value.reason, 'write-rejected');
+    assert.isNotEmpty(
+      dropped[0].value.changes,
+      'the event carries the changes that were dropped',
+    );
+  });
+
+  it('removes a parked document by dropping the changes it cannot push', async () => {
+    const err = rejection(
+      Code.ErrDocumentSizeExceedsLimit,
+      'document size exceeds limit',
+    );
+    const { client, doc, removePacks } = await attachedWithRejectingPush(err);
+
+    // The aggregate sync is what parks the attachment, as the sync loop does.
+    await client.sync();
+    assert.isTrue((client as any).attachmentMap.get('big').isWriteRejected());
+
+    await client.remove(doc);
+
+    assert.lengthOf(removePacks, 1, 'the refused pack is never sent again');
+    assert.isEmpty(removePacks[0].changes);
+    assert.isFalse(
+      (client as any).attachmentMap.has('big'),
+      'the attachment is released, so the session lock is not pinned',
+    );
+  });
+
+  it('retries a remove the server refuses, without the refused changes', async () => {
+    const err = rejection(Code.ErrChangeTooLarge, 'change is too large');
+    const { client, doc, removePacks } = await attachedWithRejectingPush(err);
+
+    // Never synced, so nothing parked this document: the first remove is the
+    // one that learns the server will not take its changes.
+    assert.isFalse((client as any).attachmentMap.get('big').isWriteRejected());
+
+    await client.remove(doc);
+
+    assert.lengthOf(removePacks, 2, 'the remove is retried once');
+    assert.isNotEmpty(removePacks[0].changes);
+    assert.isEmpty(removePacks[1].changes);
+    assert.isFalse((client as any).attachmentMap.has('big'));
+  });
+
+  it('does not retry a remove that failed for an unrelated reason', async () => {
+    const { client, doc, removePacks } = await attachedWithRejectingPush(
+      new ConnectError('nope', ConnectCode.Unavailable),
+    );
+
+    await client.remove(doc).then(
+      () => assert.fail('an unrelated failure should still surface'),
+      (e) => assert.instanceOf(e, ConnectError),
+    );
+
+    assert.lengthOf(removePacks, 1, 'no second attempt is made');
     assert.isTrue(
       (client as any).attachmentMap.has('big'),
       'the document stays attached so the caller can retry',

@@ -1743,15 +1743,7 @@ export class Client {
     // detaches on the checkpoint the server already has, dropping them.
     const detachPack = (): ChangePack<P> =>
       attachment.isWriteRejected()
-        ? ChangePack.create<P>(
-            doc.getKey(),
-            doc.getCheckpoint(),
-            false,
-            [],
-            doc.getVersionVector(),
-            undefined,
-            doc.getEpoch(),
-          )
+        ? Client.emptiedPack(doc)
         : doc.createChangePack();
 
     const sendDetach = () =>
@@ -1782,6 +1774,19 @@ export class Client {
 
           attachment.markWriteRejected();
           res = await sendDetach();
+        }
+
+        // The emptied pack detached on the checkpoint the server already had,
+        // so the un-pushed local changes exist nowhere once this returns: not
+        // on the server, and not in the store either, since the envelope that
+        // held them is deleted below. That is data loss, and the SDK reports
+        // data loss rather than letting it be silent — capture the changes
+        // before the response is applied and hand them to the app.
+        if (attachment.isWriteRejected()) {
+          const dropped = doc.getPendingChangeStructs();
+          if (dropped.length) {
+            this.emitLocalChangesDropped(doc, 'write-rejected', dropped);
+          }
         }
 
         const pack = converter.fromChangePack<P>(res.changePack!);
@@ -2251,6 +2256,28 @@ export class Client {
   }
 
   /**
+   * `emptiedPack` builds a pack carrying no local changes, pinned to the
+   * checkpoint the server already holds. It is what the pack-carrying terminal
+   * RPCs (`DetachDocument`, `RemoveDocument`) send for a document the
+   * server-side size gate has refused: the real pack would be refused again,
+   * and a terminal call that can never succeed leaves the attachment in
+   * `attachmentMap` forever, pinning its session lock and its store entry.
+   */
+  private static emptiedPack<R, P extends Indexable>(
+    doc: Document<R, P>,
+  ): ChangePack<P> {
+    return ChangePack.create<P>(
+      doc.getKey(),
+      doc.getCheckpoint(),
+      false,
+      [],
+      doc.getVersionVector(),
+      undefined,
+      doc.getEpoch(),
+    );
+  }
+
+  /**
    * `parkOnWriteRejection` marks the attachment as write-rejected and returns
    * true when the error is one the server will give again for the same pack,
    * so the caller can swallow it. Parking is per attachment on purpose: the
@@ -2289,19 +2316,46 @@ export class Client {
     }
     doc.setActor((this.actorID ?? this.id)!);
 
-    const pbChangePack = converter.toChangePack(doc.createChangePack());
-    pbChangePack.isRemoved = true;
+    // `RemoveDocument` carries a change pack, so — like `DetachDocument` — it
+    // runs the same server-side size gate a push does. A document parked by a
+    // write rejection would resend the very pack that was refused and fail
+    // here too, which would make an over-limit document impossible to remove:
+    // the one exit it has left. Removal destroys the document anyway, so the
+    // changes the emptied pack leaves behind are going nowhere regardless.
+    const sendRemove = () => {
+      const pbChangePack = converter.toChangePack(
+        attachment.isWriteRejected()
+          ? Client.emptiedPack(doc)
+          : doc.createChangePack(),
+      );
+      pbChangePack.isRemoved = true;
+
+      return this.rpcClient.removeDocument(
+        {
+          clientId: this.id!,
+          documentId: attachment.resourceID,
+          changePack: pbChangePack,
+        },
+        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+      );
+    };
 
     return this.enqueueTask(async () => {
       try {
-        const res = await this.rpcClient.removeDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.resourceID,
-            changePack: pbChangePack,
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-        );
+        let res;
+        try {
+          res = await sendRemove();
+        } catch (err) {
+          // The gate refused this remove's pack, and it was not already the
+          // emptied one: park the document and remove without the changes,
+          // rather than reporting a document that cannot be removed at all.
+          if (attachment.isWriteRejected() || !Client.isWriteRejection(err)) {
+            throw err;
+          }
+
+          attachment.markWriteRejected();
+          res = await sendRemove();
+        }
 
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);

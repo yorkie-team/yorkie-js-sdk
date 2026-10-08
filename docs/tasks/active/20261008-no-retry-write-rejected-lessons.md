@@ -35,3 +35,20 @@
   sync-loop test with two attached documents that asserts the rejected one is
   pushed exactly once while the other keeps syncing. That last test was
   verified to fail without the containment fix.
+
+## Round 3 (panel)
+
+- Blocking: `remove()` is the other pack-carrying terminal RPC, and it got no
+  equivalent of the detach fallback — so a parked document resent the refused
+  pack, failed the same gate, and could never be removed. The one exit left to
+  an over-limit document was closed. Fixed by giving `remove()` the same
+  emptied-pack fallback and one-shot retry `detachDocument` has, with the pack
+  construction shared through `Client.emptiedPack`.
+- Blocking: the emptied-pack detach dropped the un-pushed local changes with
+  no signal, then deleted the persisted envelope that held them — the changes
+  ended up on neither the server, nor the store, nor a reachable in-memory
+  doc. The SDK already has the app-visible signal for exactly this, so the
+  path now emits `LocalChangesDropped` with a new `'write-rejected'` reason,
+  captured before the detach response is applied.
+- Taken together: whenever a code path makes data unreachable, the question is
+  not only "does the call succeed" but "who is told what was lost".
