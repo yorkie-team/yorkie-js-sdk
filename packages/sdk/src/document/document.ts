@@ -911,8 +911,16 @@ export class Document<
     );
 
     this.history = {
-      canUndo: () => this.internalHistory.hasUndo() && !this.isUpdating,
-      canRedo: () => this.internalHistory.hasRedo() && !this.isUpdating,
+      // `canUndo`/`canRedo` answer for the `undo`/`redo` below, so they must
+      // test every reason those refuse — `mintingSuspended` included. The
+      // documented pattern is check-then-call (`if (canUndo()) undo()`, from a
+      // keymap handler in the examples), and a predicate that says yes to a
+      // call that then throws `ErrRefused` turns the re-anchor window into an
+      // exception at an existing call site that never had to handle one.
+      canUndo: () =>
+        this.internalHistory.hasUndo() && !this.isUpdating && this.isMintable(),
+      canRedo: () =>
+        this.internalHistory.hasRedo() && !this.isUpdating && this.isMintable(),
       undo: () => this.executeUndoRedo(true),
       redo: () => this.executeUndoRedo(false),
     };
@@ -1895,6 +1903,21 @@ export class Document<
       this.mintingSuspended = true;
     }
     return discarded;
+  }
+
+  /**
+   * `isMintable` returns whether this document may queue a new local change.
+   * It is `false` only inside the re-anchor window `discardLocalChanges`
+   * opens, where `update` and undo/redo refuse with `ErrRefused`.
+   *
+   * It is public so that a caller which mints a change as a *side effect* of
+   * something else can ask instead of throwing out of an unrelated API:
+   * `Client.detach` mints a presence clear, and an unmount cleanup calling it
+   * has nowhere to put that exception. `history.canUndo`/`canRedo` read it for
+   * the same reason.
+   */
+  public isMintable(): boolean {
+    return !this.mintingSuspended;
   }
 
   /**

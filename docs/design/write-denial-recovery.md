@@ -67,8 +67,10 @@ server's, this event is the first notice it gets.
 the document on the server state, reusing the machinery the store-backed
 `ErrEpochMismatch` path already uses:
 
-1. `await attachment.waitForSyncComplete()` — an in-flight response still
-   removes pushed changes by checkpoint, so the queue must not move under it.
+1. Take a turn in the client's task queue, and mark the attachment detaching —
+   an in-flight response still removes pushed changes by checkpoint, so the
+   queue must not move under it, and no *fresh* sync may start in the await
+   gaps that follow. Steps 2–3 run inside that turn.
 2. Tear down offline persistence for the document (unsubscribe the appender,
    drop the watermark, remove the stored envelope) — its log is keyed by
    `clientSeq` and would otherwise outlive the re-anchor holding exactly the
@@ -100,7 +102,8 @@ edits.
 |------|------------|
 | A queue drop leaves a `clientSeq` hole, and a change minted after it is rejected with `ErrInvalidClientSeq` — a recovery path that dead-ends | Nothing is minted in that window: the detach suppresses its presence clear, so the pack carries no change, and `resetForReanchor` zeroes the counter before the re-attach. Rewinding the counter instead was rejected — the counter records which sequences this client has already minted, some of which the server may hold, so replaying them risks a silent duplicate-skip and breaks the watermarks the offline log depends on (`Document.advanceClientSeqTo`) |
 | A failed detach leaves the document attached with its edits already destroyed | `discardLocalChanges` no longer moves the counter, so the discard is exactly reversible: `restoreLocalChanges` puts the queue back and the document is left as it was found |
-| `resync` deadlocks if it is queued | It calls `detach`/`attach`, which enqueue tasks of their own on a strictly sequential queue, so `resync` itself is not enqueued; ordering against an in-flight sync comes from `waitForSyncComplete` instead |
+| `resync` deadlocks if it is queued | It calls `detach`/`attach`, which enqueue tasks of their own on a strictly sequential queue, so `resync` as a whole is not enqueued. Only the discard takes a turn in the queue, which is enough: every sync path runs through that queue, so the turn waits for an in-flight sync whether or not it registered itself with `setSyncPromise` (the sync loop did; `Client.sync` did not, until `trackSync`). The gap between the discard and the re-attach is covered by the detaching flag the sync loop already honours |
+| A change minted as a side effect throws out of an unrelated API | `update`/undo/redo refuse while minting is suspended, but a caller that mints *incidentally* asks instead: `Client.detach` skips its presence clear when `Document.isMintable()` is false (the server drops presence on detach anyway), and `history.canUndo()/canRedo()` report the window so check-then-call sites keep working |
 | The detach is itself refused, if the webhook denies even an empty pack | The queue is restored and the error surfaces from `resync`; the call is retryable, and the app can still fall back to re-creating the client |
 | The denial stopped the sync loop, and the re-attach does not restart it | `resync` restarts it after the attach, the way `attachChannel` does; otherwise the recovered document never syncs again |
 | Data loss is implicit | `discardLocalChanges: true` is required at the call site, and the discarded changes are returned |

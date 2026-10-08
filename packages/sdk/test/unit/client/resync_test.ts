@@ -30,6 +30,7 @@ import {
 import {
   AttachDocumentResponseSchema,
   DetachDocumentResponseSchema,
+  PushPullChangesResponseSchema,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 
 const actorHex = '000000000000000000000001';
@@ -147,6 +148,106 @@ describe('Client.resync', () => {
     // does not restart it on its own: without this the recovered document sits
     // attached and never syncs again.
     assert.isTrue(client.getCondition(ClientCondition.SyncLoop));
+
+    await client.detach(doc);
+  });
+
+  it('re-anchors a Realtime document under the sync mode it had', async () => {
+    const key = 'resync-realtime';
+    let attaches = 0;
+    let watches = 0;
+    let denyPush = true;
+    const pushedPacks: Array<any> = [];
+    const rpcClient = {
+      attachDocument: async () => {
+        attaches++;
+        return create(AttachDocumentResponseSchema, {
+          documentId: 'doc-id',
+          changePack: emptyPack(key, 0),
+          disablePresence: false,
+          schemaRules: [],
+        });
+      },
+      detachDocument: async () =>
+        create(DetachDocumentResponseSchema, { changePack: emptyPack(key, 1) }),
+      pushPullChanges: async (req: any) => {
+        const pack = converter.fromChangePack(req.changePack);
+        pushedPacks.push(pack);
+        if (denyPush) {
+          throw permissionDeniedError('document is locked');
+        }
+        // Ack what the push carried, the way the server does: the response
+        // checkpoint is what drains the local queue, so a fixed one would make
+        // "the document syncs again" unobservable.
+        const acked = pack
+          .getChanges()
+          .reduce(
+            (max: number, change: any) =>
+              Math.max(max, change.getID().getClientSeq()),
+            pack.getCheckpoint().getClientSeq(),
+          );
+        return create(PushPullChangesResponseSchema, {
+          changePack: emptyPack(key, acked),
+        });
+      },
+      // A Realtime attach opens a watch stream, and a Manual one does not, so
+      // counting the calls reads back the sync mode the re-attach used. A
+      // failed stream creation is handled as an ordinary disconnect and retried
+      // after `reconnectStreamDelay` (1s), well past the end of this test.
+      watch: () => {
+        watches++;
+        throw new Error('no watch stream in this test');
+      },
+    };
+
+    const client = activatedClient(rpcClient);
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, { syncMode: SyncMode.Realtime });
+    assert.equal(watches, 1);
+
+    doc.update((root) => {
+      root.text = 'refused edit';
+    });
+
+    const authErrors: Array<{ method: string }> = [];
+    doc.subscribe('auth-error', (event) => authErrors.push(event.value));
+
+    // Realtime is the mode the triggering scenario actually happens in: the
+    // sync loop is what carries the document, and the denial lands there.
+    // `handleConnectError` does not retry `ErrPermissionDenied`, so the loop
+    // stops and the document stays wedged until a resync.
+    (client as any).runSyncLoop();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(authErrors.length, 1);
+    assert.equal(pushedPacks.length, 1);
+    assert.isFalse(client.getCondition(ClientCondition.SyncLoop));
+
+    denyPush = false;
+    const discarded = await client.resync(doc, { discardLocalChanges: true });
+    assert.isTrue(discarded.length > 0);
+
+    // Re-attached as Realtime rather than quietly downgraded to Manual: the
+    // sync mode is what decides whether the loop picks the document up at all,
+    // so a recovery that lost it would leave a document that looks attached
+    // and never syncs again.
+    assert.equal(attaches, 2);
+    assert.equal(
+      (client as any).attachmentMap.get(key).syncMode,
+      SyncMode.Realtime,
+    );
+    assert.equal(watches, 2, 'the re-attach opened a watch stream again');
+    assert.isTrue(client.getCondition(ClientCondition.SyncLoop));
+    assert.equal(doc.getStatus(), DocStatus.Attached);
+    assert.equal(doc.getRoot().text, undefined);
+
+    // And it does sync again, with no help from the test: an edit made after
+    // the recovery is pushed by the loop and acked.
+    doc.update((root) => {
+      root.text = 'edited after the re-anchor';
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    assert.isTrue(pushedPacks.length > 1, 'the loop pushed after the recovery');
+    assert.isFalse(doc.hasLocalChanges(), 'the pushed change was acked');
 
     await client.detach(doc);
   });
@@ -296,6 +397,55 @@ describe('Client.resync', () => {
     assert.equal(doc.getRoot().text, 'edited after the re-anchor');
 
     await client.detach(doc);
+  });
+
+  it('keeps detach and the undo predicate usable inside the window', async () => {
+    const key = 'resync-window-neighbours';
+    const detachPacks: Array<any> = [];
+    const rpcClient = {
+      attachDocument: async () =>
+        create(AttachDocumentResponseSchema, {
+          documentId: 'doc-id',
+          changePack: emptyPack(key, 0),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      detachDocument: async (req: any) => {
+        detachPacks.push(converter.fromChangePack(req.changePack));
+        return create(DetachDocumentResponseSchema, {
+          changePack: emptyPack(key, 1),
+        });
+      },
+    };
+    const client = activatedClient(rpcClient);
+    const doc = new Document<{ text?: string }>(key);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    doc.update((root) => {
+      root.text = 'refused edit';
+    });
+    assert.isTrue(doc.history.canUndo());
+
+    // The state `resync` leaves between the discard and the re-anchor, reached
+    // directly so the window can be inspected while it is open.
+    doc.discardLocalChanges();
+
+    // `canUndo` answers for `undo`, and `undo` now refuses: the documented
+    // check-then-call pattern (`if (canUndo()) undo()`, straight from a keymap
+    // handler in the examples) must not turn into a throw.
+    assert.isFalse(doc.history.canUndo());
+
+    // `detach` mints a presence clear, which `update` refuses in this window.
+    // React's unmount cleanup calls `client.detach` unguarded, so the refusal
+    // must not come back out of it — synchronously at that — and the clear is
+    // skipped instead.
+    await client.detach(doc);
+    assert.equal(doc.getStatus(), DocStatus.Detached);
+    assert.equal(detachPacks.length, 1);
+    assert.equal(
+      detachPacks[0].getChanges().length,
+      0,
+      'the presence clear was skipped rather than minted over the hole',
+    );
   });
 
   it('refuses a resync that does not opt into discarding', async () => {

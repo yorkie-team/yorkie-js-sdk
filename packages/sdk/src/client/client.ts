@@ -58,7 +58,10 @@ import {
   LocalChangesDroppedReason,
   ReissueToken,
 } from '@yorkie-js/sdk/src/document/document';
-import { ChangeStruct } from '@yorkie-js/sdk/src/document/change/change';
+import {
+  Change,
+  ChangeStruct,
+} from '@yorkie-js/sdk/src/document/change/change';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { createAuthInterceptor } from '@yorkie-js/sdk/src/client/auth_interceptor';
 import { createMetricInterceptor } from '@yorkie-js/sdk/src/client/metric_interceptor';
@@ -1757,7 +1760,15 @@ export class Client {
         `${doc.getKey()} is not attached`,
       );
     }
-    if (!opts.skipPresenceClear) {
+    // The presence clear is a change this document may not be in a position to
+    // mint: inside the re-anchor window `resync` opens, `update` refuses with
+    // `ErrRefused`, and that would come straight back out of `detach` — before
+    // any task is enqueued, so synchronously, at call sites that have nowhere
+    // to put it (React's unmount cleanup calls `client.detach` unguarded). The
+    // clear is a courtesy to the other peers, not part of the detach contract:
+    // the server drops this client's presence on detach regardless. So skip it
+    // when it cannot be minted rather than failing the detach over it.
+    if (!opts.skipPresenceClear && doc.isMintable()) {
       doc.update((_, p) => p.clear());
     }
 
@@ -1888,15 +1899,6 @@ export class Client {
       );
     }
 
-    // Wait for an in-flight sync before touching the queue: its response still
-    // removes pushed changes by checkpoint, and discarding underneath it would
-    // apply that removal to a queue it never saw.
-    //
-    // Note this is deliberately *not* wrapped in `enqueueTask`: `detach` and
-    // `attach` below enqueue tasks of their own, and the client's queue runs
-    // strictly one task at a time, so nesting would deadlock.
-    await attachment.waitForSyncComplete();
-
     // Preserve how the document was attached, so recovery is invisible to the
     // app beyond the re-anchor itself. Presence is carried over too — the
     // cursor the user is still holding is not part of what the server refused.
@@ -1907,20 +1909,47 @@ export class Client {
       : undefined;
     const initialPresence = opts.initialPresence ?? doc.getMyPresence();
 
-    // Take the offline-persistence layer out of the picture before the queue is
-    // emptied. Its log is keyed by `clientSeq` and its watermark only moves
-    // forward, so a log left holding the discarded changes would survive the
-    // re-anchor and be replayed into a document the server has already refused
-    // them for. Unsubscribing first also stops an append from firing against a
-    // queue that is about to be emptied.
-    if (attachment.unsubscribePersist) {
-      attachment.unsubscribePersist();
-      attachment.unsubscribePersist = undefined;
-    }
-    this.persistStates.delete(this.storeKey(doc.getKey()));
-    await this.removeFromStore(doc.getKey());
+    // Close the window to concurrent syncs before the queue is touched. Two
+    // hazards, and they need two different guards:
+    //
+    // - A sync already in flight. Its response removes pushed changes from the
+    //   queue by checkpoint, so discarding underneath it would apply that
+    //   removal to a queue it never saw. Every sync path — the loop and the
+    //   public `Client.sync` — runs inside the client's task queue, and that
+    //   queue runs strictly one task at a time, so taking a turn in it waits
+    //   for an in-flight sync whether or not that sync registered itself with
+    //   `setSyncPromise`. `waitForSyncComplete` alone would not be enough: a
+    //   hand-driven `Client.sync` is invisible to an attachment that was never
+    //   handed its promise. (It is kept below for the one sync-adjacent path
+    //   that runs outside the queue, a `keepalive` detach.)
+    // - A *fresh* sync starting in one of the await gaps that follow. Holding
+    //   the queue across the whole recovery is not an option — the `detach` and
+    //   `attach` below enqueue tasks of their own, and the queue is serial, so
+    //   nesting would deadlock. The span is covered instead by the detaching
+    //   flag the sync loop already honours, set here rather than left to
+    //   `detachDocument`, and cleared again on the rollback path below where
+    //   the document stays attached.
+    let discarded: Array<Change<P>> = [];
+    await this.enqueueTask(async () => {
+      attachment.markDetaching();
+      await attachment.waitForSyncComplete();
 
-    const discarded = doc.discardLocalChanges();
+      // Take the offline-persistence layer out of the picture before the queue
+      // is emptied. Its log is keyed by `clientSeq` and its watermark only
+      // moves forward, so a log left holding the discarded changes would
+      // survive the re-anchor and be replayed into a document the server has
+      // already refused them for. Unsubscribing first also stops an append
+      // from firing against a queue that is about to be emptied.
+      if (attachment.unsubscribePersist) {
+        attachment.unsubscribePersist();
+        attachment.unsubscribePersist = undefined;
+      }
+      this.persistStates.delete(this.storeKey(doc.getKey()));
+      await this.removeFromStore(doc.getKey());
+
+      discarded = doc.discardLocalChanges();
+    });
+
     const structs = discarded.map((change) => change.toStruct());
     logger.info(
       `[RS] c:"${this.getKey()}" resync d:"${doc.getKey()}", ` +
@@ -1938,9 +1967,12 @@ export class Client {
     } catch (err) {
       // The detach is the point of no return, and it did not happen: hand the
       // refused changes back so the document is left exactly as it was found —
-      // still attached, queue intact, counter untouched — and the call can be
-      // retried once the webhook relents.
+      // still attached, queue intact, counter untouched, syncing — and the call
+      // can be retried once the webhook relents. `detachDocument` resets the
+      // detaching flag on its own failure path, but not when it throws before
+      // enqueueing, so reset it here too; it is idempotent.
       doc.restoreLocalChanges(discarded);
+      attachment.resetDetaching();
       logger.error(
         `[RS] c:"${this.getKey()}" resync d:"${doc.getKey()}" detach failed; ` +
           `local changes restored`,
@@ -2333,23 +2365,24 @@ export class Client {
         );
       }
       return this.enqueueTask(async () => {
-        return this.syncInternal(attachment, SyncMode.Realtime).catch(
-          async (err) => {
-            logger.error(`[SY] c:"${this.getKey()}" err :`, err);
-            if (isErrorCode(err, Code.ErrEpochMismatch)) {
-              attachment.resource.publish([
-                {
-                  type: DocEventType.EpochMismatch,
-                  value: {
-                    method: 'PushPull',
-                  },
+        return this.trackSync(
+          attachment,
+          this.syncInternal(attachment, SyncMode.Realtime),
+        ).catch(async (err) => {
+          logger.error(`[SY] c:"${this.getKey()}" err :`, err);
+          if (isErrorCode(err, Code.ErrEpochMismatch)) {
+            attachment.resource.publish([
+              {
+                type: DocEventType.EpochMismatch,
+                value: {
+                  method: 'PushPull',
                 },
-              ]);
-            }
-            await this.handleConnectError(err);
-            throw err;
-          },
-        );
+              },
+            ]);
+          }
+          await this.handleConnectError(err);
+          throw err;
+        });
       }) as Promise<Array<Document<R, P>>>;
     }
 
@@ -2362,9 +2395,12 @@ export class Client {
           attachment.resource instanceof Document
         ) {
           promises.push(
-            this.syncInternal(
-              attachment as Attachment<Document<R, P>>,
-              attachment.syncMode,
+            this.trackSync(
+              attachment,
+              this.syncInternal(
+                attachment as Attachment<Document<R, P>>,
+                attachment.syncMode,
+              ),
             ),
           );
         }
@@ -3997,6 +4033,31 @@ export class Client {
     }
 
     return false;
+  }
+
+  /**
+   * `trackSync` registers an in-flight sync on its attachment so that
+   * `Attachment.waitForSyncComplete` can see it, and clears it once the sync
+   * settles. It returns the original promise untouched, so the caller keeps
+   * both the result and the failure.
+   *
+   * The sync loop registers its own syncs; this covers the hand-driven
+   * `Client.sync`, which used to be invisible to every caller that waits for
+   * an in-flight sync before touching the change queue — `detachDocument` and
+   * `resync`, both of which would otherwise act on a queue a live `PushPull`
+   * is about to rewrite by checkpoint.
+   */
+  private trackSync<T>(attachment: Attachment<any>, sync: Promise<T>) {
+    // What is registered must never reject on its own: nothing awaits it
+    // except `waitForSyncComplete`, so a rejection would surface as an
+    // unhandled rejection. The failure stays on the promise we hand back.
+    const settled = sync.then(
+      () => {},
+      () => {},
+    );
+    attachment.setSyncPromise(settled);
+    settled.then(() => attachment.clearSyncPromise());
+    return sync;
   }
 
   /**
