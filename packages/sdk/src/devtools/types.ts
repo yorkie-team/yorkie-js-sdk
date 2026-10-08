@@ -34,6 +34,7 @@ import {
   type SyncStatusChangedEvent,
   type AuthErrorEvent,
   type EpochMismatchEvent,
+  type WriteRejectedEvent,
   type LocalChangesDroppedEvent,
   type PersistDisabledEvent,
 } from '@yorkie-js/sdk/src/document/document';
@@ -163,6 +164,7 @@ export type DocNotificationEvent<P extends Indexable = Indexable> =
   | SyncStatusChangedEvent
   | AuthErrorEvent
   | EpochMismatchEvent
+  | WriteRejectedEvent
   | LocalChangesDroppedEvent<P>
   | PersistDisabledEvent;
 
@@ -190,6 +192,7 @@ export function isDocNotificationEvent(
     DocEventType.SyncStatusChanged,
     DocEventType.AuthError,
     DocEventType.EpochMismatch,
+    DocEventType.WriteRejected,
     DocEventType.LocalChangesDropped,
     DocEventType.PersistDisabled,
   ];

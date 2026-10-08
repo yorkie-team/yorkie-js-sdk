@@ -3724,6 +3724,30 @@ export class Client {
           value: DocSyncStatus.SyncFailed,
         },
       ]);
+
+      // The server refused to store what was pushed, and will refuse it again:
+      // `handleConnectError` stops the sync loop for these codes rather than
+      // retrying. `sync-failed` alone cannot be told apart from a network
+      // blip, so report the reason too. Published here, next to the status the
+      // app already gets, so it covers the sync loop and an explicit
+      // `sync(doc)` alike.
+      const rejection = [
+        Code.ErrDocumentSizeExceedsLimit,
+        Code.ErrChangeTooLarge,
+      ].find((code) => isErrorCode(err, code));
+      if (rejection) {
+        doc.publish([
+          {
+            type: DocEventType.WriteRejected,
+            value: {
+              code: rejection,
+              reason: (err as ConnectError).rawMessage,
+              method: 'PushPull',
+            },
+          },
+        ]);
+      }
+
       logger.error(`[PP] c:"${this.getKey()}" err :`, err);
       throw err;
     }
@@ -3735,6 +3759,22 @@ export class Client {
    */
   private async handleConnectError(err: any): Promise<boolean> {
     if (!(err instanceof ConnectError)) {
+      return false;
+    }
+
+    // NOTE(hackerwins): If the error is 'ErrDocumentSizeExceedsLimit' or
+    // 'ErrChangeTooLarge', the server refused to store the pushed changes and
+    // will refuse the same pack again: the size gate re-evaluates it on every
+    // attempt and nothing the client resends changes its verdict. Retrying
+    // also blocks pulls, because push and pull share one `PushPull` RPC. Stop
+    // the sync loop instead, as with `ErrEpochMismatch`; `syncInternal`
+    // publishes a `write-rejected` event carrying the code so the app can say
+    // why. This is checked ahead of the generic retry block below because the
+    // server sends both as `ResourceExhausted`.
+    if (
+      errorCodeOf(err) === Code.ErrDocumentSizeExceedsLimit ||
+      errorCodeOf(err) === Code.ErrChangeTooLarge
+    ) {
       return false;
     }
 
