@@ -1834,6 +1834,32 @@ export class Document<
   }
 
   /**
+   * `discardLocalChanges` takes the un-pushed local changes out of the queue
+   * and returns their serialized structs. Used by `Client.resync` when the
+   * server has refused this client's writes: the queued changes would be
+   * re-sent and re-denied by every later sync, so the only way forward is to
+   * stop presenting them.
+   *
+   * The counter rewind is the part that is easy to miss. The discarded changes
+   * already consumed `clientSeq`, and the server validates continuity from the
+   * sequence it has acked, so a change minted after a bare drop would present a
+   * hole and be rejected with `ErrInvalidClientSeq` — including the presence
+   * clear that `detach` emits. Rewinding to the acked checkpoint makes the next
+   * change continue exactly where the server stands.
+   *
+   * This does **not** undo the discarded changes on `root`: they are already
+   * applied and there is no server-confirmed copy to fall back on. The caller
+   * is expected to follow with `resetForReanchor` and a fresh attach, which
+   * replaces the local state with the server's.
+   */
+  public discardLocalChanges(): Array<ChangeStruct<P>> {
+    const discarded = this.localChanges.map((change) => change.toStruct());
+    this.localChanges = [];
+    this.changeID = this.changeID.setClientSeq(this.checkpoint.getClientSeq());
+    return discarded;
+  }
+
+  /**
    * `subscribeLocalChangesInternal` observes newly queued local changes after
    * the document state and changeID have been committed. It runs before public
    * events so a subscriber-triggered sync cannot remove changes before the

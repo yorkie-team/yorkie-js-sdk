@@ -444,6 +444,27 @@ export interface AttachOptions<R, P> {
 }
 
 /**
+ * `ResyncOptions` are the options of {@link Client.resync}.
+ */
+export interface ResyncOptions<P> {
+  /**
+   * `discardLocalChanges` must be `true`: the un-pushed local changes are
+   * taken out of the queue and returned to the caller instead of being sent
+   * again. There is no non-discarding form — the server refused those changes,
+   * and re-presenting them is what wedged the document in the first place.
+   * It is spelled out at the call site so the data loss is never implicit.
+   */
+  discardLocalChanges: true;
+
+  /**
+   * `initialPresence` is the presence to attach with. Defaults to the
+   * document's current presence, so a recovery keeps the cursor the user is
+   * holding: presence is not what the server refused.
+   */
+  initialPresence?: P;
+}
+
+/**
  * `AttachChannelOptions` are user-settable options used when attaching channels.
  */
 export interface AttachChannelOptions {
@@ -1782,6 +1803,100 @@ export class Client {
   }
 
   /**
+   * `resync` recovers a document whose local writes the server has refused
+   * (`ErrPermissionDenied` from PushPull — an owner locked the document, this
+   * member was downgraded to read-only, a share link was revoked), without
+   * forcing the app to throw the client and the `Document` away.
+   *
+   * The refused changes cannot simply be left queued: push and pull share one
+   * RPC, so every later sync re-sends them, is denied again, and the client
+   * stops receiving other peers' changes too. Nor can they be undone in place —
+   * they are already applied to `root` and there is no server-confirmed copy to
+   * fall back on. So recovery re-anchors on the server state:
+   *
+   * 1. wait for any in-flight sync, then take the un-pushed changes out of the
+   *    queue and keep them for the caller,
+   * 2. detach — with the queue empty the pack carries presence only, which a
+   *    webhook that allows presence-only packs can still permit,
+   * 3. `resetForReanchor()`, and
+   * 4. attach the **same** `Document` instance again, under the sync mode it
+   *    had, so the server snapshot arrives through the usual events.
+   *
+   * Keeping the instance is the point: the app's subscriptions and the editor
+   * bound to the document survive, where re-creating the client remounts them.
+   *
+   * Returns the discarded changes so the app can report them ("N edits were not
+   * saved"). Re-applying them is deliberately not the default — the server
+   * refused them.
+   */
+  public async resync<R, P extends Indexable>(
+    doc: Document<R, P>,
+    opts: ResyncOptions<P>,
+  ): Promise<Array<ChangeStruct<P>>> {
+    if (!this.isActive()) {
+      throw new YorkieError(
+        Code.ErrClientNotActivated,
+        `${this.key} is not active`,
+      );
+    }
+
+    const attachment = this.attachmentMap.get(doc.getKey()) as
+      | Attachment<Document<R, P>>
+      | undefined;
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
+
+    // Only the discarding form exists today. Requiring it explicitly keeps the
+    // data loss at the call site rather than in the default.
+    if (!opts?.discardLocalChanges) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'resync requires discardLocalChanges: true',
+      );
+    }
+
+    // Wait for an in-flight sync before touching the queue: its response still
+    // removes pushed changes by checkpoint, and discarding underneath it would
+    // apply that removal to a queue it never saw.
+    //
+    // Note this is deliberately *not* wrapped in `enqueueTask`: `detach` and
+    // `attach` below enqueue tasks of their own, and the client's queue runs
+    // strictly one task at a time, so nesting would deadlock.
+    await attachment.waitForSyncComplete();
+
+    // Preserve how the document was attached, so recovery is invisible to the
+    // app beyond the re-anchor itself. Presence is carried over too — the
+    // cursor the user is still holding is not part of what the server refused.
+    const syncMode = attachment.syncMode;
+    const disableGC = attachment.disableGC;
+    const pollInterval = attachment.pollIntervalPinned
+      ? attachment.pollInterval
+      : undefined;
+    const initialPresence = opts.initialPresence ?? doc.getMyPresence();
+
+    const discarded = doc.discardLocalChanges();
+    logger.info(
+      `[RS] c:"${this.getKey()}" resync d:"${doc.getKey()}", ` +
+        `discarded:${discarded.length}`,
+    );
+
+    await this.detachDocument(doc);
+    doc.resetForReanchor();
+    await this.attachDocument(doc, {
+      syncMode,
+      documentPollInterval: pollInterval,
+      disableGC,
+      initialPresence,
+    });
+
+    return discarded;
+  }
+
+  /**
    * `attachChannel` attaches the given channel to this client. The channel is
    * registered locally and the server is notified on the next RefreshChannel
    * heartbeat.
@@ -2922,7 +3037,17 @@ export class Client {
             )
               .then(() => {})
               .catch((e) => {
-                if (isErrorCode(e, Code.ErrUnauthenticated)) {
+                // `ErrPermissionDenied` rides the same event as
+                // `ErrUnauthenticated`: both mean the server refused this
+                // client's writes, and the app needs to tell that apart from a
+                // network failure — `sync-failed` alone cannot. A denial
+                // arriving before the app's own revocation signal (a lock, a
+                // role downgrade, a revoked link) is often the *first* notice
+                // it gets, and it is the trigger for `Client.resync`.
+                if (
+                  isErrorCode(e, Code.ErrUnauthenticated) ||
+                  isErrorCode(e, Code.ErrPermissionDenied)
+                ) {
                   attachment.resource.publish([
                     {
                       type: DocEventType.AuthError,
