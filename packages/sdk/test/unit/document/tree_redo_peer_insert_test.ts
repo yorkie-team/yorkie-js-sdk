@@ -232,11 +232,13 @@ describe('tree redo across a peer insert (#1418)', () => {
     d1.history.redo();
     crossSync(d1, d2);
 
-    // Both pieces were purged, so the redo recreates the span as one node and
-    // places it by its anchors: after `XYZ`, which is what the left anchor
-    // (re-read at the undo) says. Falling back to id order would put `abc`
-    // first, since it carries an earlier ticket than `XYZ`.
-    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZabcQ</p></doc>');
+    // Both pieces were purged, so the redo recreates each of them from its
+    // own sub-span and places it by its own anchors: `ab` after `XYZ`, `c`
+    // after `Q`. The peer's `Q` stays where it was typed — between the two
+    // pieces — and the document returns to exactly its pre-undo state.
+    // Falling back to id order would put `abc` first, since it carries an
+    // earlier ticket than `XYZ`.
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZabQc</p></doc>');
     assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
   });
 
@@ -244,9 +246,9 @@ describe('tree redo across a peer insert (#1418)', () => {
     const [d1, d2] = buildSplitTextWithPeerInsert();
 
     // Splitting the paragraph inside d1's text moves the `c` piece out from
-    // under the `ab` piece's parent, so the span's two pieces end up in
-    // different elements. A span records ONE parent, so the right anchor has
-    // to come from a piece that still sits under it.
+    // under the `ab` piece's parent, so the insertion's two pieces end up in
+    // different elements. A span records ONE parent, so the undo has to carry
+    // the two pieces as two spans, each anchored under its own parent.
     d2.update((root) => root.t.editByPath([0, 5], [0, 5], undefined, 1));
     crossSync(d1, d2);
     assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZab</p><p>Qc</p></doc>');
@@ -261,10 +263,36 @@ describe('tree redo across a peer insert (#1418)', () => {
     d1.history.redo();
     crossSync(d1, d2);
 
-    // The recreated node lands under the first paragraph, after `XYZ`: the
-    // parent and the left anchor both come from the `ab` piece, the only one
-    // still there to read them from.
-    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZabc</p><p>Q</p></doc>');
+    // Each piece is recreated under the parent its own span records: `ab`
+    // after `XYZ` in the first paragraph, `c` after `Q` in the second. A
+    // single span for the whole insertion would drag `c` into the first
+    // paragraph, and would also disagree with a replica that still holds the
+    // tombstones and un-tombstones each piece in place.
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZab</p><p>Qc</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+  });
+
+  it('converges when only one replica has purged a cross-parent span', () => {
+    const [d1, d2] = buildSplitTextWithPeerInsert();
+
+    d2.update((root) => root.t.editByPath([0, 5], [0, 5], undefined, 1));
+    crossSync(d1, d2);
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZab</p><p>Qc</p></doc>');
+
+    d1.history.undo();
+    crossSync(d1, d2);
+
+    // Garbage collection is driven per client, so the two replicas can reach
+    // the redo in different states: d1 has to recreate the pieces from their
+    // spans, d2 still holds the tombstones and un-tombstones them in place.
+    // Both paths have to land every piece under the same parent, in the same
+    // slot, or the replicas diverge for good.
+    d1.garbageCollect(maxVectorOf([A1, A2]));
+
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZab</p><p>Qc</p></doc>');
     assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
   });
 

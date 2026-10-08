@@ -55,3 +55,37 @@ Two blocking findings, both acted on.
    pieces of one insertion. Verified by probe that the new cases are the only
    ones reaching `first !== last` and the cross-parent branch, and that
    'XYZabcQ' flips to 'abcXYZQ' with the re-anchoring removed.
+
+## Round 3 — panel review
+
+1. *correctness* — one span, one anchor pair was the wrong shape for a text
+   insertion a peer has split. `retombstone` collapsed every piece of one
+   insertion into a single re-anchored span, so a post-GC `restore` rebuilt
+   the whole range as ONE node at ONE position: the peer's characters typed
+   *between* the pieces were reordered to one side of it, and after an element
+   split the pieces under the second parent were dragged under the first.
+   The cross-parent case also diverged — garbage collection is per client, so
+   a replica still holding the tombstones un-tombstones each piece in place
+   while a replica that purged them recreates the lot under `span.parentID`.
+
+   `reanchorSpan` now emits one sub-span per tombstoned piece, each with its
+   own parent and its own left/right anchors, and keeps any sub-range no live
+   piece covered as a span carrying the anchors it came with. `spanAnchors`
+   drops to a single node and always returns all three keys, so spreading it
+   over an existing span clears anchors that no longer apply instead of
+   leaving the stale ones behind.
+
+2. *correctness* — with per-piece spans, `recreateFromSpan`'s rung (a)
+   (same-insertion neighbour piece) actively misleads: the neighbouring piece
+   is no longer adjacent in the tree once the peer has typed between them, so
+   `insertAfter(pred)` lands the node on the wrong side of the peer's text.
+   The ladder now runs (b)/(c) before (a) when the recreate covers the WHOLE
+   span — where the captured anchors describe exactly this node's slot — and
+   keeps (a) first for an interior gap, where the span's boundaries are not
+   the sub-range's and only the neighbouring pieces know where it belongs.
+
+3. *test-adequacy* — the two multi-piece tests now assert the pre-undo
+   document back verbatim (`XYZabQc`, `<p>XYZab</p><p>Qc</p>`) rather than the
+   reordered result the old shape produced. A new case collects on d1 only, so
+   the redo runs recreate on one replica and un-tombstone-in-place on the
+   other, and asserts the two agree.
