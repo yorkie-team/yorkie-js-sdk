@@ -2579,6 +2579,27 @@ export class Document<
   }
 
   /**
+   * `setTreeSpanWriteBack` turns the restore-span write-back of every tree
+   * operation in `change` on or off.
+   *
+   * A change is executed twice against the same operation instances — first
+   * the clone, then the root — and a tree restore/retombstone operation
+   * re-reads its own spans off the tree it ran against, rewriting which
+   * pieces each span covers as well as where they anchor
+   * (`TreeEditOperation.execute`). Only the ROOT's reading may survive: it is
+   * what the reverse operation and the wire are built from, and letting the
+   * clone pass write first would hand the root pass a set segmented from
+   * clone state. So the clone pass runs with the write-back off.
+   */
+  private setTreeSpanWriteBack(change: Change<P>, enabled: boolean): void {
+    for (const op of change.getOperations()) {
+      if (op instanceof TreeEditOperation) {
+        op.setSpanWriteBack(enabled);
+      }
+    }
+  }
+
+  /**
    * `applyChangeInternal` applies the given change into the clone and the root.
    */
   private applyChangeInternal(change: Change<P>, source: OpSource) {
@@ -2586,7 +2607,12 @@ export class Document<
       this.absorbedRemote = true;
     }
     this.ensureClone();
-    change.execute(this.clone!.root, this.clone!.presences, source);
+    this.setTreeSpanWriteBack(change, false);
+    try {
+      change.execute(this.clone!.root, this.clone!.presences, source);
+    } finally {
+      this.setTreeSpanWriteBack(change, true);
+    }
 
     const events: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
@@ -3388,11 +3414,18 @@ export class Document<
     };
     let executed;
     try {
-      change.execute(
-        this.clone!.root,
-        this.clone!.presences,
-        OpSource.UndoRedo,
-      );
+      // The clone pass must not leave its reading of the restore spans on the
+      // operations the root pass is about to run — see `setTreeSpanWriteBack`.
+      this.setTreeSpanWriteBack(change, false);
+      try {
+        change.execute(
+          this.clone!.root,
+          this.clone!.presences,
+          OpSource.UndoRedo,
+        );
+      } finally {
+        this.setTreeSpanWriteBack(change, true);
+      }
       try {
         executed = change.execute(this.root, this.presences, OpSource.UndoRedo);
       } catch (err) {

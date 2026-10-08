@@ -89,3 +89,23 @@ Two blocking findings, both acted on.
    reordered result the old shape produced. A new case collects on d1 only, so
    the redo runs recreate on one replica and un-tombstone-in-place on the
    other, and asserts the two agree.
+
+## Round 4 — panel review (blocking)
+
+1. *correctness* — a sub-range no live piece covered was emitted as an
+   independent span still carrying the WHOLE run's anchors, and because that
+   sub-span is recreated whole, the new ladder let those anchors LEAD. Every
+   purged gap went back at the run's left boundary ahead of its own siblings
+   (`Zabc` came back as `Zbca`), and diverged from a replica that still held
+   the tombstones. A gap now keeps only the anchor for an edge it shares with
+   the run — left if it starts where the run starts, right if it ends where it
+   ends — so an interior gap falls through to the neighbour-piece rung, which
+   reads the tree as it stands at the restore.
+
+2. *blast-radius* — `Change.execute` runs the same operation instances twice,
+   clone then root, and the span write-back added here rewrites segmentation,
+   not just anchors: the root pass (and the wire) consumed a span set the
+   CLONE had segmented. `TreeEditOperation.setSpanWriteBack` lets `Document`
+   run the clone pass with the write-back off, so only the root's reading
+   survives. Suppressing — rather than snapshotting and rewinding — is what
+   keeps `repointRest`'s mid-execution `reconcileNodeID` re-pointing intact.

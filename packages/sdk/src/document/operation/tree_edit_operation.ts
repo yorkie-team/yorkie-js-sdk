@@ -216,6 +216,11 @@ export class TreeEditOperation extends Operation {
   private restoreSpans?: Array<TreeRestoreSpan>;
   private restoreMode?: RestoreMode;
   private retombstoneSpans?: Array<TreeRestoreSpan>;
+  /**
+   * Whether `execute` writes the spans it re-read back onto this operation.
+   * See `setSpanWriteBack`. Local to the replica; never encoded, never copied.
+   */
+  private spanWriteBack = true;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -487,6 +492,25 @@ export class TreeEditOperation extends Operation {
   }
 
   /**
+   * `setSpanWriteBack` turns the write-back `execute` performs on its own
+   * spans on or off. It defaults to ON, so a caller that executes an
+   * operation once needs no ceremony.
+   *
+   * `Change.execute` runs the SAME operation instance twice — once against
+   * the clone, then against the root — and the write-back rewrites not just
+   * where each span is anchored but which pieces it covers (`reanchorSpan`
+   * splits a run into one span per surviving piece). The spans that have to
+   * survive are the ones the ROOT produced: they build the reverse operation
+   * and they are what the change carries to the wire. `Document` therefore
+   * runs the clone pass with the write-back off, so the root pass starts from
+   * the spans this operation was built with rather than from a segmentation
+   * read off the clone.
+   */
+  public setSpanWriteBack(enabled: boolean): void {
+    this.spanWriteBack = enabled;
+  }
+
+  /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
   public execute(
@@ -537,10 +561,12 @@ export class TreeEditOperation extends Operation {
       // no longer exists. This writes through to the wire too: the spans are
       // encoded from the operation after it has run, so a peer recreating the
       // node reads the same anchors this replica does.
-      if (isRetombstone) {
-        this.restoreSpans = reanchored;
-      } else {
-        this.retombstoneSpans = reanchored;
+      if (this.spanWriteBack) {
+        if (isRetombstone) {
+          this.restoreSpans = reanchored;
+        } else {
+          this.retombstoneSpans = reanchored;
+        }
       }
       addDataSizes(diff, retombstoneDiff);
       for (const pair of retombstonePairs) {

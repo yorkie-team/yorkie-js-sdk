@@ -4178,9 +4178,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * Per-piece spans make the two paths agree, because each piece's span
    * records the parent and the slot it was un-tombstoned under.
    *
-   * A sub-range no live piece covered keeps the anchors it came with: there
-   * is nothing here to re-read them from, and its text still has to be
-   * carried so a later restore can recreate it.
+   * A sub-range no live piece covered — already a tombstone here, or purged —
+   * still has to be carried so a later restore can recreate it, but there is
+   * no node left to read its anchors from. It does NOT inherit the run's:
+   * those describe the run's own two edges, and `recreateFromSpan` lets a
+   * span's captured anchors LEAD whenever the recreate covers that span
+   * whole, which every one of these sub-spans does. Only the edge a gap
+   * actually shares with the run carries over — the left anchor to a gap that
+   * starts where the run starts, the right anchor to one that ends where it
+   * ends; an interior gap shares neither and keeps nothing. What is dropped
+   * falls through to the same-insertion neighbour-piece rung, which reads the
+   * tree as it stands at the restore and is the only thing that knows where
+   * an interior gap belongs. Inheriting the run's left anchor instead put
+   * every purged gap back at the run's left boundary, ahead of its own
+   * siblings, and diverged from a replica that still held the tombstones and
+   * un-tombstoned them in place.
    */
   private reanchorSpan(
     span: TreeRestoreSpan,
@@ -4203,6 +4215,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
       length: to - from,
       value: span.value?.substring(from - start, to - start),
     });
+    // A gap keeps only the anchor for an edge it shares with the whole run;
+    // the parent stays the run's, which is the only one this sub-range has
+    // any claim to and the one the surviving edge anchor was read under.
+    const gap = (from: number, to: number): TreeRestoreSpan => ({
+      ...slice(from, to),
+      leftSiblingID: from === start ? span.leftSiblingID : undefined,
+      rightSiblingID: to === end ? span.rightSiblingID : undefined,
+    });
 
     const spans: Array<TreeRestoreSpan> = [];
     let cursor = start;
@@ -4210,13 +4230,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const from = node.id.getOffset();
       const to = from + node.value.length;
       if (from > cursor) {
-        spans.push(slice(cursor, from));
+        spans.push(gap(cursor, from));
       }
       spans.push({ ...slice(from, to), ...this.spanAnchors(node) });
       cursor = to;
     }
     if (cursor < end) {
-      spans.push(slice(cursor, end));
+      spans.push(gap(cursor, end));
     }
     return spans;
   }

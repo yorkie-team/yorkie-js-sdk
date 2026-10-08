@@ -160,6 +160,44 @@ function buildSplitTextWithPeerInsert(): [Doc, Doc] {
   return [d1, d2];
 }
 
+/**
+ * `buildRunWithDeletedMiddle` has d1 type `Z`, then `abc` after it as ONE
+ * insert, and d2 delete the `b` in the middle. d1's `abc` insert is left on
+ * its undo stack, and its span now covers two live pieces (`a` at offset 0,
+ * `c` at offset 2) with a tombstoned sub-range between them — the interior
+ * GAP that `reanchorSpan` has no live node to re-read anchors from.
+ */
+function buildRunWithDeletedMiddle(): [Doc, Doc] {
+  const d1: Doc = new Document<{ t: Tree }>('test-doc');
+  const d2: Doc = new Document<{ t: Tree }>('test-doc');
+  d1.setActor(A1);
+  d2.setActor(A2);
+
+  d1.update((root) => {
+    root.t = new Tree({ type: 'doc', children: [{ type: 'p', children: [] }] });
+  });
+  crossSync(d1, d2);
+
+  d1.update((root) =>
+    root.t.editByPath([0, 0], [0, 0], { type: 'text', value: 'Z' }),
+  );
+  crossSync(d1, d2);
+
+  // Inserted AFTER `Z`, so the span is captured with `Z` as its left anchor —
+  // the anchor an interior gap must not inherit.
+  d1.update((root) =>
+    root.t.editByPath([0, 1], [0, 1], { type: 'text', value: 'abc' }),
+  );
+  crossSync(d1, d2);
+
+  d2.update((root) => root.t.editByPath([0, 2], [0, 3]));
+  crossSync(d1, d2);
+
+  assert.equal(d1.getRoot().t.toXML(), '<doc><p>Zac</p></doc>');
+  assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+  return [d1, d2];
+}
+
 describe('tree redo across a peer insert (#1418)', () => {
   it('restores a garbage-collected node after the peer text, not before it', () => {
     const [d1, d2] = buildPeerInsertBefore();
@@ -293,6 +331,27 @@ describe('tree redo across a peer insert (#1418)', () => {
     crossSync(d1, d2);
 
     assert.equal(d1.getRoot().t.toXML(), '<doc><p>XYZab</p><p>Qc</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+  });
+
+  it('converges when only one replica has purged an interior gap', () => {
+    const [d1, d2] = buildRunWithDeletedMiddle();
+
+    d1.history.undo();
+    crossSync(d1, d2);
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>Z</p></doc>');
+    assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
+
+    // Only d1 collects, so the redo has to recreate every piece from its
+    // span while d2 un-tombstones the same pieces in place. The gap between
+    // `a` and `c` has no live node to re-anchor on; inheriting the run's
+    // captured left anchor would drop it straight after `Z`, ahead of `a`.
+    d1.garbageCollect(maxVectorOf([A1, A2]));
+
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toXML(), '<doc><p>Zabc</p></doc>');
     assert.equal(d2.getRoot().t.toXML(), d1.getRoot().t.toXML());
   });
 
