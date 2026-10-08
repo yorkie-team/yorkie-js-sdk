@@ -35,12 +35,21 @@ Two sides of the same boundary, both in `packages/sdk/src/document/crdt/tree.ts`
    the left of a split boundary, so our boundary is *inside* that product,
    past the run of concurrent inserts. Split it there instead of ordering by
    ticket.
-2. **Insert applied second** (`findNodesAndSplitText`, step 04). The RGA scan
-   for the left sibling stops at the last child of the resolved parent, but
-   the sequence continues into a concurrent split product of that parent.
+2. **Insert applied second** (`advanceIntoSplitProducts`). The step 04 RGA
+   scan for the left sibling stops at the last child of the resolved parent,
+   but the sequence continues into a concurrent split product of that parent.
    Continue the scan there over a run of newer-ticket *text* children, the
    same rule step 04 applies inside one node. Element children are left to
    §7.8, which already orders them.
+
+   Applied at the `editAndRestore` call site, to a **collapsed** range only,
+   rather than inside `findNodesAndSplitText`. That method also resolves
+   style ranges (`styleTargets`, §9.4) and delete ranges, and a *range*
+   endpoint that walked into a split product would change which parents the
+   traversal runs between -- the §9.4 target set and the Phase 3 narrowing
+   both read them -- over nodes the editor never saw. §7.5's
+   `advancePastUnknownSplitSiblings` stays the only rule that moves range
+   endpoints past split products.
 
 ## Acceptance criteria
 
@@ -53,5 +62,9 @@ Two sides of the same boundary, both in `packages/sdk/src/document/crdt/tree.ts`
 ## Out of scope
 
 - The Go SDK and the server carry the same code and presumably diverge the
-  same way; not measured, not changed here.
+  same way; not measured, not changed here. Where a same-boundary split
+  lands is a replicated contract, so until the rule lands there too a JS
+  replica and a Go one can place one differently. File this against
+  yorkie-team/yorkie before merge; the two helpers carry a
+  `NOTE(cross-implementation)` pointing back here.
 - The fuzz harness behind the issue is not in this repo.

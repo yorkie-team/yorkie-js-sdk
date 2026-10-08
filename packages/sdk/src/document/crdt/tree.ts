@@ -2411,6 +2411,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * migrates to the left of a split boundary. Element split products are
    * not inserts and end the run, as they do in §7.3; text split siblings
    * carry their original's ticket and so end it by being known.
+   *
+   * NOTE(cross-implementation): where a split lands is a replicated
+   * contract -- the server and every other SDK have to pick the same node
+   * for the same change. This rule is a §7.3 reading that yorkie's
+   * `docs/design/concurrent-merge-split.md` does not spell out, and only
+   * this SDK applies it today, so a JS replica and a Go one can place a
+   * same-boundary split differently until the rule lands there too. Issue
+   * #1436 tracks that; see "Out of scope" in
+   * `docs/tasks/active/20261008-insert-at-concurrent-split-boundary-todo.md`.
    */
   private boundaryInsertRunOf(
     node: CRDTTreeNode,
@@ -2782,6 +2791,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * the first moved child, so RGA ordering breaks ties), while `range` places
    * it right after the merge-source tombstone so a style range neither grows
    * over nor shrinks past nodes concurrently inserted at that anchor.
+   *
+   * The step 04 scan stops at `realParent`'s own children. Continuing it into
+   * the products of a concurrent element split is `advanceIntoSplitProducts`,
+   * which `editAndRestore` applies to the anchor of a pure insert only -- see
+   * the note there for why a range endpoint must not move that way.
    */
   public findNodesAndSplitText(
     pos: CRDTTreePos,
@@ -2870,11 +2884,6 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
         leftNode = next;
       }
-
-      return [
-        this.advanceIntoSplitProducts(realParent, leftNode, editedAt),
-        diff,
-      ];
     }
 
     return [[realParent, leftNode], diff];
@@ -2892,6 +2901,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * it after them. Only a run of newer tickets is crossed, the same rule
    * step 04 applies inside one node, so an insert at the boundary with
    * nothing newer beyond it still stays on the left of it (§7.3).
+   *
+   * Applied to the anchor of a collapsed (insert) range only; see the note
+   * at its call site in `editAndRestore`, and the cross-implementation note
+   * on `boundaryInsertRunOf` -- this is the same §7.3 reading seen from the
+   * other side, and carries the same caveat.
    */
   private advanceIntoSplitProducts(
     parent: CRDTTreeNode,
@@ -3166,16 +3180,40 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const diff = { data: 0, meta: 0 };
 
     // 01. find nodes from the given range and split nodes.
-    const [[fromParent, fromLeftRaw], diffFrom] = this.findNodesAndSplitText(
+    const [fromPairRaw, diffFrom] = this.findNodesAndSplitText(
       range[0],
       editedAt,
     );
-    const [[toParent, toLeftRaw], diffTo] = this.findNodesAndSplitText(
-      range[1],
-      editedAt,
-    );
+    const [toPairRaw, diffTo] = this.findNodesAndSplitText(range[1], editedAt);
 
     addDataSizes(diff, diffTo, diffFrom);
+
+    // 01-0. Continue the step 04 RGA scan into the products of a concurrent
+    // element split (§7.3), but only for an anchor an insert lands on -- a
+    // collapsed range, where the two endpoints resolved to the same place.
+    //
+    // A range endpoint must not move that way. The endpoints decide which
+    // parents the traversal below runs between: `toParent` feeds the Phase 3
+    // narrowing and both feed `traverseInPosRange`, so an endpoint that walked
+    // into a split product would widen or shorten what this edit deletes and
+    // merges, over nodes the editor never saw. §7.3 is about where an insert
+    // sits relative to a boundary, and says nothing that asks a range to
+    // follow the content across one; §7.5's `advancePastUnknownSplitSiblings`
+    // below is the rule that does move range endpoints past split products,
+    // and it stays the only one. `styleTargets` resolves its range through the
+    // same method and is likewise untouched.
+    let [fromParent, fromLeftRaw] = fromPairRaw;
+    let [toParent, toLeftRaw] = toPairRaw;
+    if (fromParent === toParent && fromLeftRaw === toLeftRaw) {
+      // Both ends, so the range stays collapsed: moving only one would point
+      // the traversal below from the product back at the node it came out of.
+      [fromParent, fromLeftRaw] = this.advanceIntoSplitProducts(
+        fromParent,
+        fromLeftRaw,
+        editedAt,
+      );
+      [toParent, toLeftRaw] = [fromParent, fromLeftRaw];
+    }
 
     // 01-1. Advance past split siblings unknown to the editing client.
     // When a concurrent SplitElement created siblings linked via insNextID,
@@ -3659,17 +3697,29 @@ export class CRDTTree extends CRDTElement implements GCParent {
           splitRecreatedIDs.push([recreated, splitNode!.id]);
         }
 
-        // `parent`, not `target`: when `orderSameBoundarySplit` redirects to
-        // a concurrent split product, the split is at the end of `parent`
-        // (it only redirects there), and the next level splits after
-        // `parent` too, so that is where a binding has to split.
+        // Where the split actually opened. Usually `parent`, not `target`:
+        // when `orderSameBoundarySplit` redirects to a concurrent split
+        // product it splits it at offset 0, which leaves everything to the
+        // left of the boundary still in `parent`, and the next level splits
+        // after `parent` too, so that is where a binding has to split.
+        //
+        // A redirect with a non-zero offset is the exception: §7.3 keeps a
+        // run of concurrent boundary inserts on the left of our boundary, so
+        // the split opens *inside* `target`, past that run, and `parent` is
+        // no longer the end of the left side. Measure in `target` then --
+        // after the split it holds exactly that run, so its own last live
+        // child is the boundary. The levels above still measure at their
+        // `parent`, and `splitBoundaryIdx` below reports them disagreeing.
+        const measured = target !== parent && offset > 0 ? target : parent;
         if (splitNode) {
           // Live children only. A tombstone takes no room in the index, so
           // the last live child measures the same boundary, while
           // `toIndex`/`toPath` on a removed node is a position the walk
           // cannot resolve.
-          const children = parent.children;
-          const last = children.length ? children[children.length - 1] : parent;
+          const children = measured.children;
+          const last = children.length
+            ? children[children.length - 1]
+            : measured;
           // This measurement only refines a position the change already has:
           // `fromIdx`/`fromPath` are valid, just the requested boundary
           // rather than the one the split opened. So the pair is computed
