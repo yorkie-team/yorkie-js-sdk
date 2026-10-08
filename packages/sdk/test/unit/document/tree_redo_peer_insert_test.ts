@@ -17,7 +17,7 @@
 import { describe, it, assert } from 'vitest';
 import { maxVectorOf } from '@yorkie-js/sdk/test/helper/helper';
 
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Tree } from '@yorkie-js/sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
@@ -34,7 +34,7 @@ type Doc = Document<{ t: Tree }>;
  * below carries exactly what a real sync carries — restore spans included,
  * and nothing that only survives because both replicas share a heap.
  */
-function roundTrip(pack: ChangePack<unknown>): ChangePack<unknown> {
+function roundTrip(pack: ChangePack<Indexable>): ChangePack<Indexable> {
   return converter.fromChangePack(converter.toChangePack(pack));
 }
 
@@ -49,7 +49,7 @@ function crossSync(d1: Doc, d2: Doc): void {
 
   // Neutral checkpoint (clientSeq 0) so the receiver's own pending local
   // changes are not dropped; empty version vector keeps GC out of the swap.
-  const deliver = (to: Doc, pack: ChangePack<unknown>) =>
+  const deliver = (to: Doc, pack: ChangePack<Indexable>) =>
     to.applyChangePack(
       ChangePack.create(
         pack.getDocumentKey(),
@@ -64,7 +64,7 @@ function crossSync(d1: Doc, d2: Doc): void {
 
   // Self-ack: drop exactly the delivered changes from each sender's local
   // queue so the next crossSync doesn't re-send them.
-  const ack = (pack: ChangePack<unknown>) => {
+  const ack = (pack: ChangePack<Indexable>) => {
     const changes = pack.getChanges();
     const lastSeq = changes.length
       ? changes[changes.length - 1].getID().getClientSeq()

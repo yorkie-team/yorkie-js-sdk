@@ -39,12 +39,12 @@ operation so the reverse op — and the wire encoding — carry them.
 
 ## Checklist
 
-- [ ] `CRDTTree.spanAnchors` helper: the sibling anchors for a span covering
+- [x] `CRDTTree.spanAnchors` helper: the sibling anchors for a span covering
       `[first, last]`, shared by the three capture sites.
-- [ ] `CRDTTree.retombstone` returns the refreshed spans.
-- [ ] `TreeEditOperation.execute` stores them before building the reverse op.
-- [ ] Regression test: GC'd undo + redo across a concurrent peer insert.
-- [ ] `pnpm verify:fast` green.
+- [x] `CRDTTree.retombstone` returns the refreshed spans.
+- [x] `TreeEditOperation.execute` stores them before building the reverse op.
+- [x] Regression test: GC'd undo + redo across a concurrent peer insert.
+- [x] `pnpm verify:fast` green.
 
 ## Out of scope
 
