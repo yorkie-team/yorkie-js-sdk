@@ -10,16 +10,6 @@
     "typings": "./dist/yorkie-js-prosemirror.d.ts",
     "exports": {
       ".": {
-        "node": {
-          "import": {
-            "types": "./dist/yorkie-js-prosemirror.node.d.mts",
-            "default": "./dist/yorkie-js-prosemirror.node.mjs"
-          },
-          "require": {
-            "types": "./dist/yorkie-js-prosemirror.d.ts",
-            "default": "./dist/yorkie-js-prosemirror.js"
-          }
-        },
         "import": {
           "types": "./dist/yorkie-js-prosemirror.d.mts",
           "default": "./dist/yorkie-js-prosemirror.es.mjs"

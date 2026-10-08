@@ -2,10 +2,7 @@ import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import {
-  copyEsmDeclarations,
-  nodeEsmEntry,
-} from '../../scripts/node-esm-entry.mjs';
+import { copyEsmDeclarations } from '../../scripts/node-esm-entry.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -51,7 +48,8 @@ export default defineConfig({
     },
   },
   plugins: [
-    nodeEsmEntry(),
+    // No Node wrapper: prosemirror-* ship separate ESM and CJS builds, so a
+    // wrapper around the UMD would load their CJS copies next to the app's.
     dts({
       rollupTypes: true,
       // Node ESM resolves types per module format, so ship a .d.mts twin.

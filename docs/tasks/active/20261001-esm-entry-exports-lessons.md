@@ -108,6 +108,23 @@ and runs its tools from there. That lockfile also pins the sdk's runtime
 dependencies, because the tarballs install offline, so it has to be
 regenerated when those change.
 
+## A wrapper helps only when the package's dependencies are single-format
+
+The wrapper gives Node one implementation of the package it wraps, but the
+wrapped build is CommonJS, so everything it `require`s comes in as CommonJS
+too. That is harmless for the sdk (it bundles its dependencies) and for react
+(`react` ships only CommonJS). prosemirror's peers ship separate ESM and CJS
+builds, so wrapping its UMD loaded `prosemirror-model/dist/index.cjs` next to
+the ESM copy the app imports, and `Node`/`Fragment` existed twice.
+
+It surfaced while checking a downstream app (rmf-block) whose spike had hit
+exactly that in plain Node. prosemirror's Node import now takes its ES bundle,
+which imports its peers as ESM and still reaches the one SDK through the sdk's
+own entry. `verify:exports` fails when a Node import loads any `prosemirror-*`
+CJS build; it failed on the wrapper before the change.
+
+Before wrapping a package, check what its build loads, not only the package.
+
 ## Review rounds
 
 - **Panel, round 2 (c480d2fb)**: 4 blocking — unvalidated export names in the
@@ -127,3 +144,7 @@ regenerated when those change.
   - One UMD assertion compared a value with itself.
   - The task docs still said CI was unchanged and that `overrides` were in use.
   - Nothing told users to install the now-peer SDK.
+- **After the round-2 reply**: checking a downstream app found prosemirror's
+  Node import loading CJS copies of its peers (above). Fixed in one commit on
+  top of the reply's commits, without a rebase, so the hashes it cites still
+  hold.

@@ -12,8 +12,8 @@ preserving the actual ES bundle for browser bundlers.
 
 - [x] Emit the ES bundle as `<name>.es.mjs` in the three vite configs
 - [x] Copy the rolled-up `<name>.d.ts` to `<name>.d.mts` in `dts({ afterBuild })`
-- [x] Generate `<name>.node.mjs` from the UMD entry's public exports, so Node
-      import and require share implementations and constructors
+- [x] Generate `<name>.node.mjs` (sdk, react) from the CJS entry's public
+      exports, so Node import and require share implementations and constructors
 - [x] Generate `<name>.node.d.mts` re-exporting the CJS declarations, so NodeNext
       consumers also share class types across ESM and CJS
 
@@ -21,9 +21,10 @@ preserving the actual ES bundle for browser bundlers.
 
 - [x] Add `module` and conditional `exports` (`import` / `require`, each with its
       own `types`) to `publishConfig` in the three `package.json` files
-- [x] Put `node` first: Node import uses the wrapper, Node require keeps the
-      CJS build (the UMD bundle; react's own `.cjs`), and other import
-      resolvers retain the actual ES bundle
+- [x] Put `node` first (sdk, react): Node import uses the wrapper, Node require
+      keeps the CJS build (the UMD bundle; react's own `.cjs`), and other import
+      resolvers retain the actual ES bundle. prosemirror has no `node` branch:
+      Node import takes its ES bundle (see below)
 - [x] Expose `./package.json` (react's test imports `@yorkie-js/sdk/package.json`)
 
 ## Verification
@@ -79,6 +80,19 @@ preserving the actual ES bundle for browser bundlers.
       tools from there: no `npx`, no `overrides`
 - [x] Load react's UMD in a bare `vm` context to prove it needs no SDK global
 - [x] Run `verify:exports` in CI on Node 20, 22 and 24
+- [x] Updated verification passes on Node 20.19.0, 22.23.2 and 24.21.0
+
+## After the round-2 reply
+
+- [x] Give prosemirror's Node import its ES bundle instead of the wrapper. Its
+      peers (`prosemirror-*`) ship separate ESM and CJS builds, so a wrapper
+      around the UMD loaded their CJS copies next to the ESM ones the app
+      imports (`Node`/`Fragment` twice). The ES bundle still gets the one SDK,
+      through the sdk's own entry. Accepted limit: a process that both imports
+      and requires the binding gets two copies of it, as it already does of
+      `prosemirror-model` itself
+- [x] `verify:exports` fails if a Node import of the packages loads any
+      `prosemirror-*` CJS build (it failed on the wrapper, passes now)
 - [x] Updated verification passes on Node 20.19.0, 22.23.2 and 24.21.0
 
 ## Follow-ups

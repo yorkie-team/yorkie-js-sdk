@@ -176,10 +176,15 @@ try {
 import { YorkieProvider } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 import sdkPkg from '@yorkie-js/sdk/package.json' with { type: 'json' };
+import { createRequire } from 'node:module';
 for (const [n, v] of Object.entries({ Document, YorkieProvider, YorkieProseMirrorBinding }))
   if (typeof v !== 'function') throw new Error(n + ' missing in ESM');
 if (typeof yorkie?.Client !== 'function') throw new Error('sdk default missing in ESM');
 if (!sdkPkg.version) throw new Error('package.json export missing');
+// prosemirror's peers ship separate ESM and CJS builds, so a Node import of
+// the binding must use their ESM builds: the copies the app itself imports.
+const cjsPeers = Object.keys(createRequire(import.meta.url).cache).filter(f => /node_modules.prosemirror-/.test(f));
+if (cjsPeers.length) throw new Error('prosemirror peers loaded as CJS: ' + cjsPeers.join(', '));
 `,
   );
   w(
@@ -215,7 +220,10 @@ for (const name of ['sdk', 'react', 'prosemirror']) {
   }
   const keys = Object.keys(esm).sort();
   assert.deepEqual(keys, Object.keys(cjs).filter(k => k !== '__esModule').sort());
-  for (const key of keys) assert.equal(esm[key], cjs[key], id + ':' + key);
+  // prosemirror's Node import is its ES bundle (see esm.mjs), so only sdk and
+  // react hand the same values to import and require.
+  if (name !== 'prosemirror')
+    for (const key of keys) assert.equal(esm[key], cjs[key], id + ':' + key);
   packages[name] = { esm, cjs };
 }
 // react re-exports SDK values, so it must hand out the SDK's own classes.
@@ -286,7 +294,9 @@ export const reactCounter: Counter = new ReactCounter(1);
 export const reverseDocument: sdk.Document<{ text: sdk.Text }> = new Document<{ text: Text }>('reverse');
 export const defaultConstructor: typeof Document = yorkie.Document;
 export const provider: typeof react.YorkieProvider = YorkieProvider;
-export const binding: typeof prosemirror.YorkieProseMirrorBinding = YorkieProseMirrorBinding;
+// prosemirror's Node import is its ES bundle, so its ESM and CJS types are
+// separate declarations: check that both resolve, not that they match.
+export const bindings = [YorkieProseMirrorBinding, prosemirror.YorkieProseMirrorBinding];
 const doc = new Document<{ text: Text; tree: Tree; counter: Counter }>('types');
 doc.update(root => {
   root.text = new sdk.Text();
