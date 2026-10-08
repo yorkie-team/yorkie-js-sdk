@@ -24,7 +24,10 @@
  *   node scripts/verify-package-exports.mjs
  */
 import { execFileSync } from 'node:child_process';
+import assert from 'node:assert/strict';
 import {
+  copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -37,10 +40,7 @@ import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const PACKAGES = ['schema', 'sdk', 'react', 'prosemirror'];
-const ATTW = '@arethetypeswrong/cli@0.18.5';
-const VITE = JSON.parse(
-  readFileSync(join(root, 'packages/sdk/package.json'), 'utf8'),
-).devDependencies.vite;
+const fixture = join(root, 'scripts/fixtures/package-exports');
 const run = (cmd, args, cwd) =>
   execFileSync(cmd, args, { cwd, stdio: 'inherit', encoding: 'utf8' });
 const capture = (cmd, args, cwd) => {
@@ -60,50 +60,113 @@ mkdirSync(packs);
 mkdirSync(app);
 
 try {
-  const tgz = {};
+  const tgz = Object.create(null);
   for (const name of PACKAGES) {
     run(
       'pnpm',
-      ['pack', '--pack-destination', packs],
+      ['--config.ignore-scripts=true', 'pack', '--pack-destination', packs],
       join(root, 'packages', name),
     );
   }
   for (const f of readdirSync(packs).filter((f) => f.endsWith('.tgz'))) {
-    const m = f.match(/^yorkie-js-(\w+)-/);
+    const m = f.match(/^yorkie-js-(schema|sdk|react|prosemirror)-[^/]+\.tgz$/);
     if (!m) throw new Error(`Unexpected tarball name: ${f}`);
+    if (tgz[m[1]]) throw new Error(`Duplicate tarball for ${m[1]}: ${f}`);
     tgz[m[1]] = join(packs, f);
   }
   for (const name of PACKAGES) {
     if (!tgz[name]) throw new Error(`No tarball was packed for ${name}`);
   }
 
-  // The sdk depends on @yorkie-js/schema@workspace:* -> point it at the tarball.
-  writeFileSync(
-    join(app, 'package.json'),
-    JSON.stringify({
-      name: 'consumer',
-      private: true,
-      dependencies: {
-        '@yorkie-js/sdk': `file:${tgz.sdk}`,
-        '@yorkie-js/react': `file:${tgz.react}`,
-        '@yorkie-js/prosemirror': `file:${tgz.prosemirror}`,
-        react: '^19',
-        'react-dom': '^19',
-        'prosemirror-model': '^1.20.0',
-        'prosemirror-state': '^1.4.0',
-        'prosemirror-view': '^1.30.0',
-        typescript: '^5.9.3',
-        '@types/node': '^22',
-        '@types/react': '^19',
-        vite: VITE,
-      },
-      overrides: {
-        '@yorkie-js/sdk': `file:${tgz.sdk}`,
-        '@yorkie-js/schema': `file:${tgz.schema}`,
-      },
-    }),
+  // Lock the tools and runtime peers first. Installing the local tarballs
+  // offline reuses these exact dependencies; it cannot fetch a fallback CLI
+  // or mask duplicate SDK installations with an override. The lockfile also
+  // pins the sdk's own dependencies: when those change, regenerate it with
+  // `npm install --package-lock-only` in the fixture directory.
+  for (const name of ['package.json', 'package-lock.json']) {
+    copyFileSync(join(fixture, name), join(app, name));
+  }
+  run('npm', ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], app);
+  run(
+    'npm',
+    [
+      'install',
+      '--offline',
+      '--ignore-scripts',
+      '--strict-peer-deps',
+      '--no-audit',
+      '--no-fund',
+      ...PACKAGES.map((name) => tgz[name]),
+    ],
+    app,
   );
-  run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], app);
+  const tool = (name, bin) => {
+    const directory = join(app, 'node_modules', name);
+    const pkg = JSON.parse(
+      readFileSync(join(directory, 'package.json'), 'utf8'),
+    );
+    const entry = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin[bin];
+    assert.equal(typeof entry, 'string', `${name} has no ${bin} binary`);
+    const file = resolve(directory, entry);
+    assert.ok(existsSync(file), `${name} binary is missing: ${file}`);
+    return file;
+  };
+  const vite = tool('vite', 'vite');
+  const esbuild = tool('esbuild', 'esbuild');
+  const tsc = tool('typescript', 'tsc');
+  const attw = tool('@arethetypeswrong/cli', 'attw');
+
+  // A mismatched host SDK must be rejected, rather than silently repaired
+  // by installing the React peer as a nested SDK. Reuse the real tarball with
+  // only its version changed, and resolve offline against the locked consumer.
+  const incompatible = join(tmp, 'incompatible');
+  mkdirSync(incompatible);
+  run('tar', ['-xzf', tgz.sdk, '-C', incompatible], tmp);
+  const sdkManifestPath = join(incompatible, 'package/package.json');
+  const incompatibleSdk = JSON.parse(readFileSync(sdkManifestPath, 'utf8'));
+  incompatibleSdk.version = '999.0.0';
+  writeFileSync(sdkManifestPath, JSON.stringify(incompatibleSdk));
+  const incompatibleTarball = join(tmp, 'incompatible-sdk.tgz');
+  run('tar', ['-czf', incompatibleTarball, 'package'], incompatible);
+  const conflict = join(tmp, 'peer-conflict');
+  mkdirSync(conflict);
+  const conflictManifest = JSON.parse(
+    readFileSync(join(app, 'package.json'), 'utf8'),
+  );
+  conflictManifest.dependencies['@yorkie-js/sdk'] =
+    `file:${incompatibleTarball}`;
+  delete conflictManifest.dependencies['@yorkie-js/prosemirror'];
+  writeFileSync(
+    join(conflict, 'package.json'),
+    JSON.stringify(conflictManifest),
+  );
+  copyFileSync(
+    join(app, 'package-lock.json'),
+    join(conflict, 'package-lock.json'),
+  );
+  let peerError;
+  try {
+    execFileSync(
+      'npm',
+      [
+        'install',
+        '--package-lock-only',
+        '--offline',
+        '--ignore-scripts',
+        '--strict-peer-deps',
+        '--no-audit',
+        '--no-fund',
+      ],
+      { cwd: conflict, encoding: 'utf8', stdio: 'pipe' },
+    );
+  } catch (error) {
+    peerError = error.stderr;
+  }
+  assert.match(
+    peerError ?? '',
+    /ERESOLVE/,
+    'An incompatible host SDK must fail peer resolution',
+  );
 
   const w = (f, s) => writeFileSync(join(app, f), s);
   // Runtime: ESM named imports and CJS require.
@@ -136,6 +199,7 @@ if (typeof sdk.default?.Client !== 'function') throw new Error('sdk default miss
     `import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
+import { existsSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
 const packages = {};
@@ -158,6 +222,24 @@ for (const name of ['sdk', 'react', 'prosemirror']) {
 for (const format of ['esm', 'cjs'])
   for (const key of ['Text', 'Tree', 'Counter', 'SyncMode'])
     assert.equal(packages.react[format][key], packages.sdk[format][key], 'react:' + format + ':' + key);
+// A peer must resolve the host's SDK without an override or nested copy.
+const reactRequire = createRequire(require.resolve('@yorkie-js/react'));
+assert.equal(realpathSync(reactRequire.resolve('@yorkie-js/sdk')), realpathSync(require.resolve('@yorkie-js/sdk')));
+const reactPkg = require('@yorkie-js/react/package.json');
+assert.equal(reactPkg.dependencies?.['@yorkie-js/sdk'], undefined);
+assert.equal(reactPkg.unpkg, './dist/yorkie-js-react.js');
+assert.equal(reactPkg.jsdelivr, reactPkg.unpkg);
+assert.equal(reactPkg.exports['.'].unpkg, reactPkg.unpkg);
+assert.equal(reactPkg.peerDependencies['@yorkie-js/sdk'], require('@yorkie-js/sdk/package.json').version);
+// Every exported runtime/declaration path must exist in the installed tarball.
+function checkTargets(target, directory) {
+  if (typeof target === 'string') assert.ok(existsSync(resolve(directory, target)), target + ' is missing');
+  else for (const value of Object.values(target)) checkTargets(value, directory);
+}
+for (const name of Object.keys(packages)) {
+  const id = '@yorkie-js/' + name;
+  checkTargets(require(id + '/package.json').exports, dirname(require.resolve(id + '/package.json')));
+}
 const { esm, cjs } = packages.sdk;
 assert.equal(esm.default, cjs.default);
 assert.equal(esm.default.Document, cjs.Document);
@@ -190,7 +272,7 @@ for (const name of Object.keys(packages)) {
   w(
     'types.mts',
     `import yorkie, { Document, Text, Tree, Counter } from '@yorkie-js/sdk';
-import { YorkieProvider } from '@yorkie-js/react';
+import { YorkieProvider, Text as ReactText, Tree as ReactTree, Counter as ReactCounter } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 import sdk = require('@yorkie-js/sdk');
 import react = require('@yorkie-js/react');
@@ -198,6 +280,9 @@ import prosemirror = require('@yorkie-js/prosemirror');
 import { document, text } from './types.cjs';
 export const mixedDocument: Document<{ text: Text }> = document;
 export const mixedText: Text = text;
+export const reactText: Text = new ReactText();
+export const reactTree: Tree = new ReactTree();
+export const reactCounter: Counter = new ReactCounter(1);
 export const reverseDocument: sdk.Document<{ text: sdk.Text }> = new Document<{ text: Text }>('reverse');
 export const defaultConstructor: typeof Document = yorkie.Document;
 export const provider: typeof react.YorkieProvider = YorkieProvider;
@@ -249,14 +334,16 @@ document.update(root => {
   w(
     'bundle-entry.mjs',
     `import yorkie, { Document, Text, converter, setLogLevel } from '@yorkie-js/sdk';
-import { YorkieProvider, Text as ReactText } from '@yorkie-js/react';
+import { YorkieProvider, Text as ReactText, Tree as ReactTree, Counter as ReactCounter, SyncMode as ReactSyncMode } from '@yorkie-js/react';
+import { Tree, Counter, SyncMode } from '@yorkie-js/sdk';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 const found = { Document, setLogLevel, YorkieProvider, YorkieProseMirrorBinding, 'default.Client': yorkie?.Client };
 for (const [n, v] of Object.entries(found))
   if (typeof v !== 'function') throw new Error(n + ' missing in the bundle');
 if (typeof converter !== 'object' || converter === null) throw new Error('converter missing in the bundle');
 if (yorkie.Document !== Document) throw new Error('default and named Document differ in the bundle');
-if (ReactText !== Text) throw new Error('react and sdk Text differ in the bundle');
+for (const [name, left, right] of [['Text', ReactText, Text], ['Tree', ReactTree, Tree], ['Counter', ReactCounter, Counter], ['SyncMode', ReactSyncMode, SyncMode]])
+  if (left !== right) throw new Error('react and sdk ' + name + ' differ in the bundle');
 `,
   );
   w(
@@ -299,16 +386,65 @@ export const used = [converter, YorkieProvider, YorkieProseMirrorBinding];
     }),
   );
 
+  w(
+    'umd.cjs',
+    `const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const { dirname, join } = require('node:path');
+const vm = require('node:vm');
+const context = vm.createContext({
+  React: require('react'), jsxRuntime: require('react/jsx-runtime'),
+  console, setTimeout, clearTimeout, TextEncoder, TextDecoder, URL,
+});
+const reactDirectory = dirname(require.resolve('@yorkie-js/react/package.json'));
+vm.runInContext(readFileSync(join(reactDirectory, 'dist/yorkie-js-react.js'), 'utf8'), context);
+assert.equal(context['yorkie-js-sdk'], undefined);
+const react = context['yorkie-js-react'];
+for (const name of ['Text', 'Tree', 'Counter', 'YorkieProvider']) assert.equal(typeof react[name], 'function');
+assert.ok(new react.Text() instanceof react.Text);
+assert.ok(new react.Tree() instanceof react.Tree);
+assert.equal(new react.Counter(1).getValue(), 1);
+assert.deepEqual(Object.keys(react).sort(), Object.keys(require('@yorkie-js/react')).sort());
+// ProseMirror's UMD reads the SDK from a YorkieSdk global (a pre-existing
+// name the SDK UMD does not register), so a page aliases it.
+const sdkDirectory = dirname(require.resolve('@yorkie-js/sdk/package.json'));
+vm.runInContext(readFileSync(join(sdkDirectory, 'dist/yorkie-js-sdk.js'), 'utf8'), context);
+context.YorkieSdk = context['yorkie-js-sdk'];
+context.ProsemirrorModel = require('prosemirror-model');
+context.ProsemirrorState = require('prosemirror-state');
+context.ProsemirrorView = require('prosemirror-view');
+context.ProsemirrorTransform = require('prosemirror-transform');
+const pmDirectory = dirname(require.resolve('@yorkie-js/prosemirror/package.json'));
+vm.runInContext(readFileSync(join(pmDirectory, 'dist/yorkie-js-prosemirror.js'), 'utf8'), context);
+assert.equal(typeof context['yorkie-js-prosemirror'].YorkieProseMirrorBinding, 'function');
+`,
+  );
+
   run('node', ['esm.mjs'], app);
   run('node', ['cjs.cjs'], app);
+  run('node', ['umd.cjs'], app);
+  const cdnEntry = capture(
+    process.execPath,
+    [
+      '--conditions=unpkg',
+      '--input-type=module',
+      '-e',
+      "console.log(import.meta.resolve('@yorkie-js/react'))",
+    ],
+    app,
+  ).trim();
+  assert.ok(
+    cdnEntry.endsWith('/dist/yorkie-js-react.js'),
+    'UNPKG must resolve the legacy UMD entry',
+  );
   run('node', ['mixed.mjs', 'esm-first'], app);
   run('node', ['mixed.mjs', 'cjs-first'], app);
-  run('npx', ['vite', 'build'], app);
+  run(process.execPath, [vite, 'build'], app);
   run('node', ['vite-out/bundle-entry.mjs'], app);
   run(
-    'npx',
+    process.execPath,
     [
-      'esbuild',
+      esbuild,
       'bundle-entry.mjs',
       '--bundle',
       '--platform=node',
@@ -319,10 +455,24 @@ export const used = [converter, YorkieProvider, YorkieProseMirrorBinding];
     app,
   );
   run('node', ['esbuild-out.mjs'], app);
-  run('npx', ['tsc', '-p', 'tsconfig.json'], app);
+  run(
+    process.execPath,
+    [
+      esbuild,
+      'bundle-entry.mjs',
+      '--bundle',
+      '--platform=browser',
+      '--format=esm',
+      '--outfile=browser-out.mjs',
+      '--log-level=warning',
+    ],
+    app,
+  );
+  run('node', ['browser-out.mjs'], app);
+  run(process.execPath, [tsc, '-p', 'tsconfig.json'], app);
   const listed = capture(
-    'npx',
-    ['tsc', '-p', 'tsconfig.bundler.json', '--listFiles'],
+    process.execPath,
+    [tsc, '-p', 'tsconfig.bundler.json', '--listFiles'],
     app,
   ).split('\n');
   for (const name of ['sdk', 'react', 'prosemirror']) {
@@ -340,14 +490,18 @@ export const used = [converter, YorkieProvider, YorkieProseMirrorBinding];
       name === 'prosemirror'
         ? ['--ignore-rules', 'internal-resolution-error']
         : [];
-    run('npx', ['--yes', ATTW, tgz[name], '--profile', 'node16', ...skip], app);
+    run(
+      process.execPath,
+      [attw, tgz[name], '--profile', 'node16', ...skip],
+      app,
+    );
   }
 
   const pkg = JSON.parse(
     readFileSync(join(app, 'node_modules/@yorkie-js/sdk/package.json'), 'utf8'),
   );
   console.log(
-    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS and mixed modules, bundled by Vite SSR and esbuild, with NodeNext and bundler types (skipLibCheck) on ${process.version}`,
+    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS and mixed modules, bundled by Vite SSR and esbuild, with legacy UMD, NodeNext and bundler types (skipLibCheck) on ${process.version}`,
   );
 } finally {
   rmSync(tmp, { recursive: true, force: true });
