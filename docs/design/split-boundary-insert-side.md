@@ -62,10 +62,20 @@ does.
 §7.8 walks the `insNextID` chain to order same-boundary products by ticket. When
 the product sitting next begins with concurrent inserts, our boundary is not
 that product's start: it is *inside* the product, past that run.
-`boundaryInsertRunOf` counts the run — children at the start of a node created
-by a change outside the editor's version vector. Element split products are not
-inserts and end the run, as they do in §7.3; text split siblings carry their
-original's ticket and so end it by being known.
+`boundaryInsertRunOf` counts the run — *text* children at the start of a node
+created by a change outside the editor's version vector. Text split siblings
+carry their original's ticket and so end the run by being known, and the first
+element child ends it: that is the same set of children
+`advanceIntoSplitProducts` crosses on the other side, and the two rules have to
+agree on how long the run is.
+
+Text-only is also the only GC-stable way to measure it. Telling an element
+*insert* from an element *split product* needs `insPrevID`, and that field is
+not stable: `CRDTTree.purge` relinks it onto the surviving neighbour and clears
+it, and `TreeEditOperation.reissueContentIDs` drops it on an undo copy. A run
+measured through it would be as long as each replica's collection schedule left
+it, so two replicas would place the same split differently for no reason but GC
+timing.
 
 ### Insert applied second (`advanceIntoSplitProducts`)
 
@@ -75,6 +85,14 @@ that parent. The scan continues there over a run of newer-ticket *text*
 children — the same rule step 04 applies inside one node. Element children at
 that boundary are already §7.8's business; crossing them made the two rules
 disagree about where the boundary went and broke eight existing tests.
+
+"The last child of the resolved parent" is measured in live content
+(`atEndOfLiveContent`), not in `allChildren`. Step 04 stops at the older ticket
+of a concurrently-removed node, so the anchor it resolves is the last *live*
+child whenever such a tombstone trails the run — while the replica that applied
+the insert before the split had the whole run in one node and no tombstone
+standing between it and the boundary. Counting that tombstone as a right
+neighbour would block here the advance that replica makes.
 
 It is applied at the `editAndRestore` call site, to a **collapsed** range only,
 not inside `findNodesAndSplitText`: that method also resolves style ranges

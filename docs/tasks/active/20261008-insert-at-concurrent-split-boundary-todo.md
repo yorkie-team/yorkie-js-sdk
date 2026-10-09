@@ -76,7 +76,9 @@ so shipping it is a trade a maintainer has to make knowingly.
 
 Neither item below is something this branch can close — one is an issue on
 another repository, the other is a decision. They are recorded here and in
-the design doc so the next reader does not have to rediscover them.
+the design doc so the next reader does not have to rediscover them. The
+review panel raised the same gate as a blocking finding on the PR; it stays
+open, because closing it is the maintainer's call and not a code change.
 
 - [ ] Issue filed against yorkie-team/yorkie porting
       `orderSameBoundarySplit`'s boundary-insert-run rule (with

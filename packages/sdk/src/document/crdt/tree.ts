@@ -2408,9 +2408,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
   /**
    * `boundaryInsertRunOf` counts the children at the start of `node` that
    * were inserted concurrently with the editing change -- the run §7.3
-   * migrates to the left of a split boundary. Element split products are
-   * not inserts and end the run, as they do in §7.3; text split siblings
-   * carry their original's ticket and so end it by being known.
+   * migrates to the left of a split boundary. Text split siblings carry
+   * their original's ticket and so end the run by being known.
+   *
+   * Only text children are counted, the same children
+   * `advanceIntoSplitProducts` crosses on the other side of this boundary:
+   * the two rules have to agree on how long the run is, and an element at
+   * the start of a product is §7.8's business. Telling an element insert
+   * from an element split product would need `insPrevID`, which
+   * `CRDTTree.purge` relinks and clears and `reissueContentIDs` drops on an
+   * undo copy -- so a run measured through it would depend on when each
+   * replica ran GC, and two replicas would place the same split differently
+   * for no reason but collection timing.
    *
    * NOTE(cross-implementation): where a split lands is a replicated
    * contract -- the server and every other SDK have to pick the same node
@@ -2426,7 +2435,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
   ): number {
     let run = 0;
     for (const child of node.allChildren) {
-      if (!child.isText && child.insPrevID !== undefined) {
+      if (!child.isText) {
         break;
       }
       const createdAt = child.id.getCreatedAt();
@@ -2919,11 +2928,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
     while (current.insNextID) {
       // Only a position at the very end of `current` can continue into the
       // product: anything else has its right neighbour here already.
-      const children = current.allChildren;
-      const atEnd = children.length
-        ? children[children.length - 1] === leftNode
-        : leftNode === current;
-      if (!atEnd) {
+      //
+      // "The end" is measured against live content, not against
+      // `allChildren`. The anchor step 04 resolves is the last *live* child
+      // whenever a concurrently-removed node trails the live run -- that
+      // scan stops at the tombstone's older ticket -- while the replica that
+      // applied this insert before the split saw no tombstone between the
+      // run and the boundary at all. Counting a trailing tombstone as a
+      // right neighbour would block here the advance that replica makes, so
+      // the two would place the same insert differently.
+      if (!this.atEndOfLiveContent(current, leftNode)) {
         break;
       }
 
@@ -2965,6 +2979,44 @@ export class CRDTTree extends CRDTElement implements GCParent {
     }
 
     return [current, leftNode];
+  }
+
+  /**
+   * `atEndOfLiveContent` reports whether `leftNode` is an anchor with no live
+   * content after it inside `node`: either `node` itself with nothing live
+   * under it, or a child of `node` every one of whose later siblings is a
+   * tombstone.
+   *
+   * Tombstones are skipped rather than counted because they are not content
+   * the boundary can sit before, and because the two sides of a split
+   * boundary see different ones -- the replica that applied an insert before
+   * the split had the whole run in one node, with no tombstone standing
+   * between it and the boundary.
+   *
+   * An anchor that is not a child of `node` at all did not come from the
+   * step 04 scan (the merge-target branch of `findNodesAndSplitText` returns
+   * before it), so nothing can be concluded about what follows it: not at
+   * the end.
+   */
+  private atEndOfLiveContent(
+    node: CRDTTreeNode,
+    leftNode: CRDTTreeNode,
+  ): boolean {
+    const children = node.allChildren;
+    if (leftNode === node) {
+      return children.every((child) => child.isRemoved);
+    }
+
+    const index = children.indexOf(leftNode);
+    if (index === -1) {
+      return false;
+    }
+    for (let i = index + 1; i < children.length; i++) {
+      if (!children[i].isRemoved) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
