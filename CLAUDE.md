@@ -48,7 +48,7 @@ pnpm sdk test      # plus the integration suites, with the server above running
 
 - **Design docs**: `docs/design/` for architectural context. New docs use [TEMPLATE.md](docs/design/TEMPLATE.md).
 - **Task tracking**: `docs/tasks/active/` for in-progress, `docs/tasks/archive/` for completed. Use `YYYYMMDD-<slug>-{todo,lessons}.md` pairs.
-- **Setup**: `bash scripts/setup.sh` once per clone installs the git hooks and the Claude Code hooks (from a `$GIT_DIR` snapshot, never from the working tree).
+- **Setup**: `bash scripts/setup.sh` once per clone points `core.hooksPath` at the tracked `.githooks/` and installs the Claude Code hooks (from a `$GIT_DIR` snapshot, wired in the gitignored `.claude/settings.local.json`).
 
 ## Packages
 
