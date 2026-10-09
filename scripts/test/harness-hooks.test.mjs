@@ -678,17 +678,49 @@ function runSetup(cwd, env, ...args) {
   });
 }
 
-test('setup.sh points core.hooksPath at .githooks, then --check is quiet', () => {
+/**
+ * Point the clone at `.git/githooks`, the way the earlier snapshot install
+ * left it, holding a stale pre-commit. Returns the directory.
+ */
+function plantLegacySnapshot({ clone, at }) {
+  const legacy = path.join(clone, '.git', 'githooks');
+  mkdirSync(legacy);
+  writeFileSync(path.join(legacy, 'pre-commit'), '#!/usr/bin/env bash\n');
+  at(clone)('config', 'core.hooksPath', legacy);
+  return legacy;
+}
+
+test('setup.sh --check tells a legacy snapshot from no hooks at all', () => {
+  // Both exit 0 — `prepare` must never fail an install — but they need
+  // different words: the legacy copy is not "missing", it is still running
+  // the trusted-tree guard.
   inScratchClone((ctx) => {
     const { clone, at, env } = ctx;
     plantSetup(ctx);
-    // A clone set up by the earlier snapshot install: the copy must go.
-    const legacy = path.join(clone, '.git', 'githooks');
-    mkdirSync(legacy);
-    at(clone)('config', 'core.hooksPath', legacy);
-    const before = runSetup(clone, env, '--check');
-    assert.equal(before.status, 0);
-    assert.match(before.stderr, /not installed/);
+
+    const unset = runSetup(clone, env, '--check');
+    assert.equal(unset.status, 0);
+    assert.match(unset.stderr, /not installed/);
+
+    plantLegacySnapshot(ctx);
+    const legacy = runSetup(clone, env, '--check');
+    assert.equal(legacy.status, 0);
+    assert.match(legacy.stderr, /old copy/);
+    assert.match(legacy.stderr, /trusted-tree guard/);
+    assert.match(legacy.stderr, /bash scripts\/setup\.sh/);
+
+    at(clone)('config', 'core.hooksPath', '/somewhere/else');
+    const other = runSetup(clone, env, '--check');
+    assert.equal(other.status, 0);
+    assert.match(other.stderr, /not installed/);
+  });
+});
+
+test('setup.sh points core.hooksPath at .githooks and removes the legacy copy', () => {
+  inScratchClone((ctx) => {
+    const { clone, at, env } = ctx;
+    plantSetup(ctx);
+    const legacy = plantLegacySnapshot(ctx);
 
     const r = runSetup(clone, env);
     assert.equal(r.status, 0, r.stderr);
@@ -701,6 +733,93 @@ test('setup.sh points core.hooksPath at .githooks, then --check is quiet', () =>
 
     const after = runSetup(clone, env, '--check');
     assert.equal(after.stderr, '');
+  });
+});
+
+test('setup.sh keeps a .git/githooks that core.hooksPath did not name', () => {
+  // The name alone proves nothing: a directory there that the clone was not
+  // pointed at is somebody's own, and an installer must not delete it.
+  inScratchClone((ctx) => {
+    const { clone, at, env } = ctx;
+    plantSetup(ctx);
+    const mine = path.join(clone, '.git', 'githooks');
+    mkdirSync(mine);
+    writeFileSync(path.join(mine, 'keep'), 'mine\n');
+
+    for (const hooksPath of [null, path.join(clone, '.git', 'hooks')]) {
+      if (hooksPath) at(clone)('config', 'core.hooksPath', hooksPath);
+      const r = runSetup(clone, env);
+      assert.equal(r.status, 0, r.stderr);
+      statSync(path.join(mine, 'keep'));
+    }
+  });
+});
+
+test('a refused setup.sh run deletes nothing', () => {
+  // The source check refuses AFTER the git hooks are repointed, so the legacy
+  // copy has to outlive the refusal: deleting it first would make a refused
+  // run destructive.
+  inScratchClone((ctx) => {
+    const { clone, env } = ctx;
+    plantSetup(ctx);
+    const legacy = plantLegacySnapshot(ctx);
+    writeFileSync(
+      path.join(clone, 'scripts', 'hooks', 'session-prime.sh'),
+      '#!/usr/bin/env bash\nexit 0\n',
+    );
+    const r = runSetup(clone, env);
+    assert.equal(r.status, 1);
+    statSync(path.join(legacy, 'pre-commit'));
+    assert.match(r.stderr, /rm -rf/, 'the refusal must say how to clean up');
+  });
+});
+
+test('git itself runs pre-commit on a branch somebody else wrote', () => {
+  // The probes above run the hook file with `bash`, which proves the script
+  // and not the wiring. This goes through git's own dispatch: setup.sh, a bot
+  // commit on top of main, then a plain `git commit` staging source.
+  inScratchClone((ctx) => {
+    const { root, clone, at, env } = ctx;
+    plantSetup(ctx);
+    assert.equal(runSetup(clone, env).status, 0);
+
+    at(clone)(
+      '-c',
+      'user.email=bot@agent.example',
+      '-c',
+      'user.name=bot',
+      'commit',
+      '-qm',
+      'Add a bot commit',
+      '--allow-empty',
+      '--no-verify',
+    );
+
+    const bin = path.join(root, 'stub-bin');
+    const marker = path.join(root, 'pnpm-ran');
+    mkdirSync(bin);
+    writeFileSync(
+      path.join(bin, 'pnpm'),
+      `#!/usr/bin/env bash\necho "$*" > ${shellQuote(marker)}\n`,
+    );
+    chmodSync(path.join(bin, 'pnpm'), 0o755);
+
+    writeFileSync(path.join(clone, 'a.ts'), 'export {};\n');
+    at(clone)('add', 'a.ts');
+    const r = spawnSync(
+      'git',
+      ['-C', clone, 'commit', '-qm', 'Add a source file'],
+      {
+        encoding: 'utf8',
+        env: { ...env, PATH: `${bin}${path.delimiter}${process.env.PATH}` },
+      },
+    );
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(readFileSync(marker, 'utf8').trim(), 'exec lint-staged');
+    assert.equal(
+      at(clone)('log', '-1', '--format=%s').stdout.trim(),
+      'Add a source file',
+    );
   });
 });
 

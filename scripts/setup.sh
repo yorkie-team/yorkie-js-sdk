@@ -26,12 +26,40 @@ set -euo pipefail
 # change therefore applies on the next commit, with no re-install.
 HOOKS_PATH=.githooks
 
+# Earlier versions copied the hooks into `$GIT_COMMON/githooks` and pointed
+# `core.hooksPath` there. A clone still pointed at that copy keeps running the
+# old hooks, trusted-tree guard included, until this script runs again.
+#
+# The physical path `core.hooksPath` names, or nothing when it is unset or
+# names no directory. Relative values resolve against the worktree top, as git
+# resolves them.
+configured_hooks_dir() {
+  local p
+  p=$(git config --path --get core.hooksPath 2>/dev/null) || return 0
+  case "$p" in
+    /*) ;;
+    *) p="$(git rev-parse --show-toplevel)/$p" ;;
+  esac
+  [ -d "$p" ] && (cd "$p" && pwd -P)
+  return 0
+}
+
+# Only a clone set up by the snapshot install points at this exact directory;
+# anything else under that name is somebody's own and is left alone.
+is_legacy_snapshot() {
+  [ -n "$1" ] && [ "$1" = "$2" ]
+}
+
 # `--check` is what `pnpm install` runs (the root `prepare` script). It changes
-# nothing and only reports missing hooks, so an install in CI or in a scratch
-# worktree never rewrites the clone's config behind its owner's back.
+# nothing and only reports, so an install in CI or in a scratch worktree never
+# rewrites the clone's config behind its owner's back. It never fails.
 if [ "${1:-}" = "--check" ]; then
-  git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-  if [ "$(git config --get core.hooksPath || true)" != "$HOOKS_PATH" ]; then
+  GIT_COMMON=$(git rev-parse --git-common-dir 2>/dev/null) || exit 0
+  GIT_COMMON=$(cd "$GIT_COMMON" && pwd -P) || exit 0
+  if is_legacy_snapshot "$(configured_hooks_dir)" "$GIT_COMMON/githooks"; then
+    echo "Git hooks run from the old copy in $GIT_COMMON/githooks, which still" >&2
+    echo "enforces the trusted-tree guard. Run: bash scripts/setup.sh" >&2
+  elif [ "$(git config --get core.hooksPath || true)" != "$HOOKS_PATH" ]; then
     echo "Git hooks are not installed for this clone. Run: bash scripts/setup.sh" >&2
   fi
   exit 0
@@ -39,11 +67,17 @@ fi
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
+LEGACY_SNAPSHOT="$GIT_COMMON/githooks"
+
+# Read before it is overwritten: whether the old copy may be deleted depends on
+# where `core.hooksPath` pointed when this run started.
+OLD_HOOKS_DIR=$(configured_hooks_dir)
+REMOVE_LEGACY=""
+if is_legacy_snapshot "$OLD_HOOKS_DIR" "$LEGACY_SNAPSHOT"; then
+  REMOVE_LEGACY=1
+fi
 
 git config core.hooksPath "$HOOKS_PATH"
-# Earlier versions copied the hooks into `$GIT_DIR/githooks` and pointed
-# `core.hooksPath` there. Nothing reads that copy any more.
-rm -rf "$GIT_COMMON/githooks"
 echo "Git hooks now run from .githooks/ (core.hooksPath=$HOOKS_PATH)"
 
 # THE RE-RUN WOULD PERSIST A BRANCH'S HOOKS. Run inside a checkout of somebody's
@@ -84,10 +118,20 @@ elif ! git -C "$REPO_ROOT" diff --quiet "$UPSTREAM_REF" -- "${HOOK_SOURCES[@]}";
     echo "       already enabled." >&2
     echo "       Re-run on the default branch, or, if you meant it:" >&2
     echo "         YORKIE_ALLOW_LOCAL_HOOKS=1 bash scripts/setup.sh" >&2
+    if [ -n "$REMOVE_LEGACY" ]; then
+      echo "       The old hook copy in $LEGACY_SNAPSHOT is unused now and was left" >&2
+      echo "       in place; remove it with: rm -rf '$LEGACY_SNAPSHOT'" >&2
+    fi
     exit 1
   fi
   echo "setup: Claude Code hook sources differ from ${UPSTREAM_REF#refs/remotes/};" >&2
   echo "       installing them anyway because YORKIE_ALLOW_LOCAL_HOOKS=1." >&2
+fi
+
+# Past the refusal, so a refused run deletes nothing.
+if [ -n "$REMOVE_LEGACY" ]; then
+  rm -rf "$LEGACY_SNAPSHOT"
+  echo "Removed the old hook copy in $LEGACY_SNAPSHOT"
 fi
 
 # Claude Code hooks: snapshotted into `$GIT_DIR/agent-hooks` and wired in the
