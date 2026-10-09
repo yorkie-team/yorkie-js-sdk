@@ -20,7 +20,6 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
-| Run the git hooks from .githooks/ and drop the trusted-tree guard (2026-10-09) | [20261009-remove-trusted-tree-guard-todo.md](./active/20261009-remove-trusted-tree-guard-todo.md) | [20261009-remove-trusted-tree-guard-lessons.md](./active/20261009-remove-trusted-tree-guard-lessons.md) |
 | Recover a document after the server rejects local writes (2026-10-08) | [20261008-resync-after-write-denial-todo.md](./active/20261008-resync-after-write-denial-todo.md) | [20261008-resync-after-write-denial-lessons.md](./active/20261008-resync-after-write-denial-lessons.md) |
 | Identify "me" with getActorID() in the examples, and say so in the CHANGELOG (2026-10-08) | [20261008-getactorid-in-examples-todo.md](./active/20261008-getactorid-in-examples-todo.md) | [20261008-getactorid-in-examples-lessons.md](./active/20261008-getactorid-in-examples-lessons.md) |
 | Re-issue pre-attach tickets to the client's actor on attach (2026-10-05) | [20261005-reissue-pre-attach-tickets-todo.md](./active/20261005-reissue-pre-attach-tickets-todo.md) | [20261005-reissue-pre-attach-tickets-lessons.md](./active/20261005-reissue-pre-attach-tickets-lessons.md) |
@@ -29,5 +28,5 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Archive
 
-- Archived task count: 44
+- Archived task count: 45
 - Archive index: [archive/README.md](./archive/README.md)
