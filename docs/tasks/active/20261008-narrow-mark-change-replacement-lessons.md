@@ -103,6 +103,31 @@ decision that is not an autonomous run's to make. Either merge this as the
 partial improvement it is — one real case fixed, both reproductions visibly
 failing, nothing asserting the loss — or hold it until direction 2 is settled.
 
+## Panel round 4 — the guard made the fix unreachable
+
+The staleness guard added in round 1 used `yorkieNodesEqual` to compare the
+stored block with `pmToYorkie(oldDoc)`'s. That is a stricter question than the
+one the guard needs to ask. The narrowed edit sums `yorkieNodeSize` over the
+*serialized* old children, so all it needs is that the two lay out the same
+way — and two differences that `yorkieNodesEqual` rejects move no index:
+
+- the CRDT never merges adjacent text nodes (`editInternal` inserts a fresh
+  node, `findNodesAndSplitText` splits the existing one, nothing joins them),
+  so a run the user has typed into stores as several siblings where
+  `pmToYorkie` emits one. `<strong>` spans the same flat range either way;
+- an attribute's *type* is whatever the peer that wrote it chose —
+  `tree.style(..., { level: 2 })` stores a number, `serializeAttrs` writes
+  `'2'` — and attributes contribute nothing to a flat index.
+
+So the guard was false for every block that had been edited even once, which
+is precisely the block whose other runs a peer may be typing into: the one
+real case direction 1 fixes was fixed in theory only. `blockLayoutMatches`
+replaces it — merged text runs, stringified attributes — and the
+stale-block test now drives it false on a genuine length mismatch, with two
+new unit tests and an integration test pinning the cases it must let through.
+
+The two #1438 reproductions are untouched, for the reason recorded above.
+
 ## Panel round 3 and the maintainer's call
 
 The maintainer took the partial-fix option: merge as direction 1, keep #1438

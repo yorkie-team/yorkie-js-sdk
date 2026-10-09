@@ -128,6 +128,53 @@ describe('ProseMirror concurrent mark change integration', () => {
     assert.deepEqual(texts(d1), ['abcdefQ']);
   });
 
+  it('keeps that text after the CRDT has fragmented the run', async () => {
+    // Typing into `abc` leaves the CRDT holding several text runs where
+    // ProseMirror holds one. The narrowed replacement has to survive that, or
+    // it is unreachable for every block anyone has ever edited — which is
+    // every block a peer might be typing into right now.
+    const base = doc(p(strong('abc'), 'def'));
+    const typed = doc(p(strong('abXc'), 'def'));
+
+    d1.update((root) => {
+      root.t = new Tree(
+        pmToYorkie(base, defaultMarkMapping) as unknown as ElementNode,
+      );
+    });
+    await c1.sync();
+    await c2.sync();
+
+    d1.update((root) => {
+      syncToYorkie(treeBridge(root.t), base, typed, defaultMarkMapping);
+    });
+    await c1.sync();
+    await c2.sync();
+
+    d1.update((root) => {
+      syncToYorkie(
+        treeBridge(root.t),
+        typed,
+        doc(p(em('abXc'), 'def')),
+        defaultMarkMapping,
+      );
+    });
+    d2.update((root) => {
+      syncToYorkie(
+        treeBridge(root.t),
+        typed,
+        doc(p(strong('abXc'), 'defQ')),
+        defaultMarkMapping,
+      );
+    });
+
+    await c1.sync();
+    await c2.sync();
+    await c1.sync();
+
+    assert.equal(d1.getRoot().t.toXML(), d2.getRoot().t.toXML());
+    assert.deepEqual(texts(d1), ['abXcdefQ']);
+  });
+
   it('keeps text typed in another block', async () => {
     await concurrently(
       doc(p('abcdef'), p('second')),

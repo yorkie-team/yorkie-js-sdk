@@ -1070,13 +1070,11 @@ describe('diff', () => {
         assert.deepEqual(calls[0].args, [3, 3, undefined, 1]);
       });
 
-      it('should decline the narrowed replacement on a stale block', () => {
-        // `tryNarrowedBlockReplace` derives its range from the sizes of
-        // `oldBlocks[i].children`, so those indexes only address the tree
-        // while the stored block still serializes the same way. Here the
-        // tree's `strong` holds two text runs where the PM doc holds one, so
-        // the narrowed range would cut inside the tree's first run; fall back
-        // to replacing the whole block, whose indexes come from the tree.
+      it('should still narrow the replacement', () => {
+        // A fragmented run moves no flat index: `<strong>` spans 1..6 whether
+        // the CRDT holds `a` + `bc` or a single `abc`. Narrowing has to stay
+        // available here, because a block the user has typed into is exactly
+        // the block whose other runs a peer may be typing into right now.
         const oldDoc = doc(p(strong('abc'), 'def'));
         const newDoc = doc(p(em('abc'), 'def'));
         const { tree, calls } = createMockTree(
@@ -1092,8 +1090,65 @@ describe('diff', () => {
 
         assert.equal(calls.length, 1);
         assert.deepEqual(calls[0].args, [
+          1,
+          6,
+          { type: 'em', children: [{ type: 'text', value: 'abc' }] },
+          undefined,
+        ]);
+      });
+
+      it('should narrow past an attribute the tree stores unstringified', () => {
+        // `serializeAttrs` writes `level: '2'`; a peer's `tree.style(..., {
+        // level: 2 })` stores the number, and `parseObjectValues` hands it
+        // back as one. The two spell the same heading, and an attribute moves
+        // no index, so the narrowed path must not read this as staleness.
+        const oldDoc = doc(heading(2, strong('abc'), 'def'));
+        const newDoc = doc(heading(2, em('abc'), 'def'));
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem(
+              'heading',
+              [yElem('strong', [yText('abc')]), yElem('span', [yText('def')])],
+              { level: 2 } as unknown as Record<string, string>,
+            ),
+          ]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args, [
+          1,
+          6,
+          { type: 'em', children: [{ type: 'text', value: 'abc' }] },
+          undefined,
+        ]);
+      });
+
+      it('should decline the narrowed replacement on a stale block', () => {
+        // `tryNarrowedBlockReplace` derives its range from the sizes of
+        // `oldBlocks[i].children`, so those indexes only address the tree
+        // while the stored block still lays out the same way. Here the tree's
+        // `strong` holds four characters where the PM doc holds three, so the
+        // narrowed range would stop one short; fall back to replacing the
+        // whole block, whose indexes come from the tree.
+        const oldDoc = doc(p(strong('abc'), 'def'));
+        const newDoc = doc(p(em('abc'), 'def'));
+        const { tree, calls } = createMockTree(
+          fragmented([
+            yElem('paragraph', [
+              yElem('strong', [yText('a'), yText('bcZ')]),
+              yElem('span', [yText('def')]),
+            ]),
+          ]),
+        );
+
+        syncToYorkie(tree, oldDoc, newDoc, markMapping);
+
+        assert.equal(calls.length, 1);
+        assert.deepEqual(calls[0].args, [
           0,
-          12,
+          13,
           (pmToYorkie(newDoc, markMapping).children || [])[0],
           undefined,
         ]);
