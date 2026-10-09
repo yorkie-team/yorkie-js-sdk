@@ -155,7 +155,7 @@ $ open http://0.0.0.0:9000/
 
 We format the code with [Prettier](https://github.com/prettier/prettier) through ESLint.
 
-Install the git hooks once per clone, from `main`:
+Install the git hooks once per clone:
 
 ```bash
 $ bash scripts/setup.sh
@@ -166,13 +166,11 @@ They check the commit message format (`commit-msg`), lint the staged source
 the SDK build and every unit suite that needs no server — before a push
 (`pre-push`). `pnpm install` only reminds you when they are missing.
 
-The hooks are copied into `.git/` rather than run from the working tree, so a
-branch you check out cannot change which hooks run on your machine. For the same
-reason `pre-commit` and `pre-push` refuse when the checkout carries commits
-this clone did not create — the usual case when reviewing someone else's pull
-request. Skip them with `--no-verify`, or set `YORKIE_ALLOW_FOREIGN_TREE=1`
-once you have read the diff. Re-run `scripts/setup.sh` on `main` to pick up
-improved hooks.
+`setup.sh` points `core.hooksPath` at the tracked `.githooks/`, so the hooks
+run from your checkout and a hook change applies on your next commit, with no
+re-install. That also means a branch you check out runs its own hooks, lint
+config and tests when you commit or push from it: read someone else's diff
+before you do, or skip the hooks with `--no-verify`.
 
 ### Format of the commit message
 

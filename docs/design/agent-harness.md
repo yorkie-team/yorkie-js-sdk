@@ -1,6 +1,6 @@
 ---
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-10-09
 tags: [ai-agent, ci, hooks]
 ---
 
@@ -23,7 +23,8 @@ working tree.
 - A local gate an agent or a hook can run with no server: `pnpm verify:fast`
 - Check what `CLAUDE.md` asks for, rather than state it: licence headers,
   generated files, commit format
-- Hooks that a checked-out branch cannot rewrite or reach
+- Hooks every clone installs once and never has to refresh
+- Claude Code hooks that a checked-out branch cannot rewrite or reach
 - The same phase order as the server repository for the CI half, so each
   phase is enabled only after the previous one is observed working
 
@@ -51,33 +52,47 @@ react and schema. Integration suites stay in CI because they need a Yorkie
 server and MongoDB; `test/unit` was made server-free for this by moving the
 one test that synced two clients into `test/integration`.
 
-### Hooks install from a snapshot, not from the tree
+### Git hooks run from the tree; Claude Code hooks from a snapshot
 
-A hook body that is a tracked file is branch-controlled code: a pull request
-rewrites it, and a reviewer who checks the branch out and commits runs it.
-So both hook systems install into `$GIT_DIR`, where `git checkout` never
-writes:
+- git hooks: `scripts/setup.sh` sets `core.hooksPath=.githooks`. The value is
+  relative, and git resolves it against the top of whichever worktree runs
+  the hook, so one setting in the shared config serves every worktree, each
+  running its own checkout's hooks. A hook change applies on the next commit.
+- Claude Code hooks: `scripts/hooks/install.mjs` copies the scripts to the
+  common git directory's `agent-hooks/` and wires them in the gitignored
+  `.claude/settings.local.json`.
 
-- git hooks: `scripts/setup.sh` copies `.githooks/` to the common git
-  directory's `githooks/` (shared by every worktree) and points
-  `core.hooksPath` there
-- Claude Code hooks: `scripts/hooks/install.mjs` copies the scripts to
-  the common git directory's `agent-hooks/` and wires them in the gitignored
-  `.claude/settings.local.json`
+The two halves make opposite trades on purpose. A git hook runs when you
+commit or push, an act you chose after reading what you checked out, and
+`--no-verify` skips it.
 
-The snapshot pins which hook runs, not what it invokes — `lint-staged` and
-`verify:fast` resolve through the branch's own configs and tests. That half
-is closed at run time by `.githooks/trusted-tree.sh`, which refuses when the
-checkout carries commits on top of `origin/main` or `upstream/main` that this
-clone did not create — read from HEAD's and the current branch's reflogs,
-which only the local git writes — or whose raw author address is not the
-local `user.email`. `upstream` is trusted by remote name; a clone that points
-`upstream` at somebody's fork trusts that fork's `main`. And once you rewrite
-a branch yourself (rebase, amend) its commits count as yours, so read before
-rewriting.
+With `core.hooksPath` in the tree, the hook scripts themselves are
+branch-controlled: a fork's pull request can rewrite `.githooks/pre-commit`,
+and committing in a checkout of it runs that rewrite. This is accepted
+because it adds little. The hooks already ran the branch's lint configs
+(JavaScript modules that execute on load) and `verify:fast` its tests, so a
+checkout you commit in was always one whose code runs. The defence is the
+same as for building or testing a branch: read a fork's diff before you
+commit in its checkout, or use `--no-verify`. And a checkout with no
+`.githooks/` at all — an old branch, or one that deleted it — runs no hooks;
+git does not fall back to `.git/hooks`. Claude Code runs its
+hooks the moment a session opens in a checkout, before anything has been read,
+so those stay in `$GIT_DIR`, where `git checkout` never writes. Their cost is
+staleness: an improved Claude Code hook reaches a clone when someone re-runs
+`setup.sh`. And because a re-run inside a reviewed branch would snapshot that
+branch's copies, `setup.sh` refuses to install them when `scripts/hooks`,
+`setup.sh` or `scripts/*.mjs` differ from `upstream/main` or `origin/main`
+(override: `YORKIE_ALLOW_LOCAL_HOOKS=1`). It guards against accident only: a
+hostile branch's `setup.sh` can leave the check out.
 
-The cost is staleness: an improved hook reaches a clone when someone re-runs
-`setup.sh`. CI is the backstop, so hooks are an accelerator, not the gate of
+Until 2026-10 the git hooks were snapshotted too, into `$GIT_DIR/githooks`,
+and `.githooks/trusted-tree.sh` refused to run `lint-staged` or `verify:fast`
+on a checkout carrying commits this clone did not create. Both were dropped
+(the decisions below say why). `setup.sh` removes the old copy only when
+`core.hooksPath` still names it and only once its source check has passed, and
+`setup.sh --check` says when a clone is still running that copy.
+
+CI is the backstop either way, so hooks are an accelerator, not the gate of
 record.
 
 ### Phases for the CI half
@@ -142,7 +157,9 @@ for the same question, and it keeps what it learns about failures.
 | `verify:fast` gets slow and people bypass it | Measured at ~30s; `pre-commit` stays lint-only |
 | A generated file is edited through Bash, past the Edit/Write guard | The next regeneration reverts it; review catches the rest |
 | Three vendored copies of `scripts/agent/` drift | Record the source commit per sync and diff before the next one |
-| Fork contributors rebase onto `upstream/main` while their fork's `main` lags | The trust guard treats both `origin/main` and `upstream/main` as the default branch |
+| A reviewer commits from a checkout of someone else's branch and runs its code | Documented in `CONTRIBUTING.md`: read the diff first or use `--no-verify`; the same exposure as running that branch's tests |
+| Clones set up by the snapshot install keep running the stale copy, guard included | `prepare` runs `setup.sh --check`, which names the old copy and the guard on every `pnpm install`; re-running `setup.sh` repoints `core.hooksPath` and deletes the copy |
+| A fork PR rewrites `.githooks/` and a reviewer commits in its checkout | Accepted: the hooks already ran the branch's lint configs and tests. Read a fork's diff before committing in it, or use `--no-verify` |
 | The commit gate refuses files CI never lints | lint-staged filters out `examples/`, which the root `eslint .` ignores |
 | Main changes what an unchanged diff MEANS, and a carry hides it | CI must pass on the carried head before promote, and the third carry in a row is a full review |
 | A fixer forges an execution log to look like an infra failure | The worst it can choose is which page a human reads; the PR is latched either way |
@@ -151,8 +168,11 @@ for the same question, and it keeps what it learns about failures.
 
 | Decision | Reason |
 |----------|--------|
-| Replace Husky with `.githooks/` + `setup.sh` | Husky runs hooks from the working tree, the hole the snapshot closes |
-| `pnpm install` does not install hooks | Installing from `prepare` would snapshot whatever branch is checked out |
+| Replace Husky with `.githooks/` + `setup.sh` | One hook directory, no dependency, and `setup.sh` also installs the Claude Code hooks |
+| Git hooks run from the tracked `.githooks/`, not a `$GIT_DIR` snapshot (2026-10) | The snapshot only pinned which hook runs, not what it invokes, so it needed the trust guard to mean anything, and it cost a `setup.sh` re-run after every hook change |
+| Drop the trust guard (`trusted-tree.sh`) (2026-10) | On agent-loop branches every bot commit is "foreign", so it refused every maintainer commit and push there. Its override, `YORKIE_ALLOW_FOREIGN_TREE`, leaked into pre-push's own harness tests, so a pushed foreign branch needed `--no-verify` anyway. A gate that refuses the everyday case gets bypassed by reflex |
+| `pnpm install` only checks, it does not install hooks | An install in CI or a scratch worktree must not rewrite the shared clone config, and `setup.sh` is needed anyway for the Claude Code hooks |
+| Claude Code hooks keep their snapshot | They run on session open, with no act to consent to and no `--no-verify`; the trade the git hooks made does not carry over |
 | Licence scan covers `packages/*/{src,test}` and `scripts/` | `examples/` are sample apps copied out; build configs carry no shipped code |
 | Generated `*_pb.ts` stay in the licence scan | `buf generate` carries the header; a plugin change that dropped it is worth seeing |
 | The `.proto` copies are guarded like generated files | The source of truth is the server's `api/`; an edit made only here diverges |
@@ -166,7 +186,10 @@ for the same question, and it keeps what it learns about failures.
 
 | Alternative | Why not |
 |-------------|---------|
-| Keep Husky, add the hooks there | Hook bodies stay branch-controlled |
+| Keep Husky, add the hooks there | A dependency and a second directory for what `core.hooksPath` does alone |
+| Trust commits reachable from any `origin/*` branch and guard only fork-PR commits | Fixes the agent-loop case (bot commits are pushed to `origin`), but keeps the snapshot, its staleness and a guard whose rules need their own tests. The maintainer chose wafflebase's simpler model, where the only rule is "read a fork's diff first" |
+| Keep the snapshot and the trust guard, narrow the guard to non-bot authors | Still refuses a maintainer finishing a contributor's branch, and trusting the bot login by name is a forgeable author field |
+| `postinstall: git config core.hooksPath .githooks` (wafflebase) | Rewrites shared config from any `pnpm install`, including scratch worktrees; the explicit `setup.sh` step is needed for the Claude Code hooks regardless |
 | A tracked `.claude/settings.json` | Claude Code runs what it names straight out of a checkout |
 | `verify:fast` with integration against docker | Makes every push depend on docker running; CI already covers it |
 | Share `scripts/agent/` as a package now | Two copies exist; extract once the third shows what actually varies |
@@ -179,3 +202,4 @@ for the same question, and it keeps what it learns about failures.
 
 - `docs/tasks/active/20260925-agent-pipeline-port-todo.md`
 - `docs/tasks/archive/2026/10/20261001-harness-convergence-todo.md`
+- `docs/tasks/active/20261009-remove-trusted-tree-guard-todo.md`

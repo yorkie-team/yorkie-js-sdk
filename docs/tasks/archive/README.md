@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-08
+updated: 2026-10-09
 ---
 
 # Tasks Archive
@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 44
+Total archived tasks: 45
 
-## 2026/10 (7 tasks)
+## 2026/10 (8 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Run the git hooks from .githooks/ and drop the trusted-tree guard (2026-10-09) | [20261009-remove-trusted-tree-guard-todo.md](./2026/10/20261009-remove-trusted-tree-guard-todo.md) | [20261009-remove-trusted-tree-guard-lessons.md](./2026/10/20261009-remove-trusted-tree-guard-lessons.md) |
 | Stop the split-sibling cascade at a sibling the editor saw alive (2026-10-06) | [20261006-split-sibling-cascade-stop-todo.md](./2026/10/20261006-split-sibling-cascade-stop-todo.md) | [20261006-split-sibling-cascade-stop-lessons.md](./2026/10/20261006-split-sibling-cascade-stop-lessons.md) |
 | Report a remote split where it landed, not where it was asked for (2026-10-06) | [20261006-split-opinfo-concurrent-insert-todo.md](./2026/10/20261006-split-opinfo-concurrent-insert-todo.md) | [20261006-split-opinfo-concurrent-insert-lessons.md](./2026/10/20261006-split-opinfo-concurrent-insert-lessons.md) |
 | Drop a pull already in flight when switching to push-only (2026-10-06) | [20261006-pushonly-switch-in-flight-pull-todo.md](./2026/10/20261006-pushonly-switch-in-flight-pull-todo.md) | [20261006-pushonly-switch-in-flight-pull-lessons.md](./2026/10/20261006-pushonly-switch-in-flight-pull-lessons.md) |
