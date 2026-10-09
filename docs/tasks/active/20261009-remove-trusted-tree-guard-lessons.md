@@ -17,3 +17,9 @@
   they differ on consent: git hooks run on an act you chose and can skip;
   Claude Code hooks run when a session opens. That is why only the first
   moved off the snapshot.
+- Review round 1 (#1468): a migration cleanup ran `rm -rf` on a fixed path
+  before the step that can refuse, and without checking the clone pointed
+  there. A destructive step goes after every refusal and is gated on evidence
+  that the target is ours (here, the old `core.hooksPath`, read before it is
+  overwritten). Hook tests that run the script with `bash` prove the script,
+  not git's dispatch to it; keep one test that makes a real `git commit`.

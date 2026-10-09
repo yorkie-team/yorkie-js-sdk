@@ -51,7 +51,7 @@ it.
 
 | Script | Invoked as | Role |
 |---|---|---|
-| `setup.sh` | `bash scripts/setup.sh` | Sets `core.hooksPath=.githooks` (relative, so every worktree runs its own checkout's hooks), removes the `$GIT_DIR/githooks` copy older versions installed, then runs `hooks/install.mjs`. Refuses that last step when the Claude Code hook sources (`scripts/hooks`, `scripts/setup.sh`, `scripts/*.mjs`) differ from the default branch — `upstream/main` if present, else `origin/main` (override: `YORKIE_ALLOW_LOCAL_HOOKS=1`), because a re-run inside a reviewed branch would snapshot that branch's Claude Code hooks — a guard against accident only, since a hostile branch's `setup.sh` can omit it. `--check` only reports missing hooks; `pnpm install` runs it through `prepare`. |
+| `setup.sh` | `bash scripts/setup.sh` | Sets `core.hooksPath=.githooks` (relative, so every worktree runs its own checkout's hooks), removes the `$GIT_DIR/githooks` copy older versions installed (only when `core.hooksPath` still named it, and only after the source check below passes), then runs `hooks/install.mjs`. Refuses that last step when the Claude Code hook sources (`scripts/hooks`, `scripts/setup.sh`, `scripts/*.mjs`) differ from the default branch — `upstream/main` if present, else `origin/main` (override: `YORKIE_ALLOW_LOCAL_HOOKS=1`), because a re-run inside a reviewed branch would snapshot that branch's Claude Code hooks — a guard against accident only, since a hostile branch's `setup.sh` can omit it. `--check` only reports — missing hooks, or a clone still on that old copy (which runs the trusted-tree guard) — and never fails; `pnpm install` runs it through `prepare`. |
 
 ## Hooks
 
