@@ -62,14 +62,21 @@ change into per-document recovery that #1463's `Client.resync` now covers and
 that deserves its own design. Recovery is `resync` with
 `discardLocalChanges: true`, proven by a unit test here.
 
-Follow-up issue (to be filed): the sync loop still stops for the whole client
-rather than only the rejected document, and detach/remove/attach still send a
-refused pack as-is when the app does not resync first.
+Review round 5 put back the containment alone (not the parked-state API, the
+detach/remove handling or the `local-changes-dropped` reason): the sync loop's
+per-attachment catch now marks the rejected attachment and swallows the error,
+so one oversized document no longer stops push, pull and channel heartbeats for
+every other attachment of the client. An accepted push clears the mark, so
+`client.sync(doc)` after the document is shrunk is the way back on the loop.
+
+Follow-up issue (to be filed): detach/remove/attach still send a refused pack
+as-is when the app does not resync first.
 
 ## Acceptance criteria
 
 - [x] `ErrDocumentSizeExceedsLimit` and `ErrChangeTooLarge` from `PushPull`
       are not retried.
-- [x] The sync loop stops for that client, as with `ErrEpochMismatch`.
+- [x] The sync loop stops for the rejected document, and keeps running for the
+      client's other documents and channels.
 - [x] An event carrying the error code reaches the app.
 - [x] `pnpm verify:fast` green.

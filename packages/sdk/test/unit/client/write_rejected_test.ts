@@ -176,6 +176,153 @@ describe('Server rejections that resending cannot fix', () => {
   });
 });
 
+describe('A rejected document does not take the whole client down', () => {
+  /**
+   * `tick` yields to the event loop long enough for a few sync-loop
+   * iterations at the 1ms `syncLoopDuration` the test configures.
+   */
+  function tick(ms = 60): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  it('parks only the rejected document, and takes it back once a push is accepted', async () => {
+    const err = rejection(
+      Code.ErrDocumentSizeExceedsLimit,
+      'document size exceeds limit',
+    );
+    const pushes: Record<string, number> = { big: 0, small: 0 };
+    let refusing = true;
+
+    const client = new yorkie.Client({
+      rpcAddr: 'http://localhost',
+      syncLoopDuration: 1,
+    });
+    (client as any).status = 'activated';
+    (client as any).id = actorHex;
+    (client as any).actorID = actorHex;
+    (client as any).rpcClient = {
+      attachDocument: async (req: any) =>
+        create(AttachDocumentResponseSchema, {
+          documentId: req.changePack.documentKey,
+          changePack: create(ChangePackSchema, {
+            documentKey: req.changePack.documentKey,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: 0,
+            }),
+          }),
+          disablePresence: false,
+          schemaRules: [],
+        }),
+      pushPullChanges: async (req: any) => {
+        pushes[req.documentId]++;
+        if (req.documentId === 'big' && refusing) {
+          throw err;
+        }
+        const pack = converter.fromChangePack(req.changePack);
+        const acked = pack
+          .getChanges()
+          .reduce(
+            (max: number, change: any) =>
+              Math.max(max, change.getID().getClientSeq()),
+            pack.getCheckpoint().getClientSeq(),
+          );
+        return create(PushPullChangesResponseSchema, {
+          changePack: create(ChangePackSchema, {
+            documentKey: req.documentId,
+            checkpoint: create(CheckpointSchema, {
+              serverSeq: 0n,
+              clientSeq: acked,
+            }),
+          }),
+        });
+      },
+    };
+
+    const big = new Document<{ text?: string }>('big');
+    const small = new Document<{ text?: string }>('small');
+    for (const doc of [big, small]) {
+      // Manual keeps `attach` from opening a watch stream the fake RPC
+      // client cannot serve; the sync loop reads the attachment's mode, so
+      // flip it to Realtime right after.
+      await client.attach(doc, {
+        syncMode: SyncMode.Manual,
+        disablePresence: true,
+      });
+      (client as any).attachmentMap.get(doc.getKey()).syncMode =
+        SyncMode.Realtime;
+    }
+
+    const rejected: Array<WriteRejectedEvent['value']> = [];
+    big.subscribe('write-rejected', (event) => rejected.push(event.value));
+
+    big.update((root) => {
+      root.text = 'over the limit';
+    });
+    small.update((root) => {
+      root.text = 'well within it';
+    });
+
+    (client as any).runSyncLoop();
+    await tick();
+
+    assert.strictEqual(
+      pushes.big,
+      1,
+      'the rejected push is not sent a second time',
+    );
+    assert.lengthOf(rejected, 1, 'the rejection is reported to its document');
+
+    // The loop is still alive for everything else on this client: an edit made
+    // to the other document after the rejection is still pushed.
+    const pushedBeforeEdit = pushes.small;
+    small.update((root) => {
+      root.text = 'still editable';
+    });
+    await tick();
+    assert.isAbove(
+      pushes.small,
+      pushedBeforeEdit,
+      'the other document keeps syncing on the shared loop',
+    );
+    assert.strictEqual(pushes.big, 1, 'and the rejected one stays parked');
+    assert.isTrue(
+      client.getCondition(ClientCondition.SyncLoop),
+      'the client-wide loop is still running',
+    );
+    assert.isTrue(
+      (client as any).attachmentMap.get('big').isWriteRejected(),
+      'the rejected document is the one that is parked',
+    );
+    assert.isFalse(
+      (client as any).attachmentMap.get('small').isWriteRejected(),
+    );
+
+    // Shrinking the document is the natural recovery: the next push the server
+    // accepts unparks it, and the loop carries it again from then on.
+    refusing = false;
+    await client.sync(big);
+    assert.isFalse(
+      (client as any).attachmentMap.get('big').isWriteRejected(),
+      'an accepted push puts the document back on the loop',
+    );
+
+    const pushedWhenUnparked = pushes.big;
+    big.update((root) => {
+      root.text = 'small enough now';
+    });
+    await tick();
+    assert.isAbove(
+      pushes.big,
+      pushedWhenUnparked,
+      'the loop pushes the recovered document again',
+    );
+
+    (client as any).deactivating = true;
+    await tick(10);
+  });
+});
+
 describe('Recovering a document the size gate refused', () => {
   it('resyncs with the oversized changes discarded and syncs again', async () => {
     const key = 'write-rejected-resync';
@@ -265,13 +412,19 @@ describe('Recovering a document the size gate refused', () => {
       root.text = 'oversized';
     });
 
-    // The loop pushes once, is refused, and stops instead of resending.
+    // The loop pushes once, is refused, and parks this document instead of
+    // resending — the loop itself keeps running for the client's other
+    // attachments.
     (client as any).runSyncLoop();
     await new Promise((resolve) => setTimeout(resolve, 100));
     assert.lengthOf(rejected, 1);
     assert.equal(rejected[0].code, Code.ErrDocumentSizeExceedsLimit);
     assert.lengthOf(pushedPacks, 1, 'the refused pack is not resent');
-    assert.isFalse(client.getCondition(ClientCondition.SyncLoop));
+    assert.isTrue(client.getCondition(ClientCondition.SyncLoop));
+    assert.isTrue(
+      (client as any).attachmentMap.get(key).isWriteRejected(),
+      'the rejected document is the one that stops, not the client',
+    );
 
     const discarded = await client.resync(doc, { discardLocalChanges: true });
     assert.isTrue(discarded.length > 0, 'the oversized change is handed back');

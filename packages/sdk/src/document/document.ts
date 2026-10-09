@@ -258,8 +258,9 @@ export enum DocEventType {
   /**
    * `WriteRejected` indicates the server refused to store this document's
    * pushed changes for a reason that resending them cannot fix, such as the
-   * document being over its size limit. The sync loop stops; the rejected
-   * changes stay applied locally but will never reach the server.
+   * document being over its size limit. The sync loop parks this document —
+   * the client's other documents keep syncing — and the rejected changes stay
+   * applied locally but will never reach the server until the app recovers.
    */
   WriteRejected = 'write-rejected',
 
