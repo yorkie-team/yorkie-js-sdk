@@ -4,7 +4,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 
 ## Contents
 
-- [Agent Harness](agent-harness.md): Cost-ordered local gates, hooks installed from a `$GIT_DIR` snapshot, and the phase plan for the `@claude` pipeline ported from the server
+- [Agent Harness](agent-harness.md): Cost-ordered local gates, git hooks run from the tracked `.githooks/`, and the phase plan for the `@claude` pipeline ported from the server
 - [Channel Lifecycle via RefreshChannel Only](channel-refresh-only.md): Align the SDK with the server's consolidated channel RPC — `RefreshChannel` alone, a TTL/3 heartbeat, and `PeekChannel` for read-only counts
 - [Devtools Extension](devtools.md): Message flow between devtools extension and yorkie-js-sdk
 - [Polling Sync Mode](polling-sync-mode.md): Stream-less `SyncMode.Polling` for Channel and Document, opt-in alternative to watch streams
@@ -14,6 +14,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 - [One Node per CRDTTreeNodeID](tree-node-id-identity.md): Rules that keep a Tree position resolvable when two nodes claim one ID, mirroring the server
 - [One Live Element per createdAt](element-identity.md): Why a client can stop syncing for good after an undo, what closes the paths that get it there, and why the root cause needs a wire change
 - [Which Side of a Split Boundary an Insert Lands On](split-boundary-insert-side.md): Why §7.3 yields to RGA content order past the first node the splitter knew, and why the two rules that follow from it are a JS-only deviation from the server's ticket ordering until they land in yorkie too
+- [Recovering from a Write Denial](write-denial-recovery.md): Report a `PermissionDenied` push as `auth-error`, and re-anchor the document in place with `Client.resync` instead of re-creating the client
 - [Offline Local Persistence](offline-local-persistence.md): Persist a document and its un-pushed changes to IndexedDB so a reload survives, on top of a server-side stable actor; why rebase-on-restore is rejected
 
 ## Guidelines
