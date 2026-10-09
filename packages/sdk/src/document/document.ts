@@ -256,6 +256,15 @@ export enum DocEventType {
   EpochMismatch = 'epoch-mismatch',
 
   /**
+   * `WriteRejected` indicates the server refused to store this document's
+   * pushed changes for a reason that resending them cannot fix, such as the
+   * document being over its size limit. The sync loop parks this document —
+   * the client's other documents keep syncing — and the rejected changes stay
+   * applied locally but will never reach the server until the app recovers.
+   */
+  WriteRejected = 'write-rejected',
+
+  /**
    * `LocalChangesDropped` indicates the offline-persistence layer had to
    * discard un-pushed local changes it could not reconcile with the server
    * (a stale-epoch re-anchor, a server-side GC/purge of the document, or a
@@ -288,6 +297,7 @@ export type DocEvent<P extends Indexable = Indexable, T = OpInfo> =
   | PresenceEvent<P>
   | AuthErrorEvent
   | EpochMismatchEvent
+  | WriteRejectedEvent
   | LocalChangesDroppedEvent<P>
   | PersistDisabledEvent;
 
@@ -463,6 +473,22 @@ export interface EpochMismatchEvent extends BaseDocEvent {
   };
 }
 
+/**
+ * `WriteRejectedEvent` reports a push the server refused for a reason that
+ * resending cannot fix. `value.code` says which — `ErrDocumentSizeExceedsLimit`
+ * when the document is over its size limit, `ErrChangeTooLarge` when a single
+ * change is too large to store — so the app can tell this apart from a network
+ * failure, tell the user, and switch the editor to read-only.
+ */
+export interface WriteRejectedEvent extends BaseDocEvent {
+  type: DocEventType.WriteRejected;
+  value: {
+    code: Code;
+    reason: string;
+    method: 'PushPull';
+  };
+}
+
 export type PersistDisabledReason =
   // Serializing the document exceeded `maxPersistBytes`.
   | 'too-large'
@@ -527,6 +553,7 @@ type DocEventCallbackMap<P extends Indexable> = {
   sync: NextFn<SyncStatusChangedEvent>;
   'auth-error': NextFn<AuthErrorEvent>;
   'epoch-mismatch': NextFn<EpochMismatchEvent>;
+  'write-rejected': NextFn<WriteRejectedEvent>;
   'local-changes-dropped': NextFn<LocalChangesDroppedEvent<P>>;
   'persist-disabled': NextFn<PersistDisabledEvent>;
   all: NextFn<DocEvents<P>>;
@@ -1259,6 +1286,16 @@ export class Document<
   ): Unsubscribe;
   /**
    * `subscribe` registers a callback to subscribe to events on the document.
+   * The callback will be called when the server rejects this document's
+   * pushed changes for a reason that resending them cannot fix.
+   */
+  public subscribe(
+    type: 'write-rejected',
+    next: DocEventCallbackMap<P>['write-rejected'],
+    error?: ErrorFn,
+  ): Unsubscribe;
+  /**
+   * `subscribe` registers a callback to subscribe to events on the document.
    * The callback will be called when the offline-persistence layer had to
    * discard un-pushed local changes it could not reconcile (a data-loss event).
    */
@@ -1437,6 +1474,18 @@ export class Document<
         return this.eventStream.subscribe((event) => {
           for (const docEvent of event) {
             if (docEvent.type !== DocEventType.EpochMismatch) {
+              continue;
+            }
+
+            callback(docEvent);
+          }
+        }, arg3);
+      }
+      if (arg1 === 'write-rejected') {
+        const callback = arg2 as DocEventCallbackMap<P>['write-rejected'];
+        return this.eventStream.subscribe((event) => {
+          for (const docEvent of event) {
+            if (docEvent.type !== DocEventType.WriteRejected) {
               continue;
             }
 

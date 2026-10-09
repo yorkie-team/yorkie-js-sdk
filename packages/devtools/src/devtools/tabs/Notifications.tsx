@@ -34,6 +34,8 @@ const describeNotification = (event: Devtools.DocNotificationEvent): string => {
       return `${event.value?.method}: ${event.value?.reason}`;
     case DocEventType.EpochMismatch:
       return String(event.value?.method ?? '');
+    case DocEventType.WriteRejected:
+      return `${event.value?.method}: ${event.value?.code}`;
     case DocEventType.LocalChangesDropped:
       return `${event.value?.reason}, ${
         event.value?.changes?.length ?? 0

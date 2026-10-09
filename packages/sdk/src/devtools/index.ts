@@ -225,6 +225,8 @@ function repeatKeyOf(event: DocNotificationEvent): string | undefined {
       return `${event.type}:${event.value.method}:${event.value.reason}`;
     case DocEventType.EpochMismatch:
       return `${event.type}:${event.value.method}`;
+    case DocEventType.WriteRejected:
+      return `${event.type}:${event.value.method}:${event.value.code}`;
     default:
       return undefined;
   }

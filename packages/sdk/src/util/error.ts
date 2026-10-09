@@ -54,6 +54,9 @@ export enum Code {
   // ErrDocumentSizeExceedsLimit is returned when the document size exceeds the limit.
   ErrDocumentSizeExceedsLimit = 'ErrDocumentSizeExceedsLimit',
 
+  // ErrChangeTooLarge is returned when a single change is too large to store.
+  ErrChangeTooLarge = 'ErrChangeTooLarge',
+
   // ErrDocumentSchemaValidationFailed is returned when the document schema validation failed.
   ErrDocumentSchemaValidationFailed = 'ErrDocumentSchemaValidationFailed',
 

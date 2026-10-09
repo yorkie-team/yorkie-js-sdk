@@ -74,6 +74,7 @@ export {
   type DocEvent,
   type DocEvents,
   type EpochMismatchEvent,
+  type WriteRejectedEvent,
   Document,
   type ChangeInfo,
 } from '@yorkie-js/sdk/src/document/document';

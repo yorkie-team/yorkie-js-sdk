@@ -589,6 +589,7 @@ describe('Devtools event classification', () => {
     DocEventType.SyncStatusChanged,
     DocEventType.AuthError,
     DocEventType.EpochMismatch,
+    DocEventType.WriteRejected,
     DocEventType.LocalChangesDropped,
     DocEventType.PersistDisabled,
   ]);
