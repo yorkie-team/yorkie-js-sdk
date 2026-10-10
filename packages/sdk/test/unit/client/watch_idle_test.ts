@@ -19,6 +19,7 @@ import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { create } from '@bufbuild/protobuf';
 import {
   runWatchStream,
+  watchHeartbeatInterval,
   watchIdleTimeout,
 } from '@yorkie-js/sdk/src/client/watch';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
@@ -46,15 +47,27 @@ const heartbeat = (): WatchResponse =>
 function fakeStream(
   signal: AbortSignal,
   abortError: (() => unknown) | undefined,
+  abortDelayMs = 0,
 ) {
   const queue: Array<WatchResponse> = [];
   let wake: (() => void) | undefined;
   let ended = false;
-  signal.addEventListener('abort', () => wake?.());
+  let unwound = abortDelayMs === 0;
+  signal.addEventListener('abort', () => {
+    if (unwound) {
+      wake?.();
+      return;
+    }
+    if (abortDelayMs === Infinity) return;
+    setTimeout(() => {
+      unwound = true;
+      wake?.();
+    }, abortDelayMs);
+  });
 
   const stream = (async function* () {
     while (true) {
-      if (signal.aborted) {
+      if (signal.aborted && unwound) {
         if (abortError) throw abortError();
         return;
       }
@@ -84,6 +97,7 @@ function startWatch(
   opts: {
     abortError?: (() => unknown) | null;
     shouldIgnoreError?: (err: unknown) => boolean;
+    abortDelayMs?: number;
   } = {},
 ) {
   const ac = new AbortController();
@@ -93,6 +107,7 @@ function startWatch(
       ? undefined
       : (opts.abortError ??
           (() => new ConnectError('aborted', ConnectCode.Canceled))),
+    opts.abortDelayMs,
   );
   const calls = {
     errors: [] as Array<unknown>,
@@ -106,10 +121,7 @@ function startWatch(
       stream: fs.stream,
       ac,
       isInit: (resp) => resp.body.case === 'initialization',
-      heartbeatIntervalOf: (resp) =>
-        resp.body.case === 'initialization'
-          ? Number(resp.body.value.heartbeatIntervalMs)
-          : 0,
+      heartbeatIntervalOf: watchHeartbeatInterval,
       onResponse: () => {},
       onStreamEnd: () => calls.ends++,
       onError: (err) => calls.errors.push(err),
@@ -146,6 +158,14 @@ describe('watchIdleTimeout', () => {
     assert.equal(watchIdleTimeout(Number.MAX_SAFE_INTEGER), 24 * 3600_000);
     assert.equal(watchIdleTimeout(Infinity), 24 * 3600_000);
     assert.equal(watchIdleTimeout(NaN), 0);
+  });
+});
+
+describe('watchHeartbeatInterval', () => {
+  it('reads the interval an init response advertises', () => {
+    assert.equal(watchHeartbeatInterval(initResponse(20_000)), 20_000);
+    assert.equal(watchHeartbeatInterval(initResponse(0)), 0);
+    assert.equal(watchHeartbeatInterval(heartbeat()), 0);
   });
 });
 
@@ -259,6 +279,58 @@ describe('runWatchStream idle watchdog', () => {
     // this test answers with "not retryable".
     assert.equal(calls.disconnects, 0);
     assert.equal(calls.inactive, 1);
+    assert.equal(vi.getTimerCount(), 0);
+  });
+
+  it('does not report a cancellation as idle when the timer fires first', async () => {
+    // The client cancels just before the deadline, and the transport takes
+    // longer than that to unwind. The channel stream ignores the resulting
+    // `AbortError`; a late idle report would instead reconnect a stream the
+    // client stopped, and clear a successor's slot in the attachment.
+    const { ac, fs, calls, ready } = startWatch({
+      abortError: () => new DOMException('aborted', 'AbortError'),
+      shouldIgnoreError: (err) =>
+        err instanceof Error && err.name === 'AbortError',
+      abortDelayMs: 5000,
+    });
+    fs.push(initResponse(1000));
+    await ready;
+
+    await vi.advanceTimersByTimeAsync(2900);
+    ac.abort();
+    await vi.advanceTimersByTimeAsync(10_000);
+    assert.equal(calls.errors.length, 0);
+    assert.equal(calls.disconnects, 0);
+    assert.equal(vi.getTimerCount(), 0);
+  });
+
+  it('keeps a busy stream on a single timer', async () => {
+    const { ac, fs, ready } = startWatch();
+    fs.push(initResponse(1000));
+    await ready;
+
+    for (let i = 0; i < 100; i++) {
+      await vi.advanceTimersByTimeAsync(50);
+      fs.push(heartbeat());
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    assert.isFalse(ac.signal.aborted);
+    assert.equal(vi.getTimerCount(), 1);
+  });
+
+  it('reconnects even when the transport never unwinds the aborted read', async () => {
+    // Seen end to end over Node's fetch: once a stream has been idle for a
+    // while, aborting it leaves the pending read hanging, so a reconnect that
+    // waited for the iterator to settle would never come.
+    const { ac, fs, calls, ready } = startWatch({ abortDelayMs: Infinity });
+    fs.push(initResponse(1000));
+    await ready;
+
+    await vi.advanceTimersByTimeAsync(3000);
+    assert.isTrue(ac.signal.aborted);
+    assert.equal(calls.errors.length, 1);
+    assert.isTrue(isIdleError(calls.errors[0]));
+    assert.equal(calls.disconnects, 1);
     assert.equal(vi.getTimerCount(), 0);
   });
 });

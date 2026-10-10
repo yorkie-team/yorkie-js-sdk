@@ -16,6 +16,7 @@
 
 import { WatchStream } from '@yorkie-js/sdk/src/client/attachment';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { WatchResponse } from '@yorkie-js/sdk/src/api/yorkie/v1/yorkie_pb';
 
 /**
  * `WatchIdleTimeoutFactor` multiplies the heartbeat interval the server
@@ -57,6 +58,17 @@ export function watchIdleTimeout(heartbeatIntervalMs: number): number {
 }
 
 /**
+ * `watchHeartbeatInterval` returns the heartbeat interval, in milliseconds, a
+ * watch init response advertises. A server older than the heartbeat, or one
+ * with it turned off, advertises 0.
+ */
+export function watchHeartbeatInterval(resp: WatchResponse): number {
+  return resp.body.case === 'initialization'
+    ? Number(resp.body.value.heartbeatIntervalMs)
+    : 0;
+}
+
+/**
  * `WatchStreamConfig` contains callbacks for handling the watch stream lifecycle.
  */
 export interface WatchStreamConfig<Resp> {
@@ -71,7 +83,7 @@ export interface WatchStreamConfig<Resp> {
    * the init response; 0 when it sends none. A non-zero interval arms the idle
    * watchdog.
    */
-  heartbeatIntervalOf?: (init: Resp) => number;
+  heartbeatIntervalOf: (init: Resp) => number;
   /** Called for each response from the stream. */
   onResponse: (resp: Resp) => void;
   /** Called when the stream ends normally. */
@@ -115,18 +127,31 @@ export function runWatchStream<Resp>(
     // has no basis to bound.
     let idleTimeout = 0;
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let lastActivity = 0;
     let idled = false;
-    const armIdleTimer = () => {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        idled = true;
-        ac.abort();
-      }, idleTimeout);
-    };
 
-    // An idle timeout reconnects whatever the transport made of the abort --
-    // an error, an `AbortError` the caller ignores, or a quiet end.
-    const handleIdle = () => {
+    // One timer per stream: a response only records the time, and the timer
+    // re-arms itself for what is left of the timeout, so a busy stream does
+    // not create and cancel a timer per response.
+    const onIdleTimer = () => {
+      // A stream the client already aborted is not idle, whichever of the
+      // abort and this timer the transport gets to first.
+      if (ac.signal.aborted) {
+        return;
+      }
+
+      const remaining = lastActivity + idleTimeout - Date.now();
+      if (remaining > 0) {
+        idleTimer = setTimeout(onIdleTimer, remaining);
+        return;
+      }
+
+      // Reconnect from here rather than once the stream unwinds: a transport
+      // need not settle a read that is pending on a half-open socket, and
+      // over Node's fetch it does not. Whatever the old stream does after
+      // this is ignored below.
+      idled = true;
+      ac.abort();
       onError(
         new YorkieError(
           Code.ErrWatchStreamIdle,
@@ -140,24 +165,26 @@ export function runWatchStream<Resp>(
       try {
         let resolved = false;
         for await (const resp of stream) {
-          if (idleTimeout > 0) {
-            armIdleTimer();
+          // A successor already owns the watch; drop what the old stream
+          // still had buffered.
+          if (idled) {
+            break;
           }
 
+          lastActivity = Date.now();
           onResponse(resp);
 
           if (!resolved && isInit(resp)) {
             resolved = true;
-            idleTimeout = watchIdleTimeout(heartbeatIntervalOf?.(resp) ?? 0);
+            idleTimeout = watchIdleTimeout(heartbeatIntervalOf(resp));
             if (idleTimeout > 0) {
-              armIdleTimer();
+              idleTimer = setTimeout(onIdleTimer, idleTimeout);
             }
             resolve([stream, ac]);
           }
         }
 
         if (idled) {
-          handleIdle();
           return;
         }
 
@@ -169,7 +196,6 @@ export function runWatchStream<Resp>(
         clearTimeout(idleTimer);
 
         if (idled) {
-          handleIdle();
           return;
         }
 

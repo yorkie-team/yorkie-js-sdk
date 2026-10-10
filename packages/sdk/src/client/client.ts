@@ -84,7 +84,10 @@ import {
   WebLocksSessionLock,
   acquireSessionLock,
 } from '@yorkie-js/sdk/src/client/session-lock';
-import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
+import {
+  runWatchStream,
+  watchHeartbeatInterval,
+} from '@yorkie-js/sdk/src/client/watch';
 
 /**
  * `Key` is a string representing the key of Document or Channel.
@@ -538,17 +541,6 @@ const DefaultBroadcastOptions = {
   initialRetryInterval: 1000,
   maxBackoff: 20000,
 };
-
-/**
- * `heartbeatIntervalOf` returns the heartbeat interval, in milliseconds, a
- * watch init response advertises. A server older than the heartbeat, or one
- * with it turned off, advertises 0.
- */
-function heartbeatIntervalOf(resp: WatchResponse): number {
-  return resp.body.case === 'initialization'
-    ? Number(resp.body.value.heartbeatIntervalMs)
-    : 0;
-}
 
 /**
  * `escapeNamespacePart` percent-encodes the separator (and the escape
@@ -3398,7 +3390,7 @@ export class Client {
         stream,
         ac,
         isInit: (resp) => resp.body.case === 'initialization',
-        heartbeatIntervalOf,
+        heartbeatIntervalOf: watchHeartbeatInterval,
         onResponse: (resp) =>
           this.handleWatchDocumentResponse(attachment, resp),
         onStreamEnd: () => {
@@ -3407,7 +3399,7 @@ export class Client {
         },
         onError: (err) => {
           resetAndPublishDisconnect();
-          logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+          logger.debug(`[WD] c:"${this.getKey()}" unwatches`, err);
           if (isErrorCode(err, Code.ErrUnauthenticated)) {
             attachment.resource.publish([
               {
@@ -3468,7 +3460,7 @@ export class Client {
         stream,
         ac,
         isInit: (resp) => resp.body.case === 'initialization',
-        heartbeatIntervalOf,
+        heartbeatIntervalOf: watchHeartbeatInterval,
         onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
         onStreamEnd: () => {
           logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);

@@ -32,12 +32,14 @@ interval, and nothing in it would act on silence anyway.
    `runWatchStream` takes the interval from the init response, arms a timer
    once it is non-zero, restarts it on every response, and aborts the stream
    when it fires. An idle abort reports `ErrWatchStreamIdle` through
-   `onError` and reconnects through `onDisconnect`, whatever error the
-   transport raised for the abort — the channel stream would otherwise
-   swallow it as an `AbortError`. The timer is cleared however the stream
-   ends.
-3. `client/client.ts` — both document and channel streams pass the
-   advertised interval.
+   `onError` and reconnects through `onDisconnect` from the timer itself,
+   not once the stream unwinds — over Node's fetch an aborted read on a
+   half-open socket never settles. Whatever the abandoned stream does later
+   is ignored. One timer per stream, re-armed for the time left since the
+   last response. A stream the client aborted is never reported as idle.
+3. `client/client.ts` — both document and channel streams pass
+   `watchHeartbeatInterval` (in `watch.ts`, required by the config so a
+   missing call site fails to compile).
 4. `util/error.ts` — `Code.ErrWatchStreamIdle`.
 
 No timeout on the wait for the init response: the server's handshake
@@ -81,3 +83,28 @@ has no basis to bound (same call as the Go client).
   fixed `reconnectStreamDelay` rather than Go's backoff, as every other
   stream error already does; nothing in CI checks that `client.ts` passes
   the interval, because the CI server runs with the heartbeat off.
+- Code review (`/code-review`, 9 findings), round 2. Fixed:
+  - the idle reconnect waited for the iterator to unwind after `abort()`;
+    E2E with the watcher quiet for 5s before the freeze showed the timer fire
+    and the stream never settle, so it never reconnected — on the first
+    commit too. Now the timer reconnects; a test pins a never-unwinding
+    transport
+  - a client cancel racing the timer was reported as idle and called
+    `onDisconnect`; the timer now returns on an aborted signal (test added,
+    red first)
+  - one timer per stream instead of one per response
+  - the extractor moved to `watch.ts` as `watchHeartbeatInterval`, imported
+    by the test, and the config field is required
+  - the document stream's `onError` now logs the error
+- E2E rerun with the watcher quiet for 0s, 5s and 12s before the freeze:
+  no reconnect while heartbeats flow, reconnect ~3.5s after the freeze in
+  all three.
+
+## Open
+
+- A reconnect after an idle abort has no deadline before the init
+  response. A browser on HTTP/2 may put the new Watch on the same dead
+  pooled connection, and nothing would notice. Same as the Go client, which
+  declined an init timeout because the handshake includes the auth webhook.
+- A page resumed from a freeze longer than the timeout may run the overdue
+  timer before the buffered heartbeats, costing one spurious reconnect.
