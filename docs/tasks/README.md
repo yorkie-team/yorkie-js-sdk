@@ -20,7 +20,6 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
-| Detect a half-open Watch stream from the server heartbeat (2026-10-10) | [20261010-watch-idle-watchdog-todo.md](./active/20261010-watch-idle-watchdog-todo.md) | [20261010-watch-idle-watchdog-lessons.md](./active/20261010-watch-idle-watchdog-lessons.md) |
 | Recover a document after the server rejects local writes (2026-10-08) | [20261008-resync-after-write-denial-todo.md](./active/20261008-resync-after-write-denial-todo.md) | [20261008-resync-after-write-denial-lessons.md](./active/20261008-resync-after-write-denial-lessons.md) |
 | Stop retrying size-limit rejections and report them to the app (2026-10-08) | [20261008-no-retry-write-rejected-todo.md](./active/20261008-no-retry-write-rejected-todo.md) | [20261008-no-retry-write-rejected-lessons.md](./active/20261008-no-retry-write-rejected-lessons.md) |
 | Identify "me" with getActorID() in the examples, and say so in the CHANGELOG (2026-10-08) | [20261008-getactorid-in-examples-todo.md](./active/20261008-getactorid-in-examples-todo.md) | [20261008-getactorid-in-examples-lessons.md](./active/20261008-getactorid-in-examples-lessons.md) |
@@ -30,5 +29,5 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Archive
 
-- Archived task count: 45
+- Archived task count: 46
 - Archive index: [archive/README.md](./archive/README.md)

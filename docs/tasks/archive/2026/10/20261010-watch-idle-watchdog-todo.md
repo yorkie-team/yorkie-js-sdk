@@ -1,6 +1,7 @@
 # Detect a half-open Watch stream from the server heartbeat
 
 **Created**: 2026-10-10
+Tracked as #1472
 
 The SDK half of yorkie #2153; the server and Go client half landed as
 yorkie #2163.
@@ -57,7 +58,7 @@ has no basis to bound (same call as the Go client).
       proxy that stops relaying: stream reconnects instead of freezing
 - [x] `pnpm verify:fast`, `pnpm sdk test`
 - [x] Self review
-- [ ] PR
+- [x] PR — #1472
 
 ## Review
 
@@ -106,5 +107,6 @@ has no basis to bound (same call as the Go client).
   response. A browser on HTTP/2 may put the new Watch on the same dead
   pooled connection, and nothing would notice. Same as the Go client, which
   declined an init timeout because the handshake includes the auth webhook.
+  Filed as #1473.
 - A page resumed from a freeze longer than the timeout may run the overdue
   timer before the buffered heartbeats, costing one spurious reconnect.
