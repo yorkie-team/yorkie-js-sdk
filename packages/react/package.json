@@ -2,11 +2,39 @@
   "name": "@yorkie-js/react",
   "version": "0.7.24",
   "description": "A set of hooks and providers for Yorkie JS SDK",
+  "unpkg": "./dist/yorkie-js-react.js",
+  "jsdelivr": "./dist/yorkie-js-react.js",
   "main": "./src/index.ts",
   "publishConfig": {
     "access": "public",
-    "main": "./dist/yorkie-js-react.js",
-    "typings": "./dist/yorkie-js-react.d.ts"
+    "main": "./dist/yorkie-js-react.cjs",
+    "module": "./dist/yorkie-js-react.es.mjs",
+    "typings": "./dist/yorkie-js-react.d.ts",
+    "exports": {
+      ".": {
+        "unpkg": "./dist/yorkie-js-react.js",
+        "node": {
+          "import": {
+            "types": "./dist/yorkie-js-react.node.d.mts",
+            "default": "./dist/yorkie-js-react.node.mjs"
+          },
+          "require": {
+            "types": "./dist/yorkie-js-react.d.ts",
+            "default": "./dist/yorkie-js-react.cjs"
+          }
+        },
+        "import": {
+          "types": "./dist/yorkie-js-react.d.mts",
+          "default": "./dist/yorkie-js-react.es.mjs"
+        },
+        "require": {
+          "types": "./dist/yorkie-js-react.d.ts",
+          "default": "./dist/yorkie-js-react.cjs"
+        },
+        "default": "./dist/yorkie-js-react.cjs"
+      },
+      "./package.json": "./package.json"
+    }
   },
   "files": [
     "dist",
@@ -14,24 +42,25 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && vite build --mode umd",
     "preview": "vite preview",
     "lint": "eslint . --fix --max-warnings=0 --ext .ts,.tsx --flag v10_config_lookup_from_file",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@yorkie-js/sdk": "workspace:*"
-  },
   "peerDependencies": {
+    "@yorkie-js/sdk": "workspace:*",
     "react": "^18 || ^19"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.7",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@yorkie-js/sdk": "workspace:*",
     "jsdom": "^27.2.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
+    "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.1.11"
   }
 }

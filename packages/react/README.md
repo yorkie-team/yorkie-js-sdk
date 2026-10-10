@@ -2,6 +2,15 @@
 
 Yorkie React SDK is a library that provides React hooks and components for building collaborative applications with Yorkie.
 
+## Installation
+
+```sh
+npm install @yorkie-js/react @yorkie-js/sdk
+```
+
+`@yorkie-js/sdk` is a peer dependency, so your app and these hooks share one
+SDK. npm 7+ and pnpm install it automatically; Yarn does not.
+
 ## How to use React SDK
 
 To get started using Yorkie React SDK, see: https://yorkie.dev/docs/getting-started/with-react
