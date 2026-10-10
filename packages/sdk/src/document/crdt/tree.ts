@@ -2330,8 +2330,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
     versionVector?: VersionVector,
   ): [CRDTTreeNode, number] {
     // A concurrent split of the same boundary took everything to the right of
-    // it, so only a split at the end of `parent` can be one.
-    if (!versionVector || offset !== parent.allChildren.length) {
+    // it, so only a split at the end of `parent` can be one. "The end" is the
+    // end of live content, the same measure `advanceIntoSplitProducts` uses on
+    // the other side of this boundary (`atEndOfLiveContent`): a tombstone the
+    // editing change knew about is not content its boundary can sit before,
+    // and counting one here while the insert side skips it would make the two
+    // halves of the §7.3 contract disagree about the same boundary.
+    if (
+      !versionVector ||
+      !this.liveContentEndsAt(parent, offset, versionVector)
+    ) {
       return [parent, offset];
     }
 
@@ -2393,10 +2401,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // boundary run was split at a different boundary, and `next` came
         // off it there: redirecting into `next` would move our split past
         // that content, which a replica that applied us first never does.
+        //
+        // "Holds content past its run" is measured against live content too,
+        // for the same reason the entry gate above is: a tombstone the
+        // editing change knew about is not content, and reading
+        // `allChildren.length` here would make the answer depend on which
+        // concurrent removals had arrived.
         const adjacent =
           target === parent ||
-          target.allChildren.length ===
-            this.boundaryInsertRunOf(target, versionVector);
+          this.liveContentEndsAt(
+            target,
+            this.boundaryInsertRunOf(target, versionVector),
+            versionVector,
+          );
         const run = adjacent
           ? this.boundaryInsertRunOf(next, versionVector)
           : 0;
@@ -2423,8 +2440,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * migrates to the left of a split boundary. Text split siblings carry
    * their original's ticket and so end the run by being known.
    *
-   * Only children the split moved over (`movedBySplit`) are counted, not
-   * text typed into the product after it.
+   * A tombstone the editing change knew about is stepped over rather than
+   * ending the run -- it is not content the boundary can sit before, and the
+   * insert side of this boundary (`atEndOfLiveContent`,
+   * `advanceIntoSplitProducts`) skips the same ones. The returned value is an
+   * index into `allChildren`, so a tombstone inside the run still takes a
+   * place in it; one that trails the run does not, which keeps the index on
+   * the last live concurrent insert.
    *
    * Only text children are counted, the same children
    * `advanceIntoSplitProducts` crosses on the other side of this boundary:
@@ -2448,8 +2470,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
     node: CRDTTreeNode,
     versionVector: VersionVector,
   ): number {
+    const children = node.allChildren;
     let run = 0;
-    for (const child of node.allChildren) {
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      if (this.knownRemoved(child, versionVector)) {
+        continue;
+      }
       if (!child.isText) {
         break;
       }
@@ -2461,10 +2488,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       ) {
         break;
       }
-      if (!this.movedBySplit(node, child)) {
-        break;
-      }
-      run++;
+      run = i + 1;
     }
     return run;
   }
@@ -2977,25 +3001,39 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
 
+      // The run inside the product, measured the same way
+      // `boundaryInsertRunOf` measures it on the split side: a tombstone the
+      // editing change knew about is stepped over rather than ending the run,
+      // or a removal landing between the run and the boundary would cancel
+      // the advance `atEndOfLiveContent` just permitted and the two sides
+      // would place the same insert differently.
+      //
+      // Text typed into the product after the split is crossed too. It was
+      // never on the other side of this boundary, so excluding it reads
+      // right -- but the replica that applied the insert before the split
+      // still puts that text at the start of the product, ahead of the
+      // insert, so excluding it is what makes the two disagree.
       const nextChildren = next.allChildren;
-      let i = 0;
-      while (
-        i < nextChildren.length &&
-        nextChildren[i].isText &&
-        nextChildren[i].id.getCreatedAt().after(editedAt) &&
-        this.movedBySplit(next, nextChildren[i])
-      ) {
-        i++;
+      let last = -1;
+      for (let i = 0; i < nextChildren.length; i++) {
+        const child = nextChildren[i];
+        if (this.knownRemoved(child, versionVector)) {
+          continue;
+        }
+        if (!child.isText || !child.id.getCreatedAt().after(editedAt)) {
+          break;
+        }
+        last = i;
       }
-      if (i === 0) {
+      if (last === -1) {
         break;
       }
 
       current = next;
-      leftNode = nextChildren[i - 1];
-      if (i < nextChildren.length) {
-        break;
-      }
+      leftNode = nextChildren[last];
+      // Whether anything live follows the run inside the product -- and so
+      // whether the advance can continue into the product's own product -- is
+      // the loop-head gate's question, asked of the new `current`/`leftNode`.
     }
 
     return [current, leftNode];
@@ -3028,19 +3066,33 @@ export class CRDTTree extends CRDTElement implements GCParent {
     leftNode: CRDTTreeNode,
     versionVector?: VersionVector,
   ): boolean {
-    const children = node.allChildren;
-    const gone = (child: CRDTTreeNode) =>
-      !!child.removedAt && ticketKnown(versionVector, child.removedAt);
     if (leftNode === node) {
-      return children.every(gone);
+      return this.liveContentEndsAt(node, 0, versionVector);
     }
 
-    const index = children.indexOf(leftNode);
+    const index = node.allChildren.indexOf(leftNode);
     if (index === -1) {
       return false;
     }
-    for (let i = index + 1; i < children.length; i++) {
-      if (!gone(children[i])) {
+    return this.liveContentEndsAt(node, index + 1, versionVector);
+  }
+
+  /**
+   * `liveContentEndsAt` reports whether `node` holds no live content from
+   * `index` on: every child there is a tombstone the editing change knew
+   * about. It is the one measure of "the end of this node" both sides of a
+   * split boundary use -- `orderSameBoundarySplit`'s entry and `adjacent`
+   * gates on the split side, `atEndOfLiveContent` on the insert side -- so
+   * that the two agree on where the boundary is.
+   */
+  private liveContentEndsAt(
+    node: CRDTTreeNode,
+    index: number,
+    versionVector?: VersionVector,
+  ): boolean {
+    const children = node.allChildren;
+    for (let i = index; i < children.length; i++) {
+      if (!this.knownRemoved(children[i], versionVector)) {
         return false;
       }
     }
@@ -3048,20 +3100,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `movedBySplit` reports whether `child` of the split product `product`
-   * was in the original node when the split was applied, rather than
-   * inserted into the product afterwards: it is older than the product.
-   *
-   * Both boundary runs (`boundaryInsertRunOf`, `advanceIntoSplitProducts`)
-   * stand for content that sat at the end of the original node and that the
-   * split carried over. Text typed into the product after the split -- the
-   * Enter-then-type pattern -- was never on the other side of the boundary,
-   * and counting it would move a concurrent insert past it on one replica
-   * only. The ticket comparison needs nothing but IDs, so it reads the same
-   * on every replica and before or after GC.
+   * `knownRemoved` reports whether `node` is a tombstone whose removal the
+   * editing change knew about. Whether a concurrent removal has arrived yet
+   * differs between replicas; what the editor saw does not, so every boundary
+   * rule reads removals through the version vector rather than through
+   * `isRemoved`, and gives the same answer whatever the delivery order.
    */
-  private movedBySplit(product: CRDTTreeNode, child: CRDTTreeNode): boolean {
-    return product.id.getCreatedAt().after(child.id.getCreatedAt());
+  private knownRemoved(
+    node: CRDTTreeNode,
+    versionVector?: VersionVector,
+  ): boolean {
+    return !!node.removedAt && ticketKnown(versionVector, node.removedAt);
   }
 
   /**

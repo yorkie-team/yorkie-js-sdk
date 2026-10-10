@@ -125,14 +125,27 @@ either: a purged tombstone is one every replica's synced vector covers, which
 the gate would have counted as gone anyway, and a removal the editor did not
 know cannot be purged before the change that did not know it is applied.
 
-**Runs count only children the split moved.** `boundaryInsertRunOf` and
-`advanceIntoSplitProducts` cross a child of a split product only when it is
-older than the product (`movedBySplit`): content that sat at the end of the
-original node and that the split carried over. Text typed into the product
-after the split — Enter, then type — was never on the other side of the
-boundary. Counting it moved a concurrent insert at the Enter position past the
-typed text on one replica only, where `main` converges. The filter compares
-two IDs' tickets, which are immutable and replicated as they are.
+**Both sides of a boundary measure the run the same way.** The end of a node
+is the end of its *live* content on both sides: `orderSameBoundarySplit`'s
+entry and `adjacent` gates and `advanceIntoSplitProducts`'
+`atEndOfLiveContent` all go through `liveContentEndsAt`, and both run scans
+(`boundaryInsertRunOf`, the scan inside `advanceIntoSplitProducts`) step over
+a tombstone the editing change knew about rather than ending the run on it.
+Measuring one side against `allChildren` and the other against live content
+made the two halves of the §7.3 contract disagree about the same boundary
+whenever a tombstone trailed the run.
+
+A fourth refinement was tried and **rejected**: crossing a child of a split
+product only when it is older than the product (`movedBySplit`), so that text
+typed into the product after the split — Enter, then type — is not read as part
+of the boundary run. It reads right (that text was never on the other side of
+the boundary) and it makes the Enter-then-type case converge, but the replica
+that applied the insert before the split still puts that text at the start of
+the product, ahead of the insert — so excluding it is what makes the two
+disagree. It regressed seeds 69, 502 and 3768 below, 3768 against `main`, and
+is not in the code. The Enter-then-type case is an `it.fails` in
+`tree_boundary_insert_side_test.ts`; the run cannot both include and exclude
+post-split text, and which it should do is open.
 
 **A split is redirected only into an adjacent product.** When
 `orderSameBoundarySplit` has stepped over a newer product that still holds
@@ -202,21 +215,28 @@ replica with the same left character — the #1436 shape):
 | this branch | 806 | 388 |
 | this branch + #1435 | 407 | 398 |
 
+The `this branch` rows were measured with the rejected `movedBySplit` filter
+in place; removing it recovers seeds 69, 502 and 3768 and no other rule
+changed, so the counts are an upper bound rather than a re-measured figure.
+
 #1435 fixes split-only divergences (a splits-only fuzz drops from 1318 to 0
 with it) and is not on this branch; most of the non-A divergences left here
 are its. With it, bucket A drops by about 40% (671 to 398) — a partial fix.
 
-Seven minimized cases that still diverge on this branch are kept as skipped
-tests in `tree_boundary_insert_side_test.ts`, named by fuzz seed. Five (seeds
-101, 235, 193, 24 and 3768; 24 and 3768 in node IDs only) combine a boundary
-insert with a second split near the same boundary. The working hypothesis is
-that these are §7.8's ordering of same-boundary splits rather than §7.3's
-insert side: once a product has been redirected or a run measured, a further
-split at that boundary still orders by ticket against products whose start
-the rules have moved. Seeds 69, 502 and 3768 converged before the end gate
-and moved-run filter, so they are the price of those two refinements; 3768
-also converged on `main`. None of this is settled; the tests are
-there to be unskipped by the fix.
+Four minimized cases that still diverge on this branch are kept as `it.fails`
+tests in `tree_boundary_insert_side_test.ts`, named by fuzz seed (seeds 101,
+235, 193 and 24; 24 in node IDs only). All four combine a boundary insert with
+a second split near the same boundary. The working hypothesis is that these
+are §7.8's ordering of same-boundary splits rather than §7.3's insert side:
+once a product has been redirected or a run measured, a further split at that
+boundary still orders by ticket against products whose start the rules have
+moved. None of this is settled; `it.fails` rather than `it.skip` so the suite
+notices the day one of them starts converging.
+
+**No case that converged before this branch diverges on it.** Seeds 69, 502
+and 3768 — which the rejected `movedBySplit` filter regressed, 3768 against
+`main` — converge again and are kept as passing regression guards beside the
+diverging four.
 
 ## Alternatives Considered
 

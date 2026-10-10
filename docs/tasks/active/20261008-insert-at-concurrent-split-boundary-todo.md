@@ -72,24 +72,35 @@ on the previous head:
 - [x] `atEndOfLiveContent` counts a trailing child as gone only when the
       inserting change knew of its removal (`ticketKnown`), not when it is a
       local tombstone — scenario (a), both delivery orders.
-- [x] `boundaryInsertRunOf` and `advanceIntoSplitProducts` cross only
-      children older than the split product (`movedBySplit`) — Enter, then
-      type, concurrent with typing at the Enter position.
+- [x] Both sides of a boundary measure the end of a node and the run the same
+      way: `liveContentEndsAt` backs `orderSameBoundarySplit`'s entry and
+      `adjacent` gates as well as `atEndOfLiveContent`, and both run scans
+      step over a tombstone the change knew about instead of ending on it.
 - [x] `orderSameBoundarySplit` redirects only into a product adjacent to the
       boundary — two start splits against a typist's insert and split, four
       delivery orders.
-- [x] Remaining divergences recorded as seven skipped tests (seeds 101, 235,
-      193, 24, 69, 502, 3768), each confirmed to diverge on this branch.
-- [x] Design doc: the three refinements and a Remaining divergences section
-      with the fuzz numbers.
+- [~] `boundaryInsertRunOf` and `advanceIntoSplitProducts` cross only
+      children older than the split product (`movedBySplit`) — **rejected**.
+      It makes Enter-then-type converge but regresses seeds 69, 502 and 3768,
+      3768 against `main`, so it is not in the code. Enter-then-type is an
+      `it.fails`; which way the run should read post-split text is open.
+- [x] Remaining divergences recorded as four `it.fails` tests (seeds 101, 235,
+      193, 24), each confirmed to diverge on this branch; seeds 69, 502 and
+      3768 converge and are kept as passing regression guards. No case that
+      converged before this branch diverges on it.
+- [x] Design doc: the refinements, the rejected one, and a Remaining
+      divergences section with the fuzz numbers.
 
 Result: 806 divergent runs (bucket A 388) on this branch, 407 (A 398) with
-#1435. The PR is a partial fix for #1436 and should reference it rather than
+#1435 — measured with `movedBySplit` still in, so an upper bound. The PR is a partial fix for #1436 and should reference it rather than
 close it; the remaining cases need a further change, likely in §7.8's
 same-boundary split ordering, and #1435 for the split-only ones.
 
-- [ ] Remaining #1436 cases fixed and the skipped tests unskipped (follow-up,
-      not this PR).
+- [ ] Remaining #1436 cases fixed and the `it.fails` tests flipped to `it`
+      (follow-up, not this PR).
+- [ ] Decide how the boundary run should read text typed into a split product
+      after the split (Enter-then-type vs seeds 69/502/3768); both readings
+      lose a case today (follow-up, not this PR).
 
 ## Blocks merge: the rule has to land in yorkie too
 

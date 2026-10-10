@@ -229,12 +229,18 @@ describe('Tree insert at a split boundary past a removed child', () => {
 
 /**
  * Enter, then type at the start of the new paragraph, concurrently with a
- * peer typing where the Enter was pressed. The typed text is newer than the
- * split product but was never moved by the split, so it is not part of the
- * boundary run and the peer's insert stays on the left.
+ * peer typing where the Enter was pressed. Text typed into a product after
+ * the split was never moved by the split, so reading it as part of the
+ * boundary run is wrong -- but excluding it from the run (a `movedBySplit`
+ * filter on `advanceIntoSplitProducts`) made seeds 69, 502 and 3768 below
+ * diverge, 3768 against `main`. The filter is not here, so this case does
+ * not converge yet; see docs/design/split-boundary-insert-side.md.
  */
 describe('Tree enter-then-type at a concurrent insert', () => {
-  it('keeps the concurrent insert in the left paragraph', () => {
+  // TODO(#1436): `it.fails` -- the run cannot both exclude post-split text
+  // (this case) and include it (seeds 69, 502, 3768). Unskip once a rule
+  // settles both.
+  it.fails('keeps the concurrent insert in the left paragraph', () => {
     const docs = replicas(2);
     docs[0].update((r) => r.t.edit(2, 2, { type: 'text', value: 'u' }));
     docs[1].update((r) => r.t.edit(2, 2, undefined, 1));
@@ -293,14 +299,17 @@ describe('Tree boundary run with two concurrent start splits', () => {
 });
 
 /**
- * Divergences the boundary rules do not settle yet: remaining cases of
- * #1436, skipped until a fix lands. Each is a fuzz case minimized to two
- * replicas of `<doc><p>ab</p></doc>`, named by its fuzz seed. The ops of one
- * replica run in order and are all concurrent with the other's; then the
- * replicas exchange their changes. Every case diverges with these rules
- * (XML and node IDs, or node IDs only where noted). The cases with a
- * second split near the boundary point at §7.8's ordering of same-boundary
- * splits rather than at §7.3's insert side; see
+ * Fuzz cases minimized to two replicas of `<doc><p>ab</p></doc>`, named by
+ * their fuzz seed. The ops of one replica run in order and are all
+ * concurrent with the other's; then the replicas exchange their changes.
+ *
+ * `CONVERGING` are regression guards -- each one diverged under an earlier
+ * reading of the boundary run (the `movedBySplit` filter that excluded text
+ * typed into a split product), so they pin the rule that lets them agree.
+ * `DIVERGING` are the remaining cases of #1436, which still disagree on XML
+ * and node IDs (or on node IDs only, where noted). The cases with a second
+ * split near the boundary point at §7.8's ordering of same-boundary splits
+ * rather than at §7.3's insert side; see
  * docs/design/split-boundary-insert-side.md.
  */
 describe('Tree concurrent inserts and splits at a boundary (#1436)', () => {
@@ -313,7 +322,36 @@ describe('Tree concurrent inserts and splits at a boundary (#1436)', () => {
   ];
   const split = (r: number, pos: number): Op => ['split', r, pos];
 
-  for (const [name, ops] of [
+  const run = (ops: Array<Op>) => {
+    const docs = replicas(2);
+    for (const op of ops) {
+      if (op[0] === 'ins') {
+        const [, r, pos, value] = op;
+        docs[r].update((t) => t.t.edit(pos, pos, { type: 'text', value }));
+      } else {
+        const [, r, pos] = op;
+        docs[r].update((t) => t.t.edit(pos, pos, undefined, 1));
+      }
+    }
+    exchange(docs, [[1], [0]]);
+
+    assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+    assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+  };
+
+  const CONVERGING: Array<[string, Array<Op>]> = [
+    ['seed 69', [ins(1, 1, 'f'), split(1, 1), ins(1, 3, 'h'), ins(0, 1, 'i')]],
+    ['seed 502', [ins(1, 3, 'g'), split(1, 3), ins(0, 3, 'h'), ins(1, 6, 'i')]],
+    [
+      'seed 3768',
+      [split(1, 3), ins(1, 3, 'd'), split(1, 3), ins(1, 6, 'e'), split(0, 3)],
+    ],
+  ];
+  for (const [name, ops] of CONVERGING) {
+    it(`converges: ${name}`, () => run(ops));
+  }
+
+  const DIVERGING: Array<[string, Array<Op>]> = [
     ['seed 101', [ins(0, 2, 'c'), ins(0, 3, 'd'), split(0, 3), split(1, 2)]],
     ['seed 235', [ins(0, 3, 'c'), split(1, 3), ins(0, 4, 'd'), split(0, 4)]],
     ['seed 193', [ins(0, 3, 'e'), ins(1, 3, 'f'), split(1, 3), split(1, 5)]],
@@ -321,31 +359,10 @@ describe('Tree concurrent inserts and splits at a boundary (#1436)', () => {
       'seed 24, node IDs only',
       [ins(0, 3, 'c'), ins(0, 4, 'd'), split(0, 5), split(1, 3)],
     ],
-    // Converged before the order-independent end gate and moved-run filter.
-    ['seed 69', [ins(1, 1, 'f'), split(1, 1), ins(1, 3, 'h'), ins(0, 1, 'i')]],
-    ['seed 502', [ins(1, 3, 'g'), split(1, 3), ins(0, 3, 'h'), ins(1, 6, 'i')]],
-    // Converged on main and before the end gate and moved-run filter.
-    [
-      'seed 3768, node IDs only',
-      [split(1, 3), ins(1, 3, 'd'), split(1, 3), ins(1, 6, 'e'), split(0, 3)],
-    ],
-  ] as Array<[string, Array<Op>]>) {
-    // TODO(#1436): remaining cases; unskip once they converge.
-    it.skip(`converges: ${name} (#1436 remaining case)`, () => {
-      const docs = replicas(2);
-      for (const op of ops) {
-        if (op[0] === 'ins') {
-          const [, r, pos, value] = op;
-          docs[r].update((t) => t.t.edit(pos, pos, { type: 'text', value }));
-        } else {
-          const [, r, pos] = op;
-          docs[r].update((t) => t.t.edit(pos, pos, undefined, 1));
-        }
-      }
-      exchange(docs, [[1], [0]]);
-
-      assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
-      assert.equal(treeShape(docs[1]), treeShape(docs[0]));
-    });
+  ];
+  for (const [name, ops] of DIVERGING) {
+    // TODO(#1436): remaining cases. `it.fails` rather than `it.skip` so the
+    // suite notices the day one of them starts converging.
+    it.fails(`converges: ${name} (#1436 remaining case)`, () => run(ops));
   }
 });
