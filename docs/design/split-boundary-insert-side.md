@@ -1,6 +1,6 @@
 ---
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-10-10
 tags: [tree, crdt, convergence, cross-implementation]
 ---
 
@@ -38,6 +38,12 @@ splitter never saw, both cannot hold.
   whichever replica applies which change first.
 - No regression in the existing split-ordering suites, which encode §7.5, §7.8
   and the split-sibling cascade.
+- Every rule reads only what is the same on every replica — node IDs and the
+  editing change's version vector — so delivery order and GC timing cannot
+  change where an insert or a split lands.
+
+This does not resolve every divergence #1436's fuzz finds; see
+[Remaining divergences](#remaining-divergences).
 
 ### Non-Goals
 
@@ -100,6 +106,44 @@ not inside `findNodesAndSplitText`: that method also resolves style ranges
 change which parents the traversal runs between, over nodes the editor never
 saw.
 
+### Order independence
+
+Three refinements keep the two rules from depending on what a replica happens
+to hold when a change arrives. Each was found as a divergence the first
+version of the rules introduced, and each has a test in
+`tree_boundary_insert_side_test.ts`.
+
+**End gate reads removals through the change's version vector.**
+`atEndOfLiveContent` counts a trailing child as gone only when the inserting
+change knew of its removal (`ticketKnown(versionVector, removedAt)`), not when
+it is a tombstone locally. With three replicas — one inserts after `c` in
+`acb`, one removes `c`, one splits after `c` — the splitter's local tombstone
+depended on whether the removal arrived before the insert, and the two orders
+placed the insert on different sides. The version vector is part of the
+change, so every replica asks the same question. GC cannot change the answer
+either: a purged tombstone is one every replica's synced vector covers, which
+the gate would have counted as gone anyway, and a removal the editor did not
+know cannot be purged before the change that did not know it is applied.
+
+**Runs count only children the split moved.** `boundaryInsertRunOf` and
+`advanceIntoSplitProducts` cross a child of a split product only when it is
+older than the product (`movedBySplit`): content that sat at the end of the
+original node and that the split carried over. Text typed into the product
+after the split — Enter, then type — was never on the other side of the
+boundary. Counting it moved a concurrent insert at the Enter position past the
+typed text on one replica only, where `main` converges. The filter compares
+two IDs' tickets, which are immutable and replicated as they are.
+
+**A split is redirected only into an adjacent product.** When
+`orderSameBoundarySplit` has stepped over a newer product that still holds
+content past its own boundary run, the next product was split off at a
+different boundary, so redirecting into it moved our split past that content.
+Two splits at the start of a paragraph, concurrent with a typist's insert and
+split after `a`, diverged that way in some delivery orders. The redirect now
+needs `target` to be `parent` or to hold nothing past its run. The comparison
+counts tombstones in a product the editor did not know, and those cannot have
+been purged when the change applies, for the same reason as above.
+
 ### Cross-implementation contract
 
 Where a same-boundary split lands is a **replicated convergence contract**: the
@@ -141,6 +185,38 @@ the gate and its two open items are tracked in
 | `advanceIntoSplitProducts` crosses text children only | Element children at that boundary are §7.8's, and crossing them makes the two rules fight; text-only leaves the existing split-order suites green |
 | Applied to a collapsed range at the `editAndRestore` call site | A range endpoint moving into a product would widen or shorten what the edit deletes and merges, and would change the §9.4 target set |
 | Shipped behind a merge gate instead of merged with the divergence noted | The regression lands on mixed-SDK fleets, who did not ask for the JS fix; only a maintainer can accept that |
+
+## Remaining divergences
+
+The rules fix the three minima in #1436 and the cases above, but not the
+issue's own criterion. A fuzz of two replicas from `<doc><p>ab</p></doc>`,
+random inserts and splits delivered one change at a time, 5000 seeds, compared
+by XML and node IDs (bucket A: an insert and a concurrent split from the other
+replica with the same left character — the #1436 shape):
+
+| Build | Divergent runs | Bucket A |
+|-------|---------------:|---------:|
+| `main` | 1068 | 627 |
+| `main` + #1435 | 690 | 671 |
+| this branch before the order-independence refinements | 1150 | 611 |
+| this branch | 806 | 388 |
+| this branch + #1435 | 407 | 398 |
+
+#1435 fixes split-only divergences (a splits-only fuzz drops from 1318 to 0
+with it) and is not on this branch; most of the non-A divergences left here
+are its. With it, bucket A drops by about 40% (671 to 398) — a partial fix.
+
+Seven minimized cases that still diverge on this branch are kept as skipped
+tests in `tree_boundary_insert_side_test.ts`, named by fuzz seed. Five (seeds
+101, 235, 193, 24 and 3768; 24 and 3768 in node IDs only) combine a boundary
+insert with a second split near the same boundary. The working hypothesis is
+that these are §7.8's ordering of same-boundary splits rather than §7.3's
+insert side: once a product has been redirected or a run measured, a further
+split at that boundary still orders by ticket against products whose start
+the rules have moved. Seeds 69, 502 and 3768 converged before the end gate
+and moved-run filter, so they are the price of those two refinements; 3768
+also converged on `main`. None of this is settled; the tests are
+there to be unskipped by the fix.
 
 ## Alternatives Considered
 

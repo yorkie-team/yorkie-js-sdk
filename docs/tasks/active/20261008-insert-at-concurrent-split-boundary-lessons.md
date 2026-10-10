@@ -48,6 +48,39 @@ no counterpart to `advanceIntoSplitProducts`), the risk, and what a port has
 to cover moved into `docs/design/split-boundary-insert-side.md`; the comment
 now points there and the todo keeps only the two unticked gate items.
 
+## Three passing minima are not a convergence claim
+
+The branch fixed the issue's three minima and every unit suite stayed green,
+yet a fuzz of the issue's own criterion found the branch head worse than
+`main` (1150 divergent runs against 1068 of 5000). The minima only cover two
+replicas whose ops arrive in one batch; the regressions came from a third
+replica, from delivery order, and from typing after the split. A rule over
+CRDT placement needs a fuzz over delivery orders before it is called a fix,
+and the PR should say "Refs", not "Fixes", until that fuzz agrees.
+
+## A placement rule may only read what every replica reads the same
+
+Each regression traced to one input that differs between replicas:
+
+- a local tombstone, which exists or not depending on whether a concurrent
+  removal arrived first — replaced by the change's version vector;
+- "newer than the edit" as a proxy for "moved by the split", which also
+  catches text typed into the product afterwards — replaced by comparing the
+  child's ticket with the product's;
+- a redirect past a product split off at another boundary.
+
+The test to apply before writing such a rule: would a replica that received
+the same changes in another order, or ran GC at another time, read the same
+value? IDs and the change's version vector pass; `isRemoved`, `insPrevID`
+and child counts that include purgeable tombstones need an argument.
+
+## Skipped tests must be checked on the branch they land on
+
+Each fuzz case was minimized on a different build, so whether it still
+diverges here was not a given. Every skipped case was first written as a
+passing-expectation test and confirmed to fail on this branch; one that had
+converged would have been dropped instead.
+
 ## Review rounds
 
 `/self-review` was not run: this run is granted no tool that can dispatch

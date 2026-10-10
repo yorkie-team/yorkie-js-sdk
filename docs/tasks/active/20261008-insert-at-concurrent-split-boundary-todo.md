@@ -58,6 +58,38 @@ Two sides of the same boundary, both in `packages/sdk/src/document/crdt/tree.ts`
 - [x] No regression in the existing unit suites, in particular
       `tree_split_order_test.ts` and `tree_split_sibling_cascade_test.ts`.
 - [x] `pnpm verify:fast` green.
+- [x] Placement does not depend on delivery order or on which tombstones a
+      replica holds (see below).
+
+## Order independence and remaining divergences (2026-10-10)
+
+A review of the branch found the rules sensitive to delivery order, and an
+external fuzz of #1436's criterion (5000 seeds, two replicas, one change
+delivered at a time) showed the branch head regressing against `main` (1150
+divergent runs against 1068). Three refinements, each with a test that fails
+on the previous head:
+
+- [x] `atEndOfLiveContent` counts a trailing child as gone only when the
+      inserting change knew of its removal (`ticketKnown`), not when it is a
+      local tombstone — scenario (a), both delivery orders.
+- [x] `boundaryInsertRunOf` and `advanceIntoSplitProducts` cross only
+      children older than the split product (`movedBySplit`) — Enter, then
+      type, concurrent with typing at the Enter position.
+- [x] `orderSameBoundarySplit` redirects only into a product adjacent to the
+      boundary — two start splits against a typist's insert and split, four
+      delivery orders.
+- [x] Remaining divergences recorded as seven skipped tests (seeds 101, 235,
+      193, 24, 69, 502, 3768), each confirmed to diverge on this branch.
+- [x] Design doc: the three refinements and a Remaining divergences section
+      with the fuzz numbers.
+
+Result: 806 divergent runs (bucket A 388) on this branch, 407 (A 398) with
+#1435. The PR is a partial fix for #1436 and should reference it rather than
+close it; the remaining cases need a further change, likely in §7.8's
+same-boundary split ordering, and #1435 for the split-only ones.
+
+- [ ] Remaining #1436 cases fixed and the skipped tests unskipped (follow-up,
+      not this PR).
 
 ## Blocks merge: the rule has to land in yorkie too
 
