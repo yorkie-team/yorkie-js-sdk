@@ -291,3 +291,61 @@ describe('Tree boundary run with two concurrent start splits', () => {
     });
   }
 });
+
+/**
+ * Divergences the boundary rules do not settle yet: remaining cases of
+ * #1436, skipped until a fix lands. Each is a fuzz case minimized to two
+ * replicas of `<doc><p>ab</p></doc>`, named by its fuzz seed. The ops of one
+ * replica run in order and are all concurrent with the other's; then the
+ * replicas exchange their changes. Every case diverges with these rules
+ * (XML and node IDs, or node IDs only where noted). The cases with a
+ * second split near the boundary point at §7.8's ordering of same-boundary
+ * splits rather than at §7.3's insert side; see
+ * docs/design/split-boundary-insert-side.md.
+ */
+describe('Tree concurrent inserts and splits at a boundary (#1436)', () => {
+  type Op = ['ins', number, number, string] | ['split', number, number];
+  const ins = (r: number, pos: number, value: string): Op => [
+    'ins',
+    r,
+    pos,
+    value,
+  ];
+  const split = (r: number, pos: number): Op => ['split', r, pos];
+
+  for (const [name, ops] of [
+    ['seed 101', [ins(0, 2, 'c'), ins(0, 3, 'd'), split(0, 3), split(1, 2)]],
+    ['seed 235', [ins(0, 3, 'c'), split(1, 3), ins(0, 4, 'd'), split(0, 4)]],
+    ['seed 193', [ins(0, 3, 'e'), ins(1, 3, 'f'), split(1, 3), split(1, 5)]],
+    [
+      'seed 24, node IDs only',
+      [ins(0, 3, 'c'), ins(0, 4, 'd'), split(0, 5), split(1, 3)],
+    ],
+    // Converged before the order-independent end gate and moved-run filter.
+    ['seed 69', [ins(1, 1, 'f'), split(1, 1), ins(1, 3, 'h'), ins(0, 1, 'i')]],
+    ['seed 502', [ins(1, 3, 'g'), split(1, 3), ins(0, 3, 'h'), ins(1, 6, 'i')]],
+    // Converged on main and before the end gate and moved-run filter.
+    [
+      'seed 3768, node IDs only',
+      [split(1, 3), ins(1, 3, 'd'), split(1, 3), ins(1, 6, 'e'), split(0, 3)],
+    ],
+  ] as Array<[string, Array<Op>]>) {
+    // TODO(#1436): remaining cases; unskip once they converge.
+    it.skip(`converges: ${name} (#1436 remaining case)`, () => {
+      const docs = replicas(2);
+      for (const op of ops) {
+        if (op[0] === 'ins') {
+          const [, r, pos, value] = op;
+          docs[r].update((t) => t.t.edit(pos, pos, { type: 'text', value }));
+        } else {
+          const [, r, pos] = op;
+          docs[r].update((t) => t.t.edit(pos, pos, undefined, 1));
+        }
+      }
+      exchange(docs, [[1], [0]]);
+
+      assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+      assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+    });
+  }
+});
