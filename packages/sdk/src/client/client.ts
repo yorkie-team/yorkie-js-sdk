@@ -84,7 +84,10 @@ import {
   WebLocksSessionLock,
   acquireSessionLock,
 } from '@yorkie-js/sdk/src/client/session-lock';
-import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
+import {
+  runWatchStream,
+  watchHeartbeatInterval,
+} from '@yorkie-js/sdk/src/client/watch';
 
 /**
  * `Key` is a string representing the key of Document or Channel.
@@ -3387,6 +3390,7 @@ export class Client {
         stream,
         ac,
         isInit: (resp) => resp.body.case === 'initialization',
+        heartbeatIntervalOf: watchHeartbeatInterval,
         onResponse: (resp) =>
           this.handleWatchDocumentResponse(attachment, resp),
         onStreamEnd: () => {
@@ -3395,7 +3399,7 @@ export class Client {
         },
         onError: (err) => {
           resetAndPublishDisconnect();
-          logger.debug(`[WD] c:"${this.getKey()}" unwatches`);
+          logger.debug(`[WD] c:"${this.getKey()}" unwatches`, err);
           if (isErrorCode(err, Code.ErrUnauthenticated)) {
             attachment.resource.publish([
               {
@@ -3456,6 +3460,7 @@ export class Client {
         stream,
         ac,
         isInit: (resp) => resp.body.case === 'initialization',
+        heartbeatIntervalOf: watchHeartbeatInterval,
         onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
         onStreamEnd: () => {
           logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);
