@@ -540,6 +540,17 @@ const DefaultBroadcastOptions = {
 };
 
 /**
+ * `heartbeatIntervalOf` returns the heartbeat interval, in milliseconds, a
+ * watch init response advertises. A server older than the heartbeat, or one
+ * with it turned off, advertises 0.
+ */
+function heartbeatIntervalOf(resp: WatchResponse): number {
+  return resp.body.case === 'initialization'
+    ? Number(resp.body.value.heartbeatIntervalMs)
+    : 0;
+}
+
+/**
  * `escapeNamespacePart` percent-encodes the separator (and the escape
  * character itself) so a component cannot forge one. Without it,
  * `join(a, b)` is not injective: `apiKey` and `clientKey` are taken verbatim
@@ -3387,6 +3398,7 @@ export class Client {
         stream,
         ac,
         isInit: (resp) => resp.body.case === 'initialization',
+        heartbeatIntervalOf,
         onResponse: (resp) =>
           this.handleWatchDocumentResponse(attachment, resp),
         onStreamEnd: () => {
@@ -3456,6 +3468,7 @@ export class Client {
         stream,
         ac,
         isInit: (resp) => resp.body.case === 'initialization',
+        heartbeatIntervalOf,
         onResponse: (resp) => this.handleWatchChannelResponse(attachment, resp),
         onStreamEnd: () => {
           logger.debug(`[WP] c:"${this.getKey()}" p:"${key}" stream ended`);

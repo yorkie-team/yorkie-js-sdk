@@ -109,6 +109,11 @@ export enum Code {
   // that condition so it is diagnosable instead of surfacing as whatever the
   // failing operation happened to throw.
   ErrChangeApplyFailed = 'ErrChangeApplyFailed',
+
+  // ErrWatchStreamIdle is reported when a watch stream stays silent for longer
+  // than the heartbeat interval the server advertised allows, which is how a
+  // half-open connection is told from a quiet document.
+  ErrWatchStreamIdle = 'ErrWatchStreamIdle',
 }
 
 /**
