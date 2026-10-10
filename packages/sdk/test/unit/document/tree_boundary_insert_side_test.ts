@@ -43,9 +43,9 @@ function treeShape(doc: TestDoc): string {
 }
 
 /**
- * `replicas` returns `n` replicas seeded with `<doc><p>ab</p></doc>`.
+ * `replicas` returns `n` replicas seeded with `<doc><p>{text}</p></doc>`.
  */
-function replicas(n: number): Array<TestDoc> {
+function replicas(n: number, text = 'ab'): Array<TestDoc> {
   const docs: Array<TestDoc> = [];
   for (let i = 0; i < n; i++) {
     const doc: TestDoc = new Document('test-doc');
@@ -55,7 +55,7 @@ function replicas(n: number): Array<TestDoc> {
   docs[0].update((root) => {
     root.t = new Tree({
       type: 'doc',
-      children: [{ type: 'p', children: [{ type: 'text', value: 'ab' }] }],
+      children: [{ type: 'p', children: [{ type: 'text', value: text }] }],
     });
   });
   exchange(
@@ -176,6 +176,118 @@ describe('Tree insert at a concurrent split boundary', () => {
         docs[0].getRoot().t.toXML(),
         '<doc><p>a</p><p>e</p><p>b</p></doc>',
       );
+    });
+  }
+});
+
+/**
+ * An insert whose anchor is followed, inside the paragraph, only by a child
+ * another replica removes concurrently, while a third splits right after
+ * that child. Whether the splitter has the removal when the insert arrives
+ * must not change where the insert lands: the end-of-content gate reads the
+ * removal through the inserting change's version vector, not through local
+ * tombstones.
+ */
+describe('Tree insert at a split boundary past a removed child', () => {
+  for (const [name, orders] of [
+    [
+      'splitter receives the removal before the insert',
+      [
+        [1, 2],
+        [2, 0],
+        [1, 0],
+      ],
+    ],
+    [
+      'splitter receives the insert before the removal',
+      [
+        [2, 1],
+        [0, 2],
+        [0, 1],
+      ],
+    ],
+  ] as Array<[string, Array<Array<number>>]>) {
+    it(name, () => {
+      const docs = replicas(3, 'acb');
+      docs[1].update((r) => r.t.edit(3, 3, { type: 'text', value: 'r' }));
+      docs[1].update((r) => r.t.edit(3, 3, undefined, 1));
+      docs[0].update((r) => r.t.edit(2, 2, { type: 'text', value: 'u' }));
+      docs[2].update((r) => r.t.edit(2, 3));
+      exchange(docs, orders);
+
+      for (let i = 1; i < docs.length; i++) {
+        assert.equal(docs[i].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+        assert.equal(treeShape(docs[i]), treeShape(docs[0]));
+      }
+      assert.equal(
+        docs[0].getRoot().t.toXML(),
+        '<doc><p>au</p><p>rb</p></doc>',
+      );
+    });
+  }
+});
+
+/**
+ * Enter, then type at the start of the new paragraph, concurrently with a
+ * peer typing where the Enter was pressed. The typed text is newer than the
+ * split product but was never moved by the split, so it is not part of the
+ * boundary run and the peer's insert stays on the left.
+ */
+describe('Tree enter-then-type at a concurrent insert', () => {
+  it('keeps the concurrent insert in the left paragraph', () => {
+    const docs = replicas(2);
+    docs[0].update((r) => r.t.edit(2, 2, { type: 'text', value: 'u' }));
+    docs[1].update((r) => r.t.edit(2, 2, undefined, 1));
+    docs[1].update((r) => r.t.edit(4, 4, { type: 'text', value: 's' }));
+    exchange(docs, [[1], [0]]);
+
+    assert.equal(docs[1].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+    assert.equal(treeShape(docs[1]), treeShape(docs[0]));
+    assert.equal(docs[0].getRoot().t.toXML(), '<doc><p>au</p><p>sb</p></doc>');
+  });
+});
+
+/**
+ * A typist's insert and split after "a", concurrent with two splits at the
+ * start of the paragraph, in four delivery orders. A start split that steps
+ * over a newer product still holding content past its own boundary run must
+ * not redirect into the product after it: that one was split off at a
+ * different boundary.
+ */
+describe('Tree boundary run with two concurrent start splits', () => {
+  for (const orders of [
+    [
+      [1, 2],
+      [0, 2],
+      [0, 1],
+    ],
+    [
+      [2, 1],
+      [2, 0],
+      [1, 0],
+    ],
+    [
+      [1, 2],
+      [2, 0],
+      [1, 0],
+    ],
+    [
+      [2, 1],
+      [0, 2],
+      [0, 1],
+    ],
+  ]) {
+    it(`converges with orders ${JSON.stringify(orders)}`, () => {
+      const docs = replicas(3);
+      docs[0].update((r) => r.t.edit(2, 2, { type: 'text', value: 'u' }));
+      docs[0].update((r) => r.t.edit(2, 2, undefined, 1));
+      docs[1].update((r) => r.t.edit(1, 1, undefined, 1));
+      docs[2].update((r) => r.t.edit(1, 1, undefined, 1));
+      exchange(docs, orders);
+      for (let i = 1; i < docs.length; i++) {
+        assert.equal(docs[i].getRoot().t.toXML(), docs[0].getRoot().t.toXML());
+        assert.equal(treeShape(docs[i]), treeShape(docs[0]));
+      }
     });
   }
 });

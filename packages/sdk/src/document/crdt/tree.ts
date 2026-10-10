@@ -2387,7 +2387,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
         // boundary is not `next`'s after all: it is inside `next`, past
         // that run, and the products are ordered by content rather than by
         // ticket.
-        const run = this.boundaryInsertRunOf(next, versionVector);
+        //
+        // That holds only while `next` still starts at our boundary. A
+        // newer product we stepped over that holds content past its own
+        // boundary run was split at a different boundary, and `next` came
+        // off it there: redirecting into `next` would move our split past
+        // that content, which a replica that applied us first never does.
+        const adjacent =
+          target === parent ||
+          target.allChildren.length ===
+            this.boundaryInsertRunOf(target, versionVector);
+        const run = adjacent
+          ? this.boundaryInsertRunOf(next, versionVector)
+          : 0;
         if (run > 0) {
           return [next, run];
         }
@@ -2410,6 +2422,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * were inserted concurrently with the editing change -- the run §7.3
    * migrates to the left of a split boundary. Text split siblings carry
    * their original's ticket and so end the run by being known.
+   *
+   * Only children the split moved over (`movedBySplit`) are counted, not
+   * text typed into the product after it.
    *
    * Only text children are counted, the same children
    * `advanceIntoSplitProducts` crosses on the other side of this boundary:
@@ -2444,6 +2459,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
         knownLamport !== undefined &&
         knownLamport >= createdAt.getLamport()
       ) {
+        break;
+      }
+      if (!this.movedBySplit(node, child)) {
         break;
       }
       run++;
@@ -2919,6 +2937,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     parent: CRDTTreeNode,
     left: CRDTTreeNode,
     editedAt: TimeTicket,
+    versionVector?: VersionVector,
   ): TreeNodePair {
     const walker = new InsNextWalker();
     walker.visit(parent);
@@ -2937,7 +2956,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // run and the boundary at all. Counting a trailing tombstone as a
       // right neighbour would block here the advance that replica makes, so
       // the two would place the same insert differently.
-      if (!this.atEndOfLiveContent(current, leftNode)) {
+      if (!this.atEndOfLiveContent(current, leftNode, versionVector)) {
         break;
       }
 
@@ -2963,7 +2982,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       while (
         i < nextChildren.length &&
         nextChildren[i].isText &&
-        nextChildren[i].id.getCreatedAt().after(editedAt)
+        nextChildren[i].id.getCreatedAt().after(editedAt) &&
+        this.movedBySplit(next, nextChildren[i])
       ) {
         i++;
       }
@@ -2985,13 +3005,18 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `atEndOfLiveContent` reports whether `leftNode` is an anchor with no live
    * content after it inside `node`: either `node` itself with nothing live
    * under it, or a child of `node` every one of whose later siblings is a
-   * tombstone.
+   * tombstone the editing change knew about.
    *
    * Tombstones are skipped rather than counted because they are not content
    * the boundary can sit before, and because the two sides of a split
    * boundary see different ones -- the replica that applied an insert before
    * the split had the whole run in one node, with no tombstone standing
    * between it and the boundary.
+   *
+   * A child counts as gone only when the editing change knew of its removal
+   * (`versionVector`). Whether a concurrent removal has arrived yet differs
+   * between replicas; what the editor saw does not, so the gate gives the
+   * same answer whatever the delivery order.
    *
    * An anchor that is not a child of `node` at all did not come from the
    * step 04 scan (the merge-target branch of `findNodesAndSplitText` returns
@@ -3001,10 +3026,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
   private atEndOfLiveContent(
     node: CRDTTreeNode,
     leftNode: CRDTTreeNode,
+    versionVector?: VersionVector,
   ): boolean {
     const children = node.allChildren;
+    const gone = (child: CRDTTreeNode) =>
+      !!child.removedAt && ticketKnown(versionVector, child.removedAt);
     if (leftNode === node) {
-      return children.every((child) => child.isRemoved);
+      return children.every(gone);
     }
 
     const index = children.indexOf(leftNode);
@@ -3012,11 +3040,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return false;
     }
     for (let i = index + 1; i < children.length; i++) {
-      if (!children[i].isRemoved) {
+      if (!gone(children[i])) {
         return false;
       }
     }
     return true;
+  }
+
+  /**
+   * `movedBySplit` reports whether `child` of the split product `product`
+   * was in the original node when the split was applied, rather than
+   * inserted into the product afterwards: it is older than the product.
+   *
+   * Both boundary runs (`boundaryInsertRunOf`, `advanceIntoSplitProducts`)
+   * stand for content that sat at the end of the original node and that the
+   * split carried over. Text typed into the product after the split -- the
+   * Enter-then-type pattern -- was never on the other side of the boundary,
+   * and counting it would move a concurrent insert past it on one replica
+   * only. The ticket comparison needs nothing but IDs, so it reads the same
+   * on every replica and before or after GC.
+   */
+  private movedBySplit(product: CRDTTreeNode, child: CRDTTreeNode): boolean {
+    return product.id.getCreatedAt().after(child.id.getCreatedAt());
   }
 
   /**
@@ -3262,6 +3307,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         fromParent,
         fromLeftRaw,
         editedAt,
+        versionVector,
       );
       [toParent, toLeftRaw] = [fromParent, fromLeftRaw];
     }
