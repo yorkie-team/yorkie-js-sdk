@@ -32,3 +32,21 @@ the fix.
   the missing-parent skip: the "red" cases passed on `main`. Capture IDs
   before the edit that shifts them, and make sure a red test fails for the
   reason it names.
+
+## Self-review log
+
+### Round 1 (parity and correctness)
+
+An independent reviewer compared the diff with yorkie#2175 rule by rule.
+Verdict: approve, no blocking findings.
+
+- Parity: the text-parent check follows the same `findFloorNode` + exact-ID
+  lookup as Go, and `restoreSpanKindAgrees` is the first statement of the
+  `restore` and `retombstone` loops, where Go checks `kindAgrees`.
+- Nothing dangles: both skips return before a node is built, registered or
+  paired for GC.
+- Re-ran the new tests against `main`'s `tree.ts`: 7 of 9 fail for the
+  named reasons; the honest path and the zero-length text case pass, as
+  expected. `pnpm verify:fast` and the tree/history integration suites pass.
+- Non-blocking: yorkie#2175 is still open; if review moves the Go checks,
+  re-sync this branch before merging.
