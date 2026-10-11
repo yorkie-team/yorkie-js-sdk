@@ -71,3 +71,35 @@ The Go review loop added a third rule and corrected two tests; ported here.
   flaw Go's reviewer found.
 - Lesson: a skip test must name state the guarded code would otherwise
   touch; an ID no node holds proves nothing.
+
+### Round 3 (review panel: span shape vs. replica state)
+
+Four of the panel's five findings were about how much of a forged span the
+guards cover; the fifth was refuted by running the tests.
+
+- Split the guard in two by WHAT IT READS. `restoreSpanKindAgrees` became
+  `restoreSpanIsWellFormed`: kind agreement, plus a text span carrying
+  exactly its run (`length > 0`, `value.length === length`) and an element
+  span carrying none (`length === 0`, `id.offset === 0`). All four are pure
+  functions of the span, so every replica rejects alike -- which is the only
+  reason to prefer a span-shape rule over a tree-state one.
+- `isIdentityClaimed(createdAt, start, end)` replaces the start-offset-only
+  holder test and is now shared with `dropDuplicateContents`: the ordinary
+  insert path drops content landing inside a live run, not just content
+  naming a node exactly. One floor probe at `end - 1` decides it, because
+  that is the highest-offset node of the insertion that can start in range.
+- No false positives on the honest path: a recreate gap is bounded by the
+  next surviving piece's start, so the probe lands on the piece that ENDS at
+  the gap's start and `end > start` is false.
+- Finding kept open: the claim test reads replica-local GC state, so two
+  replicas can act differently on a FORGED span. No state-independent rule
+  exists -- "always recreate" is #1471 itself -- so the fix is to shrink
+  what the state-dependent test has to decide, which the shape rules do.
+  Rebuttal filed with that argument.
+- Refuted: "the `isText=true` variants pass on pre-change code". Ran the
+  file against `origin/main`'s `tree.ts`: 9 of 9 fail, 16 of 18 after this
+  round. `findFloorNode` requires `createdAt` equality, so a span naming an
+  insertion the tree does not have floor-resolves to nothing, not onto
+  `hello` -- the cases do reach the guards.
+- Lesson: before accepting "this test does not bite", run it against the
+  base revision. It costs one checkout.

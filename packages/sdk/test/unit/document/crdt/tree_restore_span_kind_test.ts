@@ -224,7 +224,9 @@ describe('CRDTTree restore span claimed identity', function () {
 
     // Offset 2 falls inside "hello": the id is the one the next honest split
     // of that run mints, so creating an element there plants a duplicate that
-    // split would collide with.
+    // split would collide with. (Such a span is now refused one step earlier,
+    // as a malformed element offset -- see the offset cases below -- which
+    // holds whether or not this replica still has the run.)
     const span: TreeRestoreSpan = {
       id: CRDTTreeNodeID.of(text.id.getCreatedAt(), 2),
       nodeType: 'p',
@@ -249,5 +251,156 @@ describe('CRDTTree restore span claimed identity', function () {
     );
     assert.equal(tree.toXML(), '<r><p>heZllo</p></r>');
     assert.equal(tree.getSize(), 8, 'the length cache stays sound');
+  });
+});
+
+/**
+ * Shapes judged from the span ALONE, so a replica rejects them whether or not
+ * it still holds the insertion they name -- unlike the claimed-identity test
+ * above, which can only see what this replica has yet to garbage-collect.
+ * Each span below names an insertion (lamport 9) no node in the tree belongs
+ * to, so nothing is claimed and only the span's own shape can refuse it.
+ */
+describe('CRDTTree restore span shape', function () {
+  // Element IDs are minted at offset 0 everywhere; only text offsets ever
+  // advance. An element planted at a non-zero offset sits inside some text
+  // insertion's offset space, where `findPiecesOverlapping` stops its walk on
+  // it and hides every live piece beyond it from later restores.
+  it('skips an element span with a non-zero offset', function () {
+    const { tree, p } = helloTree();
+    const span: TreeRestoreSpan = {
+      id: CRDTTreeNodeID.of(ticketOf(9), 2),
+      nodeType: 'p',
+      isText: false,
+      length: 0,
+      parentID: p.id,
+    };
+
+    const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
+    assert.isEmpty(untombstoned);
+    assert.isEmpty(recreated, 'an element never carries a non-zero offset');
+    assert.equal(tree.toXML(), '<r><p>hello</p></r>');
+    assert.isUndefined(
+      tree.findFloorNode(span.id),
+      'the element is never registered',
+    );
+
+    // Same refusal on the redo side, so the two stay mirror images.
+    const [pairs] = tree.retombstone([span], ticketOf(21));
+    assert.isEmpty(pairs);
+  });
+
+  // `length` is the text measure and is 0 on every element span. A non-zero
+  // one widens `retombstone`'s probe range over offsets the span never owned.
+  it('skips an element span carrying a text length', function () {
+    const { tree, p } = helloTree();
+    const span: TreeRestoreSpan = {
+      id: CRDTTreeNodeID.of(ticketOf(9), 0),
+      nodeType: 'p',
+      isText: false,
+      length: 3,
+      parentID: p.id,
+    };
+
+    const [, recreated] = tree.restore([span], ticketOf(20));
+    assert.isEmpty(recreated, 'an element span carries no length');
+    assert.equal(tree.toXML(), '<r><p>hello</p></r>');
+  });
+
+  // A text span's value is the exact content of [offset, offset + length). A
+  // value that does not cover the length recreates a run shorter than the one
+  // the span claims -- at the extreme a zero-length text node, which
+  // `findPiecesOverlapping` then hands to `isolateTextRange` as an empty
+  // piece, splitting out of range and throwing inside the apply path.
+  for (const [name, length, value] of [
+    ['value shorter than length', 5, 'x'],
+    ['value longer than length', 1, 'xyz'],
+    ['zero length', 0, ''],
+    ['missing value', 1, undefined],
+  ] as Array<[string, number, string | undefined]>) {
+    it(`skips a text span whose value disagrees: ${name}`, function () {
+      const { tree, p } = helloTree();
+      const span: TreeRestoreSpan = {
+        id: CRDTTreeNodeID.of(ticketOf(9), 0),
+        nodeType: 'text',
+        isText: true,
+        length,
+        value,
+        parentID: p.id,
+      };
+
+      const [, recreated] = tree.restore([span], ticketOf(20));
+      assert.isEmpty(recreated, 'a text span must carry exactly its run');
+      assert.equal(tree.toXML(), '<r><p>hello</p></r>');
+      assert.equal(tree.getSize(), 7, 'the length cache stays sound');
+      assert.isUndefined(
+        tree.findFloorNode(span.id),
+        'nothing is registered under the span ID',
+      );
+    });
+  }
+});
+
+/**
+ * `dropDuplicateContents` answers the same one-node-per-identity question as
+ * `restore`'s claimed-identity test, for content arriving on the ordinary
+ * insert path. Both have to read the whole run a surviving node claims:
+ * content landing INSIDE a live text run is a second node under one identity
+ * exactly as an exact-ID duplicate is.
+ */
+describe('CRDTTree duplicate content inside a live run', function () {
+  it('drops content whose ID falls inside a live text run', function () {
+    const { tree, text } = helloTree();
+    const copy = new CRDTTreeNode(
+      CRDTTreeNodeID.of(text.id.getCreatedAt(), 2),
+      'text',
+      'Z',
+    );
+
+    const kept = tree.dropDuplicateContents([copy], ticketOf(20));
+    assert.isEmpty(kept, 'offset 2 is inside live "hello" [0, 5)');
+  });
+
+  it('keeps content whose ID merely abuts a live text run', function () {
+    const { tree, text } = helloTree();
+    const next = new CRDTTreeNode(
+      CRDTTreeNodeID.of(text.id.getCreatedAt(), 5),
+      'text',
+      'Z',
+    );
+
+    const kept = tree.dropDuplicateContents([next], ticketOf(20));
+    assert.lengthOf(kept, 1, 'offset 5 is past live "hello" [0, 5)');
+  });
+
+  it('leaves the tree insertable after dropping such content', function () {
+    const { tree, text } = helloTree();
+    let lamport = 20;
+    const issue = () => ticketOf(lamport++);
+
+    // The ID the next honest split of "hello" mints. Registering a second node
+    // under it is what leaves a later change addressing the run unapplicable.
+    const copy = new CRDTTreeNode(
+      CRDTTreeNodeID.of(text.id.getCreatedAt(), 2),
+      'text',
+      'Z',
+    );
+    tree.editT([1, 1], [copy], 0, issue(), issue);
+    assert.equal(tree.toXML(), '<r><p>hello</p></r>', 'the copy is dropped');
+
+    // That split now mints its ID into a free slot.
+    tree.editT(
+      [3, 3],
+      [new CRDTTreeNode(CRDTTreeNodeID.of(issue(), 0), 'text', 'Z')],
+      0,
+      issue(),
+      issue,
+    );
+    assert.equal(tree.toXML(), '<r><p>heZllo</p></r>');
+    assert.strictEqual(
+      tree.findFloorNode(CRDTTreeNodeID.of(text.id.getCreatedAt(), 2)),
+      tree.findFloorNode(CRDTTreeNodeID.of(text.id.getCreatedAt(), 3)),
+      'offset 2 resolves to the split piece that owns it',
+    );
   });
 });

@@ -514,18 +514,47 @@ export type TreeRestoreSpan = {
 };
 
 /**
- * `restoreSpanKindAgrees` reports whether the span's `isText` flag matches its
- * `nodeType`, as it always does on a span an honest replica captured. A span
- * that disagrees would recreate a node of the wrong kind -- an element
- * carrying a value is then invisible to the text lookup, so the same span
- * applied again inserts a second node under one ID. Decoding cannot reject it:
- * stored changes go through the same decoder and must stay loadable, so
- * `restore` and `retombstone` skip it instead. The kind is part of the span
- * itself, so every replica skips it alike. Mirrors Go's
- * `TreeRestoreSpan.kindAgrees` (yorkie#2168).
+ * `restoreSpanIsWellFormed` reports whether the span describes a node an
+ * honest replica could have captured (`tree.ts` builds every span from a real
+ * node, at `edit`'s two capture sites). Four shapes are rejected, each a pure
+ * function of the span alone -- no tree state, so every replica rejects the
+ * same span and they stay convergent:
+ *
+ *   - `isText` disagreeing with `nodeType`: recreating it builds a node of the
+ *     wrong kind -- an element carrying a value is then invisible to the text
+ *     lookup, so the same span applied again inserts a second node under one
+ *     ID.
+ *   - a text span whose `length` is 0, or whose `value` does not cover it: a
+ *     zero-length text node registered in the insertion's offset space makes
+ *     `findPiecesOverlapping` hand `isolateTextRange` an empty piece, which
+ *     splits out of range and throws.
+ *   - an element span with a non-zero `id.offset`: element IDs are minted at
+ *     offset 0 everywhere (`json/tree.ts`, `cloneElement`, the reissue in
+ *     `tree_edit_operation.ts`) and only `cloneText` ever advances an offset,
+ *     so a non-zero one plants an element inside a text insertion's offset
+ *     space, where it truncates `findPiecesOverlapping`'s walk and hides live
+ *     pieces from every later restore of that insertion.
+ *   - an element span with a non-zero `length`: length is the text measure and
+ *     is 0 on every element span; `retombstone` would widen its probe range.
+ *
+ * Decoding cannot reject these: stored changes go through the same decoder and
+ * must stay loadable, so `restore` and `retombstone` skip them instead.
+ * Mirrors Go's `TreeRestoreSpan.isWellFormed` (yorkie#2168).
  */
-function restoreSpanKindAgrees(span: TreeRestoreSpan): boolean {
-  return span.isText === (span.nodeType === DefaultTextType);
+function restoreSpanIsWellFormed(span: TreeRestoreSpan): boolean {
+  if (span.isText !== (span.nodeType === DefaultTextType)) {
+    return false;
+  }
+
+  if (span.isText) {
+    return (
+      span.length > 0 &&
+      span.value !== undefined &&
+      span.value.length === span.length
+    );
+  }
+
+  return span.length === 0 && span.id.getOffset() === 0;
 }
 
 /**
@@ -2674,6 +2703,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * so an ID issued here can legitimately collide, and dropping it would lose
    * a node the client already inserted.
    *
+   * An ID collides when the range it would claim overlaps one a surviving
+   * node of the same insertion claims -- not only when it names that node
+   * exactly. A copy of a text piece that the live tree still holds unsplit,
+   * say (C,2) against a live (C,0)"hello", is a second node inside one
+   * identity just as much as an exact duplicate is, and `registerNode` has the
+   * same one-node-per-ID answer for it (#1471). `restore` applies the same
+   * rule when it recreates a purged node (see `isIdentityClaimed`).
+   *
    * Dropping rather than failing is deliberate: such changes are already in
    * the history of existing documents, and a change that cannot be replayed is
    * a document that can never be loaded again. A collision anywhere in a
@@ -2695,8 +2732,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
           return;
         }
 
-        const entry = this.nodeMapByID.floorEntry(node.id);
-        if (entry && entry.key.equals(node.id)) {
+        const start = node.id.getOffset();
+        const end = start + (node.isText ? Math.max(node.value.length, 1) : 1);
+        if (this.isIdentityClaimed(createdAt, start, end)) {
           reused = true;
         }
       });
@@ -3984,8 +4022,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `restore` re-establishes the nodes described by `spans` under their
    * ORIGINAL identities (identity-preserving Tree undo): live → skip
    * (idempotent), tombstoned → unremove in place, purged → recreate. A span
-   * whose kind does not agree with itself is skipped outright (see
-   * `restoreSpanKindAgrees`), as it is in `retombstone`. Spans must be in
+   * no honest replica could have captured is skipped outright (see
+   * `restoreSpanIsWellFormed`), as it is in `retombstone`. Spans must be in
    * parent-before-child order (`edit()` captures them that way).
    *
    * Returns `[untombstoned, recreated, pairs, diff]`:
@@ -4022,7 +4060,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     };
 
     for (const span of spans) {
-      if (!restoreSpanKindAgrees(span)) {
+      if (!restoreSpanIsWellFormed(span)) {
         continue;
       }
       if (!span.isText) {
@@ -4134,9 +4172,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * identity-preserving undo). Live pieces only; idempotent. A piece that
    * straddles a span boundary is split at that boundary so only the in-span
    * range is re-removed (symmetric with restore's isolate, so undo/redo stay
-   * mirror images and segmentation stays convergent). A span whose kind does
-   * not agree with itself is skipped, exactly as `restore` skips it, so
-   * neither direction acts on what the other ignores. Returns the GC pairs for
+   * mirror images and segmentation stays convergent). A span no honest replica
+   * could have captured is skipped, exactly as `restore` skips it, so neither
+   * direction acts on what the other ignores. Returns the GC pairs for
    * the newly tombstoned nodes, the live-split metadata overhead, and one
    * deletion per visible node it removed, each measured right before the
    * removal so they apply one after another.
@@ -4149,7 +4187,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const diff: DataSize = { data: 0, meta: 0 };
     const changes: Array<TreeVisibleEdit> = [];
     for (const span of spans) {
-      if (!restoreSpanKindAgrees(span)) {
+      if (!restoreSpanIsWellFormed(span)) {
         continue;
       }
       const start = span.id.getOffset();
@@ -4284,27 +4322,67 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `isIdentityClaimed` reports whether a node this replica still holds (live
+   * or tombstoned) of the insertion `createdAt` occupies any offset in
+   * [start, end) -- i.e. whether registering a node over that range would put
+   * a second node under an identity another node already answers to.
+   *
+   * A node's claim is its whole offset run, not just its first offset: a text
+   * node occupies [offset, offset + value.length), and an element occupies the
+   * single offset it was minted at. Checking only the start offset lets a run
+   * be registered straddling live pieces of the same insertion, which is the
+   * duplicate-identity state `registerNode` cannot represent -- it overwrites,
+   * leaving every later change addressing the overwritten node unapplicable
+   * (#1471).
+   *
+   * One floor probe decides it: `floorEntry(end - 1)` is the highest-offset
+   * node of the insertion that could start inside the range, so if it does not
+   * reach past `start`, nothing of this insertion does.
+   */
+  private isIdentityClaimed(
+    createdAt: TimeTicket,
+    start: number,
+    end: number,
+  ): boolean {
+    const holder = this.findFloorNode(
+      CRDTTreeNodeID.of(createdAt, Math.max(end, start + 1) - 1),
+    );
+    if (!holder) {
+      return false;
+    }
+
+    // An element claims exactly the one offset it was minted at; a text node
+    // claims its whole run. `max(1, ...)` keeps a degenerate empty run from
+    // claiming nothing at all, so it is still caught as an exact collision.
+    const span = holder.isText ? Math.max(holder.value.length, 1) : 1;
+    return holder.id.getOffset() + span > start;
+  }
+
+  /**
    * `recreateParent` resolves the node a recreated span hangs under, or
    * undefined when the span must be left unplaced (B1). Three shapes are
    * unplaceable. The parent is genuinely absent (purged and not part of this
    * restore). The parent is a text node, which cannot hold children. Or the
-   * identity being recreated, `id`, is one a surviving node already holds --
-   * exactly, or inside a surviving text run of the same insertion -- in which
-   * case recreating would put a second node under one identity, and
-   * `registerNode` overwrites the live registration of the node that holds
-   * it, leaving every later change that addresses it unapplicable (#1471).
+   * offset range the recreated node would occupy, [id.offset, id.offset +
+   * length), overlaps one a surviving node of the same insertion already
+   * claims (see `isIdentityClaimed`).
    *
    * No honest span is any of these: spans come from the wire, and the server
    * stores a change before applying it, so throwing here would fail every
-   * later apply of the document. Each test reads only state that never
-   * changes afterwards (node kind, identity ownership), and a replica that
-   * does hold the named node resolves the span through restore's un-tombstone
-   * branch instead, so the replicas converge either way. Mirrors Go's
-   * `Tree.recreateParent` (yorkie#2168).
+   * later apply of the document. A replica that does hold the named node
+   * resolves the span through restore's un-tombstone branch instead, so an
+   * honest span converges either way. A crafted one is skipped here rather
+   * than allowed to overwrite a live registration; the claim test reads
+   * replica-local state (which nodes GC has purged), so two replicas can act
+   * differently on such a span, which is why the shapes that can be judged
+   * from the span alone are rejected earlier and unconditionally, in
+   * `restoreSpanIsWellFormed`. Mirrors Go's `Tree.recreateParent`
+   * (yorkie#2168).
    */
   private recreateParent(
     span: TreeRestoreSpan,
     id: CRDTTreeNodeID,
+    length: number,
   ): CRDTTreeNode | undefined {
     if (!span.parentID) {
       return;
@@ -4314,12 +4392,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return;
     }
 
-    const holder = this.findFloorNode(id);
+    const start = id.getOffset();
     if (
-      holder &&
-      (holder.id.getOffset() === id.getOffset() ||
-        (holder.isText &&
-          holder.id.getOffset() + holder.value.length > id.getOffset()))
+      this.isIdentityClaimed(
+        id.getCreatedAt(),
+        start,
+        start + Math.max(length, 1),
+      )
     ) {
       return;
     }
@@ -4349,7 +4428,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     length: number,
   ): CRDTTreeNode | undefined {
     const id = CRDTTreeNodeID.of(span.id.getCreatedAt(), offset);
-    const parent = this.recreateParent(span, id);
+    const parent = this.recreateParent(span, id, length);
     if (!parent) {
       return;
     }
