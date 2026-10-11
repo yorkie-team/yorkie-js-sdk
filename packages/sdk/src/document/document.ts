@@ -1163,7 +1163,7 @@ export class Document<
       }
 
       this.localChanges.push(change);
-    this.trackPresenceBase(change);
+      this.trackPresenceBase(change);
       this.mintedOperations ||= operations.length > 0;
       if (reverseOps.length) {
         this.internalHistory.pushUndo(reverseOps);
