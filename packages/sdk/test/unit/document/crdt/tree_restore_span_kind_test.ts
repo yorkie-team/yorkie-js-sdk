@@ -53,6 +53,20 @@ function helloTree(): {
 }
 
 /**
+ * `textSpan` returns the restore span an honest replica captures for `node`.
+ */
+function textSpan(node: CRDTTreeNode, parent: CRDTTreeNode): TreeRestoreSpan {
+  return {
+    id: node.id,
+    nodeType: node.type,
+    isText: true,
+    length: node.value.length,
+    value: node.value,
+    parentID: parent.id,
+  };
+}
+
+/**
  * Ports of the Go `TestTreeRestoreTextParentSkip` and
  * `TestTreeRestoreKindMismatchSkip` (yorkie#2175). Both SDKs must skip the
  * same spans, or a Go and a JS replica diverge on the same change.
@@ -127,10 +141,113 @@ describe('CRDTTree restore span kind', function () {
       assert.isEmpty(untombstoned);
       assert.isEmpty(recreated, 'a mismatched span is skipped');
       assert.equal(tree.toXML(), '<r><p>hello</p></r>');
-
-      const [pairs] = tree.retombstone(spans, ticketOf(11));
-      assert.isEmpty(pairs, 'retombstone skips it too');
-      assert.equal(tree.toXML(), '<r><p>hello</p></r>');
     });
   }
+
+  // The other half of restore's kind check: a mismatched span naming a node
+  // still present as a TOMBSTONE must not revive it either. The check sits
+  // before the un-tombstone branch, so without it the span would resurrect
+  // content its kind does not describe.
+  it('keeps a tombstone a mismatched span names', function () {
+    const { tree, p, text } = helloTree();
+    let lamport = 20;
+    const issue = () => ticketOf(lamport++);
+    tree.editT([1, 6], undefined, 0, issue(), issue);
+    assert.equal(tree.toXML(), '<r><p></p></r>');
+
+    // Same identity as the tombstoned text, but typed as an element.
+    const span: TreeRestoreSpan = {
+      ...textSpan(text, p),
+      nodeType: 'p',
+    };
+    const [untombstoned, recreated] = tree.restore([span], issue());
+    assert.isEmpty(untombstoned, 'a mismatched span revives nothing');
+    assert.isEmpty(recreated);
+    assert.equal(tree.toXML(), '<r><p></p></r>', 'the tombstone stays dead');
+  });
+
+  // The retombstone half of the kind check. The spans name a LIVE node, so
+  // retombstone would find and re-remove it without the check; a span
+  // carrying an identity no node holds would pass either way.
+  for (const [name, isText, nodeType] of [
+    ['text node in an element-flagged span', false, 'text'],
+    ['text node typed as an element', true, 'p'],
+  ] as Array<[string, boolean, string]>) {
+    it(`retombstone skips a mismatched span: ${name}`, function () {
+      const { tree, p, text } = helloTree();
+      const span: TreeRestoreSpan = {
+        ...textSpan(text, p),
+        isText,
+        nodeType,
+      };
+      const [pairs] = tree.retombstone([span], ticketOf(20));
+      assert.isEmpty(pairs, 'a mismatched span re-tombstones nothing');
+      assert.equal(tree.toXML(), '<r><p>hello</p></r>', 'tree is untouched');
+    });
+  }
+});
+
+/**
+ * Port of the Go `TestTreeRestoreClaimedIdentitySkip` (yorkie#2175). A span is
+ * skipped when the identity it would recreate is already held by a surviving
+ * node. Nothing on the wire ties a span's ID to a purged node of its own
+ * insertion, and registering a node under a claimed ID overwrites the live
+ * registration, leaving two nodes under one identity.
+ */
+describe('CRDTTree restore span claimed identity', function () {
+  it('skips a text span naming a live element', function () {
+    const { tree, p } = helloTree();
+
+    // findPiecesOverlapping stops at the non-text floor node, so the gap
+    // branch would recreate a text node under <p>'s exact identity.
+    const span: TreeRestoreSpan = {
+      id: p.id,
+      nodeType: 'text',
+      isText: true,
+      length: 1,
+      value: 'x',
+      parentID: tree.getRoot().id,
+    };
+    const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
+    assert.isEmpty(untombstoned);
+    assert.isEmpty(recreated, 'a claimed identity is not recreated');
+    assert.equal(tree.toXML(), '<r><p>hello</p></r>');
+    assert.strictEqual(
+      tree.findFloorNode(p.id),
+      p,
+      '<p> still holds its own identity',
+    );
+  });
+
+  it('skips an element span inside a live text run', function () {
+    const { tree, p, text } = helloTree();
+
+    // Offset 2 falls inside "hello": the id is the one the next honest split
+    // of that run mints, so creating an element there plants a duplicate that
+    // split would collide with.
+    const span: TreeRestoreSpan = {
+      id: CRDTTreeNodeID.of(text.id.getCreatedAt(), 2),
+      nodeType: 'p',
+      isText: false,
+      length: 0,
+      parentID: p.id,
+    };
+    const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
+    assert.isEmpty(untombstoned);
+    assert.isEmpty(recreated, 'an id inside a live run is not recreated');
+    assert.equal(tree.toXML(), '<r><p>hello</p></r>');
+
+    // The honest split that mints that id still works afterwards.
+    let lamport = 21;
+    const issue = () => ticketOf(lamport++);
+    tree.editT(
+      [3, 3],
+      [new CRDTTreeNode(CRDTTreeNodeID.of(issue(), 0), 'text', 'Z')],
+      0,
+      issue(),
+      issue,
+    );
+    assert.equal(tree.toXML(), '<r><p>heZllo</p></r>');
+    assert.equal(tree.getSize(), 8, 'the length cache stays sound');
+  });
 });

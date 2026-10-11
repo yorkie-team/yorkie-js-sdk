@@ -50,3 +50,24 @@ Verdict: approve, no blocking findings.
   expected. `pnpm verify:fast` and the tree/history integration suites pass.
 - Non-blocking: yorkie#2175 is still open; if review moves the Go checks,
   re-sync this branch before merging.
+
+### Round 2 (re-sync with yorkie#2175 c2460cd8)
+
+The Go review loop added a third rule and corrected two tests; ported here.
+
+- Rule: `recreateFromSpan` now goes through `recreateParent`, which also
+  refuses when `findFloorNode(id)` returns a surviving holder whose offset
+  equals `id`'s, or a text holder whose run covers it (`offset + length >
+  id.offset`). Same order as Go: parentID, parent lookup/text check, then
+  holder. JS `value.length` and Go `Length()` both count UTF-16 units.
+- Red on fd10406e: `skips a text span naming a live element` (recreated a
+  text node under `<p>`'s ID) and `skips an element span inside a live text
+  run` (recreated a `<p>` at `hello`'s offset 2) fail; 2 of 9.
+- The ported kind tests (`keeps a tombstone a mismatched span names`, and
+  the corrected retombstone tests naming a LIVE node) pass on fd10406e,
+  because the kind check is already there. With `restoreSpanKindAgrees`
+  forced to `true` they fail (7 of 9), so they now bite. The old retombstone
+  half used a fresh ticket and held with or without the check, the same
+  flaw Go's reviewer found.
+- Lesson: a skip test must name state the guarded code would otherwise
+  touch; an ID no node holds proves nothing.

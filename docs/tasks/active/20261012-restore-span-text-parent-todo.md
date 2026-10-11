@@ -59,3 +59,7 @@ they diverge against each other.
   against the local server.
 - No `docs/design` change: this repo has no doc describing restore-span
   placement; the rules are recorded in yorkie `docs/design/undo-redo.md`.
+- Re-synced with yorkie#2175 c2460cd8: `recreateParent` also skips a span
+  whose identity a surviving node holds (exactly, or inside a live text run
+  of the same insertion). Tests for both shapes, the un-tombstone branch of
+  the kind check, and a retombstone kind test that names a live node.
