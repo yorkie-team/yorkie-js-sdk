@@ -179,6 +179,15 @@ function toPresenceChange(
       presence: toPresence(presenceChange.presence),
     });
   }
+  if (presenceChange.type === PresenceChangeType.Patch) {
+    // Only the changed keys go on the wire; the patch's `full` copy is local
+    // state for `Change.execute` and the base-unavailable fallback. The server
+    // folds the patch into the base it holds before storing it.
+    return create(PbPresenceChangeSchema, {
+      type: PbPresenceChange_ChangeType.PATCH,
+      presence: toPresence(presenceChange.presence as Indexable),
+    });
+  }
   if (presenceChange.type === PresenceChangeType.Clear) {
     return create(PbPresenceChangeSchema, {
       type: PbPresenceChange_ChangeType.CLEAR,
@@ -1741,6 +1750,7 @@ function fromChangePack<P extends Indexable>(
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
     pbPack.epoch,
+    pbPack.capabilities,
   );
 }
 

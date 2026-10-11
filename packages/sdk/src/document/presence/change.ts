@@ -17,16 +17,35 @@
 import { Indexable } from '@yorkie-js/sdk/src/document/document';
 
 /**
+ * `PresencePatchCapability` is the name the server advertises in
+ * `ChangePack.capabilities` when it can fold a `Patch` into the presence base
+ * it holds. Absence means the server does not take patches.
+ */
+export const PresencePatchCapability = 'presence-patch';
+
+/**
  * `PresenceChangeType` represents the type of presence change.
  */
 export enum PresenceChangeType {
   Put = 'put',
   Clear = 'clear',
+  Patch = 'patch',
 }
 
 /**
  * `PresenceChange` represents the change of presence.
+ *
+ * A `Patch` carries only the top-level keys that changed, so it is cheaper to
+ * upload than the whole presence. It is only ever produced locally: the server
+ * folds each patch into a full `Put` before storing, so a pulled pack never
+ * carries one.
+ *
+ * `full` is the whole presence as of the patch. It never goes on the wire. It
+ * is what `Change.execute` applies locally -- a patch has no base to merge
+ * into on this side -- and what a `ErrPresenceBaseUnavailable` fallback turns
+ * the patch back into.
  */
 export type PresenceChange<P extends Indexable> =
   | { type: PresenceChangeType.Put; presence: P }
+  | { type: PresenceChangeType.Patch; presence: Partial<P>; full: P }
   | { type: PresenceChangeType.Clear };

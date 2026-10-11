@@ -40,9 +40,13 @@ export type ChangeStruct<P extends Indexable> = {
   changeID: string;
   message?: string;
   operations?: Array<string>;
+  // A `Patch` serializes its local-only `full` copy alongside the changed
+  // keys, so a pending patch restored from offline persistence can still be
+  // rewritten into the put it stands for.
   presenceChange?: {
     type: PresenceChangeType;
-    presence?: P;
+    presence?: P | Partial<P>;
+    full?: P;
   };
   // `undoRedo` marks a change an undo or a redo produced. It is serialized
   // because a queued change outlives this process -- the offline-persistence
@@ -183,6 +187,17 @@ export class Change<P extends Indexable> {
   }
 
   /**
+   * `setPresenceChange` replaces the presence change of this change. It is how
+   * a pending patch is rewritten into the full put the server asks for when it
+   * has no base to fold the patch into. The presence it resolves to is the
+   * same either way, so the change this document already applied locally
+   * stands.
+   */
+  public setPresenceChange(presenceChange: PresenceChange<P>): void {
+    this.presenceChange = presenceChange;
+  }
+
+  /**
    * `execute` executes the operations of this change to the given root.
    */
   public execute(
@@ -254,6 +269,11 @@ export class Change<P extends Indexable> {
           this.id.getActorID(),
           deepcopy(this.presenceChange.presence),
         );
+      } else if (this.presenceChange.type === PresenceChangeType.Patch) {
+        // A patch is an upload-side encoding: only the changed keys go on the
+        // wire. Locally there is nothing to fold -- the patch carries the
+        // whole presence as of that change -- so apply that.
+        presences.set(this.id.getActorID(), deepcopy(this.presenceChange.full));
       } else {
         presences.delete(this.id.getActorID());
       }

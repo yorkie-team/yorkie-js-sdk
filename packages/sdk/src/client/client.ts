@@ -3777,10 +3777,10 @@ export class Client {
     const doc = resource as Document<R, P>;
     const { resourceID: docID } = attachment;
 
-    const reqPack = doc.createChangePack();
+    let reqPack = doc.createChangePack();
     const pushOnly = syncMode === SyncMode.RealtimePushOnly;
-    try {
-      const res = await this.rpcClient.pushPullChanges(
+    const push = () =>
+      this.rpcClient.pushPullChanges(
         {
           clientId: this.id!,
           documentId: docID,
@@ -3790,6 +3790,28 @@ export class Client {
         },
         { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
       );
+    try {
+      let res;
+      try {
+        res = await push();
+      } catch (err) {
+        if (!isErrorCode(err, Code.ErrPresenceBaseUnavailable)) {
+          throw err;
+        }
+
+        // The server had no presence base to fold this pack's patch into --
+        // evicted, restarted, or moved to another shard -- and stored none of
+        // the pack. An expected signal, not a failure: rewrite the earliest
+        // pending patch into the full put it stands for and resend the pack
+        // once. The retry carries its own base, so it cannot hit this again.
+        logger.info(
+          `[PP] c:"${this.getKey()}" d:"${doc.getKey()}" presence base ` +
+            `unavailable; resending with a full presence`,
+        );
+        doc.restorePresencePatches();
+        reqPack = doc.createChangePack();
+        res = await push();
+      }
 
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
