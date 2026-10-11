@@ -254,11 +254,15 @@ describe('CRDTTree restore span claimed identity', function () {
   });
 
   // GC purges a tombstone at whatever moment the local min-synced version
-  // allows, so "a tombstone still answers to this id" is a replica-local fact.
-  // Refusing the span on its account lets a replica that has already purged
-  // the tombstone recreate what this one skips, and they never reconcile.
-  // Only a LIVE holder refuses, and a live node has been purged nowhere.
-  it('recreates a span whose identity only a tombstone holds', function () {
+  // allows, so "a tombstone still answers to this id" is a replica-local fact,
+  // and refusing a span on its account lets a replica that has already purged
+  // the tombstone recreate what this one skips. A KIND clash is the one
+  // exception: `registerNode` keeps a live node over a tombstone, so the text
+  // node would take the tombstoned element's entry in `nodeMapByID`, and every
+  // position naming that element as its parent then resolves to a text node
+  // and throws `ErrRefused` on apply -- for good, on every replica that still
+  // holds the element. One crafted span's divergence is the cheaper failure.
+  it('skips a text span naming a tombstoned element', function () {
     const { tree, p } = helloTree();
     p.remove(ticketOf(10));
 
@@ -272,17 +276,26 @@ describe('CRDTTree restore span claimed identity', function () {
     };
     const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
     assert.isEmpty(untombstoned);
-    assert.lengthOf(recreated, 1, 'a tombstoned identity does not refuse');
-    assert.equal(tree.toXML(), '<r>x</r>');
+    assert.isEmpty(recreated, 'a clashing kind refuses even on a tombstone');
+    assert.equal(tree.toXML(), '<r></r>');
+    assert.strictEqual(
+      tree.findFloorNode(p.id),
+      p,
+      '<p> keeps its own identity, so positions under it still resolve',
+    );
+    assert.isFalse(tree.findFloorNode(p.id)!.isText);
   });
 
   // Only a crafted payload mints an element inside a text insertion's offset
   // space. The piece walk steps over it instead of stopping there: stopping
-  // hid every live piece below it, which refused the whole span on one replica
-  // and -- once GC had taken the element -- accepted it on another.
+  // hid every piece below it, which refused the whole span on one replica
+  // and -- once GC had taken the element -- accepted it on another. Here
+  // "hello" is tombstoned and sits BELOW the planted element, so it is revived
+  // only if the walk saw past the element.
   it('sees the text pieces below a planted element of one insertion', function () {
     const { tree, p, text } = helloTree();
     const created = text.id.getCreatedAt();
+    text.remove(ticketOf(10));
     tree.registerNode(new CRDTTreeNode(CRDTTreeNodeID.of(created, 7), 'p', []));
 
     const span: TreeRestoreSpan = {
@@ -293,9 +306,58 @@ describe('CRDTTree restore span claimed identity', function () {
       value: 'helloWORLD',
       parentID: p.id,
     };
+    const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
+    assert.lengthOf(untombstoned, 1, 'the piece below the element is revived');
+    assert.equal(tree.toXML(), '<r><p>hello</p></r>');
+
+    // The purged tail [5, 10) straddles the planted element at offset 7, so
+    // recreating it would mint a run whose next split lands on the element's
+    // exact id -- the duplicate identity of #1471, one split later.
+    assert.isEmpty(recreated, 'a gap straddling a held element is refused');
+    assert.isFalse(
+      tree.findFloorNode(CRDTTreeNodeID.of(created, 7))!.isText,
+      'the planted element still answers to its own id',
+    );
+  });
+
+  // The gap that does NOT reach the planted element is still rebuilt: the
+  // clash guard refuses a range, not the whole span.
+  it('recreates the gaps a planted element does not straddle', function () {
+    const { tree, p, text } = helloTree();
+    const created = text.id.getCreatedAt();
+    tree.registerNode(new CRDTTreeNode(CRDTTreeNodeID.of(created, 7), 'p', []));
+
+    const span: TreeRestoreSpan = {
+      id: CRDTTreeNodeID.of(created, 0),
+      nodeType: 'text',
+      isText: true,
+      length: 7,
+      value: 'helloWO',
+      parentID: p.id,
+    };
     const [, recreated] = tree.restore([span], ticketOf(20));
-    assert.lengthOf(recreated, 1, 'only the purged tail is rebuilt');
-    assert.equal(tree.toXML(), '<r><p>helloWORLD</p></r>');
+    assert.lengthOf(recreated, 1, 'the gap [5, 7) clears the element at 7');
+    assert.equal(tree.toXML(), '<r><p>helloWO</p></r>');
+  });
+
+  // The mirror shape: an element span over an offset a held text run covers.
+  // `restoreSpanIsWellFormed` already refuses a non-zero element offset, so
+  // this one names offset 0 of the run's own insertion.
+  it('skips an element span over the head of a held text run', function () {
+    const { tree, p, text } = helloTree();
+    text.remove(ticketOf(10));
+
+    const span: TreeRestoreSpan = {
+      id: CRDTTreeNodeID.of(text.id.getCreatedAt(), 0),
+      nodeType: 'p',
+      isText: false,
+      length: 0,
+      parentID: p.id,
+    };
+    const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
+    assert.isEmpty(untombstoned);
+    assert.isEmpty(recreated, 'an element never takes a text run’s id');
+    assert.strictEqual(tree.findFloorNode(text.id), text);
   });
 });
 

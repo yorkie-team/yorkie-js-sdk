@@ -136,3 +136,42 @@ state" -- it is "read only state that GC cannot move".
 - Lesson: "this test reads replica-local state" is not answered by
   shrinking what it decides. Ask which of the state it reads is MONOTONIC
   under GC; keep that half and drop the rest.
+
+## Panel round 4 — kind is the state GC cannot take away either
+
+The security lens upheld the GC-monotonicity argument above and then showed
+the hole it left: the argument reasons about *which node* holds an identity
+and never about *what kind* that node is.
+
+- Round 3 made `findPiecesOverlapping` step over a non-text node of the
+  insertion instead of stopping there. That fixed the hidden-pieces problem
+  and, in the same stroke, left the stepped-over offset inside a recreate
+  GAP. The gap branch then minted a text run straight across a held element
+  — not an exact-id collision today, but the next split of that run mints
+  the element's exact id and `registerNode` overwrites it. #1471, deferred
+  by one split. The comment on `recreateParent` claimed this "cannot arise",
+  reasoning only about text pieces.
+- The narrow live-only refusal had the mirror hole: a text span naming a
+  TOMBSTONED element's id was recreated over that element's `nodeMapByID`
+  entry, after which every position naming the element as its parent
+  resolves to a text node and remote apply throws `ErrRefused` for good.
+- Fix: `holdsClashingKind(createdAt, start, end, isText)` walks the held
+  nodes of the insertion overlapping the range and refuses when any is of
+  the opposite kind. `recreateFromSpan` asks it over the whole range before
+  `recreateParent` asks about a single id, so both shapes die at the same
+  guard. `restore` and `retombstone` got the matching one-line check on the
+  element branch, where an element span could otherwise revive or tombstone
+  a text node holding that exact id.
+- Convergence: this guard DOES count tombstones, deliberately, breaking the
+  round-3 rule. The trade is explicit — a kind clash is unreachable for any
+  honest span (spans are captured off real nodes; element ids never carry a
+  non-zero offset), so honest convergence is untouched, and for a crafted
+  span the cost of refusing is one span's worth of divergence between
+  replicas whose GC ran at different moments, against the cost of accepting,
+  which is a permanently unapplicable document on every replica that still
+  holds the clashing node.
+- Lesson: "keep only the GC-monotonic half of the state" was the right rule
+  but not the whole rule. A node's KIND is monotonic under GC too — it never
+  changes, and GC can only remove the node entirely. The round-3 pass
+  narrowed on liveness and forgot the other axis, and the same commit that
+  narrowed it re-opened the overlap case it declared closed.
