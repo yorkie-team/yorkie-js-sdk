@@ -2708,8 +2708,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * exactly. A copy of a text piece that the live tree still holds unsplit,
    * say (C,2) against a live (C,0)"hello", is a second node inside one
    * identity just as much as an exact duplicate is, and `registerNode` has the
-   * same one-node-per-ID answer for it (#1471). `restore` applies the same
-   * rule when it recreates a purged node (see `isIdentityClaimed`).
+   * same one-node-per-ID answer for it (#1471). The contents of an edit are
+   * the same on every replica that applies it, so the drop decision is taken
+   * off the same span of offsets everywhere; `restore`'s recreate path cannot
+   * use this test, and uses a narrower one, for the reason spelled out in
+   * `recreateParent`.
    *
    * Dropping rather than failing is deliberate: such changes are already in
    * the history of existing documents, and a change that cannot be replayed is
@@ -4300,6 +4303,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `findPiecesOverlapping` collects surviving pieces (live or tombstoned) of
    * the text insertion `createdAt` overlapping [start, end), in ascending
    * offset order, via descending floorEntry probes.
+   *
+   * A non-text node of the same insertion is stepped over rather than ending
+   * the walk. Only a crafted payload can mint an element inside a text
+   * insertion's offset space (every honest element id carries offset 0, which
+   * `restoreSpanIsWellFormed` relies on), but stopping at one hides every
+   * lower piece of the insertion from the caller -- and hides a different set
+   * on each replica, since whether the element is still here depends on when
+   * the local GC ran. The walk still terminates: `probe` drops below the
+   * stepped-over node's offset each time, exactly as it does for a text piece.
    */
   private findPiecesOverlapping(
     createdAt: TimeTicket,
@@ -4310,8 +4322,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
     let probe = end - 1;
     while (probe >= 0) {
       const node = this.findFloorNode(CRDTTreeNodeID.of(createdAt, probe));
-      if (!node || !node.isText) break;
+      if (!node) break;
       const nodeStart = node.id.getOffset();
+      if (!node.isText) {
+        probe = nodeStart - 1;
+        continue;
+      }
       const nodeEnd = nodeStart + node.value.length;
       if (nodeEnd <= start) break;
       if (nodeStart < end && nodeEnd > start) pieces.push(node);
@@ -4334,6 +4350,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * duplicate-identity state `registerNode` cannot represent -- it overwrites,
    * leaving every later change addressing the overwritten node unapplicable
    * (#1471).
+   *
+   * Only `dropDuplicateContents` may ask this: the answer counts tombstones,
+   * so it moves as the local GC runs, and a caller whose decision must match
+   * every other replica's needs a test that does not (see `recreateParent`).
    *
    * One floor probe decides it: `floorEntry(end - 1)` is the highest-offset
    * node of the insertion that could start inside the range, so if it does not
@@ -4362,27 +4382,39 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * `recreateParent` resolves the node a recreated span hangs under, or
    * undefined when the span must be left unplaced (B1). Three shapes are
    * unplaceable. The parent is genuinely absent (purged and not part of this
-   * restore). The parent is a text node, which cannot hold children. Or the
-   * offset range the recreated node would occupy, [id.offset, id.offset +
-   * length), overlaps one a surviving node of the same insertion already
-   * claims (see `isIdentityClaimed`).
+   * restore). The parent is a text node, which cannot hold children. Or a node
+   * this replica still holds answers to `id` exactly AND is still live.
+   *
+   * That last test is deliberately narrower than `isIdentityClaimed`, which
+   * `dropDuplicateContents` uses, and the difference is convergence. Whether a
+   * TOMBSTONED node still sits at an offset is a replica-local fact: GC purges
+   * it at whatever moment the local min-synced version allows, so refusing a
+   * span on its account lets one replica recreate what another skips, forever.
+   * Refusing on a LIVE node carries no such asymmetry -- GC only ever purges
+   * removed nodes, so a node that is live here has not been purged anywhere --
+   * and it is the single state `registerNode` cannot represent: a live-over-
+   * live `put` silently swaps which node every later change resolves through,
+   * leaving those changes unapplicable (#1471). A tombstoned holder needs no
+   * refusal, because `registerNode` already keeps the live node over the
+   * tombstone by the same rule on every replica.
+   *
+   * Overlap without an exact collision cannot arise here: `restore` only
+   * recreates the gaps `findPiecesOverlapping` left, and that walk now reports
+   * every text piece of the insertion in range, so the recreated run is
+   * strictly between two held pieces.
    *
    * No honest span is any of these: spans come from the wire, and the server
    * stores a change before applying it, so throwing here would fail every
    * later apply of the document. A replica that does hold the named node
    * resolves the span through restore's un-tombstone branch instead, so an
-   * honest span converges either way. A crafted one is skipped here rather
-   * than allowed to overwrite a live registration; the claim test reads
-   * replica-local state (which nodes GC has purged), so two replicas can act
-   * differently on such a span, which is why the shapes that can be judged
-   * from the span alone are rejected earlier and unconditionally, in
+   * honest span converges either way. Shapes that can be judged from the span
+   * alone are rejected earlier and unconditionally, in
    * `restoreSpanIsWellFormed`. Mirrors Go's `Tree.recreateParent`
    * (yorkie#2168).
    */
   private recreateParent(
     span: TreeRestoreSpan,
     id: CRDTTreeNodeID,
-    length: number,
   ): CRDTTreeNode | undefined {
     if (!span.parentID) {
       return;
@@ -4392,14 +4424,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return;
     }
 
-    const start = id.getOffset();
-    if (
-      this.isIdentityClaimed(
-        id.getCreatedAt(),
-        start,
-        start + Math.max(length, 1),
-      )
-    ) {
+    const holder = this.findFloorNode(id);
+    if (holder && holder.id.equals(id) && !holder.isRemoved) {
       return;
     }
 
@@ -4428,7 +4454,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     length: number,
   ): CRDTTreeNode | undefined {
     const id = CRDTTreeNodeID.of(span.id.getCreatedAt(), offset);
-    const parent = this.recreateParent(span, id, length);
+    const parent = this.recreateParent(span, id);
     if (!parent) {
       return;
     }

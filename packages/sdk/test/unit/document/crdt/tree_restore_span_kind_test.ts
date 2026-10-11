@@ -252,6 +252,51 @@ describe('CRDTTree restore span claimed identity', function () {
     assert.equal(tree.toXML(), '<r><p>heZllo</p></r>');
     assert.equal(tree.getSize(), 8, 'the length cache stays sound');
   });
+
+  // GC purges a tombstone at whatever moment the local min-synced version
+  // allows, so "a tombstone still answers to this id" is a replica-local fact.
+  // Refusing the span on its account lets a replica that has already purged
+  // the tombstone recreate what this one skips, and they never reconcile.
+  // Only a LIVE holder refuses, and a live node has been purged nowhere.
+  it('recreates a span whose identity only a tombstone holds', function () {
+    const { tree, p } = helloTree();
+    p.remove(ticketOf(10));
+
+    const span: TreeRestoreSpan = {
+      id: p.id,
+      nodeType: 'text',
+      isText: true,
+      length: 1,
+      value: 'x',
+      parentID: tree.getRoot().id,
+    };
+    const [untombstoned, recreated] = tree.restore([span], ticketOf(20));
+    assert.isEmpty(untombstoned);
+    assert.lengthOf(recreated, 1, 'a tombstoned identity does not refuse');
+    assert.equal(tree.toXML(), '<r>x</r>');
+  });
+
+  // Only a crafted payload mints an element inside a text insertion's offset
+  // space. The piece walk steps over it instead of stopping there: stopping
+  // hid every live piece below it, which refused the whole span on one replica
+  // and -- once GC had taken the element -- accepted it on another.
+  it('sees the text pieces below a planted element of one insertion', function () {
+    const { tree, p, text } = helloTree();
+    const created = text.id.getCreatedAt();
+    tree.registerNode(new CRDTTreeNode(CRDTTreeNodeID.of(created, 7), 'p', []));
+
+    const span: TreeRestoreSpan = {
+      id: CRDTTreeNodeID.of(created, 0),
+      nodeType: 'text',
+      isText: true,
+      length: 10,
+      value: 'helloWORLD',
+      parentID: p.id,
+    };
+    const [, recreated] = tree.restore([span], ticketOf(20));
+    assert.lengthOf(recreated, 1, 'only the purged tail is rebuilt');
+    assert.equal(tree.toXML(), '<r><p>helloWORLD</p></r>');
+  });
 });
 
 /**

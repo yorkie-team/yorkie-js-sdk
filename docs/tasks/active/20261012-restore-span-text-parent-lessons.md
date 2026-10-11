@@ -103,3 +103,36 @@ guards cover; the fifth was refuted by running the tests.
   `hello` -- the cases do reach the guards.
 - Lesson: before accepting "this test does not bite", run it against the
   base revision. It costs one checkout.
+
+### Round 4 (review panel: the claim test still reads GC state)
+
+Round 3 filed a rebuttal arguing no state-independent rule exists for the
+recreate path. The rebuttal was wrong, and the panel was right to keep the
+finding open: there IS a state-independent rule, it just is not "read less
+state" -- it is "read only state that GC cannot move".
+
+- GC purges only REMOVED nodes. So "a live node answers to this id" is a
+  fact no replica's GC timing can change, while "a tombstone answers to
+  this id" is exactly the fact GC takes away, at a different moment on each
+  replica. `recreateParent` now refuses only an EXACT id held by a LIVE
+  node, which is also the single state `registerNode` cannot represent: a
+  live-over-live `put` swaps which node later changes resolve through
+  (#1471). Live-over-tombstone `registerNode` already resolves the same way
+  everywhere, so a tombstoned holder needs no refusal at all.
+- `isIdentityClaimed`'s overlap form stays, but only for
+  `dropDuplicateContents`, where the offsets come from the edit's own
+  contents and are therefore identical on every replica that applies it.
+- The overlap case cannot reach the recreate path any more, because
+  `findPiecesOverlapping` no longer ENDS its walk at a non-text node of the
+  insertion -- it steps over it. That break was the whole reason a recreate
+  gap could straddle a piece the replica still held: it hid every lower
+  piece, and hid a different set depending on local GC. Stepping over
+  terminates for the same reason the text case does (`probe` drops below
+  the node's offset).
+- Both new tests fail on the round-3 code (checked by stashing `tree.ts`):
+  a span whose identity only a tombstone holds was skipped, and a span
+  whose insertion had a crafted element planted above the live run was
+  skipped whole rather than having just its purged tail rebuilt.
+- Lesson: "this test reads replica-local state" is not answered by
+  shrinking what it decides. Ask which of the state it reads is MONOTONIC
+  under GC; keep that half and drop the rest.
