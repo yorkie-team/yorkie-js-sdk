@@ -26,11 +26,11 @@ import {
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 
 import type {
-  DefaultTextType,
   TreeNodeType,
   TreeToken,
 } from '@yorkie-js/sdk/src/util/index_tree';
 import {
+  DefaultTextType,
   IndexTree,
   IndexTreeNode,
   TokenType,
@@ -512,6 +512,21 @@ export type TreeRestoreSpan = {
   leftSiblingID?: CRDTTreeNodeID; // undefined → was first child
   rightSiblingID?: CRDTTreeNodeID; // undefined → was last child
 };
+
+/**
+ * `restoreSpanKindAgrees` reports whether the span's `isText` flag matches its
+ * `nodeType`, as it always does on a span an honest replica captured. A span
+ * that disagrees would recreate a node of the wrong kind -- an element
+ * carrying a value is then invisible to the text lookup, so the same span
+ * applied again inserts a second node under one ID. Decoding cannot reject it:
+ * stored changes go through the same decoder and must stay loadable, so
+ * `restore` and `retombstone` skip it instead. The kind is part of the span
+ * itself, so every replica skips it alike. Mirrors Go's
+ * `TreeRestoreSpan.kindAgrees` (yorkie#2168).
+ */
+function restoreSpanKindAgrees(span: TreeRestoreSpan): boolean {
+  return span.isText === (span.nodeType === DefaultTextType);
+}
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It includes the logical clock and
@@ -4005,6 +4020,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     };
 
     for (const span of spans) {
+      if (!restoreSpanKindAgrees(span)) {
+        continue;
+      }
       if (!span.isText) {
         const node = this.findFloorNode(span.id);
         if (node && node.id.equals(span.id)) {
@@ -4127,6 +4145,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const diff: DataSize = { data: 0, meta: 0 };
     const changes: Array<TreeVisibleEdit> = [];
     for (const span of spans) {
+      if (!restoreSpanKindAgrees(span)) {
+        continue;
+      }
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
       const pieces = span.isText
@@ -4268,8 +4289,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
    *   (d) deterministic id-order fallback: insert among the parent's current
    *       children at the first position whose id compares greater than the
    *       node's id (pure function of ids → identical on every replica).
-   * Parent genuinely absent → skip (B1): the node stays unplaced/invisible;
-   * convergent, because every replica resolves parent-absent identically.
+   * Parent genuinely absent, or a text node that cannot hold children → skip
+   * (B1): the node stays unplaced/invisible; convergent, because every replica
+   * resolves parent-absent identically and node kind never changes. Go's
+   * `Tree.recreateFromSpan` applies the same rule (yorkie#2168).
    * Parent present but TOMBSTONED → the node is placed but born tombstoned,
    * stamped with the parent's `removedAt`, and returned as undefined (see
    * `attach` below).
@@ -4285,6 +4308,13 @@ export class CRDTTree extends CRDTElement implements GCParent {
     if (!parent || (span.parentID && !parent.id.equals(span.parentID))) {
       // B1: parent gone (purged, and not part of this undo's spans). Leave
       // the node unplaced; a later parent-restore will bring it back.
+      return;
+    }
+    // No honest replica names a text node as a parent, but spans come from
+    // the wire and the server stores a change before applying it, so throwing
+    // here would fail every later apply of the document on every replica
+    // (#1471). Node kind never changes, so every replica skips the same span.
+    if (parent.isText) {
       return;
     }
 
