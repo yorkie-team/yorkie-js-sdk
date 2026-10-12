@@ -1482,6 +1482,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `tombstoneSubtree` tombstones `node` and every live node below it with
+   * `editedAt`, returning the nodes it actually tombstoned, in post-order. A
+   * node already removed keeps its own `removedAt` and is not reported again,
+   * which also keeps the result disjoint from the nodes step 02 removed.
+   */
+  private tombstoneSubtree(
+    node: CRDTTreeNode,
+    editedAt: TimeTicket,
+  ): Array<CRDTTreeNode> {
+    const removed: Array<CRDTTreeNode> = [];
+    traverseAll(node, (n) => {
+      if (n.removedAt) {
+        return;
+      }
+      if (n.remove(editedAt)) {
+        removed.push(n);
+      }
+    });
+    return removed;
+  }
+
+  /**
    * `resolveMergeTarget` follows the `mergedInto` forwarding chain from the
    * given node while the current node is a merge-away tombstone, returning
    * the final live target. When a merge lands on a parent that a prior
@@ -3052,6 +3074,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     Array<CRDTTreeNode>,
     Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
+    Array<CRDTTreeNode>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -3323,11 +3346,45 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // parent forward to the final live target instead of piling up under
     // the removed intermediate.
     const dest = this.resolveMergeTarget(fromParent);
+    // The nodes the cycle guard below tombstones in place instead of moving,
+    // in post-order. Each gets a GC pair, and the operation layer counts them
+    // toward the size this edit removed (Go's `RemovedSize`).
+    const stranded: Array<CRDTTreeNode> = [];
+    // Set once the guard tombstones a subtree that contains dest. The
+    // destination is resolved once, before the loop, but the list can hold
+    // several merge sources' children, so entries remain after the guard
+    // fires. dest is inside the subtree just tombstoned, so moving those
+    // remaining children there would put live nodes under a tombstone. They
+    // are stranded too.
+    let destTombstoned = false;
     for (const node of toBeMovedToFromParents) {
       // A moved child must have a source parent to record; skip otherwise
       // rather than append an untracked node (a node without `mergedFrom`
       // is invisible to the merge-delete propagation and rebuild logic).
       if (!node.parent) {
+        continue;
+      }
+      // A destination that is the node itself or lies inside it can only
+      // come from a forged lineage: `mergedInto` is derived from the
+      // `mergedFrom` an element payload keeps, so a crafted one can aim the
+      // destination's forwarding chain at a child this merge moves, or at a
+      // node inside one. Moving the node there would close a parent cycle in
+      // the index tree, and every later ancestor walk would spin forever.
+      // The check reads only the tree the change lands on, so replicas
+      // holding the same tree decide alike.
+      //
+      // Left live, it would stay under the source step 02 just tombstoned,
+      // whose eventual purge detaches the subtree while it stays registered
+      // in `nodeMapByID` and charged as live (#2008). So it is tombstoned
+      // where it stands, with its descendants, the way the §6.2 cascade
+      // tombstones a merge-moved child whose source this edit deletes.
+      if (node === dest || node.isAncestorOf(dest)) {
+        destTombstoned = true;
+        stranded.push(...this.tombstoneSubtree(node, editedAt));
+        continue;
+      }
+      if (destTombstoned) {
+        stranded.push(...this.tombstoneSubtree(node, editedAt));
         continue;
       }
       // Tombstoned children are moved too (kept removed): they stay as RGA
@@ -3382,6 +3439,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (src && src.removedAt) {
         src.mergedInto = dest.id;
       }
+    }
+
+    for (const node of stranded) {
+      pairs.push({ parent: this, child: node });
     }
 
     // 03-1. Propagate deletes to children moved by prior merges.
@@ -3819,6 +3880,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // cascade-deleted descendants and nodes already tombstoned.
       toBeMergedNodes,
       splitRecreatedIDs,
+      // The subtrees the merge's cycle guard tombstoned in place. Not in
+      // `nodesToBeRemoved` -- the merge had collected them to move -- yet the
+      // range this edit consumed includes them.
+      stranded,
     ];
   }
 
@@ -3846,6 +3911,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     Array<CRDTTreeNode>,
     Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
+    Array<CRDTTreeNode>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);

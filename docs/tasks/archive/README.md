@@ -8,13 +8,14 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 48
+Total archived tasks: 49
 
-## 2026/10 (11 tasks)
+## 2026/10 (12 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
 | Leave a restore span with a text parent unplaced (2026-10-12) | [20261012-restore-span-text-parent-todo.md](./2026/10/20261012-restore-span-text-parent-todo.md) | [20261012-restore-span-text-parent-lessons.md](./2026/10/20261012-restore-span-text-parent-lessons.md) |
+| Refuse a merge that would move a node under itself (2026-10-12) | [20261012-merge-lineage-cycle-todo.md](./2026/10/20261012-merge-lineage-cycle-todo.md) | [20261012-merge-lineage-cycle-lessons.md](./2026/10/20261012-merge-lineage-cycle-lessons.md) |
 | Send presence as a patch when the server advertises presence-patch (2026-10-11) | [20261011-presence-patch-todo.md](./2026/10/20261011-presence-patch-todo.md) | [20261011-presence-patch-lessons.md](./2026/10/20261011-presence-patch-lessons.md) |
 | Detect a half-open Watch stream from the server heartbeat (2026-10-10) | [20261010-watch-idle-watchdog-todo.md](./2026/10/20261010-watch-idle-watchdog-todo.md) | [20261010-watch-idle-watchdog-lessons.md](./2026/10/20261010-watch-idle-watchdog-lessons.md) |
 | Run the git hooks from .githooks/ and drop the trusted-tree guard (2026-10-09) | [20261009-remove-trusted-tree-guard-todo.md](./2026/10/20261009-remove-trusted-tree-guard-todo.md) | [20261009-remove-trusted-tree-guard-lessons.md](./2026/10/20261009-remove-trusted-tree-guard-lessons.md) |
