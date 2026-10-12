@@ -643,6 +643,7 @@ export class TreeEditOperation extends Operation {
       splitSize,
       mergedNodes,
       splitRecreatedIDs,
+      strandedNodes,
     ] = tree.edit(
       [this.fromPos, this.toPos],
       this.contents?.map((content) => content.deepcopy()),
@@ -695,7 +696,10 @@ export class TreeEditOperation extends Operation {
     // but before deletions). Derive toIdx from removed nodes' visible sizes.
     this.lastFromIdx = preEditFromIdx;
     // For toIdx: fromIdx + total visible tokens of removed nodes
-    const removedSize = removedNodes.reduce(
+    // The merge's stranded subtrees are part of the consumed range too: they
+    // are not in `removedNodes`, yet tombstoning them drained their size out
+    // of the removed source they stay under.
+    const removedSize = [...removedNodes, ...strandedNodes].reduce(
       (sum, node) => sum + node.paddedSize(),
       0,
     );
