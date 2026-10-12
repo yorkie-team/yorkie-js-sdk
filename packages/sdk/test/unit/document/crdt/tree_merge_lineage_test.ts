@@ -22,6 +22,7 @@ import {
   CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
 
 /**
  * A merge pointer (`mergedFrom`, and the `mergedInto` derived from it) is not
@@ -234,6 +235,54 @@ describe('Tree merge lineage', () => {
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>ab</p><p></p></r>`);
   });
 
+  it('rebuildMergeState should not plant a pointer into the source subtree', () => {
+    // <r><a><b>y</b></a></r> with a tombstoned and a child of b naming a as
+    // its source. A merge moves children OUT of the source, so a destination
+    // inside the source is one no merge ever produced: planting it would aim
+    // a's whole forwarding chain back into a's own subtree.
+    const n = {
+      r: new CRDTTreeNode(posT(), 'r'),
+      a: new CRDTTreeNode(posT(), 'a'),
+      b: new CRDTTreeNode(posT(), 'b'),
+      y: new CRDTTreeNode(posT(), 'text', 'y'),
+    };
+    n.r.append(n.a);
+    n.a.append(n.b);
+    n.b.append(n.y);
+    n.a.remove(timeT());
+    n.y.mergedFrom = n.a.id;
+    n.y.mergedAt = timeT();
+
+    new CRDTTree(n.r, timeT());
+
+    assert.isUndefined(
+      n.a.mergedInto,
+      'a destination inside the source is not a merge any replica performed',
+    );
+  });
+
+  it('resolveMergeTarget should not forward into the source subtree', () => {
+    // The same rule at the other end of the chain: even a pointer planted
+    // before this guard existed (or by a runtime path) must not be followed
+    // into the source's own subtree, where it hands every consumer -- the
+    // insert redirect, the delete cascade, the merge -- a target the source
+    // contains.
+    const n = {
+      r: new CRDTTreeNode(posT(), 'r'),
+      a: new CRDTTreeNode(posT(), 'a'),
+      b: new CRDTTreeNode(posT(), 'b'),
+    };
+    n.r.append(n.a);
+    n.a.append(n.b);
+    const tree = new CRDTTree(n.r, timeT());
+    // `b` is an element and is named exactly, so every other guard on the
+    // hop passes: only its sitting inside `a` rejects it.
+    n.a.remove(timeT());
+    n.a.mergedInto = n.b.id;
+
+    assert.strictEqual((tree as any).resolveMergeTarget(n.a), n.a);
+  });
+
   it('resolveMergeTarget should not forward to a text node', () => {
     const f = buildFixture();
     f.p1.removedAt = timeT();
@@ -279,6 +328,10 @@ describe('Tree merge lineage', () => {
       // in the index tree and every later ancestor walk would spin forever.
       // The edit is synchronous, so a regression hangs this test rather than
       // failing it: vitest's timeout cannot interrupt a busy loop.
+      //
+      // The merge drops the forged forwarding and moves the child into the
+      // unforwarded parent instead of skipping it, so nothing is left live
+      // inside the boundary this same edit tombstoned.
       const n = {
         r: new CRDTTreeNode(posT(), 'r'),
         a: new CRDTTreeNode(posT(), 'a'),
@@ -311,18 +364,25 @@ describe('Tree merge lineage', () => {
 
       assert.strictEqual(
         n.c.parent,
-        n.b,
-        'c stays where it was instead of moving under itself',
+        n.a,
+        'c moves into the unforwarded parent instead of under itself',
       );
       assert.strictEqual(n.d.parent, n.c);
-      assert.isUndefined(
-        n.c.mergedFrom,
-        'a skipped child is not stamped as moved',
+      assert.isTrue(
+        n.c.mergedFrom?.equals(n.b.id),
+        'the child really moved, so it is stamped for its source',
       );
-      assert.isUndefined(
-        n.b.mergedInto,
-        'no moved child names b, so neither runtime nor rebuild points it',
-      );
+      assert.isTrue(n.b.mergedInto?.equals(n.a.id));
+      assert.isTrue(n.b.isRemoved);
+      // The invariant the skip used to break: the boundary this edit
+      // tombstoned keeps no live descendant, so GC cannot later detach a
+      // live subtree that stays registered in `nodeMapByID` (#2008).
+      traverseAll(n.b, (node) => {
+        assert.isTrue(
+          node.isRemoved,
+          'a tombstoned merge boundary has no live descendants',
+        );
+      });
       assert.equal(tree.toXML(), /*html*/ `<r></r>`);
     });
   }

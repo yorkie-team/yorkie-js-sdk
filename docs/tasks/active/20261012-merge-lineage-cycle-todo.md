@@ -17,9 +17,18 @@ browser that freezes the tab of every peer that applies the change.
 
 ## Fix
 
-Skip a child whose destination is the child itself or one of its
-descendants. The check reads only the tree every replica holds when it
-applies the change, so all replicas skip the same child, matching Go.
+Refuse the forged *forwarding*, not the move. Three containment checks, all
+reading only the tree every replica holds when it applies the change, so all
+replicas decide alike:
+
+1. `rebuildMergeState` does not plant `src.mergedInto` when the destination
+   is the source itself or sits inside its subtree.
+2. `resolveMergeTarget` cuts a hop that folds back into the current target's
+   subtree, so every consumer of the chain sees the same bounded target.
+3. The merge step falls back to the unforwarded `fromParent` when the
+   resolved destination is one of the children it is about to move, or sits
+   inside one. The children still all leave the tombstoned boundary, so the
+   boundary keeps no live descendants.
 
 ## Plan
 
