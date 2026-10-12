@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 46
+Total archived tasks: 47
 
-## 2026/10 (9 tasks)
+## 2026/10 (10 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Send presence as a patch when the server advertises presence-patch (2026-10-11) | [20261011-presence-patch-todo.md](./2026/10/20261011-presence-patch-todo.md) | [20261011-presence-patch-lessons.md](./2026/10/20261011-presence-patch-lessons.md) |
 | Detect a half-open Watch stream from the server heartbeat (2026-10-10) | [20261010-watch-idle-watchdog-todo.md](./2026/10/20261010-watch-idle-watchdog-todo.md) | [20261010-watch-idle-watchdog-lessons.md](./2026/10/20261010-watch-idle-watchdog-lessons.md) |
 | Run the git hooks from .githooks/ and drop the trusted-tree guard (2026-10-09) | [20261009-remove-trusted-tree-guard-todo.md](./2026/10/20261009-remove-trusted-tree-guard-todo.md) | [20261009-remove-trusted-tree-guard-lessons.md](./2026/10/20261009-remove-trusted-tree-guard-lessons.md) |
 | Stop the split-sibling cascade at a sibling the editor saw alive (2026-10-06) | [20261006-split-sibling-cascade-stop-todo.md](./2026/10/20261006-split-sibling-cascade-stop-todo.md) | [20261006-split-sibling-cascade-stop-lessons.md](./2026/10/20261006-split-sibling-cascade-stop-lessons.md) |

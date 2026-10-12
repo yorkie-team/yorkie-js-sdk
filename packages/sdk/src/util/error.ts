@@ -110,6 +110,13 @@ export enum Code {
   // failing operation happened to throw.
   ErrChangeApplyFailed = 'ErrChangeApplyFailed',
 
+  // ErrPresenceBaseUnavailable is returned when the server has no base to fold
+  // a presence patch into, because it was evicted from the cache or never
+  // reached this server. Nothing in the pack was stored: the client resends it
+  // with the patch replaced by a full put. It is an expected signal rather
+  // than a failure.
+  ErrPresenceBaseUnavailable = 'ErrPresenceBaseUnavailable',
+
   // ErrWatchStreamIdle is reported when a watch stream stays silent for longer
   // than the heartbeat interval the server advertised allows, which is how a
   // half-open connection is told from a quiet document.
