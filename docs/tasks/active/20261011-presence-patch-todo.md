@@ -28,15 +28,17 @@ patch into a full `PUT` before storing, so only the upload path changes.
 - [x] When a returned pack drops the capability and we have patched, heal with
       a full `PUT` right away.
 - [x] `ErrPresenceBaseUnavailable` on push: rewrite the earliest pending patch
-      into a `PUT` of its `full`, then resend once.
+      into a `PUT` of its `full`, then resend once. Every path that pushes a
+      pack answers it, not push-pull alone — a queue restored from offline
+      persistence still holds patches, so attach, detach and remove all go
+      through `Client.pushWithPresenceBase` too.
+- [x] `fromPresenceChange` decodes a wire `PATCH` rather than throwing. A
+      pulled pack does not normally carry one (the server folds each patch into
+      the base it holds before storing), but an echo of a pushed change, or a
+      peer ahead of this SDK, must not fail the whole pack.
 - [x] Unit tests.
 
 ## Out of scope
 
 - `PresenceChange.removedKeys`: `set()` never removes a key, so the SDK has no
   producer for it yet. The field stays unwritten.
-- Patch-aware `fromPresenceChange`: the server folds every patch into a `PUT`
-  before storing, so nothing a client pulls is ever a `PATCH`.
-- The attach/detach/remove push paths keep no retry for
-  `ErrPresenceBaseUnavailable`: attach always sends a `PUT` (the capability is
-  not yet known), and detach/remove push a `CLEAR`.
