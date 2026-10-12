@@ -45,3 +45,20 @@ cross-SDK follow-up.
       tombstones, GC pair order, removed size and XML on the shared fixtures
 
 ## Review
+
+Matches yorkie#2186 at 2f1dccfc. `pnpm verify:fast` and the `tree*` /
+`history_tree*` integration suites (2032 tests) pass after merging main.
+
+## Out of scope
+
+- A live element is never a merge source here (js-sdk#1406), but Go accepts
+  one, so an undo can make the server erase merged text that clients keep:
+  yorkie-team/yorkie#2189.
+- Concurrent multi-level deletes diverge by arrival order in both SDKs:
+  yorkie-team/yorkie#2190.
+- The broader `mergedInto` containment bound the panel added was dropped:
+  honest concurrent deletes produce a pointer into the source's subtree, so
+  the bound would change honest merges and snapshot loads.
+- yorkie#2187 reworks `mergeNodes` with per-child destinations; the cycle
+  guard has to move with it when that lands (and in its JS mirror).
+
