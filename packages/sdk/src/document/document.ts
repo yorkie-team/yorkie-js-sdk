@@ -1816,7 +1816,17 @@ export class Document<
   private resetPresenceStateForRestore(): void {
     this.presencePatchable = false;
     this.presenceBaseSent = false;
-    this.presencePatchSent = this.localChanges.some(
+    this.presencePatchSent = this.hasPendingPresencePatch();
+  }
+
+  /**
+   * `hasPendingPresencePatch` reports whether a presence patch is still queued
+   * to be pushed. That is what makes a patch "outstanding": it reaches the
+   * server verbatim, so a server without the capability would store it as an
+   * empty presence and leave a presence to heal.
+   */
+  private hasPendingPresencePatch(): boolean {
+    return this.localChanges.some(
       (change) => change.getPresenceChange()?.type === PresenceChangeType.Patch,
     );
   }
@@ -1833,7 +1843,6 @@ export class Document<
     // update has to send a put as well. The rewrite below supplies it for the
     // pack already queued.
     this.resetPresenceBase();
-    this.presencePatchSent = false;
 
     for (const change of this.localChanges) {
       const presenceChange = change.getPresenceChange();
@@ -1850,9 +1859,16 @@ export class Document<
           presence: presenceChange.full,
         });
         this.presenceBaseSent = true;
-        return;
+        break;
       }
     }
+
+    // The rewrite deliberately leaves the later patches alone, so the queue
+    // usually still holds one. A patch is outstanding whenever it does, and
+    // clearing the flag regardless would tell `learnPresenceCapability` there
+    // is nothing to heal -- exactly when a server without the capability is
+    // about to store those patches as an empty presence.
+    this.presencePatchSent = this.hasPendingPresencePatch();
   }
 
   /**

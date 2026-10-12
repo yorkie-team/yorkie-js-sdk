@@ -56,6 +56,25 @@ function isCacheablePresence(presence: Indexable): boolean {
 }
 
 /**
+ * `removesKey` reports whether the given partial presence deletes a top-level
+ * key rather than setting one. An undo produces these: the reverse presence of
+ * a `set` that introduced a key carries that key with no previous value.
+ *
+ * A patch cannot express a deletion -- only the changed keys go on the wire,
+ * and the server folds them onto the base it holds, which leaves a key the
+ * update dropped standing for every peer. So an update that removes a key
+ * falls back to a full put, which does say what the whole presence now is.
+ */
+function removesKey(presence: Record<string, unknown>): boolean {
+  for (const key of Object.keys(presence)) {
+    if (presence[key] === undefined) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * `Presence` represents a proxy for the Presence to be manipulated from the outside.
  */
 export class Channel<P extends Indexable> {
@@ -107,6 +126,7 @@ export class Channel<P extends Indexable> {
     if (
       this.patchable &&
       !this.baseless &&
+      !removesKey(presence) &&
       isCacheablePresence(this.presence)
     ) {
       const keys = this.patchedKeys ?? new Set<string>();

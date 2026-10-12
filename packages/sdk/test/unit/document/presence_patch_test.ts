@@ -222,6 +222,67 @@ describe('Presence patch', function () {
     );
   });
 
+  it('still owes a heal while later patches stay queued', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    doc.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
+    doc.update((_, p) => p.set({ selection: ['id-1'] }));
+
+    doc.restorePresencePatches();
+    assert.deepEqual(pendingPresenceTypes(doc), [
+      PresenceChangeType.Put,
+      PresenceChangeType.Patch,
+    ]);
+
+    // The second patch is still on its way to a server that may not take one,
+    // so a reply without the capability has to heal rather than conclude that
+    // the rewrite already left a put behind.
+    ack(doc, []);
+    assert.deepEqual(pendingPresenceTypes(doc), [PresenceChangeType.Put]);
+    const healed = doc.createChangePack().getChanges()[0].getPresenceChange()!;
+    assert.deepEqual(
+      healed.type === PresenceChangeType.Put ? healed.presence : undefined,
+      { name: 'a', cursor: { x: 1, y: 1 }, selection: ['id-1'] },
+    );
+  });
+
+  it('puts when an update removes a presence key', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    assert.isTrue(doc.isPresencePatchableForTest());
+
+    // A patch names only the keys it carries and the server folds them onto
+    // the base it holds, so a key this update drops would stay standing for
+    // every peer. A removal has to be a put, which says what the whole
+    // presence now is.
+    doc.update((_, p) => p.set({ cursor: undefined }));
+    assert.deepEqual(pendingPresenceTypes(doc), [PresenceChangeType.Put]);
+  });
+
+  it('puts when an undo removes the key it introduced', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+
+    doc.update((_, p) =>
+      p.set(
+        { cursor: { x: 1, y: 1 } },
+        {
+          addToHistory: true,
+        },
+      ),
+    );
+    ack(doc, [PresencePatchCapability]);
+    assert.isTrue(doc.isPresencePatchableForTest());
+
+    // The reverse presence of a `set` that introduced a key carries that key
+    // with no previous value, so the undo removes it.
+    doc.history.undo();
+    assert.deepEqual(pendingPresenceTypes(doc), [PresenceChangeType.Put]);
+  });
+
   it('owes a put again after restoring from offline persistence', function () {
     const doc = createDoc();
     doc.update((_, p) => p.set({ name: 'a' }));
