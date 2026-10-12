@@ -36,14 +36,18 @@ This SDK sends nothing yet, so it would stay unheartbeated.
 - [x] Both Watch requests carry the configured interval; default 20000; 0,
       negative and NaN send 0. (`test/unit/client/watch_heartbeat_request_test.ts`)
 - [x] Against a #2209 server: a document stream and a channel stream that ask
-      for 1s are advertised the 5s minimum and receive a heartbeat; a stream
-      that asks for 0 is advertised 0 and gets none.
+      for 1s are advertised the clamped minimum and receive a heartbeat; a
+      stream that asks for 0 is advertised 0 and gets none. Each case reads
+      the advertised interval and skips itself on a server image without
+      #2209, so the suite does not depend on the CI image's version.
       (`test/integration/watch_heartbeat_test.ts`)
 - [x] The rest of the integration suite passes against a #2209 server with
       the 20s default on every stream.
 
 ## Open
 
-- The integration test needs the CI server image (`yorkieteam/yorkie:latest`)
-  to include #2209. Until it does, the two heartbeat cases fail in CI; merge
-  this after #2209 is merged and the image is published.
+- The two heartbeat cases only run once the CI server image
+  (`yorkieteam/yorkie:latest`) includes #2209; until then each reports itself
+  skipped, with the server's advertised interval as the reason. They are not a
+  merge blocker, but they prove nothing until the image is published, so
+  re-run the suite then.

@@ -22,10 +22,23 @@ import {
   toDocKey,
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 
-// These tests run against a server with the default heartbeat bounds, 5s to
-// 60s (yorkie-team/yorkie#2209): a client asking for less than 5s is clamped
-// up to it, which keeps each test to a few seconds.
-const ServerMinHeartbeatMs = 5000n;
+// A server with a per-stream heartbeat (yorkie-team/yorkie#2209) clamps the
+// interval a stream asks for into its own bounds, 5s to 60s by default, and
+// advertises the result. These tests assert on what comes back rather than on
+// a fixed number, so they hold whatever those bounds are, and they skip rather
+// than fail on a server image that predates the feature: such a server ignores
+// the request and advertises its own global setting instead.
+const RequestedIntervalMs = 1000;
+
+// A stream advertised more than this would outlast the test waiting for its
+// first heartbeat. A server tuned that high has nothing to prove here.
+const MaxWaitableIntervalMs = 20000;
+
+// How long a stream that asked for no heartbeat is watched for one. Longer
+// than the 5s default minimum, so a server heartbeating it anyway shows up.
+const NoHeartbeatWindowMs = 8000;
+
+const TestTimeoutMs = 60000;
 
 /**
  * `recordWatch` makes the client's Watch streams report every response they
@@ -70,75 +83,135 @@ const advertised = (responses: Array<WatchResponse>) => {
 const heartbeats = (responses: Array<WatchResponse>) =>
   responses.filter((r) => r.body.case === 'heartbeat').length;
 
+/**
+ * `awaitAdvertised` waits for the stream's init response and returns the
+ * heartbeat interval it advertises.
+ */
+async function awaitAdvertised(responses: Array<WatchResponse>) {
+  await waitFor(() => advertised(responses) !== undefined, 5000, 'init');
+  return advertised(responses)!;
+}
+
+/**
+ * `skipReason` tells a case that asked for `RequestedIntervalMs` why the
+ * interval it was advertised cannot be exercised here, or `undefined` if it
+ * can. A server without #2209 ignores the request and advertises its own
+ * setting, 0 by default.
+ */
+function skipReason(interval: bigint): string | undefined {
+  if (interval === 0n) {
+    return 'the server sends no heartbeats; it predates the per-stream heartbeat interval (yorkie-team/yorkie#2209)';
+  }
+  if (Number(interval) > MaxWaitableIntervalMs) {
+    return `the server advertised ${interval}ms, too long to wait for a heartbeat here`;
+  }
+  return undefined;
+}
+
 describe('Watch heartbeat', () => {
-  it('advertises the clamped interval on a document stream and heartbeats it', async ({
-    task,
-  }) => {
-    const client = new yorkie.Client({
-      rpcAddr: testRPCAddr,
-      watchHeartbeatInterval: 1000,
-    });
-    await client.activate();
-    const responses = recordWatch(client);
+  it(
+    'advertises the clamped interval on a document stream and heartbeats it',
+    async (ctx) => {
+      const client = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        watchHeartbeatInterval: RequestedIntervalMs,
+      });
+      await client.activate();
+      const responses = recordWatch(client);
 
-    const doc = new yorkie.Document(toDocKey(`${task.name}-${Date.now()}`));
-    await client.attach(doc);
+      const doc = new yorkie.Document(
+        toDocKey(`${ctx.task.name}-${Date.now()}`),
+      );
+      await client.attach(doc);
 
-    await waitFor(() => advertised(responses) !== undefined, 5000, 'init');
-    assert.equal(
-      advertised(responses),
-      ServerMinHeartbeatMs,
-      'a request under the minimum is clamped up, and the effective value advertised',
-    );
+      const interval = await awaitAdvertised(responses);
+      const reason = skipReason(interval);
+      if (reason) {
+        await client.deactivate();
+        ctx.skip(reason);
+      }
 
-    await waitFor(() => heartbeats(responses) > 0, 10000, 'a heartbeat');
+      assert.isAtLeast(
+        Number(interval),
+        RequestedIntervalMs,
+        'a request under the minimum is clamped up, and the effective value advertised',
+      );
+      await waitFor(
+        () => heartbeats(responses) > 0,
+        Number(interval) * 2 + 5000,
+        'a heartbeat',
+      );
 
-    await client.deactivate();
-  }, 20000);
+      await client.deactivate();
+    },
+    TestTimeoutMs,
+  );
 
-  it('advertises the clamped interval on a channel stream and heartbeats it', async ({
-    task,
-  }) => {
-    const client = new yorkie.Client({
-      rpcAddr: testRPCAddr,
-      watchHeartbeatInterval: 1000,
-    });
-    await client.activate();
-    const responses = recordWatch(client);
+  it(
+    'advertises the clamped interval on a channel stream and heartbeats it',
+    async (ctx) => {
+      const client = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        watchHeartbeatInterval: RequestedIntervalMs,
+      });
+      await client.activate();
+      const responses = recordWatch(client);
 
-    const channel = new Channel(`${toDocKey(task.name)}-${Date.now()}`);
-    await client.attach(channel);
+      const channel = new Channel(`${toDocKey(ctx.task.name)}-${Date.now()}`);
+      await client.attach(channel);
 
-    await waitFor(() => advertised(responses) !== undefined, 5000, 'init');
-    assert.equal(advertised(responses), ServerMinHeartbeatMs);
+      const interval = await awaitAdvertised(responses);
+      const reason = skipReason(interval);
+      if (reason) {
+        await client.deactivate();
+        ctx.skip(reason);
+      }
 
-    await waitFor(() => heartbeats(responses) > 0, 10000, 'a heartbeat');
+      assert.isAtLeast(Number(interval), RequestedIntervalMs);
+      await waitFor(
+        () => heartbeats(responses) > 0,
+        Number(interval) * 2 + 5000,
+        'a heartbeat',
+      );
 
-    await client.deactivate();
-  }, 20000);
+      await client.deactivate();
+    },
+    TestTimeoutMs,
+  );
 
-  it('sends no heartbeat to a stream that asked for none', async ({ task }) => {
-    // This is also how an SDK older than the field is served, which is what
-    // makes heartbeats safe to leave on.
-    const client = new yorkie.Client({
-      rpcAddr: testRPCAddr,
-      watchHeartbeatInterval: 0,
-    });
-    await client.activate();
-    const responses = recordWatch(client);
+  it(
+    'sends no heartbeat to a stream that asked for none',
+    async (ctx) => {
+      // This is also how an SDK older than the field is served, which is what
+      // makes heartbeats safe to leave on.
+      const client = new yorkie.Client({
+        rpcAddr: testRPCAddr,
+        watchHeartbeatInterval: 0,
+      });
+      await client.activate();
+      const responses = recordWatch(client);
 
-    const doc = new yorkie.Document(toDocKey(`${task.name}-${Date.now()}`));
-    await client.attach(doc);
+      const doc = new yorkie.Document(
+        toDocKey(`${ctx.task.name}-${Date.now()}`),
+      );
+      await client.attach(doc);
 
-    await waitFor(() => advertised(responses) !== undefined, 5000, 'init');
-    assert.equal(advertised(responses), 0n);
+      const interval = await awaitAdvertised(responses);
+      if (interval !== 0n) {
+        // The request was ignored: a server without #2209 heartbeats every
+        // stream or none, and this one heartbeats.
+        await client.deactivate();
+        ctx.skip(
+          `the server advertised ${interval}ms to a stream that asked for none; it predates yorkie-team/yorkie#2209`,
+        );
+      }
 
-    // Longer than the minimum interval, so a heartbeat would have arrived.
-    await new Promise((r) =>
-      setTimeout(r, Number(ServerMinHeartbeatMs) + 2000),
-    );
-    assert.equal(heartbeats(responses), 0);
+      // Longer than the minimum interval, so a heartbeat would have arrived.
+      await new Promise((r) => setTimeout(r, NoHeartbeatWindowMs));
+      assert.equal(heartbeats(responses), 0);
 
-    await client.deactivate();
-  }, 20000);
+      await client.deactivate();
+    },
+    TestTimeoutMs,
+  );
 });
