@@ -22,7 +22,6 @@ import {
   CRDTTreeNodeID,
   CRDTTreePos,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
-import { traverseAll } from '@yorkie-js/sdk/src/util/index_tree';
 
 /**
  * A merge pointer (`mergedFrom`, and the `mergedInto` derived from it) is not
@@ -235,132 +234,6 @@ describe('Tree merge lineage', () => {
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>ab</p><p></p></r>`);
   });
 
-  it('rebuildMergeState should not plant a pointer into the source subtree', () => {
-    // <r><a><b>y</b></a></r> with a tombstoned and a child of b naming a as
-    // its source. A merge moves children OUT of the source, so a destination
-    // inside the source is one no merge ever produced: planting it would aim
-    // a's whole forwarding chain back into a's own subtree.
-    const n = {
-      r: new CRDTTreeNode(posT(), 'r'),
-      a: new CRDTTreeNode(posT(), 'a'),
-      b: new CRDTTreeNode(posT(), 'b'),
-      y: new CRDTTreeNode(posT(), 'text', 'y'),
-    };
-    n.r.append(n.a);
-    n.a.append(n.b);
-    n.b.append(n.y);
-    n.a.remove(timeT());
-    n.y.mergedFrom = n.a.id;
-    n.y.mergedAt = timeT();
-
-    new CRDTTree(n.r, timeT());
-
-    assert.isUndefined(
-      n.a.mergedInto,
-      'a destination inside the source is not a merge any replica performed',
-    );
-  });
-
-  it('resolveMergeTarget should not forward into the source subtree', () => {
-    // The same rule at the other end of the chain: even a pointer planted
-    // before this guard existed (or by a runtime path) must not be followed
-    // into the source's own subtree, where it hands every consumer -- the
-    // insert redirect, the delete cascade, the merge -- a target the source
-    // contains.
-    const n = {
-      r: new CRDTTreeNode(posT(), 'r'),
-      a: new CRDTTreeNode(posT(), 'a'),
-      b: new CRDTTreeNode(posT(), 'b'),
-    };
-    n.r.append(n.a);
-    n.a.append(n.b);
-    const tree = new CRDTTree(n.r, timeT());
-    // `b` is an element and is named exactly, so every other guard on the
-    // hop passes: only its sitting inside `a` rejects it.
-    n.a.remove(timeT());
-    n.a.mergedInto = n.b.id;
-
-    assert.strictEqual((tree as any).resolveMergeTarget(n.a), n.a);
-  });
-
-  it('resolveMergeTarget should not forward into the source subtree over two hops', () => {
-    // <r><a><c></c></a><b></b></r> with a->b->c. Every single hop looks
-    // clean -- b sits outside a, c sits outside b -- so a bound that only
-    // compares the CURRENT hop walks the chain to c, which `a` contains. The
-    // bound has to hold against every hop already walked.
-    const n = {
-      r: new CRDTTreeNode(posT(), 'r'),
-      a: new CRDTTreeNode(posT(), 'a'),
-      b: new CRDTTreeNode(posT(), 'b'),
-      c: new CRDTTreeNode(posT(), 'c'),
-    };
-    n.r.append(n.a);
-    n.r.append(n.b);
-    n.a.append(n.c);
-    const tree = new CRDTTree(n.r, timeT());
-    n.a.remove(timeT());
-    n.b.remove(timeT());
-    n.a.mergedInto = n.b.id;
-    n.b.mergedInto = n.c.id;
-
-    const target = (tree as any).resolveMergeTarget(n.a);
-
-    assert.strictEqual(target, n.b, 'the walk must stop at the last hop');
-    assert.isFalse(
-      n.a.isAncestorOf(target),
-      'a forged chain must not land the destination inside the source',
-    );
-  });
-
-  it('an insert should not be redirected into the merged-away parent subtree', () => {
-    // §1.1 reads `mergedInto` in one hop of its own, so it needs the same
-    // bound `resolveMergeTarget` applies: a pointer aimed inside the
-    // tombstoned parent hands the insert a parent that parent contains.
-    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'r'), timeT());
-    const [pID, cID] = [posT(), posT()];
-    tree.editT([0, 0], [new CRDTTreeNode(pID, 'p')], 0, timeT(), timeT);
-    tree.editT([1, 1], [new CRDTTreeNode(cID, 'p')], 0, timeT(), timeT);
-    const [p, c] = [tree.findFloorNode(pID)!, tree.findFloorNode(cID)!];
-    // `c` is a live element named exactly, so every other guard on the hop
-    // passes: only its sitting inside `p` rejects it.
-    p.removedAt = timeT();
-    p.mergedInto = c.id;
-
-    const pos = CRDTTreePos.of(p.id, p.id);
-    const inserted = new CRDTTreeNode(posT(), 'text', 'x');
-    tree.edit([pos, pos], [inserted], 0, timeT(), timeT);
-
-    assert.strictEqual(
-      inserted.parent,
-      p,
-      'the redirect must fall through to the normal path',
-    );
-    assert.equal(c.allChildren.length, 0);
-  });
-
-  it('a merge should not plant a pointer whose source contains the destination', () => {
-    // The runtime half of "a destination inside the source is not a merge any
-    // replica performed": the merge re-derives `mergedInto` from the child's
-    // `mergedFrom`, which an element payload carries, so a crafted one naming
-    // a REMOVED element that encloses this merge's destination installs the
-    // very pointer `rebuildMergeState` and `mergeDestinationOf` refuse.
-    const f = buildFixture();
-    const root = f.tree.getRoot();
-    // Removed and named exactly, so the merge's other two guards pass and
-    // only its enclosing the destination (p1) is left to reject it.
-    root.removedAt = timeT();
-    f.text.mergedFrom = root.id;
-    f.text.mergedAt = timeT();
-
-    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
-
-    assert.isTrue(root.isAncestorOf(f.p1));
-    assert.isUndefined(
-      root.mergedInto,
-      'a runtime plant must apply the bound the snapshot rebuild does',
-    );
-  });
-
   it('resolveMergeTarget should not forward to a text node', () => {
     const f = buildFixture();
     f.p1.removedAt = timeT();
@@ -393,41 +266,6 @@ describe('Tree merge lineage', () => {
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
   });
 
-  it('a range boundary should not move on a self-loop pointer', () => {
-    // §9.3 resolves a range boundary to the position right after a
-    // merged-away parent, and used to read `mergedInto` as a bare boolean.
-    // `rebuildMergeState` admits the self-loop (a source is not its own
-    // strict ancestor), so a crafted `mergedFrom` on a child of the tombstone
-    // plants `src.mergedInto === src.id` -- a pointer `mergeDestinationOf`
-    // refuses everywhere else. The range branch has to refuse it too, or a
-    // style range silently moves its boundary out of the tombstone.
-    const f = buildFixture();
-    f.p2.removedAt = timeT();
-    f.text.mergedFrom = f.p2.id;
-    f.text.mergedAt = timeT();
-
-    // Re-read exactly as the converter re-reads an element payload.
-    new CRDTTree(f.tree.getRoot(), timeT());
-    assert.isTrue(
-      f.p2.mergedInto?.equals(f.p2.id),
-      'the self-loop is the pointer the rebuild derives from this lineage',
-    );
-
-    const pos = CRDTTreePos.of(f.p2.id, f.p2.id);
-    const [[parent, left]] = f.tree.findNodesAndSplitText(
-      pos,
-      timeT(),
-      'range',
-    );
-
-    assert.strictEqual(
-      parent,
-      f.p2,
-      'the boundary must stay inside the parent the position named',
-    );
-    assert.strictEqual(left, f.p2);
-  });
-
   for (const tc of [
     { name: 'the moved node', carrier: 'd' as const, dest: 'c' as const },
     { name: 'a node inside it', carrier: 'e' as const, dest: 'd' as const },
@@ -441,10 +279,6 @@ describe('Tree merge lineage', () => {
       // in the index tree and every later ancestor walk would spin forever.
       // The edit is synchronous, so a regression hangs this test rather than
       // failing it: vitest's timeout cannot interrupt a busy loop.
-      //
-      // The merge drops the forged forwarding and moves the child into the
-      // unforwarded parent instead of skipping it, so nothing is left live
-      // inside the boundary this same edit tombstoned.
       const n = {
         r: new CRDTTreeNode(posT(), 'r'),
         a: new CRDTTreeNode(posT(), 'a'),
@@ -467,7 +301,11 @@ describe('Tree merge lineage', () => {
       const tree = new CRDTTree(n.r, timeT());
       assert.isTrue(n.a.mergedInto?.equals(n[tc.dest].id));
 
-      tree.edit(
+      // b is the range this edit consumes and all of it is live, so the
+      // removed size has to come back as b's pre-edit size.
+      const bSize = n.b.paddedSize();
+
+      const [, pairs, , removedNodes, , , , , , , , , , stranded] = tree.edit(
         [CRDTTreePos.of(n.a.id, n.x.id), CRDTTreePos.of(n.b.id, n.b.id)],
         undefined,
         0,
@@ -477,26 +315,89 @@ describe('Tree merge lineage', () => {
 
       assert.strictEqual(
         n.c.parent,
-        n.a,
-        'c moves into the unforwarded parent instead of under itself',
+        n.b,
+        'c stays where it was instead of moving under itself',
       );
       assert.strictEqual(n.d.parent, n.c);
-      assert.isTrue(
-        n.c.mergedFrom?.equals(n.b.id),
-        'the child really moved, so it is stamped for its source',
+      assert.isUndefined(
+        n.c.mergedFrom,
+        'a refused child is not stamped as moved',
       );
-      assert.isTrue(n.b.mergedInto?.equals(n.a.id));
-      assert.isTrue(n.b.isRemoved);
-      // The invariant the skip used to break: the boundary this edit
-      // tombstoned keeps no live descendant, so GC cannot later detach a
-      // live subtree that stays registered in `nodeMapByID` (#2008).
-      traverseAll(n.b, (node) => {
-        assert.isTrue(
-          node.isRemoved,
-          'a tombstoned merge boundary has no live descendants',
-        );
-      });
+      assert.isUndefined(
+        n.b.mergedInto,
+        'no moved child names b, so neither runtime nor rebuild points it',
+      );
       assert.equal(tree.toXML(), /*html*/ `<r></r>`);
+
+      // Left live under b, which this edit tombstoned, the skipped child would
+      // be detached by b's purge while it stays registered (#2008). It is
+      // tombstoned in place with its descendants, and each gets a GC pair.
+      const booked = new Set(pairs.map((pair) => pair.child));
+      for (const node of [n.c, n.d, n.e]) {
+        assert.isTrue(node.isRemoved, 'a refused child is tombstoned');
+        assert.isTrue(booked.has(node), 'and booked for GC');
+        assert.include(stranded, node);
+      }
+
+      // The stranded subtree is not in removedNodes -- the merge had collected
+      // it to move -- yet the range the edit consumed includes it.
+      const removedSize = [...removedNodes, ...stranded].reduce(
+        (sum, node) => sum + node.paddedSize(),
+        0,
+      );
+      assert.equal(removedSize, bSize);
     });
   }
+
+  it('a merge should strand the children after one the cycle guard refused', () => {
+    // <r><a>x</a><b><c><d>e</d></c><f>g</f></b></r> with a tombstoned and e
+    // carrying mergedFrom = a, so a forwards to d. The merge of b into a
+    // collects both c and f to move; the guard refuses c and tombstones it,
+    // and d with it. f, later in the same list, must not then move under the
+    // tombstoned d: it is tombstoned in place too.
+    const n = {
+      r: new CRDTTreeNode(posT(), 'r'),
+      a: new CRDTTreeNode(posT(), 'a'),
+      x: new CRDTTreeNode(posT(), 'text', 'x'),
+      b: new CRDTTreeNode(posT(), 'b'),
+      c: new CRDTTreeNode(posT(), 'c'),
+      d: new CRDTTreeNode(posT(), 'd'),
+      e: new CRDTTreeNode(posT(), 'text', 'e'),
+      f: new CRDTTreeNode(posT(), 'f'),
+      g: new CRDTTreeNode(posT(), 'text', 'g'),
+    };
+    n.r.append(n.a, n.b);
+    n.a.append(n.x);
+    n.b.append(n.c, n.f);
+    n.c.append(n.d);
+    n.d.append(n.e);
+    n.f.append(n.g);
+    n.a.remove(timeT());
+    n.e.mergedFrom = n.a.id;
+    n.e.mergedAt = timeT();
+
+    const tree = new CRDTTree(n.r, timeT());
+    assert.isTrue(n.a.mergedInto?.equals(n.d.id));
+
+    const [, pairs, , , , , , , , , , , , stranded] = tree.edit(
+      [CRDTTreePos.of(n.a.id, n.x.id), CRDTTreePos.of(n.b.id, n.b.id)],
+      undefined,
+      0,
+      timeT(),
+      timeT,
+    );
+
+    assert.strictEqual(
+      n.f.parent,
+      n.b,
+      'a child must not move under a destination the guard just tombstoned',
+    );
+    assert.isUndefined(n.f.mergedFrom, 'a stranded child is not stamped');
+    const booked = new Set(pairs.map((pair) => pair.child));
+    for (const node of [n.c, n.d, n.e, n.f, n.g]) {
+      assert.isTrue(node.isRemoved, 'a stranded node is tombstoned');
+      assert.isTrue(booked.has(node), 'and booked for GC');
+      assert.include(stranded, node);
+    }
+  });
 });

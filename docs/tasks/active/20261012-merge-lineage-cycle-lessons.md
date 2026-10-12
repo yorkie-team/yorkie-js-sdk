@@ -88,3 +88,21 @@ either branch, and both branches hang off that resolved node.
 The lesson: a truthiness test on a validated pointer is a consumer too. A
 centralized validator only covers what routes through it, so the audit has
 to be "every read of the field", not "every read that dereferences it".
+
+## Parity restore
+
+Rounds 1-3 here and the yorkie panel fixed the same hole (a refused child
+left live under a tombstoned boundary, #2008) in two different ways: Go
+tombstones the child in place, JS moved it to `fromParent`. On the same
+fixture Go leaves `c` tombstoned under `b`, JS moved it live under the
+tombstoned `a`, so a server rebuild and a client disagreed on tree shape.
+The JS shape also did not meet its own goal: `a` is a tombstone too.
+
+The JS tree code was reset to the parity head and the Go head's tombstone
+approach ported line for line, including the later-children rule and the
+removed-size accounting. A probe printing parent, tombstones, GC pair order,
+removed size and XML gave identical output on both SDKs.
+
+The lesson: on a mirror PR, compare the two heads' behaviour on one fixture
+before trusting either panel's ready label.
+

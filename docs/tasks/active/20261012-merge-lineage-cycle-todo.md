@@ -17,18 +17,20 @@ browser that freezes the tab of every peer that applies the change.
 
 ## Fix
 
-Refuse the forged *forwarding*, not the move. Three containment checks, all
-reading only the tree every replica holds when it applies the change, so all
-replicas decide alike:
+Match the server (yorkie#2186) exactly. When the resolved destination is a
+child the merge moves, or sits inside one, tombstone that child's subtree in
+place instead of moving it, and book a GC pair for each node. Every later
+child in the same merge list is tombstoned in place too, since the
+destination now sits inside a tombstone. `edit` returns these stranded nodes
+so the operation layer counts them in the removed size, as Go does in
+`RemovedSize`. The check reads only the tree every replica holds when it
+applies the change, so all replicas decide alike.
 
-1. `rebuildMergeState` does not plant `src.mergedInto` when the destination
-   is the source itself or sits inside its subtree.
-2. `resolveMergeTarget` cuts a hop that folds back into the current target's
-   subtree, so every consumer of the chain sees the same bounded target.
-3. The merge step falls back to the unforwarded `fromParent` when the
-   resolved destination is one of the children it is about to move, or sits
-   inside one. The children still all leave the tombstoned boundary, so the
-   boundary keeps no live descendants.
+The panel rounds had moved JS to a different design (refuse the forged
+forwarding and fall back to `fromParent`, plus a containment bound on every
+`mergedInto` reader). That left Go and JS producing different trees from the
+same change, so it was reverted to the Go shape; the broader hardening is a
+cross-SDK follow-up.
 
 ## Plan
 
@@ -38,5 +40,8 @@ replicas decide alike:
 - [x] GREEN, `pnpm verify:fast`
 - [x] Self review (1 round, no blocking findings)
 - [x] Open PR, link the Go PR
+- [x] Restore Go parity after the panel rounds (see lessons)
+- [x] Parity probe: Go head 2f1dccfc and this branch print identical parent,
+      tombstones, GC pair order, removed size and XML on the shared fixtures
 
 ## Review
