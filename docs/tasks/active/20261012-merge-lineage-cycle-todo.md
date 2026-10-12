@@ -2,7 +2,8 @@
 
 # Refuse a merge that would move a node under itself
 
-JS half of yorkie#2172. The Go half is the yorkie PR on the same branch name.
+Tracked as #1478. JS half of yorkie-team/yorkie#2172; the server half is
+yorkie-team/yorkie#2186.
 
 ## Problem
 
@@ -27,6 +28,6 @@ applies the change, so all replicas skip the same child, matching Go.
 - [x] Fix in the merge step of `CRDTTree.edit`
 - [x] GREEN, `pnpm verify:fast`
 - [x] Self review (1 round, no blocking findings)
-- [ ] Open PR, link the Go PR
+- [x] Open PR, link the Go PR
 
 ## Review
