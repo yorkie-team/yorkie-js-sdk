@@ -265,4 +265,65 @@ describe('Tree merge lineage', () => {
     assert.equal(f.text.allChildren.length, 0);
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
   });
+
+  for (const tc of [
+    { name: 'the moved node', carrier: 'd' as const, dest: 'c' as const },
+    { name: 'a node inside it', carrier: 'e' as const, dest: 'd' as const },
+  ]) {
+    it(`a merge should not move a node under itself (destination is ${tc.name})`, () => {
+      // <r><a>x</a><b><c><d>e</d></c></b></r> with a tombstoned and one node
+      // carrying mergedFrom = a, as an element payload may: rebuildMergeState
+      // then points a at that node's parent. A merge of b into a resolves its
+      // destination through that pointer, so it lands on c, the child it
+      // moves, or on d inside it. Moving c there would close a parent cycle
+      // in the index tree and every later ancestor walk would spin forever.
+      // The edit is synchronous, so a regression hangs this test rather than
+      // failing it: vitest's timeout cannot interrupt a busy loop.
+      const n = {
+        r: new CRDTTreeNode(posT(), 'r'),
+        a: new CRDTTreeNode(posT(), 'a'),
+        x: new CRDTTreeNode(posT(), 'text', 'x'),
+        b: new CRDTTreeNode(posT(), 'b'),
+        c: new CRDTTreeNode(posT(), 'c'),
+        d: new CRDTTreeNode(posT(), 'd'),
+        e: new CRDTTreeNode(posT(), 'text', 'e'),
+      };
+      n.r.append(n.a, n.b);
+      n.a.append(n.x);
+      n.b.append(n.c);
+      n.c.append(n.d);
+      n.d.append(n.e);
+      n.a.remove(timeT());
+      n[tc.carrier].mergedFrom = n.a.id;
+      n[tc.carrier].mergedAt = timeT();
+
+      // Re-read exactly as the converter re-reads an element payload.
+      const tree = new CRDTTree(n.r, timeT());
+      assert.isTrue(n.a.mergedInto?.equals(n[tc.dest].id));
+
+      tree.edit(
+        [CRDTTreePos.of(n.a.id, n.x.id), CRDTTreePos.of(n.b.id, n.b.id)],
+        undefined,
+        0,
+        timeT(),
+        timeT,
+      );
+
+      assert.strictEqual(
+        n.c.parent,
+        n.b,
+        'c stays where it was instead of moving under itself',
+      );
+      assert.strictEqual(n.d.parent, n.c);
+      assert.isUndefined(
+        n.c.mergedFrom,
+        'a skipped child is not stamped as moved',
+      );
+      assert.isUndefined(
+        n.b.mergedInto,
+        'no moved child names b, so neither runtime nor rebuild points it',
+      );
+      assert.equal(tree.toXML(), /*html*/ `<r></r>`);
+    });
+  }
 });

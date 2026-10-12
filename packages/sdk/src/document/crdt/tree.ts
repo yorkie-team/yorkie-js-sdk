@@ -3315,6 +3315,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (!node.parent) {
         continue;
       }
+      // A destination that is the node itself or lies inside it can only
+      // come from a forged lineage: `mergedInto` is derived from the
+      // `mergedFrom` an element payload keeps, so a crafted one can aim the
+      // destination's forwarding chain at a child this merge moves, or at a
+      // node inside one. Moving the node there would close a parent cycle in
+      // the index tree, and every later ancestor walk would spin forever.
+      // Leave it where it is, unstamped. The check reads only the tree the
+      // change lands on, so replicas holding the same tree decide alike.
+      if (node === dest || node.isAncestorOf(dest)) {
+        continue;
+      }
       // Tombstoned children are moved too (kept removed): they stay as RGA
       // anchors so a concurrent insert referencing one resolves in the
       // merge target and orders via the RGA tie-break, converging with the
