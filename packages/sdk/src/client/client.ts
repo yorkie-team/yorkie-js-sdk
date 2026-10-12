@@ -287,6 +287,21 @@ export interface ClientOptions {
   channelHeartbeatInterval?: number;
 
   /**
+   * `watchHeartbeatInterval` is the interval (ms) at which the client asks the
+   * server to send a heartbeat on an idle Watch stream, so that a half-open
+   * stream is noticed and reconnected. It is a request, not a setting: the
+   * server clamps it to its own bounds and the client times a silent stream
+   * out at three times the interval the server actually uses. `0` asks for no
+   * heartbeats, which also leaves the stream without an idle timeout. The
+   * default value is `20000` (ms).
+   *
+   * Unlike `channelHeartbeatInterval`, which is how often the client sends
+   * `RefreshChannel` to keep a channel session alive, this is how often the
+   * server writes to the client's Watch stream.
+   */
+  watchHeartbeatInterval?: number;
+
+  /**
    * `userAgent` is the user agent of the client. It is used to identify the
    * client.
    */
@@ -524,6 +539,14 @@ const DefaultDocumentPollIntervalMs = 3000;
 const DefaultChannelHeartbeatMs = 5000;
 
 /**
+ * `DefaultWatchHeartbeatMs` is the default heartbeat interval a client asks
+ * the server for on its Watch streams: short enough to notice a half-open
+ * stream in about a minute, and below the idle timeout of a typical proxy or
+ * load balancer.
+ */
+const DefaultWatchHeartbeatMs = 20000;
+
+/**
  * `DefaultClientOptions` is the default options for Client.
  */
 const DefaultClientOptions = {
@@ -532,6 +555,7 @@ const DefaultClientOptions = {
   retrySyncLoopDelay: 1000,
   reconnectStreamDelay: 1000,
   channelHeartbeatInterval: DefaultChannelHeartbeatMs,
+  watchHeartbeatInterval: DefaultWatchHeartbeatMs,
   deactivateOnUnload: true,
 };
 
@@ -543,6 +567,21 @@ const DefaultBroadcastOptions = {
   initialRetryInterval: 1000,
   maxBackoff: 20000,
 };
+
+/**
+ * `toHeartbeatIntervalMs` converts the `watchHeartbeatInterval` option to the
+ * wire value. Anything that is not a positive number asks for no heartbeats.
+ * A fraction of a millisecond is rounded up rather than down, so a tiny
+ * positive interval is clamped up by the server instead of reading as an
+ * opt-out. A value too large for an int64 would fail every Watch request
+ * at serialization, so it is capped; the server clamps it to its maximum.
+ */
+function toHeartbeatIntervalMs(interval: number): bigint {
+  if (!(interval > 0)) {
+    return 0n;
+  }
+  return BigInt(Math.min(Math.ceil(interval), Number.MAX_SAFE_INTEGER));
+}
 
 /**
  * `escapeNamespacePart` percent-encodes the separator (and the escape
@@ -614,6 +653,7 @@ export class Client {
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
   private channelHeartbeatInterval: number;
+  private watchHeartbeatIntervalMs: bigint;
   private deactivateOnUnload: boolean;
   private store?: DocStore;
   // Per-store-key write chain that serializes `store.saveSnapshot` calls for a
@@ -707,6 +747,10 @@ export class Client {
     this.channelHeartbeatInterval =
       opts.channelHeartbeatInterval ??
       DefaultClientOptions.channelHeartbeatInterval;
+    this.watchHeartbeatIntervalMs = toHeartbeatIntervalMs(
+      opts.watchHeartbeatInterval ??
+        DefaultClientOptions.watchHeartbeatInterval,
+    );
     this.store = opts.store;
     // Offline persistence needs the client to stay attached across an unload:
     // the default deactivate-on-unload would detach and reset the server
@@ -3374,6 +3418,7 @@ export class Client {
         // rejects as a mismatch); an empty value makes the server fall back to
         // the session id, as old SDKs get by omitting the field.
         actorId: this.actorID ?? '',
+        heartbeatIntervalMs: this.watchHeartbeatIntervalMs,
         resources: [
           {
             resource: {
@@ -3470,6 +3515,7 @@ export class Client {
     const stream = this.rpcClient.watch(
       {
         clientId: this.id!,
+        heartbeatIntervalMs: this.watchHeartbeatIntervalMs,
         resources: [
           {
             resource: {

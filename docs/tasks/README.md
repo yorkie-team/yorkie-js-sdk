@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 # Tasks Index
@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Ask the server for Watch heartbeats at a chosen interval (2026-10-13) | [20261013-watch-heartbeat-interval-todo.md](./active/20261013-watch-heartbeat-interval-todo.md) | [20261013-watch-heartbeat-interval-lessons.md](./active/20261013-watch-heartbeat-interval-lessons.md) |
 | Recover a document after the server rejects local writes (2026-10-08) | [20261008-resync-after-write-denial-todo.md](./active/20261008-resync-after-write-denial-todo.md) | [20261008-resync-after-write-denial-lessons.md](./active/20261008-resync-after-write-denial-lessons.md) |
 | Stop retrying size-limit rejections and report them to the app (2026-10-08) | [20261008-no-retry-write-rejected-todo.md](./active/20261008-no-retry-write-rejected-todo.md) | [20261008-no-retry-write-rejected-lessons.md](./active/20261008-no-retry-write-rejected-lessons.md) |
 | Identify "me" with getActorID() in the examples, and say so in the CHANGELOG (2026-10-08) | [20261008-getactorid-in-examples-todo.md](./active/20261008-getactorid-in-examples-todo.md) | [20261008-getactorid-in-examples-lessons.md](./active/20261008-getactorid-in-examples-lessons.md) |
