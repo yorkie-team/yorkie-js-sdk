@@ -79,7 +79,10 @@ import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import { CRDTRoot, RootStats } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { Channel } from '@yorkie-js/sdk/src/document/presence/presence';
-import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
+import {
+  PresenceChangeType,
+  PresencePatchCapability,
+} from '@yorkie-js/sdk/src/document/presence/change';
 import {
   History,
   HistoryOperation,
@@ -834,6 +837,24 @@ export class Document<
   // resume with `ErrEpochMismatch`, driving the store-backed re-anchor.
   private epoch: bigint;
 
+  // `presencePatchable` is whether the last pack the server returned
+  // advertised the `presence-patch` capability. Absence means unsupported, so
+  // it starts false and an old server -- which advertises nothing -- keeps it
+  // false. See `canPatchPresence`.
+  private presencePatchable: boolean;
+
+  // `presenceBaseSent` is whether the server has a base to fold a patch into:
+  // a full put has been recorded since the last thing that left it without
+  // one. Attach, a `clear`, and a restore from offline persistence all clear
+  // it; recording a put sets it.
+  private presenceBaseSent: boolean;
+
+  // `presencePatchSent` is whether the last presence change recorded was a
+  // patch. It is what decides whether a reply that has dropped the capability
+  // needs healing: an old server does not reject a patch, it stores it as an
+  // empty presence for us, so peers are left wrong until a full put lands.
+  private presencePatchSent: boolean;
+
   // `docID` is the server-assigned document id (`AttachDocumentResponse.
   // documentId`) recorded by the client after a successful attach. It is
   // persisted in the `toBytes` envelope so a restored offline session can
@@ -908,6 +929,9 @@ export class Document<
     this.absorbedRemote = false;
     this.mintedOperations = false;
     this.epoch = 0n;
+    this.presencePatchable = false;
+    this.presenceBaseSent = false;
+    this.presencePatchSent = false;
     this.docID = '';
     this.disableGC = false;
     // Seed from the local option so the gate already works before the first
@@ -990,7 +1014,14 @@ export class Document<
       // NOTE(hackerwins): The updater should not be able to call undo/redo.
       // If the updater calls undo/redo, an error will be thrown.
       this.isUpdating = true;
-      updater(proxy, new Channel(ctx, this.clone!.presences.get(actorID)!));
+      updater(
+        proxy,
+        new Channel(
+          ctx,
+          this.clone!.presences.get(actorID)!,
+          this.canPatchPresence(),
+        ),
+      );
     } catch (err) {
       // NOTE(hackerwins): If the updater fails, we need to remove the cloneRoot and
       // clonePresences to prevent the user from accessing the invalid state.
@@ -1132,6 +1163,7 @@ export class Document<
       }
 
       this.localChanges.push(change);
+      this.trackPresenceBase(change);
       this.mintedOperations ||= operations.length > 0;
       if (reverseOps.length) {
         this.internalHistory.pushUndo(reverseOps);
@@ -1639,6 +1671,10 @@ export class Document<
     // subsequent attach/sync (and any persisted envelope) presents it back.
     this.epoch = pack.getEpoch();
 
+    // 02-2. Learn whether this server takes presence patches, and remember
+    // whether that leaves a presence to heal.
+    const needsHeal = this.learnPresenceCapability(pack);
+
     // 03. Do Garbage collection.
     if (!pack.hasSnapshot()) {
       this.garbageCollect(pack.getVersionVector()!);
@@ -1651,6 +1687,12 @@ export class Document<
 
     if (logger.isEnabled(LogLevel.Trivial)) {
       logger.trivial(`${this.root.toJSON()}`);
+    }
+
+    // 05. Heal a presence the server may have stored as empty. Deferred to
+    // here so the put is minted against the state this pack left behind.
+    if (needsHeal) {
+      this.healPresenceBase();
     }
   }
 
@@ -1666,6 +1708,175 @@ export class Document<
    */
   public getEpoch(): bigint {
     return this.epoch;
+  }
+
+  /**
+   * `canPatchPresence` returns whether the next presence update may be
+   * recorded as a patch rather than a full put. Both halves are required: the
+   * server has to have advertised `presence-patch` on the pack it last
+   * returned, and it has to be holding a base of ours to fold the patch into.
+   */
+  private canPatchPresence(): boolean {
+    return this.presencePatchable && this.presenceBaseSent;
+  }
+
+  /**
+   * `learnPresenceCapability` takes the `presence-patch` capability from a
+   * pack the server returned and reports whether the presence now has to be
+   * healed with a full put.
+   *
+   * Absence means unsupported, so a reply from an old server during a rolling
+   * upgrade turns patching off. An old server does not reject a patch -- it
+   * stores it as an empty presence for us -- so once a patch has been
+   * recorded, a server that does not advertise the capability leaves the peers
+   * holding an empty presence until a full put lands.
+   *
+   * The test is only whether a patch is outstanding, not whether patching was
+   * on a moment ago: a patch restored from offline persistence was minted in
+   * an earlier session, so there is no "was patchable" to compare against and
+   * the heal would be skipped exactly when it is needed.
+   *
+   * It does not heal itself: the caller decides when the put is minted, so it
+   * lands against the state the pack left behind rather than mid-application.
+   */
+  private learnPresenceCapability(pack: ChangePack<P>): boolean {
+    this.presencePatchable = pack.hasCapability(PresencePatchCapability);
+    return !this.presencePatchable && this.presencePatchSent;
+  }
+
+  /**
+   * `healPresenceBase` re-sends the whole presence as a put, after a patch
+   * that a server without the capability may have stored as empty.
+   *
+   * Minting it is a side effect of applying a pack rather than something the
+   * caller asked for, so it defers to `isMintable` instead of throwing
+   * `ErrRefused` out of an unrelated API: inside the re-anchor window
+   * `discardLocalChanges` opens, and on a removed document, the heal is
+   * dropped. Nothing is lost by that -- a re-anchor re-sends the presence as
+   * a put of its own, and a removed document has no peers left to tell.
+   */
+  private healPresenceBase(): void {
+    if (this.status === DocStatus.Removed || !this.isMintable()) {
+      return;
+    }
+
+    // `set` merges onto the presence the update already holds, so the change
+    // it records is a put of the whole presence either way. Naming the keys
+    // keeps that explicit rather than resting on an empty merge.
+    const actorID = this.changeID.getActorID();
+    const presence = deepcopy(this.presences.get(actorID) ?? ({} as P));
+    this.update((_, p) => p.set(presence));
+  }
+
+  /**
+   * `trackPresenceBase` records what the given local change did to the base
+   * the server holds for us, so the next update knows whether it may patch.
+   */
+  private trackPresenceBase(change: Change<P>): void {
+    const presenceChange = change.getPresenceChange();
+    if (!presenceChange) {
+      return;
+    }
+
+    if (presenceChange.type === PresenceChangeType.Put) {
+      this.presenceBaseSent = true;
+      this.presencePatchSent = false;
+    } else if (presenceChange.type === PresenceChangeType.Patch) {
+      this.presencePatchSent = true;
+    } else {
+      // A `clear` leaves the server with no base: the server treats a patch
+      // after one as baseless, so the next presence change has to be a put.
+      this.presenceBaseSent = false;
+      this.presencePatchSent = false;
+    }
+  }
+
+  /**
+   * `resetPresenceBase` drops the assumption that the server holds a base for
+   * us, so the next presence update is a full put. A reconnect -- including
+   * restoring a document from offline persistence -- has to do this: the
+   * server that answers next may never have seen our presence.
+   */
+  public resetPresenceBase(): void {
+    this.presenceBaseSent = false;
+  }
+
+  /**
+   * `resetPresenceStateForRestore` returns the presence-patch state to what a
+   * document rehydrated from offline persistence may assume. Every path that
+   * rebuilds the queue from persisted structs goes through it, so an in-place
+   * restore is left in the same state as the static `fromBytes`.
+   *
+   * The capability is unknown again -- it is learned from a returned pack, and
+   * none has landed in this session -- and the base is gone with it. The
+   * restored queue is still pushed as persisted, though: a patch in it reaches
+   * the server verbatim, so it counts as a patch outstanding, which is what
+   * decides whether a server without the capability leaves a presence to heal.
+   */
+  private resetPresenceStateForRestore(): void {
+    this.presencePatchable = false;
+    this.presenceBaseSent = false;
+    this.presencePatchSent = this.hasPendingPresencePatch();
+  }
+
+  /**
+   * `hasPendingPresencePatch` reports whether a presence patch is still queued
+   * to be pushed. That is what makes a patch "outstanding": it reaches the
+   * server verbatim, so a server without the capability would store it as an
+   * empty presence and leave a presence to heal.
+   */
+  private hasPendingPresencePatch(): boolean {
+    return this.localChanges.some(
+      (change) => change.getPresenceChange()?.type === PresenceChangeType.Patch,
+    );
+  }
+
+  /**
+   * `restorePresencePatches` rewrites the earliest pending presence patch into
+   * a full put of the presence as of that change, leaving the later patches
+   * alone: the server folds them in order, so a put in front of them is the
+   * base they need. It answers `ErrPresenceBaseUnavailable`, where nothing in
+   * the rejected pack was stored and the whole pack is resent.
+   */
+  public restorePresencePatches(): void {
+    // The base is gone whether or not this pack carried a patch, so the next
+    // update has to send a put as well. The rewrite below supplies it for the
+    // pack already queued.
+    this.resetPresenceBase();
+
+    for (const change of this.localChanges) {
+      const presenceChange = change.getPresenceChange();
+      // `full` is what the patch is rewritten into, and only a locally minted
+      // patch has one -- a queued change is always local, so a patch without
+      // it cannot be rewritten and is left for the server to fold.
+      if (presenceChange?.type === PresenceChangeType.Patch) {
+        if (!presenceChange.full) {
+          continue;
+        }
+
+        change.setPresenceChange({
+          type: PresenceChangeType.Put,
+          presence: presenceChange.full,
+        });
+        this.presenceBaseSent = true;
+        break;
+      }
+    }
+
+    // The rewrite deliberately leaves the later patches alone, so the queue
+    // usually still holds one. A patch is outstanding whenever it does, and
+    // clearing the flag regardless would tell `learnPresenceCapability` there
+    // is nothing to heal -- exactly when a server without the capability is
+    // about to store those patches as an empty presence.
+    this.presencePatchSent = this.hasPendingPresencePatch();
+  }
+
+  /**
+   * `isPresencePatchableForTest` returns whether the next presence update
+   * would be recorded as a patch.
+   */
+  public isPresencePatchableForTest(): boolean {
+    return this.canPatchPresence();
   }
 
   /**
@@ -1790,6 +2001,7 @@ export class Document<
       ChangeStruct<P>
     >;
     doc.localChanges = structs.map((struct) => Change.fromStruct<P>(struct));
+    doc.resetPresenceStateForRestore();
 
     // The epoch blob is optional: envelopes written before epoch support have
     // only four blobs, so treat an absent blob as the initial epoch 0n.
@@ -1852,6 +2064,13 @@ export class Document<
     this.localChanges = restored.localChanges;
     this.epoch = restored.epoch;
     this.docID = restored.docID;
+    // The presence-patch state goes with the queue: `fromBytes` already put
+    // the decoded document in the state a restore owes (no capability, no
+    // base, a patch outstanding if the queue holds one), and the fields are
+    // copied one by one here, so it has to be carried across explicitly.
+    this.presencePatchable = restored.presencePatchable;
+    this.presenceBaseSent = restored.presenceBaseSent;
+    this.presencePatchSent = restored.presencePatchSent;
     this.absorbedRemote = true;
     // A persisted envelope is state this actor already held under this key,
     // so treat it as minted: the claim bookkeeping must not hand the actor's
@@ -2152,6 +2371,11 @@ export class Document<
         (change) => change.getID().getClientSeq() > ackedClientSeq,
       ),
     );
+    // Restoring counts as a reconnect: the server that answers the resume may
+    // never have seen this presence, so the first update owes it a full put.
+    // Run after the queue is rebuilt, so a patch that came back with it is
+    // seen (and `replayLocalChanges` cannot leave its own tracking behind).
+    this.resetPresenceStateForRestore();
     this.mintedOperations ||= changes.some(
       (change) => change.getOperations().length > 0,
     );
@@ -2203,6 +2427,9 @@ export class Document<
     this.localChanges = [];
     this.absorbedRemote = false;
     this.epoch = 0n;
+    this.presencePatchable = false;
+    this.presenceBaseSent = false;
+    this.presencePatchSent = false;
     this.docID = '';
     this.root = CRDTRoot.create();
     this.presences = new Map();
@@ -3309,6 +3536,15 @@ export class Document<
    */
   public acknowledgePushedChanges(pack: ChangePack<P>): void {
     const clientSeq = pack.getCheckpoint().getClientSeq();
+
+    // The capabilities describe the server that took this push, not the
+    // content being skipped, so they are metadata as well -- and a push whose
+    // reply is dropped is exactly a push that carried the patch which a server
+    // without the capability has just stored as an empty presence. Skipping
+    // the heal here would leave a document in PushOnly/SyncOff patching into
+    // the void for as long as it stays there.
+    const needsHeal = this.learnPresenceCapability(pack);
+
     this.removePushedLocalChanges(clientSeq);
     this.checkpoint = this.checkpoint.forward(
       Checkpoint.of(this.checkpoint.getServerSeq(), clientSeq),
@@ -3326,6 +3562,12 @@ export class Document<
     // persisted envelope pointing at a row that no longer exists.
     if (pack.getIsRemoved()) {
       this.applyStatus(DocStatus.Removed);
+    }
+
+    // Minted last, so the put is queued behind the ack that just dropped the
+    // pushed changes rather than in front of it.
+    if (needsHeal) {
+      this.healPresenceBase();
     }
   }
 
@@ -3435,6 +3677,7 @@ export class Document<
         const presence = new Channel<P>(
           ctx,
           deepcopy(this.clone!.presences.get(this.changeID.getActorID())!),
+          this.canPatchPresence(),
         );
         presence.set(op.value, { addToHistory: true });
         continue;
@@ -3676,6 +3919,7 @@ export class Document<
     }
 
     this.localChanges.push(change);
+    this.trackPresenceBase(change);
     this.mintedOperations ||= operations.length > 0;
     // Remember the source this change ran under: a replay of the queue has to
     // use it again. See `Change.isUndoRedo`.
