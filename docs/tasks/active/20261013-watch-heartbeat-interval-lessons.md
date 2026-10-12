@@ -20,3 +20,16 @@
 - `offline_persist_sync_test.ts` and `persist_disabled_test.ts` fail under
   Node 24 in this checkout on main as well (persistence lock); excluded from
   the local unit run.
+
+## Self review
+
+Reviewer: a general-purpose subagent over `git diff origin/main...HEAD`
+(not the CI lens panel).
+
+- Round 1 (correctness, test adequacy): no blocking findings, so the loop
+  stopped here. Fixed: a finite interval above int64 (e.g. `1e20`) made
+  every Watch request fail to serialize, so it is now capped at
+  `MAX_SAFE_INTEGER` with a test for it and for `Infinity`; the
+  integration test names no longer claim to check the heartbeat period.
+  Deferred: the integration test fails in CI until the image carries
+  #2209, so the PR stays a draft until then.

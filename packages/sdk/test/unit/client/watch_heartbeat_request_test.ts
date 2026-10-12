@@ -96,6 +96,19 @@ describe('Watch request heartbeat interval', () => {
         );
       });
 
+      it('caps an interval too large for an int64', () => {
+        // Sent as is, 1e20 would make every Watch request fail to serialize.
+        const max = BigInt(Number.MAX_SAFE_INTEGER);
+        assert.equal(
+          requestedInterval(kind, { watchHeartbeatInterval: 1e20 }),
+          max,
+        );
+        assert.equal(
+          requestedInterval(kind, { watchHeartbeatInterval: Infinity }),
+          max,
+        );
+      });
+
       it('rounds a fractional interval up instead of opting out', () => {
         // Rounding 0.5 down would send 0 and opt the stream out; rounded up,
         // the server clamps it to its minimum like any short interval.

@@ -71,7 +71,7 @@ const heartbeats = (responses: Array<WatchResponse>) =>
   responses.filter((r) => r.body.case === 'heartbeat').length;
 
 describe('Watch heartbeat', () => {
-  it('heartbeats a document stream at the clamped interval it asked for', async ({
+  it('advertises the clamped interval on a document stream and heartbeats it', async ({
     task,
   }) => {
     const client = new yorkie.Client({
@@ -96,7 +96,7 @@ describe('Watch heartbeat', () => {
     await client.deactivate();
   }, 20000);
 
-  it('heartbeats a channel stream at the clamped interval it asked for', async ({
+  it('advertises the clamped interval on a channel stream and heartbeats it', async ({
     task,
   }) => {
     const client = new yorkie.Client({

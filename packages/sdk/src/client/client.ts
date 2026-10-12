@@ -573,16 +573,14 @@ const DefaultBroadcastOptions = {
  * wire value. Anything that is not a positive number asks for no heartbeats.
  * A fraction of a millisecond is rounded up rather than down, so a tiny
  * positive interval is clamped up by the server instead of reading as an
- * opt-out.
+ * opt-out. A value too large for an int64 would fail every Watch request
+ * at serialization, so it is capped; the server clamps it to its maximum.
  */
 function toHeartbeatIntervalMs(interval: number): bigint {
   if (!(interval > 0)) {
     return 0n;
   }
-  if (!Number.isFinite(interval)) {
-    return BigInt(Number.MAX_SAFE_INTEGER);
-  }
-  return BigInt(Math.ceil(interval));
+  return BigInt(Math.min(Math.ceil(interval), Number.MAX_SAFE_INTEGER));
 }
 
 /**
