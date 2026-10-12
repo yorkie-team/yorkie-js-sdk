@@ -20,7 +20,6 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
-| Leave a restore span with a text parent unplaced (2026-10-12) | [20261012-restore-span-text-parent-todo.md](./active/20261012-restore-span-text-parent-todo.md) | [20261012-restore-span-text-parent-lessons.md](./active/20261012-restore-span-text-parent-lessons.md) |
 | Recover a document after the server rejects local writes (2026-10-08) | [20261008-resync-after-write-denial-todo.md](./active/20261008-resync-after-write-denial-todo.md) | [20261008-resync-after-write-denial-lessons.md](./active/20261008-resync-after-write-denial-lessons.md) |
 | Stop retrying size-limit rejections and report them to the app (2026-10-08) | [20261008-no-retry-write-rejected-todo.md](./active/20261008-no-retry-write-rejected-todo.md) | [20261008-no-retry-write-rejected-lessons.md](./active/20261008-no-retry-write-rejected-lessons.md) |
 | Identify "me" with getActorID() in the examples, and say so in the CHANGELOG (2026-10-08) | [20261008-getactorid-in-examples-todo.md](./active/20261008-getactorid-in-examples-todo.md) | [20261008-getactorid-in-examples-lessons.md](./active/20261008-getactorid-in-examples-lessons.md) |
@@ -30,5 +29,5 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Archive
 
-- Archived task count: 47
+- Archived task count: 48
 - Archive index: [archive/README.md](./archive/README.md)
