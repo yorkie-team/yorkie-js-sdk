@@ -72,3 +72,19 @@ far, which also subsumes the old cycle guard. The two producers
 `src.isAncestorOf(dest)` -- no wider on either side, since a gate that
 differs between the op path and the snapshot path is itself a divergence --
 and the self-loop case is refused at the reader instead.
+
+## Panel round 3
+
+"Every consumer reads through `mergeDestinationOf`" was true of every
+consumer that wanted the destination NODE, and false of the one that only
+wanted to know whether a merge happened: the §9.3 range-boundary branch
+still tested `realParent.mergedInto` as a bare boolean and moved the style
+boundary out of the tombstone on the strength of it. A self-loop pointer --
+which `rebuildMergeState` admits, since a source is not its own strict
+ancestor -- is refused by every other consumer and was honoured by that
+one. `findNodesAndSplitText` now resolves the destination ONCE, before
+either branch, and both branches hang off that resolved node.
+
+The lesson: a truthiness test on a validated pointer is a consumer too. A
+centralized validator only covers what routes through it, so the audit has
+to be "every read of the field", not "every read that dereferences it".

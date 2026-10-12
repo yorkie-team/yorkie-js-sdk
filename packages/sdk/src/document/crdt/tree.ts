@@ -2819,7 +2819,21 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // boundary is the first child in the target whose `mergedFrom`
     // points back at the tombstoned parent (i.e. the first child moved
     // by the merge, in target child order).
-    if (realParent.isRemoved && isLeftMost && realParent.mergedInto) {
+    // `mergeDestinationOf`, not the raw `mergedInto`: the pointer can come
+    // from a client -- it is derived from the `mergedFrom` an element payload
+    // keeps -- so a text node, a floor-only match or a destination inside the
+    // tombstone's own subtree names no merge this replica performed. Resolved
+    // once, before either branch, so the §9.3 range boundary is gated on the
+    // same bound the insert redirect is: reading the pointer as a bare boolean
+    // there would move a style boundary on the strength of a lineage every
+    // other consumer refuses -- a self-loop `mergedInto` included. Falling
+    // through to the normal path treats the crafted lineage as the absent one
+    // it is.
+    const mergeTarget =
+      realParent.isRemoved && isLeftMost
+        ? this.mergeDestinationOf(realParent)
+        : undefined;
+    if (mergeTarget) {
       // §9.3 Range Boundary at Merged-Away Anchors: a range boundary
       // resolves to the position right after the merge-source tombstone,
       // not the insertion boundary below. The insertion boundary sits
@@ -2830,17 +2844,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (boundary === 'range' && realParent.parent) {
         return [[realParent.parent as CRDTTreeNode, realParent], diff];
       }
-      // `mergeDestinationOf`, not a bare `findMergeNode`: the pointer can
-      // come from a client -- `mergedInto` is derived from the `mergedFrom`
-      // an element payload keeps -- and returned as the insertion parent a
-      // text node, a floor-only match or a node inside the tombstone's own
-      // subtree would fail every later edit that resolves through this
-      // tombstone, on every replica. Reading it there rather than one hop by
-      // hand keeps this redirect on the same bound `resolveMergeTarget`
-      // applies. Falling through to the normal path treats the crafted
-      // lineage as the absent one it is.
-      const mergeTarget = this.mergeDestinationOf(realParent);
-      if (mergeTarget && !mergeTarget.isRemoved) {
+      if (!mergeTarget.isRemoved) {
         const allCh = mergeTarget.allChildren;
         for (let i = 0; i < allCh.length; i++) {
           const targetChild = allCh[i];

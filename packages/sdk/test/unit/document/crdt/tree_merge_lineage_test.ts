@@ -393,6 +393,41 @@ describe('Tree merge lineage', () => {
     assert.equal(f.tree.toXML(), /*html*/ `<r><p>cd</p><p></p></r>`);
   });
 
+  it('a range boundary should not move on a self-loop pointer', () => {
+    // §9.3 resolves a range boundary to the position right after a
+    // merged-away parent, and used to read `mergedInto` as a bare boolean.
+    // `rebuildMergeState` admits the self-loop (a source is not its own
+    // strict ancestor), so a crafted `mergedFrom` on a child of the tombstone
+    // plants `src.mergedInto === src.id` -- a pointer `mergeDestinationOf`
+    // refuses everywhere else. The range branch has to refuse it too, or a
+    // style range silently moves its boundary out of the tombstone.
+    const f = buildFixture();
+    f.p2.removedAt = timeT();
+    f.text.mergedFrom = f.p2.id;
+    f.text.mergedAt = timeT();
+
+    // Re-read exactly as the converter re-reads an element payload.
+    new CRDTTree(f.tree.getRoot(), timeT());
+    assert.isTrue(
+      f.p2.mergedInto?.equals(f.p2.id),
+      'the self-loop is the pointer the rebuild derives from this lineage',
+    );
+
+    const pos = CRDTTreePos.of(f.p2.id, f.p2.id);
+    const [[parent, left]] = f.tree.findNodesAndSplitText(
+      pos,
+      timeT(),
+      'range',
+    );
+
+    assert.strictEqual(
+      parent,
+      f.p2,
+      'the boundary must stay inside the parent the position named',
+    );
+    assert.strictEqual(left, f.p2);
+  });
+
   for (const tc of [
     { name: 'the moved node', carrier: 'd' as const, dest: 'c' as const },
     { name: 'a node inside it', carrier: 'e' as const, dest: 'd' as const },
