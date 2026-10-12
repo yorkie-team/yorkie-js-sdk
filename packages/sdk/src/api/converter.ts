@@ -179,6 +179,15 @@ function toPresenceChange(
       presence: toPresence(presenceChange.presence),
     });
   }
+  if (presenceChange.type === PresenceChangeType.Patch) {
+    // Only the changed keys go on the wire; the patch's `full` copy is local
+    // state for `Change.execute` and the base-unavailable fallback. The server
+    // folds the patch into the base it holds before storing it.
+    return create(PbPresenceChangeSchema, {
+      type: PbPresenceChange_ChangeType.PATCH,
+      presence: toPresence(presenceChange.presence as Indexable),
+    });
+  }
   if (presenceChange.type === PresenceChangeType.Clear) {
     return create(PbPresenceChangeSchema, {
       type: PbPresenceChange_ChangeType.CLEAR,
@@ -1150,6 +1159,18 @@ function fromPresenceChange<P extends Indexable>(
       presence,
     };
   }
+  if (type === PbPresenceChange_ChangeType.PATCH) {
+    // The server folds a patch into the base it holds before storing one, so
+    // a pulled pack does not normally carry a patch. It is decoded anyway --
+    // an echo of a pushed change, or a peer ahead of this SDK, must not fail
+    // the whole pack. There is no `full` on the wire: `Change.execute` merges
+    // the carried keys onto the presence already held for that actor.
+    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    return {
+      type: PresenceChangeType.Patch,
+      presence,
+    };
+  }
   if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
@@ -1741,6 +1762,7 @@ function fromChangePack<P extends Indexable>(
     fromVersionVector(pbPack.versionVector),
     pbPack.snapshot,
     pbPack.epoch,
+    pbPack.capabilities,
   );
 }
 

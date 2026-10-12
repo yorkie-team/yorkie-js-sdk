@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 # Tasks Index
@@ -29,5 +29,5 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 ## Archive
 
-- Archived task count: 46
+- Archived task count: 47
 - Archive index: [archive/README.md](./archive/README.md)
