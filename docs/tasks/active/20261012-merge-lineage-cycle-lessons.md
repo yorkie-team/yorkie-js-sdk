@@ -45,3 +45,30 @@ one caller. It now lives in three places, each cheap: `rebuildMergeState`
 refuses to plant a pointer into the source's own subtree,
 `resolveMergeTarget` refuses to follow one, and the merge validates the
 resolved destination against the set it is about to move.
+
+## Panel round 2
+
+The round-1 containment check was put in three places, and all three were
+too narrow:
+
+- `resolveMergeTarget` compared the candidate hop against the CURRENT hop
+  only, so a forged two-hop chain A->B->C (B outside A, C inside A) passed
+  both per-hop checks and still landed the destination inside A's subtree.
+- The §1.1 insert redirect and the §6.2 delete cascade read `mergedInto`
+  with a bare one-hop `findMergeNode`, so neither saw the bound at all.
+- The runtime plant `src.mergedInto = dest.id` in the merge checked only
+  `src.removedAt`, so a crafted `mergedFrom` naming a removed element that
+  CONTAINS the destination installed the exact pointer the snapshot rebuild
+  refuses — leaving an op-applying replica forwarding where a
+  snapshot-loading one does not.
+
+The lesson: "check it at the source, not at one caller" only holds if every
+consumer actually goes through that source, and if the invariant is stated
+over the whole walk rather than one step of it. The bound now lives in one
+reader, `mergeDestinationOf(node, within)`, which every `mergedInto`
+consumer calls; `resolveMergeTarget` passes the full set of hops walked so
+far, which also subsumes the old cycle guard. The two producers
+(`rebuildMergeState` and the merge's plant) apply the identical condition
+`src.isAncestorOf(dest)` -- no wider on either side, since a gate that
+differs between the op path and the snapshot path is itself a divergence --
+and the self-loop case is refused at the reader instead.

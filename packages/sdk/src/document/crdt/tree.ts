@@ -1382,9 +1382,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // element payload, so without this a crafted one aims the source's
       // whole forwarding chain back into its own subtree, and every
       // `mergedInto` consumer -- the §1.1 insert redirect, the §6.2 delete
-      // cascade, `resolveMergeTarget` -- follows it there. (A destination
-      // that IS the source is a self-loop `resolveMergeTarget` already
-      // refuses to walk, via its `seen` set.)
+      // cascade, `resolveMergeTarget` -- follows it there. The merge in `edit`
+      // applies this same gate before planting the pointer at runtime, so an
+      // op-applying replica and a snapshot-loading one hold the same state.
+      // (A destination that IS the source is a self-loop every consumer
+      // refuses to follow, in `mergeDestinationOf`.)
       if (src.isAncestorOf(node.parent)) {
         return;
       }
@@ -1490,29 +1492,67 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * replicas converge. The seen set guards against cycles from a concurrent
    * mutual merge.
    *
-   * Each link is resolved through `findMergeNode`, so a text node or a
-   * floor-only match cuts the chain: `mergedInto` is derived from the
-   * `mergedFrom` an element payload keeps, so a crafted one can name either,
-   * and the merge hands what this returns straight to `moveChild`.
+   * Each link is resolved through `mergeDestinationOf`, so a text node, a
+   * floor-only match or a destination folding back into an already-walked
+   * subtree cuts the chain.
    */
   private resolveMergeTarget(node: CRDTTreeNode): CRDTTreeNode {
     let target = node;
     const seen = new Set<CRDTTreeNode>([target]);
     while (target.isRemoved && target.mergedInto) {
-      const next = this.findMergeNode(target.mergedInto);
-      // `target.isAncestorOf(next)` cuts a chain that folds back into the
-      // source's own subtree, which no merge ever produces (children move
-      // out of the source, never into it) and which a crafted `mergedFrom`
-      // can plant. Cutting here rather than at a single caller keeps every
-      // consumer of the chain -- the §1.1 insert redirect, the §6.2 delete
-      // cascade, the merge itself -- reading the same bounded target.
-      if (!next || seen.has(next) || target.isAncestorOf(next)) {
+      // `seen`, not just `target`: the containment bound has to hold against
+      // every hop walked so far. A forged two-hop chain A->B->C, with B
+      // outside A but C inside A, passes a check that only looks at the
+      // current hop and still lands the merge destination inside the removed
+      // source's own subtree. Passing `seen` also makes the identity arm of
+      // `mergeDestinationOf` the cycle guard, so a mutual merge still stops.
+      const next = this.mergeDestinationOf(target, seen);
+      if (!next) {
         break;
       }
       seen.add(next);
       target = next;
     }
     return target;
+  }
+
+  /**
+   * `mergeDestinationOf` resolves ONE hop of the `mergedInto` forwarding
+   * chain: the element `node` was merged into, or undefined when the pointer
+   * names nothing this replica may honour.
+   *
+   * `findMergeNode`, not `findFloorNode`: a text node is never a merge
+   * destination, and neither is a node the pointer merely floors onto.
+   *
+   * A destination that IS, or sits inside, one of `within` (by default the
+   * node itself; `resolveMergeTarget` passes every hop it has walked) is
+   * refused. A merge moves children OUT of the source, so the destination
+   * never sits in the source's subtree: the two legal shapes put it at the
+   * source's parent (a range crossing into an element) or beside it (a
+   * sibling boundary merge). `mergedInto` is derived from the `mergedFrom` an
+   * element payload keeps, so a crafted one aims the chain back into the very
+   * subtree the merge is emptying, and `moveChild`ing a child there closes a
+   * parent cycle every later ancestor walk spins on.
+   *
+   * Every `mergedInto` consumer reads the pointer through here -- the §1.1
+   * insert redirect, the §6.2 delete cascade, and `resolveMergeTarget` and so
+   * the merge itself -- rather than one hop at a time via `findMergeNode`, so
+   * the bound covers all of them alike instead of only the walk.
+   */
+  private mergeDestinationOf(
+    node: CRDTTreeNode,
+    within: Iterable<CRDTTreeNode> = [node],
+  ): CRDTTreeNode | undefined {
+    const next = this.findMergeNode(node.mergedInto);
+    if (!next) {
+      return;
+    }
+    for (const bound of within) {
+      if (next === bound || bound.isAncestorOf(next)) {
+        return;
+      }
+    }
+    return next;
   }
 
   /**
@@ -2790,14 +2830,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (boundary === 'range' && realParent.parent) {
         return [[realParent.parent as CRDTTreeNode, realParent], diff];
       }
-      // `findMergeNode`, not `findFloorNode`: a text node is never a merge
-      // destination, and neither is a node the pointer merely floors onto.
-      // The pointer can come from a client -- `mergedInto` is derived from
-      // the `mergedFrom` an element payload keeps -- and returned as the
-      // insertion parent it would fail every later edit that resolves
-      // through this tombstone, on every replica. Falling through to the
-      // normal path treats the crafted lineage as the absent one it is.
-      const mergeTarget = this.findMergeNode(realParent.mergedInto);
+      // `mergeDestinationOf`, not a bare `findMergeNode`: the pointer can
+      // come from a client -- `mergedInto` is derived from the `mergedFrom`
+      // an element payload keeps -- and returned as the insertion parent a
+      // text node, a floor-only match or a node inside the tombstone's own
+      // subtree would fail every later edit that resolves through this
+      // tombstone, on every replica. Reading it there rather than one hop by
+      // hand keeps this redirect on the same bound `resolveMergeTarget`
+      // applies. Falling through to the normal path treats the crafted
+      // lineage as the absent one it is.
+      const mergeTarget = this.mergeDestinationOf(realParent);
       if (mergeTarget && !mergeTarget.isRemoved) {
         const allCh = mergeTarget.allChildren;
         for (let i = 0; i < allCh.length; i++) {
@@ -3422,8 +3464,19 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // client-supplied `mergedFrom` is not a source this merge created.
       // Checking it on only one of the two paths would make a loaded snapshot
       // disagree with the replica that applied the op.
+      //
+      // And the destination must sit outside the source's own subtree, the
+      // other requirement `rebuildMergeState` enforces: a merge moves
+      // children OUT of a source, so a `src` that CONTAINS `dest` can only
+      // come from a crafted `mergedFrom` naming a removed element that
+      // happens to enclose this merge's destination. Planting the pointer
+      // anyway would install at runtime the exact shape the snapshot rebuild
+      // and `mergeDestinationOf` refuse, leaving an op-applying replica
+      // forwarding where a snapshot-loading one does not. The pair of
+      // conditions is deliberately the one `rebuildMergeState` applies, no
+      // wider: a gate that differs on either path is the same divergence.
       const src = this.findMergeNode(node.mergedFrom);
-      if (src && src.removedAt) {
+      if (src && src.removedAt && !src.isAncestorOf(dest)) {
         src.mergedInto = dest.id;
       }
     }
@@ -3458,11 +3511,14 @@ export class CRDTTree extends CRDTElement implements GCParent {
           continue;
         }
       }
-      // The destination has to be the node `mergedInto` names exactly, and an
-      // element: this loop tombstones that node's children, so a floor lookup
-      // landing on a neighbour is the cascade reaching live nodes no merge
-      // ever moved.
-      const mergeTarget = this.findMergeNode(node.mergedInto);
+      // The destination has to be the node `mergedInto` names exactly, an
+      // element, and outside `node`'s own subtree: this loop tombstones that
+      // node's children, so a floor lookup landing on a neighbour -- or a
+      // crafted pointer aimed back inside the source -- is the cascade
+      // reaching live nodes no merge ever moved. Resolved through
+      // `mergeDestinationOf` so it reads the pointer under the same bound
+      // `resolveMergeTarget` applies to the chain.
+      const mergeTarget = this.mergeDestinationOf(node);
       if (!mergeTarget) {
         continue;
       }

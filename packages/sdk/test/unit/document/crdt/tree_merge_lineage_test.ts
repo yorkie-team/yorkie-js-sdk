@@ -283,6 +283,84 @@ describe('Tree merge lineage', () => {
     assert.strictEqual((tree as any).resolveMergeTarget(n.a), n.a);
   });
 
+  it('resolveMergeTarget should not forward into the source subtree over two hops', () => {
+    // <r><a><c></c></a><b></b></r> with a->b->c. Every single hop looks
+    // clean -- b sits outside a, c sits outside b -- so a bound that only
+    // compares the CURRENT hop walks the chain to c, which `a` contains. The
+    // bound has to hold against every hop already walked.
+    const n = {
+      r: new CRDTTreeNode(posT(), 'r'),
+      a: new CRDTTreeNode(posT(), 'a'),
+      b: new CRDTTreeNode(posT(), 'b'),
+      c: new CRDTTreeNode(posT(), 'c'),
+    };
+    n.r.append(n.a);
+    n.r.append(n.b);
+    n.a.append(n.c);
+    const tree = new CRDTTree(n.r, timeT());
+    n.a.remove(timeT());
+    n.b.remove(timeT());
+    n.a.mergedInto = n.b.id;
+    n.b.mergedInto = n.c.id;
+
+    const target = (tree as any).resolveMergeTarget(n.a);
+
+    assert.strictEqual(target, n.b, 'the walk must stop at the last hop');
+    assert.isFalse(
+      n.a.isAncestorOf(target),
+      'a forged chain must not land the destination inside the source',
+    );
+  });
+
+  it('an insert should not be redirected into the merged-away parent subtree', () => {
+    // §1.1 reads `mergedInto` in one hop of its own, so it needs the same
+    // bound `resolveMergeTarget` applies: a pointer aimed inside the
+    // tombstoned parent hands the insert a parent that parent contains.
+    const tree = new CRDTTree(new CRDTTreeNode(posT(), 'r'), timeT());
+    const [pID, cID] = [posT(), posT()];
+    tree.editT([0, 0], [new CRDTTreeNode(pID, 'p')], 0, timeT(), timeT);
+    tree.editT([1, 1], [new CRDTTreeNode(cID, 'p')], 0, timeT(), timeT);
+    const [p, c] = [tree.findFloorNode(pID)!, tree.findFloorNode(cID)!];
+    // `c` is a live element named exactly, so every other guard on the hop
+    // passes: only its sitting inside `p` rejects it.
+    p.removedAt = timeT();
+    p.mergedInto = c.id;
+
+    const pos = CRDTTreePos.of(p.id, p.id);
+    const inserted = new CRDTTreeNode(posT(), 'text', 'x');
+    tree.edit([pos, pos], [inserted], 0, timeT(), timeT);
+
+    assert.strictEqual(
+      inserted.parent,
+      p,
+      'the redirect must fall through to the normal path',
+    );
+    assert.equal(c.allChildren.length, 0);
+  });
+
+  it('a merge should not plant a pointer whose source contains the destination', () => {
+    // The runtime half of "a destination inside the source is not a merge any
+    // replica performed": the merge re-derives `mergedInto` from the child's
+    // `mergedFrom`, which an element payload carries, so a crafted one naming
+    // a REMOVED element that encloses this merge's destination installs the
+    // very pointer `rebuildMergeState` and `mergeDestinationOf` refuse.
+    const f = buildFixture();
+    const root = f.tree.getRoot();
+    // Removed and named exactly, so the merge's other two guards pass and
+    // only its enclosing the destination (p1) is left to reject it.
+    root.removedAt = timeT();
+    f.text.mergedFrom = root.id;
+    f.text.mergedAt = timeT();
+
+    f.tree.editT([1, 3], undefined, 0, timeT(), timeT);
+
+    assert.isTrue(root.isAncestorOf(f.p1));
+    assert.isUndefined(
+      root.mergedInto,
+      'a runtime plant must apply the bound the snapshot rebuild does',
+    );
+  });
+
   it('resolveMergeTarget should not forward to a text node', () => {
     const f = buildFixture();
     f.p1.removedAt = timeT();
