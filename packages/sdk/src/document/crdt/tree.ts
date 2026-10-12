@@ -177,8 +177,16 @@ export class CRDTTreePos {
     let leftNode;
 
     if (node.isText) {
-      if (node.parent!.children[0] === node && offset === 0) {
-        leftNode = node.parent!;
+      if (offset === 0) {
+        // A text at offset 0 cannot anchor on itself: a left sibling means
+        // "after it", so the edit would land after the whole text. Anchor on
+        // what precedes the text instead -- the previous visible sibling, or
+        // the parent when the text is the first visible child.
+        //
+        // That sibling is always an element: findTreePos resolves a boundary
+        // between two texts to the end of the left one, so a text reached at
+        // offset 0 never has a text right before it.
+        leftNode = node.prevSibling ?? node.parent!;
       } else {
         leftNode = node;
       }
