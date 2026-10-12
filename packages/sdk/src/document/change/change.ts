@@ -271,9 +271,21 @@ export class Change<P extends Indexable> {
         );
       } else if (this.presenceChange.type === PresenceChangeType.Patch) {
         // A patch is an upload-side encoding: only the changed keys go on the
-        // wire. Locally there is nothing to fold -- the patch carries the
-        // whole presence as of that change -- so apply that.
-        presences.set(this.id.getActorID(), deepcopy(this.presenceChange.full));
+        // wire. A locally minted one carries the whole presence as of that
+        // change in `full`, so there is nothing to fold -- apply that. One
+        // decoded off the wire has no `full` (it never goes on the wire), so
+        // fold its keys onto the presence already held for that actor, which
+        // is what the server would have done before storing it.
+        const actorID = this.id.getActorID();
+        presences.set(
+          actorID,
+          this.presenceChange.full
+            ? deepcopy(this.presenceChange.full)
+            : ({
+                ...(presences.get(actorID) ?? {}),
+                ...deepcopy(this.presenceChange.presence),
+              } as P),
+        );
       } else {
         presences.delete(this.id.getActorID());
       }

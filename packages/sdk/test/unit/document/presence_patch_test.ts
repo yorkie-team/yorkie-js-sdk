@@ -25,6 +25,8 @@ import {
   PresencePatchCapability,
 } from '@yorkie-js/sdk/src/document/presence/change';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { PresenceChange_ChangeType as PbPresenceChangeType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 
 type TestPresence = {
@@ -234,5 +236,156 @@ describe('Presence patch', function () {
 
     restored.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
     assert.deepEqual(pendingPresenceTypes(restored), [PresenceChangeType.Put]);
+  });
+
+  it('owes a put again after an in-place restore', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    const bytes = doc.toBytes();
+
+    // The in-place restore copies its fields one by one, so it has to carry
+    // the presence-patch state across as the static factory does.
+    const target = createDoc();
+    target.restoreFromBytes(bytes);
+    assert.isFalse(target.isPresencePatchableForTest());
+
+    target.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
+    assert.deepEqual(pendingPresenceTypes(target), [PresenceChangeType.Put]);
+  });
+
+  it('carries a pending patch through persistence and replays it', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    doc.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
+    const actorID = doc.getChangeID().getActorID();
+
+    // The patch is still pending, so the envelope carries it -- along with the
+    // local-only `full` copy a replay needs to rebuild the presence.
+    const restored = Document.fromBytes<{ k?: string }, TestPresence>(
+      doc.getKey(),
+      doc.toBytes(),
+    );
+    const pending = restored.createChangePack().getChanges()[0];
+    const presenceChange = pending.getPresenceChange()!;
+    assert.equal(presenceChange.type, PresenceChangeType.Patch);
+    assert.deepEqual(
+      presenceChange.type === PresenceChangeType.Patch
+        ? presenceChange.presence
+        : undefined,
+      { cursor: { x: 1, y: 1 } },
+    );
+    assert.deepEqual(restored.getPresenceForTest(actorID), {
+      name: 'a',
+      cursor: { x: 1, y: 1 },
+    });
+
+    // Replaying the log onto the snapshot it was taken against rebuilds the
+    // same presence rather than the changed key alone.
+    const replayed = createDoc();
+    replayed.restoreAppendedChanges([pending.toStruct()]);
+    assert.deepEqual(replayed.getPresenceForTest(actorID), {
+      name: 'a',
+      cursor: { x: 1, y: 1 },
+    });
+  });
+
+  it('heals a restored patch the server stored as empty', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    doc.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
+
+    // A restore knows nothing of the capability, but the queue it brings back
+    // still holds a patch that is about to be pushed as one. An old server
+    // stores that as an empty presence, so its reply has to heal.
+    const restored = Document.fromBytes<{ k?: string }, TestPresence>(
+      doc.getKey(),
+      doc.toBytes(),
+    );
+    assert.deepEqual(pendingPresenceTypes(restored), [
+      PresenceChangeType.Patch,
+    ]);
+
+    ack(restored, []);
+    assert.deepEqual(pendingPresenceTypes(restored), [PresenceChangeType.Put]);
+    const healed = restored
+      .createChangePack()
+      .getChanges()[0]
+      .getPresenceChange()!;
+    assert.deepEqual(
+      healed.type === PresenceChangeType.Put ? healed.presence : undefined,
+      { name: 'a', cursor: { x: 1, y: 1 } },
+    );
+  });
+
+  it('heals on a push ack whose remote state is dropped', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    doc.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
+    assert.deepEqual(pendingPresenceTypes(doc), [PresenceChangeType.Patch]);
+
+    // PushOnly/SyncOff take only the push ack from the reply. The capability
+    // is metadata about the server that took the push, not the remote state
+    // being skipped, so the heal must happen on this path too.
+    const pack = doc.createChangePack();
+    const changes = pack.getChanges();
+    doc.acknowledgePushedChanges(
+      ChangePack.create(
+        pack.getDocumentKey(),
+        Checkpoint.of(0n, changes[changes.length - 1].getID().getClientSeq()),
+        false,
+        [],
+        InitialVersionVector,
+        undefined,
+        0n,
+        [],
+      ),
+    );
+    assert.deepEqual(pendingPresenceTypes(doc), [PresenceChangeType.Put]);
+  });
+
+  it('drops the base when a reconnect may have lost it', function () {
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a' }));
+    ack(doc, [PresencePatchCapability]);
+    assert.isTrue(doc.isPresencePatchableForTest());
+
+    doc.resetPresenceBase();
+    assert.isFalse(doc.isPresencePatchableForTest());
+
+    doc.update((_, p) => p.set({ cursor: { x: 1, y: 1 } }));
+    assert.deepEqual(pendingPresenceTypes(doc), [PresenceChangeType.Put]);
+  });
+
+  it('folds a patch decoded off the wire onto the presence it holds', function () {
+    // The server folds a patch into the base it holds before storing one, so
+    // a pulled pack does not normally carry one. One that does -- an echo, a
+    // peer ahead of this SDK -- must not fail the whole pack.
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a', cursor: { x: 0, y: 0 } }));
+    const actorID = doc.getChangeID().getActorID();
+
+    const pbPack = converter.toChangePack(doc.createChangePack());
+    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.PATCH;
+    pbPack.changes[0].presenceChange!.presence!.data = {
+      cursor: '{"x":2,"y":2}',
+    };
+
+    const decoded = converter.fromChangePack<TestPresence>(pbPack);
+    const change = decoded.getChanges()[0];
+    assert.equal(change.getPresenceChange()!.type, PresenceChangeType.Patch);
+
+    // No `full` came off the wire, so the carried keys are folded onto the
+    // presence already held for that actor -- what the server would have done
+    // before storing it.
+    const presences = new Map([[actorID, { name: 'a' } as TestPresence]]);
+    change.execute(CRDTRoot.create(), presences, OpSource.Remote);
+    assert.deepEqual(presences.get(actorID), {
+      name: 'a',
+      cursor: { x: 2, y: 2 },
+    });
   });
 });

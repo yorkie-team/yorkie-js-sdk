@@ -1159,6 +1159,18 @@ function fromPresenceChange<P extends Indexable>(
       presence,
     };
   }
+  if (type === PbPresenceChange_ChangeType.PATCH) {
+    // The server folds a patch into the base it holds before storing one, so
+    // a pulled pack does not normally carry a patch. It is decoded anyway --
+    // an echo of a pushed change, or a peer ahead of this SDK, must not fail
+    // the whole pack. There is no `full` on the wire: `Change.execute` merges
+    // the carried keys onto the presence already held for that actor.
+    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    return {
+      type: PresenceChangeType.Patch,
+      presence,
+    };
+  }
   if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,

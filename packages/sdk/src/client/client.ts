@@ -32,6 +32,7 @@ import {
 import {
   DocEventType as PbDocEventType,
   ChannelEvent_Type as PbChannelEventType,
+  ChangePack as PbChangePack,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   converter,
@@ -40,6 +41,7 @@ import {
   isErrorCode,
 } from '@yorkie-js/sdk/src/api/converter';
 import { RevisionSummary } from '@yorkie-js/sdk/src/api/revision';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import {
   ChangeApplyError,
   Code,
@@ -1430,15 +1432,27 @@ export class Client {
             ? doc.getPendingChangeStructs()
             : [];
 
-          const res = await this.rpcClient.attachDocument(
-            {
-              clientId: this.id!,
-              changePack: converter.toChangePack(doc.createChangePack()),
-              schemaKey: opts.schema,
-              disableGc: opts.disableGC ?? false,
-              disablePresence: resolvedDisablePresence,
-            },
-            { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+          // A restored queue can still hold presence patches minted in an
+          // earlier session, and this attach is the request they ride out on,
+          // so it needs the presence-base fallback as much as a sync does.
+          const res = await this.pushWithPresenceBase(
+            doc,
+            () => converter.toChangePack(doc.createChangePack()),
+            (changePack) =>
+              this.rpcClient.attachDocument(
+                {
+                  clientId: this.id!,
+                  changePack,
+                  schemaKey: opts.schema,
+                  disableGc: opts.disableGC ?? false,
+                  disablePresence: resolvedDisablePresence,
+                },
+                {
+                  headers: {
+                    'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+                  },
+                },
+              ),
           );
 
           const maxSize = res.maxSizePerDocument ?? 0;
@@ -1795,13 +1809,18 @@ export class Client {
         // Wait for any in-progress sync to finish before detaching.
         await attachment.waitForSyncComplete();
 
-        const res = await this.rpcClient.detachDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.resourceID,
-            changePack: converter.toChangePack(doc.createChangePack()),
-          },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+        const res = await this.pushWithPresenceBase(
+          doc,
+          () => converter.toChangePack(doc.createChangePack()),
+          (changePack) =>
+            this.rpcClient.detachDocument(
+              {
+                clientId: this.id!,
+                documentId: attachment.resourceID,
+                changePack,
+              },
+              { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+            ),
         );
 
         const pack = converter.fromChangePack<P>(res.changePack!);
@@ -2447,18 +2466,35 @@ export class Client {
     }
     doc.setActor((this.actorID ?? this.id)!);
 
-    const pbChangePack = converter.toChangePack(doc.createChangePack());
-    pbChangePack.isRemoved = true;
+    const buildPack = (): PbChangePack => {
+      const pack = converter.toChangePack(doc.createChangePack());
+      pack.isRemoved = true;
+      return pack;
+    };
+    // Built here rather than inside the task, as before: the pack a remove
+    // sends is the document as the caller saw it. A presence-base retry
+    // rebuilds it, which is the one case it has to be rebuilt -- the patch it
+    // carried has just been rewritten into a full put.
+    let pending: PbChangePack | undefined = buildPack();
 
     return this.enqueueTask(async () => {
       try {
-        const res = await this.rpcClient.removeDocument(
-          {
-            clientId: this.id!,
-            documentId: attachment.resourceID,
-            changePack: pbChangePack,
+        const res = await this.pushWithPresenceBase(
+          doc,
+          () => {
+            const pack = pending ?? buildPack();
+            pending = undefined;
+            return pack;
           },
-          { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+          (changePack) =>
+            this.rpcClient.removeDocument(
+              {
+                clientId: this.id!,
+                documentId: attachment.resourceID,
+                changePack,
+              },
+              { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+            ),
         );
 
         const pack = converter.fromChangePack<P>(res.changePack!);
@@ -3650,6 +3686,42 @@ export class Client {
     this.attachmentMap.delete(key);
   }
 
+  /**
+   * `pushWithPresenceBase` sends a pack built by `build` and answers
+   * `ErrPresenceBaseUnavailable` by resending it once with the presence put
+   * back in full.
+   *
+   * The server had no base to fold the pack's presence patch into -- evicted,
+   * restarted, or moved to another shard -- and stored none of the pack. An
+   * expected signal, not a failure. Every request that pushes a pack goes
+   * through here, not just push-pull: a queue restored from offline
+   * persistence can still hold patches minted in an earlier session, and the
+   * next request it rides out on is an attach. Without the retry that attach
+   * fails, and fails again on every try, because the pack never changes.
+   *
+   * The retry carries its own base, so it cannot hit the same error twice.
+   */
+  private async pushWithPresenceBase<R, P extends Indexable, T>(
+    doc: Document<R, P>,
+    build: () => PbChangePack,
+    send: (pack: PbChangePack) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await send(build());
+    } catch (err) {
+      if (!isErrorCode(err, Code.ErrPresenceBaseUnavailable)) {
+        throw err;
+      }
+
+      logger.info(
+        `[PP] c:"${this.getKey()}" d:"${doc.getKey()}" presence base ` +
+          `unavailable; resending with a full presence`,
+      );
+      doc.restorePresencePatches();
+      return await send(build());
+    }
+  }
+
   private async syncInternal<R, P extends Indexable>(
     attachment: Attachment<Attachable>,
     syncMode?: SyncMode,
@@ -3777,41 +3849,29 @@ export class Client {
     const doc = resource as Document<R, P>;
     const { resourceID: docID } = attachment;
 
-    let reqPack = doc.createChangePack();
+    // The pack the request actually carried: the builder records it, so a
+    // presence-base retry leaves the log line below reporting the resent one.
+    let reqPack!: ChangePack<P>;
     const pushOnly = syncMode === SyncMode.RealtimePushOnly;
-    const push = () =>
-      this.rpcClient.pushPullChanges(
-        {
-          clientId: this.id!,
-          documentId: docID,
-          changePack: converter.toChangePack(reqPack),
-          pushOnly,
-          disableGc: attachment.disableGC,
-        },
-        { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
-      );
     try {
-      let res;
-      try {
-        res = await push();
-      } catch (err) {
-        if (!isErrorCode(err, Code.ErrPresenceBaseUnavailable)) {
-          throw err;
-        }
-
-        // The server had no presence base to fold this pack's patch into --
-        // evicted, restarted, or moved to another shard -- and stored none of
-        // the pack. An expected signal, not a failure: rewrite the earliest
-        // pending patch into the full put it stands for and resend the pack
-        // once. The retry carries its own base, so it cannot hit this again.
-        logger.info(
-          `[PP] c:"${this.getKey()}" d:"${doc.getKey()}" presence base ` +
-            `unavailable; resending with a full presence`,
-        );
-        doc.restorePresencePatches();
-        reqPack = doc.createChangePack();
-        res = await push();
-      }
+      const res = await this.pushWithPresenceBase(
+        doc,
+        () => {
+          reqPack = doc.createChangePack();
+          return converter.toChangePack(reqPack);
+        },
+        (changePack) =>
+          this.rpcClient.pushPullChanges(
+            {
+              clientId: this.id!,
+              documentId: docID,
+              changePack,
+              pushOnly,
+              disableGc: attachment.disableGC,
+            },
+            { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+          ),
+      );
 
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
