@@ -8,18 +8,21 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 50
+Total archived tasks: 53
 
-## 2026/10 (13 tasks)
+## 2026/10 (16 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Ask the server for Watch heartbeats at a chosen interval (2026-10-13) | [20261013-watch-heartbeat-interval-todo.md](./2026/10/20261013-watch-heartbeat-interval-todo.md) | [20261013-watch-heartbeat-interval-lessons.md](./2026/10/20261013-watch-heartbeat-interval-lessons.md) |
 | Resolve the index before a text that follows an element (2026-10-12) | [20261012-tree-element-text-boundary-todo.md](./2026/10/20261012-tree-element-text-boundary-todo.md) | [20261012-tree-element-text-boundary-lessons.md](./2026/10/20261012-tree-element-text-boundary-lessons.md) |
 | Leave a restore span with a text parent unplaced (2026-10-12) | [20261012-restore-span-text-parent-todo.md](./2026/10/20261012-restore-span-text-parent-todo.md) | [20261012-restore-span-text-parent-lessons.md](./2026/10/20261012-restore-span-text-parent-lessons.md) |
 | Refuse a merge that would move a node under itself (2026-10-12) | [20261012-merge-lineage-cycle-todo.md](./2026/10/20261012-merge-lineage-cycle-todo.md) | [20261012-merge-lineage-cycle-lessons.md](./2026/10/20261012-merge-lineage-cycle-lessons.md) |
 | Send presence as a patch when the server advertises presence-patch (2026-10-11) | [20261011-presence-patch-todo.md](./2026/10/20261011-presence-patch-todo.md) | [20261011-presence-patch-lessons.md](./2026/10/20261011-presence-patch-lessons.md) |
 | Detect a half-open Watch stream from the server heartbeat (2026-10-10) | [20261010-watch-idle-watchdog-todo.md](./2026/10/20261010-watch-idle-watchdog-todo.md) | [20261010-watch-idle-watchdog-lessons.md](./2026/10/20261010-watch-idle-watchdog-lessons.md) |
 | Run the git hooks from .githooks/ and drop the trusted-tree guard (2026-10-09) | [20261009-remove-trusted-tree-guard-todo.md](./2026/10/20261009-remove-trusted-tree-guard-todo.md) | [20261009-remove-trusted-tree-guard-lessons.md](./2026/10/20261009-remove-trusted-tree-guard-lessons.md) |
+| Recover a document after the server rejects local writes (2026-10-08) | [20261008-resync-after-write-denial-todo.md](./2026/10/20261008-resync-after-write-denial-todo.md) | [20261008-resync-after-write-denial-lessons.md](./2026/10/20261008-resync-after-write-denial-lessons.md) |
+| Stop retrying size-limit rejections and report them to the app (2026-10-08) | [20261008-no-retry-write-rejected-todo.md](./2026/10/20261008-no-retry-write-rejected-todo.md) | [20261008-no-retry-write-rejected-lessons.md](./2026/10/20261008-no-retry-write-rejected-lessons.md) |
 | Stop the split-sibling cascade at a sibling the editor saw alive (2026-10-06) | [20261006-split-sibling-cascade-stop-todo.md](./2026/10/20261006-split-sibling-cascade-stop-todo.md) | [20261006-split-sibling-cascade-stop-lessons.md](./2026/10/20261006-split-sibling-cascade-stop-lessons.md) |
 | Report a remote split where it landed, not where it was asked for (2026-10-06) | [20261006-split-opinfo-concurrent-insert-todo.md](./2026/10/20261006-split-opinfo-concurrent-insert-todo.md) | [20261006-split-opinfo-concurrent-insert-lessons.md](./2026/10/20261006-split-opinfo-concurrent-insert-lessons.md) |
 | Drop a pull already in flight when switching to push-only (2026-10-06) | [20261006-pushonly-switch-in-flight-pull-todo.md](./2026/10/20261006-pushonly-switch-in-flight-pull-todo.md) | [20261006-pushonly-switch-in-flight-pull-lessons.md](./2026/10/20261006-pushonly-switch-in-flight-pull-lessons.md) |
