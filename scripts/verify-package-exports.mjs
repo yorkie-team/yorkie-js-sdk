@@ -79,8 +79,10 @@ try {
   }
 
   // Lock the tools and runtime peers first. Installing the local tarballs
-  // offline reuses these exact dependencies; it cannot fetch a fallback CLI
-  // or mask duplicate SDK installations with an override. The lockfile also
+  // reuses these exact dependencies; it cannot fetch a fallback CLI or mask
+  // duplicate SDK installations with an override. It prefers the cache rather
+  // than requiring it: `npm ci` caches tarballs, not the packuments npm reads
+  // to check the tarballs' peer ranges, so `--offline` fails on a cold cache. The lockfile also
   // pins the sdk's own dependencies: when those change, regenerate it with
   // `npm install --package-lock-only` in the fixture directory.
   for (const name of ['package.json', 'package-lock.json']) {
@@ -91,7 +93,7 @@ try {
     'npm',
     [
       'install',
-      '--offline',
+      '--prefer-offline',
       '--ignore-scripts',
       '--strict-peer-deps',
       '--no-audit',
@@ -118,7 +120,7 @@ try {
 
   // A mismatched host SDK must be rejected, rather than silently repaired
   // by installing the React peer as a nested SDK. Reuse the real tarball with
-  // only its version changed, and resolve offline against the locked consumer.
+  // only its version changed, and resolve against the locked consumer.
   const incompatible = join(tmp, 'incompatible');
   mkdirSync(incompatible);
   run('tar', ['-xzf', tgz.sdk, '-C', incompatible], tmp);
@@ -151,7 +153,7 @@ try {
       [
         'install',
         '--package-lock-only',
-        '--offline',
+        '--prefer-offline',
         '--ignore-scripts',
         '--strict-peer-deps',
         '--no-audit',
@@ -162,9 +164,10 @@ try {
   } catch (error) {
     peerError = error.stderr;
   }
+  // Name the SDK peer too: an unrelated resolution failure is also ERESOLVE.
   assert.match(
     peerError ?? '',
-    /ERESOLVE/,
+    /ERESOLVE[\s\S]*peer @yorkie-js\/sdk@"0\.\d+\.\d+" from @yorkie-js\/react/,
     'An incompatible host SDK must fail peer resolution',
   );
 
