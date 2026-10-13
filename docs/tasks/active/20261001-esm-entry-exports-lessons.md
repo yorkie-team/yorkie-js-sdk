@@ -57,7 +57,7 @@ the `.tgz` that `pnpm pack` made, since CI publishes with pnpm.
 
 Each tarball names the others by exact version, so a consumer would fetch them
 from the registry. The verification consumer installs all four tarballs in one
-offline `npm install`, so those names resolve to the local copies. It used
+`npm install`, so those names resolve to the local copies. It used
 npm `overrides` at first, but an override also hides a nested second SDK,
 which is the very thing the react checks look for.
 
@@ -105,8 +105,18 @@ are now validated and aliased onto fixed locals, and paths are JSON-quoted.
 `npx --yes` and floating ranges ran whatever the registry served that day. The
 consumer now installs from `scripts/fixtures/package-exports/package-lock.json`
 and runs its tools from there. That lockfile also pins the sdk's runtime
-dependencies, because the tarballs install offline, so it has to be
+dependencies, because the tarballs install against it, so it has to be
 regenerated when those change.
+
+## `npm ci` warms the tarball cache, not the packument cache
+
+The tarballs first installed with `--offline`. That passed on a warm local
+cache and failed in CI with `ERESOLVE ... Found: prosemirror-model@undefined`:
+checking a new tarball's peer ranges reads each peer's packument, and `npm ci`
+fetches only the tarballs the lockfile names. `--prefer-offline` keeps the
+locked versions and fetches just the metadata. The peer-conflict check had the
+same flaw in reverse: a cache miss is also `ERESOLVE`, so it now asserts the
+error names react's SDK peer.
 
 ## A wrapper helps only when the package's dependencies are single-format
 

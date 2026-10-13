@@ -95,11 +95,22 @@ preserving the actual ES bundle for browser bundlers.
       `prosemirror-*` CJS build (it failed on the wrapper, passes now)
 - [x] Updated verification passes on Node 20.19.0, 22.23.2 and 24.21.0
 
+## Review panel round (#1431)
+
+- [x] prosemirror's rolled-up `.d.ts` imported `../../sdk/src/yorkie.ts`, which
+      does not resolve for consumers. vite-plugin-dts rewrote the tsconfig path
+      for `@yorkie-js/sdk` into that relative import; `pathsToAliases: false`
+      keeps the package import. ATTW now runs on prosemirror with no rule skipped
+- [x] `verify:exports` drives `YorkieProseMirrorBinding.initialize()` from both
+      entries and checks the Tree it stores in the app's Document is a real
+      one. With the SDK bundled into prosemirror it fails (verified)
+- [x] Install the tarballs with `--prefer-offline`, and make the peer-conflict
+      check assert the SDK peer, not any `ERESOLVE`
+- [x] The review panel's coverage note lists `pnpm prosemirror build` and
+      `pnpm verify:exports` as enforced lanes
+
 ## Follow-ups
 
-- [ ] prosemirror's rolled-up `.d.ts` imports `../../sdk/src/yorkie.ts`, which does
-      not resolve for consumers (ATTW `InternalResolutionError`). Pre-existing and
-      independent of this change; the script skips that one rule for prosemirror.
 - [ ] prosemirror's UMD reads the SDK from a `YorkieSdk` global, which the SDK
       UMD does not register (it registers `yorkie-js-sdk`). Pre-existing;
       renaming it would break pages that set `YorkieSdk` today.
