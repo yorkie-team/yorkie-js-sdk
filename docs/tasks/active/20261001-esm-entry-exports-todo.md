@@ -108,6 +108,12 @@ preserving the actual ES bundle for browser bundlers.
       check assert the SDK peer, not any `ERESOLVE`
 - [x] The review panel's coverage note lists `pnpm prosemirror build` and
       `pnpm verify:exports` as enforced lanes
+- [x] Type-check prosemirror's published SyncMode under NodeNext (both
+      entries) and bundler resolution: it must take `SyncMode.Realtime` and
+      reject a number. With the `../../sdk/src` import back, NodeNext fails
+      with TS2578 (verified)
+- [x] Add `scripts/fixtures/**` to the agent gate's CI-defining paths: the
+      fixture lockfile decides which tools `verify:exports` runs
 
 ## Follow-ups
 

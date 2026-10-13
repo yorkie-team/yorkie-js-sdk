@@ -118,6 +118,14 @@ locked versions and fetches just the metadata. The peer-conflict check had the
 same flaw in reverse: a cache miss is also `ERESOLVE`, so it now asserts the
 error names react's SDK peer.
 
+## `skipLibCheck` hides an unresolved import as a permissive type
+
+A published `.d.ts` that imports a missing file still type-checks under
+`skipLibCheck`. The imported name does not become `any` either: an
+`IsAny<T>` check passed with the leak back. What fails is a negative
+assertion: `// @ts-expect-error` on assigning a number to the string enum
+reports TS2578 once the type accepts everything.
+
 ## A wrapper helps only when the package's dependencies are single-format
 
 The wrapper gives Node one implementation of the package it wraps, but the
