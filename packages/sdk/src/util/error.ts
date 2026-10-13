@@ -54,6 +54,9 @@ export enum Code {
   // ErrDocumentSizeExceedsLimit is returned when the document size exceeds the limit.
   ErrDocumentSizeExceedsLimit = 'ErrDocumentSizeExceedsLimit',
 
+  // ErrChangeTooLarge is returned when a single change is too large to store.
+  ErrChangeTooLarge = 'ErrChangeTooLarge',
+
   // ErrDocumentSchemaValidationFailed is returned when the document schema validation failed.
   ErrDocumentSchemaValidationFailed = 'ErrDocumentSchemaValidationFailed',
 
@@ -106,6 +109,18 @@ export enum Code {
   // that condition so it is diagnosable instead of surfacing as whatever the
   // failing operation happened to throw.
   ErrChangeApplyFailed = 'ErrChangeApplyFailed',
+
+  // ErrPresenceBaseUnavailable is returned when the server has no base to fold
+  // a presence patch into, because it was evicted from the cache or never
+  // reached this server. Nothing in the pack was stored: the client resends it
+  // with the patch replaced by a full put. It is an expected signal rather
+  // than a failure.
+  ErrPresenceBaseUnavailable = 'ErrPresenceBaseUnavailable',
+
+  // ErrWatchStreamIdle is reported when a watch stream stays silent for longer
+  // than the heartbeat interval the server advertised allows, which is how a
+  // half-open connection is told from a quiet document.
+  ErrWatchStreamIdle = 'ErrWatchStreamIdle',
 }
 
 /**

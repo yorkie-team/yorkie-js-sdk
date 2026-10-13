@@ -58,6 +58,14 @@ export class ChangePack<P extends Indexable> {
    */
   private epoch: bigint;
 
+  /**
+   * `capabilities` are the wire features the server advertises on the pack it
+   * returns. It is the negotiation channel for features a peer may not have:
+   * absence means unsupported, so an old server -- which sets nothing -- is
+   * read as supporting none of them.
+   */
+  private capabilities: Array<string>;
+
   constructor(
     key: string,
     checkpoint: Checkpoint,
@@ -66,6 +74,7 @@ export class ChangePack<P extends Indexable> {
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
     epoch: bigint = 0n,
+    capabilities: Array<string> = [],
   ) {
     this.documentKey = key;
     this.checkpoint = checkpoint;
@@ -74,6 +83,7 @@ export class ChangePack<P extends Indexable> {
     this.snapshot = snapshot;
     this.versionVector = versionVector;
     this.epoch = epoch;
+    this.capabilities = capabilities;
   }
   /**
    * `create` creates a new instance of ChangePack.
@@ -86,6 +96,7 @@ export class ChangePack<P extends Indexable> {
     versionVector?: VersionVector,
     snapshot?: Uint8Array,
     epoch: bigint = 0n,
+    capabilities: Array<string> = [],
   ): ChangePack<P> {
     return new ChangePack<P>(
       key,
@@ -95,6 +106,7 @@ export class ChangePack<P extends Indexable> {
       versionVector,
       snapshot,
       epoch,
+      capabilities,
     );
   }
 
@@ -166,5 +178,13 @@ export class ChangePack<P extends Indexable> {
    */
   public getEpoch(): bigint {
     return this.epoch;
+  }
+
+  /**
+   * `hasCapability` returns whether this pack advertises the given wire
+   * feature.
+   */
+  public hasCapability(capability: string): boolean {
+    return this.capabilities.includes(capability);
   }
 }

@@ -103,11 +103,10 @@ issue, and say in the merge message that the check was manual.
 A finding is a blocker, not a note. **Ask the author for the archive
 commit** (`bash scripts/tasks-archive.sh && bash scripts/tasks-index.sh`); on
 an `agent:managed` PR the fixer can push it. Do not make that commit yourself
-from the PR's tree: committing and pushing there runs the branch's hooks,
-lint-staged config and `verify:fast`, and `.githooks/trusted-tree.sh` refuses
-exactly that checkout for exactly that reason. Its `--no-verify` bypass skips
-the gate rather than running the branch's code, which is the right one if you
-ever must, but asking is simpler.
+from the PR's tree: committing and pushing there runs the branch's own hooks,
+lint-staged config and `verify:fast`. If you ever must, read the diff first or
+use `--no-verify`, which skips the gate rather than running the branch's code;
+but asking is simpler.
 
 Also read the todo's "Out of scope" / "Open" / "Known limitations" section
 before it goes to the archive — anything there that is a defect needs an

@@ -26,11 +26,11 @@ import {
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 
 import type {
-  DefaultTextType,
   TreeNodeType,
   TreeToken,
 } from '@yorkie-js/sdk/src/util/index_tree';
 import {
+  DefaultTextType,
   IndexTree,
   IndexTreeNode,
   TokenType,
@@ -177,8 +177,16 @@ export class CRDTTreePos {
     let leftNode;
 
     if (node.isText) {
-      if (node.parent!.children[0] === node && offset === 0) {
-        leftNode = node.parent!;
+      if (offset === 0) {
+        // A text at offset 0 cannot anchor on itself: a left sibling means
+        // "after it", so the edit would land after the whole text. Anchor on
+        // what precedes the text instead -- the previous visible sibling, or
+        // the parent when the text is the first visible child.
+        //
+        // That sibling is always an element: findTreePos resolves a boundary
+        // between two texts to the end of the left one, so a text reached at
+        // offset 0 never has a text right before it.
+        leftNode = node.prevSibling ?? node.parent!;
       } else {
         leftNode = node;
       }
@@ -512,6 +520,21 @@ export type TreeRestoreSpan = {
   leftSiblingID?: CRDTTreeNodeID; // undefined → was first child
   rightSiblingID?: CRDTTreeNodeID; // undefined → was last child
 };
+
+/**
+ * `restoreSpanKindAgrees` reports whether the span's `isText` flag matches its
+ * `nodeType`, as it always does on a span an honest replica captured. A span
+ * that disagrees would recreate a node of the wrong kind -- an element
+ * carrying a value is then invisible to the text lookup, so the same span
+ * applied again inserts a second node under one ID. Decoding cannot reject it:
+ * stored changes go through the same decoder and must stay loadable, so
+ * `restore` and `retombstone` skip it instead. The kind is part of the span
+ * itself, so every replica skips it alike. Mirrors Go's
+ * `TreeRestoreSpan.kindAgrees` (yorkie#2168).
+ */
+function restoreSpanKindAgrees(span: TreeRestoreSpan): boolean {
+  return span.isText === (span.nodeType === DefaultTextType);
+}
 
 /**
  * `CRDTTreeNode` is a node of CRDTTree. It includes the logical clock and
@@ -1464,6 +1487,28 @@ export class CRDTTree extends CRDTElement implements GCParent {
       }
     }
     return boundaries;
+  }
+
+  /**
+   * `tombstoneSubtree` tombstones `node` and every live node below it with
+   * `editedAt`, returning the nodes it actually tombstoned, in post-order. A
+   * node already removed keeps its own `removedAt` and is not reported again,
+   * which also keeps the result disjoint from the nodes step 02 removed.
+   */
+  private tombstoneSubtree(
+    node: CRDTTreeNode,
+    editedAt: TimeTicket,
+  ): Array<CRDTTreeNode> {
+    const removed: Array<CRDTTreeNode> = [];
+    traverseAll(node, (n) => {
+      if (n.removedAt) {
+        return;
+      }
+      if (n.remove(editedAt)) {
+        removed.push(n);
+      }
+    });
+    return removed;
   }
 
   /**
@@ -3037,6 +3082,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     Array<CRDTTreeNode>,
     Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
+    Array<CRDTTreeNode>,
   ] {
     const diff = { data: 0, meta: 0 };
 
@@ -3308,11 +3354,45 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // parent forward to the final live target instead of piling up under
     // the removed intermediate.
     const dest = this.resolveMergeTarget(fromParent);
+    // The nodes the cycle guard below tombstones in place instead of moving,
+    // in post-order. Each gets a GC pair, and the operation layer counts them
+    // toward the size this edit removed (Go's `RemovedSize`).
+    const stranded: Array<CRDTTreeNode> = [];
+    // Set once the guard tombstones a subtree that contains dest. The
+    // destination is resolved once, before the loop, but the list can hold
+    // several merge sources' children, so entries remain after the guard
+    // fires. dest is inside the subtree just tombstoned, so moving those
+    // remaining children there would put live nodes under a tombstone. They
+    // are stranded too.
+    let destTombstoned = false;
     for (const node of toBeMovedToFromParents) {
       // A moved child must have a source parent to record; skip otherwise
       // rather than append an untracked node (a node without `mergedFrom`
       // is invisible to the merge-delete propagation and rebuild logic).
       if (!node.parent) {
+        continue;
+      }
+      // A destination that is the node itself or lies inside it can only
+      // come from a forged lineage: `mergedInto` is derived from the
+      // `mergedFrom` an element payload keeps, so a crafted one can aim the
+      // destination's forwarding chain at a child this merge moves, or at a
+      // node inside one. Moving the node there would close a parent cycle in
+      // the index tree, and every later ancestor walk would spin forever.
+      // The check reads only the tree the change lands on, so replicas
+      // holding the same tree decide alike.
+      //
+      // Left live, it would stay under the source step 02 just tombstoned,
+      // whose eventual purge detaches the subtree while it stays registered
+      // in `nodeMapByID` and charged as live (#2008). So it is tombstoned
+      // where it stands, with its descendants, the way the §6.2 cascade
+      // tombstones a merge-moved child whose source this edit deletes.
+      if (node === dest || node.isAncestorOf(dest)) {
+        destTombstoned = true;
+        stranded.push(...this.tombstoneSubtree(node, editedAt));
+        continue;
+      }
+      if (destTombstoned) {
+        stranded.push(...this.tombstoneSubtree(node, editedAt));
         continue;
       }
       // Tombstoned children are moved too (kept removed): they stay as RGA
@@ -3367,6 +3447,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       if (src && src.removedAt) {
         src.mergedInto = dest.id;
       }
+    }
+
+    for (const node of stranded) {
+      pairs.push({ parent: this, child: node });
     }
 
     // 03-1. Propagate deletes to children moved by prior merges.
@@ -3804,6 +3888,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       // cascade-deleted descendants and nodes already tombstoned.
       toBeMergedNodes,
       splitRecreatedIDs,
+      // The subtrees the merge's cycle guard tombstoned in place. Not in
+      // `nodesToBeRemoved` -- the merge had collected them to move -- yet the
+      // range this edit consumed includes them.
+      stranded,
     ];
   }
 
@@ -3831,6 +3919,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     number,
     Array<CRDTTreeNode>,
     Array<[CRDTTreeNodeID, CRDTTreeNodeID]>,
+    Array<CRDTTreeNode>,
   ] {
     const fromPos = this.findPos(range[0]);
     const toPos = this.findPos(range[1]);
@@ -3968,8 +4057,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
   /**
    * `restore` re-establishes the nodes described by `spans` under their
    * ORIGINAL identities (identity-preserving Tree undo): live → skip
-   * (idempotent), tombstoned → unremove in place, purged → recreate. Spans
-   * must be in parent-before-child order (`edit()` captures them that way).
+   * (idempotent), tombstoned → unremove in place, purged → recreate. A span
+   * whose kind does not agree with itself is skipped outright (see
+   * `restoreSpanKindAgrees`), as it is in `retombstone`. Spans must be in
+   * parent-before-child order (`edit()` captures them that way).
    *
    * Returns `[untombstoned, recreated, pairs, diff]`:
    * - `untombstoned`: nodes revived in place (caller unregisters their GC pairs);
@@ -4005,6 +4096,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     };
 
     for (const span of spans) {
+      if (!restoreSpanKindAgrees(span)) {
+        continue;
+      }
       if (!span.isText) {
         const node = this.findFloorNode(span.id);
         if (node && node.id.equals(span.id)) {
@@ -4114,7 +4208,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * identity-preserving undo). Live pieces only; idempotent. A piece that
    * straddles a span boundary is split at that boundary so only the in-span
    * range is re-removed (symmetric with restore's isolate, so undo/redo stay
-   * mirror images and segmentation stays convergent). Returns the GC pairs for
+   * mirror images and segmentation stays convergent). A span whose kind does
+   * not agree with itself is skipped, exactly as `restore` skips it, so
+   * neither direction acts on what the other ignores. Returns the GC pairs for
    * the newly tombstoned nodes, the live-split metadata overhead, and one
    * deletion per visible node it removed, each measured right before the
    * removal so they apply one after another.
@@ -4127,6 +4223,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const diff: DataSize = { data: 0, meta: 0 };
     const changes: Array<TreeVisibleEdit> = [];
     for (const span of spans) {
+      if (!restoreSpanKindAgrees(span)) {
+        continue;
+      }
       const start = span.id.getOffset();
       const end = start + Math.max(span.length, 1);
       const pieces = span.isText
@@ -4259,6 +4358,50 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
+   * `recreateParent` resolves the node a recreated span hangs under, or
+   * undefined when the span must be left unplaced (B1). Three shapes are
+   * unplaceable. The parent is genuinely absent (purged and not part of this
+   * restore). The parent is a text node, which cannot hold children. Or the
+   * identity being recreated, `id`, is one a surviving node already holds --
+   * exactly, or inside a surviving text run of the same insertion -- in which
+   * case recreating would put a second node under one identity, and
+   * `registerNode` overwrites the live registration of the node that holds
+   * it, leaving every later change that addresses it unapplicable (#1471).
+   *
+   * No honest span is any of these: spans come from the wire, and the server
+   * stores a change before applying it, so throwing here would fail every
+   * later apply of the document. Each test reads only state that never
+   * changes afterwards (node kind, identity ownership), and a replica that
+   * does hold the named node resolves the span through restore's un-tombstone
+   * branch instead, so the replicas converge either way. Mirrors Go's
+   * `Tree.recreateParent` (yorkie#2168).
+   */
+  private recreateParent(
+    span: TreeRestoreSpan,
+    id: CRDTTreeNodeID,
+  ): CRDTTreeNode | undefined {
+    if (!span.parentID) {
+      return;
+    }
+    const parent = this.findFloorNode(span.parentID);
+    if (!parent || !parent.id.equals(span.parentID) || parent.isText) {
+      return;
+    }
+
+    const holder = this.findFloorNode(id);
+    if (
+      holder &&
+      (holder.id.getOffset() === id.getOffset() ||
+        (holder.isText &&
+          holder.id.getOffset() + holder.value.length > id.getOffset()))
+    ) {
+      return;
+    }
+
+    return parent;
+  }
+
+  /**
    * `recreateFromSpan` rebuilds a purged node (or purged text sub-range)
    * under its original identity and attaches it. Anchor ladder, each rung
    * doing floor-lookup + parent-identity check:
@@ -4268,8 +4411,8 @@ export class CRDTTree extends CRDTElement implements GCParent {
    *   (d) deterministic id-order fallback: insert among the parent's current
    *       children at the first position whose id compares greater than the
    *       node's id (pure function of ids → identical on every replica).
-   * Parent genuinely absent → skip (B1): the node stays unplaced/invisible;
-   * convergent, because every replica resolves parent-absent identically.
+   * A span `recreateParent` refuses is skipped (B1): the node stays
+   * unplaced/invisible. Go's `Tree.recreateFromSpan` applies the same rules.
    * Parent present but TOMBSTONED → the node is placed but born tombstoned,
    * stamped with the parent's `removedAt`, and returned as undefined (see
    * `attach` below).
@@ -4279,18 +4422,15 @@ export class CRDTTree extends CRDTElement implements GCParent {
     offset: number,
     length: number,
   ): CRDTTreeNode | undefined {
-    const parent = span.parentID
-      ? this.findFloorNode(span.parentID)
-      : undefined;
-    if (!parent || (span.parentID && !parent.id.equals(span.parentID))) {
-      // B1: parent gone (purged, and not part of this undo's spans). Leave
-      // the node unplaced; a later parent-restore will bring it back.
+    const id = CRDTTreeNodeID.of(span.id.getCreatedAt(), offset);
+    const parent = this.recreateParent(span, id);
+    if (!parent) {
       return;
     }
 
     const node = span.isText
       ? new CRDTTreeNode(
-          CRDTTreeNodeID.of(span.id.getCreatedAt(), offset),
+          id,
           span.nodeType,
           span.value!.substring(
             offset - span.id.getOffset(),

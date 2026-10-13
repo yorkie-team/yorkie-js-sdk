@@ -45,6 +45,12 @@
 // guard still refuses the edits it knew about, the next regeneration
 // overwrites whatever it missed, and the alternative — live code from the
 // tree — is the property being removed.
+//
+// The git hooks made the opposite trade (they run from the tracked
+// `.githooks/`; see docs/design/agent-harness.md), and the difference is
+// consent. A git hook runs when you commit or push, an act you chose that
+// `--no-verify` can skip. These run when a session opens, before you have
+// read anything.
 
 import { spawnSync } from 'node:child_process';
 import {
@@ -165,8 +171,9 @@ function gitPath(flag) {
 
 function main() {
   const root = gitPath('--show-toplevel');
-  // The common dir, shared by every worktree — see scripts/setup.sh. A
-  // snapshot under `.git/worktrees/<name>` dies with that worktree.
+  // The common dir, shared by every worktree, not `--absolute-git-dir`: in a
+  // linked worktree that is `.git/worktrees/<name>`, and a snapshot there
+  // dies with the worktree while other checkouts' wiring still names it.
   const common = gitPath('--git-common-dir');
   const gitDir = common ? realpathSync(path.resolve(common)) : null;
   if (!root || !gitDir) {

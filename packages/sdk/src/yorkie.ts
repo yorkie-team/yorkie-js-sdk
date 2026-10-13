@@ -35,6 +35,7 @@ export {
   type ClientOptions,
   type AttachOptions,
   type AttachChannelOptions,
+  type ResyncOptions,
 } from '@yorkie-js/sdk/src/client/client';
 export {
   type DocStore,
@@ -73,6 +74,7 @@ export {
   type DocEvent,
   type DocEvents,
   type EpochMismatchEvent,
+  type WriteRejectedEvent,
   Document,
   type ChangeInfo,
 } from '@yorkie-js/sdk/src/document/document';

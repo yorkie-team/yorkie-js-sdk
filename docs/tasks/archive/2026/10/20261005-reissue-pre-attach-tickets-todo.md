@@ -53,7 +53,7 @@ need it before any collision rule is safe.
 - [x] Verify: Red -> Green, `pnpm verify:fast`, `pnpm sdk test` against the
       compose server (`yorkieteam/yorkie:latest`; the change is client-only)
 - [x] Self review: 3 rounds (see lessons)
-- [ ] PR
+- [x] PR
 
 ## Review
 
@@ -79,3 +79,5 @@ need it before any collision rule is safe.
   rejects such a Text (`insPrevNode should be presence`); pushes never carry
   one today because pushed values are deepcopies. File as a follow-up after
   reproducing it with real clients.
+
+**Archived**: 2026-10-13 — merged as #1449. Open follow-ups: insPrev-after-GC is #1451; the explicit-client-key collision waits on yorkie#2114.

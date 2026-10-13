@@ -43,10 +43,13 @@ async function main() {
   bindGlobalClickDismiss();
 }
 
+// A presence is keyed by the client's actor, not by the per-session id that
+// `client.getID()` returns, so "me" is `client.getActorID()`. Comparing
+// against `getID()` finds nobody and leaves `myPresence` undefined.
 const initUserPresences = (peers) => {
-  peerList = peers.filter(({ clientID: id }) => id !== client.getID());
+  peerList = peers.filter(({ clientID: id }) => id !== client.getActorID());
   myPresence = peers.find(
-    ({ clientID: id }) => id === client.getID(),
+    ({ clientID: id }) => id === client.getActorID(),
   )?.presence;
 };
 

@@ -5,7 +5,10 @@ set -euo pipefail
 # staged source, through lint-staged. Build and tests run in pre-push, where
 # the ~30s is paid once per push rather than once per commit.
 #
-# Bypass with `git commit --no-verify` when you mean to.
+# Like every hook here it runs from the tracked `.githooks/` (setup.sh points
+# `core.hooksPath` there), so it is the checked-out branch's own copy and runs
+# that branch's lint configs. Bypass with `git commit --no-verify` when you
+# mean to.
 
 # Nothing to lint is not the same as no linter. A commit staging no source
 # (a README typo) must not need the toolchain. No --diff-filter: `ACM` would
@@ -21,10 +24,5 @@ if ! command -v pnpm >/dev/null 2>&1; then
   echo "pre-commit: pnpm not found; install it and run 'pnpm install'." >&2
   exit 1
 fi
-
-# lint-staged loads this branch's lint configs. Check whose branch it is first.
-# shellcheck source=.githooks/trusted-tree.sh
-. "$(dirname "$0")/trusted-tree.sh"
-yorkie_require_own_work "pre-commit" "'pnpm exec lint-staged'" || exit 1
 
 exec pnpm exec lint-staged

@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-06
+updated: 2026-10-13
 ---
 
 # Tasks Archive
@@ -8,18 +8,32 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 41
+Total archived tasks: 56
 
-## 2026/10 (4 tasks)
+## 2026/10 (18 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Ask the server for Watch heartbeats at a chosen interval (2026-10-13) | [20261013-watch-heartbeat-interval-todo.md](./2026/10/20261013-watch-heartbeat-interval-todo.md) | [20261013-watch-heartbeat-interval-lessons.md](./2026/10/20261013-watch-heartbeat-interval-lessons.md) |
+| Resolve the index before a text that follows an element (2026-10-12) | [20261012-tree-element-text-boundary-todo.md](./2026/10/20261012-tree-element-text-boundary-todo.md) | [20261012-tree-element-text-boundary-lessons.md](./2026/10/20261012-tree-element-text-boundary-lessons.md) |
+| Leave a restore span with a text parent unplaced (2026-10-12) | [20261012-restore-span-text-parent-todo.md](./2026/10/20261012-restore-span-text-parent-todo.md) | [20261012-restore-span-text-parent-lessons.md](./2026/10/20261012-restore-span-text-parent-lessons.md) |
+| Refuse a merge that would move a node under itself (2026-10-12) | [20261012-merge-lineage-cycle-todo.md](./2026/10/20261012-merge-lineage-cycle-todo.md) | [20261012-merge-lineage-cycle-lessons.md](./2026/10/20261012-merge-lineage-cycle-lessons.md) |
+| Send presence as a patch when the server advertises presence-patch (2026-10-11) | [20261011-presence-patch-todo.md](./2026/10/20261011-presence-patch-todo.md) | [20261011-presence-patch-lessons.md](./2026/10/20261011-presence-patch-lessons.md) |
+| Detect a half-open Watch stream from the server heartbeat (2026-10-10) | [20261010-watch-idle-watchdog-todo.md](./2026/10/20261010-watch-idle-watchdog-todo.md) | [20261010-watch-idle-watchdog-lessons.md](./2026/10/20261010-watch-idle-watchdog-lessons.md) |
+| Run the git hooks from .githooks/ and drop the trusted-tree guard (2026-10-09) | [20261009-remove-trusted-tree-guard-todo.md](./2026/10/20261009-remove-trusted-tree-guard-todo.md) | [20261009-remove-trusted-tree-guard-lessons.md](./2026/10/20261009-remove-trusted-tree-guard-lessons.md) |
+| Recover a document after the server rejects local writes (2026-10-08) | [20261008-resync-after-write-denial-todo.md](./2026/10/20261008-resync-after-write-denial-todo.md) | [20261008-resync-after-write-denial-lessons.md](./2026/10/20261008-resync-after-write-denial-lessons.md) |
+| Stop retrying size-limit rejections and report them to the app (2026-10-08) | [20261008-no-retry-write-rejected-todo.md](./2026/10/20261008-no-retry-write-rejected-todo.md) | [20261008-no-retry-write-rejected-lessons.md](./2026/10/20261008-no-retry-write-rejected-lessons.md) |
+| Identify "me" with getActorID() in the examples, and say so in the CHANGELOG (2026-10-08) | [20261008-getactorid-in-examples-todo.md](./2026/10/20261008-getactorid-in-examples-todo.md) | [20261008-getactorid-in-examples-lessons.md](./2026/10/20261008-getactorid-in-examples-lessons.md) |
+| Stop the split-sibling cascade at a sibling the editor saw alive (2026-10-06) | [20261006-split-sibling-cascade-stop-todo.md](./2026/10/20261006-split-sibling-cascade-stop-todo.md) | [20261006-split-sibling-cascade-stop-lessons.md](./2026/10/20261006-split-sibling-cascade-stop-lessons.md) |
+| Report a remote split where it landed, not where it was asked for (2026-10-06) | [20261006-split-opinfo-concurrent-insert-todo.md](./2026/10/20261006-split-opinfo-concurrent-insert-todo.md) | [20261006-split-opinfo-concurrent-insert-lessons.md](./2026/10/20261006-split-opinfo-concurrent-insert-lessons.md) |
+| Drop a pull already in flight when switching to push-only (2026-10-06) | [20261006-pushonly-switch-in-flight-pull-todo.md](./2026/10/20261006-pushonly-switch-in-flight-pull-todo.md) | [20261006-pushonly-switch-in-flight-pull-lessons.md](./2026/10/20261006-pushonly-switch-in-flight-pull-lessons.md) |
 | Reject indexes that split a UTF-16 surrogate pair (2026-10-05) | [20261005-reject-mid-surrogate-index-todo.md](./2026/10/20261005-reject-mid-surrogate-index-todo.md) | [20261005-reject-mid-surrogate-index-lessons.md](./2026/10/20261005-reject-mid-surrogate-index-lessons.md) |
+| Re-issue pre-attach tickets to the client's actor on attach (2026-10-05) | [20261005-reissue-pre-attach-tickets-todo.md](./2026/10/20261005-reissue-pre-attach-tickets-todo.md) | [20261005-reissue-pre-attach-tickets-lessons.md](./2026/10/20261005-reissue-pre-attach-tickets-lessons.md) |
 | Text: normalizePos walks the whole chain on every edit (2026-10-02) | [20261002-text-normalize-pos-splay-todo.md](./2026/10/20261002-text-normalize-pos-splay-todo.md) | [20261002-text-normalize-pos-splay-lessons.md](./2026/10/20261002-text-normalize-pos-splay-lessons.md) |
 | Archive the finished task records and warn when one is left behind (2026-10-02) | [20261002-archive-finished-tasks-todo.md](./2026/10/20261002-archive-finished-tasks-todo.md) | [20261002-archive-finished-tasks-lessons.md](./2026/10/20261002-archive-finished-tasks-lessons.md) |
 | Make the agent loop converge instead of re-litigating unchanged code (2026-10-01) | [20261001-harness-convergence-todo.md](./2026/10/20261001-harness-convergence-todo.md) | [20261001-harness-convergence-lessons.md](./2026/10/20261001-harness-convergence-lessons.md) |
 
-## 2026/09 (19 tasks)
+## 2026/09 (20 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
@@ -39,6 +53,7 @@ Total archived tasks: 41
 | Tree edits charge live for sizes it was not holding (2026-09-19) | [20260919-tree-size-ledger-todo.md](./2026/09/20260919-tree-size-ledger-todo.md) | [20260919-tree-size-ledger-lessons.md](./2026/09/20260919-tree-size-ledger-lessons.md) |
 | A split reports no index growth to undo/redo reconciliation (2026-09-19) | [20260919-split-index-ledger-todo.md](./2026/09/20260919-split-index-ledger-todo.md) | [20260919-split-index-ledger-lessons.md](./2026/09/20260919-split-index-ledger-lessons.md) |
 | A split copies an attribute tombstone under the same id (2026-09-19) | [20260919-split-attr-tombstone-id-todo.md](./2026/09/20260919-split-attr-tombstone-id-todo.md) | [20260919-split-attr-tombstone-id-lessons.md](./2026/09/20260919-split-attr-tombstone-id-lessons.md) |
+| Incremental Persistence Engine (S2) (2026-09-16) | [20260916-incremental-persistence-engine-todo.md](./2026/09/20260916-incremental-persistence-engine-todo.md) | [20260916-incremental-persistence-engine-lessons.md](./2026/09/20260916-incremental-persistence-engine-lessons.md) |
 | Incremental DocStore Interface (S1) (2026-09-16) | [20260916-incremental-doc-store-interface-todo.md](./2026/09/20260916-incremental-doc-store-interface-todo.md) | [20260916-incremental-doc-store-interface-lessons.md](./2026/09/20260916-incremental-doc-store-interface-lessons.md) |
 | Decoding a snapshot drops a key depending on member order (2026-09-14) | [20260914-element-rht-set-order-independence-todo.md](./2026/09/20260914-element-rht-set-order-independence-todo.md) | [20260914-element-rht-set-order-independence-lessons.md](./2026/09/20260914-element-rht-set-order-independence-lessons.md) |
 | Dependabot Security Bump (2026-09) (2026-09-14) | [20260914-dependabot-security-bump-todo.md](./2026/09/20260914-dependabot-security-bump-todo.md) | [20260914-dependabot-security-bump-lessons.md](./2026/09/20260914-dependabot-security-bump-lessons.md) |
