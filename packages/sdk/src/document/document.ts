@@ -851,8 +851,11 @@ export class Document<
 
   // `presencePatchSent` is whether the last presence change recorded was a
   // patch. It is what decides whether a reply that has dropped the capability
-  // needs healing: an old server does not reject a patch, it stores it as an
-  // empty presence for us, so peers are left wrong until a full put lands.
+  // needs healing: an old server (v0.7.24 or earlier) does not reject a
+  // patch, it stores it with an empty change type and serves it back as
+  // `CHANGE_TYPE_UNSPECIFIED`, which every reader that pulls it fails to
+  // decode (`ErrInvalidType`). A later put does not undo that, so the server
+  // must be upgraded first and must not roll back below v0.7.25.
   private presencePatchSent: boolean;
 
   // `docID` is the server-assigned document id (`AttachDocumentResponse.
@@ -1726,10 +1729,13 @@ export class Document<
    * healed with a full put.
    *
    * Absence means unsupported, so a reply from an old server during a rolling
-   * upgrade turns patching off. An old server does not reject a patch -- it
-   * stores it as an empty presence for us -- so once a patch has been
-   * recorded, a server that does not advertise the capability leaves the peers
-   * holding an empty presence until a full put lands.
+   * upgrade turns patching off. An old server (v0.7.24 or earlier) does not
+   * reject a patch -- it stores it with an empty change type and serves it
+   * back as `CHANGE_TYPE_UNSPECIFIED`, which every reader that pulls it fails
+   * to decode with `ErrInvalidType`, stopping its sync loop. The heal only
+   * stops further patches and re-sends a base; it cannot repair a patch
+   * already stored, so the server must be upgraded first and must not roll
+   * back below v0.7.25 once clients of this SDK connect.
    *
    * The test is only whether a patch is outstanding, not whether patching was
    * on a moment ago: a patch restored from offline persistence was minted in
@@ -1746,7 +1752,8 @@ export class Document<
 
   /**
    * `healPresenceBase` re-sends the whole presence as a put, after a patch
-   * that a server without the capability may have stored as empty.
+   * that a server without the capability may have stored, so no further
+   * patch follows on top of a base that server never held.
    *
    * Minting it is a side effect of applying a pack rather than something the
    * caller asked for, so it defers to `isMintable` instead of throwing
@@ -1823,7 +1830,7 @@ export class Document<
    * `hasPendingPresencePatch` reports whether a presence patch is still queued
    * to be pushed. That is what makes a patch "outstanding": it reaches the
    * server verbatim, so a server without the capability would store it as an
-   * empty presence and leave a presence to heal.
+   * unspecified change and leave a presence to heal.
    */
   private hasPendingPresencePatch(): boolean {
     return this.localChanges.some(
@@ -1867,7 +1874,7 @@ export class Document<
     // usually still holds one. A patch is outstanding whenever it does, and
     // clearing the flag regardless would tell `learnPresenceCapability` there
     // is nothing to heal -- exactly when a server without the capability is
-    // about to store those patches as an empty presence.
+    // about to store those patches as unspecified changes.
     this.presencePatchSent = this.hasPendingPresencePatch();
   }
 
@@ -3540,7 +3547,7 @@ export class Document<
     // The capabilities describe the server that took this push, not the
     // content being skipped, so they are metadata as well -- and a push whose
     // reply is dropped is exactly a push that carried the patch which a server
-    // without the capability has just stored as an empty presence. Skipping
+    // without the capability has just stored as an unspecified change. Skipping
     // the heal here would leave a document in PushOnly/SyncOff patching into
     // the void for as long as it stays there.
     const needsHeal = this.learnPresenceCapability(pack);
