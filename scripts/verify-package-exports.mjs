@@ -248,6 +248,21 @@ for (const name of Object.keys(packages)) {
   const id = '@yorkie-js/' + name;
   checkTargets(require(id + '/package.json').exports, dirname(require.resolve(id + '/package.json')));
 }
+// prosemirror re-exports no SDK values, but its binding creates the Tree it
+// stores in the app's Document. With a second SDK copy that Tree would be
+// stored as a plain object, so check both entries build a real one.
+const pmModels = { esm: await import('prosemirror-model'), cjs: require('prosemirror-model') };
+const pmStates = { esm: await import('prosemirror-state'), cjs: require('prosemirror-state') };
+for (const format of ['esm', 'cjs']) {
+  const { Schema } = pmModels[format];
+  const schema = new Schema({ nodes: { doc: { content: 'paragraph+' }, paragraph: { content: 'text*' }, text: {} } });
+  const state = pmStates[format].EditorState.create({ doc: schema.node('doc', null, [schema.node('paragraph', null, [schema.text('hi')])]) });
+  const view = { state, props: {}, editable: true, dom: { addEventListener() {}, removeEventListener() {} }, setProps(props) { Object.assign(this.props, props); }, updateState(next) { this.state = next; } };
+  const doc = new packages.sdk[format].Document('prosemirror-' + format);
+  new packages.prosemirror[format].YorkieProseMirrorBinding(view, doc, 'tree', { client: {} }).initialize();
+  assert.equal(typeof doc.getRoot().tree?.toXML, 'function', 'prosemirror:' + format + ' stored a Tree from another SDK copy');
+  assert.equal(doc.getRoot().tree.toXML(), '<doc><paragraph>hi</paragraph></doc>');
+}
 const { esm, cjs } = packages.sdk;
 assert.equal(esm.default, cjs.default);
 assert.equal(esm.default.Document, cjs.Document);
