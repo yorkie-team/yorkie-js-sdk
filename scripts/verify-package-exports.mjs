@@ -437,24 +437,29 @@ export const notSyncMode: SyncModeOf<typeof YorkieProseMirrorBinding> = 0;
 const { readFileSync } = require('node:fs');
 const { dirname, join } = require('node:path');
 const vm = require('node:vm');
+const { renderToString } = require('react-dom/server');
+// A page gets React from its CDN build, which exposes no JSX runtime global.
+const React = require('react');
 const context = vm.createContext({
-  React: require('react'), jsxRuntime: require('react/jsx-runtime'),
-  console, setTimeout, clearTimeout, TextEncoder, TextDecoder, URL,
+  React, console, setTimeout, clearTimeout, TextEncoder, TextDecoder, URL,
 });
-const reactDirectory = dirname(require.resolve('@yorkie-js/react/package.json'));
-vm.runInContext(readFileSync(join(reactDirectory, 'dist/yorkie-js-react.js'), 'utf8'), context);
-assert.equal(context['yorkie-js-sdk'], undefined);
-const react = context['yorkie-js-react'];
-for (const name of ['Text', 'Tree', 'Counter', 'YorkieProvider']) assert.equal(typeof react[name], 'function');
-assert.ok(new react.Text() instanceof react.Text);
-assert.ok(new react.Tree() instanceof react.Tree);
-assert.equal(new react.Counter(1).getValue(), 1);
-assert.deepEqual(Object.keys(react).sort(), Object.keys(require('@yorkie-js/react')).sort());
-// ProseMirror's UMD reads the SDK from a YorkieSdk global (a pre-existing
-// name the SDK UMD does not register), so a page aliases it.
+// The page loads the SDK UMD first; react's UMD uses the global it registers.
 const sdkDirectory = dirname(require.resolve('@yorkie-js/sdk/package.json'));
 vm.runInContext(readFileSync(join(sdkDirectory, 'dist/yorkie-js-sdk.js'), 'utf8'), context);
-context.YorkieSdk = context['yorkie-js-sdk'];
+const sdk = context['yorkie-js-sdk'];
+const reactDirectory = dirname(require.resolve('@yorkie-js/react/package.json'));
+vm.runInContext(readFileSync(join(reactDirectory, 'dist/yorkie-js-react.js'), 'utf8'), context);
+const react = context['yorkie-js-react'];
+for (const name of ['Text', 'Tree', 'Counter', 'SyncMode'])
+  assert.equal(react[name], sdk[name], 'react UMD and sdk UMD ' + name + ' differ');
+assert.equal(typeof react.YorkieProvider, 'function');
+assert.deepEqual(Object.keys(react).sort(), Object.keys(require('@yorkie-js/react')).sort());
+const html = renderToString(React.createElement(react.YorkieProvider, { apiKey: 'key', rpcAddr: 'http://127.0.0.1:1' },
+  React.createElement('p', null, 'child'), React.createElement('p', null, 'sibling')));
+assert.equal(html, '<p>child</p><p>sibling</p>');
+// ProseMirror's UMD reads the SDK from a YorkieSdk global (a pre-existing
+// name the SDK UMD does not register), so a page aliases it.
+context.YorkieSdk = sdk;
 context.ProsemirrorModel = require('prosemirror-model');
 context.ProsemirrorState = require('prosemirror-state');
 context.ProsemirrorView = require('prosemirror-view');

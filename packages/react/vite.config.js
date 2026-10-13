@@ -29,19 +29,19 @@ export default defineConfig(({ mode }) => {
               : 'yorkie-js-react.es.mjs',
       },
       rollupOptions: {
-        // Node and browser bundlers share the consumer's SDK. The legacy
-        // script-tag UMD keeps its bundled SDK so it needs no new global.
+        // Every build shares the host's SDK. A script-tag page loads the SDK
+        // UMD first, and this UMD reads the global it registers.
         external: [
           'react',
           'react-dom',
-          'react/jsx-runtime',
-          ...(umd ? [] : ['@yorkie-js/sdk']),
+          '@yorkie-js/sdk',
+          ...(umd ? [] : ['react/jsx-runtime']),
         ],
         output: {
           globals: {
             react: 'React',
             'react-dom': 'ReactDOM',
-            'react/jsx-runtime': 'jsxRuntime',
+            '@yorkie-js/sdk': 'yorkie-js-sdk',
           },
         },
       },
@@ -53,6 +53,15 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@yorkie-js/sdk/src': path.resolve(__dirname, '../sdk/src'),
+        // React's CDN builds expose no JSX runtime global.
+        ...(umd
+          ? {
+              'react/jsx-runtime': path.resolve(
+                __dirname,
+                'src/umd-jsx-runtime.ts',
+              ),
+            }
+          : {}),
       },
     },
     plugins: [
