@@ -165,6 +165,10 @@ export const CI_DEFINING_PATHS = [
   // `node --test 'scripts/test/**'`, so a branch editing a guard there changes
   // what the lane proves exactly as much as editing the script it guards.
   "scripts/test/**",
+  // …and the inputs those scripts read. `verify:exports` installs its
+  // consumer, and the tools it runs (tsc, attw, vite, esbuild), from the
+  // fixture lockfile, so dropping a tool there changes what the lane proves.
+  "scripts/fixtures/**",
   // The local enforcement layer. `setup.sh` decides what `core.hooksPath` and
   // Claude Code's hook wiring point at, and the two hook directories are what
   // they point at — a branch rewriting any of them changes what runs on a
