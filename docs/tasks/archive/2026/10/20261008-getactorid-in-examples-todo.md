@@ -30,17 +30,17 @@ upgrading is told to migrate.
 
 ## Plan
 
-- [ ] CHANGELOG: add a breaking-change note under v0.7.20 naming the id split
+- [x] CHANGELOG: add a breaking-change note under v0.7.20 naming the id split
       and the migration (`getActorID()` / `doc.getMyPresence()`), plus an
       Unreleased entry for the example fix.
-- [ ] `examples/profile-stack/main.js`: split peers from me with
+- [x] `examples/profile-stack/main.js`: split peers from me with
       `client.getActorID()`.
-- [ ] `examples/vanilla-codemirror6/src/main.ts`,
+- [x] `examples/vanilla-codemirror6/src/main.ts`,
       `examples/vanilla-quill/src/main.ts`,
       `examples/vanilla-document-limit/src/main.ts`: pass the actor to
       `displayPeers`, derive the presence username/colour from it, and compare
       the presence `clientID` against it.
-- [ ] `pnpm verify:fast`.
+- [x] `pnpm verify:fast`.
 
 ## Out of scope
 
@@ -50,3 +50,5 @@ upgrading is told to migrate.
 - Change messages such as `` `update content byA ${client.getID()}` `` are free
   text, not identity comparisons, and are left alone.
 - Changing what `getID()` returns, or making the two ids one again.
+
+**Archived**: 2026-10-13 — merged as #1461 (closes #1457); boxes ticked at archive.

@@ -221,7 +221,7 @@ export function shouldCompact(s: {
       — run as `docker run -p 8180:8080 yorkieteam/yorkie:latest` plus
       `TEST_RPC_ADDR=http://127.0.0.1:8180`, because `docker compose up` cannot
       bind 8080 while another project's Yorkie holds it
-- [ ] A benchmark built by **editing**, not by one bulk `update()`: a fixture
+- [x] A benchmark built by **editing**, not by one bulk `update()`: a fixture
       assembled in a single update understates cost by two orders of magnitude
       (a 20k-character note is 59 KB built at once, 6.60 MB typed)
 - [x] The `ClientOptions.store` doc comment no longer says a full snapshot is
@@ -247,3 +247,5 @@ invariant (`snapshot + meta + log` reconstructs the live document), the two
 `DocStore` implementations share one contract suite instead of two copies that
 drifted, and the persistence tests use a relative operation and compare whole
 documents.
+
+**Archived**: 2026-10-13 — shipped in #1354 and #1355. The edit-built benchmark was not done and is dropped; file an issue if it is still wanted.
