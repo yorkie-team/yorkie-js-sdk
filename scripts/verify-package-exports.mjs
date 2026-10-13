@@ -167,7 +167,7 @@ try {
   // Name the SDK peer too: an unrelated resolution failure is also ERESOLVE.
   assert.match(
     peerError ?? '',
-    /ERESOLVE[\s\S]*peer @yorkie-js\/sdk@"0\.\d+\.\d+" from @yorkie-js\/react/,
+    /ERESOLVE[\s\S]*peer @yorkie-js\/sdk@"\d+\.\d+\.\d+" from @yorkie-js\/react/,
     'An incompatible host SDK must fail peer resolution',
   );
 
