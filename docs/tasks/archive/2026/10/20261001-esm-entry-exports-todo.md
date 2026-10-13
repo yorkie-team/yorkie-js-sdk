@@ -128,11 +128,12 @@ preserving the actual ES bundle for browser bundlers.
 
 ## Follow-ups
 
-- [ ] prosemirror's UMD reads the SDK from a `YorkieSdk` global, which the SDK
+- [x] prosemirror's UMD reads the SDK from a `YorkieSdk` global, which the SDK
       UMD does not register (it registers `yorkie-js-sdk`). Pre-existing;
-      renaming it would break pages that set `YorkieSdk` today.
-- [ ] `@yorkie-js/schema` keeps its UMD-only `publishConfig` while
-      `"type": "module"`. The sdk only uses its types.
-- [ ] yorkie.dev's React guide installs only `@yorkie-js/react`. With the SDK
+      renaming it would break pages that set `YorkieSdk` today. Tracked in
+      #1489
+- [x] `@yorkie-js/schema` keeps its UMD-only `publishConfig` while
+      `"type": "module"`. The sdk only uses its types. Tracked in #1490
+- [x] yorkie.dev's React guide installs only `@yorkie-js/react`. With the SDK
       now a peer, Yarn users also need `@yorkie-js/sdk` (the package README
-      says so).
+      says so). Fixed in yorkie-team/yorkie-team.github.io#352
