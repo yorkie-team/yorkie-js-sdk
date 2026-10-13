@@ -88,11 +88,26 @@ repacked SDK with another version is rejected.
 ## Changing `main` moves what CDNs serve
 
 react's UMD bundle was its `main`, so unpkg and jsDelivr served it for a bare
-package URL. With the SDK external, that bundle would need a new SDK global,
-and pointing `main` at `.cjs` would hand CDNs a file that calls `require`. So
-the UMD build stays self-contained (it bundles the SDK, as before) and is named
-by the `unpkg` and `jsdelivr` fields. unpkg resolves `exports` with `default`
-unless an `unpkg` condition exists, so the map has one.
+package URL. Pointing `main` at `.cjs` would hand CDNs a file that calls
+`require`, so the UMD build is named by the `unpkg` and `jsdelivr` fields.
+unpkg resolves `exports` with `default` unless an `unpkg` condition exists, so
+the map has one.
+
+## A script-tag page needs one SDK too
+
+Round 2 kept the SDK bundled in react's UMD so a page needed no SDK script.
+Round 3 found the cost: a page that also loads the SDK UMD, as any page using
+`Client` or `Document` does, holds two `Text` classes, which is the bug this
+change fixes for npm. The maintainer chose the shared SDK: react's UMD reads
+the `yorkie-js-sdk` global the SDK UMD already registers, so a page loads the
+SDK script first.
+
+The same UMD read JSX helpers from a `jsxRuntime` global, which no React CDN
+build provides, so rendering any provider threw. Bundling React's runtime
+would tie elements to one major (React 19's element symbol is unknown to
+React 18, the last major with UMD builds). The UMD maps `react/jsx-runtime`
+to a shim over `React.createElement` instead. `verify:exports` renders a
+provider in a context holding only `React`.
 
 ## Generated code is source code
 
@@ -145,6 +160,10 @@ Before wrapping a package, check what its build loads, not only the package.
 
 ## Review rounds
 
+- **Panel, round 3 (f72a88db)**: 2 blocking, both in react's UMD: the
+  `jsxRuntime` global and the bundled SDK copy. Both were on main too. The
+  maintainer chose to fix both here (see above), reversing round 2's
+  self-contained UMD.
 - **Panel, round 2 (c480d2fb)**: 4 blocking — unvalidated export names in the
   generated wrapper, `verify:exports` in no CI lane, the SDK as react's regular
   dependency, react's UMD no longer self-contained. All four fixed, along with

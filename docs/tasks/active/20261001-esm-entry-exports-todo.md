@@ -115,6 +115,17 @@ preserving the actual ES bundle for browser bundlers.
 - [x] Add `scripts/fixtures/**` to the agent gate's CI-defining paths: the
       fixture lockfile decides which tools `verify:exports` runs
 
+## Review panel round 3 (#1431)
+
+- [x] react's UMD reads the SDK from the `yorkie-js-sdk` global instead of
+      bundling a second copy (maintainer decision; reverses round 2)
+- [x] react's UMD maps `react/jsx-runtime` to a `React.createElement` shim,
+      so it needs only the `React` global
+- [x] `verify:exports` loads the SDK UMD then react's, checks they share
+      `Text`/`Tree`/`Counter`/`SyncMode`, and renders `YorkieProvider` with
+      only `React` in scope. Each check fails on the previous UMD (verified)
+- [x] The react README shows the script-tag load order
+
 ## Follow-ups
 
 - [ ] prosemirror's UMD reads the SDK from a `YorkieSdk` global, which the SDK
