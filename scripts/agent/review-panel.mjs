@@ -1475,10 +1475,10 @@ const CONFIDENCE_LEVELS = new Set(FINDING.properties.confidence.enum);
  *     nothing. "eslint runs" on its own would have implied them.
  *   - The root eslint ignores `examples/**`, `scripts/agent/**` and
  *     `packages/schema/antlr`, so those are linted by nothing.
- *   - `tsc` runs inside the sdk, react and schema builds and as devtools'
- *     `typecheck`. prosemirror's build is NOT in ci.yml — only its vitest
- *     suite, which strips types — so its own `tsc` runs nowhere. (The
- *     vanilla-prosemirror example's `tsc` reaches what that example imports.)
+ *   - `tsc` runs inside the sdk, react, prosemirror and schema builds and as
+ *     devtools' `typecheck`. prosemirror's build runs only in the
+ *     package-exports job, which then checks the packed tarballs with
+ *     `pnpm verify:exports`.
  *   - The integration suites run against `yorkieteam/yorkie:latest` from
  *     `docker/docker-compose-ci.yml`: the newest server image, not a pinned one.
  *   - Coverage is uploaded to Codecov, and `codecov.yml` turns both status
@@ -1525,8 +1525,12 @@ export const MECHANICAL_COVERAGE_NOTE = [
   "  rules in `eslint.config.mjs` (jsdoc and no-null-type are off under",
   "  packages/sdk/test).",
   "- `tsc` inside `pnpm sdk build` (src and test), `pnpm react build`,",
-  "  `pnpm schema build` and `pnpm devtools typecheck`; `pnpm build:examples`",
-  "  builds every example.",
+  "  `pnpm prosemirror build`, `pnpm schema build` and `pnpm devtools",
+  "  typecheck`; `pnpm build:examples` builds every example.",
+  "- `pnpm verify:exports` on Node 20, 22 and 24: the packed sdk, react and",
+  "  prosemirror tarballs load as ESM and CJS from one SDK copy, bundle with",
+  "  Vite SSR and esbuild, type-check under NodeNext and bundler resolution,",
+  "  and pass ATTW.",
   "- The SDK's whole vitest suite, unit and integration, with coverage, against a",
   "  real Yorkie server and MongoDB from `docker/docker-compose-ci.yml`; the",
   "  prosemirror, react and schema vitest suites; `node --test` over",
@@ -1543,8 +1547,6 @@ export const MECHANICAL_COVERAGE_NOTE = [
   "above would have caught, because nothing else in the pipeline will catch it:",
   "- Type-aware lint: no-floating-promises, no-misused-promises and the rest of",
   "  `recommendedTypeChecked` are not configured. An unawaited promise passes.",
-  "- `tsc` over packages/prosemirror: CI runs its tests, which strip types, and",
-  "  never its build.",
   "- Lint of examples/ (the root eslint ignores it) and tests of any example.",
   "- Generated-code freshness. No lane regenerates `*_pb.ts` or the ANTLR",
   "  output, so a hand edit there is caught by nothing.",
