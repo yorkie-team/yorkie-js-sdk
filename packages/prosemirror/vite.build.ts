@@ -52,6 +52,9 @@ export default defineConfig({
     // wrapper around the UMD would load their CJS copies next to the app's.
     dts({
       rollupTypes: true,
+      // Keep `@yorkie-js/sdk` a package import. The tsconfig path that maps it
+      // to workspace source would otherwise leak into the published types.
+      pathsToAliases: false,
       // Node ESM resolves types per module format, so ship a .d.mts twin.
       afterBuild: () =>
         copyEsmDeclarations(

@@ -494,24 +494,14 @@ assert.equal(typeof context['yorkie-js-prosemirror'].YorkieProseMirrorBinding, '
 
   // ATTW on the pnpm-made tarballs (its own --pack would use npm).
   for (const name of ['sdk', 'react', 'prosemirror']) {
-    // prosemirror's rolled-up .d.ts imports '../../sdk/src/yorkie.ts' (a separate,
-    // pre-existing packaging bug), so skip that one rule until it is fixed.
-    const skip =
-      name === 'prosemirror'
-        ? ['--ignore-rules', 'internal-resolution-error']
-        : [];
-    run(
-      process.execPath,
-      [attw, tgz[name], '--profile', 'node16', ...skip],
-      app,
-    );
+    run(process.execPath, [attw, tgz[name], '--profile', 'node16'], app);
   }
 
   const pkg = JSON.parse(
     readFileSync(join(app, 'node_modules/@yorkie-js/sdk/package.json'), 'utf8'),
   );
   console.log(
-    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS and mixed modules, bundled by Vite SSR and esbuild, with legacy UMD, NodeNext and bundler types (skipLibCheck) on ${process.version}`,
+    `OK: ${pkg.name}@${pkg.version} loads as ESM, CJS and mixed modules, bundled by Vite SSR and esbuild, with legacy UMD, NodeNext and bundler types (skipLibCheck) and ATTW on ${process.version}`,
   );
 } finally {
   rmSync(tmp, { recursive: true, force: true });
