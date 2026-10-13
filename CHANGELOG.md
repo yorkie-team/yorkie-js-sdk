@@ -7,9 +7,34 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+## [v0.7.25] - 2026-10-13
+
+This release requires yorkie server v0.7.25 or later. Upgrade every server
+node first, and do not roll the server back below v0.7.25 once clients of this
+SDK are connected: a presence patch (#1477) stored by an older server is served
+as an unspecified change, and every client fails the pulls that include it.
+
+### Added
+
+- Recover a document in place after the server refuses its writes by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1463
+- Reconnect a Watch stream that goes silent past the server heartbeat by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1472
+- Ask the server for Watch heartbeats at a chosen interval by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1483
+
+### Changed
+
+- Send presence as a patch when the server advertises presence-patch by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1477
+
 ### Fixed
 
-- Identify the local user with `getActorID()` in the examples by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/issues/1457
+- Re-issue pre-attach tickets to the client's actor on attach by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1449
+- Drop a pull already in flight when switching to push-only by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1453
+- Report a remote split where it landed, not where it was asked for by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1455
+- Stop the split-sibling cascade at a sibling the editor saw alive by @easylogic in https://github.com/yorkie-team/yorkie-js-sdk/pull/1456
+- Identify the local user with `getActorID()` in the examples by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1461
+- Stop retrying a push the server will never accept by @yorkie-team-agent[bot] in https://github.com/yorkie-team/yorkie-js-sdk/pull/1462
+- Skip a Tree restore span with a text parent by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1475
+- Refuse a merge that would move a node under itself by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1478
+- Resolve the index before a text that follows an element by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1482
 
 ## [v0.7.24] - 2026-10-06
 
