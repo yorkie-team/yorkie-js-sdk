@@ -46,8 +46,6 @@ This SDK sends nothing yet, so it would stay unheartbeated.
 
 ## Open
 
-- The two heartbeat cases only run once the CI server image
-  (`yorkieteam/yorkie:latest`) includes #2209; until then each reports itself
-  skipped, with the server's advertised interval as the reason. They are not a
-  merge blocker, but they prove nothing until the image is published, so
-  re-run the suite then.
+None. The heartbeat cases needed a `yorkieteam/yorkie:latest` that includes
+#2209; once it was published, CI run 38299023485 ran all three of them on
+646385af without skipping, and they passed.
