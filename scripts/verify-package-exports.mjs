@@ -297,7 +297,7 @@ for (const name of Object.keys(packages)) {
   // Node ESM declarations forward to CJS declarations to share class types.
   w(
     'types.mts',
-    `import yorkie, { Document, Text, Tree, Counter } from '@yorkie-js/sdk';
+    `import yorkie, { Document, Text, Tree, Counter, SyncMode } from '@yorkie-js/sdk';
 import { YorkieProvider, Text as ReactText, Tree as ReactTree, Counter as ReactCounter } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 import sdk = require('@yorkie-js/sdk');
@@ -315,6 +315,16 @@ export const provider: typeof react.YorkieProvider = YorkieProvider;
 // prosemirror's Node import is its ES bundle, so its ESM and CJS types are
 // separate declarations: check that both resolve, not that they match.
 export const bindings = [YorkieProseMirrorBinding, prosemirror.YorkieProseMirrorBinding];
+// skipLibCheck turns an unresolved import in a published .d.ts into a type
+// that accepts anything, so check prosemirror's SyncMode is the SDK's string
+// enum: it takes SyncMode.Realtime and rejects a number.
+type SyncModeOf<B extends abstract new (...args: any) => any> = NonNullable<ConstructorParameters<B>[3]>['syncMode'];
+export const esmSyncMode: SyncModeOf<typeof YorkieProseMirrorBinding> = SyncMode.Realtime;
+export const cjsSyncMode: SyncModeOf<typeof prosemirror.YorkieProseMirrorBinding> = SyncMode.Realtime;
+// @ts-expect-error A resolved SyncMode rejects a number.
+export const esmNotSyncMode: SyncModeOf<typeof YorkieProseMirrorBinding> = 0;
+// @ts-expect-error A resolved SyncMode rejects a number.
+export const cjsNotSyncMode: SyncModeOf<typeof prosemirror.YorkieProseMirrorBinding> = 0;
 const doc = new Document<{ text: Text; tree: Tree; counter: Counter }>('types');
 doc.update(root => {
   root.text = new sdk.Text();
@@ -392,11 +402,18 @@ for (const [name, left, right] of [['Text', ReactText, Text], ['Tree', ReactTree
   // Bundler resolution never sets `node`, so it reads the plain .d.mts twins.
   w(
     'types.bundler.ts',
-    `import yorkie, { Document, Text, converter } from '@yorkie-js/sdk';
+    `import yorkie, { Document, Text, converter, SyncMode } from '@yorkie-js/sdk';
 import { YorkieProvider } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 export const doc: Document<{ text: Text }> = new yorkie.Document<{ text: Text }>('bundler');
 export const used = [converter, YorkieProvider, YorkieProseMirrorBinding];
+// skipLibCheck turns an unresolved import in a published .d.ts into a type
+// that accepts anything, so check prosemirror's SyncMode is the SDK's string
+// enum: it takes SyncMode.Realtime and rejects a number.
+type SyncModeOf<B extends abstract new (...args: any) => any> = NonNullable<ConstructorParameters<B>[3]>['syncMode'];
+export const syncMode: SyncModeOf<typeof YorkieProseMirrorBinding> = SyncMode.Realtime;
+// @ts-expect-error A resolved SyncMode rejects a number.
+export const notSyncMode: SyncModeOf<typeof YorkieProseMirrorBinding> = 0;
 `,
   );
   w(
