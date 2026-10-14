@@ -1209,6 +1209,7 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
     // scripts that import it.
     "scripts/direct-run.mjs",
     "scripts/test/verify-license.test.mjs",
+    "scripts/fixtures/package-exports/package-lock.json",
     "scripts/setup.sh",
     "scripts/hooks/install.mjs",
     ".githooks/pre-push",

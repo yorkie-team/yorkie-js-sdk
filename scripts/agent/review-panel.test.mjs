@@ -1827,6 +1827,8 @@ test("the coverage note claims only mechanisms this repo actually runs", () => {
     "docker compose -f docker/docker-compose-ci.yml up",
     "pnpm sdk test:ci",
     "pnpm prosemirror test",
+    "pnpm prosemirror build",
+    "pnpm verify:exports",
     "pnpm build:examples",
     "pnpm react build",
     "pnpm react test",
@@ -1836,10 +1838,9 @@ test("the coverage note claims only mechanisms this repo actually runs", () => {
   ]) {
     assert.ok(ci.includes(lane), `the note relies on \`${lane}\`, which ci.yml no longer runs`);
   }
-  // ...and the lane the NOT-enforced half says is missing really is missing.
-  assert.ok(!/pnpm prosemirror build/.test(ci),
-    "ci.yml builds prosemirror now — its `tsc` bullet belongs in the enforced half");
-  assert.match(notEnforced, /`tsc` over packages\/prosemirror/);
+  // ...and prosemirror's `tsc`, which CI now runs, sits in the enforced half.
+  assert.match(enforced, /`pnpm prosemirror build`/);
+  assert.doesNotMatch(notEnforced, /prosemirror/);
 
   // The integration suite claim must name what it runs against ON ITS BULLET,
   // and what it names must be what the compose file actually starts.

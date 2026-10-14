@@ -13,6 +13,7 @@
     "verify:doc-links": "node ./scripts/verify-doc-links.mjs",
     "verify:license": "node ./scripts/verify-license.mjs",
     "verify:fast": "pnpm lint:check && pnpm verify:license && pnpm verify:doc-links && pnpm test:scripts && pnpm sdk build && pnpm sdk test:unit && pnpm prosemirror test:unit && pnpm react test && pnpm devtools test && pnpm schema exec vitest run",
+    "verify:exports": "node ./scripts/verify-package-exports.mjs",
     "test:scripts": "node --test 'scripts/test/**/*.test.mjs'",
     "sdk": "pnpm --filter=@yorkie-js/sdk",
     "devtools": "pnpm --filter=@yorkie-js/devtools",
