@@ -68,7 +68,7 @@ export type Step =
       v: string;
     };
 
-export type Status = 'pass' | 'known-diverge';
+export type Status = 'pass' | 'known-diverge' | 'known-error' | 'known-fail';
 
 export type Script = {
   v: number;
@@ -83,10 +83,93 @@ export type Script = {
 
 export type Result = 'pass' | 'diverged' | 'error' | 'fail';
 
+/**
+ * `StatusResults` maps each ledger status to the only result it accepts.
+ */
+export const StatusResults: Record<Status, Result> = {
+  pass: 'pass',
+  'known-diverge': 'diverged',
+  'known-error': 'error',
+  'known-fail': 'fail',
+};
+
+const ScriptFields = new Set([
+  'v',
+  'id',
+  'issues',
+  'status',
+  'note',
+  'replicas',
+  'init',
+  'steps',
+]);
+const StepFields = new Set([
+  'r',
+  'op',
+  'from',
+  'to',
+  'text',
+  'split',
+  'attrs',
+  'keys',
+  'k',
+  'f',
+  'g',
+  'h',
+  'v',
+]);
+const Ops = new Set([
+  'edit',
+  'style',
+  'removeStyle',
+  'undo',
+  'redo',
+  'pull',
+  'sync',
+  'snapshot',
+  'gen',
+]);
+const GenKinds = new Set(['ins', 'split', 'del', 'merge', 'style']);
+
+/**
+ * `parseScript` parses and validates a script, as the Go runner's
+ * LoadScript does. Unknown fields, ops, generator kinds and ledger values
+ * are errors naming `name`, so a typo fails loudly instead of silently
+ * replaying something else.
+ */
+export function parseScript(text: string, name: string): Script {
+  const fail = (msg: string): never => {
+    throw new Error(`${name}: ${msg}`);
+  };
+  const s = JSON.parse(text) as Script;
+  for (const key of Object.keys(s)) {
+    if (!ScriptFields.has(key)) fail(`unknown field "${key}"`);
+  }
+  if (s.v !== 1) fail(`unsupported version ${s.v}`);
+  if (!(s.replicas >= 1)) fail('replicas must be at least 1');
+  for (const [sdk, status] of Object.entries(s.status ?? {})) {
+    if (!(status in StatusResults)) {
+      fail(`status.${sdk}: unknown value "${status}"`);
+    }
+  }
+  s.steps = s.steps ?? [];
+  s.steps.forEach((st, i) => {
+    for (const key of Object.keys(st)) {
+      if (!StepFields.has(key)) fail(`step ${i}: unknown field "${key}"`);
+    }
+    if (!(st.r >= 0 && st.r < s.replicas)) {
+      fail(`step ${i}: replica ${st.r} out of range`);
+    }
+    if (!Ops.has(st.op)) fail(`step ${i}: unknown op "${st.op}"`);
+    if (st.op === 'gen' && !GenKinds.has(st.k)) {
+      fail(`step ${i}: unknown gen kind "${st.k}"`);
+    }
+  });
+  return s;
+}
+
 export type RunRecord = {
   id: string;
-  seed?: number;
-  fam?: string;
   n: number;
   result: Result;
   checks: { I1: boolean; I2: boolean; I3: boolean; I4: boolean };
@@ -533,10 +616,7 @@ function digest16(s: string): string {
  * `runScript` replays the script in `off` and `minvv` modes, checks I1-I4
  * and returns the record.
  */
-export function runScript(
-  script: Script,
-  meta: { seed?: number; fam?: string } = {},
-): RunRecord {
+export function runScript(script: Script): RunRecord {
   const off = new Replay(script, 'off');
   let offErr: string | undefined;
   try {
@@ -592,7 +672,6 @@ export function runScript(
 
   return {
     id: script.id,
-    ...meta,
     n: script.replicas,
     result,
     checks: { I1, I2, I3, I4 },

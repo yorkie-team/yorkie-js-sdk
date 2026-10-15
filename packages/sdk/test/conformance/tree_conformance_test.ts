@@ -27,12 +27,14 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { describe, it, expect } from 'vitest';
 import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
-import { runScript, Script } from './runner';
+import { parseScript, runScript, StatusResults } from './runner';
 import { FixtureFamilies, gen } from './generator';
 
 const TreeDir = path.join(__dirname, 'tree');
 const CorpusDir = path.join(TreeDir, 'corpus');
 const ParityDir = path.join(TreeDir, 'parity');
+const ParitySeed0 = 1;
+const ParityRuns = 200;
 
 // Each test replays hundreds of scripts; CI's default 5s is too short.
 const Timeout = 120_000;
@@ -71,7 +73,7 @@ function genRows(family: string, seed0: number, runs: number) {
   const rows = [];
   for (let k = 0; k < runs; k++) {
     const seed = seed0 + k;
-    const rec = runScript(gen(seed, fam, n, steps), { seed, fam });
+    const rec = runScript(gen(seed, fam, n, steps));
     rows.push({
       seed,
       result: rec.result,
@@ -93,58 +95,84 @@ describe('Tree conformance: corpus', () => {
 
   for (const file of files) {
     it(file, () => {
-      const script: Script = JSON.parse(
+      const script = parseScript(
         readFileSync(path.join(CorpusDir, file), 'utf8'),
+        file,
       );
       const status = script.status?.js;
       expect(status, `${file}: status.js is missing`).toBeDefined();
       const rec = runScript(script);
-      const detail = `${file}: result=${rec.result} ${JSON.stringify(
-        rec.checks,
-      )}${rec.error ? ` error=${rec.error}` : ''}\n${rec.steps.join('\n')}`;
-      if (status === 'pass') {
-        expect(rec.result, detail).toBe('pass');
-      } else {
-        expect(
-          rec.result,
-          `${detail}\n${file} passes now: update status.js in yorkie's ` +
-            `test/conformance/tree/corpus and re-sync`,
-        ).not.toBe('pass');
-      }
+      expect(
+        rec.result,
+        `${file}: status.js is "${status}" but the result is ` +
+          `"${rec.result}" (checks ${JSON.stringify(rec.checks)}` +
+          `${rec.error ? `, error ${rec.error}` : ''}): update status.js ` +
+          `in yorkie's test/conformance/tree/corpus and re-sync if the ` +
+          `change is intended\n${rec.steps.join('\n')}`,
+      ).toBe(StatusResults[status!]);
+    });
+  }
+});
+
+describe('Tree conformance: script loading', () => {
+  const head = '"v":1,"id":"x","replicas":1,"init":"ab"';
+  const bad: Record<string, string> = {
+    version: '{"v":2,"id":"x","replicas":1,"init":"ab","steps":[]}',
+    field: `{${head},"steps":[],"extra":1}`,
+    'step field': `{${head},"steps":[{"r":0,"op":"pull","form":1}]}`,
+    op: `{${head},"steps":[{"r":0,"op":"insert"}]}`,
+    'gen kind': `{${head},"steps":[{"r":0,"op":"gen","k":"move"}]}`,
+    status: `{${head},"status":{"js":"diverged"},"steps":[]}`,
+    replica: `{${head},"steps":[{"r":1,"op":"pull"}]}`,
+  };
+  for (const [name, body] of Object.entries(bad)) {
+    it(`rejects a bad ${name}`, () => {
+      expect(() => parseScript(body, 'bad.json')).toThrow(/bad\.json/);
     });
   }
 });
 
 describe('Tree conformance: parity with Go', () => {
-  const files = jsonFiles(ParityDir);
-
-  it.skipIf(files.length > 0)('has no parity fixtures yet', () => {
-    // Nothing to compare: the Go runner writes tree/parity/{family}.json
-    // with CONFORMANCE_UPDATE=1, and sync.sh copies them here.
-  });
-
-  for (const file of files) {
+  for (const family of Object.keys(FixtureFamilies)) {
     it(
-      file,
+      `${family}.json`,
       () => {
-        const family = path.basename(file, '.json');
-        const fx: ParityFixture = JSON.parse(
-          readFileSync(path.join(ParityDir, file), 'utf8'),
+        const file = path.join(ParityDir, `${family}.json`);
+        expect(existsSync(file), `${file} is missing; re-sync`).toBe(true);
+        const fx: ParityFixture = JSON.parse(readFileSync(file, 'utf8'));
+        expect(fx.rows.length, `${file}: rows do not match runs`).toBe(fx.runs);
+
+        const { fam, n, steps, rows } = genRows(
+          family,
+          ParitySeed0,
+          ParityRuns,
         );
-        const want = FixtureFamilies[family];
-        expect(want, `unknown parity family: ${family}`).toBeDefined();
-        expect([fx.fam, fx.n, fx.steps]).toEqual([
-          want.fam,
-          want.n,
-          want.steps,
-        ]);
-        const { rows } = genRows(family, fx.seed0, fx.runs);
+        const diverged = rows.filter((r) => r.result === 'diverged').length;
+        const head = {
+          fam: fx.fam,
+          n: fx.n,
+          steps: fx.steps,
+          seed0: fx.seed0,
+          runs: fx.runs,
+          diverged: fx.diverged,
+        };
+        expect(
+          head,
+          `${file}: header differs from the regenerated one`,
+        ).toEqual({
+          fam,
+          n,
+          steps,
+          seed0: ParitySeed0,
+          runs: ParityRuns,
+          diverged,
+        });
+
         const mismatches = [];
         for (let i = 0; i < fx.rows.length; i++) {
           const w = fx.rows[i];
           const g = rows[i];
           if (
-            !g ||
             g.seed !== w.seed ||
             g.result !== w.result ||
             g.digest !== w.digest ||
@@ -153,7 +181,6 @@ describe('Tree conformance: parity with Go', () => {
             mismatches.push({ want: w, got: g });
           }
         }
-        expect(rows.length).toBe(fx.rows.length);
         expect(
           mismatches.slice(0, 5),
           `${mismatches.length} rows differ`,
