@@ -286,6 +286,27 @@ describe('Tree conformance: expect', () => {
   }
 });
 
+describe('Tree conformance: element without children', () => {
+  // The Go runner's TestElementWithoutChildren: an element node without
+  // `children`, the init root or a node of an edit's contents, has none.
+  it('reads a missing children as none', () => {
+    const rec = runScript(
+      parseScript(
+        '{"v":2,"id":"x","replicas":2,"init":{"type":"doc"},"steps":[' +
+          '{"op":"expect","xml":["<doc></doc>","<doc></doc>"]},' +
+          '{"r":0,"op":"edit","from":0,"to":0,"contents":[{"type":"p"}]},' +
+          '{"r":1,"op":"sync"}]}',
+        'x.json',
+      ),
+    );
+    expect(
+      rec.result,
+      `checks ${JSON.stringify(rec.checks)}, error ${rec.error}`,
+    ).toBe('pass');
+    expect(rec.xml).toEqual(['<doc><p></p></doc>', '<doc><p></p></doc>']);
+  });
+});
+
 describe('Tree conformance: parity with Go', () => {
   for (const family of Object.keys(FixtureFamilies)) {
     it(

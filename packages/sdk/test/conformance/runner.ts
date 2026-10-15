@@ -973,8 +973,11 @@ class Replay {
               { type: 'p', children: [{ type: 'text', value: init }] },
             ],
           };
+    // An element without `children` has none, but Tree needs the root's.
+    const rootNode = toTreeNode(node) as ElementNode;
+    rootNode.children = rootNode.children ?? [];
     this.docs[0].update((root) => {
-      root.t = new Tree(toTreeNode(node) as ElementNode);
+      root.t = new Tree(rootNode);
     });
     const initChanges = hop(this.docs[0].createChangePack()).getChanges();
     const ack = (seq: number, changes: Array<Change<Indexable>>) =>
