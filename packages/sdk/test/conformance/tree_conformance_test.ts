@@ -27,7 +27,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { describe, it, expect } from 'vitest';
 import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
-import { parseScript, runScript, StatusResults } from './runner';
+import { checksString, parseScript, runScript, StatusResults } from './runner';
 import { FixtureFamilies, gen } from './generator';
 
 const TreeDir = path.join(__dirname, 'tree');
@@ -49,6 +49,7 @@ type ParityFixture = {
   rows: Array<{
     seed: number;
     result: string;
+    checks: string;
     digest: string;
     xmlDigest: string;
   }>;
@@ -77,6 +78,7 @@ function genRows(family: string, seed0: number, runs: number) {
     rows.push({
       seed,
       result: rec.result,
+      checks: checksString(rec.checks),
       digest: rec.digest,
       xmlDigest: rec.xmlDigest,
     });
@@ -219,6 +221,7 @@ describe('Tree conformance: parity with Go', () => {
           if (
             g.seed !== w.seed ||
             g.result !== w.result ||
+            g.checks !== w.checks ||
             g.digest !== w.digest ||
             g.xmlDigest !== w.xmlDigest
           ) {

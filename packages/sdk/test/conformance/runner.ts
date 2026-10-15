@@ -260,6 +260,14 @@ export type RunRecord = {
   xmlDigest: string;
 };
 
+/**
+ * `checksString` is the checks as four `1`/`0` characters for I1..I4, e.g.
+ * "0110", as parity rows record them.
+ */
+export function checksString(c: RunRecord['checks']): string {
+  return [c.I1, c.I2, c.I3, c.I4].map((ok) => (ok ? '1' : '0')).join('');
+}
+
 type TestDoc = Document<{ t: Tree }>;
 type Mode = 'off' | 'minvv';
 type Entry = { author: number; changes?: Array<Change<Indexable>> };
@@ -325,7 +333,8 @@ function xmlOf(doc: TestDoc): string {
 }
 
 /**
- * `paras` lists the live paragraphs as `[base, text]`.
+ * `paras` lists the live paragraphs as `[base, text]`. Lengths are string
+ * lengths, i.e. UTF-16 code units, the unit of Tree indexes.
  */
 function paras(doc: TestDoc): Array<[number, string]> {
   const json = JSON.parse(doc.getRoot().t.toJSON());

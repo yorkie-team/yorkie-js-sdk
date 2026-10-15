@@ -33,10 +33,13 @@ pnpm sdk exec vitest run test/conformance
   the Go runner: an unknown field, op, gen kind, status key or status
   value, a step without an integer `r` in range, or a step missing a field
   its op needs or carrying one it does not take fails. When a change moves
-  a result, update `status.js` in yorkie and re-sync.
+  a result, update `status.js` in yorkie and re-sync. The corpus checks
+  `result` only; I3 and I4 of diverging seeds are pinned by the parity
+  rows' `checks`.
 - Parity: each fixture family's `tree/parity/{family}.json` must exist; it
   is regenerated here, its header and row count must match, and every
-  row's `result`, `digest` and `xmlDigest` must match the Go runner's.
+  row's `result`, `checks` (I1..I4 as four `1`/`0` characters), `digest`
+  and `xmlDigest` must match the Go runner's.
 
 Large runs write the rows as JSON and compare nothing:
 
