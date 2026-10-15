@@ -27,7 +27,14 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { describe, it, expect } from 'vitest';
 import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
-import { checksString, parseScript, runScript, StatusResults } from './runner';
+import {
+  checksString,
+  Mode,
+  parseScript,
+  replay,
+  runScript,
+  StatusResults,
+} from './runner';
 import { FixtureFamilies, gen } from './generator';
 
 const TreeDir = path.join(__dirname, 'tree');
@@ -304,6 +311,139 @@ describe('Tree conformance: element without children', () => {
       `checks ${JSON.stringify(rec.checks)}, error ${rec.error}`,
     ).toBe('pass');
     expect(rec.xml).toEqual(['<doc><p></p></doc>', '<doc><p></p></doc>']);
+  });
+});
+
+/**
+ * `wantArrivals` is every delivery an exchange with the given orders
+ * (undefined: ascending index) calls for, as Replay.arrivals spells them,
+ * keeping only the packs of senders, the replicas that had changes to hand
+ * over.
+ */
+function wantArrivals(
+  orders: Array<Array<number>> | undefined,
+  n: number,
+  senders: Array<number>,
+): Array<string> {
+  const want: Array<string> = [];
+  for (let to = 0; to < n; to++) {
+    const order =
+      orders?.[to] ??
+      Array.from({ length: n }, (_, j) => j).filter((j) => j !== to);
+    for (const from of order) {
+      if (senders.includes(from)) want.push(`d${to + 1}<-d${from + 1}`);
+    }
+  }
+  return want;
+}
+
+describe('Tree conformance: exchange orders', () => {
+  // The Go runner's TestExchangeOrders: the exchange step delivers in the
+  // arrival order its `orders` declares, in off and minvv mode, and says so
+  // in its step line. A runner that parsed `orders` and then delivered in
+  // ascending index would converge on every corpus script all the same, so
+  // nothing else here would catch it.
+  const exchangeScript = (orders: string) =>
+    parseScript(
+      '{"v":2,"id":"orders","replicas":3,"delivery":"exchange",' +
+        '"init":"abc","steps":[' +
+        '{"r":0,"op":"edit","from":1,"to":1,"text":"A"},' +
+        '{"r":1,"op":"edit","from":2,"to":2,"text":"B"},' +
+        '{"r":2,"op":"edit","from":3,"to":3,"text":"C"},' +
+        `{"op":"exchange"${orders}}]}`,
+      'orders.json',
+    );
+  const ascending = [
+    'd1<-d2',
+    'd1<-d3',
+    'd2<-d1',
+    'd2<-d3',
+    'd3<-d1',
+    'd3<-d2',
+  ];
+  for (const [name, orders, arrivals, line] of [
+    [
+      'absent is ascending index',
+      '',
+      ascending,
+      'exchange d1<-[d2,d3] d2<-[d1,d3] d3<-[d1,d2]',
+    ],
+    [
+      'spelling out the ascending order changes nothing',
+      ',"orders":[[1,2],[0,2],[0,1]]',
+      ascending,
+      'exchange d1<-[d2,d3] d2<-[d1,d3] d3<-[d1,d2]',
+    ],
+    [
+      'every replica reversed',
+      ',"orders":[[2,1],[2,0],[1,0]]',
+      ['d1<-d3', 'd1<-d2', 'd2<-d3', 'd2<-d1', 'd3<-d2', 'd3<-d1'],
+      'exchange d1<-[d3,d2] d2<-[d3,d1] d3<-[d2,d1]',
+    ],
+    [
+      'the order the split-order-*-3 scripts use',
+      ',"orders":[[2,1],[0,2],[1,0]]',
+      ['d1<-d3', 'd1<-d2', 'd2<-d1', 'd2<-d3', 'd3<-d2', 'd3<-d1'],
+      'exchange d1<-[d3,d2] d2<-[d1,d3] d3<-[d2,d1]',
+    ],
+  ] as Array<[string, string, Array<string>, string]>) {
+    it(name, () => {
+      const script = exchangeScript(orders);
+      for (const mode of ['off', 'minvv'] as Array<Mode>) {
+        const [rn, err] = replay(script, mode);
+        expect(err).toBeUndefined();
+        // Two exchanges run: the step, then the end-of-run one, which
+        // delivers nothing because the step handed over and acked every
+        // replica's changes.
+        expect(rn.arrivals, mode).toEqual([arrivals, []]);
+      }
+
+      const rec = runScript(script);
+      expect(rec.result, `error ${rec.error}`).toBe('pass');
+      expect(rec.steps).toContain(line);
+    });
+  }
+
+  // The Go runner's TestExchangeOrdersCorpus: every exchange of the corpus
+  // scripts with `exchange` delivery, in off and minvv mode, delivers
+  // exactly what its orders call for. A known-error script is held to the
+  // exchanges that completed before the error.
+  it('holds every corpus exchange to its orders', () => {
+    let declared = 0;
+    let delivered = 0;
+    for (const file of jsonFiles(CorpusDir)) {
+      const script = parseScript(
+        readFileSync(path.join(CorpusDir, file), 'utf8'),
+        file,
+      );
+      if (script.delivery !== 'exchange') continue;
+      const orders: Array<Array<Array<number>> | undefined> = [];
+      for (const st of script.steps) {
+        if (st.op !== 'exchange') continue;
+        orders.push(st.orders);
+        if (st.orders) declared++;
+      }
+      // The end-of-run exchange, with default orders.
+      orders.push(undefined);
+
+      for (const mode of ['off', 'minvv'] as Array<Mode>) {
+        const [rn, err] = replay(script, mode);
+        if (script.status?.js !== 'known-error') {
+          expect(err, `${file} (${mode})`).toBeUndefined();
+          expect(rn.arrivals.length, `${file} (${mode})`).toBe(orders.length);
+        }
+        rn.arrivals.forEach((got, k) => {
+          expect(got, `${file}: exchange ${k} (${mode})`).toEqual(
+            wantArrivals(orders[k], script.replicas, rn.senders[k]),
+          );
+          delivered += got.length;
+        });
+      }
+    }
+    expect(declared, 'no corpus script declares orders').toBeGreaterThan(0);
+    expect(delivered, 'no corpus exchange delivered anything').toBeGreaterThan(
+      0,
+    );
   });
 });
 

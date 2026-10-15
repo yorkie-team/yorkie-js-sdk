@@ -531,7 +531,7 @@ function describeEdit(
 }
 
 type TestDoc = Document<{ t: Tree }>;
-type Mode = 'off' | 'minvv';
+export type Mode = 'off' | 'minvv';
 type Entry = { author: number; changes?: Array<Change<Indexable>> };
 
 const DocKey = 'conformance';
@@ -645,7 +645,7 @@ function rebuild(doc: TestDoc, actor: string, clientSeq: number): TestDoc {
 /**
  * `Replay` runs one script in one GC mode.
  */
-class Replay {
+export class Replay {
   docs: Array<TestDoc> = [];
   log: Array<Entry> = [];
   cursor: Array<number>;
@@ -653,6 +653,15 @@ class Replay {
   lines: Array<string> = [];
   clientSeq: Array<number>;
   i3 = true;
+  // arrivals holds one entry per exchange, the packs it delivered as
+  // `d{to}<-d{from}` in the order they were applied, and senders the
+  // replicas that had a pack to hand over in it. Nothing in a record
+  // depends on them, and they live in the runner because only the delivery
+  // loop sees the order packs arrive in: a correct CRDT converges whatever
+  // that order, so no record can show whether `orders` reached the
+  // documents, and a test has to read it here.
+  arrivals: Array<Array<string>> = [];
+  senders: Array<Array<number>> = [];
   // expects counts the expect steps run; expectFails describes those that
   // did not hold. Both stay empty in minvv mode.
   expects = 0;
@@ -817,6 +826,8 @@ class Replay {
       const changes = hop(doc.createChangePack()).getChanges();
       return changes.length ? changes : undefined;
     });
+    this.senders.push(packs.flatMap((changes, i) => (changes ? [i] : [])));
+    const delivered: Array<string> = [];
     resolved.forEach((order, i) => {
       for (const j of order) {
         const changes = packs[j];
@@ -832,8 +843,10 @@ class Replay {
             ),
           ),
         );
+        delivered.push(`d${i + 1}<-d${j + 1}`);
       }
     });
+    this.arrivals.push(delivered);
     packs.forEach((changes, i) => {
       if (!changes) return;
       this.clientSeq[i] = changes[changes.length - 1].getID().getClientSeq();
@@ -1087,28 +1100,34 @@ function digest16(s: string): string {
 }
 
 /**
+ * `replay` runs the script in one GC mode and returns the replay with the
+ * message of the error it threw, if any. A replay that threw keeps what the
+ * steps before the error did.
+ */
+export function replay(
+  script: Script,
+  mode: Mode,
+): [Replay, string | undefined] {
+  const rn = new Replay(script, mode);
+  try {
+    rn.run();
+  } catch (e) {
+    return [rn, String((e as Error)?.message ?? e)];
+  }
+  return [rn, undefined];
+}
+
+/**
  * `runScript` replays the script in `off` and `minvv` modes, checks I1-I4
  * and E, and returns the record.
  */
 export function runScript(script: Script): RunRecord {
-  const off = new Replay(script, 'off');
-  let offErr: string | undefined;
-  try {
-    off.run();
-  } catch (e) {
-    offErr = String((e as Error)?.message ?? e);
-  }
+  const [off, offErr] = replay(script, 'off');
 
   // If `off` mode throws, `minvv` mode is not run.
-  const on = new Replay(script, 'minvv');
-  let onErr: string | undefined;
-  if (!offErr) {
-    try {
-      on.run();
-    } catch (e) {
-      onErr = String((e as Error)?.message ?? e);
-    }
-  }
+  const [on, onErr] = offErr
+    ? [new Replay(script, 'minvv'), undefined]
+    : replay(script, 'minvv');
 
   const I2 = !offErr && !onErr;
   let I1 = false;

@@ -13,8 +13,8 @@ produce byte-identical step lines, xml and digests for the same script.
   or `exchange` delivery, and builds its record.
 - `generator.ts`: mulberry32 and `gen(seed, fam, n, steps)`, seed for seed
   the same scripts as the Go generator.
-- `tree_conformance_test.ts`: the corpus ledger, the parity fixtures and the
-  opt-in large run.
+- `tree_conformance_test.ts`: the corpus ledger, the loader rules, the
+  exchange arrival order, the parity fixtures and the opt-in large run.
 - `tree/`: a copy of yorkie's `test/conformance/tree/`. Do not edit it here;
   change it in yorkie and run `sync.sh`. `tree/SOURCE` holds the yorkie
   commit it was copied from.
@@ -39,6 +39,12 @@ pnpm sdk exec vitest run test/conformance
   and re-sync. The corpus checks `result` only; I3 and I4 of diverging
   seeds are pinned by the parity rows' `checks`. A failed `expect` makes
   the result `fail` and its message names the step and replica.
+- Exchange orders: a correct CRDT converges whatever order packs arrive
+  in, so no record shows whether `orders` reached the documents. The
+  runner records each exchange's deliveries (`Replay.arrivals`, not part
+  of the record) and the tests hold them, in off and minvv mode, exactly
+  to what `orders` calls for, as the Go runner's `TestExchangeOrders` and
+  `TestExchangeOrdersCorpus` do.
 - Parity: each fixture family's `tree/parity/{family}.json` must exist; it
   is regenerated here, its header and row count must match, and every
   row's `result`, `checks` (I1..I4 and E as five `1`/`0` characters),
