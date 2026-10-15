@@ -18,12 +18,12 @@ produce byte-identical step lines, xml and digests for the same script.
 - `tree/`: a copy of yorkie's `test/conformance/tree/`. Do not edit it here;
   change it in yorkie and run `sync.sh`. `tree/SOURCE` holds the yorkie
   commit it was copied from.
-- `corpus-digests.json`: the `digest` and `xmlDigest` the **Go** runner made
-  of every corpus script at `tree/SOURCE`, with the commit it was taken at.
+- `tree/corpus-digests.json`: the Go runner's `result`, `checks`, `digest`
+  and `xmlDigest` for every corpus script, synced with the rest of `tree/`.
   It is what holds the two runners to the same step lines for the ops only
   the corpus has — `undo`, `redo`, `snapshot`, `removeStyle`, `update`,
   `contents` — which no generated script, and so no parity fixture,
-  reaches. See [Regenerating the corpus digests](#regenerating-the-corpus-digests).
+  reaches. yorkie regenerates it; never record what this runner produced.
 
 ## Running
 
@@ -43,11 +43,12 @@ pnpm sdk exec vitest run test/conformance
   breach of the v2 rules (tree nodes, `update`, `exchange`, `expect`,
   `delivery`). When a change moves a result, update `status.js` in yorkie
   and re-sync. Every script's `expect` steps must hold and must have run,
-  whatever its status, and its `digest` and `xmlDigest` must be the ones
-  `corpus-digests.json` holds, so the step lines, xml and shapes are held
-  to the Go runner's byte for byte. I3 and I4 of diverging seeds are pinned
-  by the parity rows' `checks`. A failed `expect` makes the result `fail`
-  and its message names the step and replica.
+  whatever its status. `tree/corpus-digests.json` must list exactly the
+  corpus scripts, and every script's `result`, `checks`, `digest` and
+  `xmlDigest` must be the ones it holds, so the step lines, xml and shapes
+  are held to the Go runner's byte for byte. I3 and I4 of diverging seeds
+  are pinned by the parity rows' `checks`. A failed `expect` makes the
+  result `fail` and its message names the step and replica.
 - Exchange orders: a correct CRDT converges whatever order packs arrive
   in, so no record shows whether `orders` reached the documents. The
   runner records each exchange's deliveries (`Replay.arrivals`, not part
@@ -86,30 +87,6 @@ unmerged pull request. It then fails if `tree/` differs from that commit's
 `test/conformance/tree/`. Sync from a yorkie commit that is merged to main.
 `YORKIE_REMOTE` overrides the repository `--check` fetches from.
 
-### Regenerating the corpus digests
-
-After a re-sync that moves `tree/SOURCE`, `corpus-digests.json` has to come
-from the Go runner again. In a yorkie checkout at that commit, drop this in
-`test/conformance/digestdump_test.go` and run
-`go test ./test/conformance -run TestDigestDump`:
-
-```go
-func TestDigestDump(t *testing.T) {
-	paths, _ := filepath.Glob(filepath.Join(corpusDir, "*.json"))
-	out := map[string]map[string]string{}
-	for _, p := range paths {
-		s, err := LoadScript(p)
-		require.NoError(t, err)
-		rec := Run(s)
-		out[filepath.Base(p)] = map[string]string{
-			"digest": rec.Digest, "xmlDigest": rec.XMLDigest,
-		}
-	}
-	b, _ := json.MarshalIndent(out, "", "  ")
-	require.NoError(t, os.WriteFile("/tmp/go-corpus-digests.json", b, 0o600))
-}
-```
-
-Then write `{"source": "<the SOURCE commit>", "runner": "go", "digests":
-<that file>}` to `corpus-digests.json`. Never record what the JS runner
-produced: a ledger this runner wrote for itself pins nothing.
+When a yorkie change moves a corpus record, yorkie regenerates
+`tree/corpus-digests.json` in the same commit (see its README); re-sync
+from that commit once it is merged.

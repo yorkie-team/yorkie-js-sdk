@@ -41,7 +41,7 @@ import { FixtureFamilies, gen } from './generator';
 const TreeDir = path.join(__dirname, 'tree');
 const CorpusDir = path.join(TreeDir, 'corpus');
 const ParityDir = path.join(TreeDir, 'parity');
-const DigestFile = path.join(__dirname, 'corpus-digests.json');
+const DigestFile = path.join(TreeDir, 'corpus-digests.json');
 const ParitySeed0 = 1;
 const ParityRuns = 200;
 
@@ -58,17 +58,17 @@ const Timeout = 600_000;
 // what the replaying suites are held to whatever this call does.
 vi.setConfig({ testTimeout: Timeout });
 
-// `corpus-digests.json`: what the Go runner made of every corpus script at
-// the yorkie commit in `tree/SOURCE`. The parity fixtures hold the two
+// `tree/corpus-digests.json`: the Go runner's record of every corpus script,
+// synced from yorkie with the corpus. The parity fixtures hold the two
 // runners to the same step lines, xml and shapes for generated scripts, but
 // a generated script has no undo, redo, snapshot, removeStyle, update or
 // contents op in it — only the corpus does, and `status.js` alone says
-// nothing about how those steps were spelled. See README.md for how to
-// regenerate this after a re-sync.
-type DigestLedger = {
-  source: string;
-  runner: string;
-  digests: Record<string, { digest: string; xmlDigest: string }>;
+// nothing about how those steps were spelled.
+type CorpusDigest = {
+  result: string;
+  checks: string;
+  digest: string;
+  xmlDigest: string;
 };
 
 type ParityFixture = {
@@ -124,25 +124,18 @@ const source = readFileSync(path.join(TreeDir, 'SOURCE'), 'utf8').trim();
 
 describe('Tree conformance: corpus', () => {
   const files = jsonFiles(CorpusDir);
-  const ledger: DigestLedger = JSON.parse(readFileSync(DigestFile, 'utf8'));
+  const digests: Record<string, CorpusDigest> = JSON.parse(
+    readFileSync(DigestFile, 'utf8'),
+  );
 
   it('has a corpus', () => {
     expect(files.length, `no scripts in ${CorpusDir}`).toBeGreaterThan(0);
   });
 
-  it('has a Go digest for every script and no more', () => {
+  it('has a Go record for every script and no more', () => {
     expect(
-      ledger.source,
-      `corpus-digests.json was taken at yorkie ${ledger.source} but tree/ ` +
-        `is at ${source}; re-run the Go runner over the new corpus ` +
-        `(README.md) and record what it made of it`,
-    ).toBe(source);
-    expect(ledger.runner, 'corpus-digests.json is not the Go runner').toBe(
-      'go',
-    );
-    expect(
-      Object.keys(ledger.digests).sort(),
-      'corpus-digests.json does not cover exactly the corpus',
+      Object.keys(digests).sort(),
+      'tree/corpus-digests.json does not list exactly the corpus scripts',
     ).toEqual(files);
   });
 
@@ -192,20 +185,25 @@ describe('Tree conformance: corpus', () => {
           ).toBe(true);
         }
 
-        // …and the digests, which is where this runner is held to the Go
+        // …and the Go record, which is where this runner is held to the Go
         // one byte for byte: `digest` covers the step lines, the xml and
         // the shapes, `xmlDigest` the step lines and the xml. A step line
         // spelled differently here, or an undo that restored the same xml
         // over a different node, moves them while the result stays `pass`.
         expect(
-          { digest: rec.digest, xmlDigest: rec.xmlDigest },
-          `${file}: the Go runner at ${source} made ` +
-            `${JSON.stringify(ledger.digests[file])} of this script. A ` +
-            `digest moves when a step line, the xml or a shape differs; ` +
-            `fix the runner, or re-run the Go one and record it if the ` +
-            `change is intended (README.md)\n${rec.steps.join('\n')}\n` +
+          {
+            result: rec.result,
+            checks: checksString(rec.checks),
+            digest: rec.digest,
+            xmlDigest: rec.xmlDigest,
+          },
+          `${file}: the Go runner at yorkie ${source} recorded ` +
+            `${JSON.stringify(digests[file])} for this script. A digest ` +
+            `moves when a step line, the xml or a shape differs; fix the ` +
+            `runner, or change yorkie's runner and re-sync if the change ` +
+            `is intended\n${rec.steps.join('\n')}\n` +
             `${rec.xml.join('\n')}\n${rec.shapes.join('\n')}`,
-        ).toEqual(ledger.digests[file]);
+        ).toEqual(digests[file]);
       },
       Timeout,
     );
