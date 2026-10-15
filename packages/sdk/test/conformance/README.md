@@ -29,9 +29,11 @@ pnpm sdk exec vitest run test/conformance
 
 - Corpus: each script must give exactly the result its `status.js` names
   (`pass`, `known-diverge`, `known-error`, `known-fail` for `pass`,
-  `diverged`, `error`, `fail`). Scripts load strictly: an unknown field,
-  op, gen kind or status fails. When a change moves a result, update
-  `status.js` in yorkie and re-sync.
+  `diverged`, `error`, `fail`). Scripts load strictly, by the same rules as
+  the Go runner: an unknown field, op, gen kind, status key or status
+  value, a step without an integer `r` in range, or a step missing a field
+  its op needs or carrying one it does not take fails. When a change moves
+  a result, update `status.js` in yorkie and re-sync.
 - Parity: each fixture family's `tree/parity/{family}.json` must exist; it
   is regenerated here, its header and row count must match, and every
   row's `result`, `digest` and `xmlDigest` must match the Go runner's.

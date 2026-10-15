@@ -103,67 +103,146 @@ const ScriptFields = new Set([
   'init',
   'steps',
 ]);
-const StepFields = new Set([
-  'r',
-  'op',
-  'from',
-  'to',
-  'text',
-  'split',
-  'attrs',
-  'keys',
-  'k',
-  'f',
-  'g',
-  'h',
-  'v',
-]);
-const Ops = new Set([
-  'edit',
-  'style',
-  'removeStyle',
-  'undo',
-  'redo',
-  'pull',
-  'sync',
-  'snapshot',
-  'gen',
-]);
+/**
+ * `OpFields` lists, for each step op of format v1, the fields a step may
+ * carry besides `r` and `op`, each marked true when it is required. A field
+ * valid for another op is an error, so a misplaced field fails loudly too.
+ */
+const OpFields: Record<string, Record<string, boolean>> = {
+  edit: { from: true, to: true, text: false, split: false },
+  style: { from: true, to: true, attrs: true },
+  removeStyle: { from: true, to: true, keys: true },
+  undo: {},
+  redo: {},
+  pull: {},
+  sync: {},
+  snapshot: {},
+  gen: { k: true, f: true, g: true, h: true, v: true },
+};
 const GenKinds = new Set(['ins', 'split', 'del', 'merge', 'style']);
+const SDKs = new Set(['go', 'js']);
+
+/**
+ * `hasOwn` tells whether `o` has its own property `k`, so inherited names
+ * such as `toString` never pass for a valid key.
+ */
+function hasOwn(o: object, k: string): boolean {
+  return Object.prototype.hasOwnProperty.call(o, k);
+}
+
+/**
+ * `isObject` tells whether `v` is a JSON object (not null, not an array).
+ */
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/**
+ * `checkStep` validates one step and returns what is wrong with it, or
+ * undefined when it is valid.
+ */
+function checkStep(st: unknown, replicas: number): string | undefined {
+  if (!isObject(st)) return 'missing "r"';
+  for (const k of ['r', 'op']) {
+    if (!hasOwn(st, k) || st[k] === null) return `missing "${k}"`;
+  }
+  if (!Number.isInteger(st.r)) return `replica ${st.r} is not an integer`;
+  const r = st.r as number;
+  if (r < 0 || r >= replicas) return `replica ${r} out of range`;
+  const op = st.op as string;
+  if (typeof op !== 'string' || !hasOwn(OpFields, op)) {
+    return `unknown op "${op}"`;
+  }
+  const allowed = OpFields[op];
+  for (const k of Object.keys(st)) {
+    if (k === 'r' || k === 'op') continue;
+    if (!hasOwn(allowed, k)) return `field "${k}" is not valid for op "${op}"`;
+    if (st[k] === null) return `field "${k}" is null`;
+  }
+  for (const [k, required] of Object.entries(allowed)) {
+    if (required && !hasOwn(st, k)) return `op "${op}" needs "${k}"`;
+  }
+
+  for (const k of ['from', 'to', 'split']) {
+    if (hasOwn(st, k) && !Number.isInteger(st[k])) {
+      return `${k} is not an integer`;
+    }
+  }
+  for (const k of ['text', 'v']) {
+    if (hasOwn(st, k) && typeof st[k] !== 'string') {
+      return `${k} is not a string`;
+    }
+  }
+  if (op === 'style') {
+    const attrs = st.attrs;
+    if (!isObject(attrs)) return 'attrs is not an object';
+    const keys = Object.keys(attrs);
+    if (!keys.length) return 'attrs is empty';
+    for (const k of keys) {
+      if (typeof attrs[k] !== 'string') return `attrs.${k} is not a string`;
+    }
+  }
+  if (op === 'removeStyle') {
+    const keys = st.keys;
+    if (!Array.isArray(keys)) return 'keys is not an array';
+    if (!keys.length) return 'keys is empty';
+    for (let j = 0; j < keys.length; j++) {
+      if (typeof keys[j] !== 'string') return `keys[${j}] is not a string`;
+    }
+  }
+  if (op === 'gen') {
+    if (typeof st.k !== 'string' || !GenKinds.has(st.k)) {
+      return `unknown gen kind "${st.k}"`;
+    }
+    for (const k of ['f', 'g', 'h']) {
+      const v = st[k];
+      if (typeof v !== 'number' || !(v >= 0 && v < 1)) {
+        return `${k} ${v} is not in [0, 1)`;
+      }
+    }
+  }
+  return undefined;
+}
 
 /**
  * `parseScript` parses and validates a script, as the Go runner's
  * LoadScript does. Unknown fields, ops, generator kinds and ledger values
- * are errors naming `name`, so a typo fails loudly instead of silently
- * replaying something else.
+ * are errors naming `name`, and so are steps missing a field their op needs
+ * or carrying one it does not take, so a typo fails loudly instead of
+ * silently replaying something else. `JSON.parse` rejects anything but
+ * whitespace after the script.
  */
 export function parseScript(text: string, name: string): Script {
   const fail = (msg: string): never => {
     throw new Error(`${name}: ${msg}`);
   };
-  const s = JSON.parse(text) as Script;
+  let s: Script;
+  try {
+    s = JSON.parse(text) as Script;
+  } catch (e) {
+    return fail(`parse: ${(e as Error).message}`);
+  }
+  if (!isObject(s)) fail('not a script object');
   for (const key of Object.keys(s)) {
     if (!ScriptFields.has(key)) fail(`unknown field "${key}"`);
   }
   if (s.v !== 1) fail(`unsupported version ${s.v}`);
-  if (!(s.replicas >= 1)) fail('replicas must be at least 1');
-  for (const [sdk, status] of Object.entries(s.status ?? {})) {
-    if (!(status in StatusResults)) {
-      fail(`status.${sdk}: unknown value "${status}"`);
+  if (!Number.isInteger(s.replicas) || !(s.replicas >= 1)) {
+    fail('replicas must be at least 1');
+  }
+  const status: unknown = s.status ?? {};
+  if (!isObject(status)) fail('status is not an object');
+  for (const [sdk, value] of Object.entries(status as object)) {
+    if (!SDKs.has(sdk)) fail(`status: unknown sdk "${sdk}"`);
+    if (typeof value !== 'string' || !hasOwn(StatusResults, value)) {
+      fail(`status.${sdk}: unknown value "${value}"`);
     }
   }
   s.steps = s.steps ?? [];
+  if (!Array.isArray(s.steps)) fail('steps is not an array');
   s.steps.forEach((st, i) => {
-    for (const key of Object.keys(st)) {
-      if (!StepFields.has(key)) fail(`step ${i}: unknown field "${key}"`);
-    }
-    if (!(st.r >= 0 && st.r < s.replicas)) {
-      fail(`step ${i}: replica ${st.r} out of range`);
-    }
-    if (!Ops.has(st.op)) fail(`step ${i}: unknown op "${st.op}"`);
-    if (st.op === 'gen' && !GenKinds.has(st.k)) {
-      fail(`step ${i}: unknown gen kind "${st.k}"`);
-    }
+    const err = checkStep(st, s.replicas);
+    if (err) fail(`step ${i}: ${err}`);
   });
   return s;
 }
