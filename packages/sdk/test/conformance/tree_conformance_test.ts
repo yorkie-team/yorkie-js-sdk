@@ -77,8 +77,6 @@ function genRows(family: string, seed0: number, runs: number) {
       result: rec.result,
       digest: rec.digest,
       xmlDigest: rec.xmlDigest,
-      checks: rec.checks,
-      error: rec.error,
     });
   }
   return { fam, n, steps, rows };
@@ -175,7 +173,7 @@ describe.skipIf(!process.env.CONFORMANCE_FAM)(
         FixtureFamilies[family],
         `unknown family: ${family}`,
       ).toBeDefined();
-      const runs = Number(process.env.CONFORMANCE_RUNS ?? 200);
+      const runs = Number(process.env.CONFORMANCE_RUNS ?? 5000);
       const seed0 = Number(process.env.CONFORMANCE_SEED0 ?? 1);
       const { fam, n, steps, rows } = genRows(family, seed0, runs);
       const diverged = rows.filter((r) => r.result === 'diverged').length;

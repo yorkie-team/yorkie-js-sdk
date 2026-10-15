@@ -183,18 +183,20 @@ function paras(doc: TestDoc): Array<[number, string]> {
  * `rebuild` builds a document of the same actor from `doc`'s snapshot
  * bytes, the way a replica is rebuilt from a server snapshot.
  */
-function rebuild(doc: TestDoc, actor: string): TestDoc {
+function rebuild(doc: TestDoc, actor: string, clientSeq: number): TestDoc {
   const bytes = converter.snapshotToBytes(doc.getRootObject(), new Map());
   const d: TestDoc = new Document(DocKey);
   d.setActor(actor);
   d.applyChangePack(
-    ChangePack.create(
-      DocKey,
-      Checkpoint.of(0n, 0),
-      false,
-      [],
-      doc.getVersionVector().deepcopy(),
-      bytes,
+    hop(
+      ChangePack.create(
+        DocKey,
+        Checkpoint.of(0n, clientSeq),
+        false,
+        [],
+        doc.getVersionVector().deepcopy(),
+        bytes,
+      ),
     ),
   );
   return d;
@@ -209,6 +211,7 @@ class Replay {
   cursor: Array<number>;
   rows: Array<VersionVector> = [];
   lines: Array<string> = [];
+  clientSeq: Array<number>;
   i3 = true;
 
   constructor(
@@ -216,13 +219,28 @@ class Replay {
     private mode: Mode,
   ) {
     this.cursor = new Array(script.replicas).fill(0);
+    this.clientSeq = new Array(script.replicas).fill(0);
   }
 
   /**
-   * `vv` is the version vector the server sends with every pack.
+   * `pending` tells whether the log holds an entry replica r has not seen
+   * and did not author.
    */
-  vv(): VersionVector {
-    return this.mode === 'off' ? InitialVersionVector : minVV(this.rows);
+  pending(r: number): boolean {
+    for (let i = this.cursor[r]; i < this.log.length; i++) {
+      if (this.log[i].author !== r) return true;
+    }
+    return false;
+  }
+
+  /**
+   * `vv` is the version vector of a pack the server sends to replica r: in
+   * `minvv` mode, minVV once r is caught up, as the real server delivers
+   * every pending change before the client collects.
+   */
+  vv(r: number): VersionVector {
+    if (this.mode === 'off' || this.pending(r)) return InitialVersionVector;
+    return minVV(this.rows);
   }
 
   /**
@@ -244,6 +262,7 @@ class Replay {
     const lastSeq = changes.length
       ? changes[changes.length - 1].getID().getClientSeq()
       : 0;
+    this.clientSeq[r] = lastSeq;
     this.storeRow(r);
     doc.applyChangePack(
       hop(
@@ -252,7 +271,7 @@ class Replay {
           Checkpoint.of(0n, lastSeq),
           false,
           [],
-          this.vv(),
+          this.vv(r),
         ),
       ),
     );
@@ -281,7 +300,7 @@ class Replay {
             Checkpoint.of(0n, 0),
             false,
             e.changes,
-            this.vv(),
+            this.vv(r),
           ),
         ),
       );
@@ -313,7 +332,7 @@ class Replay {
    */
   checkRebuild(r: number): TestDoc | undefined {
     try {
-      const d = rebuild(this.docs[r], actorOf(r));
+      const d = rebuild(this.docs[r], actorOf(r), this.clientSeq[r]);
       if (
         xmlOf(d) !== xmlOf(this.docs[r]) ||
         shapeOf(d) !== shapeOf(this.docs[r])
@@ -384,7 +403,8 @@ class Replay {
         if (this.mode === 'off') {
           rebuilt = this.checkRebuild(s.r);
         }
-        this.docs[s.r] = rebuilt ?? rebuild(this.docs[s.r], actorOf(s.r));
+        this.docs[s.r] =
+          rebuilt ?? rebuild(this.docs[s.r], actorOf(s.r), this.clientSeq[s.r]);
         this.lines.push(`${d}.snapshot`);
         return;
       }
@@ -425,9 +445,8 @@ class Replay {
           InitialVersionVector,
         ),
       );
-    this.docs[0].applyChangePack(
-      ack(init[init.length - 1].getID().getClientSeq(), []),
-    );
+    this.clientSeq[0] = init[init.length - 1].getID().getClientSeq();
+    this.docs[0].applyChangePack(ack(this.clientSeq[0], []));
     for (let i = 1; i < n; i++) this.docs[i].applyChangePack(ack(0, init));
     for (let i = 0; i < n; i++) {
       this.rows.push(this.docs[i].getVersionVector().deepcopy());
@@ -526,12 +545,15 @@ export function runScript(
     offErr = String((e as Error)?.message ?? e);
   }
 
+  // If `off` mode throws, `minvv` mode is not run.
   const on = new Replay(script, 'minvv');
   let onErr: string | undefined;
-  try {
-    on.run();
-  } catch (e) {
-    onErr = String((e as Error)?.message ?? e);
+  if (!offErr) {
+    try {
+      on.run();
+    } catch (e) {
+      onErr = String((e as Error)?.message ?? e);
+    }
   }
 
   const I2 = !offErr && !onErr;
