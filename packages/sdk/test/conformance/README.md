@@ -1,15 +1,16 @@
 # Conformance Suite
 
-The JS runner of the cross-SDK Tree convergence suite. The script format,
-the canonical strings, the digests and the checks (I1-I4) are specified in
+The JS runner of the cross-SDK Tree convergence suite. The script format
+(v2; v1 scripts stay valid), the canonical strings, the digests and the
+checks (I1-I4 and E, the expect steps) are specified in
 yorkie's [`test/conformance/README.md`](https://github.com/yorkie-team/yorkie/blob/main/test/conformance/README.md),
 which is the source of truth. This runner and the Go runner there must
 produce byte-identical step lines, xml and digests for the same script.
 
 ## Files
 
-- `runner.ts`: replays a script in `off` and `minvv` GC modes and builds
-  its record.
+- `runner.ts`: replays a script in `off` and `minvv` GC modes, with `log`
+  or `exchange` delivery, and builds its record.
 - `generator.ts`: mulberry32 and `gen(seed, fam, n, steps)`, seed for seed
   the same scripts as the Go generator.
 - `tree_conformance_test.ts`: the corpus ledger, the parity fixtures and the
@@ -32,14 +33,16 @@ pnpm sdk exec vitest run test/conformance
   `diverged`, `error`, `fail`). Scripts load strictly, by the same rules as
   the Go runner: an unknown field, op, gen kind, status key or status
   value, a step without an integer `r` in range, or a step missing a field
-  its op needs or carrying one it does not take fails. When a change moves
-  a result, update `status.js` in yorkie and re-sync. The corpus checks
-  `result` only; I3 and I4 of diverging seeds are pinned by the parity
-  rows' `checks`.
+  its op needs or carrying one it does not take fails, and so does a
+  breach of the v2 rules (tree nodes, `update`, `exchange`, `expect`,
+  `delivery`). When a change moves a result, update `status.js` in yorkie
+  and re-sync. The corpus checks `result` only; I3 and I4 of diverging
+  seeds are pinned by the parity rows' `checks`. A failed `expect` makes
+  the result `fail` and its message names the step and replica.
 - Parity: each fixture family's `tree/parity/{family}.json` must exist; it
   is regenerated here, its header and row count must match, and every
-  row's `result`, `checks` (I1..I4 as four `1`/`0` characters), `digest`
-  and `xmlDigest` must match the Go runner's.
+  row's `result`, `checks` (I1..I4 and E as five `1`/`0` characters),
+  `digest` and `xmlDigest` must match the Go runner's.
 
 Large runs write the rows as JSON and compare nothing:
 

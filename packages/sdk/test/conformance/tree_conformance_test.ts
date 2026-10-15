@@ -108,7 +108,9 @@ describe('Tree conformance: corpus', () => {
         rec.result,
         `${file}: status.js is "${status}" but the result is ` +
           `"${rec.result}" (checks ${JSON.stringify(rec.checks)}` +
-          `${rec.error ? `, error ${rec.error}` : ''}): update status.js ` +
+          `${rec.error ? `, error ${rec.error}` : ''}` +
+          `${rec.expects.length ? `, ${rec.expects.join('; ')}` : ''}): ` +
+          `update status.js ` +
           `in yorkie's test/conformance/tree/corpus and re-sync if the ` +
           `change is intended\n${rec.steps.join('\n')}`,
       ).toBe(StatusResults[status!]);
@@ -122,7 +124,7 @@ describe('Tree conformance: script loading', () => {
   const head = '"v":1,"id":"x","replicas":1,"init":"ab"';
   const step = (st: string) => `{${head},"steps":[${st}]}`;
   const bad: Record<string, string> = {
-    version: '{"v":2,"id":"x","replicas":1,"init":"ab","steps":[]}',
+    version: '{"v":3,"id":"x","replicas":1,"init":"ab","steps":[]}',
     field: `{${head},"steps":[],"extra":1}`,
     'step field': step('{"r":0,"op":"pull","form":1}'),
     op: step('{"r":0,"op":"insert"}'),
@@ -174,6 +176,112 @@ describe('Tree conformance: script loading', () => {
   for (const [name, body] of Object.entries(bad)) {
     it(`rejects a bad ${name}`, () => {
       expect(() => parseScript(body, 'bad.json')).toThrow(/bad\.json/);
+    });
+  }
+
+  // The Go runner's rejectsV2 cases, the format v2 rules.
+  const v1 = '"v":1,"id":"x","replicas":2';
+  const v2 = '"v":2,"id":"x","replicas":2';
+  const log = (st: string) => `{${v2},"init":"ab","steps":[${st}]}`;
+  const ex = (st: string) =>
+    `{${v2},"delivery":"exchange","init":"ab","steps":[${st}]}`;
+  const init = (node: string) => `{${v2},"init":${node},"steps":[]}`;
+  const edit = '"op":"edit","from":1,"to":1';
+  const badV2: Record<string, string> = {
+    'v1 expect': `{${v1},"init":"ab","steps":[{"op":"expect","xml":["",""]}]}`,
+    'v1 update': `{${v1},"init":"ab","steps":[{"r":0,"op":"update","ops":[{${edit}}]}]}`,
+    'v1 tree init': `{${v1},"init":{"type":"doc"},"steps":[]}`,
+    'v1 contents': `{${v1},"init":"ab","steps":[{"r":0,${edit},"contents":[{"type":"p"}]}]}`,
+    'v1 delivery': `{${v1},"delivery":"log","init":"ab","steps":[]}`,
+    delivery: `{${v2},"delivery":"push","init":"ab","steps":[]}`,
+    'null delivery': `{${v2},"delivery":null,"init":"ab","steps":[]}`,
+    'null init': `{${v2},"init":null,"steps":[]}`,
+    'number init': init('1'),
+    'text root': init('{"type":"text","value":"a"}'),
+    'no type': init('{"children":[]}'),
+    'empty type': init('{"type":""}'),
+    'element value': init('{"type":"doc","value":"a"}'),
+    'element field': init('{"type":"doc","kids":[]}'),
+    'text children': init(
+      '{"type":"doc","children":[{"type":"text","value":"a","children":[]}]}',
+    ),
+    'text no value': init('{"type":"doc","children":[{"type":"text"}]}'),
+    'text int value': init(
+      '{"type":"doc","children":[{"type":"text","value":1}]}',
+    ),
+    'null child': init('{"type":"doc","children":[null]}'),
+    'children object': init('{"type":"doc","children":{}}'),
+    'int attribute': init('{"type":"doc","attributes":{"b":1}}'),
+    'null attribute': init('{"type":"doc","attributes":{"b":null}}'),
+    'gen with tree init':
+      `{${v2},"init":{"type":"doc"},"steps":[` +
+      '{"r":0,"op":"gen","k":"ins","f":0,"g":0,"h":0,"v":"c"}]}',
+    'contents and text': log(
+      `{"r":0,${edit},"text":"a","contents":[{"type":"p"}]}`,
+    ),
+    'empty contents': log(`{"r":0,${edit},"contents":[]}`),
+    'contents object': log(`{"r":0,${edit},"contents":{"type":"p"}}`),
+    'bad contents node': log(
+      `{"r":0,${edit},"contents":[{"type":"p","extra":1}]}`,
+    ),
+    'update no ops': log('{"r":0,"op":"update"}'),
+    'update empty ops': log('{"r":0,"op":"update","ops":[]}'),
+    'update nested r': log(`{"r":0,"op":"update","ops":[{"r":0,${edit}}]}`),
+    'update nested undo': log('{"r":0,"op":"update","ops":[{"op":"undo"}]}'),
+    'update nested update': log(
+      `{"r":0,"op":"update","ops":[{"op":"update","ops":[{${edit}}]}]}`,
+    ),
+    'update nested no to': log(
+      '{"r":0,"op":"update","ops":[{"op":"edit","from":1}]}',
+    ),
+    'update nested no op': log(
+      '{"r":0,"op":"update","ops":[{"from":1,"to":1}]}',
+    ),
+    'update nested null': log('{"r":0,"op":"update","ops":[null]}'),
+    'update no r': log(`{"op":"update","ops":[{${edit}}]}`),
+    'pull in exchange': ex('{"r":0,"op":"pull"}'),
+    'sync in exchange': ex('{"r":0,"op":"sync"}'),
+    'exchange in log': log('{"op":"exchange"}'),
+    'exchange r': ex('{"r":0,"op":"exchange"}'),
+    'exchange null orders': ex('{"op":"exchange","orders":null}'),
+    'orders count': ex('{"op":"exchange","orders":[[1]]}'),
+    'orders self': ex('{"op":"exchange","orders":[[0],[0]]}'),
+    'orders missing': ex('{"op":"exchange","orders":[[],[0]]}'),
+    'orders duplicate': ex('{"op":"exchange","orders":[[1,1],[0]]}'),
+    'orders out of range': ex('{"op":"exchange","orders":[[2],[0]]}'),
+    'orders null order': ex('{"op":"exchange","orders":[[1],null]}'),
+    'orders null replica': ex('{"op":"exchange","orders":[[null],[0]]}'),
+    'orders fractional': ex('{"op":"exchange","orders":[[1.5],[0]]}'),
+    'expect r': log('{"r":0,"op":"expect","xml":["",""]}'),
+    'expect no xml': log('{"op":"expect"}'),
+    'expect xml count': log('{"op":"expect","xml":[""]}'),
+    'expect null xml entry': log('{"op":"expect","xml":["",null]}'),
+    'expect int label': log('{"op":"expect","xml":["",""],"label":1}'),
+  };
+  for (const [name, body] of Object.entries(badV2)) {
+    it(`rejects a bad v2 ${name}`, () => {
+      expect(() => parseScript(body, 'bad.json')).toThrow(/bad\.json/);
+    });
+  }
+});
+
+describe('Tree conformance: expect', () => {
+  // The Go runner's TestExpect: an expect that does not hold fails the run
+  // without touching I1-I4.
+  for (const [xml, result, checks] of [
+    ['<doc><p>ab</p></doc>', 'pass', '11111'],
+    ['<doc><p>ba</p></doc>', 'fail', '11110'],
+  ]) {
+    it(`gives ${result} for ${xml}`, () => {
+      const rec = runScript(
+        parseScript(
+          '{"v":2,"id":"x","replicas":2,"init":"ab","steps":[' +
+            `{"op":"expect","xml":["<doc><p>ab</p></doc>","${xml}"]}]}`,
+          'x.json',
+        ),
+      );
+      expect(rec.result).toBe(result);
+      expect(checksString(rec.checks)).toBe(checks);
     });
   }
 });

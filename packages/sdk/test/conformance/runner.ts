@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Runner for the cross-SDK conformance script format v1. The format is
+// Runner for the cross-SDK conformance script format v2. The format is
 // specified in yorkie's test/conformance/README.md; the Go runner there and
 // this one must produce byte-identical step lines, xml and digests for the
 // same script, so every string built here follows that spec literally.
@@ -22,7 +22,12 @@
 import { createHash } from 'crypto';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { Tree } from '@yorkie-js/sdk/src/yorkie';
-import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
+import {
+  CRDTTree,
+  CRDTTreeNode,
+  ElementNode,
+  TreeNode,
+} from '@yorkie-js/sdk/src/document/crdt/tree';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { Change } from '@yorkie-js/sdk/src/document/change/change';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
@@ -34,30 +39,49 @@ import {
 
 export type GenKind = 'ins' | 'split' | 'del' | 'merge' | 'style';
 
-export type Step =
+/**
+ * `ScriptNode` is a tree node of a script: a text node or an element.
+ */
+export type ScriptNode =
+  | { type: 'text'; value: string }
   | {
-      r: number;
+      type: string;
+      children?: Array<ScriptNode>;
+      attributes?: Record<string, string>;
+    };
+
+/**
+ * `TreeOp` is an op on the tree, as a step (with `r`) or inside an
+ * `update` (without).
+ */
+export type TreeOp =
+  | {
       op: 'edit';
       from: number;
       to: number;
       text?: string;
+      contents?: Array<ScriptNode>;
       split?: number;
     }
   | {
-      r: number;
       op: 'style';
       from: number;
       to: number;
       attrs: Record<string, string>;
     }
   | {
-      r: number;
       op: 'removeStyle';
       from: number;
       to: number;
       keys: Array<string>;
-    }
+    };
+
+export type Step =
+  | (TreeOp & { r: number })
+  | { r: number; op: 'update'; ops: Array<TreeOp> }
   | { r: number; op: 'undo' | 'redo' | 'pull' | 'sync' | 'snapshot' }
+  | { op: 'exchange'; orders?: Array<Array<number>> }
+  | { op: 'expect'; xml: Array<string>; label?: string }
   | {
       r: number;
       op: 'gen';
@@ -77,7 +101,8 @@ export type Script = {
   status?: { go?: Status; js?: Status };
   note?: string;
   replicas: number;
-  init: string;
+  delivery?: 'log' | 'exchange';
+  init: string | ScriptNode;
   steps: Array<Step>;
 };
 
@@ -100,24 +125,40 @@ const ScriptFields = new Set([
   'status',
   'note',
   'replicas',
+  'delivery',
   'init',
   'steps',
 ]);
 /**
- * `OpFields` lists, for each step op of format v1, the fields a step may
- * carry besides `r` and `op`, each marked true when it is required. A field
- * valid for another op is an error, so a misplaced field fails loudly too.
+ * `OpFields` lists, for each step op, the fields a step may carry besides
+ * `r` and `op`, each marked true when it is required. A field valid for
+ * another op is an error, so a misplaced field fails loudly too.
  */
 const OpFields: Record<string, Record<string, boolean>> = {
-  edit: { from: true, to: true, text: false, split: false },
+  edit: { from: true, to: true, text: false, contents: false, split: false },
   style: { from: true, to: true, attrs: true },
   removeStyle: { from: true, to: true, keys: true },
+  update: { ops: true },
   undo: {},
   redo: {},
   pull: {},
   sync: {},
+  exchange: { orders: false },
   snapshot: {},
+  expect: { xml: true, label: false },
   gen: { k: true, f: true, g: true, h: true, v: true },
+};
+// The ops and fields format v1 does not have.
+const V2Ops = new Set(['update', 'exchange', 'expect']);
+const V2Fields = new Set(['contents']);
+// Ops that take no `r`, and the ops an `update` may hold.
+const Replicaless = new Set(['exchange', 'expect']);
+const Nestable = new Set(['edit', 'style', 'removeStyle']);
+// Ops valid in one delivery mode only.
+const DeliveryOps: Record<string, string> = {
+  pull: 'log',
+  sync: 'log',
+  exchange: 'exchange',
 };
 const GenKinds = new Set(['ins', 'split', 'del', 'merge', 'style']);
 const SDKs = new Set(['go', 'js']);
@@ -138,25 +179,115 @@ function isObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * `checkStep` validates one step and returns what is wrong with it, or
- * undefined when it is valid.
+ * `checkNode` validates a script tree node and returns what is wrong with
+ * it, or undefined when it is valid.
  */
-function checkStep(st: unknown, replicas: number): string | undefined {
-  if (!isObject(st)) return 'missing "r"';
-  for (const k of ['r', 'op']) {
-    if (!hasOwn(st, k) || st[k] === null) return `missing "${k}"`;
+function checkNode(n: unknown): string | undefined {
+  if (n === null) return 'node is null';
+  if (!isObject(n)) return 'node is not an object';
+  for (const k of Object.keys(n)) {
+    if (n[k] === null) return `field "${k}" is null`;
   }
-  if (!Number.isInteger(st.r)) return `replica ${st.r} is not an integer`;
-  const r = st.r as number;
-  if (r < 0 || r >= replicas) return `replica ${r} out of range`;
+  if (typeof n.type !== 'string' || n.type === '') {
+    return 'node needs a non-empty string type';
+  }
+  if (n.type === 'text') {
+    for (const k of Object.keys(n)) {
+      if (k !== 'type' && k !== 'value') {
+        return `field "${k}" is not valid for a text node`;
+      }
+    }
+    if (typeof n.value !== 'string') return 'text node needs a string value';
+    return undefined;
+  }
+  for (const k of Object.keys(n)) {
+    if (k === 'type') continue;
+    if (k === 'children') {
+      if (!Array.isArray(n.children)) return 'children is not an array';
+      for (let j = 0; j < n.children.length; j++) {
+        const err = checkNode(n.children[j]);
+        if (err) return `children[${j}]: ${err}`;
+      }
+    } else if (k === 'attributes') {
+      const attrs = n.attributes;
+      if (!isObject(attrs)) return 'attributes is not an object of strings';
+      for (const [ak, av] of Object.entries(attrs)) {
+        if (typeof av !== 'string') return `attributes.${ak} is not a string`;
+      }
+    } else {
+      return `field "${k}" is not valid for an element node`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * `checkOrders` checks that orders holds, for each replica, the other
+ * replicas in some order, each exactly once.
+ */
+function checkOrders(orders: unknown, replicas: number): string | undefined {
+  if (!Array.isArray(orders)) return 'orders is not an array';
+  if (orders.length !== replicas) {
+    return `orders has ${orders.length} entries for ${replicas} replicas`;
+  }
+  for (let i = 0; i < orders.length; i++) {
+    const order: unknown = orders[i];
+    if (!Array.isArray(order)) return `orders[${i}] is not an array`;
+    const seen = new Set<number>();
+    for (const j of order) {
+      if (
+        !Number.isInteger(j) ||
+        j < 0 ||
+        j >= replicas ||
+        j === i ||
+        seen.has(j)
+      ) {
+        return `orders[${i}] is not a permutation of the other replicas`;
+      }
+      seen.add(j);
+    }
+    if (seen.size !== replicas - 1) {
+      return `orders[${i}] is not a permutation of the other replicas`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * `checkStep` validates one step and returns what is wrong with it, or
+ * undefined when it is valid. A nested step is an op of an `update`.
+ */
+function checkStep(st: unknown, s: Script, nested = false): string | undefined {
+  if (!isObject(st) || !hasOwn(st, 'op') || st.op === null) {
+    return 'missing "op"';
+  }
   const op = st.op as string;
   if (typeof op !== 'string' || !hasOwn(OpFields, op)) {
     return `unknown op "${op}"`;
+  }
+  if (nested && !Nestable.has(op)) {
+    return `op "${op}" is not valid in an update`;
+  }
+  if (nested || Replicaless.has(op)) {
+    if (hasOwn(st, 'r')) return `field "r" is not valid for op "${op}"`;
+  } else {
+    if (!hasOwn(st, 'r') || st.r === null) return 'missing "r"';
+    if (!Number.isInteger(st.r)) return `replica ${st.r} is not an integer`;
+    const r = st.r as number;
+    if (r < 0 || r >= s.replicas) return `replica ${r} out of range`;
+  }
+  if (s.v === 1 && V2Ops.has(op)) return `op "${op}" needs v 2`;
+  if (hasOwn(DeliveryOps, op) && DeliveryOps[op] !== s.delivery) {
+    return `op "${op}" is not valid with delivery "${s.delivery}"`;
+  }
+  if (op === 'gen' && isObject(s.init)) {
+    return `op "${op}" needs a string init`;
   }
   const allowed = OpFields[op];
   for (const k of Object.keys(st)) {
     if (k === 'r' || k === 'op') continue;
     if (!hasOwn(allowed, k)) return `field "${k}" is not valid for op "${op}"`;
+    if (s.v === 1 && V2Fields.has(k)) return `field "${k}" needs v 2`;
     if (st[k] === null) return `field "${k}" is null`;
   }
   for (const [k, required] of Object.entries(allowed)) {
@@ -168,9 +299,42 @@ function checkStep(st: unknown, replicas: number): string | undefined {
       return `${k} is not an integer`;
     }
   }
-  for (const k of ['text', 'v']) {
+  for (const k of ['text', 'v', 'label']) {
     if (hasOwn(st, k) && typeof st[k] !== 'string') {
       return `${k} is not a string`;
+    }
+  }
+  if (hasOwn(st, 'contents')) {
+    if (hasOwn(st, 'text')) return 'text and contents are exclusive';
+    const contents = st.contents;
+    if (!Array.isArray(contents)) return 'contents is not an array';
+    if (!contents.length) return 'contents is empty';
+    for (let j = 0; j < contents.length; j++) {
+      const err = checkNode(contents[j]);
+      if (err) return `contents[${j}]: ${err}`;
+    }
+  }
+  if (op === 'update') {
+    const ops = st.ops;
+    if (!Array.isArray(ops)) return 'ops is not an array';
+    if (!ops.length) return 'ops is empty';
+    for (let j = 0; j < ops.length; j++) {
+      const err = checkStep(ops[j], s, true);
+      if (err) return `ops[${j}]: ${err}`;
+    }
+  }
+  if (op === 'exchange' && hasOwn(st, 'orders')) {
+    const err = checkOrders(st.orders, s.replicas);
+    if (err) return err;
+  }
+  if (op === 'expect') {
+    const xml = st.xml;
+    if (!Array.isArray(xml)) return 'xml is not an array';
+    if (xml.length !== s.replicas) {
+      return `xml has ${xml.length} entries for ${s.replicas} replicas`;
+    }
+    for (let j = 0; j < xml.length; j++) {
+      if (typeof xml[j] !== 'string') return `xml[${j}] is not a string`;
     }
   }
   if (op === 'style') {
@@ -226,7 +390,7 @@ export function parseScript(text: string, name: string): Script {
   for (const key of Object.keys(s)) {
     if (!ScriptFields.has(key)) fail(`unknown field "${key}"`);
   }
-  if (s.v !== 1) fail(`unsupported version ${s.v}`);
+  if (s.v !== 1 && s.v !== 2) fail(`unsupported version ${s.v}`);
   if (!Number.isInteger(s.replicas) || !(s.replicas >= 1)) {
     fail('replicas must be at least 1');
   }
@@ -238,10 +402,25 @@ export function parseScript(text: string, name: string): Script {
       fail(`status.${sdk}: unknown value "${value}"`);
     }
   }
+  if (hasOwn(s, 'init') && typeof s.init !== 'string') {
+    if (!isObject(s.init)) fail('init must be a string or a tree node');
+    if (s.v === 1) fail('init: a tree node needs v 2');
+    const err = checkNode(s.init);
+    if (err) fail(`init: ${err}`);
+    if (s.init.type === 'text') fail('init: the root must be an element');
+  }
+  if (hasOwn(s, 'delivery')) {
+    if (s.v === 1) fail('delivery needs v 2');
+    if (s.delivery === null) fail('field "delivery" is null');
+    if (s.delivery !== 'log' && s.delivery !== 'exchange') {
+      fail(`unknown delivery "${s.delivery}"`);
+    }
+  }
+  s.delivery = s.delivery ?? 'log';
   s.steps = s.steps ?? [];
   if (!Array.isArray(s.steps)) fail('steps is not an array');
   s.steps.forEach((st, i) => {
-    const err = checkStep(st, s.replicas);
+    const err = checkStep(st, s);
     if (err) fail(`step ${i}: ${err}`);
   });
   return s;
@@ -251,21 +430,103 @@ export type RunRecord = {
   id: string;
   n: number;
   result: Result;
-  checks: { I1: boolean; I2: boolean; I3: boolean; I4: boolean };
+  checks: { I1: boolean; I2: boolean; I3: boolean; I4: boolean; E: boolean };
   steps: Array<string>;
   xml: Array<string>;
   shapes: Array<string>;
   error?: string;
+  // expects describes each expect step that did not hold.
+  expects: Array<string>;
   digest: string;
   xmlDigest: string;
 };
 
 /**
- * `checksString` is the checks as four `1`/`0` characters for I1..I4, e.g.
- * "0110", as parity rows record them.
+ * `checksString` is the checks as five `1`/`0` characters for I1..I4 and
+ * E, e.g. "01101", as parity rows record them.
  */
 export function checksString(c: RunRecord['checks']): string {
-  return [c.I1, c.I2, c.I3, c.I4].map((ok) => (ok ? '1' : '0')).join('');
+  return [c.I1, c.I2, c.I3, c.I4, c.E].map((ok) => (ok ? '1' : '0')).join('');
+}
+
+/**
+ * `nodeXML` is the canonical XML of a script node, as step lines show it:
+ * `<type k="v" …>children</type>` with attributes sorted by key, and a text
+ * node as its value, nothing escaped.
+ */
+export function nodeXML(n: ScriptNode): string {
+  if (n.type === 'text') return (n as { value: string }).value;
+  const el = n as Exclude<ScriptNode, { type: 'text'; value: string }>;
+  const attrs = el.attributes ?? {};
+  const kv = Object.keys(attrs)
+    .sort()
+    .map((k) => ` ${k}="${attrs[k]}"`)
+    .join('');
+  const children = (el.children ?? []).map(nodeXML).join('');
+  return `<${el.type}${kv}>${children}</${el.type}>`;
+}
+
+/**
+ * `toTreeNode` copies a script node into a fresh SDK tree node, so a replay
+ * never shares one with the SDK.
+ */
+function toTreeNode(n: ScriptNode): TreeNode {
+  return JSON.parse(JSON.stringify(n)) as TreeNode;
+}
+
+/**
+ * `treeOp` runs one edit, style or removeStyle op on the tree.
+ */
+function treeOp(t: Tree, op: TreeOp) {
+  if (op.op === 'edit') {
+    if (op.contents) {
+      t.editBulk(op.from, op.to, op.contents.map(toTreeNode), op.split ?? 0);
+    } else {
+      t.edit(
+        op.from,
+        op.to,
+        op.text ? { type: 'text', value: op.text } : undefined,
+        op.split ?? 0,
+      );
+    }
+  } else if (op.op === 'style') {
+    t.style(op.from, op.to, op.attrs);
+  } else {
+    t.removeStyle(op.from, op.to, op.keys);
+  }
+}
+
+/**
+ * `describeOp` is the step-line form of an edit, style or removeStyle op.
+ */
+function describeOp(op: TreeOp): string {
+  if (op.op === 'style') {
+    const kv = Object.keys(op.attrs)
+      .sort()
+      .map((k) => `${k}=${op.attrs[k]}`);
+    return `style(${op.from},${op.to},${kv.join(',')})`;
+  }
+  if (op.op === 'removeStyle') {
+    return `removeStyle(${op.from},${op.to},${op.keys.join(',')})`;
+  }
+  return describeEdit(op.from, op.to, op.text, op.split, op.contents);
+}
+
+/**
+ * `describeEdit` is the step-line form of an edit.
+ */
+function describeEdit(
+  from: number,
+  to: number,
+  text?: string,
+  split?: number,
+  contents?: Array<ScriptNode>,
+): string {
+  if (contents) return `edit(${from},${to},${contents.map(nodeXML).join(',')})`;
+  if (text) return `edit(${from},${to},'${text}')`;
+  if (split === 1 && from === to) return `split(${from})`;
+  if (split && split > 1 && from === to) return `split(${from},${split})`;
+  return `edit(${from},${to})`;
 }
 
 type TestDoc = Document<{ t: Tree }>;
@@ -323,6 +584,13 @@ export function shapeOf(doc: TestDoc): string {
     return `${node.type}#${id}${x}[${node.allChildren.map(walk).join(',')}]`;
   };
   return walk((doc.getRootObject().get('t') as unknown as CRDTTree).getRoot());
+}
+
+/**
+ * `localChanges` counts the changes of `doc` not yet sent.
+ */
+function localChanges(doc: TestDoc): number {
+  return doc.createChangePack().getChanges().length;
 }
 
 /**
@@ -384,6 +652,10 @@ class Replay {
   lines: Array<string> = [];
   clientSeq: Array<number>;
   i3 = true;
+  // expects counts the expect steps run; expectFails describes those that
+  // did not hold. Both stay empty in minvv mode.
+  expects = 0;
+  expectFails: Array<string> = [];
 
   constructor(
     private script: Script,
@@ -486,8 +758,15 @@ class Replay {
    */
   local(r: number, run: (d: TestDoc) => string) {
     const doc = this.docs[r];
-    const desc = run(doc);
     const d = `d${r + 1}`;
+    if (this.script.delivery === 'exchange') {
+      const before = localChanges(doc);
+      const desc = run(doc);
+      const changed = desc !== '' && localChanges(doc) !== before;
+      this.lines.push(`${d}.${changed ? desc : 'noop'}`);
+      return;
+    }
+    const desc = run(doc);
     if (desc === '' || !doc.hasLocalChanges()) {
       this.log.push({ author: r });
       this.lines.push(`${d}.noop`);
@@ -517,35 +796,117 @@ class Replay {
     }
   }
 
+  /**
+   * `exchange` hands every replica's local changes to the others, as one
+   * pack per author, in the given orders (default: each replica receives
+   * the others in ascending index), then acks every author. In minvv mode
+   * every replica has then seen everything, so all rows are set and one
+   * empty pack carrying minVV goes to every replica. It returns the step
+   * line.
+   */
+  exchange(orders?: Array<Array<number>>): string {
+    const n = this.docs.length;
+    const resolved =
+      orders ??
+      this.docs.map((_, i) =>
+        this.docs.map((__, j) => j).filter((j) => j !== i),
+      );
+
+    const packs = this.docs.map((doc) => {
+      const changes = hop(doc.createChangePack()).getChanges();
+      return changes.length ? changes : undefined;
+    });
+    resolved.forEach((order, i) => {
+      for (const j of order) {
+        const changes = packs[j];
+        if (!changes) continue;
+        this.docs[i].applyChangePack(
+          hop(
+            ChangePack.create(
+              DocKey,
+              Checkpoint.of(0n, 0),
+              false,
+              changes,
+              InitialVersionVector,
+            ),
+          ),
+        );
+      }
+    });
+    packs.forEach((changes, i) => {
+      if (!changes) return;
+      this.clientSeq[i] = changes[changes.length - 1].getID().getClientSeq();
+      this.docs[i].applyChangePack(
+        hop(
+          ChangePack.create(
+            DocKey,
+            Checkpoint.of(0n, this.clientSeq[i]),
+            false,
+            [],
+            InitialVersionVector,
+          ),
+        ),
+      );
+    });
+    if (this.mode === 'minvv') {
+      for (let i = 0; i < n; i++) this.storeRow(i);
+      const vv = minVV(this.rows);
+      for (const doc of this.docs) {
+        doc.applyChangePack(
+          hop(ChangePack.create(DocKey, Checkpoint.of(0n, 0), false, [], vv)),
+        );
+      }
+    }
+
+    const parts = resolved.map(
+      (order, i) => `d${i + 1}<-[${order.map((j) => `d${j + 1}`).join(',')}]`,
+    );
+    return `exchange ${parts.join(' ')}`;
+  }
+
+  /**
+   * `expect` compares each replica's XML with the expected one, in off
+   * mode.
+   */
+  expect(s: Extract<Step, { op: 'expect' }>) {
+    if (this.mode === 'minvv') return;
+    this.expects++;
+    this.docs.forEach((doc, r) => {
+      const got = xmlOf(doc);
+      if (got !== s.xml[r]) {
+        this.expectFails.push(
+          `expect "${s.label ?? ''}" (step line ${this.lines.length}): ` +
+            `d${r + 1} is ${got}, want ${s.xml[r]}`,
+        );
+      }
+    });
+  }
+
   step(s: Step) {
+    if (s.op === 'exchange') {
+      this.lines.push(this.exchange(s.orders));
+      return;
+    }
+    if (s.op === 'expect') {
+      this.expect(s);
+      this.lines.push('expect');
+      return;
+    }
     const d = `d${s.r + 1}`;
     switch (s.op) {
       case 'edit':
-        return this.local(s.r, (doc) => {
-          doc.update((root) =>
-            root.t.edit(
-              s.from,
-              s.to,
-              s.text ? { type: 'text', value: s.text } : undefined,
-              s.split ?? 0,
-            ),
-          );
-          if (s.text) return `edit(${s.from},${s.to},'${s.text}')`;
-          if (s.split && s.from === s.to) return `split(${s.from})`;
-          return `edit(${s.from},${s.to})`;
-        });
       case 'style':
-        return this.local(s.r, (doc) => {
-          doc.update((root) => root.t.style(s.from, s.to, s.attrs));
-          const kv = Object.keys(s.attrs)
-            .sort()
-            .map((k) => `${k}=${s.attrs[k]}`);
-          return `style(${s.from},${s.to},${kv.join(',')})`;
-        });
       case 'removeStyle':
         return this.local(s.r, (doc) => {
-          doc.update((root) => root.t.removeStyle(s.from, s.to, s.keys));
-          return `removeStyle(${s.from},${s.to},${s.keys.join(',')})`;
+          doc.update((root) => treeOp(root.t, s));
+          return describeOp(s);
+        });
+      case 'update':
+        return this.local(s.r, (doc) => {
+          doc.update((root) => {
+            for (const op of s.ops) treeOp(root.t, op);
+          });
+          return `update[${s.ops.map(describeOp).join(';')}]`;
         });
       case 'undo':
         return this.local(s.r, (doc) => {
@@ -570,6 +931,10 @@ class Replay {
         }
         return;
       case 'snapshot': {
+        // The rebuild would drop changes not yet exchanged.
+        if (this.docs[s.r].hasLocalChanges()) {
+          throw new Error(`snapshot of ${d} with changes not yet exchanged`);
+        }
         let rebuilt: TestDoc | undefined;
         if (this.mode === 'off') {
           rebuilt = this.checkRebuild(s.r);
@@ -597,15 +962,20 @@ class Replay {
     }
 
     // The init change is not in the server log.
+    const init = this.script.init;
+    const node: ScriptNode =
+      typeof init === 'object'
+        ? init
+        : {
+            type: 'doc',
+            children: [
+              { type: 'p', children: [{ type: 'text', value: init }] },
+            ],
+          };
     this.docs[0].update((root) => {
-      root.t = new Tree({
-        type: 'doc',
-        children: [
-          { type: 'p', children: [{ type: 'text', value: this.script.init }] },
-        ],
-      });
+      root.t = new Tree(toTreeNode(node) as ElementNode);
     });
-    const init = hop(this.docs[0].createChangePack()).getChanges();
+    const initChanges = hop(this.docs[0].createChangePack()).getChanges();
     const ack = (seq: number, changes: Array<Change<Indexable>>) =>
       hop(
         ChangePack.create(
@@ -616,14 +986,26 @@ class Replay {
           InitialVersionVector,
         ),
       );
-    this.clientSeq[0] = init[init.length - 1].getID().getClientSeq();
+    this.clientSeq[0] = initChanges[initChanges.length - 1]
+      .getID()
+      .getClientSeq();
     this.docs[0].applyChangePack(ack(this.clientSeq[0], []));
-    for (let i = 1; i < n; i++) this.docs[i].applyChangePack(ack(0, init));
+    for (let i = 1; i < n; i++) {
+      this.docs[i].applyChangePack(ack(0, initChanges));
+    }
+    // The init change is not an edit of the script: an undo must not reach
+    // it, or it would remove the tree.
+    for (const doc of this.docs) doc.clearHistory();
     for (let i = 0; i < n; i++) {
       this.rows.push(this.docs[i].getVersionVector().deepcopy());
     }
 
     for (const s of this.script.steps) this.step(s);
+
+    if (this.script.delivery === 'exchange') {
+      this.exchange();
+      return;
+    }
 
     for (let r = 0; r < n; r++) while (this.pull(r) >= 0);
     if (this.mode === 'minvv') {
@@ -702,7 +1084,7 @@ function digest16(s: string): string {
 
 /**
  * `runScript` replays the script in `off` and `minvv` modes, checks I1-I4
- * and returns the record.
+ * and E, and returns the record.
  */
 export function runScript(script: Script): RunRecord {
   const off = new Replay(script, 'off');
@@ -742,10 +1124,13 @@ export function runScript(script: Script): RunRecord {
     }
   }
 
+  const expects = script.steps.filter((s) => s.op === 'expect').length;
+  const E = off.expects === expects && off.expectFails.length === 0;
+
   let result: Result = 'pass';
   if (!I2) result = 'error';
   else if (!I1) result = 'diverged';
-  else if (!I3 || !I4) result = 'fail';
+  else if (!I3 || !I4 || !E) result = 'fail';
 
   const steps = off.lines;
   const head = steps.join('\n') + '\n';
@@ -762,11 +1147,12 @@ export function runScript(script: Script): RunRecord {
     id: script.id,
     n: script.replicas,
     result,
-    checks: { I1, I2, I3, I4 },
+    checks: { I1, I2, I3, I4, E },
     steps,
     xml: result === 'error' ? [] : xml,
     shapes: result === 'error' ? [] : shapes,
     error: offErr ? `off: ${offErr}` : onErr && `minvv: ${onErr}`,
+    expects: off.expectFails,
     digest,
     xmlDigest,
   };
