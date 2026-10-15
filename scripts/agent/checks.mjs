@@ -161,8 +161,8 @@ export const CI_DEFINING_PATHS = [
   // themselves. The directory's top level holds nothing but those scripts and
   // their shared helpers, so the glob costs no false refusals.
   "scripts/*.mjs",
-  // A workflow step runs this one by path rather than through a pnpm script
-  // (`bash packages/sdk/test/conformance/sync.sh --check`), so it is CI
+  // `conformance-sync.yml` runs this one by path rather than through a pnpm
+  // script (`bash packages/sdk/test/conformance/sync.sh --check`), so it is CI
   // definition that happens to live under a package's test tree. Only the
   // script itself: the corpus and the fixtures beside it are the evidence the
   // lane grades, which a branch is expected to change and a reviewer reads.

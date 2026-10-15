@@ -1208,8 +1208,8 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
     // checking anything, so it defines CI's behaviour exactly as much as the
     // scripts that import it.
     "scripts/direct-run.mjs",
-    // Run by path from a workflow step, not through a pnpm script: the lane
-    // that proves the conformance corpus still matches yorkie's.
+    // Run by path from conformance-sync.yml, not through a pnpm script: the
+    // lane that proves the conformance corpus still matches yorkie's.
     "packages/sdk/test/conformance/sync.sh",
     "scripts/test/verify-license.test.mjs",
     "scripts/fixtures/package-exports/package-lock.json",

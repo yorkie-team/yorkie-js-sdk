@@ -79,13 +79,21 @@ bash packages/sdk/test/conformance/sync.sh --check
 
 Syncing warns when the yorkie checkout has uncommitted changes under
 `test/conformance/` (SOURCE gets a `-dirty` suffix) or when its HEAD is not
-in `origin/main`. `--check`, which CI runs, fetches yorkie's `main` from
-GitHub and fails unless the commit in `tree/SOURCE` is a clean commit **on
-that branch** — a fetch by SHA alone proves nothing, because GitHub serves
-any commit in the fork network, including one pushed to a fork or an
-unmerged pull request. It then fails if `tree/` differs from that commit's
-`test/conformance/tree/`. Sync from a yorkie commit that is merged to main.
-`YORKIE_REMOTE` overrides the repository `--check` fetches from.
+in `origin/main`. `--check`, which the `Conformance Sync` workflow
+(`.github/workflows/conformance-sync.yml`) runs for changes under this
+directory, fails unless the commit in `tree/SOURCE` is a clean commit **on
+yorkie's main**, then fetches that commit and fails if `tree/` differs from
+its `test/conformance/tree/`. A fetch by SHA alone proves nothing, because
+GitHub serves any commit in the fork network, including one pushed to a fork
+or an unmerged pull request; so `--check` asks the GitHub API to compare
+the commit with `main` and accepts only `ahead` or `identical`. It sends
+`GITHUB_TOKEN` (or `GH_TOKEN`) as a bearer token when one is set. Sync from a
+yorkie commit that is merged to main.
+
+`YORKIE_REMOTE` (a URL or a path to a yorkie checkout) makes `--check`
+fetch from there instead, for testing a sync against an unmerged yorkie
+commit. It skips the main check, says so on stderr, and is refused when
+`CI` is set.
 
 When a yorkie change moves a corpus record, yorkie regenerates
 `tree/corpus-digests.json` in the same commit (see its README); re-sync
