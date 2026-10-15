@@ -1208,6 +1208,9 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
     // checking anything, so it defines CI's behaviour exactly as much as the
     // scripts that import it.
     "scripts/direct-run.mjs",
+    // Run by path from conformance-sync.yml, not through a pnpm script: the
+    // lane that proves the conformance corpus still matches yorkie's.
+    "packages/sdk/test/conformance/sync.sh",
     "scripts/test/verify-license.test.mjs",
     "scripts/fixtures/package-exports/package-lock.json",
     "scripts/setup.sh",
@@ -1223,6 +1226,10 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
   for (const p of [
     "packages/sdk/src/document/crdt/tree.ts",
     "packages/sdk/test/integration/tree_test.ts",
+    // The conformance suite's own tests and corpus: the evidence `sync.sh
+    // --check` grades, not the definition of the lane that runs it.
+    "packages/sdk/test/conformance/tree_conformance_test.ts",
+    "packages/sdk/test/conformance/tree/corpus/split-order-span-2.json",
     "packages/sdk/src/api/yorkie/v1/resources.proto",
     "packages/prosemirror/src/sync.ts",
     "examples/react-todomvc/src/App.tsx",

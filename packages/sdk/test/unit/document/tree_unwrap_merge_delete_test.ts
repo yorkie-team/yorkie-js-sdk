@@ -155,6 +155,9 @@ function editRangeOnEach(
  * into the root too, so the skip fired and the hoisted text stayed alive on
  * the replica that unwrapped first. Mirrors yorkie's
  * TestTreeUnwrapAndMergeDelete.
+ *
+ * The same-unwrap and merge-emptied cases moved to the conformance corpus
+ * (test/conformance/tree/corpus/unwrap-*.json).
  */
 describe('Tree unwrap against a concurrent merge-delete', () => {
   it('tombstones the hoisted children a concurrent delete covered whole', () => {
@@ -183,37 +186,5 @@ describe('Tree unwrap against a concurrent merge-delete', () => {
       treeShape(docs[1]),
       'merge-moved child ordering now converges: assert treeShape equality',
     );
-  });
-
-  it('keeps the hoisted children when both replicas run the same unwrap', () => {
-    const docs = twoParagraphReplicas();
-
-    // The skip §6.2 still needs: each replica sees the other's merge already
-    // done and must not read it as a delete of the children it moved itself.
-    // edit(4, 5) removes p2's opening token, hoisting cd into the root.
-    editRangeOnEach(docs, [
-      [4, 5],
-      [4, 5],
-    ]);
-
-    assert.equal(docs[0].getRoot().t.toXML(), '<r><p>ab</p>cd</r>');
-    assert.equal(docs[1].getRoot().t.toXML(), '<r><p>ab</p>cd</r>');
-    assert.equal(treeShape(docs[0]), treeShape(docs[1]));
-  });
-
-  it('keeps the children of a paragraph a concurrent merge emptied', () => {
-    const docs = twoParagraphReplicas();
-
-    // d1 merges p2 into p1 (edit(1, 5) removes ab, p1's closing token and
-    // p2's opening token), while d2 unwraps p2 by removing its closing token
-    // (edit(7, 8)). d2's range starts inside p2, so it deletes nothing p2
-    // held -- cd survives.
-    editRangeOnEach(docs, [
-      [1, 5],
-      [7, 8],
-    ]);
-
-    assert.equal(docs[0].getRoot().t.toXML(), '<r><p>cd</p></r>');
-    assert.equal(treeShape(docs[0]), treeShape(docs[1]));
   });
 });

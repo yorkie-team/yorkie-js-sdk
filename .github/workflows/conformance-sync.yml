@@ -1,0 +1,40 @@
+# Holds packages/sdk/test/conformance/tree/ to yorkie's
+# test/conformance/tree/: the commit in tree/SOURCE must be on yorkie's main,
+# and tree/ must match it byte for byte (sync.sh --check).
+#
+# A workflow of its own, not a step of `ci.yml`'s `build` job: the check
+# reaches GitHub's API and yorkie's repository, so an outage or a yorkie-side
+# problem there would turn every pull request's build red and skip every test
+# step after it. Here it fails alone, and only for changes to the suite.
+name: Conformance Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/sdk/test/conformance/**"
+      - ".github/workflows/conformance-sync.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/sdk/test/conformance/**"
+      - ".github/workflows/conformance-sync.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The token only lifts the API's unauthenticated rate limit, which
+      # runners share by IP. It carries `contents: read` and nothing else.
+      - name: Verify conformance fixtures match yorkie
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash packages/sdk/test/conformance/sync.sh --check
