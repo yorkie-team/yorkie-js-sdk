@@ -15,9 +15,9 @@
 # limitations under the License.
 
 # Copies yorkie's test/conformance/tree/ into this directory and records the
-# yorkie commit it came from in tree/SOURCE. With --check, fetches the
-# commit named in tree/SOURCE from GitHub and fails if tree/ has drifted
-# from it.
+# yorkie commit it came from in tree/SOURCE. With --check, fetches yorkie's
+# main from GitHub, fails unless the commit named in tree/SOURCE is on it,
+# and fails if tree/ has drifted from that commit.
 #
 #   bash packages/sdk/test/conformance/sync.sh <path-to-yorkie-checkout>
 #   bash packages/sdk/test/conformance/sync.sh --check
@@ -45,17 +45,29 @@ if [ "$1" = "--check" ]; then
   tmp="$(mktemp -d)"
   trap 'rm -rf "$tmp"' EXIT
   git -C "$tmp" init -q
-  if ! git -C "$tmp" fetch -q --depth 1 "$remote" "$source_sha"; then
-    echo "error: cannot fetch yorkie $source_sha from $remote" >&2
+  git -C "$tmp" remote add origin "$remote"
+  # main, not the SHA: a fetch by SHA resolves any commit in the GitHub fork
+  # network, so it would accept fixtures copied from a fork or an unmerged
+  # pull request. Fetching the branch and holding SOURCE to its history is
+  # what makes "matches yorkie" mean "is on yorkie's main". --filter keeps
+  # the history cheap; the blobs the checkout below needs come on demand
+  # from the promisor remote this fetch configures.
+  if ! git -C "$tmp" fetch -q --filter=blob:none origin main; then
+    echo "error: cannot fetch main from $remote" >&2
     exit 1
   fi
-  git -C "$tmp" checkout -q FETCH_HEAD -- test/conformance/tree
+  if ! git -C "$tmp" merge-base --is-ancestor "$source_sha" FETCH_HEAD 2>/dev/null; then
+    echo "error: yorkie $source_sha is not on main of $remote;" \
+      "re-sync from a commit that is merged there" >&2
+    exit 1
+  fi
+  git -C "$tmp" checkout -q "$source_sha" -- test/conformance/tree
 
   if ! diff -r -x SOURCE "$tmp/test/conformance/tree" "$dst"; then
     echo "error: tree/ differs from yorkie $source_sha; run sync.sh" >&2
     exit 1
   fi
-  echo "tree/ matches yorkie $source_sha"
+  echo "tree/ matches yorkie $source_sha, on main of $remote"
   exit 0
 fi
 

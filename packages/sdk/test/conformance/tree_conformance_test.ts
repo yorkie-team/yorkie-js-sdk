@@ -40,6 +40,7 @@ import { FixtureFamilies, gen } from './generator';
 const TreeDir = path.join(__dirname, 'tree');
 const CorpusDir = path.join(TreeDir, 'corpus');
 const ParityDir = path.join(TreeDir, 'parity');
+const DigestFile = path.join(__dirname, 'corpus-digests.json');
 const ParitySeed0 = 1;
 const ParityRuns = 200;
 
@@ -55,6 +56,19 @@ const Timeout = 600_000;
 // silently inherit the 5s one. The per-test arguments below stay: they are
 // what the replaying suites are held to whatever this call does.
 vi.setConfig({ testTimeout: Timeout });
+
+// `corpus-digests.json`: what the Go runner made of every corpus script at
+// the yorkie commit in `tree/SOURCE`. The parity fixtures hold the two
+// runners to the same step lines, xml and shapes for generated scripts, but
+// a generated script has no undo, redo, snapshot, removeStyle, update or
+// contents op in it — only the corpus does, and `status.js` alone says
+// nothing about how those steps were spelled. See README.md for how to
+// regenerate this after a re-sync.
+type DigestLedger = {
+  source: string;
+  runner: string;
+  digests: Record<string, { digest: string; xmlDigest: string }>;
+};
 
 type ParityFixture = {
   fam: string;
@@ -105,11 +119,30 @@ function genRows(family: string, seed0: number, runs: number) {
 
 setLogLevel(LogLevel.Fatal);
 
+const source = readFileSync(path.join(TreeDir, 'SOURCE'), 'utf8').trim();
+
 describe('Tree conformance: corpus', () => {
   const files = jsonFiles(CorpusDir);
+  const ledger: DigestLedger = JSON.parse(readFileSync(DigestFile, 'utf8'));
 
   it('has a corpus', () => {
     expect(files.length, `no scripts in ${CorpusDir}`).toBeGreaterThan(0);
+  });
+
+  it('has a Go digest for every script and no more', () => {
+    expect(
+      ledger.source,
+      `corpus-digests.json was taken at yorkie ${ledger.source} but tree/ ` +
+        `is at ${source}; re-run the Go runner over the new corpus ` +
+        `(README.md) and record what it made of it`,
+    ).toBe(source);
+    expect(ledger.runner, 'corpus-digests.json is not the Go runner').toBe(
+      'go',
+    );
+    expect(
+      Object.keys(ledger.digests).sort(),
+      'corpus-digests.json does not cover exactly the corpus',
+    ).toEqual(files);
   });
 
   for (const file of files) {
@@ -157,6 +190,21 @@ describe('Tree conformance: corpus', () => {
               `${JSON.stringify(rec.checks)})\n${rec.steps.join('\n')}`,
           ).toBe(true);
         }
+
+        // …and the digests, which is where this runner is held to the Go
+        // one byte for byte: `digest` covers the step lines, the xml and
+        // the shapes, `xmlDigest` the step lines and the xml. A step line
+        // spelled differently here, or an undo that restored the same xml
+        // over a different node, moves them while the result stays `pass`.
+        expect(
+          { digest: rec.digest, xmlDigest: rec.xmlDigest },
+          `${file}: the Go runner at ${source} made ` +
+            `${JSON.stringify(ledger.digests[file])} of this script. A ` +
+            `digest moves when a step line, the xml or a shape differs; ` +
+            `fix the runner, or re-run the Go one and record it if the ` +
+            `change is intended (README.md)\n${rec.steps.join('\n')}\n` +
+            `${rec.xml.join('\n')}\n${rec.shapes.join('\n')}`,
+        ).toEqual(ledger.digests[file]);
       },
       Timeout,
     );
