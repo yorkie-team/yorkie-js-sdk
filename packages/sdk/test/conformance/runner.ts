@@ -319,6 +319,7 @@ function checkStep(st: unknown, s: Script, nested = false): string | undefined {
     if (!Array.isArray(ops)) return 'ops is not an array';
     if (!ops.length) return 'ops is empty';
     for (let j = 0; j < ops.length; j++) {
+      if (ops[j] === null) return `ops[${j}] is null`;
       const err = checkStep(ops[j], s, true);
       if (err) return `ops[${j}]: ${err}`;
     }
