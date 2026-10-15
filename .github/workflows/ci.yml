@@ -96,6 +96,11 @@ jobs:
       - name: Verify licence headers
         run: pnpm verify:license
 
+      # The conformance corpus and parity fixtures are a copy of yorkie's
+      # test/conformance/tree/; fail when it drifts from the commit it names.
+      - name: Verify conformance fixtures match yorkie
+        run: bash packages/sdk/test/conformance/sync.sh --check
+
       - name: Test the scripts
         run: pnpm test:scripts
 
