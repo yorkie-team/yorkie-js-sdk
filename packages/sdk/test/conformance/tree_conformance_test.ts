@@ -25,7 +25,7 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
 import {
   checksString,
@@ -43,8 +43,18 @@ const ParityDir = path.join(TreeDir, 'parity');
 const ParitySeed0 = 1;
 const ParityRuns = 200;
 
-// Each test replays hundreds of scripts; CI's default 5s is too short.
-const Timeout = 120_000;
+// Every replay below runs its script twice (off and minvv), and under
+// `pnpm sdk test:ci` every line of it goes through istanbul instrumentation.
+// CI's default 5s (vitest.config.ts) is too short for that, so every test
+// that replays a script states its own budget: generous, because a passing
+// test never waits for it, and the only thing it has to beat is a run slow
+// enough to be a false red.
+const Timeout = 600_000;
+
+// The same budget as this file's default, so a test added here later does not
+// silently inherit the 5s one. The per-test arguments below stay: they are
+// what the replaying suites are held to whatever this call does.
+vi.setConfig({ testTimeout: Timeout });
 
 type ParityFixture = {
   fam: string;
@@ -103,25 +113,53 @@ describe('Tree conformance: corpus', () => {
   });
 
   for (const file of files) {
-    it(file, () => {
-      const script = parseScript(
-        readFileSync(path.join(CorpusDir, file), 'utf8'),
-        file,
-      );
-      const status = script.status?.js;
-      expect(status, `${file}: status.js is missing`).toBeDefined();
-      const rec = runScript(script);
-      expect(
-        rec.result,
-        `${file}: status.js is "${status}" but the result is ` +
-          `"${rec.result}" (checks ${JSON.stringify(rec.checks)}` +
-          `${rec.error ? `, error ${rec.error}` : ''}` +
-          `${rec.expects.length ? `, ${rec.expects.join('; ')}` : ''}): ` +
-          `update status.js ` +
-          `in yorkie's test/conformance/tree/corpus and re-sync if the ` +
-          `change is intended\n${rec.steps.join('\n')}`,
-      ).toBe(StatusResults[status!]);
-    });
+    it(
+      file,
+      () => {
+        const script = parseScript(
+          readFileSync(path.join(CorpusDir, file), 'utf8'),
+          file,
+        );
+        const status = script.status?.js;
+        expect(status, `${file}: status.js is missing`).toBeDefined();
+        const rec = runScript(script);
+        expect(
+          rec.result,
+          `${file}: status.js is "${status}" but the result is ` +
+            `"${rec.result}" (checks ${JSON.stringify(rec.checks)}` +
+            `${rec.error ? `, error ${rec.error}` : ''}` +
+            `${rec.expects.length ? `, ${rec.expects.join('; ')}` : ''}): ` +
+            `update status.js ` +
+            `in yorkie's test/conformance/tree/corpus and re-sync if the ` +
+            `change is intended\n${rec.steps.join('\n')}`,
+        ).toBe(StatusResults[status!]);
+
+        // …and the expect blocks, which the result alone cannot speak for.
+        // `runScript` ranks !I2 (error) over !I1 (diverged) over E, so on a
+        // `known-error`, `known-diverge` or `known-fail` script the recorded
+        // status is reached whatever the expects did — the XML every one of
+        // those scripts carries would be asserted nowhere. Hold them here
+        // instead, for every status: an expect that stopped holding is a
+        // real change in behaviour even where the ledger already tolerates
+        // the run failing for another reason.
+        expect(
+          rec.expects,
+          `${file}: expect steps that did not hold\n${rec.steps.join('\n')}`,
+        ).toEqual([]);
+        // …and that they RAN. `E` is false when the off replay stopped
+        // before an expect step, which is the one way an empty `expects`
+        // means "nothing was checked" rather than "everything held". A
+        // script whose off replay errors has no such guarantee to make.
+        if (!rec.error?.startsWith('off:')) {
+          expect(
+            rec.checks.E,
+            `${file}: an expect step did not run (checks ` +
+              `${JSON.stringify(rec.checks)})\n${rec.steps.join('\n')}`,
+          ).toBe(true);
+        }
+      },
+      Timeout,
+    );
   }
 });
 
@@ -408,43 +446,48 @@ describe('Tree conformance: exchange orders', () => {
   // scripts with `exchange` delivery, in off and minvv mode, delivers
   // exactly what its orders call for. A known-error script is held to the
   // exchanges that completed before the error.
-  it('holds every corpus exchange to its orders', () => {
-    let declared = 0;
-    let delivered = 0;
-    for (const file of jsonFiles(CorpusDir)) {
-      const script = parseScript(
-        readFileSync(path.join(CorpusDir, file), 'utf8'),
-        file,
-      );
-      if (script.delivery !== 'exchange') continue;
-      const orders: Array<Array<Array<number>> | undefined> = [];
-      for (const st of script.steps) {
-        if (st.op !== 'exchange') continue;
-        orders.push(st.orders);
-        if (st.orders) declared++;
-      }
-      // The end-of-run exchange, with default orders.
-      orders.push(undefined);
-
-      for (const mode of ['off', 'minvv'] as Array<Mode>) {
-        const [rn, err] = replay(script, mode);
-        if (script.status?.js !== 'known-error') {
-          expect(err, `${file} (${mode})`).toBeUndefined();
-          expect(rn.arrivals.length, `${file} (${mode})`).toBe(orders.length);
+  it(
+    'holds every corpus exchange to its orders',
+    () => {
+      let declared = 0;
+      let delivered = 0;
+      for (const file of jsonFiles(CorpusDir)) {
+        const script = parseScript(
+          readFileSync(path.join(CorpusDir, file), 'utf8'),
+          file,
+        );
+        if (script.delivery !== 'exchange') continue;
+        const orders: Array<Array<Array<number>> | undefined> = [];
+        for (const st of script.steps) {
+          if (st.op !== 'exchange') continue;
+          orders.push(st.orders);
+          if (st.orders) declared++;
         }
-        rn.arrivals.forEach((got, k) => {
-          expect(got, `${file}: exchange ${k} (${mode})`).toEqual(
-            wantArrivals(orders[k], script.replicas, rn.senders[k]),
-          );
-          delivered += got.length;
-        });
+        // The end-of-run exchange, with default orders.
+        orders.push(undefined);
+
+        for (const mode of ['off', 'minvv'] as Array<Mode>) {
+          const [rn, err] = replay(script, mode);
+          if (script.status?.js !== 'known-error') {
+            expect(err, `${file} (${mode})`).toBeUndefined();
+            expect(rn.arrivals.length, `${file} (${mode})`).toBe(orders.length);
+          }
+          rn.arrivals.forEach((got, k) => {
+            expect(got, `${file}: exchange ${k} (${mode})`).toEqual(
+              wantArrivals(orders[k], script.replicas, rn.senders[k]),
+            );
+            delivered += got.length;
+          });
+        }
       }
-    }
-    expect(declared, 'no corpus script declares orders').toBeGreaterThan(0);
-    expect(delivered, 'no corpus exchange delivered anything').toBeGreaterThan(
-      0,
-    );
-  });
+      expect(declared, 'no corpus script declares orders').toBeGreaterThan(0);
+      expect(
+        delivered,
+        'no corpus exchange delivered anything',
+      ).toBeGreaterThan(0);
+    },
+    Timeout,
+  );
 });
 
 describe('Tree conformance: parity with Go', () => {

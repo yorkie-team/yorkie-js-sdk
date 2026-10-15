@@ -16,6 +16,12 @@ export default defineConfig({
       return false;
     },
     globals: true,
+    // 5s on CI, so a hung integration test fails instead of eating the job's
+    // wall clock. A suite that legitimately needs longer — the conformance
+    // replays, which `test:unit` and `test:ci` both collect, the latter with
+    // istanbul instrumentation — states its own budget, per file with
+    // `vi.setConfig({ testTimeout })` and per test with `it`'s third
+    // argument; see test/conformance/tree_conformance_test.ts.
     testTimeout: isCI ? 5000 : Infinity,
     benchmark: {
       exclude: ['**/lib/**', '**/node_modules/**'],
