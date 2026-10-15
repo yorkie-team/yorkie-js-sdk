@@ -29,6 +29,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { LogLevel, setLogLevel } from '@yorkie-js/sdk/src/util/logger';
 import {
   checksString,
+  errMessage,
   Mode,
   parseScript,
   replay,
@@ -375,6 +376,29 @@ describe('Tree conformance: expect', () => {
       );
       expect(rec.result).toBe(result);
       expect(checksString(rec.checks)).toBe(checks);
+    });
+  }
+});
+
+describe('Tree conformance: replay errors', () => {
+  // `replay` hands its error back as a string, and every caller - the I2
+  // check and the `!offErr` guards of runScript - reads a replay that threw
+  // off its truthiness. A thrower that carries no message of its own must
+  // still come back truthy, or an aborted replay is filed as error-free and
+  // its digests are taken over half-replayed documents.
+  for (const [name, thrown, want] of [
+    ['an error with a message', new Error('boom'), 'boom'],
+    ['an error without one', new Error(''), 'Error'],
+    ['a named error without one', new RangeError(''), 'RangeError'],
+    ['an empty string', '', 'thrown string'],
+    ['undefined', undefined, 'undefined'],
+    ['null', null, 'null'],
+    ['zero', 0, '0'],
+  ] as Array<[string, unknown, string]>) {
+    it(`describes ${name} in a non-empty line`, () => {
+      const msg = errMessage(thrown);
+      expect(msg).toBe(want);
+      expect(msg, 'a thrown value must never read as falsy').toBeTruthy();
     });
   }
 });

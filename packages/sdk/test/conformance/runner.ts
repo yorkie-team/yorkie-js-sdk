@@ -1100,8 +1100,20 @@ function digest16(s: string): string {
 }
 
 /**
+ * `errMessage` describes a thrown value in one non-empty line. Every caller
+ * tells a replay that threw from one that did not by the truthiness of this
+ * string, so a thrower that carries no message of its own - `new Error('')`,
+ * or a bare `throw ''` - still has to come back truthy.
+ */
+export function errMessage(e: unknown): string {
+  if (e instanceof Error) return e.message || e.name || 'Error';
+  return String(e) || `thrown ${typeof e}`;
+}
+
+/**
  * `replay` runs the script in one GC mode and returns the replay with the
- * message of the error it threw, if any. A replay that threw keeps what the
+ * message of the error it threw, if any: a non-empty string when the run
+ * threw, `undefined` when it did not. A replay that threw keeps what the
  * steps before the error did.
  */
 export function replay(
@@ -1112,7 +1124,7 @@ export function replay(
   try {
     rn.run();
   } catch (e) {
-    return [rn, String((e as Error)?.message ?? e)];
+    return [rn, errMessage(e)];
   }
   return [rn, undefined];
 }
