@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-14
+updated: 2026-10-21
 ---
 
 # Tasks Index
@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Keep a removal the undo never saw (2026-10-21) | [20261021-text-undo-removal-ledger-todo.md](./active/20261021-text-undo-removal-ledger-todo.md) | [20261021-text-undo-removal-ledger-lessons.md](./active/20261021-text-undo-removal-ledger-lessons.md) |
 | Port the `@claude` agent pipeline from yorkie (2026-09-25) | [20260925-agent-pipeline-port-todo.md](./active/20260925-agent-pipeline-port-todo.md) | [20260925-agent-pipeline-port-lessons.md](./active/20260925-agent-pipeline-port-lessons.md) |
 
 ## Archive
