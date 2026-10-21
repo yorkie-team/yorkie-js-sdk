@@ -353,7 +353,8 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       diff,
       [caretPos, caretPos],
       removedValues,
-      removedSpans,
+      // An undo of this edit cancels exactly this deletion (see `RestoreSpan`).
+      removedSpans.map((span) => ({ ...span, removedBy: editedAt })),
     ];
   }
 
@@ -389,10 +390,12 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
   public retombstone(
     spans: Array<RestoreSpan<CRDTTextValue>>,
     executedAt: TimeTicket,
+    versionVector?: VersionVector,
   ): [Array<GCPair>, Array<TextChange<A>>, DataSize] {
     const [pairs, valueChanges, diff] = this.rgaTreeSplit.retombstone(
       spans,
       executedAt,
+      versionVector,
     );
     return [pairs, this.toTextChanges(valueChanges), diff];
   }
