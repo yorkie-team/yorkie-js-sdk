@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
+import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
 import { ChangeContext } from '@yorkie-js/sdk/src/document/change/context';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
@@ -67,7 +69,8 @@ export type WrappedElement<T = unknown, A extends Indexable = Indexable> =
   | Text<A>
   | Counter
   | DedupCounter
-  | Tree;
+  | Tree
+  | ZeroTree;
 
 /**
  * `JSONElement` is a wrapper for `CRDTElement` that provides users with an
@@ -80,7 +83,8 @@ export type JSONElement<T = unknown, A extends Indexable = Indexable> =
   | Text<A>
   | Counter
   | DedupCounter
-  | Tree;
+  | Tree
+  | ZeroTree;
 
 /**
  * `toWrappedElement` converts the CRDT type to `WrappedElement`.
@@ -110,6 +114,10 @@ export function toWrappedElement(
     return counter;
   } else if (elem instanceof CRDTTree) {
     const tree = new Tree();
+    tree.initialize(context, elem);
+    return tree;
+  } else if (elem instanceof CRDTZeroTree) {
+    const tree = new ZeroTree();
     tree.initialize(context, elem);
     return tree;
   }
@@ -162,6 +170,9 @@ export function buildCRDTElement(
     } else if (value instanceof Tree) {
       element = CRDTTree.create(value.buildRoot(context), createdAt);
       value.initialize(context, element as CRDTTree);
+    } else if (value instanceof ZeroTree) {
+      element = CRDTZeroTree.create(createdAt, value.getInitialChildren());
+      value.initialize(context, element as CRDTZeroTree);
     } else {
       element = CRDTObject.create(
         createdAt,

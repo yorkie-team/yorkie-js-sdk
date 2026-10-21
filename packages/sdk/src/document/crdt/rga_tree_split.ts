@@ -43,6 +43,15 @@ export interface ValueChange<T> {
   value?: T;
 }
 
+/**
+ * `GhostableValue` is a value that a ghost purge can strip of its immutable
+ * content (PROTOTYPE, Zero Tree), and that a restore can refill.
+ */
+export interface GhostableValue {
+  toGhost(): void;
+  refill(from: unknown, offset: number): void;
+}
+
 export interface RGATreeSplitValue {
   length: number;
   substring(indexStart: number, indexEnd?: number): RGATreeSplitValue;
@@ -774,6 +783,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     Array<{ start: number; end: number; dels: Array<TimeTicket> }>
   > = new Map();
 
+  // PROTOTYPE (Zero Tree): purge keeps the node in place as a ghost -- its
+  // identity, place, removal ledger and mutable parts stay, only the
+  // immutable content goes (see `GhostableValue`). An undo that comes after
+  // GC then revives it exactly where an unpurged replica has its tombstone,
+  // and a position anchored on it still resolves, so GC timing cannot change
+  // any outcome.
+  private ghostPurge = false;
+
+  /**
+   * `setGhostPurge` turns ghost purging on (Zero Tree).
+   */
+  public setGhostPurge(on: boolean): void {
+    this.ghostPurge = on;
+  }
+
   /**
    * `getPurgedLedger` returns what the ledgers of purged pieces still said,
    * for the converter.
@@ -979,6 +1003,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
               ? target.cancelRemoval(span.removedBy, executedAt)
               : (target.setRemovedAt(undefined), true);
             if (live) {
+              // A ghost gets its content back from the span (content never
+              // changes, so the span's copy is the content).
+              (
+                target.getValue() as unknown as Partial<GhostableValue>
+              ).refill?.(span.value, target.getID().getOffset() - span.start);
               // Repair splay weights on the path to root (length 0 → len).
               this.treeByIndex.splayNode(target);
               untombstoned.push(target);
@@ -1451,6 +1480,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    */
   public deepcopy(): RGATreeSplit<T> {
     const clone = new RGATreeSplit<T>();
+    clone.ghostPurge = this.ghostPurge;
 
     let node = this.head.getNext();
 
@@ -1957,6 +1987,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: RGATreeSplitNode<T>): void {
+    if (this.ghostPurge) {
+      (node.getValue() as unknown as Partial<GhostableValue>).toGhost?.();
+      return;
+    }
     if (node.hasLedger()) {
       const key = node.getCreatedAt().toIDString();
       const entries = this.purgedLedger.get(key) ?? [];
