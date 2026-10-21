@@ -1,6 +1,6 @@
 # Zero Tree measurement report (2026-10-20)
 
-> **Status: prototype, proposed as a Draft PR; not for merge as is.**
+> **Status: prototype, proposed for discussion.**
 >
 > Measured on 2026-10-20, before the protobuf format and ghost GC of 2026-10-21.
 > Where this report says the Zero Tree exchange uses a JSON codec, or that GC

@@ -1117,7 +1117,15 @@ function step(
   const target = stableStringify(to);
   let error: string | undefined;
   const attrOnly = attrOnlyOps(from, to);
-  for (const ops of [...candidates, ...(attrOnly ? [attrOnly] : []), []]) {
+  // before replacing whole top-level blocks: change only the nodes that differ
+  // (a cell added to a row, not the table)
+  const diff = treeDiffOps(from, to, schema, []);
+  for (const ops of [
+    ...candidates,
+    ...(attrOnly ? [attrOnly] : []),
+    [],
+    ...(diff && diff.length ? [diff] : []),
+  ]) {
     const model = clone(from);
     try {
       for (const op of ops) {
@@ -1137,6 +1145,149 @@ function step(
     CompileStats.samples.push({ from, to, tried: candidates, error });
   }
   out.push(...replaceOps(from, to));
+}
+
+/**
+ * `propsDelta` returns the UPDATE props that turn the props of `from` into
+ * those of `to` (`null` removes a key; the data of a text node is its text and
+ * is not a prop), or undefined when they are the same.
+ */
+function propsDelta(
+  from: ZeroNodeJSON,
+  to: ZeroNodeJSON,
+  schema: ZeroSchema,
+): Record<string, any> | undefined {
+  const delta: Record<string, any> = {};
+  const groupDelta = (
+    a: Record<string, unknown> | undefined,
+    b: Record<string, unknown> | undefined,
+  ) => {
+    const d: Record<string, unknown> = {};
+    for (const k of new Set([
+      ...Object.keys(a ?? {}),
+      ...Object.keys(b ?? {}),
+    ])) {
+      if (!b || !(k in b)) {
+        d[k] = null;
+      } else if (stableStringify(a?.[k]) !== stableStringify(b[k])) {
+        d[k] = b[k];
+      }
+    }
+    return Object.keys(d).length ? d : undefined;
+  };
+  const style = groupDelta(from.style, to.style);
+  if (style) {
+    delta.style = style;
+  }
+  const attribute = groupDelta(from.attribute, to.attribute);
+  if (attribute) {
+    delta.attribute = attribute;
+  }
+  if (
+    !isTextType(schema, from.type) &&
+    stableStringify(from.data) !== stableStringify(to.data) &&
+    to.data !== undefined
+  ) {
+    const objects =
+      from.data &&
+      typeof from.data === 'object' &&
+      to.data &&
+      typeof to.data === 'object';
+    delta.data = objects
+      ? (groupDelta(
+          from.data as Record<string, unknown>,
+          to.data as Record<string, unknown>,
+        ) ?? {})
+      : to.data;
+  }
+  return Object.keys(delta).length ? delta : undefined;
+}
+
+/**
+ * `treeDiffOps` returns operations that turn the model `from` into `to` by
+ * comparing them node by node: changed props become an UPDATE, changed text
+ * a DELETE and INSERT inside the text node, and a run of children that
+ * differs a DELETE and INSERT of just that run (a cell, not the whole table).
+ * Undefined when a node changed its type. `step` verifies the result.
+ */
+function treeDiffOps(
+  from: ZeroNodeJSON,
+  to: ZeroNodeJSON,
+  schema: ZeroSchema,
+  path: Array<number>,
+): Array<ZeroOperation> | undefined {
+  if (from.type !== to.type) {
+    return;
+  }
+  const ops: Array<ZeroOperation> = [];
+  if (isTextType(schema, from.type)) {
+    const a = Array.from(String(from.data ?? ''));
+    const b = Array.from(String(to.data ?? ''));
+    let p = 0;
+    while (p < a.length && p < b.length && a[p] === b[p]) {
+      p++;
+    }
+    let q = 0;
+    while (
+      q < a.length - p &&
+      q < b.length - p &&
+      a[a.length - 1 - q] === b[b.length - 1 - q]
+    ) {
+      q++;
+    }
+    if (a.length - p - q > 0) {
+      ops.push(['delete', [...path, p], a.length - p - q]);
+    }
+    if (b.length - p - q > 0) {
+      ops.push(['insert', [...path, p], b.slice(p, b.length - q).join('')]);
+    }
+  }
+  const delta = path.length ? propsDelta(from, to, schema) : undefined;
+  if (delta) {
+    ops.push(['update', path, delta]);
+  }
+  if (!isContainer(schema, from.type)) {
+    return ops;
+  }
+  const ca = from.children ?? [];
+  const cb = to.children ?? [];
+  const same = (x: ZeroNodeJSON, y: ZeroNodeJSON) =>
+    stableStringify(x) === stableStringify(y);
+  let p = 0;
+  while (p < ca.length && p < cb.length && same(ca[p], cb[p])) {
+    p++;
+  }
+  let q = 0;
+  while (
+    q < ca.length - p &&
+    q < cb.length - p &&
+    same(ca[ca.length - 1 - q], cb[cb.length - 1 - q])
+  ) {
+    q++;
+  }
+  const ma = ca.slice(p, ca.length - q);
+  const mb = cb.slice(p, cb.length - q);
+  if (ma.length === mb.length) {
+    ma.forEach((child, i) => {
+      const sub = treeDiffOps(child, mb[i], schema, [...path, p + i]);
+      if (sub) {
+        ops.push(...sub);
+      } else {
+        ops.push(
+          ['delete', [...path, p + i], 1],
+          ['insert', [...path, p + i], [clone(mb[i])]],
+        );
+      }
+    });
+    return ops;
+  }
+  if (ma.length) {
+    ops.push(['delete', [...path, p], ma.length]);
+  }
+  if (mb.length) {
+    ops.push(['insert', [...path, p], clone(mb)]);
+  }
+  return ops;
 }
 
 /**

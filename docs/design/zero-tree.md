@@ -9,7 +9,7 @@ tags: [zero-tree, tree, rga, split, merge, concurrent-editing, undo-redo, gc]
 
 # Zero Tree — a Yorkie data type for Zero documents (prototype design)
 
-> **Status: prototype, proposed as a Draft PR; not for merge as is.**
+> **Status: prototype, proposed for discussion.**
 >
 > Prototype written 2026-10-20; storage and server added 2026-10-21. It
 > consists of JS SDK v0.7.25 + protobuf messages + a Go server prototype (on
