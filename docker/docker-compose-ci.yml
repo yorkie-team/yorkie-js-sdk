@@ -25,7 +25,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
-    image: "mongo:8"
+    # 8.2, not 8: the 8.0 line refuses to start on Linux 6.19 and newer
+    # (SERVER-121912), which is every current GitHub-hosted runner, so
+    # `mongo:8` crash-loops on its own startup check before it ever listens.
+    image: "mongo:8.2"
     restart: always
     ports:
       - "27017:27017"
