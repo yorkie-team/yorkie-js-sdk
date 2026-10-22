@@ -14,7 +14,8 @@ services:
       - "8080:8080"
       - "8081:8081"
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
@@ -22,3 +23,11 @@ services:
     restart: always
     ports:
       - "27017:27017"
+    # `up --wait` in CI waits on this, so a MongoDB that never starts fails the
+    # step at once instead of every test timing out on its connection.
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
