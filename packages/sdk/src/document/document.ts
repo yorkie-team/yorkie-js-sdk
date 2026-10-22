@@ -697,20 +697,6 @@ type OpInfoOf<
 type PathOf<TRoot, Depth extends number = 10> = PathOfInner<TRoot, '$.', Depth>;
 
 /**
- * `MaxRetainedPresences` bounds how many offline peers' presences the document
- * keeps around for a watch-stream reconnect. Presence of a peer that is no
- * longer online is kept so a later `DOCUMENT_WATCHED` can make it visible
- * again (see `Document.retainPresence`), but a peer that disappears without
- * detaching -- tab closed, network drop, a deactivate that never lands --
- * never comes back to claim its entry. Without a cap the map, and the bytes
- * `toBytes` builds from it, would grow for the lifetime of the attachment.
- * Beyond the cap the least-recently-retained entry is dropped: it is the one
- * least likely to reconnect, and dropping it only costs that peer the
- * fast-path revival (a presence change or a snapshot still restores it).
- */
-const MaxRetainedPresences = 100;
-
-/**
  * `reissueVersionVector` returns a copy of the given vector whose entry for
  * `from` is moved to `to`.
  */
@@ -888,13 +874,6 @@ export class Document<
   private isUpdating: boolean;
   private onlineClients: Set<ActorID>;
 
-  // `retainedPresences` holds the actors whose presence is kept in `presences`
-  // only so a watch-stream reconnect can revive them. Insertion order is the
-  // retention order, which makes it the eviction order once the set passes
-  // `MaxRetainedPresences`. An actor leaves the set the moment it is online
-  // again, so live peers are never candidates for eviction.
-  private retainedPresences: Set<ActorID>;
-
   // `mintingSuspended` is set while the change queue has a hole relative to
   // the acked checkpoint: `discardLocalChanges` has taken the un-pushed
   // changes out without rewinding `clientSeq`, so the next sequence this
@@ -967,7 +946,6 @@ export class Document<
     this.root = CRDTRoot.create();
     this.presences = new Map();
     this.onlineClients = new Set();
-    this.retainedPresences = new Set();
     const maxUndoDepth = opts?.maxUndoDepth ?? MaxUndoRedoStackDepth;
     if (!Number.isInteger(maxUndoDepth) || maxUndoDepth < 1) {
       throw new YorkieError(
@@ -1946,16 +1924,13 @@ export class Document<
    * local changes. `fromBytes` reverses it, so a document survives a reload
    * with its un-pushed edits intact. The envelope is a length-prefixed
    * concatenation of existing byte encodings rather than a new protobuf message.
-   *
-   * Only live presences go in (see `livePresences`): a peer that has gone
-   * offline leaves nothing behind in the store the client persists this to.
    */
   public toBytes(): Uint8Array {
     const encoder = new TextEncoder();
 
     const snapshot = converter.snapshotToBytes(
       this.getRootObject(),
-      this.livePresences(),
+      this.presences,
     );
     const checkpoint = encoder.encode(
       JSON.stringify({
@@ -2091,9 +2066,6 @@ export class Document<
     }
     this.root = restored.root;
     this.presences = restored.presences;
-    // The restored map only carries presences `toBytes` considered live, and
-    // nothing in it has been retained for a reconnect yet.
-    this.retainedPresences = new Set();
     this.checkpoint = restored.checkpoint;
     this.changeID = restored.changeID;
     this.localChanges = restored.localChanges;
@@ -2468,7 +2440,6 @@ export class Document<
     this.docID = '';
     this.root = CRDTRoot.create();
     this.presences = new Map();
-    this.retainedPresences = new Set();
     this.clone = undefined;
     // Clear the undo/redo history: its reverse-ops reference the stale
     // root/changeID that was just dropped, so a later undo/redo would apply
@@ -2597,7 +2568,6 @@ export class Document<
     this.localChanges = changes;
     this.root = root;
     this.presences = presences;
-    this.retainedPresences = new Set();
     this.onlineClients = onlineClients;
     this.changeID = this.changeID
       .setActor(actor)
@@ -2891,14 +2861,6 @@ export class Document<
     const { root, presences } = converter.bytesToSnapshot<P>(snapshot);
     this.root = new CRDTRoot(root);
     this.presences = presences;
-    // The snapshot replaces the whole map, so the retention bookkeeping is
-    // pruned down to the actors that survived it. Nothing new is retained
-    // here: the online set at snapshot time is only as fresh as the last
-    // thing the watch stream said, and is empty for the whole of a
-    // reconnect, so treating "absent from it" as "offline" would put live
-    // peers under the eviction cap. `applyWatchInit` is where the server
-    // states who is online, and is where the bulk retention belongs.
-    this.evictRetainedPresences();
     this.absorbedRemote = true;
     this.changeID = this.changeID.setClocks(
       snapshotVector.maxLamport(),
@@ -3054,7 +3016,6 @@ export class Document<
       this.presences,
       source,
     );
-    this.healBaselessPresencePatch(change, actorID);
     for (const op of operations) {
       if (op instanceof EditOperation) {
         const [from, to] = op.normalizePos(this.root);
@@ -3161,52 +3122,6 @@ export class Document<
   }
 
   /**
-   * `healBaselessPresencePatch` gives an online peer a presence again when a
-   * wire `Patch` arrived with no base to fold onto.
-   *
-   * `Change.execute` writes nothing in that case, on purpose: a wire patch
-   * carries only the keys the peer just changed, so folding it onto nothing
-   * yields an object typed `P` that is missing every key the peer did not
-   * touch. For a peer this document shows nobody that is the right answer --
-   * it stays absent, which `getPresence` and `getPresences` already model,
-   * and the next snapshot restores it in full.
-   *
-   * For a peer the document reports as online it is not. `reconcilePresence`
-   * keys every event it publishes on there being a presence entry, so the
-   * peer would stay invisible to the application until the server happens to
-   * send a snapshot, and every later patch would be dropped for the same
-   * missing base -- the gap compounds instead of healing. That is the cost
-   * `MaxRetainedPresences` accepts for an evicted peer ("a presence change or
-   * a snapshot still restores it"), so the presence change has to restore it.
-   *
-   * Seeding the entry from the patch keeps the peer visible, gives the
-   * patches that follow a base to fold onto, and is itself replaced wholesale
-   * by the peer's next put or the next snapshot. Until then the entry holds
-   * only what the peer has changed since the base was lost, which is what the
-   * warning records.
-   */
-  private healBaselessPresencePatch(change: Change<P>, actorID: ActorID) {
-    const presenceChange = change.getPresenceChange();
-    if (
-      presenceChange?.type !== PresenceChangeType.Patch ||
-      presenceChange.full !== undefined ||
-      this.presences.has(actorID) ||
-      !this.onlineClients.has(actorID)
-    ) {
-      return;
-    }
-
-    logger.warn(
-      `presence patch from ${actorID} has no base to fold onto; rebuilding it from the patched keys until the next put or snapshot`,
-    );
-    this.presences.set(actorID, deepcopy(presenceChange.presence) as P);
-    // The clone is only ever read for this client's own presence, but keeping
-    // the two maps in step means a later patch folds onto the same base on
-    // both sides.
-    this.clone?.presences.set(actorID, deepcopy(presenceChange.presence) as P);
-  }
-
-  /**
    * `applyWatchInit` applies the watch initialization with the given client IDs.
    */
   public applyWatchInit(clientIDs: Array<string>) {
@@ -3231,11 +3146,6 @@ export class Document<
     // in the map the "watched" event fires and the client becomes visible
     // again. Previously, pruning here deleted the presence, causing
     // hasPresence to return false and silently dropping the reconnected peer.
-    //
-    // They are not kept forever, though: everyone left out of the new online
-    // set is registered as retained-for-reconnect, which puts them under the
-    // MaxRetainedPresences cap. See `retainPresence`.
-    this.retainOfflinePresences();
 
     this.publish([
       {
@@ -3264,17 +3174,14 @@ export class Document<
       }
       this.addOnlineClient(publisher);
     } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
-      // NOTE(hackerwins): The presence itself is kept here, for the same
-      // reason applyWatchInit keeps it above. Dropping it would make
-      // hasPresence false, so the DOCUMENT_WATCHED that follows a watch-stream
-      // reconnect would publish no "watched" event and the peer would stay
-      // invisible. The unwatched event still fires: reconcilePresence keys
-      // that transition on isOnline, which removeOnlineClient alone flips.
-      // `retainPresence` is what bounds the kept entries: a peer that leaves
-      // without detaching never reclaims its slot, so the oldest ones are
-      // evicted past MaxRetainedPresences.
+      // NOTE(hackerwins): Only the online set is touched here; the presence
+      // itself is kept, for the same reason applyWatchInit keeps it above.
+      // Dropping it would make hasPresence false, so the DOCUMENT_WATCHED
+      // that follows a watch-stream reconnect would publish no "watched"
+      // event and the peer would stay invisible. The unwatched event still
+      // fires: reconcilePresence keys that transition on isOnline, which
+      // removeOnlineClient alone flips.
       this.removeOnlineClient(publisher);
-      this.retainPresence(publisher);
     }
 
     const event = this.reconcilePresence(publisher, prev, OpSource.Remote);
@@ -3402,9 +3309,6 @@ export class Document<
    */
   public setOnlineClients(onlineClients: Set<ActorID>) {
     this.onlineClients = onlineClients;
-    for (const clientID of onlineClients) {
-      this.retainedPresences.delete(clientID);
-    }
   }
 
   /**
@@ -3412,14 +3316,6 @@ export class Document<
    */
   public resetOnlineClients() {
     this.onlineClients = new Set();
-    // NOTE(hackerwins): No retention bookkeeping here. This runs when the
-    // watch stream ends or drops, where an empty online set means "we lost
-    // the stream", not "every peer left" -- the reconnect's watch init is
-    // what says who is really gone. Retaining everyone here would hand the
-    // whole roster to the `MaxRetainedPresences` cap on every blip and evict
-    // the presences the watch init that follows is about to report as
-    // online, which is the invisible-peer bug `retainPresence` exists to
-    // avoid.
   }
 
   /**
@@ -3427,101 +3323,6 @@ export class Document<
    */
   public addOnlineClient(clientID: ActorID) {
     this.onlineClients.add(clientID);
-    // It is live again, so its presence is no longer merely retained.
-    this.retainedPresences.delete(clientID);
-  }
-
-  /**
-   * `retainPresence` keeps the given peer's presence in the map after it has
-   * gone offline, so the `DOCUMENT_WATCHED` of a watch-stream reconnect finds
-   * it and can publish a `watched` event. The entry is registered as retained
-   * and the least-recently-retained ones are evicted past
-   * `MaxRetainedPresences`, which is the only thing that bounds the map for
-   * peers that leave without detaching.
-   */
-  private retainPresence(clientID: ActorID) {
-    if (
-      clientID === this.changeID.getActorID() ||
-      !this.presences.has(clientID)
-    ) {
-      return;
-    }
-
-    // Re-insert so the set stays ordered by how recently the peer went
-    // offline, which is the order eviction walks.
-    this.retainedPresences.delete(clientID);
-    this.retainedPresences.add(clientID);
-    this.evictRetainedPresences();
-  }
-
-  /**
-   * `retainOfflinePresences` registers every presence that belongs to neither
-   * this client nor an online peer as retained, so a watch init brings the
-   * peers it leaves out under the same cap as `applyDocEvent`'s unwatch.
-   *
-   * Only call this where the online set is the server's answer, i.e. straight
-   * after `applyWatchInit`'s `setOnlineClients`. Anywhere else the set is a
-   * stale cache -- empty for the whole of a watch-stream reconnect -- and
-   * "not online" does not mean "gone".
-   */
-  private retainOfflinePresences() {
-    const selfID = this.changeID.getActorID();
-    for (const clientID of [...this.presences.keys()]) {
-      if (clientID === selfID || this.onlineClients.has(clientID)) {
-        continue;
-      }
-      this.retainPresence(clientID);
-    }
-  }
-
-  /**
-   * `evictRetainedPresences` drops the oldest retained presences until the set
-   * is back within `MaxRetainedPresences`, and forgets entries whose presence
-   * has already gone away on its own (a detach's presence-clear, a snapshot
-   * that no longer carries it) rather than letting them hold a slot.
-   *
-   * An actor that is online again is dropped from the set without losing its
-   * presence: `setOnlineClients`/`addOnlineClient` already un-retain on the
-   * way in, and this is the backstop that keeps a live peer from ever being
-   * evicted should a new caller retain one by mistake.
-   */
-  private evictRetainedPresences() {
-    const selfID = this.changeID.getActorID();
-    for (const clientID of this.retainedPresences) {
-      if (
-        !this.presences.has(clientID) ||
-        clientID === selfID ||
-        this.onlineClients.has(clientID)
-      ) {
-        this.retainedPresences.delete(clientID);
-        continue;
-      }
-      if (this.retainedPresences.size <= MaxRetainedPresences) {
-        break;
-      }
-      this.retainedPresences.delete(clientID);
-      this.presences.delete(clientID);
-    }
-  }
-
-  /**
-   * `livePresences` returns the presences this document still considers live:
-   * its own, and those of the peers currently online. Entries kept only so a
-   * watch-stream reconnect can revive them are left out, so a departed peer's
-   * presence -- application-defined data that routinely carries personal
-   * information such as names, avatars and cursor positions -- is not written
-   * into the persisted offline envelope and does not outlive the session at
-   * rest.
-   */
-  private livePresences(): Map<ActorID, P> {
-    const selfID = this.changeID.getActorID();
-    const live = new Map<ActorID, P>();
-    for (const [clientID, presence] of this.presences) {
-      if (clientID === selfID || this.onlineClients.has(clientID)) {
-        live.set(clientID, presence);
-      }
-    }
-    return live;
   }
 
   /**

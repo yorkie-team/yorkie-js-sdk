@@ -34,25 +34,14 @@ the presence on unwatch (`pkg/document/document.go` in yorkie).
       WATCHED for the same peer → `unwatched` then `watched`, peer back in
       `getOthersPresences()` with its original presence.
 
-- [x] Bound what is retained (review round 1). Keeping the presence of a peer
-      that leaves without detaching is only safe if something evicts it:
-      `retainPresence` registers the departed actor in `retainedPresences` and
-      drops the least-recently-retained entries past `MaxRetainedPresences`
-      (100). `applyWatchInit`, `applySnapshot` and `resetOnlineClients` go
-      through `retainOfflinePresences`, so every path that takes peers offline
-      in bulk comes under the same cap; `addOnlineClient`/`setOnlineClients`
-      take a peer back out of the set the moment it is live again.
-- [x] Keep departed peers out of the persisted envelope (review round 1).
-      `toBytes` now serializes `livePresences()` (self + online peers) instead
-      of the whole map, so presence — application-defined data that commonly
-      carries personal information — is not written to durable local storage
-      for a peer that has already left.
-
 ## Out of scope
 
 - `applyDocEventsForReplay` (devtools replay) still deletes the presence on an
   `Unwatched` event. That path replays a recorded event log rather than a live
   stream, and the issue does not cover it.
+- Evicting presences of peers that never come back. Same trade-off
+  `applyWatchInit` already accepts: the map keeps stale entries, and every
+  accessor filters by `onlineClients`.
 
 ## Verification
 

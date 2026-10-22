@@ -18,10 +18,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
-    # 8.x refuses to boot on Linux 6.19+ (SERVER-121912), which is what the
-    # CI runners now report, so the server never gets a database and every
-    # suite fails at the wait-for-yorkie gate. 9.x carries the fix.
-    image: "mongo:9"
+    image: "mongo:8"
     restart: always
     ports:
       - "27017:27017"
