@@ -160,7 +160,12 @@ export class TreeStyleOperation extends Operation {
     };
 
     // 01. Handle attributesToRemove (remove style attributes)
-    if (this.attributesToRemove.length > 0) {
+    // An operation that carries neither half still runs this one, with nothing
+    // to remove: `removeStyle` splits the text at the range's ends through
+    // `styleTargets`, and `json/tree.ts` has already done that to the clone
+    // for the same call. Skipping it here would leave the clone holding nodes
+    // the root does not have.
+    if (this.attributesToRemove.length > 0 || this.attributes.size === 0) {
       const [pairs, changes, size, records] = tree.removeStyle(
         [this.fromPos, this.toPos],
         this.attributesToRemove,

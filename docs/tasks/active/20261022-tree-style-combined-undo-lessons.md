@@ -54,3 +54,25 @@ Three blocking findings, all taken:
   over its own range (`CRDTTree.posRangeOfNode`).
 - An operation can now need more than one operation to reverse it, so
   `ExecutionResult` grew `reverseOps` beside `reverseOp`.
+
+## Review round 2
+
+Two blocking findings, both taken:
+
+- **A guard that reads as a no-op split the clone from the root.** Round 1's
+  `execute` ran the remove half only when it carried keys and the set half only
+  when it carried attributes, so an operation holding neither -- `style(from,
+  to, {})` -- ran nothing on the root, while `json/tree.ts` had already run the
+  whole style machinery on the clone for the same call. `styleTargets` splits
+  the text at the range's ends, so the clone was left holding nodes the root
+  never minted. The remove half now also runs when the operation carries
+  nothing, which is what the pre-branch `else` branch did.
+- **The headline converter change had no test.** The suite only ever built the
+  two single-purpose operations this SDK emits, so nothing exercised encoding,
+  decoding or executing an operation that carries both fields -- the shape the
+  converter was rewritten for. Two tests now do: one round-trips a combined
+  operation through `operationToBinary`/`bytesToOperation` and applies it to a
+  peer, the other executes one whose halves overlap on a key and asserts the
+  reverse is assembled from what the remove half saw. The file's header
+  comment, which still described the round-1 single-operation shape, was
+  rewritten to match.
