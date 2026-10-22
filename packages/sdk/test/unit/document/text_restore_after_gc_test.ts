@@ -153,4 +153,160 @@ describe('Text restore after GC', () => {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     });
   }
+
+  // The reverse of an insertion records the inserted run as a span. The undo
+  // only re-tombstones it, so the span's value is never read; the redo flips
+  // the direction and the same span becomes the content to restore. A replica
+  // that purged the node rebuilds it from that value alone, so the span has to
+  // carry the attributes the edit applied or the two replicas diverge
+  // (yorkie-team/yorkie-js-sdk#1497).
+  it('keeps the attributes of a re-inserted run when redoing after GC', () => {
+    const d1 = new Document<{ t: Text }>('text-redo-attrs-after-gc');
+    const d2 = new Document<{ t: Text }>('text-redo-attrs-after-gc');
+    d1.setActor(ACTOR);
+    d2.setActor(PEER);
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    crossSync(d1, d2);
+    d1.clearHistory();
+
+    d1.update((r) => r.t.edit(1, 1, 'X', { b: '1' }));
+    d1.history.undo();
+    crossSync(d1, d2);
+
+    // Only d1 purges the undone run, so its redo must recreate the node from
+    // the span while d2 revives the tombstone it still holds.
+    assert.isAbove(d1.garbageCollect(maxVectorOf([ACTOR, PEER])), 0);
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toString(), 'aXb');
+    assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
+
+  // The span is captured when the reversed edit runs, so an attribute applied
+  // to the inserted run AFTERWARDS is not in it. The undo re-snapshots the
+  // span against the live content before removing it, so the redo's restore
+  // payload carries the style the peer added; otherwise a replica that purged
+  // the run recreates it unstyled while a replica that un-tombstones keeps the
+  // style (yorkie-team/yorkie-js-sdk#1497).
+  it('keeps a style applied after the insert when redoing after GC', () => {
+    const d1 = new Document<{ t: Text }>('text-redo-late-attrs-after-gc');
+    const d2 = new Document<{ t: Text }>('text-redo-late-attrs-after-gc');
+    d1.setActor(ACTOR);
+    d2.setActor(PEER);
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    crossSync(d1, d2);
+    d1.clearHistory();
+
+    d1.update((r) => r.t.edit(1, 1, 'X'));
+    crossSync(d1, d2);
+
+    // The peer styles the inserted run after the fact, so the span recorded at
+    // insert time knows nothing about it.
+    d2.update((r) => r.t.setStyle(1, 2, { b: '1' }));
+    crossSync(d1, d2);
+    assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
+
+    d1.history.undo();
+    crossSync(d1, d2);
+
+    assert.isAbove(d1.garbageCollect(maxVectorOf([ACTOR, PEER])), 0);
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toString(), 'aXb');
+    assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
+
+  // Mirrors the chained case of yorkie's text_redo_attrs_test: every round
+  // purges the run again, so each redo recreates it from the span.
+  it('keeps the attributes across chained undo/redo with GC', () => {
+    const doc = new Document<{ t: Text }>('text-redo-attrs-chained');
+    doc.setActor(ACTOR);
+    doc.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    doc.clearHistory();
+    doc.update((r) => r.t.edit(1, 1, 'X', { b: '1', i: '1' }));
+
+    for (let i = 0; i < 3; i++) {
+      doc.history.undo();
+      doc.garbageCollect(maxVectorOf([ACTOR]));
+      doc.history.redo();
+
+      assert.equal(doc.getRoot().t.toString(), 'aXb');
+      assert.deepEqual(doc.getRoot().t.values()[1].attributes, {
+        b: '1',
+        i: '1',
+      });
+    }
+  });
+
+  // The style covers one character of the run, so the undo has to report the
+  // pieces separately for the redo to recreate each with its own attributes.
+  it('keeps a style covering part of the insert when redoing after GC', () => {
+    const d1 = new Document<{ t: Text }>('text-redo-partial-attrs-after-gc');
+    const d2 = new Document<{ t: Text }>('text-redo-partial-attrs-after-gc');
+    d1.setActor(ACTOR);
+    d2.setActor(PEER);
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    crossSync(d1, d2);
+    d1.clearHistory();
+
+    d1.update((r) => r.t.edit(1, 1, 'XYZ'));
+    crossSync(d1, d2);
+    d2.update((r) => r.t.setStyle(2, 3, { b: '1' }));
+    crossSync(d1, d2);
+
+    d1.history.undo();
+    crossSync(d1, d2);
+    d1.garbageCollect(maxVectorOf([ACTOR, PEER]));
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toString(), 'aXYZb');
+    const values = d1.getRoot().t.values();
+    assert.deepEqual(
+      values.map((v) => [v.content, v.attributes ?? {}]),
+      [
+        ['a', {}],
+        ['X', {}],
+        ['Y', { b: '1' }],
+        ['Z', {}],
+        ['b', {}],
+      ],
+    );
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
+
+  // An edit that carried no attributes must not gain any from the span.
+  it('keeps a plain re-inserted run unstyled when redoing after GC', () => {
+    const doc = new Document<{ t: Text }>('text-redo-plain-after-gc');
+    doc.setActor(ACTOR);
+    doc.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    doc.clearHistory();
+    doc.update((r) => r.t.edit(1, 1, 'X'));
+
+    doc.history.undo();
+    doc.garbageCollect(maxVectorOf([ACTOR]));
+    doc.history.redo();
+
+    assert.equal(doc.getRoot().t.toString(), 'aXb');
+    assert.isEmpty(doc.getRoot().t.values()[1].attributes ?? {});
+  });
 });

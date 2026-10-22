@@ -1547,12 +1547,31 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
 
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
+      // A span addresses content by insertion identity, so it is malformed
+      // without a `createdAt`, and `RGATreeSplit.restore` slices `content` by
+      // `cursor - span.start`, so `[start, end)` has to be an ordered interval
+      // exactly covering it. Reject both here, as the server's
+      // `fromRestoreSpans` does, instead of failing deep in the restore path.
+      if (
+        !pbSpan.createdAt ||
+        !Number.isInteger(pbSpan.start) ||
+        !Number.isInteger(pbSpan.end) ||
+        pbSpan.start < 0 ||
+        pbSpan.end < pbSpan.start ||
+        pbSpan.end - pbSpan.start !== pbSpan.content.length
+      ) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'malformed restore span: missing timestamp or invalid range',
+        );
+      }
+      const createdAt = fromTimeTicket(pbSpan.createdAt)!;
       const value = CRDTTextValue.create(pbSpan.content);
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
         value.setAttr(key, attr, executedAt);
       }
       return {
-        createdAt: fromTimeTicket(pbSpan.createdAt)!,
+        createdAt,
         start: pbSpan.start,
         end: pbSpan.end,
         value,
