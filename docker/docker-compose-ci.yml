@@ -26,7 +26,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
-    image: "mongo:8"
+    # Must stay on 9 or newer. Every 8.x release refuses to start on Linux
+    # kernels 6.19+ (SERVER-121912) and the CI runners are past that, so an
+    # `8` here is not an older Mongo, it is no Mongo at all.
+    image: "mongo:9"
     restart: always
     ports:
       - "27017:27017"
