@@ -1150,7 +1150,7 @@ function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
  */
 function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
-): PresenceChange<P> {
+): PresenceChange<P> | undefined {
   const type = pbPresenceChange.type;
   if (type === PbPresenceChange_ChangeType.PUT) {
     const presence = fromPresence<P>(pbPresenceChange.presence!);
@@ -1171,10 +1171,24 @@ function fromPresenceChange<P extends Indexable>(
       presence,
     };
   }
-  if (type === PbPresenceChange_ChangeType.CLEAR) {
+  if (
+    type === PbPresenceChange_ChangeType.CLEAR ||
+    type === PbPresenceChange_ChangeType.DELETE
+  ) {
+    // DELETE and CLEAR both mean "drop this actor's presence", which is what
+    // `Change.execute` does for a `Clear`. The official SDKs only ever send
+    // CLEAR, but DELETE is a defined value that Go still decodes, and a
+    // stored change this SDK throws on comes back on every pull.
     return {
       type: PresenceChangeType.Clear,
     };
+  }
+  if (type === PbPresenceChange_ChangeType.UNSPECIFIED) {
+    // Go's `ToPresenceChange` falls back to UNSPECIFIED, so a stored change
+    // can carry one. It names no presence state to move to: skip the presence
+    // change and let the change apply its operations, rather than failing the
+    // whole pack forever.
+    return undefined;
   }
 
   throw new YorkieError(Code.ErrInvalidType, `unsupported type: ${type}`);
