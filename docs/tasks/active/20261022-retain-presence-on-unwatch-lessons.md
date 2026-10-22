@@ -47,3 +47,10 @@ map's contents.
   peers that vanish without detaching (blast-radius), and departed peers'
   presence persisted into the offline snapshot (security). Both fixed above;
   no finding disputed.
+
+- **Round 2** — CI red, but not from this branch's code: `mongo:8` now refuses
+  to boot on the runners ("Linux kernel versions 6.19 and newer has a known
+  incompatibility", SERVER-121912), so the server had no database, exited with
+  cobra's usage text, and `wait-for-yorkie` timed out before a single suite
+  ran. Pinned `docker/docker-compose-ci.yml` to `mongo:9`, which carries the
+  fix; the full integration suite then passed (3790 tests).
