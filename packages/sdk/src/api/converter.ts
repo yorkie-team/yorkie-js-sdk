@@ -1547,12 +1547,45 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
 
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
+      // A span addresses content by insertion identity, so it is malformed
+      // without a `createdAt`: `fromTimeTicket` returns undefined for an
+      // absent field and the non-null assertion below would hand an undefined
+      // ticket to `RGATreeSplitNodeID.of`, failing only deep inside the
+      // restore path on every peer that applies the pack. `[start, end)` has
+      // to be an ordered interval exactly covering `content` as well, because
+      // `RGATreeSplit.restore` slices the content by `cursor - span.start` and
+      // would otherwise recreate a node with the wrong characters. Mirrors the
+      // validation `fromPbTreeRestoreSpan` does for tree spans.
+      if (
+        !pbSpan.createdAt ||
+        !Number.isInteger(pbSpan.start) ||
+        !Number.isInteger(pbSpan.end) ||
+        pbSpan.start < 0 ||
+        pbSpan.end < pbSpan.start ||
+        pbSpan.end - pbSpan.start !== pbSpan.content.length
+      ) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'malformed restore span: missing timestamp or invalid range',
+        );
+      }
+      const createdAt = fromTimeTicket(pbSpan.createdAt)!;
       const value = CRDTTextValue.create(pbSpan.content);
+      // Stamp the attributes with the span's own `createdAt`, not this
+      // operation's `executedAt`. The wire format carries no per-attribute
+      // timestamp, so the ticket has to be derived from data every replica
+      // reads the same way, and `createdAt` is the one that matches what the
+      // producing replica holds: an attribute applied by the insertion itself
+      // is stamped with the edit's ticket (`CRDTText.edit`), which is also the
+      // id of the node it inserted. Using `executedAt` instead gave a replica
+      // recreating the purged node a different RHT `updatedAt` than the
+      // replica that produced the span, so a concurrent style could resolve
+      // differently on each.
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
-        value.setAttr(key, attr, executedAt);
+        value.setAttr(key, attr, createdAt);
       }
       return {
-        createdAt: fromTimeTicket(pbSpan.createdAt)!,
+        createdAt,
         start: pbSpan.start,
         end: pbSpan.end,
         value,

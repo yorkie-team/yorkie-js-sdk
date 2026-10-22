@@ -161,6 +161,18 @@ export class EditOperation extends Operation {
           path: root.createPath(this.getParentCreatedAt()),
         }) as OpInfo;
 
+      // The spans about to be re-tombstoned are what the reverse op will have
+      // to restore, and a replica that purged them rebuilds the nodes from
+      // that payload alone. Re-snapshot them against the live content first:
+      // the span set was captured when the reversed edit ran, so an attribute
+      // applied to the run since is missing from it and a purged replica would
+      // recreate the run without it while a replica that un-tombstones keeps
+      // it. Taken before the removal below so the piece boundaries it reads
+      // are the ones the span already describes.
+      const refreshed = toRetombstone.length
+        ? text.getRGATreeSplit().refreshSpans(toRetombstone)
+        : undefined;
+
       // 1. Remove the content the reversed edit inserted (by identity).
       if (toRetombstone.length) {
         const [pairs, changes, diff] = text.retombstone(
@@ -212,9 +224,9 @@ export class EditOperation extends Operation {
           new Map(),
           undefined,
           true,
-          this.restoreSpans,
+          isRetombstone && refreshed ? refreshed : this.restoreSpans,
           isRetombstone ? 'restore' : 'retombstone',
-          this.retombstoneSpans,
+          !isRetombstone && refreshed ? refreshed : this.retombstoneSpans,
         ),
       };
     }

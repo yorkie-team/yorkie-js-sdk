@@ -186,4 +186,43 @@ describe('Text restore after GC', () => {
     assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
   });
+
+  // The span is captured when the reversed edit runs, so an attribute applied
+  // to the inserted run AFTERWARDS is not in it. The undo re-snapshots the
+  // span against the live content before removing it, so the redo's restore
+  // payload carries the style the peer added; otherwise a replica that purged
+  // the run recreates it unstyled while a replica that un-tombstones keeps the
+  // style (yorkie-team/yorkie-js-sdk#1497).
+  it('keeps a style applied after the insert when redoing after GC', () => {
+    const d1 = new Document<{ t: Text }>('text-redo-late-attrs-after-gc');
+    const d2 = new Document<{ t: Text }>('text-redo-late-attrs-after-gc');
+    d1.setActor(ACTOR);
+    d2.setActor(PEER);
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    crossSync(d1, d2);
+    d1.clearHistory();
+
+    d1.update((r) => r.t.edit(1, 1, 'X'));
+    crossSync(d1, d2);
+
+    // The peer styles the inserted run after the fact, so the span recorded at
+    // insert time knows nothing about it.
+    d2.update((r) => r.t.setStyle(1, 2, { b: '1' }));
+    crossSync(d1, d2);
+    assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
+
+    d1.history.undo();
+    crossSync(d1, d2);
+
+    assert.isAbove(d1.garbageCollect(maxVectorOf([ACTOR, PEER])), 0);
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toString(), 'aXb');
+    assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
 });
