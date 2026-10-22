@@ -291,7 +291,10 @@ export class Change<P extends Indexable> {
           // indexing into it would throw inside app code. Leave the actor
           // without a presence instead: that is a state `getPresence` and
           // `getPresences` already model, and the next snapshot restores the
-          // real presence in full.
+          // real presence in full. A peer the document still reports as
+          // online cannot wait that long -- no presence entry means no event
+          // at all, so it would stay invisible -- and is seeded from the
+          // patch by `Document.healBaselessPresencePatch`.
           if (base !== undefined) {
             presences.set(actorID, {
               ...base,

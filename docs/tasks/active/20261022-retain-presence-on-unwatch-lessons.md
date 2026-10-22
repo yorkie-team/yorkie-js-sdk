@@ -78,3 +78,28 @@ map's contents.
   with none, the actor is left without a presence — a state `getPresence` and
   `getPresences` already model, and one the next snapshot heals — instead of
   one that type-checks and lies.
+
+- **Round 4** — Review panel, one blocking finding: round 3's guard had been
+  written as a property of `Change.execute` alone, and its caller was left
+  unchanged. `applyChangeInternal` captures `prev`, lets `execute` write the
+  presence, and has `reconcilePresence` read the result — so "no entry
+  written" reads as "nothing happened" and no event is published at all. For
+  a peer that is *online* (evicted, then re-watched) that means invisible to
+  the application until the server happens to send a snapshot, with every
+  later patch dropped for the same missing base: the gap compounds rather
+  than heals, and `MaxRetainedPresences` had promised the opposite ("a
+  presence change or a snapshot still restores it").
+
+  The two rounds' answers are not in conflict once visibility is the axis.
+  Round 3 is right for a peer nobody is being shown — absent is a state the
+  public API models. Round 4 is right for a peer the document reports as
+  online — there, absent is a silent lie of a different kind.
+  `Document.healBaselessPresencePatch` draws that line: it seeds the entry
+  from the patch only when the actor is in `onlineClients`, logs that the
+  untouched keys are missing, and leaves the generic `execute` path
+  conservative for the clone, replay and offline callers.
+
+  The general lesson: a guard that makes a function return *less* is only
+  half a change. Every caller that branches on what it used to return has to
+  be re-read, because "the value is absent" is almost never the same message
+  as "nothing happened".

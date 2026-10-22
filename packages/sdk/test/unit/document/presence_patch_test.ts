@@ -16,7 +16,11 @@
 
 import { describe, it, assert } from 'vitest';
 
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import {
+  Document,
+  DocEvent,
+  DocEventType,
+} from '@yorkie-js/sdk/src/document/document';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
@@ -474,5 +478,55 @@ describe('Presence patch', function () {
     const presences = new Map<string, TestPresence>();
     change.execute(CRDTRoot.create(), presences, OpSource.Remote);
     assert.isFalse(presences.has(actorID));
+  });
+
+  it('makes an online peer visible again from a patch with no base', function () {
+    // The counterpart of the test above on the document: the peer IS online
+    // here -- its retained presence was evicted past `MaxRetainedPresences`
+    // and it re-watched -- so "no presence entry" means `reconcilePresence`
+    // publishes nothing and the peer stays invisible to the application
+    // until the server happens to send a snapshot, with every later patch
+    // dropped for the same missing base. The patch has to restore it.
+    const peerID = '000000000000000000000002';
+    const peer = createDoc();
+    peer.setActor(peerID);
+    peer.update((_, p) => p.set({ name: 'a', cursor: { x: 0, y: 0 } }));
+
+    const pbPack = converter.toChangePack(peer.createChangePack());
+    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.PATCH;
+    pbPack.changes[0].presenceChange!.presence!.data = {
+      cursor: '{"x":2,"y":2}',
+    };
+    const change = converter
+      .fromChangePack<TestPresence>(pbPack)
+      .getChanges()[0];
+
+    const doc = createDoc();
+    doc.setActor('000000000000000000000001');
+    doc.applyWatchInit([peerID]);
+    assert.isFalse(doc.hasPresence(peerID));
+
+    const events: Array<DocEvent<TestPresence>> = [];
+    const unsub = doc.subscribe('others', (event) => events.push(event));
+    doc.applyChange(change, OpSource.Remote);
+    unsub();
+
+    assert.deepEqual(doc.getPresence(peerID), { cursor: { x: 2, y: 2 } });
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, DocEventType.Watched);
+
+    // A later patch folds onto the seeded base instead of being dropped too.
+    peer.update((_, p) => p.set({ name: 'b' }));
+    const pbNext = converter.toChangePack(peer.createChangePack());
+    pbNext.changes[1].presenceChange!.type = PbPresenceChangeType.PATCH;
+    pbNext.changes[1].presenceChange!.presence!.data = { name: '"b"' };
+    doc.applyChange(
+      converter.fromChangePack<TestPresence>(pbNext).getChanges()[1],
+      OpSource.Remote,
+    );
+    assert.deepEqual(doc.getPresence(peerID), {
+      cursor: { x: 2, y: 2 },
+      name: 'b',
+    });
   });
 });

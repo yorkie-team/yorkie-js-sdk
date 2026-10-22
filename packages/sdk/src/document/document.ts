@@ -3054,6 +3054,7 @@ export class Document<
       this.presences,
       source,
     );
+    this.healBaselessPresencePatch(change, actorID);
     for (const op of operations) {
       if (op instanceof EditOperation) {
         const [from, to] = op.normalizePos(this.root);
@@ -3157,6 +3158,52 @@ export class Document<
     if (events.length) {
       this.publish(events);
     }
+  }
+
+  /**
+   * `healBaselessPresencePatch` gives an online peer a presence again when a
+   * wire `Patch` arrived with no base to fold onto.
+   *
+   * `Change.execute` writes nothing in that case, on purpose: a wire patch
+   * carries only the keys the peer just changed, so folding it onto nothing
+   * yields an object typed `P` that is missing every key the peer did not
+   * touch. For a peer this document shows nobody that is the right answer --
+   * it stays absent, which `getPresence` and `getPresences` already model,
+   * and the next snapshot restores it in full.
+   *
+   * For a peer the document reports as online it is not. `reconcilePresence`
+   * keys every event it publishes on there being a presence entry, so the
+   * peer would stay invisible to the application until the server happens to
+   * send a snapshot, and every later patch would be dropped for the same
+   * missing base -- the gap compounds instead of healing. That is the cost
+   * `MaxRetainedPresences` accepts for an evicted peer ("a presence change or
+   * a snapshot still restores it"), so the presence change has to restore it.
+   *
+   * Seeding the entry from the patch keeps the peer visible, gives the
+   * patches that follow a base to fold onto, and is itself replaced wholesale
+   * by the peer's next put or the next snapshot. Until then the entry holds
+   * only what the peer has changed since the base was lost, which is what the
+   * warning records.
+   */
+  private healBaselessPresencePatch(change: Change<P>, actorID: ActorID) {
+    const presenceChange = change.getPresenceChange();
+    if (
+      presenceChange?.type !== PresenceChangeType.Patch ||
+      presenceChange.full !== undefined ||
+      this.presences.has(actorID) ||
+      !this.onlineClients.has(actorID)
+    ) {
+      return;
+    }
+
+    logger.warn(
+      `presence patch from ${actorID} has no base to fold onto; rebuilding it from the patched keys until the next put or snapshot`,
+    );
+    this.presences.set(actorID, deepcopy(presenceChange.presence) as P);
+    // The clone is only ever read for this client's own presence, but keeping
+    // the two maps in step means a later patch folds onto the same base on
+    // both sides.
+    this.clone?.presences.set(actorID, deepcopy(presenceChange.presence) as P);
   }
 
   /**
