@@ -24,12 +24,11 @@ Two places in this SDK do not follow that.
 
 2. **Presence changes of type `UNSPECIFIED` or `DELETE`.**
    `fromPresenceChange` throws `ErrInvalidType` for anything but PUT, PATCH or
-   CLEAR. Both of the other defined enum values are reachable: Go's
-   `ToPresenceChange` falls back to `UNSPECIFIED` and its `fromPresenceChange`
-   decodes `DELETE`. Decode `DELETE` as `Clear` — both mean "drop this actor's
-   presence", which is what `Change.execute` does for `Clear` — and decode
-   `UNSPECIFIED` as no presence change at all, so the change still applies its
-   operations. Keep the throw for a value outside the enum.
+   CLEAR. Go decodes both defined-but-unused types into a change with no type
+   and no presence (`api/converter/from_pb.go`, `FromPresenceChange` default
+   branch), which `Change.Execute` stores as an empty presence for the actor.
+   Decode both as a `Put` of `{}` to match. A PATCH with no `presence` decodes
+   as an empty patch, as Go does. Keep the throw for a value outside the enum.
 
 A local `update`, an undo or a redo keeps throwing: the wedged-document
 problem is specific to the pull path, and a caller that asked for the mutation
@@ -42,12 +41,19 @@ reasoning already written down in `Change.execute` for `ChangeApplyError`.
   comment cited by the issue; auditing every operation for the same treatment
   is a separate sweep.
 - Any `.proto` change. The two enum values already exist on the wire.
+- Anything Go does not do. Reverted from earlier fix rounds: skipping a
+  missing or non-counter target (Go returns `ErrNotApplicableDataType` for
+  every source, `increase.go:63-66`), decoding a PUT without `presence` (Go
+  errors with "presence missing"), keeping a non-JSON presence value as a raw
+  string, the JS-only `isReplay` flag, and the CI MongoDB healthcheck (moved to
+  #1505).
 
 ## Steps
 
 - [x] `IncreaseOperation.execute` takes `source` and skips an unapplicable
       dedup increase when it is `Remote`.
-- [x] `fromPresenceChange` maps `DELETE` → `Clear`, `UNSPECIFIED` → undefined.
-- [x] Unit tests: a pulled pack with each of the three shapes applies, and the
-      later changes in the same pack still apply.
+- [x] `fromPresenceChange` maps `UNSPECIFIED` and `DELETE` → `Put` of `{}`.
+- [x] Unit tests: a pulled pack with each shape applies, and the later
+      changes in the same pack still apply.
+- [x] Revert every change that goes beyond Go's behavior.
 - [x] `pnpm verify:fast`.

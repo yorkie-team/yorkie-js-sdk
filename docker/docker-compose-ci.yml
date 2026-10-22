@@ -13,15 +13,8 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
-    # `service_started` -- the default for the list form of depends_on -- only
-    # means the mongo container was started, not that mongod accepts
-    # connections. The server gives up on an unreachable MongoDB after its
-    # connection and ping timeouts (5s each) and exits, so on a runner where
-    # mongo's first boot is slow it crash-loops instead of serving, and the
-    # lane spends its whole wait-for-yorkie budget on a server that is down.
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
@@ -29,11 +22,3 @@ services:
     restart: always
     ports:
       - "27017:27017"
-    # `ping` is the cheapest command that proves mongod is listening and
-    # answering, which is exactly what the server needs before it starts.
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 2s
-      timeout: 5s
-      retries: 30
-      start_period: 10s

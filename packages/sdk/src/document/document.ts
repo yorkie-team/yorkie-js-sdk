@@ -2557,7 +2557,7 @@ export class Document<
     const root = CRDTRoot.create();
     const presences = new Map<ActorID, P>();
     for (const change of changes) {
-      change.execute(root, presences, replaySourceOf(change), true);
+      change.execute(root, presences, replaySourceOf(change));
     }
 
     const onlineClients = new Set(this.onlineClients);
@@ -2946,27 +2946,19 @@ export class Document<
    * the source it originally ran with (`replaySourceOf`). A plain
    * `applyChanges(changes, OpSource.Local)` would run an operation an undo had
    * skipped, so every replay of the queue goes through here instead.
-   *
-   * Each change is also marked a replay (`isReplay`), which is what lets an
-   * operation tolerate a target it can no longer apply to: `applySnapshot`
-   * replays the queue onto the snapshot root, so a queued increase whose
-   * counter the snapshot removed would otherwise throw out of the pull and
-   * wedge the checkpoint behind it. See `Operation.execute`.
    */
   private replayLocalChanges(changes: Array<Change<P>>): void {
     for (const change of changes) {
-      this.applyChange(change, replaySourceOf(change), true);
+      this.applyChange(change, replaySourceOf(change));
     }
   }
 
   /**
-   * `applyChange` applies the given change into this document. `isReplay`
-   * marks a re-execution of a change that already ran once; see
-   * `Operation.execute`.
+   * `applyChange` applies the given change into this document.
    */
-  public applyChange(change: Change<P>, source: OpSource, isReplay = false) {
+  public applyChange(change: Change<P>, source: OpSource) {
     try {
-      this.applyChangeInternal(change, source, isReplay);
+      this.applyChangeInternal(change, source);
     } catch (err) {
       // NOTE: `Change.execute` does not roll back, so a change that fails
       // partway leaves the clone and the root holding different prefixes of
@@ -2998,16 +2990,12 @@ export class Document<
   /**
    * `applyChangeInternal` applies the given change into the clone and the root.
    */
-  private applyChangeInternal(
-    change: Change<P>,
-    source: OpSource,
-    isReplay = false,
-  ) {
+  private applyChangeInternal(change: Change<P>, source: OpSource) {
     if (source === OpSource.Remote) {
       this.absorbedRemote = true;
     }
     this.ensureClone();
-    change.execute(this.clone!.root, this.clone!.presences, source, isReplay);
+    change.execute(this.clone!.root, this.clone!.presences, source);
 
     const events: DocEvents<P> = [];
     const actorID = change.getID().getActorID();
@@ -3027,7 +3015,6 @@ export class Document<
       this.root,
       this.presences,
       source,
-      isReplay,
     );
     for (const op of operations) {
       if (op instanceof EditOperation) {
@@ -3266,10 +3253,7 @@ export class Document<
       ) {
         if (!event.rawChange) continue;
         const change = Change.fromStruct<P>(event.rawChange);
-        // A recorded event stream is a replay: the change already ran on the
-        // replica that recorded it, and nothing here is waiting on the
-        // mutation. See `Operation.execute`.
-        this.applyChange(change, event.source, true);
+        this.applyChange(change, event.source);
       }
 
       if (event.type === DocEventType.Initialized) {

@@ -20,7 +20,6 @@ import {
   OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
-import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
@@ -74,41 +73,7 @@ export class IncreaseOperation extends Operation {
   public execute(
     root: CRDTRoot,
     source?: OpSource,
-    _versionVector?: VersionVector,
-    isReplay?: boolean,
   ): ExecutionResult | undefined {
-    // NOTE: a stored change that this SDK cannot apply comes back on every
-    // pull -- the checkpoint does not advance past a change that throws -- so
-    // it wedges the document forever. Skip the whole operation on the pull
-    // path, as Go does (`pkg/document/operations/increase.go`,
-    // `skipUnlessLocal`): a missing or non-counter target, a dedup counter
-    // handed neither an actor nor a unit delta, all of it.
-    //
-    // A replay counts as that same path. `applySnapshot` replays the queued
-    // local changes onto the snapshot root (`Document.replayLocalChanges`),
-    // and a queued increase whose counter the snapshot removed -- or replaced
-    // with a non-counter -- throws there under `Local`/`UndoRedo`, wedging the
-    // very pull this skip exists to unwedge. `reissueActor` and the devtools
-    // replay rebuild a root the same way, with no caller waiting on the
-    // mutation either.
-    //
-    // Only a live `update` or an undo/redo still reports the failure, to the
-    // caller that asked for the mutation, with the code the operation threw.
-    try {
-      return this.executeInternal(root);
-    } catch (cause) {
-      if (source === OpSource.Remote || isReplay) {
-        return;
-      }
-      throw cause;
-    }
-  }
-
-  /**
-   * `executeInternal` applies this operation on the given `CRDTRoot`, throwing
-   * when it cannot be applied.
-   */
-  private executeInternal(root: CRDTRoot): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       throw new YorkieError(
@@ -125,16 +90,31 @@ export class IncreaseOperation extends Operation {
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
     if (counter.isDedup()) {
-      // A dedup counter holds an HLL of actors, so it can only take a unit
-      // increment attributed to one actor. A change carrying neither can never
-      // be applied; `execute` turns that into a skip on the pull path.
+      // NOTE: a dedup counter holds an HLL of actors, so it can only take a
+      // unit increment attributed to one actor. A change carrying neither can
+      // never be applied, and a stored one comes back on every pull -- the
+      // checkpoint does not advance past a change that throws -- so it wedges
+      // the document. Skip it on the pull path, as Go does
+      // (`pkg/document/operations/increase.go`, `skipUnlessLocal`). A local
+      // `update` or an undo/redo still reports the failure to the caller that
+      // asked for it, with the code the counter threw.
       if (!this.actor) {
+        if (source === OpSource.Remote) {
+          return;
+        }
         throw new YorkieError(
           Code.ErrInvalidArgument,
           'dedup counter requires actor',
         );
       }
-      counter.increaseDedup(value, this.actor);
+      try {
+        counter.increaseDedup(value, this.actor);
+      } catch (cause) {
+        if (source === OpSource.Remote) {
+          return;
+        }
+        throw cause;
+      }
     } else {
       counter.increase(value);
     }

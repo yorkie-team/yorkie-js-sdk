@@ -1136,23 +1136,10 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
 /**
  * `fromPresence` converts the given Protobuf format to model format.
  */
-function fromPresence<P extends Indexable>(pbPresence?: PbPresence): P {
-  // NOTE: `presence` is an optional message on the wire, so a stored change
-  // can carry a PUT or PATCH without one. Decode it as an empty presence
-  // rather than throwing: a pulled change this SDK throws on comes back on
-  // every pull and wedges the document forever.
-  const data: Record<string, unknown> = {};
-  Object.entries(pbPresence?.data ?? {}).forEach(([key, value]) => {
-    // A peer that is not this SDK can store a raw, non-JSON value. Keep it as
-    // the string it is instead of failing the whole pack.
-    try {
-      data[key] = JSON.parse(value);
-    } catch (e) {
-      if (!(e instanceof SyntaxError)) {
-        throw e;
-      }
-      data[key] = value;
-    }
+function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
+  const data: Record<string, string> = {};
+  Object.entries(pbPresence.data).forEach(([key, value]) => {
+    data[key] = JSON.parse(value);
   });
 
   return data as P;
@@ -1163,10 +1150,10 @@ function fromPresence<P extends Indexable>(pbPresence?: PbPresence): P {
  */
 function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
-): PresenceChange<P> | undefined {
+): PresenceChange<P> {
   const type = pbPresenceChange.type;
   if (type === PbPresenceChange_ChangeType.PUT) {
-    const presence = fromPresence<P>(pbPresenceChange.presence);
+    const presence = fromPresence<P>(pbPresenceChange.presence!);
     return {
       type: PresenceChangeType.Put,
       presence,
@@ -1177,31 +1164,35 @@ function fromPresenceChange<P extends Indexable>(
     // a pulled pack does not normally carry a patch. It is decoded anyway --
     // an echo of a pushed change, or a peer ahead of this SDK, must not fail
     // the whole pack. There is no `full` on the wire: `Change.execute` merges
-    // the carried keys onto the presence already held for that actor.
-    const presence = fromPresence<P>(pbPresenceChange.presence);
+    // the carried keys onto the presence already held for that actor. A
+    // patch can leave `presence` unset, as Go allows
+    // (`api/converter/from_pb.go`, `FromPresenceChange`).
+    const presence = pbPresenceChange.presence
+      ? fromPresence<P>(pbPresenceChange.presence)
+      : ({} as P);
     return {
       type: PresenceChangeType.Patch,
       presence,
     };
   }
-  if (
-    type === PbPresenceChange_ChangeType.CLEAR ||
-    type === PbPresenceChange_ChangeType.DELETE
-  ) {
-    // DELETE and CLEAR both mean "drop this actor's presence", which is what
-    // `Change.execute` does for a `Clear`. The official SDKs only ever send
-    // CLEAR, but DELETE is a defined value that Go still decodes, and a
-    // stored change this SDK throws on comes back on every pull.
+  if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
     };
   }
-  if (type === PbPresenceChange_ChangeType.UNSPECIFIED) {
-    // Go's `ToPresenceChange` falls back to UNSPECIFIED, so a stored change
-    // can carry one. It names no presence state to move to: skip the presence
-    // change and let the change apply its operations, rather than failing the
-    // whole pack forever.
-    return undefined;
+  if (
+    type === PbPresenceChange_ChangeType.UNSPECIFIED ||
+    type === PbPresenceChange_ChangeType.DELETE
+  ) {
+    // NOTE: these two types are defined but no SDK sends them. Go still
+    // decodes them, because stored rows go through that path, into a change
+    // that stores an empty presence for the actor (`api/converter/from_pb.go`,
+    // `FromPresenceChange`). Do the same: throwing here fails the pack, and
+    // the same stored change comes back on every pull.
+    return {
+      type: PresenceChangeType.Put,
+      presence: {} as P,
+    };
   }
 
   throw new YorkieError(Code.ErrInvalidType, `unsupported type: ${type}`);

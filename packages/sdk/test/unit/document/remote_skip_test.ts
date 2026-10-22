@@ -22,22 +22,16 @@ import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
-import {
-  Counter,
-  DedupCounter,
-} from '@yorkie-js/sdk/src/document/json/counter';
+import { DedupCounter } from '@yorkie-js/sdk/src/document/json/counter';
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
-import {
-  PresenceChange,
-  PresenceChangeType,
-} from '@yorkie-js/sdk/src/document/presence/change';
+import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
 import { PresenceChange_ChangeType as PbPresenceChangeType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
-type TestDoc = { uv?: DedupCounter; c?: Counter; k?: string };
+type TestDoc = { uv?: DedupCounter; k?: string };
 
 /**
  * `localChangesOf` returns the changes the given document has minted.
@@ -90,16 +84,6 @@ function remoteIncrease(
   });
 }
 
-/**
- * `presenceOf` returns the presence a decoded change carries, if any.
- */
-function presenceOf(
-  change?: PresenceChange<{ name?: string }>,
-): Partial<{ name?: string }> | undefined {
-  return (change as { presence?: Partial<{ name?: string }> } | undefined)
-    ?.presence;
-}
-
 describe('a remote change this SDK cannot apply', function () {
   it('applies a dedup increase that carries an actor and a unit delta', function () {
     const { doc, counterCreatedAt } = sourceWithCounter();
@@ -124,41 +108,6 @@ describe('a remote change this SDK cannot apply', function () {
       OpSource.Remote,
     );
     assert.equal(target.getRoot().uv!.getValue(), 2);
-  });
-
-  it('skips a remote increase whose target is missing or not a counter', function () {
-    const { doc, counterCreatedAt } = sourceWithCounter();
-    const target = new Document<TestDoc>('d');
-    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
-    const root = (target as unknown as { root: CRDTRoot }).root;
-
-    // A target this document never saw, and a target that is not a counter:
-    // both are stored changes that can never be applied here.
-    doc.update((r) => {
-      r.k = 'v';
-    });
-    target.applyChange(localChangesOf(doc)[1] as never, OpSource.Remote);
-    const stringCreatedAt = localChangesOf(doc)[1]
-      .getOperations()[0]
-      .getEffectedCreatedAt();
-    const missing = remoteIncrease(
-      doc,
-      counterCreatedAt.setActor('ffffffffffffffffffffffff'),
-      1,
-      'actor-a',
-    ).getOperations()[0];
-    const notACounter = remoteIncrease(
-      doc,
-      stringCreatedAt,
-      1,
-      'actor-a',
-    ).getOperations()[0];
-
-    for (const op of [missing, notACounter]) {
-      assert.isUndefined(op.execute(root, OpSource.Remote));
-      assert.throws(() => op.execute(root, OpSource.Local), YorkieError);
-    }
-    assert.equal(target.getRoot().uv!.getValue(), 0);
   });
 
   it('skips a dedup increase that carries no actor', function () {
@@ -232,87 +181,18 @@ describe('a remote change this SDK cannot apply', function () {
     }
   });
 
-  it('skips a queued increase the snapshot made unapplicable', function () {
-    // A peer removed the counter while this replica was offline, so the
-    // increase queued in `localChanges` has no target on the snapshot root.
-    // The replay `applySnapshot` performs runs under `Local`, not `Remote`,
-    // and a throw there leaves the checkpoint behind the snapshot -- the
-    // server then redelivers it forever, which is the very wedge the skip
-    // exists to prevent.
-    const seed = new Document<TestDoc>('d');
-    seed.update((r) => {
-      r.c = new Counter(0);
-    });
-    const target = new Document<TestDoc>('d');
-    target.applyChange(localChangesOf(seed)[0] as never, OpSource.Remote);
-    target.update((r) => r.c!.increase(1));
-    assert.lengthOf(localChangesOf(target), 1);
-
-    const peer = new Document<TestDoc>('d');
-    peer.update((r) => {
-      r.k = 'v';
-    });
-    const bytes = converter.snapshotToBytes(peer.getRootObject(), new Map());
-
-    assert.doesNotThrow(() =>
-      target.applySnapshot(2n, peer.getVersionVector(), bytes),
-    );
-    assert.equal(target.getRoot().k, 'v');
-    assert.isUndefined(target.getRoot().c);
-  });
-
-  it('decodes a DELETE presence change as a clear', function () {
-    const doc = new Document<TestDoc, { name?: string }>('d');
-    doc.update((_, p) => p.set({ name: 'a' }));
-    const actorID = doc.getChangeID().getActorID();
-
-    const pbPack = converter.toChangePack(doc.createChangePack());
-    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.DELETE;
-    pbPack.changes[0].presenceChange!.presence = undefined;
-
-    const change = converter
-      .fromChangePack<{ name?: string }>(pbPack)
-      .getChanges()[0];
-    assert.equal(change.getPresenceChange()!.type, PresenceChangeType.Clear);
-
-    // DELETE and CLEAR both drop the actor's presence.
-    const presences = new Map([[actorID, { name: 'a' }]]);
-    change.execute(CRDTRoot.create(), presences, OpSource.Remote);
-    assert.isFalse(presences.has(actorID));
-  });
-
-  it('decodes an UNSPECIFIED presence change as no presence change', function () {
-    const doc = new Document<TestDoc, { name?: string }>('d');
-    doc.update((r, p) => {
-      r.k = 'v';
-      p.set({ name: 'a' });
-    });
-    const actorID = doc.getChangeID().getActorID();
-
-    const pbPack = converter.toChangePack(doc.createChangePack());
-    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.UNSPECIFIED;
-
-    const change = converter
-      .fromChangePack<{ name?: string }>(pbPack)
-      .getChanges()[0];
-    assert.equal(change.getPresenceChange(), undefined);
-
-    // The operations of the change still apply; only the presence it names
-    // nothing about is dropped.
-    const presences = new Map<string, { name?: string }>();
-    const root = CRDTRoot.create();
-    change.execute(root, presences, OpSource.Remote);
-    assert.isFalse(presences.has(actorID));
-    assert.equal(root.getObject().toJSON(), '{"k":"v"}');
-  });
-
-  it('decodes a PUT or PATCH that carries no presence as an empty one', function () {
-    for (const type of [PbPresenceChangeType.PUT, PbPresenceChangeType.PATCH]) {
+  it('decodes UNSPECIFIED and DELETE as an empty presence, as Go does', function () {
+    for (const type of [
+      PbPresenceChangeType.UNSPECIFIED,
+      PbPresenceChangeType.DELETE,
+    ]) {
       const doc = new Document<TestDoc, { name?: string }>('d');
-      doc.update((_, p) => p.set({ name: 'a' }));
+      doc.update((r, p) => {
+        r.k = 'v';
+        p.set({ name: 'a' });
+      });
+      const actorID = doc.getChangeID().getActorID();
 
-      // `presence` is an optional message on the wire, so a non-SDK writer can
-      // store a PUT without one. Decoding must not throw a raw TypeError.
       const pbPack = converter.toChangePack(doc.createChangePack());
       pbPack.changes[0].presenceChange!.type = type;
       pbPack.changes[0].presenceChange!.presence = undefined;
@@ -320,21 +200,38 @@ describe('a remote change this SDK cannot apply', function () {
       const change = converter
         .fromChangePack<{ name?: string }>(pbPack)
         .getChanges()[0];
-      assert.deepEqual(presenceOf(change.getPresenceChange()), {});
+      assert.deepEqual(change.getPresenceChange(), {
+        type: PresenceChangeType.Put,
+        presence: {},
+      });
+
+      // Go's `Change.Execute` stores the decoded empty presence for the
+      // actor, and the operations of the change still apply.
+      const presences = new Map<string, { name?: string }>([
+        [actorID, { name: 'a' }],
+      ]);
+      const root = CRDTRoot.create();
+      change.execute(root, presences, OpSource.Remote);
+      assert.deepEqual(presences.get(actorID), {});
+      assert.equal(root.getObject().toJSON(), '{"k":"v"}');
     }
   });
 
-  it('decodes a presence value that is not JSON as the raw string', function () {
+  it('decodes a PATCH that carries no presence as an empty one', function () {
     const doc = new Document<TestDoc, { name?: string }>('d');
     doc.update((_, p) => p.set({ name: 'a' }));
 
     const pbPack = converter.toChangePack(doc.createChangePack());
-    pbPack.changes[0].presenceChange!.presence!.data = { name: 'raw' };
+    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.PATCH;
+    pbPack.changes[0].presenceChange!.presence = undefined;
 
     const change = converter
       .fromChangePack<{ name?: string }>(pbPack)
       .getChanges()[0];
-    assert.deepEqual(presenceOf(change.getPresenceChange()), { name: 'raw' });
+    assert.deepEqual(change.getPresenceChange(), {
+      type: PresenceChangeType.Patch,
+      presence: {},
+    });
   });
 
   it('rejects a presence change outside the enum', function () {
