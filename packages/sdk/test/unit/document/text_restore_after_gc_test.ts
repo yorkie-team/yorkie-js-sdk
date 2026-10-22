@@ -21,6 +21,9 @@ import { Text } from '@yorkie-js/sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { EditOperation } from '@yorkie-js/sdk/src/document/operation/edit_operation';
+import { CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
+import { RestoreSpan } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 
 const ACTOR = '000000000000000000000001';
 const PEER = '000000000000000000000002';
@@ -224,5 +227,65 @@ describe('Text restore after GC', () => {
     assert.equal(d1.getRoot().t.toString(), 'aXb');
     assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
+
+  // The main producer of restore spans is the delete itself: `RGATreeSplit`
+  // captures one span per removed node, and those become the reverse
+  // operation's `restoreSpans`. A removed node's value can hold more than the
+  // wire can express -- a per-attribute `updatedAt`, an attribute tombstone --
+  // so the capture has to flatten it. Otherwise the producing replica keeps a
+  // richer copy than it ships, rebuilds a purged node differently from every
+  // replica that decodes the span, and books attribute-tombstone GC pairs no
+  // peer books (yorkie-team/yorkie-js-sdk#1497).
+  it('captures a delete span in the shape the wire carries', () => {
+    const d = new Document<{ t: Text }>('text-delete-span-shape');
+    d.setActor(ACTOR);
+    d.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'abcd');
+    });
+    // Style then undo it, so the piece carries a live attribute AND an
+    // attribute tombstone with its own ticket.
+    d.update((r) => r.t.setStyle(0, 4, { b: '1' }));
+    d.update((r) => r.t.setStyle(0, 4, { i: '1' }));
+    d.history.undo(); // removeStyle("i") -> tombstones `i` on the piece
+    d.clearHistory();
+
+    d.update((r) => r.t.edit(0, 4, ''));
+
+    const undoOps = d.getUndoStackForTest().pop()!;
+    const op = undoOps.find((o) => o instanceof EditOperation) as EditOperation;
+    const spans = op.getRestoreSpans()!;
+    assert.isNotEmpty(spans, 'the delete records a restore span');
+
+    // What a peer rebuilds from this span: the live attributes only, each
+    // stamped with the span's own `createdAt` (`fromPbSpan`). The local copy
+    // has to be exactly that and nothing more.
+    const shapeOf = (span: RestoreSpan<CRDTTextValue>) =>
+      Array.from(span.value.getAttrs()).map((n) => [
+        n.getKey(),
+        n.getValue(),
+        n.isRemoved(),
+        n.getUpdatedAt().toTestString(),
+      ]);
+    const asWireCarriesIt = (span: RestoreSpan<CRDTTextValue>) => {
+      const flat = CRDTTextValue.create(span.value.getContent());
+      for (const [key, value] of Object.entries(span.value.getAttributes())) {
+        flat.setAttr(key, value, span.createdAt);
+      }
+      return shapeOf({ ...span, value: flat });
+    };
+
+    for (const span of spans) {
+      assert.isEmpty(
+        span.value.getGCPairs(),
+        'a captured span books no attribute tombstones',
+      );
+      assert.deepEqual(
+        shapeOf(span),
+        asWireCarriesIt(span),
+        'the span kept locally must match the one every peer decodes',
+      );
+    }
   });
 });

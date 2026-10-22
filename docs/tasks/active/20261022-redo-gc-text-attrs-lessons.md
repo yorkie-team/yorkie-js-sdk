@@ -69,3 +69,30 @@ identical RHT, tickets included.
 Rule of thumb: a value that crosses the wire and a value that lives in the
 tree are two types wearing one class. When you copy one into the other, say
 which one you are making.
+
+## Panel round: the flattening was applied at one producer, not the rule
+
+`toRestoreSnapshot` landed inside `refreshSpans` only — and `refreshSpans` is
+the *minor* producer of restore spans. The major one is the delete itself:
+`RGATreeSplit.edit` captures one span per removed node, and it still did
+`removedNode.getValue().substring(0)`, a full RHT deepcopy carrying every
+attribute's real `updatedAt` and every attribute tombstone. So the normal undo
+path reproduced the divergence the refresh path had just closed: a rich local
+span, a flat one on the wire, and a purged node rebuilt differently on each
+side.
+
+The fix is to stop treating the flattening as something a call site remembers
+to do. `toSpanValue` is now a module-level function in `rga_tree_split.ts`, and
+both producers go through it; the converter comment says so, so a third
+producer has one obvious thing to call.
+
+A behaviour change fell out of it, and it is the point rather than a cost:
+`style_tombstone_test.ts` pinned that a piece recreated from a purged tombstone
+carried its attribute tombstone (`bbbb=vvvv*`). It cannot — the span it is
+rebuilt from is `map<string, string>` on the wire, so no peer recreates that
+tombstone, and keeping it locally was the divergence. The test now pins the
+flat shape, and the ledger assertion it really existed for still holds.
+
+Rule of thumb: when a round's fix is an invariant ("spans are flat"), grep for
+every producer before claiming it. Enforcing it at one call site and writing
+the invariant in a comment above the other is how this one survived a round.

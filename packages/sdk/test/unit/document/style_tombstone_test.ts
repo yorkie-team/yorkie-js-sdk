@@ -606,11 +606,21 @@ describe('a style over a tombstoned node', () => {
   });
 
   /**
-   * The text half of the same hole. `RGATreeSplit.restore` recreates a purged
-   * piece through `CRDTTextValue.substring`, which deep-copies the RHT with
-   * its tombstones just as a split does, so the copies need the same booking.
+   * The text half of the same hole, as the wire constrains it. A purged piece
+   * is recreated from the reverse operation's restore span, and a span is
+   * `map<string, string>` once it crosses the wire: no per-attribute ticket,
+   * no attribute tombstone. So every span is flattened to that shape where it
+   * is captured (`toSpanValue`), and the piece this replica recreates carries
+   * exactly what a peer decoding the same span recreates — the live
+   * attributes, here none, since the removeStyle took `bbbb` away. Keeping the
+   * richer copy locally is what used to put an attribute tombstone on this
+   * node that no peer had, and a GC pair with it.
+   *
+   * What still has to hold is the booking: whatever tombstones a recreated or
+   * split value does carry are registered, so the ledger stays exact and the
+   * node collects to zero.
    */
-  it('books the attribute tombstones a recreated text piece carries', () => {
+  it('recreates a purged text piece in the shape the wire carries', () => {
     const d: TextDoc = new Document('test-doc');
     d.update((r) => {
       r.t = new Text();
@@ -626,7 +636,9 @@ describe('a style over a tombstoned node', () => {
     d.garbageCollect(maxVectorOf([d.getChangeID().getActorID()]));
     d.history.undo();
     assert.equal(d.getRoot().t.toString(), 'abcd');
-    assert.deepEqual(nodeAttrs(d), ['"abcd" [bbbb=vvvv*]']);
+    // No `bbbb=vvvv*`: the span the undo carried could not express the
+    // attribute tombstone, so neither does the piece rebuilt from it.
+    assert.deepEqual(nodeAttrs(d), ['"abcd" []']);
 
     assertLedgerExact(d, 'after the recreate', [d.getChangeID().getActorID()]);
   });
