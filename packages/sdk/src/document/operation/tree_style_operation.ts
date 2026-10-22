@@ -31,6 +31,7 @@ import {
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { addDataSizes } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * `TreeStyleOperation` represents an operation that modifies the style of the
@@ -119,49 +120,63 @@ export class TreeStyleOperation extends Operation {
       );
     }
     const tree = parentObject as CRDTTree;
-    let changes: Array<TreeChange>;
-    let pairs: Array<GCPair>;
-    let size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
+    // The reverse of a style that overwrote some attributes and added others
+    // carries both halves at once, so neither excludes the other: run each
+    // half that is present and accumulate across the two.
+    const allPairs: Array<GCPair> = [];
+    const allChanges: Array<{ change: TreeChange; isRemove: boolean }> = [];
+    const allSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     const reversePrevAttributes = new Map<string, string>();
     const reverseAttrsToRemove: Array<string> = [];
 
-    if (this.attributes.size) {
-      const attributes: { [key: string]: any } = {};
-      [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
-
-      let prevAttributes: Map<string, string>;
-      let newAttrKeys: Array<string>;
-      [pairs, changes, size, prevAttributes, newAttrKeys] = tree.style(
+    // 01. Handle attributesToRemove (remove style attributes)
+    if (this.attributesToRemove.length > 0) {
+      const [pairs, changes, size, prevAttributes] = tree.removeStyle(
         [this.fromPos, this.toPos],
-        attributes,
+        this.attributesToRemove,
         this.getExecutedAt(),
         versionVector,
       );
 
-      for (const [key, value] of prevAttributes) {
-        reversePrevAttributes.set(key, value);
-      }
-      reverseAttrsToRemove.push(...newAttrKeys);
-    } else {
-      const attributesToRemove = this.attributesToRemove;
-
-      let prevAttributes: Map<string, string>;
-      [pairs, changes, size, prevAttributes] = tree.removeStyle(
-        [this.fromPos, this.toPos],
-        attributesToRemove,
-        this.getExecutedAt(),
-        versionVector,
-      );
+      addDataSizes(allSize.live, size.live);
+      addDataSizes(allSize.gc, size.gc);
+      allPairs.push(...pairs);
+      allChanges.push(...changes.map((change) => ({ change, isRemove: true })));
 
       for (const [key, value] of prevAttributes) {
         reversePrevAttributes.set(key, value);
       }
     }
 
-    root.acc(size.live);
-    root.accGC(size.gc);
+    // 02. Handle attributes (set style attributes)
+    if (this.attributes.size > 0) {
+      const attributes: { [key: string]: any } = {};
+      [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-    for (const pair of pairs) {
+      const [pairs, changes, size, prevAttributes, newAttrKeys] = tree.style(
+        [this.fromPos, this.toPos],
+        attributes,
+        this.getExecutedAt(),
+        versionVector,
+      );
+
+      addDataSizes(allSize.live, size.live);
+      addDataSizes(allSize.gc, size.gc);
+      allPairs.push(...pairs);
+      allChanges.push(
+        ...changes.map((change) => ({ change, isRemove: false })),
+      );
+
+      for (const [key, value] of prevAttributes) {
+        reversePrevAttributes.set(key, value);
+      }
+      reverseAttrsToRemove.push(...newAttrKeys);
+    }
+
+    root.acc(allSize.live);
+    root.accGC(allSize.gc);
+
+    for (const pair of allPairs) {
       root.registerGCPair(pair);
     }
 
@@ -195,19 +210,21 @@ export class TreeStyleOperation extends Operation {
     }
 
     return {
-      opInfos: changes.map(({ from, to, value, fromPath, toPath }) => {
-        return {
-          type: 'tree-style',
-          from,
-          to,
-          value: this.attributes.size
-            ? { attributes: value }
-            : { attributesToRemove: value },
-          fromPath,
-          toPath,
-          path: root.createPath(this.getParentCreatedAt()),
-        } as OpInfo;
-      }),
+      opInfos: allChanges.map(
+        ({ change: { from, to, value, fromPath, toPath }, isRemove }) => {
+          return {
+            type: 'tree-style',
+            from,
+            to,
+            value: isRemove
+              ? { attributesToRemove: value }
+              : { attributes: value },
+            fromPath,
+            toPath,
+            path: root.createPath(this.getParentCreatedAt()),
+          } as OpInfo;
+        },
+      ),
       reverseOp,
     };
   }
