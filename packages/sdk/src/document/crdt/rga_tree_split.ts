@@ -66,19 +66,6 @@ export interface RGATreeSplitValue {
    * a value that has any (`CRDTTextValue`'s removed attributes).
    */
   getGCPairs?(): Array<GCPair>;
-
-  /**
-   * `toRestoreSnapshot` returns `[indexStart, indexEnd)` in the shape a
-   * restore span carries across the wire, for a value whose `substring` copy
-   * would hold more than the wire can express (`CRDTTextValue`'s per-attribute
-   * `updatedAt` and attribute tombstones). Values with nothing to flatten omit
-   * it and `substring` is used instead.
-   */
-  toRestoreSnapshot?(
-    indexStart: number,
-    indexEnd: number,
-    createdAt: TimeTicket,
-  ): RGATreeSplitValue;
 }
 
 /**
@@ -294,27 +281,6 @@ export type RestoreSpan<T extends RGATreeSplitValue> = {
   end: number;
   value: T;
 };
-
-/**
- * `toSpanValue` snapshots `[from, to)` of `value` in the shape a restore span
- * carries, which is NOT the shape `substring` produces: `substring` deep-copies
- * everything a live piece needs to keep resolving concurrent edits -- for
- * `CRDTTextValue` that is each attribute's real `updatedAt` and every attribute
- * tombstone -- while `RestoreSpan.attributes` is a bare `map<string, string>`
- * on the wire. Every producer of a span goes through here, so the span a
- * replica keeps locally holds exactly what it ships and the two sides rebuild a
- * purged node identically. See `CRDTTextValue.toRestoreSnapshot`; values with
- * nothing to flatten omit the method and `substring` is used instead.
- */
-function toSpanValue<T extends RGATreeSplitValue>(
-  value: T,
-  from: number,
-  to: number,
-  createdAt: TimeTicket,
-): T {
-  return (value.toRestoreSnapshot?.(from, to, createdAt) ??
-    value.substring(from, to)) as T;
-}
 
 /**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
@@ -784,22 +750,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         pairs.push({ parent: this, child: removedNode });
       }
       removedValues.push(removedNode.getValue());
-      // NEW: capture split-invariant character identities. The value is
-      // copied, not shared, so later splits of the tombstone cannot mutate the
-      // captured content -- and the copy is flattened to the shape the wire
-      // carries (`toSpanValue`), because this is the span the reverse
-      // operation ships. Keeping a richer copy locally than peers can decode
-      // is the divergence `toSpanValue` exists to close.
+      // NEW: capture split-invariant character identities. substring(0)
+      // deep-copies the value so later splits of the tombstone cannot
+      // mutate the captured content.
       removedSpans.push({
         createdAt: removedNode.getCreatedAt(),
         start: removedNode.getID().getOffset(),
         end: removedNode.getID().getOffset() + removedNode.getContentLength(),
-        value: toSpanValue(
-          removedNode.getValue(),
-          0,
-          removedNode.getContentLength(),
-          removedNode.getCreatedAt(),
-        ),
+        value: removedNode.getValue().substring(0) as T,
       });
     }
 
@@ -1036,14 +994,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * piece. Regions with no surviving piece keep the original snapshot — it is
    * all this replica knows about them. Read-only: the copies it makes are
    * payload, never inserted, so they book no attribute tombstones.
-   *
-   * Every value is taken through `toRestoreSnapshot`, not `substring`, so the
-   * span this replica keeps holds exactly what `RestoreSpan.attributes` can
-   * carry and no more — see `CRDTTextValue.toRestoreSnapshot`. Copying a live
-   * piece's value wholesale would keep a peer's later style ticket and the
-   * piece's attribute tombstones on the local span while the wire flattened
-   * them away, so the producing replica would rebuild a purged node
-   * differently from every replica that decoded it.
    */
   public refreshSpans(spans: Array<RestoreSpan<T>>): Array<RestoreSpan<T>> {
     const refreshed: Array<RestoreSpan<T>> = [];
@@ -1052,12 +1002,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         createdAt: span.createdAt,
         start,
         end,
-        value: toSpanValue(
-          span.value,
-          start - span.start,
-          end - span.start,
-          span.createdAt,
-        ),
+        value: span.value.substring(start - span.start, end - span.start) as T,
       });
 
     for (const span of spans) {
@@ -1081,12 +1026,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           createdAt: span.createdAt,
           start,
           end,
-          value: toSpanValue(
-            piece.getValue(),
-            start - pieceStart,
-            end - pieceStart,
-            span.createdAt,
-          ),
+          value: piece
+            .getValue()
+            .substring(start - pieceStart, end - pieceStart) as T,
         });
         cursor = end;
       }

@@ -119,7 +119,7 @@ export class EditOperation extends Operation {
    */
   public execute<A extends Indexable>(
     root: CRDTRoot,
-    _: OpSource,
+    source: OpSource,
     versionVector?: VersionVector,
   ): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
@@ -167,11 +167,12 @@ export class EditOperation extends Operation {
       // the span set was captured when the reversed edit ran, so an attribute
       // applied to the run since is missing from it and a purged replica would
       // recreate the run without it while a replica that un-tombstones keeps
-      // it. Taken before the removal below so the piece boundaries it reads
-      // are the ones the span already describes.
-      const refreshed = toRetombstone.length
-        ? text.getRGATreeSplit().refreshSpans(toRetombstone)
-        : undefined;
+      // it. Taken before the removal below, and only when the reverse is kept:
+      // a remote change discards it.
+      const refreshed =
+        source !== OpSource.Remote && toRetombstone.length
+          ? text.getRGATreeSplit().refreshSpans(toRetombstone)
+          : undefined;
 
       // 1. Remove the content the reversed edit inserted (by identity).
       if (toRetombstone.length) {

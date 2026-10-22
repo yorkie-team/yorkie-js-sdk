@@ -537,16 +537,6 @@ function toOperation(operation: Operation): PbOperation {
       pbSpan.end = span.end;
       pbSpan.content = span.value.getContent();
       const pbSpanAttrs = pbSpan.attributes;
-      // `RestoreSpan.attributes` is a bare map<string, string>: no
-      // per-attribute timestamp, and `getAttributes` (RHT.toObject) skips
-      // removed nodes, so an attribute tombstone cannot cross. Anything a span
-      // value holds beyond that is lost here while the producing replica keeps
-      // it, and the two then rebuild a purged node differently. Nothing
-      // reaches here holding more: every span is built through
-      // `toSpanValue` (`rga_tree_split.ts`), which flattens a value to
-      // exactly this shape -- live attributes only, all stamped with the
-      // span's `createdAt`, which is what `fromPbSpan` reconstructs. See
-      // `CRDTTextValue.toRestoreSnapshot`.
       for (const [key, value] of Object.entries(span.value.getAttributes())) {
         pbSpanAttrs[key] = value;
       }
@@ -1558,14 +1548,10 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
 
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
       // A span addresses content by insertion identity, so it is malformed
-      // without a `createdAt`: `fromTimeTicket` returns undefined for an
-      // absent field and the non-null assertion below would hand an undefined
-      // ticket to `RGATreeSplitNodeID.of`, failing only deep inside the
-      // restore path on every peer that applies the pack. `[start, end)` has
-      // to be an ordered interval exactly covering `content` as well, because
-      // `RGATreeSplit.restore` slices the content by `cursor - span.start` and
-      // would otherwise recreate a node with the wrong characters. Mirrors the
-      // validation `fromPbTreeRestoreSpan` does for tree spans.
+      // without a `createdAt`, and `RGATreeSplit.restore` slices `content` by
+      // `cursor - span.start`, so `[start, end)` has to be an ordered interval
+      // exactly covering it. Reject both here, as the server's
+      // `fromRestoreSpans` does, instead of failing deep in the restore path.
       if (
         !pbSpan.createdAt ||
         !Number.isInteger(pbSpan.start) ||
@@ -1581,18 +1567,8 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
       }
       const createdAt = fromTimeTicket(pbSpan.createdAt)!;
       const value = CRDTTextValue.create(pbSpan.content);
-      // Stamp the attributes with the span's own `createdAt`, not this
-      // operation's `executedAt`. The wire format carries no per-attribute
-      // timestamp, so the ticket has to be derived from data every replica
-      // reads the same way, and `createdAt` is the one that matches what the
-      // producing replica holds: an attribute applied by the insertion itself
-      // is stamped with the edit's ticket (`CRDTText.edit`), which is also the
-      // id of the node it inserted. Using `executedAt` instead gave a replica
-      // recreating the purged node a different RHT `updatedAt` than the
-      // replica that produced the span, so a concurrent style could resolve
-      // differently on each.
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
-        value.setAttr(key, attr, createdAt);
+        value.setAttr(key, attr, executedAt);
       }
       return {
         createdAt,

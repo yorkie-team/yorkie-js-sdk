@@ -1,56 +1,33 @@
 # Redo after GC must keep the re-inserted text's attributes
 
 **Created**: 2026-10-22
-Tracked as #1497
+Tracked as #1497. Mirrors yorkie-team/yorkie#2277.
 
 ## Problem
 
-`EditOperation.toReverseOperation` records the run the edit inserted as
-`retombstoneSpans`, with a `CRDTTextValue` built from `this.content` alone
-(`packages/sdk/src/document/operation/edit_operation.ts:274-285`). The
-attributes the edit applied are dropped.
+The reverse of a Text insert recorded the inserted run as a retombstone span
+with content but no attributes. The redo flips the restore mode, so that span
+becomes the content to restore: a replica that still held the tombstone
+revived the original node with its attributes, while one that had collected
+it recreated bare text. A style applied to the run after the insert was
+missing from the span as well.
 
-The undo ('restore' mode) only re-tombstones that span, so the missing
-attributes are invisible there. The redo flips the mode, and the same span
-becomes the content to restore. A replica that still holds the tombstone
-un-tombstones the original node, attributes intact; a replica that has
-garbage-collected it recreates the node from the span — without attributes.
-The two replicas diverge.
+## Scope
 
-## Plan
+Go parity with yorkie#2277 only. Anything JS-only is out.
 
-- [x] Carry the edit's attributes on the inserted span's `CRDTTextValue`,
-      stamped with the edit's own `executedAt` — which is also the span's
-      `createdAt` — so the recreated node's RHT matches what `CRDTText.edit`
-      built originally.
-- [x] Re-snapshot the spans against live content when the reverse op is built
-      (`RGATreeSplit.refreshSpans`), so a style applied to the run after the
-      reversed edit is in the span too.
-- [x] Unit test: insert with an attribute, undo, GC on one replica only,
-      redo, sync — both replicas hold the attribute.
-- [x] `pnpm verify:fast`.
-
-## Notes
-
-The wire format already carries per-span attributes
-(`RestoreSpan.attributes` in `resources.proto`, encoded by `toPbSpan` and
-decoded by `fromPbSpan` in `packages/sdk/src/api/converter.ts`), so no proto
-change is needed — only the producer was leaving the map empty.
-
-`RestoreSpan.attributes` is a bare `map<string, string>`, so a span value may
-hold **only** what that can express: live attributes, each stamped with the
-span's own `createdAt`. `refreshSpans` flattens through
-`CRDTTextValue.toRestoreSnapshot` for this; `fromPbSpan` reconstructs the same
-shape on decode. `createdAt` is the only derivation that matches the producer:
-an attribute the insertion itself applied is stamped with the edit's ticket,
-which is also the id of the node it inserted, whereas the operation's
-`executedAt` on the wire is the *reverse* op's own, strictly later ticket.
+- [x] `toReverseOperation`: carry the edit's attributes on the inserted span
+      (Go `edit.go` `toReverseOperation`).
+- [x] Re-snapshot the spans an undo/redo re-tombstones against the live
+      content, only when the reverse is kept (Go `refreshSpanAttributes`).
+- [x] Validate decoded text restore spans like Go `fromRestoreSpans`.
+- [x] Tests mirroring Go `text_redo_attrs_test.go`.
 
 ## Out of scope
 
-- Cross-checking the Go decoder (yorkie-team/yorkie#2273) for the same
-  `createdAt` derivation — this repo cannot read it; tracked on the PR.
-- The `restoreSpans` a delete captures (`RGATreeSplit.edit`'s `removedSpans`)
-  still copy the live value wholesale, tombstoned attributes included, which
-  `style_tombstone_test.ts` pins deliberately. That path predates this task
-  and has the same wire/local asymmetry; flattening it is a separate change.
+- Stamping decoded span attributes with the span's `createdAt`, and flattening
+  locally captured spans: Go stamps recreated attributes with the restore's
+  `executedAt` (`Text.Restore`), so both were reverted.
+- Go merges neighbouring refreshed parts with equal attributes; JS keeps one
+  span per piece.
+- CI MongoDB startup fixes: moved to #1505.

@@ -21,9 +21,6 @@ import { Text } from '@yorkie-js/sdk/src/yorkie';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
-import { EditOperation } from '@yorkie-js/sdk/src/document/operation/edit_operation';
-import { CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
-import { RestoreSpan } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 
 const ACTOR = '000000000000000000000001';
 const PEER = '000000000000000000000002';
@@ -229,63 +226,87 @@ describe('Text restore after GC', () => {
     assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
   });
 
-  // The main producer of restore spans is the delete itself: `RGATreeSplit`
-  // captures one span per removed node, and those become the reverse
-  // operation's `restoreSpans`. A removed node's value can hold more than the
-  // wire can express -- a per-attribute `updatedAt`, an attribute tombstone --
-  // so the capture has to flatten it. Otherwise the producing replica keeps a
-  // richer copy than it ships, rebuilds a purged node differently from every
-  // replica that decodes the span, and books attribute-tombstone GC pairs no
-  // peer books (yorkie-team/yorkie-js-sdk#1497).
-  it('captures a delete span in the shape the wire carries', () => {
-    const d = new Document<{ t: Text }>('text-delete-span-shape');
-    d.setActor(ACTOR);
-    d.update((r) => {
+  // Mirrors the chained case of yorkie's text_redo_attrs_test: every round
+  // purges the run again, so each redo recreates it from the span.
+  it('keeps the attributes across chained undo/redo with GC', () => {
+    const doc = new Document<{ t: Text }>('text-redo-attrs-chained');
+    doc.setActor(ACTOR);
+    doc.update((r) => {
       r.t = new Text();
-      r.t.edit(0, 0, 'abcd');
+      r.t.edit(0, 0, 'ab');
     });
-    // Style then undo it, so the piece carries a live attribute AND an
-    // attribute tombstone with its own ticket.
-    d.update((r) => r.t.setStyle(0, 4, { b: '1' }));
-    d.update((r) => r.t.setStyle(0, 4, { i: '1' }));
-    d.history.undo(); // removeStyle("i") -> tombstones `i` on the piece
-    d.clearHistory();
+    doc.clearHistory();
+    doc.update((r) => r.t.edit(1, 1, 'X', { b: '1', i: '1' }));
 
-    d.update((r) => r.t.edit(0, 4, ''));
+    for (let i = 0; i < 3; i++) {
+      doc.history.undo();
+      doc.garbageCollect(maxVectorOf([ACTOR]));
+      doc.history.redo();
 
-    const undoOps = d.getUndoStackForTest().pop()!;
-    const op = undoOps.find((o) => o instanceof EditOperation) as EditOperation;
-    const spans = op.getRestoreSpans()!;
-    assert.isNotEmpty(spans, 'the delete records a restore span');
-
-    // What a peer rebuilds from this span: the live attributes only, each
-    // stamped with the span's own `createdAt` (`fromPbSpan`). The local copy
-    // has to be exactly that and nothing more.
-    const shapeOf = (span: RestoreSpan<CRDTTextValue>) =>
-      Array.from(span.value.getAttrs()).map((n) => [
-        n.getKey(),
-        n.getValue(),
-        n.isRemoved(),
-        n.getUpdatedAt().toTestString(),
-      ]);
-    const asWireCarriesIt = (span: RestoreSpan<CRDTTextValue>) => {
-      const flat = CRDTTextValue.create(span.value.getContent());
-      for (const [key, value] of Object.entries(span.value.getAttributes())) {
-        flat.setAttr(key, value, span.createdAt);
-      }
-      return shapeOf({ ...span, value: flat });
-    };
-
-    for (const span of spans) {
-      assert.isEmpty(
-        span.value.getGCPairs(),
-        'a captured span books no attribute tombstones',
-      );
-      assert.deepEqual(
-        shapeOf(span),
-        asWireCarriesIt(span),
-        'the span kept locally must match the one every peer decodes',
-      );
+      assert.equal(doc.getRoot().t.toString(), 'aXb');
+      assert.deepEqual(doc.getRoot().t.values()[1].attributes, {
+        b: '1',
+        i: '1',
+      });
     }
+  });
+
+  // The style covers one character of the run, so the undo has to report the
+  // pieces separately for the redo to recreate each with its own attributes.
+  it('keeps a style covering part of the insert when redoing after GC', () => {
+    const d1 = new Document<{ t: Text }>('text-redo-partial-attrs-after-gc');
+    const d2 = new Document<{ t: Text }>('text-redo-partial-attrs-after-gc');
+    d1.setActor(ACTOR);
+    d2.setActor(PEER);
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    crossSync(d1, d2);
+    d1.clearHistory();
+
+    d1.update((r) => r.t.edit(1, 1, 'XYZ'));
+    crossSync(d1, d2);
+    d2.update((r) => r.t.setStyle(2, 3, { b: '1' }));
+    crossSync(d1, d2);
+
+    d1.history.undo();
+    crossSync(d1, d2);
+    d1.garbageCollect(maxVectorOf([ACTOR, PEER]));
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toString(), 'aXYZb');
+    const values = d1.getRoot().t.values();
+    assert.deepEqual(
+      values.map((v) => [v.content, v.attributes ?? {}]),
+      [
+        ['a', {}],
+        ['X', {}],
+        ['Y', { b: '1' }],
+        ['Z', {}],
+        ['b', {}],
+      ],
+    );
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
+
+  // An edit that carried no attributes must not gain any from the span.
+  it('keeps a plain re-inserted run unstyled when redoing after GC', () => {
+    const doc = new Document<{ t: Text }>('text-redo-plain-after-gc');
+    doc.setActor(ACTOR);
+    doc.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    doc.clearHistory();
+    doc.update((r) => r.t.edit(1, 1, 'X'));
+
+    doc.history.undo();
+    doc.garbageCollect(maxVectorOf([ACTOR]));
+    doc.history.redo();
+
+    assert.equal(doc.getRoot().t.toString(), 'aXb');
+    assert.isEmpty(doc.getRoot().t.values()[1].attributes ?? {});
   });
 });

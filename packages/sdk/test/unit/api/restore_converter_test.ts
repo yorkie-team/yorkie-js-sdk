@@ -122,13 +122,10 @@ describe('Restore span converter', function () {
     assert.isTrue(restored.getRetombstoneSpans()![0].createdAt.equals(seed));
   });
 
-  // The wire format carries no per-attribute timestamp, so the decoder has to
-  // derive one. It has to be the span's own `createdAt`, not the operation's
-  // `executedAt`: an attribute applied by the insertion itself is stamped with
-  // the edit's ticket, which is also the id of the node it inserted, so a
-  // replica recreating the purged node from this span lands on the same RHT
-  // `updatedAt` as the replica that produced it.
-  it('stamps span attributes with the span createdAt, not executedAt', function () {
+  // The wire carries span attributes as a bare map, so the decoder stamps
+  // them with the operation's `executedAt`, as the server's `Text.Restore`
+  // does when it recreates a node from a span.
+  it('keeps span attributes, stamped with executedAt', function () {
     const styled = span(0, 1, 'X');
     styled.value.setAttr('b', '1', seed);
     const op = EditOperation.create(
@@ -151,64 +148,10 @@ describe('Restore span converter', function () {
     assert.deepEqual(got.value.getAttributes(), { b: '1' });
     for (const node of got.value.getAttrs()) {
       assert.isTrue(
-        node.getUpdatedAt().equals(seed),
-        'an attribute must decode with the span createdAt',
+        node.getUpdatedAt().equals(executedAt),
+        'an attribute must decode with the operation executedAt',
       );
     }
-  });
-
-  // `RestoreSpan.attributes` is a bare map<string, string>: no per-attribute
-  // timestamp, and the encoder's `getAttributes` skips removed nodes. A span
-  // value that holds more than that -- a peer's later style ticket, an
-  // attribute tombstone -- ships flattened while the producing replica keeps
-  // the rich copy, so it rebuilds a purged node with a different RHT and books
-  // GC pairs no peer books. `toRestoreSnapshot` is what span producers flatten
-  // through; this pins that its output survives the wire unchanged.
-  it('keeps a span value lossless across the wire', function () {
-    const later = TimeTicket.of(9n, 0, InitialActorID);
-    const latest = TimeTicket.of(11n, 0, InitialActorID);
-    const live = CRDTTextValue.create('XY');
-    live.setAttr('b', '1', later); // a peer's later style
-    live.setAttr('i', '1', later);
-    live.getAttrs().remove('i', latest); // an attribute tombstone
-    assert.isNotEmpty(live.getGCPairs(), 'the live value carries a tombstone');
-
-    const flat = live.toRestoreSnapshot(0, 2, seed);
-    assert.deepEqual(flat.getAttributes(), { b: '1' });
-    assert.isEmpty(
-      flat.getGCPairs(),
-      'a span value books no attribute tombstones',
-    );
-
-    const op = EditOperation.create(
-      InitialTimeTicket,
-      pos,
-      pos,
-      '',
-      new Map(),
-      executedAt,
-      true,
-      [{ createdAt: seed, start: 0, end: 2, value: flat }],
-      'restore',
-    );
-    const decoded = (
-      converter.bytesToOperation(
-        converter.operationToBinary(op),
-      ) as EditOperation
-    ).getRestoreSpans()![0].value;
-
-    assert.deepEqual(decoded.getAttributes(), flat.getAttributes());
-    assert.isEmpty(decoded.getGCPairs());
-    const ticketsOf = (v: CRDTTextValue) =>
-      Array.from(v.getAttrs()).map((n) => [
-        n.getKey(),
-        n.getUpdatedAt().toTestString(),
-      ]);
-    assert.deepEqual(
-      ticketsOf(decoded),
-      ticketsOf(flat),
-      'the decoded RHT must match the one the producer kept',
-    );
   });
 
   // A span is untrusted input: it arrives in a change pack from any peer. The

@@ -13,29 +13,12 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
-    # `- mongo` alone only waits for the container to *start*, so the server
-    # reaches `ping MongoDB` before mongo accepts connections, exits with that
-    # error, and is restarted by Docker with an exponentially growing delay
-    # (0.1s, 0.2s, 0.4s ... ). A cold runner where mongo takes a few seconds
-    # therefore pushes the first successful attempt past the 60s the test
-    # script waits, and the lane fails with the server printing its usage.
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
-    # 8.2, not 8: the 8.0 line refuses to start on Linux 6.19 and newer
-    # (SERVER-121912), which is every current GitHub-hosted runner, so
-    # `mongo:8` crash-loops on its own startup check before it ever listens.
-    image: "mongo:8.2"
+    image: "mongo:8"
     restart: always
     ports:
       - "27017:27017"
-    # `ping` is the same command the server's own startup check runs, so a
-    # healthy mongo here means the server's first attempt connects.
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 1s
-      timeout: 5s
-      retries: 60
