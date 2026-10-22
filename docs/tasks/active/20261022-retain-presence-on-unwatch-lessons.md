@@ -23,8 +23,27 @@ the event payload, where it must still be present anyway. Reading the state
 table in that method's doc comment settled the question without running
 anything.
 
+## Removing a delete is also removing an eviction policy
+
+The review panel landed the point the todo had waved away under "out of scope":
+`presences.delete` on unwatch was not only wrong, it was the *only* thing that
+ever shrank the map. Taking it out left no eviction path at all, and the map is
+serialized into the locally persisted snapshot, so it was unbounded in memory
+*and* at rest — with other people's presence, which applications fill with
+names, avatars and cursors. Retention and eviction are one decision: whoever
+decides to keep something has to say when it goes.
+
+The fix keeps both properties: the presence survives long enough for a
+reconnect (`retainedPresences`, capped at 100 in LRU order), and only *live*
+presences (`livePresences()`) reach `toBytes`. The two concerns split cleanly
+because visibility was already keyed on `onlineClients` rather than on the
+map's contents.
+
 ## Rounds
 
-No `/self-review` rounds: this run is headless and is granted no tool that can
-dispatch the reviewer subagent. Review is left to CI, `@claude review`, and a
-human on the PR.
+- **Round 1** — CI review panel (not `/self-review`: this run is headless and
+  has no tool that can dispatch the reviewer subagent). Two blocking findings,
+  both downstream of the deleted line rather than in it: no pruning path for
+  peers that vanish without detaching (blast-radius), and departed peers'
+  presence persisted into the offline snapshot (security). Both fixed above;
+  no finding disputed.

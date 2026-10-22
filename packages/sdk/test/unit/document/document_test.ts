@@ -1586,6 +1586,76 @@ describe.sequential('Document', function () {
     unsub();
   });
 
+  it('should bound the presences retained for reconnect', function () {
+    // Peers that lose their watch stream without detaching never come back to
+    // claim the presence kept for their reconnect, so the map has to evict the
+    // oldest of them rather than grow for the lifetime of the attachment.
+    const doc = new Document<object, { name: string }>('test-doc');
+    const peerIDs = Array.from({ length: 150 }, (_, i) => `peer-${i}`);
+
+    for (const peerID of peerIDs) {
+      (doc as any).presences.set(peerID, { name: peerID });
+      (doc as any).onlineClients.add(peerID);
+    }
+
+    for (const peerID of peerIDs) {
+      doc.applyDocEvent(PbDocEventType.DOCUMENT_UNWATCHED, peerID);
+    }
+
+    // Only the 100 most recently departed peers are still held.
+    assert.equal((doc as any).presences.size, 100);
+    assert.equal(doc.hasPresence('peer-149'), true);
+    assert.equal(doc.hasPresence('peer-50'), true);
+    assert.equal(doc.hasPresence('peer-49'), false);
+    assert.equal(doc.hasPresence('peer-0'), false);
+
+    // A peer that is still online is never a candidate for eviction.
+    const live = 'peer-live';
+    (doc as any).presences.set(live, { name: live });
+    doc.applyDocEvent(PbDocEventType.DOCUMENT_WATCHED, live);
+    for (let i = 150; i < 300; i++) {
+      const peerID = `peer-${i}`;
+      (doc as any).presences.set(peerID, { name: peerID });
+      (doc as any).onlineClients.add(peerID);
+      doc.applyDocEvent(PbDocEventType.DOCUMENT_UNWATCHED, peerID);
+    }
+    assert.equal(doc.hasPresence(live), true);
+    assert.deepEqual(doc.getPresence(live), { name: live });
+  });
+
+  it('should keep a departed peer out of the persisted bytes', function () {
+    // toBytes feeds the locally persisted offline snapshot. Presence is
+    // application-defined data that commonly carries personal information, so
+    // a peer that has left must not be written to durable local storage.
+    const doc = new Document<{ k?: string }, { name: string }>('test-doc');
+    const selfID = '000000000000000000000001';
+    doc.setActor(selfID);
+    doc.update((root, presence) => {
+      root.k = 'v';
+      presence.set({ name: 'me' });
+    });
+
+    const gone = 'departed-peer';
+    const here = 'present-peer';
+    (doc as any).presences.set(gone, { name: 'Alice' });
+    (doc as any).presences.set(here, { name: 'Bob' });
+    (doc as any).onlineClients.add(gone);
+    (doc as any).onlineClients.add(here);
+    doc.applyDocEvent(PbDocEventType.DOCUMENT_UNWATCHED, gone);
+
+    const restored = Document.fromBytes<{ k?: string }, { name: string }>(
+      'test-doc',
+      doc.toBytes(),
+    );
+
+    assert.isUndefined(restored.getPresenceForTest(gone));
+    assert.deepEqual(restored.getPresenceForTest(here), { name: 'Bob' });
+    assert.deepEqual(restored.getPresenceForTest(selfID), { name: 'me' });
+
+    // The live document still holds it, so a reconnect can revive the peer.
+    assert.equal(doc.hasPresence(gone), true);
+  });
+
   // `idOfNode` extracts the node id (createdAt:offset) of the piece whose
   // value is `value` from RGATreeSplit.toTestString(). Live nodes render as
   // `[<id> <value>]`, tombstoned nodes as `{<id> <value>}`. Identity-
