@@ -143,10 +143,19 @@ echo "[wait-for-yorkie] last RPC response: ${code:-<none>} $(cat "$body_file" 2>
 
 # The container logs are the only thing that separates "still booting" from
 # "crashed on boot", and they are gone by the time anyone reads the failure.
+#
+# Both services are dumped because the server exits when MongoDB is
+# unreachable, and a server that exits prints its ~100-line usage text -- so
+# tailing only the server shows a wall of flag documentation that buries its
+# own error line and says nothing about which of the two actually failed.
 compose_file="$(dirname "$0")/../docker/docker-compose-ci.yml"
 if [ -f "$compose_file" ] && command -v docker >/dev/null 2>&1; then
-  echo "[wait-for-yorkie] recent server logs:" >&2
-  docker compose -f "$compose_file" logs --tail 50 yorkie >&2 || true
+  echo "[wait-for-yorkie] container status:" >&2
+  docker compose -f "$compose_file" ps >&2 || true
+  for service in mongo yorkie; do
+    echo "[wait-for-yorkie] recent $service logs:" >&2
+    docker compose -f "$compose_file" logs --tail 50 "$service" >&2 || true
+  done
 fi
 
 exit 1
