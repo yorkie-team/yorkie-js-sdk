@@ -27,18 +27,18 @@ then the set half, and builds a combined reverse op.
 
 ## Plan
 
-- [ ] `TreeStyleOperation.execute`: run `removeStyle` then `style` when both
+- [x] `TreeStyleOperation.execute`: run `removeStyle` then `style` when both
       halves are present, accumulating pairs, sizes, changes and the reverse
       op's fields across the two — mirroring `StyleOperation.execute`.
-- [ ] `toOperation`: always write both `attributes` and `attributesToRemove`.
-- [ ] `fromOperation`: always read both, constructing the operation through the
+- [x] `toOperation`: always write both `attributes` and `attributesToRemove`.
+- [x] `fromOperation`: always read both, constructing the operation through the
       full constructor.
-- [ ] Unit test: a combined `TreeStyleOperation` survives
+- [x] Unit test: a combined `TreeStyleOperation` survives
       `toOperation`/`fromOperation` with both halves intact.
-- [ ] Unit test: executing a combined operation sets the overwritten keys and
+- [x] Unit test: executing a combined operation sets the overwritten keys and
       removes the added ones in one pass, and the undo of a combined style
       leaves the same attributes an applying peer would compute.
-- [ ] `pnpm verify:fast`.
+- [x] `pnpm verify:fast`.
 
 ## Out of scope
 
