@@ -20,6 +20,7 @@ import {
   OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
@@ -73,19 +74,30 @@ export class IncreaseOperation extends Operation {
   public execute(
     root: CRDTRoot,
     source?: OpSource,
+    _versionVector?: VersionVector,
+    isReplay?: boolean,
   ): ExecutionResult | undefined {
     // NOTE: a stored change that this SDK cannot apply comes back on every
     // pull -- the checkpoint does not advance past a change that throws -- so
     // it wedges the document forever. Skip the whole operation on the pull
     // path, as Go does (`pkg/document/operations/increase.go`,
     // `skipUnlessLocal`): a missing or non-counter target, a dedup counter
-    // handed neither an actor nor a unit delta, all of it. A local `update` or
-    // an undo/redo still reports the failure to the caller that asked for the
-    // mutation, with the code the operation threw.
+    // handed neither an actor nor a unit delta, all of it.
+    //
+    // A replay counts as that same path. `applySnapshot` replays the queued
+    // local changes onto the snapshot root (`Document.replayLocalChanges`),
+    // and a queued increase whose counter the snapshot removed -- or replaced
+    // with a non-counter -- throws there under `Local`/`UndoRedo`, wedging the
+    // very pull this skip exists to unwedge. `reissueActor` and the devtools
+    // replay rebuild a root the same way, with no caller waiting on the
+    // mutation either.
+    //
+    // Only a live `update` or an undo/redo still reports the failure, to the
+    // caller that asked for the mutation, with the code the operation threw.
     try {
       return this.executeInternal(root);
     } catch (cause) {
-      if (source === OpSource.Remote) {
+      if (source === OpSource.Remote || isReplay) {
         return;
       }
       throw cause;

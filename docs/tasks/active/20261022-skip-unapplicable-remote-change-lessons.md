@@ -27,3 +27,14 @@
   `presence` message (`presence!`) and that every value is JSON -- either
   assumption fails on a change a non-SDK writer can store, and a `TypeError`
   or `SyntaxError` out of the pack decode wedges attach permanently.
+- Panel round 2: `OpSource` does not say what the skip actually needs to know.
+  The pull path does not only apply remote changes -- `applySnapshot` replays
+  the queued local ones on top of the snapshot root, under the source each one
+  originally ran with (`replaySourceOf`, so `Local` or `UndoRedo`). A queued
+  increase whose counter the snapshot removed threw there and wedged the very
+  pull the skip was added to unwedge. Widening `OpSource` with a `Replay`
+  member would have erased the `UndoRedo` distinction `replaySourceOf` exists
+  to preserve, so the signal is a separate `isReplay` flag threaded through
+  `Change.execute` into `Operation.execute`. The question an operation is
+  really asking is "is a caller waiting on this mutation", and only a live
+  `update` or an undo/redo answers yes.

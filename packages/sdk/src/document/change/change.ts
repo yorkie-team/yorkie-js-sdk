@@ -199,11 +199,15 @@ export class Change<P extends Indexable> {
 
   /**
    * `execute` executes the operations of this change to the given root.
+   *
+   * `isReplay` marks a re-execution of a change that already ran once, done
+   * only to rebuild a root. See `Operation.execute`.
    */
   public execute(
     root: CRDTRoot,
     presences: Map<ActorID, P>,
     source: OpSource,
+    isReplay = false,
   ): {
     operations: Array<Operation>;
     opInfos: Array<OpInfo>;
@@ -220,6 +224,7 @@ export class Change<P extends Indexable> {
           root,
           source,
           this.id.getVersionVector(),
+          isReplay,
         );
       } catch (cause) {
         // NOTE: only a remote change is named. The wedged-document problem is

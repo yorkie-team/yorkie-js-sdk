@@ -22,7 +22,10 @@ import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
-import { DedupCounter } from '@yorkie-js/sdk/src/document/json/counter';
+import {
+  Counter,
+  DedupCounter,
+} from '@yorkie-js/sdk/src/document/json/counter';
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
@@ -34,7 +37,7 @@ import {
 import { PresenceChange_ChangeType as PbPresenceChangeType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
-type TestDoc = { uv?: DedupCounter; k?: string };
+type TestDoc = { uv?: DedupCounter; c?: Counter; k?: string };
 
 /**
  * `localChangesOf` returns the changes the given document has minted.
@@ -227,6 +230,35 @@ describe('a remote change this SDK cannot apply', function () {
         'dedup counter only supports increment by 1',
       );
     }
+  });
+
+  it('skips a queued increase the snapshot made unapplicable', function () {
+    // A peer removed the counter while this replica was offline, so the
+    // increase queued in `localChanges` has no target on the snapshot root.
+    // The replay `applySnapshot` performs runs under `Local`, not `Remote`,
+    // and a throw there leaves the checkpoint behind the snapshot -- the
+    // server then redelivers it forever, which is the very wedge the skip
+    // exists to prevent.
+    const seed = new Document<TestDoc>('d');
+    seed.update((r) => {
+      r.c = new Counter(0);
+    });
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(seed)[0] as never, OpSource.Remote);
+    target.update((r) => r.c!.increase(1));
+    assert.lengthOf(localChangesOf(target), 1);
+
+    const peer = new Document<TestDoc>('d');
+    peer.update((r) => {
+      r.k = 'v';
+    });
+    const bytes = converter.snapshotToBytes(peer.getRootObject(), new Map());
+
+    assert.doesNotThrow(() =>
+      target.applySnapshot(2n, peer.getVersionVector(), bytes),
+    );
+    assert.equal(target.getRoot().k, 'v');
+    assert.isUndefined(target.getRoot().c);
   });
 
   it('decodes a DELETE presence change as a clear', function () {

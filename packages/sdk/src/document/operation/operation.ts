@@ -257,10 +257,18 @@ export abstract class Operation {
 
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
+   *
+   * `isReplay` tells the operation that nobody asked for this mutation now:
+   * the change already ran once and is only being re-executed to rebuild a
+   * root (`Document.replayLocalChanges`, `Document.reissueActor`, devtools
+   * replay). `source` alone cannot say this -- a replayed change runs under
+   * the very source it originally ran with, `Local` or `UndoRedo` -- so an
+   * operation that tolerates a target it cannot apply to has to consult both.
    */
   public abstract execute(
     root: CRDTRoot,
     source: OpSource,
     versionVector?: VersionVector,
+    isReplay?: boolean,
   ): ExecutionResult | undefined;
 }
