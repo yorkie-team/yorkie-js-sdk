@@ -274,6 +274,16 @@ export class EditOperation extends Operation {
       let insertedSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
       if (this.content?.length) {
         const value = CRDTTextValue.create(this.content);
+        // Carry the attributes the edit applied, stamped with the same ticket
+        // `CRDTText.edit` used. The undo only re-tombstones this span, so its
+        // value is unread there -- but the redo flips `restoreMode` and the
+        // span becomes the content to restore. A replica that purged the node
+        // rebuilds it from this value alone, so an empty attribute map here
+        // makes it diverge from a replica that still un-tombstones the
+        // original.
+        for (const [key, attrValue] of this.getAttributes()) {
+          value.setAttr(key, attrValue, this.getExecutedAt());
+        }
         insertedSpans = [
           {
             createdAt: this.getExecutedAt(),

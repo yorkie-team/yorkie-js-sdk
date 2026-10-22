@@ -153,4 +153,37 @@ describe('Text restore after GC', () => {
       assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
     });
   }
+
+  // The reverse of an insertion records the inserted run as a span. The undo
+  // only re-tombstones it, so the span's value is never read; the redo flips
+  // the direction and the same span becomes the content to restore. A replica
+  // that purged the node rebuilds it from that value alone, so the span has to
+  // carry the attributes the edit applied or the two replicas diverge
+  // (yorkie-team/yorkie-js-sdk#1497).
+  it('keeps the attributes of a re-inserted run when redoing after GC', () => {
+    const d1 = new Document<{ t: Text }>('text-redo-attrs-after-gc');
+    const d2 = new Document<{ t: Text }>('text-redo-attrs-after-gc');
+    d1.setActor(ACTOR);
+    d2.setActor(PEER);
+    d1.update((r) => {
+      r.t = new Text();
+      r.t.edit(0, 0, 'ab');
+    });
+    crossSync(d1, d2);
+    d1.clearHistory();
+
+    d1.update((r) => r.t.edit(1, 1, 'X', { b: '1' }));
+    d1.history.undo();
+    crossSync(d1, d2);
+
+    // Only d1 purges the undone run, so its redo must recreate the node from
+    // the span while d2 revives the tombstone it still holds.
+    assert.isAbove(d1.garbageCollect(maxVectorOf([ACTOR, PEER])), 0);
+    d1.history.redo();
+    crossSync(d1, d2);
+
+    assert.equal(d1.getRoot().t.toString(), 'aXb');
+    assert.deepEqual(d1.getRoot().t.values()[1].attributes, { b: '1' });
+    assert.equal(d1.toSortedJSON(), d2.toSortedJSON());
+  });
 });
