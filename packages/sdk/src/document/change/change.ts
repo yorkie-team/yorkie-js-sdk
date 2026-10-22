@@ -253,23 +253,13 @@ export class Change<P extends Indexable> {
       // NOTE(hackerwins): If the element was removed while executing undo/redo,
       // the operation is not executed and executionResult is undefined.
       if (!executionResult) continue;
-      const {
-        opInfos,
-        reverseOp,
-        reverseOps: multiReverseOps,
-      } = executionResult;
+      const { opInfos, reverseOp } = executionResult;
       changeOpInfos.push(...opInfos);
       changeOperations.push(operation);
       // TODO(hackerwins): This condition should be removed after implementing
       // all reverse operations.
       if (reverseOp) {
         reverseOps.unshift(reverseOp);
-      }
-      // An operation that reverses into several operations hands them over in
-      // the order they have to be applied, so they go in front as one block
-      // and keep that order between themselves.
-      if (multiReverseOps?.length) {
-        reverseOps.unshift(...multiReverseOps);
       }
     }
 

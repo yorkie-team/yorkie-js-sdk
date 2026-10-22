@@ -13,31 +13,12 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
-    # `- mongo` alone only waits for mongo's *container* to start, not for it
-    # to accept connections. The server dials Mongo during boot and exits when
-    # the dial fails, and `restart: always` retries with an exponential
-    # backoff, so a handful of fast failures while Mongo is still coming up
-    # push the next attempt tens of seconds out -- past the window
-    # `wait-for-yorkie.sh` gives it, leaving the lane with a server that is
-    # sleeping in backoff rather than one that never worked.
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
     extra_hosts:
       - "host.docker.internal:host-gateway"
   mongo:
-    # Must stay on 9 or newer. Every 8.x release refuses to start on Linux
-    # kernels 6.19+ (SERVER-121912) and the CI runners are past that, so an
-    # `8` here is not an older Mongo, it is no Mongo at all.
-    image: "mongo:9"
+    image: "mongo:8"
     restart: always
     ports:
       - "27017:27017"
-    # `ping` is the cheapest command that proves the server is past startup and
-    # answering, which is exactly the precondition the Yorkie container needs.
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 1s
-      timeout: 5s
-      retries: 30
-      start_period: 5s

@@ -143,18 +143,10 @@ echo "[wait-for-yorkie] last RPC response: ${code:-<none>} $(cat "$body_file" 2>
 
 # The container logs are the only thing that separates "still booting" from
 # "crashed on boot", and they are gone by the time anyone reads the failure.
-#
-# The tail is deliberately far longer than the handful of lines a healthy boot
-# prints: the server is a cobra command, so a boot error is reported as the
-# error line followed by the full ~60-line usage dump. A short tail keeps the
-# dump and drops the one line that says what went wrong, which reads like a
-# rejected flag when it is usually a failed dependency.
 compose_file="$(dirname "$0")/../docker/docker-compose-ci.yml"
 if [ -f "$compose_file" ] && command -v docker >/dev/null 2>&1; then
   echo "[wait-for-yorkie] recent server logs:" >&2
-  docker compose -f "$compose_file" logs --tail 200 yorkie >&2 || true
-  echo "[wait-for-yorkie] recent mongo logs:" >&2
-  docker compose -f "$compose_file" logs --tail 20 mongo >&2 || true
+  docker compose -f "$compose_file" logs --tail 50 yorkie >&2 || true
 fi
 
 exit 1
