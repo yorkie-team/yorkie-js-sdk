@@ -102,6 +102,19 @@ export enum TreeChangeType {
 /**
  * `TreeChange` represents the change in the tree.
  */
+/**
+ * `TreeStyleReverse` is what one styled node held before a style wrote to it:
+ * the previous values of the keys it already carried, and the keys the write
+ * added. It is reported per target, because two nodes in one styled range can
+ * hold different previous values and a single reverse built from one of them
+ * would stamp that one's values onto the others.
+ */
+export type TreeStyleReverse = {
+  node: CRDTTreeNode;
+  prevAttributes: Map<string, string>;
+  newAttrKeys: Array<string>;
+};
+
 export type TreeChange =
   | {
       actor: ActorID;
@@ -2882,13 +2895,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributes: { [key: string]: string } | undefined,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [
-    Array<GCPair>,
-    Array<TreeChange>,
-    DocSize,
-    Map<string, string>,
-    Array<string>,
-  ] {
+  ): [Array<GCPair>, Array<TreeChange>, DocSize, Array<TreeStyleReverse>] {
     const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     const [targets, diff] = this.styleTargets(
       range[0],
@@ -2900,22 +2907,24 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
-    const prevAttributes = new Map<string, string>();
-    const newAttrKeys: Array<string> = [];
+    const reverses: Array<TreeStyleReverse> = [];
     if (attributes) {
       const attrs: { [key: string]: any } = parseObjectValues(attributes);
-      targets.forEach((node, i) => {
-        // Capture previous attribute values from the first styled node for
-        // the reverse operation (undo).
-        if (i === 0) {
-          for (const key of Object.keys(attributes)) {
-            if (node.attrs?.has(key)) {
-              prevAttributes.set(key, node.attrs.get(key)!);
-            } else {
-              newAttrKeys.push(key);
-            }
+      targets.forEach((node) => {
+        // Capture what this node held before the write, for the reverse
+        // operation (undo). Every target is sampled: two nodes in one range
+        // can hold different previous values, and a reverse built from the
+        // first one alone would stamp its values onto the rest.
+        const prevAttributes = new Map<string, string>();
+        const newAttrKeys: Array<string> = [];
+        for (const key of Object.keys(attributes)) {
+          if (node.attrs?.has(key)) {
+            prevAttributes.set(key, node.attrs.get(key)!);
+          } else {
+            newAttrKeys.push(key);
           }
         }
+        reverses.push({ node, prevAttributes, newAttrKeys });
 
         const writes = node.setAttrs(attributes, editedAt);
         const affectedAttrs: { [key: string]: string } = {};
@@ -2946,7 +2955,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     pairs.push(...this.drainPendingGCPairs());
 
-    return [pairs, changes, size, prevAttributes, newAttrKeys];
+    return [pairs, changes, size, reverses];
   }
 
   /**
@@ -2957,7 +2966,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
     attributesToRemove: Array<string>,
     editedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TreeChange>, DocSize, Map<string, string>] {
+  ): [Array<GCPair>, Array<TreeChange>, DocSize, Array<TreeStyleReverse>] {
     const size = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
     const [targets, diff] = this.styleTargets(
       range[0],
@@ -2969,22 +2978,23 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     const changes: Array<TreeChange> = [];
     const pairs: Array<GCPair> = [];
-    const prevAttributes = new Map<string, string>();
+    const reverses: Array<TreeStyleReverse> = [];
     if (attributesToRemove) {
-      targets.forEach((node, i) => {
+      targets.forEach((node) => {
         if (!node.attrs) {
           node.attrs = new RHT();
         }
 
-        // Capture previous attribute values from the first styled node for
-        // the reverse operation (undo).
-        if (i === 0) {
-          for (const key of attributesToRemove) {
-            if (node.attrs.has(key)) {
-              prevAttributes.set(key, node.attrs.get(key)!);
-            }
+        // Capture what this node held before the removal, for the reverse
+        // operation (undo). Sampled per target for the same reason `style`
+        // samples per target: the values differ across a multi-node range.
+        const prevAttributes = new Map<string, string>();
+        for (const key of attributesToRemove) {
+          if (node.attrs.has(key)) {
+            prevAttributes.set(key, node.attrs.get(key)!);
           }
         }
+        reverses.push({ node, prevAttributes, newAttrKeys: [] });
 
         // `canStyle` admits a node removed concurrently with this change,
         // so `nodeIsLive` is the third question `attrGCPair` asks.
@@ -3028,7 +3038,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
 
     pairs.push(...this.drainPendingGCPairs());
 
-    return [pairs, changes, size, prevAttributes];
+    return [pairs, changes, size, reverses];
+  }
+
+  /**
+   * `posRangeOfNode` returns the position range that addresses exactly the
+   * given node, or undefined when the node has no place in the rendered
+   * document. A reverse operation built for one target of a multi-node style
+   * needs a range that reaches that target alone.
+   */
+  public posRangeOfNode(
+    node: CRDTTreeNode,
+  ): [CRDTTreePos, CRDTTreePos] | undefined {
+    const range = this.styleChangeRange(node);
+    if (!range || range.from >= range.to) {
+      return undefined;
+    }
+
+    // `findPosUnchecked`, not `findPos`: both ends come from the tree itself
+    // and name an element boundary, so there is no surrogate pair to refuse.
+    return [this.findPosUnchecked(range.from), this.findPosUnchecked(range.to)];
   }
 
   /**

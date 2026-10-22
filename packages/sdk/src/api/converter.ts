@@ -637,11 +637,13 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeStyleOperation.from = toTreePos(treeStyleOperation.getFromPos());
     pbTreeStyleOperation.to = toTreePos(treeStyleOperation.getToPos());
 
-    // Both halves travel together: the reverse of a style that overwrote some
-    // attributes and added others carries the overwritten keys' previous
-    // values in `attributes` and the added keys in `attributesToRemove`.
-    // Encoding only one of them would leave peers applying half of what the
-    // sender applied.
+    // Encode whatever the operation holds rather than letting one field
+    // shadow the other. Nothing minted here carries both halves at once --
+    // `TreeStyleOperation.buildReverseOps` splits a reverse into a remove and
+    // a set so that peers on older releases, which read one field or the
+    // other, see the whole of it -- but an operation decoded from a peer that
+    // does combine them is re-encoded here on reissue, and dropping half of
+    // it would lose what that peer sent.
     const attributesMap = pbTreeStyleOperation.attributes;
     for (const [key, value] of treeStyleOperation.getAttributes()) {
       attributesMap[key] = value;

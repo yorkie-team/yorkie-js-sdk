@@ -193,6 +193,12 @@ export type ExecutionResult = {
   // TODO(chacha912): After implementing all of the reverseOperation,
   // we change the type to non-optional.
   reverseOp?: Operation;
+  // NOTE(claude): One operation can need more than one operation to reverse
+  // it -- a tree style that both overwrote and added attributes, or one whose
+  // targets held different previous values. Those reverse into a list, in the
+  // order they have to be applied. Operations that reverse into a single
+  // operation keep using `reverseOp`.
+  reverseOps?: Array<Operation>;
 };
 
 /**

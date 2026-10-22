@@ -19,9 +19,11 @@ import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
   CRDTTree,
+  CRDTTreeNode,
   CRDTTreeNodeID,
   CRDTTreePos,
   TreeChange,
+  TreeStyleReverse,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 import {
   Operation,
@@ -120,18 +122,46 @@ export class TreeStyleOperation extends Operation {
       );
     }
     const tree = parentObject as CRDTTree;
-    // The reverse of a style that overwrote some attributes and added others
-    // carries both halves at once, so neither excludes the other: run each
-    // half that is present and accumulate across the two.
+    // An operation that carries both halves -- the reverse of a style that
+    // overwrote some attributes and added others -- runs each of them, so
+    // neither excludes the other, and accumulates across the two.
     const allPairs: Array<GCPair> = [];
     const allChanges: Array<{ change: TreeChange; isRemove: boolean }> = [];
     const allSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
-    const reversePrevAttributes = new Map<string, string>();
-    const reverseAttrsToRemove: Array<string> = [];
+
+    // What each styled node held before this operation, merged across the two
+    // halves and kept per node: the nodes in one range can hold different
+    // previous values, and one reverse built from one of them would stamp
+    // that node's values onto all the others.
+    const reverses = new Map<
+      CRDTTreeNode,
+      { prevAttributes: Map<string, string>; newAttrKeys: Array<string> }
+    >();
+    const merge = (records: Array<TreeStyleReverse>) => {
+      for (const { node, prevAttributes, newAttrKeys } of records) {
+        let entry = reverses.get(node);
+        if (!entry) {
+          entry = { prevAttributes: new Map(), newAttrKeys: [] };
+          reverses.set(node, entry);
+        }
+        // The remove half runs first, so it is the one that saw the original
+        // value of a key both halves touch; the set half must not overwrite it.
+        for (const [key, value] of prevAttributes) {
+          if (!entry.prevAttributes.has(key)) {
+            entry.prevAttributes.set(key, value);
+          }
+        }
+        for (const key of newAttrKeys) {
+          if (!entry.newAttrKeys.includes(key)) {
+            entry.newAttrKeys.push(key);
+          }
+        }
+      }
+    };
 
     // 01. Handle attributesToRemove (remove style attributes)
     if (this.attributesToRemove.length > 0) {
-      const [pairs, changes, size, prevAttributes] = tree.removeStyle(
+      const [pairs, changes, size, records] = tree.removeStyle(
         [this.fromPos, this.toPos],
         this.attributesToRemove,
         this.getExecutedAt(),
@@ -142,10 +172,7 @@ export class TreeStyleOperation extends Operation {
       addDataSizes(allSize.gc, size.gc);
       allPairs.push(...pairs);
       allChanges.push(...changes.map((change) => ({ change, isRemove: true })));
-
-      for (const [key, value] of prevAttributes) {
-        reversePrevAttributes.set(key, value);
-      }
+      merge(records);
     }
 
     // 02. Handle attributes (set style attributes)
@@ -153,7 +180,7 @@ export class TreeStyleOperation extends Operation {
       const attributes: { [key: string]: any } = {};
       [...this.attributes].forEach(([key, value]) => (attributes[key] = value));
 
-      const [pairs, changes, size, prevAttributes, newAttrKeys] = tree.style(
+      const [pairs, changes, size, records] = tree.style(
         [this.fromPos, this.toPos],
         attributes,
         this.getExecutedAt(),
@@ -166,11 +193,7 @@ export class TreeStyleOperation extends Operation {
       allChanges.push(
         ...changes.map((change) => ({ change, isRemove: false })),
       );
-
-      for (const [key, value] of prevAttributes) {
-        reversePrevAttributes.set(key, value);
-      }
-      reverseAttrsToRemove.push(...newAttrKeys);
+      merge(records);
     }
 
     root.acc(allSize.live);
@@ -180,36 +203,16 @@ export class TreeStyleOperation extends Operation {
       root.registerGCPair(pair);
     }
 
-    // Build reverse operation for undo.
-    let reverseOp: Operation | undefined;
-    if (reversePrevAttributes.size > 0 && reverseAttrsToRemove.length > 0) {
-      reverseOp = new TreeStyleOperation(
-        this.getParentCreatedAt(),
-        this.fromPos,
-        this.toPos,
-        reversePrevAttributes,
-        reverseAttrsToRemove,
-        undefined!,
-      );
-    } else if (reverseAttrsToRemove.length > 0) {
-      reverseOp = TreeStyleOperation.createTreeRemoveStyleOperation(
-        this.getParentCreatedAt(),
-        this.fromPos,
-        this.toPos,
-        reverseAttrsToRemove,
-        undefined!,
-      );
-    } else if (reversePrevAttributes.size > 0) {
-      reverseOp = TreeStyleOperation.create(
-        this.getParentCreatedAt(),
-        this.fromPos,
-        this.toPos,
-        reversePrevAttributes,
-        undefined!,
+    // A key the remove half took off and the set half put back has a previous
+    // value to restore, so it is not one of the keys the reverse drops.
+    for (const entry of reverses.values()) {
+      entry.newAttrKeys = entry.newAttrKeys.filter(
+        (key) => !entry.prevAttributes.has(key),
       );
     }
 
     return {
+      reverseOps: this.buildReverseOps(tree, reverses),
       opInfos: allChanges.map(
         ({ change: { from, to, value, fromPath, toPath }, isRemove }) => {
           return {
@@ -225,8 +228,102 @@ export class TreeStyleOperation extends Operation {
           } as OpInfo;
         },
       ),
-      reverseOp,
     };
+  }
+
+  /**
+   * `buildReverseOps` turns what each styled node held before this operation
+   * into the operations that put it back.
+   *
+   * Each reverse is split in two -- the keys to drop, then the values to
+   * restore -- rather than one operation carrying both halves. Both halves
+   * survive either way, but two single-purpose operations are the shape every
+   * released SDK and the server already decode, and they take separate
+   * tickets, so a key that appears in both halves is dropped and then set
+   * again instead of losing the set to RHT's same-ticket rule.
+   *
+   * The whole styled range is reversed by one pair of operations as long as
+   * every target held the same thing. When the targets differ, each gets its
+   * own pair over its own range, because one range-wide reverse can only
+   * carry one set of values.
+   */
+  private buildReverseOps(
+    tree: CRDTTree,
+    reverses: Map<
+      CRDTTreeNode,
+      { prevAttributes: Map<string, string>; newAttrKeys: Array<string> }
+    >,
+  ): Array<Operation> | undefined {
+    const entries = [...reverses.entries()];
+    if (!entries.length) {
+      return undefined;
+    }
+
+    const opsFor = (
+      from: CRDTTreePos,
+      to: CRDTTreePos,
+      entry: {
+        prevAttributes: Map<string, string>;
+        newAttrKeys: Array<string>;
+      },
+    ): Array<Operation> => {
+      const ops: Array<Operation> = [];
+      if (entry.newAttrKeys.length > 0) {
+        ops.push(
+          TreeStyleOperation.createTreeRemoveStyleOperation(
+            this.getParentCreatedAt(),
+            from,
+            to,
+            entry.newAttrKeys,
+            undefined!,
+          ),
+        );
+      }
+      if (entry.prevAttributes.size > 0) {
+        ops.push(
+          TreeStyleOperation.create(
+            this.getParentCreatedAt(),
+            from,
+            to,
+            entry.prevAttributes,
+            undefined!,
+          ),
+        );
+      }
+      return ops;
+    };
+
+    const signature = (entry: {
+      prevAttributes: Map<string, string>;
+      newAttrKeys: Array<string>;
+    }) =>
+      JSON.stringify([
+        [...entry.prevAttributes].sort(),
+        [...entry.newAttrKeys].sort(),
+      ]);
+    const uniform = entries.every(
+      ([, entry]) => signature(entry) === signature(entries[0][1]),
+    );
+
+    const ops: Array<Operation> = [];
+    if (uniform) {
+      ops.push(...opsFor(this.fromPos, this.toPos, entries[0][1]));
+    } else {
+      for (const [node, entry] of entries) {
+        if (!entry.prevAttributes.size && !entry.newAttrKeys.length) {
+          continue;
+        }
+        // A target detached from the document has no range that reaches it
+        // alone, and no place in the rendered document to restore either.
+        const range = tree.posRangeOfNode(node);
+        if (!range) {
+          continue;
+        }
+        ops.push(...opsFor(range[0], range[1], entry));
+      }
+    }
+
+    return ops.length ? ops : undefined;
   }
 
   /**

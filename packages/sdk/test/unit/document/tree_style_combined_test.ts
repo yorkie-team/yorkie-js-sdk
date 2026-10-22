@@ -177,8 +177,9 @@ describe('Tree style carrying both attributes and attributesToRemove', () => {
     );
     assert.equal(a.getRoot().t.toXML(), '<doc><p b="x"></p></doc>');
 
-    // Redoing re-applies what the undo took away. The undo op executed both
-    // halves, so its own reverse has to carry what both of them displaced.
+    // Redoing re-applies what the undo took away. The undo ran as two
+    // operations, so the redo reverses both: `c` back on the node and `b`
+    // back to the value the undo overwrote.
     const redone = opInfosOf(a, () => a.history.redo());
     assert.deepEqual(
       redone,
@@ -190,7 +191,16 @@ describe('Tree style carrying both attributes and attributesToRemove', () => {
           to: 1,
           fromPath: [0],
           toPath: [0, 0],
-          value: { attributes: { b: 'y', c: 'z' } },
+          value: { attributes: { b: 'y' } },
+        },
+        {
+          type: 'tree-style',
+          path: '$.t',
+          from: 0,
+          to: 1,
+          fromPath: [0],
+          toPath: [0, 0],
+          value: { attributes: { c: 'z' } },
         },
       ],
       'the redo reported the attributes it put back',
@@ -241,9 +251,6 @@ describe('Tree style carrying both attributes and attributesToRemove', () => {
     a.history.undo();
 
     const [change] = recordChanges(a, 'undo the combined style');
-    const [op] = change.getOperations();
-    assert.instanceOf(op, TreeStyleOperation);
-
     const decoded = converter.fromChangePack(
       converter.toChangePack(
         ChangePack.create(
@@ -255,11 +262,56 @@ describe('Tree style carrying both attributes and attributesToRemove', () => {
         ),
       ),
     );
-    const [decodedOp] = decoded.getChanges()[0].getOperations();
-    assert.instanceOf(decodedOp, TreeStyleOperation);
 
-    const styleOp = decodedOp as TreeStyleOperation;
-    assert.deepEqual([...styleOp.getAttributes()], [['b', 'x']]);
-    assert.deepEqual(styleOp.getAttributesToRemove(), ['c']);
+    // The undo travels as two single-purpose operations, which is the shape
+    // every released SDK decodes: one that drops the key the style added and
+    // one that restores the value it overwrote. A single operation carrying
+    // both fields would be read by an older peer as only one of them.
+    const ops = decoded.getChanges()[0].getOperations();
+    assert.equal(ops.length, 2, 'the undo travels as two operations');
+    for (const op of ops) {
+      assert.instanceOf(op, TreeStyleOperation);
+    }
+
+    const [remove, restore] = ops as Array<TreeStyleOperation>;
+    assert.deepEqual(remove.getAttributesToRemove(), ['c']);
+    assert.isEmpty([...remove.getAttributes()]);
+    assert.deepEqual([...restore.getAttributes()], [['b', 'x']]);
+    assert.isEmpty(restore.getAttributesToRemove());
+  });
+
+  it('restores each node its own previous value over a multi-node range', () => {
+    const a = newReplica(1);
+    const b = newReplica(2);
+
+    a.update((root) => {
+      root.t = new Tree({
+        type: 'doc',
+        children: [
+          { type: 'p', attributes: { b: 'x' }, children: [] },
+          { type: 'p', attributes: { b: 'w' }, children: [] },
+        ],
+      });
+    });
+    deliver(b, recordChanges(a, 'initial tree'));
+
+    // The two paragraphs hold different values for `b`, so one reverse over
+    // the whole range cannot restore both: undoing has to put `x` back on the
+    // first and `w` on the second.
+    a.update((root) => root.t.style(0, 4, { b: 'y' }));
+    deliver(b, recordChanges(a, 'style across both paragraphs'));
+    assert.equal(
+      a.getRoot().t.toXML(),
+      '<doc><p b="y"></p><p b="y"></p></doc>',
+    );
+
+    a.history.undo();
+    deliver(b, recordChanges(a, 'undo the multi-node style'));
+
+    assert.equal(
+      a.getRoot().t.toXML(),
+      '<doc><p b="x"></p><p b="w"></p></doc>',
+    );
+    assert.equal(b.getRoot().t.toXML(), a.getRoot().t.toXML());
   });
 });

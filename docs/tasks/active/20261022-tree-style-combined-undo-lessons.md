@@ -31,3 +31,26 @@ Tracked as #1498
 
 Not run — this branch was produced by an autonomous run that is not granted the
 reviewer subagent. CI, `@claude review` and a human review the PR.
+
+## Review round 1
+
+Three blocking findings, all taken:
+
+- **A combined wire shape is not the only way to keep both halves.** The first
+  cut put `attributes` and `attributesToRemove` on one `TreeStyle` operation.
+  Every released SDK -- and, on the branch's own admission, the Go server --
+  reads one field or the other, so the shape turns a convergent defect into a
+  divergent one for a mixed-version document. The reverse is now split into two
+  single-purpose operations instead, which is the shape every peer already
+  decodes. It also gives the two halves separate tickets, so a key both halves
+  touch is dropped and then set again rather than losing the set to RHT's
+  same-ticket rule.
+- **`prevAttributes` was sampled from the first target only.** A style over a
+  range whose nodes held different previous values reversed into one operation
+  carrying the first node's values, which it then stamped onto the rest.
+  `CRDTTree.style`/`removeStyle` now report per target, and
+  `TreeStyleOperation` reverses the whole range with one pair of operations
+  only while the targets agree; when they differ each target gets its own pair
+  over its own range (`CRDTTree.posRangeOfNode`).
+- An operation can now need more than one operation to reverse it, so
+  `ExecutionResult` grew `reverseOps` beside `reverseOp`.
