@@ -27,7 +27,10 @@ import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
-import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
+import {
+  PresenceChange,
+  PresenceChangeType,
+} from '@yorkie-js/sdk/src/document/presence/change';
 import { PresenceChange_ChangeType as PbPresenceChangeType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
@@ -84,7 +87,77 @@ function remoteIncrease(
   });
 }
 
+/**
+ * `presenceOf` returns the presence a decoded change carries, if any.
+ */
+function presenceOf(
+  change?: PresenceChange<{ name?: string }>,
+): Partial<{ name?: string }> | undefined {
+  return (change as { presence?: Partial<{ name?: string }> } | undefined)
+    ?.presence;
+}
+
 describe('a remote change this SDK cannot apply', function () {
+  it('applies a dedup increase that carries an actor and a unit delta', function () {
+    const { doc, counterCreatedAt } = sourceWithCounter();
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
+
+    // Skipping must not swallow the applicable shape: one actor, delta 1.
+    target.applyChange(
+      remoteIncrease(doc, counterCreatedAt, 1, 'actor-a'),
+      OpSource.Remote,
+    );
+    assert.equal(target.getRoot().uv!.getValue(), 1);
+
+    // The same actor again is deduplicated, a second actor counts.
+    target.applyChange(
+      remoteIncrease(doc, counterCreatedAt, 1, 'actor-a'),
+      OpSource.Remote,
+    );
+    assert.equal(target.getRoot().uv!.getValue(), 1);
+    target.applyChange(
+      remoteIncrease(doc, counterCreatedAt, 1, 'actor-b'),
+      OpSource.Remote,
+    );
+    assert.equal(target.getRoot().uv!.getValue(), 2);
+  });
+
+  it('skips a remote increase whose target is missing or not a counter', function () {
+    const { doc, counterCreatedAt } = sourceWithCounter();
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
+    const root = (target as unknown as { root: CRDTRoot }).root;
+
+    // A target this document never saw, and a target that is not a counter:
+    // both are stored changes that can never be applied here.
+    doc.update((r) => {
+      r.k = 'v';
+    });
+    target.applyChange(localChangesOf(doc)[1] as never, OpSource.Remote);
+    const stringCreatedAt = localChangesOf(doc)[1]
+      .getOperations()[0]
+      .getEffectedCreatedAt();
+    const missing = remoteIncrease(
+      doc,
+      counterCreatedAt.setActor('ffffffffffffffffffffffff'),
+      1,
+      'actor-a',
+    ).getOperations()[0];
+    const notACounter = remoteIncrease(
+      doc,
+      stringCreatedAt,
+      1,
+      'actor-a',
+    ).getOperations()[0];
+
+    for (const op of [missing, notACounter]) {
+      assert.isUndefined(op.execute(root, OpSource.Remote));
+      assert.throws(() => op.execute(root, OpSource.Local), YorkieError);
+    }
+    assert.equal(target.getRoot().uv!.getValue(), 0);
+  });
+
   it('skips a dedup increase that carries no actor', function () {
     const { doc, counterCreatedAt } = sourceWithCounter();
     const target = new Document<TestDoc>('d');
@@ -199,6 +272,37 @@ describe('a remote change this SDK cannot apply', function () {
     change.execute(root, presences, OpSource.Remote);
     assert.isFalse(presences.has(actorID));
     assert.equal(root.getObject().toJSON(), '{"k":"v"}');
+  });
+
+  it('decodes a PUT or PATCH that carries no presence as an empty one', function () {
+    for (const type of [PbPresenceChangeType.PUT, PbPresenceChangeType.PATCH]) {
+      const doc = new Document<TestDoc, { name?: string }>('d');
+      doc.update((_, p) => p.set({ name: 'a' }));
+
+      // `presence` is an optional message on the wire, so a non-SDK writer can
+      // store a PUT without one. Decoding must not throw a raw TypeError.
+      const pbPack = converter.toChangePack(doc.createChangePack());
+      pbPack.changes[0].presenceChange!.type = type;
+      pbPack.changes[0].presenceChange!.presence = undefined;
+
+      const change = converter
+        .fromChangePack<{ name?: string }>(pbPack)
+        .getChanges()[0];
+      assert.deepEqual(presenceOf(change.getPresenceChange()), {});
+    }
+  });
+
+  it('decodes a presence value that is not JSON as the raw string', function () {
+    const doc = new Document<TestDoc, { name?: string }>('d');
+    doc.update((_, p) => p.set({ name: 'a' }));
+
+    const pbPack = converter.toChangePack(doc.createChangePack());
+    pbPack.changes[0].presenceChange!.presence!.data = { name: 'raw' };
+
+    const change = converter
+      .fromChangePack<{ name?: string }>(pbPack)
+      .getChanges()[0];
+    assert.deepEqual(presenceOf(change.getPresenceChange()), { name: 'raw' });
   });
 
   it('rejects a presence change outside the enum', function () {

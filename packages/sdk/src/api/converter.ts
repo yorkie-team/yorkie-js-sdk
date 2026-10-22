@@ -1136,10 +1136,23 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
 /**
  * `fromPresence` converts the given Protobuf format to model format.
  */
-function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
-  const data: Record<string, string> = {};
-  Object.entries(pbPresence.data).forEach(([key, value]) => {
-    data[key] = JSON.parse(value);
+function fromPresence<P extends Indexable>(pbPresence?: PbPresence): P {
+  // NOTE: `presence` is an optional message on the wire, so a stored change
+  // can carry a PUT or PATCH without one. Decode it as an empty presence
+  // rather than throwing: a pulled change this SDK throws on comes back on
+  // every pull and wedges the document forever.
+  const data: Record<string, unknown> = {};
+  Object.entries(pbPresence?.data ?? {}).forEach(([key, value]) => {
+    // A peer that is not this SDK can store a raw, non-JSON value. Keep it as
+    // the string it is instead of failing the whole pack.
+    try {
+      data[key] = JSON.parse(value);
+    } catch (e) {
+      if (!(e instanceof SyntaxError)) {
+        throw e;
+      }
+      data[key] = value;
+    }
   });
 
   return data as P;
@@ -1153,7 +1166,7 @@ function fromPresenceChange<P extends Indexable>(
 ): PresenceChange<P> | undefined {
   const type = pbPresenceChange.type;
   if (type === PbPresenceChange_ChangeType.PUT) {
-    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    const presence = fromPresence<P>(pbPresenceChange.presence);
     return {
       type: PresenceChangeType.Put,
       presence,
@@ -1165,7 +1178,7 @@ function fromPresenceChange<P extends Indexable>(
     // an echo of a pushed change, or a peer ahead of this SDK, must not fail
     // the whole pack. There is no `full` on the wire: `Change.execute` merges
     // the carried keys onto the presence already held for that actor.
-    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    const presence = fromPresence<P>(pbPresenceChange.presence);
     return {
       type: PresenceChangeType.Patch,
       presence,

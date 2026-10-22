@@ -17,3 +17,13 @@
   running the same compose minutes earlier passed, which is what a startup
   race looks like from the outside -- the fix is to gate on
   `condition: service_healthy`, not to retry the lane.
+- Panel round 1: the skip was written as a guard on the one branch that
+  prompted it (`counter.isDedup()`), but Go's `skipUnlessLocal` wraps the
+  whole `Execute`. A missing target or a non-counter target is just as
+  unrecoverable from a stored change, so the skip belongs around the whole
+  body, with the throwing path factored out as `executeInternal`.
+- The same "a stored change must never wedge the pull" rule applies to the
+  decoder, not just to operations. `fromPresence` trusted both the optional
+  `presence` message (`presence!`) and that every value is JSON -- either
+  assumption fails on a change a non-SDK writer can store, and a `TypeError`
+  or `SyntaxError` out of the pack decode wedges attach permanently.
