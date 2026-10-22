@@ -46,3 +46,26 @@ real `updatedAt` at all. Both need a per-attribute timestamp in the proto
 Rule of thumb from this round: when a payload crosses the wire, check what
 the *proto* carries, not what the in-memory type carries. The two diverged
 here by exactly one timestamp, and that is enough to diverge two replicas.
+
+## Panel round: the refreshed span was richer than the wire
+
+The previous round's lesson ("check what the proto carries") was written and
+then not applied to the very code it describes. `refreshSpans` copied the live
+piece's value with `substring`, which deep-copies the whole RHT — every
+attribute's real `updatedAt`, every attribute tombstone. `RestoreSpan` carries
+neither: it is a bare `map<string, string>`, and `toPbSpan` reads it through
+`RHT.toObject`, which skips removed nodes. So the producing replica kept the
+rich copy, shipped the flat one, and the two rebuilt a purged node with
+different RHTs and different GC ledgers — the exact divergence the refresh was
+added to close, reintroduced one layer down.
+
+The fix is a separate operation rather than a flag on `substring`:
+`CRDTTextValue.toRestoreSnapshot` builds a span-shaped value (live attributes
+only, each stamped with the span's `createdAt`) — the same shape `fromPbSpan`
+reconstructs. `substring` keeps meaning "a split piece", which must stay rich.
+`restore_converter_test.ts` now pins that a snapshot survives the wire with an
+identical RHT, tickets included.
+
+Rule of thumb: a value that crosses the wire and a value that lives in the
+tree are two types wearing one class. When you copy one into the other, say
+which one you are making.

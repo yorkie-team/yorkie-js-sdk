@@ -537,6 +537,14 @@ function toOperation(operation: Operation): PbOperation {
       pbSpan.end = span.end;
       pbSpan.content = span.value.getContent();
       const pbSpanAttrs = pbSpan.attributes;
+      // `RestoreSpan.attributes` is a bare map<string, string>: no
+      // per-attribute timestamp, and `getAttributes` (RHT.toObject) skips
+      // removed nodes, so an attribute tombstone cannot cross. Anything a span
+      // value holds beyond that is lost here while the producing replica keeps
+      // it, and the two then rebuild a purged node differently. Spans built
+      // from live content are flattened to exactly this shape first -- live
+      // attributes, all stamped with the span's `createdAt`, which is what
+      // `fromPbSpan` reconstructs. See `CRDTTextValue.toRestoreSnapshot`.
       for (const [key, value] of Object.entries(span.value.getAttributes())) {
         pbSpanAttrs[key] = value;
       }

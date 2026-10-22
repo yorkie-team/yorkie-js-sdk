@@ -119,6 +119,37 @@ export class CRDTTextValue {
   }
 
   /**
+   * `toRestoreSnapshot` returns `[indexStart, indexEnd)` in the shape a
+   * restore span carries, which is NOT the shape `substring` produces.
+   *
+   * `substring` deep-copies the whole RHT -- every attribute's real
+   * `updatedAt` and every attribute tombstone -- because a split piece has to
+   * keep resolving concurrent styles the way an unsplit one would. A restore
+   * span is not a live piece, though: it is payload that crosses the wire as
+   * `RestoreSpan.attributes`, a bare `map<string, string>` with no
+   * per-attribute timestamp and no room for a tombstone. A replica that keeps
+   * the richer copy locally and ships the flattened one rebuilds a purged node
+   * differently from every replica that decodes it -- a different RHT
+   * `updatedAt`, and attribute tombstones booked as GC pairs on one side only.
+   *
+   * So flatten here instead: live attributes only, each stamped with
+   * `createdAt`, exactly as `fromPbSpan` reconstructs them on the far side.
+   */
+  public toRestoreSnapshot(
+    indexStart: number,
+    indexEnd: number,
+    createdAt: TimeTicket,
+  ): CRDTTextValue {
+    const value = new CRDTTextValue(
+      this.content.substring(indexStart, indexEnd),
+    );
+    for (const [key, content] of Object.entries(this.getAttributes())) {
+      value.setAttr(key, content, createdAt);
+    }
+    return value;
+  }
+
+  /**
    * `truncate` shortens this value in place, keeping the object identity so
    * that GC pairs registered against it are not orphaned. See
    * `RGATreeSplitValue.truncate`.
