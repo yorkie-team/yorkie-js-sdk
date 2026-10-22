@@ -17,6 +17,16 @@ Tracked as #1498
 - The `attributesToRemove` array is assigned onto the protobuf message, so it
   is copied rather than aliased from the operation.
 
+## CI
+
+- The integration lane failed once on this branch with the Yorkie container
+  dumping cobra's usage text, which reads like a rejected flag. It is not: the
+  server reports a *boot* error as one error line plus the full usage dump, and
+  `wait-for-yorkie.sh` tailed too few lines to keep the error line. The lane
+  waited only for Mongo's container to start, so the server could exit on a
+  failed dial and be pushed past the wait window by `restart: always` backoff.
+  Fixed by gating on a Mongo healthcheck and widening the log tail.
+
 ## Self review
 
 Not run — this branch was produced by an autonomous run that is not granted the
