@@ -54,3 +54,27 @@ map's contents.
   cobra's usage text, and `wait-for-yorkie` timed out before a single suite
   ran. Pinned `docker/docker-compose-ci.yml` to `mongo:9`, which carries the
   fix; the full integration suite then passed (3790 tests).
+
+- **Round 3** — Review panel, two blocking findings, both about the *cap*
+  rather than the retention. The eviction policy had been wired into every
+  path that could notice a peer was absent, including two where "absent from
+  `onlineClients`" does not mean "gone": `resetOnlineClients()` (the watch
+  stream dropped, so the set is empty by construction and the reconnect is
+  imminent) and `applySnapshot()` (the set is only as fresh as the last thing
+  the stream said). On a document with more than 100 peers, a single stream
+  blip therefore evicted 50 of them before the reconnect's watch init could
+  report them online — reintroducing the exact invisible-peer bug the branch
+  exists to fix. The lesson is that a cap is only safe where the signal
+  feeding it is authoritative: retention now happens solely on an explicit
+  `DOCUMENT_UNWATCHED` and on `applyWatchInit`, where the online set *is* the
+  server's answer. `applySnapshot` only prunes the bookkeeping to the actors
+  that survived the snapshot.
+
+  The second finding was the downstream consequence: a wire presence `Patch`
+  carries only the keys that changed, so `change.ts` folded it onto
+  `presences.get(actorID) ?? {}` and an evicted base silently produced a
+  presence missing every untouched field, typed `P`. Eviction and that `?? {}`
+  were each defensible alone and wrong together. The fold now requires a base;
+  with none, the actor is left without a presence — a state `getPresence` and
+  `getPresences` already model, and one the next snapshot heals — instead of
+  one that type-checks and lies.

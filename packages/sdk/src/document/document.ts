@@ -2892,10 +2892,13 @@ export class Document<
     this.root = new CRDTRoot(root);
     this.presences = presences;
     // The snapshot replaces the whole map, so the retention bookkeeping is
-    // rebuilt from it: every peer in it that is not online is a candidate for
-    // eviction, exactly as it would be after a watch init.
-    this.retainedPresences = new Set();
-    this.retainOfflinePresences();
+    // pruned down to the actors that survived it. Nothing new is retained
+    // here: the online set at snapshot time is only as fresh as the last
+    // thing the watch stream said, and is empty for the whole of a
+    // reconnect, so treating "absent from it" as "offline" would put live
+    // peers under the eviction cap. `applyWatchInit` is where the server
+    // states who is online, and is where the bulk retention belongs.
+    this.evictRetainedPresences();
     this.absorbedRemote = true;
     this.changeID = this.changeID.setClocks(
       snapshotVector.maxLamport(),
@@ -3362,9 +3365,14 @@ export class Document<
    */
   public resetOnlineClients() {
     this.onlineClients = new Set();
-    // Everyone just went offline without an unwatch event of their own, so
-    // register them for eviction here instead.
-    this.retainOfflinePresences();
+    // NOTE(hackerwins): No retention bookkeeping here. This runs when the
+    // watch stream ends or drops, where an empty online set means "we lost
+    // the stream", not "every peer left" -- the reconnect's watch init is
+    // what says who is really gone. Retaining everyone here would hand the
+    // whole roster to the `MaxRetainedPresences` cap on every blip and evict
+    // the presences the watch init that follows is about to report as
+    // online, which is the invisible-peer bug `retainPresence` exists to
+    // avoid.
   }
 
   /**
@@ -3401,9 +3409,13 @@ export class Document<
 
   /**
    * `retainOfflinePresences` registers every presence that belongs to neither
-   * this client nor an online peer as retained, so the paths that replace the
-   * whole map at once (watch init, snapshot) come under the same cap as
-   * `applyDocEvent`'s unwatch.
+   * this client nor an online peer as retained, so a watch init brings the
+   * peers it leaves out under the same cap as `applyDocEvent`'s unwatch.
+   *
+   * Only call this where the online set is the server's answer, i.e. straight
+   * after `applyWatchInit`'s `setOnlineClients`. Anywhere else the set is a
+   * stale cache -- empty for the whole of a watch-stream reconnect -- and
+   * "not online" does not mean "gone".
    */
   private retainOfflinePresences() {
     const selfID = this.changeID.getActorID();
@@ -3420,10 +3432,20 @@ export class Document<
    * is back within `MaxRetainedPresences`, and forgets entries whose presence
    * has already gone away on its own (a detach's presence-clear, a snapshot
    * that no longer carries it) rather than letting them hold a slot.
+   *
+   * An actor that is online again is dropped from the set without losing its
+   * presence: `setOnlineClients`/`addOnlineClient` already un-retain on the
+   * way in, and this is the backstop that keeps a live peer from ever being
+   * evicted should a new caller retain one by mistake.
    */
   private evictRetainedPresences() {
+    const selfID = this.changeID.getActorID();
     for (const clientID of this.retainedPresences) {
-      if (!this.presences.has(clientID)) {
+      if (
+        !this.presences.has(clientID) ||
+        clientID === selfID ||
+        this.onlineClients.has(clientID)
+      ) {
         this.retainedPresences.delete(clientID);
         continue;
       }

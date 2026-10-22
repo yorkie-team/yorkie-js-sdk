@@ -277,15 +277,28 @@ export class Change<P extends Indexable> {
         // fold its keys onto the presence already held for that actor, which
         // is what the server would have done before storing it.
         const actorID = this.id.getActorID();
-        presences.set(
-          actorID,
-          this.presenceChange.full
-            ? deepcopy(this.presenceChange.full)
-            : ({
-                ...(presences.get(actorID) ?? {}),
-                ...deepcopy(this.presenceChange.presence),
-              } as P),
-        );
+        if (this.presenceChange.full) {
+          presences.set(actorID, deepcopy(this.presenceChange.full));
+        } else {
+          const base = presences.get(actorID);
+          // No base to fold onto. The server folded this patch onto the full
+          // presence it stores, so the keys on the wire are only the ones
+          // that changed -- everything the peer did not touch lives in a
+          // base this document no longer has (it was evicted past
+          // `MaxRetainedPresences`, or the put that seeded it was never
+          // seen). Writing the changed keys alone would hand the application
+          // an object typed `P` that is missing most of its fields, and
+          // indexing into it would throw inside app code. Leave the actor
+          // without a presence instead: that is a state `getPresence` and
+          // `getPresences` already model, and the next snapshot restores the
+          // real presence in full.
+          if (base !== undefined) {
+            presences.set(actorID, {
+              ...base,
+              ...deepcopy(this.presenceChange.presence),
+            } as P);
+          }
+        }
       } else {
         presences.delete(this.id.getActorID());
       }

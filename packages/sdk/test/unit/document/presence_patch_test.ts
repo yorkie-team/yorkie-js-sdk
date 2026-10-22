@@ -449,4 +449,30 @@ describe('Presence patch', function () {
       cursor: { x: 2, y: 2 },
     });
   });
+
+  it('leaves no presence when a wire patch has no base to fold onto', function () {
+    // A wire patch carries only the keys that changed; everything else lives
+    // in the base the server folded it onto. When this document has no base
+    // for that actor -- its retained presence was evicted, or the put that
+    // seeded it was never seen -- folding onto `{}` would publish an object
+    // typed `TestPresence` with every untouched field missing, and app code
+    // reading `presence.name` would get `undefined` for a name the peer never
+    // cleared. No entry at all is a state the public API already models.
+    const doc = createDoc();
+    doc.update((_, p) => p.set({ name: 'a', cursor: { x: 0, y: 0 } }));
+    const actorID = doc.getChangeID().getActorID();
+
+    const pbPack = converter.toChangePack(doc.createChangePack());
+    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.PATCH;
+    pbPack.changes[0].presenceChange!.presence!.data = {
+      cursor: '{"x":2,"y":2}',
+    };
+
+    const decoded = converter.fromChangePack<TestPresence>(pbPack);
+    const change = decoded.getChanges()[0];
+
+    const presences = new Map<string, TestPresence>();
+    change.execute(CRDTRoot.create(), presences, OpSource.Remote);
+    assert.isFalse(presences.has(actorID));
+  });
 });

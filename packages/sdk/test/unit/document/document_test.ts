@@ -1656,6 +1656,31 @@ describe.sequential('Document', function () {
     assert.equal(doc.hasPresence(gone), true);
   });
 
+  it('should not evict presences over a watch-stream drop and reconnect', function () {
+    // A dropped watch stream empties the online set without a single peer
+    // having left. Treating that as "everyone went offline" would hand the
+    // whole roster to the retention cap and evict the presences the watch
+    // init that follows reports as online again -- the invisible-peer bug
+    // retaining them exists to avoid. More peers than the cap, so an eviction
+    // would be visible.
+    const doc = new Document<object, { name: string }>('test-doc');
+    const peerIDs = Array.from({ length: 150 }, (_, i) => `peer-${i}`);
+    for (const peerID of peerIDs) {
+      (doc as any).presences.set(peerID, { name: peerID });
+    }
+    doc.applyWatchInit(peerIDs);
+    assert.equal((doc as any).presences.size, 150);
+
+    doc.resetOnlineClients();
+    assert.equal((doc as any).presences.size, 150);
+
+    doc.applyWatchInit(peerIDs);
+    for (const peerID of peerIDs) {
+      assert.equal(doc.hasPresence(peerID), true, peerID);
+      assert.deepEqual(doc.getPresence(peerID), { name: peerID }, peerID);
+    }
+  });
+
   // `idOfNode` extracts the node id (createdAt:offset) of the piece whose
   // value is `value` from RGATreeSplit.toTestString(). Live nodes render as
   // `[<id> <value>]`, tombstoned nodes as `{<id> <value>}`. Identity-
