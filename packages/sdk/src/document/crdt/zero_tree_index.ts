@@ -821,6 +821,184 @@ export class ZeroBlockIndex {
   }
 
   /**
+   * `commitUndo` brings the index up to date after an undo or redo
+   * (`restore`, `retombstone`) that revived `revived` and removed `removed`
+   * again. The pieces are found where they are now: the tokens around them
+   * did not change, so the blocks from the one before the first piece to the
+   * one after the last are rebuilt, the state before read back from the
+   * pieces (a removed piece keeps its tokens until GC).
+   */
+  public commitUndo(
+    revived: Array<RGATreeSplitNode<ZeroTokens>>,
+    removed: Array<RGATreeSplitNode<ZeroTokens>>,
+  ): ZeroChange {
+    const total = this.rga.length;
+    const delta = total - this.rawLength;
+    const back = new Set(revived);
+    const gone = new Set(removed);
+    const wasLive = (n: RGATreeSplitNode<ZeroTokens>) =>
+      gone.has(n) || (!n.isRemoved() && !back.has(n));
+    if (!back.size && !gone.size) {
+      return { before: [], after: [], offset: 0, whole: false };
+    }
+    if (
+      this.schema.single?.[this.schema.rootType] ||
+      !this.rawLength ||
+      !this.blocks.length
+    ) {
+      note('undo:empty');
+      return this.commitWhole(this.undoBeforeWhole(wasLive));
+    }
+    // the first and the last piece, by where they are now
+    const tree = this.rga.getTreeByIndex();
+    let first: RGATreeSplitNode<ZeroTokens> | undefined;
+    let last: RGATreeSplitNode<ZeroTokens> | undefined;
+    let firstAt = Infinity;
+    let lastEnd = -1;
+    for (const n of [...back, ...gone]) {
+      const at = tree.indexOf(n);
+      const end = at + n.getLength();
+      if (at < firstAt) {
+        [first, firstAt] = [n, at];
+      }
+      if (end > lastEnd) {
+        [last, lastEnd] = [n, end];
+      }
+    }
+    // the live token before the first piece and after the last one: both
+    // unchanged, so before the change they sit at `from - 1` and `to`
+    let left = first!.getPrev();
+    while (left && (back.has(left) || gone.has(left) || !left.getLength())) {
+      left = left.getPrev();
+    }
+    let right = last!.getNext();
+    while (
+      right &&
+      (back.has(right) || gone.has(right) || !right.getLength())
+    ) {
+      right = right.getNext();
+    }
+    const from = left ? tree.indexOf(left) + left.getLength() : 0;
+    const to = (right ? tree.indexOf(right) : total) - delta;
+    const firstBlock = from > 0 ? this.blockAt(from - 1, 'rawStart') : 0;
+    const lastBlock = this.blockAt(
+      Math.min(Math.max(to, from), this.rawLength - 1),
+      'rawStart',
+    );
+    for (let b = firstBlock; b <= lastBlock; b++) {
+      if (this.isHazard(this.blocks[b])) {
+        note('undo:hazard');
+        return this.commitWhole(this.undoBeforeWhole(wasLive));
+      }
+    }
+    const revivedMarkers = new Set<string>();
+    for (const n of back) {
+      const key = n.getCreatedAt().toIDString();
+      const base = n.getID().getOffset();
+      const tokens = n.getValue()?.tokens ?? [];
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (typeof t === 'string') {
+          continue;
+        }
+        revivedMarkers.add(`${key}:${base + i}`);
+        if (t.boundary) {
+          const tickets = this.keyTickets.get(t.boundary);
+          if (tickets && (tickets.size > 1 || !tickets.has(key))) {
+            note('undo:key');
+            return this.commitWhole(this.undoBeforeWhole(wasLive));
+          }
+        }
+      }
+    }
+    // a revived marker shows again the tokens that name it as their scope:
+    // those of another block change with it
+    if (revivedMarkers.size) {
+      for (let b = 0; b < this.blocks.length; b++) {
+        if (
+          (b < firstBlock || b > lastBlock) &&
+          this.blocks[b].scopes.some((x) => revivedMarkers.has(x))
+        ) {
+          note('undo:scope');
+          return this.commitWhole(this.undoBeforeWhole(wasLive));
+        }
+      }
+    }
+    const rawStart = this.blocks[firstBlock].rawStart;
+    const end = this.blocks[lastBlock];
+    const rawEnd = end.rawStart + end.rawLength;
+    const raw = this.liveBefore(rawStart, rawEnd - rawStart, wasLive);
+    note('undo:blocks');
+    return this.commit({
+      kind: 'blocks',
+      first: firstBlock,
+      last: lastBlock,
+      rawStart,
+      rawEnd,
+      raw,
+      before: dealias(raw, this.schema).entries,
+    });
+  }
+
+  /**
+   * `liveBefore` reads `count` tokens that were live before an undo, from
+   * the one at `rawStart` (unchanged, so where it was).
+   */
+  private liveBefore(
+    rawStart: number,
+    count: number,
+    wasLive: (n: RGATreeSplitNode<ZeroTokens>) => boolean,
+  ): Array<ViewEntry> {
+    const out: Array<ViewEntry> = [];
+    let node: RGATreeSplitNode<ZeroTokens> | undefined;
+    let i = 0;
+    if (rawStart > 0) {
+      const [found, offset] = this.rga.getTreeByIndex().findForText(rawStart);
+      node = found as RGATreeSplitNode<ZeroTokens>;
+      i = offset;
+      if (i >= node.getLength()) {
+        node = node.getNext();
+        i = 0;
+      }
+    } else {
+      node = this.rga.getHead().getNext();
+    }
+    while (node && out.length < count) {
+      const value = node.getValue();
+      if (value && wasLive(node)) {
+        const key = node.getCreatedAt().toIDString();
+        const base = node.getID().getOffset();
+        for (; i < value.tokens.length && out.length < count; i++) {
+          const entry = tokenEntry(
+            value.tokens[i],
+            `${key}:${base + i}`,
+            value.scope,
+          );
+          if (entry.marker) {
+            markerNodeIDs.set(
+              entry,
+              RGATreeSplitNodeID.of(node.getCreatedAt(), base + i),
+            );
+          }
+          out.push(entry);
+        }
+      }
+      node = node.getNext();
+      i = 0;
+    }
+    return out;
+  }
+
+  /**
+   * `undoBeforeWhole` returns the model's entries before an undo.
+   */
+  private undoBeforeWhole(
+    wasLive: (n: RGATreeSplitNode<ZeroTokens>) => boolean,
+  ): Array<ViewEntry> {
+    return dealias(this.liveBefore(0, Infinity, wasLive), this.schema).entries;
+  }
+
+  /**
    * `reconstructBefore` returns the model's entries before a planned change:
    * the tokens outside its blocks did not change.
    */

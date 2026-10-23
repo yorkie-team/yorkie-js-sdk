@@ -421,6 +421,7 @@ export class CRDTZeroTree extends CRDTElement {
     if (!this.index) {
       this.index = new ZeroBlockIndex(this.rga, this.schema);
     }
+    this.flushUndo();
     return this.index;
   }
 
@@ -556,6 +557,7 @@ export class CRDTZeroTree extends CRDTElement {
     editedAt: TimeTicket,
     versionVector?: VersionVector,
   ): [Array<GCPair>, DataSize, Array<RestoreSpan<ZeroTokens>>] {
+    this.flushUndo();
     const from = this.index ? this.rga.landingIndex(range[0], editedAt) : 0;
     const to = this.index ? this.rga.landingIndex(range[1], editedAt) : 0;
     const plan = this.index?.plan(from, Math.max(from, to), value, editedAt);
@@ -582,10 +584,17 @@ export class CRDTZeroTree extends CRDTElement {
     executedAt: TimeTicket,
     fallbackAnchor?: RGATreeSplitPos,
   ) {
-    const plan = this.index?.planWhole();
-    note('restore');
     const result = this.rga.restore(spans, executedAt, fallbackAnchor);
-    this.record(plan);
+    if (this.index) {
+      const [untombstoned, recreated] = result;
+      const undo = this.pendingUndo();
+      for (const n of [...untombstoned, ...recreated]) {
+        // removed again by this same undo first: back as it was
+        if (!undo.removed.delete(n)) {
+          undo.revived.add(n);
+        }
+      }
+    }
     return result;
   }
 
@@ -597,11 +606,47 @@ export class CRDTZeroTree extends CRDTElement {
     executedAt: TimeTicket,
     versionVector?: VersionVector,
   ) {
-    const plan = this.index?.planWhole();
-    note('retombstone');
     const result = this.rga.retombstone(spans, executedAt, versionVector);
-    this.record(plan);
+    if (this.index) {
+      const undo = this.pendingUndo();
+      for (const { child } of result[0]) {
+        if (
+          child instanceof RGATreeSplitNode &&
+          child.isRemoved() &&
+          child.getRemovedAt()?.equals(executedAt) &&
+          !undo.revived.delete(child as RGATreeSplitNode<ZeroTokens>)
+        ) {
+          undo.removed.add(child as RGATreeSplitNode<ZeroTokens>);
+        }
+      }
+    }
     return result;
+  }
+
+  /** the pieces the undo being applied revived and removed again */
+  private undo?: {
+    revived: Set<RGATreeSplitNode<ZeroTokens>>;
+    removed: Set<RGATreeSplitNode<ZeroTokens>>;
+  };
+
+  private pendingUndo(): NonNullable<CRDTZeroTree['undo']> {
+    if (!this.undo) {
+      this.undo = { revived: new Set(), removed: new Set() };
+    }
+    return this.undo;
+  }
+
+  /**
+   * `flushUndo` brings the index up to date with the undo being applied:
+   * both of its halves (`retombstone`, `restore`) at once.
+   */
+  private flushUndo(): void {
+    const undo = this.undo;
+    if (!undo || !this.index) {
+      return;
+    }
+    this.undo = undefined;
+    this.keep(this.index.commitUndo([...undo.revived], [...undo.removed]));
   }
 
   /**
@@ -613,6 +658,7 @@ export class CRDTZeroTree extends CRDTElement {
     writes: Array<[string, ZeroAttrValue]>,
     editedAt: TimeTicket,
   ): Array<[string, ZeroAttrValue]> {
+    this.flushUndo();
     const marker = this.findMarker(markerID);
     const prev: Array<[string, ZeroAttrValue]> = [];
     if (!marker) {
@@ -643,7 +689,14 @@ export class CRDTZeroTree extends CRDTElement {
     if (!this.index || !plan) {
       return;
     }
-    const change = this.index.commit(plan, changes);
+    this.keep(this.index.commit(plan, changes));
+  }
+
+  /**
+   * `keep` adds what one change did to the model to what the operation being
+   * collected did so far (see `takeChange`).
+   */
+  private keep(change: ZeroChange): void {
     if (!this.collecting) {
       return;
     }
@@ -689,6 +742,7 @@ export class CRDTZeroTree extends CRDTElement {
         wholeAfter?: Array<ViewEntry>;
       })
     | undefined {
+    this.flushUndo();
     const change = this.change;
     this.change = undefined;
     this.collecting = false;

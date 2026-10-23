@@ -1,7 +1,8 @@
 // Random concurrent edits on four replicas. After every operation the model
 // the block index keeps must be the model built from the tokens from scratch,
 // and every event compiled on a window (blocks, table rows, one text node)
-// must be the event compiled on the whole document.
+// must be the event compiled on the whole document. A second batch undoes
+// and redoes a lot, so undos and redos take the block path too.
 import { describe, it, expect } from 'vitest';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
@@ -339,128 +340,175 @@ function wrapOps(
   };
 }
 
+/** how often a step undoes or redoes, and whether tombstones are collected */
+type Mix = { undo: number; redo: number; gc: boolean };
+
+/**
+ * `run` plays one seed on four replicas, checking the index and the window
+ * compiles after every step and convergence at the end.
+ */
+function run(seed: number, mix: Mix): void {
+  const r = rng(seed * 7919);
+  const init: ZeroNodeJSON = {
+    type: 'content',
+    children: [
+      para('abcdef'),
+      para('ghij'),
+      {
+        type: 'table',
+        children: [row(3, 'a'), row(3, 'b'), row(3, 'c'), row(3, 'd')],
+      },
+      para('klmnop'),
+      para('qr'),
+    ],
+  };
+  // docs[0] only creates the tree (its undo would remove it)
+  const docs = [1, 2, 3, 4].map((n) => {
+    const d = new Document<Root>('zero-fuzz');
+    d.setActor(`00000000000000000000000${n}`);
+    return d;
+  });
+  docs[0].update((root) => {
+    root.zt = new ZeroTree(init as never);
+  });
+  const net = new Net(docs);
+  net.syncAll();
+  CompileStats.verifyWindow = true;
+  CompileStats.windowMismatches.length = 0;
+  CompileStats.windows = 0;
+  IndexStats.blocks = 0;
+  IndexStats.rows = 0;
+  IndexStats.wholes = 0;
+  IndexStats.escapes = 0;
+  IndexStats.reasons = {};
+  CompileStats.ways = {};
+  CompileStats.fallbacks = 0;
+  let label = 0;
+  for (let step = 0; step < 120; step++) {
+    const who = 1 + Math.floor(r() * (docs.length - 1));
+    const doc = docs[who];
+    const u = r();
+    if (u < mix.redo && doc.history.canRedo()) {
+      try {
+        doc.history.redo();
+      } catch {
+        // a redo the tree cannot place is not what this checks
+      }
+    } else if (u < mix.redo + mix.undo && doc.history.canUndo()) {
+      try {
+        doc.history.undo();
+      } catch {
+        // an undo the tree cannot place is not what this checks
+      }
+    } else {
+      const model = doc.getRoot().zt.toZeroContent();
+      const wrap =
+        r() < 0.25
+          ? wrapOps(model, doc.getRoot().zt.toCrdtView(), r, `L${++label}.`)
+          : undefined;
+      const ops = wrap ? wrap.ops : randomOps(model, r);
+      let applied = false;
+      if (ops) {
+        try {
+          doc.update((root) => root.zt.applyZeroOperations(ops));
+          applied = true;
+        } catch {
+          // an operation the editor would not issue on this model
+        }
+      }
+      const intent = wrap?.intent;
+      if (applied && intent?.virtual) {
+        // a node inserted at the start of a virtual parent lands there
+        // (characters typed concurrently into a deleted text may follow
+        // its own: compare the start)
+        const got = at(doc.getRoot().zt.toZeroContent(), intent.path);
+        expect(
+          firstText(got).startsWith(intent.label),
+          `step ${step} insert ${intent.path}`,
+        ).toBe(true);
+      }
+    }
+    // what the caches give is what a fresh copy (no caches) computes
+    for (const d of docs) {
+      const zt = d.getRootObject().get('zt') as unknown as CRDTZeroTree;
+      const fresh = zt.deepcopy();
+      expect(zt.toJSON()).toBe(fresh.toJSON());
+      const plain = (e: unknown) =>
+        JSON.stringify(e, (_, v) =>
+          typeof v === 'bigint'
+            ? v.toString()
+            : v && typeof v.toIDString === 'function'
+              ? v.toIDString()
+              : v,
+        );
+      expect(zt.liveEntries().map(plain)).toEqual(
+        fresh.liveEntries().map(plain),
+      );
+    }
+    if (mix.gc && step % 40 === 39) {
+      // everyone has everything: collect the tombstones
+      net.syncAll();
+      docs.forEach((d) => d.garbageCollect(d.getVersionVector()));
+    }
+    if (r() < 0.3) {
+      const i = Math.floor(r() * docs.length);
+      const j = (i + 1 + Math.floor(r() * (docs.length - 1))) % docs.length;
+      net.deliver(i, j);
+    }
+  }
+  net.syncAll();
+  CompileStats.verifyWindow = false;
+  const json = docs.map((d) => d.getRoot().zt.toJSON());
+  expect(json[1]).toBe(json[0]);
+  expect(json[2]).toBe(json[0]);
+  expect(json[3]).toBe(json[0]);
+  expect(CompileStats.windows).toBeGreaterThan(0);
+  expect(CompileStats.windowMismatches).toEqual([]);
+  expect(IndexStats.escapes).toBe(0);
+  if (process.env.FUZZ_REASONS) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('node:fs').appendFileSync(
+      process.env.FUZZ_REASONS,
+      JSON.stringify(IndexStats.reasons) + '\n',
+    );
+  }
+}
+
+const gc = process.env.FUZZ_GC !== '0';
+const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+
 describe('ZeroTree block index', () => {
   // 116, 156, 339 and 400 once diverged: a table row rebuilt without a row
   // elsewhere that took a cell marker it removed as its scope, and a
   // narrowed window that stopped short of a deeper marker the whole
   // compile counts into a new node.
-  const seeds = Array.from(
-    { length: Number(process.env.FUZZ_SEEDS ?? 40) },
-    (_, i) => i + 1,
-  );
-  it.each([...new Set([...seeds, 116, 156, 339, 400])])(
+  it.each([
+    ...new Set([
+      ...range(Number(process.env.FUZZ_SEEDS ?? 40)),
+      116,
+      156,
+      339,
+      400,
+    ]),
+  ])(
     '무작위 동시 편집에서 창 컴파일이 전체 컴파일과 같아야 한다 (seed %i)',
+    (seed) => run(seed, { undo: 0.08, redo: 0, gc }),
+  );
+
+  // 141, 190 and 256 once diverged: a redo removed again text another
+  // client's deletion held in the redoer's view.
+  it.each([
+    ...new Set([
+      ...range(Number(process.env.FUZZ_UNDO_SEEDS ?? 40)),
+      141,
+      190,
+      256,
+    ]),
+  ])(
+    '되돌리기·다시하기가 잦아도 색인 모델과 창 컴파일이 새로 지은 것과 같아야 한다 (seed %i)',
     (seed) => {
-      const r = rng(seed * 7919);
-      const init: ZeroNodeJSON = {
-        type: 'content',
-        children: [
-          para('abcdef'),
-          para('ghij'),
-          {
-            type: 'table',
-            children: [row(3, 'a'), row(3, 'b'), row(3, 'c'), row(3, 'd')],
-          },
-          para('klmnop'),
-          para('qr'),
-        ],
-      };
-      // docs[0] only creates the tree (its undo would remove it)
-      const docs = [1, 2, 3, 4].map((n) => {
-        const d = new Document<Root>('zero-fuzz');
-        d.setActor(`00000000000000000000000${n}`);
-        return d;
-      });
-      docs[0].update((root) => {
-        root.zt = new ZeroTree(init as never);
-      });
-      const net = new Net(docs);
-      net.syncAll();
-      CompileStats.verifyWindow = true;
-      CompileStats.windowMismatches.length = 0;
-      CompileStats.windows = 0;
-      IndexStats.blocks = 0;
-      IndexStats.rows = 0;
-      IndexStats.wholes = 0;
-      IndexStats.escapes = 0;
-      IndexStats.reasons = {};
-      CompileStats.ways = {};
-      CompileStats.fallbacks = 0;
-      let label = 0;
-      for (let step = 0; step < 120; step++) {
-        const who = 1 + Math.floor(r() * (docs.length - 1));
-        const doc = docs[who];
-        if (r() < 0.08 && doc.history.canUndo()) {
-          try {
-            doc.history.undo();
-          } catch {
-            // an undo the tree cannot place is not what this checks
-          }
-        } else {
-          const model = doc.getRoot().zt.toZeroContent();
-          const wrap =
-            r() < 0.25
-              ? wrapOps(model, doc.getRoot().zt.toCrdtView(), r, `L${++label}.`)
-              : undefined;
-          const ops = wrap ? wrap.ops : randomOps(model, r);
-          let applied = false;
-          if (ops) {
-            try {
-              doc.update((root) => root.zt.applyZeroOperations(ops));
-              applied = true;
-            } catch {
-              // an operation the editor would not issue on this model
-            }
-          }
-          const intent = wrap?.intent;
-          if (applied && intent?.virtual) {
-            // a node inserted at the start of a virtual parent lands there
-            // (characters typed concurrently into a deleted text may follow
-            // its own: compare the start)
-            const got = at(doc.getRoot().zt.toZeroContent(), intent.path);
-            expect(
-              firstText(got).startsWith(intent.label),
-              `step ${step} insert ${intent.path}`,
-            ).toBe(true);
-          }
-        }
-        // what the caches give is what a fresh copy (no caches) computes
-        for (const d of docs) {
-          const zt = d.getRootObject().get('zt') as unknown as CRDTZeroTree;
-          const fresh = zt.deepcopy();
-          expect(zt.toJSON()).toBe(fresh.toJSON());
-          const plain = (e: unknown) =>
-            JSON.stringify(e, (_, v) =>
-              typeof v === 'bigint'
-                ? v.toString()
-                : v && typeof v.toIDString === 'function'
-                  ? v.toIDString()
-                  : v,
-            );
-          expect(zt.liveEntries().map(plain)).toEqual(
-            fresh.liveEntries().map(plain),
-          );
-        }
-        if (step % 40 === 39) {
-          // everyone has everything: collect the tombstones
-          net.syncAll();
-          docs.forEach((d) => d.garbageCollect(d.getVersionVector()));
-        }
-        if (r() < 0.3) {
-          const i = Math.floor(r() * docs.length);
-          const j = (i + 1 + Math.floor(r() * (docs.length - 1))) % docs.length;
-          net.deliver(i, j);
-        }
-      }
-      net.syncAll();
-      CompileStats.verifyWindow = false;
-      const json = docs.map((d) => d.getRoot().zt.toJSON());
-      expect(json[1]).toBe(json[0]);
-      expect(json[2]).toBe(json[0]);
-      expect(json[3]).toBe(json[0]);
-      expect(CompileStats.windows).toBeGreaterThan(0);
-      expect(CompileStats.windowMismatches).toEqual([]);
-      expect(IndexStats.escapes).toBe(0);
+      run(seed, { undo: 0.23, redo: 0.12, gc });
+      expect(IndexStats.reasons['undo:blocks'] ?? 0).toBeGreaterThan(0);
     },
   );
 });
