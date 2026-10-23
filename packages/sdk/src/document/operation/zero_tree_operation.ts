@@ -41,9 +41,8 @@ import {
   ZeroTokens,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import {
-  compileEdit,
-  compileStyle,
-  ViewEntry,
+  compileChange,
+  compileStyleChange,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 import {
   ExecutionResult,
@@ -130,7 +129,7 @@ export class ZeroTreeEditOperation extends Operation {
     versionVector?: VersionVector,
   ): ExecutionResult {
     const tree = findTree(root, this.getParentCreatedAt());
-    const before: Array<ViewEntry> = tree.viewEntries();
+    tree.beginChange();
 
     let reverseOp: Operation | undefined;
     if (this.restoreSpans || this.retombstoneSpans) {
@@ -219,12 +218,11 @@ export class ZeroTreeEditOperation extends Operation {
       }
     }
 
-    const after = tree.viewEntries();
     return {
       opInfos: toOpInfos(
         root,
         this.getParentCreatedAt(),
-        compileEdit(before, after, tree.getSchema()),
+        compileChange(tree.takeChange(), tree.getSchema()),
       ),
       reverseOp,
     };
@@ -310,20 +308,18 @@ export class ZeroTreeStyleOperation extends Operation {
    */
   public execute(root: CRDTRoot): ExecutionResult {
     const tree = findTree(root, this.getParentCreatedAt());
-    const before = tree.viewEntries();
+    tree.beginChange();
     const prev = tree.setAttrs(
       this.markerID,
       this.writes,
       this.getExecutedAt(),
     );
-    const after = tree.viewEntries();
     return {
       opInfos: toOpInfos(
         root,
         this.getParentCreatedAt(),
-        compileStyle(
-          before,
-          after,
+        compileStyleChange(
+          tree.takeChange(),
           this.markerID.toIDString(),
           tree.getSchema(),
         ),

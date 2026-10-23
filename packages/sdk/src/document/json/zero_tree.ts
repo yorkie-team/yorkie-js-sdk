@@ -591,7 +591,7 @@ export class ZeroTree {
           this.columnFlags.set(table!.markerID!, flags);
         }
         for (const id of folded) {
-          const index = tree.liveEntries().findIndex((e) => e.id === id);
+          const index = tree.liveIndexOfMarker(id);
           if (index >= 0) {
             this.editLive(index, index + 1);
           }
@@ -622,7 +622,7 @@ export class ZeroTree {
           // every marker of the node goes, folded concurrent splits included
           // (those first, so the model never shows them on their own)
           for (const id of [...(node.group ?? [])].reverse()) {
-            const index = tree.liveEntries().findIndex((e) => e.id === id);
+            const index = tree.liveIndexOfMarker(id);
             if (index >= 0) {
               this.editLive(index, index + 1);
             }
@@ -701,8 +701,7 @@ export class ZeroTree {
     // split there sees its marker on the right).
     let boundary: string | undefined;
     if (text && at > 0) {
-      const entries = tree.viewEntries();
-      boundary = `${entries[at - 1].id}|${entries[at]?.id ?? '$'}`;
+      boundary = `${tree.viewIDAt(at - 1)}|${tree.viewIDAt(at) ?? '$'}`;
       if (paths.length > 1) {
         boundary += `#${paths.length}`;
       }

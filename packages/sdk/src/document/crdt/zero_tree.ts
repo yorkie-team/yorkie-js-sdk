@@ -46,11 +46,13 @@ import {
   RGATreeSplitPos,
   RGATreeSplitPosRange,
   RestoreSpan,
+  ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import {
+  CompileStats,
   DefaultZeroSchema,
   ViewEntry,
   ZNode,
@@ -65,6 +67,14 @@ import {
   toNodeJSON,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 import type { ZeroAttrValue } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
+import {
+  IndexStats,
+  note,
+  ZeroBlockIndex,
+  ZeroChange,
+  ZeroPlan,
+  tokenEntry,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree_index';
 
 /**
  * `ZeroAttr` is one LWW attribute register of a marker. `value` null means
@@ -345,6 +355,14 @@ export function toTokens(
 export class CRDTZeroTree extends CRDTElement {
   private rga: RGATreeSplit<ZeroTokens>;
   private schema: ZeroSchema;
+  /** the model by top-level block, built on first use (see `ZeroBlockIndex`) */
+  private index?: ZeroBlockIndex;
+  /** what the changes since `beginChange` did to the model */
+  private change?: ZeroChange;
+  /** the model's entries at `beginChange`, when checking (tests) */
+  private checkBefore?: Array<ViewEntry>;
+  /** between `beginChange` and `takeChange` */
+  private collecting = false;
 
   constructor(
     rga: RGATreeSplit<ZeroTokens>,
@@ -393,59 +411,29 @@ export class CRDTZeroTree extends CRDTElement {
     return this.rga;
   }
 
+  private ix(): ZeroBlockIndex {
+    if (!this.index) {
+      this.index = new ZeroBlockIndex(this.rga, this.schema);
+    }
+    return this.index;
+  }
+
   /**
-   * `liveEntries` returns the live tokens in order, with their identities.
-   * Attributes are copied: the entries are a snapshot.
+   * `liveEntries` returns the live tokens in order, with their identities
+   * (O(n): for tests and tools, not for editing).
    */
   public liveEntries(): Array<ViewEntry> {
-    const entries: Array<ViewEntry> = [];
-    for (const node of this.rga) {
-      if (node.isRemoved()) {
-        continue;
-      }
-      const value = node.getValue();
-      if (!value) {
-        continue;
-      }
-      const createdAt = node.getCreatedAt();
-      const base = node.getID().getOffset();
-      value.tokens.forEach((t, i) => {
-        const id = RGATreeSplitNodeID.of(createdAt, base + i).toIDString();
-        if (typeof t === 'string') {
-          entries.push({ id, char: t, scope: value.scope });
-        } else {
-          const registers: Record<
-            string,
-            { value: ZeroAttrValue; at: TimeTicket }
-          > = {};
-          t.attrs.forEach((attr, key) => {
-            registers[key] = { value: attr.value, at: attr.updatedAt };
-          });
-          entries.push({
-            id,
-            marker: {
-              type: t.type,
-              depth: t.depth,
-              attrs: t.toObject(),
-              boundary: t.boundary,
-              registers,
-            },
-            scope: value.scope,
-          });
-        }
-      });
-    }
-    return entries;
+    return this.ix().wholeEntries().raw;
   }
 
   /**
    * `viewEntries` returns the live tokens the model is made of: concurrent
    * splits of one boundary folded into the first (see `dealias`). Indexes of
    * the model (`ZNode.start`, `textStart`, ...) and of `indexToPos`,
-   * `posToIndex` and `idAt` count these entries.
+   * `posToIndex` and `idAt` count these entries. O(n).
    */
   public viewEntries(): Array<ViewEntry> {
-    return dealias(this.liveEntries(), this.schema).entries;
+    return this.ix().wholeEntries().view;
   }
 
   /**
@@ -456,20 +444,22 @@ export class CRDTZeroTree extends CRDTElement {
    * tokens never takes the folded markers around it along.
    */
   private liveIndexOf(index: number, end = false): number {
-    const { live } = dealias(this.liveEntries(), this.schema);
+    const ix = this.ix();
+    const length = ix.getViewLength();
     if (end) {
-      return index <= 0 ? 0 : live[Math.min(index, live.length) - 1] + 1;
+      return index <= 0 ? 0 : ix.viewToRaw(Math.min(index, length) - 1) + 1;
     }
-    return index < live.length
-      ? live[Math.max(index, 0)]
-      : this.liveEntries().length;
+    return index < length
+      ? ix.viewToRaw(Math.max(index, 0))
+      : ix.getRawLength();
   }
 
   /**
-   * `view` builds the Zero model of the current state.
+   * `view` returns the Zero model of the current state. It is kept up to
+   * date in place: read what you need before changing the tree.
    */
   public view(): ZNode {
-    return buildView(this.viewEntries(), this.schema);
+    return this.ix().root;
   }
 
   /**
@@ -498,13 +488,26 @@ export class CRDTZeroTree extends CRDTElement {
    * `posToIndex` converts a position to a live-token index.
    */
   public posToIndex(pos: RGATreeSplitPos): number {
-    const raw = this.rga.posToIndex(pos, true);
-    const { live } = dealias(this.liveEntries(), this.schema);
-    let index = 0;
-    while (index < live.length && live[index] < raw) {
-      index++;
+    return this.ix().rawToView(this.rga.posToIndex(pos, true));
+  }
+
+  /**
+   * `liveIndexOfMarker` returns the index in `liveEntries` of the live
+   * marker whose string form is `id` (a folded one included), or -1.
+   */
+  public liveIndexOfMarker(id: string): number {
+    return this.ix().rawIndexOfMarker(id);
+  }
+
+  /**
+   * `viewIDAt` returns the string form of the id of the view token at
+   * `index`, or undefined past the end.
+   */
+  public viewIDAt(index: number): string | undefined {
+    if (index < 0 || index >= this.ix().getViewLength()) {
+      return;
     }
-    return index;
+    return this.idAt(index).toIDString();
   }
 
   /**
@@ -525,20 +528,15 @@ export class CRDTZeroTree extends CRDTElement {
    * is `id` (a folded marker included), or undefined when it is not live.
    */
   public markerIDOf(id: string): RGATreeSplitNodeID | undefined {
-    const raw = this.liveEntries().findIndex((e) => e.id === id);
-    if (raw < 0) {
-      return;
-    }
-    const abs = this.rga.indexToPos(raw + 1).getAbsoluteID();
-    return RGATreeSplitNodeID.of(abs.getCreatedAt(), abs.getOffset() - 1);
+    return this.ix().markerID(id);
   }
 
   /**
    * `idAt` returns the absolute id of the live token at `index`.
    */
   public idAt(index: number): RGATreeSplitNodeID {
-    const { live } = dealias(this.liveEntries(), this.schema);
-    const raw = live[index] ?? index;
+    const ix = this.ix();
+    const raw = index < ix.getViewLength() ? ix.viewToRaw(index) : index;
     const abs = this.rga.indexToPos(raw + 1).getAbsoluteID();
     return RGATreeSplitNodeID.of(abs.getCreatedAt(), abs.getOffset() - 1);
   }
@@ -552,12 +550,16 @@ export class CRDTZeroTree extends CRDTElement {
     editedAt: TimeTicket,
     versionVector?: VersionVector,
   ): [Array<GCPair>, DataSize, Array<RestoreSpan<ZeroTokens>>] {
-    const [, pairs, diff, , , removedSpans] = this.rga.edit(
+    const from = this.index ? this.rga.landingIndex(range[0], editedAt) : 0;
+    const to = this.index ? this.rga.landingIndex(range[1], editedAt) : 0;
+    const plan = this.index?.plan(from, Math.max(from, to), value, editedAt);
+    const [, pairs, diff, changes, , removedSpans] = this.rga.edit(
       range,
       editedAt,
       value,
       versionVector,
     );
+    this.record(plan, changes);
     // An undo of this edit cancels exactly this deletion (see `RestoreSpan`).
     return [
       pairs,
@@ -574,7 +576,11 @@ export class CRDTZeroTree extends CRDTElement {
     executedAt: TimeTicket,
     fallbackAnchor?: RGATreeSplitPos,
   ) {
-    return this.rga.restore(spans, executedAt, fallbackAnchor);
+    const plan = this.index?.planWhole();
+    note('restore');
+    const result = this.rga.restore(spans, executedAt, fallbackAnchor);
+    this.record(plan);
+    return result;
   }
 
   /**
@@ -585,7 +591,11 @@ export class CRDTZeroTree extends CRDTElement {
     executedAt: TimeTicket,
     versionVector?: VersionVector,
   ) {
-    return this.rga.retombstone(spans, executedAt, versionVector);
+    const plan = this.index?.planWhole();
+    note('retombstone');
+    const result = this.rga.retombstone(spans, executedAt, versionVector);
+    this.record(plan);
+    return result;
   }
 
   /**
@@ -602,13 +612,124 @@ export class CRDTZeroTree extends CRDTElement {
     if (!marker) {
       return prev;
     }
+    const at = this.index?.rawIndexOfMarker(markerID.toIDString()) ?? -1;
+    const plan = at >= 0 ? this.index!.plan(at, at + 1) : undefined;
     for (const [k, v] of writes) {
       const [old, applied] = marker.set(k, v, editedAt);
       if (applied) {
         prev.push([k, old === undefined ? null : old]);
       }
     }
+    if (plan) {
+      this.record(plan);
+    }
     return prev;
+  }
+
+  /**
+   * `record` brings the index up to date after a change of the tokens and
+   * keeps what the change did for `takeChange`.
+   */
+  private record(
+    plan: ZeroPlan | undefined,
+    changes?: Array<ValueChange<ZeroTokens>>,
+  ): void {
+    if (!this.index || !plan) {
+      return;
+    }
+    const change = this.index.commit(plan, changes);
+    if (!this.collecting) {
+      return;
+    }
+    if (!this.change) {
+      this.change = change;
+      return;
+    }
+    // two changes in one operation (an undo re-removing and restoring):
+    // both whole, from the first one's before to the last one's after
+    if (!this.change.whole || !change.whole) {
+      IndexStats.escapes++;
+      note('record:mixed');
+    }
+    this.change = {
+      before: this.change.before,
+      after: change.whole ? change.after : this.ix().wholeEntries().view,
+      offset: 0,
+      whole: true,
+    };
+  }
+
+  /**
+   * `beginChange` starts collecting what the following changes do to the
+   * model (see `takeChange`).
+   */
+  public beginChange(): void {
+    this.ix();
+    this.change = undefined;
+    this.collecting = true;
+    this.checkBefore = CompileStats.verifyWindow
+      ? this.ix().wholeEntries().view
+      : undefined;
+  }
+
+  /**
+   * `takeChange` returns what the changes since `beginChange` did to the
+   * model. Checking (tests), it also compares the index with the model built
+   * from scratch and gives the whole document before and after.
+   */
+  public takeChange():
+    | (ZeroChange & {
+        wholeBefore?: Array<ViewEntry>;
+        wholeAfter?: Array<ViewEntry>;
+      })
+    | undefined {
+    const change = this.change;
+    this.change = undefined;
+    this.collecting = false;
+    if (!this.checkBefore) {
+      return change;
+    }
+    const before = this.checkBefore;
+    this.checkBefore = undefined;
+    const after = dealias(this.rawEntriesForCheck(), this.schema).entries;
+    const fresh = buildView(after, this.schema);
+    const shape = (n: ZNode): unknown => ({
+      type: n.type,
+      depth: n.depth,
+      attrs: n.attrs,
+      markerID: n.markerID,
+      virtual: n.virtual,
+      text: n.text,
+      start: n.start,
+      end: n.end,
+      textStart: n.textStart,
+      group: n.group,
+      col: n.col,
+      children: n.children.map(shape),
+    });
+    const a = JSON.stringify(shape(this.ix().root));
+    const b = JSON.stringify(shape(fresh));
+    if (a !== b) {
+      CompileStats.windowMismatches.push({ windowed: a, whole: b });
+    }
+    return change && { ...change, wholeBefore: before, wholeAfter: after };
+  }
+
+  private rawEntriesForCheck(): Array<ViewEntry> {
+    // straight from the RGA, not through the index
+    const entries: Array<ViewEntry> = [];
+    for (const node of this.rga) {
+      const value = node.getValue();
+      if (node.isRemoved() || !value) {
+        continue;
+      }
+      const key = node.getCreatedAt().toIDString();
+      const base = node.getID().getOffset();
+      value.tokens.forEach((t, i) =>
+        entries.push(tokenEntry(t, `${key}:${base + i}`, value.scope)),
+      );
+    }
+    return entries;
   }
 
   /**

@@ -1,0 +1,312 @@
+// Random concurrent edits on four replicas. After every operation the model
+// the block index keeps must be the model built from the tokens from scratch,
+// and every event compiled on a window (blocks, table rows, one text node)
+// must be the event compiled on the whole document.
+import { describe, it, expect } from 'vitest';
+import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
+import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
+import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operation/edit_operation';
+import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
+import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
+import { IndexStats } from '@yorkie-js/sdk/src/document/crdt/zero_tree_index';
+import {
+  CompileStats,
+  ZeroNodeJSON,
+  ZeroOperation,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
+
+type Root = { zt: ZeroTree };
+const capable = [RestoreRemovedByCapability];
+
+/** a server log: replicas push their changes and pull the log in order */
+class Net {
+  private log: Array<{ from: number; change: unknown }> = [];
+  private pushed: Array<number>;
+  private cursor: Array<number>;
+  constructor(private docs: Array<Document<Root>>) {
+    this.pushed = docs.map(() => 0);
+    this.cursor = docs.map(() => 0);
+  }
+  push(i: number): void {
+    const changes = this.docs[i].createChangePack().getChanges();
+    for (const c of changes) {
+      if (c.getID().getClientSeq() > this.pushed[i]) {
+        this.log.push({ from: i, change: c });
+        this.pushed[i] = c.getID().getClientSeq();
+      }
+    }
+  }
+  pull(j: number): void {
+    const fresh = this.log
+      .slice(this.cursor[j])
+      .filter((e) => e.from !== j)
+      .map((e) => e.change);
+    this.cursor[j] = this.log.length;
+    if (!fresh.length) {
+      return;
+    }
+    const pack = converter.fromChangePack<Indexable>(
+      converter.toChangePack(
+        ChangePack.create(
+          this.docs[j].getKey(),
+          Checkpoint.of(0n, 0),
+          false,
+          fresh as never,
+          InitialVersionVector,
+          undefined,
+          0n,
+          capable,
+        ),
+      ),
+    );
+    this.docs[j].applyChangePack(
+      ChangePack.create(
+        pack.getDocumentKey(),
+        Checkpoint.of(0n, 0),
+        false,
+        pack.getChanges() as never,
+        InitialVersionVector,
+        undefined,
+        0n,
+        capable,
+      ),
+    );
+  }
+  deliver(i: number, j: number): void {
+    this.push(i);
+    this.pull(j);
+  }
+  syncAll(): void {
+    this.docs.forEach((_, i) => this.push(i));
+    this.docs.forEach((_, j) => this.pull(j));
+  }
+}
+
+function rng(seed: number) {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+const para = (t: string): ZeroNodeJSON => ({
+  type: 'paragraph',
+  children: [{ type: 'inline-text', data: t }],
+});
+const cell = (t: string): ZeroNodeJSON => ({
+  type: 'table-cell',
+  children: [{ type: 'table-cell-body', children: [para(t)] }],
+});
+const row = (cols: number, t: string): ZeroNodeJSON => ({
+  type: 'table-row',
+  children: Array.from({ length: cols }, (_, c) => cell(`${t}${c}`)),
+});
+
+/** text holders (inline-text) with their paths */
+function holders(
+  node: ZeroNodeJSON,
+  path: Array<number> = [],
+  acc: Array<{ path: Array<number>; len: number }> = [],
+): Array<{ path: Array<number>; len: number }> {
+  (node.children ?? []).forEach((c, i) => {
+    if (c.type === 'inline-text') {
+      acc.push({ path: [...path, i], len: String(c.data ?? '').length });
+    } else {
+      holders(c, [...path, i], acc);
+    }
+  });
+  return acc;
+}
+
+function randomOps(
+  model: ZeroNodeJSON,
+  r: () => number,
+): Array<ZeroOperation> | undefined {
+  const pick = <T>(xs: Array<T>): T => xs[Math.floor(r() * xs.length)];
+  const hs = holders(model);
+  const blocks = model.children ?? [];
+  const x = r();
+  if (!hs.length) {
+    return [['insert', [0], [para('new')]]];
+  }
+  const h = pick(hs);
+  const off = Math.floor(r() * (h.len + 1));
+  if (x < 0.3) {
+    return [['insert', [...h.path, off], pick(['a', 'bc', '가', 'xyz'])]];
+  }
+  if (x < 0.42 && h.len > 0) {
+    const from = Math.floor(r() * h.len);
+    return [['delete', [...h.path, from], 1 + Math.floor(r() * 3)]];
+  }
+  if (x < 0.57) {
+    // Enter: split the text, then its paragraph after it
+    const pp = h.path.slice(0, -1);
+    const i = h.path[h.path.length - 1];
+    return [
+      ['split', [...h.path, off]],
+      ['split', [...pp, i + 1]],
+    ];
+  }
+  if (x < 0.69) {
+    // Backspace at a paragraph start: merge it into the paragraph before
+    const pp = h.path.slice(0, -1);
+    const bi = pp[pp.length - 1];
+    if (bi > 0) {
+      const container = pp.slice(0, -1);
+      let parent: ZeroNodeJSON = model;
+      for (const k of container) {
+        parent = parent.children![k];
+      }
+      const prev = parent.children![bi - 1];
+      if (prev.type === 'paragraph') {
+        const k = prev.children?.length ?? 0;
+        const left = prev.children?.[k - 1];
+        const right = parent.children![bi].children?.[0];
+        const ops: Array<ZeroOperation> = [['merge', pp]];
+        if (
+          left?.type === 'inline-text' &&
+          right?.type === 'inline-text' &&
+          JSON.stringify(left.style ?? {}) === JSON.stringify(right.style ?? {})
+        ) {
+          ops.push(['merge', [...container, bi - 1, k]]);
+        }
+        return ops;
+      }
+    }
+    return;
+  }
+  if (x < 0.79) {
+    return [['update', h.path, { style: { bold: r() < 0.5 ? true : null } }]];
+  }
+  if (x < 0.85) {
+    return [['insert', [Math.floor(r() * (blocks.length + 1))], [para('ins')]]];
+  }
+  if (x < 0.9 && blocks.length > 2) {
+    return [['delete', [Math.floor(r() * blocks.length)], 1]];
+  }
+  // table rows
+  const t = blocks.findIndex((b) => b.type === 'table');
+  if (t < 0) {
+    return [
+      ['insert', [blocks.length], [{ type: 'table', children: [row(3, 'n')] }]],
+    ];
+  }
+  const rows = blocks[t].children ?? [];
+  if (r() < 0.6 || rows.length < 2) {
+    const cols = rows[0]?.children?.length ?? 3;
+    return [
+      ['insert', [t, Math.floor(r() * (rows.length + 1))], [row(cols, 'r')]],
+    ];
+  }
+  return [['delete', [t, Math.floor(r() * rows.length)], 1]];
+}
+
+describe('ZeroTree block index', () => {
+  it.each(
+    Array.from(
+      { length: Number(process.env.FUZZ_SEEDS ?? 40) },
+      (_, i) => i + 1,
+    ),
+  )(
+    '무작위 동시 편집에서 창 컴파일이 전체 컴파일과 같아야 한다 (seed %i)',
+    (seed) => {
+      const r = rng(seed * 7919);
+      const init: ZeroNodeJSON = {
+        type: 'content',
+        children: [
+          para('abcdef'),
+          para('ghij'),
+          {
+            type: 'table',
+            children: [row(3, 'a'), row(3, 'b'), row(3, 'c'), row(3, 'd')],
+          },
+          para('klmnop'),
+          para('qr'),
+        ],
+      };
+      // docs[0] only creates the tree (its undo would remove it)
+      const docs = [1, 2, 3, 4].map((n) => {
+        const d = new Document<Root>('zero-fuzz');
+        d.setActor(`00000000000000000000000${n}`);
+        return d;
+      });
+      docs[0].update((root) => {
+        root.zt = new ZeroTree(init as never);
+      });
+      const net = new Net(docs);
+      net.syncAll();
+      CompileStats.verifyWindow = true;
+      CompileStats.windowMismatches.length = 0;
+      CompileStats.windows = 0;
+      IndexStats.blocks = 0;
+      IndexStats.rows = 0;
+      IndexStats.wholes = 0;
+      IndexStats.escapes = 0;
+      IndexStats.reasons = {};
+      CompileStats.ways = {};
+      CompileStats.fallbacks = 0;
+      for (let step = 0; step < 120; step++) {
+        const who = 1 + Math.floor(r() * (docs.length - 1));
+        const doc = docs[who];
+        if (r() < 0.08 && doc.history.canUndo()) {
+          try {
+            doc.history.undo();
+          } catch {
+            // an undo the tree cannot place is not what this checks
+          }
+        } else {
+          const ops = randomOps(doc.getRoot().zt.toZeroContent(), r);
+          if (ops) {
+            try {
+              doc.update((root) => root.zt.applyZeroOperations(ops));
+            } catch {
+              // an operation the editor would not issue on this model
+            }
+          }
+        }
+        // what the caches give is what a fresh copy (no caches) computes
+        for (const d of docs) {
+          const zt = d.getRootObject().get('zt') as unknown as CRDTZeroTree;
+          const fresh = zt.deepcopy();
+          expect(zt.toJSON()).toBe(fresh.toJSON());
+          const plain = (e: unknown) =>
+            JSON.stringify(e, (_, v) =>
+              typeof v === 'bigint'
+                ? v.toString()
+                : v && typeof v.toIDString === 'function'
+                  ? v.toIDString()
+                  : v,
+            );
+          expect(zt.liveEntries().map(plain)).toEqual(
+            fresh.liveEntries().map(plain),
+          );
+        }
+        if (step % 40 === 39) {
+          // everyone has everything: collect the tombstones
+          net.syncAll();
+          docs.forEach((d) => d.garbageCollect(d.getVersionVector()));
+        }
+        if (r() < 0.3) {
+          const i = Math.floor(r() * docs.length);
+          const j = (i + 1 + Math.floor(r() * (docs.length - 1))) % docs.length;
+          net.deliver(i, j);
+        }
+      }
+      net.syncAll();
+      CompileStats.verifyWindow = false;
+      const json = docs.map((d) => d.getRoot().zt.toJSON());
+      expect(json[1]).toBe(json[0]);
+      expect(json[2]).toBe(json[0]);
+      expect(json[3]).toBe(json[0]);
+      expect(CompileStats.windows).toBeGreaterThan(0);
+      expect(CompileStats.windowMismatches).toEqual([]);
+      expect(IndexStats.escapes).toBe(0);
+    },
+  );
+});

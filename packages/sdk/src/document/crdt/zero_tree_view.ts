@@ -419,6 +419,9 @@ export function buildView(
   };
   const stack: Array<ZNode> = [root];
   const top = () => stack[stack.length - 1];
+  // characters by holder, joined once at the end (`+=` per character keeps
+  // a rope node per character alive)
+  const texts = new Map<ZNode, Array<string>>();
 
   const open = (
     type: string,
@@ -582,10 +585,15 @@ export function buildView(
       open(textType, top().depth + 1, i);
     }
     const holder = top();
-    if (!holder.text.length && holder.virtual) {
-      holder.textStart = i;
+    let chars = texts.get(holder);
+    if (!chars) {
+      chars = [];
+      texts.set(holder, chars);
+      if (holder.virtual) {
+        holder.textStart = i;
+      }
     }
-    holder.text += entry.char;
+    chars.push(entry.char!);
     for (const n of stack) {
       n.end = i + 1;
     }
@@ -593,6 +601,9 @@ export function buildView(
   while (stack.length > 1) {
     close(entries.length);
   }
+  texts.forEach((chars, node) => {
+    node.text = chars.join('');
+  });
   ensureChildren(root, entries.length);
   padColumns(root);
   fixSpans(root);
@@ -1045,6 +1056,16 @@ export function stableStringify(value: unknown): string {
 export const CompileStats = {
   steps: 0,
   fallbacks: 0,
+  /** how changes were compiled: `same`, `text`, `narrow`, `window` */
+  ways: {} as Record<string, number>,
+  /** compile the whole document too and count where a window differs */
+  verifyWindow: false,
+  windows: 0,
+  windowMismatches: [] as Array<{
+    windowed: unknown;
+    whole: unknown;
+    way?: string;
+  }>,
   samples: [] as Array<{
     from: unknown;
     to: unknown;
@@ -1508,6 +1529,22 @@ function removedNodeEndingAt(
 }
 
 /**
+ * `shiftOps` moves operations on a window's top-level nodes to the document.
+ */
+function shiftOps(
+  ops: Array<ZeroOperation>,
+  offset: number,
+): Array<ZeroOperation> {
+  if (!offset) {
+    return ops;
+  }
+  return ops.map(([kind, path, data]) => {
+    const moved = [path[0] + offset, ...path.slice(1)];
+    return data === undefined ? [kind, moved] : [kind, moved, data];
+  });
+}
+
+/**
  * `compileEdit` returns the Zero operations that turn the view of `before`
  * into the view of `after`, where `after` is `before` with some tokens removed
  * and one or more runs of tokens inserted (what one edit of the CRDT does).
@@ -1516,6 +1553,519 @@ export function compileEdit(
   before: Array<ViewEntry>,
   after: Array<ViewEntry>,
   schema: ZeroSchema = DefaultZeroSchema,
+): Array<ZeroOperation> {
+  return compileWhole(before, after, schema);
+}
+
+/**
+ * `ZeroModelChange` is what a change did to the model: the view entries of a
+ * run of whole top-level nodes before and after it, `offset` top-level nodes
+ * in front of them (see `ZeroBlockIndex`). Checking, the whole document too.
+ */
+export type ZeroModelChange = {
+  before: Array<ViewEntry>;
+  after: Array<ViewEntry>;
+  offset: number;
+  /** some rows of a table: the table marker and rows from `rows` on */
+  rows?: number;
+  widen?: () => { before: Array<ViewEntry>; after: Array<ViewEntry> };
+  wholeBefore?: Array<ViewEntry>;
+  wholeAfter?: Array<ViewEntry>;
+};
+
+/**
+ * `sameEntry` tells whether two view entries are the same token holding the
+ * same content: for a marker, its shape, attributes, registers and folded
+ * markers too (what `buildView` reads).
+ */
+function sameEntry(x: ViewEntry, y: ViewEntry): boolean {
+  if (x === y) {
+    return true;
+  }
+  if (x.id !== y.id || x.char !== y.char || x.scope !== y.scope) {
+    return false;
+  }
+  const a = x.marker;
+  const b = y.marker;
+  if (!a || !b) {
+    return !a && !b;
+  }
+  if (
+    a.type !== b.type ||
+    a.depth !== b.depth ||
+    a.boundary !== b.boundary ||
+    (x.aliases ?? []).join() !== (y.aliases ?? []).join()
+  ) {
+    return false;
+  }
+  const ka = Object.keys(a.registers ?? {});
+  if (ka.length !== Object.keys(b.registers ?? {}).length) {
+    return false;
+  }
+  for (const k of ka) {
+    const ra = a.registers![k];
+    const rb = b.registers![k];
+    if (
+      !rb ||
+      ra.value !== rb.value ||
+      (ra.at !== rb.at && (ra.at.after(rb.at) || rb.at.after(ra.at)))
+    ) {
+      return false;
+    }
+  }
+  const aa = Object.keys(a.attrs);
+  if (aa.length !== Object.keys(b.attrs).length) {
+    return false;
+  }
+  return aa.every((k) => a.attrs[k] === b.attrs[k]);
+}
+
+/**
+ * `Difference` is where two runs of view entries differ: [from, beforeEnd)
+ * of `before` became [from, afterEnd) of `after`, with their models.
+ */
+type Difference = {
+  from: number;
+  beforeEnd: number;
+  afterEnd: number;
+  viewBefore: ZNode;
+  viewAfter: ZNode;
+};
+
+/**
+ * `differenceOf` returns where `before` and `after` differ, or undefined
+ * when they hold the same tokens.
+ */
+function differenceOf(
+  before: Array<ViewEntry>,
+  after: Array<ViewEntry>,
+  schema: ZeroSchema,
+): Difference | undefined {
+  const n = Math.min(before.length, after.length);
+  let p = 0;
+  while (p < n && sameEntry(before[p], after[p])) {
+    p++;
+  }
+  if (p === before.length && p === after.length) {
+    return;
+  }
+  let q = 0;
+  while (
+    q < n - p &&
+    sameEntry(before[before.length - 1 - q], after[after.length - 1 - q])
+  ) {
+    q++;
+  }
+  return {
+    from: p,
+    beforeEnd: before.length - q,
+    afterEnd: after.length - q,
+    viewBefore: buildView(before, schema),
+    viewAfter: buildView(after, schema),
+  };
+}
+
+/**
+ * `holderOver` returns the text node whose characters cover [from, to).
+ */
+function holderOver(
+  node: ZNode,
+  from: number,
+  to: number,
+  schema: ZeroSchema,
+): ZNode | undefined {
+  for (const child of node.children) {
+    if (child.start > from) {
+      break;
+    }
+    if (to > child.end) {
+      continue;
+    }
+    if (isTextType(schema, child.type)) {
+      if (
+        child.textStart <= from &&
+        to <= child.textStart + child.text.length
+      ) {
+        return child;
+      }
+      continue;
+    }
+    const found = holderOver(child, from, to, schema);
+    if (found) {
+      return found;
+    }
+  }
+  return;
+}
+
+/**
+ * `plainAncestry` tells whether every ancestor of a node is a real node and
+ * no table among them pads a row (see `padded`).
+ */
+function plainAncestry(node: ZNode, schema: ZeroSchema): boolean {
+  for (let n = node.parent; n && n.parent; n = n.parent) {
+    if (n.virtual || padded(n, schema)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * `textOps` returns the operations of a change that only removed and
+ * inserted characters of one text node, the ones `compileWhole` arrives at
+ * (checked against it in tests). Undefined for any other change.
+ */
+function textOps(
+  before: Array<ViewEntry>,
+  after: Array<ViewEntry>,
+  d: Difference,
+  schema: ZeroSchema,
+): Array<ZeroOperation> | undefined {
+  const { from, beforeEnd, afterEnd } = d;
+  // one run gone and one run new: nothing between them that stayed
+  const ids = new Set<string>();
+  for (let i = from; i < beforeEnd; i++) {
+    if (before[i].char === undefined) {
+      return;
+    }
+    ids.add(before[i].id);
+  }
+  for (let i = from; i < afterEnd; i++) {
+    if (after[i].char === undefined || ids.has(after[i].id)) {
+      return;
+    }
+  }
+  // markers of one boundary merge when adjacent (see `buildView`): the
+  // characters must not come between such two, nor leave them adjacent
+  const left = before[from - 1]?.marker?.boundary;
+  if (
+    left &&
+    (before[beforeEnd]?.marker?.boundary === left ||
+      after[afterEnd]?.marker?.boundary === left)
+  ) {
+    return;
+  }
+  const ops: Array<ZeroOperation> = [];
+  if (beforeEnd > from) {
+    const holder = holderOver(d.viewBefore, from, beforeEnd, schema);
+    // a real text node, still there after (a virtual one may vanish)
+    if (!holder || holder.virtual || !plainAncestry(holder, schema)) {
+      return;
+    }
+    const path = pathOf(holder);
+    if (findNode(d.viewAfter, path)?.markerID !== holder.markerID) {
+      return;
+    }
+    ops.push(['delete', [...path, from - holder.textStart], beforeEnd - from]);
+  }
+  if (afterEnd > from) {
+    const holder = holderOver(d.viewAfter, from, afterEnd, schema);
+    if (!holder || holder.virtual || !plainAncestry(holder, schema)) {
+      return;
+    }
+    const path = pathOf(holder);
+    const prior = findNode(d.viewBefore, path);
+    if (
+      !prior ||
+      !isTextType(schema, prior.type) ||
+      prior.markerID !== holder.markerID
+    ) {
+      return;
+    }
+    ops.push([
+      'insert',
+      [...path, from - holder.textStart],
+      after
+        .slice(from, afterEnd)
+        .map((e) => e.char)
+        .join(''),
+    ]);
+  }
+  return ops;
+}
+
+/**
+ * `Narrowed` is a change cut down to the children of the deepest node
+ * holding it: the window's entries behind the markers of that node and its
+ * ancestors, and how to take operations on it back to the window.
+ */
+type Narrowed = {
+  before: Array<ViewEntry>;
+  after: Array<ViewEntry>;
+  back: (ops: Array<ZeroOperation>) => Array<ZeroOperation> | undefined;
+};
+
+/**
+ * `padded` tells whether a table has an empty cell for a column one of its
+ * rows missed (see `padColumns`): which columns there are depends on every
+ * row, so its rows are not compiled apart.
+ */
+export function padded(node: ZNode, schema: ZeroSchema): boolean {
+  if (node.type !== schema.grid?.table) {
+    return false;
+  }
+  return node.children.some(
+    (row) => row.virtual || row.children.some((cell) => cell.virtual),
+  );
+}
+
+/**
+ * `narrow` cuts a change down to the children of the deepest real node
+ * that holds it in both models (a row, a cell, a paragraph): the operations
+ * of those children with the node's markers in front are the operations of
+ * the window. Undefined when the change is not inside such a node.
+ */
+function narrow(
+  before: Array<ViewEntry>,
+  after: Array<ViewEntry>,
+  d: Difference,
+  schema: ZeroSchema,
+): Narrowed | undefined {
+  const { from, beforeEnd, afterEnd } = d;
+  const delta = after.length - before.length;
+  const chain: Array<[ZNode, number]> = [];
+  let nb = d.viewBefore;
+  let na = d.viewAfter;
+  for (;;) {
+    let k = -1;
+    for (let i = 0; i < nb.children.length; i++) {
+      const c = nb.children[i];
+      if (c.start >= from) {
+        break;
+      }
+      if (beforeEnd <= c.end) {
+        k = i;
+        break;
+      }
+    }
+    const c = nb.children[k];
+    const c2 = na.children[k];
+    if (
+      !c ||
+      !c2 ||
+      c.virtual ||
+      c2.virtual ||
+      !c.markerID ||
+      c2.markerID !== c.markerID ||
+      c2.start !== c.start ||
+      c2.end !== c.end + delta ||
+      afterEnd > c2.end ||
+      isTextType(schema, c.type) ||
+      !c.children.length ||
+      before[c.start]?.id !== c.markerID ||
+      padded(c, schema) ||
+      padded(c2, schema)
+    ) {
+      break;
+    }
+    chain.push([c, k]);
+    nb = c;
+    na = c2;
+  }
+  if (!chain.length) {
+    return;
+  }
+  // the children of the node, from the one holding the token before the
+  // change to the one after it
+  const cb = nb.children;
+  const ca = na.children;
+  let k0 = 0;
+  for (let i = 0; i < cb.length && cb[i].start <= from - 1; i++) {
+    k0 = i;
+  }
+  const start = cb[k0]?.start;
+  if (start === undefined || start > from || ca[k0]?.start !== start) {
+    return;
+  }
+  let endBefore = nb.end;
+  let endAfter = na.end;
+  for (const c of cb) {
+    if (c.start > start && c.start >= beforeEnd) {
+      if (ca.some((x) => x.start === c.start + delta)) {
+        endBefore = c.start;
+        endAfter = c.start + delta;
+      }
+      break;
+    }
+  }
+  if (!ca.some((x) => x.start >= start && x.start < endAfter)) {
+    return;
+  }
+  const head = chain.map(([c]) => before[c.start]);
+  const prefix = chain.map(([, k]) => k);
+  const depth = chain.length;
+  return {
+    before: [...head, ...before.slice(start, endBefore)],
+    after: [...head, ...after.slice(start, endAfter)],
+    back: (ops) => {
+      const out: Array<ZeroOperation> = [];
+      for (const [kind, path, data] of ops) {
+        if (path.length <= depth || path.slice(0, depth).some((x) => x !== 0)) {
+          return;
+        }
+        const moved = [...prefix, path[depth] + k0, ...path.slice(depth + 1)];
+        out.push(data === undefined ? [kind, moved] : [kind, moved, data]);
+      }
+      return out;
+    },
+  };
+}
+
+/**
+ * `countWay` counts how a change was compiled (tests read it).
+ */
+function countWay(way: string): void {
+  CompileStats.ways[way] = (CompileStats.ways[way] ?? 0) + 1;
+}
+
+/**
+ * `compileChange` returns the Zero operations of an edit of the tokens.
+ * Characters of one text node: the operations straight away. Otherwise the
+ * window is cut down to the deepest node holding the change, so the
+ * compiler's checks run over a row or a paragraph, not a whole table.
+ */
+export function compileChange(
+  change: ZeroModelChange | undefined,
+  schema: ZeroSchema = DefaultZeroSchema,
+): Array<ZeroOperation> {
+  if (!change) {
+    return [];
+  }
+  const [ops, way] = compileRows(change, (before, after) =>
+    compileWindow(before, after, schema),
+  );
+  countWay(way);
+  if (change.wholeBefore && change.wholeAfter) {
+    CompileStats.windows++;
+    verifyWindowed(
+      ops,
+      compileWhole(change.wholeBefore, change.wholeAfter, schema),
+      way,
+    );
+  }
+  return ops;
+}
+
+/**
+ * `compileWindow` compiles a window of whole nodes: characters of one text
+ * node straight away, otherwise cut down to the deepest node holding the
+ * change (see `narrow`), otherwise as it is.
+ */
+function compileWindow(
+  before: Array<ViewEntry>,
+  after: Array<ViewEntry>,
+  schema: ZeroSchema,
+): [Array<ZeroOperation>, string] {
+  const d = differenceOf(before, after, schema);
+  if (!d) {
+    return [[], 'same'];
+  }
+  const text = textOps(before, after, d, schema);
+  if (text) {
+    return [text, 'text'];
+  }
+  const n = narrow(before, after, d, schema);
+  const narrowed = n && n.back(compileWhole(n.before, n.after, schema));
+  if (narrowed) {
+    return [narrowed, 'narrow'];
+  }
+  return [compileWhole(before, after, schema), 'window'];
+}
+
+/**
+ * `compileRows` compiles a change with `compile`, taking the operations of
+ * some rows of a table to the table (or compiling the whole table when they
+ * reach beyond its rows), then to the document.
+ */
+function compileRows(
+  change: ZeroModelChange,
+  compile: (
+    before: Array<ViewEntry>,
+    after: Array<ViewEntry>,
+  ) => [Array<ZeroOperation>, string],
+): [Array<ZeroOperation>, string] {
+  let [ops, way] = compile(change.before, change.after);
+  if (change.rows !== undefined) {
+    const base = change.rows;
+    const moved: Array<ZeroOperation> = [];
+    for (const [kind, path, data] of ops) {
+      if (path.length < 2 || path[0] !== 0) {
+        const wide = change.widen!();
+        [ops, way] = compile(wide.before, wide.after);
+        return [shiftOps(ops, change.offset), `${way}:wide`];
+      }
+      const p = [0, path[1] + base, ...path.slice(2)];
+      moved.push(data === undefined ? [kind, p] : [kind, p, data]);
+    }
+    ops = moved;
+    way = `${way}:rows`;
+  }
+  return [shiftOps(ops, change.offset), way];
+}
+
+/**
+ * `compileStyleChange` returns the UPDATE of an attribute change.
+ */
+export function compileStyleChange(
+  change: ZeroModelChange | undefined,
+  markerID: string,
+  schema: ZeroSchema = DefaultZeroSchema,
+): Array<ZeroOperation> {
+  if (!change) {
+    return [];
+  }
+  const [ops, way] = compileRows(change, (before, after) => {
+    const d = differenceOf(before, after, schema);
+    if (!d) {
+      return [[], 'same'];
+    }
+    const n = narrow(before, after, d, schema);
+    const narrowed =
+      n && n.back(compileStyleWhole(n.before, n.after, markerID, schema));
+    if (narrowed) {
+      return [narrowed, 'narrow'];
+    }
+    return [compileStyleWhole(before, after, markerID, schema), 'window'];
+  });
+  countWay(way);
+  if (change.wholeBefore && change.wholeAfter) {
+    CompileStats.windows++;
+    verifyWindowed(
+      ops,
+      compileStyleWhole(
+        change.wholeBefore,
+        change.wholeAfter,
+        markerID,
+        schema,
+      ),
+      way,
+    );
+  }
+  return ops;
+}
+
+/**
+ * `verifyWindowed` records where a windowed compile differs from compiling
+ * the whole document (`CompileStats.verifyWindow`).
+ */
+function verifyWindowed(
+  windowed: Array<ZeroOperation>,
+  whole: Array<ZeroOperation>,
+  way?: string,
+): void {
+  if (JSON.stringify(windowed) !== JSON.stringify(whole)) {
+    CompileStats.windowMismatches.push({ windowed, whole, way });
+  }
+}
+
+/**
+ * `compileWhole` compiles an edit over all of the given entries.
+ */
+function compileWhole(
+  before: Array<ViewEntry>,
+  after: Array<ViewEntry>,
+  schema: ZeroSchema,
 ): Array<ZeroOperation> {
   const out: Array<ZeroOperation> = [];
   after = sameSplitAs(before, after);
@@ -1851,6 +2401,18 @@ export function compileStyle(
   after: Array<ViewEntry>,
   markerID: string,
   schema: ZeroSchema = DefaultZeroSchema,
+): Array<ZeroOperation> {
+  return compileStyleWhole(before, after, markerID, schema);
+}
+
+/**
+ * `compileStyleWhole` compiles a style change over all of the given entries.
+ */
+function compileStyleWhole(
+  before: Array<ViewEntry>,
+  after: Array<ViewEntry>,
+  markerID: string,
+  schema: ZeroSchema,
 ): Array<ZeroOperation> {
   const out: Array<ZeroOperation> = [];
   const prev = buildView(before, schema);

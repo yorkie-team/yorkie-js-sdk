@@ -1640,6 +1640,36 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
+   * `landingIndex` returns the index where an edit made at `editedAt` meets
+   * `pos`: where `findNodeWithSplit` puts it, past the nodes of concurrent
+   * newer insertions, without splitting anything.
+   */
+  public landingIndex(pos: RGATreeSplitPos, editedAt: TimeTicket): number {
+    const absoluteID = pos.getAbsoluteID();
+    const node = this.findFloorNodePreferToLeft(absoluteID);
+    const offset = absoluteID.getOffset() - node.getID().getOffset();
+    let index = this.treeByIndex.indexOf(node);
+    if (offset > 0 && offset < node.getContentLength()) {
+      // split here: the right part keeps the node's insertion time
+      index += node.isRemoved() ? 0 : offset;
+      if (!node.getCreatedAt().after(editedAt)) {
+        return index;
+      }
+      index += node.isRemoved() ? 0 : node.getContentLength() - offset;
+    } else {
+      index += node.getLength();
+    }
+    for (
+      let next = node.getNext();
+      next && next.getCreatedAt().after(editedAt);
+      next = next.getNext()
+    ) {
+      index += next.getLength();
+    }
+    return index;
+  }
+
+  /**
    * `findNodeWithSplit` splits and return nodes of the given position.
    */
   public findNodeWithSplit(
