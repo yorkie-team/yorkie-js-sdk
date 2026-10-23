@@ -1182,6 +1182,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           }
           continue;
         }
+        // A piece live here but removed in the redo's view (by a deletion
+        // whose undo the redo never saw) is left alone, as the redoing
+        // replica left it: like a deletion, a redo removes only what was
+        // live in its view.
+        if (
+          versionVector &&
+          versionVector.size() &&
+          piece.isRemovedInView(versionVector)
+        ) {
+          continue;
+        }
         const pieceStart = piece.getID().getOffset();
         const pieceEnd = pieceStart + piece.getContentLength();
         const [target, splitDiff] = this.isolateRange(

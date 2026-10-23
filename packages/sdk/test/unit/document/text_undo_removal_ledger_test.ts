@@ -235,6 +235,26 @@ describe('Text undo with a removal ledger', () => {
     expect(text(b)).toBe('abcdefgh');
   });
 
+  it('redoes only what the redoer saw live', () => {
+    const [a, b] = replicas('abcdef');
+    // a and b delete `cd` concurrently; a learns of b's deletion.
+    a.update((root) => root.t.edit(2, 4, ''));
+    b.update((root) => root.t.edit(2, 4, ''));
+    send(b, a);
+    ack(b);
+    // a undoes and redoes: `cd` stays removed by b's deletion all along, so
+    // a's redo removes nothing. b then undoes its deletion.
+    a.history.undo();
+    a.history.redo();
+    b.history.undo();
+    exchange(a, b);
+
+    // b revived `cd` before a's redo arrived; the redo, which saw `cd`
+    // removed, leaves it alone there as it did on a.
+    expect(text(a)).toBe('abcdef');
+    expect(text(b)).toBe('abcdef');
+  });
+
   it('sends no removedBy until the server advertises the capability', () => {
     const doc = new Document<Root>('ledger');
     doc.update((root) => {
