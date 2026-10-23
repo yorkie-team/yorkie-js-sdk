@@ -56,6 +56,7 @@ import {
   DefaultZeroSchema,
   ViewEntry,
   ZNode,
+  ZeroLevelKey,
   ZeroNodeJSON,
   ZeroSchema,
   buildView,
@@ -119,7 +120,12 @@ export class ZeroMarker {
     writes: Array<[string, ZeroAttrValue]>,
     ticket: TimeTicket,
   ): ZeroMarker {
-    const marker = new ZeroMarker(type, depth);
+    // a level between two depths: the next whole depth, and the level as a
+    // reserved attribute (see `ZeroLevelKey`)
+    if (!Number.isInteger(depth)) {
+      writes = [...writes, [ZeroLevelKey, JSON.stringify(depth)]];
+    }
+    const marker = new ZeroMarker(type, Math.ceil(depth));
     for (const [k, v] of writes) {
       if (v !== null) {
         marker.attrs.set(k, { value: v, updatedAt: ticket });

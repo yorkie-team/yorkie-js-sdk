@@ -97,9 +97,12 @@ const childDepth = (parent: ZNode): number => {
   return written.length ? Math.min(...written) : Math.floor(parent.level) + 1;
 };
 
-/** `markerDepth` is the depth a marker standing for `node` is written with. */
-const markerDepth = (node: ZNode): number =>
-  Number.isInteger(node.level) ? node.level : node.depth;
+/**
+ * `markerDepth` is the depth a marker standing for `node` is written with:
+ * its level, between two whole depths for a virtual node squeezed in below
+ * the marker it was opened for (see `ZeroLevelKey`).
+ */
+const markerDepth = (node: ZNode): number => node.level;
 
 const clamp = (offset: number, length: number): number =>
   Math.min(Math.max(offset, 0), length);

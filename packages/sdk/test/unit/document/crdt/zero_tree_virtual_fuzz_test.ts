@@ -17,11 +17,14 @@
 // Random concurrent edits on three replicas of a list document, made to put
 // markers under virtual parents often: paragraphs are wrapped in lists and
 // lifted out (delete + insert, as an editor without a move does it) while
-// others insert into them, mostly at index 0. The replicas must converge, and
-// a node inserted at the start of a virtual parent must land there.
+// others insert into them, mostly at index 0, or give blocks attributes. The
+// replicas must converge; a node inserted at the start of a virtual parent
+// must land there, a block given an attribute must keep its place, and no
+// reserved attribute may reach the model.
 //
 // FUZZ_SEEDS sets the number of seeds; FUZZ_LOG names a file the totals are
-// appended to (inserts, misses anywhere, misses at a virtual start).
+// appended to (inserts, misses anywhere, misses at a virtual start, updates,
+// update misses).
 import { describe, it, expect, afterAll } from 'vitest';
 import { appendFileSync } from 'fs';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
@@ -38,6 +41,7 @@ import {
   DefaultZeroSchema,
   cloneZeroSchema,
   configureZeroSchema,
+  stableStringify,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 import type {
   ZeroNodeJSON,
@@ -159,7 +163,14 @@ function firstText(node: ZeroNodeJSON | undefined): string {
   return firstText(node.children?.[0]);
 }
 
-const totals = { inserts: 0, misses: 0, virtualStarts: 0, virtualMisses: 0 };
+const totals = {
+  inserts: 0,
+  misses: 0,
+  virtualStarts: 0,
+  virtualMisses: 0,
+  updates: 0,
+  updateMisses: 0,
+};
 
 describe('ZeroTree virtual parents (random)', () => {
   const saved = cloneZeroSchema(DefaultZeroSchema);
@@ -207,6 +218,9 @@ describe('ZeroTree virtual parents (random)', () => {
         let intent:
           | { path: Array<number>; label: string; virtual: boolean }
           | undefined;
+        let update:
+          | { path: Array<number>; node: ZeroNodeJSON; tag: string }
+          | undefined;
         if (x < 0.2) {
           // wrap a top-level paragraph in a list
           const ps = tops.filter(([, c]) => c.type === 'paragraph');
@@ -237,7 +251,7 @@ describe('ZeroTree virtual parents (random)', () => {
               ['insert', [i], ps.length ? ps : [paragraph()]],
             ];
           }
-        } else if (x < 0.8) {
+        } else if (x < 0.7) {
           // insert a node, mostly at index 0
           const holders: Array<[Array<number>, ZeroNodeJSON]> = [
             [[], model],
@@ -265,6 +279,17 @@ describe('ZeroTree virtual parents (random)', () => {
                 index === 0 && !!at<ZeroTreeCrdtNode>(view, path)?.virtual,
             };
           }
+        } else if (x < 0.8) {
+          // give a block an attribute (a virtual one gets a marker of its own)
+          const blocks = nodes(model).filter(([, n]) =>
+            ['paragraph', 'list_item'].includes(n.type),
+          );
+          if (blocks.length) {
+            const [path, node] = pick(blocks);
+            label++;
+            ops = [['update', path, { attribute: { tag: `U${label}` } }]];
+            update = { path, node, tag: `U${label}` };
+          }
         } else if (x < 0.9) {
           // type a character
           const texts = nodes(model).filter(
@@ -286,6 +311,23 @@ describe('ZeroTree virtual parents (random)', () => {
           continue;
         }
         doc.update((root) => root.zt.applyZeroOperations(ops!));
+        // reserved attributes (`zt.*`) never reach the editor's model
+        expect(JSON.stringify(doc.getRoot().zt.toZeroContent())).not.toContain(
+          'zt.',
+        );
+        if (update) {
+          // the block keeps its place and children and gets the attribute
+          const got = at(doc.getRoot().zt.toZeroContent(), update.path);
+          const kept =
+            got?.type === update.node.type &&
+            (got.attribute as Record<string, unknown> | undefined)?.tag ===
+              update.tag &&
+            stableStringify(got.children ?? []) ===
+              stableStringify(update.node.children ?? []);
+          totals.updates++;
+          totals.updateMisses += kept ? 0 : 1;
+          expect(kept, `step ${step} update ${update.path}`).toBe(true);
+        }
         if (intent) {
           // the inserted node is at its path (characters typed concurrently
           // into a deleted text may follow its own: compare the start)

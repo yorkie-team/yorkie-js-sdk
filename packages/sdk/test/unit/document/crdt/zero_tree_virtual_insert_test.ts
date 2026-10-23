@@ -200,10 +200,9 @@ describe('ZeroTree virtual parents', () => {
     expect(model(b)).toEqual(model(a));
   });
 
-  // Known gap: giving a squeezed-in virtual node a marker of its own needs a
-  // depth between its parent's and the break's, which whole depths do not
-  // have. The new marker closes before the break and the break moves out.
-  it.fails('gives an attribute to a virtual parent without moving it', () => {
+  // The paragraph sits between the list (depth 1) and the break (depth 2):
+  // its marker carries that level (`zt.level`), which the model never shows.
+  it('gives an attribute to a virtual parent without moving it', () => {
     const [a, b] = wrapped();
     a.update((root) =>
       root.zt.applyZeroOperations([
@@ -216,6 +215,57 @@ describe('ZeroTree virtual parents', () => {
         attribute: { align: 'center' },
         children: [hardBreak],
       }),
+    );
+    exchange(a, b);
+    expect(model(b)).toEqual(model(a));
+  });
+
+  it('gives an attribute to a virtual item without moving it', () => {
+    const [a, b] = wrapped();
+    a.update((root) =>
+      root.zt.applyZeroOperations([
+        ['update', [1, 1], { attribute: { checked: true } }],
+      ]),
+    );
+    expect(model(a).children![1].children![1]).toEqual({
+      type: 'list_item',
+      attribute: { checked: true },
+      children: [paragraph(hardBreak)],
+    });
+    exchange(a, b);
+    expect(model(b)).toEqual(model(a));
+  });
+
+  it('splits a virtual item where Enter is pressed in it', () => {
+    // b types at the end of the paragraph a wraps: the text shows in a
+    // virtual item; Enter in it splits the text, the paragraph and the item
+    const [a, b] = replicas(paragraph(text('ab')), paragraph(text('cd')));
+    a.update((root) =>
+      root.zt.applyZeroOperations([
+        ['delete', [1], 1],
+        ['insert', [1], [list(item(paragraph(text('cd'))))]],
+      ]),
+    );
+    b.update((root) =>
+      root.zt.applyZeroOperations([['insert', [1, 1], [text('xy')]]]),
+    );
+    exchange(a, b);
+    expect(model(a).children![1]).toEqual(
+      list(item(paragraph(text('cd'))), item(paragraph(text('xy')))),
+    );
+    a.update((root) =>
+      root.zt.applyZeroOperations([
+        ['split', [1, 1, 0, 0, 1]],
+        ['split', [1, 1, 0, 1]],
+        ['split', [1, 1, 1]],
+      ]),
+    );
+    expect(model(a).children![1]).toEqual(
+      list(
+        item(paragraph(text('cd'))),
+        item(paragraph(text('x'))),
+        item(paragraph(text('y'))),
+      ),
     );
     exchange(a, b);
     expect(model(b)).toEqual(model(a));

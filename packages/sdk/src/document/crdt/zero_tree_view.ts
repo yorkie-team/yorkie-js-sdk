@@ -185,6 +185,28 @@ export type ViewEntry = {
 };
 
 /**
+ * `ZeroLevelKey` is the reserved attribute that places a marker between two
+ * whole depths: the marker given to a virtual node squeezed in below the
+ * marker it was opened for (see `ZNode.level`). The marker's depth is the
+ * next whole depth. Like the other `zt.*` keys, the editor never sees it.
+ */
+export const ZeroLevelKey = 'zt.level';
+
+/**
+ * `levelOf` returns where a marker sits in the written-depth space: the
+ * level it carries, or its depth.
+ */
+export function levelOf(marker: {
+  depth: number;
+  attrs: Record<string, string>;
+}): number {
+  const level = marker.attrs[ZeroLevelKey];
+  return level !== undefined
+    ? Number(JSON.parse(level))
+    : Math.max(1, marker.depth);
+}
+
+/**
  * `dealias` folds the markers of concurrent splits of one boundary into the
  * first split there. Two people pressing Enter at the same place make one
  * line: the later run (in document order) is the same line, so its markers
@@ -229,7 +251,7 @@ export function dealias(
     if (entry.scope && !shown.has(entry.scope)) {
       continue;
     }
-    if (entry.marker && entry.marker.depth <= hideDepth) {
+    if (entry.marker && levelOf(entry.marker) <= hideDepth) {
       hideDepth = Infinity;
     }
     if (hideDepth !== Infinity) {
@@ -238,7 +260,7 @@ export function dealias(
     if (entry.marker) {
       // a second child of a `single` type: left out with its span (a split
       // marker is never one: splits copy a node the parent already holds)
-      const depth = entry.marker.depth;
+      const depth = levelOf(entry.marker);
       while (open.length > 1 && open[open.length - 1].depth >= depth) {
         open.pop();
       }
@@ -585,7 +607,7 @@ export function buildView(
     const entry = entries[i];
     if (entry.marker) {
       const { type, attrs } = entry.marker;
-      const depth = Math.max(1, entry.marker.depth);
+      const depth = levelOf(entry.marker);
       // A marker right after a marker of the same boundary (concurrent splits
       // of one boundary) is the same node: merge its registers, LWW per key.
       const prev = entries[i - 1];
