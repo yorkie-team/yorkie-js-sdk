@@ -9,7 +9,10 @@ import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
-import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
+import {
+  ZeroTree,
+  ZeroTreeCrdtNode,
+} from '@yorkie-js/sdk/src/document/json/zero_tree';
 import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import { IndexStats } from '@yorkie-js/sdk/src/document/crdt/zero_tree_index';
 import {
@@ -207,6 +210,135 @@ function randomOps(
   return [['delete', [t, Math.floor(r() * rows.length)], 1]];
 }
 
+/** every node with its path, depth first */
+function nodes(
+  node: ZeroNodeJSON,
+  path: Array<number> = [],
+  acc: Array<[Array<number>, ZeroNodeJSON]> = [],
+): Array<[Array<number>, ZeroNodeJSON]> {
+  (node.children ?? []).forEach((child, i) => {
+    acc.push([[...path, i], child]);
+    nodes(child, [...path, i], acc);
+  });
+  return acc;
+}
+
+function at<T extends { children?: Array<T> }>(
+  root: T,
+  path: Array<number>,
+): T | undefined {
+  let node: T | undefined = root;
+  for (const i of path) {
+    node = node?.children?.[i];
+  }
+  return node;
+}
+
+/** the text a node starts with: its own, or its first descendant's */
+function firstText(node: ZeroNodeJSON | undefined): string {
+  if (!node) {
+    return '';
+  }
+  if (node.type === 'inline-text') {
+    return String(node.data ?? '');
+  }
+  return firstText(node.children?.[0]);
+}
+
+type Intent = { path: Array<number>; label: string; virtual: boolean };
+
+/**
+ * `wrapOps` puts markers under virtual parents: it wraps a paragraph in a
+ * table or lifts a table's paragraphs out (delete + insert) while others
+ * insert into them, mostly at index 0. An insert of a labeled node comes
+ * with where it must land.
+ */
+function wrapOps(
+  model: ZeroNodeJSON,
+  view: ZeroTreeCrdtNode,
+  r: () => number,
+  label: string,
+): { ops: Array<ZeroOperation>; intent?: Intent } | undefined {
+  const pick = <T>(xs: Array<T>): T => xs[Math.floor(r() * xs.length)];
+  const tops = (model.children ?? []).map((c, i) => [i, c] as const);
+  const x = r();
+  if (x < 0.3) {
+    const ps = tops.filter(([, c]) => c.type === 'paragraph');
+    if (!ps.length) {
+      return;
+    }
+    const [i, p] = pick(ps);
+    const wrapped: ZeroNodeJSON = {
+      type: 'table',
+      children: [
+        {
+          type: 'table-row',
+          children: [
+            {
+              type: 'table-cell',
+              children: [{ type: 'table-cell-body', children: [p] }],
+            },
+          ],
+        },
+      ],
+    };
+    return {
+      ops: [
+        ['delete', [i], 1],
+        ['insert', [i], [wrapped]],
+      ],
+    };
+  }
+  if (x < 0.45) {
+    const ts = tops.filter(([, c]) => c.type === 'table');
+    if (!ts.length) {
+      return;
+    }
+    const [i, t] = pick(ts);
+    const ps = nodes(t)
+      .map(([, n]) => n)
+      .filter((n) => n.type === 'paragraph');
+    return {
+      ops: [
+        ['delete', [i], 1],
+        ['insert', [i], ps.length ? ps : [para('')]],
+      ],
+    };
+  }
+  const holders: Array<[Array<number>, ZeroNodeJSON]> = [
+    [[], model],
+    ...nodes(model).filter(([, n]) =>
+      ['paragraph', 'table-cell-body'].includes(n.type),
+    ),
+  ];
+  const [path, parent] = pick(holders);
+  const len = parent.children?.length ?? 0;
+  const index = r() < 0.6 ? 0 : Math.floor(r() * (len + 1));
+  if (parent.type === 'paragraph' && r() < 0.5) {
+    return {
+      ops: [
+        [
+          'insert',
+          [...path, index],
+          [{ type: 'inline-image', data: { src: label } }],
+        ],
+      ],
+    };
+  }
+  const node: ZeroNodeJSON =
+    parent.type === 'paragraph'
+      ? { type: 'inline-text', data: label }
+      : para(label);
+  return {
+    ops: [['insert', [...path, index], [node]]],
+    intent: {
+      path: [...path, index],
+      label,
+      virtual: index === 0 && !!at<ZeroTreeCrdtNode>(view, path)?.virtual,
+    },
+  };
+}
+
 describe('ZeroTree block index', () => {
   it.each(
     Array.from(
@@ -251,6 +383,7 @@ describe('ZeroTree block index', () => {
       IndexStats.reasons = {};
       CompileStats.ways = {};
       CompileStats.fallbacks = 0;
+      let label = 0;
       for (let step = 0; step < 120; step++) {
         const who = 1 + Math.floor(r() * (docs.length - 1));
         const doc = docs[who];
@@ -261,13 +394,31 @@ describe('ZeroTree block index', () => {
             // an undo the tree cannot place is not what this checks
           }
         } else {
-          const ops = randomOps(doc.getRoot().zt.toZeroContent(), r);
+          const model = doc.getRoot().zt.toZeroContent();
+          const wrap =
+            r() < 0.25
+              ? wrapOps(model, doc.getRoot().zt.toCrdtView(), r, `L${++label}.`)
+              : undefined;
+          const ops = wrap ? wrap.ops : randomOps(model, r);
+          let applied = false;
           if (ops) {
             try {
               doc.update((root) => root.zt.applyZeroOperations(ops));
+              applied = true;
             } catch {
               // an operation the editor would not issue on this model
             }
+          }
+          const intent = wrap?.intent;
+          if (applied && intent?.virtual) {
+            // a node inserted at the start of a virtual parent lands there
+            // (characters typed concurrently into a deleted text may follow
+            // its own: compare the start)
+            const got = at(doc.getRoot().zt.toZeroContent(), intent.path);
+            expect(
+              firstText(got).startsWith(intent.label),
+              `step ${step} insert ${intent.path}`,
+            ).toBe(true);
           }
         }
         // what the caches give is what a fresh copy (no caches) computes

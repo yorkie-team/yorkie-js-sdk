@@ -334,6 +334,19 @@ export function dealias(
 export type ZNode = {
   type: string;
   depth: number;
+  /**
+   * the node's place in the stored-depth space the markers are written in:
+   * a real node's marker depth; a virtual node sits between its parent and
+   * the marker it was opened for. Closing compares marker depths with this.
+   */
+  level: number;
+  /**
+   * for a virtual node squeezed in below the marker it was opened for: that
+   * marker's depth. A later marker of that depth stays in it only if the
+   * node holds that type, directly or through its default children (a
+   * sibling of the first one); otherwise it closes.
+   */
+  anchor?: number;
   attrs: Record<string, string>;
   markerID?: string;
   virtual: boolean;
@@ -409,6 +422,7 @@ export function buildView(
   const root: ZNode = {
     type: schema.rootType,
     depth: 0,
+    level: 0,
     attrs: {},
     virtual: false,
     children: [],
@@ -429,11 +443,13 @@ export function buildView(
     at: number,
     attrs: Record<string, string> = {},
     markerID?: string,
+    level?: number,
   ): ZNode => {
     const parent = top();
     const node: ZNode = {
       type,
       depth,
+      level: level ?? parent.level + 1,
       attrs,
       markerID,
       virtual: !markerID,
@@ -506,21 +522,59 @@ export function buildView(
   };
   const fillFor = (from: string, type: string): string | undefined =>
     candidatesOf(from).find((c) => reaches(c, type, 5));
+  // whether `from` holds `type` directly or down its default children
+  const holds = (from: string, type: string, budget = 5): boolean => {
+    if (accepts(schema, from, type)) {
+      return true;
+    }
+    const def = schema.defaultChild[from];
+    return (
+      budget > 0 &&
+      !!def &&
+      def !== from &&
+      isContainer(schema, def) &&
+      holds(def, type, budget - 1)
+    );
+  };
 
-  const settle = (type: string, at: number) => {
+  // `anchor` is the marker depth of what is being placed (Infinity for
+  // characters). Virtual nodes opened for it get levels between the parent's
+  // and the anchor's, so a later marker of the anchor's depth (its sibling as
+  // written) does not close them.
+  const settle = (type: string, at: number, anchor = Infinity) => {
+    const fills: Array<ZNode> = [];
+    const place = () => {
+      if (!fills.length) {
+        return;
+      }
+      const p = fills[0].parent!.level;
+      const n = fills.length;
+      fills.forEach((f, j) => {
+        // under the root, keep whole levels: a depth-1 marker must close
+        // everything before it (top-level blocks build on their own)
+        if (p === 0 || anchor - p - 1 >= n) {
+          f.level = p + j + 1;
+        } else {
+          f.level = p + ((j + 1) * (anchor - p)) / (n + 1);
+          f.anchor = anchor;
+        }
+      });
+    };
     for (let guard = 0; guard < 64; guard++) {
       const parent = top();
       if (accepts(schema, parent.type, type)) {
+        place();
         return;
       }
       const fill = isContainer(schema, parent.type)
         ? fillFor(parent.type, type)
         : undefined;
       if (fill) {
-        open(fill, parent.depth + 1, at);
+        fills.push(open(fill, parent.depth + 1, at));
         continue;
       }
       if (parent === root) {
+        place();
         return;
       }
       close(at);
@@ -562,11 +616,14 @@ export function buildView(
         current.end = i + 1;
         continue;
       }
-      while (top().depth >= depth) {
+      while (
+        top().level >= depth ||
+        (top().anchor === depth && !holds(top().type, type))
+      ) {
         close(i);
       }
-      settle(type, i);
-      const node = open(type, top().depth + 1, i, attrs, entry.id);
+      settle(type, i, depth);
+      const node = open(type, top().depth + 1, i, attrs, entry.id, depth);
       node.group = [entry.id, ...(entry.aliases ?? [])];
       node.registers = entry.marker.registers;
       if (attrs['zt.col'] !== undefined) {

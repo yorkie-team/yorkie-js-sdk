@@ -82,6 +82,25 @@ export type ZeroTreeCrdtNode = {
   virtual?: boolean;
 };
 
+/**
+ * `childDepth` is the marker depth a new child of `parent` is written with.
+ * Under a virtual parent squeezed in for a marker, that marker's depth: a
+ * sibling of it stays in the parent (children written deeper elsewhere may
+ * have joined it too). Otherwise that of its written children when it has
+ * some, else the next depth below it.
+ */
+const childDepth = (parent: ZNode): number => {
+  if (parent.anchor !== undefined) {
+    return parent.anchor;
+  }
+  const written = parent.children.filter((c) => !c.virtual).map((c) => c.level);
+  return written.length ? Math.min(...written) : Math.floor(parent.level) + 1;
+};
+
+/** `markerDepth` is the depth a marker standing for `node` is written with. */
+const markerDepth = (node: ZNode): number =>
+  Number.isInteger(node.level) ? node.level : node.depth;
+
 const clamp = (offset: number, length: number): number =>
   Math.min(Math.max(offset, 0), length);
 
@@ -466,7 +485,7 @@ export class ZeroTree {
         this.editWith(
           node.start,
           node.start,
-          (ticket) => toTokens([json], node.depth, ticket, schema),
+          (ticket) => toTokens([json], markerDepth(node), ticket, schema),
           this.scopeOf(node.parent),
         );
         return;
@@ -531,7 +550,7 @@ export class ZeroTree {
                 (cell) => cell.type === grid!.cell && ColumnKeys.set(cell, key),
               );
             }
-            return toTokens(nodes, path.length, ticket, schema);
+            return toTokens(nodes, childDepth(parent), ticket, schema);
           },
           this.scopeOf(parent),
         );
@@ -612,7 +631,7 @@ export class ZeroTree {
             child.start,
             child.start,
             (ticket) => [
-              ZeroMarker.create(child.type, child.depth, [], ticket),
+              ZeroMarker.create(child.type, markerDepth(child), [], ticket),
             ],
             this.scopeOf(child.parent),
           );
@@ -645,7 +664,7 @@ export class ZeroTree {
             node.start,
             node.start,
             (ticket) => [
-              ZeroMarker.create(node.type, node.depth, writes, ticket),
+              ZeroMarker.create(node.type, markerDepth(node), writes, ticket),
             ],
             this.scopeOf(node.parent),
           );
@@ -714,7 +733,7 @@ export class ZeroTree {
           .map((n) => {
             const marker = ZeroMarker.create(
               n.type,
-              n.depth,
+              markerDepth(n),
               Object.entries(n.attrs) as Array<[string, ZeroAttrValue]>,
               ticket,
             );

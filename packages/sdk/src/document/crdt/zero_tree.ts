@@ -696,6 +696,7 @@ export class CRDTZeroTree extends CRDTElement {
     const shape = (n: ZNode): unknown => ({
       type: n.type,
       depth: n.depth,
+      level: n.level,
       attrs: n.attrs,
       markerID: n.markerID,
       virtual: n.virtual,
