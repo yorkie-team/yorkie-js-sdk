@@ -271,6 +271,32 @@ describe('ZeroTree virtual parents', () => {
     expect(model(b)).toEqual(model(a));
   });
 
+  it.each([
+    ['after', 1, [paragraph(text('')), paragraph(text('P'))]],
+    ['before', 0, [paragraph(text('P')), paragraph(text(''))]],
+  ])(
+    'inserts a block %s the default child an empty item shows',
+    (_, index, children) => {
+      const [a, b] = replicas(list(item(paragraph(text('a')))));
+      // the item's only paragraph goes: the item shows an empty default one,
+      // as the editor holds it
+      a.update((root) =>
+        root.zt.applyZeroOperations([['delete', [0, 0, 0], 1]]),
+      );
+      expect(model(a).children![0]).toEqual(list(item(paragraph(text('')))));
+      a.update((root) =>
+        root.zt.applyZeroOperations([
+          ['insert', [0, 0, index as number], [paragraph(text('P'))]],
+        ]),
+      );
+      expect(model(a).children![0]).toEqual(
+        list(item(...(children as Array<ZeroNodeJSON>))),
+      );
+      exchange(a, b);
+      expect(model(b)).toEqual(model(a));
+    },
+  );
+
   it('keeps the next item of the list out of the virtual parents', () => {
     // a moves the first paragraph into the list (a new list before it, the
     // old list's marker merged away); b puts a break at the paragraph's end.

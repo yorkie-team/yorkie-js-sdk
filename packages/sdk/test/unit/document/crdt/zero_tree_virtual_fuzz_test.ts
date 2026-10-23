@@ -17,10 +17,11 @@
 // Random concurrent edits on three replicas of a list document, made to put
 // markers under virtual parents often: paragraphs are wrapped in lists and
 // lifted out (delete + insert, as an editor without a move does it) while
-// others insert into them, mostly at index 0, or give blocks attributes. The
-// replicas must converge; a node inserted at the start of a virtual parent
-// must land there, a block given an attribute must keep its place, and no
-// reserved attribute may reach the model.
+// others insert into them, mostly at index 0, delete blocks from items or give
+// blocks attributes. The replicas must converge; an inserted node must land
+// where it was inserted (also at the start of a virtual parent, or next to
+// the default child an empty item shows), a block given an attribute must
+// keep its place, and no reserved attribute may reach the model.
 //
 // FUZZ_SEEDS sets the number of seeds; FUZZ_LOG names a file the totals are
 // appended to (inserts, misses anywhere, misses at a virtual start, updates,
@@ -240,6 +241,16 @@ describe('ZeroTree virtual parents (random)', () => {
               ],
             ];
           }
+        } else if (x < 0.25) {
+          // delete a block in a list item (an item may be left empty)
+          const inItems = nodes(model).filter(
+            ([path, n]) =>
+              n.type === 'paragraph' &&
+              at(model, path.slice(0, -1))?.type === 'list_item',
+          );
+          if (inItems.length) {
+            ops = [['delete', pick(inItems)[0], 1]];
+          }
         } else if (x < 0.3) {
           // lift a top-level list's items out as paragraphs
           const ls = tops.filter(([, c]) => c.type === 'bullet_list');
@@ -338,8 +349,8 @@ describe('ZeroTree virtual parents (random)', () => {
           if (intent.virtual) {
             totals.virtualStarts++;
             totals.virtualMisses += landed ? 0 : 1;
-            expect(landed, `step ${step} insert ${intent.path}`).toBe(true);
           }
+          expect(landed, `step ${step} insert ${intent.path}`).toBe(true);
         }
       }
       for (let round = 0; round < 2; round++) {

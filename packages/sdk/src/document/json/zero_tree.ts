@@ -104,6 +104,13 @@ const childDepth = (parent: ZNode): number => {
  */
 const markerDepth = (node: ZNode): number => node.level;
 
+/**
+ * `emptiedKey` names a container for `ZeroTree.emptied`: its marker id, the
+ * path of a virtual one, or '' for the root.
+ */
+const emptiedKey = (node: ZNode): string =>
+  node.markerID ?? (node.parent ? `virtual:${pathOf(node).join(',')}` : '');
+
 const clamp = (offset: number, length: number): number =>
   Math.min(Math.max(offset, 0), length);
 
@@ -414,6 +421,7 @@ export class ZeroTree {
     const [, tree] = this.ensure();
     this.columnGroups.clear();
     this.columnFlags.clear();
+    this.emptied.clear();
     for (let i = 0; i < operations.length; ) {
       const op = operations[i];
       if (op[0] === 'split') {
@@ -458,6 +466,8 @@ export class ZeroTree {
 
   /** the cells one column insert adds share a key: table marker # index → key */
   private readonly columnGroups = new Map<string, string>();
+  /** containers the batch deleted children of (see `emptiedKey`) */
+  private readonly emptied = new Set<string>();
   /** columns deleted by the batch: table marker → column keys */
   private readonly columnFlags = new Map<string, Set<string>>();
 
@@ -496,6 +506,44 @@ export class ZeroTree {
     }
   }
 
+  /**
+   * `materializePlaceholder` gives the default child an empty container
+   * shows (virtual, see `ZNode.placeholder`) markers of its own before a node
+   * is inserted next to it. The editor holds that child as a real node; left
+   * virtual, it would vanish once the container has another child, and the
+   * inserted node would take its index.
+   */
+  private materializePlaceholder(path: Array<number>): boolean {
+    const [context, tree] = this.ensure();
+    const schema = tree.getSchema();
+    const parent = findNode(tree.view(), path);
+    const placeholder = parent?.children.find((c) => c.placeholder);
+    if (!parent || !placeholder) {
+      return false;
+    }
+    // Only a default child the editor held before this batch is real there.
+    // A container the batch emptied (deleting its children) or made (a split,
+    // an inserted node) is empty in the editor until the batch fills it.
+    const [lamport, actor] = context
+      .getLastTimeTicket()
+      .toIDString()
+      .split(':');
+    if (
+      this.emptied.has(emptiedKey(parent)) ||
+      parent.markerID?.startsWith(`${lamport}:${actor}:`)
+    ) {
+      return false;
+    }
+    const json = toNodeJSON(placeholder, schema);
+    this.editWith(
+      placeholder.start,
+      placeholder.start,
+      (ticket) => toTokens([json], childDepth(parent), ticket, schema),
+      this.scopeOf(parent),
+    );
+    return true;
+  }
+
   private applyOne(op: ZeroOperation): void {
     const [, tree] = this.ensure();
     const [kind, path, data] = op;
@@ -512,6 +560,10 @@ export class ZeroTree {
           const at = text[0].textStart + clamp(text[1], text[0].text.length);
           const chars = Array.from(data);
           this.editWith(at, at, () => chars, this.scopeOf(text[0]));
+          return;
+        }
+        if (this.materializePlaceholder(path.slice(0, -1))) {
+          this.applyOne(op);
           return;
         }
         const parent = this.nodeAt(view, path.slice(0, -1));
@@ -573,6 +625,7 @@ export class ZeroTree {
           return;
         }
         const parent = this.nodeAt(view, path.slice(0, -1));
+        this.emptied.add(emptiedKey(parent));
         const last = path[path.length - 1];
         const first = parent.children[last];
         const end = parent.children[last + count - 1];

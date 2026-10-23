@@ -369,6 +369,11 @@ export type ZNode = {
    * sibling of the first one); otherwise it closes.
    */
   anchor?: number;
+  /**
+   * a virtual node standing in for the default child of an empty container
+   * (the paragraph of an empty list item): the editor holds it as a real node
+   */
+  placeholder?: boolean;
   attrs: Record<string, string>;
   markerID?: string;
   virtual: boolean;
@@ -497,6 +502,7 @@ export function buildView(
     }
     stack.push(node);
     const child = open(childType, node.depth + 1, at);
+    child.placeholder = true;
     ensureChildren(child, at);
     child.end = at;
     stack.pop();
