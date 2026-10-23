@@ -37,11 +37,17 @@ the presence on unwatch (`pkg/document/document.go` in yorkie).
 ## Out of scope
 
 - `applyDocEventsForReplay` (devtools replay) still deletes the presence on an
-  `Unwatched` event. That path replays a recorded event log rather than a live
-  stream, and the issue does not cover it.
+  `Unwatched` event. No issue filed: the recorded `Watched` event carries the
+  peer's presence and sets it again, and every public accessor filters by
+  `onlineClients`, so the two paths differ only in the hidden map between an
+  unwatch and the next watch.
 - Evicting presences of peers that never come back. Same trade-off
   `applyWatchInit` already accepts: the map keeps stale entries, and every
-  accessor filters by `onlineClients`.
+  accessor filters by `onlineClients`. The server is what drops them: a
+  deactivation, explicit or by housekeeping, writes a presence clear that
+  peers apply. That clear missed stable-actor clients until yorkie#2291
+  (yorkie#2290); its remaining gaps with sibling sessions of one client key
+  are yorkie#2294.
 
 ## Verification
 

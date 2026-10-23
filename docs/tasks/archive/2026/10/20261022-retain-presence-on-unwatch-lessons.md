@@ -25,6 +25,17 @@ anything.
 
 ## Rounds
 
-No `/self-review` rounds: this run is headless and is granted no tool that can
-dispatch the reviewer subagent. Review is left to CI, `@claude review`, and a
-human on the PR.
+- The run had no `/self-review`; the review panel ran five rounds instead.
+  Its first round raised two blocking findings on the one-line fix: departed
+  peers' presences are kept, and written into persisted snapshots by
+  `toBytes()`, with no eviction. The three fix rounds answered them with
+  JS-only rules the Go SDK does not have (a retention cap, a guard against
+  folding a patch onto a missing base, a heal path for that guard), and each
+  round's review found a defect in the previous round's code.
+- A maintainer reverted the rounds to the first commit's Go parity. The
+  eviction the panel asked for belongs on the server, which already writes a
+  presence clear when it deactivates a client; that clear was the part
+  actually broken for stable-actor clients (yorkie#2290, fixed in yorkie#2291).
+- Lesson: when a fix round's answer to a finding has no counterpart in the
+  other SDK, check whether the finding belongs to another layer before
+  writing more client code.
