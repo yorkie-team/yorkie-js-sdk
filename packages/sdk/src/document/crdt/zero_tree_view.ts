@@ -1977,6 +1977,21 @@ function narrow(
   if (!ca.some((x) => x.start >= start && x.start < endAfter)) {
     return;
   }
+  // `compileWhole` takes a new marker with the tokens behind it down to the
+  // next marker no deeper than it: a deeper one right behind the window (an
+  // orphan left by a re-inserted node) would join it there and not here
+  const known = new Set(before.slice(start, endBefore).map((e) => e.id));
+  let newest = Infinity;
+  for (let i = start; i < endAfter; i++) {
+    const m = after[i].marker;
+    if (m && !known.has(after[i].id)) {
+      newest = Math.min(newest, m.depth);
+    }
+  }
+  const next = after[endAfter]?.marker;
+  if (next && next.depth > newest) {
+    return;
+  }
   const head = chain.map(([c]) => before[c.start]);
   const prefix = chain.map(([, k]) => k);
   const depth = chain.length;

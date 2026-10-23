@@ -81,6 +81,8 @@ type ZeroBlock = {
   keys: Array<[string, string, string]>;
   /** scope markers its tokens name that are not in it */
   scopes: Array<string>;
+  /** how many of its tokens name each scope marker (see `planRows`) */
+  scopeRefs: Map<string, number>;
   /** a live scope crosses its edge (see the file comment) */
   crossing: boolean;
 };
@@ -508,6 +510,24 @@ export class ZeroBlockIndex {
     const rowEnd = r1 + 1 < rows.length ? raw(rows[r1 + 1].start) : blockEnd;
     const head = this.rawEntries(block.rawStart, block.rawStart + 1)[0];
     const entries = this.rawEntries(rowStart, rowEnd);
+    // a marker of these rows another row's tokens hang on (a run typed into
+    // a cell and moved with a re-inserted paragraph): the other row changes
+    // with it, so the whole table is rebuilt
+    const inWindow = new Map<string, number>();
+    for (const e of entries) {
+      if (e.scope) {
+        inWindow.set(e.scope, (inWindow.get(e.scope) ?? 0) + 1);
+      }
+    }
+    for (const e of entries) {
+      if (
+        e.marker &&
+        (block.scopeRefs.get(e.id) ?? 0) > (inWindow.get(e.id) ?? 0)
+      ) {
+        note('rows:provider');
+        return;
+      }
+    }
     const before = dealias([head, ...entries], this.schema);
     // the rows must build behind the table marker alone: nothing they hold
     // hangs on a marker of the other rows
@@ -626,6 +646,21 @@ export class ZeroBlockIndex {
     this.unregister(block);
     block.markers = [...kept, ...newMarkers];
     block.keys = [...keptKeys, ...newKeys];
+    for (const [list, sign] of [
+      [plan.raw, -1],
+      [raw, 1],
+    ] as const) {
+      for (const e of list) {
+        if (e.scope) {
+          const n = (block.scopeRefs.get(e.scope) ?? 0) + sign;
+          if (n > 0) {
+            block.scopeRefs.set(e.scope, n);
+          } else {
+            block.scopeRefs.delete(e.scope);
+          }
+        }
+      }
+    }
     this.register(block);
     if (this.isHazard(block)) {
       note('rows:hazard');
@@ -893,10 +928,14 @@ export class ZeroBlockIndex {
       }
       const own = new Set(markers.map(([id]) => id));
       const scopes = new Set<string>();
+      const scopeRefs = new Map<string, number>();
       for (let i = rawFrom; i < rawTo; i++) {
         const scope = raw[i].scope;
         if (scope && !own.has(scope)) {
           scopes.add(scope);
+        }
+        if (scope) {
+          scopeRefs.set(scope, (scopeRefs.get(scope) ?? 0) + 1);
         }
       }
       blocks.push({
@@ -909,6 +948,7 @@ export class ZeroBlockIndex {
         markers,
         keys,
         scopes: [...scopes],
+        scopeRefs,
         crossing: false,
       });
     }

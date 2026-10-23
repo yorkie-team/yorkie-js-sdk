@@ -340,12 +340,15 @@ function wrapOps(
 }
 
 describe('ZeroTree block index', () => {
-  it.each(
-    Array.from(
-      { length: Number(process.env.FUZZ_SEEDS ?? 40) },
-      (_, i) => i + 1,
-    ),
-  )(
+  // 116, 156, 339 and 400 once diverged: a table row rebuilt without a row
+  // elsewhere that took a cell marker it removed as its scope, and a
+  // narrowed window that stopped short of a deeper marker the whole
+  // compile counts into a new node.
+  const seeds = Array.from(
+    { length: Number(process.env.FUZZ_SEEDS ?? 40) },
+    (_, i) => i + 1,
+  );
+  it.each([...new Set([...seeds, 116, 156, 339, 400])])(
     '무작위 동시 편집에서 창 컴파일이 전체 컴파일과 같아야 한다 (seed %i)',
     (seed) => {
       const r = rng(seed * 7919);
