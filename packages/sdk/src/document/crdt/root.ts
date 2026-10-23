@@ -27,6 +27,7 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
@@ -296,7 +297,11 @@ export class CRDTRoot {
    */
   private registerInternalGCPairs(element: CRDTElement): void {
     const register = (elem: CRDTElement) => {
-      if (elem instanceof CRDTText || elem instanceof CRDTTree) {
+      if (
+        elem instanceof CRDTText ||
+        elem instanceof CRDTTree ||
+        elem instanceof CRDTZeroTree
+      ) {
         for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
         }

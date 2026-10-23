@@ -15,6 +15,7 @@ New design documents should be based on [TEMPLATE.md](TEMPLATE.md).
 - [One Live Element per createdAt](element-identity.md): Why a client can stop syncing for good after an undo, what closes the paths that get it there, and why the root cause needs a wire change
 - [Recovering from a Write Denial](write-denial-recovery.md): Report a `PermissionDenied` push as `auth-error`, and re-anchor the document in place with `Client.resync` instead of re-creating the client
 - [Offline Local Persistence](offline-local-persistence.md): Persist a document and its un-pushed changes to IndexedDB so a reload survives, on top of a server-side stable actor; why rebase-on-restore is rejected
+- [Zero Tree](zero-tree.md): Prototype data type for the Zero block editor that stores a document as one flat RGA sequence of open markers and characters, so concurrent Enter, merge and formatting converge without apply-time tree decisions
 
 ## Guidelines
 
