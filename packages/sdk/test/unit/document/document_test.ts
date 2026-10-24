@@ -1533,6 +1533,59 @@ describe.sequential('Document', function () {
     unsub();
   });
 
+  it('should retain presence after an unwatch/watch cycle', function () {
+    // A peer's watch stream drops (DOCUMENT_UNWATCHED) and comes back
+    // (DOCUMENT_WATCHED). The peer must become visible again, as it does on
+    // the applyWatchInit path.
+    const doc = new Document<object, { name: string }>('test-doc');
+
+    const peerID = 'peer-client-id';
+    (doc as any).presences.set(peerID, { name: 'Alice' });
+    (doc as any).onlineClients.add(peerID);
+
+    const events: Array<any> = [];
+    const unsub = doc.subscribe('others', (event) => {
+      events.push(event);
+    });
+
+    // 01. The peer's watch stream drops.
+    doc.applyDocEvent(PbDocEventType.DOCUMENT_UNWATCHED, peerID);
+
+    // It is no longer visible, and an "unwatched" event carrying its last
+    // known presence was emitted.
+    assert.equal(
+      doc.getOthersPresences().some((p) => p.clientID === peerID),
+      false,
+    );
+    assert.isUndefined(doc.getPresence(peerID));
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, DocEventType.Unwatched);
+    assert.deepEqual(events[0].value, {
+      clientID: peerID,
+      presence: { name: 'Alice' },
+    });
+
+    // The presence data is retained internally so the reconnect can restore it.
+    assert.equal(doc.hasPresence(peerID), true);
+
+    // 02. The peer's watch stream reconnects.
+    doc.applyDocEvent(PbDocEventType.DOCUMENT_WATCHED, peerID);
+
+    assert.equal(
+      doc.getOthersPresences().some((p) => p.clientID === peerID),
+      true,
+    );
+    assert.deepEqual(doc.getPresence(peerID), { name: 'Alice' });
+    assert.equal(events.length, 2);
+    assert.equal(events[1].type, DocEventType.Watched);
+    assert.deepEqual(events[1].value, {
+      clientID: peerID,
+      presence: { name: 'Alice' },
+    });
+
+    unsub();
+  });
+
   // `idOfNode` extracts the node id (createdAt:offset) of the piece whose
   // value is `value` from RGATreeSplit.toTestString(). Live nodes render as
   // `[<id> <value>]`, tombstoned nodes as `{<id> <value>}`. Identity-
