@@ -1137,9 +1137,20 @@ function fromTimeTicket(pbTimeTicket?: PbTimeTicket): TimeTicket | undefined {
  * `fromPresence` converts the given Protobuf format to model format.
  */
 function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
-  const data: Record<string, string> = {};
+  const data: Record<string, unknown> = {};
   Object.entries(pbPresence.data).forEach(([key, value]) => {
-    data[key] = JSON.parse(value);
+    // NOTE: a presence value is `map[string]string` on the wire and on the
+    // server (`innerpresence.Presence`), which never re-encodes what a peer
+    // stored. This SDK writes JSON, but a peer -- another SDK, or a server
+    // API caller -- can store anything. Letting `JSON.parse` throw here fails
+    // the whole pack, and the checkpoint does not advance past a pack that
+    // fails, so the same value comes back on every pull and wedges this
+    // client for good. Keep an unparsable value as the raw string instead.
+    try {
+      data[key] = JSON.parse(value);
+    } catch {
+      data[key] = value;
+    }
   });
 
   return data as P;
@@ -1150,10 +1161,16 @@ function fromPresence<P extends Indexable>(pbPresence: PbPresence): P {
  */
 function fromPresenceChange<P extends Indexable>(
   pbPresenceChange: PbPresenceChange,
-): PresenceChange<P> {
+): PresenceChange<P> | undefined {
   const type = pbPresenceChange.type;
   if (type === PbPresenceChange_ChangeType.PUT) {
-    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    // A put can leave `presence` unset on the wire -- an empty presence
+    // encodes to an absent submessage. Treat it as an empty presence rather
+    // than dereferencing it: a `TypeError` here fails the whole pack, and the
+    // checkpoint does not advance past a pack that fails.
+    const presence = pbPresenceChange.presence
+      ? fromPresence<P>(pbPresenceChange.presence)
+      : ({} as P);
     return {
       type: PresenceChangeType.Put,
       presence,
@@ -1175,24 +1192,30 @@ function fromPresenceChange<P extends Indexable>(
       presence,
     };
   }
-  if (type === PbPresenceChange_ChangeType.CLEAR) {
+  if (
+    type === PbPresenceChange_ChangeType.CLEAR ||
+    type === PbPresenceChange_ChangeType.DELETE
+  ) {
+    // NOTE: `DELETE` is defined but no SDK sends it. It means the actor's
+    // presence is gone, which is what `Clear` already encodes here -- the
+    // actor is dropped from the presence map and taken offline. Decoding it
+    // as a `Put` of `{}` instead would leave a phantom peer with an empty
+    // presence in `getPresences()` and never reach `removeOnlineClient`, and
+    // throwing on it would fail the whole pack: the checkpoint does not
+    // advance past a pack that fails, so the same stored change comes back on
+    // every pull.
     return {
       type: PresenceChangeType.Clear,
     };
   }
-  if (
-    type === PbPresenceChange_ChangeType.UNSPECIFIED ||
-    type === PbPresenceChange_ChangeType.DELETE
-  ) {
-    // NOTE: these two types are defined but no SDK sends them. Go still
-    // decodes them, because stored rows go through that path, into a change
-    // that stores an empty presence for the actor (`api/converter/from_pb.go`,
-    // `FromPresenceChange`). Do the same: throwing here fails the pack, and
-    // the same stored change comes back on every pull.
-    return {
-      type: PresenceChangeType.Put,
-      presence: {} as P,
-    };
+  if (type === PbPresenceChange_ChangeType.UNSPECIFIED) {
+    // NOTE: `UNSPECIFIED` is protobuf's zero value, so a `presenceChange`
+    // submessage whose type field was never set decodes as this. It carries
+    // no intent, so the only safe reading is "this change has no presence
+    // change": returning a `Put` of `{}` would wipe the presence the actor
+    // already holds -- including this client's own, on an echo of a change it
+    // pushed -- and throwing would wedge the pull loop on a stored change.
+    return undefined;
   }
 
   throw new YorkieError(Code.ErrInvalidType, `unsupported type: ${type}`);
@@ -1749,7 +1772,7 @@ function fromChanges<P extends Indexable>(
         id: fromChangeID(pbChange.id!),
         operations: fromOperations(pbChange.operations),
         presenceChange: pbChange.presenceChange
-          ? fromPresenceChange(pbChange.presenceChange!)
+          ? fromPresenceChange<P>(pbChange.presenceChange)
           : undefined,
         message: pbChange.message,
       }),

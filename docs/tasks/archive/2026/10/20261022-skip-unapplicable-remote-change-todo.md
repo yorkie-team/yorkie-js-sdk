@@ -27,8 +27,15 @@ Two places in this SDK do not follow that.
    CLEAR. Go decodes both defined-but-unused types into a change with no type
    and no presence (`api/converter/from_pb.go`, `FromPresenceChange` default
    branch), which `Change.Execute` stores as an empty presence for the actor.
-   Decode both as a `Put` of `{}` to match. A PATCH with no `presence` decodes
-   as an empty patch, as Go does. Keep the throw for a value outside the enum.
+   Decoding both as a `Put` of `{}` to match was rejected in review: this
+   SDK's `Change.execute` makes a `Put` *replace* the presence the actor
+   holds, so it would wipe a peer's presence (or this client's own, on an echo
+   of a pushed change) and leave a phantom online peer that `removeOnlineClient`
+   never reaches. Decode `DELETE` as `Clear` — which is what "the presence is
+   gone" means here — and `UNSPECIFIED`, protobuf's zero value and therefore no
+   stated intent, as no presence change at all. A PATCH or a PUT with no
+   `presence` decodes as an empty one rather than throwing. Keep the throw for
+   a value outside the enum.
 
 A local `update`, an undo or a redo keeps throwing: the wedged-document
 problem is specific to the pull path, and a caller that asked for the mutation
@@ -41,18 +48,23 @@ reasoning already written down in `Change.execute` for `ChangeApplyError`.
   comment cited by the issue; auditing every operation for the same treatment
   is a separate sweep.
 - Any `.proto` change. The two enum values already exist on the wire.
-- Anything Go does not do. Reverted from earlier fix rounds: skipping a
-  missing or non-counter target (Go returns `ErrNotApplicableDataType` for
-  every source, `increase.go:63-66`), decoding a PUT without `presence` (Go
-  errors with "presence missing"), keeping a non-JSON presence value as a raw
-  string, the JS-only `isReplay` flag, and the CI MongoDB healthcheck (moved to
-  #1505).
+- Anything Go does not do *and* that nothing here needs. Reverted from earlier
+  fix rounds: skipping a missing or non-counter target (Go returns
+  `ErrNotApplicableDataType` for every source, `increase.go:63-66`), the
+  JS-only `isReplay` flag, and the CI MongoDB healthcheck (moved to #1505).
+  Review put two of the reverts back, because they are not generalizations of
+  Go but consequences of how *this* SDK decodes and applies: tolerating a PUT
+  without `presence`, and keeping a non-JSON presence value as a raw string.
+  Both are `fromChangePack` throwing on peer-written input, which wedges the
+  pull loop — the very failure this task exists to remove.
 
 ## Steps
 
 - [x] `IncreaseOperation.execute` takes `source` and skips an unapplicable
       dedup increase when it is `Remote`.
-- [x] `fromPresenceChange` maps `UNSPECIFIED` and `DELETE` → `Put` of `{}`.
+- [x] `fromPresenceChange` maps `DELETE` → `Clear` and `UNSPECIFIED` → no
+      presence change, and tolerates a PUT or PATCH with no `presence`.
+- [x] `fromPresence` keeps an unparsable value as the raw string.
 - [x] Unit tests: a pulled pack with each shape applies, and the later
       changes in the same pack still apply.
 - [x] Revert every change that goes beyond Go's behavior.
