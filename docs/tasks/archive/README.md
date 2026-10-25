@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 61
+Total archived tasks: 62
 
-## 2026/10 (23 tasks)
+## 2026/10 (24 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Dependabot Security Bump (2026-10) (2026-10-25) | [20261025-dependabot-security-bump-todo.md](./2026/10/20261025-dependabot-security-bump-todo.md) | [20261025-dependabot-security-bump-lessons.md](./2026/10/20261025-dependabot-security-bump-lessons.md) |
 | Tree style with both halves must survive the wire (2026-10-22) | [20261022-tree-style-combined-undo-todo.md](./2026/10/20261022-tree-style-combined-undo-todo.md) | [20261022-tree-style-combined-undo-lessons.md](./2026/10/20261022-tree-style-combined-undo-lessons.md) |
 | Skip a remote change this SDK cannot apply, as Go does (2026-10-22) | [20261022-skip-unapplicable-remote-change-todo.md](./2026/10/20261022-skip-unapplicable-remote-change-todo.md) | [20261022-skip-unapplicable-remote-change-lessons.md](./2026/10/20261022-skip-unapplicable-remote-change-lessons.md) |
 | Retain a peer's presence on `DOCUMENT_UNWATCHED` (2026-10-22) | [20261022-retain-presence-on-unwatch-todo.md](./2026/10/20261022-retain-presence-on-unwatch-todo.md) | [20261022-retain-presence-on-unwatch-lessons.md](./2026/10/20261022-retain-presence-on-unwatch-lessons.md) |

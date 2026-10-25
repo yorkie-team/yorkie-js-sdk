@@ -40,4 +40,4 @@ by CI. Use `--ignore-pattern '.claude/**'` locally.
 ## See Also
 
 - [20261025-dependabot-security-bump-todo.md](20261025-dependabot-security-bump-todo.md) — plan and results
-- [20260914-dependabot-security-bump-lessons.md](../archive/2026/09/20260914-dependabot-security-bump-lessons.md) — the previous bump's override rules
+- [20260914-dependabot-security-bump-lessons.md](../09/20260914-dependabot-security-bump-lessons.md) — the previous bump's override rules

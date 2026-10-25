@@ -53,8 +53,8 @@ in the alert list is a devDependency (express, axios, typedoc), and
 - [x] `pnpm build:packages`, `pnpm build:examples`, `pnpm verify:exports`
 - [x] `scripts/agent`: `npm test` 989 passed, `npm audit` 0
 - [x] `scripts/fixtures/package-exports`: `npm audit` 0
-- [ ] SDK integration suite against a server — left to CI; no matching local
-      server was running
+- [x] SDK integration suite — run by CI (`pnpm sdk test:ci` against the
+      docker-compose server); no matching local server was running
 
 ## Known unfixable / deliberately left
 
