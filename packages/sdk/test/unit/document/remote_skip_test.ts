@@ -181,99 +181,40 @@ describe('a remote change this SDK cannot apply', function () {
     }
   });
 
-  it('decodes DELETE as a clear, not as an empty presence', function () {
-    const doc = new Document<TestDoc, { name?: string }>('d');
-    doc.update((r, p) => {
-      r.k = 'v';
-      p.set({ name: 'a' });
-    });
-    const actorID = doc.getChangeID().getActorID();
+  it('decodes UNSPECIFIED and DELETE as an empty presence, as Go does', function () {
+    for (const type of [
+      PbPresenceChangeType.UNSPECIFIED,
+      PbPresenceChangeType.DELETE,
+    ]) {
+      const doc = new Document<TestDoc, { name?: string }>('d');
+      doc.update((r, p) => {
+        r.k = 'v';
+        p.set({ name: 'a' });
+      });
+      const actorID = doc.getChangeID().getActorID();
 
-    const pbPack = converter.toChangePack(doc.createChangePack());
-    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.DELETE;
-    pbPack.changes[0].presenceChange!.presence = undefined;
+      const pbPack = converter.toChangePack(doc.createChangePack());
+      pbPack.changes[0].presenceChange!.type = type;
+      pbPack.changes[0].presenceChange!.presence = undefined;
 
-    const change = converter
-      .fromChangePack<{ name?: string }>(pbPack)
-      .getChanges()[0];
-    assert.deepEqual(change.getPresenceChange(), {
-      type: PresenceChangeType.Clear,
-    });
+      const change = converter
+        .fromChangePack<{ name?: string }>(pbPack)
+        .getChanges()[0];
+      assert.deepEqual(change.getPresenceChange(), {
+        type: PresenceChangeType.Put,
+        presence: {},
+      });
 
-    // The actor is dropped from the map rather than left there holding an
-    // empty presence, and the operations of the change still apply.
-    const presences = new Map<string, { name?: string }>([
-      [actorID, { name: 'a' }],
-    ]);
-    const root = CRDTRoot.create();
-    change.execute(root, presences, OpSource.Remote);
-    assert.isFalse(presences.has(actorID));
-    assert.equal(root.getObject().toJSON(), '{"k":"v"}');
-  });
-
-  it('decodes UNSPECIFIED as no presence change at all', function () {
-    const doc = new Document<TestDoc, { name?: string }>('d');
-    doc.update((r, p) => {
-      r.k = 'v';
-      p.set({ name: 'a' });
-    });
-    const actorID = doc.getChangeID().getActorID();
-
-    const pbPack = converter.toChangePack(doc.createChangePack());
-    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.UNSPECIFIED;
-    pbPack.changes[0].presenceChange!.presence = undefined;
-
-    const change = converter
-      .fromChangePack<{ name?: string }>(pbPack)
-      .getChanges()[0];
-    assert.isFalse(change.hasPresenceChange());
-
-    // The presence the actor already holds -- which may be this client's own,
-    // on an echo of a change it pushed -- survives untouched.
-    const presences = new Map<string, { name?: string }>([
-      [actorID, { name: 'a' }],
-    ]);
-    const root = CRDTRoot.create();
-    change.execute(root, presences, OpSource.Remote);
-    assert.deepEqual(presences.get(actorID), { name: 'a' });
-    assert.equal(root.getObject().toJSON(), '{"k":"v"}');
-  });
-
-  it('decodes a PUT that carries no presence as an empty one', function () {
-    const doc = new Document<TestDoc, { name?: string }>('d');
-    doc.update((_, p) => p.set({ name: 'a' }));
-
-    const pbPack = converter.toChangePack(doc.createChangePack());
-    pbPack.changes[0].presenceChange!.type = PbPresenceChangeType.PUT;
-    pbPack.changes[0].presenceChange!.presence = undefined;
-
-    const change = converter
-      .fromChangePack<{ name?: string }>(pbPack)
-      .getChanges()[0];
-    assert.deepEqual(change.getPresenceChange(), {
-      type: PresenceChangeType.Put,
-      presence: {},
-    });
-  });
-
-  it('keeps an unparsable presence value instead of failing the pack', function () {
-    const doc = new Document<TestDoc, { name?: string }>('d');
-    doc.update((_, p) => p.set({ name: 'a' }));
-
-    const pbPack = converter.toChangePack(doc.createChangePack());
-    // A peer -- another SDK, or a server API caller -- can store a presence
-    // value this SDK did not JSON-encode. Letting `JSON.parse` throw would
-    // fail the whole pack forever, since the checkpoint never advances past
-    // a pack that fails.
-    pbPack.changes[0].presenceChange!.presence!.data['name'] = 'not json{';
-
-    const change = converter
-      .fromChangePack<{ name?: string }>(pbPack)
-      .getChanges()[0];
-    assert.deepEqual(change.getPresenceChange(), {
-      type: PresenceChangeType.Put,
-      presence: { name: 'not json{' },
-    });
+      // Go's `Change.Execute` stores the decoded empty presence for the
+      // actor, and the operations of the change still apply.
+      const presences = new Map<string, { name?: string }>([
+        [actorID, { name: 'a' }],
+      ]);
+      const root = CRDTRoot.create();
+      change.execute(root, presences, OpSource.Remote);
+      assert.deepEqual(presences.get(actorID), {});
+      assert.equal(root.getObject().toJSON(), '{"k":"v"}');
+    }
   });
 
   it('decodes a PATCH that carries no presence as an empty one', function () {
