@@ -1,3 +1,4 @@
 :HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/3sbzkya8_91wb.css","style"]
-:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/06ztqes7flovb.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"VuwAkjWRMvXKTxW5RcA9h"}
+:HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/1xwj-c-uiokvt.css","style"]
+1:[["children",{"s":"__PAGE__","h":160}]]
+0:{"b":"2s1kjG-YlRZXaVNGVhKZ8","t":{"t":{"s":"","h":80,"c":"$Q1"}}}

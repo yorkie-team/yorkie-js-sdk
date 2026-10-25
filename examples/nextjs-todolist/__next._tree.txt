@@ -1,4 +1,5 @@
-:HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/chunks/3cpa_bzzzzzfp.css","style"]
-:HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/media/797e433ab948586e-s.p.0r6juujl39pe6.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-:HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/media/caa3a2e1cccd8315-s.p.0wgildi0cnwt9.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"nKJBOmufsk9g8TXwCjBbJ"}
+:HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/chunks/4435huksefh9r.css","style"]
+:HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/media/07a39a8a4660cc7c-s.p.0r6juujl39pe6.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/yorkie-js-sdk/examples/nextjs-todolist/_next/static/media/605ce01b664af129-s.p.0wgildi0cnwt9.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+1:[["children",{"s":"__PAGE__","h":160}]]
+0:{"b":"gqp3zaCC5rtllt0XR17p-","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
