@@ -1164,8 +1164,12 @@ function fromPresenceChange<P extends Indexable>(
     // a pulled pack does not normally carry a patch. It is decoded anyway --
     // an echo of a pushed change, or a peer ahead of this SDK, must not fail
     // the whole pack. There is no `full` on the wire: `Change.execute` merges
-    // the carried keys onto the presence already held for that actor.
-    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    // the carried keys onto the presence already held for that actor. A
+    // patch can leave `presence` unset, as Go allows
+    // (`api/converter/from_pb.go`, `FromPresenceChange`).
+    const presence = pbPresenceChange.presence
+      ? fromPresence<P>(pbPresenceChange.presence)
+      : ({} as P);
     return {
       type: PresenceChangeType.Patch,
       presence,
@@ -1174,6 +1178,20 @@ function fromPresenceChange<P extends Indexable>(
   if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
+    };
+  }
+  if (
+    type === PbPresenceChange_ChangeType.UNSPECIFIED ||
+    type === PbPresenceChange_ChangeType.DELETE
+  ) {
+    // NOTE: these two types are defined but no SDK sends them. Go still
+    // decodes them, because stored rows go through that path, into a change
+    // that stores an empty presence for the actor (`api/converter/from_pb.go`,
+    // `FromPresenceChange`). Do the same: throwing here fails the pack, and
+    // the same stored change comes back on every pull.
+    return {
+      type: PresenceChangeType.Put,
+      presence: {} as P,
     };
   }
 
