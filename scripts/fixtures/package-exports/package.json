@@ -10,12 +10,12 @@
     "@types/node": "24.10.1",
     "@types/react": "19.2.7",
     "esbuild": "0.28.2",
-    "prosemirror-model": "1.25.4",
+    "prosemirror-model": "1.25.12",
     "prosemirror-state": "1.4.3",
-    "prosemirror-view": "1.41.3",
+    "prosemirror-view": "1.42.3",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "typescript": "5.9.3",
-    "vite": "7.3.6"
+    "vite": "7.3.7"
   }
 }
