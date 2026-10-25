@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-14
+updated: 2026-10-25
 ---
 
 # Tasks Archive
@@ -8,12 +8,15 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 57
+Total archived tasks: 60
 
-## 2026/10 (19 tasks)
+## 2026/10 (22 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Tree style with both halves must survive the wire (2026-10-22) | [20261022-tree-style-combined-undo-todo.md](./2026/10/20261022-tree-style-combined-undo-todo.md) | [20261022-tree-style-combined-undo-lessons.md](./2026/10/20261022-tree-style-combined-undo-lessons.md) |
+| Skip a remote change this SDK cannot apply, as Go does (2026-10-22) | [20261022-skip-unapplicable-remote-change-todo.md](./2026/10/20261022-skip-unapplicable-remote-change-todo.md) | [20261022-skip-unapplicable-remote-change-lessons.md](./2026/10/20261022-skip-unapplicable-remote-change-lessons.md) |
+| Retain a peer's presence on `DOCUMENT_UNWATCHED` (2026-10-22) | [20261022-retain-presence-on-unwatch-todo.md](./2026/10/20261022-retain-presence-on-unwatch-todo.md) | [20261022-retain-presence-on-unwatch-lessons.md](./2026/10/20261022-retain-presence-on-unwatch-lessons.md) |
 | Ask the server for Watch heartbeats at a chosen interval (2026-10-13) | [20261013-watch-heartbeat-interval-todo.md](./2026/10/20261013-watch-heartbeat-interval-todo.md) | [20261013-watch-heartbeat-interval-lessons.md](./2026/10/20261013-watch-heartbeat-interval-lessons.md) |
 | Resolve the index before a text that follows an element (2026-10-12) | [20261012-tree-element-text-boundary-todo.md](./2026/10/20261012-tree-element-text-boundary-todo.md) | [20261012-tree-element-text-boundary-lessons.md](./2026/10/20261012-tree-element-text-boundary-lessons.md) |
 | Leave a restore span with a text parent unplaced (2026-10-12) | [20261012-restore-span-text-parent-todo.md](./2026/10/20261012-restore-span-text-parent-todo.md) | [20261012-restore-span-text-parent-lessons.md](./2026/10/20261012-restore-span-text-parent-lessons.md) |
