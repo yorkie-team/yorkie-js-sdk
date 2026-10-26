@@ -180,6 +180,14 @@ export type ViewEntry = {
   marker?: ViewMarker;
   /** markers of later concurrent splits of the same boundary (see `dealias`) */
   aliases?: Array<string>;
+  /**
+   * folded markers whose registers went to the node of their type open where
+   * they stand rather than to this one (see `dealias`): they go with this
+   * node (a merge or delete takes them) but writes to it skip them
+   */
+  routedAway?: Array<string>;
+  /** folded markers of other splits whose registers came to this node */
+  routedHere?: Array<string>;
   /** the scoping marker the token was inserted in (see `ZeroTokens.scope`) */
   scope?: string;
 };
@@ -216,8 +224,11 @@ export function levelOf(marker: {
  * `dealias` folds the markers of concurrent splits of one boundary into the
  * first split there. Two people pressing Enter at the same place make one
  * line: the later run (in document order) is the same line, so its markers
- * open nothing -- their registers join the first run's (LWW per key) and
- * their ids join its groups, so a merge removes them too.
+ * open nothing -- their ids join the first run's groups, so a merge removes
+ * them too, and their registers join (LWW per key) the node of their type
+ * open where they stand: the first run's, unless another split came between
+ * the two, in which case what follows the folded marker -- and what was
+ * written on it -- is in that split's node.
  *
  * A run is the markers of one SPLIT cascade: consecutive markers of one
  * boundary key with growing depth (outermost first). A later run of the same
@@ -247,8 +258,11 @@ export function dealias(
     type: string;
     seen: Set<string>;
     attrs?: Record<string, string>;
+    /** the index in `out` of the node the marker opened (or was folded into) */
+    at?: number;
   }> = [{ depth: 0, type: schema.rootType, seen: new Set() }];
   let hideDepth = Infinity;
+  let holder: number | undefined;
   let into: Array<number> | undefined;
   let isFirst = false;
   let j = 0;
@@ -257,6 +271,9 @@ export function dealias(
     if (entry.scope && !shown.has(entry.scope)) {
       continue;
     }
+    // a folded marker opens nothing in the view: the open nodes stay as they
+    // were before it
+    const openBefore = open.slice();
     if (entry.marker && levelOf(entry.marker) <= hideDepth) {
       hideDepth = Infinity;
     }
@@ -267,6 +284,14 @@ export function dealias(
       // a second child of a `single` type: left out with its span (a split
       // marker is never one: splits copy a node the parent already holds)
       const depth = levelOf(entry.marker);
+      // the node of this type open at this depth: what follows a folded
+      // marker goes into it (see the fold below)
+      holder = open.find(
+        (o) =>
+          o.depth === depth &&
+          o.type === entry.marker!.type &&
+          o.at !== undefined,
+      )?.at;
       while (open.length > 1 && open[open.length - 1].depth >= depth) {
         open.pop();
       }
@@ -297,6 +322,7 @@ export function dealias(
         type: entry.marker.type,
         seen: new Set(),
         attrs: entry.marker.attrs,
+        at: out.length,
       });
     }
     if (entry.marker) {
@@ -319,14 +345,28 @@ export function dealias(
         firstRuns.set(key, []);
       }
     }
-    const target =
-      !isFirst && into?.[j] !== undefined ? out[into[j]] : undefined;
+    // A folded marker is the first split's line: it goes with that node (a
+    // merge or delete takes it). But what follows a folded marker is in the
+    // node of its type open where it stands -- another split may have come
+    // between the two -- so its registers (what was written on it) show there,
+    // and writes to that node reach it. Where nothing came between, that node
+    // is the first split's.
+    const fold = !isFirst && into?.[j] !== undefined ? into[j] : undefined;
+    const target = fold !== undefined ? out[fold] : undefined;
     if (
       target &&
       target.marker!.type === entry.marker!.type &&
       target.marker!.depth === entry.marker!.depth
     ) {
-      const registers = { ...(target.marker!.registers ?? {}) };
+      open.splice(0, open.length, ...openBefore);
+      const route =
+        holder !== undefined &&
+        holder !== fold &&
+        out[holder].marker?.type === entry.marker!.type
+          ? holder
+          : fold!;
+      const into2 = out[route];
+      const registers = { ...(into2.marker!.registers ?? {}) };
       for (const [k, reg] of Object.entries(entry.marker!.registers ?? {})) {
         if (!registers[k] || reg.at.after(registers[k].at)) {
           registers[k] = reg;
@@ -338,10 +378,19 @@ export function dealias(
           attrs[k] = reg.value;
         }
       }
-      out[into![j]] = {
-        ...target,
-        marker: { ...target.marker!, attrs, registers },
-        aliases: [...(target.aliases ?? []), entry.id],
+      out[route] = {
+        ...into2,
+        marker: { ...into2.marker!, attrs, registers },
+        ...(route !== fold
+          ? { routedHere: [...(into2.routedHere ?? []), entry.id] }
+          : {}),
+      };
+      out[fold!] = {
+        ...out[fold!],
+        aliases: [...(out[fold!].aliases ?? []), entry.id],
+        ...(route !== fold
+          ? { routedAway: [...(out[fold!].routedAway ?? []), entry.id] }
+          : {}),
       };
       continue;
     }
@@ -391,6 +440,12 @@ export type ZNode = {
   parent?: ZNode;
   /** ids of the markers this node is made of (same-boundary markers merge) */
   group?: Array<string>;
+  /**
+   * ids of the markers a write to this node goes to, when not `group`: a
+   * folded marker's registers show in the node of its type open where it
+   * stands (see `dealias`)
+   */
+  writeGroup?: Array<string>;
   /** the column key of a cell (see `ZeroSchema.grid`) */
   col?: string;
   registers?: ViewMarker['registers'];
@@ -659,6 +714,12 @@ export function buildView(
       settle(type, i, depth);
       const node = open(type, top().depth + 1, i, attrs, entry.id, depth);
       node.group = [entry.id, ...(entry.aliases ?? [])];
+      if (entry.routedAway?.length || entry.routedHere?.length) {
+        node.writeGroup = [
+          ...node.group.filter((id) => !entry.routedAway?.includes(id)),
+          ...(entry.routedHere ?? []),
+        ];
+      }
       node.registers = entry.marker.registers;
       if (attrs['zt.col'] !== undefined) {
         node.col = JSON.parse(attrs['zt.col']);

@@ -220,11 +220,7 @@ describe('ZeroTree range formatting', () => {
       );
       const net = new Net(docs);
       net.syncAll();
-      const formats: Array<{
-        key: string;
-        ids: Array<string>;
-        markers: Array<string>;
-      }> = [];
+      const formats: Array<{ key: string; ids: Array<string> }> = [];
       for (let step = 0; step < 80; step++) {
         const doc = docs[1 + Math.floor(r() * 3)];
         const model = doc.getRoot().zt.toZeroContent();
@@ -242,7 +238,7 @@ describe('ZeroTree range formatting', () => {
           const key = `k${formats.length}`;
           ops = formatOps(p, lens, from, to, key);
           const ids = charIDs(doc)[p].flat().slice(from, to);
-          formats.push({ key, ids, markers: [] });
+          formats.push({ key, ids });
         } else if (u < 0.7) {
           const [i, l] = locate(lens, Math.floor(r() * (total + 1)));
           ops = [['insert', [p, i, l], 'x']];
@@ -260,13 +256,6 @@ describe('ZeroTree range formatting', () => {
         }
         if (ops) {
           doc.update((root) => root.zt.applyZeroOperations(ops!));
-          if (ops.some(([kind]) => kind === 'update')) {
-            // the markers the format was written on
-            const paragraph = crdtOf(doc).view().children[p];
-            formats[formats.length - 1].markers = ops
-              .filter(([kind]) => kind === 'update')
-              .map(([, path]) => paragraph.children[path[1]].markerID ?? '');
-          }
         }
         if (gc && step % 40 === 39) {
           net.syncAll();
@@ -288,11 +277,6 @@ describe('ZeroTree range formatting', () => {
       expect(json[0].includes('zt.')).toBe(false);
       expect(leaks).toEqual([]);
 
-      // A format written on a marker that ends up folded into a concurrent
-      // Enter at the same place (`dealias`) can still miss characters: those
-      // after the folded marker sit in the node of whatever split came
-      // between, while the folded marker's registers join the first Enter's
-      // line. Counted apart; every other loss fails the test.
       if (process.env.STYLE_CASES_OUT) {
         // the server's log replayed on a fresh replica, for the Go
         // cross-SDK test (zero_tree_cross_test.go)
@@ -337,20 +321,13 @@ describe('ZeroTree range formatting', () => {
           }) + '\n',
         );
       }
+      // every character a format covered keeps its key, also where the
+      // format was written on a marker folded into a concurrent Enter at the
+      // same place (`dealias`)
       const styles = stylesByChar(docs[0]);
-      const opened = new Set<string>();
-      const walk = (n: ZNode) => {
-        if (n.markerID) {
-          opened.add(n.markerID);
-        }
-        n.children.forEach(walk);
-      };
-      walk(crdtOf(docs[0]).view());
       let lost = 0;
-      let lostFolded = 0;
       let covered = 0;
-      for (const { key, ids, markers } of formats) {
-        const folded = markers.some((m) => !opened.has(m));
+      for (const { key, ids } of formats) {
         for (const id of ids) {
           const keys = styles.get(id);
           if (!keys) {
@@ -358,11 +335,7 @@ describe('ZeroTree range formatting', () => {
           }
           covered++;
           if (!keys.has(key)) {
-            if (folded) {
-              lostFolded++;
-            } else {
-              lost++;
-            }
+            lost++;
           }
         }
       }
@@ -375,7 +348,6 @@ describe('ZeroTree range formatting', () => {
             formats: formats.length,
             covered,
             lost,
-            lostFolded,
           }) + '\n',
         );
       }

@@ -772,7 +772,7 @@ export class ZeroTree {
         }
         // every marker of the node: a folded split's marker may outlive the
         // standing one (its author undoes their Enter), the line keeps its props
-        for (const id of node.group ?? []) {
+        for (const id of node.writeGroup ?? node.group ?? []) {
           const marker = tree.markerIDOf(id);
           if (marker) {
             this.style(
