@@ -1,7 +1,7 @@
 ---
 title: Zero Tree
 created: 2026-10-20
-updated: 2026-10-21
+updated: 2026-10-23
 target-version: 0.7.26
 status: prototype
 tags: [zero-tree, tree, rga, split, merge, concurrent-editing, undo-redo, gc]
@@ -17,6 +17,11 @@ tags: [zero-tree, tree, rga, split, merge, concurrent-editing, undo-redo, gc]
 > (`Marshal`), YSON (revisions, compaction) and schema rules. Migrating existing
 > Tree documents is out of scope. Measurement results are in
 > [zero-tree-measurement.md](./zero-tree-measurement.md).
+>
+> Updated 2026-10-23: the model is kept by top-level block and an edit or an
+> undo rebuilds only the blocks it touches (§16); insertions next to virtual
+> parents and virtual default children follow the rules at the end of §5; a
+> redo removes only what was live in the redoer's view (§8).
 
 ## 0. Summary
 
@@ -166,6 +171,35 @@ are also filled by the same rules as the editor. Limitation:
 are opened with Zero Tree on one page, the later one wins (a full
 implementation would keep the schema on the tree object).
 
+### Writing next to virtual nodes
+
+The view fills gaps with virtual nodes, but an edit has to be stored as tokens
+whose depth does not depend on what this replica happens to see. Three rules
+keep an edit at its target on every replica:
+
+- **Closing is compared in stored-depth space.** A concurrent wrap can leave an
+  atom (or a text marker) written at a shallower depth inside a virtual
+  `list_item > paragraph`. The view used to compare depths in view space, so an
+  insertion at child index 0 of that virtual paragraph was written at the view
+  depth, before the atom, and attached to the end of the previous paragraph.
+  Each view node now carries the level it occupies in stored-depth space, and
+  an insertion takes the real child depth of its parent: for a squeezed-in
+  virtual parent, the depth of the marker that opened that chain.
+- **A virtual node that gets a marker gets a level between two depths.** An
+  `update`, `merge` or `split` that materializes a virtual node writes its
+  marker at the next integer depth and keeps the fractional level it occupies
+  between the parent and the atom in the reserved attribute `zt.level`.
+  `buildView` reads it; the model never shows it (the fuzz checks every step).
+  No storage-format change: it is an ordinary marker attribute.
+- **A virtual default child is materialized before an insertion next to it,**
+  but only if it was visible before the batch started. Zero empties a container
+  and refills it within one command (for example, replacing the whole body), and
+  the default child of that momentarily empty container must not become real.
+
+In the random harness (1,000 seeds that wrap, unwrap and insert at index 0),
+0 of 10,893 insertions and 0 of 3,996 attribute writes land away from their
+target, against 349 failing seeds before.
+
 Explicit note on I3: in this model an "empty line" is **a paragraph with one
 empty inline-text**, which is the same as a normal empty line in Zero.
 Paragraphs without a text node are never created (a virtual inline fills them).
@@ -306,6 +340,18 @@ How it was fixed (prototype, `rga_tree_split.ts`):
   canceled by cancels the deleter knew about).
 - Redo (retombstone) is recorded as a new delete, and the `removedBy` of the
   next undo span is changed to that redo.
+- A redo removes **only what was live in the redoer's view**
+  (`isRemovedInView(versionVector)`), like a remote delete. Before 2026-10-23 it
+  re-removed every live piece in its spans, including one the redoer saw
+  removed by another client's delete. Two clients delete `cd` from `abcdef`; A
+  receives B's delete, undoes and redoes its own; B undoes its delete. A shows
+  `cd` again, but B kept it removed by A's redo (`abcdef` vs `abef`). This was a
+  `Text` defect too, and is fixed in yorkie-js-sdk#1494 and yorkie#2270. In Go,
+  an undo or redo is now propagated whenever an operation ran, as in JS: the
+  undo that only cancels its own delete of text another delete still holds
+  shows nothing, yet the other replicas need it. In a random run heavy in undo
+  and redo (4 replicas, 1,000 seeds), Zero Tree diverged in 5 seeds without GC
+  and 11 with GC before this fix, and in 0 after.
 
 - When a piece removed by GC is needed again (an undo arrives after it was
   removed): Zero Tree does not take pieces out of the list — §9 ghost nodes.
@@ -491,10 +537,13 @@ Confirmed:
 
 ## 14. Limitations and next steps
 
-1. Performance: the prototype recomputes the model from scratch (O(n)) for each
-   operation, and the compiler verifies each step. A full implementation would
-   keep marker positions in an index tree (path ↔ token index in O(log n)) and
-   run compiler verification only in debug.
+1. Performance: done for ordinary documents by the block index (§16). What
+   remains: inside one very long paragraph the paragraph block is rebuilt
+   (p95 27 ms in a 10k-character paragraph); at 10M characters shifting node
+   numbers and looping over blocks dominate (block-relative coordinates with a
+   Fenwick tree would fix it); the first edit after loading builds the index
+   (O(n), about 200 ms at 1M characters); a remote change still runs twice
+   (clone and root); memory is twice the first version's.
 2. Formatting lineage: formatting applied to an inline that the other side
    concurrently split does not spread to the copy. With `splitFrom` on split
    copies, applying formatting writes that did not know about that split to the
@@ -524,15 +573,74 @@ JS (in this repository):
 | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | `packages/sdk/src/document/crdt/zero_tree.ts`                       | `CRDTZeroTree`, `ZeroMarker`, `ZeroTokens` (ghosts, refilling), `toTokens` |
 | `packages/sdk/src/document/crdt/zero_tree_view.ts`                  | Model computation (`buildView`), schema, Zero applier, event compiler      |
+| `packages/sdk/src/document/crdt/zero_tree_index.ts`                 | Block index (§16): per-block model, edit and undo windows                  |
 | `packages/sdk/src/document/operation/zero_tree_operation.ts`        | `ZeroTreeEditOperation`, `ZeroTreeStyleOperation`                          |
 | `packages/sdk/src/document/json/zero_tree.ts`                       | `ZeroTree` (`applyZeroOperations`)                                         |
 | `packages/sdk/src/api/yorkie/v1/resources.proto`, `converter.ts`    | protobuf messages and conversion                                           |
 | `packages/sdk/src/api/zero_tree_codec.ts`                           | hex of `Change` bytes for the binding and relaying                         |
-| `packages/sdk/src/document/crdt/rga_tree_split.ts`                  | Delete ledger, ghost purge                                                 |
+| `packages/sdk/src/document/crdt/rga_tree_split.ts`                  | Delete ledger, ghost purge, `landingIndex` (§16)                           |
 | `root.ts`, `json/element.ts`, `operation/operation.ts`, `yorkie.ts` | Wiring                                                                     |
 
-Go (a yorkie clone, local branch `zero-tree-proto` on top of v0.7.25, not
-committed): `pkg/document/crdt/zero_tree.go`, `rga_tree_split.go`, `root.go`,
+Go (yorkie#2271, branch `feat/zero-tree`): `pkg/document/crdt/zero_tree.go`, `rga_tree_split.go`, `root.go`,
 `pkg/document/operations/zero_tree.go`, `api/converter/zero_tree.go` (+
 to_pb, from_pb, to_bytes, from_bytes branches), `api/yorkie/v1/resources.proto`,
 cross test `pkg/document/zero_tree_cross_test.go` (`ZT_CASES=<jsonl>`).
+
+## 16. Block index (performance)
+
+The first version rebuilt the whole model several times per operation (live
+entries, `dealias`, `buildView`) and compiled each event against the whole
+document. One key press cost 222 ms at 100k characters and 3.4 s at 1M. The
+path ↔ token index was not the problem: `RGATreeSplit` is already a splay tree.
+
+**Structure.** `ZeroBlockIndex` (`zero_tree_index.ts`) keeps, for each top-level
+block (from a depth-1 marker to the next block), its token range, its view
+range and its slice of the model. The token list itself is unchanged.
+
+**An edit.** Before an edit, `RGATreeSplit.landingIndex` finds where it lands
+among the live tokens, applying the RGA's split and skip rules exactly as
+`findNodeWithSplit` would, without splitting. Only the blocks around it are
+read back and rebuilt; the blocks after it only shift. Inside a table only the
+rows around the edit are rebuilt and swapped into the table node. The edit falls
+back to rebuilding the whole document where a dependency crosses blocks: a
+concurrent same-boundary split that has to be folded, or a live scope marker in
+another block. A table is rebuilt whole when a row in it hangs on another row's
+cell marker through a scope (counted per block in `scopeRefs`).
+
+**Events.** The event is compiled on the same window. A change confined to the
+characters of one text node is emitted directly; otherwise the window is cut
+down to the deepest node holding the change (a row, a cell, a paragraph). It is
+not cut past a marker that is deeper than the new markers in the window, since
+the whole compile groups the tokens after a new marker by depth.
+
+**Undo and redo.** A restore or retombstone does not predict its range. After
+it runs, the pieces the RGA reports back (untombstoned, recreated, removed) give
+the range: the index walks out from them to tokens live both before and after,
+and rebuilds that window as an edit would. One operation's retombstone and
+restore are applied together. It falls back to a whole rebuild for a
+same-boundary fold, a scope that reaches across blocks, or a hazard it cannot
+bound (in a random run heavy in undo, about 1.3% of undos fell back).
+
+**Correctness checks.** `zero_tree_window_fuzz_test.ts` runs random edits on
+several replicas and, after every step, checks that the index's model equals a
+model built from scratch and that the window compile equals the whole compile.
+It has a batch that wraps, unwraps and inserts at index 0, and a batch heavy in
+undo (23%) and redo (12%), with fixed regression seeds. 1,000 seeds of each
+batch pass with GC on and off. The external 6,109-script harness gives the same
+result per script as the whole rebuild.
+
+**Numbers** (two `Document`s exchanging protobuf without a server, editing the
+middle paragraph; Apple M3 Max, Node 22.19; p50 / p95 ms):
+
+|                                                      |         Before |         Now |
+| ---------------------------------------------------- | -------------: | ----------: |
+| Typing, 100k characters (local)                      |      222 / 241 | 0.30 / 0.75 |
+| Typing, 100k characters (remote apply)               |      399 / 425 | 0.20 / 0.82 |
+| Typing, 1M characters (local)                        |  3,420 / 3,700 | 1.89 / 5.33 |
+| Typing in a 50×4 table cell, 100k-character document |      276 / 314 | 0.88 / 2.09 |
+| Undo of Enter, 100k characters (local)               |      379 / 450 | 0.66 / 2.29 |
+| Undo of Enter, 1M characters (local)                 | 7,644 / 13,601 | 2.31 / 2.98 |
+
+Memory per replica at 1M characters is 93.3 MB, against 47.5 MB in the first
+version and 30.7 MB for `Tree`. What remains is listed in §14, item 1. The Go
+server does not compute the model per operation, so it needs no index.
