@@ -34,6 +34,7 @@
  */
 
 import {
+  InitialTimeTicket,
   MaxTimeTicket,
   TimeTicket,
   TimeTicketSize,
@@ -447,11 +448,11 @@ export function toTokens(
 }
 
 /**
- * `ZeroStyleRange` makes a style write on a text node a range: up to the
- * token that ended the node in its author's view, or to the end of the
- * document when `until` is absent (see `ZeroStyleRegion`).
+ * `ZeroStyleRange` makes a style write on a text node a range: up to the last
+ * character of the node in its author's view, or to the end of the document
+ * when `last` is absent (see `ZeroStyleRegion`).
  */
-export type ZeroStyleRange = { until?: RGATreeSplitNodeID };
+export type ZeroStyleRange = { last?: RGATreeSplitNodeID };
 
 /**
  * `encodeNodeID` encodes a token id for a pending range write's register.
@@ -479,10 +480,17 @@ export function decodeNodeID(value: string): RGATreeSplitNodeID {
 
 /**
  * `ZeroStyleRegion` is a style write on a text node taken as a range: from
- * the node's marker to the token that ended the node in its author's view
- * (`until`). Every marker of the same type between the two in the token
- * order gets the write too (LWW, at the write's ticket), so a node someone
- * split off concurrently keeps the style written on what it was split from.
+ * the node's marker to the last character of the node in its author's view
+ * (`last`). Every marker of the same type between the two in the token order
+ * gets the write too (LWW, at the write's ticket), so a node someone split
+ * off concurrently keeps the style written on what it was split from.
+ *
+ * The range ends at that character, not at the token after it: a marker
+ * someone put concurrently right after the node's text opens what follows
+ * the range (formatting the next characters, an Enter at the node's end),
+ * so it does not get the write. The token order between two tokens never
+ * changes, so whether a marker falls in the range does not depend on when
+ * anything arrives.
  *
  * The markers between the two when the write arrives get it then. A marker
  * that arrives later gets it if it is concurrent with the write (its change
@@ -496,7 +504,7 @@ export class ZeroStyleRegion implements GCChild {
   constructor(
     public readonly markerID: RGATreeSplitNodeID,
     public readonly type: string,
-    public readonly until: RGATreeSplitNodeID | undefined,
+    public readonly last: RGATreeSplitNodeID | undefined,
     public readonly writes: Array<[string, ZeroAttrValue]>,
     public readonly ticket: TimeTicket,
   ) {}
@@ -535,7 +543,7 @@ export class ZeroStyleRegion implements GCChild {
    */
   public encode(): string {
     return JSON.stringify({
-      u: this.until ? encodeNodeID(this.until) : '',
+      l: this.last ? encodeNodeID(this.last) : '',
       w: this.writes,
     });
   }
@@ -666,7 +674,9 @@ export class ZeroStyleCancels {
   /**
    * `pick` returns the write a register keeping `history` (newest first,
    * never empty) shows: the newest one not cancelled, or, when all are, what
-   * the oldest one's marker held before it.
+   * the oldest one's marker held before it. That value predates every write
+   * the register keeps, so it carries the initial ticket: a value it meets in
+   * a merge (`dealias`) or a copy wins over it.
    */
   public pick(key: string, history: Array<ZeroAttrEntry>): ZeroAttrEntry {
     for (const e of history) {
@@ -676,7 +686,7 @@ export class ZeroStyleCancels {
     }
     const oldest = history[history.length - 1];
     const before = this.get(oldest.at)?.fallback.find(([k]) => k === key);
-    return { value: before ? before[1] : null, at: oldest.at };
+    return { value: before ? before[1] : null, at: InitialTimeTicket };
   }
 
   /**
@@ -1041,7 +1051,7 @@ export class CRDTZeroTree extends CRDTElement {
         ? new ZeroStyleRegion(
             markerID,
             marker.type,
-            range.until,
+            range.last,
             writes,
             editedAt,
           )
@@ -1049,8 +1059,8 @@ export class CRDTZeroTree extends CRDTElement {
     if (this.index && marker && writes.length) {
       if (region) {
         const from = this.rawPositionOf(markerID);
-        const to = region.until
-          ? this.rawPositionOf(region.until)
+        const to = region.last
+          ? Math.min(this.rga.length, this.rawPositionOf(region.last) + 1)
           : this.rga.length;
         if (to > from) {
           touch(from, to);
@@ -1289,7 +1299,7 @@ export class CRDTZeroTree extends CRDTElement {
           if (!key.startsWith(ZeroRegionPrefix) || reg.value === null) {
             continue;
           }
-          const { u, w } = JSON.parse(reg.value);
+          const { l, w } = JSON.parse(reg.value);
           this.pending!.set(
             key,
             new ZeroStyleRegion(
@@ -1298,7 +1308,7 @@ export class CRDTZeroTree extends CRDTElement {
                 node.getID().getOffset() + i,
               ),
               t.type,
-              u ? decodeNodeID(u) : undefined,
+              l ? decodeNodeID(l) : undefined,
               w,
               reg.updatedAt,
             ),
@@ -1311,12 +1321,12 @@ export class CRDTZeroTree extends CRDTElement {
 
   /**
    * `applyRegion` writes a range write on the markers of its type between
-   * its marker and `until`, removed ones included (an undo may bring them
+   * its marker and `last`, removed ones included (an undo may bring them
    * back), or only on `target` when it is given. Returns whether it reached
    * `target`.
    */
   private applyRegion(region: ZeroStyleRegion, target?: ZeroMarker): boolean {
-    const until = region.until;
+    const until = region.last;
     let node: RGATreeSplitNode<ZeroTokens> | undefined = this.rga.findNode(
       region.markerID,
     );

@@ -744,7 +744,7 @@ function toOperation(operation: Operation): PbOperation {
     const range = operation.getRange();
     if (range) {
       pbOperation.body.value.range = create(PbZeroStyleRangeSchema, {
-        until: range.until ? toTextNodeID(range.until) : undefined,
+        last: range.last ? toTextNodeID(range.last) : undefined,
       });
     }
     const cancel = operation.getCancel();
@@ -2310,8 +2310,8 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
       fromTimeTicket(pbZeroTreeStyle.executedAt)!,
       pbZeroTreeStyle.range
         ? {
-            until: pbZeroTreeStyle.range.until
-              ? fromTextNodeID(pbZeroTreeStyle.range.until)
+            last: pbZeroTreeStyle.range.last
+              ? fromTextNodeID(pbZeroTreeStyle.range.last)
               : undefined,
           }
         : undefined,

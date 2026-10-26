@@ -757,18 +757,14 @@ export class ZeroTree {
           );
           return;
         }
-        // on a text node the write is a range, up to the token that ends the
-        // node here: a node split off it concurrently gets it too (see
+        // on a text node the write is a range, up to the node's last
+        // character here: a node split off it concurrently gets it too (see
         // `ZeroStyleRegion`). Only from the node's own marker: a folded
-        // split's marker may sit past that token.
+        // split's marker may sit past that character. A node without
+        // characters has nothing to split off.
         let range: ZeroStyleRange | undefined;
-        if (isTextType(schema, node.type) && node.markerID) {
-          range = {
-            until:
-              tree.viewIDAt(node.end) !== undefined
-                ? tree.idAt(node.end)
-                : undefined,
-          };
+        if (isTextType(schema, node.type) && node.markerID && node.text) {
+          range = { last: tree.idAt(node.textStart + node.text.length - 1) };
         }
         // every marker of the node: a folded split's marker may outlive the
         // standing one (its author undoes their Enter), the line keeps its props

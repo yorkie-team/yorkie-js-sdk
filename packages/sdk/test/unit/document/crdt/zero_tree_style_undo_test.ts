@@ -13,7 +13,15 @@ import {
   VersionVector,
 } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
-import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
+import {
+  CRDTZeroTree,
+  ZeroStyleCancel,
+  ZeroStyleCancels,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree';
+import {
+  InitialTimeTicket,
+  TimeTicket,
+} from '@yorkie-js/sdk/src/document/time/ticket';
 import {
   decodeChange,
   encodeChange,
@@ -344,6 +352,27 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('BBBBBBBBBB');
     a.history.undo();
     expect(settle(docs, net)).toBe('RRRRRGGGGG');
+  });
+
+  it('모든 쓰기가 취소된 레지스터의 값은 어떤 실제 쓰기에도 져야 한다', () => {
+    // the value before the cancelled writes predates all of them: a merge
+    // with a folded marker's register, or a copy, must not lose to it
+    const cancels = new ZeroStyleCancels();
+    const a1 = TimeTicket.of(5n, 1, '000000000000000000000007');
+    cancels.set(
+      new ZeroStyleCancel(
+        a1,
+        true,
+        TimeTicket.of(6n, 1, '000000000000000000000007'),
+        [],
+      ),
+    );
+    const picked = cancels.pick('style.bold', [{ value: 'false', at: a1 }]);
+    expect(picked.value).toBe(null);
+    expect(picked.at.equals(InitialTimeTicket)).toBe(true);
+    expect(
+      TimeTicket.of(4n, 1, '000000000000000000000005').after(picked.at),
+    ).toBe(true);
   });
 
   it('되돌린 서식을 모두 알고 아무 레지스터도 쓰지 않을 때만 취소 기록을 지워야 한다', () => {
