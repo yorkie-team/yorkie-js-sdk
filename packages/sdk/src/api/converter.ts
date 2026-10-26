@@ -157,6 +157,7 @@ import {
   ZeroMarkerSchema as PbZeroMarkerSchema,
   ZeroAttrSchema as PbZeroAttrSchema,
   ZeroAttrWriteSchema as PbZeroAttrWriteSchema,
+  ZeroStyleRangeSchema as PbZeroStyleRangeSchema,
   ZeroCancelSchema as PbZeroCancelSchema,
   ZeroPurgedLedgerSchema as PbZeroPurgedLedgerSchema,
   ZeroRestoreSpan as PbZeroRestoreSpan,
@@ -740,6 +741,12 @@ function toOperation(operation: Operation): PbOperation {
       ),
       executedAt: toTimeTicket(operation.getExecutedAt()),
     });
+    const range = operation.getRange();
+    if (range) {
+      pbOperation.body.value.range = create(PbZeroStyleRangeSchema, {
+        until: range.until ? toTextNodeID(range.until) : undefined,
+      });
+    }
   } else if (operation instanceof ArraySetOperation) {
     const arraySetOperation = operation as ArraySetOperation;
     const pbArraySetOperation = create(PbOperation_ArraySetSchema);
@@ -2235,6 +2242,13 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
         (w) => [w.key, w.isRemoved ? null : w.value] as [string, ZeroAttrValue],
       ),
       fromTimeTicket(pbZeroTreeStyle.executedAt)!,
+      pbZeroTreeStyle.range
+        ? {
+            until: pbZeroTreeStyle.range.until
+              ? fromTextNodeID(pbZeroTreeStyle.range.until)
+              : undefined,
+          }
+        : undefined,
     );
   } else if (pbOperation.body.case === 'arraySet') {
     const pbArraySetOperation = pbOperation.body.value;

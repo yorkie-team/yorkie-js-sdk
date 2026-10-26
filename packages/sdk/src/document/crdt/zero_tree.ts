@@ -59,7 +59,6 @@ import {
   ZeroLevelKey,
   ZeroNodeJSON,
   ZeroRegionPrefix,
-  ZeroUntilKey,
   ZeroSchema,
   buildView,
   cloneZeroSchema,
@@ -358,7 +357,14 @@ export function toTokens(
 }
 
 /**
- * `encodeNodeID` encodes a token id for `ZeroUntilKey`.
+ * `ZeroStyleRange` makes a style write on a text node a range: up to the
+ * token that ended the node in its author's view, or to the end of the
+ * document when `until` is absent (see `ZeroStyleRegion`).
+ */
+export type ZeroStyleRange = { until?: RGATreeSplitNodeID };
+
+/**
+ * `encodeNodeID` encodes a token id for a pending range write's register.
  */
 export function encodeNodeID(id: RGATreeSplitNodeID): string {
   const at = id.getCreatedAt();
@@ -747,14 +753,15 @@ export class CRDTZeroTree extends CRDTElement {
   /**
    * `setAttrs` writes attributes on the marker of the given id. Returns the
    * previous values of the keys that applied, for the reverse operation, and
-   * the GC pair of a range write (see `ZeroStyleRegion`). A `ZeroUntilKey`
-   * write makes it a range write; the reverse keeps it, so an undo writes the
-   * same range.
+   * the GC pair of a range write. With `range` the write is a range (see
+   * `ZeroStyleRegion`); the reverse keeps it, so an undo writes the same
+   * range.
    */
   public setAttrs(
     markerID: RGATreeSplitNodeID,
     writes: Array<[string, ZeroAttrValue]>,
     editedAt: TimeTicket,
+    range?: ZeroStyleRange,
   ): [Array<[string, ZeroAttrValue]>, Array<GCPair>] {
     this.flushUndo();
     const marker = this.findMarker(markerID);
@@ -762,14 +769,12 @@ export class CRDTZeroTree extends CRDTElement {
     if (!marker) {
       return [prev, []];
     }
-    const until = writes.find(([k]) => k === ZeroUntilKey);
-    const own = writes.filter(([k]) => k !== ZeroUntilKey);
-    const region = until
+    const region = range
       ? new ZeroStyleRegion(
           markerID,
           marker.type,
-          until[1] ? decodeNodeID(until[1]) : undefined,
-          own,
+          range.until,
+          writes,
           editedAt,
         )
       : undefined;
@@ -788,7 +793,7 @@ export class CRDTZeroTree extends CRDTElement {
         plan = at >= 0 ? this.index.plan(at, at + 1) : undefined;
       }
     }
-    for (const [k, v] of own) {
+    for (const [k, v] of writes) {
       const [old, applied] = marker.set(k, v, editedAt);
       if (applied) {
         prev.push([k, old === undefined ? null : old]);
@@ -796,9 +801,6 @@ export class CRDTZeroTree extends CRDTElement {
     }
     const pairs: Array<GCPair> = [];
     if (region) {
-      if (prev.length) {
-        prev.push(until!);
-      }
       marker.attrs.set(region.key, {
         value: region.encode(),
         updatedAt: editedAt,
@@ -924,9 +926,11 @@ export class CRDTZeroTree extends CRDTElement {
     if (!versionVector || !versionVector.size()) {
       return;
     }
-    const regions = [...this.pendingRegions().values()].filter(
-      (r) => !versionVector.afterOrEqual(r.ticket),
-    );
+    // in ticket order, as in Go: the writes do not depend on it (LWW), but
+    // the order a marker first gets its keys in is part of its encoding
+    const regions = [...this.pendingRegions().values()]
+      .filter((r) => !versionVector.afterOrEqual(r.ticket))
+      .sort((a, b) => a.ticket.compare(b.ticket));
     if (!regions.length) {
       return;
     }

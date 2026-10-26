@@ -193,14 +193,6 @@ export type ViewEntry = {
 export const ZeroLevelKey = 'zt.level';
 
 /**
- * `ZeroUntilKey` rides along the writes of a style operation on a text node:
- * the id of the token that ends the node in its author's view ("" at the end
- * of the document), encoded by `encodeNodeID`. It makes the write a range
- * (see `ZeroStyleRegion` in `zero_tree.ts`) and is never written on a marker.
- */
-export const ZeroUntilKey = 'zt.until';
-
-/**
  * `ZeroRegionPrefix` names the register a marker keeps a pending range write
  * in, keyed by the write's ticket, so a snapshot carries it.
  */

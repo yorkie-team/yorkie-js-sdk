@@ -38,6 +38,7 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import {
   CRDTZeroTree,
+  ZeroStyleRange,
   ZeroTokens,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import {
@@ -291,16 +292,19 @@ export class ZeroTreeEditOperation extends Operation {
 export class ZeroTreeStyleOperation extends Operation {
   private markerID: RGATreeSplitNodeID;
   private writes: Array<[string, ZeroAttrValue]>;
+  private range?: ZeroStyleRange;
 
   constructor(
     parentCreatedAt: TimeTicket,
     markerID: RGATreeSplitNodeID,
     writes: Array<[string, ZeroAttrValue]>,
     executedAt?: TimeTicket,
+    range?: ZeroStyleRange,
   ) {
     super(parentCreatedAt, executedAt);
     this.markerID = markerID;
     this.writes = writes;
+    this.range = range;
   }
 
   /**
@@ -313,6 +317,7 @@ export class ZeroTreeStyleOperation extends Operation {
       this.markerID,
       this.writes,
       this.getExecutedAt(),
+      this.range,
     );
     for (const pair of pairs) {
       root.registerGCPair(pair);
@@ -332,6 +337,8 @@ export class ZeroTreeStyleOperation extends Operation {
             this.getParentCreatedAt(),
             this.markerID,
             prev,
+            undefined,
+            this.range,
           )
         : undefined,
     };
@@ -363,5 +370,12 @@ export class ZeroTreeStyleOperation extends Operation {
    */
   public getWrites(): Array<[string, ZeroAttrValue]> {
     return this.writes;
+  }
+
+  /**
+   * `getRange` returns the range of a range write (see `ZeroStyleRange`).
+   */
+  public getRange(): ZeroStyleRange | undefined {
+    return this.range;
   }
 }

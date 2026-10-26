@@ -11,6 +11,11 @@ import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operatio
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
 import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
+import {
+  decodeChange,
+  encodeChange,
+} from '@yorkie-js/sdk/src/api/zero_tree_codec';
+import type { Change } from '@yorkie-js/sdk/src/document/change/change';
 import type {
   ZNode,
   ZeroNodeJSON,
@@ -22,7 +27,7 @@ const capable = [RestoreRemovedByCapability];
 
 /** a server log: replicas push their changes and pull the log in order */
 class Net {
-  private log: Array<{ from: number; change: unknown }> = [];
+  public log: Array<{ from: number; change: unknown }> = [];
   private pushed: Array<number>;
   private cursor: Array<number>;
   constructor(private docs: Array<Document<Root>>) {
@@ -200,6 +205,19 @@ describe('ZeroTree range formatting', () => {
       docs[0].update((root) => {
         root.zt = new ZeroTree(init as never);
       });
+      // the reserved `zt.*` keys never reach the editor: not in an event
+      const leaks: Array<string> = [];
+      docs.forEach((d) =>
+        d.subscribe((event) => {
+          if (event.type !== 'local-change' && event.type !== 'remote-change') {
+            return;
+          }
+          const ops = JSON.stringify(event.value.operations);
+          if (ops.includes('zt.')) {
+            leaks.push(ops);
+          }
+        }),
+      );
       const net = new Net(docs);
       net.syncAll();
       const formats: Array<{
@@ -266,12 +284,59 @@ describe('ZeroTree range formatting', () => {
       expect(json[1]).toBe(json[0]);
       expect(json[2]).toBe(json[0]);
       expect(json[3]).toBe(json[0]);
+      // ... nor the model
+      expect(json[0].includes('zt.')).toBe(false);
+      expect(leaks).toEqual([]);
 
       // A format written on a marker that ends up folded into a concurrent
       // Enter at the same place (`dealias`) can still miss characters: those
       // after the folded marker sit in the node of whatever split came
       // between, while the folded marker's registers join the first Enter's
       // line. Counted apart; every other loss fails the test.
+      if (process.env.STYLE_CASES_OUT) {
+        // the server's log replayed on a fresh replica, for the Go
+        // cross-SDK test (zero_tree_cross_test.go)
+        const changes = net.log.map((e) =>
+          encodeChange(e.change as Change<never>),
+        );
+        const replay = new Document<Root>('style-fuzz');
+        replay.setActor('0000000000000000000000ff');
+        for (const h of changes) {
+          replay.applyChangePack(
+            ChangePack.create(
+              replay.getKey(),
+              Checkpoint.of(0n, 0),
+              false,
+              [decodeChange(h)] as never,
+              InitialVersionVector,
+              undefined,
+              0n,
+              capable,
+            ),
+          );
+        }
+        const snapshot = converter.bytesToHex(
+          converter.snapshotToBytes(replay.getRootObject(), new Map()),
+        );
+        const model = replay.getRoot().zt.toJSON();
+        expect(model).toBe(json[0]);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('node:fs').appendFileSync(
+          process.env.STYLE_CASES_OUT,
+          JSON.stringify({
+            seed,
+            changes,
+            gcEvery: 0,
+            snapshot,
+            snapshotGC: snapshot,
+            gcMarks: [],
+            snapshotMarks: snapshot,
+            json: model,
+            jsonGC: model,
+            jsonMarks: model,
+          }) + '\n',
+        );
+      }
       const styles = stylesByChar(docs[0]);
       const opened = new Set<string>();
       const walk = (n: ZNode) => {

@@ -29,7 +29,7 @@ import {
   CRDTZeroTree,
   ColumnKeys,
   ZeroMarker,
-  encodeNodeID,
+  ZeroStyleRange,
   ZeroTokens,
   toTokens,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
@@ -38,7 +38,6 @@ import {
   ZeroNodeJSON,
   ZeroOperation,
   ZeroRegionPrefix,
-  ZeroUntilKey,
   findNode,
   pathOf,
   flattenProps,
@@ -762,16 +761,14 @@ export class ZeroTree {
         // node here: a node split off it concurrently gets it too (see
         // `ZeroStyleRegion`). Only from the node's own marker: a folded
         // split's marker may sit past that token.
-        let ranged: Array<[string, ZeroAttrValue]> | undefined;
+        let range: ZeroStyleRange | undefined;
         if (isTextType(schema, node.type) && node.markerID) {
-          const until =
-            tree.viewIDAt(node.end) !== undefined
-              ? tree.idAt(node.end)
-              : undefined;
-          ranged = [
-            ...writes,
-            [ZeroUntilKey, until ? encodeNodeID(until) : ''],
-          ];
+          range = {
+            until:
+              tree.viewIDAt(node.end) !== undefined
+                ? tree.idAt(node.end)
+                : undefined,
+          };
         }
         // every marker of the node: a folded split's marker may outlive the
         // standing one (its author undoes their Enter), the line keeps its props
@@ -780,7 +777,8 @@ export class ZeroTree {
           if (marker) {
             this.style(
               marker,
-              ranged && id === node.markerID ? ranged : writes,
+              writes,
+              id === node.markerID ? range : undefined,
             );
           }
         }
@@ -946,15 +944,22 @@ export class ZeroTree {
   private style(
     markerID: ReturnType<CRDTZeroTree['idAt']>,
     writes: Array<[string, ZeroAttrValue]>,
+    range?: ZeroStyleRange,
   ): void {
     const [context, tree] = this.ensure();
     const ticket = context.issueTimeTicket();
-    const [, pairs] = tree.setAttrs(markerID, writes, ticket);
+    const [, pairs] = tree.setAttrs(markerID, writes, ticket, range);
     for (const pair of pairs) {
       context.registerGCPair(pair);
     }
     context.push(
-      new ZeroTreeStyleOperation(tree.getCreatedAt(), markerID, writes, ticket),
+      new ZeroTreeStyleOperation(
+        tree.getCreatedAt(),
+        markerID,
+        writes,
+        ticket,
+        range,
+      ),
     );
   }
 }
