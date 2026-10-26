@@ -34,6 +34,7 @@
  */
 
 import {
+  MaxTimeTicket,
   TimeTicket,
   TimeTicketSize,
 } from '@yorkie-js/sdk/src/document/time/ticket';
@@ -79,11 +80,40 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_index';
 
 /**
+ * `ZeroAttrEntry` is one write a register keeps (see `ZeroAttr.history`).
+ */
+export type ZeroAttrEntry = { value: ZeroAttrValue; at: TimeTicket };
+
+/**
  * `ZeroAttr` is one LWW attribute register of a marker. `value` null means
  * the key was removed; the register is kept so a concurrent older write
  * cannot bring it back.
+ *
+ * A register a write reached keeps the newest writes (`history`, at most
+ * `ZeroHistoryDepth`, newest first) so an undo can cancel one of them
+ * wherever it went (see `ZeroStyleCancel`): `value` and `updatedAt` are then
+ * those of the newest write no undo cancelled. Reserved keys (`zt.*`) stay
+ * plain registers.
  */
-export type ZeroAttr = { value: ZeroAttrValue; updatedAt: TimeTicket };
+export type ZeroAttr = {
+  value: ZeroAttrValue;
+  updatedAt: TimeTicket;
+  history?: Array<ZeroAttrEntry>;
+};
+
+/**
+ * `ZeroHistoryDepth` is how many writes a register keeps. An undo that
+ * cancels all of them falls back to what its write's marker held before.
+ */
+export const ZeroHistoryDepth = 4;
+
+/**
+ * `keepsHistory` tells whether a register of `key` keeps its writes: the
+ * reserved keys (`zt.*`) are bookkeeping, undone by writing them back.
+ */
+export function keepsHistory(key: string): boolean {
+  return !key.startsWith('zt.');
+}
 
 /**
  * `ZeroMarker` is the open marker of a Zero element node.
@@ -138,18 +168,69 @@ export class ZeroMarker {
   /**
    * `set` writes one attribute with last-writer-wins. Returns the value the
    * register held before (undefined: no register) and whether it applied.
+   * With `cancels` a register of a non-reserved key keeps the write in its
+   * history and takes the newest write not cancelled.
    */
   public set(
     key: string,
     value: ZeroAttrValue,
     ticket: TimeTicket,
+    cancels?: ZeroStyleCancels,
   ): [ZeroAttrValue | undefined, boolean] {
     const prev = this.attrs.get(key);
-    if (prev && !ticket.after(prev.updatedAt)) {
-      return [prev.value, false];
+    if (!cancels || !keepsHistory(key)) {
+      if (prev && !ticket.after(prev.updatedAt)) {
+        return [prev.value, false];
+      }
+      this.attrs.set(key, { value, updatedAt: ticket });
+      return [prev ? prev.value : undefined, true];
     }
-    this.attrs.set(key, { value, updatedAt: ticket });
-    return [prev ? prev.value : undefined, true];
+    const history = prev
+      ? (prev.history ?? [{ value: prev.value, at: prev.updatedAt }]).slice()
+      : [];
+    if (!history.some((e) => e.at.equals(ticket))) {
+      history.push({ value, at: ticket });
+      history.sort((a, b) => b.at.compare(a.at));
+      history.length = Math.min(history.length, ZeroHistoryDepth);
+    }
+    const picked = cancels.pick(key, history);
+    this.attrs.set(key, {
+      value: picked.value,
+      updatedAt: picked.at,
+      history,
+    });
+    return [prev ? prev.value : undefined, picked.at.equals(ticket)];
+  }
+
+  /**
+   * `holds` tells whether a register of this marker keeps the write of
+   * `ticket`.
+   */
+  public holds(ticket: TimeTicket): boolean {
+    for (const attr of this.attrs.values()) {
+      if (attr.history?.some((e) => e.at.equals(ticket))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * `repick` makes every register with a history take its value again under
+   * `cancels`.
+   */
+  public repick(cancels: ZeroStyleCancels): void {
+    for (const [key, attr] of this.attrs) {
+      if (!attr.history) {
+        continue;
+      }
+      const picked = cancels.pick(key, attr.history);
+      this.attrs.set(key, {
+        value: picked.value,
+        updatedAt: picked.at,
+        history: attr.history,
+      });
+    }
   }
 
   /**
@@ -171,7 +252,12 @@ export class ZeroMarker {
   public deepcopy(): ZeroMarker {
     const attrs = new Map<string, ZeroAttr>();
     for (const [k, v] of this.attrs) {
-      attrs.set(k, { ...v });
+      attrs.set(
+        k,
+        v.history
+          ? { ...v, history: v.history.map((e) => ({ ...e })) }
+          : { ...v },
+      );
     }
     return new ZeroMarker(this.type, this.depth, attrs, this.boundary);
   }
@@ -270,6 +356,10 @@ export class ZeroTokens {
       for (const [k, v] of t.attrs) {
         data += (k.length + (v.value?.length ?? 0)) * 2;
         meta += TimeTicketSize;
+        for (const e of v.history ?? []) {
+          data += (e.value?.length ?? 0) * 2;
+          meta += TimeTicketSize;
+        }
       }
     }
     return { data, meta };
@@ -452,6 +542,154 @@ export class ZeroStyleRegion implements GCChild {
 }
 
 /**
+ * `ZeroCancelWrite` is what an undo (or redo) of a style write carries:
+ * cancel (`on`) or bring back the write of `write`; `fallback` is what the
+ * write's marker held before it (see `ZeroStyleCancels.pick`).
+ */
+export type ZeroCancelWrite = {
+  write: TimeTicket;
+  on: boolean;
+  fallback: Array<[string, ZeroAttrValue]>;
+};
+
+/**
+ * `ZeroStyleCancel` is the state of one style write's undo in a tree: set by
+ * the undo or redo of `at` (last writer wins).
+ *
+ * It may be dropped once every replica knows it and no register keeps the
+ * write (see `CRDTZeroTree.purgeBarrierAt`): a change made after knowing it
+ * copies no cancelled write (see `ZeroTree.split`).
+ */
+export class ZeroStyleCancel implements GCChild {
+  constructor(
+    public readonly write: TimeTicket,
+    public readonly on: boolean,
+    public readonly at: TimeTicket,
+    public readonly fallback: Array<[string, ZeroAttrValue]>,
+  ) {}
+
+  /**
+   * `toIDString` returns a string that identifies this state.
+   */
+  public toIDString(): string {
+    return `${this.write.toIDString()}@${this.at.toIDString()}`;
+  }
+
+  /**
+   * `getRemovedAt` returns when this state may be dropped (see
+   * `CRDTZeroTree.purgeBarrierAt` for the other condition).
+   */
+  public getRemovedAt(): TimeTicket {
+    return this.at;
+  }
+
+  /**
+   * `getDataSize` returns nothing: it is bookkeeping of the tree.
+   */
+  public getDataSize(): DataSize {
+    return { data: 0, meta: 0 };
+  }
+}
+
+/**
+ * `ZeroStyleCancels` is a tree's table of undone style writes: an undo of a
+ * write cancels it wherever registers keep it, without writing anything --
+ * a register skips a cancelled write when it picks its value. So undo takes
+ * back exactly that write: a value someone wrote after it, or concurrently
+ * and lost to it, comes back as it is; a node made without knowing it keeps
+ * its value. The registers' kept writes only grow (a top-k by ticket) and the
+ * table is LWW per write, so the order changes arrive in does not matter.
+ */
+export class ZeroStyleCancels {
+  private map = new Map<string, ZeroStyleCancel>();
+
+  /**
+   * `get` returns the state of the write of `write`.
+   */
+  public get(write: TimeTicket): ZeroStyleCancel | undefined {
+    return this.map.get(write.toIDString());
+  }
+
+  /**
+   * `set` keeps `cancel` unless a later undo or redo of its write is known.
+   * Returns whether it did.
+   */
+  public set(cancel: ZeroStyleCancel): boolean {
+    const id = cancel.write.toIDString();
+    const cur = this.map.get(id);
+    if (cur && !cancel.at.after(cur.at)) {
+      return false;
+    }
+    this.map.set(id, cancel);
+    return true;
+  }
+
+  /**
+   * `delete` drops `cancel` if it is still the state of its write.
+   */
+  public delete(cancel: ZeroStyleCancel): boolean {
+    const id = cancel.write.toIDString();
+    if (this.map.get(id) !== cancel) {
+      return false;
+    }
+    return this.map.delete(id);
+  }
+
+  /**
+   * `isCurrent` tells whether `cancel` is the state of its write.
+   */
+  public isCurrent(cancel: ZeroStyleCancel): boolean {
+    return this.map.get(cancel.write.toIDString()) === cancel;
+  }
+
+  /**
+   * `isCancelled` tells whether an undo cancelled the write of `ticket`.
+   */
+  public isCancelled(ticket: TimeTicket): boolean {
+    return !!this.map.get(ticket.toIDString())?.on;
+  }
+
+  /**
+   * `size` returns how many writes the table holds.
+   */
+  public get size(): number {
+    return this.map.size;
+  }
+
+  /**
+   * `values` returns the states in the order of their writes' tickets.
+   */
+  public values(): Array<ZeroStyleCancel> {
+    return [...this.map.values()].sort((a, b) => a.write.compare(b.write));
+  }
+
+  /**
+   * `pick` returns the write a register keeping `history` (newest first,
+   * never empty) shows: the newest one not cancelled, or, when all are, what
+   * the oldest one's marker held before it.
+   */
+  public pick(key: string, history: Array<ZeroAttrEntry>): ZeroAttrEntry {
+    for (const e of history) {
+      if (!this.isCancelled(e.at)) {
+        return e;
+      }
+    }
+    const oldest = history[history.length - 1];
+    const before = this.get(oldest.at)?.fallback.find(([k]) => k === key);
+    return { value: before ? before[1] : null, at: oldest.at };
+  }
+
+  /**
+   * `deepcopy` copies the table (the states are immutable).
+   */
+  public deepcopy(): ZeroStyleCancels {
+    const clone = new ZeroStyleCancels();
+    this.map.forEach((v, k) => clone.map.set(k, v));
+    return clone;
+  }
+}
+
+/**
  * `CRDTZeroTree` is the CRDT element.
  */
 export class CRDTZeroTree extends CRDTElement {
@@ -467,6 +705,13 @@ export class CRDTZeroTree extends CRDTElement {
   private collecting = false;
   /** the range style writes still pending, by key (see `ZeroStyleRegion`) */
   private pending?: Map<string, ZeroStyleRegion>;
+  /** the style writes undone or redone (see `ZeroStyleCancels`) */
+  private cancels = new ZeroStyleCancels();
+  /**
+   * the tokens whose registers keep each write, by the write's ticket, built
+   * on first use; it may name tokens that no longer keep it (see `holdersOf`)
+   */
+  private holders?: Map<string, Map<string, RGATreeSplitNodeID>>;
 
   constructor(
     rga: RGATreeSplit<ZeroTokens>,
@@ -668,6 +913,11 @@ export class CRDTZeroTree extends CRDTElement {
     if (value && this.pending?.size !== 0) {
       this.applyPending(value, editedAt, versionVector);
     }
+    if (value?.length) {
+      this.settleInserted(
+        this.rga.findNode(RGATreeSplitNodeID.of(editedAt, 0)),
+      );
+    }
     this.record(plan, changes);
     // An undo of this edit cancels exactly this deletion (see `RestoreSpan`).
     return [
@@ -686,6 +936,11 @@ export class CRDTZeroTree extends CRDTElement {
     fallbackAnchor?: RGATreeSplitPos,
   ) {
     const result = this.rga.restore(spans, executedAt, fallbackAnchor);
+    // a piece made again from its span: the span's copy of the markers
+    // predates the undos since
+    for (const n of result[1]) {
+      this.settleInserted(n);
+    }
     if (this.index) {
       const [untombstoned, recreated] = result;
       const undo = this.pendingUndo();
@@ -751,72 +1006,252 @@ export class CRDTZeroTree extends CRDTElement {
   }
 
   /**
-   * `setAttrs` writes attributes on the marker of the given id. Returns the
-   * previous values of the keys that applied, for the reverse operation, and
-   * the GC pair of a range write. With `range` the write is a range (see
-   * `ZeroStyleRegion`); the reverse keeps it, so an undo writes the same
-   * range.
+   * `setAttrs` writes attributes on the marker of the given id. Returns, for
+   * the reverse operation, the previous values of the reserved keys that
+   * applied (written back on undo) and the cancel of this write (or, for an
+   * undo or redo, of the write it undid), and the GC pairs of a range write
+   * and of a cancel. With `range` the write is a range (see
+   * `ZeroStyleRegion`); `cancel` cancels or brings back an earlier write (see
+   * `ZeroStyleCancels`).
    */
   public setAttrs(
     markerID: RGATreeSplitNodeID,
     writes: Array<[string, ZeroAttrValue]>,
     editedAt: TimeTicket,
     range?: ZeroStyleRange,
-  ): [Array<[string, ZeroAttrValue]>, Array<GCPair>] {
+    cancel?: ZeroCancelWrite,
+  ): [
+    Array<[string, ZeroAttrValue]>,
+    Array<GCPair>,
+    ZeroCancelWrite | undefined,
+  ] {
     this.flushUndo();
     const marker = this.findMarker(markerID);
     const prev: Array<[string, ZeroAttrValue]> = [];
-    if (!marker) {
-      return [prev, []];
-    }
-    const region = range
-      ? new ZeroStyleRegion(
-          markerID,
-          marker.type,
-          range.until,
-          writes,
-          editedAt,
-        )
-      : undefined;
-    let plan: ZeroPlan | undefined;
-    if (this.index) {
+    const pairs: Array<GCPair> = [];
+    // the live tokens the change may touch, read before it
+    let lo = Infinity;
+    let hi = -Infinity;
+    const touch = (from: number, to: number) => {
+      lo = Math.min(lo, from);
+      hi = Math.max(hi, to);
+    };
+    const region =
+      marker && range
+        ? new ZeroStyleRegion(
+            markerID,
+            marker.type,
+            range.until,
+            writes,
+            editedAt,
+          )
+        : undefined;
+    if (this.index && marker && writes.length) {
       if (region) {
         const from = this.rawPositionOf(markerID);
         const to = region.until
           ? this.rawPositionOf(region.until)
           : this.rga.length;
         if (to > from) {
-          plan = this.index.plan(from, to);
+          touch(from, to);
         }
       } else {
         const at = this.index.rawIndexOfMarker(markerID.toIDString());
-        plan = at >= 0 ? this.index.plan(at, at + 1) : undefined;
+        if (at >= 0) {
+          touch(at, at + 1);
+        }
       }
     }
-    for (const [k, v] of writes) {
-      const [old, applied] = marker.set(k, v, editedAt);
-      if (applied) {
-        prev.push([k, old === undefined ? null : old]);
+    if (this.index && cancel) {
+      for (const id of this.holdersOf(cancel.write)) {
+        const at = this.rawPositionOf(id);
+        touch(at, Math.min(this.rga.length, at + 1));
       }
     }
-    const pairs: Array<GCPair> = [];
-    if (region) {
-      marker.attrs.set(region.key, {
-        value: region.encode(),
-        updatedAt: editedAt,
-      });
-      this.pendingRegions().set(region.key, region);
-      this.applyRegion(region);
-      pairs.push({
-        parent: this,
-        child: region,
-        gcOnlySize: region.getDataSize(),
-      });
+    const plan = this.index && hi > lo ? this.index.plan(lo, hi) : undefined;
+
+    let reverse: ZeroCancelWrite | undefined;
+    if (marker && writes.length) {
+      const fallback: Array<[string, ZeroAttrValue]> = [];
+      for (const [k, v] of writes) {
+        const [old, applied] = marker.set(k, v, editedAt, this.cancels);
+        if (!applied) {
+          continue;
+        }
+        if (keepsHistory(k)) {
+          fallback.push([k, old === undefined ? null : old]);
+        } else {
+          prev.push([k, old === undefined ? null : old]);
+        }
+      }
+      this.track(marker, markerID);
+      if (fallback.length) {
+        reverse = { write: editedAt, on: true, fallback };
+      }
+      if (region) {
+        marker.attrs.set(region.key, {
+          value: region.encode(),
+          updatedAt: editedAt,
+        });
+        this.pendingRegions().set(region.key, region);
+        this.applyRegion(region);
+        pairs.push({
+          parent: this,
+          child: region,
+          gcOnlySize: region.getDataSize(),
+        });
+      }
+    }
+    if (cancel) {
+      const state = new ZeroStyleCancel(
+        cancel.write,
+        cancel.on,
+        editedAt,
+        cancel.fallback,
+      );
+      if (this.cancels.set(state)) {
+        pairs.push({
+          parent: this,
+          child: state,
+          gcOnlySize: state.getDataSize(),
+        });
+        for (const id of this.holdersOf(cancel.write)) {
+          this.markerAt(id)!.repick(this.cancels);
+        }
+      }
+      reverse = { ...cancel, on: !cancel.on };
     }
     if (plan) {
       this.record(plan);
     }
-    return [prev, pairs];
+    return [prev, pairs, reverse];
+  }
+
+  /**
+   * `isCancelled` tells whether an undo cancelled the style write of
+   * `ticket` (see `ZeroStyleCancels`).
+   */
+  public isCancelled(ticket: TimeTicket): boolean {
+    return this.cancels.isCancelled(ticket);
+  }
+
+  /**
+   * `getStyleCancels` returns the undone style writes, in the order of their
+   * tickets (see `ZeroStyleCancels`).
+   */
+  public getStyleCancels(): Array<ZeroStyleCancel> {
+    return this.cancels.values();
+  }
+
+  /**
+   * `loadStyleCancel` keeps a state read from a snapshot.
+   */
+  public loadStyleCancel(cancel: ZeroStyleCancel): void {
+    this.cancels.set(cancel);
+  }
+
+  /**
+   * `markerAt` returns the marker token of `id`, live or not, or undefined
+   * when no marker has that id (a purged one).
+   */
+  private markerAt(id: RGATreeSplitNodeID): ZeroMarker | undefined {
+    const node = this.rga.findNode(id);
+    if (!node || !node.getCreatedAt().equals(id.getCreatedAt())) {
+      return;
+    }
+    const token =
+      node.getValue()?.tokens[id.getOffset() - node.getID().getOffset()];
+    return token instanceof ZeroMarker ? token : undefined;
+  }
+
+  /**
+   * `holdersOf` returns the ids of the tokens whose registers keep the write
+   * of `ticket`, live or not, dropping the ones that no longer do.
+   */
+  private holdersOf(ticket: TimeTicket): Array<RGATreeSplitNodeID> {
+    const holders = this.holderIndex();
+    const key = ticket.toIDString();
+    const ids = holders.get(key);
+    if (!ids) {
+      return [];
+    }
+    const out: Array<RGATreeSplitNodeID> = [];
+    for (const [k, id] of ids) {
+      if (this.markerAt(id)?.holds(ticket)) {
+        out.push(id);
+      } else {
+        ids.delete(k);
+      }
+    }
+    if (!ids.size) {
+      holders.delete(key);
+    }
+    return out;
+  }
+
+  private holderIndex(): Map<string, Map<string, RGATreeSplitNodeID>> {
+    if (this.holders) {
+      return this.holders;
+    }
+    this.holders = new Map();
+    for (const node of this.rga) {
+      node.getValue()?.tokens.forEach((t, i) => {
+        if (typeof t !== 'string') {
+          this.track(
+            t,
+            RGATreeSplitNodeID.of(
+              node.getID().getCreatedAt(),
+              node.getID().getOffset() + i,
+            ),
+          );
+        }
+      });
+    }
+    return this.holders;
+  }
+
+  /**
+   * `track` notes the writes the registers of `marker` (token `id`) keep in
+   * the holder index, once it is built.
+   */
+  private track(marker: ZeroMarker, id: RGATreeSplitNodeID): void {
+    if (!this.holders) {
+      return;
+    }
+    for (const attr of marker.attrs.values()) {
+      for (const e of attr.history ?? []) {
+        const key = e.at.toIDString();
+        let ids = this.holders.get(key);
+        if (!ids) {
+          ids = new Map();
+          this.holders.set(key, ids);
+        }
+        ids.set(id.toIDString(), id);
+      }
+    }
+  }
+
+  /**
+   * `settleInserted` makes the markers of an inserted run take their values
+   * under the cancels (a copy made without knowing an undo keeps the write it
+   * cancelled) and notes them in the holder index.
+   */
+  private settleInserted(node: RGATreeSplitNode<ZeroTokens>): void {
+    node.getValue()?.tokens.forEach((t, i) => {
+      if (typeof t === 'string') {
+        return;
+      }
+      if (this.cancels.size) {
+        t.repick(this.cancels);
+      }
+      this.track(
+        t,
+        RGATreeSplitNodeID.of(
+          node.getID().getCreatedAt(),
+          node.getID().getOffset() + i,
+        ),
+      );
+    });
   }
 
   /**
@@ -901,8 +1336,9 @@ export class CRDTZeroTree extends CRDTElement {
         }
         if (!target || t === target) {
           for (const [k, v] of region.writes) {
-            t.set(k, v, region.ticket);
+            t.set(k, v, region.ticket, this.cancels);
           }
+          this.track(t, RGATreeSplitNodeID.of(created, base + i));
           if (target) {
             return true;
           }
@@ -948,14 +1384,36 @@ export class CRDTZeroTree extends CRDTElement {
   }
 
   /**
-   * `purge` drops a range write once every replica knows it.
+   * `purge` drops a range write once every replica knows it, and the state of
+   * an undone write once every replica knows it and nothing keeps the write
+   * (see `purgeBarrierAt`).
    */
   public purge(child: GCChild): void {
+    if (child instanceof ZeroStyleCancel) {
+      this.cancels.delete(child);
+      return;
+    }
     if (!(child instanceof ZeroStyleRegion)) {
       return;
     }
     this.pendingRegions().delete(child.key);
     this.findMarker(child.markerID)?.attrs.delete(child.key);
+  }
+
+  /**
+   * `purgeBarrierAt` holds back the state of an undone write while a register
+   * keeps the write or its range write is pending: either can still pick it.
+   */
+  public purgeBarrierAt(child: GCChild): TimeTicket | undefined {
+    if (!(child instanceof ZeroStyleCancel) || !this.cancels.isCurrent(child)) {
+      return;
+    }
+    if (
+      this.pendingRegions().has(ZeroRegionPrefix + child.write.toIDString()) ||
+      this.holdersOf(child.write).length
+    ) {
+      return MaxTimeTicket;
+    }
   }
 
   /**
@@ -1124,6 +1582,13 @@ export class CRDTZeroTree extends CRDTElement {
         gcOnlySize: region.getDataSize(),
       });
     }
+    for (const cancel of this.cancels.values()) {
+      pairs.push({
+        parent: this,
+        child: cancel,
+        gcOnlySize: cancel.getDataSize(),
+      });
+    }
     return pairs;
   }
 
@@ -1190,6 +1655,7 @@ export class CRDTZeroTree extends CRDTElement {
     );
     clone.setRemovedAt(this.getRemovedAt());
     clone.setMovedAt(this.getMovedAt());
+    clone.cancels = this.cancels.deepcopy();
     return clone;
   }
 }

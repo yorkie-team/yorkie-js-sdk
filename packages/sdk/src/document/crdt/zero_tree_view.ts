@@ -163,10 +163,17 @@ export type ViewMarker = {
   attrs: Record<string, string>;
   /** see `ZeroMarker.boundary` */
   boundary?: string;
-  /** the LWW registers behind `attrs` (removed keys included) */
+  /**
+   * the LWW registers behind `attrs` (removed keys included), with the writes
+   * they keep (see `ZeroAttr.history`)
+   */
   registers?: Record<
     string,
-    { value: ZeroAttrValue; at: { after(other: any): boolean } }
+    {
+      value: ZeroAttrValue;
+      at: { after(other: any): boolean };
+      history?: Array<{ value: ZeroAttrValue; at: any }>;
+    }
   >;
 };
 

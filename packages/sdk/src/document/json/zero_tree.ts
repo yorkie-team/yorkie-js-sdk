@@ -843,9 +843,24 @@ export class ZeroTree {
             );
             // the copy keeps when each value was written: a style written
             // concurrently on the node split from still wins over an older
-            // value here (see `ZeroStyleRegion`)
+            // value here (see `ZeroStyleRegion`). It keeps the writes the
+            // register keeps too, so an undo of one reaches the copy, but not
+            // the ones undone already: once everyone knows an undo, nothing
+            // made after it may bring its write back (see `ZeroStyleCancel`).
             for (const [k, reg] of Object.entries(n.registers ?? {})) {
-              if (reg.value !== null && !k.startsWith(ZeroRegionPrefix)) {
+              if (k.startsWith(ZeroRegionPrefix)) {
+                continue;
+              }
+              const history = reg.history
+                ?.filter((e) => !tree.isCancelled(e.at as TimeTicket))
+                .map((e) => ({ value: e.value, at: e.at as TimeTicket }));
+              if (history?.length) {
+                marker.attrs.set(k, {
+                  value: reg.value,
+                  updatedAt: reg.at as TimeTicket,
+                  history,
+                });
+              } else if (reg.value !== null) {
                 marker.attrs.set(k, {
                   value: reg.value,
                   updatedAt: reg.at as TimeTicket,

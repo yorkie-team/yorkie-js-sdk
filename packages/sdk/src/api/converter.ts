@@ -156,6 +156,10 @@ import {
   ZeroTokenSchema as PbZeroTokenSchema,
   ZeroMarkerSchema as PbZeroMarkerSchema,
   ZeroAttrSchema as PbZeroAttrSchema,
+  ZeroAttrEntrySchema as PbZeroAttrEntrySchema,
+  ZeroAttrWrite as PbZeroAttrWrite,
+  ZeroStyleCancel as PbZeroStyleCancel,
+  ZeroStyleCancelSchema as PbZeroStyleCancelSchema,
   ZeroAttrWriteSchema as PbZeroAttrWriteSchema,
   ZeroStyleRangeSchema as PbZeroStyleRangeSchema,
   ZeroCancelSchema as PbZeroCancelSchema,
@@ -167,8 +171,10 @@ import {
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import {
   CRDTZeroTree,
+  ZeroCancelWrite,
   ZeroGhost,
   ZeroMarker,
+  ZeroStyleCancel,
   ZeroToken,
   ZeroTokens,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
@@ -732,19 +738,21 @@ function toOperation(operation: Operation): PbOperation {
     pbOperation.body.value = create(PbOperation_ZeroTreeStyleSchema, {
       parentCreatedAt: toTimeTicket(operation.getParentCreatedAt()),
       markerId: toTextNodeID(operation.getMarkerID()),
-      writes: operation.getWrites().map(([key, value]) =>
-        create(PbZeroAttrWriteSchema, {
-          key,
-          value: value ?? '',
-          isRemoved: value === null,
-        }),
-      ),
+      writes: toZeroAttrWrites(operation.getWrites()),
       executedAt: toTimeTicket(operation.getExecutedAt()),
     });
     const range = operation.getRange();
     if (range) {
       pbOperation.body.value.range = create(PbZeroStyleRangeSchema, {
         until: range.until ? toTextNodeID(range.until) : undefined,
+      });
+    }
+    const cancel = operation.getCancel();
+    if (cancel) {
+      pbOperation.body.value.cancel = create(PbZeroStyleCancelSchema, {
+        write: toTimeTicket(cancel.write),
+        on: cancel.on,
+        fallback: toZeroAttrWrites(cancel.fallback),
       });
     }
   } else if (operation instanceof ArraySetOperation) {
@@ -1202,9 +1210,16 @@ class ZeroActors {
       cancels?.forEach(([d, c]) => (add(d), add(c)));
       for (const token of node.getValue().tokens) {
         if (typeof token !== 'string') {
-          token.attrs.forEach((attr) => add(attr.updatedAt));
+          token.attrs.forEach((attr) => {
+            add(attr.updatedAt);
+            attr.history?.forEach((e) => add(e.at));
+          });
         }
       }
+    }
+    for (const cancel of tree.getStyleCancels()) {
+      add(cancel.write);
+      add(cancel.at);
     }
     return new ZeroActors([...ids].sort());
   }
@@ -1312,6 +1327,14 @@ function toZeroTokens(value: ZeroTokens, actors?: ZeroActors): PbZeroTokens {
           updatedAt: actors ? undefined : toTimeTicket(attr.updatedAt),
           updatedAtRef: actors?.ticket(attr.updatedAt),
           isRemoved: attr.value === null,
+          history: (attr.history ?? []).map((e) =>
+            create(PbZeroAttrEntrySchema, {
+              value: e.value ?? '',
+              isRemoved: e.value === null,
+              updatedAt: actors ? undefined : toTimeTicket(e.at),
+              updatedAtRef: actors?.ticket(e.at),
+            }),
+          ),
         }),
       );
     }
@@ -1321,6 +1344,43 @@ function toZeroTokens(value: ZeroTokens, actors?: ZeroActors): PbZeroTokens {
   }
   flush();
   return pbTokens;
+}
+
+/**
+ * `toZeroAttrWrites` converts attribute writes to Protobuf format.
+ */
+function toZeroAttrWrites(
+  writes: Array<[string, ZeroAttrValue]>,
+): Array<PbZeroAttrWrite> {
+  return writes.map(([key, value]) =>
+    create(PbZeroAttrWriteSchema, {
+      key,
+      value: value ?? '',
+      isRemoved: value === null,
+    }),
+  );
+}
+
+/**
+ * `fromZeroAttrWrites` converts Protobuf attribute writes to model format.
+ */
+function fromZeroAttrWrites(
+  writes: Array<PbZeroAttrWrite>,
+): Array<[string, ZeroAttrValue]> {
+  return writes.map(
+    (w) => [w.key, w.isRemoved ? null : w.value] as [string, ZeroAttrValue],
+  );
+}
+
+/**
+ * `fromZeroCancelWrite` converts the cancel of a style operation.
+ */
+function fromZeroCancelWrite(pb: PbZeroStyleCancel): ZeroCancelWrite {
+  return {
+    write: fromTimeTicket(pb.write)!,
+    on: pb.on,
+    fallback: fromZeroAttrWrites(pb.fallback),
+  };
 }
 
 /**
@@ -1483,6 +1543,14 @@ function toZeroTree(tree: CRDTZeroTree): PbJSONElement {
       }),
     );
   }
+  pbTree.styleCancels = tree.getStyleCancels().map((c) =>
+    create(PbZeroStyleCancelSchema, {
+      writeRef: actors.ticket(c.write),
+      on: c.on,
+      fallback: toZeroAttrWrites(c.fallback),
+      atRef: actors.ticket(c.at),
+    }),
+  );
   return create(PbJSONElementSchema, {
     body: { case: 'zeroTree', value: pbTree },
   });
@@ -2238,9 +2306,7 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     return new ZeroTreeStyleOperation(
       fromTimeTicket(pbZeroTreeStyle.parentCreatedAt)!,
       fromTextNodeID(pbZeroTreeStyle.markerId!),
-      pbZeroTreeStyle.writes.map(
-        (w) => [w.key, w.isRemoved ? null : w.value] as [string, ZeroAttrValue],
-      ),
+      fromZeroAttrWrites(pbZeroTreeStyle.writes),
       fromTimeTicket(pbZeroTreeStyle.executedAt)!,
       pbZeroTreeStyle.range
         ? {
@@ -2248,6 +2314,9 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
               ? fromTextNodeID(pbZeroTreeStyle.range.until)
               : undefined,
           }
+        : undefined,
+      pbZeroTreeStyle.cancel
+        ? fromZeroCancelWrite(pbZeroTreeStyle.cancel)
         : undefined,
     );
   } else if (pbOperation.body.case === 'arraySet') {
@@ -2536,6 +2605,16 @@ function fromZeroTokens(
           updatedAt: (attr.updatedAtRef
             ? actors!.fromTicket(attr.updatedAtRef)
             : fromTimeTicket(attr.updatedAt))!,
+          ...(attr.history.length
+            ? {
+                history: attr.history.map((e) => ({
+                  value: e.isRemoved ? null : e.value,
+                  at: (e.updatedAtRef
+                    ? actors!.fromTicket(e.updatedAtRef)
+                    : fromTimeTicket(e.updatedAt))!,
+                })),
+              }
+            : {}),
         });
       }
       tokens.push(marker);
@@ -2619,6 +2698,16 @@ function fromZeroTree(pbTree: PbJSONElement_ZeroTree): CRDTZeroTree {
   );
   tree.setMovedAt(fromTimeTicket(pbTree.movedAt));
   tree.setRemovedAt(fromTimeTicket(pbTree.removedAt));
+  for (const c of pbTree.styleCancels) {
+    tree.loadStyleCancel(
+      new ZeroStyleCancel(
+        actors.fromTicket(c.writeRef)!,
+        c.on,
+        actors.fromTicket(c.atRef)!,
+        fromZeroAttrWrites(c.fallback),
+      ),
+    );
+  }
   return tree;
 }
 

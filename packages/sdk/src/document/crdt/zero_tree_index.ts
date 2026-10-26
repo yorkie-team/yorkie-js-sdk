@@ -166,15 +166,23 @@ export function tokenEntry(
   if (typeof t === 'string') {
     return { id, char: t, scope };
   }
-  const registers: Record<string, { value: ZeroAttrValue; at: TimeTicket }> =
-    {};
+  const registers: Record<
+    string,
+    {
+      value: ZeroAttrValue;
+      at: TimeTicket;
+      history?: Array<{ value: ZeroAttrValue; at: TimeTicket }>;
+    }
+  > = {};
   const attrs: Record<string, string> = {};
   t.attrs.forEach((attr, key) => {
     // a pending range write is bookkeeping, not part of the node
     if (key.startsWith(ZeroRegionPrefix)) {
       return;
     }
-    registers[key] = { value: attr.value, at: attr.updatedAt };
+    registers[key] = attr.history
+      ? { value: attr.value, at: attr.updatedAt, history: attr.history }
+      : { value: attr.value, at: attr.updatedAt };
     if (attr.value !== null) {
       attrs[key] = attr.value;
     }

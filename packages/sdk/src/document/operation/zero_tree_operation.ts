@@ -38,8 +38,10 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 import {
   CRDTZeroTree,
+  ZeroCancelWrite,
   ZeroStyleRange,
   ZeroTokens,
+  keepsHistory,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import {
   compileChange,
@@ -287,12 +289,15 @@ export class ZeroTreeEditOperation extends Operation {
 }
 
 /**
- * `ZeroTreeStyleOperation` writes attributes on one marker.
+ * `ZeroTreeStyleOperation` writes attributes on one marker. Its reverse
+ * cancels the write (see `ZeroStyleCancels`) and writes back the reserved
+ * keys; the reverse of that brings the write back.
  */
 export class ZeroTreeStyleOperation extends Operation {
   private markerID: RGATreeSplitNodeID;
   private writes: Array<[string, ZeroAttrValue]>;
   private range?: ZeroStyleRange;
+  private cancel?: ZeroCancelWrite;
 
   constructor(
     parentCreatedAt: TimeTicket,
@@ -300,11 +305,13 @@ export class ZeroTreeStyleOperation extends Operation {
     writes: Array<[string, ZeroAttrValue]>,
     executedAt?: TimeTicket,
     range?: ZeroStyleRange,
+    cancel?: ZeroCancelWrite,
   ) {
     super(parentCreatedAt, executedAt);
     this.markerID = markerID;
     this.writes = writes;
     this.range = range;
+    this.cancel = cancel;
   }
 
   /**
@@ -313,11 +320,12 @@ export class ZeroTreeStyleOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const tree = findTree(root, this.getParentCreatedAt());
     tree.beginChange();
-    const [prev, pairs] = tree.setAttrs(
+    const [prev, pairs, cancel] = tree.setAttrs(
       this.markerID,
       this.writes,
       this.getExecutedAt(),
       this.range,
+      this.cancel,
     );
     for (const pair of pairs) {
       root.registerGCPair(pair);
@@ -332,15 +340,17 @@ export class ZeroTreeStyleOperation extends Operation {
           tree.getSchema(),
         ),
       ),
-      reverseOp: prev.length
-        ? new ZeroTreeStyleOperation(
-            this.getParentCreatedAt(),
-            this.markerID,
-            prev,
-            undefined,
-            this.range,
-          )
-        : undefined,
+      reverseOp:
+        prev.length || cancel
+          ? new ZeroTreeStyleOperation(
+              this.getParentCreatedAt(),
+              this.markerID,
+              prev,
+              undefined,
+              prev.length ? this.range : undefined,
+              cancel,
+            )
+          : undefined,
     };
   }
 
@@ -355,7 +365,10 @@ export class ZeroTreeStyleOperation extends Operation {
    * `toTestString` returns a string for tests.
    */
   public toTestString(): string {
-    return `${this.getParentCreatedAt().toTestString()}.ZSTYLE(${this.markerID.toTestString()},${JSON.stringify(this.writes)})`;
+    const cancel = this.cancel
+      ? `,${this.cancel.on ? 'CANCEL' : 'UNCANCEL'}(${this.cancel.write.toTestString()})`
+      : '';
+    return `${this.getParentCreatedAt().toTestString()}.ZSTYLE(${this.markerID.toTestString()},${JSON.stringify(this.writes)}${cancel})`;
   }
 
   /**
@@ -378,4 +391,89 @@ export class ZeroTreeStyleOperation extends Operation {
   public getRange(): ZeroStyleRange | undefined {
     return this.range;
   }
+
+  /**
+   * `getCancel` returns the cancel of an undo or redo of a write (see
+   * `ZeroCancelWrite`).
+   */
+  public getCancel(): ZeroCancelWrite | undefined {
+    return this.cancel;
+  }
+}
+
+/**
+ * `keepWrittenSplits` leaves out of an undo entry that cancels a format (see
+ * `ZeroStyleCancels`) the removal of the markers the format put in when
+ * someone else has written on one of them since: what they wrote would go
+ * with the marker, the node's characters joining the one before. The undoer
+ * decides here, so the change carries the result as plain operations.
+ */
+export function keepWrittenSplits<T>(ops: Array<T>, root: CRDTRoot): Array<T> {
+  const cancelled: Array<TimeTicket> = [];
+  let tree: CRDTZeroTree | undefined;
+  for (const op of ops) {
+    const cancel =
+      op instanceof ZeroTreeStyleOperation ? op.getCancel() : undefined;
+    if (cancel?.on) {
+      cancelled.push(cancel.write);
+      tree = findTree(
+        root,
+        (op as ZeroTreeStyleOperation).getParentCreatedAt(),
+      );
+    }
+  }
+  if (!tree) {
+    return ops;
+  }
+  // a write of the format's own change
+  const ofFormat = (t: TimeTicket) =>
+    cancelled.some(
+      (c) =>
+        c.getLamport() === t.getLamport() && c.getActorID() === t.getActorID(),
+    );
+  const removals: Array<T> = [];
+  let written = false;
+  for (const op of ops) {
+    if (!(op instanceof ZeroTreeEditOperation)) {
+      continue;
+    }
+    const spans =
+      (op.getRestoreMode() === 'retombstone'
+        ? op.getRestoreSpans()
+        : op.getRetombstoneSpans()) ?? [];
+    if (
+      !spans.length ||
+      spans.some((s) => s.value.tokens.some((t) => typeof t === 'string'))
+    ) {
+      continue;
+    }
+    removals.push(op as T);
+    for (const span of spans) {
+      span.value.tokens.forEach((_, i) => {
+        const marker = tree!.findMarker(
+          RGATreeSplitNodeID.of(span.createdAt, span.start + i),
+        );
+        for (const [key, attr] of marker?.attrs ?? []) {
+          if (!keepsHistory(key)) {
+            continue;
+          }
+          // a live write of another change since the marker was made
+          const history = attr.history ?? [
+            { value: attr.value, at: attr.updatedAt },
+          ];
+          if (
+            history.some(
+              (e) =>
+                e.at.after(span.createdAt) &&
+                !ofFormat(e.at) &&
+                !tree!.isCancelled(e.at),
+            )
+          ) {
+            written = true;
+          }
+        }
+      });
+    }
+  }
+  return written ? ops.filter((op) => !removals.includes(op)) : ops;
 }
