@@ -193,6 +193,20 @@ export type ViewEntry = {
 export const ZeroLevelKey = 'zt.level';
 
 /**
+ * `ZeroUntilKey` rides along the writes of a style operation on a text node:
+ * the id of the token that ends the node in its author's view ("" at the end
+ * of the document), encoded by `encodeNodeID`. It makes the write a range
+ * (see `ZeroStyleRegion` in `zero_tree.ts`) and is never written on a marker.
+ */
+export const ZeroUntilKey = 'zt.until';
+
+/**
+ * `ZeroRegionPrefix` names the register a marker keeps a pending range write
+ * in, keyed by the write's ticket, so a snapshot carries it.
+ */
+export const ZeroRegionPrefix = 'zt.r.';
+
+/**
  * `levelOf` returns where a marker sits in the written-depth space: the
  * level it carries, or its depth.
  */
@@ -2519,14 +2533,13 @@ function compileStyleWhole(
   const next = buildView(after, schema);
   const node = findByMarker(next, markerID);
   const old = findByMarker(prev, markerID);
-  if (!node || !old) {
-    return out;
-  }
-  const delta = attrDiff(old.attrs, node.attrs);
+  // a range write may change other nodes than its own, or only those (the
+  // marker's own register kept a newer value): `step` finds them
+  const delta = node && old ? attrDiff(old.attrs, node.attrs) : undefined;
   step(
     before,
     after,
-    delta ? [[['update', pathOf(node), delta]]] : [],
+    delta ? [[['update', pathOf(node!), delta]]] : [],
     schema,
     out,
   );

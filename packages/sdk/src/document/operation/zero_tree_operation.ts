@@ -309,11 +309,14 @@ export class ZeroTreeStyleOperation extends Operation {
   public execute(root: CRDTRoot): ExecutionResult {
     const tree = findTree(root, this.getParentCreatedAt());
     tree.beginChange();
-    const prev = tree.setAttrs(
+    const [prev, pairs] = tree.setAttrs(
       this.markerID,
       this.writes,
       this.getExecutedAt(),
     );
+    for (const pair of pairs) {
+      root.registerGCPair(pair);
+    }
     return {
       opInfos: toOpInfos(
         root,

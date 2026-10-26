@@ -29,6 +29,7 @@ import {
   CRDTZeroTree,
   ColumnKeys,
   ZeroMarker,
+  encodeNodeID,
   ZeroTokens,
   toTokens,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
@@ -36,6 +37,8 @@ import {
   ZNode,
   ZeroNodeJSON,
   ZeroOperation,
+  ZeroRegionPrefix,
+  ZeroUntilKey,
   findNode,
   pathOf,
   flattenProps,
@@ -50,6 +53,11 @@ import {
   ZeroTreeStyleOperation,
 } from '@yorkie-js/sdk/src/document/operation/zero_tree_operation';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import {
+  RichOperation,
+  richToZero,
+  toRichContent,
+} from '@yorkie-js/sdk/src/document/json/zero_tree_rich';
 import {
   RGATreeSplitPos,
   RGATreeSplitPosStruct,
@@ -171,6 +179,30 @@ export class ZeroTree {
    */
   public toZeroContent(): ZeroNodeJSON {
     return this.ensure()[1].toZeroContent();
+  }
+
+  /**
+   * `toRichContent` returns the model as a rich-text editor holds it:
+   * neighbouring text nodes with the same attributes joined, empty ones left
+   * out (see `zero_tree_rich.ts`).
+   */
+  public toRichContent(): ZeroNodeJSON {
+    const [, tree] = this.ensure();
+    return toRichContent(tree.toZeroContent(), tree.getSchema());
+  }
+
+  /**
+   * `applyRichOperations` applies operations whose paths address
+   * `toRichContent`, each translated to Zero operations on the model it
+   * finds.
+   */
+  public applyRichOperations(operations: Array<RichOperation>): void {
+    const [, tree] = this.ensure();
+    for (const op of operations) {
+      this.applyZeroOperations(
+        richToZero(tree.toZeroContent(), op, tree.getSchema()),
+      );
+    }
   }
 
   /**
@@ -726,12 +758,30 @@ export class ZeroTree {
           );
           return;
         }
+        // on a text node the write is a range, up to the token that ends the
+        // node here: a node split off it concurrently gets it too (see
+        // `ZeroStyleRegion`). Only from the node's own marker: a folded
+        // split's marker may sit past that token.
+        let ranged: Array<[string, ZeroAttrValue]> | undefined;
+        if (isTextType(schema, node.type) && node.markerID) {
+          const until =
+            tree.viewIDAt(node.end) !== undefined
+              ? tree.idAt(node.end)
+              : undefined;
+          ranged = [
+            ...writes,
+            [ZeroUntilKey, until ? encodeNodeID(until) : ''],
+          ];
+        }
         // every marker of the node: a folded split's marker may outlive the
         // standing one (its author undoes their Enter), the line keeps its props
         for (const id of node.group ?? []) {
           const marker = tree.markerIDOf(id);
           if (marker) {
-            this.style(marker, writes);
+            this.style(
+              marker,
+              ranged && id === node.markerID ? ranged : writes,
+            );
           }
         }
         return;
@@ -790,9 +840,20 @@ export class ZeroTree {
             const marker = ZeroMarker.create(
               n.type,
               markerDepth(n),
-              Object.entries(n.attrs) as Array<[string, ZeroAttrValue]>,
+              [],
               ticket,
             );
+            // the copy keeps when each value was written: a style written
+            // concurrently on the node split from still wins over an older
+            // value here (see `ZeroStyleRegion`)
+            for (const [k, reg] of Object.entries(n.registers ?? {})) {
+              if (reg.value !== null && !k.startsWith(ZeroRegionPrefix)) {
+                marker.attrs.set(k, {
+                  value: reg.value,
+                  updatedAt: reg.at as TimeTicket,
+                });
+              }
+            }
             marker.boundary = boundary;
             return marker;
           })
@@ -888,7 +949,10 @@ export class ZeroTree {
   ): void {
     const [context, tree] = this.ensure();
     const ticket = context.issueTimeTicket();
-    tree.setAttrs(markerID, writes, ticket);
+    const [, pairs] = tree.setAttrs(markerID, writes, ticket);
+    for (const pair of pairs) {
+      context.registerGCPair(pair);
+    }
     context.push(
       new ZeroTreeStyleOperation(tree.getCreatedAt(), markerID, writes, ticket),
     );

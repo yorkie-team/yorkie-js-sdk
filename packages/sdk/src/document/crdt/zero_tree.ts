@@ -48,7 +48,7 @@ import {
   RestoreSpan,
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
+import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import {
@@ -58,6 +58,8 @@ import {
   ZNode,
   ZeroLevelKey,
   ZeroNodeJSON,
+  ZeroRegionPrefix,
+  ZeroUntilKey,
   ZeroSchema,
   buildView,
   cloneZeroSchema,
@@ -356,6 +358,94 @@ export function toTokens(
 }
 
 /**
+ * `encodeNodeID` encodes a token id for `ZeroUntilKey`.
+ */
+export function encodeNodeID(id: RGATreeSplitNodeID): string {
+  const at = id.getCreatedAt();
+  return JSON.stringify([
+    at.getLamport().toString(),
+    at.getDelimiter(),
+    at.getActorID(),
+    id.getOffset(),
+  ]);
+}
+
+/**
+ * `decodeNodeID` decodes what `encodeNodeID` made.
+ */
+export function decodeNodeID(value: string): RGATreeSplitNodeID {
+  const [lamport, delimiter, actor, offset] = JSON.parse(value);
+  return RGATreeSplitNodeID.of(
+    TimeTicket.of(BigInt(lamport), delimiter, actor),
+    offset,
+  );
+}
+
+/**
+ * `ZeroStyleRegion` is a style write on a text node taken as a range: from
+ * the node's marker to the token that ended the node in its author's view
+ * (`until`). Every marker of the same type between the two in the token
+ * order gets the write too (LWW, at the write's ticket), so a node someone
+ * split off concurrently keeps the style written on what it was split from.
+ *
+ * The markers between the two when the write arrives get it then. A marker
+ * that arrives later gets it if it is concurrent with the write (its change
+ * does not know the write): whoever knew the write and split a node copied
+ * its value, and whoever put a new node there meant it as it is. So the
+ * write stays pending until every replica knows it -- it is a GC pair whose
+ * removal time is its ticket -- and the marker keeps it in a register
+ * (`ZeroRegionPrefix`) until then, for snapshots.
+ */
+export class ZeroStyleRegion implements GCChild {
+  constructor(
+    public readonly markerID: RGATreeSplitNodeID,
+    public readonly type: string,
+    public readonly until: RGATreeSplitNodeID | undefined,
+    public readonly writes: Array<[string, ZeroAttrValue]>,
+    public readonly ticket: TimeTicket,
+  ) {}
+
+  /**
+   * `key` returns the register the start marker keeps this write in.
+   */
+  public get key(): string {
+    return ZeroRegionPrefix + this.ticket.toIDString();
+  }
+
+  /**
+   * `toIDString` returns a string that identifies this write.
+   */
+  public toIDString(): string {
+    return `${this.markerID.toIDString()}#${this.ticket.toIDString()}`;
+  }
+
+  /**
+   * `getRemovedAt` returns when this write may be dropped: once it is known
+   * everywhere, no marker concurrent with it can arrive.
+   */
+  public getRemovedAt(): TimeTicket {
+    return this.ticket;
+  }
+
+  /**
+   * `getDataSize` returns nothing: the register is part of the marker.
+   */
+  public getDataSize(): DataSize {
+    return { data: 0, meta: 0 };
+  }
+
+  /**
+   * `encode` returns what the start marker keeps of this write.
+   */
+  public encode(): string {
+    return JSON.stringify({
+      u: this.until ? encodeNodeID(this.until) : '',
+      w: this.writes,
+    });
+  }
+}
+
+/**
  * `CRDTZeroTree` is the CRDT element.
  */
 export class CRDTZeroTree extends CRDTElement {
@@ -369,6 +459,8 @@ export class CRDTZeroTree extends CRDTElement {
   private checkBefore?: Array<ViewEntry>;
   /** between `beginChange` and `takeChange` */
   private collecting = false;
+  /** the range style writes still pending, by key (see `ZeroStyleRegion`) */
+  private pending?: Map<string, ZeroStyleRegion>;
 
   constructor(
     rga: RGATreeSplit<ZeroTokens>,
@@ -567,6 +659,9 @@ export class CRDTZeroTree extends CRDTElement {
       value,
       versionVector,
     );
+    if (value && this.pending?.size !== 0) {
+      this.applyPending(value, editedAt, versionVector);
+    }
     this.record(plan, changes);
     // An undo of this edit cancels exactly this deletion (see `RestoreSpan`).
     return [
@@ -651,31 +746,212 @@ export class CRDTZeroTree extends CRDTElement {
 
   /**
    * `setAttrs` writes attributes on the marker of the given id. Returns the
-   * previous values of the keys that applied, for the reverse operation.
+   * previous values of the keys that applied, for the reverse operation, and
+   * the GC pair of a range write (see `ZeroStyleRegion`). A `ZeroUntilKey`
+   * write makes it a range write; the reverse keeps it, so an undo writes the
+   * same range.
    */
   public setAttrs(
     markerID: RGATreeSplitNodeID,
     writes: Array<[string, ZeroAttrValue]>,
     editedAt: TimeTicket,
-  ): Array<[string, ZeroAttrValue]> {
+  ): [Array<[string, ZeroAttrValue]>, Array<GCPair>] {
     this.flushUndo();
     const marker = this.findMarker(markerID);
     const prev: Array<[string, ZeroAttrValue]> = [];
     if (!marker) {
-      return prev;
+      return [prev, []];
     }
-    const at = this.index?.rawIndexOfMarker(markerID.toIDString()) ?? -1;
-    const plan = at >= 0 ? this.index!.plan(at, at + 1) : undefined;
-    for (const [k, v] of writes) {
+    const until = writes.find(([k]) => k === ZeroUntilKey);
+    const own = writes.filter(([k]) => k !== ZeroUntilKey);
+    const region = until
+      ? new ZeroStyleRegion(
+          markerID,
+          marker.type,
+          until[1] ? decodeNodeID(until[1]) : undefined,
+          own,
+          editedAt,
+        )
+      : undefined;
+    let plan: ZeroPlan | undefined;
+    if (this.index) {
+      if (region) {
+        const from = this.rawPositionOf(markerID);
+        const to = region.until
+          ? this.rawPositionOf(region.until)
+          : this.rga.length;
+        if (to > from) {
+          plan = this.index.plan(from, to);
+        }
+      } else {
+        const at = this.index.rawIndexOfMarker(markerID.toIDString());
+        plan = at >= 0 ? this.index.plan(at, at + 1) : undefined;
+      }
+    }
+    for (const [k, v] of own) {
       const [old, applied] = marker.set(k, v, editedAt);
       if (applied) {
         prev.push([k, old === undefined ? null : old]);
       }
     }
+    const pairs: Array<GCPair> = [];
+    if (region) {
+      if (prev.length) {
+        prev.push(until!);
+      }
+      marker.attrs.set(region.key, {
+        value: region.encode(),
+        updatedAt: editedAt,
+      });
+      this.pendingRegions().set(region.key, region);
+      this.applyRegion(region);
+      pairs.push({
+        parent: this,
+        child: region,
+        gcOnlySize: region.getDataSize(),
+      });
+    }
     if (plan) {
       this.record(plan);
     }
-    return prev;
+    return [prev, pairs];
+  }
+
+  /**
+   * `rawPositionOf` returns where the token of `id` sits among the live
+   * tokens: its index if it is live, the index of the live token after it
+   * otherwise.
+   */
+  private rawPositionOf(id: RGATreeSplitNodeID): number {
+    const node = this.rga.findNode(id);
+    const at = this.rga.getTreeByIndex().indexOf(node);
+    return node.isRemoved()
+      ? at
+      : at + id.getOffset() - node.getID().getOffset();
+  }
+
+  /**
+   * `pendingRegions` returns the range writes still pending, read from the
+   * markers that keep them the first time (a snapshot, a copy).
+   */
+  private pendingRegions(): Map<string, ZeroStyleRegion> {
+    if (this.pending) {
+      return this.pending;
+    }
+    this.pending = new Map();
+    for (const node of this.rga) {
+      const value = node.getValue();
+      if (!value) {
+        continue;
+      }
+      value.tokens.forEach((t, i) => {
+        if (typeof t === 'string') {
+          return;
+        }
+        for (const [key, reg] of t.attrs) {
+          if (!key.startsWith(ZeroRegionPrefix) || reg.value === null) {
+            continue;
+          }
+          const { u, w } = JSON.parse(reg.value);
+          this.pending!.set(
+            key,
+            new ZeroStyleRegion(
+              RGATreeSplitNodeID.of(
+                node.getID().getCreatedAt(),
+                node.getID().getOffset() + i,
+              ),
+              t.type,
+              u ? decodeNodeID(u) : undefined,
+              w,
+              reg.updatedAt,
+            ),
+          );
+        }
+      });
+    }
+    return this.pending;
+  }
+
+  /**
+   * `applyRegion` writes a range write on the markers of its type between
+   * its marker and `until`, removed ones included (an undo may bring them
+   * back), or only on `target` when it is given. Returns whether it reached
+   * `target`.
+   */
+  private applyRegion(region: ZeroStyleRegion, target?: ZeroMarker): boolean {
+    const until = region.until;
+    let node: RGATreeSplitNode<ZeroTokens> | undefined = this.rga.findNode(
+      region.markerID,
+    );
+    let i = region.markerID.getOffset() - node.getID().getOffset() + 1;
+    while (node) {
+      const tokens = node.getValue()?.tokens ?? [];
+      const created = node.getID().getCreatedAt();
+      const base = node.getID().getOffset();
+      const last = until && created.equals(until.getCreatedAt());
+      for (; i < tokens.length; i++) {
+        if (last && base + i === until!.getOffset()) {
+          return false;
+        }
+        const t = tokens[i];
+        if (typeof t === 'string' || t.type !== region.type) {
+          continue;
+        }
+        if (!target || t === target) {
+          for (const [k, v] of region.writes) {
+            t.set(k, v, region.ticket);
+          }
+          if (target) {
+            return true;
+          }
+        }
+      }
+      node = node.getNext();
+      i = 0;
+    }
+    return false;
+  }
+
+  /**
+   * `applyPending` gives the markers of a run inserted by a change that did
+   * not know a pending range write the write, when they fall in its range.
+   */
+  private applyPending(
+    value: ZeroTokens,
+    editedAt: TimeTicket,
+    versionVector?: VersionVector,
+  ): void {
+    if (!versionVector || !versionVector.size()) {
+      return;
+    }
+    const regions = [...this.pendingRegions().values()].filter(
+      (r) => !versionVector.afterOrEqual(r.ticket),
+    );
+    if (!regions.length) {
+      return;
+    }
+    const node = this.rga.findNode(RGATreeSplitNodeID.of(editedAt, 0));
+    for (const t of node.getValue()?.tokens ?? []) {
+      if (typeof t === 'string') {
+        continue;
+      }
+      for (const region of regions) {
+        if (region.type === t.type) {
+          this.applyRegion(region, t);
+        }
+      }
+    }
+  }
+
+  /**
+   * `purge` drops a range write once every replica knows it.
+   */
+  public purge(child: GCChild): void {
+    if (!(child instanceof ZeroStyleRegion)) {
+      return;
+    }
+    this.pendingRegions().delete(child.key);
+    this.findMarker(child.markerID)?.attrs.delete(child.key);
   }
 
   /**
@@ -836,6 +1112,13 @@ export class CRDTZeroTree extends CRDTElement {
           gcOnlySize: node.getDataSize(),
         });
       }
+    }
+    for (const region of this.pendingRegions().values()) {
+      pairs.push({
+        parent: this,
+        child: region,
+        gcOnlySize: region.getDataSize(),
+      });
     }
     return pairs;
   }

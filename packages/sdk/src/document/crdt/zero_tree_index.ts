@@ -53,6 +53,7 @@ import type { ZeroAttrValue } from '@yorkie-js/sdk/src/document/crdt/zero_tree_v
 import {
   ViewEntry,
   ZNode,
+  ZeroRegionPrefix,
   ZeroSchema,
   buildView,
   dealias,
@@ -167,15 +168,23 @@ export function tokenEntry(
   }
   const registers: Record<string, { value: ZeroAttrValue; at: TimeTicket }> =
     {};
+  const attrs: Record<string, string> = {};
   t.attrs.forEach((attr, key) => {
+    // a pending range write is bookkeeping, not part of the node
+    if (key.startsWith(ZeroRegionPrefix)) {
+      return;
+    }
     registers[key] = { value: attr.value, at: attr.updatedAt };
+    if (attr.value !== null) {
+      attrs[key] = attr.value;
+    }
   });
   return {
     id,
     marker: {
       type: t.type,
       depth: t.depth,
-      attrs: t.toObject(),
+      attrs,
       boundary: t.boundary,
       registers,
     },
