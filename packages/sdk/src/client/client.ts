@@ -253,6 +253,8 @@ export interface ClientOptions {
    * `authTokenInjector` is a function that provides a token for the auth webhook.
    * When the webhook response status code is 401, this function is called to refresh the token.
    * The `reason` parameter is the reason from the webhook response.
+   * If a refresh rejects, the client keeps the previous token and retries the
+   * call as for any other transient error, so the next 401 refreshes again.
    */
   authTokenInjector?: (reason?: string) => Promise<string>;
 
@@ -4209,10 +4211,27 @@ export class Client {
     // NOTE(chacha912): If the error is `Unauthenticated`, it means that the
     // token is invalid or expired. In this case, the client gets a new token
     // from the `authTokenInjector` and retries the api call.
+    //
+    // A refresh that fails is treated like any other transient error: the
+    // previous token is kept and the call is still retried. Letting the
+    // rejection through would throw it from inside the callers' `catch`
+    // blocks, so the sync loop would never schedule its retry and the Watch
+    // stream would never reconnect, with no event left for the app. Once the
+    // token API is back, the server answers the retry with 401 again and the
+    // refresh is attempted once more.
     if (errorCodeOf(err) === Code.ErrUnauthenticated) {
       if (this.authTokenInjector) {
-        const token = await this.authTokenInjector(errorMetadataOf(err).reason);
-        this.setAuthToken(token);
+        try {
+          const token = await this.authTokenInjector(
+            errorMetadataOf(err).reason,
+          );
+          this.setAuthToken(token);
+        } catch (refreshErr) {
+          logger.error(
+            `[AT] c:"${this.getKey()}" token refresh failed:`,
+            refreshErr,
+          );
+        }
       }
       return true;
     }

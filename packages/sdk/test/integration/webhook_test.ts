@@ -610,6 +610,184 @@ describe('Auth Webhook', () => {
     await c1.deactivate();
   });
 
+  it('should keep retrying realtime sync when a token refresh fails', async ({
+    task,
+  }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['PushPull'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
+        },
+      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+
+    // The first refresh fails as if the token API were down for a moment;
+    // the next one succeeds.
+    const TokenExpirationMs = 500;
+    let refreshFailures = 1;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + TokenExpirationMs}`;
+    });
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      retrySyncLoopDelay: 100,
+    });
+
+    await client.activate();
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ k1: string }>(docKey);
+    await client.attach(doc);
+
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+
+    doc.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    // The failed refresh must not stop the loop: it retries, gets 401 again,
+    // refreshes successfully and pushes the change.
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
+    expect(authTokenInjector).toBeCalledTimes(3);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+    expect(authTokenInjector).nthCalledWith(3, ExpiredTokenErrorMessage);
+
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector: async () => `token-${Date.now() + 1000 * 60 * 60}`,
+    });
+    await client2.activate();
+    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    expect(doc2.getRoot().k1).toBe('v1');
+
+    await client2.deactivate();
+    await client.detach(doc);
+    await client.deactivate();
+  });
+
+  it('should keep reconnecting watch document when a token refresh fails', async ({
+    task,
+  }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['Watch'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
+        },
+      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+
+    // The first refresh fails as if the token API were down for a moment;
+    // the next one succeeds.
+    const TokenExpirationMs = 500;
+    let refreshFailures = 1;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + TokenExpirationMs}`;
+    });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      reconnectStreamDelay: 100,
+    });
+
+    await c1.activate();
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ k1: string }>(docKey);
+
+    // Another client for verifying if the watchDocument is working properly
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector: async () => `token-${Date.now() + 1000 * 60 * 60}`,
+    });
+    await client2.activate();
+    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
+    await client2.attach(doc2);
+
+    const presenceEventCollector = new EventCollector();
+    doc2.subscribe('presence', (event) => {
+      presenceEventCollector.add(event.type);
+    });
+
+    // The failed refresh must not stop the watch loop: it reconnects, gets
+    // 401 again, refreshes successfully and watches the document.
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    await c1.attach(doc);
+    await presenceEventCollector.waitFor(DocEventType.Watched);
+    expect(authTokenInjector).toBeCalledTimes(3);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+    expect(authTokenInjector).nthCalledWith(3, ExpiredTokenErrorMessage);
+
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+    doc2.update((root) => {
+      root.k1 = 'v1';
+    });
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
+    expect(doc.getRoot().k1).toBe('v1');
+
+    await client2.deactivate();
+    await c1.detach(doc);
+    await c1.deactivate();
+  });
+
   it('should refresh token and retry broadcast', async ({ task }) => {
     // Create New project
     const projectResponse = await axios.post(
