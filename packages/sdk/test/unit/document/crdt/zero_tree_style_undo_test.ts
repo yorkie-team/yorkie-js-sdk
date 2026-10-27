@@ -202,7 +202,7 @@ function settle(docs: Array<Document<Root>>, net: Net): string {
 }
 
 describe('ZeroTree format undo', () => {
-  it('P0 혼자 겹친 서식 두 번을 되돌리면 차례로 원래 색으로 돌아와야 한다', () => {
+  it('should restore the colors in turn when undoing two overlapping formats of one editor', () => {
     const { docs, net } = setup();
     const [a] = docs;
     color(a, 0, 10, 'red');
@@ -216,7 +216,7 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('RRRRRRRRRR');
   });
 
-  it('P1 남이 나중에 덮은 글자는 내 서식 되돌리기 뒤에도 그 값이어야 한다', () => {
+  it('should keep a later write of another editor when undoing my format', () => {
     const { docs, net } = setup();
     const [a, b] = docs;
     color(a, 0, 10, 'red');
@@ -233,9 +233,9 @@ describe('ZeroTree format undo', () => {
   });
 
   it.each([
-    ['B 가 LWW 로 이긴 경우', undefined, 'RBBGGBBBRR'],
+    ['B wins by LWW', undefined, 'RBBGGBBBRR'],
     [
-      'A 가 LWW 로 이긴 경우',
+      'A wins by LWW',
       [
         '000000000000000000000009',
         '000000000000000000000001',
@@ -244,7 +244,7 @@ describe('ZeroTree format undo', () => {
       'RBBBBBBBRR',
     ],
   ])(
-    'P2 동시 같은 키 (%s): 되돌리면 남의 값이 남아야 한다',
+    'should keep the concurrent value of the same key after an undo (%s)',
     (_, actors, both) => {
       const { docs, net } = setup(actors);
       const [a, b] = docs;
@@ -261,7 +261,7 @@ describe('ZeroTree format undo', () => {
     },
   );
 
-  it('P3 동시 다른 키: 굵게를 되돌려도 남의 색은 그대로여야 한다', () => {
+  it('should keep a concurrent color when undoing bold', () => {
     const { docs, net } = setup();
     const [a, b] = docs;
     color(a, 0, 10, 'red');
@@ -279,7 +279,7 @@ describe('ZeroTree format undo', () => {
     expect(bold).toBe(false);
   });
 
-  it('P4 서식과 그 되돌리기를 모르는 동시 서식은 그대로 남아야 한다', () => {
+  it('should keep a format concurrent with a format and its undo', () => {
     const { docs, net } = setup();
     const [a, b] = docs;
     color(a, 0, 10, 'red');
@@ -290,7 +290,7 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('RRRGGRRRRR');
   });
 
-  it('P5 남이 같은 노드에 다시 쓴 서식은 내 되돌리기 뒤에도 남아야 한다', () => {
+  it('should keep a format another editor wrote again on the same node after my undo', () => {
     const { docs, net } = setup();
     const [a, b] = docs;
     color(a, 0, 10, 'red');
@@ -303,7 +303,7 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('RGGGGGGGRR');
   });
 
-  it('P6 서식을 안 뒤 넣은 서식 없는 노드는 되돌리기 뒤에도 서식이 없어야 한다', () => {
+  it('should leave a node inserted after the format unformatted after an undo', () => {
     const { docs, net } = setup();
     const [a, , c] = docs;
     color(a, 0, 10, 'red');
@@ -321,7 +321,7 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('RRRR..RRRRRR');
   });
 
-  it('P7 혼자 같은 노드에 두 번 쓴 서식을 되돌리고 다시하면 차례로 돌아와야 한다', () => {
+  it('should step through two formats of one editor on the same node by undo and redo', () => {
     const { docs, net } = setup();
     const [a] = docs;
     color(a, 0, 10, 'red');
@@ -342,7 +342,7 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('RGGGGGGGRR');
   });
 
-  it('P8 혼자 섞인 값 위의 서식을 되돌리면 글자마다 원래 값이어야 한다', () => {
+  it('should restore each character when undoing a format over mixed values', () => {
     const { docs, net } = setup();
     const [a] = docs;
     color(a, 0, 5, 'red');
@@ -354,7 +354,7 @@ describe('ZeroTree format undo', () => {
     expect(settle(docs, net)).toBe('RRRRRGGGGG');
   });
 
-  it('모든 쓰기가 취소된 레지스터의 값은 어떤 실제 쓰기에도 져야 한다', () => {
+  it('should let any real write win over a register whose writes are all cancelled', () => {
     // the value before the cancelled writes predates all of them: a merge
     // with a folded marker's register, or a copy, must not lose to it
     const cancels = new ZeroStyleCancels();
@@ -375,7 +375,7 @@ describe('ZeroTree format undo', () => {
     ).toBe(true);
   });
 
-  it('되돌린 서식을 모두 알고 아무 레지스터도 쓰지 않을 때만 취소 기록을 지워야 한다', () => {
+  it('should collect a cancel only when all know it and no register keeps the write', () => {
     const { docs, net } = setup();
     const [a, b] = docs;
     color(a, 0, 10, 'red');
@@ -515,7 +515,7 @@ const solo = !!process.env.UNDO_SOLO;
 
 describe('ZeroTree format undo fuzz', () => {
   it.each(seeds)(
-    '되돌리기 섞인 동시 서식이 수렴하고 남의 값을 덮지 않아야 한다 (seed %i)',
+    'should converge concurrent formats with undos without clobbering others (seed %i)',
     (seed) => {
       const r = rng(seed * 104729);
       const docs = [1, 2, 3].map((n) => {
@@ -717,7 +717,7 @@ describe('ZeroTree format undo fuzz', () => {
 });
 
 describe('ZeroTree format undo bench', () => {
-  it.runIf(!!process.env.BENCH)('10만 자 서식 되돌리기 시간', () => {
+  it.runIf(!!process.env.BENCH)('benchmarks a 100k-char format undo', () => {
     const paras = Number(process.env.BENCH_PARAS ?? 100);
     const init: ZeroNodeJSON = {
       type: 'content',

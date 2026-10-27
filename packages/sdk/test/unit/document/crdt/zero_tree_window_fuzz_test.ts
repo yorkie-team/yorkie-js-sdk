@@ -491,7 +491,7 @@ describe('ZeroTree block index', () => {
       400,
     ]),
   ])(
-    '무작위 동시 편집에서 창 컴파일이 전체 컴파일과 같아야 한다 (seed %i)',
+    'should compile the window the same as the whole tree under random concurrent edits (seed %i)',
     (seed) => run(seed, { undo: 0.08, redo: 0, gc }),
   );
 
@@ -505,7 +505,7 @@ describe('ZeroTree block index', () => {
       256,
     ]),
   ])(
-    '되돌리기·다시하기가 잦아도 색인 모델과 창 컴파일이 새로 지은 것과 같아야 한다 (seed %i)',
+    'should keep the indexed model and the window compile equal to a rebuild under frequent undo and redo (seed %i)',
     (seed) => {
       run(seed, { undo: 0.23, redo: 0.12, gc });
       expect(IndexStats.reasons['undo:blocks'] ?? 0).toBeGreaterThan(0);

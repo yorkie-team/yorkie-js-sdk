@@ -1,6 +1,6 @@
 /**
- * 일반 용도 검토용 시험 (커밋하지 않음): ZeroTree 를 Zero 가 아닌
- * ProseMirror basic + list 모양 스키마로 써 본다.
+ * General-purpose checks: ZeroTree used with a ProseMirror basic + list
+ * shaped schema instead of the Zero one.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
@@ -75,8 +75,8 @@ function exchange(a: Document<Root>, b: Document<Root>): void {
   ack(b);
 }
 
-// ProseMirror basic + list 를 ZeroSchema 로 옮긴 것.
-// - PM 의 text 노드(마크 포함) = 텍스트 타입 `text`, 마크는 style.*
+// ProseMirror basic + list expressed as a ZeroSchema.
+// - A PM text node (with its marks) is the text type `text`; marks are style.*
 // - PM attrs = attribute.*
 const PM: ZeroSchema = {
   textType: 'text',
@@ -87,7 +87,8 @@ const PM: ZeroSchema = {
   rootType: 'doc',
   atomic: new Set(['image', 'hard_break', 'horizontal_rule']),
   defaultChild: {
-    // PM paragraph 는 inline* 이라 필수 자식이 없다: 빈 문단은 자식 0개.
+    // A PM paragraph is inline*, so it has no required child: an empty
+    // paragraph has no children.
     blockquote: 'paragraph',
     bullet_list: 'list_item',
     ordered_list: 'list_item',
@@ -167,7 +168,7 @@ const ops = (d: Document<Root>, list: Array<ZeroOperation>) =>
 const crdtOf = (d: Document<Root>) =>
   (d.getRootObject() as CRDTObject).get('zt') as unknown as CRDTZeroTree;
 
-/** 원격으로 받은 zero-tree 이벤트의 연산 목록을 모은다. */
+/** `recordRemote` collects the operations of remote zero-tree events. */
 function recordRemote(d: Document<Root>): Array<ZeroOperation> {
   const got: Array<ZeroOperation> = [];
   d.subscribe((event) => {
@@ -183,33 +184,33 @@ function recordRemote(d: Document<Root>): Array<ZeroOperation> {
 
 const saved = cloneZeroSchema(DefaultZeroSchema);
 
-describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
+describe('ZeroTree with a ProseMirror basic+list schema', () => {
   beforeAll(() => {
     configureZeroSchema(PM);
   });
 
-  it('G1 스키마: configureZeroSchema 뒤 만든 트리는 PM 스키마를 문서 상태로 갖는다', () => {
+  it('keeps the PM schema in the document state of a tree created after configureZeroSchema', () => {
     const [a, b] = replicas(doc(p(t('hello'))));
     expect(model(a)).toEqual(doc(p(t('hello'))));
     expect(crdtOf(b).getSchema().rootType).toBe('doc');
-    // 빈 문단: defaultChild 가 없으니 자식 0개 (PM 과 같다)
+    // Empty paragraph: no defaultChild, so no children (same as PM)
     ops(a, [['delete', [0, 0], 1]]);
     exchange(a, b);
     expect(model(b)).toEqual(doc(p()));
-    // 빈 문단에 타이핑: 텍스트 노드가 새로 생긴다
+    // Typing into the empty paragraph creates a new text node
     ops(b, [['insert', [0, 0], 'x']]);
     exchange(a, b);
     expect(model(a)).toEqual(doc(p(t('x'))));
   });
 
-  it('G2 스키마: configureZeroSchema 는 Partial 병합이라 이전 설정 키가 남는다', () => {
+  it('merges a partial schema in configureZeroSchema and keeps the earlier keys', () => {
     const before = cloneZeroSchema(DefaultZeroSchema);
     configureZeroSchema({ rootType: 'root2' });
-    // allowed/defaultChild 등은 PM 그대로 남고 rootType 만 바뀐다
+    // allowed, defaultChild and the rest stay PM; only rootType changes
     expect(DefaultZeroSchema.allowed.doc).toBeDefined();
     expect(DefaultZeroSchema.rootType).toBe('root2');
-    // Zero 기본값에서 PM 으로 바꿀 때 grid/scoped 를 명시하지 않으면
-    // Zero 의 table 규칙이 남는다
+    // Switching from the Zero default to PM without grid/scoped keeps the
+    // Zero table rules
     configureZeroSchema(saved);
     configureZeroSchema({ ...PM, grid: undefined } as any);
     expect(DefaultZeroSchema.grid).toBeUndefined();
@@ -223,9 +224,9 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     configureZeroSchema(before);
   });
 
-  it('G3 스키마: 한 프로세스에서 두 스키마 — 만들 때 복사하므로 이미 만든 트리는 유지', () => {
+  it('keeps the schema of an existing tree when the process switches schemas', () => {
     const [a] = replicas(doc(p(t('x'))));
-    configureZeroSchema(saved); // Zero 스키마로 바꿈
+    configureZeroSchema(saved); // back to the Zero schema
     const z = new Document<Root>('zero-doc');
     z.update((root) => {
       root.zt = new ZeroTree({
@@ -242,7 +243,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     configureZeroSchema(PM);
   });
 
-  it('G4 노드 JSON: style/attribute/data 밖의 키(PM 의 attrs, marks)는 조용히 버려진다', () => {
+  it('drops node JSON keys outside style/attribute/data, such as PM attrs and marks', () => {
     const [a] = replicas(doc(p(t('x'))));
     ops(a, [
       [
@@ -263,7 +264,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
       type: 'heading',
       children: [{ type: 'text', data: 'H' }],
     });
-    // attribute.* 로 옮겨 주면 보존된다
+    // Moved to attribute.*, they are kept
     ops(a, [
       [
         'insert',
@@ -274,7 +275,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     expect(model(a).children![2].attribute).toEqual({ level: 2 });
   });
 
-  it('G5 Enter·동시 Enter: 같은 자리 동시 Enter 는 한 줄로 합쳐진다 (정책 고정)', () => {
+  it('merges concurrent Enters at the same place into one line', () => {
     const [a, b] = replicas(doc(p(t('abcd'))));
     const enter: Array<ZeroOperation> = [
       ['split', [0, 0, 2]],
@@ -284,11 +285,11 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     ops(b, enter);
     exchange(a, b);
     expect(model(a)).toEqual(model(b));
-    // 일반 텍스트 CRDT(두 '\n')라면 문단 3개; 여기서는 2개
+    // A plain text CRDT (two '\n') would give three paragraphs; this gives two
     expect(model(a).children!.length).toBe(2);
   });
 
-  it('G6 리스트: 항목 안 Enter (3단 split) 와 동시 Enter 수렴', () => {
+  it('converges an Enter inside a list item (three-level split) with a concurrent one', () => {
     const [a, b] = replicas(doc(ul(li(p(t('abcd'))))));
     // PM splitListItem: text → paragraph → list_item
     ops(a, [
@@ -310,9 +311,9 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     );
   });
 
-  it('G7 마크: 동시에 겹치는 두 범위 서식 — 상대가 나눈 조각에도 서식이 번진다', () => {
+  it('applies overlapping concurrent range formats to the pieces the other side split', () => {
     const [a, b] = replicas(doc(p(t('abcdef'))));
-    // A: [1,4) bold — 경계 split 둘 + 가운데 update
+    // A: [1,4) bold - two boundary splits and an update in between
     ops(a, [
       ['split', [0, 0, 4]],
       ['split', [0, 0, 1]],
@@ -332,12 +333,12 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
           .sort()
           .join('+')}`,
     );
-    // 의도: a, b(bold), cd(bold+italic), e(italic), f
-    // (범위 서식 전에는 cd 가 italic 만, e 는 서식 없음)
+    // Intended: a, b(bold), cd(bold+italic), e(italic), f
+    // (before range formats, cd was italic only and e had no format)
     expect(runs).toEqual(['a:', 'b:bold', 'cd:bold+italic', 'e:italic', 'f:']);
   });
 
-  it('G8 마크: 범위 서식 ∥ 그 범위 안 타이핑 — 타이핑한 글자는 서식을 받는다', () => {
+  it('formats text typed concurrently inside a range format', () => {
     const [a, b] = replicas(doc(p(t('abcdef'))));
     ops(a, [
       ['split', [0, 0, 4]],
@@ -354,22 +355,22 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     ]);
   });
 
-  it('G9 모델 비정규화: 같은 서식 이웃 텍스트·빈 텍스트가 남아 PM 의 정규화 모델과 경로가 다르다', () => {
+  it('keeps neighboring texts with the same format, so paths differ from the normalized PM model', () => {
     const [a] = replicas(doc(p(t('abcd'))));
     ops(a, [
       ['split', [0, 0, 2]],
       ['update', [0, 1], { style: { bold: true } }],
       ['update', [0, 1], { style: { bold: null } }],
     ]);
-    // PM 이라면 text "abcd" 하나. ZeroTree 는 둘.
+    // PM would have one text "abcd". ZeroTree has two.
     expect(model(a).children![0].children).toEqual([t('ab'), t('cd')]);
-    // PM 위치(문단 안 offset 3)를 PM 모델 기준 경로 [0,0,3] 으로 보내면
-    // ZeroTree 는 첫 텍스트 노드 끝(2)에 clamp 한다 → 'abXcd' (의도 'abcXd')
+    // Sending the PM position (offset 3 in the paragraph) as the PM path
+    // [0,0,3] clamps to the end of the first text node (2): 'abXcd', not 'abcXd'
     ops(a, [['insert', [0, 0, 3], 'X']]);
     expect(model(a).children![0].children).toEqual([t('abX'), t('cd')]);
   });
 
-  it('G9r 리치 보기: 정규화된 모델과 그 경로로 넣으면 의도한 자리에 들어간다', () => {
+  it('inserts at the intended place through the normalized rich view and its paths', () => {
     const [a] = replicas(doc(p(t('abcd'))));
     ops(a, [
       ['split', [0, 0, 2]],
@@ -377,7 +378,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
       ['update', [0, 1], { style: { bold: null } }],
       ['split', [0, 1, 2]],
     ]);
-    // Zero 모델에는 경계와 빈 텍스트가 남지만, 리치 보기는 하나다
+    // The Zero model keeps the boundary and an empty text; the rich view has one text
     expect(model(a).children![0].children).toEqual([t('ab'), t('cd'), t('')]);
     expect(a.getRoot().zt.toRichContent().children![0].children).toEqual([
       t('abcd'),
@@ -388,14 +389,14 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     expect(a.getRoot().zt.toRichContent().children![0].children).toEqual([
       t('abcXd'),
     ]);
-    // 두 Zero 노드에 걸친 지우기
+    // A delete across two Zero nodes
     a.update((root) => root.zt.applyRichOperations([['delete', [0, 0, 1], 2]]));
     expect(a.getRoot().zt.toRichContent().children![0].children).toEqual([
       t('aXd'),
     ]);
   });
 
-  it('G7r 리치 보기: 겹치는 동시 범위 서식(format)이 둘 다 남는다', () => {
+  it('keeps both overlapping concurrent rich formats', () => {
     const [a, b] = replicas(doc(p(t('abcdef'))));
     a.update((root) =>
       root.zt.applyRichOperations([
@@ -418,10 +419,10 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     ]);
   });
 
-  it('G10 블록 타입 변경 (paragraph → heading) ∥ 같은 문단 타이핑', () => {
+  it('converges a block type change (paragraph to heading) with typing in that paragraph', () => {
     const [a, b] = replicas(doc(p(t('abcd')), p(t('next'))));
     const remoteA = recordRemote(a);
-    // type 은 LWW 속성이 아니므로 delete + insert 로만 표현된다
+    // type is not an LWW attribute, so it is only a delete and an insert
     ops(a, [
       ['delete', [0], 1],
       [
@@ -433,18 +434,19 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     ops(b, [['insert', [0, 0, 4], 'XY']]);
     exchange(a, b);
     expect(model(a)).toEqual(model(b));
-    // B 의 'XY' 는 살아남지만 heading 이 아니라 다른 곳에 붙는다
+    // B's 'XY' survives, but not necessarily in the heading
     const text = xml(a);
     expect(text).toContain('XY');
-    // 끝에 친 글은 우연히 새 heading 끝에 붙는다 (사본이 묘비 앞에 들어가서)
+    // Text typed at the end lands at the end of the new heading, because the
+    // copy is inserted before the tombstone
     expect(text).toContain('<heading attribute.level="1"><text>abcdXY</text>');
-    // 기록: 실제 결과와 A 가 받은 원격 연산
+    // Record the result and the remote operations A received
     note('G10', text, JSON.stringify(remoteA));
   });
 
-  it('G11 들여쓰기 (항목을 앞 항목의 하위 리스트로) ∥ 그 항목 타이핑', () => {
+  it('converges sinking a list item into the previous one with typing in that item', () => {
     const [a, b] = replicas(doc(ul(li(p(t('one'))), li(p(t('two'))))));
-    // sinkListItem: 깊이가 바뀌므로 delete + insert
+    // sinkListItem changes the depth, so it is a delete and an insert
     ops(a, [
       ['delete', [0, 1], 1],
       ['insert', [0, 0, 1], [ul(li(p(t('two'))))]],
@@ -454,22 +456,22 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     expect(model(a)).toEqual(model(b));
     const text = xml(a);
     note('G11', text);
-    // 끝에 친 글은 사본 끝에 붙는다
+    // Text typed at the end lands at the end of the copy
     expect(text).toContain('<text>two!</text>');
   });
 
   it.each([
-    ['가운데 타이핑', [['insert', [0, 0, 2], 'XY']], 'abXYcd'],
-    ['글자 삭제', [['delete', [0, 0, 1], 1]], 'acd'],
+    ['typing in the middle', [['insert', [0, 0, 2], 'XY']], 'abXYcd'],
+    ['deleting a character', [['delete', [0, 0, 1], 1]], 'acd'],
     [
-      '서식',
+      'formatting',
       [
         ['split', [0, 0, 2]],
         ['update', [0, 1], { style: { bold: true } }],
       ],
       'ab|cd(bold)',
     ],
-  ])('G10b 블록 타입 변경 ∥ %s', (_, bOps, intended) => {
+  ])('converges a block type change with %s', (_, bOps, intended) => {
     const [a, b] = replicas(doc(p(t('zz')), p(t('abcd'))));
     ops(a, [
       ['delete', [1], 1],
@@ -487,13 +489,13 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     );
     exchange(a, b);
     expect(model(a)).toEqual(model(b));
-    note('G10b', _, '의도:', intended, '실제:', xml(a));
+    note('G10b', _, 'intended:', intended, 'actual:', xml(a));
   });
 
-  it('G11b 들여쓰기 ∥ 가운데 타이핑 / 글자 삭제', () => {
+  it('converges sinking a list item with typing or deleting in the middle', () => {
     for (const [name, bOps] of [
-      ['가운데', [['insert', [0, 1, 0, 0, 1], '!']]],
-      ['삭제', [['delete', [0, 1, 0, 0, 0], 1]]],
+      ['typing', [['insert', [0, 1, 0, 0, 1], '!']]],
+      ['deleting', [['delete', [0, 1, 0, 0, 0], 1]]],
     ] as Array<[string, Array<ZeroOperation>]>) {
       const [a, b] = replicas(doc(ul(li(p(t('one'))), li(p(t('two'))))));
       ops(a, [
@@ -507,9 +509,9 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     }
   });
 
-  it('G16 동시 블록 이동(드래그) ∥ 이동한 블록 안 타이핑', () => {
+  it('converges moving a block (drag) with typing in the moved block', () => {
     const [a, b] = replicas(doc(p(t('one')), p(t('two')), p(t('three'))));
-    // 블록 이동도 delete + insert 뿐
+    // Moving a block is also a delete and an insert
     ops(a, [
       ['delete', [2], 1],
       ['insert', [0], [p(t('three'))]],
@@ -520,7 +522,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     note('G16', xml(a));
   });
 
-  it('G12 서로 다른 타입 merge (heading 뒤 paragraph Backspace)', () => {
+  it('merges blocks of different types (Backspace at a paragraph after a heading)', () => {
     const [a, b] = replicas(
       doc(
         { type: 'heading', attribute: { level: 1 }, children: [t('H')] },
@@ -534,13 +536,13 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     expect(xml(a)).toBe(
       '<doc><heading attribute.level="1"><text>H</text><text>body</text></heading></doc>',
     );
-    // 받는 쪽 이벤트: Zero 적용기는 다른 타입 merge 를 거부하므로 merge 가
-    // 아닌 다른 연산으로 나온다
+    // The receiver's event is not a merge, because the Zero applier rejects a
+    // merge of different types
     note('G12', JSON.stringify(remoteB));
     expect(remoteB.some((o) => o[0] === 'merge')).toBe(false);
   });
 
-  it('G13 되돌리기: 항목 삭제 되돌리기 ∥ 다른 항목 타이핑', () => {
+  it('converges an undo of a list item delete with typing in another item', () => {
     const [a, b] = replicas(doc(ul(li(p(t('one'))), li(p(t('two'))))));
     ops(a, [['delete', [0, 1], 1]]);
     exchange(a, b);
@@ -551,7 +553,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     expect(model(a)).toEqual(doc(ul(li(p(t('one1'))), li(p(t('two'))))));
   });
 
-  it('G14 원격 이벤트 = 받는 쪽 모델 전후를 잇는 연산 (PM 스키마에서도 성립)', () => {
+  it('emits remote events that take the receiver model from before to after', () => {
     const [a, b] = replicas(doc(p(t('abcdef')), ul(li(p(t('x'))))));
     const got = recordRemote(b);
     const before = JSON.parse(JSON.stringify(model(b)));
@@ -565,7 +567,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     ]);
     exchange(a, b);
     expect(model(a)).toEqual(model(b));
-    // got 을 before 에 Zero 의미로 적용하면 b 의 모델이 되어야 한다
+    // Applying got to before with Zero semantics gives the model of b
     const replay = JSON.parse(JSON.stringify(before));
     for (const o of got) applyZeroOperation(replay, o, crdtOf(b).getSchema());
     expect(replay).toEqual(model(b));
@@ -573,7 +575,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     note('G14', JSON.stringify(before), JSON.stringify(got));
   });
 
-  it('G15 성능: 큰 문서에서 글자 하나 넣기 (로컬·원격)', () => {
+  it('measures inserting one character into a large document (local and remote)', () => {
     const N = Number(process.env.ZT_N ?? 500);
     const paras = Array.from({ length: N }, (_, i) =>
       p(t(`paragraph ${i} `.padEnd(60, 'x'))),
@@ -592,7 +594,7 @@ describe('ZeroTree 일반 용도 (ProseMirror basic+list 모양)', () => {
     ack(a);
     expect(model(a)).toEqual(model(b));
     note(
-      `G15 N=${N} 문단 (~${N * 61} 토큰): 로컬 ${local.toFixed(1)}ms/글자, 원격 ${remote.toFixed(1)}ms/글자`,
+      `G15 N=${N} paragraphs (~${N * 61} tokens): local ${local.toFixed(1)}ms/char, remote ${remote.toFixed(1)}ms/char`,
     );
   });
 });

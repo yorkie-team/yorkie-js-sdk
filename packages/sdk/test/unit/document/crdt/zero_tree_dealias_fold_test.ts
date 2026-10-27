@@ -92,7 +92,7 @@ function splitLater(b: Document<Root>): void {
 }
 
 describe('ZeroTree dealias fold', () => {
-  it('왼쪽 노드 끝에 친 글자는 같은 자리 동시 나누기에 흡수돼도 왼쪽에 남아야 한다', () => {
+  it('should keep text typed at the end of the left node on the left when same-place splits fold', () => {
     const [a, b] = setup();
     // A: "a|b", bolds "b", then types "x" at the end of "a"
     ops(a, [
@@ -108,7 +108,7 @@ describe('ZeroTree dealias fold', () => {
     expect(show(a)).toBe('ax: | b:bold');
   });
 
-  it('흡수된 나누기 앞 노드에 건 범위 서식은 그 노드 글자에만 남아야 한다', () => {
+  it('should keep a range format on the node before a folded split within that node', () => {
     const [a, b] = setup();
     ops(a, [
       ['split', [0, 0, 1]],
@@ -126,7 +126,7 @@ describe('ZeroTree dealias fold', () => {
     expect(show(a)).toBe('ax:italic | b:bold');
   });
 
-  it('흡수된 나누기에 그 작성자가 건 서식은 나누기 뒤 글자에 남아야 한다', () => {
+  it('should keep the format the author of a folded split wrote on the text after the split', () => {
     const [a, b] = setup();
     // A: "a|b", then types "x" at the end of "a"
     ops(a, [['split', [0, 0, 1]]]);
@@ -147,7 +147,7 @@ describe('ZeroTree dealias fold', () => {
     expect(show(a)).toBe('ax: | b:bold');
   });
 
-  it('흡수된 나누기 사이에 낀 나누기의 서식은 그 노드 글자에만 남아야 한다', () => {
+  it('should keep the format of a split between folded splits within its node', () => {
     const [a, b] = setup();
     // A: "a|b", types "x" at the end of "a", splits "a|x" and bolds "x"
     ops(a, [['split', [0, 0, 1]]]);

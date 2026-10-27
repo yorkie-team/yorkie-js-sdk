@@ -187,10 +187,10 @@ const gc = process.env.STYLE_GC !== '0';
 
 describe('ZeroTree range formatting', () => {
   it.each([
-    ['A 의 시각이 앞설 때', 0],
-    ['B 의 시각이 앞설 때', 3],
+    ['A is ahead in time', 0],
+    ['B is ahead in time', 3],
   ])(
-    '맞닿은 구간의 동시 서식은 서로의 구간으로 번지지 않아야 한다 (%s)',
+    'should not spread concurrent formats of abutting ranges into each other (%s)',
     (_, bump) => {
       // A bolds [0,1) and B underlines [1,3) at once: both split at 1, and
       // B's split marker sits right after A's range in the token order
@@ -240,7 +240,7 @@ describe('ZeroTree range formatting', () => {
   );
 
   it.each(seeds)(
-    '겹치는 동시 서식이 수렴하고 서식을 잃지 않아야 한다 (seed %i)',
+    'should converge overlapping concurrent formats without losing any (seed %i)',
     (seed) => {
       const r = rng(seed * 7919);
       const init: ZeroNodeJSON = {
