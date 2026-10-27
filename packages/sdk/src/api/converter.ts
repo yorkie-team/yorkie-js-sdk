@@ -1333,6 +1333,7 @@ function toZeroTokens(value: ZeroTokens, actors?: ZeroActors): PbZeroTokens {
               isRemoved: e.value === null,
               updatedAt: actors ? undefined : toTimeTicket(e.at),
               updatedAtRef: actors?.ticket(e.at),
+              byRange: !!e.byRange,
             }),
           ),
         }),
@@ -2612,6 +2613,7 @@ function fromZeroTokens(
                   at: (e.updatedAtRef
                     ? actors!.fromTicket(e.updatedAtRef)
                     : fromTimeTicket(e.updatedAt))!,
+                  ...(e.byRange ? { byRange: true } : {}),
                 })),
               }
             : {}),

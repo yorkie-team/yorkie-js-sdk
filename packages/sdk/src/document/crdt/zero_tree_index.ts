@@ -172,6 +172,7 @@ export function tokenEntry(
       value: ZeroAttrValue;
       at: TimeTicket;
       history?: Array<{ value: ZeroAttrValue; at: TimeTicket }>;
+      byRange?: boolean;
     }
   > = {};
   const attrs: Record<string, string> = {};
@@ -180,8 +181,17 @@ export function tokenEntry(
     if (key.startsWith(ZeroRegionPrefix)) {
       return;
     }
+    // whether the write it shows is one a range write gave it
+    const byRange = attr.history?.some(
+      (e) => e.byRange && e.at.equals(attr.updatedAt),
+    );
     registers[key] = attr.history
-      ? { value: attr.value, at: attr.updatedAt, history: attr.history }
+      ? {
+          value: attr.value,
+          at: attr.updatedAt,
+          history: attr.history,
+          ...(byRange ? { byRange } : {}),
+        }
       : { value: attr.value, at: attr.updatedAt };
     if (attr.value !== null) {
       attrs[key] = attr.value;
@@ -402,6 +412,14 @@ export class ZeroBlockIndex {
    */
   public markerID(id: string): RGATreeSplitNodeID | undefined {
     return this.markerIDs.get(id);
+  }
+
+  /**
+   * `isSplitAgain` tells whether more than one split made `boundary`: only
+   * then can a marker of it be folded (see `dealias`).
+   */
+  public isSplitAgain(boundary: string): boolean {
+    return (this.keyTickets.get(boundary)?.size ?? 0) > 1;
   }
 
   // --- changes -------------------------------------------------------------

@@ -82,8 +82,14 @@ import {
 
 /**
  * `ZeroAttrEntry` is one write a register keeps (see `ZeroAttr.history`).
+ * `byRange`: a range write gave it to this marker, which lay in the range,
+ * rather than someone writing on the marker's node (see `dealias`).
  */
-export type ZeroAttrEntry = { value: ZeroAttrValue; at: TimeTicket };
+export type ZeroAttrEntry = {
+  value: ZeroAttrValue;
+  at: TimeTicket;
+  byRange?: boolean;
+};
 
 /**
  * `ZeroAttr` is one LWW attribute register of a marker. `value` null means
@@ -170,13 +176,15 @@ export class ZeroMarker {
    * `set` writes one attribute with last-writer-wins. Returns the value the
    * register held before (undefined: no register) and whether it applied.
    * With `cancels` a register of a non-reserved key keeps the write in its
-   * history and takes the newest write not cancelled.
+   * history and takes the newest write not cancelled; `byRange` marks a write
+   * a range write gave it (see `ZeroAttrEntry`).
    */
   public set(
     key: string,
     value: ZeroAttrValue,
     ticket: TimeTicket,
     cancels?: ZeroStyleCancels,
+    byRange?: boolean,
   ): [ZeroAttrValue | undefined, boolean] {
     const prev = this.attrs.get(key);
     if (!cancels || !keepsHistory(key)) {
@@ -190,7 +198,9 @@ export class ZeroMarker {
       ? (prev.history ?? [{ value: prev.value, at: prev.updatedAt }]).slice()
       : [];
     if (!history.some((e) => e.at.equals(ticket))) {
-      history.push({ value, at: ticket });
+      history.push(
+        byRange ? { value, at: ticket, byRange } : { value, at: ticket },
+      );
       history.sort((a, b) => b.at.compare(a.at));
       history.length = Math.min(history.length, ZeroHistoryDepth);
     }
@@ -838,6 +848,32 @@ export class CRDTZeroTree extends CRDTElement {
   }
 
   /**
+   * `insertPos` returns where an insertion before the view token at `index`
+   * goes: before the folded split markers right in front of it (see
+   * `dealias`; a marker left out for another reason stays behind it). Placed
+   * after one, the insertion would read as typed into the node that split
+   * opens, and could make it the one that opens the node. The position
+   * travels in the operation, so the server applies it as it is.
+   */
+  public insertPos(index: number): RGATreeSplitPos {
+    const ix = this.ix();
+    let raw = this.liveIndexOf(index);
+    const floor =
+      index > 0 ? ix.viewToRaw(Math.min(index, ix.getViewLength()) - 1) + 1 : 0;
+    while (raw > floor) {
+      const abs = this.rga.indexToPos(raw).getAbsoluteID();
+      const marker = this.findMarker(
+        RGATreeSplitNodeID.of(abs.getCreatedAt(), abs.getOffset() - 1),
+      );
+      if (!marker?.boundary || !ix.isSplitAgain(marker.boundary)) {
+        break;
+      }
+      raw--;
+    }
+    return this.rga.indexToPos(raw);
+  }
+
+  /**
    * `liveIndexToPos` converts an index of `liveEntries` to a position.
    */
   public liveIndexToPos(index: number): RGATreeSplitPos {
@@ -1346,7 +1382,7 @@ export class CRDTZeroTree extends CRDTElement {
         }
         if (!target || t === target) {
           for (const [k, v] of region.writes) {
-            t.set(k, v, region.ticket, this.cancels);
+            t.set(k, v, region.ticket, this.cancels, true);
           }
           this.track(t, RGATreeSplitNodeID.of(created, base + i));
           if (target) {

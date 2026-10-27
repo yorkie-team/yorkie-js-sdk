@@ -914,7 +914,9 @@ export class ZeroTree {
     scope?: string,
   ): void {
     const [, tree] = this.ensure();
-    const fromPos = tree.indexToPos(from);
+    // an insertion goes before the folded split markers in front of `from`
+    // (see `CRDTZeroTree.insertPos`); a range keeps them out
+    const fromPos = from === to ? tree.insertPos(from) : tree.indexToPos(from);
     this.editAt(
       fromPos,
       from === to ? fromPos : tree.indexToPos(to, true),

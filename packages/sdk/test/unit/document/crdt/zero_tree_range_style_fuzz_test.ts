@@ -179,40 +179,6 @@ function formatOps(
   return ops;
 }
 
-/**
- * `noteInterleaved` adds the characters around a folded text marker that has
- * something between it and the split it was folded into (a character typed
- * there, another split): the ones between the two, which get the folded
- * marker's registers, and the ones right after it, which join whatever node
- * is open there -- a structure of `dealias`.
- */
-function noteInterleaved(d: Document<Root>, out: Set<string>): void {
-  const tree = crdtOf(d);
-  const repOf = new Map<string, string>();
-  for (const e of tree.viewEntries()) {
-    e.aliases?.forEach((id) => repOf.set(id, e.id));
-  }
-  if (!repOf.size) {
-    return;
-  }
-  const raw = tree.liveEntries();
-  const at = new Map(raw.map((e, i) => [e.id, i]));
-  let after = false;
-  raw.forEach((e, i) => {
-    if (e.marker?.type === 'inline-text') {
-      const rep = repOf.get(e.id);
-      const between =
-        rep === undefined ? [] : raw.slice((at.get(rep) ?? i) + 1, i);
-      after = between.some((x) => x.char !== undefined || !repOf.has(x.id));
-      if (after) {
-        between.forEach((x) => x.char !== undefined && out.add(x.id));
-      }
-    } else if (e.char !== undefined && after) {
-      out.add(e.id);
-    }
-  });
-}
-
 const seeds = Array.from(
   { length: Number(process.env.STYLE_SEEDS ?? 40) },
   (_, i) => i + 1,
@@ -331,7 +297,6 @@ describe('ZeroTree range formatting', () => {
         const ops = formatOps(p, lens, from, to, key);
         doc.update((root) => root.zt.applyZeroOperations(ops));
       };
-      const interleaved = new Set<string>();
       for (let step = 0; step < 80; step++) {
         if (r() < 0.15) {
           // two replicas that know the same, formatting abutting ranges at
@@ -355,7 +320,6 @@ describe('ZeroTree range formatting', () => {
             format(docs[i], p, lens, from, mid);
             format(docs[j], p, lens, mid, to);
           }
-          docs.forEach((d) => noteInterleaved(d, interleaved));
           continue;
         }
         const doc = docs[1 + Math.floor(r() * 3)];
@@ -390,7 +354,6 @@ describe('ZeroTree range formatting', () => {
         if (ops) {
           doc.update((root) => root.zt.applyZeroOperations(ops!));
         }
-        docs.forEach((d) => noteInterleaved(d, interleaved));
         if (gc && step % 40 === 39) {
           net.syncAll();
           docs.forEach((d) => d.garbageCollect(d.getVersionVector()));
@@ -403,7 +366,6 @@ describe('ZeroTree range formatting', () => {
         }
       }
       net.syncAll();
-      docs.forEach((d) => noteInterleaved(d, interleaved));
       const json = docs.map((d) => d.getRoot().zt.toJSON());
       expect(json[1]).toBe(json[0]);
       expect(json[2]).toBe(json[0]);
@@ -459,15 +421,11 @@ describe('ZeroTree range formatting', () => {
       // every character a format covered keeps its key, also where the
       // format was written on a marker folded into a concurrent Enter at the
       // same place (`dealias`); no character of its paragraph it did not
-      // cover gets it. A character next to a folded marker with something
-      // between it and the split it was folded into is counted apart (see
-      // `noteInterleaved`): a structure of `dealias` that range writes do not
-      // change.
+      // cover gets it
       const styles = stylesByChar(docs[0]);
       let lost = 0;
       let covered = 0;
       let spread = 0;
-      let spreadFolded = 0;
       for (const { key, ids, outside } of formats) {
         for (const id of ids) {
           const keys = styles.get(id);
@@ -481,11 +439,7 @@ describe('ZeroTree range formatting', () => {
         }
         for (const id of outside) {
           if (styles.get(id)?.has(key)) {
-            if (interleaved.has(id)) {
-              spreadFolded++;
-            } else {
-              spread++;
-            }
+            spread++;
           }
         }
       }
@@ -499,7 +453,6 @@ describe('ZeroTree range formatting', () => {
             covered,
             lost,
             spread,
-            spreadFolded,
           }) + '\n',
         );
       }

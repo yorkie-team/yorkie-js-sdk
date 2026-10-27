@@ -173,6 +173,8 @@ export type ViewMarker = {
       value: ZeroAttrValue;
       at: { after(other: any): boolean };
       history?: Array<{ value: ZeroAttrValue; at: any }>;
+      /** the write it shows is one a range write gave it */
+      byRange?: boolean;
     }
   >;
 };
@@ -228,21 +230,115 @@ export function levelOf(marker: {
 }
 
 /**
- * `dealias` folds the markers of concurrent splits of one boundary into the
- * first split there. Two people pressing Enter at the same place make one
- * line: the later run (in document order) is the same line, so its markers
- * open nothing -- their ids join the first run's groups, so a merge removes
- * them too, and their registers join (LWW per key) the node of their type
- * open where they stand: the first run's, unless another split came between
- * the two, in which case what follows the folded marker -- and what was
- * written on it -- is in that split's node.
+ * `attrsOf` returns the values of the registers that hold one.
+ */
+function attrsOf(
+  registers: NonNullable<ViewMarker['registers']>,
+): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const [k, reg] of Object.entries(registers)) {
+    if (reg.value !== null) {
+      attrs[k] = reg.value;
+    }
+  }
+  return attrs;
+}
+
+/**
+ * `ticketAfter` tells whether the insertion ticket of view id `a` is after
+ * that of `b` (ids are `lamport:actor:delimiter:offset`).
+ */
+function ticketAfter(a: string, b: string): boolean {
+  const [la, aa, da] = a.split(':');
+  const [lb, ab, db] = b.split(':');
+  const x = BigInt(la);
+  const y = BigInt(lb);
+  if (x !== y) {
+    return x > y;
+  }
+  if (aa !== ab) {
+    return aa > ab;
+  }
+  return Number(da) > Number(db);
+}
+
+/**
+ * `foldReps` picks, for each boundary key split more than once, the run the
+ * others fold into (see `dealias`): `[start, end]` in `entries`.
+ *
+ * Concurrent splits of one place are siblings in the token order, after the
+ * token left of the place, by descending ticket; what someone put right after
+ * a split marker -- typed into the split's node -- follows it with a later
+ * ticket than its own. A character typed at the end of the left node by
+ * someone who did not know a split sits after that split with an earlier
+ * ticket. So the run that opens the split's node is the first one followed
+ * (past the other runs of its key) by the token right of the place, by a
+ * later token, or by nothing; the runs before it stand left of what was
+ * typed there and open nothing either. When no run is followed so, the first
+ * one opens it.
+ */
+function foldReps(entries: Array<ViewEntry>): Map<string, [number, number]> {
+  const runs = new Map<string, Array<[number, number]>>();
+  for (let i = 0; i < entries.length; i++) {
+    const marker = entries[i].marker;
+    const key = marker?.boundary;
+    if (!key) {
+      continue;
+    }
+    const prev = entries[i - 1]?.marker;
+    const list = runs.get(key) ?? [];
+    if (prev?.boundary === key && marker!.depth > prev.depth && list.length) {
+      list[list.length - 1][1] = i;
+    } else {
+      list.push([i, i]);
+    }
+    runs.set(key, list);
+  }
+  const reps = new Map<string, [number, number]>();
+  for (const [key, list] of runs) {
+    if (list.length < 2) {
+      continue;
+    }
+    const right = key.replace(/#\d+$/, '').split('|')[1];
+    let rep = list[0];
+    for (const run of list) {
+      let k = run[1] + 1;
+      while (k < entries.length && entries[k].marker?.boundary === key) {
+        k++;
+      }
+      const next = entries[k];
+      if (
+        !next ||
+        next.id === right ||
+        ticketAfter(next.id, entries[run[0]].id)
+      ) {
+        rep = run;
+        break;
+      }
+    }
+    reps.set(key, rep);
+  }
+  return reps;
+}
+
+/**
+ * `dealias` folds the markers of concurrent splits of one boundary into one
+ * split there. Two people pressing Enter at the same place make one line:
+ * the other runs are the same line, so their markers open nothing -- their
+ * ids join the opening run's groups, so a merge removes them too.
+ *
+ * The opening run is picked by `foldReps`: what was typed at the end of the
+ * left node by someone who did not know a split stays left of it. A run
+ * before it gives it its registers (LWW per key). A run after it gives them
+ * to the node of its type open where it stands: the opening run's, unless
+ * another split came between the two, in which case what follows the folded
+ * marker -- and what was written on it -- is in that split's node.
  *
  * A run is the markers of one SPLIT cascade: consecutive markers of one
- * boundary key with growing depth (outermost first). A later run of the same
- * key is folded marker by marker when its shape (type, depth) matches. It may
- * sit anywhere after the first run (the first author may have typed after
- * their Enter before the second run arrived), so the result has no gaps:
- * `live[k]` is the index in `entries` of the k-th returned entry.
+ * boundary key with growing depth (outermost first). Another run of the same
+ * key is folded marker by marker when its shape (type, depth) matches the
+ * opening run's, so the result has no gaps: `live[k]` is the index in
+ * `entries` of the k-th returned entry.
  *
  * It also leaves out the tokens whose scope marker is not in the model (see
  * `ZeroSchema.scoped`): a scope marker always comes before what it scopes,
@@ -257,7 +353,12 @@ export function dealias(
 } {
   const out: Array<ViewEntry> = [];
   const live: Array<number> = [];
+  const reps = foldReps(entries);
   const firstRuns = new Map<string, Array<number>>();
+  // the markers of runs before their key's opening run, by key and place in
+  // the run, until it comes
+  const early = new Map<string, Array<Array<ViewEntry>>>();
+  let isEarly = false;
   const shown = new Set<string>();
   // open shown markers by depth, with the child types seen under each
   const open: Array<{
@@ -347,10 +448,75 @@ export function dealias(
     } else {
       j = 0;
       into = firstRuns.get(key);
-      isFirst = !into;
+      const rep = reps.get(key);
+      isEarly = !into && rep !== undefined && rep[0] > i;
+      isFirst = !into && !isEarly;
       if (isFirst) {
         firstRuns.set(key, []);
       }
+    }
+    if (isEarly) {
+      // a run before the opening one: folded when the opening run has a
+      // marker of the same shape at this place, shown otherwise
+      const [start, end] = reps.get(key)!;
+      const opening = start + j <= end ? entries[start + j].marker : undefined;
+      if (
+        opening &&
+        opening.type === entry.marker!.type &&
+        opening.depth === entry.marker!.depth
+      ) {
+        open.splice(0, open.length, ...openBefore);
+        // Its id joins the opening run when it comes, and so does what was
+        // written on its node. What a range write gave it -- someone's write
+        // on the characters after it, which are in the node open here --
+        // goes to that node.
+        let rest = entry;
+        if (
+          holder !== undefined &&
+          out[holder].marker?.type === entry.marker!.type
+        ) {
+          const mine: NonNullable<ViewMarker['registers']> = {};
+          const theirs = { ...(out[holder].marker!.registers ?? {}) };
+          let moved = false;
+          for (const [k, reg] of Object.entries(
+            entry.marker!.registers ?? {},
+          )) {
+            if (!reg.byRange) {
+              mine[k] = reg;
+              continue;
+            }
+            moved = true;
+            if (!theirs[k] || reg.at.after(theirs[k].at)) {
+              theirs[k] = reg;
+            }
+          }
+          if (moved) {
+            out[holder] = {
+              ...out[holder],
+              marker: {
+                ...out[holder].marker!,
+                attrs: attrsOf(theirs),
+                registers: theirs,
+              },
+            };
+            rest = {
+              ...entry,
+              marker: {
+                ...entry.marker!,
+                attrs: attrsOf(mine),
+                registers: mine,
+              },
+            };
+          }
+        }
+        const byPlace = early.get(key) ?? [];
+        (byPlace[j] ??= []).push(rest);
+        early.set(key, byPlace);
+        continue;
+      }
+      out.push(entry);
+      live.push(i);
+      continue;
     }
     // A folded marker is the first split's line: it goes with that node (a
     // merge or delete takes it). But what follows a folded marker is in the
@@ -403,6 +569,31 @@ export function dealias(
     }
     if (isFirst) {
       firstRuns.get(key)!.push(out.length);
+      const folded = early.get(key)?.[j];
+      if (folded?.length) {
+        // the runs before it: their registers and ids join it
+        const registers = { ...(entry.marker!.registers ?? {}) };
+        for (const f of folded) {
+          for (const [k, reg] of Object.entries(f.marker!.registers ?? {})) {
+            if (!registers[k] || reg.at.after(registers[k].at)) {
+              registers[k] = reg;
+            }
+          }
+        }
+        const attrs: Record<string, string> = {};
+        for (const [k, reg] of Object.entries(registers)) {
+          if (reg.value !== null) {
+            attrs[k] = reg.value;
+          }
+        }
+        out.push({
+          ...entry,
+          marker: { ...entry.marker!, attrs, registers },
+          aliases: folded.map((f) => f.id),
+        });
+        live.push(i);
+        continue;
+      }
     }
     out.push(entry);
     live.push(i);
