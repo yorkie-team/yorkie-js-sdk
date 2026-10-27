@@ -1,7 +1,7 @@
 ---
 title: Zero Tree
 created: 2026-10-20
-updated: 2026-10-23
+updated: 2026-10-27
 target-version: 0.7.26
 status: prototype
 tags: [zero-tree, tree, rga, split, merge, concurrent-editing, undo-redo, gc]
@@ -22,6 +22,12 @@ tags: [zero-tree, tree, rga, split, merge, concurrent-editing, undo-redo, gc]
 > undo rebuilds only the blocks it touches (§16); insertions next to virtual
 > parents and virtual default children follow the rules at the end of §5; a
 > redo removes only what was live in the redoer's view (§8).
+>
+> Updated 2026-10-27: a format is a range write that also reaches the
+> markers split concurrently inside the node; undoing a format cancels its
+> write instead of writing the old value back; and among concurrent splits of
+> one place, the one that opens the node is picked so text typed at the end of
+> the left node stays there (§17).
 
 ## 0. Summary
 
@@ -30,7 +36,8 @@ A Zero document is stored as **one flat sequence of tokens: "open markers
 RGA (`RGATreeSplit`) that Yorkie already makes converge. Enter (a chain of
 splits in Zero) becomes **one insertion of a group of markers**, joining
 paragraphs becomes **deleting one marker**, and formatting becomes **an LWW
-attribute write on a marker**. The editor model is computed as **a pure
+attribute write on a marker** that also reaches the markers split
+concurrently inside that node (§17). The editor model is computed as **a pure
 function of the live tokens only**. So concurrent Enter reduces to the same
 problem as "concurrent character insertion at the same position" (concurrent
 Enter at the same position collapses into one line through a boundary key), and
@@ -249,14 +256,16 @@ Why concurrent Enter goes away:
     split the same position without knowing about each other have the same key
     — someone who has seen the earlier person's Enter sees that marker on the
     right, so the key differs and one more line is created (S5c).
-  - Before building the model, `dealias`: a later group (in document order)
-    with the same key and the same shape (type, depth) is **absorbed into the
-    first group** — it opens nothing, its attribute registers are merged by
-    LWW, and its ids go into the node's `group`. The later group may be
-    anywhere after the first group (if it arrives after the first person typed
-    text after their Enter, it is placed after that text). The model index is
-    based on the list after absorption, and `indexToPos`, `posToIndex` and
-    `idAt` map it to the actual token positions.
+  - Before building the model, `dealias`: of the groups with the same key
+    and the same shape (type, depth), **one opens the node and the others are
+    absorbed into it** — they open nothing, and their ids go into the node's
+    `group`. The opening group is the first one (in document order) that is
+    followed by the token right of the split, by a token with a later ticket,
+    or by nothing (§17.3); usually that is the first group. An absorbed group
+    may be anywhere after the first group (if it arrives after the first person
+    typed text after their Enter, it is placed after that text). The model
+    index is based on the list after absorption, and `indexToPos`, `posToIndex`
+    and `idAt` map it to the actual token positions.
   - Joining (Backspace) deletes all markers in `group`, starting with the
     absorbed ones, **by id** — the overlapping Enter does not come back (S11).
     Undo deletes only one's own marker, so if only one side undoes, the other
@@ -269,10 +278,11 @@ Why concurrent Enter goes away:
     stays where it is.
   - Enter and a partial-formatting split at the same position have different
     chain lengths, so their keys differ (they do not absorb each other).
-  - The registers of absorbed markers also go into the attributes of the
-    representative node, so when one appears or is deleted, the attributes can
-    change even though the tokens are the same. The compiler reconciles the
-    remaining model difference once more at the end (`update`).
+  - The registers of absorbed markers go into the attributes of a node in
+    the view (§17.3 says which), so when one appears or is deleted, the
+    attributes can change even though the tokens are the same. The compiler
+    reconciles the remaining model difference once more at the end
+    (`update`).
   - Absorbed markers are part of the line, so other edits must not sweep them
     along: the start of a range is moved to "just before that token" and the end
     to "just after the last token", so absorbed markers at either end of a range
@@ -305,15 +315,16 @@ in measurements and scenarios):
 | Concurrent insertion at the same position (Enter at the end + character at the end)   | Larger ticket first                                          | Same as ordinary text CRDTs                                  |
 | Concurrent input into a deleted container (delete row vs type in that row's cell, T3) | Characters survive and **attach to the preceding container** | Preserving characters comes first. Tree loses the characters |
 | Joining paragraphs while the other side changes the formatting of the right inline    | The joined text has the left formatting                      | Zero's merge semantics (keep the left formatting)            |
-| Formatting on an inline the other side split                                          | Does not spread to the split copy                            | Lineage propagation is a next step                           |
+| Formatting on an inline the other side split                                          | Also applies to the split copy                               | A format is a range write over the node (§17.1)              |
 | Virtual nodes                                                                         | No attributes (schema default)                               | The cost of not reading tombstones                           |
 
 ## 8. Undo
 
 - Reverse operations are **identity-based** as in Text: what was inserted is
   retombstoned, what was deleted is restored (span = createdAt + offset range +
-  value). No position fix-up (reconcile) is needed. Attributes are an LWW write
-  of the previous value.
+  value). No position fix-up (reconcile) is needed. A format is undone by
+  cancelling its write, not by writing the previous value back (§17.2);
+  reserved attributes (`zt.*`) are written back as before.
 - Events go through the same compiler, so **the events of undo and redo are
   also exact Zero operations** (something like Tree's "undo has empty operation
   info" (#1419) structurally cannot happen).
@@ -455,12 +466,15 @@ bytes**.
 | Message                                                     | Content                                                                                                                                                                                       |
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Operation.ZeroTreeEdit` (body 12)                          | parent, from/to `TextNodePos`, `ZeroTokens content`, executed_at, restore/retombstone `ZeroRestoreSpan`, `RestoreMode`                                                                        |
-| `Operation.ZeroTreeStyle` (body 13)                         | parent, `TextNodeID marker_id`, `repeated ZeroAttrWrite` (order preserved, is_removed = null), executed_at                                                                                    |
+| `Operation.ZeroTreeStyle` (body 13)                         | parent, `TextNodeID marker_id`, `repeated ZeroAttrWrite` (order preserved, is_removed = null), executed_at, range (§17.1), cancel (§17.2)                                                     |
 | `JSONElement.ZeroTree` (body 8), `ValueType.ZERO_TREE = 16` | nodes, created/moved/removed/revived, `repeated ZeroPurgedLedger` (empty for Zero Tree), **`ZeroSchema schema`**, **`repeated bytes actors`**. In a Set's `JSONElementSimple`, as bytes       |
 | `ZeroTreeNode`                                              | id, value, removed_at, ins_prev_id, has_ledger, dels, cancels — all times are `ZeroTicket{lamport, delimiter, actor (= index into actors)}`                                                   |
 | `ZeroSchema`                                                | text_type, text_types, scoped, single, grid, root_type, atomic, default_child, allowed — lists keep their order (it decides what fills an empty slot)                                         |
 | `ZeroTokens` / `ZeroToken`                                  | `repeated ZeroToken` + scope / `oneof {string chars; ZeroMarker marker; uint32 ghost}` — consecutive characters are one string (split by code point), ghost is the number of ghost characters |
-| `ZeroMarker` / `ZeroAttr`                                   | type, depth, `repeated ZeroAttr` (key, value, updated_at — updated_at_ref inside the element, is_removed), boundary                                                                           |
+| `ZeroMarker` / `ZeroAttr`                                   | type, depth, `repeated ZeroAttr` (key, value, updated_at — updated_at_ref inside the element, is_removed, history), boundary                                                                  |
+| `ZeroAttrEntry`                                             | one write a register keeps in `ZeroAttr.history`: value, is_removed, updated_at(\_ref), by_range (§17.2, §17.3)                                                                               |
+| `ZeroStyleRange`                                            | last: the last character of the node in the writer's view; absent: to the end of the document (§17.1)                                                                                         |
+| `ZeroStyleCancel`                                           | write, on, fallback in operations; in the element `ZeroTree.style_cancels` (9), with write_ref, at_ref, sorted by write (§17.2)                                                               |
 | `ZeroRestoreSpan`                                           | created_at, start, end, value, removed_by                                                                                                                                                     |
 
 Decisions: **the schema is document state** — when the tree is created, the
@@ -544,10 +558,12 @@ Confirmed:
    Fenwick tree would fix it); the first edit after loading builds the index
    (O(n), about 200 ms at 1M characters); a remote change still runs twice
    (clone and root); memory is twice the first version's.
-2. Formatting lineage: formatting applied to an inline that the other side
-   concurrently split does not spread to the copy. With `splitFrom` on split
-   copies, applying formatting writes that did not know about that split to the
-   copies too would spread it regardless of order.
+2. Formatting: overlapping concurrent formats and formats over a concurrent
+   split keep every character's format (§17.1), and undoing a format takes
+   back only that write (§17.2). What remains is in §17.4: a block type change
+   concurrent with a partial format, a few undos that move characters to
+   another node, and same-place splits where no split can open the node for
+   everyone.
 3. Concurrent input into a deleted container (T3) and the table grid (§12).
 4. The event compiler's fallback to replacing paragraphs: about 0.03% for the
    default document and around 2% for the link/image document. Most of what
@@ -574,7 +590,7 @@ JS (in this repository):
 | `packages/sdk/src/document/crdt/zero_tree.ts`                       | `CRDTZeroTree`, `ZeroMarker`, `ZeroTokens` (ghosts, refilling), `toTokens` |
 | `packages/sdk/src/document/crdt/zero_tree_view.ts`                  | Model computation (`buildView`), schema, Zero applier, event compiler      |
 | `packages/sdk/src/document/crdt/zero_tree_index.ts`                 | Block index (§16): per-block model, edit and undo windows                  |
-| `packages/sdk/src/document/operation/zero_tree_operation.ts`        | `ZeroTreeEditOperation`, `ZeroTreeStyleOperation`                          |
+| `packages/sdk/src/document/operation/zero_tree_operation.ts`        | `ZeroTreeEditOperation`, `ZeroTreeStyleOperation`, `keepWrittenSplits`     |
 | `packages/sdk/src/document/json/zero_tree.ts`                       | `ZeroTree` (`applyZeroOperations`)                                         |
 | `packages/sdk/src/api/yorkie/v1/resources.proto`, `converter.ts`    | protobuf messages and conversion                                           |
 | `packages/sdk/src/api/zero_tree_codec.ts`                           | hex of `Change` bytes for the binding and relaying                         |
@@ -644,3 +660,236 @@ middle paragraph; Apple M3 Max, Node 22.19; p50 / p95 ms):
 Memory per replica at 1M characters is 93.3 MB, against 47.5 MB in the first
 version and 30.7 MB for `Tree`. What remains is listed in §14, item 1. The Go
 server does not compute the model per operation, so it needs no index.
+
+## 17. Formatting across concurrent edits
+
+A Zero format is `split` (put in markers) + `update` on the node in between,
+and `update` writes the LWW registers of that node's marker (§7). Written on
+one marker only, a format lost what a concurrent split cut off: the
+characters after a marker the other side put inside the node opened a node
+the format never reached. Undo had the opposite problem: it wrote the old
+value back with a new ticket and so overwrote what others had written since.
+This section describes the three rules that fix this. JS and Go store them in
+the same bytes; the two decisions a writer makes locally (`insertPos`,
+`keepWrittenSplits`) are JS only and travel as plain operations.
+
+### 17.1 A format is a range write
+
+**What is written.** An `update` on a text node carries
+`ZeroTreeStyle.range` = `ZeroStyleRange{last}`, the id of **the last character
+of the node in the writer's view**. On apply the write goes to the node's
+marker M and to **every marker of the same type between M and `last`** in
+the token order, removed ones and ghosts included (they keep the format if an
+undo brings them back), with the same ticket. A node with no characters gets
+a plain write on its marker; an `update` that is not on a text node (a
+paragraph's alignment) is a plain write as before. In the writer's own view
+the range holds no other marker of the type but M's absorbed markers and
+removed ones, so formatting alone gives the same model and events as before.
+
+Overlapping concurrent formats on `abcdef`: A bolds `[1,4)`, B italicizes
+`[2,5)`. Each splits at both ends and writes the middle node:
+
+```
+⟨I0⟩a ⟨I1:A⟩b ⟨I2:B⟩c d ⟨I3:A⟩e ⟨I4:B⟩f
+
+A's write: bold on I1, last = d   → reaches I1, I2
+B's write: italic on I2, last = e → reaches I2, I3
+result: a, b(bold), cd(bold+italic), e(italic), f
+```
+
+Before, `cd` was only italic and `e` had no format.
+
+**Why `last` and not "the marker that ends the node".** The first version
+walked up to the token that ended the node in the writer's view. When two
+people format abutting ranges at once (`abc`: A bolds `[0,1)`, B underlines
+`[1,3)`), both split at 1; B's marker can sit right after `a` and before A's
+end marker, so it took A's bold and `bc` became bold+underline. A marker after
+the node's last character opens what follows the range (the next format, an
+Enter at the end of the node), so the walk stops at `last`. The order between
+tokens never changes, so the result does not depend on arrival order.
+
+**Markers that come later.** A marker inserted after the write arrived also
+takes it when all of these hold:
+
+- the change that inserted it did not know the write (its version vector does
+  not cover the write's ticket);
+- it has the type of the written node;
+- it lies between M and `last`.
+
+A local insertion always knows the write. A marker made by someone who knew
+the write is not touched: a split copied the values already, and a new node
+was put there on purpose. The later of the write and the marker does the
+write, and the registers are LWW, so the model stays a pure function of the
+live tokens and the registers.
+
+**Pending ranges.** For that, a write that may still meet such a marker stays
+in a reserved register of M, `zt.r.<ticket>` = `{"l": last | "", "w":
+writes}` (the same bytes in JS and Go), so a snapshot carries it to a replica
+that attaches later. It is a GC pair with the write's ticket as its removal
+time: once every replica knows the write, no concurrent marker can come and
+the register is dropped. Reserved keys are not in the model, so the time it
+is dropped does not change the model. A marker that takes several pending
+writes takes them in ticket order: the values do not depend on it, but the
+order a marker first gets its keys in is part of its encoding.
+
+**Split copies keep their tickets.** A `split` copies the split node's
+registers with **their own tickets** (and their kept writes, §17.2), not the
+split's ticket. A copied old value must not look newer than a concurrent
+write it never saw.
+
+**Block index and events.** A range write may change the blocks from M's to
+`last`'s (a concurrent Enter may have cut the range in two), so the window of
+`setAttrs` covers that span. The event compiler emits an `update` for every
+node whose attributes changed.
+
+### 17.2 Undoing a format cancels its write
+
+**Registers keep their writes.** A register of an ordinary key keeps its
+newest writes in `ZeroAttr.history`, at most `ZeroHistoryDepth` = 4, newest
+first: value, removal and ticket per write. Range writes, writes given to
+later markers, split copies and snapshots all carry them. Reserved keys
+(`zt.*`) stay plain registers.
+
+**The undo of a format writes no value.** Its reverse operation carries
+`ZeroTreeStyle.cancel` = `ZeroStyleCancel{write, on, fallback}`: the ticket of
+the write it takes back, `on` (an undo; a redo sets it off and its undo on
+again) and `fallback`, what M held before the write. The tree keeps the
+states in a table, `style_cancels` in the element, LWW per write by the
+ticket of the undo or redo. A register shows **the newest kept write that is
+not cancelled**; when all of its kept writes are cancelled it shows the
+`fallback` of the oldest one, with the initial ticket — it predates every
+write the register keeps, so any real value it meets in a fold (§17.3) or a
+copy wins over it.
+
+So an undo takes back exactly that write and nothing else. With
+`abcdefghij` red (`R`), one letter per character:
+
+| Script                                                               | Expected       | Writing the old value back        |
+| -------------------------------------------------------------------- | -------------- | --------------------------------- |
+| A colors `[1,8)` blue, B then `[3,5)` green, A undoes                | `RRRGGRRRRR`   | `RRRRRRRRRR`                      |
+| Same, B's green concurrent and losing to A's blue by LWW             | `RRRGGRRRRR`   | `RRRRRRRRRR`                      |
+| A colors `[1,8)` blue, C puts an unformatted `XY` in, A undoes       | `RRRR..RRRRRR` | `RRRRRRRRRRRR`                    |
+| A alone colors `[0,5)` red and `[5,10)` green, then all blue, undoes | `RRRRRGGGGG`   | `RRRRRGGGGG` (Text: `RRRRRRRRRR`) |
+
+A redo takes the cancellation back, so the write returns only where it is
+still the newest (`RBBGGBBBRR` in the first script keeps B's green).
+
+**Convergence.** A register's state is a function of two things: the top 4
+by ticket of a set of writes that only grows (`top4(A ∪ B) = top4(top4(A) ∪
+B)`, whatever the order), and the table, LWW per write. `fallback` travels in
+the operation. Nothing is written conditionally, so two concurrent undos
+commute.
+
+**Where it applies.** A cancellation applies to every register that keeps
+the write, wherever it went (absorbed markers, later markers, copies), not
+only to the range of M: an index from write tickets to token ids finds them,
+and the block window covers their blocks. A split copy leaves out writes that
+are already cancelled, so a node made after a known undo cannot bring the
+write back.
+
+**GC.** A table entry is a GC pair. It is dropped when every replica knows it,
+and `purgeBarrierAt` holds it back while a register still keeps the write or
+the write's range is still pending: either can still pick it.
+
+**Undoing the splits too (`keepWrittenSplits`).** The undo of a Zero format
+also removes the split markers the format put in, so the node's characters
+join the node before. If someone else has since written a live (not
+cancelled) value on one of those markers, that value would go with the
+marker. The undoer leaves those removals out of its undo when it makes the
+undo (`document.ts` `executeUndoRedoInternal`). The decision travels as
+ordinary operations, so the server needs no rule for it.
+
+### 17.3 Picking the split that opens the node
+
+Concurrent splits of one place have the same boundary key and fold into one
+node (§7). Which one opens it matters once something comes between them.
+
+**Token order.** All splits of the boundary `L|R` are siblings right after
+`L`, by descending ticket. What a split's author typed into the new node is in
+that marker's subtree, right after it, with a later ticket. A character typed
+at the end of `L`'s node by someone who did not know a split is a sibling
+after `L` too: with an earlier ticket, it sits after that split's marker.
+
+`ab`: A splits `a|b`, bolds `b` and types `x` at the end of `a`; B, later and
+not knowing any of it, splits `a|b`:
+
+```
+a ⟨B⟩ x ⟨A⟩ b
+
+first group opens the node:      a | xb(bold)   ← x moved right, took A's bold
+foldReps:  ⟨B⟩ is followed by x (earlier ticket): not it
+           ⟨A⟩ is followed by b (= R):            opens the node
+                                 ax | b(bold)
+```
+
+**`foldReps`.** For each boundary key split more than once, the opening group
+is the first one that is followed — past the other groups of its key — by
+`R`, by a token with a later ticket than its own, or by nothing. When no group
+is followed so, the first group opens the node as before. The groups before
+the opening one are **early folds**: they open nothing either, so what follows
+them stays in the node open there (the left node).
+
+**Where the registers of a folded marker go.**
+
+- A fold after the opening group gives its registers to the node of its type
+  open where it stands (`dealias` `holder`): the opening group's node, or the
+  node of a split that came between, which holds what follows the folded
+  marker.
+- An early fold holds two kinds of writes. Someone who saw it as their node
+  wrote for the text after the split, so those go to the opening group (B
+  bolding its new node `b` above). A range write over the left node reached it
+  only because it lay in the range; its writer saw nothing there, so those go
+  to the left node. The register alone cannot tell them apart, so the walk of
+  §17.1 marks the entries it writes: `ZeroAttrEntry.by_range`. A split copy
+  drops the mark: to the one who split, the value is their node's.
+
+**`insertPos` (JS).** An insertion before a visible token goes before the
+folded split markers right in front of it. Placed after one, it would read as
+typed into that split's node and could change which group opens it. It skips
+only markers of a boundary split more than once; a marker hidden for another
+reason (a scope, a deleted column) stays behind it. The position travels in
+the operation, so the server applies it as it is and needs no such rule.
+
+The view change is in `dealias` and `foldReps`; the stored form gains one
+bool. The block index is unchanged: a block whose boundary key has more than
+one ticket is already rebuilt whole.
+
+### 17.4 Measurements and what remains
+
+| Random runs (1,000 seeds unless noted)                            | Before the rule   | Now             |
+| ----------------------------------------------------------------- | ----------------- | --------------- |
+| Concurrent formats (4 replicas, GC): characters losing a format   | 12,913 of 73,269  | 0 of 106,738    |
+| Same run: characters outside a range that got its key             | 1,069 (200 seeds) | 0               |
+| Format undo (3 replicas): another's value overwritten             | 299               | 0               |
+| Same run: characters an undo moved to another node                | 123               | 3 (3,847 undos) |
+| Alone, 500 seeds: final model differs from before the three rules | —                 | 0               |
+
+"Before the rule" is the code without the rule the row checks: without range
+writes, with the first range version (up to the marker that ends the node),
+and with undo writing the old value back. The format run later gained a step
+that formats abutting ranges at once, hence more characters.
+
+Convergence, the window fuzz, the virtual-insert fuzz, the 6,109-script
+harness and JS↔Go cross tests (6,109 scripts, 1,000 format and 1,000 undo
+cases) are unchanged at 0. An undo of a format on 100k characters stays at
+p50 4.7–4.8 ms.
+
+What remains:
+
+1. **A block type change concurrent with a partial format.** A type change
+   (paragraph → heading) is a delete of the block and an insert of a copy, so
+   a concurrent bold written on the original stays on the removed block. It
+   needs the block type as an LWW attribute of the block marker.
+2. **Undos that move characters (3 of 3,847).** `keepWrittenSplits` looks
+   only at the format's own markers. The cases sampled earlier were a
+   neighboring node the characters join that someone else wrote on (widening
+   the rule to that marker should fix them), a change of which split opens a
+   folded node, and a later merge that would have joined the nodes anyway.
+3. **No split can open the node for everyone.** When every group of a key is
+   followed by an earlier-ticket token of someone else and `R` never follows,
+   the first group opens the node, as before §17.3. Then text typed on the
+   right sits before text typed on the left in the token order, and no single
+   boundary keeps both where their writers meant.
+4. **Long undo chains.** A register keeps 4 writes; an undo of all of them
+   falls back to `fallback`. A table entry stays until no register keeps its
+   write (the marker written 4 more times, or removed and collected).
