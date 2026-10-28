@@ -20,6 +20,9 @@ import { create } from '@bufbuild/protobuf';
 import { ErrorInfoSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { Code } from '@yorkie-js/sdk/src/util/error';
+import { SyncMode } from '@yorkie-js/sdk/src/client/client';
+import { Attachment } from '@yorkie-js/sdk/src/client/attachment';
+import { Channel } from '@yorkie-js/sdk/src/channel/channel';
 
 const ExpiredToken = 'expired token';
 
@@ -46,6 +49,24 @@ function newClient(authTokenInjector: (reason?: string) => Promise<string>) {
     rpcAddr: 'http://localhost',
     authTokenInjector,
   }) as any;
+}
+
+/**
+ * `attachChannel` puts a realtime channel attachment on the client without a
+ * server, so the tests can reach the paths that read the attachment map.
+ */
+function attachChannel(client: any, key: string, pollInterval = 0) {
+  client.attachmentMap.set(
+    key,
+    new Attachment(
+      () => 0,
+      new Channel(key),
+      '',
+      SyncMode.Realtime,
+      pollInterval,
+      pollInterval > 0,
+    ),
+  );
 }
 
 /**
@@ -125,7 +146,7 @@ describe('Token refresh after a 401', () => {
     expect(injector).toHaveBeenCalledTimes(7);
   });
 
-  it('counts 401s that arrive together as one failure', async () => {
+  it('joins 401s that arrive together into one injector call', async () => {
     const injector = vi.fn(async (): Promise<string> => {
       await new Promise((res) => setTimeout(res, 300));
       throw new Error('token api unavailable');
@@ -140,25 +161,70 @@ describe('Token refresh after a 401', () => {
     ]);
     await vi.advanceTimersByTimeAsync(300);
     expect(await handled).toEqual([true, true, true]);
-    expect(injector).toHaveBeenCalledTimes(3);
+    expect(injector).toHaveBeenCalledTimes(1);
 
-    // The next refresh may run 1s later, not 4s.
-    expect(client.loopRetryDelay(0)).toBe(1000);
+    // One failure: the next refresh may run 1s later.
+    expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(1000);
   });
 
-  it('holds the loop retries until the next refresh may run', async () => {
+  it('refreshes again after an injector that throws synchronously', async () => {
+    const injector = vi.fn((): Promise<string> => {
+      throw new Error('token api unavailable');
+    });
+    const client = newClient(injector);
+
+    await client.handleConnectError(unauthenticated());
+    expect(injector).toHaveBeenCalledTimes(1);
+
+    // The failed call is no longer in flight, so the next 401 past the
+    // backoff calls the injector again instead of joining it.
+    await vi.advanceTimersByTimeAsync(1000);
+    await client.handleConnectError(unauthenticated());
+    expect(injector).toHaveBeenCalledTimes(2);
+  });
+
+  it('holds only the retries that got a 401 until the next refresh may run', async () => {
     const injector = vi.fn(async (): Promise<string> => {
       throw new Error('token api unavailable');
     });
     const client = newClient(injector);
-    expect(client.loopRetryDelay(100)).toBe(100);
+    const unavailable = new ConnectError('down', ConnectCode.Unavailable);
+    expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(100);
 
     await client.handleConnectError(unauthenticated());
-    expect(client.loopRetryDelay(100)).toBe(1000);
+    expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(1000);
+    // A stream or call that failed for another reason keeps its own delay:
+    // it may use a method the webhook does not guard.
+    expect(client.loopRetryDelay(unavailable, 100)).toBe(100);
     await vi.advanceTimersByTimeAsync(400);
-    expect(client.loopRetryDelay(100)).toBe(600);
+    expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(600);
     await vi.advanceTimersByTimeAsync(600);
-    expect(client.loopRetryDelay(100)).toBe(100);
+    expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(100);
+  });
+
+  it('keeps the sync loop within the channel heartbeat interval', async () => {
+    const injector = vi.fn(async (): Promise<string> => {
+      throw new Error('token api unavailable');
+    });
+    const client = newClient(injector);
+
+    // Fail four times in a row: the next refresh is 8s away.
+    for (const wait of [1000, 2000, 4000, 0]) {
+      await client.handleConnectError(unauthenticated());
+      await vi.advanceTimersByTimeAsync(wait);
+    }
+    expect(client.syncLoopRetryDelay(unauthenticated())).toBe(8000);
+
+    // With a channel attached, the loop must send its heartbeats on time.
+    attachChannel(client, 'channel-a');
+    expect(client.syncLoopRetryDelay(unauthenticated())).toBe(5000);
+    attachChannel(client, 'channel-b', 2000);
+    expect(client.syncLoopRetryDelay(unauthenticated())).toBe(2000);
+    expect(
+      client.syncLoopRetryDelay(
+        new ConnectError('down', ConnectCode.Unavailable),
+      ),
+    ).toBe(1000);
   });
 
   it('lets a one-shot call fail at once without waiting for the backoff', async () => {

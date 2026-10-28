@@ -40,6 +40,24 @@ refuses it again, and the injector call. Decided with the requester:
       before; during the backoff it throws without calling the injector.
 - [x] 401s that arrive together (the sync loop's and the Watch streams' when
       the token expires) count as one failure.
+
+### Agent review follow-ups
+
+- [x] 401s that arrive while an injector call is pending join it, so a token
+      API that is slow to answer is asked once, not once per 401. They wait no
+      longer than each would have alone.
+- [x] Only a retry that got a 401 waits for the backoff. A Watch stream or a
+      sync that failed for another reason keeps its own delay: a method the
+      webhook does not guard still works with the refused token.
+      `onDisconnect` now carries the error that ended the stream.
+- [x] While a channel is attached, the sync loop waits no longer than the
+      channel heartbeat interval: it sends the heartbeats, and the server
+      drops a session whose TTL lapses.
+- [x] Broadcast retries after a 401 wait for the backoff too.
+- Not taken from the review loop: a timeout on the injector call, a
+  generation counter for refreshes that outlive `activate`, and making the
+  `broadcast` promise wait for its retries. The first two are older than this
+  change; the third changes a public promise for every broadcast.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
 
@@ -59,9 +77,10 @@ wait longer than one injector call, the same as before this change.
 ## Verification
 
 - [x] Unit (`test/unit/client/auth_refresh_test.ts`, fake timers): 1s/2s/4s
-      backoff and reset on success, 30s cap, 401s arriving together counted
-      once, loop retry delay held to the backoff, one-shot call during the
-      backoff does not call the injector. All five fail with step 1 only.
+      backoff and reset on success, 30s cap, 401s arriving together join one
+      call, an injector that throws synchronously, only 401 retries held to
+      the backoff, the sync loop kept within the channel heartbeat, one-shot
+      call during the backoff does not call the injector.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times
@@ -79,3 +98,6 @@ wait longer than one injector call, the same as before this change.
   `ErrUnexpectedStatusCode`), not 401, and `handleConnectError` does not
   retry `Internal`, so the loops stop. Not a token refresh problem; the
   requester chose to leave it for now.
+- A server that answers 401 to a token the injector has just returned gets
+  the injector called on every retry, as before this change: the backoff
+  starts only when the injector rejects.

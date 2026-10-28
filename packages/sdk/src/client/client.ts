@@ -256,10 +256,12 @@ export interface ClientOptions {
    *
    * If the function rejects, the client keeps the previous token and does
    * not call it again for a while: 1s after the first failure, doubling up to
-   * 30s, jittered. The sync loop and the Watch streams wait out that time and
-   * retry on their own, so they come back once the token API does. A one-shot
-   * call such as `attach`, `detach`, `remove` or `sync` throws the
-   * `ErrUnauthenticated` it received; retrying it is up to the caller.
+   * 30s, jittered. The sync loop, the Watch streams and broadcast retries that
+   * got a 401 wait out that time and retry on their own, so they come back
+   * once the token API does; the sync loop waits no longer than the channel
+   * heartbeat interval while a channel is attached. A one-shot call such as
+   * `attach`, `detach`, `remove` or `sync` throws the `ErrUnauthenticated` it
+   * received; retrying it is up to the caller.
    *
    * A rejection is treated as transient. When the function can tell that a
    * refresh will never succeed (for example, the token API answers that the
@@ -689,6 +691,9 @@ export class Client {
   // `authRefreshRetryAt` is when the next one may run. See `refreshAuthToken`.
   private authRefreshFailures = 0;
   private authRefreshRetryAt = 0;
+  // `authRefreshInFlight` is the call to `authTokenInjector` that is running
+  // now, if any. See `refreshAuthToken`.
+  private authRefreshInFlight?: Promise<void>;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
@@ -1643,7 +1648,7 @@ export class Client {
 
         doc.applyStatus(DocStatus.Attached);
         const attachment = new Attachment(
-          () => this.loopRetryDelay(this.reconnectStreamDelay),
+          (err) => this.loopRetryDelay(err, this.reconnectStreamDelay),
           doc,
           res.documentId,
           syncMode,
@@ -2169,7 +2174,7 @@ export class Client {
       }
 
       const attachment = new Attachment<Channel>(
-        () => this.loopRetryDelay(this.reconnectStreamDelay),
+        (err) => this.loopRetryDelay(err, this.reconnectStreamDelay),
         channel,
         '', // sessionID populated on first refresh response
         syncMode,
@@ -3222,7 +3227,10 @@ export class Client {
 
             if (retryCount < maxRetries) {
               retryCount++;
-              setTimeout(() => doLoop(), exponentialBackoff(retryCount - 1));
+              setTimeout(
+                () => doLoop(),
+                this.loopRetryDelay(err, exponentialBackoff(retryCount - 1)),
+              );
               logger.info(
                 `[BC] c:"${this.getKey()}" retry attempt ${retryCount}/${maxRetries}`,
               );
@@ -3378,7 +3386,7 @@ export class Client {
 
         logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
         if (await this.handleConnectError(err)) {
-          setTimeout(doLoop, this.loopRetryDelay(this.retrySyncLoopDelay));
+          setTimeout(doLoop, this.syncLoopRetryDelay(err));
         } else {
           this.conditions[ClientCondition.SyncLoop] = false;
         }
@@ -3402,7 +3410,9 @@ export class Client {
 
     this.conditions[ClientCondition.WatchLoop] = true;
     return attachment.runWatchLoop(
-      (onDisconnect: () => void): Promise<[WatchStream, AbortController]> => {
+      (
+        onDisconnect: (err?: unknown) => void,
+      ): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
           this.conditions[ClientCondition.WatchLoop] = false;
           return Promise.reject(
@@ -3459,7 +3469,7 @@ export class Client {
     attachment: Attachment<Document<R, P>>,
     key: Key,
     ac: AbortController,
-    onDisconnect: () => void,
+    onDisconnect: (err?: unknown) => void,
   ): Promise<[WatchStream, AbortController]> {
     const stream = this.rpcClient.watch(
       {
@@ -3562,7 +3572,7 @@ export class Client {
     attachment: Attachment<Channel>,
     key: Key,
     ac: AbortController,
-    onDisconnect: () => void,
+    onDisconnect: (err?: unknown) => void,
   ): Promise<[WatchStream, AbortController]> {
     const stream = this.rpcClient.watch(
       {
@@ -4310,38 +4320,75 @@ export class Client {
    * its retry and the Watch stream would never reconnect, with no event left
    * for the app. Each failure in a row doubles the wait before the injector is
    * called again (`authRefreshDelay`); a 401 that arrives sooner skips it, and
-   * the loops hold their retries until then (`loopRetryDelay`). While the token
-   * API is down, they send the refused token once per refresh, not once per
-   * loop delay.
+   * the retries that got one wait until then (`loopRetryDelay`).
+   *
+   * 401s that arrive while a call is pending, such as the sync loop's and the
+   * Watch streams' when the token expires, join that call instead of making
+   * their own. They wait no longer than each of them would have alone.
    */
-  private async refreshAuthToken(reason?: string): Promise<void> {
+  private refreshAuthToken(reason?: string): Promise<void> {
+    if (this.authRefreshInFlight) {
+      return this.authRefreshInFlight;
+    }
     if (Date.now() < this.authRefreshRetryAt) {
-      return;
+      return Promise.resolve();
     }
 
-    const failures = this.authRefreshFailures;
-    try {
-      this.setAuthToken(await this.authTokenInjector!(reason));
-      this.authRefreshFailures = 0;
-      this.authRefreshRetryAt = 0;
-    } catch (err) {
-      logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
-      // 401s that arrive together, such as the sync loop's and the Watch
-      // streams' when the token expires, refresh together: count them once.
-      if (this.authRefreshFailures === failures) {
-        this.authRefreshFailures = failures + 1;
-        this.authRefreshRetryAt = Date.now() + authRefreshDelay(failures + 1);
+    // Cleared in a `finally` chained after the call, not inside it: an
+    // injector that throws synchronously would clear it before it is set.
+    const refresh = (async () => {
+      try {
+        this.setAuthToken(await this.authTokenInjector!(reason));
+        this.authRefreshFailures = 0;
+        this.authRefreshRetryAt = 0;
+      } catch (err) {
+        logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
+        this.authRefreshFailures++;
+        this.authRefreshRetryAt =
+          Date.now() + authRefreshDelay(this.authRefreshFailures);
       }
-    }
+    })().finally(() => {
+      this.authRefreshInFlight = undefined;
+    });
+    this.authRefreshInFlight = refresh;
+    return refresh;
   }
 
   /**
-   * `loopRetryDelay` returns how long the sync loop or a Watch stream waits
-   * before retrying: its own `delay`, or until the next token refresh may run
-   * if that is later, so the retry does not just resend a refused token.
+   * `loopRetryDelay` returns how long a retry waits after `err`: its own
+   * `delay`, or, for a 401, until the next token refresh may run if that is
+   * later, so the retry does not just resend a refused token. Other errors
+   * keep their own delay: a method the auth webhook does not guard still
+   * works with the refused token.
    */
-  private loopRetryDelay(delay: number): number {
+  private loopRetryDelay(err: unknown, delay: number): number {
+    if (!isErrorCode(err, Code.ErrUnauthenticated)) {
+      return delay;
+    }
     return Math.max(delay, this.authRefreshRetryAt - Date.now());
+  }
+
+  /**
+   * `syncLoopRetryDelay` is `loopRetryDelay` for the sync loop, which also
+   * sends the channel heartbeats. While a channel is attached, it waits no
+   * longer than the soonest heartbeat is due: the server drops a channel
+   * session whose TTL lapses, and the webhook may not guard the heartbeat.
+   */
+  private syncLoopRetryDelay(err: unknown): number {
+    let delay = this.loopRetryDelay(err, this.retrySyncLoopDelay);
+    for (const [, attachment] of this.attachmentMap) {
+      if (
+        attachment.resource instanceof Channel &&
+        attachment.syncMode !== SyncMode.Manual
+      ) {
+        const heartbeat =
+          attachment.pollInterval > 0
+            ? attachment.pollInterval
+            : this.channelHeartbeatInterval;
+        delay = Math.min(delay, Math.max(this.retrySyncLoopDelay, heartbeat));
+      }
+    }
+    return delay;
   }
 
   /**
