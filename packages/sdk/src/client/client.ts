@@ -693,12 +693,14 @@ export class Client {
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
   // `authRefreshFailures` counts the token refreshes that failed in a row,
-  // `authRefreshRetryAt` is when the next one may run, and
-  // `authRefreshGeneration` numbers the injector calls so that only the latest
-  // one counts. See `refreshAuthToken`.
+  // `authRefreshRetryAt` is when the next one may run,
+  // `authRefreshGeneration` numbers the injector calls, and
+  // `authTokenGeneration` is the number of the call whose token is in use.
+  // See `refreshAuthToken`.
   private authRefreshFailures = 0;
   private authRefreshRetryAt = 0;
   private authRefreshGeneration = 0;
+  private authTokenGeneration = 0;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
@@ -928,7 +930,7 @@ export class Client {
       this.setAuthToken(token);
       this.authRefreshFailures = 0;
       this.authRefreshRetryAt = 0;
-      this.authRefreshGeneration++;
+      this.authTokenGeneration = ++this.authRefreshGeneration;
     }
 
     return this.enqueueTask(async () => {
@@ -4356,14 +4358,18 @@ export class Client {
    * and the token API may be back.
    *
    * Each 401 makes its own call, as before; they do not join one call, since
-   * an injector that never settles would then hold every later 401 too. Only
-   * the latest call counts: an earlier one that settles later neither sets its
-   * token nor changes the backoff. So 401s that arrive together, such as the
-   * sync loop's and the Watch streams' when the token expires, count as one
-   * failure, and a call still pending when the client activates again does
-   * not override the new session's token.
+   * an injector that never settles would then hold every later 401 too. A
+   * call that settles after a later one already set its token neither sets
+   * its own nor changes the backoff, so an older token never overrides a
+   * newer one, and a call still pending when the client activates again does
+   * not override the new session's token. A call is not dropped just because
+   * a later one is still pending: with a slow token API, the loops' calls
+   * would then keep dropping each other. 401s that arrive together, such as
+   * the sync loop's and the Watch streams' when the token expires, count as
+   * one failure.
    *
-   * It returns whether the injector returned a token.
+   * It returns whether the injector returned a token: on true, the token in
+   * use is that one or a newer one.
    */
   private async refreshAuthToken(
     reason: string | undefined,
@@ -4374,9 +4380,11 @@ export class Client {
     }
 
     const generation = ++this.authRefreshGeneration;
+    const failures = this.authRefreshFailures;
     try {
       const token = await this.authTokenInjector!(reason);
-      if (generation === this.authRefreshGeneration) {
+      if (generation > this.authTokenGeneration) {
+        this.authTokenGeneration = generation;
         this.setAuthToken(token);
         this.authRefreshFailures = 0;
         this.authRefreshRetryAt = 0;
@@ -4384,10 +4392,12 @@ export class Client {
       return true;
     } catch (err) {
       logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
-      if (generation === this.authRefreshGeneration) {
-        this.authRefreshFailures++;
-        this.authRefreshRetryAt =
-          Date.now() + authRefreshDelay(this.authRefreshFailures);
+      if (
+        generation > this.authTokenGeneration &&
+        this.authRefreshFailures === failures
+      ) {
+        this.authRefreshFailures = failures + 1;
+        this.authRefreshRetryAt = Date.now() + authRefreshDelay(failures + 1);
       }
       return false;
     }

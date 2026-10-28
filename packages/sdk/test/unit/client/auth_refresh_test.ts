@@ -23,6 +23,7 @@ import { Code } from '@yorkie-js/sdk/src/util/error';
 import { ClientStatus, SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Attachment } from '@yorkie-js/sdk/src/client/attachment';
 import { Channel } from '@yorkie-js/sdk/src/channel/channel';
+import { runWatchStream } from '@yorkie-js/sdk/src/client/watch';
 
 const ExpiredToken = 'expired token';
 
@@ -263,6 +264,76 @@ describe('Token refresh after a 401', () => {
     calls[2].reject(new Error('token api unavailable'));
     await third;
     expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(0);
+  });
+
+  it('sets the token of a call that settles while a later one is pending', async () => {
+    // A token API that answers in 3s, slower than the loops retry.
+    let issued = 0;
+    const injector = vi.fn(() => {
+      const token = `token-${++issued}`;
+      return new Promise<string>((res) => setTimeout(() => res(token), 3000));
+    });
+    const client = newClient(injector);
+    client.setAuthToken = vi.fn();
+
+    // The sync loop's call, then a Watch stream's 2s later: the first must
+    // not be dropped for the second, or the loops would drop each other's.
+    const syncLoop = client.handleConnectError(unauthenticated(), true);
+    await vi.advanceTimersByTimeAsync(2000);
+    const watch = client.handleConnectError(unauthenticated(), true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(client.setAuthToken.mock.calls).toEqual([['token-1']]);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(client.setAuthToken.mock.calls).toEqual([['token-1'], ['token-2']]);
+    expect(await Promise.all([syncLoop, watch])).toEqual([true, true]);
+  });
+
+  it('holds a Watch reconnect after a 401 until the next refresh may run', async () => {
+    const injector = vi.fn(async (): Promise<string> => {
+      throw new Error('token api unavailable');
+    });
+    const client = newClient(injector);
+    const attachment = new Attachment(
+      (err) => client.loopRetryDelay(err, 100),
+      new Channel('channel-a'),
+      '',
+      SyncMode.Realtime,
+    );
+
+    // Each stream the loop opens ends with a 401 before its init response.
+    let opened = 0;
+    void attachment.runWatchLoop((onDisconnect) => {
+      opened++;
+      const stream: AsyncIterable<unknown> = {
+        [Symbol.asyncIterator]: () => ({
+          next: () => Promise.reject(unauthenticated()),
+        }),
+      };
+      return runWatchStream(
+        {
+          stream,
+          ac: new AbortController(),
+          isInit: () => true,
+          heartbeatIntervalOf: () => 0,
+          onResponse: () => {},
+          onStreamEnd: () => {},
+          onError: () => {},
+          onDisconnect,
+        },
+        (err) => client.handleConnectError(err, true),
+        () => {},
+      );
+    });
+
+    // The refresh failed: the stream reconnects 1s later, not 100ms.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(opened).toBe(1);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(opened).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(opened).toBe(2);
+    expect(injector).toHaveBeenCalledTimes(2);
+    attachment.cancelWatchStream();
   });
 
   it('lets a one-shot call refresh during the backoff and fail at once', async () => {

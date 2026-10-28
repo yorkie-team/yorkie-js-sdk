@@ -57,11 +57,15 @@ refuses it again, and the injector call. Decided with the requester:
       channel heartbeat interval: it sends the heartbeats, and the server
       drops a session whose TTL lapses.
 - [x] Broadcast retries after a 401 wait for the backoff too.
-- [x] Only the latest injector call counts (`authRefreshGeneration`): an
-      earlier one that settles later neither sets its token nor changes the
-      backoff, and `activate` drops the calls still pending. This replaces
-      the snapshot of the failure count that let a stale rejection re-arm the
+- [x] A call that settles after a later one already set its token neither
+      sets its own nor changes the backoff (`authTokenGeneration`), and
+      `activate` drops the calls still pending. So an older token never
+      overrides a newer one, and a stale rejection no longer re-arms the
       backoff after a later refresh succeeded.
+- [x] ~~Only the latest call counts.~~ Fixed in the next review: with a token
+      API slower than the loops' retry delay, the loops' calls kept dropping
+      each other and no token was ever set. A call is now dropped only once a
+      later one has set its token, not while one is pending.
 - [x] Only the loops skip the injector during the backoff
       (`handleConnectError(err, true)`). A one-shot call the app retried on
       purpose calls it, so the retry gets a new token as soon as the token API
@@ -99,7 +103,9 @@ wait longer than one injector call, the same as before this change.
       call settling later ignored, only 401 retries held to the backoff, the
       sync loop kept within the channel heartbeat, a one-shot call during the
       backoff calling the injector, `deactivate` stopping locally on a 401
-      the injector cannot refresh.
+      the injector cannot refresh, a token set while a later call is pending
+      on a slow token API, a Watch reconnect through `runWatchStream` and
+      `Attachment` held to the backoff.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times
@@ -117,6 +123,11 @@ wait longer than one injector call, the same as before this change.
   `ErrUnexpectedStatusCode`), not 401, and `handleConnectError` does not
   retry `Internal`, so the loops stop. Not a token refresh problem; the
   requester chose to leave it for now.
+- After a 401, the sync loop sleeps until the next refresh may run (up to
+  30s), bounded only for channels. A `Polling` document has no Watch stream,
+  so if a one-shot call gets a new token sooner, its pull still waits for
+  that timer. Nothing is lost (a pull with the refused token fails anyway);
+  the fix is to wake the sync loop when a refresh succeeds, left for later.
 - A server that answers 401 to a token the injector has just returned gets
   the injector called on every retry, as before this change: the backoff
   starts only when the injector rejects.
