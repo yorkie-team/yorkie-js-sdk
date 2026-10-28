@@ -235,31 +235,6 @@ describe('Token refresh after a 401', () => {
     expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(100);
   });
 
-  it('keeps the sync loop within the channel heartbeat interval', async () => {
-    const injector = vi.fn(async (): Promise<string> => {
-      throw new Error('token api unavailable');
-    });
-    const client = newClient(injector);
-
-    // Fail four times in a row: the next refresh is 8s away.
-    for (const wait of [1000, 2000, 4000, 0]) {
-      await client.handleConnectError(unauthenticated(), true);
-      await vi.advanceTimersByTimeAsync(wait);
-    }
-    expect(client.syncLoopRetryDelay(unauthenticated())).toBe(8000);
-
-    // With a channel attached, the loop must send its heartbeats on time.
-    attachChannel(client, 'channel-a');
-    expect(client.syncLoopRetryDelay(unauthenticated())).toBe(5000);
-    attachChannel(client, 'channel-b', 2000);
-    expect(client.syncLoopRetryDelay(unauthenticated())).toBe(2000);
-    expect(
-      client.syncLoopRetryDelay(
-        new ConnectError('down', ConnectCode.Unavailable),
-      ),
-    ).toBe(1000);
-  });
-
   it('lets an earlier call that settles later neither set its token nor count', async () => {
     const calls: Array<{
       resolve: (token: string) => void;
@@ -345,84 +320,52 @@ describe('Token refresh after a 401', () => {
     attachment.cancelWatchStream();
   });
 
-  it('wakes the waiting sync loop and Watch stream when a refresh ends the backoff', async () => {
-    let refused = true;
+  it('retries the sync loop at least every 5s while the refresh backs off', async () => {
+    const start = Date.now();
+    const syncedAt: Array<number> = [];
+    const refreshedAt: Array<number> = [];
     const injector = vi.fn(async (): Promise<string> => {
-      if (refused) {
-        throw new Error('token api unavailable');
-      }
-      return 'new-token';
-    });
-    const client = newClient(injector);
-    client.status = ClientStatus.Activated;
-    client.syncInternal = vi.fn(async () => {
-      if (refused) {
-        throw unauthenticated();
-      }
-    });
-
-    // A channel whose heartbeat does not bound the wait, and its Watch
-    // stream, both refused once and waiting out the 1s backoff.
-    attachChannel(client, 'channel-a', 60000);
-    const attachment = client.attachmentMap.get('channel-a');
-    let opened = 0;
-    void attachment.runWatchLoop((onDisconnect: (err?: unknown) => void) => {
-      opened++;
-      return refused
-        ? refusedStream(client, onDisconnect)
-        : new Promise(() => {});
-    });
-    client.runSyncLoop();
-    await vi.advanceTimersByTimeAsync(500);
-    expect(client.syncInternal).toHaveBeenCalledTimes(1);
-    expect(opened).toBe(1);
-
-    // An app's one-shot call gets a new token 500ms in: both retry now
-    // instead of at the end of the backoff.
-    refused = false;
-    await client.handleConnectError(unauthenticated());
-    await vi.advanceTimersByTimeAsync(0);
-    expect(client.syncInternal).toHaveBeenCalledTimes(2);
-    expect(opened).toBe(2);
-
-    client.deactivating = true;
-    attachment.cancelWatchStream();
-    await vi.advanceTimersByTimeAsync(100);
-  });
-
-  it('wakes the sync loop waiting out the backoff when a channel attaches', async () => {
-    const injector = vi.fn(async (): Promise<string> => {
+      refreshedAt.push(Date.now() - start);
       throw new Error('token api unavailable');
     });
     const client = newClient(injector);
     client.status = ClientStatus.Activated;
     client.syncInternal = vi.fn(async () => {
+      syncedAt.push(Date.now() - start);
       throw unauthenticated();
     });
-
-    // The loop failed with no channel attached, so nothing bounds its wait.
     attachChannel(client, 'channel-a', 60000);
-    client.runSyncLoop();
-    await vi.advanceTimersByTimeAsync(500);
-    expect(client.syncInternal).toHaveBeenCalledTimes(1);
 
-    // A channel attached now gets its first refresh at once, not after the
-    // wait the loop chose before it existed.
-    await client.attachChannel(new Channel('channel-b'));
-    await vi.advanceTimersByTimeAsync(0);
-    expect(client.syncInternal).toHaveBeenCalledTimes(3);
+    client.runSyncLoop();
+    await vi.advanceTimersByTimeAsync(31000);
+
+    // The injector backs off to 16s, but the loop never waits more than 5s,
+    // so a channel session outlives the server's 15s TTL and a token that
+    // came back another way is picked up within 5s.
+    expect(refreshedAt).toEqual([0, 1000, 3000, 7000, 15000, 31000]);
+    expect(syncedAt).toEqual([
+      0, 1000, 3000, 7000, 12000, 15000, 20000, 25000, 30000, 31000,
+    ]);
+
+    // A retry that waits longer on its own, as a broadcast's may, keeps it.
+    expect(client.loopRetryDelay(unauthenticated(), 8000)).toBe(8000);
 
     client.deactivating = true;
-    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(5000);
   });
 
-  it('lets a one-shot call refresh during the backoff and fail at once', async () => {
+  it('lets a one-shot sync call the injector during the backoff and throw its error', async () => {
     const injector = vi
       .fn<() => Promise<string>>()
       .mockRejectedValueOnce(new Error('token api unavailable'))
       .mockRejectedValueOnce(new Error('token api unavailable'))
       .mockResolvedValue('new-token');
     const client = newClient(injector);
+    client.syncInternal = vi.fn(async () => {
+      throw unauthenticated();
+    });
+    attachChannel(client, 'channel-a');
+    const channel = client.attachmentMap.get('channel-a').resource;
 
     // A loop's 401 waits for one call to the injector only, and the loop's
     // next 401 during the backoff does not call it.
@@ -434,16 +377,15 @@ describe('Token refresh after a 401', () => {
     ).toBe(true);
     expect(injector).toHaveBeenCalledTimes(1);
 
-    // An app's `attach` or `sync` retried on purpose calls it, waiting for
-    // one call only, and a failure counts toward the backoff.
-    expect(await settled(client.handleConnectError(unauthenticated()))).toBe(
-      true,
-    );
+    // The app's `sync` calls it all the same and throws its error, as before
+    // this change, and the failure counts toward the backoff.
+    await expect(client.sync(channel)).rejects.toThrow('token api unavailable');
     expect(injector).toHaveBeenCalledTimes(2);
     expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(2000);
 
-    // Once the token API is back, it gets the new token at once.
-    await client.handleConnectError(unauthenticated());
+    // Once the token API is back, the call sets the new token at once and
+    // throws the 401 it got, for the app to retry.
+    await expect(client.sync(channel)).rejects.toThrow('unauthenticated');
     expect(injector).toHaveBeenCalledTimes(3);
     expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(0);
   });
@@ -470,27 +412,47 @@ describe('Token refresh after a 401', () => {
 
     // Signed out: nothing could stop the loops resending the refused token.
     // It stays deactivating throughout, as a deactivation that succeeds
-    // does, so the loops stay paused and a late response is dropped.
+    // does, so the sync loop exits rather than resume, and throws the
+    // injector's error.
     const deactivated = client.deactivate();
     await vi.advanceTimersByTimeAsync(0);
     expect(injector).toHaveBeenCalledTimes(2);
     expect(client.deactivating).toBe(true);
     signOut(new Error('signed out'));
-    await expect(deactivated).rejects.toThrow('unauthenticated');
+    await expect(deactivated).rejects.toThrow('signed out');
     expect(client.status).toBe(ClientStatus.Deactivated);
     expect(client.attachmentMap.size).toBe(0);
     expect(client.deactivating).toBe(true);
   });
 
-  it('drops the waiting sync loop retry on deactivate, so a later activate runs one loop', async () => {
-    let refused = true;
-    const injector = vi.fn(async (): Promise<string> => {
-      if (refused) {
-        throw new Error('token api unavailable');
-      }
-      return 'new-token';
-    });
+  it('drops an injector call still pending when the client activates again', async () => {
+    let oldSession: (token: string) => void = () => {};
+    const injector = vi
+      .fn<() => Promise<string>>()
+      .mockReturnValueOnce(new Promise((res) => (oldSession = res)))
+      .mockResolvedValue('new-session-token');
     const client = newClient(injector);
+    client.setAuthToken = vi.fn();
+    client.rpcClient = {
+      activateClient: vi.fn(async () => ({
+        clientId: 'client-id',
+        actorId: 'client-id',
+      })),
+    };
+
+    // A loop's call from the previous session is still pending.
+    void client.handleConnectError(unauthenticated(), true);
+    await client.activate();
+    oldSession('old-session-token');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.setAuthToken.mock.calls).toEqual([['new-session-token']]);
+
+    client.deactivating = true;
+    await vi.advanceTimersByTimeAsync(100);
+  });
+
+  it('runs one sync loop after a deactivate and activate within a retry wait', async () => {
+    const client = newClient(async () => 'new-token');
     client.id = 'client-id';
     client.status = ClientStatus.Activated;
     client.rpcClient = {
@@ -501,18 +463,18 @@ describe('Token refresh after a 401', () => {
       deactivateClient: vi.fn(async () => ({})),
     };
     client.syncInternal = vi.fn(async () => {
-      throw unauthenticated();
+      throw new ConnectError('down', ConnectCode.Unavailable);
     });
 
-    // The loop got a 401 and waits 1s for the backoff.
+    // The loop failed and waits 1s to retry.
     attachChannel(client, 'channel-a', 60000);
     client.runSyncLoop();
     await vi.advanceTimersByTimeAsync(0);
     expect(client.syncInternal).toHaveBeenCalledTimes(1);
 
-    // The app deactivates and activates again within that second.
+    // The app deactivates and activates again within that second, as a
+    // React StrictMode remount does.
     await client.deactivate();
-    refused = false;
     await client.activate();
     const ticks = vi.spyOn(client, 'enqueueTask');
 
@@ -522,5 +484,29 @@ describe('Token refresh after a 401', () => {
 
     client.deactivating = true;
     await vi.advanceTimersByTimeAsync(100);
+  });
+
+  it("calls the injector on a broadcast's first try during the backoff", async () => {
+    const injector = vi.fn(async (): Promise<string> => {
+      throw new Error('token api unavailable');
+    });
+    const client = newClient(injector);
+    client.id = 'client-id';
+    client.rpcClient = {
+      broadcast: vi.fn(async () => {
+        throw unauthenticated();
+      }),
+    };
+    attachChannel(client, 'channel-a');
+
+    // A loop's 401 started the backoff.
+    await client.handleConnectError(unauthenticated(), true);
+    expect(injector).toHaveBeenCalledTimes(1);
+
+    // The app's broadcast is a one-shot call on its first try.
+    await expect(
+      client.broadcast('channel-a', 'topic', 'payload', { maxRetries: 0 }),
+    ).rejects.toThrow('token api unavailable');
+    expect(injector).toHaveBeenCalledTimes(2);
   });
 });

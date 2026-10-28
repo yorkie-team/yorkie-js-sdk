@@ -34,11 +34,14 @@ refuses it again, and the injector call. Decided with the requester:
       option. A 401 that arrives sooner skips the injector
       (`refreshAuthToken`).
 - [x] The sync loop and the Watch streams hold their retries until the next
-      refresh may run (`loopRetryDelay`), so the refused token is sent once
-      per refresh, not once per loop delay.
-- [x] A one-shot call (`attach`, `detach`, `remove`, `sync`, …) throws as
-      before. It calls the injector even during the backoff (see the second
-      review below).
+      refresh may run, but no longer than 5s at a time (`loopRetryDelay`,
+      `AuthRetryMaxWaitMs`), so the refused token is sent once per refresh
+      while the backoff is short and once per 5s after (see "Simplified"
+      below).
+- [x] A one-shot call (`attach`, `detach`, `remove`, `sync`, the first try
+      of `broadcast`, …) behaves as before: it calls the injector on every
+      401, even during the backoff, and throws the injector's error when it
+      rejects. Only its failure now counts toward the loops' backoff.
 - [x] 401s that arrive together (the sync loop's and the Watch streams' when
       the token expires) count as one failure.
 
@@ -53,9 +56,8 @@ refuses it again, and the injector call. Decided with the requester:
       sync that failed for another reason keeps its own delay: a method the
       webhook does not guard still works with the refused token.
       `onDisconnect` now carries the error that ended the stream.
-- [x] While a channel is attached, the sync loop waits no longer than the
-      channel heartbeat interval: it sends the heartbeats, and the server
-      drops a session whose TTL lapses.
+- [x] ~~While a channel is attached, the sync loop waits no longer than the
+      channel heartbeat interval.~~ Replaced by the 5s cap below.
 - [x] Broadcast retries after a 401 wait for the backoff too.
 - [x] A call that settles after a later one already set its token neither
       sets its own nor changes the backoff (`authTokenGeneration`), and
@@ -73,20 +75,13 @@ refuses it again, and the injector call. Decided with the requester:
 - Not taken from the review loop: a timeout on the injector call and making
   the `broadcast` promise wait for its retries. The first is older than this
   change; the second changes a public promise for every broadcast.
-- [x] A refresh that ends the backoff wakes the sync loop and the Watch
-      streams waiting to retry (`wakeRetries`), and `attachChannel` and
-      `resync` wake a sync loop that waits. A loop's wait was set when it
-      failed, up to 30s: a channel attached later went without its first
-      refresh past the server's 15s session TTL, and a `Polling` document
-      whose token a one-shot call refreshed still waited to pull.
-- [x] `deactivateInternal` drops the sync loop's waiting retry. During a
-      backoff it can be 30s away, so a deactivate and an `activate` inside
-      that time ran two sync loops, and `wakeSyncLoop` could run the old one
-      at once.
+- [x] ~~A refresh that ends the backoff wakes the waiting retries, and
+      `deactivate` drops the sync loop's waiting retry.~~ Replaced by the 5s
+      cap below.
 - [x] The local deactivation on an unrefreshable 401 keeps `deactivating`
-      set, as a deactivation that succeeds does, so the loops stay paused
-      during the refresh and a late first `RefreshChannel` response cannot
-      mark the client activated again.
+      set, as a deactivation that succeeds does, so the sync loop exits
+      instead of resuming during the refresh, and a late first
+      `RefreshChannel` response cannot mark the client activated again.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
 - [x] The auth webhook can guard `DeactivateClient` too, so for a signed-out
@@ -95,6 +90,40 @@ refuses it again, and the injector call. Decided with the requester:
       deactivates locally and throws; the server reaps it after its
       `clientDeactivateThreshold`, as for `deactivateOnUnload: false`. Decided
       with the requester.
+
+### Simplified: a loop's 401 wait is capped at 5s
+
+Holding the loops' 401 retries for the whole backoff (up to 30s) broke what
+the rest of the client assumes, that a failed loop runs again within about a
+second: a channel attached during the wait went without its first refresh
+past the server's 15s session TTL, a `Polling` document or a token refreshed
+by a one-shot call waited for the old timer, and a deactivate followed by
+`activate` within the wait ran two sync loops. Each fix (a heartbeat bound
+for the channels attached at the time, waking the loops on a refresh,
+cancelling the retry on deactivate) brought the next case. Decided with the
+requester:
+
+- [x] A loop's 401 retry waits for the backoff but no longer than 5s
+      (`AuthRetryMaxWaitMs`, the default channel heartbeat, TTL/3). The
+      heartbeat bound, the wake-up and the retry cancel are gone.
+- [x] The injector keeps its 1s-to-30s backoff: the loops' retries in
+      between skip it, so the token API, the service that is down, gets at
+      most one call per backoff per client. Each loop sends Yorkie and the
+      webhook the refused token once per refresh while the backoff is
+      shorter than 5s, and every 5s after.
+- [x] `runSyncLoop` numbers its loops and an older one stops at its next
+      tick, so a deactivate and an `activate` within a retry wait (up to 5s
+      after a 401, 1s otherwise, as on `main`) run one loop, not two.
+- [x] Local review: one-shot calls had come to throw `ErrUnauthenticated`
+      instead of the injector's error, which is how an app learns it was
+      signed out; restored to `main`'s behaviour. A broadcast's first try is
+      the app's call, so it no longer skips the injector during the backoff.
+- Looked at and left out, from the same review: a loop timer set for the end
+  of the backoff can fire about 1ms early, so the loop sends the refused
+  token once more and refreshes one retry delay later; and a wall clock set
+  back during the backoff lengthens it, the loops still retrying every 5s.
+  Neither loses data or stops a loop, and guarding them adds state for
+  little gain.
 
 A first version kept one refresh running in the background and made the loops
 wait until it succeeded. The agent review found that a Watch stream opened
@@ -115,13 +144,14 @@ wait longer than one injector call, the same as before this change.
       backoff and reset on success, 30s cap, 401s arriving together counted
       once, a later 401 not held by a call that never settles, an earlier
       call settling later ignored, only 401 retries held to the backoff, the
-      sync loop kept within the channel heartbeat, a one-shot call during the
-      backoff calling the injector, `deactivate` stopping locally on a 401
-      the injector cannot refresh, a token set while a later call is pending
-      on a slow token API, a Watch reconnect through `runWatchStream` and
-      `Attachment` held to the backoff, the waiting loops woken by a refresh
-      that ends the backoff and the sync loop by `attachChannel`, one sync
-      loop after a deactivate and `activate` within a backoff.
+      sync loop retried at least every 5s while the injector backs off to
+      30s, a one-shot `sync` and a broadcast's first try during the backoff
+      calling the injector and throwing its error, `deactivate` stopping
+      locally on a 401 the injector cannot refresh, `activate` dropping a
+      pending call, one sync loop after a deactivate and `activate`, a
+      token set while a later call is pending on a slow token API, a Watch
+      reconnect through `runWatchStream` and `Attachment` held to the
+      backoff.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times

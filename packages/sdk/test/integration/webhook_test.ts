@@ -825,7 +825,7 @@ describe('Auth Webhook', () => {
     await client2.deactivate();
     await c1.detach(doc);
     await c1.deactivate();
-  });
+  }, 10000);
 
   it('should back off the token refresh and resend the refused token once per attempt', async ({
     task,
