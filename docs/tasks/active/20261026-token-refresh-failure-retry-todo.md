@@ -43,9 +43,11 @@ refuses it again, and the injector call. Decided with the requester:
 
 ### Agent review follow-ups
 
-- [x] 401s that arrive while an injector call is pending join it, so a token
-      API that is slow to answer is asked once, not once per 401. They wait no
-      longer than each would have alone.
+- [x] ~~401s that arrive while an injector call is pending join it.~~
+      Dropped after the next review: an injector that never settles then held
+      every later 401 too, so nothing could refresh even once the token API
+      answered again. Each 401 makes its own call, as before; 401s that
+      arrive together still count as one failure.
 - [x] Only a retry that got a 401 waits for the backoff. A Watch stream or a
       sync that failed for another reason keeps its own delay: a method the
       webhook does not guard still works with the refused token.
@@ -57,7 +59,8 @@ refuses it again, and the injector call. Decided with the requester:
 - Not taken from the review loop: a timeout on the injector call, a
   generation counter for refreshes that outlive `activate`, and making the
   `broadcast` promise wait for its retries. The first two are older than this
-  change; the third changes a public promise for every broadcast.
+  change (a pending call that resolves after `activate` sets its token on
+  `main` too); the third changes a public promise for every broadcast.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
 
@@ -77,8 +80,9 @@ wait longer than one injector call, the same as before this change.
 ## Verification
 
 - [x] Unit (`test/unit/client/auth_refresh_test.ts`, fake timers): 1s/2s/4s
-      backoff and reset on success, 30s cap, 401s arriving together join one
-      call, an injector that throws synchronously, only 401 retries held to
+      backoff and reset on success, 30s cap, 401s arriving together counted
+      once, a later 401 not held by a call that never settles, only 401
+      retries held to
       the backoff, the sync loop kept within the channel heartbeat, one-shot
       call during the backoff does not call the injector.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):

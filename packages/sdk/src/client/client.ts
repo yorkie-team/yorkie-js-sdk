@@ -279,15 +279,17 @@ export interface ClientOptions {
 
   /**
    * `retrySyncLoopDelay` is the delay of the retry sync loop. If the sync loop
-   * fails, the client waits for the delay to retry the sync loop. The default
-   * value is `1000`(ms).
+   * fails, the client waits for the delay to retry the sync loop, or longer
+   * after a 401 while the token refresh backs off (see `authTokenInjector`).
+   * The default value is `1000`(ms).
    */
   retrySyncLoopDelay?: number;
 
   /**
    * `reconnectStreamDelay` is the delay of the reconnect stream. If the stream
-   * is disconnected, the client waits for the delay to reconnect the stream. The
-   * default value is `1000`(ms).
+   * is disconnected, the client waits for the delay to reconnect the stream,
+   * or longer after a 401 while the token refresh backs off (see
+   * `authTokenInjector`). The default value is `1000`(ms).
    */
   reconnectStreamDelay?: number;
 
@@ -691,9 +693,6 @@ export class Client {
   // `authRefreshRetryAt` is when the next one may run. See `refreshAuthToken`.
   private authRefreshFailures = 0;
   private authRefreshRetryAt = 0;
-  // `authRefreshInFlight` is the call to `authTokenInjector` that is running
-  // now, if any. See `refreshAuthToken`.
-  private authRefreshInFlight?: Promise<void>;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
@@ -4322,36 +4321,29 @@ export class Client {
    * called again (`authRefreshDelay`); a 401 that arrives sooner skips it, and
    * the retries that got one wait until then (`loopRetryDelay`).
    *
-   * 401s that arrive while a call is pending, such as the sync loop's and the
-   * Watch streams' when the token expires, join that call instead of making
-   * their own. They wait no longer than each of them would have alone.
+   * Each 401 makes its own call, as before. 401s that arrive together, such
+   * as the sync loop's and the Watch streams' when the token expires, count as
+   * one failure. They do not join one call: an injector that never settles
+   * would then hold every later 401 too, where today a later call can still
+   * get through once the token API answers again.
    */
-  private refreshAuthToken(reason?: string): Promise<void> {
-    if (this.authRefreshInFlight) {
-      return this.authRefreshInFlight;
-    }
+  private async refreshAuthToken(reason?: string): Promise<void> {
     if (Date.now() < this.authRefreshRetryAt) {
-      return Promise.resolve();
+      return;
     }
 
-    // Cleared in a `finally` chained after the call, not inside it: an
-    // injector that throws synchronously would clear it before it is set.
-    const refresh = (async () => {
-      try {
-        this.setAuthToken(await this.authTokenInjector!(reason));
-        this.authRefreshFailures = 0;
-        this.authRefreshRetryAt = 0;
-      } catch (err) {
-        logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
-        this.authRefreshFailures++;
-        this.authRefreshRetryAt =
-          Date.now() + authRefreshDelay(this.authRefreshFailures);
+    const failures = this.authRefreshFailures;
+    try {
+      this.setAuthToken(await this.authTokenInjector!(reason));
+      this.authRefreshFailures = 0;
+      this.authRefreshRetryAt = 0;
+    } catch (err) {
+      logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
+      if (this.authRefreshFailures === failures) {
+        this.authRefreshFailures = failures + 1;
+        this.authRefreshRetryAt = Date.now() + authRefreshDelay(failures + 1);
       }
-    })().finally(() => {
-      this.authRefreshInFlight = undefined;
-    });
-    this.authRefreshInFlight = refresh;
-    return refresh;
+    }
   }
 
   /**

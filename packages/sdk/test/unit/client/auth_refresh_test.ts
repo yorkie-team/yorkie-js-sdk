@@ -146,7 +146,7 @@ describe('Token refresh after a 401', () => {
     expect(injector).toHaveBeenCalledTimes(7);
   });
 
-  it('joins 401s that arrive together into one injector call', async () => {
+  it('counts 401s that arrive together as one failure', async () => {
     const injector = vi.fn(async (): Promise<string> => {
       await new Promise((res) => setTimeout(res, 300));
       throw new Error('token api unavailable');
@@ -161,25 +161,28 @@ describe('Token refresh after a 401', () => {
     ]);
     await vi.advanceTimersByTimeAsync(300);
     expect(await handled).toEqual([true, true, true]);
-    expect(injector).toHaveBeenCalledTimes(1);
+    expect(injector).toHaveBeenCalledTimes(3);
 
-    // One failure: the next refresh may run 1s later.
+    // The next refresh may run 1s later, not 4s.
     expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(1000);
   });
 
-  it('refreshes again after an injector that throws synchronously', async () => {
-    const injector = vi.fn((): Promise<string> => {
-      throw new Error('token api unavailable');
-    });
+  it('lets a later 401 refresh while an earlier call never settles', async () => {
+    const injector = vi
+      .fn<() => Promise<string>>()
+      .mockReturnValueOnce(new Promise<string>(() => {}))
+      .mockResolvedValue('new-token');
     const client = newClient(injector);
 
-    await client.handleConnectError(unauthenticated());
-    expect(injector).toHaveBeenCalledTimes(1);
+    // A Watch stream's call hangs on a token API that does not answer.
+    const hung = client.handleConnectError(unauthenticated());
+    expect(await settled(hung)).toBe(false);
 
-    // The failed call is no longer in flight, so the next 401 past the
-    // backoff calls the injector again instead of joining it.
-    await vi.advanceTimersByTimeAsync(1000);
-    await client.handleConnectError(unauthenticated());
+    // The sync loop's 401 is not held by it: once the token API answers
+    // again, its own call gets the new token.
+    expect(await settled(client.handleConnectError(unauthenticated()))).toBe(
+      true,
+    );
     expect(injector).toHaveBeenCalledTimes(2);
   });
 
