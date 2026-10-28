@@ -109,6 +109,7 @@ export class Attachment<R extends Attachable> {
   private cancelled: boolean;
   private watchStream?: WatchStream;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
+  private reconnectWatchStream?: () => Promise<void>;
   private watchAbortController?: AbortController;
   private syncPromise?: Promise<void>;
   private _detaching = false;
@@ -238,7 +239,21 @@ export class Attachment<R extends Attachable> {
       }
     };
 
+    this.reconnectWatchStream = doLoop;
     await doLoop();
+  }
+
+  /**
+   * `wakeWatchLoop` reconnects the watch stream now if it is waiting to
+   * reconnect, for example after a token refresh that a 401 had to wait for.
+   */
+  public wakeWatchLoop(): void {
+    if (this.cancelled || !this.watchLoopTimerID) {
+      return;
+    }
+    clearTimeout(this.watchLoopTimerID);
+    this.watchLoopTimerID = undefined;
+    void this.reconnectWatchStream?.();
   }
 
   /**

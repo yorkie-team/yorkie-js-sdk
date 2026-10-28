@@ -73,6 +73,12 @@ refuses it again, and the injector call. Decided with the requester:
 - Not taken from the review loop: a timeout on the injector call and making
   the `broadcast` promise wait for its retries. The first is older than this
   change; the second changes a public promise for every broadcast.
+- [x] A refresh that ends the backoff wakes the sync loop and the Watch
+      streams waiting to retry (`wakeRetries`), and `attachChannel` and
+      `resync` wake a sync loop that waits. A loop's wait was set when it
+      failed, up to 30s: a channel attached later went without its first
+      refresh past the server's 15s session TTL, and a `Polling` document
+      whose token a one-shot call refreshed still waited to pull.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
 - [x] The auth webhook can guard `DeactivateClient` too, so for a signed-out
@@ -105,7 +111,8 @@ wait longer than one injector call, the same as before this change.
       backoff calling the injector, `deactivate` stopping locally on a 401
       the injector cannot refresh, a token set while a later call is pending
       on a slow token API, a Watch reconnect through `runWatchStream` and
-      `Attachment` held to the backoff.
+      `Attachment` held to the backoff, the waiting loops woken by a refresh
+      that ends the backoff and the sync loop by `attachChannel`.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times
@@ -123,11 +130,6 @@ wait longer than one injector call, the same as before this change.
   `ErrUnexpectedStatusCode`), not 401, and `handleConnectError` does not
   retry `Internal`, so the loops stop. Not a token refresh problem; the
   requester chose to leave it for now.
-- After a 401, the sync loop sleeps until the next refresh may run (up to
-  30s), bounded only for channels. A `Polling` document has no Watch stream,
-  so if a one-shot call gets a new token sooner, its pull still waits for
-  that timer. Nothing is lost (a pull with the refused token fails anyway);
-  the fix is to wake the sync loop when a refresh succeeds, left for later.
 - A `deactivate` that fails leaves the client `Activated` with its sync loop
   stopped (it exits on `deactivating`, which the failure only resets), and a
   later `activate` returns early, so a reused client's documents stop

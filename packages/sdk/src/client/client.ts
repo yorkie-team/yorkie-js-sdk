@@ -702,6 +702,12 @@ export class Client {
   private authRefreshGeneration = 0;
   private authTokenGeneration = 0;
   private conditions: Record<ClientCondition, boolean>;
+  // `syncLoopRetry` is the sync loop's pending retry after a failed sync, so
+  // `wakeSyncLoop` can run it early.
+  private syncLoopRetry?: {
+    timer: ReturnType<typeof setTimeout>;
+    run: () => Promise<void>;
+  };
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
   private retrySyncLoopDelay: number;
@@ -2155,6 +2161,8 @@ export class Client {
     // loop — so a recovered document would sit attached and never sync again.
     if (!this.conditions[ClientCondition.SyncLoop]) {
       this.runSyncLoop();
+    } else {
+      this.wakeSyncLoop();
     }
 
     return structs;
@@ -2231,8 +2239,12 @@ export class Client {
       // Make sure the sync loop is running so the first refresh fires.
       // The watch stream is opened later by syncInternal once the first
       // refresh response populates this.id (the watch RPC requires it).
+      // A loop waiting out a token refresh backoff is woken: its wait was
+      // bounded by the channels attached when it failed, not this one.
       if (!this.conditions[ClientCondition.SyncLoop]) {
         this.runSyncLoop();
+      } else {
+        this.wakeSyncLoop();
       }
 
       logger.info(
@@ -3414,7 +3426,16 @@ export class Client {
 
         logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
         if (await this.handleConnectError(err, true)) {
-          setTimeout(doLoop, this.syncLoopRetryDelay(err));
+          const retry = {
+            timer: setTimeout(() => {
+              if (this.syncLoopRetry === retry) {
+                this.syncLoopRetry = undefined;
+              }
+              void doLoop();
+            }, this.syncLoopRetryDelay(err)),
+            run: doLoop,
+          };
+          this.syncLoopRetry = retry;
         } else {
           this.conditions[ClientCondition.SyncLoop] = false;
         }
@@ -4384,10 +4405,14 @@ export class Client {
     try {
       const token = await this.authTokenInjector!(reason);
       if (generation > this.authTokenGeneration) {
+        const wasBackingOff = this.authRefreshRetryAt > 0;
         this.authTokenGeneration = generation;
         this.setAuthToken(token);
         this.authRefreshFailures = 0;
         this.authRefreshRetryAt = 0;
+        if (wasBackingOff) {
+          this.wakeRetries();
+        }
       }
       return true;
     } catch (err) {
@@ -4401,6 +4426,33 @@ export class Client {
       }
       return false;
     }
+  }
+
+  /**
+   * `wakeRetries` runs the sync loop and the Watch streams that wait to retry
+   * now. A refresh that ends the backoff calls it: the loops that got a 401
+   * were set to wait until the next refresh could run, which may be up to 30s
+   * away, and the token is good now. This covers a refresh from a one-shot
+   * call, or from one loop while the others wait.
+   */
+  private wakeRetries(): void {
+    this.wakeSyncLoop();
+    for (const [, attachment] of this.attachmentMap) {
+      attachment.wakeWatchLoop();
+    }
+  }
+
+  /**
+   * `wakeSyncLoop` runs the sync loop's pending retry now, if there is one.
+   */
+  private wakeSyncLoop(): void {
+    const retry = this.syncLoopRetry;
+    if (!retry) {
+      return;
+    }
+    this.syncLoopRetry = undefined;
+    clearTimeout(retry.timer);
+    void retry.run();
   }
 
   /**
