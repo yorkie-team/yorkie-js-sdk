@@ -49,16 +49,26 @@ inside `attach` then held the task queue for as long as the refresh kept
 failing, so `deactivate` could not run either. The time gate above has no
 wait longer than one injector call, the same as before this change.
 
+### Review follow-up (CodeRabbit)
+
+- [x] A remote-only pull that fails left `changeEventReceived` cleared, so the
+      retry skipped the document and the change waited for the next remote
+      event. The sync loop now restores the flag when the sync fails. Applies
+      to every failed sync, not only to 401s.
+
 ## Verification
 
 - [x] Unit (`test/unit/client/auth_refresh_test.ts`, fake timers): 1s/2s/4s
       backoff and reset on success, 30s cap, 401s arriving together counted
       once, loop retry delay held to the backoff, one-shot call during the
       backoff does not call the injector. All five fail with step 1 only.
-- [x] Integration (`webhook_test.ts`, 12/12 with `CI=true`'s 5s budget): with
-      a 100ms loop delay and two failing refreshes, the refreshes are ≥0.8s
-      and ≥1.6s apart and the refused token is pushed three times (110ms
-      apart without step 2).
+- [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
+      - with a 100ms loop delay and two failing refreshes, the refreshes are
+        ≥0.8s and ≥1.6s apart and the refused token is pushed three times
+        (110ms apart without step 2);
+      - a remote change whose pull got the 401 is pulled after recovery
+        (never, without the flag fix). It waits out the server's 10s cache of
+        allowed webhook answers, so it states a 25s budget.
 - Local runs pointed the webhook host at `host.lima.internal` (Rancher
   Desktop cannot reach the host through `host.docker.internal`); not
   committed.

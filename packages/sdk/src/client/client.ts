@@ -3288,6 +3288,7 @@ export class Client {
             }
 
             // Reset changeEventReceived for Document resources
+            const changeEventReceived = attachment.changeEventReceived;
             if (attachment.changeEventReceived !== undefined) {
               attachment.changeEventReceived = false;
             }
@@ -3298,6 +3299,14 @@ export class Client {
             )
               .then(() => {})
               .catch((e) => {
+                // The pull this sync owed a remote change never happened, so
+                // put the flag back: with no local changes, `needSync` would
+                // otherwise skip the document on the retry, and the change
+                // would wait for the next remote event or Watch reconnect.
+                if (changeEventReceived) {
+                  attachment.changeEventReceived = true;
+                }
+
                 // `ErrPermissionDenied` rides the same event as
                 // `ErrUnauthenticated`: both mean the server refused this
                 // client's writes, and the app needs to tell that apart from a

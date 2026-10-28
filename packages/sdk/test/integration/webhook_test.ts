@@ -87,6 +87,10 @@ const webhookCalls: Array<{ token: string; method: string }> = [];
 // let it expire on purpose.
 const ShortTokenLifetimeMs = 500;
 
+// `AuthWebhookCacheTTLMs` is a little over the server's default
+// `auth-webhook-cache-ttl` (10s).
+const AuthWebhookCacheTTLMs = 10500;
+
 /**
  * `createWebhookProject` creates a project whose auth webhook guards the given
  * methods and returns its public key.
@@ -886,6 +890,63 @@ describe('Auth Webhook', () => {
     await client.detach(doc);
     await client.deactivate();
   }, 10000);
+
+  it('should pull a remote change whose pull failed on a 401', async ({
+    task,
+  }) => {
+    apiKey = await createWebhookProject(['PushPull']);
+
+    let refreshFailures = 1;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + ShortTokenLifetimeMs}`;
+    });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      retrySyncLoopDelay: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector: async () => `token-${Date.now() + 1000 * 60 * 60}`,
+    });
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ k1: string }>(docKey);
+    const d2 = new yorkie.Document<{ k1: string }>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    // c1 has no local changes: the only reason it pulls is c2's change, and
+    // that pull is the one that gets the 401. The server caches an allowed
+    // webhook answer for the same request for 10s (`auth-webhook-cache-ttl`),
+    // so wait that out too, or the expired token would still pass.
+    await new Promise((res) =>
+      setTimeout(res, ShortTokenLifetimeMs + AuthWebhookCacheTTLMs),
+    );
+    d2.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    await vi.waitFor(() => expect(d1.getRoot().k1).toBe('v1'), {
+      timeout: 10000,
+    });
+    expect(authTokenInjector).toBeCalledTimes(3);
+
+    await c2.deactivate();
+    await c1.detach(d1);
+    await c1.deactivate();
+  }, 25000);
 
   it('should refresh token and retry broadcast', async ({ task }) => {
     // Create New project
