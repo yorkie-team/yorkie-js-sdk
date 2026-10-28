@@ -267,7 +267,9 @@ export interface ClientOptions {
    * A rejection is treated as transient. When the function can tell that a
    * refresh will never succeed (for example, the token API answers that the
    * user is signed out), the app should deactivate the client to stop the
-   * retries.
+   * retries. If the server refuses the deactivation with a 401 as well and
+   * the function rejects again, `deactivate` still stops the client locally
+   * and throws; the server reaps it after its `clientDeactivateThreshold`.
    */
   authTokenInjector?: (reason?: string) => Promise<string>;
 
@@ -976,6 +978,9 @@ export class Client {
    * being unloaded, such as in `beforeunload` or `unload` event listeners.
    * If synchronous is true, the server will wait for all pending operations to
    * complete before deactivating.
+   *
+   * If the server refuses the deactivation with a 401 and `authTokenInjector`
+   * rejects, the client is deactivated locally anyway and the error is thrown.
    */
   public deactivate(
     options: DeactivateOptions = { keepalive: false, synchronous: false },
@@ -1001,6 +1006,23 @@ export class Client {
       } catch (err) {
         logger.error(`[DC] c:"${this.getKey()}" err :`, err);
         this.deactivating = false;
+
+        // NOTE(chacha912): The app deactivates to stop the retries when the
+        // token can no longer be refreshed, and the auth webhook may refuse
+        // `DeactivateClient` too. Stop locally then, or the loops would keep
+        // resending the refused token with nothing left to stop them.
+        if (
+          isErrorCode(err, Code.ErrUnauthenticated) &&
+          this.authTokenInjector
+        ) {
+          if (
+            !(await this.refreshAuthToken(errorMetadataOf(err).reason, false))
+          ) {
+            this.deactivateInternal();
+          }
+          throw err;
+        }
+
         await this.handleConnectError(err);
         throw err;
       }
@@ -4340,32 +4362,34 @@ export class Client {
    * sync loop's and the Watch streams' when the token expires, count as one
    * failure, and a call still pending when the client activates again does
    * not override the new session's token.
+   *
+   * It returns whether the injector returned a token.
    */
   private async refreshAuthToken(
     reason: string | undefined,
     inRetryLoop: boolean,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (inRetryLoop && Date.now() < this.authRefreshRetryAt) {
-      return;
+      return false;
     }
 
     const generation = ++this.authRefreshGeneration;
     try {
       const token = await this.authTokenInjector!(reason);
-      if (generation !== this.authRefreshGeneration) {
-        return;
+      if (generation === this.authRefreshGeneration) {
+        this.setAuthToken(token);
+        this.authRefreshFailures = 0;
+        this.authRefreshRetryAt = 0;
       }
-      this.setAuthToken(token);
-      this.authRefreshFailures = 0;
-      this.authRefreshRetryAt = 0;
+      return true;
     } catch (err) {
       logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
-      if (generation !== this.authRefreshGeneration) {
-        return;
+      if (generation === this.authRefreshGeneration) {
+        this.authRefreshFailures++;
+        this.authRefreshRetryAt =
+          Date.now() + authRefreshDelay(this.authRefreshFailures);
       }
-      this.authRefreshFailures++;
-      this.authRefreshRetryAt =
-        Date.now() + authRefreshDelay(this.authRefreshFailures);
+      return false;
     }
   }
 

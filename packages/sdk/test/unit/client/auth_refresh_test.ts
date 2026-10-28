@@ -20,7 +20,7 @@ import { create } from '@bufbuild/protobuf';
 import { ErrorInfoSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { Code } from '@yorkie-js/sdk/src/util/error';
-import { SyncMode } from '@yorkie-js/sdk/src/client/client';
+import { ClientStatus, SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Attachment } from '@yorkie-js/sdk/src/client/attachment';
 import { Channel } from '@yorkie-js/sdk/src/channel/channel';
 
@@ -295,5 +295,31 @@ describe('Token refresh after a 401', () => {
     await client.handleConnectError(unauthenticated());
     expect(injector).toHaveBeenCalledTimes(3);
     expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(0);
+  });
+
+  it('deactivates locally when the deactivation gets a 401 that cannot be refreshed', async () => {
+    const injector = vi
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce('new-token')
+      .mockRejectedValue(new Error('signed out'));
+    const client = newClient(injector);
+    client.id = 'client-id';
+    client.status = ClientStatus.Activated;
+    client.rpcClient = {
+      deactivateClient: vi.fn(async () => {
+        throw unauthenticated();
+      }),
+    };
+    attachChannel(client, 'channel-a');
+
+    // A token the injector refreshes: the app may retry, so stay activated.
+    await expect(client.deactivate()).rejects.toThrow('unauthenticated');
+    expect(client.status).toBe(ClientStatus.Activated);
+
+    // Signed out: nothing could stop the loops resending the refused token.
+    await expect(client.deactivate()).rejects.toThrow('unauthenticated');
+    expect(client.status).toBe(ClientStatus.Deactivated);
+    expect(client.attachmentMap.size).toBe(0);
+    expect(injector).toHaveBeenCalledTimes(2);
   });
 });

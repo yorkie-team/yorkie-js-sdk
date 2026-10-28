@@ -71,6 +71,12 @@ refuses it again, and the injector call. Decided with the requester:
   change; the second changes a public promise for every broadcast.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
+- [x] The auth webhook can guard `DeactivateClient` too, so for a signed-out
+      user the documented stop got the same 401 and left the loops running.
+      When `deactivate` gets a 401 and the injector rejects, the client now
+      deactivates locally and throws; the server reaps it after its
+      `clientDeactivateThreshold`, as for `deactivateOnUnload: false`. Decided
+      with the requester.
 
 A first version kept one refresh running in the background and made the loops
 wait until it succeeded. The agent review found that a Watch stream opened
@@ -92,7 +98,8 @@ wait longer than one injector call, the same as before this change.
       once, a later 401 not held by a call that never settles, an earlier
       call settling later ignored, only 401 retries held to the backoff, the
       sync loop kept within the channel heartbeat, a one-shot call during the
-      backoff calling the injector.
+      backoff calling the injector, `deactivate` stopping locally on a 401
+      the injector cannot refresh.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times
