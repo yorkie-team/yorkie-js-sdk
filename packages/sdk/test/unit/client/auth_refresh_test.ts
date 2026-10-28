@@ -108,7 +108,9 @@ describe('Token refresh after a 401', () => {
     // A 401 every 100ms, as from loops that retried at their own delay.
     const callsAt = async (ms: number) => {
       for (let t = 0; t < ms; t += 100) {
-        expect(await client.handleConnectError(unauthenticated())).toBe(true);
+        expect(await client.handleConnectError(unauthenticated(), true)).toBe(
+          true,
+        );
         await vi.advanceTimersByTimeAsync(100);
       }
       return injector.mock.calls.length;
@@ -121,7 +123,7 @@ describe('Token refresh after a 401', () => {
     expect(injector).toHaveBeenCalledWith(ExpiredToken);
 
     // The refresh succeeded: the next 401 refreshes at once.
-    await client.handleConnectError(unauthenticated());
+    await client.handleConnectError(unauthenticated(), true);
     expect(injector).toHaveBeenCalledTimes(5);
   });
 
@@ -133,16 +135,16 @@ describe('Token refresh after a 401', () => {
 
     // Fail six times in a row, 1 + 2 + 4 + 8 + 16 = 31s.
     for (const wait of [1000, 2000, 4000, 8000, 16000, 0]) {
-      await client.handleConnectError(unauthenticated());
+      await client.handleConnectError(unauthenticated(), true);
       await vi.advanceTimersByTimeAsync(wait);
     }
     expect(injector).toHaveBeenCalledTimes(6);
 
     await vi.advanceTimersByTimeAsync(29999);
-    await client.handleConnectError(unauthenticated());
+    await client.handleConnectError(unauthenticated(), true);
     expect(injector).toHaveBeenCalledTimes(6);
     await vi.advanceTimersByTimeAsync(1);
-    await client.handleConnectError(unauthenticated());
+    await client.handleConnectError(unauthenticated(), true);
     expect(injector).toHaveBeenCalledTimes(7);
   });
 
@@ -155,9 +157,9 @@ describe('Token refresh after a 401', () => {
 
     // The sync loop's and two Watch streams' 401s when the token expires.
     const handled = Promise.all([
-      client.handleConnectError(unauthenticated()),
-      client.handleConnectError(unauthenticated()),
-      client.handleConnectError(unauthenticated()),
+      client.handleConnectError(unauthenticated(), true),
+      client.handleConnectError(unauthenticated(), true),
+      client.handleConnectError(unauthenticated(), true),
     ]);
     await vi.advanceTimersByTimeAsync(300);
     expect(await handled).toEqual([true, true, true]);
@@ -175,14 +177,14 @@ describe('Token refresh after a 401', () => {
     const client = newClient(injector);
 
     // A Watch stream's call hangs on a token API that does not answer.
-    const hung = client.handleConnectError(unauthenticated());
+    const hung = client.handleConnectError(unauthenticated(), true);
     expect(await settled(hung)).toBe(false);
 
     // The sync loop's 401 is not held by it: once the token API answers
     // again, its own call gets the new token.
-    expect(await settled(client.handleConnectError(unauthenticated()))).toBe(
-      true,
-    );
+    expect(
+      await settled(client.handleConnectError(unauthenticated(), true)),
+    ).toBe(true);
     expect(injector).toHaveBeenCalledTimes(2);
   });
 
@@ -194,7 +196,7 @@ describe('Token refresh after a 401', () => {
     const unavailable = new ConnectError('down', ConnectCode.Unavailable);
     expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(100);
 
-    await client.handleConnectError(unauthenticated());
+    await client.handleConnectError(unauthenticated(), true);
     expect(client.loopRetryDelay(unauthenticated(), 100)).toBe(1000);
     // A stream or call that failed for another reason keeps its own delay:
     // it may use a method the webhook does not guard.
@@ -213,7 +215,7 @@ describe('Token refresh after a 401', () => {
 
     // Fail four times in a row: the next refresh is 8s away.
     for (const wait of [1000, 2000, 4000, 0]) {
-      await client.handleConnectError(unauthenticated());
+      await client.handleConnectError(unauthenticated(), true);
       await vi.advanceTimersByTimeAsync(wait);
     }
     expect(client.syncLoopRetryDelay(unauthenticated())).toBe(8000);
@@ -230,22 +232,68 @@ describe('Token refresh after a 401', () => {
     ).toBe(1000);
   });
 
-  it('lets a one-shot call fail at once without waiting for the backoff', async () => {
-    const injector = vi.fn(async (): Promise<string> => {
-      throw new Error('token api unavailable');
-    });
+  it('lets an earlier call that settles later neither set its token nor count', async () => {
+    const calls: Array<{
+      resolve: (token: string) => void;
+      reject: (err: Error) => void;
+    }> = [];
+    const injector = vi.fn(
+      () =>
+        new Promise<string>((resolve, reject) =>
+          calls.push({ resolve, reject }),
+        ),
+    );
+    const client = newClient(injector);
+    client.setAuthToken = vi.fn();
+
+    // The Watch stream's call is still pending when the sync loop's settles.
+    const first = client.handleConnectError(unauthenticated(), true);
+    const second = client.handleConnectError(unauthenticated(), true);
+    calls[1].resolve('new-token');
+    await second;
+    calls[0].resolve('old-token');
+    await first;
+    expect(client.setAuthToken.mock.calls).toEqual([['new-token']]);
+
+    // Nor does a late rejection start a backoff after a refresh succeeded.
+    const third = client.handleConnectError(unauthenticated(), true);
+    const fourth = client.handleConnectError(unauthenticated(), true);
+    calls[3].resolve('newer-token');
+    await fourth;
+    calls[2].reject(new Error('token api unavailable'));
+    await third;
+    expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(0);
+  });
+
+  it('lets a one-shot call refresh during the backoff and fail at once', async () => {
+    const injector = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(new Error('token api unavailable'))
+      .mockRejectedValueOnce(new Error('token api unavailable'))
+      .mockResolvedValue('new-token');
     const client = newClient(injector);
 
-    // The first 401 waits for one call to the injector only.
-    expect(await settled(client.handleConnectError(unauthenticated()))).toBe(
-      true,
-    );
+    // A loop's 401 waits for one call to the injector only, and the loop's
+    // next 401 during the backoff does not call it.
+    expect(
+      await settled(client.handleConnectError(unauthenticated(), true)),
+    ).toBe(true);
+    expect(
+      await settled(client.handleConnectError(unauthenticated(), true)),
+    ).toBe(true);
     expect(injector).toHaveBeenCalledTimes(1);
 
-    // A 401 during the backoff does not call it at all.
+    // An app's `attach` or `sync` retried on purpose calls it, waiting for
+    // one call only, and a failure counts toward the backoff.
     expect(await settled(client.handleConnectError(unauthenticated()))).toBe(
       true,
     );
-    expect(injector).toHaveBeenCalledTimes(1);
+    expect(injector).toHaveBeenCalledTimes(2);
+    expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(2000);
+
+    // Once the token API is back, it gets the new token at once.
+    await client.handleConnectError(unauthenticated());
+    expect(injector).toHaveBeenCalledTimes(3);
+    expect(client.loopRetryDelay(unauthenticated(), 0)).toBe(0);
   });
 });

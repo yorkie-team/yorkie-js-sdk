@@ -260,8 +260,9 @@ export interface ClientOptions {
    * got a 401 wait out that time and retry on their own, so they come back
    * once the token API does; the sync loop waits no longer than the channel
    * heartbeat interval while a channel is attached. A one-shot call such as
-   * `attach`, `detach`, `remove` or `sync` throws the `ErrUnauthenticated` it
-   * received; retrying it is up to the caller.
+   * `attach`, `detach`, `remove` or `sync` still calls the function on a 401,
+   * then throws the `ErrUnauthenticated` it received; retrying it is up to
+   * the caller.
    *
    * A rejection is treated as transient. When the function can tell that a
    * refresh will never succeed (for example, the token API answers that the
@@ -689,10 +690,13 @@ export class Client {
 
   private apiKey: string;
   private authTokenInjector?: (reason?: string) => Promise<string>;
-  // `authRefreshFailures` counts the token refreshes that failed in a row, and
-  // `authRefreshRetryAt` is when the next one may run. See `refreshAuthToken`.
+  // `authRefreshFailures` counts the token refreshes that failed in a row,
+  // `authRefreshRetryAt` is when the next one may run, and
+  // `authRefreshGeneration` numbers the injector calls so that only the latest
+  // one counts. See `refreshAuthToken`.
   private authRefreshFailures = 0;
   private authRefreshRetryAt = 0;
+  private authRefreshGeneration = 0;
   private conditions: Record<ClientCondition, boolean>;
   private syncLoopDuration: number;
   private reconnectStreamDelay: number;
@@ -922,6 +926,7 @@ export class Client {
       this.setAuthToken(token);
       this.authRefreshFailures = 0;
       this.authRefreshRetryAt = 0;
+      this.authRefreshGeneration++;
     }
 
     return this.enqueueTask(async () => {
@@ -3212,7 +3217,7 @@ export class Client {
         } catch (err) {
           logger.error(`[BC] c:"${this.getKey()}" err:`, err);
 
-          if (await this.handleConnectError(err)) {
+          if (await this.handleConnectError(err, true)) {
             // Publish auth-error event before handling the error
             if (isErrorCode(err, Code.ErrUnauthenticated)) {
               if (attachment.resource instanceof Channel) {
@@ -3384,7 +3389,7 @@ export class Client {
         }
 
         logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-        if (await this.handleConnectError(err)) {
+        if (await this.handleConnectError(err, true)) {
           setTimeout(doLoop, this.syncLoopRetryDelay(err));
         } else {
           this.conditions[ClientCondition.SyncLoop] = false;
@@ -3556,7 +3561,7 @@ export class Client {
         },
         onDisconnect,
       },
-      (err) => this.handleConnectError(err),
+      (err) => this.handleConnectError(err, true),
       () => {
         this.conditions[ClientCondition.WatchLoop] = false;
       },
@@ -3620,7 +3625,7 @@ export class Client {
           return false;
         },
       },
-      (err) => this.handleConnectError(err),
+      (err) => this.handleConnectError(err, true),
       () => {
         this.conditions[ClientCondition.WatchLoop] = false;
       },
@@ -4228,9 +4233,14 @@ export class Client {
 
   /**
    * `handleConnectError` handles the given error. If the given error can be
-   * retried after handling, it returns true.
+   * retried after handling, it returns true. `inRetryLoop` is true for the
+   * loops that retry on their own (sync, Watch, broadcast): their 401s skip
+   * the token refresh while it backs off.
    */
-  private async handleConnectError(err: any): Promise<boolean> {
+  private async handleConnectError(
+    err: any,
+    inRetryLoop = false,
+  ): Promise<boolean> {
     if (!(err instanceof ConnectError)) {
       return false;
     }
@@ -4272,7 +4282,7 @@ export class Client {
     // from the `authTokenInjector` and retries the api call.
     if (errorCodeOf(err) === Code.ErrUnauthenticated) {
       if (this.authTokenInjector) {
-        await this.refreshAuthToken(errorMetadataOf(err).reason);
+        await this.refreshAuthToken(errorMetadataOf(err).reason, inRetryLoop);
       }
       return true;
     }
@@ -4318,31 +4328,44 @@ export class Client {
    * inside the callers' `catch` blocks, so the sync loop would never schedule
    * its retry and the Watch stream would never reconnect, with no event left
    * for the app. Each failure in a row doubles the wait before the injector is
-   * called again (`authRefreshDelay`); a 401 that arrives sooner skips it, and
-   * the retries that got one wait until then (`loopRetryDelay`).
+   * called again (`authRefreshDelay`); a loop's 401 that arrives sooner skips
+   * it, and the loop's retry waits until then (`loopRetryDelay`). A one-shot
+   * call (`inRetryLoop` false) always calls it: the app retried on purpose,
+   * and the token API may be back.
    *
-   * Each 401 makes its own call, as before. 401s that arrive together, such
-   * as the sync loop's and the Watch streams' when the token expires, count as
-   * one failure. They do not join one call: an injector that never settles
-   * would then hold every later 401 too, where today a later call can still
-   * get through once the token API answers again.
+   * Each 401 makes its own call, as before; they do not join one call, since
+   * an injector that never settles would then hold every later 401 too. Only
+   * the latest call counts: an earlier one that settles later neither sets its
+   * token nor changes the backoff. So 401s that arrive together, such as the
+   * sync loop's and the Watch streams' when the token expires, count as one
+   * failure, and a call still pending when the client activates again does
+   * not override the new session's token.
    */
-  private async refreshAuthToken(reason?: string): Promise<void> {
-    if (Date.now() < this.authRefreshRetryAt) {
+  private async refreshAuthToken(
+    reason: string | undefined,
+    inRetryLoop: boolean,
+  ): Promise<void> {
+    if (inRetryLoop && Date.now() < this.authRefreshRetryAt) {
       return;
     }
 
-    const failures = this.authRefreshFailures;
+    const generation = ++this.authRefreshGeneration;
     try {
-      this.setAuthToken(await this.authTokenInjector!(reason));
+      const token = await this.authTokenInjector!(reason);
+      if (generation !== this.authRefreshGeneration) {
+        return;
+      }
+      this.setAuthToken(token);
       this.authRefreshFailures = 0;
       this.authRefreshRetryAt = 0;
     } catch (err) {
       logger.error(`[AT] c:"${this.getKey()}" token refresh failed:`, err);
-      if (this.authRefreshFailures === failures) {
-        this.authRefreshFailures = failures + 1;
-        this.authRefreshRetryAt = Date.now() + authRefreshDelay(failures + 1);
+      if (generation !== this.authRefreshGeneration) {
+        return;
       }
+      this.authRefreshFailures++;
+      this.authRefreshRetryAt =
+        Date.now() + authRefreshDelay(this.authRefreshFailures);
     }
   }
 

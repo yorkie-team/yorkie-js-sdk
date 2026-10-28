@@ -37,7 +37,8 @@ refuses it again, and the injector call. Decided with the requester:
       refresh may run (`loopRetryDelay`), so the refused token is sent once
       per refresh, not once per loop delay.
 - [x] A one-shot call (`attach`, `detach`, `remove`, `sync`, …) throws as
-      before; during the backoff it throws without calling the injector.
+      before. It calls the injector even during the backoff (see the second
+      review below).
 - [x] 401s that arrive together (the sync loop's and the Watch streams' when
       the token expires) count as one failure.
 
@@ -56,11 +57,18 @@ refuses it again, and the injector call. Decided with the requester:
       channel heartbeat interval: it sends the heartbeats, and the server
       drops a session whose TTL lapses.
 - [x] Broadcast retries after a 401 wait for the backoff too.
-- Not taken from the review loop: a timeout on the injector call, a
-  generation counter for refreshes that outlive `activate`, and making the
-  `broadcast` promise wait for its retries. The first two are older than this
-  change (a pending call that resolves after `activate` sets its token on
-  `main` too); the third changes a public promise for every broadcast.
+- [x] Only the latest injector call counts (`authRefreshGeneration`): an
+      earlier one that settles later neither sets its token nor changes the
+      backoff, and `activate` drops the calls still pending. This replaces
+      the snapshot of the failure count that let a stale rejection re-arm the
+      backoff after a later refresh succeeded.
+- [x] Only the loops skip the injector during the backoff
+      (`handleConnectError(err, true)`). A one-shot call the app retried on
+      purpose calls it, so the retry gets a new token as soon as the token API
+      is back instead of failing for up to 30s on the loops' backoff.
+- Not taken from the review loop: a timeout on the injector call and making
+  the `broadcast` promise wait for its retries. The first is older than this
+  change; the second changes a public promise for every broadcast.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
 
@@ -81,10 +89,10 @@ wait longer than one injector call, the same as before this change.
 
 - [x] Unit (`test/unit/client/auth_refresh_test.ts`, fake timers): 1s/2s/4s
       backoff and reset on success, 30s cap, 401s arriving together counted
-      once, a later 401 not held by a call that never settles, only 401
-      retries held to
-      the backoff, the sync loop kept within the channel heartbeat, one-shot
-      call during the backoff does not call the injector.
+      once, a later 401 not held by a call that never settles, an earlier
+      call settling later ignored, only 401 retries held to the backoff, the
+      sync loop kept within the channel heartbeat, a one-shot call during the
+      backoff calling the injector.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times
