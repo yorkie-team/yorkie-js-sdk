@@ -128,6 +128,10 @@ wait longer than one injector call, the same as before this change.
   so if a one-shot call gets a new token sooner, its pull still waits for
   that timer. Nothing is lost (a pull with the refused token fails anyway);
   the fix is to wake the sync loop when a refresh succeeds, left for later.
+- A `deactivate` that fails leaves the client `Activated` with its sync loop
+  stopped (it exits on `deactivating`, which the failure only resets), and a
+  later `activate` returns early, so a reused client's documents stop
+  syncing. On `main` too, for any failure, not only a 401 refreshed here.
 - A server that answers 401 to a token the injector has just returned gets
   the injector called on every retry, as before this change: the backoff
   starts only when the injector rejects.
