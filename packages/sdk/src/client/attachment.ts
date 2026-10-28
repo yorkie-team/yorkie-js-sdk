@@ -105,7 +105,7 @@ export class Attachment<R extends Attachable> {
    */
   sessionLockHandle?: SessionLockHandle;
 
-  private reconnectStreamDelay: number;
+  private reconnectStreamDelay: () => number;
   private cancelled: boolean;
   private watchStream?: WatchStream;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
@@ -115,7 +115,7 @@ export class Attachment<R extends Attachable> {
   private _writeRejected = false;
 
   constructor(
-    reconnectStreamDelay: number,
+    reconnectStreamDelay: () => number,
     resource: R,
     resourceID: string = '',
     syncMode?: SyncMode,
@@ -226,7 +226,7 @@ export class Attachment<R extends Attachable> {
             if (!this.cancelled) {
               this.watchLoopTimerID = setTimeout(
                 doLoop,
-                this.reconnectStreamDelay,
+                this.reconnectStreamDelay(),
               );
             }
           });

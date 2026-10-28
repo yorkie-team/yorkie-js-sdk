@@ -79,8 +79,43 @@ const InvalidTokenErrorMessage = 'invalid token';
 const ExpiredTokenErrorMessage = 'expired token';
 const NotAllowedToken = 'not-allowed-token';
 
+// `webhookCalls` records every webhook request, so a test can count what the
+// server asked while a token refresh was failing.
+const webhookCalls: Array<{ token: string; method: string }> = [];
+
+// `ShortTokenLifetimeMs` is how long the first token lasts in the tests that
+// let it expire on purpose.
+const ShortTokenLifetimeMs = 500;
+
+/**
+ * `createWebhookProject` creates a project whose auth webhook guards the given
+ * methods and returns its public key.
+ */
+async function createWebhookProject(methods: Array<string>): Promise<string> {
+  const projectResponse = await axios.post(
+    `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+    { name: `auth-webhook-${new Date().getTime()}` },
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  await axios.post(
+    `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+    {
+      id: projectResponse.data.project.id,
+      fields: {
+        auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+        auth_webhook_methods: { methods },
+        auth_webhook_max_retries: 0,
+        auth_webhook_request_timeout: '1s',
+      },
+    },
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  return projectResponse.data.project.publicKey;
+}
+
 webhookServer.post('/auth-webhook', express.json(), (req, res) => {
   const authToken = req.body.token;
+  webhookCalls.push({ token: authToken, method: req.body.method });
 
   // valid token
   if (authToken.startsWith('token')) {
@@ -787,6 +822,70 @@ describe('Auth Webhook', () => {
     await c1.detach(doc);
     await c1.deactivate();
   });
+
+  it('should back off the token refresh and resend the refused token once per attempt', async ({
+    task,
+  }) => {
+    apiKey = await createWebhookProject(['PushPull']);
+
+    // The first two refreshes fail; the third succeeds after about 1s + 2s
+    // of backoff.
+    let refreshFailures = 2;
+    const refreshedAt: Array<number> = [];
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        refreshedAt.push(Date.now());
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + ShortTokenLifetimeMs}`;
+    });
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      retrySyncLoopDelay: 100,
+    });
+
+    await client.activate();
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await client.attach(doc);
+    const expiredToken = (await authTokenInjector.mock.results[0]
+      .value) as string;
+
+    await new Promise((res) => setTimeout(res, ShortTokenLifetimeMs));
+    const callsBeforeExpiry = webhookCalls.length;
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+    doc.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
+    expect(authTokenInjector).toBeCalledTimes(4);
+
+    // The loop retries every 100ms, but the refreshes were 1s and then 2s
+    // apart (±20%), and each one was set off by a single push with the
+    // refused token.
+    expect(refreshedAt[1] - refreshedAt[0]).toBeGreaterThanOrEqual(800);
+    expect(refreshedAt[2] - refreshedAt[1]).toBeGreaterThanOrEqual(1600);
+    const refused = webhookCalls
+      .slice(callsBeforeExpiry)
+      .filter(
+        (call) => call.token === expiredToken && call.method === 'PushPull',
+      );
+    expect(refused).toHaveLength(3);
+
+    await client.detach(doc);
+    await client.deactivate();
+  }, 10000);
 
   it('should refresh token and retry broadcast', async ({ task }) => {
     // Create New project
