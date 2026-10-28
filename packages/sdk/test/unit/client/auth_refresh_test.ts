@@ -449,10 +449,11 @@ describe('Token refresh after a 401', () => {
   });
 
   it('deactivates locally when the deactivation gets a 401 that cannot be refreshed', async () => {
+    let signOut: (err: Error) => void = () => {};
     const injector = vi
       .fn<() => Promise<string>>()
       .mockResolvedValueOnce('new-token')
-      .mockRejectedValue(new Error('signed out'));
+      .mockReturnValue(new Promise((_, reject) => (signOut = reject)));
     const client = newClient(injector);
     client.id = 'client-id';
     client.status = ClientStatus.Activated;
@@ -468,9 +469,58 @@ describe('Token refresh after a 401', () => {
     expect(client.status).toBe(ClientStatus.Activated);
 
     // Signed out: nothing could stop the loops resending the refused token.
-    await expect(client.deactivate()).rejects.toThrow('unauthenticated');
+    // It stays deactivating throughout, as a deactivation that succeeds
+    // does, so the loops stay paused and a late response is dropped.
+    const deactivated = client.deactivate();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(injector).toHaveBeenCalledTimes(2);
+    expect(client.deactivating).toBe(true);
+    signOut(new Error('signed out'));
+    await expect(deactivated).rejects.toThrow('unauthenticated');
     expect(client.status).toBe(ClientStatus.Deactivated);
     expect(client.attachmentMap.size).toBe(0);
-    expect(injector).toHaveBeenCalledTimes(2);
+    expect(client.deactivating).toBe(true);
+  });
+
+  it('drops the waiting sync loop retry on deactivate, so a later activate runs one loop', async () => {
+    let refused = true;
+    const injector = vi.fn(async (): Promise<string> => {
+      if (refused) {
+        throw new Error('token api unavailable');
+      }
+      return 'new-token';
+    });
+    const client = newClient(injector);
+    client.id = 'client-id';
+    client.status = ClientStatus.Activated;
+    client.rpcClient = {
+      activateClient: vi.fn(async () => ({
+        clientId: 'client-id',
+        actorId: 'client-id',
+      })),
+      deactivateClient: vi.fn(async () => ({})),
+    };
+    client.syncInternal = vi.fn(async () => {
+      throw unauthenticated();
+    });
+
+    // The loop got a 401 and waits 1s for the backoff.
+    attachChannel(client, 'channel-a', 60000);
+    client.runSyncLoop();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.syncInternal).toHaveBeenCalledTimes(1);
+
+    // The app deactivates and activates again within that second.
+    await client.deactivate();
+    refused = false;
+    await client.activate();
+    const ticks = vi.spyOn(client, 'enqueueTask');
+
+    // One loop ticks every 50ms; the old one must not join it at 1s.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(ticks.mock.calls.length).toBeLessThanOrEqual(41);
+
+    client.deactivating = true;
+    await vi.advanceTimersByTimeAsync(100);
   });
 });

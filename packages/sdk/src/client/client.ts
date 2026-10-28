@@ -1013,24 +1013,26 @@ export class Client {
         logger.info(`[DC] c"${this.getKey()}" deactivated`);
       } catch (err) {
         logger.error(`[DC] c:"${this.getKey()}" err :`, err);
-        this.deactivating = false;
 
         // NOTE(chacha912): The app deactivates to stop the retries when the
         // token can no longer be refreshed, and the auth webhook may refuse
         // `DeactivateClient` too. Stop locally then, or the loops would keep
         // resending the refused token with nothing left to stop them.
+        // `deactivating` stays set until then, as after a deactivation that
+        // succeeds: the loops stay paused, and a late response is dropped.
         if (
           isErrorCode(err, Code.ErrUnauthenticated) &&
           this.authTokenInjector
         ) {
-          if (
-            !(await this.refreshAuthToken(errorMetadataOf(err).reason, false))
-          ) {
+          if (await this.refreshAuthToken(errorMetadataOf(err).reason, false)) {
+            this.deactivating = false;
+          } else {
             this.deactivateInternal();
           }
           throw err;
         }
 
+        this.deactivating = false;
         await this.handleConnectError(err);
         throw err;
       }
@@ -3780,6 +3782,15 @@ export class Client {
 
   private deactivateInternal() {
     this.status = ClientStatus.Deactivated;
+
+    // A retry the sync loop is waiting on, up to 30s away during a token
+    // refresh backoff, would otherwise run the old loop after a later
+    // `activate` started a new one, or at once through `wakeSyncLoop`.
+    if (this.syncLoopRetry) {
+      clearTimeout(this.syncLoopRetry.timer);
+      this.syncLoopRetry = undefined;
+      this.conditions[ClientCondition.SyncLoop] = false;
+    }
 
     for (const [key, attachment] of this.attachmentMap) {
       this.detachInternal(key);

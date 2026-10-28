@@ -79,6 +79,14 @@ refuses it again, and the injector call. Decided with the requester:
       failed, up to 30s: a channel attached later went without its first
       refresh past the server's 15s session TTL, and a `Polling` document
       whose token a one-shot call refreshed still waited to pull.
+- [x] `deactivateInternal` drops the sync loop's waiting retry. During a
+      backoff it can be 30s away, so a deactivate and an `activate` inside
+      that time ran two sync loops, and `wakeSyncLoop` could run the old one
+      at once.
+- [x] The local deactivation on an unrefreshable 401 keeps `deactivating`
+      set, as a deactivation that succeeds does, so the loops stay paused
+      during the refresh and a late first `RefreshChannel` response cannot
+      mark the client activated again.
 - [x] No new event or API. Telling a permanent failure from a transient one
       is the app's call inside its injector; the stop is `client.deactivate()`.
 - [x] The auth webhook can guard `DeactivateClient` too, so for a signed-out
@@ -112,7 +120,8 @@ wait longer than one injector call, the same as before this change.
       the injector cannot refresh, a token set while a later call is pending
       on a slow token API, a Watch reconnect through `runWatchStream` and
       `Attachment` held to the backoff, the waiting loops woken by a refresh
-      that ends the backoff and the sync loop by `attachChannel`.
+      that ends the backoff and the sync loop by `attachChannel`, one sync
+      loop after a deactivate and `activate` within a backoff.
 - [x] Integration (`webhook_test.ts`, 13/13 with `CI=true`'s 5s budget):
       - with a 100ms loop delay and two failing refreshes, the refreshes are
         ≥0.8s and ≥1.6s apart and the refused token is pushed three times
