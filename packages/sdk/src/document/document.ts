@@ -105,6 +105,7 @@ import {
 } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
 import { TreeStyleOperation } from './operation/tree_style_operation';
+import { keepWrittenSplits } from './operation/zero_tree_operation';
 import { CRDTTreeNodeID } from './crdt/tree';
 
 /**
@@ -3642,7 +3643,7 @@ export class Document<
    * clone and the root.
    */
   private executeUndoRedoInternal(isUndo: boolean): void {
-    const ops = isUndo
+    let ops = isUndo
       ? this.internalHistory.popUndo()
       : this.internalHistory.popRedo();
 
@@ -3651,6 +3652,9 @@ export class Document<
     }
 
     this.ensureClone();
+    if (isUndo) {
+      ops = keepWrittenSplits(ops, this.clone!.root);
+    }
     // TODO(chacha912): After resolving the presence initialization issue,
     // remove default presence.(#608)
     const ctx = ChangeContext.create<P>(

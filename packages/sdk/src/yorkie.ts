@@ -19,6 +19,12 @@ import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
 import { Document } from '@yorkie-js/sdk/src/document/document';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
+import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
+import {
+  configureZeroSchema,
+  resolveZeroSchema,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
+import '@yorkie-js/sdk/src/api/zero_tree_codec';
 import {
   Counter,
   DedupCounter,
@@ -187,6 +193,9 @@ export default {
   Counter,
   DedupCounter,
   Tree,
+  ZeroTree,
+  configureZeroSchema,
+  resolveZeroSchema,
   Devtools,
   Channel,
   ChannelEventType,
@@ -206,6 +215,9 @@ if (typeof globalThis !== 'undefined') {
     Counter,
     DedupCounter,
     Tree,
+    ZeroTree,
+    configureZeroSchema,
+    resolveZeroSchema,
     Channel,
     ChannelEventType,
     YSON,

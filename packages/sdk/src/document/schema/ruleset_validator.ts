@@ -19,6 +19,7 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { validateTreeAgainstSchema } from '@yorkie-js/sdk/src/document/schema/tree-validator';
 import {
@@ -117,6 +118,19 @@ function validateValue(value: any, rule: Rule): ValidationResult {
             {
               path: rule.path,
               message: `expected array at path ${rule.path}`,
+            },
+          ],
+        };
+      }
+      break;
+    case 'yorkie.ZeroTree':
+      if (!(value instanceof CRDTZeroTree)) {
+        return {
+          valid: false,
+          errors: [
+            {
+              path: rule.path,
+              message: `expected yorkie.ZeroTree at path ${rule.path}`,
             },
           ],
         };

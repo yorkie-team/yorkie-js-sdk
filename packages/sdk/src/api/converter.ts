@@ -140,7 +140,53 @@ import {
   PurgedRemovals as PbPurgedRemovals,
   TreeRestoreSpan as PbTreeRestoreSpan,
   RevisionSummary as PbRevisionSummary,
+  JSONElement_ZeroTree as PbJSONElement_ZeroTree,
+  JSONElement_ZeroTreeSchema as PbJSONElement_ZeroTreeSchema,
+  ZeroTreeNodeSchema as PbZeroTreeNodeSchema,
+  ZeroTicket as PbZeroTicket,
+  ZeroTicketSchema as PbZeroTicketSchema,
+  ZeroNodeID as PbZeroNodeID,
+  ZeroNodeIDSchema as PbZeroNodeIDSchema,
+  ZeroSchema as PbZeroSchema,
+  ZeroSchemaSchema as PbZeroSchemaSchema,
+  ZeroSchemaChildrenSchema as PbZeroSchemaChildrenSchema,
+  ZeroSchemaGridSchema as PbZeroSchemaGridSchema,
+  ZeroTokens as PbZeroTokens,
+  ZeroTokensSchema as PbZeroTokensSchema,
+  ZeroTokenSchema as PbZeroTokenSchema,
+  ZeroMarkerSchema as PbZeroMarkerSchema,
+  ZeroAttrSchema as PbZeroAttrSchema,
+  ZeroAttrEntrySchema as PbZeroAttrEntrySchema,
+  ZeroAttrWrite as PbZeroAttrWrite,
+  ZeroStyleCancel as PbZeroStyleCancel,
+  ZeroStyleCancelSchema as PbZeroStyleCancelSchema,
+  ZeroAttrWriteSchema as PbZeroAttrWriteSchema,
+  ZeroStyleRangeSchema as PbZeroStyleRangeSchema,
+  ZeroCancelSchema as PbZeroCancelSchema,
+  ZeroPurgedLedgerSchema as PbZeroPurgedLedgerSchema,
+  ZeroRestoreSpan as PbZeroRestoreSpan,
+  ZeroRestoreSpanSchema as PbZeroRestoreSpanSchema,
+  Operation_ZeroTreeEditSchema as PbOperation_ZeroTreeEditSchema,
+  Operation_ZeroTreeStyleSchema as PbOperation_ZeroTreeStyleSchema,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
+import {
+  CRDTZeroTree,
+  ZeroCancelWrite,
+  ZeroGhost,
+  ZeroMarker,
+  ZeroStyleCancel,
+  ZeroToken,
+  ZeroTokens,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree';
+import {
+  ZeroTreeEditOperation,
+  ZeroTreeStyleOperation,
+} from '@yorkie-js/sdk/src/document/operation/zero_tree_operation';
+import {
+  BuiltinZeroSchema,
+  DefaultZeroSchema,
+  ZeroSchema,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
 import {
   CounterType,
@@ -158,6 +204,7 @@ import { RHT } from '../document/crdt/rht';
 import { ArraySetOperation } from '../document/operation/array_set_operation';
 import { RevisionSummary } from './revision';
 import { logger } from '@yorkie-js/sdk/src/util/logger';
+import type { ZeroAttrValue } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 
 /**
  * `toPresence` converts the given model to Protobuf format.
@@ -344,6 +391,13 @@ function toElementSimple(element: CRDTElement): PbJSONElementSimple {
       type: PbValueType.TREE,
       createdAt: toTimeTicket(element.getCreatedAt()),
       value: treeToBytes(element),
+    });
+  }
+  if (element instanceof CRDTZeroTree) {
+    return create(PbJSONElementSimpleSchema, {
+      type: PbValueType.ZERO_TREE,
+      createdAt: toTimeTicket(element.getCreatedAt()),
+      value: toBinary(PbJSONElementSchema, toZeroTree(element)),
     });
   }
 
@@ -656,6 +710,52 @@ function toOperation(operation: Operation): PbOperation {
     );
     pbOperation.body.case = 'treeStyle';
     pbOperation.body.value = pbTreeStyleOperation;
+  } else if (operation instanceof ZeroTreeEditOperation) {
+    const restoreSpans = operation.getRestoreSpans();
+    const retombstoneSpans = operation.getRetombstoneSpans();
+    const pbZeroTreeEdit = create(PbOperation_ZeroTreeEditSchema, {
+      parentCreatedAt: toTimeTicket(operation.getParentCreatedAt()),
+      from: toTextNodePos(operation.getFromPos()),
+      to: toTextNodePos(operation.getToPos()),
+      content: operation.getValue()
+        ? toZeroTokens(operation.getValue()!)
+        : undefined,
+      executedAt: toTimeTicket(operation.getExecutedAt()),
+    });
+    if (restoreSpans || retombstoneSpans) {
+      pbZeroTreeEdit.restoreSpans = (restoreSpans ?? []).map(toZeroRestoreSpan);
+      pbZeroTreeEdit.retombstoneSpans = (retombstoneSpans ?? []).map(
+        toZeroRestoreSpan,
+      );
+      pbZeroTreeEdit.restoreMode =
+        operation.getRestoreMode() === 'retombstone'
+          ? PbRestoreMode.RETOMBSTONE
+          : PbRestoreMode.RESTORE;
+    }
+    pbOperation.body.case = 'zeroTreeEdit';
+    pbOperation.body.value = pbZeroTreeEdit;
+  } else if (operation instanceof ZeroTreeStyleOperation) {
+    pbOperation.body.case = 'zeroTreeStyle';
+    pbOperation.body.value = create(PbOperation_ZeroTreeStyleSchema, {
+      parentCreatedAt: toTimeTicket(operation.getParentCreatedAt()),
+      markerId: toTextNodeID(operation.getMarkerID()),
+      writes: toZeroAttrWrites(operation.getWrites()),
+      executedAt: toTimeTicket(operation.getExecutedAt()),
+    });
+    const range = operation.getRange();
+    if (range) {
+      pbOperation.body.value.range = create(PbZeroStyleRangeSchema, {
+        last: range.last ? toTextNodeID(range.last) : undefined,
+      });
+    }
+    const cancel = operation.getCancel();
+    if (cancel) {
+      pbOperation.body.value.cancel = create(PbZeroStyleCancelSchema, {
+        write: toTimeTicket(cancel.write),
+        on: cancel.on,
+        fallback: toZeroAttrWrites(cancel.fallback),
+      });
+    }
   } else if (operation instanceof ArraySetOperation) {
     const arraySetOperation = operation as ArraySetOperation;
     const pbArraySetOperation = create(PbOperation_ArraySetSchema);
@@ -1080,6 +1180,388 @@ function toTree(tree: CRDTTree): PbJSONElement {
 }
 
 /**
+ * `toZeroTokens` converts a run of Zero Tree tokens to Protobuf format.
+ * Consecutive characters travel as one string.
+ */
+/**
+ * `ZeroActors` is the actor table of a ZeroTree element: its tickets name
+ * an actor by index, so a snapshot writes each actor id once. Ids are
+ * sorted, so the table does not depend on traversal order.
+ */
+class ZeroActors {
+  private index = new Map<string, number>();
+  public readonly ids: Array<string>;
+
+  constructor(ids: Array<string>) {
+    this.ids = ids;
+    ids.forEach((id, i) => this.index.set(id, i));
+  }
+
+  /**
+   * `of` builds the actor table of the given tree from every ticket it holds.
+   */
+  public static of(tree: CRDTZeroTree): ZeroActors {
+    const ids = new Set<string>();
+    const add = (t?: TimeTicket) => t && ids.add(t.getActorID());
+    for (const node of tree.getRGA()) {
+      add(node.getCreatedAt());
+      add(node.getRemovedAt());
+      const { dels, cancels } = node.getLedger();
+      dels?.forEach(add);
+      cancels?.forEach(([d, c]) => (add(d), add(c)));
+      for (const token of node.getValue().tokens) {
+        if (typeof token !== 'string') {
+          token.attrs.forEach((attr) => {
+            add(attr.updatedAt);
+            attr.history?.forEach((e) => add(e.at));
+          });
+        }
+      }
+    }
+    for (const cancel of tree.getStyleCancels()) {
+      add(cancel.write);
+      add(cancel.at);
+    }
+    return new ZeroActors([...ids].sort());
+  }
+
+  /**
+   * `ticket` encodes a ticket with its actor as an index into this table.
+   */
+  public ticket(t?: TimeTicket): PbZeroTicket | undefined {
+    if (!t) {
+      return;
+    }
+    return create(PbZeroTicketSchema, {
+      lamport: t.getLamport(),
+      delimiter: t.getDelimiter(),
+      actor: this.index.get(t.getActorID())!,
+    });
+  }
+
+  /**
+   * `nodeID` encodes a node id with its actor as an index into this table.
+   */
+  public nodeID(id: RGATreeSplitNodeID): PbZeroNodeID {
+    return create(PbZeroNodeIDSchema, {
+      createdAt: this.ticket(id.getCreatedAt()),
+      offset: id.getOffset(),
+    });
+  }
+
+  /**
+   * `fromTicket` decodes a ticket whose actor is an index into this table.
+   */
+  public fromTicket(t?: PbZeroTicket): TimeTicket | undefined {
+    if (!t) {
+      return;
+    }
+    const actor = this.ids[t.actor];
+    if (actor === undefined) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'unknown zero tree actor');
+    }
+    return TimeTicket.of(BigInt(t.lamport), t.delimiter, actor);
+  }
+
+  /**
+   * `fromNodeID` decodes a node id whose actor is an index into this table.
+   */
+  public fromNodeID(id: PbZeroNodeID): RGATreeSplitNodeID {
+    return RGATreeSplitNodeID.of(this.fromTicket(id.createdAt)!, id.offset);
+  }
+}
+
+/**
+ * `toZeroTokens` converts the given tokens to Protobuf format.
+ */
+function toZeroTokens(value: ZeroTokens, actors?: ZeroActors): PbZeroTokens {
+  const pbTokens = create(PbZeroTokensSchema, { scope: value.scope ?? '' });
+  let chars = '';
+  let ghosts = 0;
+  const flush = () => {
+    if (chars) {
+      pbTokens.tokens.push(
+        create(PbZeroTokenSchema, { body: { case: 'chars', value: chars } }),
+      );
+      chars = '';
+    }
+    if (ghosts) {
+      pbTokens.tokens.push(
+        create(PbZeroTokenSchema, { body: { case: 'ghost', value: ghosts } }),
+      );
+      ghosts = 0;
+    }
+  };
+  for (const token of value.tokens) {
+    if (token === ZeroGhost) {
+      if (chars) {
+        flush();
+      }
+      ghosts++;
+      continue;
+    }
+    if (ghosts) {
+      flush();
+    }
+    if (typeof token === 'string') {
+      // Decoding splits by code point, so a token must be exactly one.
+      if (Array.from(token).length !== 1) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          `zero tree token is not one code point: ${JSON.stringify(token)}`,
+        );
+      }
+      chars += token;
+      continue;
+    }
+    flush();
+    const pbMarker = create(PbZeroMarkerSchema, {
+      type: token.type,
+      depth: token.depth,
+      boundary: token.boundary ?? '',
+    });
+    for (const [key, attr] of token.attrs) {
+      pbMarker.attrs.push(
+        create(PbZeroAttrSchema, {
+          key,
+          value: attr.value ?? '',
+          updatedAt: actors ? undefined : toTimeTicket(attr.updatedAt),
+          updatedAtRef: actors?.ticket(attr.updatedAt),
+          isRemoved: attr.value === null,
+          history: (attr.history ?? []).map((e) =>
+            create(PbZeroAttrEntrySchema, {
+              value: e.value ?? '',
+              isRemoved: e.value === null,
+              updatedAt: actors ? undefined : toTimeTicket(e.at),
+              updatedAtRef: actors?.ticket(e.at),
+              byRange: !!e.byRange,
+            }),
+          ),
+        }),
+      );
+    }
+    pbTokens.tokens.push(
+      create(PbZeroTokenSchema, { body: { case: 'marker', value: pbMarker } }),
+    );
+  }
+  flush();
+  return pbTokens;
+}
+
+/**
+ * `toZeroAttrWrites` converts attribute writes to Protobuf format.
+ */
+function toZeroAttrWrites(
+  writes: Array<[string, ZeroAttrValue]>,
+): Array<PbZeroAttrWrite> {
+  return writes.map(([key, value]) =>
+    create(PbZeroAttrWriteSchema, {
+      key,
+      value: value ?? '',
+      isRemoved: value === null,
+    }),
+  );
+}
+
+/**
+ * `fromZeroAttrWrites` converts Protobuf attribute writes to model format.
+ */
+function fromZeroAttrWrites(
+  writes: Array<PbZeroAttrWrite>,
+): Array<[string, ZeroAttrValue]> {
+  return writes.map(
+    (w) => [w.key, w.isRemoved ? null : w.value] as [string, ZeroAttrValue],
+  );
+}
+
+/**
+ * `fromZeroCancelWrite` converts the cancel of a style operation.
+ */
+function fromZeroCancelWrite(pb: PbZeroStyleCancel): ZeroCancelWrite {
+  return {
+    write: fromTimeTicket(pb.write)!,
+    on: pb.on,
+    fallback: fromZeroAttrWrites(pb.fallback),
+  };
+}
+
+/**
+ * `toZeroRestoreSpan` converts a Zero Tree restore span to Protobuf format.
+ */
+function toZeroRestoreSpan(span: RestoreSpan<ZeroTokens>): PbZeroRestoreSpan {
+  return create(PbZeroRestoreSpanSchema, {
+    createdAt: toTimeTicket(span.createdAt),
+    start: span.start,
+    end: span.end,
+    value: toZeroTokens(span.value),
+    removedBy: toTimeTicket(span.removedBy),
+  });
+}
+
+/**
+ * `toZeroSchema` / `fromZeroSchema` convert the schema a Zero Tree keeps.
+ * Lists keep their order: it decides which child fills a gap.
+ */
+function toZeroSchema(schema: ZeroSchema): PbZeroSchema {
+  const children = (m: Record<string, Iterable<string>>) =>
+    Object.entries(m).map(([type, list]) =>
+      create(PbZeroSchemaChildrenSchema, { type, children: [...list] }),
+    );
+  return create(PbZeroSchemaSchema, {
+    textType: schema.textType,
+    textTypes: [...(schema.textTypes ?? [])],
+    scoped: [...(schema.scoped ?? [])],
+    single: children(schema.single ?? {}),
+    grid: schema.grid ? create(PbZeroSchemaGridSchema, schema.grid) : undefined,
+    rootType: schema.rootType,
+    atomic: [...schema.atomic],
+    objectData: [...(schema.objectData ?? [])],
+    defaultChild: children(
+      Object.fromEntries(
+        Object.entries(schema.defaultChild).map(([k, v]) => [k, [v]]),
+      ),
+    ),
+    allowed: children(schema.allowed),
+  });
+}
+
+/**
+ * `fromZeroSchema` converts the given Protobuf schema to model format.
+ */
+function fromZeroSchema(pb: PbZeroSchema): ZeroSchema {
+  const sets = (list: Array<{ type: string; children: Array<string> }>) =>
+    Object.fromEntries(list.map((e) => [e.type, new Set(e.children)]));
+  return {
+    textType: pb.textType,
+    textTypes: new Set(pb.textTypes),
+    scoped: new Set(pb.scoped),
+    single: pb.single.length ? sets(pb.single) : undefined,
+    grid: pb.grid
+      ? { table: pb.grid.table, row: pb.grid.row, cell: pb.grid.cell }
+      : undefined,
+    rootType: pb.rootType,
+    atomic: new Set(pb.atomic),
+    objectData: pb.objectData.length ? new Set(pb.objectData) : undefined,
+    defaultChild: Object.fromEntries(
+      pb.defaultChild.map((e) => [e.type, e.children[0]]),
+    ),
+    allowed: sets(pb.allowed),
+  };
+}
+
+/**
+ * `toZeroTree` converts the given Zero Tree to Protobuf format: its nodes
+ * with their removal ledgers, and what the ledgers of purged pieces said.
+ */
+function toZeroTree(tree: CRDTZeroTree): PbJSONElement {
+  const rga = tree.getRGA();
+  const pbTree = create(PbJSONElement_ZeroTreeSchema, {
+    createdAt: toTimeTicket(tree.getCreatedAt()),
+    movedAt: toTimeTicket(tree.getMovedAt()),
+    removedAt: toTimeTicket(tree.getRemovedAt()),
+    schema:
+      tree.getSchema() === DefaultZeroSchema ||
+      tree.getSchema() === BuiltinZeroSchema
+        ? undefined
+        : toZeroSchema(tree.getSchema()),
+  });
+  const actors = ZeroActors.of(tree);
+  pbTree.actors = actors.ids.map((id) => toUint8Array(id));
+  const emitted = new Set<string>();
+  for (const node of rga) {
+    let { dels, cancels } = node.getLedger();
+    // A ledger that says only "removed by removedAt" is what a node without
+    // one starts from (`RGATreeSplitNode.ledger`), so it is not written.
+    const removedAt = node.getRemovedAt();
+    if (
+      dels &&
+      !cancels?.length &&
+      (removedAt
+        ? dels.length === 1 && dels[0].equals(removedAt)
+        : dels.length === 0)
+    ) {
+      dels = undefined;
+      cancels = undefined;
+    }
+    const pbNode = create(PbZeroTreeNodeSchema, {
+      id: actors.nodeID(node.getID()),
+      value: toZeroTokens(node.getValue(), actors),
+      removedAt: actors.ticket(node.getRemovedAt()),
+      hasLedger: !!dels,
+      dels: (dels ?? []).map((d) => actors.ticket(d)!),
+      cancels: (cancels ?? []).map(([deletion, at]) =>
+        create(PbZeroCancelSchema, {
+          deletion: actors.ticket(deletion),
+          cancelledAt: actors.ticket(at),
+        }),
+      ),
+    });
+    // Same rule as `toTextNodes`: only a link to an emitted node.
+    if (node.getInsPrev() && emitted.has(node.getInsPrevID().toIDString())) {
+      pbNode.insPrevId = actors.nodeID(node.getInsPrevID());
+    }
+    emitted.add(node.getID().toIDString());
+    pbTree.nodes.push(pbNode);
+  }
+  // Purge order depends on GC iteration, so the entries go out sorted:
+  // a snapshot of one state is the same bytes on every replica and server.
+  const purged: Array<{
+    createdAt: TimeTicket;
+    start: number;
+    end: number;
+    dels: Array<TimeTicket>;
+  }> = [];
+  for (const [key, entries] of rga.getPurgedLedger()) {
+    const [lamport, actorID, delimiter] = key.split(':');
+    const createdAt = TimeTicket.of(
+      BigInt(lamport),
+      Number(delimiter),
+      actorID,
+    );
+    for (const e of entries) {
+      purged.push({ createdAt, ...e });
+    }
+  }
+  const compareDels = (a: Array<TimeTicket>, b: Array<TimeTicket>) => {
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      const c = a[i].compare(b[i]);
+      if (c) {
+        return c;
+      }
+    }
+    return a.length - b.length;
+  };
+  purged.sort(
+    (a, b) =>
+      a.createdAt.compare(b.createdAt) ||
+      a.start - b.start ||
+      a.end - b.end ||
+      compareDels(a.dels, b.dels),
+  );
+  for (const e of purged) {
+    pbTree.purgedLedger.push(
+      create(PbZeroPurgedLedgerSchema, {
+        createdAt: toTimeTicket(e.createdAt),
+        start: e.start,
+        end: e.end,
+        dels: e.dels.map((d) => toTimeTicket(d)!),
+      }),
+    );
+  }
+  pbTree.styleCancels = tree.getStyleCancels().map((c) =>
+    create(PbZeroStyleCancelSchema, {
+      writeRef: actors.ticket(c.write),
+      on: c.on,
+      fallback: toZeroAttrWrites(c.fallback),
+      atRef: actors.ticket(c.at),
+    }),
+  );
+  return create(PbJSONElementSchema, {
+    body: { case: 'zeroTree', value: pbTree },
+  });
+}
+
+/**
  * `toElement` converts the given model to Protobuf format.
  */
 export function toElement(element: CRDTElement): PbJSONElement {
@@ -1100,6 +1582,9 @@ export function toElement(element: CRDTElement): PbJSONElement {
   }
   if (element instanceof CRDTTree) {
     return toTree(element);
+  }
+  if (element instanceof CRDTZeroTree) {
+    return toZeroTree(element);
   }
 
   throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
@@ -1348,6 +1833,11 @@ function fromElementSimple(pbElementSimple: PbJSONElementSimple): CRDTElement {
       );
     case PbValueType.TREE:
       return dropSplitLinksInElement(bytesToTree(pbElementSimple.value)!);
+    case PbValueType.ZERO_TREE:
+      return fromZeroTree(
+        fromBinary(PbJSONElementSchema, pbElementSimple.value).body
+          .value as PbJSONElement_ZeroTree,
+      );
     case PbValueType.NULL:
     case PbValueType.BOOLEAN:
     case PbValueType.INTEGER:
@@ -1790,6 +2280,50 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
         fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
       );
     }
+  } else if (pbOperation.body.case === 'zeroTreeEdit') {
+    const pbZeroTreeEdit = pbOperation.body.value;
+    const hasSpans =
+      pbZeroTreeEdit.restoreSpans.length ||
+      pbZeroTreeEdit.retombstoneSpans.length ||
+      pbZeroTreeEdit.restoreMode !== PbRestoreMode.UNSPECIFIED;
+    return new ZeroTreeEditOperation(
+      fromTimeTicket(pbZeroTreeEdit.parentCreatedAt)!,
+      fromTextNodePos(pbZeroTreeEdit.from!),
+      fromTextNodePos(pbZeroTreeEdit.to!),
+      pbZeroTreeEdit.content
+        ? fromZeroTokens(pbZeroTreeEdit.content)
+        : undefined,
+      fromTimeTicket(pbZeroTreeEdit.executedAt)!,
+      hasSpans
+        ? pbZeroTreeEdit.restoreSpans.map(fromZeroRestoreSpan)
+        : undefined,
+      hasSpans
+        ? pbZeroTreeEdit.restoreMode === PbRestoreMode.RETOMBSTONE
+          ? 'retombstone'
+          : 'restore'
+        : undefined,
+      hasSpans
+        ? pbZeroTreeEdit.retombstoneSpans.map(fromZeroRestoreSpan)
+        : undefined,
+    );
+  } else if (pbOperation.body.case === 'zeroTreeStyle') {
+    const pbZeroTreeStyle = pbOperation.body.value;
+    return new ZeroTreeStyleOperation(
+      fromTimeTicket(pbZeroTreeStyle.parentCreatedAt)!,
+      fromTextNodeID(pbZeroTreeStyle.markerId!),
+      fromZeroAttrWrites(pbZeroTreeStyle.writes),
+      fromTimeTicket(pbZeroTreeStyle.executedAt)!,
+      pbZeroTreeStyle.range
+        ? {
+            last: pbZeroTreeStyle.range.last
+              ? fromTextNodeID(pbZeroTreeStyle.range.last)
+              : undefined,
+          }
+        : undefined,
+      pbZeroTreeStyle.cancel
+        ? fromZeroCancelWrite(pbZeroTreeStyle.cancel)
+        : undefined,
+    );
   } else if (pbOperation.body.case === 'arraySet') {
     const pbArraySetOperation = pbOperation.body.value;
     return ArraySetOperation.create(
@@ -2048,6 +2582,142 @@ function fromTree(pbTree: PbJSONElement_Tree): CRDTTree {
 }
 
 /**
+ * `fromZeroTokens` converts a Protobuf token run to model format.
+ */
+function fromZeroTokens(
+  pbTokens: PbZeroTokens,
+  actors?: ZeroActors,
+): ZeroTokens {
+  const tokens: Array<ZeroToken> = [];
+  for (const pbToken of pbTokens.tokens) {
+    if (pbToken.body.case === 'chars') {
+      tokens.push(...Array.from(pbToken.body.value));
+    } else if (pbToken.body.case === 'ghost') {
+      for (let i = 0; i < pbToken.body.value; i++) {
+        tokens.push(ZeroGhost);
+      }
+    } else if (pbToken.body.case === 'marker') {
+      const pbMarker = pbToken.body.value;
+      const marker = new ZeroMarker(
+        pbMarker.type,
+        pbMarker.depth,
+        undefined,
+        pbMarker.boundary || undefined,
+      );
+      for (const attr of pbMarker.attrs) {
+        marker.attrs.set(attr.key, {
+          value: attr.isRemoved ? null : attr.value,
+          updatedAt: (attr.updatedAtRef
+            ? actors!.fromTicket(attr.updatedAtRef)
+            : fromTimeTicket(attr.updatedAt))!,
+          ...(attr.history.length
+            ? {
+                history: attr.history.map((e) => ({
+                  value: e.isRemoved ? null : e.value,
+                  at: (e.updatedAtRef
+                    ? actors!.fromTicket(e.updatedAtRef)
+                    : fromTimeTicket(e.updatedAt))!,
+                  ...(e.byRange ? { byRange: true } : {}),
+                })),
+              }
+            : {}),
+        });
+      }
+      tokens.push(marker);
+    }
+  }
+  return new ZeroTokens(tokens, pbTokens.scope || undefined);
+}
+
+/**
+ * `fromZeroRestoreSpan` converts a Protobuf restore span to model format.
+ */
+function fromZeroRestoreSpan(
+  pbSpan: PbZeroRestoreSpan,
+): RestoreSpan<ZeroTokens> {
+  return {
+    createdAt: fromTimeTicket(pbSpan.createdAt)!,
+    start: pbSpan.start,
+    end: pbSpan.end,
+    value: fromZeroTokens(pbSpan.value!),
+    removedBy: fromTimeTicket(pbSpan.removedBy),
+  };
+}
+
+/**
+ * `fromZeroTree` converts the given Protobuf format to model format.
+ */
+function fromZeroTree(pbTree: PbJSONElement_ZeroTree): CRDTZeroTree {
+  const rga = RGATreeSplit.create<ZeroTokens>();
+  // Links resolve by exact id against nodes already decoded, as `fromText`.
+  const decoded = new Map<string, RGATreeSplitNode<ZeroTokens>>();
+  let prev = rga.getHead();
+  const actors = new ZeroActors(pbTree.actors.map((b) => toHexString(b)));
+  for (const pbNode of pbTree.nodes) {
+    const node = RGATreeSplitNode.create(
+      actors.fromNodeID(pbNode.id!),
+      fromZeroTokens(pbNode.value!, actors),
+    ) as RGATreeSplitNode<ZeroTokens>;
+    node.setRemovedAt(actors.fromTicket(pbNode.removedAt));
+    if (pbNode.hasLedger) {
+      node.setLedger(
+        pbNode.dels.map((d) => actors.fromTicket(d)!),
+        pbNode.cancels.map(
+          (c) =>
+            [
+              actors.fromTicket(c.deletion)!,
+              actors.fromTicket(c.cancelledAt)!,
+            ] as [TimeTicket, TimeTicket],
+        ),
+      );
+    }
+    const current = rga.insertAfter(prev, node);
+    if (pbNode.insPrevId) {
+      const id = current.getID();
+      const insPrevID = actors.fromNodeID(pbNode.insPrevId);
+      const insPrev =
+        insPrevID.hasSameCreatedAt(id) && insPrevID.getOffset() < id.getOffset()
+          ? decoded.get(insPrevID.toIDString())
+          : undefined;
+      if (insPrev) {
+        current.setInsPrev(insPrev);
+      }
+    }
+    decoded.set(current.getID().toIDString(), current);
+    prev = current;
+  }
+  const purged = rga.getPurgedLedger();
+  for (const e of pbTree.purgedLedger) {
+    const key = fromTimeTicket(e.createdAt)!.toIDString();
+    const entries = purged.get(key) ?? [];
+    entries.push({
+      start: e.start,
+      end: e.end,
+      dels: e.dels.map((d) => fromTimeTicket(d)!),
+    });
+    purged.set(key, entries);
+  }
+  const tree = new CRDTZeroTree(
+    rga,
+    fromTimeTicket(pbTree.createdAt)!,
+    pbTree.schema ? fromZeroSchema(pbTree.schema) : BuiltinZeroSchema,
+  );
+  tree.setMovedAt(fromTimeTicket(pbTree.movedAt));
+  tree.setRemovedAt(fromTimeTicket(pbTree.removedAt));
+  for (const c of pbTree.styleCancels) {
+    tree.loadStyleCancel(
+      new ZeroStyleCancel(
+        actors.fromTicket(c.writeRef)!,
+        c.on,
+        actors.fromTicket(c.atRef)!,
+        fromZeroAttrWrites(c.fallback),
+      ),
+    );
+  }
+  return tree;
+}
+
+/**
  * `fromElement` converts the given Protobuf format to model format.
  */
 export function fromElement(pbElement: PbJSONElement): CRDTElement {
@@ -2063,6 +2733,8 @@ export function fromElement(pbElement: PbJSONElement): CRDTElement {
     return fromCounter(pbElement.body.value!);
   } else if (pbElement.body.case === 'tree') {
     return fromTree(pbElement.body.value!);
+  } else if (pbElement.body.case === 'zeroTree') {
+    return fromZeroTree(pbElement.body.value!);
   } else {
     throw new YorkieError(Code.ErrUnimplemented, `unimplemented element`);
   }
@@ -2210,6 +2882,21 @@ function treeToBytes(tree: CRDTTree): Uint8Array {
 }
 
 /**
+ * `changeToBytes` / `bytesToChange` convert one change (PROTOTYPE: the Zero
+ * Tree relay and harness send changes one by one).
+ */
+function changeToBytes(change: Change<Indexable>): Uint8Array {
+  return toBinary(PbChangeSchema, toChange(change));
+}
+
+/**
+ * `bytesToChange` decodes one change from bytes.
+ */
+function bytesToChange<P extends Indexable>(bytes: Uint8Array): Change<P> {
+  return fromChanges<P>([fromBinary(PbChangeSchema, bytes)])[0];
+}
+
+/**
  * `bytesToHex` creates an hex string from the given byte array.
  */
 function bytesToHex(bytes?: Uint8Array): string {
@@ -2309,6 +2996,8 @@ function bytesToOperation(bytes: Uint8Array): Operation {
  * is also used to convert models to bytes and vice versa.
  */
 export const converter = {
+  changeToBytes,
+  bytesToChange,
   fromPresence,
   toChangePack,
   fromChangePack,

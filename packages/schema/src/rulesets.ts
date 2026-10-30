@@ -52,6 +52,7 @@ export type PrimitiveType =
 export type YorkieType =
   | 'yorkie.Text'
   | 'yorkie.Tree'
+  | 'yorkie.ZeroTree'
   | 'yorkie.Counter'
   | 'yorkie.Object'
   | 'yorkie.Array';
