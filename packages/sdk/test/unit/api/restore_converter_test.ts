@@ -15,7 +15,9 @@
  */
 
 import { describe, it, assert } from 'vitest';
+import { fromBinary, toBinary } from '@bufbuild/protobuf';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { OperationSchema as PbOperationSchema } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { EditOperation } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import { CRDTTextValue } from '@yorkie-js/sdk/src/document/crdt/text';
 import {
@@ -118,6 +120,98 @@ describe('Restore span converter', function () {
     assert.equal(restored.getRetombstoneSpans()!.length, 1);
     assert.equal(restored.getRetombstoneSpans()![0].value.getContent(), '12');
     assert.isTrue(restored.getRetombstoneSpans()![0].createdAt.equals(seed));
+  });
+
+  // The wire carries span attributes as a bare map, so the decoder stamps
+  // them with the operation's `executedAt`, as the server's `Text.Restore`
+  // does when it recreates a node from a span.
+  it('keeps span attributes, stamped with executedAt', function () {
+    const styled = span(0, 1, 'X');
+    styled.value.setAttr('b', '1', seed);
+    const op = EditOperation.create(
+      InitialTimeTicket,
+      pos,
+      pos,
+      '',
+      new Map(),
+      executedAt,
+      true,
+      undefined,
+      'restore',
+      [styled],
+    );
+
+    const restored = converter.bytesToOperation(
+      converter.operationToBinary(op),
+    ) as EditOperation;
+    const got = restored.getRetombstoneSpans()![0];
+    assert.deepEqual(got.value.getAttributes(), { b: '1' });
+    for (const node of got.value.getAttrs()) {
+      assert.isTrue(
+        node.getUpdatedAt().equals(executedAt),
+        'an attribute must decode with the operation executedAt',
+      );
+    }
+  });
+
+  // A span is untrusted input: it arrives in a change pack from any peer. The
+  // decoder non-null asserts its created_at and `RGATreeSplit.restore` slices
+  // the content by `cursor - span.start`, so a blank ticket or an interval
+  // that does not match the content only fails deep inside the restore path --
+  // on every peer that applies the pack. Reject it at the boundary, the way
+  // fromPbTreeRestoreSpan already does for tree spans.
+  describe('rejects a malformed span', function () {
+    const decodeWith = (
+      corrupt: (span: {
+        createdAt?: unknown;
+        start: number;
+        end: number;
+        content: string;
+      }) => void,
+    ) => {
+      const op = EditOperation.create(
+        InitialTimeTicket,
+        pos,
+        pos,
+        '',
+        new Map(),
+        executedAt,
+        true,
+        [span(4, 6, '45')],
+        'restore',
+      );
+      const pb = fromBinary(PbOperationSchema, converter.operationToBinary(op));
+      const pbSpan = (pb.body.value as { restoreSpans: Array<unknown> })
+        .restoreSpans[0];
+      corrupt(pbSpan as never);
+      return () => converter.bytesToOperation(toBinary(PbOperationSchema, pb));
+    };
+
+    it('on a missing created_at', function () {
+      assert.throws(decodeWith((s) => (s.createdAt = undefined)));
+    });
+
+    it('on a negative start', function () {
+      assert.throws(
+        decodeWith((s) => {
+          s.start = -2;
+          s.end = 0;
+        }),
+      );
+    });
+
+    it('on an inverted interval', function () {
+      assert.throws(
+        decodeWith((s) => {
+          s.start = 6;
+          s.end = 4;
+        }),
+      );
+    });
+
+    it('on an interval that does not cover the content', function () {
+      assert.throws(decodeWith((s) => (s.end = 9)));
+    });
   });
 
   it('leaves ordinary edits without a restore payload', function () {

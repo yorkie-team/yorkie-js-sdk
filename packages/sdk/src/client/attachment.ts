@@ -31,7 +31,7 @@ export type WatchStream = AsyncIterable<unknown>;
  * [WatchStream, AbortController] for managing the stream lifecycle.
  */
 export type WatchStreamCreator = (
-  onDisconnect: () => void,
+  onDisconnect: (err?: unknown) => void,
 ) => Promise<[WatchStream, AbortController]>;
 
 /**
@@ -105,7 +105,7 @@ export class Attachment<R extends Attachable> {
    */
   sessionLockHandle?: SessionLockHandle;
 
-  private reconnectStreamDelay: number;
+  private reconnectStreamDelay: (err?: unknown) => number;
   private cancelled: boolean;
   private watchStream?: WatchStream;
   private watchLoopTimerID?: ReturnType<typeof setTimeout>;
@@ -115,7 +115,7 @@ export class Attachment<R extends Attachable> {
   private _writeRejected = false;
 
   constructor(
-    reconnectStreamDelay: number,
+    reconnectStreamDelay: (err?: unknown) => number,
     resource: R,
     resourceID: string = '',
     syncMode?: SyncMode,
@@ -217,7 +217,7 @@ export class Attachment<R extends Attachable> {
 
       try {
         [this.watchStream, this.watchAbortController] =
-          await watchStreamCreator(() => {
+          await watchStreamCreator((err) => {
             this.watchStream = undefined;
             this.watchAbortController = undefined;
 
@@ -226,7 +226,7 @@ export class Attachment<R extends Attachable> {
             if (!this.cancelled) {
               this.watchLoopTimerID = setTimeout(
                 doLoop,
-                this.reconnectStreamDelay,
+                this.reconnectStreamDelay(err),
               );
             }
           });

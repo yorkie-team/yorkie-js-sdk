@@ -128,7 +128,7 @@ export class EditOperation extends Operation {
    */
   public execute<A extends Indexable>(
     root: CRDTRoot,
-    _: OpSource,
+    source: OpSource,
     versionVector?: VersionVector,
   ): ExecutionResult {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
@@ -169,6 +169,19 @@ export class EditOperation extends Operation {
           value: c.value,
           path: root.createPath(this.getParentCreatedAt()),
         }) as OpInfo;
+
+      // The spans about to be re-tombstoned are what the reverse op will have
+      // to restore, and a replica that purged them rebuilds the nodes from
+      // that payload alone. Re-snapshot them against the live content first:
+      // the span set was captured when the reversed edit ran, so an attribute
+      // applied to the run since is missing from it and a purged replica would
+      // recreate the run without it while a replica that un-tombstones keeps
+      // it. Taken before the removal below, and only when the reverse is kept:
+      // a remote change discards it.
+      const refreshed =
+        source !== OpSource.Remote && toRetombstone.length
+          ? text.getRGATreeSplit().refreshSpans(toRetombstone)
+          : undefined;
 
       // 1. Remove the content the reversed edit inserted (by identity).
       if (toRetombstone.length) {
@@ -226,11 +239,13 @@ export class EditOperation extends Operation {
           new Map(),
           undefined,
           true,
-          isRetombstone ? removedNow(this.restoreSpans) : this.restoreSpans,
+          isRetombstone
+            ? removedNow(refreshed ?? this.restoreSpans)
+            : this.restoreSpans,
           isRetombstone ? 'restore' : 'retombstone',
           isRetombstone
             ? this.retombstoneSpans
-            : removedNow(this.retombstoneSpans),
+            : removedNow(refreshed ?? this.retombstoneSpans),
         ),
       };
     }
@@ -290,6 +305,16 @@ export class EditOperation extends Operation {
       let insertedSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
       if (this.content?.length) {
         const value = CRDTTextValue.create(this.content);
+        // Carry the attributes the edit applied, stamped with the same ticket
+        // `CRDTText.edit` used. The undo only re-tombstones this span, so its
+        // value is unread there -- but the redo flips `restoreMode` and the
+        // span becomes the content to restore. A replica that purged the node
+        // rebuilds it from this value alone, so an empty attribute map here
+        // makes it diverge from a replica that still un-tombstones the
+        // original.
+        for (const [key, attrValue] of this.getAttributes()) {
+          value.setAttr(key, attrValue, this.getExecutedAt());
+        }
         insertedSpans = [
           {
             createdAt: this.getExecutedAt(),

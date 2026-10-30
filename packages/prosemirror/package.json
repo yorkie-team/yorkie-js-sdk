@@ -48,16 +48,16 @@
     "prosemirror-example-setup": "^1.2.2",
     "prosemirror-history": "^1.4.1",
     "prosemirror-keymap": "^1.2.2",
-    "prosemirror-model": "^1.23.0",
+    "prosemirror-model": "^1.25.12",
     "prosemirror-schema-basic": "^1.2.3",
     "prosemirror-schema-list": "^1.5.0",
     "prosemirror-state": "^1.4.3",
     "prosemirror-transform": "^1.10.2",
-    "prosemirror-view": "^1.37.0",
+    "prosemirror-view": "^1.42.8",
     "typescript": "^5.9.3",
-    "vite": "^7.3.6",
+    "vite": "^7.3.7",
     "vite-plugin-dts": "^4.5.4",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

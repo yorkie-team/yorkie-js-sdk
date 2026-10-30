@@ -641,16 +641,17 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeStyleOperation.from = toTreePos(treeStyleOperation.getFromPos());
     pbTreeStyleOperation.to = toTreePos(treeStyleOperation.getToPos());
 
-    const attributesToRemove = treeStyleOperation.getAttributesToRemove();
-    if (attributesToRemove.length > 0) {
-      pbTreeStyleOperation.attributesToRemove = attributesToRemove;
-    } else {
-      const attributesMap = pbTreeStyleOperation.attributes;
-
-      for (const [key, value] of treeStyleOperation.getAttributes()) {
-        attributesMap[key] = value;
-      }
+    // Encode both fields, as Go's toTreeStyle does. The reverse of a style
+    // that overwrote some attributes and added others carries both, and
+    // dropping either half would let peers apply something other than what
+    // the undoing client applied.
+    const attributesMap = pbTreeStyleOperation.attributes;
+    for (const [key, value] of treeStyleOperation.getAttributes()) {
+      attributesMap[key] = value;
     }
+    pbTreeStyleOperation.attributesToRemove = [
+      ...treeStyleOperation.getAttributesToRemove(),
+    ];
     pbTreeStyleOperation.executedAt = toTimeTicket(
       treeStyleOperation.getExecutedAt(),
     );
@@ -1251,8 +1252,12 @@ function fromPresenceChange<P extends Indexable>(
     // a pulled pack does not normally carry a patch. It is decoded anyway --
     // an echo of a pushed change, or a peer ahead of this SDK, must not fail
     // the whole pack. There is no `full` on the wire: `Change.execute` merges
-    // the carried keys onto the presence already held for that actor.
-    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    // the carried keys onto the presence already held for that actor. A
+    // patch can leave `presence` unset, as Go allows
+    // (`api/converter/from_pb.go`, `FromPresenceChange`).
+    const presence = pbPresenceChange.presence
+      ? fromPresence<P>(pbPresenceChange.presence)
+      : ({} as P);
     return {
       type: PresenceChangeType.Patch,
       presence,
@@ -1261,6 +1266,20 @@ function fromPresenceChange<P extends Indexable>(
   if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
+    };
+  }
+  if (
+    type === PbPresenceChange_ChangeType.UNSPECIFIED ||
+    type === PbPresenceChange_ChangeType.DELETE
+  ) {
+    // NOTE: these two types are defined but no SDK sends them. Go still
+    // decodes them, because stored rows go through that path, into a change
+    // that stores an empty presence for the actor (`api/converter/from_pb.go`,
+    // `FromPresenceChange`). Do the same: throwing here fails the pack, and
+    // the same stored change comes back on every pull.
+    return {
+      type: PresenceChangeType.Put,
+      presence: {} as P,
     };
   }
 
@@ -1646,12 +1665,31 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
 
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
+      // A span addresses content by insertion identity, so it is malformed
+      // without a `createdAt`, and `RGATreeSplit.restore` slices `content` by
+      // `cursor - span.start`, so `[start, end)` has to be an ordered interval
+      // exactly covering it. Reject both here, as the server's
+      // `fromRestoreSpans` does, instead of failing deep in the restore path.
+      if (
+        !pbSpan.createdAt ||
+        !Number.isInteger(pbSpan.start) ||
+        !Number.isInteger(pbSpan.end) ||
+        pbSpan.start < 0 ||
+        pbSpan.end < pbSpan.start ||
+        pbSpan.end - pbSpan.start !== pbSpan.content.length
+      ) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'malformed restore span: missing timestamp or invalid range',
+        );
+      }
+      const createdAt = fromTimeTicket(pbSpan.createdAt)!;
       const value = CRDTTextValue.create(pbSpan.content);
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
         value.setAttr(key, attr, executedAt);
       }
       return {
-        createdAt: fromTimeTicket(pbSpan.createdAt)!,
+        createdAt,
         start: pbSpan.start,
         end: pbSpan.end,
         value,
@@ -1765,31 +1803,22 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;
-    const attributes = new Map();
-    const attributesToRemove = pbTreeStyleOperation.attributesToRemove;
+    const attributes = new Map<string, string>();
+    Object.entries(pbTreeStyleOperation!.attributes).forEach(([key, value]) => {
+      attributes.set(key, value);
+    });
 
-    if (attributesToRemove?.length > 0) {
-      return TreeStyleOperation.createTreeRemoveStyleOperation(
-        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
-        fromTreePos(pbTreeStyleOperation!.from!),
-        fromTreePos(pbTreeStyleOperation!.to!),
-        attributesToRemove,
-        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
-      );
-    } else {
-      Object.entries(pbTreeStyleOperation!.attributes).forEach(
-        ([key, value]) => {
-          attributes.set(key, value);
-        },
-      );
-      return TreeStyleOperation.create(
-        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
-        fromTreePos(pbTreeStyleOperation!.from!),
-        fromTreePos(pbTreeStyleOperation!.to!),
-        attributes,
-        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
-      );
-    }
+    // A sender may set both fields at once -- that is how it encodes the
+    // reverse of a style that overwrote some attributes and added others --
+    // so read both rather than letting either one shadow the other.
+    return new TreeStyleOperation(
+      fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
+      fromTreePos(pbTreeStyleOperation!.from!),
+      fromTreePos(pbTreeStyleOperation!.to!),
+      attributes,
+      [...(pbTreeStyleOperation!.attributesToRemove ?? [])],
+      fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
+    );
   } else if (pbOperation.body.case === 'arraySet') {
     const pbArraySetOperation = pbOperation.body.value;
     return ArraySetOperation.create(

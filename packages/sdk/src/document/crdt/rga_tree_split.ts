@@ -1194,6 +1194,67 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
+   * `refreshSpans` re-snapshots `spans` against the content they address as it
+   * stands now, returning an equivalent span set (same insertion identities,
+   * same overall intervals) whose values carry the current attributes. A span
+   * is captured when the edit it reverses runs, so attributes applied to the
+   * run afterwards — a peer's style, which `canStyle` admits even on a
+   * tombstone — are missing from it; a replica that purged the run would then
+   * recreate it with the stale snapshot while a replica that still holds the
+   * tombstone revives the live attributes, and the two diverge.
+   *
+   * Regions covered by a surviving piece (live or tombstoned) are taken from
+   * that piece, so a span crossing several pieces splits into one span per
+   * piece. Regions with no surviving piece keep the original snapshot — it is
+   * all this replica knows about them. Read-only: the copies it makes are
+   * payload, never inserted, so they book no attribute tombstones.
+   */
+  public refreshSpans(spans: Array<RestoreSpan<T>>): Array<RestoreSpan<T>> {
+    const refreshed: Array<RestoreSpan<T>> = [];
+    const fromSnapshot = (span: RestoreSpan<T>, start: number, end: number) =>
+      refreshed.push({
+        createdAt: span.createdAt,
+        start,
+        end,
+        value: span.value.substring(start - span.start, end - span.start) as T,
+      });
+
+    for (const span of spans) {
+      const pieces = this.findPiecesOverlapping(
+        span.createdAt,
+        span.start,
+        span.end,
+      );
+      let cursor = span.start;
+      for (const piece of pieces) {
+        const pieceStart = piece.getID().getOffset();
+        const start = Math.max(pieceStart, cursor);
+        const end = Math.min(pieceStart + piece.getContentLength(), span.end);
+        if (end <= start) {
+          continue;
+        }
+        if (start > cursor) {
+          fromSnapshot(span, cursor, start);
+        }
+        refreshed.push({
+          createdAt: span.createdAt,
+          start,
+          end,
+          value: piece
+            .getValue()
+            .substring(start - pieceStart, end - pieceStart) as T,
+        });
+        cursor = end;
+      }
+      if (cursor < span.end) {
+        fromSnapshot(span, cursor, span.end);
+      }
+    }
+
+    return refreshed;
+  }
+
+  /**
    * `findPiecesOverlapping` collects existing nodes (live or tombstoned)
    * belonging to the insertion `createdAt` that overlap the absolute-offset
    * interval [start, end), in ascending offset order. Works by descending

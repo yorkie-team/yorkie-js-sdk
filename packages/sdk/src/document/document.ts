@@ -3190,8 +3190,14 @@ export class Document<
       }
       this.addOnlineClient(publisher);
     } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
+      // NOTE(hackerwins): Only the online set is touched here; the presence
+      // itself is kept, for the same reason applyWatchInit keeps it above.
+      // Dropping it would make hasPresence false, so the DOCUMENT_WATCHED
+      // that follows a watch-stream reconnect would publish no "watched"
+      // event and the peer would stay invisible. The unwatched event still
+      // fires: reconcilePresence keys that transition on isOnline, which
+      // removeOnlineClient alone flips.
       this.removeOnlineClient(publisher);
-      this.presences.delete(publisher);
     }
 
     const event = this.reconcilePresence(publisher, prev, OpSource.Remote);
