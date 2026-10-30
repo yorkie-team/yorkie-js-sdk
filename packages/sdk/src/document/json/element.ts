@@ -171,7 +171,11 @@ export function buildCRDTElement(
       element = CRDTTree.create(value.buildRoot(context), createdAt);
       value.initialize(context, element as CRDTTree);
     } else if (value instanceof ZeroTree) {
-      element = CRDTZeroTree.create(createdAt, value.getInitialChildren());
+      element = CRDTZeroTree.create(
+        createdAt,
+        value.getInitialChildren(),
+        value.getInitialSchema(),
+      );
       value.initialize(context, element as CRDTZeroTree);
     } else {
       element = CRDTObject.create(

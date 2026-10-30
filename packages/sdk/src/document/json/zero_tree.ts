@@ -38,12 +38,14 @@ import {
   ZeroNodeJSON,
   ZeroOperation,
   ZeroRegionPrefix,
+  ZeroSchema,
   findNode,
   pathOf,
   flattenProps,
   insertIndexAt,
   isTextType,
   resolveText,
+  resolveZeroSchema,
   textTypeFor,
   toNodeJSON,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
@@ -144,11 +146,28 @@ export class ZeroTree {
   private context?: ChangeContext;
   private tree?: CRDTZeroTree;
   private initialChildren: Array<ZeroNodeJSON>;
+  private initialSchema?: Partial<ZeroSchema>;
 
-  constructor(content?: ZeroNodeJSON | Array<ZeroNodeJSON>) {
+  /**
+   * `options.schema` is the content model the tree keeps as document state
+   * (over the built-in default). Without it the tree takes a copy of the
+   * process default that `configureZeroSchema` sets.
+   */
+  constructor(
+    content?: ZeroNodeJSON | Array<ZeroNodeJSON>,
+    options?: { schema?: Partial<ZeroSchema> },
+  ) {
     this.initialChildren = Array.isArray(content)
       ? content
       : (content?.children ?? []);
+    this.initialSchema = options?.schema;
+  }
+
+  /**
+   * `getInitialSchema` returns the schema the tree is created with.
+   */
+  public getInitialSchema(): ZeroSchema {
+    return resolveZeroSchema(this.initialSchema);
   }
 
   /**

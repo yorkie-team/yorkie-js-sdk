@@ -183,6 +183,7 @@ import {
   ZeroTreeStyleOperation,
 } from '@yorkie-js/sdk/src/document/operation/zero_tree_operation';
 import {
+  BuiltinZeroSchema,
   DefaultZeroSchema,
   ZeroSchema,
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
@@ -1457,7 +1458,8 @@ function toZeroTree(tree: CRDTZeroTree): PbJSONElement {
     movedAt: toTimeTicket(tree.getMovedAt()),
     removedAt: toTimeTicket(tree.getRemovedAt()),
     schema:
-      tree.getSchema() === DefaultZeroSchema
+      tree.getSchema() === DefaultZeroSchema ||
+      tree.getSchema() === BuiltinZeroSchema
         ? undefined
         : toZeroSchema(tree.getSchema()),
   });
@@ -2696,7 +2698,7 @@ function fromZeroTree(pbTree: PbJSONElement_ZeroTree): CRDTZeroTree {
   const tree = new CRDTZeroTree(
     rga,
     fromTimeTicket(pbTree.createdAt)!,
-    pbTree.schema ? fromZeroSchema(pbTree.schema) : DefaultZeroSchema,
+    pbTree.schema ? fromZeroSchema(pbTree.schema) : BuiltinZeroSchema,
   );
   tree.setMovedAt(fromTimeTicket(pbTree.movedAt));
   tree.setRemovedAt(fromTimeTicket(pbTree.removedAt));

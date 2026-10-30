@@ -750,9 +750,10 @@ export class CRDTZeroTree extends CRDTElement {
   public static create(
     createdAt: TimeTicket,
     children: Array<ZeroNodeJSON> = [],
+    schema: ZeroSchema = cloneZeroSchema(DefaultZeroSchema),
   ): CRDTZeroTree {
     const rga = RGATreeSplit.create<ZeroTokens>();
-    const tokens = toTokens(children, 1, createdAt);
+    const tokens = toTokens(children, 1, createdAt, schema);
     if (tokens.length) {
       const head = rga.getHead();
       rga.insertAfter(
@@ -763,7 +764,7 @@ export class CRDTZeroTree extends CRDTElement {
         ),
       );
     }
-    return new CRDTZeroTree(rga, createdAt, cloneZeroSchema(DefaultZeroSchema));
+    return new CRDTZeroTree(rga, createdAt, schema);
   }
 
   /**

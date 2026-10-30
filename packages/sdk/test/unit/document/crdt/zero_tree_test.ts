@@ -219,6 +219,56 @@ describe('ZeroTree', () => {
     expect(model(a)).toEqual(model(b));
   });
 
+  it('keeps the schema it is given, apart from other trees and the process default', () => {
+    // An editor with a heading block whose text type is `inline-heading`.
+    const schema = {
+      textTypes: new Set(['inline-text', 'inline-heading']),
+      defaultChild: {
+        content: 'paragraph',
+        paragraph: 'inline-text',
+        heading: 'inline-heading',
+      },
+      allowed: {
+        content: new Set(['paragraph', 'heading']),
+        paragraph: new Set(['inline-text']),
+        heading: new Set(['inline-heading']),
+      },
+    };
+    const init = content({
+      type: 'heading',
+      children: [{ type: 'inline-heading', data: 'title' }],
+    });
+    const a = new Document<Root>('zero-tree');
+    a.setActor('000000000000000000000001');
+    a.update((root) => {
+      root.zt = new ZeroTree(init as never, { schema });
+    });
+    // Another tree of the same process, without a schema, reads the
+    // heading's text as nothing (inline-heading is not text by default).
+    const other = new Document<Root>('other');
+    other.update((root) => {
+      root.zt = new ZeroTree(init as never);
+    });
+    expect(model(a)).toEqual(init);
+    expect(model(other)).not.toEqual(init);
+
+    // A replica and a snapshot get the schema with the tree.
+    const b = new Document<Root>('zero-tree');
+    b.setActor('000000000000000000000002');
+    exchange(a, b);
+    b.update((root) =>
+      root.zt.applyZeroOperations([['insert', [0, 0, 5], '!']]),
+    );
+    exchange(a, b);
+    expect(model(a)).toEqual(model(b));
+    expect((model(b).children ?? [])[0].children?.[0].data).toBe('title!');
+    const bytes = converter.snapshotToBytes(b.getRootObject(), new Map());
+    const { root } = converter.bytesToSnapshot(bytes);
+    expect((root as CRDTObject).get('zt')?.toJSON()).toBe(
+      b.getRootObject().get('zt')!.toJSON(),
+    );
+  });
+
   it('is checked by the yorkie.ZeroTree schema rule', () => {
     const rules = [{ path: '$.zt', type: 'yorkie.ZeroTree' as const }];
     const [a] = replicas(content(paragraph('x')));

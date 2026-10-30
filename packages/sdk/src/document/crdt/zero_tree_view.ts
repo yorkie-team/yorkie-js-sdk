@@ -146,9 +146,33 @@ export function cloneZeroSchema(schema: ZeroSchema): ZeroSchema {
 }
 
 /**
+ * `BuiltinZeroSchema` is the built-in schema as shipped, kept apart from
+ * `DefaultZeroSchema`, which `configureZeroSchema` changes. A tree decoded
+ * without a schema reads with it, so the model never depends on how the
+ * reading process was configured (Go reads such a tree with the same
+ * built-in default).
+ */
+export const BuiltinZeroSchema: ZeroSchema = cloneZeroSchema(DefaultZeroSchema);
+
+/**
+ * `resolveZeroSchema` returns the schema a new tree keeps: the given one
+ * over the built-in default (absent fields come from it), or, if none is
+ * given, a copy of the configured default.
+ */
+export function resolveZeroSchema(schema?: Partial<ZeroSchema>): ZeroSchema {
+  return cloneZeroSchema(
+    schema
+      ? ({ ...BuiltinZeroSchema, ...schema } as ZeroSchema)
+      : DefaultZeroSchema,
+  );
+}
+
+/**
  * `configureZeroSchema` replaces the schema every Zero Tree of this process
  * uses (PROTOTYPE: the schema is configuration, not document state, so every
  * replica has to configure the same one -- the plugin's contract checks that).
+ * A tree given its own schema (`new ZeroTree(content, { schema })`) does
+ * not read this.
  */
 export function configureZeroSchema(schema: Partial<ZeroSchema>): void {
   Object.assign(DefaultZeroSchema, schema);
