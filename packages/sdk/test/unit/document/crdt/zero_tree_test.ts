@@ -23,7 +23,10 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
-import type { ZeroNodeJSON } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
+import type {
+  ZeroNodeJSON,
+  ZeroSchema,
+} from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/ruleset_validator';
 
 type Root = { zt: ZeroTree };
@@ -90,13 +93,16 @@ const content = (...children: Array<ZeroNodeJSON>): ZeroNodeJSON => ({
   children,
 });
 
-function replicas(init: ZeroNodeJSON): [Document<Root>, Document<Root>] {
+function replicas(
+  init: ZeroNodeJSON,
+  schema?: Partial<ZeroSchema>,
+): [Document<Root>, Document<Root>] {
   const a = new Document<Root>('zero-tree');
   const b = new Document<Root>('zero-tree');
   a.setActor('000000000000000000000001');
   b.setActor('000000000000000000000002');
   a.update((root) => {
-    root.zt = new ZeroTree(init as never);
+    root.zt = new ZeroTree(init as never, schema && { schema });
   });
   exchange(a, b);
   return [a, b];
@@ -217,6 +223,49 @@ describe('ZeroTree', () => {
     // run from the list instead would put it after the new line.
     expect(texts(b)).toEqual(['ab', 'Xcdefgh']);
     expect(model(a)).toEqual(model(b));
+  });
+
+  it('keeps an empty object as the data of an atom', () => {
+    // Zero gives a soft break (and other `empty-data` nodes) `data: {}`,
+    // and rejects such a node without data. The schema names those types.
+    const line = {
+      type: 'paragraph',
+      children: [
+        { type: 'inline-text', data: 'a' },
+        { type: 'inline-image', data: {} },
+        { type: 'inline-text', data: 'b' },
+      ],
+    };
+    const atoms = (doc: Document<Root>) =>
+      ((model(doc).children ?? [])[0].children ?? []).filter(
+        (c) => c.type === 'inline-image',
+      );
+    const [a, b] = replicas(content(line as never), {
+      objectData: new Set(['inline-image']),
+    });
+    expect(atoms(a)).toEqual([{ type: 'inline-image', data: {} }]);
+    expect(atoms(b)).toEqual([{ type: 'inline-image', data: {} }]);
+
+    // One atom gets keys on top of its `{}`, and another `{}` is inserted.
+    a.update((root) =>
+      root.zt.applyZeroOperations([
+        ['update', [0, 1], { data: { src: 'x' } }],
+        ['insert', [0, 3], [{ type: 'inline-image', data: {} }]],
+      ]),
+    );
+    exchange(a, b);
+    for (const doc of [a, b]) {
+      expect(atoms(doc)).toEqual([
+        { type: 'inline-image', data: { src: 'x' } },
+        { type: 'inline-image', data: {} },
+      ]);
+    }
+
+    const bytes = converter.snapshotToBytes(a.getRootObject(), new Map());
+    const { root } = converter.bytesToSnapshot(bytes);
+    expect((root as CRDTObject).get('zt')?.toJSON()).toBe(
+      a.getRootObject().get('zt')!.toJSON(),
+    );
   });
 
   it('keeps the schema it is given, apart from other trees and the process default', () => {

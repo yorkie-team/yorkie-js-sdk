@@ -92,6 +92,13 @@ export type ZeroSchema = {
   grid?: { table: string; row: string; cell: string };
   rootType: string;
   atomic: Set<string>;
+  /**
+   * atomic types whose `data` is an object (Zero's image, link card and
+   * `empty-data` atoms such as a soft break). An empty object writes no key,
+   * so such a node with no data reads as `{}`. Other atoms with no data (a
+   * ProseMirror `hard_break`) stay without it.
+   */
+  objectData?: Set<string>;
   defaultChild: Record<string, string>;
   allowed: Record<string, Set<string>>;
 };
@@ -140,6 +147,7 @@ export function cloneZeroSchema(schema: ZeroSchema): ZeroSchema {
     grid: schema.grid ? { ...schema.grid } : undefined,
     rootType: schema.rootType,
     atomic: new Set(schema.atomic),
+    objectData: schema.objectData ? new Set(schema.objectData) : undefined,
     defaultChild: { ...schema.defaultChild },
     allowed: sets(schema.allowed),
   };
@@ -1158,6 +1166,9 @@ export function toNodeJSON(
     json.data = node.text;
   } else if (props.data !== undefined) {
     json.data = props.data;
+  } else if (schema.objectData?.has(node.type)) {
+    // An empty object writes no key (see `flattenProps`).
+    json.data = {};
   }
   if (isContainer(schema, node.type)) {
     json.children = node.children.map((c) => toNodeJSON(c, schema));

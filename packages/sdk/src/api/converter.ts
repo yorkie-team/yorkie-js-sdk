@@ -1415,6 +1415,7 @@ function toZeroSchema(schema: ZeroSchema): PbZeroSchema {
     grid: schema.grid ? create(PbZeroSchemaGridSchema, schema.grid) : undefined,
     rootType: schema.rootType,
     atomic: [...schema.atomic],
+    objectData: [...(schema.objectData ?? [])],
     defaultChild: children(
       Object.fromEntries(
         Object.entries(schema.defaultChild).map(([k, v]) => [k, [v]]),
@@ -1440,6 +1441,7 @@ function fromZeroSchema(pb: PbZeroSchema): ZeroSchema {
       : undefined,
     rootType: pb.rootType,
     atomic: new Set(pb.atomic),
+    objectData: pb.objectData.length ? new Set(pb.objectData) : undefined,
     defaultChild: Object.fromEntries(
       pb.defaultChild.map((e) => [e.type, e.children[0]]),
     ),
