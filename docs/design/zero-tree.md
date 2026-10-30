@@ -167,16 +167,20 @@ removes tombstones) cannot change the model. This is why #2242 (dependence on
 GC timing) structurally does not happen.
 
 The schema is **derived from the Zero schema configured in the editor** (plugin
-`deriveZeroTreeSchema`, `configureZeroSchema` at `activate`). For each element
+`deriveZeroTreeSchema` at `activate`) and given to the tree when it is created
+(`new ZeroTree(content, { schema })`). For each element
 definition name and each semantic name (`table-cell-body` etc.), `allowed` =
 `getChildrenConstraints().allowedChildTypes`, `defaultChild` = the first child
 constraint with `min >= 1` (if none, the first constraint and its first allowed
-type), and a type with no children that is not a text node is `atomic`. So
-nodes added by plugins (the sample's `image-component > image > inline-image`)
-are also filled by the same rules as the editor. Limitation:
-`configureZeroSchema` is page-global, so if two editors with different schemas
-are opened with Zero Tree on one page, the later one wins (a full
-implementation would keep the schema on the tree object).
+type), and a type with no children that is not a text node is `atomic`. An
+atomic type with a (non-text) data definition is in `objectData`: its data is
+an object, so one with no data reads as `{}` (an empty object, such as a soft
+break's `empty-data`, writes no key). So nodes added by plugins (the sample's
+`image-component > image > inline-image`) are also filled by the same rules as
+the editor. The schema lives on the tree, so two editors with different
+schemas on one page do not mix. `configureZeroSchema` (page-global) is kept
+for a tree created without a schema; a tree read without one uses the
+built-in default (`BuiltinZeroSchema`), never the configured one.
 
 ### Writing next to virtual nodes
 
@@ -469,7 +473,7 @@ bytes**.
 | `Operation.ZeroTreeStyle` (body 13)                         | parent, `TextNodeID marker_id`, `repeated ZeroAttrWrite` (order preserved, is_removed = null), executed_at, range (§17.1), cancel (§17.2)                                                     |
 | `JSONElement.ZeroTree` (body 8), `ValueType.ZERO_TREE = 16` | nodes, created/moved/removed/revived, `repeated ZeroPurgedLedger` (empty for Zero Tree), **`ZeroSchema schema`**, **`repeated bytes actors`**. In a Set's `JSONElementSimple`, as bytes       |
 | `ZeroTreeNode`                                              | id, value, removed_at, ins_prev_id, has_ledger, dels, cancels — all times are `ZeroTicket{lamport, delimiter, actor (= index into actors)}`                                                   |
-| `ZeroSchema`                                                | text_type, text_types, scoped, single, grid, root_type, atomic, default_child, allowed — lists keep their order (it decides what fills an empty slot)                                         |
+| `ZeroSchema`                                                | text_type, text_types, scoped, single, grid, root_type, atomic, default_child, allowed, object_data — lists keep their order (it decides what fills an empty slot)                            |
 | `ZeroTokens` / `ZeroToken`                                  | `repeated ZeroToken` + scope / `oneof {string chars; ZeroMarker marker; uint32 ghost}` — consecutive characters are one string (split by code point), ghost is the number of ghost characters |
 | `ZeroMarker` / `ZeroAttr`                                   | type, depth, `repeated ZeroAttr` (key, value, updated_at — updated_at_ref inside the element, is_removed, history), boundary                                                                  |
 | `ZeroAttrEntry`                                             | one write a register keeps in `ZeroAttr.history`: value, is_removed, updated_at(\_ref), by_range (§17.2, §17.3)                                                                               |
@@ -478,7 +482,7 @@ bytes**.
 | `ZeroRestoreSpan`                                           | created_at, start, end, value, removed_by                                                                                                                                                     |
 
 Decisions: **the schema is document state** — when the tree is created, the
-configured schema is copied into the element (about 540 bytes), and readers
+given (or configured) schema is copied into the element (about 540 bytes), and readers
 build the model with the stored schema (the server too). Times inside the
 element are written as indexes into a sorted author table (each 12-byte author
 id only once). Attributes are an ordered list, not a map (map order is not
