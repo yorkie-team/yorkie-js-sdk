@@ -320,6 +320,53 @@ type LedgerIndex = {
 };
 
 /**
+ * `ledgerStable` tells whether `vector` settles `ticket` for good: it covers
+ * the ticket, or the ticket's actor is not in the vector at all.
+ *
+ * The second case is what keeps a ledger finite. The min synced version
+ * vector the server sends names only the clients still attached, and
+ * `VersionVector.afterOrEqual` answers false for an actor it does not hold --
+ * so a pair whose undoing client has since detached would never become
+ * stable, and the tombstone, plus the bytes it adds to every snapshot, would
+ * be held for the life of the document. A detached actor issues no further
+ * change, so nothing that still needs the pair can arrive.
+ *
+ * An empty vector means "nothing is synced yet" rather than "everyone is
+ * gone", and callers must not reach here with one; `RGATreeSplit.pruneLedgers`
+ * and `CRDTRoot.garbageCollect` both stop before that.
+ */
+function ledgerStable(vector: VersionVector, ticket: TimeTicket): boolean {
+  return (
+    vector.afterOrEqual(ticket) || vector.get(ticket.getActorID()) === undefined
+  );
+}
+
+/**
+ * `MaxRemovalEvents` bounds the removal ledger a decoded node may carry. A
+ * ledger grows one pair per delete-and-undo cycle a peer has not pruned yet,
+ * so the bound is far above anything honest traffic reaches; what it rules
+ * out is a forged payload that makes one text node cost a receiving client
+ * unbounded memory and unbounded snapshot bytes.
+ */
+const MaxRemovalEvents = 1 << 14;
+
+/**
+ * `standInRemoval` is the removal `RGATreeSplit.restore` records for a
+ * deletion a purge took away: lamport 0, so every version vector covers it.
+ */
+function standInRemoval(actor: ActorID): TimeTicket {
+  return TimeTicket.of(0n, 0, actor);
+}
+
+/**
+ * `isStandInRemoval` recognises that stand-in -- the one ledger ticket that
+ * legitimately predates the node it removes.
+ */
+function isStandInRemoval(ticket: TimeTicket): boolean {
+  return ticket.getLamport() === 0n && ticket.getDelimiter() === 0;
+}
+
+/**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
  */
 export class RGATreeSplitNode<T extends RGATreeSplitValue>
@@ -690,7 +737,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     const cancels: Array<LedgerCancel> = [];
     const dropped = new Set<string>();
     for (const c of this.cancels ?? []) {
-      if (!vector.afterOrEqual(c.cancelledAt)) {
+      if (!ledgerStable(vector, c.cancelledAt)) {
         cancels.push(c);
         continue;
       }
@@ -730,6 +777,15 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   /**
+   * `soleUncancelledRemoval` returns the deletion holding this node when it is
+   * the only uncancelled one, and nothing when two or more hold it.
+   */
+  public soleUncancelledRemoval(): TimeTicket | undefined {
+    const live = this.ledgerIndex().live;
+    return live.length === 1 ? live[0] : undefined;
+  }
+
+  /**
    * `heldFromPurge` tells whether GC must keep this tombstone under `vector`,
    * the versions every replica has seen. A node removed by two or more
    * deletions no undo cancelled stays: an undo of one of them must find it
@@ -740,6 +796,14 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * removal it cancels answers `isRemovedInView` as the full ledger would.
    * Once that holds and a single removal is left, a restore that finds the
    * piece gone can only be cancelling that removal, and recreates it.
+   *
+   * The two-deletion hold is bounded by who can still undo. Only the actor
+   * that issued a deletion cancels it (`RGATreeSplit.restore`), so once every
+   * actor holding one has left `vector` -- the clients still attached -- no
+   * undo of any of them can arrive and the node is collectable again.
+   * Without that bound a piece two clients deleted concurrently would stay
+   * registered, and charged to `docSize.gc` against the document's size
+   * limit, for the life of the document.
    */
   public heldFromPurge(vector: VersionVector): boolean {
     if (!this.ledgered) {
@@ -748,13 +812,21 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     // A cancelled deletion is older than its cancel by the same actor, so a
     // stable cancel makes it stable too; an uncancelled one is `removedAt`,
     // which GC checks first, or one of two that keep the node anyway.
-    const n = this.ledgerIndex().live.length;
     for (const c of this.cancels ?? []) {
-      if (!vector.afterOrEqual(c.cancelledAt)) {
+      if (!ledgerStable(vector, c.cancelledAt)) {
         return true;
       }
     }
-    return n >= 2;
+    const live = this.ledgerIndex().live;
+    if (live.length < 2) {
+      return false;
+    }
+    for (const d of live) {
+      if (vector.get(d.getActorID()) !== undefined) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -804,10 +876,47 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * the cancel of it. It throws on a repeated ticket, which would pair a
    * cancel with a removal that is not older, and when the result does not
    * reproduce `removedAt`, and leaves the node as it was.
+   *
+   * The payload is untrusted: it reaches here from a snapshot and from the
+   * element payload of a remote operation, so it is whatever the sender
+   * wrote. Two bounds are checked before any of it is believed, and both
+   * reject rather than accept coarsely:
+   *
+   *   - the count, against `MaxRemovalEvents`, so one node cannot be made to
+   *     cost a receiving client unbounded memory and unbounded snapshot
+   *     bytes;
+   *   - the lamport of every ticket, against this node's own creation. A
+   *     deletion causally follows the insertion it deletes and a cancel
+   *     follows its deletion, so no honest event is at or below the node's
+   *     `createdAt` lamport. The one exception is the lamport-0 stand-in
+   *     `RGATreeSplit.restore` records for a purged removal, which is
+   *     recognisable by shape.
+   *
+   * Neither makes the ledger trustworthy -- a peer that can mint tickets can
+   * mint plausible ones, and a forged uncancelled removal attributed to
+   * another actor still suppresses that actor's undo of this piece. What
+   * they rule out is the cheap shapes: an unbounded ledger, and events
+   * naming a point in the document's history this node did not yet exist at.
    */
   public setRemovalEvents(events: Array<TimeTicket>): void {
     if (!events.length) {
       return;
+    }
+    if (events.length > MaxRemovalEvents) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `removal events exceed ${MaxRemovalEvents}`,
+      );
+    }
+    const createdAt = this.getCreatedAt();
+    for (const e of events) {
+      if (e.getLamport() > createdAt.getLamport() || isStandInRemoval(e)) {
+        continue;
+      }
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `removal event ${e.toTestString()} precedes the node it removes`,
+      );
     }
     const removedAt = this.removedAt;
     const all = events.slice();
@@ -1063,6 +1172,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     if (!this.cancelled) {
       this.scanCancelled();
     }
+    // An empty vector says nothing is synced, not that every actor is gone,
+    // and `ledgerStable` reads an absent actor as the latter. `garbageCollect`
+    // is public, so a caller can hand one in; pruning on it would drop every
+    // pair in the document.
+    if (vector.size() === 0) {
+      return this.cancelled!.size;
+    }
     for (const node of this.cancelled!) {
       node.pruneStable(vector);
       if (!node.hasCancels()) {
@@ -1269,7 +1385,20 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             // cannot remove a piece already removed in its view. No other
             // removal holds it if there is none.
             let live = false;
-            const d = target.uncancelledRemovalBy(executedAt.getActorID());
+            let d = target.uncancelledRemovalBy(executedAt.getActorID());
+            if (!d) {
+              // No removal here is attributed to the undoing actor. That is
+              // not only the "someone else deleted it" case: `setActor`
+              // rewrites the document's actor and leaves the undo history
+              // alone (only the re-issue path clears it), so a reverse
+              // operation minted before the change carries the old actor and
+              // would silently revive nothing. Fall back to the one deletion
+              // holding the piece -- which is what an undo meant before the
+              // ledger -- but only when it is the only one, so a piece two
+              // actors deleted still answers to its own deleters alone and
+              // the bound in `heldFromPurge` keeps holding.
+              d = target.soleUncancelledRemoval();
+            }
             if (d) {
               live = target.cancelRemoval(d, executedAt);
               this.trackCancelled(target);
@@ -1308,7 +1437,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           // The pair is dropped once the cancel is known everywhere
           // (`pruneStable`); until then snapshots carry it, as Go records the
           // same.
-          const stable = TimeTicket.of(0n, 0, executedAt.getActorID());
+          const stable = standInRemoval(executedAt.getActorID());
           newNode.recordRemoval(stable);
           newNode.cancelRemoval(stable, executedAt);
           this.trackCancelled(newNode);
