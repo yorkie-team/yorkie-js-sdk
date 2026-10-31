@@ -39,15 +39,6 @@ import { addDataSizes, DataSize } from '@yorkie-js/sdk/src/util/resource';
 export type RestoreMode = 'restore' | 'retombstone';
 
 /**
- * `RestoreRemovedByCapability` is the name the server advertises in
- * `ChangePack.capabilities` when it keeps `RestoreSpan.removed_by` as it
- * stores and relays a change. A server without it drops the field on
- * re-encoding, so an undo that relied on it would apply differently on the
- * replica that ran it and on every replica that pulled it.
- */
-export const RestoreRemovedByCapability = 'restore-removed-by';
-
-/**
  * `EditOperation` is an operation representing editing Text. Most of the same as
  * Edit, but with additional style properties, attributes.
  */
@@ -183,13 +174,18 @@ export class EditOperation extends Operation {
           ? text.getRGATreeSplit().refreshSpans(toRetombstone)
           : undefined;
 
-      // 1. Remove the content the reversed edit inserted (by identity).
+      // 1. Remove the content the reversed edit inserted (by identity). The
+      // reverse names only the pieces the removal was recorded on: naming it
+      // on a piece someone else removed would cancel a removal that piece
+      // never had, and a replica that purged the piece could not tell.
+      let recorded: Array<RestoreSpan<CRDTTextValue>> | undefined;
       if (toRetombstone.length) {
-        const [pairs, changes, diff] = text.retombstone(
-          toRetombstone,
+        const [pairs, changes, diff, spans] = text.retombstone(
+          refreshed ?? toRetombstone,
           this.getExecutedAt(),
           versionVector,
         );
+        recorded = spans;
         addDataSizes(totalDiff, diff);
         for (const pair of pairs) {
           root.registerGCPair(pair);
@@ -224,10 +220,6 @@ export class EditOperation extends Operation {
       }
 
       root.acc(totalDiff);
-      // The spans this execution removed again are restored by the next
-      // reverse, which has to cancel THIS removal, not the original one.
-      const removedNow = (spans?: Array<RestoreSpan<CRDTTextValue>>) =>
-        spans?.map((span) => ({ ...span, removedBy: this.getExecutedAt() }));
       return {
         opInfos,
         // Reverse keeps the same span sets and flips the direction.
@@ -239,16 +231,12 @@ export class EditOperation extends Operation {
           new Map(),
           undefined,
           true,
-          // The re-removed set is refreshed against live attributes (a purged
-          // replica rebuilds from it) and stamped with this removal, which the
-          // next reverse has to cancel.
-          isRetombstone
-            ? removedNow(refreshed ?? this.restoreSpans)
-            : this.restoreSpans,
+          // The re-removed set is the pieces the removal was recorded on,
+          // taken from the spans refreshed against live attributes (a purged
+          // replica rebuilds from them).
+          isRetombstone && recorded ? recorded : this.restoreSpans,
           isRetombstone ? 'restore' : 'retombstone',
-          isRetombstone
-            ? this.retombstoneSpans
-            : removedNow(refreshed ?? this.retombstoneSpans),
+          !isRetombstone && recorded ? recorded : this.retombstoneSpans,
         ),
       };
     }
@@ -560,17 +548,5 @@ export class EditOperation extends Operation {
    */
   public getRetombstoneSpans(): Array<RestoreSpan<CRDTTextValue>> | undefined {
     return this.retombstoneSpans;
-  }
-
-  /**
-   * `dropRemovedBy` clears `removedBy` from both span sets, so the restore
-   * revives what it covers as it did before the removal ledger. Used when the
-   * server does not advertise `RestoreRemovedByCapability`.
-   */
-  public dropRemovedBy(): void {
-    const drop = (spans?: Array<RestoreSpan<CRDTTextValue>>) =>
-      spans?.map((span) => ({ ...span, removedBy: undefined }));
-    this.restoreSpans = drop(this.restoreSpans);
-    this.retombstoneSpans = drop(this.retombstoneSpans);
   }
 }

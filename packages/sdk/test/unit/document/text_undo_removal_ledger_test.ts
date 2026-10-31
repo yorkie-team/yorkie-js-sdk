@@ -21,21 +21,13 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
-import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
-import {
-  EditOperation,
-  RestoreRemovedByCapability,
-} from '@yorkie-js/sdk/src/document/operation/edit_operation';
 
 type Root = { t: Text };
 
-// What a server that keeps `removed_by` advertises on every pack.
-const capable = [RestoreRemovedByCapability];
-
 /**
  * `send` delivers the pending changes of `from` to `to` through protobuf, so
- * the restore spans' `removed_by` is part of what is tested.
+ * what the wire carries is part of what is tested.
  */
 function send(from: Document<Root>, to: Document<Root>): void {
   const pack = converter.fromChangePack<Indexable>(
@@ -48,9 +40,6 @@ function send(from: Document<Root>, to: Document<Root>): void {
       false,
       pack.getChanges() as never,
       InitialVersionVector,
-      undefined,
-      0n,
-      capable,
     ),
   );
 }
@@ -58,7 +47,7 @@ function send(from: Document<Root>, to: Document<Root>): void {
 /**
  * `ack` drops the changes `doc` has already sent from its local queue.
  */
-function ack(doc: Document<Root>, capabilities = capable): void {
+function ack(doc: Document<Root>): void {
   const changes = doc.createChangePack().getChanges();
   const lastSeq = changes.length
     ? changes[changes.length - 1].getID().getClientSeq()
@@ -70,9 +59,6 @@ function ack(doc: Document<Root>, capabilities = capable): void {
       false,
       [],
       InitialVersionVector,
-      undefined,
-      0n,
-      capabilities,
     ),
   );
 }
@@ -200,29 +186,6 @@ describe('Text undo with a removal ledger', () => {
     expect(text(b)).toBe('abc');
   });
 
-  it('does not recreate a purged piece another deletion still holds', () => {
-    const [a, b] = replicas('abcdefgh');
-    b.update((root) => root.t.edit(3, 4, ''));
-    a.update((root) => root.t.edit(3, 8, ''));
-    exchange(a, b);
-
-    // Both deletions are known everywhere: b collects `d` before undoing.
-    const collected = b.garbageCollect(b.getVersionVector());
-    expect(collected).toBeGreaterThan(0);
-    const purged = (
-      (b.getRootObject().get('t') as CRDTText).getRGATreeSplit() as unknown as {
-        getPurgedLedger(): Map<string, unknown>;
-      }
-    ).getPurgedLedger();
-    expect(purged.size).toBeGreaterThan(0);
-
-    b.history.undo();
-    exchange(a, b);
-
-    expect(text(a)).toBe('abc');
-    expect(text(b)).toBe('abc');
-  });
-
   it('revives a deletion nobody else made, also after a snapshot', () => {
     const [a, b] = replicas('abcdefgh');
     b.update((root) => root.t.edit(3, 4, ''));
@@ -253,34 +216,5 @@ describe('Text undo with a removal ledger', () => {
     // removed, leaves it alone there as it did on a.
     expect(text(a)).toBe('abcdef');
     expect(text(b)).toBe('abcdef');
-  });
-
-  it('sends no removedBy until the server advertises the capability', () => {
-    const doc = new Document<Root>('ledger');
-    doc.update((root) => {
-      root.t = new Text();
-      root.t.edit(0, 0, 'abcd');
-    });
-    const undoSpans = () => {
-      doc.update((root) => root.t.edit(1, 2, ''));
-      doc.history.undo();
-      const changes = doc.createChangePack().getChanges();
-      const op = changes[changes.length - 1].getOperations()[0];
-      expect(op).toBeInstanceOf(EditOperation);
-      return (op as EditOperation).getRestoreSpans() ?? [];
-    };
-
-    // A server that does not keep `removed_by` would drop it on relay.
-    ack(doc, []);
-    const before = undoSpans();
-    expect(before.length).toBeGreaterThan(0);
-    expect(before.every((span) => !span.removedBy)).toBe(true);
-    expect(text(doc)).toBe('abcd');
-
-    ack(doc);
-    const after = undoSpans();
-    expect(after.length).toBeGreaterThan(0);
-    expect(after.every((span) => !!span.removedBy)).toBe(true);
-    expect(text(doc)).toBe('abcd');
   });
 });

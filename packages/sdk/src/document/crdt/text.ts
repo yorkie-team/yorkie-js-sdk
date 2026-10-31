@@ -353,8 +353,7 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
       diff,
       [caretPos, caretPos],
       removedValues,
-      // An undo of this edit cancels exactly this deletion (see `RestoreSpan`).
-      removedSpans.map((span) => ({ ...span, removedBy: editedAt })),
+      removedSpans,
     ];
   }
 
@@ -391,13 +390,35 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     spans: Array<RestoreSpan<CRDTTextValue>>,
     executedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<TextChange<A>>, DataSize] {
-    const [pairs, valueChanges, diff] = this.rgaTreeSplit.retombstone(
+  ): [
+    Array<GCPair>,
+    Array<TextChange<A>>,
+    DataSize,
+    Array<RestoreSpan<CRDTTextValue>>,
+  ] {
+    const [pairs, valueChanges, diff, recorded] = this.rgaTreeSplit.retombstone(
       spans,
       executedAt,
       versionVector,
     );
-    return [pairs, this.toTextChanges(valueChanges), diff];
+    return [pairs, this.toTextChanges(valueChanges), diff, recorded];
+  }
+
+  /**
+   * `hasCancelledRemovals` reports whether any piece's removal ledger holds a
+   * cancel that `pruneLedgers` may drop later.
+   */
+  public hasCancelledRemovals(): boolean {
+    return this.rgaTreeSplit.hasCancelledRemovals();
+  }
+
+  /**
+   * `pruneLedgers` drops the removals whose cancels the given vector covers
+   * from the pieces' ledgers, and returns how many pieces still hold a
+   * cancel.
+   */
+  public pruneLedgers(vector: VersionVector): number {
+    return this.rgaTreeSplit.pruneLedgers(vector);
   }
 
   /**

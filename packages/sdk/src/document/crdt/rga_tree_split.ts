@@ -280,14 +280,14 @@ export type RestoreSpan<T extends RGATreeSplitValue> = {
   start: number;
   end: number;
   value: T;
-  /**
-   * `removedBy` is the deletion this span undoes. When present, `restore`
-   * cancels exactly that deletion instead of clearing the tombstone, so a
-   * concurrent deletion the undo never saw keeps the node removed on every
-   * replica. A span without it (written by an older SDK) clears the
-   * tombstone as before.
-   */
-  removedBy?: TimeTicket;
+};
+
+/**
+ * `LedgerCancel` is an undo that cancelled one deletion of a node.
+ */
+export type LedgerCancel = {
+  deletion: TimeTicket;
+  cancelledAt: TimeTicket;
 };
 
 /**
@@ -300,12 +300,12 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   private id: RGATreeSplitNodeID;
   private removedAt?: TimeTicket;
   // The removal ledger. `dels` are the deletions that removed this node
-  // while it was live in the deleter's view; `cancels` are [deletion,
-  // cancelledAt] pairs written by undo. `removedAt` is the latest uncancelled
-  // deletion. Undefined `dels` means the ledger is just `removedAt` (a node
-  // never removed, or decoded without a ledger).
+  // while it was live in the deleter's view; `cancels` are the deletions undo
+  // cancelled. `removedAt` is the latest uncancelled deletion. `!ledgered`
+  // means the ledger is just `removedAt`.
+  private ledgered = false;
   private dels?: Array<TimeTicket>;
-  private cancels?: Array<[TimeTicket, TimeTicket]>;
+  private cancels?: Array<LedgerCancel>;
 
   private prev?: RGATreeSplitNode<T>;
   private next?: RGATreeSplitNode<T>;
@@ -495,21 +495,72 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   private copyLedger(other: RGATreeSplitNode<T>): void {
+    this.ledgered = other.ledgered;
     this.dels = other.dels?.slice();
-    this.cancels = other.cancels?.map(([d, c]) => [d, c]);
+    this.cancels = other.cancels?.slice();
+  }
+
+  /**
+   * `getLedger` returns the removal ledger: whether there is one, the
+   * deletions and the cancels.
+   */
+  public getLedger(): [boolean, Array<TimeTicket>, Array<LedgerCancel>] {
+    return [this.ledgered, this.dels ?? [], this.cancels ?? []];
+  }
+
+  /**
+   * `hasCancels` tells whether the ledger holds a cancel, the only thing
+   * `pruneStable` can drop.
+   */
+  public hasCancels(): boolean {
+    return !!this.cancels?.length;
+  }
+
+  /**
+   * `removals` returns the deletions in the ledger without building one: a
+   * node without a ledger was removed by `removedAt` alone, if at all.
+   */
+  private removals(): Array<TimeTicket> {
+    if (this.ledgered) {
+      return this.dels ?? [];
+    }
+    return this.removedAt ? [this.removedAt] : [];
   }
 
   private ledger(): Array<TimeTicket> {
-    if (!this.dels) {
+    if (!this.ledgered) {
+      this.ledgered = true;
       this.dels = this.removedAt ? [this.removedAt] : [];
     }
-    return this.dels;
+    return this.dels!;
+  }
+
+  /**
+   * `cancelsByDeletion` indexes the ledger's cancels by the deletion each one
+   * cancels. A deletion is cancelled at most once (`cancelRemoval` and
+   * `setRemovalEvents` both pair one to one).
+   *
+   * Every walk of the ledger takes this index rather than scanning the
+   * cancels per deletion: the ledger of a decoded node is as long as whoever
+   * sent it made it, and a scan per deletion would make reading one quadratic
+   * in that length.
+   */
+  private cancelsByDeletion(): Map<string, TimeTicket> | undefined {
+    if (!this.cancels?.length) {
+      return;
+    }
+    const index = new Map<string, TimeTicket>();
+    for (const c of this.cancels) {
+      index.set(c.deletion.toIDString(), c.cancelledAt);
+    }
+    return index;
   }
 
   private recompute(): void {
+    const cancels = this.cancelsByDeletion();
     let latest: TimeTicket | undefined;
     for (const d of this.ledger()) {
-      if (this.cancels?.some(([x]) => x.equals(d))) {
+      if (cancels?.has(d.toIDString())) {
         continue;
       }
       if (!latest || d.after(latest)) {
@@ -520,12 +571,35 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   /**
-   * `recordRemoval` adds a deletion to the ledger.
+   * `recordRemoval` adds a deletion to the ledger. A node's first removal is
+   * just `removedAt`; the ledger is built only when a second removal or a
+   * cancel needs it.
    */
   public recordRemoval(removedAt: TimeTicket): void {
-    const dels = this.ledger();
-    if (!dels.some((d) => d.equals(removedAt))) {
-      dels.push(removedAt);
+    if (!this.ledgered && !this.removedAt) {
+      this.removedAt = removedAt;
+      return;
+    }
+    let found = false;
+    const cancels = this.cancelsByDeletion();
+    for (const d of this.ledger()) {
+      if (d.equals(removedAt)) {
+        found = true;
+        break;
+      }
+      // An actor removes a piece only while it is live in its view, so it
+      // never holds two uncancelled removals; a change whose vector leaves
+      // out its own earlier removal is not honest, and recording it would
+      // break the pairing `removal_events` relies on and grow the ledger.
+      if (
+        d.getActorID() === removedAt.getActorID() &&
+        !cancels?.has(d.toIDString())
+      ) {
+        return;
+      }
+    }
+    if (!found) {
+      this.dels!.push(removedAt);
     }
     this.recompute();
   }
@@ -537,48 +611,97 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   public cancelRemoval(deletion: TimeTicket, at: TimeTicket): boolean {
     this.ledger();
     this.cancels = this.cancels ?? [];
-    if (!this.cancels.some(([x]) => x.equals(deletion))) {
-      this.cancels.push([deletion, at]);
+    if (!this.cancels.some((c) => c.deletion.equals(deletion))) {
+      this.cancels.push({ deletion, cancelledAt: at });
     }
     this.recompute();
     return !this.removedAt;
   }
 
   /**
-   * `getLedger` returns the removal ledger as it is, for the converter.
+   * `pruneStable` drops each removal whose cancel is known to every replica,
+   * with that cancel. A change that arrives later knows both, so the pair
+   * never decides `isRemovedInView` again, and dropping it keeps an
+   * undo-heavy text from carrying every removal it ever had. A removal is
+   * older than its cancel by the same actor, so the cancel being known is
+   * enough. What is left is the default ledger once `removedAt` alone says
+   * it.
    */
-  public getLedger(): {
-    dels?: Array<TimeTicket>;
-    cancels?: Array<[TimeTicket, TimeTicket]>;
-  } {
-    return { dels: this.dels, cancels: this.cancels };
-  }
-
-  /**
-   * `setLedger` sets the removal ledger decoded with `removedAt`.
-   */
-  public setLedger(
-    dels?: Array<TimeTicket>,
-    cancels?: Array<[TimeTicket, TimeTicket]>,
-  ): void {
+  public pruneStable(vector: VersionVector): void {
+    const cancels: Array<LedgerCancel> = [];
+    const dropped = new Set<string>();
+    for (const c of this.cancels ?? []) {
+      if (!vector.afterOrEqual(c.cancelledAt)) {
+        cancels.push(c);
+        continue;
+      }
+      dropped.add(c.deletion.toIDString());
+    }
+    let dels = this.dels;
+    if (dropped.size && dels) {
+      dels = dels.filter((d) => !dropped.has(d.toIDString()));
+    }
     this.dels = dels;
     this.cancels = cancels;
+    if (
+      !cancels.length &&
+      (!dels?.length ||
+        (dels.length === 1 &&
+          !!this.removedAt &&
+          dels[0].equals(this.removedAt)))
+    ) {
+      this.ledgered = false;
+      this.dels = undefined;
+      this.cancels = undefined;
+    }
   }
 
   /**
-   * `hasLedger` tells whether this node carries a removal ledger.
+   * `uncancelledRemovalBy` returns the removal by `actor` no undo cancelled,
+   * if any.
    */
-  public hasLedger(): boolean {
-    return !!this.dels;
+  public uncancelledRemovalBy(actor: ActorID): TimeTicket | undefined {
+    const cancels = this.cancelsByDeletion();
+    for (const d of this.removals()) {
+      if (d.getActorID() === actor && !cancels?.has(d.toIDString())) {
+        return d;
+      }
+    }
+    return;
   }
 
   /**
-   * `uncancelledRemovals` returns the deletions no undo has cancelled.
+   * `heldFromPurge` tells whether GC must keep this tombstone under `vector`,
+   * the versions every replica has seen. A node removed by two or more
+   * deletions no undo cancelled stays: an undo of one of them must find it
+   * still held by the others, and a purged node could not say so. A node
+   * whose ledger is not yet stable stays too: every deletion and every cancel
+   * in it must be known to all replicas, so any change that arrives after the
+   * purge already knew them, and a node a restore recreates with only the
+   * removal it cancels answers `isRemovedInView` as the full ledger would.
+   * Once that holds and a single removal is left, a restore that finds the
+   * piece gone can only be cancelling that removal, and recreates it.
    */
-  public uncancelledRemovals(): Array<TimeTicket> {
-    return this.ledger().filter(
-      (d) => !this.cancels?.some(([x]) => x.equals(d)),
-    );
+  public heldFromPurge(vector: VersionVector): boolean {
+    if (!this.ledgered) {
+      return false;
+    }
+    // A cancelled deletion is older than its cancel by the same actor, so a
+    // stable cancel makes it stable too; an uncancelled one is `removedAt`,
+    // which GC checks first, or one of two that keep the node anyway.
+    let n = 0;
+    const cancels = this.cancelsByDeletion();
+    for (const d of this.dels ?? []) {
+      if (!cancels?.has(d.toIDString())) {
+        n++;
+      }
+    }
+    for (const c of this.cancels ?? []) {
+      if (!vector.afterOrEqual(c.cancelledAt)) {
+        return true;
+      }
+    }
+    return n >= 2;
   }
 
   /**
@@ -586,18 +709,101 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * given version vector: a deletion it knew that no undo it knew cancelled.
    */
   public isRemovedInView(vector: VersionVector): boolean {
-    for (const d of this.ledger()) {
+    const cancels = this.cancelsByDeletion();
+    for (const d of this.removals()) {
       if (!ticketKnown(vector, d)) {
         continue;
       }
-      const cancelled = this.cancels?.some(
-        ([x, at]) => x.equals(d) && ticketKnown(vector, at),
-      );
-      if (!cancelled) {
-        return true;
+      const at = cancels?.get(d.toIDString());
+      if (at && ticketKnown(vector, at)) {
+        continue;
       }
+      return true;
     }
     return false;
+  }
+
+  /**
+   * `getRemovalEvents` returns the ledger as one list: every removal and
+   * every cancel's ticket except `removedAt`, in ticket order. Empty when
+   * `removedAt` says it all. An actor's events alternate in ticket order --
+   * it removes a piece only while the piece is live in its view, and its
+   * undo cancels its one uncancelled removal -- so `setRemovalEvents` can
+   * tell them apart by place.
+   */
+  public getRemovalEvents(): Array<TimeTicket> {
+    if (!this.ledgered) {
+      return [];
+    }
+    const events: Array<TimeTicket> = [];
+    for (const d of this.dels ?? []) {
+      if (!this.removedAt || !d.equals(this.removedAt)) {
+        events.push(d);
+      }
+    }
+    for (const c of this.cancels ?? []) {
+      events.push(c.cancelledAt);
+    }
+    return events.sort((a, b) => a.compare(b));
+  }
+
+  /**
+   * `setRemovalEvents` rebuilds the ledger from `removedAt` and the events
+   * `getRemovalEvents` returned: per actor, in ticket order, a removal then
+   * the cancel of it. It throws on a repeated ticket, which would pair a
+   * cancel with a removal that is not older, and when the result does not
+   * reproduce `removedAt`, and leaves the node as it was.
+   */
+  public setRemovalEvents(events: Array<TimeTicket>): void {
+    if (!events.length) {
+      return;
+    }
+    const removedAt = this.removedAt;
+    const all = events.slice();
+    if (removedAt) {
+      all.push(removedAt);
+    }
+    all.sort((a, b) => a.compare(b));
+    for (let i = 1; i < all.length; i++) {
+      if (all[i].equals(all[i - 1])) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'removal events repeat a ticket',
+        );
+      }
+    }
+
+    const dels: Array<TimeTicket> = [];
+    const cancels: Array<LedgerCancel> = [];
+    const open = new Map<ActorID, TimeTicket>();
+    for (const t of all) {
+      const d = open.get(t.getActorID());
+      if (d) {
+        cancels.push({ deletion: d, cancelledAt: t });
+        open.delete(t.getActorID());
+        continue;
+      }
+      dels.push(t);
+      open.set(t.getActorID(), t);
+    }
+
+    this.ledgered = true;
+    this.dels = dels;
+    this.cancels = cancels;
+    this.recompute();
+    if (
+      !removedAt !== !this.removedAt ||
+      (removedAt && !removedAt.equals(this.removedAt!))
+    ) {
+      this.removedAt = removedAt;
+      this.ledgered = false;
+      this.dels = undefined;
+      this.cancels = undefined;
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'removal events do not reproduce removed_at',
+      );
+    }
   }
 
   /**
@@ -655,21 +861,13 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   }
 
   /**
-   * `setRemovedAt` sets the remove time of this node.
+   * `setRemovedAt` sets the remove time of this node. It drops the ledger.
    */
   public setRemovedAt(removedAt?: TimeTicket): void {
     this.removedAt = removedAt;
+    this.ledgered = false;
     this.dels = undefined;
     this.cancels = undefined;
-  }
-
-  /**
-   * `remove` removes the node of the given edited time.
-   */
-  public remove(removedAt: TimeTicket) {
-    // The ledger keeps the latest uncancelled deletion as `removedAt`, which
-    // is the old "overwrite only if newer" rule.
-    this.recordRemoval(removedAt);
   }
 
   /**
@@ -765,24 +963,59 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    */
   private pendingGCPairs: Array<GCPair>;
 
-  // What the ledger of a purged piece still said -- its uncancelled
-  // deletions -- keyed by insertion. A restore that finds the piece gone
-  // recreates it only when no other deletion remains, the same answer the
-  // piece's own ledger gives on a replica that has not purged it.
-  private purgedLedger: Map<
-    string,
-    Array<{ start: number; end: number; dels: Array<TimeTicket> }>
-  > = new Map();
+  /**
+   * `cancelled` holds the nodes whose ledger has a cancel, the only ones
+   * `pruneLedgers` can drop anything from. Undefined until first needed: a
+   * tree decoded from a snapshot or deep-copied fills it with one scan.
+   */
+  private cancelled?: Set<RGATreeSplitNode<T>>;
 
   /**
-   * `getPurgedLedger` returns what the ledgers of purged pieces still said,
-   * for the converter.
+   * `trackCancelled` records that the ledger of `node` has a cancel.
    */
-  public getPurgedLedger(): Map<
-    string,
-    Array<{ start: number; end: number; dels: Array<TimeTicket> }>
-  > {
-    return this.purgedLedger;
+  private trackCancelled(node: RGATreeSplitNode<T>): void {
+    if (!this.cancelled) {
+      this.scanCancelled();
+    }
+    this.cancelled!.add(node);
+  }
+
+  private scanCancelled(): void {
+    this.cancelled = new Set();
+    for (let node: RGATreeSplitNode<T> | undefined = this.head; node; ) {
+      if (node.hasCancels()) {
+        this.cancelled.add(node);
+      }
+      node = node.getNext();
+    }
+  }
+
+  /**
+   * `hasCancelledRemovals` reports whether any node's ledger holds a cancel.
+   */
+  public hasCancelledRemovals(): boolean {
+    if (!this.cancelled) {
+      this.scanCancelled();
+    }
+    return this.cancelled!.size > 0;
+  }
+
+  /**
+   * `pruneLedgers` drops, from every node's ledger, the removals whose
+   * cancels the given vector covers (see `RGATreeSplitNode.pruneStable`). It
+   * returns how many nodes still hold a cancel.
+   */
+  public pruneLedgers(vector: VersionVector): number {
+    if (!this.cancelled) {
+      this.scanCancelled();
+    }
+    for (const node of this.cancelled!) {
+      node.pruneStable(vector);
+      if (!node.hasCancels()) {
+        this.cancelled!.delete(node);
+      }
+    }
+    return this.cancelled!.size;
   }
 
   constructor() {
@@ -910,7 +1143,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `restore` re-establishes the characters described by `spans` under
    * their ORIGINAL identities. For each span, per overlapping region:
    *   - live piece exists       → skip (idempotent; another undo restored it)
-   *   - tombstoned piece exists → clear removedAt (un-tombstone)
+   *   - tombstoned piece exists → cancel the undoing actor's own removal; the
+   *                               piece revives unless another removal holds
+   *                               it
    *   - no piece exists (GC'd)  → recreate a node with the original ID
    *
    * Returns [untombstonedNodes, recreatedNodes, changes, liveDiff,
@@ -975,9 +1210,16 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           const overlapEnd = Math.min(pieceEnd, span.end);
           if (piece.isRemoved()) {
             const [target] = this.isolateRange(piece, cursor, overlapEnd);
-            const live = span.removedBy
-              ? target.cancelRemoval(span.removedBy, executedAt)
-              : (target.setRemovedAt(undefined), true);
+            // An undo reverses its own actor's change, so the removal it
+            // cancels is the one uncancelled removal by that actor: one actor
+            // cannot remove a piece already removed in its view. No other
+            // removal holds it if there is none.
+            let live = false;
+            const d = target.uncancelledRemovalBy(executedAt.getActorID());
+            if (d) {
+              live = target.cancelRemoval(d, executedAt);
+              this.trackCancelled(target);
+            }
             if (live) {
               // Repair splay weights on the path to root (length 0 → len).
               this.treeByIndex.splayNode(target);
@@ -992,42 +1234,11 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             pieceIdx++;
           }
         } else {
-          // Gap: recreate [cursor, gapEnd) with its original ID.
-          let gapEnd = Math.min(pieceStart, span.end);
-          if (span.removedBy) {
-            // Cancel `removedBy` in what the purged pieces said, and skip the
-            // offsets another deletion still holds removed.
-            const entries =
-              this.purgedLedger.get(span.createdAt.toIDString()) ?? [];
-            for (const e of entries) {
-              if (e.start < gapEnd && cursor < e.end) {
-                e.dels = e.dels.filter((d) => !d.equals(span.removedBy!));
-              }
-            }
-            const heldAt = (offset: number) =>
-              entries.some(
-                (e) => e.start <= offset && offset < e.end && e.dels.length,
-              );
-            if (heldAt(cursor)) {
-              while (cursor < gapEnd && heldAt(cursor)) {
-                cursor++;
-              }
-              continue;
-            }
-            for (let o = cursor + 1; o < gapEnd; o++) {
-              if (heldAt(o)) {
-                gapEnd = o;
-                break;
-              }
-            }
-            // Recreate each purged piece as it was, so this replica splits the
-            // run where an unpurged one still has the pieces.
-            for (const e of entries) {
-              if (e.start <= cursor && cursor < e.end && e.end < gapEnd) {
-                gapEnd = e.end;
-              }
-            }
-          }
+          // Gap: recreate [cursor, gapEnd) with its original ID. A purged
+          // piece had a single uncancelled removal, stable on every replica
+          // (see `heldFromPurge`), so this restore can only be cancelling that
+          // one.
+          const gapEnd = Math.min(pieceStart, span.end);
           const value = span.value.substring(
             cursor - span.start,
             gapEnd - span.start,
@@ -1036,13 +1247,17 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
             RGATreeSplitNodeID.of(span.createdAt, cursor),
             value,
           );
-          // A node recreated after GC keeps what its ledger said -- removed
-          // by `removedBy`, which this restore cancels -- so a concurrent
-          // deletion that saw it removed still leaves it alone.
-          if (span.removedBy) {
-            newNode.recordRemoval(span.removedBy);
-            newNode.cancelRemoval(span.removedBy, executedAt);
-          }
+          // The purged removal was known to every replica before the purge,
+          // so every change that can arrive later knows it. A stand-in removal
+          // by the same actor at lamport 0, which every such change's vector
+          // covers, keeps that answer for `isRemovedInView`, with this cancel.
+          // The pair is dropped once the cancel is known everywhere
+          // (`pruneStable`); until then snapshots carry it, as Go records the
+          // same.
+          const stable = TimeTicket.of(0n, 0, executedAt.getActorID());
+          newNode.recordRemoval(stable);
+          newNode.cancelRemoval(stable, executedAt);
+          this.trackCancelled(newNode);
           // `substring` deep-copied the span's attributes, tombstones
           // included, exactly as a split does. Book them here for the same
           // reason `splitNode` does -- see `bookCopiedAttrTombstones`. The
@@ -1104,27 +1319,43 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
   /**
    * `retombstone` re-deletes the characters described by `spans` (redo of
-   * an identity-preserving undo). Only live pieces are affected; already
-   * removed or purged regions are skipped (idempotent).
+   * an identity-preserving undo). Only pieces live in the redo's view are
+   * affected: a piece removed in that view, or purged, is skipped
+   * (idempotent), and a piece removed here by a deletion the redo never saw
+   * records the redo without being re-tombstoned.
    *
-   * Returns [pairs, changes, diff]: GCPairs for the newly tombstoned
-   * nodes, the removed regions as deletions so editor bindings and remote
-   * sync can be driven the same way as a normal edit, and the
-   * metadata-size overhead from splitting the (live) pieces to isolate the
-   * target range. The caller must `root.acc(diff)` before registering
-   * `pairs`, mirroring how a normal edit's boundary splits are accounted
-   * before its resulting tombstones are registered. Indices are captured
-   * before each removal, so applying them in emission order stays
-   * consistent.
+   * Returns [pairs, changes, diff, recorded]: GCPairs for the newly
+   * tombstoned nodes and the born-dead remainders the splits left behind,
+   * the removed regions as deletions so editor bindings and remote sync can
+   * be driven the same way as a normal edit, the metadata-size overhead from
+   * splitting the (live) pieces to isolate the target range, and the pieces
+   * the removal was recorded on, which the reverse has to name. The caller
+   * must `root.acc(diff)` before registering `pairs`, mirroring how a normal
+   * edit's boundary splits are accounted before its resulting tombstones are
+   * registered. Indices are captured before each removal, so applying them
+   * in emission order stays consistent.
    */
   public retombstone(
     spans: Array<RestoreSpan<T>>,
     executedAt: TimeTicket,
     versionVector?: VersionVector,
-  ): [Array<GCPair>, Array<ValueChange<T>>, DataSize] {
+  ): [Array<GCPair>, Array<ValueChange<T>>, DataSize, Array<RestoreSpan<T>>] {
     const pairs: Array<GCPair> = [];
     const changes: Array<ValueChange<T>> = [];
     const diff = { data: 0, meta: 0 };
+    // The pieces the removal was recorded on, which the reverse names: a
+    // restore never reaches a piece that holds no removal by its actor.
+    const recorded: Array<RestoreSpan<T>> = [];
+    const record = (span: RestoreSpan<T>, target: RGATreeSplitNode<T>) => {
+      const start = target.getID().getOffset();
+      const end = start + target.getContentLength();
+      recorded.push({
+        createdAt: span.createdAt,
+        start,
+        end,
+        value: span.value.substring(start - span.start, end - span.start) as T,
+      });
+    };
 
     for (const span of spans) {
       const pieces = this.findPiecesOverlapping(
@@ -1150,6 +1381,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
               Math.min(pieceEnd, span.end),
             );
             target.recordRemoval(executedAt);
+            record(span, target);
           }
           continue;
         }
@@ -1176,7 +1408,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         addDataSizes(diff, splitDiff);
         // Capture the visible range while `target` is still live.
         const [from, to] = this.findIndexesFromRange(target.createPosRange());
-        target.remove(executedAt);
+        target.recordRemoval(executedAt);
+        record(span, target);
         this.treeByIndex.splayNode(target);
         pairs.push({ parent: this, child: target });
         if (from < to) {
@@ -1185,12 +1418,13 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       }
     }
 
-    // retombstone only isolates live pieces, so splitNode buffers no
-    // born-removed piece here, but a split still books the attribute
-    // tombstones it copies.
+    // Isolating a range inside an already-tombstoned piece buffers born-dead
+    // remainders, and a split books the attribute tombstones it copies. Hand
+    // them to the caller with the rest: unregistered, they would never be
+    // purged and their size would stay uncharged.
     pairs.push(...this.drainPendingGCPairs());
 
-    return [pairs, changes, diff];
+    return [pairs, changes, diff, recorded];
   }
 
   /**
@@ -1539,13 +1773,6 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       node = node.getNext();
     }
 
-    for (const [key, entries] of this.purgedLedger) {
-      clone.purgedLedger.set(
-        key,
-        entries.map((e) => ({ ...e, dels: e.dels.slice() })),
-      );
-    }
-
     return clone;
   }
 
@@ -1787,6 +2014,9 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const prvSize = node.getDataSize();
 
     const splitNode = node.split(offset);
+    if (splitNode.hasCancels()) {
+      this.cancelled?.add(splitNode);
+    }
     this.treeByIndex.updateWeight(splitNode);
     this.insertAfter(node, splitNode);
 
@@ -1933,7 +2163,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         alreadyRemovedIDs.add(id);
       }
       removedNodes.set(id, node);
-      node.remove(editedAt);
+      node.recordRemoval(editedAt);
     }
 
     // 04. Clear the index tree of the given deletion boundaries.
@@ -2029,17 +2259,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `purge` physically purges the given node from RGATreeSplit.
    */
   public purge(node: RGATreeSplitNode<T>): void {
-    if (node.hasLedger()) {
-      const key = node.getCreatedAt().toIDString();
-      const entries = this.purgedLedger.get(key) ?? [];
-      const start = node.getID().getOffset();
-      entries.push({
-        start,
-        end: start + node.getContentLength(),
-        dels: node.uncancelledRemovals(),
-      });
-      this.purgedLedger.set(key, entries);
-    }
+    this.cancelled?.delete(node);
     this.treeByIndex.delete(node);
     this.treeByID.remove(node.getID());
 

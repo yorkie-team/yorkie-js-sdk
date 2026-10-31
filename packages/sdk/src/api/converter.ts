@@ -135,9 +135,6 @@ import {
   RestoreSpan as PbRestoreSpan,
   RestoreMode as PbRestoreMode,
   TreeRestoreSpanSchema as PbTreeRestoreSpanSchema,
-  RemovalCancelSchema as PbRemovalCancelSchema,
-  PurgedRemovalsSchema as PbPurgedRemovalsSchema,
-  PurgedRemovals as PbPurgedRemovals,
   TreeRestoreSpan as PbTreeRestoreSpan,
   RevisionSummary as PbRevisionSummary,
 } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
@@ -539,7 +536,6 @@ function toOperation(operation: Operation): PbOperation {
       pbSpan.start = span.start;
       pbSpan.end = span.end;
       pbSpan.content = span.value.getContent();
-      pbSpan.removedBy = toTimeTicket(span.removedBy);
       const pbSpanAttrs = pbSpan.attributes;
       for (const [key, value] of Object.entries(span.value.getAttributes())) {
         pbSpanAttrs[key] = value;
@@ -788,7 +784,12 @@ function toTextNodes(
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
-    writeRemovalLedger(pbTextNode, textNode);
+    // The removal ledger beyond removed_at. A node whose removed_at says it
+    // all writes nothing, so a character removed by one deletion and never
+    // restored encodes to the same bytes as before.
+    pbTextNode.removalEvents = textNode
+      .getRemovalEvents()
+      .map((t) => toTimeTicket(t)!);
     if (
       textNode.getInsPrev() &&
       emitted.has(textNode.getInsPrevID().toIDString())
@@ -811,87 +812,6 @@ function toTextNodes(
   }
 
   return pbTextNodes;
-}
-
-/**
- * `writeRemovalLedger` writes the removal ledger of a node. A ledger that says
- * only "removed by removedAt" is what a node without one starts from
- * (`RGATreeSplitNode.ledger`), so it is not written.
- */
-function writeRemovalLedger(
-  pbNode: PbTextNode,
-  node: RGATreeSplitNode<CRDTTextValue>,
-): void {
-  const { dels, cancels } = node.getLedger();
-  const removedAt = node.getRemovedAt();
-  if (
-    !dels ||
-    (!cancels?.length &&
-      (removedAt
-        ? dels.length === 1 && dels[0].equals(removedAt)
-        : dels.length === 0))
-  ) {
-    return;
-  }
-  pbNode.hasLedger = true;
-  pbNode.removals = dels.map((d) => toTimeTicket(d)!);
-  pbNode.removalCancels = (cancels ?? []).map(([removal, at]) =>
-    create(PbRemovalCancelSchema, {
-      removal: toTimeTicket(removal),
-      cancelledAt: toTimeTicket(at),
-    }),
-  );
-}
-
-/**
- * `toPurgedRemovals` writes what the ledgers of purged pieces still said.
- * Purge order depends on GC iteration, so the entries go out sorted: one
- * state, one snapshot.
- */
-function toPurgedRemovals(
-  rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
-): Array<PbPurgedRemovals> {
-  const purged: Array<{
-    createdAt: TimeTicket;
-    start: number;
-    end: number;
-    dels: Array<TimeTicket>;
-  }> = [];
-  for (const [key, entries] of rgaTreeSplit.getPurgedLedger()) {
-    const [lamport, actorID, delimiter] = key.split(':');
-    const createdAt = TimeTicket.of(
-      BigInt(lamport),
-      Number(delimiter),
-      actorID,
-    );
-    for (const e of entries) {
-      purged.push({ createdAt, ...e });
-    }
-  }
-  const compareDels = (a: Array<TimeTicket>, b: Array<TimeTicket>) => {
-    for (let i = 0; i < Math.min(a.length, b.length); i++) {
-      const c = a[i].compare(b[i]);
-      if (c) {
-        return c;
-      }
-    }
-    return a.length - b.length;
-  };
-  purged.sort(
-    (a, b) =>
-      a.createdAt.compare(b.createdAt) ||
-      a.start - b.start ||
-      a.end - b.end ||
-      compareDels(a.dels, b.dels),
-  );
-  return purged.map((e) =>
-    create(PbPurgedRemovalsSchema, {
-      createdAt: toTimeTicket(e.createdAt),
-      start: e.start,
-      end: e.end,
-      removals: e.dels.map((d) => toTimeTicket(d)!),
-    }),
-  );
 }
 
 /**
@@ -1038,7 +958,6 @@ function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
         createdAt: toTimeTicket(text.getCreatedAt()),
         movedAt: toTimeTicket(text.getMovedAt()),
         removedAt: toTimeTicket(text.getRemovedAt()),
-        purgedRemovals: toPurgedRemovals(text.getRGATreeSplit()),
       }),
     },
   });
@@ -1440,17 +1359,29 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     textValue,
   );
   textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
-  if (pbTextNode.hasLedger) {
-    textNode.setLedger(
-      pbTextNode.removals.map((d) => fromTimeTicket(d)!),
-      pbTextNode.removalCancels.map(
-        (c) =>
-          [fromTimeTicket(c.removal)!, fromTimeTicket(c.cancelledAt)!] as [
-            TimeTicket,
-            TimeTicket,
-          ],
-      ),
-    );
+  if (pbTextNode.removalEvents.length) {
+    const events = pbTextNode.removalEvents.map((e) => {
+      const ticket = fromTimeTicket(e);
+      if (!ticket) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'text_node.removal_events: a ticket is missing',
+        );
+      }
+      return ticket;
+    });
+    // A ledger that breaks the rules is refused rather than dropped: a node
+    // left with removed_at alone answers `isRemovedInView` and
+    // `uncancelledRemovalBy` differently from every replica that holds the
+    // full ledger, which is a text that silently diverges from then on.
+    try {
+      textNode.setRemovalEvents(events);
+    } catch (err) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        `text_node.removal_events: ${(err as Error).message}`,
+      );
+    }
   }
   return textNode;
 }
@@ -1693,7 +1624,6 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
         start: pbSpan.start,
         end: pbSpan.end,
         value,
-        removedBy: fromTimeTicket(pbSpan.removedBy),
       };
     };
     let restoreSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
@@ -2014,17 +1944,6 @@ function fromText<A extends Indexable>(
     }
     decoded.set(current.getID().toIDString(), current);
     prev = current;
-  }
-  const purged = rgaTreeSplit.getPurgedLedger();
-  for (const e of pbText.purgedRemovals) {
-    const key = fromTimeTicket(e.createdAt)!.toIDString();
-    const entries = purged.get(key) ?? [];
-    entries.push({
-      start: e.start,
-      end: e.end,
-      dels: e.removals.map((d) => fromTimeTicket(d)!),
-    });
-    purged.set(key, entries);
   }
   const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);
   text.setMovedAt(fromTimeTicket(pbText.movedAt));
