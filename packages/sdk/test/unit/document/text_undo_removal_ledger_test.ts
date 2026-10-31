@@ -493,13 +493,24 @@ describe('Text undo with a removal ledger', () => {
     }
     expect(removed).toBeGreaterThan(0);
 
-    // The bytes are refused rather than read as removed_at alone: a replica
-    // that kept only removed_at would answer a later concurrent deletion, or
-    // an undo, differently from every replica holding the full ledger, and
-    // diverge from then on without a word.
-    expect(() =>
-      converter.bytesToSnapshot(toBinary(PbSnapshotSchema, pbSnapshot)),
-    ).toThrow(/removal_events/);
+    // The bad ledger is dropped, not thrown on: `bytesToSnapshot` is the
+    // attach, offline-restore and pull path, and a throw there wedges the
+    // document for good over one node. The node keeps removed_at, so the
+    // text still reads the same.
+    const loaded = new Document<Root>('ledger');
+    loaded.setActor(actors[3]);
+    loaded.applyChangePack(
+      ChangePack.create(
+        'ledger',
+        Checkpoint.of(1n, 0),
+        false,
+        [],
+        a.getVersionVector(),
+        toBinary(PbSnapshotSchema, pbSnapshot),
+      ),
+    );
+    expect(text(loaded)).toBe('ac');
+    expect(events(loaded)).toBe(0);
   });
 
   it('reads back a snapshot whose ledger it grew itself', () => {

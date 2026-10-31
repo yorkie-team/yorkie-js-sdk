@@ -1339,6 +1339,12 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 }
 
 /**
+ * `MaxRemovalEvents` is the most removal events one decoded text node may
+ * carry. Mirrors the cap Go applies on the same field.
+ */
+const MaxRemovalEvents = 4096;
+
+/**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
@@ -1360,27 +1366,49 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
   );
   textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
   if (pbTextNode.removalEvents.length) {
-    const events = pbTextNode.removalEvents.map((e) => {
+    // A rejected ledger is logged and dropped rather than thrown on, the same
+    // way a malformed HLL payload is below: `fromTextNode` is reached from
+    // `bytesToSnapshot` and from element payloads inside remote operations,
+    // and neither caller has a handler -- throwing would stop this client
+    // from attaching, restoring from local bytes, or ever draining the pull
+    // that carries one peer's bad node, which is a document wedged for good
+    // rather than one node decoded coarsely.
+    //
+    // The cost is a node left with `removed_at` alone, which answers
+    // `isRemovedInView` and `uncancelledRemovalBy` differently from a replica
+    // holding the full ledger. That is a divergence of one node against a
+    // payload no honest peer emits; a wedged document is worse.
+    const drop = (reason: string) =>
+      logger.warn(
+        `discarding malformed removal ledger for text node ${fromTextNodeID(
+          pbTextNode.id!,
+        ).toTestString()}: ${reason}`,
+      );
+    if (pbTextNode.removalEvents.length > MaxRemovalEvents) {
+      // Mirrors Go's cap: a ledger is at most one removal and one cancel per
+      // actor, so a longer one is a payload no honest peer emits, and
+      // decoding it is work and memory this client is handed by a peer.
+      drop(`${pbTextNode.removalEvents.length} events exceeds the cap`);
+      return textNode;
+    }
+    const events: Array<TimeTicket> = [];
+    for (const e of pbTextNode.removalEvents) {
       const ticket = fromTimeTicket(e);
       if (!ticket) {
-        throw new YorkieError(
-          Code.ErrInvalidArgument,
-          'text_node.removal_events: a ticket is missing',
-        );
+        break;
       }
-      return ticket;
-    });
-    // A ledger that breaks the rules is refused rather than dropped: a node
-    // left with removed_at alone answers `isRemovedInView` and
-    // `uncancelledRemovalBy` differently from every replica that holds the
-    // full ledger, which is a text that silently diverges from then on.
+      events.push(ticket);
+    }
+    if (events.length !== pbTextNode.removalEvents.length) {
+      drop('a ticket is missing');
+      return textNode;
+    }
     try {
+      // `setRemovalEvents` leaves the node as it was when it refuses, so the
+      // node here still carries `removed_at` alone.
       textNode.setRemovalEvents(events);
     } catch (err) {
-      throw new YorkieError(
-        Code.ErrInvalidArgument,
-        `text_node.removal_events: ${(err as Error).message}`,
-      );
+      drop((err as Error).message);
     }
   }
   return textNode;

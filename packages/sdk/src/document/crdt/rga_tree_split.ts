@@ -704,7 +704,20 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       }
     }
     for (const c of this.cancels ?? []) {
-      if (!vector.afterOrEqual(c.cancelledAt)) {
+      // Only a cancel the vector can still catch up to holds the node. The
+      // min synced vector carries a row per actor it tracks, and
+      // `afterOrEqual` answers false for an actor it has no row for at all --
+      // so an actor it does not carry would hold the tombstone on every
+      // replica for good, and a ledger decoded from a peer can name any
+      // actor it likes. The pair such a ticket belongs to is self-cancelling:
+      // the deletion it cancels is never `ticketKnown` to a vector without
+      // that actor either, so no change that arrives after the purge reads
+      // the node as removed by it, and the state every replica settles on is
+      // the same with the node gone as with it held.
+      if (
+        vector.has(c.cancelledAt.getActorID()) &&
+        !vector.afterOrEqual(c.cancelledAt)
+      ) {
         return true;
       }
     }
