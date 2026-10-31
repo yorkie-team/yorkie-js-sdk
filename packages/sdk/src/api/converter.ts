@@ -1378,12 +1378,10 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
           pbTextNode.id!,
         ).toTestString()}: ${reason}`,
       );
-    // The count is bounded by `setRemovalEvents` (`MaxRemovalEvents`), far
-    // above anything a writer's own rules grow -- one replica deleting and
-    // undoing a character while a peer lags behind GC grows a ledger, but
-    // not that far -- so that what a forged payload can cost a receiving
-    // client is bounded too. Go bounds only the element payloads of
-    // client-pushed operations, on the server.
+    // No count bound: a snapshot carries the ledgers its writer's rules grew,
+    // and one replica deleting and undoing a character while a peer lags
+    // behind GC grows a ledger past any fixed count. Go bounds only the
+    // element payloads of client-pushed operations, on the server.
     const events: Array<TimeTicket> = [];
     for (const e of pbTextNode.removalEvents) {
       const ticket = fromTimeTicket(e);

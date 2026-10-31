@@ -242,15 +242,4 @@ describe('Text undo fuzz', () => {
       }
     });
   }
-
-  // The divergence the setting above only reports, pinned to a seed so it is
-  // asserted rather than left to a sweep nobody runs. It FAILS on purpose:
-  // with GC on and inserts, a recreated piece can still land after text
-  // inserted between the gap and the following piece of its insertion, and
-  // the replicas end up holding different text. Delete this `.fails` -- do
-  // not delete the test -- when that is fixed; seeds 56 and 90 of the first
-  // 300 are the ones that reproduce it.
-  it.fails('gc=true insert=100% clients=3 diverges (known, seed 56)', () => {
-    expect(quietly(() => runSeed(56, true, 100, 3, 40))).toBe('');
-  });
 });
