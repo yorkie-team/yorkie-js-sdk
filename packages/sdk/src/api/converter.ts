@@ -1339,12 +1339,6 @@ function fromTextNodeID(pbTextNodeID: PbTextNodeID): RGATreeSplitNodeID {
 }
 
 /**
- * `MaxRemovalEvents` is the most removal events one decoded text node may
- * carry. Mirrors the cap Go applies on the same field.
- */
-const MaxRemovalEvents = 4096;
-
-/**
  * `fromTextNode` converts the given Protobuf format to model format.
  */
 function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
@@ -1384,13 +1378,10 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
           pbTextNode.id!,
         ).toTestString()}: ${reason}`,
       );
-    if (pbTextNode.removalEvents.length > MaxRemovalEvents) {
-      // Mirrors Go's cap: a ledger is at most one removal and one cancel per
-      // actor, so a longer one is a payload no honest peer emits, and
-      // decoding it is work and memory this client is handed by a peer.
-      drop(`${pbTextNode.removalEvents.length} events exceeds the cap`);
-      return textNode;
-    }
+    // No count bound: a snapshot carries the ledgers its writer's rules grew,
+    // and one replica deleting and undoing a character while a peer lags
+    // behind GC grows a ledger past any fixed count. Go bounds only the
+    // element payloads of client-pushed operations, on the server.
     const events: Array<TimeTicket> = [];
     for (const e of pbTextNode.removalEvents) {
       const ticket = fromTimeTicket(e);

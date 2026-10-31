@@ -517,12 +517,14 @@ describe('Text undo with a removal ledger', () => {
     const [a] = replicas('abc');
 
     // A server holding this document writes the ledger into every snapshot
-    // it builds, and a client has to be able to load that snapshot again.
-    // Go churns past the 4096-event bound it puts on pushed payloads; the JS
-    // SDK has no such bound, so a few hundred pairs exercise the same path.
-    expect(churn(a, 300)).toBeGreaterThan(512);
+    // it builds, and a client has to load it whole. Churn past 4096 events,
+    // the bound Go puts only on pushed payloads: a reader that bounded
+    // snapshots too would drop this ledger and diverge from its peers.
+    const grown = churn(a, (1 << 11) + 8);
+    expect(grown).toBeGreaterThan(1 << 12);
     const b = fromSnapshot(a);
     expect(text(b)).toBe('abc');
+    expect(events(b)).toBe(events(a));
   });
 
   it('drops cancelled removals every replica knows', () => {
