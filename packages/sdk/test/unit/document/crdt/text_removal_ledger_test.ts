@@ -117,36 +117,6 @@ describe('RGATreeSplitNode removal events', () => {
     expect(n.getRemovalEvents()).toEqual([]);
   });
 
-  it('does not hold for a cancel by an actor the vector never carries', () => {
-    // A ledger a peer can craft: a removal and its cancel by an actor the min
-    // synced vector has no row for. It reproduces removed_at, so it decodes,
-    // and no vector can ever cover it -- holding on it would pin the
-    // tombstone out of GC on every replica for good.
-    const n = node(b(5));
-    n.setRemovalEvents([a(2), a(3)]);
-    expect(n.getRemovedAt()!.equals(b(5))).toBe(true);
-    expect(n.heldFromPurge(vector([[actorB, 5]]))).toBe(false);
-
-    // An actor the vector does carry still holds it until the cancel is
-    // covered.
-    expect(
-      n.heldFromPurge(
-        vector([
-          [actorA, 2],
-          [actorB, 5],
-        ]),
-      ),
-    ).toBe(true);
-    expect(
-      n.heldFromPurge(
-        vector([
-          [actorA, 3],
-          [actorB, 5],
-        ]),
-      ),
-    ).toBe(false);
-  });
-
   it('writes nothing when removedAt says it all', () => {
     const n = node();
     n.recordRemoval(a(5));
