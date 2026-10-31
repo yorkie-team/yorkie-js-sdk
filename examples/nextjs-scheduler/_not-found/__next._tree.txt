@@ -1,4 +1,4 @@
 :HL["/yorkie-js-sdk/examples/nextjs-scheduler/_next/static/chunks/3sbzkya8_91wb.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"/_not-found","h":96,"c":"$Q2"}]]
-0:{"b":"pwbGgRT8etNvh0XvrLFf4","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"7xp56f-8CoAAop4l4XFcu","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
