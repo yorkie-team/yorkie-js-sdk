@@ -1280,15 +1280,23 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           // later edit whose boundary lands on this fragment resolves through
           // a stale insertion pointer in `findFloorNodePreferToLeft` and
           // miscomputes its offset (yorkie-team/yorkie-js-sdk#1327).
+          //
+          // The neighbours are the nearest surviving pieces, not just the
+          // ones covering the adjacent offsets: with the piece before the gap
+          // purged too, the one before that would keep pointing past the new
+          // fragment, and purging it later would hand the piece after the gap
+          // an `insPrev` that skips the fragment.
           if (cursor > 0) {
-            const insPrev = this.findPieceCovering(span.createdAt, cursor - 1);
-            if (insPrev) {
-              newNode.setInsPrev(insPrev);
+            const prevID = RGATreeSplitNodeID.of(span.createdAt, cursor - 1);
+            const insPrev = this.treeByID.floorEntry(prevID);
+            if (insPrev && insPrev.key.hasSameCreatedAt(prevID)) {
+              newNode.setInsPrev(insPrev.value);
             }
           }
-          const insNext = this.findPieceCovering(span.createdAt, gapEnd);
-          if (insNext) {
-            newNode.setInsNext(insNext);
+          const nextID = RGATreeSplitNodeID.of(span.createdAt, gapEnd);
+          const insNext = this.treeByID.ceilingEntry(nextID);
+          if (insNext && insNext.key.hasSameCreatedAt(nextID)) {
+            newNode.setInsNext(insNext.value);
           }
           recreated.push(newNode);
           chainAnchor = newNode;
@@ -1557,8 +1565,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    *      (originally-adjacent successor; exact original slot)
    *  (b) nearest surviving piece of the same insertion left of gapStart
    *      → directly after it
-   *  (c) rightmost surviving piece of the same insertion (must be right
-   *      of the gap) → directly before it
+   *  (c) nearest surviving piece of the same insertion at or after gapEnd
+   *      → directly before it
    *  (d) chain anchor: the previously placed fragment of this same restore
    *      (document order) → after it, so a purged multi-fragment run is
    *      rebuilt left-to-right rather than reversed
@@ -1587,17 +1595,14 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       }
     }
 
-    const rightmostKey = RGATreeSplitNodeID.of(
-      createdAt,
-      Number.MAX_SAFE_INTEGER,
-    );
-    const rightmost = this.treeByID.floorEntry(rightmostKey);
-    if (
-      rightmost &&
-      rightmost.key.hasSameCreatedAt(rightmostKey) &&
-      rightmost.value.getID().getOffset() >= gapEnd
-    ) {
-      return rightmost.value.getPrev()!;
+    // The nearest surviving piece of the insertion after the gap, not the
+    // rightmost one: anchoring before a later piece would place the gap after
+    // the pieces in between, and a deletion that later spans from the gap to
+    // one of them would run from its start to the end of the text.
+    const afterKey = RGATreeSplitNodeID.of(createdAt, gapEnd);
+    const after = this.treeByID.ceilingEntry(afterKey);
+    if (after && after.key.hasSameCreatedAt(afterKey)) {
+      return after.value.getPrev()!;
     }
 
     // (d) No surviving piece of this insertion anchors the fragment. When the
