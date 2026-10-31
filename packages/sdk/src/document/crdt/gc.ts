@@ -16,6 +16,7 @@
 
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import type { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 
 /**
  * `GCPair` is a structure that represents a pair of parent and child for garbage
@@ -83,4 +84,20 @@ export interface GCChild {
   toIDString(): string;
   getRemovedAt(): TimeTicket | undefined;
   getDataSize(): DataSize;
+
+  /**
+   * `heldFromPurge` is an optional capability of a child that has to outlive
+   * the point where `removedAt` alone would release it.
+   *
+   * A Text node keeps a removal ledger: the deletions that removed it and
+   * the undos that cancelled some of them. Once purged, the ledger is gone,
+   * so the node may go only when a restore that later finds it missing can
+   * answer as the ledger would. Until then `CRDTRoot.garbageCollect` skips it
+   * without counting it as deferred: unlike a barrier, holding it back frees
+   * nothing else, and a node held by two deletions nobody undoes stays
+   * registered, and counted by `getGarbageLen`, for good.
+   *
+   * Mirrors Go's `crdt.GCHold`.
+   */
+  heldFromPurge?(vector: VersionVector): boolean;
 }
