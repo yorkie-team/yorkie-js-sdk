@@ -18,6 +18,7 @@ import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import {
+  InitialRGATreeSplitNodeID,
   RGATreeSplitPos,
   RestoreSpan,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
@@ -138,7 +139,12 @@ export class EditOperation extends Operation {
 
     const text = parentObject as CRDTText<A>;
 
-    if (this.restoreSpans || this.retombstoneSpans) {
+    // The identity-preserving path is selected by the mode, not by the spans
+    // being present: a reverse whose span sets both came out empty is still
+    // an identity op and must run as a no-op here. Falling through to the
+    // positional path below would read its positions as an ordinary edit
+    // range.
+    if (this.restoreMode) {
       // Identity-preserving reverse op. `restoreMode` picks the direction:
       // an undo ('restore') revives `restoreSpans` and re-removes
       // `retombstoneSpans`; the redo ('retombstone') does the opposite. Both
@@ -174,12 +180,18 @@ export class EditOperation extends Operation {
           ? text.getRGATreeSplit().refreshSpans(toRetombstone)
           : undefined;
 
-      // 1. Remove the content the reversed edit inserted (by identity).
+      // 1. Remove the content the reversed edit inserted (by identity). The
+      // reverse names only the pieces the removal was recorded on: naming it
+      // on a piece someone else removed would cancel a removal that piece
+      // never had, and a replica that purged the piece could not tell.
+      let recorded: Array<RestoreSpan<CRDTTextValue>> | undefined;
       if (toRetombstone.length) {
-        const [pairs, changes, diff] = text.retombstone(
-          toRetombstone,
+        const [pairs, changes, diff, spans] = text.retombstone(
+          refreshed ?? toRetombstone,
           this.getExecutedAt(),
+          versionVector,
         );
+        recorded = spans;
         addDataSizes(totalDiff, diff);
         for (const pair of pairs) {
           root.registerGCPair(pair);
@@ -193,6 +205,9 @@ export class EditOperation extends Operation {
       if (toRestore.length) {
         const [untombstoned, , changes, liveDiff, pendingGCPairs] =
           text.restore(toRestore, this.getExecutedAt(), this.fromPos);
+        if (text.hasCancelledRemovals()) {
+          root.registerLedgerHolder(text);
+        }
         // Register first: a `pendingGCPairs` entry whose child ended up in
         // `untombstoned` was never registered under its own id (it was born
         // by splitting a larger tombstone), so the unregister loop below can
@@ -217,22 +232,36 @@ export class EditOperation extends Operation {
       return {
         opInfos,
         // Reverse keeps the same span sets and flips the direction.
-        reverseOp: EditOperation.create(
-          this.getParentCreatedAt(),
-          this.fromPos,
-          this.toPos,
-          '',
-          new Map(),
-          undefined,
-          true,
-          isRetombstone && refreshed ? refreshed : this.restoreSpans,
+        reverseOp: this.identityReverse(
+          // The re-removed set is the pieces the removal was recorded on,
+          // taken from the spans refreshed against live attributes (a purged
+          // replica rebuilds from them).
+          isRetombstone && recorded ? recorded : this.restoreSpans,
           isRetombstone ? 'restore' : 'retombstone',
-          !isRetombstone && refreshed ? refreshed : this.retombstoneSpans,
+          !isRetombstone && recorded ? recorded : this.retombstoneSpans,
         ),
       };
     }
 
     if (this.isUndoOp) {
+      // An undo edit that inserts nothing changes nothing wherever it sits,
+      // but its position can name an offset the text no longer has: stacked
+      // entries are reconciled against remote positional edits, not against
+      // remote undos and redos, which change the text by identity. Run it as
+      // the no-op it is, moved to the head so the copy that goes out to other
+      // replicas resolves on every one of them.
+      if (!this.content) {
+        this.fromPos = headPos();
+        this.toPos = headPos();
+        return {
+          opInfos: [],
+          reverseOp:
+            source === OpSource.Remote ? undefined : this.emptyReverse(),
+        };
+      }
+
+      // A reverse's positions were recorded against the chain as it stood
+      // when the reverse was built; splits since then have moved them.
       this.fromPos = text.refinePos(this.fromPos);
       this.toPos = text.refinePos(this.toPos);
     }
@@ -268,6 +297,57 @@ export class EditOperation extends Operation {
       }),
       reverseOp,
     };
+  }
+
+  /**
+   * `identityReverse` builds the reverse of an identity-preserving edit, or
+   * -- when both of its span sets came out empty -- an ordinary no-op edit
+   * anchored at the text's head.
+   *
+   * A reverse with no spans has nothing to revive and nothing to re-remove,
+   * but it still has to exist: dropping it would leave the undo stack one
+   * entry short of the redo stack, so a later redo would replay the wrong
+   * entry. It cannot be kept in identity form either -- the converter writes
+   * a restore mode only with spans, so it would go out as a positional edit
+   * of its stale range -- so it degrades to the same shape an edit that
+   * removed and inserted nothing reverses to.
+   */
+  private identityReverse(
+    restoreSpans: Array<RestoreSpan<CRDTTextValue>> | undefined,
+    restoreMode: RestoreMode,
+    retombstoneSpans: Array<RestoreSpan<CRDTTextValue>> | undefined,
+  ): EditOperation {
+    if (!restoreSpans?.length && !retombstoneSpans?.length) {
+      return this.emptyReverse();
+    }
+    return EditOperation.create(
+      this.getParentCreatedAt(),
+      this.fromPos,
+      this.toPos,
+      '',
+      new Map(),
+      undefined,
+      true,
+      restoreSpans,
+      restoreMode,
+      retombstoneSpans,
+    );
+  }
+
+  /**
+   * `emptyReverse` returns an empty undo edit at the head of this op's text:
+   * the reverse of an edit that changes nothing.
+   */
+  private emptyReverse(): EditOperation {
+    return EditOperation.create(
+      this.getParentCreatedAt(),
+      headPos(),
+      headPos(),
+      '',
+      new Map(),
+      undefined,
+      true,
+    );
   }
 
   private toReverseOperation(
@@ -540,4 +620,12 @@ export class EditOperation extends Operation {
   public getRetombstoneSpans(): Array<RestoreSpan<CRDTTextValue>> | undefined {
     return this.retombstoneSpans;
   }
+}
+
+/**
+ * `headPos` returns the position at the start of the head node, the one node
+ * of a text GC never purges.
+ */
+function headPos(): RGATreeSplitPos {
+  return RGATreeSplitPos.of(InitialRGATreeSplitNodeID, 0);
 }

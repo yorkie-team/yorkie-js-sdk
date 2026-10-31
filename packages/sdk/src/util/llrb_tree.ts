@@ -161,6 +161,29 @@ export class LLRBTree<K, V> {
   }
 
   /**
+   * `ceilingEntry` returns the entry for the least key greater than or equal
+   * to the given key. If there is no such key, returns `undefined`.
+   */
+  public ceilingEntry(key: K): Entry<K, V> | undefined {
+    let node = this.root;
+    let result: LLRBNode<K, V> | undefined = undefined;
+
+    while (node) {
+      const compare = this.comparator(key, node.key);
+      if (compare === 0) {
+        return node;
+      } else if (compare < 0) {
+        result = node;
+        node = node.left;
+      } else {
+        node = node.right;
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * `lastEntry` returns last entry of LLRBTree.
    */
   public lastEntry(): Entry<K, V> | undefined {

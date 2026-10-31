@@ -51,6 +51,30 @@ function checkFloor(
   }
 }
 
+function checkCeiling(
+  tree: LLRBTree<number, number>,
+  arr: Array<number>,
+  loop: number,
+) {
+  for (let ceilingKey = 0; ceilingKey < loop; ceilingKey++) {
+    let expectedKey: number | undefined = undefined;
+    for (const v of arr) {
+      if (v >= ceilingKey) {
+        if (expectedKey === undefined || expectedKey >= v) {
+          expectedKey = v;
+        }
+      }
+    }
+    const resultEntry = tree.ceilingEntry(ceilingKey);
+
+    if (expectedKey === undefined) {
+      assert.isUndefined(resultEntry);
+    } else {
+      assert.equal(expectedKey, resultEntry!.key);
+    }
+  }
+}
+
 describe('LLRBTree', function () {
   it('Can put/remove while keeping order', function () {
     for (const array of arrays) {
@@ -98,6 +122,19 @@ describe('LLRBTree', function () {
         tree.put(value, value);
         testArr.push(value);
         checkFloor(tree, testArr, 10);
+      }
+    }
+  });
+
+  it('Can ceiling entry at each insertion step', function () {
+    for (const array of arrays) {
+      const testArr: Array<number> = [];
+      const tree = new LLRBTree<number, number>();
+      for (const value of array) {
+        checkCeiling(tree, testArr, 10);
+        tree.put(value, value);
+        testArr.push(value);
+        checkCeiling(tree, testArr, 10);
       }
     }
   });

@@ -784,6 +784,12 @@ function toTextNodes(
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
+    // The removal ledger beyond removed_at. A node whose removed_at says it
+    // all writes nothing, so a character removed by one deletion and never
+    // restored encodes to the same bytes as before.
+    pbTextNode.removalEvents = textNode
+      .getRemovalEvents()
+      .map((t) => toTimeTicket(t)!);
     if (
       textNode.getInsPrev() &&
       emitted.has(textNode.getInsPrevID().toIDString())
@@ -1353,6 +1359,49 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     textValue,
   );
   textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
+  if (pbTextNode.removalEvents.length) {
+    // A rejected ledger is logged and dropped rather than thrown on, the same
+    // way a malformed HLL payload is below: `fromTextNode` is reached from
+    // `bytesToSnapshot` and from element payloads inside remote operations,
+    // and neither caller has a handler -- throwing would stop this client
+    // from attaching, restoring from local bytes, or ever draining the pull
+    // that carries one peer's bad node, which is a document wedged for good
+    // rather than one node decoded coarsely.
+    //
+    // The cost is a node left with `removed_at` alone, which answers
+    // `isRemovedInView` and `uncancelledRemovalBy` differently from a replica
+    // holding the full ledger. That is a divergence of one node against a
+    // payload no honest peer emits; a wedged document is worse.
+    const drop = (reason: string) =>
+      logger.warn(
+        `discarding malformed removal ledger for text node ${fromTextNodeID(
+          pbTextNode.id!,
+        ).toTestString()}: ${reason}`,
+      );
+    // No count bound: a snapshot carries the ledgers its writer's rules grew,
+    // and one replica deleting and undoing a character while a peer lags
+    // behind GC grows a ledger past any fixed count. Go bounds only the
+    // element payloads of client-pushed operations, on the server.
+    const events: Array<TimeTicket> = [];
+    for (const e of pbTextNode.removalEvents) {
+      const ticket = fromTimeTicket(e);
+      if (!ticket) {
+        break;
+      }
+      events.push(ticket);
+    }
+    if (events.length !== pbTextNode.removalEvents.length) {
+      drop('a ticket is missing');
+      return textNode;
+    }
+    try {
+      // `setRemovalEvents` leaves the node as it was when it refuses, so the
+      // node here still carries `removed_at` alone.
+      textNode.setRemovalEvents(events);
+    } catch (err) {
+      drop((err as Error).message);
+    }
+  }
   return textNode;
 }
 
