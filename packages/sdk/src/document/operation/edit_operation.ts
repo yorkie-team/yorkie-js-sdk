@@ -199,6 +199,9 @@ export class EditOperation extends Operation {
       if (toRestore.length) {
         const [untombstoned, , changes, liveDiff, pendingGCPairs] =
           text.restore(toRestore, this.getExecutedAt(), this.fromPos);
+        if (text.hasCancelledRemovals()) {
+          root.registerLedgerHolder(text);
+        }
         // Register first: a `pendingGCPairs` entry whose child ended up in
         // `untombstoned` was never registered under its own id (it was born
         // by splitting a larger tombstone), so the unregister loop below can

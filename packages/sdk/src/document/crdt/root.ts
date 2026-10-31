@@ -171,6 +171,12 @@ export class CRDTRoot {
    */
   private docSize: DocSize;
 
+  /**
+   * `ledgerHolders` are the Texts whose removal ledgers hold cancels that
+   * `garbageCollect` may prune once every replica knows them.
+   */
+  private ledgerHolders: Set<CRDTText>;
+
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
     this.elementPairMapByCreatedAt = new Map();
@@ -180,6 +186,7 @@ export class CRDTRoot {
     this.gcParentIDs = new WeakMap();
     this.nextGCParentID = 0;
     this.docSize = { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
+    this.ledgerHolders = new Set();
 
     // NOTE(hackerwins): tombstoned elements are not re-registered here:
     // registerElement books every one of them into gc, along with the
@@ -299,6 +306,9 @@ export class CRDTRoot {
       if (elem instanceof CRDTText || elem instanceof CRDTTree) {
         for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
+        }
+        if (elem instanceof CRDTText && elem.hasCancelledRemovals()) {
+          this.registerLedgerHolder(elem);
         }
       } else if (elem instanceof CRDTArray) {
         // A dead position node holds no element, so the live size its array
@@ -778,12 +788,37 @@ export class CRDTRoot {
   public garbageCollect(minSyncedVersionVector: VersionVector): number {
     let count = 0;
 
+    // Pruning first can release a tombstone whose last pending cancel the
+    // vector now covers.
+    this.pruneLedgers(minSyncedVersionVector);
+
     for (;;) {
       const [purged, deferred] = this.collect(minSyncedVersionVector);
       count += purged;
 
       if (purged === 0 || deferred === 0) {
         return count;
+      }
+    }
+  }
+
+  /**
+   * `registerLedgerHolder` registers a Text whose removal ledgers may be
+   * pruned (see `RGATreeSplit.pruneLedgers`).
+   */
+  public registerLedgerHolder(holder: CRDTText): void {
+    this.ledgerHolders.add(holder);
+  }
+
+  /**
+   * `pruneLedgers` prunes every registered holder and drops the ones with
+   * nothing left to prune. A removed holder is dropped too: an undo that
+   * brings it back registers its copy again.
+   */
+  private pruneLedgers(vector: VersionVector): void {
+    for (const holder of this.ledgerHolders) {
+      if (holder.getRemovedAt() || holder.pruneLedgers(vector) === 0) {
+        this.ledgerHolders.delete(holder);
       }
     }
   }
@@ -846,6 +881,12 @@ export class CRDTRoot {
         continue;
       }
       if (!minSyncedVersionVector?.afterOrEqual(removedAt)) {
+        continue;
+      }
+
+      // A Text node whose removal ledger still matters stays; see
+      // `GCChild.heldFromPurge`.
+      if (pair.child.heldFromPurge?.(minSyncedVersionVector)) {
         continue;
       }
 
