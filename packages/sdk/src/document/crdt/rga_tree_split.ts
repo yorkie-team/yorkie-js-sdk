@@ -181,7 +181,14 @@ export class RGATreeSplitNodeID {
   }
 }
 
-const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(InitialTimeTicket, 0);
+/**
+ * `InitialRGATreeSplitNodeID` is the ID of the head node of every
+ * RGATreeSplit.
+ */
+export const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(
+  InitialTimeTicket,
+  0,
+);
 
 /**
  * `RGATreeSplitPos` is the position of the text inside the node.
