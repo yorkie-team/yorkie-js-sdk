@@ -298,6 +298,28 @@ export type LedgerCancel = {
 };
 
 /**
+ * `LedgerEntry` is one deletion of a removal ledger beside the cancel that
+ * covers it, if an undo cancelled it.
+ */
+type LedgerEntry = {
+  removal: TimeTicket;
+  cancelledAt?: TimeTicket;
+};
+
+/**
+ * `LedgerIndex` is the reading of a removal ledger every walk of it needs:
+ * each deletion with its cancel, those entries by deletion, the deletions no
+ * cancel covers, and the cancels by the deletion each one cancels -- which
+ * covers the cancel of a deletion the ledger itself does not hold.
+ */
+type LedgerIndex = {
+  entries: Array<LedgerEntry>;
+  byKey: Map<string, LedgerEntry>;
+  live: Array<TimeTicket>;
+  cancelled: Map<string, TimeTicket>;
+};
+
+/**
  * `RGATreeSplitNode` is a node of RGATreeSplit.
  */
 export class RGATreeSplitNode<T extends RGATreeSplitValue>
@@ -313,6 +335,10 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   private ledgered = false;
   private dels?: Array<TimeTicket>;
   private cancels?: Array<LedgerCancel>;
+  // The reading of the ledger above, kept because a ledger grows a pair per
+  // delete-and-undo cycle and rebuilding it on every walk makes churning one
+  // quadratic. Every write of the ledger either drops it or updates it.
+  private index?: LedgerIndex;
 
   private prev?: RGATreeSplitNode<T>;
   private next?: RGATreeSplitNode<T>;
@@ -505,6 +531,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     this.ledgered = other.ledgered;
     this.dels = other.dels?.slice();
     this.cancels = other.cancels?.slice();
+    this.index = undefined;
   }
 
   /**
@@ -538,38 +565,54 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     if (!this.ledgered) {
       this.ledgered = true;
       this.dels = this.removedAt ? [this.removedAt] : [];
+      this.index = undefined;
     }
     return this.dels!;
   }
 
   /**
-   * `cancelsByDeletion` indexes the ledger's cancels by the deletion each one
-   * cancels. A deletion is cancelled at most once (`cancelRemoval` and
-   * `setRemovalEvents` both pair one to one).
+   * `ledgerIndex` reads the ledger into the form every walk of it wants, and
+   * keeps that reading until the ledger is written again. A deletion is
+   * cancelled at most once (`cancelRemoval` and `setRemovalEvents` both pair
+   * one to one), so a cancel is indexed by the deletion it cancels.
    *
    * Every walk of the ledger takes this index rather than scanning the
    * cancels per deletion: the ledger of a decoded node is as long as whoever
    * sent it made it, and a scan per deletion would make reading one quadratic
    * in that length.
    */
-  private cancelsByDeletion(): Map<string, TimeTicket> | undefined {
-    if (!this.cancels?.length) {
-      return;
+  private ledgerIndex(): LedgerIndex {
+    if (!this.index) {
+      const cancelled = new Map<string, TimeTicket>();
+      for (const c of this.cancels ?? []) {
+        cancelled.set(c.deletion.toIDString(), c.cancelledAt);
+      }
+      const entries: Array<LedgerEntry> = [];
+      const byKey = new Map<string, LedgerEntry>();
+      const live: Array<TimeTicket> = [];
+      for (const d of this.removals()) {
+        const key = d.toIDString();
+        if (byKey.has(key)) {
+          continue;
+        }
+        const entry: LedgerEntry = {
+          removal: d,
+          cancelledAt: cancelled.get(key),
+        };
+        entries.push(entry);
+        byKey.set(key, entry);
+        if (!entry.cancelledAt) {
+          live.push(d);
+        }
+      }
+      this.index = { entries, byKey, live, cancelled };
     }
-    const index = new Map<string, TimeTicket>();
-    for (const c of this.cancels) {
-      index.set(c.deletion.toIDString(), c.cancelledAt);
-    }
-    return index;
+    return this.index;
   }
 
   private recompute(): void {
-    const cancels = this.cancelsByDeletion();
     let latest: TimeTicket | undefined;
-    for (const d of this.ledger()) {
-      if (cancels?.has(d.toIDString())) {
-        continue;
-      }
+    for (const d of this.ledgerIndex().live) {
       if (!latest || d.after(latest)) {
         latest = d;
       }
@@ -585,28 +628,26 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   public recordRemoval(removedAt: TimeTicket): void {
     if (!this.ledgered && !this.removedAt) {
       this.removedAt = removedAt;
+      this.index = undefined;
       return;
     }
-    let found = false;
-    const cancels = this.cancelsByDeletion();
-    for (const d of this.ledger()) {
-      if (d.equals(removedAt)) {
-        found = true;
-        break;
-      }
-      // An actor removes a piece only while it is live in its view, so it
-      // never holds two uncancelled removals; a change whose vector leaves
-      // out its own earlier removal is not honest, and recording it would
-      // break the pairing `removal_events` relies on and grow the ledger.
-      if (
-        d.getActorID() === removedAt.getActorID() &&
-        !cancels?.has(d.toIDString())
-      ) {
-        return;
-      }
+    this.ledger();
+    // An actor removes a piece only while it is live in its view, so it never
+    // holds two uncancelled removals; a change whose vector leaves out its own
+    // earlier removal is not honest, and recording it would break the pairing
+    // `removal_events` relies on and grow the ledger.
+    const mine = this.uncancelledRemovalBy(removedAt.getActorID());
+    if (mine && !mine.equals(removedAt)) {
+      return;
     }
-    if (!found) {
+    const index = this.ledgerIndex();
+    const key = removedAt.toIDString();
+    if (!mine && !index.byKey.has(key)) {
       this.dels!.push(removedAt);
+      const entry: LedgerEntry = { removal: removedAt };
+      index.entries.push(entry);
+      index.byKey.set(key, entry);
+      index.live.push(removedAt);
     }
     this.recompute();
   }
@@ -618,8 +659,19 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   public cancelRemoval(deletion: TimeTicket, at: TimeTicket): boolean {
     this.ledger();
     this.cancels = this.cancels ?? [];
-    if (!this.cancels.some((c) => c.deletion.equals(deletion))) {
+    const index = this.ledgerIndex();
+    const key = deletion.toIDString();
+    if (!index.cancelled.has(key)) {
       this.cancels.push({ deletion, cancelledAt: at });
+      index.cancelled.set(key, at);
+      const entry = index.byKey.get(key);
+      if (entry) {
+        entry.cancelledAt = at;
+        const live = index.live.findIndex((d) => d.equals(deletion));
+        if (live !== -1) {
+          index.live.splice(live, 1);
+        }
+      }
     }
     this.recompute();
     return !this.removedAt;
@@ -650,6 +702,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     }
     this.dels = dels;
     this.cancels = cancels;
+    this.index = undefined;
     if (
       !cancels.length &&
       (!dels?.length ||
@@ -668,9 +721,8 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * if any.
    */
   public uncancelledRemovalBy(actor: ActorID): TimeTicket | undefined {
-    const cancels = this.cancelsByDeletion();
-    for (const d of this.removals()) {
-      if (d.getActorID() === actor && !cancels?.has(d.toIDString())) {
+    for (const d of this.ledgerIndex().live) {
+      if (d.getActorID() === actor) {
         return d;
       }
     }
@@ -696,13 +748,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     // A cancelled deletion is older than its cancel by the same actor, so a
     // stable cancel makes it stable too; an uncancelled one is `removedAt`,
     // which GC checks first, or one of two that keep the node anyway.
-    let n = 0;
-    const cancels = this.cancelsByDeletion();
-    for (const d of this.dels ?? []) {
-      if (!cancels?.has(d.toIDString())) {
-        n++;
-      }
-    }
+    const n = this.ledgerIndex().live.length;
     for (const c of this.cancels ?? []) {
       if (!vector.afterOrEqual(c.cancelledAt)) {
         return true;
@@ -716,13 +762,11 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * given version vector: a deletion it knew that no undo it knew cancelled.
    */
   public isRemovedInView(vector: VersionVector): boolean {
-    const cancels = this.cancelsByDeletion();
-    for (const d of this.removals()) {
-      if (!ticketKnown(vector, d)) {
+    for (const { removal, cancelledAt } of this.ledgerIndex().entries) {
+      if (!ticketKnown(vector, removal)) {
         continue;
       }
-      const at = cancels?.get(d.toIDString());
-      if (at && ticketKnown(vector, at)) {
+      if (cancelledAt && ticketKnown(vector, cancelledAt)) {
         continue;
       }
       return true;
@@ -797,6 +841,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     this.ledgered = true;
     this.dels = dels;
     this.cancels = cancels;
+    this.index = undefined;
     this.recompute();
     if (
       !removedAt !== !this.removedAt ||
@@ -806,6 +851,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       this.ledgered = false;
       this.dels = undefined;
       this.cancels = undefined;
+      this.index = undefined;
       throw new YorkieError(
         Code.ErrInvalidArgument,
         'removal events do not reproduce removed_at',
@@ -875,6 +921,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     this.ledgered = false;
     this.dels = undefined;
     this.cancels = undefined;
+    this.index = undefined;
   }
 
   /**

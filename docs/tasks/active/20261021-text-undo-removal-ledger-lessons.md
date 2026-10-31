@@ -31,3 +31,8 @@
   here; the CRDT test of the empty undo pins the rule instead.
 - The test config swallows `console.log`; the fuzz harness reports its
   counts on stderr.
+- Every read of the ledger rebuilt its cancel index, so the read-back test's
+  2056 delete-and-undo pairs made the ledger quadratic to churn and timed the
+  test out in CI at 11s. The index is now kept on the node, dropped or
+  updated by each write, and pairs each deletion with its cancel so no walk
+  builds a ticket key. The same churn now takes 0.3s.
