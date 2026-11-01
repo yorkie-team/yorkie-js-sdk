@@ -1,4 +1,4 @@
 :HL["/yorkie-js-sdk/examples/nextjs-presence/_next/static/chunks/3u1sepo2jb1vd.css","style"]
 :HL["/yorkie-js-sdk/examples/nextjs-presence/_next/static/chunks/1jskmarr7x72-.css","style"]
 1:[["children",{"s":"__PAGE__","h":160}]]
-0:{"b":"NMp56BZKGhsbSoBQML1P9","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"jam2CUInk-Gl7RsOo40Ta","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
