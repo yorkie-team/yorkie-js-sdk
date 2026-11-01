@@ -7,6 +7,28 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+This release requires a yorkie server that includes yorkie-team/yorkie#2310.
+Finish rolling out the server first, and do not roll the server back once
+clients of this SDK are connected: an older server drops the removal ledger
+these clients rely on when it re-encodes a document. Clients of earlier
+releases, and the iOS and Android SDKs, can still disagree with this one when
+an undo meets a concurrent deletion of the same text, as they do today.
+
+`@yorkie-js/sdk` and `@yorkie-js/react` now publish an `exports` map (#1431).
+Deep imports such as `@yorkie-js/sdk/dist/...` no longer resolve, and bundlers
+pick the ESM build. `@yorkie-js/react` now takes the SDK as a peer
+dependency pinned to its own version, where it used to be a regular
+dependency, so install `@yorkie-js/sdk` of the same version next to it.
+
+### Changed
+
+- Keep syncing through a failed token refresh, backing off while it fails, by @chacha912 in https://github.com/yorkie-team/yorkie-js-sdk/pull/1513. Deactivate the client when a token can never be refreshed.
+- Expose an ESM entry via exports so Node named imports work by @TaeTaeJin in https://github.com/yorkie-team/yorkie-js-sdk/pull/1431
+
+### Fixed
+
+- Keep Text undo converging through GC with a smaller ledger protocol by @hackerwins in https://github.com/yorkie-team/yorkie-js-sdk/pull/1514. A piece of text removed by two concurrent deletions that nobody undoes is no longer collected, and counts toward the document size this SDK checks against its limit.
+
 ## [v0.7.25] - 2026-10-13
 
 This release requires yorkie server v0.7.25 or later. Upgrade every server
