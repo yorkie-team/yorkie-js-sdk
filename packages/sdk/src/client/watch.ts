@@ -90,8 +90,11 @@ export interface WatchStreamConfig<Resp> {
   onStreamEnd: () => void;
   /** Called when the stream encounters an error. */
   onError: (err: unknown) => void;
-  /** Called when the error is retryable and reconnection should be attempted. */
-  onDisconnect: () => void;
+  /**
+   * Called when reconnection should be attempted, with the retryable error
+   * that ended the stream, if one did.
+   */
+  onDisconnect: (err?: unknown) => void;
   /** Returns true if the error should be silently ignored (e.g. AbortError). */
   shouldIgnoreError?: (err: unknown) => boolean;
 }
@@ -206,7 +209,7 @@ export function runWatchStream<Resp>(
         onError(err);
 
         if (await handleConnectError(err)) {
-          onDisconnect();
+          onDisconnect(err);
         } else {
           setWatchLoopInactive();
         }

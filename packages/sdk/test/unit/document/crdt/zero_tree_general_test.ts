@@ -8,7 +8,6 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
 import {
@@ -31,7 +30,7 @@ const note = (...args: Array<unknown>) =>
     args.map(String).join(' ') + '\n',
   );
 type Root = { zt: ZeroTree };
-const capable = [RestoreRemovedByCapability];
+const capable: Array<string> = [];
 
 function send(from: Document<Root>, to: Document<Root>): void {
   const pack = converter.fromChangePack<Indexable>(

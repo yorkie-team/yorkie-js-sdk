@@ -966,12 +966,7 @@ export class CRDTZeroTree extends CRDTElement {
       );
     }
     this.record(plan, changes);
-    // An undo of this edit cancels exactly this deletion (see `RestoreSpan`).
-    return [
-      pairs,
-      diff,
-      removedSpans.map((span) => ({ ...span, removedBy: editedAt })),
-    ];
+    return [pairs, diff, removedSpans];
   }
 
   /**
@@ -999,6 +994,22 @@ export class CRDTZeroTree extends CRDTElement {
       }
     }
     return result;
+  }
+
+  /**
+   * `hasCancelledRemovals` reports whether a piece's removal ledger holds a
+   * cancel that `pruneLedgers` may drop later (see `CRDTText`).
+   */
+  public hasCancelledRemovals(): boolean {
+    return this.rga.hasCancelledRemovals();
+  }
+
+  /**
+   * `pruneLedgers` drops the removals whose cancels the given vector covers,
+   * and returns how many pieces still hold a cancel.
+   */
+  public pruneLedgers(vector: VersionVector): number {
+    return this.rga.pruneLedgers(vector);
   }
 
   /**

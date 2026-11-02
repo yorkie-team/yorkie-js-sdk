@@ -17,6 +17,7 @@
 import {
   ExecutionResult,
   Operation,
+  OpSource,
 } from '@yorkie-js/sdk/src/document/operation/operation';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
@@ -69,7 +70,10 @@ export class IncreaseOperation extends Operation {
   /**
    * `execute` executes this operation on the given `CRDTRoot`.
    */
-  public execute(root: CRDTRoot): ExecutionResult {
+  public execute(
+    root: CRDTRoot,
+    source?: OpSource,
+  ): ExecutionResult | undefined {
     const parentObject = root.findByCreatedAt(this.getParentCreatedAt());
     if (!parentObject) {
       throw new YorkieError(
@@ -86,13 +90,31 @@ export class IncreaseOperation extends Operation {
     const counter = parentObject as CRDTCounter;
     const value = this.value.deepcopy() as Primitive;
     if (counter.isDedup()) {
+      // NOTE: a dedup counter holds an HLL of actors, so it can only take a
+      // unit increment attributed to one actor. A change carrying neither can
+      // never be applied, and a stored one comes back on every pull -- the
+      // checkpoint does not advance past a change that throws -- so it wedges
+      // the document. Skip it on the pull path, as Go does
+      // (`pkg/document/operations/increase.go`, `skipUnlessLocal`). A local
+      // `update` or an undo/redo still reports the failure to the caller that
+      // asked for it, with the code the counter threw.
       if (!this.actor) {
+        if (source === OpSource.Remote) {
+          return;
+        }
         throw new YorkieError(
           Code.ErrInvalidArgument,
           'dedup counter requires actor',
         );
       }
-      counter.increaseDedup(value, this.actor);
+      try {
+        counter.increaseDedup(value, this.actor);
+      } catch (cause) {
+        if (source === OpSource.Remote) {
+          return;
+        }
+        throw cause;
+      }
     } else {
       counter.increase(value);
     }

@@ -143,12 +143,17 @@ export class ZeroTreeEditOperation extends Operation {
         (isRetombstone ? this.restoreSpans : this.retombstoneSpans) ?? [];
       const total: DataSize = { data: 0, meta: 0 };
 
+      // The reverse names only the pieces the removal was recorded on, as
+      // `EditOperation` does: naming it on a piece someone else removed would
+      // cancel a removal that piece never had.
+      let recorded: Array<RestoreSpan<ZeroTokens>> | undefined;
       if (toRetombstone.length) {
-        const [pairs, , diff] = tree.retombstone(
+        const [pairs, , diff, spans] = tree.retombstone(
           toRetombstone,
           this.getExecutedAt(),
           versionVector,
         );
+        recorded = spans;
         addDataSizes(total, diff);
         for (const pair of pairs) {
           root.registerGCPair(pair);
@@ -160,6 +165,9 @@ export class ZeroTreeEditOperation extends Operation {
           this.getExecutedAt(),
           this.fromPos,
         );
+        if (tree.hasCancelledRemovals()) {
+          root.registerLedgerHolder(tree);
+        }
         for (const pair of pending) {
           root.registerGCPair(pair);
         }
@@ -169,21 +177,17 @@ export class ZeroTreeEditOperation extends Operation {
         addDataSizes(total, liveDiff);
       }
       root.acc(total);
-      // The spans this execution removed again are restored by the next
-      // reverse, which has to cancel THIS removal.
-      const removedNow = (spans?: Array<RestoreSpan<ZeroTokens>>) =>
-        spans?.map((span) => ({ ...span, removedBy: this.getExecutedAt() }));
+      // Reverse keeps the span sets and flips the direction; the re-removed
+      // set is the pieces the removal was recorded on.
       reverseOp = new ZeroTreeEditOperation(
         this.getParentCreatedAt(),
         this.fromPos,
         this.toPos,
         undefined,
         undefined,
-        isRetombstone ? removedNow(this.restoreSpans) : this.restoreSpans,
+        isRetombstone && recorded ? recorded : this.restoreSpans,
         isRetombstone ? 'restore' : 'retombstone',
-        isRetombstone
-          ? this.retombstoneSpans
-          : removedNow(this.retombstoneSpans),
+        !isRetombstone && recorded ? recorded : this.retombstoneSpans,
       );
     } else {
       const [pairs, diff, removedSpans] = tree.edit(

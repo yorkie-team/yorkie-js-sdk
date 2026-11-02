@@ -258,9 +258,6 @@ message JSONElement {
     TimeTicket moved_at = 3;
     TimeTicket removed_at = 4;
     TimeTicket revived_at = 5;
-    // purged_removals is what the removal ledgers of purged pieces still
-    // said, so an undo that arrives after GC answers as the ledger would.
-    repeated PurgedRemovals purged_removals = 6;
   }
   message Counter {
     ValueType type = 1;
@@ -279,24 +276,22 @@ message JSONElement {
     TimeTicket removed_at = 4;
     TimeTicket revived_at = 5;
   }
-  // PROTOTYPE (Zero Tree): one RGA of tokens. purged_ledger is what the
-  // removal ledgers of purged pieces still said (see ZeroPurgedLedger).
+  // PROTOTYPE (Zero Tree): one RGA of tokens.
   message ZeroTree {
     repeated ZeroTreeNode nodes = 1;
     TimeTicket created_at = 2;
     TimeTicket moved_at = 3;
     TimeTicket removed_at = 4;
     TimeTicket revived_at = 5;
-    repeated ZeroPurgedLedger purged_ledger = 6;
     // schema is what the model of this tree is built with (the creator's
     // editor schema). Absent: the reader's default.
-    ZeroSchema schema = 7;
+    ZeroSchema schema = 6;
     // actors are the actor ids the tickets of this tree's nodes point at
     // (ZeroTicket.actor), so a snapshot writes each id once.
-    repeated bytes actors = 8;
+    repeated bytes actors = 7;
     // style_cancels are the style writes undone (or redone) in this tree,
     // in the order of the writes' tickets.
-    repeated ZeroStyleCancel style_cancels = 9;
+    repeated ZeroStyleCancel style_cancels = 8;
   }
 
   oneof body {
@@ -335,27 +330,15 @@ message TextNode {
   TimeTicket removed_at = 3;
   TextNodeID ins_prev_id = 4;
   map<string, NodeAttr> attributes = 5;
-  // The removal ledger: the deletions that removed this node and the undos
-  // that cancelled some of them. has_ledger is false when the ledger is just
-  // removed_at (the default), which is then not written.
-  bool has_ledger = 6;
-  repeated TimeTicket removals = 7;
-  repeated RemovalCancel removal_cancels = 8;
-}
-
-// RemovalCancel is an undo that cancelled one removal of a node.
-message RemovalCancel {
-  TimeTicket removal = 1;
-  TimeTicket cancelled_at = 2;
-}
-
-// PurgedRemovals is the uncancelled removals of a purged piece
-// [start, end) of the insertion created_at.
-message PurgedRemovals {
-  TimeTicket created_at = 1;
-  int32 start = 2;
-  int32 end = 3;
-  repeated TimeTicket removals = 4;
+  // removal_events is the removal ledger beyond removed_at: every removal of
+  // this node and every undo that cancelled one, except removed_at itself.
+  // An actor's events alternate in ticket order, a removal then the undo
+  // cancelling it, so each is told apart by its place. Empty when removed_at
+  // says it all. A piece recreated after GC records a stand-in removal by the
+  // undoing actor at lamport 0, then its cancel. The pairing relies on an
+  // undo cancelling only its own actor's removal; a change to that rule needs
+  // a new field, not a new reading of this one.
+  repeated TimeTicket removal_events = 6;
 }
 
 message TextNodeID {
@@ -387,17 +370,15 @@ message TreeNode {
 // Messages for Zero Tree (PROTOTYPE)  //
 /////////////////////////////////////////
 
-// ZeroTreeNode is one RGATreeSplit node of a Zero Tree. has_ledger tells a
-// node with a removal ledger (dels/cancels, possibly empty) from one whose
-// ledger is just removed_at.
+// ZeroTreeNode is one RGATreeSplit node of a Zero Tree. removal_events is
+// its removal ledger beyond removed_at, as TextNode.removal_events: every
+// removal and cancel ticket but removed_at, in ticket order.
 message ZeroTreeNode {
   ZeroNodeID id = 1;
   ZeroTokens value = 2;
   ZeroTicket removed_at = 3;
   ZeroNodeID ins_prev_id = 4;
-  bool has_ledger = 5;
-  repeated ZeroTicket dels = 6;
-  repeated ZeroCancel cancels = 7;
+  repeated ZeroTicket removal_events = 5;
 }
 
 // ZeroTicket is a ticket inside a ZeroTree element: actor is an index into
@@ -439,21 +420,6 @@ message ZeroSchemaGrid {
   string table = 1;
   string row = 2;
   string cell = 3;
-}
-
-// ZeroCancel is an undo that cancelled one deletion of a node.
-message ZeroCancel {
-  ZeroTicket deletion = 1;
-  ZeroTicket cancelled_at = 2;
-}
-
-// ZeroPurgedLedger is the uncancelled deletions of a purged piece
-// [start, end) of the insertion created_at.
-message ZeroPurgedLedger {
-  TimeTicket created_at = 1;
-  int32 start = 2;
-  int32 end = 3;
-  repeated TimeTicket dels = 4;
 }
 
 // ZeroTokens is a run of tokens. Consecutive characters travel as one
@@ -533,13 +499,12 @@ message ZeroAttrWrite {
 }
 
 // ZeroRestoreSpan is a token run of one insertion [start, end) for
-// identity-preserving undo/redo. removed_by is the deletion it undoes.
+// identity-preserving undo/redo.
 message ZeroRestoreSpan {
   TimeTicket created_at = 1;
   int32 start = 2;
   int32 end = 3;
   ZeroTokens value = 4;
-  TimeTicket removed_by = 5;
 }
 
 message TreeNodes {
@@ -714,10 +679,6 @@ message RestoreSpan {
   int32 end = 3;
   string content = 4;
   map<string, string> attributes = 5;
-  // removed_by is the removal this span undoes. Restore cancels exactly that
-  // removal, so a concurrent removal the undo never saw keeps the piece
-  // removed. Absent (older clients): restore clears the tombstone.
-  TimeTicket removed_by = 6;
 }
 
 // RestoreMode selects the identity-preserving path. RESTORE_MODE_UNSPECIFIED

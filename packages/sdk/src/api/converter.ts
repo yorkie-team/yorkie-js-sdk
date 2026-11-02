@@ -135,9 +135,6 @@ import {
   RestoreSpan as PbRestoreSpan,
   RestoreMode as PbRestoreMode,
   TreeRestoreSpanSchema as PbTreeRestoreSpanSchema,
-  RemovalCancelSchema as PbRemovalCancelSchema,
-  PurgedRemovalsSchema as PbPurgedRemovalsSchema,
-  PurgedRemovals as PbPurgedRemovals,
   TreeRestoreSpan as PbTreeRestoreSpan,
   RevisionSummary as PbRevisionSummary,
   JSONElement_ZeroTree as PbJSONElement_ZeroTree,
@@ -162,8 +159,6 @@ import {
   ZeroStyleCancelSchema as PbZeroStyleCancelSchema,
   ZeroAttrWriteSchema as PbZeroAttrWriteSchema,
   ZeroStyleRangeSchema as PbZeroStyleRangeSchema,
-  ZeroCancelSchema as PbZeroCancelSchema,
-  ZeroPurgedLedgerSchema as PbZeroPurgedLedgerSchema,
   ZeroRestoreSpan as PbZeroRestoreSpan,
   ZeroRestoreSpanSchema as PbZeroRestoreSpanSchema,
   Operation_ZeroTreeEditSchema as PbOperation_ZeroTreeEditSchema,
@@ -593,7 +588,6 @@ function toOperation(operation: Operation): PbOperation {
       pbSpan.start = span.start;
       pbSpan.end = span.end;
       pbSpan.content = span.value.getContent();
-      pbSpan.removedBy = toTimeTicket(span.removedBy);
       const pbSpanAttrs = pbSpan.attributes;
       for (const [key, value] of Object.entries(span.value.getAttributes())) {
         pbSpanAttrs[key] = value;
@@ -695,16 +689,17 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeStyleOperation.from = toTreePos(treeStyleOperation.getFromPos());
     pbTreeStyleOperation.to = toTreePos(treeStyleOperation.getToPos());
 
-    const attributesToRemove = treeStyleOperation.getAttributesToRemove();
-    if (attributesToRemove.length > 0) {
-      pbTreeStyleOperation.attributesToRemove = attributesToRemove;
-    } else {
-      const attributesMap = pbTreeStyleOperation.attributes;
-
-      for (const [key, value] of treeStyleOperation.getAttributes()) {
-        attributesMap[key] = value;
-      }
+    // Encode both fields, as Go's toTreeStyle does. The reverse of a style
+    // that overwrote some attributes and added others carries both, and
+    // dropping either half would let peers apply something other than what
+    // the undoing client applied.
+    const attributesMap = pbTreeStyleOperation.attributes;
+    for (const [key, value] of treeStyleOperation.getAttributes()) {
+      attributesMap[key] = value;
     }
+    pbTreeStyleOperation.attributesToRemove = [
+      ...treeStyleOperation.getAttributesToRemove(),
+    ];
     pbTreeStyleOperation.executedAt = toTimeTicket(
       treeStyleOperation.getExecutedAt(),
     );
@@ -887,7 +882,12 @@ function toTextNodes(
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
-    writeRemovalLedger(pbTextNode, textNode);
+    // The removal ledger beyond removed_at. A node whose removed_at says it
+    // all writes nothing, so a character removed by one deletion and never
+    // restored encodes to the same bytes as before.
+    pbTextNode.removalEvents = textNode
+      .getRemovalEvents()
+      .map((t) => toTimeTicket(t)!);
     if (
       textNode.getInsPrev() &&
       emitted.has(textNode.getInsPrevID().toIDString())
@@ -910,87 +910,6 @@ function toTextNodes(
   }
 
   return pbTextNodes;
-}
-
-/**
- * `writeRemovalLedger` writes the removal ledger of a node. A ledger that says
- * only "removed by removedAt" is what a node without one starts from
- * (`RGATreeSplitNode.ledger`), so it is not written.
- */
-function writeRemovalLedger(
-  pbNode: PbTextNode,
-  node: RGATreeSplitNode<CRDTTextValue>,
-): void {
-  const { dels, cancels } = node.getLedger();
-  const removedAt = node.getRemovedAt();
-  if (
-    !dels ||
-    (!cancels?.length &&
-      (removedAt
-        ? dels.length === 1 && dels[0].equals(removedAt)
-        : dels.length === 0))
-  ) {
-    return;
-  }
-  pbNode.hasLedger = true;
-  pbNode.removals = dels.map((d) => toTimeTicket(d)!);
-  pbNode.removalCancels = (cancels ?? []).map(([removal, at]) =>
-    create(PbRemovalCancelSchema, {
-      removal: toTimeTicket(removal),
-      cancelledAt: toTimeTicket(at),
-    }),
-  );
-}
-
-/**
- * `toPurgedRemovals` writes what the ledgers of purged pieces still said.
- * Purge order depends on GC iteration, so the entries go out sorted: one
- * state, one snapshot.
- */
-function toPurgedRemovals(
-  rgaTreeSplit: RGATreeSplit<CRDTTextValue>,
-): Array<PbPurgedRemovals> {
-  const purged: Array<{
-    createdAt: TimeTicket;
-    start: number;
-    end: number;
-    dels: Array<TimeTicket>;
-  }> = [];
-  for (const [key, entries] of rgaTreeSplit.getPurgedLedger()) {
-    const [lamport, actorID, delimiter] = key.split(':');
-    const createdAt = TimeTicket.of(
-      BigInt(lamport),
-      Number(delimiter),
-      actorID,
-    );
-    for (const e of entries) {
-      purged.push({ createdAt, ...e });
-    }
-  }
-  const compareDels = (a: Array<TimeTicket>, b: Array<TimeTicket>) => {
-    for (let i = 0; i < Math.min(a.length, b.length); i++) {
-      const c = a[i].compare(b[i]);
-      if (c) {
-        return c;
-      }
-    }
-    return a.length - b.length;
-  };
-  purged.sort(
-    (a, b) =>
-      a.createdAt.compare(b.createdAt) ||
-      a.start - b.start ||
-      a.end - b.end ||
-      compareDels(a.dels, b.dels),
-  );
-  return purged.map((e) =>
-    create(PbPurgedRemovalsSchema, {
-      createdAt: toTimeTicket(e.createdAt),
-      start: e.start,
-      end: e.end,
-      removals: e.dels.map((d) => toTimeTicket(d)!),
-    }),
-  );
 }
 
 /**
@@ -1137,7 +1056,6 @@ function toText(text: CRDTText<Record<string, any>>): PbJSONElement {
         createdAt: toTimeTicket(text.getCreatedAt()),
         movedAt: toTimeTicket(text.getMovedAt()),
         removedAt: toTimeTicket(text.getRemovedAt()),
-        purgedRemovals: toPurgedRemovals(text.getRGATreeSplit()),
       }),
     },
   });
@@ -1206,9 +1124,7 @@ class ZeroActors {
     for (const node of tree.getRGA()) {
       add(node.getCreatedAt());
       add(node.getRemovedAt());
-      const { dels, cancels } = node.getLedger();
-      dels?.forEach(add);
-      cancels?.forEach(([d, c]) => (add(d), add(c)));
+      node.getRemovalEvents().forEach(add);
       for (const token of node.getValue().tokens) {
         if (typeof token !== 'string') {
           token.attrs.forEach((attr) => {
@@ -1394,7 +1310,6 @@ function toZeroRestoreSpan(span: RestoreSpan<ZeroTokens>): PbZeroRestoreSpan {
     start: span.start,
     end: span.end,
     value: toZeroTokens(span.value),
-    removedBy: toTimeTicket(span.removedBy),
   });
 }
 
@@ -1469,32 +1384,12 @@ function toZeroTree(tree: CRDTZeroTree): PbJSONElement {
   pbTree.actors = actors.ids.map((id) => toUint8Array(id));
   const emitted = new Set<string>();
   for (const node of rga) {
-    let { dels, cancels } = node.getLedger();
-    // A ledger that says only "removed by removedAt" is what a node without
-    // one starts from (`RGATreeSplitNode.ledger`), so it is not written.
-    const removedAt = node.getRemovedAt();
-    if (
-      dels &&
-      !cancels?.length &&
-      (removedAt
-        ? dels.length === 1 && dels[0].equals(removedAt)
-        : dels.length === 0)
-    ) {
-      dels = undefined;
-      cancels = undefined;
-    }
+    // The removal ledger beyond removed_at, as `toTextNodes` writes it.
     const pbNode = create(PbZeroTreeNodeSchema, {
       id: actors.nodeID(node.getID()),
       value: toZeroTokens(node.getValue(), actors),
       removedAt: actors.ticket(node.getRemovedAt()),
-      hasLedger: !!dels,
-      dels: (dels ?? []).map((d) => actors.ticket(d)!),
-      cancels: (cancels ?? []).map(([deletion, at]) =>
-        create(PbZeroCancelSchema, {
-          deletion: actors.ticket(deletion),
-          cancelledAt: actors.ticket(at),
-        }),
-      ),
+      removalEvents: node.getRemovalEvents().map((t) => actors.ticket(t)!),
     });
     // Same rule as `toTextNodes`: only a link to an emitted node.
     if (node.getInsPrev() && emitted.has(node.getInsPrevID().toIDString())) {
@@ -1502,51 +1397,6 @@ function toZeroTree(tree: CRDTZeroTree): PbJSONElement {
     }
     emitted.add(node.getID().toIDString());
     pbTree.nodes.push(pbNode);
-  }
-  // Purge order depends on GC iteration, so the entries go out sorted:
-  // a snapshot of one state is the same bytes on every replica and server.
-  const purged: Array<{
-    createdAt: TimeTicket;
-    start: number;
-    end: number;
-    dels: Array<TimeTicket>;
-  }> = [];
-  for (const [key, entries] of rga.getPurgedLedger()) {
-    const [lamport, actorID, delimiter] = key.split(':');
-    const createdAt = TimeTicket.of(
-      BigInt(lamport),
-      Number(delimiter),
-      actorID,
-    );
-    for (const e of entries) {
-      purged.push({ createdAt, ...e });
-    }
-  }
-  const compareDels = (a: Array<TimeTicket>, b: Array<TimeTicket>) => {
-    for (let i = 0; i < Math.min(a.length, b.length); i++) {
-      const c = a[i].compare(b[i]);
-      if (c) {
-        return c;
-      }
-    }
-    return a.length - b.length;
-  };
-  purged.sort(
-    (a, b) =>
-      a.createdAt.compare(b.createdAt) ||
-      a.start - b.start ||
-      a.end - b.end ||
-      compareDels(a.dels, b.dels),
-  );
-  for (const e of purged) {
-    pbTree.purgedLedger.push(
-      create(PbZeroPurgedLedgerSchema, {
-        createdAt: toTimeTicket(e.createdAt),
-        start: e.start,
-        end: e.end,
-        dels: e.dels.map((d) => toTimeTicket(d)!),
-      }),
-    );
   }
   pbTree.styleCancels = tree.getStyleCancels().map((c) =>
     create(PbZeroStyleCancelSchema, {
@@ -1736,8 +1586,12 @@ function fromPresenceChange<P extends Indexable>(
     // a pulled pack does not normally carry a patch. It is decoded anyway --
     // an echo of a pushed change, or a peer ahead of this SDK, must not fail
     // the whole pack. There is no `full` on the wire: `Change.execute` merges
-    // the carried keys onto the presence already held for that actor.
-    const presence = fromPresence<P>(pbPresenceChange.presence!);
+    // the carried keys onto the presence already held for that actor. A
+    // patch can leave `presence` unset, as Go allows
+    // (`api/converter/from_pb.go`, `FromPresenceChange`).
+    const presence = pbPresenceChange.presence
+      ? fromPresence<P>(pbPresenceChange.presence)
+      : ({} as P);
     return {
       type: PresenceChangeType.Patch,
       presence,
@@ -1746,6 +1600,20 @@ function fromPresenceChange<P extends Indexable>(
   if (type === PbPresenceChange_ChangeType.CLEAR) {
     return {
       type: PresenceChangeType.Clear,
+    };
+  }
+  if (
+    type === PbPresenceChange_ChangeType.UNSPECIFIED ||
+    type === PbPresenceChange_ChangeType.DELETE
+  ) {
+    // NOTE: these two types are defined but no SDK sends them. Go still
+    // decodes them, because stored rows go through that path, into a change
+    // that stores an empty presence for the actor (`api/converter/from_pb.go`,
+    // `FromPresenceChange`). Do the same: throwing here fails the pack, and
+    // the same stored change comes back on every pull.
+    return {
+      type: PresenceChangeType.Put,
+      presence: {} as P,
     };
   }
 
@@ -1911,17 +1779,48 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     textValue,
   );
   textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
-  if (pbTextNode.hasLedger) {
-    textNode.setLedger(
-      pbTextNode.removals.map((d) => fromTimeTicket(d)!),
-      pbTextNode.removalCancels.map(
-        (c) =>
-          [fromTimeTicket(c.removal)!, fromTimeTicket(c.cancelledAt)!] as [
-            TimeTicket,
-            TimeTicket,
-          ],
-      ),
-    );
+  if (pbTextNode.removalEvents.length) {
+    // A rejected ledger is logged and dropped rather than thrown on, the same
+    // way a malformed HLL payload is below: `fromTextNode` is reached from
+    // `bytesToSnapshot` and from element payloads inside remote operations,
+    // and neither caller has a handler -- throwing would stop this client
+    // from attaching, restoring from local bytes, or ever draining the pull
+    // that carries one peer's bad node, which is a document wedged for good
+    // rather than one node decoded coarsely.
+    //
+    // The cost is a node left with `removed_at` alone, which answers
+    // `isRemovedInView` and `uncancelledRemovalBy` differently from a replica
+    // holding the full ledger. That is a divergence of one node against a
+    // payload no honest peer emits; a wedged document is worse.
+    const drop = (reason: string) =>
+      logger.warn(
+        `discarding malformed removal ledger for text node ${fromTextNodeID(
+          pbTextNode.id!,
+        ).toTestString()}: ${reason}`,
+      );
+    // No count bound: a snapshot carries the ledgers its writer's rules grew,
+    // and one replica deleting and undoing a character while a peer lags
+    // behind GC grows a ledger past any fixed count. Go bounds only the
+    // element payloads of client-pushed operations, on the server.
+    const events: Array<TimeTicket> = [];
+    for (const e of pbTextNode.removalEvents) {
+      const ticket = fromTimeTicket(e);
+      if (!ticket) {
+        break;
+      }
+      events.push(ticket);
+    }
+    if (events.length !== pbTextNode.removalEvents.length) {
+      drop('a ticket is missing');
+      return textNode;
+    }
+    try {
+      // `setRemovalEvents` leaves the node as it was when it refuses, so the
+      // node here still carries `removed_at` alone.
+      textNode.setRemovalEvents(events);
+    } catch (err) {
+      drop((err as Error).message);
+    }
   }
   return textNode;
 }
@@ -2136,16 +2035,34 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     const executedAt = fromTimeTicket(pbEditOperation!.executedAt)!;
 
     const fromPbSpan = (pbSpan: PbRestoreSpan): RestoreSpan<CRDTTextValue> => {
+      // A span addresses content by insertion identity, so it is malformed
+      // without a `createdAt`, and `RGATreeSplit.restore` slices `content` by
+      // `cursor - span.start`, so `[start, end)` has to be an ordered interval
+      // exactly covering it. Reject both here, as the server's
+      // `fromRestoreSpans` does, instead of failing deep in the restore path.
+      if (
+        !pbSpan.createdAt ||
+        !Number.isInteger(pbSpan.start) ||
+        !Number.isInteger(pbSpan.end) ||
+        pbSpan.start < 0 ||
+        pbSpan.end < pbSpan.start ||
+        pbSpan.end - pbSpan.start !== pbSpan.content.length
+      ) {
+        throw new YorkieError(
+          Code.ErrInvalidArgument,
+          'malformed restore span: missing timestamp or invalid range',
+        );
+      }
+      const createdAt = fromTimeTicket(pbSpan.createdAt)!;
       const value = CRDTTextValue.create(pbSpan.content);
       for (const [key, attr] of Object.entries(pbSpan.attributes)) {
         value.setAttr(key, attr, executedAt);
       }
       return {
-        createdAt: fromTimeTicket(pbSpan.createdAt)!,
+        createdAt,
         start: pbSpan.start,
         end: pbSpan.end,
         value,
-        removedBy: fromTimeTicket(pbSpan.removedBy),
       };
     };
     let restoreSpans: Array<RestoreSpan<CRDTTextValue>> | undefined;
@@ -2255,31 +2172,22 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;
-    const attributes = new Map();
-    const attributesToRemove = pbTreeStyleOperation.attributesToRemove;
+    const attributes = new Map<string, string>();
+    Object.entries(pbTreeStyleOperation!.attributes).forEach(([key, value]) => {
+      attributes.set(key, value);
+    });
 
-    if (attributesToRemove?.length > 0) {
-      return TreeStyleOperation.createTreeRemoveStyleOperation(
-        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
-        fromTreePos(pbTreeStyleOperation!.from!),
-        fromTreePos(pbTreeStyleOperation!.to!),
-        attributesToRemove,
-        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
-      );
-    } else {
-      Object.entries(pbTreeStyleOperation!.attributes).forEach(
-        ([key, value]) => {
-          attributes.set(key, value);
-        },
-      );
-      return TreeStyleOperation.create(
-        fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
-        fromTreePos(pbTreeStyleOperation!.from!),
-        fromTreePos(pbTreeStyleOperation!.to!),
-        attributes,
-        fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
-      );
-    }
+    // A sender may set both fields at once -- that is how it encodes the
+    // reverse of a style that overwrote some attributes and added others --
+    // so read both rather than letting either one shadow the other.
+    return new TreeStyleOperation(
+      fromTimeTicket(pbTreeStyleOperation!.parentCreatedAt)!,
+      fromTreePos(pbTreeStyleOperation!.from!),
+      fromTreePos(pbTreeStyleOperation!.to!),
+      attributes,
+      [...(pbTreeStyleOperation!.attributesToRemove ?? [])],
+      fromTimeTicket(pbTreeStyleOperation!.executedAt)!,
+    );
   } else if (pbOperation.body.case === 'zeroTreeEdit') {
     const pbZeroTreeEdit = pbOperation.body.value;
     const hasSpans =
@@ -2520,17 +2428,6 @@ function fromText<A extends Indexable>(
     decoded.set(current.getID().toIDString(), current);
     prev = current;
   }
-  const purged = rgaTreeSplit.getPurgedLedger();
-  for (const e of pbText.purgedRemovals) {
-    const key = fromTimeTicket(e.createdAt)!.toIDString();
-    const entries = purged.get(key) ?? [];
-    entries.push({
-      start: e.start,
-      end: e.end,
-      dels: e.removals.map((d) => fromTimeTicket(d)!),
-    });
-    purged.set(key, entries);
-  }
   const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);
   text.setMovedAt(fromTimeTicket(pbText.movedAt));
   text.setRemovedAt(fromTimeTicket(pbText.removedAt));
@@ -2640,7 +2537,6 @@ function fromZeroRestoreSpan(
     start: pbSpan.start,
     end: pbSpan.end,
     value: fromZeroTokens(pbSpan.value!),
-    removedBy: fromTimeTicket(pbSpan.removedBy),
   };
 }
 
@@ -2659,17 +2555,31 @@ function fromZeroTree(pbTree: PbJSONElement_ZeroTree): CRDTZeroTree {
       fromZeroTokens(pbNode.value!, actors),
     ) as RGATreeSplitNode<ZeroTokens>;
     node.setRemovedAt(actors.fromTicket(pbNode.removedAt));
-    if (pbNode.hasLedger) {
-      node.setLedger(
-        pbNode.dels.map((d) => actors.fromTicket(d)!),
-        pbNode.cancels.map(
-          (c) =>
-            [
-              actors.fromTicket(c.deletion)!,
-              actors.fromTicket(c.cancelledAt)!,
-            ] as [TimeTicket, TimeTicket],
-        ),
-      );
+    if (pbNode.removalEvents.length) {
+      // A rejected ledger is logged and dropped, as `fromTextNode` does.
+      const drop = (reason: string) =>
+        logger.warn(
+          `discarding malformed removal ledger for zero tree node ${node
+            .getID()
+            .toTestString()}: ${reason}`,
+        );
+      const events: Array<TimeTicket> = [];
+      for (const e of pbNode.removalEvents) {
+        const ticket = actors.fromTicket(e);
+        if (!ticket) {
+          break;
+        }
+        events.push(ticket);
+      }
+      if (events.length !== pbNode.removalEvents.length) {
+        drop('a ticket is missing');
+      } else {
+        try {
+          node.setRemovalEvents(events);
+        } catch (err) {
+          drop((err as Error).message);
+        }
+      }
     }
     const current = rga.insertAfter(prev, node);
     if (pbNode.insPrevId) {
@@ -2685,17 +2595,6 @@ function fromZeroTree(pbTree: PbJSONElement_ZeroTree): CRDTZeroTree {
     }
     decoded.set(current.getID().toIDString(), current);
     prev = current;
-  }
-  const purged = rga.getPurgedLedger();
-  for (const e of pbTree.purgedLedger) {
-    const key = fromTimeTicket(e.createdAt)!.toIDString();
-    const entries = purged.get(key) ?? [];
-    entries.push({
-      start: e.start,
-      end: e.end,
-      dels: e.dels.map((d) => fromTimeTicket(d)!),
-    });
-    purged.set(key, entries);
   }
   const tree = new CRDTZeroTree(
     rga,

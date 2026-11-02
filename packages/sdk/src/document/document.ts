@@ -99,10 +99,7 @@ import {
   setupDevtools,
 } from '@yorkie-js/sdk/src/devtools';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import {
-  EditOperation,
-  RestoreRemovedByCapability,
-} from './operation/edit_operation';
+import { EditOperation } from './operation/edit_operation';
 import { TreeEditOperation } from './operation/tree_edit_operation';
 import { TreeStyleOperation } from './operation/tree_style_operation';
 import { keepWrittenSplits } from './operation/zero_tree_operation';
@@ -847,12 +844,6 @@ export class Document<
   // false. See `canPatchPresence`.
   private presencePatchable: boolean;
 
-  // `restoreRemovedByCapable` is whether the last pack the server returned
-  // advertised `restore-removed-by`. Until it does, a Text undo drops
-  // `removedBy` from its spans, because a server without it would drop the
-  // field from the change it relays. See `executeUndoRedoInternal`.
-  private restoreRemovedByCapable: boolean;
-
   // `presenceBaseSent` is whether the server has a base to fold a patch into:
   // a full put has been recorded since the last thing that left it without
   // one. Attach, a `clear`, and a restore from offline persistence all clear
@@ -943,7 +934,6 @@ export class Document<
     this.mintedOperations = false;
     this.epoch = 0n;
     this.presencePatchable = false;
-    this.restoreRemovedByCapable = false;
     this.presenceBaseSent = false;
     this.presencePatchSent = false;
     this.docID = '';
@@ -1688,9 +1678,6 @@ export class Document<
     // 02-2. Learn whether this server takes presence patches, and remember
     // whether that leaves a presence to heal.
     const needsHeal = this.learnPresenceCapability(pack);
-    this.restoreRemovedByCapable = pack.hasCapability(
-      RestoreRemovedByCapability,
-    );
 
     // 03. Do Garbage collection.
     if (!pack.hasSnapshot()) {
@@ -1836,7 +1823,6 @@ export class Document<
    */
   private resetPresenceStateForRestore(): void {
     this.presencePatchable = false;
-    this.restoreRemovedByCapable = false;
     this.presenceBaseSent = false;
     this.presencePatchSent = this.hasPendingPresencePatch();
   }
@@ -2091,7 +2077,6 @@ export class Document<
     // base, a patch outstanding if the queue holds one), and the fields are
     // copied one by one here, so it has to be carried across explicitly.
     this.presencePatchable = restored.presencePatchable;
-    this.restoreRemovedByCapable = restored.restoreRemovedByCapable;
     this.presenceBaseSent = restored.presenceBaseSent;
     this.presencePatchSent = restored.presencePatchSent;
     this.absorbedRemote = true;
@@ -2451,7 +2436,6 @@ export class Document<
     this.absorbedRemote = false;
     this.epoch = 0n;
     this.presencePatchable = false;
-    this.restoreRemovedByCapable = false;
     this.presenceBaseSent = false;
     this.presencePatchSent = false;
     this.docID = '';
@@ -3191,8 +3175,14 @@ export class Document<
       }
       this.addOnlineClient(publisher);
     } else if (type === PbDocEventType.DOCUMENT_UNWATCHED) {
+      // NOTE(hackerwins): Only the online set is touched here; the presence
+      // itself is kept, for the same reason applyWatchInit keeps it above.
+      // Dropping it would make hasPresence false, so the DOCUMENT_WATCHED
+      // that follows a watch-stream reconnect would publish no "watched"
+      // event and the peer would stay invisible. The unwatched event still
+      // fires: reconcilePresence keys that transition on isOnline, which
+      // removeOnlineClient alone flips.
       this.removeOnlineClient(publisher);
-      this.presences.delete(publisher);
     }
 
     const event = this.reconcilePresence(publisher, prev, OpSource.Remote);
@@ -3568,9 +3558,6 @@ export class Document<
     // the heal here would leave a document in PushOnly/SyncOff patching into
     // the void for as long as it stays there.
     const needsHeal = this.learnPresenceCapability(pack);
-    this.restoreRemovedByCapable = pack.hasCapability(
-      RestoreRemovedByCapability,
-    );
 
     this.removePushedLocalChanges(clientSeq);
     this.checkpoint = this.checkpoint.forward(
@@ -3715,14 +3702,6 @@ export class Document<
 
       const ticket = ctx.issueTimeTicket();
       op.setExecutedAt(ticket);
-
-      // A server without `restore-removed-by` drops `removedBy` from the
-      // change it relays, so every other replica would revive the spans
-      // outright while this one cancelled a single deletion. Drop it here
-      // too, which is the restore every replica applied before the ledger.
-      if (op instanceof EditOperation && !this.restoreRemovedByCapable) {
-        op.dropRemovedBy();
-      }
 
       // A Set/Add/ArraySet reverse carries a deepcopy of the value it
       // restores, and that copy keeps the split-sibling links of the tree it

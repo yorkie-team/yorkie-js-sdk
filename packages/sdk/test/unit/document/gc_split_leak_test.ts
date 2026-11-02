@@ -26,6 +26,7 @@ import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { DataSize } from '@yorkie-js/sdk/src/util/resource';
 
 /**
  * Exchanges pending local changes between two in-process documents,
@@ -245,6 +246,21 @@ function countTextTombstones(doc: Document<TextDoc>): number {
 }
 
 /**
+ * `heldTombstoneSize` is the size of the one tombstone left in the text, the
+ * piece two concurrent deletions hold.
+ */
+function heldTombstoneSize(doc: Document<TextDoc>): DataSize {
+  const text = doc.getRootObject().get('k') as CRDTText;
+  for (const node of text.getRGATreeSplit()) {
+    if (node.isRemoved()) {
+      assert.equal(node.getValue().getContent(), 'cd');
+      return node.getDataSize();
+    }
+  }
+  return { data: 0, meta: 0 };
+}
+
+/**
  * `buildTextReplicas` creates two in-process replicas that share a Text
  * field seeded with "abcdef" and already converged.
  */
@@ -292,14 +308,17 @@ describe('GC tombstone-split leak (Text)', () => {
       purged2,
       `asymmetric purge for identical state: d1=${purged1} d2=${purged2}`,
     );
-    assert.equal(countTextTombstones(d1), 0);
-    assert.equal(countTextTombstones(d2), 0);
-    assert.equal(d1.getGarbageLen(), 0);
-    assert.equal(d2.getGarbageLen(), 0);
+    // `cd` is removed by both deletions, so it stays until an undo leaves
+    // one of them (see `RGATreeSplitNode.heldFromPurge`); every other piece,
+    // including the born-dead split remainder, is purged.
+    assert.equal(countTextTombstones(d1), 1);
+    assert.equal(countTextTombstones(d2), 1);
+    assert.equal(d1.getGarbageLen(), 1);
+    assert.equal(d2.getGarbageLen(), 1);
 
-    // Same docSize invariants as the tree case.
+    // Same docSize invariants as the tree case, with only `cd` left in gc.
     assert.deepEqual(d2.getDocSize(), d1.getDocSize());
-    assert.deepEqual(d1.getDocSize().gc, { data: 0, meta: 0 });
+    assert.deepEqual(d1.getDocSize().gc, heldTombstoneSize(d1));
   });
 
   it('keeps GC registration when a newer concurrent delete overwrites a tombstone', () => {
@@ -324,9 +343,10 @@ describe('GC tombstone-split leak (Text)', () => {
       purged2,
       `asymmetric purge for identical state: d1=${purged1} d2=${purged2}`,
     );
-    assert.equal(countTextTombstones(d1), 0);
-    assert.equal(countTextTombstones(d2), 0);
-    assert.equal(d1.getGarbageLen(), 0);
-    assert.equal(d2.getGarbageLen(), 0);
+    // `cd` is removed by both deletions and stays, as above.
+    assert.equal(countTextTombstones(d1), 1);
+    assert.equal(countTextTombstones(d2), 1);
+    assert.equal(d1.getGarbageLen(), 1);
+    assert.equal(d2.getGarbageLen(), 1);
   });
 });

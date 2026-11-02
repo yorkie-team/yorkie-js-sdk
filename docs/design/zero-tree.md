@@ -343,41 +343,36 @@ concurrently deletes `defgh` → A `abcd` / B `abc`). One more: because a remote
 delete is "delete if the creation is known", it also deletes nodes that were
 already dead on the deleter's screen (but are alive here because of an undo).
 
-How it was fixed (prototype, `rga_tree_split.ts`):
+How it is fixed: the removal ledger of yorkie-js-sdk#1514 and yorkie#2310,
+which took over yorkie-js-sdk#1494 and yorkie#2270 and are on `main`. Zero Tree
+keeps its tokens in the same `RGATreeSplit`, so it gets the same rules:
 
-- A **delete ledger** on each node: the deletes that deleted the node (`dels`),
-  and the deletes canceled by undo (`cancels: [delete, cancel time]`).
-  `removedAt` = the latest of the deletes that are not canceled.
-- A **`removedBy` (the delete being undone)** on the restore span. Restore
-  cancels only that one delete. Unknown concurrent deletes remain.
+- A **delete ledger** on each node: the deletes that deleted the node, and the
+  undos that cancelled some of them. `removedAt` = the latest delete no undo
+  cancelled.
+- An undo cancels **the one uncancelled delete by its own actor**. An actor
+  deletes a piece only while it is live in its view, so it holds at most one
+  such delete, and the restore span needs no field naming it. Unknown
+  concurrent deletes remain.
 - A remote delete deletes only **nodes that were alive on the deleter's
   screen** (the creation is known, and all deletes the deleter knew about were
   canceled by cancels the deleter knew about).
-- Redo (retombstone) is recorded as a new delete, and the `removedBy` of the
-  next undo span is changed to that redo.
-- A redo removes **only what was live in the redoer's view**
-  (`isRemovedInView(versionVector)`), like a remote delete. Before 2026-10-23 it
-  re-removed every live piece in its spans, including one the redoer saw
-  removed by another client's delete. Two clients delete `cd` from `abcdef`; A
-  receives B's delete, undoes and redoes its own; B undoes its delete. A shows
-  `cd` again, but B kept it removed by A's redo (`abcdef` vs `abef`). This was a
-  `Text` defect too, and is fixed in yorkie-js-sdk#1494 and yorkie#2270. In Go,
-  an undo or redo is now propagated whenever an operation ran, as in JS: the
-  undo that only cancels its own delete of text another delete still holds
-  shows nothing, yet the other replicas need it. In a random run heavy in undo
-  and redo (4 replicas, 1,000 seeds), Zero Tree diverged in 5 seeds without GC
-  and 11 with GC before this fix, and in 0 after.
-
+- Redo (retombstone) is recorded as a new delete, and removes **only what was
+  live in the redoer's view** (`isRemovedInView(versionVector)`). Its reverse
+  names only the pieces the delete was recorded on.
+- The ledger is written as `removal_events` beside `removed_at`
+  (`TextNode` and `ZeroTreeNode` alike): every delete and cancel ticket but
+  `removed_at`, in ticket order. An actor's events alternate, a delete then
+  its cancel, so a reader pairs them by place.
 - When a piece removed by GC is needed again (an undo arrives after it was
   removed): Zero Tree does not take pieces out of the list — §9 ghost nodes.
-  (The first version kept only the list of uncanceled deletes of the removed
-  piece (`purgedLedger`) and recreated it, but with the real server's GC timing
-  the position could differ or applying the change failed. The `purgedLedger`
-  path remains only in the Text code.)
+  `main`'s Text recreates the piece instead, with a stand-in delete by the
+  undoing actor; GC waits until the piece's whole ledger is known to every
+  replica, so the stand-in answers as the full ledger would.
 
-Spans without `removedBy` (Text's existing path) behave as before, so the 975
-SDK unit tests pass unchanged. Applying this to Text as well needs one field in
-the EditOperation redo path and in protobuf `TextRestoreSpan`.
+Before main took this over, Zero Tree carried an earlier form of it: a
+`removedBy` on each restore span, a capability gating it, and the uncancelled
+deletes of purged pieces. All three are gone with the move to `main`.
 
 ## 9. GC
 
@@ -407,8 +402,7 @@ the EditOperation redo path and in protobuf `TextRestoreSpan`.
      not used for any decision. So **GC timing cannot change the result**: 0
      divergence in 6,109 scripts of server-style GC replay and in end-to-end
      tests against a real server (§13).
-- Cost: as many nodes as deleted pieces remain forever (the first version's
-  `purgedLedger` also remained per piece). Two things were reduced: a ledger of
+- Cost: as many nodes as deleted pieces remain forever. Two things were reduced: a ledger of
   "one removedAt, no cancels" is not stored, and times inside the element are
   written as indexes into an author table. A snapshot after typing 1000
   characters one at a time, deleting 900 and running GC went from 44,816 bytes
@@ -471,15 +465,15 @@ bytes**.
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Operation.ZeroTreeEdit` (body 12)                          | parent, from/to `TextNodePos`, `ZeroTokens content`, executed_at, restore/retombstone `ZeroRestoreSpan`, `RestoreMode`                                                                        |
 | `Operation.ZeroTreeStyle` (body 13)                         | parent, `TextNodeID marker_id`, `repeated ZeroAttrWrite` (order preserved, is_removed = null), executed_at, range (§17.1), cancel (§17.2)                                                     |
-| `JSONElement.ZeroTree` (body 8), `ValueType.ZERO_TREE = 16` | nodes, created/moved/removed/revived, `repeated ZeroPurgedLedger` (empty for Zero Tree), **`ZeroSchema schema`**, **`repeated bytes actors`**. In a Set's `JSONElementSimple`, as bytes       |
-| `ZeroTreeNode`                                              | id, value, removed_at, ins_prev_id, has_ledger, dels, cancels — all times are `ZeroTicket{lamport, delimiter, actor (= index into actors)}`                                                   |
+| `JSONElement.ZeroTree` (body 8), `ValueType.ZERO_TREE = 16` | nodes, created/moved/removed/revived, **`ZeroSchema schema`** (6), **`repeated bytes actors`** (7), style_cancels (8). In a Set's `JSONElementSimple`, as bytes                                |
+| `ZeroTreeNode`                                              | id, value, removed_at, ins_prev_id, removal_events (as `TextNode.removal_events`) — all times are `ZeroTicket{lamport, delimiter, actor (= index into actors)}`                              |
 | `ZeroSchema`                                                | text_type, text_types, scoped, single, grid, root_type, atomic, default_child, allowed, object_data — lists keep their order (it decides what fills an empty slot)                            |
 | `ZeroTokens` / `ZeroToken`                                  | `repeated ZeroToken` + scope / `oneof {string chars; ZeroMarker marker; uint32 ghost}` — consecutive characters are one string (split by code point), ghost is the number of ghost characters |
 | `ZeroMarker` / `ZeroAttr`                                   | type, depth, `repeated ZeroAttr` (key, value, updated_at — updated_at_ref inside the element, is_removed, history), boundary                                                                  |
 | `ZeroAttrEntry`                                             | one write a register keeps in `ZeroAttr.history`: value, is_removed, updated_at(\_ref), by_range (§17.2, §17.3)                                                                               |
 | `ZeroStyleRange`                                            | last: the last character of the node in the writer's view; absent: to the end of the document (§17.1)                                                                                         |
-| `ZeroStyleCancel`                                           | write, on, fallback in operations; in the element `ZeroTree.style_cancels` (9), with write_ref, at_ref, sorted by write (§17.2)                                                               |
-| `ZeroRestoreSpan`                                           | created_at, start, end, value, removed_by                                                                                                                                                     |
+| `ZeroStyleCancel`                                           | write, on, fallback in operations; in the element `ZeroTree.style_cancels` (8), with write_ref, at_ref, sorted by write (§17.2)                                                               |
+| `ZeroRestoreSpan`                                           | created_at, start, end, value                                                                                                                                                                 |
 
 Decisions: **the schema is document state** — when the tree is created, the
 given (or configured) schema is copied into the element (about 540 bytes), and readers
@@ -487,8 +481,8 @@ build the model with the stored schema (the server too). Times inside the
 element are written as indexes into a sorted author table (each 12-byte author
 id only once). Attributes are an ordered list, not a map (map order is not
 defined, so the bytes would fluctuate); ins_prev only when it is a node already
-emitted earlier; the default ledger (one removedAt, no cancels) is not stored;
-purgedLedger is sorted. `zero_tree_codec.ts`, for the binding and relaying, is
+emitted earlier; the default ledger (one removedAt, no cancels) is not stored.
+`zero_tree_codec.ts`, for the binding and relaying, is
 the hex of protobuf `Change` bytes (64 lines).
 
 ## 12. Nested blocks (tables, links, captions)

@@ -3,9 +3,9 @@
 > **Status: prototype, proposed for discussion.**
 >
 > Measured on 2026-10-20, before the protobuf format and ghost GC of 2026-10-21.
-> Where this report says the Zero Tree exchange uses a JSON codec, or that GC
-> after undo is handled with `purgedLedger`, [zero-tree.md](./zero-tree.md)
-> §8, §9 and §11 describe the current state. The protobuf build was checked
+> Where this report says the Zero Tree exchange uses a JSON codec, or that undo
+> uses a span `removedBy` and GC after undo is handled with `purgedLedger`,
+> [zero-tree.md](./zero-tree.md) §8, §9 and §11 describe the current state. The protobuf build was checked
 > against the JSON one per script (same hashes).
 
 The design is in [zero-tree.md](./zero-tree.md). The numbers in this report are

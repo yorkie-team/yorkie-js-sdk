@@ -47,7 +47,12 @@ jobs:
         run: pnpm verify:exports
 
   build:
-    runs-on: ubuntu-latest
+    # Pinned off ubuntu-latest because this job runs MongoDB. The ubuntu-24.04
+    # image from 20261018 ships kernel 7.0.0, and MongoDB stops at startup on
+    # kernels 6.19 through 7.0.13 (its production notes), so a job that lands on
+    # that image never gets a database. ubuntu-22.04 is on 6.8. Move back once
+    # ubuntu-latest carries 7.0.14 or later. Same fix as yorkie#2264.
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         node-version: [22.x]
@@ -124,7 +129,12 @@ jobs:
       - name: Build and Test SDK
         run: |
           pnpm sdk build
-          docker compose -f docker/docker-compose-ci.yml up --build -d
+          docker compose -f docker/docker-compose-ci.yml up --build -d --wait --wait-timeout 120 || {
+            uname -r
+            docker compose -f docker/docker-compose-ci.yml ps -a
+            docker compose -f docker/docker-compose-ci.yml logs --no-color mongo | tail -100
+            exit 1
+          }
           pnpm sdk test:ci
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

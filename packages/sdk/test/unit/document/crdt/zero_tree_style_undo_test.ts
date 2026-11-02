@@ -7,7 +7,6 @@ import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
-import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import {
   InitialVersionVector,
   VersionVector,
@@ -34,7 +33,7 @@ import type {
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 
 type Root = { zt: ZeroTree };
-const capable = [RestoreRemovedByCapability];
+const capable: Array<string> = [];
 
 /** a server log: replicas push their changes and pull the log in order */
 class Net {

@@ -79,8 +79,47 @@ const InvalidTokenErrorMessage = 'invalid token';
 const ExpiredTokenErrorMessage = 'expired token';
 const NotAllowedToken = 'not-allowed-token';
 
+// `webhookCalls` records every webhook request, so a test can count what the
+// server asked while a token refresh was failing.
+const webhookCalls: Array<{ token: string; method: string }> = [];
+
+// `ShortTokenLifetimeMs` is how long the first token lasts in the tests that
+// let it expire on purpose.
+const ShortTokenLifetimeMs = 500;
+
+// `AuthWebhookCacheTTLMs` is a little over the server's default
+// `auth-webhook-cache-ttl` (10s).
+const AuthWebhookCacheTTLMs = 10500;
+
+/**
+ * `createWebhookProject` creates a project whose auth webhook guards the given
+ * methods and returns its public key.
+ */
+async function createWebhookProject(methods: Array<string>): Promise<string> {
+  const projectResponse = await axios.post(
+    `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+    { name: `auth-webhook-${new Date().getTime()}` },
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  await axios.post(
+    `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+    {
+      id: projectResponse.data.project.id,
+      fields: {
+        auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+        auth_webhook_methods: { methods },
+        auth_webhook_max_retries: 0,
+        auth_webhook_request_timeout: '1s',
+      },
+    },
+    { headers: { Authorization: `Bearer ${adminToken}` } },
+  );
+  return projectResponse.data.project.publicKey;
+}
+
 webhookServer.post('/auth-webhook', express.json(), (req, res) => {
   const authToken = req.body.token;
+  webhookCalls.push({ token: authToken, method: req.body.method });
 
   // valid token
   if (authToken.startsWith('token')) {
@@ -609,6 +648,305 @@ describe('Auth Webhook', () => {
     await c1.detach(doc);
     await c1.deactivate();
   });
+
+  it('should keep retrying realtime sync when a token refresh fails', async ({
+    task,
+  }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['PushPull'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
+        },
+      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+
+    // The first refresh fails as if the token API were down for a moment;
+    // the next one succeeds.
+    const TokenExpirationMs = 500;
+    let refreshFailures = 1;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + TokenExpirationMs}`;
+    });
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      retrySyncLoopDelay: 100,
+    });
+
+    await client.activate();
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ k1: string }>(docKey);
+    await client.attach(doc);
+
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+
+    doc.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    // The failed refresh must not stop the loop: it retries, gets 401 again,
+    // refreshes successfully and pushes the change.
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
+    expect(authTokenInjector).toBeCalledTimes(3);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+    expect(authTokenInjector).nthCalledWith(3, ExpiredTokenErrorMessage);
+
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector: async () => `token-${Date.now() + 1000 * 60 * 60}`,
+    });
+    await client2.activate();
+    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
+    await client2.attach(doc2, { syncMode: SyncMode.Manual });
+    expect(doc2.getRoot().k1).toBe('v1');
+
+    await client2.deactivate();
+    await client.detach(doc);
+    await client.deactivate();
+  });
+
+  it('should keep reconnecting watch document when a token refresh fails', async ({
+    task,
+  }) => {
+    // Create New project
+    const projectResponse = await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/CreateProject`,
+      { name: `auth-webhook-${new Date().getTime()}` },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+    const projectId = projectResponse.data.project.id;
+    apiKey = projectResponse.data.project.publicKey;
+
+    // Update project with webhook url and methods
+    await axios.post(
+      `${testRPCAddr}/yorkie.v1.AdminService/UpdateProject`,
+      {
+        id: projectId,
+        fields: {
+          auth_webhook_url: `http://${webhookServerAddress}:${webhookServerPort}/auth-webhook`,
+          auth_webhook_methods: { methods: ['Watch'] },
+          auth_webhook_max_retries: 0,
+          auth_webhook_request_timeout: '1s',
+        },
+      },
+      { headers: { Authorization: `Bearer ${adminToken}` } },
+    );
+
+    // The first refresh fails as if the token API were down for a moment;
+    // the next one succeeds.
+    const TokenExpirationMs = 500;
+    let refreshFailures = 1;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + TokenExpirationMs}`;
+    });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      reconnectStreamDelay: 100,
+    });
+
+    await c1.activate();
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const doc = new yorkie.Document<{ k1: string }>(docKey);
+
+    // Another client for verifying if the watchDocument is working properly
+    const client2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector: async () => `token-${Date.now() + 1000 * 60 * 60}`,
+    });
+    await client2.activate();
+    const doc2 = new yorkie.Document<{ k1: string }>(docKey);
+    await client2.attach(doc2);
+
+    const presenceEventCollector = new EventCollector();
+    doc2.subscribe('presence', (event) => {
+      presenceEventCollector.add(event.type);
+    });
+
+    // The failed refresh must not stop the watch loop: it reconnects, gets
+    // 401 again, refreshes successfully and watches the document.
+    await new Promise((res) => setTimeout(res, TokenExpirationMs));
+    await c1.attach(doc);
+    await presenceEventCollector.waitFor(DocEventType.Watched);
+    expect(authTokenInjector).toBeCalledTimes(3);
+    expect(authTokenInjector).nthCalledWith(1);
+    expect(authTokenInjector).nthCalledWith(2, ExpiredTokenErrorMessage);
+    expect(authTokenInjector).nthCalledWith(3, ExpiredTokenErrorMessage);
+
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+    doc2.update((root) => {
+      root.k1 = 'v1';
+    });
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
+    expect(doc.getRoot().k1).toBe('v1');
+
+    await client2.deactivate();
+    await c1.detach(doc);
+    await c1.deactivate();
+  }, 10000);
+
+  it('should back off the token refresh and resend the refused token once per attempt', async ({
+    task,
+  }) => {
+    apiKey = await createWebhookProject(['PushPull']);
+
+    // The first two refreshes fail; the third succeeds after about 1s + 2s
+    // of backoff.
+    let refreshFailures = 2;
+    const refreshedAt: Array<number> = [];
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        refreshedAt.push(Date.now());
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + ShortTokenLifetimeMs}`;
+    });
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      retrySyncLoopDelay: 100,
+    });
+
+    await client.activate();
+    const doc = new yorkie.Document<{ k1: string }>(
+      toDocKey(`${task.name}-${new Date().getTime()}`),
+    );
+    await client.attach(doc);
+    const expiredToken = (await authTokenInjector.mock.results[0]
+      .value) as string;
+
+    await new Promise((res) => setTimeout(res, ShortTokenLifetimeMs));
+    const callsBeforeExpiry = webhookCalls.length;
+    const syncEventCollector = new EventCollector();
+    doc.subscribe('sync', (event) => {
+      syncEventCollector.add(event.value);
+    });
+    doc.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    await syncEventCollector.waitFor(DocSyncStatus.Synced);
+    expect(authTokenInjector).toBeCalledTimes(4);
+
+    // The loop retries every 100ms, but the refreshes were 1s and then 2s
+    // apart (±20%), and each one was set off by a single push with the
+    // refused token.
+    expect(refreshedAt[1] - refreshedAt[0]).toBeGreaterThanOrEqual(800);
+    expect(refreshedAt[2] - refreshedAt[1]).toBeGreaterThanOrEqual(1600);
+    const refused = webhookCalls
+      .slice(callsBeforeExpiry)
+      .filter(
+        (call) => call.token === expiredToken && call.method === 'PushPull',
+      );
+    expect(refused).toHaveLength(3);
+
+    await client.detach(doc);
+    await client.deactivate();
+  }, 10000);
+
+  it('should pull a remote change whose pull failed on a 401', async ({
+    task,
+  }) => {
+    apiKey = await createWebhookProject(['PushPull']);
+
+    let refreshFailures = 1;
+    const authTokenInjector = vi.fn(async (reason) => {
+      if (reason === ExpiredTokenErrorMessage) {
+        if (refreshFailures > 0) {
+          refreshFailures--;
+          throw new Error('token api unavailable');
+        }
+        return `token-${Date.now() + 1000 * 60 * 60}`;
+      }
+      return `token-${Date.now() + ShortTokenLifetimeMs}`;
+    });
+    const c1 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector,
+      retrySyncLoopDelay: 100,
+    });
+    const c2 = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      apiKey,
+      authTokenInjector: async () => `token-${Date.now() + 1000 * 60 * 60}`,
+    });
+    await c1.activate();
+    await c2.activate();
+
+    const docKey = toDocKey(`${task.name}-${new Date().getTime()}`);
+    const d1 = new yorkie.Document<{ k1: string }>(docKey);
+    const d2 = new yorkie.Document<{ k1: string }>(docKey);
+    await c1.attach(d1);
+    await c2.attach(d2);
+
+    // c1 has no local changes: the only reason it pulls is c2's change, and
+    // that pull is the one that gets the 401. The server caches an allowed
+    // webhook answer for the same request for 10s (`auth-webhook-cache-ttl`),
+    // so wait that out too, or the expired token would still pass.
+    await new Promise((res) =>
+      setTimeout(res, ShortTokenLifetimeMs + AuthWebhookCacheTTLMs),
+    );
+    d2.update((root) => {
+      root.k1 = 'v1';
+    });
+
+    await vi.waitFor(() => expect(d1.getRoot().k1).toBe('v1'), {
+      timeout: 10000,
+    });
+    expect(authTokenInjector).toBeCalledTimes(3);
+
+    await c2.deactivate();
+    await c1.detach(d1);
+    await c1.deactivate();
+  }, 25000);
 
   it('should refresh token and retry broadcast', async ({ task }) => {
     // Create New project

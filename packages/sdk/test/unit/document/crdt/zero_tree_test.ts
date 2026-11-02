@@ -20,7 +20,6 @@ import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
-import { RestoreRemovedByCapability } from '@yorkie-js/sdk/src/document/operation/edit_operation';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { ZeroTree } from '@yorkie-js/sdk/src/document/json/zero_tree';
 import type {
@@ -31,7 +30,7 @@ import { validateYorkieRuleset } from '@yorkie-js/sdk/src/document/schema/rulese
 
 type Root = { zt: ZeroTree };
 
-const capable = [RestoreRemovedByCapability];
+const capable: Array<string> = [];
 
 /**
  * `send` delivers the pending changes of `from` to `to` through protobuf.
