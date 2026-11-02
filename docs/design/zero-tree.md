@@ -402,14 +402,53 @@ deletes of purged pieces. All three are gone with the move to `main`.
      not used for any decision. So **GC timing cannot change the result**: 0
      divergence in 6,109 scripts of server-style GC replay and in end-to-end
      tests against a real server (§13).
-- Cost: as many nodes as deleted pieces remain forever. Two things were reduced: a ledger of
-  "one removedAt, no cancels" is not stored, and times inside the element are
-  written as indexes into an author table. A snapshot after typing 1000
-  characters one at a time, deleting 900 and running GC went from 44,816 bytes
-  in the first version (tombstones taken out) to 24,181 bytes now (schema
-  included). Pasting 1000 characters and deleting 900: 1,385 → 1,691. To reduce
-  further: merging neighboring ghosts (same insertion, consecutive offsets, same
-  ledger) — effective for partial deletion after paste.
+- **A ghost is not garbage.** `ZeroTokens.ghost` (proto `ZeroTokens.ghost`)
+  marks a stripped run. `getGCPairs` leaves ghosts out, so a snapshot load
+  does not register them again and the next GC does not count them as
+  collected again. A purge reports what the ghost keeps (`GCParent.purge`
+  returns a `PurgeResult`; Go `GCSizedParent.PurgeSized`), and the root moves
+  it to live: `docSize.gc` drops by the node's size and `docSize.live` grows by
+  what stays (the node, its ticket and its markers; a ghost character counts
+  nothing). `CRDTZeroTree.getDataSize` counts ghosts, so a reload gives the same
+  sizes. A revived ghost adds only what it gets back.
+- **Joining ghosts.** A ghost next to another ghost of the same insertion (the
+  next offsets, linked in the insertion chain, same scope) joins it when each
+  was removed by a single deletion of the same actor with no cancel. A purged
+  removal is known to every replica, so no later change can tell one such
+  deletion from another; an undo needs only whose it is
+  (`uncancelledRemovalBy`), and a restore isolates the part it names. The
+  joined ledger keeps the later deletion. Ghosts of two actors, or with a
+  cancel, stay apart.
+- **The bound is compaction.** A ghost stays until an undo revives it or the
+  document is compacted. Compaction (`packs.Compact`, run only when no client
+  is attached) rebuilds the document from YSON, which keeps the model and no
+  removed node, so every ghost goes; the Go cross test compacts every
+  collected script and checks the model and that no removed node is left. No
+  undo can reach a ghost then: undo stacks live in attached clients. Dropping
+  a ghost earlier would need to know that its actor can no longer undo the
+  deletion, which the document does not record.
+- Cost. A ledger of "one removedAt, no cancels" is not stored, times inside
+  the element are indexes into an author table, and the ghost flag is written
+  only for a ghost with no ghost character. After GC (one actor, 2026-11-02):
+
+  | Snapshot after GC                                    | Before joining |               Now |
+  | ---------------------------------------------------- | -------------: | ----------------: |
+  | 1,000 characters typed one by one, 900 deleted       |         23,990 |            23,990 |
+  | 10,000 typed, 9,000 deleted (one range / one by one) |              – | 234,590 / 237,207 |
+  | 1,000 characters pasted, 900 deleted with Backspace  |         33,757 |               865 |
+  | 10,000 pasted, 9,000 deleted with Backspace          |              – |             1,769 |
+
+  Typed characters are separate insertions, so their ghosts cannot join: one
+  ghost per character stays until compaction (about 26 bytes each).
+
+- **Sizes of markers.** A style write, a range write spreading, a cancel
+  re-picking a register and GC dropping a range write's register all change a
+  marker in place. `CRDTZeroTree` books the change (`takeSizeDelta`), in live
+  or in gc as the marker's node is, and the operations and the purge hand it
+  to the root. Before this, a style changed no size, and a write on a removed
+  marker drove `docSize.gc` below zero after GC. The window, range-style and
+  style-undo fuzzers now check after every GC that a reload of each replica
+  gives the same `docSize` and `getGarbageLen`.
 - Delete ledgers and ghosts are stored as they are in snapshots (protobuf).
   Swapping in the root from a snapshot gives the same per-script results (4
   replicas, GC, 3000).
@@ -461,19 +500,19 @@ type ZeroTreeOpInfo = {
 `api/converter/zero_tree.go` encode with the same rules, so **same state = same
 bytes**.
 
-| Message                                                     | Content                                                                                                                                                                                       |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Operation.ZeroTreeEdit` (body 12)                          | parent, from/to `TextNodePos`, `ZeroTokens content`, executed_at, restore/retombstone `ZeroRestoreSpan`, `RestoreMode`                                                                        |
-| `Operation.ZeroTreeStyle` (body 13)                         | parent, `TextNodeID marker_id`, `repeated ZeroAttrWrite` (order preserved, is_removed = null), executed_at, range (§17.1), cancel (§17.2)                                                     |
-| `JSONElement.ZeroTree` (body 8), `ValueType.ZERO_TREE = 16` | nodes, created/moved/removed/revived, **`ZeroSchema schema`** (6), **`repeated bytes actors`** (7), style_cancels (8). In a Set's `JSONElementSimple`, as bytes                                |
-| `ZeroTreeNode`                                              | id, value, removed_at, ins_prev_id, removal_events (as `TextNode.removal_events`) — all times are `ZeroTicket{lamport, delimiter, actor (= index into actors)}`                              |
-| `ZeroSchema`                                                | text_type, text_types, scoped, single, grid, root_type, atomic, default_child, allowed, object_data — lists keep their order (it decides what fills an empty slot)                            |
-| `ZeroTokens` / `ZeroToken`                                  | `repeated ZeroToken` + scope / `oneof {string chars; ZeroMarker marker; uint32 ghost}` — consecutive characters are one string (split by code point), ghost is the number of ghost characters |
-| `ZeroMarker` / `ZeroAttr`                                   | type, depth, `repeated ZeroAttr` (key, value, updated_at — updated_at_ref inside the element, is_removed, history), boundary                                                                  |
-| `ZeroAttrEntry`                                             | one write a register keeps in `ZeroAttr.history`: value, is_removed, updated_at(\_ref), by_range (§17.2, §17.3)                                                                               |
-| `ZeroStyleRange`                                            | last: the last character of the node in the writer's view; absent: to the end of the document (§17.1)                                                                                         |
-| `ZeroStyleCancel`                                           | write, on, fallback in operations; in the element `ZeroTree.style_cancels` (8), with write_ref, at_ref, sorted by write (§17.2)                                                               |
-| `ZeroRestoreSpan`                                           | created_at, start, end, value                                                                                                                                                                 |
+| Message                                                     | Content                                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Operation.ZeroTreeEdit` (body 12)                          | parent, from/to `TextNodePos`, `ZeroTokens content`, executed_at, restore/retombstone `ZeroRestoreSpan`, `RestoreMode`                                                                                                                                              |
+| `Operation.ZeroTreeStyle` (body 13)                         | parent, `TextNodeID marker_id`, `repeated ZeroAttrWrite` (order preserved, is_removed = null), executed_at, range (§17.1), cancel (§17.2)                                                                                                                           |
+| `JSONElement.ZeroTree` (body 8), `ValueType.ZERO_TREE = 16` | nodes, created/moved/removed/revived, **`ZeroSchema schema`** (6), **`repeated bytes actors`** (7), style_cancels (8). In a Set's `JSONElementSimple`, as bytes                                                                                                     |
+| `ZeroTreeNode`                                              | id, value, removed_at, ins_prev_id, removal_events (as `TextNode.removal_events`) — all times are `ZeroTicket{lamport, delimiter, actor (= index into actors)}`                                                                                                     |
+| `ZeroSchema`                                                | text_type, text_types, scoped, single, grid, root_type, atomic, default_child, allowed, object_data — lists keep their order (it decides what fills an empty slot)                                                                                                  |
+| `ZeroTokens` / `ZeroToken`                                  | `repeated ZeroToken` + scope + ghost / `oneof {string chars; ZeroMarker marker; uint32 ghost}` — consecutive characters are one string (split by code point), ghost is the number of ghost characters; `ZeroTokens.ghost` marks a ghost that kept only markers (§9) |
+| `ZeroMarker` / `ZeroAttr`                                   | type, depth, `repeated ZeroAttr` (key, value, updated_at — updated_at_ref inside the element, is_removed, history), boundary                                                                                                                                        |
+| `ZeroAttrEntry`                                             | one write a register keeps in `ZeroAttr.history`: value, is_removed, updated_at(\_ref), by_range (§17.2, §17.3)                                                                                                                                                     |
+| `ZeroStyleRange`                                            | last: the last character of the node in the writer's view; absent: to the end of the document (§17.1)                                                                                                                                                               |
+| `ZeroStyleCancel`                                           | write, on, fallback in operations; in the element `ZeroTree.style_cancels` (8), with write_ref, at_ref, sorted by write (§17.2)                                                                                                                                     |
+| `ZeroRestoreSpan`                                           | created_at, start, end, value                                                                                                                                                                                                                                       |
 
 Decisions: **the schema is document state** — when the tree is created, the
 given (or configured) schema is copied into the element (about 540 bytes), and readers
@@ -569,8 +608,9 @@ Confirmed:
    inline marker after a link is deleted, its text becomes text inside the
    link — Zero has no operation that changes a node's type). Inside tables, it
    would help to add a per-cell replacement candidate.
-5. GC ghosts remain as many as deleted pieces (§9). Merging neighboring ghosts
-   and removing them at compaction are the next candidates.
+5. GC ghosts remain until compaction (§9). Ghosts of one insertion removed by
+   one actor join; typed characters are separate insertions and keep one
+   ghost each.
 6. Unusual behaviors seen on the Zero side (Zero Tree imitates them as they
    are): ① forward-delete before an empty inline emits `delete [b,i,-1]` and
    deletes nothing. ② `merge` of nodes with different formatting or type is

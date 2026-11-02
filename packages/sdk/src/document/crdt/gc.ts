@@ -44,8 +44,19 @@ export type GCPair = {
 /**
  * `GCParent` is an interface for the parent of the garbage collection target.
  */
+/**
+ * `PurgeResult` is how much a purge changed the document by, besides
+ * dropping the purged child, in live and in gc.
+ */
+export type PurgeResult = { live?: DataSize; gc?: DataSize };
+
 export interface GCParent {
-  purge(node: GCChild): void;
+  /**
+   * `purge` purges `node`. It may return how much the purge changed the rest
+   * of the document by: what a ghost keeps (see `RGATreeSplit.purgeToGhost`),
+   * or a register that drops a write (see `CRDTZeroTree.purge`).
+   */
+  purge(node: GCChild): PurgeResult | void;
 
   /**
    * `purgeBarrierAt` is an optional capability of a GC parent whose surviving

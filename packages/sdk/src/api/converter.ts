@@ -1191,7 +1191,12 @@ class ZeroActors {
  * `toZeroTokens` converts the given tokens to Protobuf format.
  */
 function toZeroTokens(value: ZeroTokens, actors?: ZeroActors): PbZeroTokens {
-  const pbTokens = create(PbZeroTokensSchema, { scope: value.scope ?? '' });
+  // A run of ghost characters tells a ghost by itself: the flag is written
+  // only for a ghost that kept nothing but markers.
+  const pbTokens = create(PbZeroTokensSchema, {
+    scope: value.scope ?? '',
+    ghost: value.ghost && !value.tokens.includes(ZeroGhost),
+  });
   let chars = '';
   let ghosts = 0;
   const flush = () => {
@@ -2523,7 +2528,11 @@ function fromZeroTokens(
       tokens.push(marker);
     }
   }
-  return new ZeroTokens(tokens, pbTokens.scope || undefined);
+  return new ZeroTokens(
+    tokens,
+    pbTokens.scope || undefined,
+    pbTokens.ghost || tokens.includes(ZeroGhost),
+  );
 }
 
 /**

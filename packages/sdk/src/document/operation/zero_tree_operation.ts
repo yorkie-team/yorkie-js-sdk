@@ -74,6 +74,16 @@ function findTree(root: CRDTRoot, createdAt: TimeTicket): CRDTZeroTree {
 }
 
 /**
+ * `bookSizeDelta` books on the root how much the markers of `tree` grew in
+ * place (see `CRDTZeroTree.takeSizeDelta`).
+ */
+function bookSizeDelta(root: CRDTRoot, tree: CRDTZeroTree): void {
+  const delta = tree.takeSizeDelta();
+  root.acc(delta.live);
+  root.accGC(delta.gc);
+}
+
+/**
  * `toOpInfos` returns the Zero operations an edit made, as operation infos.
  */
 function toOpInfos(
@@ -224,6 +234,7 @@ export class ZeroTreeEditOperation extends Operation {
         );
       }
     }
+    bookSizeDelta(root, tree);
 
     return {
       opInfos: toOpInfos(
@@ -334,6 +345,7 @@ export class ZeroTreeStyleOperation extends Operation {
     for (const pair of pairs) {
       root.registerGCPair(pair);
     }
+    bookSizeDelta(root, tree);
     return {
       opInfos: toOpInfos(
         root,

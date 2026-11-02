@@ -29,6 +29,7 @@ import {
   ZeroTree,
   ZeroTreeCrdtNode,
 } from '@yorkie-js/sdk/src/document/json/zero_tree';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import { IndexStats } from '@yorkie-js/sdk/src/document/crdt/zero_tree_index';
 import {
@@ -464,6 +465,22 @@ function run(seed: number, mix: Mix): void {
       // everyone has everything: collect the tombstones
       net.syncAll();
       docs.forEach((d) => d.garbageCollect(d.getVersionVector()));
+    }
+    if (process.env.FUZZ_SIZE !== '0' && step % 40 === 39) {
+      // A reload counts the document as the collector does: ghosts are not
+      // garbage again, and what they keep is in live.
+      for (const d of docs) {
+        const { root } = converter.bytesToSnapshot(
+          converter.snapshotToBytes(d.getRootObject(), new Map()),
+        );
+        const reloaded = new CRDTRoot(root);
+        expect(reloaded.getDocSize(), `step ${step} size`).toEqual(
+          d.getDocSize(),
+        );
+        expect(reloaded.getGarbageLen(), `step ${step} garbage`).toBe(
+          d.getGarbageLen(),
+        );
+      }
     }
     if (r() < 0.3) {
       const i = Math.floor(r() * docs.length);

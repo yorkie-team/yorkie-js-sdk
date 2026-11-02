@@ -50,8 +50,16 @@ import {
   RestoreSpan,
   ValueChange,
 } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
-import { GCChild, GCPair } from '@yorkie-js/sdk/src/document/crdt/gc';
-import { DataSize } from '@yorkie-js/sdk/src/util/resource';
+import {
+  GCChild,
+  GCPair,
+  PurgeResult,
+} from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  addDataSizes,
+  DataSize,
+  subDataSize,
+} from '@yorkie-js/sdk/src/util/resource';
 import type * as Devtools from '@yorkie-js/sdk/src/devtools/types';
 import {
   CompileStats,
@@ -280,6 +288,31 @@ export class ZeroMarker {
 export type ZeroToken = string | ZeroMarker;
 
 /**
+ * `markerDataSize` returns the data size of a marker: its type, its
+ * attributes and the writes their registers keep.
+ */
+function markerDataSize(t: ZeroMarker): DataSize {
+  let data = t.type.length * 2 + 4;
+  let meta = 0;
+  for (const [k, v] of t.attrs) {
+    data += (k.length + (v.value?.length ?? 0)) * 2;
+    meta += TimeTicketSize;
+    for (const e of v.history ?? []) {
+      data += (e.value?.length ?? 0) * 2;
+      meta += TimeTicketSize;
+    }
+  }
+  return { data, meta };
+}
+
+/**
+ * `emptySizeDelta` returns a size change of nothing, in live and in gc.
+ */
+function emptySizeDelta(): { live: DataSize; gc: DataSize } {
+  return { live: { data: 0, meta: 0 }, gc: { data: 0, meta: 0 } };
+}
+
+/**
  * `ZeroGhost` stands in for a character a ghost purge dropped. Characters
  * never change, so a restore refills it from its span.
  */
@@ -296,10 +329,16 @@ export class ZeroTokens {
    * someone put in a row stays out of the model once the row is deleted.
    */
   public scope?: string;
+  /**
+   * Whether a ghost purge stripped this run (see `toGhost`). A ghost is not
+   * garbage: GC leaves it alone, and it counts in live.
+   */
+  public ghost: boolean;
 
-  constructor(tokens: Array<ZeroToken>, scope?: string) {
+  constructor(tokens: Array<ZeroToken>, scope?: string, ghost = false) {
     this.tokens = tokens;
     this.scope = scope;
+    this.ghost = ghost;
   }
 
   /**
@@ -318,6 +357,7 @@ export class ZeroTokens {
         .slice(indexStart, indexEnd)
         .map((t) => (typeof t === 'string' ? t : t.deepcopy())),
       this.scope,
+      this.ghost,
     );
   }
 
@@ -336,6 +376,30 @@ export class ZeroTokens {
     this.tokens = this.tokens.map((t) =>
       typeof t === 'string' ? ZeroGhost : t,
     );
+    this.ghost = true;
+  }
+
+  /**
+   * `isGhost` tells whether a ghost purge stripped this run.
+   */
+  public isGhost(): boolean {
+    return this.ghost;
+  }
+
+  /**
+   * `canAbsorb` tells whether ghost `next` can join this ghost: both are
+   * ghosts in the same scope.
+   */
+  public canAbsorb(next: unknown): boolean {
+    const other = next as ZeroTokens;
+    return this.ghost && other.ghost && this.scope === other.scope;
+  }
+
+  /**
+   * `absorb` appends the tokens of ghost `next`.
+   */
+  public absorb(next: unknown): void {
+    this.tokens.push(...(next as ZeroTokens).tokens);
   }
 
   /**
@@ -350,30 +414,23 @@ export class ZeroTokens {
         this.tokens[i] = s;
       }
     });
+    this.ghost = false;
   }
 
   /**
    * `getDataSize` returns the data size of this element.
    */
   public getDataSize(): DataSize {
-    let data = 0;
-    let meta = 0;
+    const size = { data: 0, meta: 0 };
     for (const t of this.tokens) {
       if (typeof t === 'string') {
-        data += 2;
+        // A ghost keeps no character, only a count of them.
+        size.data += t === ZeroGhost ? 0 : 2;
         continue;
       }
-      data += t.type.length * 2 + 4;
-      for (const [k, v] of t.attrs) {
-        data += (k.length + (v.value?.length ?? 0)) * 2;
-        meta += TimeTicketSize;
-        for (const e of v.history ?? []) {
-          data += (e.value?.length ?? 0) * 2;
-          meta += TimeTicketSize;
-        }
-      }
+      addDataSizes(size, markerDataSize(t));
     }
-    return { data, meta };
+    return size;
   }
 
   /**
@@ -732,6 +789,12 @@ export class CRDTZeroTree extends CRDTElement {
    * on first use; it may name tokens that no longer keep it (see `holdersOf`)
    */
   private holders?: Map<string, Map<string, RGATreeSplitNodeID>>;
+  /**
+   * how much the markers grew since `takeSizeDelta`, in live and in gc as
+   * their nodes are: a register changes in place, under no insertion or
+   * removal that would count it
+   */
+  private sizeDelta = emptySizeDelta();
 
   constructor(
     rga: RGATreeSplit<ZeroTokens>,
@@ -1131,26 +1194,30 @@ export class CRDTZeroTree extends CRDTElement {
     let reverse: ZeroCancelWrite | undefined;
     if (marker && writes.length) {
       const fallback: Array<[string, ZeroAttrValue]> = [];
-      for (const [k, v] of writes) {
-        const [old, applied] = marker.set(k, v, editedAt, this.cancels);
-        if (!applied) {
-          continue;
+      this.resize(this.rga.findNode(markerID), marker, () => {
+        for (const [k, v] of writes) {
+          const [old, applied] = marker.set(k, v, editedAt, this.cancels);
+          if (!applied) {
+            continue;
+          }
+          if (keepsHistory(k)) {
+            fallback.push([k, old === undefined ? null : old]);
+          } else {
+            prev.push([k, old === undefined ? null : old]);
+          }
         }
-        if (keepsHistory(k)) {
-          fallback.push([k, old === undefined ? null : old]);
-        } else {
-          prev.push([k, old === undefined ? null : old]);
+        if (region) {
+          marker.attrs.set(region.key, {
+            value: region.encode(),
+            updatedAt: editedAt,
+          });
         }
-      }
+      });
       this.track(marker, markerID);
       if (fallback.length) {
         reverse = { write: editedAt, on: true, fallback };
       }
       if (region) {
-        marker.attrs.set(region.key, {
-          value: region.encode(),
-          updatedAt: editedAt,
-        });
         this.pendingRegions().set(region.key, region);
         this.applyRegion(region);
         pairs.push({
@@ -1167,14 +1234,26 @@ export class CRDTZeroTree extends CRDTElement {
         editedAt,
         cancel.fallback,
       );
+      const replaced = this.cancels.get(cancel.write);
       if (this.cancels.set(state)) {
         pairs.push({
           parent: this,
           child: state,
           gcOnlySize: state.getDataSize(),
         });
+        // The state it replaces is no longer the tree's: registering it a
+        // second time takes it out (see `CRDTRoot.registerGCPair`).
+        if (replaced) {
+          pairs.push({
+            parent: this,
+            child: replaced,
+            gcOnlySize: replaced.getDataSize(),
+          });
+        }
         for (const id of this.holdersOf(cancel.write)) {
-          this.markerAt(id)!.repick(this.cancels);
+          this.resize(this.rga.findNode(id), this.markerAt(id)!, (m) =>
+            m.repick(this.cancels),
+          );
         }
       }
       reverse = { ...cancel, on: !cancel.on };
@@ -1300,7 +1379,7 @@ export class CRDTZeroTree extends CRDTElement {
         return;
       }
       if (this.cancels.size) {
-        t.repick(this.cancels);
+        this.resize(node, t, (m) => m.repick(this.cancels));
       }
       this.track(
         t,
@@ -1393,9 +1472,11 @@ export class CRDTZeroTree extends CRDTElement {
           continue;
         }
         if (!target || t === target) {
-          for (const [k, v] of region.writes) {
-            t.set(k, v, region.ticket, this.cancels, true);
-          }
+          this.resize(node, t, (m) => {
+            for (const [k, v] of region.writes) {
+              m.set(k, v, region.ticket, this.cancels, true);
+            }
+          });
           this.track(t, RGATreeSplitNodeID.of(created, base + i));
           if (target) {
             return true;
@@ -1446,7 +1527,7 @@ export class CRDTZeroTree extends CRDTElement {
    * an undone write once every replica knows it and nothing keeps the write
    * (see `purgeBarrierAt`).
    */
-  public purge(child: GCChild): void {
+  public purge(child: GCChild): PurgeResult | void {
     if (child instanceof ZeroStyleCancel) {
       this.cancels.delete(child);
       return;
@@ -1455,7 +1536,42 @@ export class CRDTZeroTree extends CRDTElement {
       return;
     }
     this.pendingRegions().delete(child.key);
-    this.findMarker(child.markerID)?.attrs.delete(child.key);
+    const marker = this.findMarker(child.markerID);
+    if (marker) {
+      this.resize(this.rga.findNode(child.markerID), marker, (m) =>
+        m.attrs.delete(child.key),
+      );
+    }
+    return this.takeSizeDelta();
+  }
+
+  /**
+   * `resize` applies `change` to `marker` of `node` and books how much the
+   * marker grew (see `sizeDelta`). A ghost counts in live.
+   */
+  private resize(
+    node: RGATreeSplitNode<ZeroTokens> | undefined,
+    marker: ZeroMarker,
+    change: (marker: ZeroMarker) => void,
+  ): void {
+    const before = markerDataSize(marker);
+    change(marker);
+    const bucket =
+      node?.isRemoved() && !node.getValue()?.ghost
+        ? this.sizeDelta.gc
+        : this.sizeDelta.live;
+    addDataSizes(bucket, markerDataSize(marker));
+    subDataSize(bucket, before);
+  }
+
+  /**
+   * `takeSizeDelta` returns how much the markers grew since the last call
+   * (see `sizeDelta`), for the root to book.
+   */
+  public takeSizeDelta(): { live: DataSize; gc: DataSize } {
+    const delta = this.sizeDelta;
+    this.sizeDelta = emptySizeDelta();
+    return delta;
   }
 
   /**
@@ -1609,7 +1725,8 @@ export class CRDTZeroTree extends CRDTElement {
   public getDataSize(): DataSize {
     const size = { data: 0, meta: 0 };
     for (const node of this.rga) {
-      if (node.isRemoved()) {
+      // A ghost stays until an undo revives it, so it counts in live.
+      if (node.isRemoved() && !node.getValue().ghost) {
         continue;
       }
       const s = node.getDataSize();
@@ -1625,7 +1742,8 @@ export class CRDTZeroTree extends CRDTElement {
   public getGCPairs(): Array<GCPair> {
     const pairs: Array<GCPair> = [];
     for (const node of this.rga) {
-      if (node.getRemovedAt()) {
+      // A ghost is what GC already left behind, not garbage.
+      if (node.getRemovedAt() && !node.getValue().ghost) {
         pairs.push({
           parent: this.rga,
           child: node,

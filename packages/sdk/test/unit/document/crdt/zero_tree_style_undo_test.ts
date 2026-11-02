@@ -21,6 +21,7 @@
 import { describe, it, expect } from 'vitest';
 import { Document, Indexable } from '@yorkie-js/sdk/src/document/document';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
+import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
 import { ChangePack } from '@yorkie-js/sdk/src/document/change/change_pack';
 import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import {
@@ -49,6 +50,23 @@ import type {
 } from '@yorkie-js/sdk/src/document/crdt/zero_tree_view';
 
 type Root = { zt: ZeroTree };
+
+/**
+ * `expectReloadSize` checks that a reload of each document counts it as the
+ * document does: the size in live and gc, and the garbage left.
+ */
+function expectReloadSize(docs: Array<Document<Root>>, label: string): void {
+  for (const d of docs) {
+    const { root } = converter.bytesToSnapshot(
+      converter.snapshotToBytes(d.getRootObject(), new Map()),
+    );
+    const reloaded = new CRDTRoot(root);
+    expect(reloaded.getDocSize(), `${label} size`).toEqual(d.getDocSize());
+    expect(reloaded.getGarbageLen(), `${label} garbage`).toBe(
+      d.getGarbageLen(),
+    );
+  }
+}
 const capable: Array<string> = [];
 
 /** a server log: replicas push their changes and pull the log in order */
@@ -672,6 +690,7 @@ describe('ZeroTree format undo fuzz', () => {
         if (step % 30 === 29) {
           net.syncAll();
           docs.forEach((d) => d.garbageCollect(d.getVersionVector()));
+          expectReloadSize(docs, `step ${step}`);
         } else if (r() < 0.4) {
           const i = Math.floor(r() * 3);
           const j = (i + 1 + Math.floor(r() * 2)) % 3;

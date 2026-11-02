@@ -904,9 +904,16 @@ export class CRDTRoot {
         continue;
       }
 
-      pair.parent.purge(pair.child);
+      const size = pair.child.getDataSize();
+      const kept = pair.parent.purge(pair.child);
 
-      subDataSize(this.docSize.gc, pair.child.getDataSize());
+      subDataSize(this.docSize.gc, size);
+      if (kept?.live) {
+        addDataSizes(this.docSize.live, kept.live);
+      }
+      if (kept?.gc) {
+        addDataSizes(this.docSize.gc, kept.gc);
+      }
       this.gcPairMap.delete(key);
       count += 1;
     }

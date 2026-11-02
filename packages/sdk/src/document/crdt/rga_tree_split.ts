@@ -28,7 +28,12 @@ import {
   VersionVector,
   ticketKnown,
 } from '@yorkie-js/sdk/src/document/time/version_vector';
-import { GCChild, GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
+import {
+  GCChild,
+  GCPair,
+  GCParent,
+  PurgeResult,
+} from '@yorkie-js/sdk/src/document/crdt/gc';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import {
   DataSize,
@@ -50,6 +55,17 @@ export interface ValueChange<T> {
 export interface GhostableValue {
   toGhost(): void;
   refill(from: unknown, offset: number): void;
+  /**
+   * `isGhost` tells whether a ghost purge has stripped this value. A ghost is
+   * not garbage any more: what it keeps stays until an undo revives it.
+   */
+  isGhost(): boolean;
+  /**
+   * `canAbsorb` tells whether `next`, the ghost right after this one, can
+   * join it; `absorb` appends it.
+   */
+  canAbsorb(next: unknown): boolean;
+  absorb(next: unknown): void;
 }
 
 export interface RGATreeSplitValue {
@@ -534,6 +550,39 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     );
     node.copyLedger(this);
     return node;
+  }
+
+  /**
+   * `canJoinLedger` tells whether this ghost's ledger and `other`'s can be
+   * one: each was removed by a single deletion of the same actor, with no
+   * cancel. A purged removal is known to every replica, so no change can tell
+   * one such deletion from another; what an undo needs is whose it is
+   * (`uncancelledRemovalBy`).
+   */
+  public canJoinLedger(other: RGATreeSplitNode<T>): boolean {
+    const mine = this.removals();
+    const theirs = other.removals();
+    return (
+      !this.cancels?.length &&
+      !other.cancels?.length &&
+      mine.length === 1 &&
+      theirs.length === 1 &&
+      mine[0].getActorID() === theirs[0].getActorID()
+    );
+  }
+
+  /**
+   * `joinLedger` makes this ledger the one of both (see `canJoinLedger`):
+   * the later of the two deletions.
+   */
+  public joinLedger(other: RGATreeSplitNode<T>): void {
+    const mine = this.removals()[0];
+    const theirs = other.removals()[0];
+    this.ledgered = false;
+    this.dels = undefined;
+    this.cancels = undefined;
+    this.index = undefined;
+    this.removedAt = theirs.after(mine) ? theirs : mine;
   }
 
   private copyLedger(other: RGATreeSplitNode<T>): void {
@@ -1287,7 +1336,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
           // Covered by an existing piece.
           const overlapEnd = Math.min(pieceEnd, span.end);
           if (piece.isRemoved()) {
-            const [target] = this.isolateRange(piece, cursor, overlapEnd);
+            const [target, splitDiff] = this.isolateRange(
+              piece,
+              cursor,
+              overlapEnd,
+            );
+            addDataSizes(liveDiff, splitDiff);
+            // A ghost is already counted in live (see `purgeToGhost`): its
+            // revival adds only what it gets back.
+            const ghostSize = (
+              target.getValue() as unknown as
+                | Partial<GhostableValue>
+                | undefined
+            )?.isGhost?.()
+              ? target.getDataSize()
+              : undefined;
             // An undo reverses its own actor's change, so the removal it
             // cancels is the one uncancelled removal by that actor: one actor
             // cannot remove a piece already removed in its view. No other
@@ -1306,6 +1369,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
               ).refill?.(span.value, target.getID().getOffset() - span.start);
               // Repair splay weights on the path to root (length 0 → len).
               this.treeByIndex.splayNode(target);
+              if (ghostSize) {
+                addDataSizes(liveDiff, target.getDataSize());
+                subDataSize(liveDiff, ghostSize);
+              }
               untombstoned.push(target);
             }
             chainAnchor = target;
@@ -1718,7 +1785,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * When `piece` is tombstoned, `splitNode` itself buffers the overhead of
    * any born-removed fragment via `pendingGCPairs` (see `drainPendingGCPairs`),
    * so the returned diff is zero in that case — the caller must still
-   * drain and register those pairs.
+   * drain and register those pairs. A ghost is the exception: what its split
+   * adds is live, and returned like a live split's.
    *
    * Requires: pieceStart <= from < to <= pieceEnd.
    */
@@ -2163,7 +2231,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     // was never live, so the net-new size created by the split goes
     // straight to docSize.gc when the pair is registered; report a zero
     // diff to the caller (which accounts diffs to docSize.live).
-    if (splitNode.isRemoved()) {
+    // A ghost is not garbage: what a split of it adds stays with the ghost,
+    // in live (see `purgeToGhost`).
+    const ghost = (
+      splitNode.getValue() as unknown as Partial<GhostableValue> | undefined
+    )?.isGhost?.();
+    if (splitNode.isRemoved() && !ghost) {
       this.pendingGCPairs.push({
         parent: this,
         child: splitNode,
@@ -2377,12 +2450,87 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   /**
    * `purge` physically purges the given node from RGATreeSplit.
    */
-  public purge(node: RGATreeSplitNode<T>): void {
+  public purge(node: RGATreeSplitNode<T>): PurgeResult | void {
     if (this.ghostPurge) {
-      // A ghost keeps its place and its ledger: only the content goes.
-      (node.getValue() as unknown as Partial<GhostableValue>).toGhost?.();
-      return;
+      return { live: this.purgeToGhost(node) };
     }
+    this.unlink(node);
+  }
+
+  /**
+   * `purgeToGhost` strips `node` to a ghost: it keeps its place and its
+   * ledger, only the content goes. A ghost next to another ghost of the same
+   * insertion, removed by the same actor, joins it. Returns the size the
+   * ghosts left behind add to the document (live, since GC never takes them).
+   */
+  private purgeToGhost(node: RGATreeSplitNode<T>): DataSize {
+    const kept = { data: 0, meta: 0 };
+    (node.getValue() as unknown as Partial<GhostableValue>).toGhost?.();
+    addDataSizes(kept, node.getDataSize());
+
+    let ghost = node;
+    const prev = node.getPrev();
+    if (prev && this.canJoinGhosts(prev, node)) {
+      subDataSize(kept, prev.getDataSize());
+      subDataSize(kept, node.getDataSize());
+      this.joinGhosts(prev, node);
+      addDataSizes(kept, prev.getDataSize());
+      ghost = prev;
+    }
+    const next = ghost.getNext();
+    if (next && this.canJoinGhosts(ghost, next)) {
+      subDataSize(kept, ghost.getDataSize());
+      subDataSize(kept, next.getDataSize());
+      this.joinGhosts(ghost, next);
+      addDataSizes(kept, ghost.getDataSize());
+    }
+    return kept;
+  }
+
+  /**
+   * `canJoinGhosts` tells whether ghost `right`, right after ghost `left`,
+   * can join it: two pieces of one insertion, adjacent in it, each removed by
+   * one deletion of the same actor (see `canJoinLedger`). Nothing can tell the joined ghost from the two: a lookup
+   * by ID finds the left one covering both, and a restore isolates the part
+   * it names.
+   */
+  private canJoinGhosts(
+    left: RGATreeSplitNode<T>,
+    right: RGATreeSplitNode<T>,
+  ): boolean {
+    const lv = left.getValue() as unknown as
+      | Partial<GhostableValue>
+      | undefined;
+    if (!lv?.isGhost?.() || !lv.canAbsorb?.(right.getValue())) {
+      return false;
+    }
+    const lid = left.getID();
+    const rid = right.getID();
+    return (
+      left.getNext() === right &&
+      right.getInsPrev() === left &&
+      lid.getCreatedAt().equals(rid.getCreatedAt()) &&
+      lid.getOffset() + left.getContentLength() === rid.getOffset() &&
+      left.canJoinLedger(right)
+    );
+  }
+
+  /**
+   * `joinGhosts` appends ghost `right` to ghost `left` and unlinks it.
+   */
+  private joinGhosts(
+    left: RGATreeSplitNode<T>,
+    right: RGATreeSplitNode<T>,
+  ): void {
+    (left.getValue() as unknown as GhostableValue).absorb(right.getValue());
+    left.joinLedger(right);
+    this.unlink(right);
+  }
+
+  /**
+   * `unlink` takes `node` out of the list, the trees and both chains.
+   */
+  private unlink(node: RGATreeSplitNode<T>): void {
     this.cancelled?.delete(node);
     this.treeByIndex.delete(node);
     this.treeByID.remove(node.getID());
