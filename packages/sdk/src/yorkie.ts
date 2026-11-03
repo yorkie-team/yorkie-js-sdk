@@ -14,17 +14,50 @@
  * limitations under the License.
  */
 
-import { Client } from '@yorkie-js/sdk/src/client/client';
+import {
+  Client,
+  ClientStatus,
+  ClientCondition,
+  SyncMode,
+} from '@yorkie-js/sdk/src/client/client';
 import { MemoryDocStore } from '@yorkie-js/sdk/src/client/doc-store';
-import { Document } from '@yorkie-js/sdk/src/document/document';
+import { WebLocksSessionLock } from '@yorkie-js/sdk/src/client/session-lock';
+import {
+  Document,
+  DocEventType,
+  StreamConnectionStatus,
+  DocSyncStatus,
+  DocStatus,
+} from '@yorkie-js/sdk/src/document/document';
+import { Channel as Presence } from '@yorkie-js/sdk/src/document/presence/presence';
 import { Text } from '@yorkie-js/sdk/src/document/json/text';
 import { Tree } from '@yorkie-js/sdk/src/document/json/tree';
 import {
   Counter,
   DedupCounter,
 } from '@yorkie-js/sdk/src/document/json/counter';
+import { CounterType } from '@yorkie-js/sdk/src/document/crdt/counter';
+import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
+import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
+import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
+import { Change } from '@yorkie-js/sdk/src/document/change/change';
+import {
+  Code,
+  YorkieError,
+  ChangeApplyError,
+} from '@yorkie-js/sdk/src/util/error';
+import { converter } from '@yorkie-js/sdk/src/api/converter';
 import * as Devtools from '@yorkie-js/sdk/src/devtools/types';
-import { Channel, ChannelEventType } from '@yorkie-js/sdk/src/channel/channel';
+import {
+  EventSourceDevPanel,
+  EventSourceSDK,
+} from '@yorkie-js/sdk/src/devtools/protocol';
+import { teardownDevtools } from '@yorkie-js/sdk/src/devtools';
+import {
+  Channel,
+  ChannelStatus,
+  ChannelEventType,
+} from '@yorkie-js/sdk/src/channel/channel';
 import * as YSON from '@yorkie-js/sdk/src/document/yson';
 
 export {
@@ -177,22 +210,50 @@ export { YSON };
  * assigned to the `yorkie` global.
  *
  * e.g) `new yorkie.Client(...);`
+ *
+ * It carries every runtime export this module exposes by name, so a default
+ * import and a namespace import agree. Before the `exports` map, the UMD was
+ * the only published entry and Node, esbuild and webpack handed out the whole
+ * `module.exports` as the default; keep that surface. A new runtime export
+ * belongs here too, and `test/unit/yorkie_test.ts` fails until it is added.
  */
 export default {
   Client,
-  Document,
+  ClientStatus,
+  ClientCondition,
+  SyncMode,
   MemoryDocStore,
+  WebLocksSessionLock,
+  Channel,
+  ChannelStatus,
+  ChannelEventType,
+  Document,
+  DocEventType,
+  StreamConnectionStatus,
+  DocSyncStatus,
+  DocStatus,
+  Presence,
+  TimeTicket,
+  VersionVector,
+  OpSource,
   Primitive,
-  Text,
   Counter,
   DedupCounter,
+  CounterType,
+  Text,
   Tree,
-  Devtools,
-  Channel,
-  ChannelEventType,
-  YSON,
+  Change,
+  Code,
+  YorkieError,
+  ChangeApplyError,
+  converter,
   LogLevel,
   setLogLevel,
+  EventSourceDevPanel,
+  EventSourceSDK,
+  teardownDevtools,
+  Devtools,
+  YSON,
 };
 
 // TODO(hackerwins): Remove this when we have a better way to expose the API.

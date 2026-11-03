@@ -8,7 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 64
+Total archived tasks: 65
+
+## 2026/11 (1 task)
+
+| Task | Todo | Lessons |
+|---|---|---|
+| Restore the full default export lost with the exports map in 0.7.26 (2026-11-03) | [20261103-default-export-parity-todo.md](./2026/11/20261103-default-export-parity-todo.md) | [20261103-default-export-parity-lessons.md](./2026/11/20261103-default-export-parity-lessons.md) |
 
 ## 2026/10 (26 tasks)
 

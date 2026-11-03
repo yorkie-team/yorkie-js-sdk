@@ -7,7 +7,20 @@ and Yorkie JS SDK adheres to [Semantic Versioning](https://semver.org/spec/v2.0.
 
 ## [Unreleased]
 
+### Fixed
+
+- Restore the full default export of `@yorkie-js/sdk` (#1519). `import yorkie from '@yorkie-js/sdk'` carries every runtime named export again — `yorkie.SyncMode`, `yorkie.DocEventType`, `yorkie.YorkieError` and the rest read `undefined` in v0.7.26 under Node (including `tsx` and SSR), webpack and esbuild. Vite and Rollup consumers, and `require`, gain those members rather than anyone losing any: the UMD, ES and Node entries now agree.
+
 ## [v0.7.26] - 2026-11-03
+
+Known issue, fixed in the next release: the `exports` map below also shrank
+the default export for everyone but Vite/Rollup. `import yorkie from
+'@yorkie-js/sdk'` carries only the 14 members of the object literal in
+`src/yorkie.ts`, where v0.7.25 handed Node, webpack and esbuild the whole
+`module.exports`, so reading `yorkie.SyncMode` and other exports that are not
+in that literal gives `undefined` (#1519). Import them by name —
+`import yorkie, { SyncMode } from '@yorkie-js/sdk'` — which works on every
+version.
 
 This release requires a yorkie server that includes yorkie-team/yorkie#2310
 (v0.7.26 or later). Finish rolling out the server first, and do not roll the
