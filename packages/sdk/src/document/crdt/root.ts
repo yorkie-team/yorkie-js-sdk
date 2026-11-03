@@ -27,6 +27,7 @@ import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
 import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTZeroTree } from '@yorkie-js/sdk/src/document/crdt/zero_tree';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
@@ -172,10 +173,10 @@ export class CRDTRoot {
   private docSize: DocSize;
 
   /**
-   * `ledgerHolders` are the Texts whose removal ledgers hold cancels that
-   * `garbageCollect` may prune once every replica knows them.
+   * `ledgerHolders` are the Texts (and Zero Trees) whose removal ledgers hold
+   * cancels that `garbageCollect` may prune once every replica knows them.
    */
-  private ledgerHolders: Set<CRDTText>;
+  private ledgerHolders: Set<CRDTText | CRDTZeroTree>;
 
   constructor(rootObject: CRDTObject) {
     this.rootObject = rootObject;
@@ -303,11 +304,18 @@ export class CRDTRoot {
    */
   private registerInternalGCPairs(element: CRDTElement): void {
     const register = (elem: CRDTElement) => {
-      if (elem instanceof CRDTText || elem instanceof CRDTTree) {
+      if (
+        elem instanceof CRDTText ||
+        elem instanceof CRDTTree ||
+        elem instanceof CRDTZeroTree
+      ) {
         for (const pair of elem.getGCPairs()) {
           this.registerGCPair(pair);
         }
-        if (elem instanceof CRDTText && elem.hasCancelledRemovals()) {
+        if (
+          (elem instanceof CRDTText || elem instanceof CRDTZeroTree) &&
+          elem.hasCancelledRemovals()
+        ) {
           this.registerLedgerHolder(elem);
         }
       } else if (elem instanceof CRDTArray) {
@@ -806,7 +814,7 @@ export class CRDTRoot {
    * `registerLedgerHolder` registers a Text whose removal ledgers may be
    * pruned (see `RGATreeSplit.pruneLedgers`).
    */
-  public registerLedgerHolder(holder: CRDTText): void {
+  public registerLedgerHolder(holder: CRDTText | CRDTZeroTree): void {
     this.ledgerHolders.add(holder);
   }
 
@@ -896,9 +904,16 @@ export class CRDTRoot {
         continue;
       }
 
-      pair.parent.purge(pair.child);
+      const size = pair.child.getDataSize();
+      const kept = pair.parent.purge(pair.child);
 
-      subDataSize(this.docSize.gc, pair.child.getDataSize());
+      subDataSize(this.docSize.gc, size);
+      if (kept?.live) {
+        addDataSizes(this.docSize.live, kept.live);
+      }
+      if (kept?.gc) {
+        addDataSizes(this.docSize.gc, kept.gc);
+      }
       this.gcPairMap.delete(key);
       count += 1;
     }

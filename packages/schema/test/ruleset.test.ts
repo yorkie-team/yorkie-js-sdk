@@ -323,6 +323,14 @@ describe('RulesetBuilder', () => {
     ]);
   });
 
+  it('should handle yorkie.ZeroTree', () => {
+    const ruleset = buildRuleset('type Document = { zt: yorkie.ZeroTree; };');
+    expect(ruleset).to.deep.equal([
+      { path: '$', type: 'object', properties: ['zt'] },
+      { path: '$.zt', type: 'yorkie.ZeroTree' },
+    ]);
+  });
+
   it('should handle yorkie.Tree with tree schema', () => {
     const schema = `
       type Document = {

@@ -42,7 +42,19 @@ export type OpInfo =
   | CounterOpInfo
   | ArrayOpInfo
   | ObjectOpInfo
-  | TreeOpInfo;
+  | TreeOpInfo
+  | ZeroTreeOpInfo;
+
+/**
+ * `ZeroTreeOpInfo` represents the OperationInfo for the yorkie.ZeroTree
+ * (PROTOTYPE): the Zero editor operations that take the editor model from the
+ * state before this operation to the state after it.
+ */
+export type ZeroTreeOpInfo = {
+  type: 'zero-tree';
+  path: string;
+  operations: Array<[string, Array<number>, unknown?]>;
+};
 
 /**
  * `TextOpInfo` represents the OperationInfo for the yorkie.Text.

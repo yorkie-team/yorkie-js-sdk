@@ -79,6 +79,7 @@ yorkieType
     | 'yorkie.Counter' typeArguments?
     | 'yorkie.Text' typeArguments?
     | 'yorkie.Tree' ('<' treeSchemaBody '>')?
+    | 'yorkie.ZeroTree'
     ;
 
 treeSchemaBody
