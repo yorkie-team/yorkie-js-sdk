@@ -175,7 +175,7 @@ try {
   // Runtime: ESM named imports and CJS require.
   w(
     'esm.mjs',
-    `import yorkie, { Document } from '@yorkie-js/sdk';
+    `import yorkie, { Document, SyncMode } from '@yorkie-js/sdk';
 import { YorkieProvider } from '@yorkie-js/react';
 import { YorkieProseMirrorBinding } from '@yorkie-js/prosemirror';
 import sdkPkg from '@yorkie-js/sdk/package.json' with { type: 'json' };
@@ -183,6 +183,8 @@ import { createRequire } from 'node:module';
 for (const [n, v] of Object.entries({ Document, YorkieProvider, YorkieProseMirrorBinding }))
   if (typeof v !== 'function') throw new Error(n + ' missing in ESM');
 if (typeof yorkie?.Client !== 'function') throw new Error('sdk default missing in ESM');
+// The repro from #1519: a Node ESM default import used to lose SyncMode.
+if (yorkie.SyncMode !== SyncMode) throw new Error('sdk default SyncMode missing in ESM');
 if (!sdkPkg.version) throw new Error('package.json export missing');
 // prosemirror's peers ship separate ESM and CJS builds, so a Node import of
 // the binding must use their ESM builds: the copies the app itself imports.
@@ -210,6 +212,19 @@ import { dirname, resolve } from 'node:path';
 import { existsSync, realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
+// A default import must carry the same runtime exports as a namespace import.
+// Before the exports map, the UMD was the only entry and Node, esbuild and
+// webpack read the whole module.exports as the default, so a consumer that
+// only has the default must not lose members (#1519). Packages without a
+// default export (react, prosemirror) have nothing to check.
+const assertDefaultParity = (label, api) => {
+  const value = api.default;
+  if (!value || typeof value !== 'object') return;
+  const named = Object.keys(api).filter(k => k !== 'default' && k !== '__esModule');
+  assert.deepEqual(named.filter(k => !(k in value)), [], label + ': the default export is missing named exports');
+  assert.deepEqual(Object.keys(value).filter(k => !named.includes(k)), [], label + ': the default export has members no named export has');
+  for (const key of named) assert.equal(value[key], api[key], label + ': default.' + key);
+};
 const packages = {};
 for (const name of ['sdk', 'react', 'prosemirror']) {
   const id = '@yorkie-js/' + name;
@@ -227,6 +242,8 @@ for (const name of ['sdk', 'react', 'prosemirror']) {
   // react hand the same values to import and require.
   if (name !== 'prosemirror')
     for (const key of keys) assert.equal(esm[key], cjs[key], id + ':' + key);
+  assertDefaultParity(id + ':esm', esm);
+  assertDefaultParity(id + ':cjs', cjs);
   packages[name] = { esm, cjs };
 }
 // react re-exports SDK values, so it must hand out the SDK's own classes.
@@ -291,6 +308,7 @@ for (const name of Object.keys(packages)) {
   assert.equal(pkg.exports['.'].import.default, pkg.module);
   const browser = await import(pathToFileURL(resolve(dirname(require.resolve(id + '/package.json')), pkg.module)));
   assert.deepEqual(Object.keys(browser).sort(), Object.keys(packages[name].esm).sort());
+  assertDefaultParity(id + ':browser', browser);
 }
 `,
   );
@@ -380,6 +398,9 @@ for (const [n, v] of Object.entries(found))
   if (typeof v !== 'function') throw new Error(n + ' missing in the bundle');
 if (typeof converter !== 'object' || converter === null) throw new Error('converter missing in the bundle');
 if (yorkie.Document !== Document) throw new Error('default and named Document differ in the bundle');
+// The default must carry the exports it carried before the exports map, not
+// only the ones the source literal always listed (#1519).
+if (yorkie.SyncMode !== SyncMode) throw new Error('default and named SyncMode differ in the bundle');
 for (const [name, left, right] of [['Text', ReactText, Text], ['Tree', ReactTree, Tree], ['Counter', ReactCounter, Counter], ['SyncMode', ReactSyncMode, SyncMode]])
   if (left !== right) throw new Error('react and sdk ' + name + ' differ in the bundle');
 `,
