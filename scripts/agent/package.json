@@ -14,6 +14,6 @@
   "comment": "This project has its own npm lockfile and sits outside the pnpm workspace; nothing in the SDK build reaches it. See README.md in this directory. Transitive security pins are duplicated here on purpose.",
   "overrides": {
     "fast-uri": "^3.1.9",
-    "qs": "^6.16.0"
+    "qs": "^6.17.1"
   }
 }
