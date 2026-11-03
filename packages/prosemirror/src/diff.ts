@@ -93,6 +93,92 @@ export function sameStructure(a: YorkieTreeJSON, b: YorkieTreeJSON): boolean {
 }
 
 /**
+ * Concatenate adjacent text siblings so a run the CRDT has fragmented
+ * compares equal to the single node `pmToYorkie` emits for it.
+ */
+function mergeTextRuns(children: Array<YorkieTreeJSON>): Array<YorkieTreeJSON> {
+  const merged: Array<YorkieTreeJSON> = [];
+  for (const child of children) {
+    const last = merged[merged.length - 1];
+    if (child.type === 'text' && last && last.type === 'text') {
+      merged[merged.length - 1] = {
+        type: 'text',
+        value: (last.value || '') + (child.value || ''),
+      };
+      continue;
+    }
+    merged.push(child);
+  }
+  return merged;
+}
+
+/**
+ * Compare two attribute maps by their stringified values.
+ *
+ * An attribute reaches the tree as whatever a peer stored: `pmToYorkie` runs
+ * every value through `String`, but `tree.style(from, to, { level: 2 })` keeps
+ * the number, and `parseObjectValues` hands it back as one. The two spell the
+ * same attribute, so compare them the way `serializeAttrs` would write them.
+ * `YorkieTreeJSON` types the values as `string`, which is why the `String`
+ * calls look redundant — at runtime they are not.
+ */
+function attributesMatch(
+  a: Record<string, string> | undefined,
+  b: Record<string, string> | undefined,
+): boolean {
+  const aAttrs = a || {};
+  const bAttrs = b || {};
+  const aKeys = Object.keys(aAttrs);
+  if (aKeys.length !== Object.keys(bAttrs).length) return false;
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(bAttrs, key)) return false;
+    if (String(aAttrs[key]) !== String(bAttrs[key])) return false;
+  }
+  return true;
+}
+
+/**
+ * Compare the block as the CRDT stores it with the same block as `pmToYorkie`
+ * serializes it, to the precision the narrowed replacement actually needs: the
+ * flat indexes it derives from the serialized children have to address the
+ * stored tree.
+ *
+ * `yorkieNodesEqual` is the wrong test for that question, because it rejects
+ * two differences that move no index:
+ *
+ * - the CRDT never merges adjacent text nodes — `editInternal` inserts a fresh
+ *   node and `findNodesAndSplitText` splits the existing one, and nothing ever
+ *   joins them again — so a run the user has typed into stores as several
+ *   siblings where `pmToYorkie` emits one. Both occupy the same flat range, so
+ *   the runs are merged before comparing. Rejecting them would make the
+ *   narrowed path unreachable for any block that has been edited even once,
+ *   which is every block that matters here;
+ * - an attribute value's *type* is whatever the peer that wrote it chose, and
+ *   attributes contribute nothing to a flat index. They are compared
+ *   stringified, and only to catch a tree describing a different block.
+ */
+export function blockLayoutMatches(
+  stored: YorkieTreeJSON,
+  serialized: YorkieTreeJSON,
+): boolean {
+  if (!stored || !serialized) return false;
+  if (stored.type !== serialized.type) return false;
+  if (stored.type === 'text')
+    return (stored.value || '') === (serialized.value || '');
+  if (!attributesMatch(stored.attributes, serialized.attributes)) return false;
+
+  const storedChildren = mergeTextRuns(stored.children || []);
+  const serializedChildren = mergeTextRuns(serialized.children || []);
+  if (storedChildren.length !== serializedChildren.length) return false;
+  for (let i = 0; i < storedChildren.length; i++) {
+    if (!blockLayoutMatches(storedChildren[i], serializedChildren[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * `isHighSurrogate` reports whether the code unit opens a surrogate pair.
  */
 function isHighSurrogate(code: number): boolean {
@@ -246,14 +332,133 @@ export function tryIntraBlockDiff(
 }
 
 /**
- * Sync a ProseMirror transaction to the Yorkie tree (upstream sync).
+ * Replace only the children of a changed block that actually differ.
  *
- * Strategy:
- * 1. Find which top-level blocks changed (by diffing Yorkie-format trees)
- * 2. If exactly one block changed and its structure is the same,
- *    do character-level diffing (best for concurrent editing)
- * 3. Otherwise, fall back to full block replacement
+ * A mark is stored as a wrapper element, so changing one changes the block's
+ * structure: `sameStructure` rejects it, it is neither a split nor a merge, and
+ * it used to fall all the way through to full block replacement. That deletes
+ * every text node in the block, so a peer's concurrent insert into any of them
+ * lands in a removed node and is gone — the replicas still converge, which is
+ * why nothing reports it. Deleting only the run whose mark changed leaves the
+ * other runs, and anything a peer typed into them, alive.
+ *
+ * Declines, leaving the caller to replace the whole block, when:
+ *
+ * - nothing would be kept. With no common prefix or suffix the narrowed edit
+ *   rewrites the entire child list, which is no less destructive than the
+ *   fallback;
+ * - the surviving children would mix text and element nodes. `IndexTree`
+ *   indexes a node by whether *every* child is text (`hasTextChild`), and
+ *   `pmToYorkie` wraps bare text in `<span>` for exactly this reason, so a
+ *   mixed parent is not a shape this binding may create;
+ * - the block node itself changed. An edit over a range of children keeps the
+ *   block's own open tag, so its type and attributes stay whatever the tree
+ *   already held. A transaction that retypes the block *and* touches a child —
+ *   a heading input rule, which replaces `paragraph` with `heading` while
+ *   rewriting the text it consumed — would otherwise land here and lose the
+ *   block half of the change for good, leaving the CRDT permanently out of
+ *   step with the PM doc.
  */
+export function tryNarrowedBlockReplace(
+  tree: {
+    edit(fromIdx: number, toIdx: number, content?: YorkieTreeJSON): void;
+    editBulk(
+      fromIdx: number,
+      toIdx: number,
+      contents: Array<YorkieTreeJSON>,
+    ): void;
+  },
+  oldBlock: YorkieTreeJSON,
+  newBlock: YorkieTreeJSON,
+  blockStartIdx: number,
+  onLog?: (type: 'local' | 'remote' | 'error', message: string) => void,
+): boolean {
+  if (oldBlock.type === 'text' || newBlock.type === 'text') return false;
+
+  // The block node itself has to be untouched for a children-only edit to be
+  // faithful. Both sides come from `pmToYorkie`, so — as in `yorkieNodesEqual`
+  // — the key order of the two attribute objects agrees and `JSON.stringify`
+  // is a sound comparison.
+  if (oldBlock.type !== newBlock.type) return false;
+  if (
+    JSON.stringify(oldBlock.attributes || {}) !==
+    JSON.stringify(newBlock.attributes || {})
+  ) {
+    return false;
+  }
+
+  const oldChildren = oldBlock.children || [];
+  const newChildren = newBlock.children || [];
+
+  let prefix = 0;
+  while (
+    prefix < oldChildren.length &&
+    prefix < newChildren.length &&
+    yorkieNodesEqual(oldChildren[prefix], newChildren[prefix])
+  ) {
+    prefix++;
+  }
+
+  let oldEnd = oldChildren.length - 1;
+  let newEnd = newChildren.length - 1;
+  while (
+    oldEnd >= prefix &&
+    newEnd >= prefix &&
+    yorkieNodesEqual(oldChildren[oldEnd], newChildren[newEnd])
+  ) {
+    oldEnd--;
+    newEnd--;
+  }
+
+  // Identical child lists. The block nodes compared equal above, so the two
+  // blocks are equal and the caller should never have asked — decline rather
+  // than emit a zero-width edit.
+  if (prefix > oldEnd && prefix > newEnd) return false;
+
+  // Nothing survives the edit, so narrowing buys nothing.
+  if (prefix === 0 && oldEnd === oldChildren.length - 1) return false;
+
+  const kept = [
+    ...oldChildren.slice(0, prefix),
+    ...newChildren.slice(prefix, newEnd + 1),
+    ...oldChildren.slice(oldEnd + 1),
+  ];
+  if (
+    kept.some((c) => c.type === 'text') &&
+    kept.some((c) => c.type !== 'text')
+  ) {
+    return false;
+  }
+
+  // Both indexes are sums of `yorkieNodeSize` over whole children, so they sit
+  // on node boundaries and can never fall inside a text node — and so never
+  // inside a surrogate pair.
+  let fromIdx = blockStartIdx + 1; // skip the block's open tag
+  for (let i = 0; i < prefix; i++) {
+    fromIdx += yorkieNodeSize(oldChildren[i]);
+  }
+  let toIdx = fromIdx;
+  for (let i = prefix; i <= oldEnd; i++) {
+    toIdx += yorkieNodeSize(oldChildren[i]);
+  }
+
+  const newContent = newChildren.slice(prefix, newEnd + 1);
+
+  onLog?.(
+    'local',
+    `narrowed-replace: children[${prefix}..${oldEnd}] -> ${newContent.length} new (idx: ${fromIdx}-${toIdx})`,
+  );
+
+  if (newContent.length === 0) {
+    tree.edit(fromIdx, toIdx);
+  } else if (newContent.length === 1) {
+    tree.edit(fromIdx, toIdx, newContent[0]);
+  } else {
+    tree.editBulk(fromIdx, toIdx, newContent);
+  }
+  return true;
+}
+
 /**
  * Detect a split: one old block became two or more new blocks with
  * text content preserved. Returns the split char offset and splitLevel,
@@ -459,6 +664,28 @@ export function syncToYorkie(
       }
       return;
     }
+  }
+
+  // NARROWED REPLACEMENT: one block changed into one block — a mark change is
+  // neither a split nor a merge, and `sameStructure` rejected it, so this is
+  // where it lands. Replace only the children that differ. The child offsets
+  // are summed from the *serialized* old block, so they only address the tree
+  // while the two still lay out the same way — `blockLayoutMatches`, not
+  // `yorkieNodesEqual`, because a fragmented text run and a differently typed
+  // attribute value leave every index where it was.
+  if (
+    oldCount === 1 &&
+    newCount === 1 &&
+    blockLayoutMatches(currentYorkieBlocks[firstDiff], oldBlocks[firstDiff]) &&
+    tryNarrowedBlockReplace(
+      tree,
+      oldBlocks[firstDiff],
+      newBlocks[firstDiff],
+      blockIndexToYorkieIndex(currentYorkieBlocks, firstDiff),
+      onLog,
+    )
+  ) {
+    return;
   }
 
   // Full block replacement (fallback for structural changes). Both indexes are
