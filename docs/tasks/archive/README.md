@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-01
+updated: 2026-11-03
 ---
 
 # Tasks Archive
@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 63
+Total archived tasks: 64
 
-## 2026/10 (25 tasks)
+## 2026/10 (26 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Keep Retrying After a Failed Token Refresh (2026-10-26) | [20261026-token-refresh-failure-retry-todo.md](./2026/10/20261026-token-refresh-failure-retry-todo.md) | - |
 | Dependabot Security Bump (2026-10) (2026-10-25) | [20261025-dependabot-security-bump-todo.md](./2026/10/20261025-dependabot-security-bump-todo.md) | [20261025-dependabot-security-bump-lessons.md](./2026/10/20261025-dependabot-security-bump-lessons.md) |
 | Tree style with both halves must survive the wire (2026-10-22) | [20261022-tree-style-combined-undo-todo.md](./2026/10/20261022-tree-style-combined-undo-todo.md) | [20261022-tree-style-combined-undo-lessons.md](./2026/10/20261022-tree-style-combined-undo-lessons.md) |
 | Skip a remote change this SDK cannot apply, as Go does (2026-10-22) | [20261022-skip-unapplicable-remote-change-todo.md](./2026/10/20261022-skip-unapplicable-remote-change-todo.md) | [20261022-skip-unapplicable-remote-change-lessons.md](./2026/10/20261022-skip-unapplicable-remote-change-lessons.md) |
