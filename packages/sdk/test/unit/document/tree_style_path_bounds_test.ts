@@ -38,9 +38,7 @@ function setup(): Document<{ t: Tree }> {
       children: [
         {
           type: 'p',
-          children: [
-            { type: 't', children: [{ type: 'text', value: 'ab' }] },
-          ],
+          children: [{ type: 't', children: [{ type: 'text', value: 'ab' }] }],
         },
         { type: 'p', children: [] },
       ],

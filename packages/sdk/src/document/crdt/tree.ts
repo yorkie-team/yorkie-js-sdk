@@ -4697,7 +4697,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
     const treePos = this.indexTree.pathToTreePos(path);
     // A path into a text-only parent names a character offset rather than a
     // node, so only the element case is bounded here.
-    if (!treePos.node.isText && treePos.offset >= treePos.node.children.length) {
+    if (
+      !treePos.node.isText &&
+      treePos.offset >= treePos.node.children.length
+    ) {
       throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
     }
 
