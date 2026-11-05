@@ -999,6 +999,12 @@ export class Client {
    * If the server refuses the deactivation with a 401 and `authTokenInjector`
    * rejects, the client is deactivated locally anyway and the injector's
    * error is thrown.
+   *
+   * With `keepalive`, the response is not waited for at all: the client tears
+   * down locally as soon as the request is sent and the returned Promise
+   * resolves, and a late response or error is dropped. A page that freezes in
+   * the back/forward cache never processes that response, so waiting for it
+   * leaves the Promise pending forever in Safari.
    */
   public deactivate(
     options: DeactivateOptions = { keepalive: false, synchronous: false },
@@ -1009,6 +1015,10 @@ export class Client {
 
     // Mark as deactivating immediately so the sync loop exits early.
     this.deactivating = true;
+
+    if (options.keepalive) {
+      return this.deactivateKeepalive(options);
+    }
 
     const task = async () => {
       try {
@@ -1051,14 +1061,47 @@ export class Client {
       }
     };
 
-    if (options.keepalive) {
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `deactivateKeepalive` sends `DeactivateClient` with `keepalive` and tears
+   * the client down locally without waiting for the response.
+   *
+   * The caller is on its way out — that is what `keepalive` is for — so the
+   * response may never be processed: a page frozen in the back/forward cache
+   * resumes long after, if ever. Teardown and the returned Promise therefore
+   * hang off sending the request rather than off the response, and the
+   * response itself is dropped. By the time it could land, the app may have
+   * activated this client again, and deactivating that session or running
+   * `handleConnectError`'s recovery against it would be wrong.
+   */
+  private deactivateKeepalive(options: DeactivateOptions): Promise<void> {
+    try {
       this.keepalive = true;
-      const resp = task();
+      this.rpcClient
+        .deactivateClient(
+          {
+            clientId: this.id!,
+            synchronous: options.synchronous,
+          },
+          { headers: { 'x-shard-key': `${this.apiKey}/${this.key}` } },
+        )
+        .catch((err) => {
+          logger.debug(`[DC] c:"${this.getKey()}" keepalive err :`, err);
+        });
+    } catch (err) {
+      // The request never left, e.g. the page froze first. Tear down anyway:
+      // otherwise the Watch stream stays open and peers keep seeing a client
+      // that is gone.
+      logger.debug(`[DC] c:"${this.getKey()}" keepalive send err :`, err);
+    } finally {
       this.keepalive = false;
-      return resp;
     }
 
-    return this.enqueueTask(task);
+    this.deactivateInternal();
+    logger.info(`[DC] c"${this.getKey()}" deactivated`);
+    return Promise.resolve();
   }
 
   /**
