@@ -19,7 +19,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { create } from '@bufbuild/protobuf';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
-import { SyncMode } from '@yorkie-js/sdk/src/client/client';
+import { ClientStatus, SyncMode } from '@yorkie-js/sdk/src/client/client';
 import { Document, DocStatus } from '@yorkie-js/sdk/src/document/document';
 import {
   ChangePack as PbChangePack,
@@ -87,6 +87,22 @@ function attachResponse(docKey: string, pushed: PbChangePack) {
     disablePresence: false,
     schemaRules: [],
   });
+}
+
+/**
+ * `reactivateOutsideQueue` brings the client back up under a new session id
+ * without going through the task queue, the way the channel heartbeat's first
+ * `RefreshChannel` response does from the sync loop. The queue runs one task
+ * at a time, so this is how a task that is already awaiting a round trip comes
+ * back to a client that is active again under a different `clientId` — the
+ * case the session guards check with `this.id !== sessionID` rather than with
+ * the client status alone.
+ */
+function reactivateOutsideQueue(client: any, id: string) {
+  client.id = id;
+  client.actorID = id;
+  client.status = ClientStatus.Activated;
+  client.deactivating = false;
 }
 
 async function settles(p: Promise<unknown>, ms = 50): Promise<boolean> {
@@ -289,5 +305,73 @@ describe('deactivate({ keepalive: true }) without a response', () => {
     expect(err).toBeInstanceOf(YorkieError);
     expect((err as YorkieError).code).toBe(Code.ErrClientNotActivated);
     expect(client.has('keepalive-channel')).toBe(false);
+  });
+
+  it('does not register a document attach that lands under a new session', async () => {
+    const res = deferred<unknown>();
+    const sent = deferred<void>();
+    const gate = deferred<void>();
+    const client = makeClient(() => res.promise, {
+      attachDocument: vi.fn().mockImplementation(async (req: any) => {
+        sent.resolve();
+        await gate.promise;
+        return attachResponse('keepalive-attach', req.changePack);
+      }),
+    });
+    await client.activate();
+
+    const doc = new Document<{ k: string }>('keepalive-attach');
+    const attached = client.attach(doc, { syncMode: SyncMode.Manual });
+    const settled = attached.then(
+      () => undefined,
+      (err: unknown) => err,
+    );
+    await sent.promise;
+
+    // Torn down and then brought back up under a new id while the attach is
+    // still in flight: the client is active again, but this attach was made
+    // under the id the server has already forgotten.
+    void client.deactivate({ keepalive: true });
+    reactivateOutsideQueue(client, 'id-next');
+    expect(client.isActive()).toBe(true);
+
+    gate.resolve();
+    const err = await settled;
+
+    expect(err).toBeInstanceOf(YorkieError);
+    expect((err as YorkieError).code).toBe(Code.ErrClientNotActivated);
+    expect(client.has('keepalive-attach')).toBe(false);
+    expect(doc.getStatus()).toBe(DocStatus.Detached);
+    // The abandoned attach must not take the new session down with it.
+    expect(client.isActive()).toBe(true);
+    expect(client.getID()).toBe('id-next');
+  });
+
+  it('does not register a queued channel attach under a new session', async () => {
+    const res = deferred<unknown>();
+    const client = makeClient(() => res.promise);
+    await client.activate();
+
+    const blocker = deferred<void>();
+    void (client as any).enqueueTask(() => blocker.promise);
+
+    const channel = new yorkie.Channel('keepalive-channel');
+    const settled = client.attachChannel(channel).then(
+      () => undefined,
+      (err: unknown) => err,
+    );
+
+    void client.deactivate({ keepalive: true });
+    reactivateOutsideQueue(client, 'id-next');
+    expect(client.isActive()).toBe(true);
+
+    blocker.resolve();
+    const err = await settled;
+
+    expect(err).toBeInstanceOf(YorkieError);
+    expect((err as YorkieError).code).toBe(Code.ErrClientNotActivated);
+    expect(client.has('keepalive-channel')).toBe(false);
+    expect(client.isActive()).toBe(true);
+    expect(client.getID()).toBe('id-next');
   });
 });
