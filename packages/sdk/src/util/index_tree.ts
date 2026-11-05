@@ -1211,6 +1211,14 @@ export class IndexTree<T extends IndexTreeNode<T>> {
       throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
     }
 
+    // Only the upper bound is checked below: a child index past the end stops
+    // at the missing child, and `findTextPos` compares against the content
+    // length. A negative element passes both tests, so reject it here and
+    // keep every caller of the resolver on the same contract.
+    if (path.some((pathElement) => pathElement < 0)) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
+    }
+
     let node = this.root;
     for (let i = 0; i < path.length - 1; i++) {
       const pathElement = path[i];

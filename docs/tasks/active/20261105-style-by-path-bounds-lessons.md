@@ -29,6 +29,14 @@ Tracked as #1523
   `findTextPos` only checks the upper end), so `pathToPosRange` rejects
   `offset < 0` too. Negative elements earlier in the path already throw,
   because `node.children[-1]` is `undefined`.
+- Review round 2 pointed out that fixing the negative element only in
+  `pathToPosRange` left every other path-taking entry point (`splitByPath`,
+  `mergeByPath`, `editByPath`, `editBulkByPath`, the range forms of
+  `styleByPath`/`removeStyleByPath`, `pathToIndex`) silently resolving it one
+  index early. Unlike the past-the-end bound, a negative element is not a
+  legitimate "insert at the end" path for *any* caller, so that one belongs in
+  `IndexTree.pathToTreePos` after all; `pathToPosRange` now only carries the
+  upper bound.
 
 ## Self review
 

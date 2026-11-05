@@ -4702,10 +4702,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // node, so it is bounded by the text node's own length. The offset at the
     // end of one text node still names the first character of the next one,
     // so it is only out of range once there is no following sibling.
+    // A negative offset is already rejected by `pathToTreePos`, which every
+    // path-taking entry point shares, so only the upper bound is left here.
     const pastTheEnd = node.isText
       ? offset >= node.visibleSize && !node.nextSibling
       : offset >= node.children.length;
-    if (offset < 0 || pastTheEnd) {
+    if (pastTheEnd) {
       throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
     }
 

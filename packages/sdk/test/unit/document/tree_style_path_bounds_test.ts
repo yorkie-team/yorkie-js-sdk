@@ -198,3 +198,77 @@ describe('Tree.styleByPath with a text-only parent', () => {
     );
   });
 });
+
+/**
+ * Every path-taking entry point shares `IndexTree.pathToTreePos`, which only
+ * bounds the upper end: a missing child stops the walk and `findTextPos`
+ * compares against the content length, but a negative element passes both.
+ * It used to resolve one index early instead of failing, so each entry point
+ * below acted on a node the caller never named.
+ */
+describe('Tree path APIs with a negative path element', () => {
+  it('rejects a negative element in the single-path style form', () => {
+    const doc = setup();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([0, -1], { bold: true })),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialXML);
+  });
+
+  it('rejects a negative element in the range style form', () => {
+    const doc = setup();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([-1], [1], { bold: true })),
+    );
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([0, -1], [0, 0], { bold: true })),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialXML);
+  });
+
+  it('rejects a negative element in removeStyleByPath', () => {
+    const doc = setup();
+    doc.update((root) => root.t.styleByPath([0, 0], { bold: true }));
+    const styledXML = '<root><p><t bold="true">ab</t></p><p></p></root>';
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.removeStyleByPath([0, -1], [0, 0], ['bold'])),
+    );
+    assert.equal(doc.getRoot().t.toXML(), styledXML);
+  });
+
+  it('rejects a negative element in splitByPath', () => {
+    const doc = setupText();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.splitByPath([0, -1])),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('rejects a negative element in mergeByPath', () => {
+    const doc = setup();
+    assertInvalidArgument(() => doc.update((root) => root.t.mergeByPath([-1])));
+    assert.equal(doc.getRoot().t.toXML(), initialXML);
+  });
+
+  it('rejects a negative element in editByPath', () => {
+    const doc = setupText();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.editByPath([0, -1], [0, 1])),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('rejects a negative element in editBulkByPath', () => {
+    const doc = setupText();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.editBulkByPath([0, -1], [0, 1], [])),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('rejects a negative element in pathToIndex', () => {
+    const doc = setup();
+    assertInvalidArgument(() => doc.getRoot().t.pathToIndex([0, -1]));
+    assertInvalidArgument(() => doc.getRoot().t.pathToIndex([-1]));
+  });
+});
