@@ -4686,9 +4686,22 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * goes through `findPosUnchecked`: the caller named a node by path, and
    * refusing the range because the index one past that node happens to land
    * inside a surrogate pair would reject a request that is valid as given.
+   *
+   * The path has to name an existing node, because the derived range is one
+   * index wide around it. `pathToTreePos` is laxer: it accepts the offset one
+   * past the parent's last child, which is where an insertion goes. That
+   * offset is the parent's closing tag, so the derived range would cover the
+   * parent and style it instead of failing.
    */
   public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
-    const fromIdx = this.pathToIndex(path);
+    const treePos = this.indexTree.pathToTreePos(path);
+    // A path into a text-only parent names a character offset rather than a
+    // node, so only the element case is bounded here.
+    if (!treePos.node.isText && treePos.offset >= treePos.node.children.length) {
+      throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
+    }
+
+    const fromIdx = this.indexTree.indexOf(treePos);
     return [this.findPos(fromIdx), this.findPosUnchecked(fromIdx + 1)];
   }
 
