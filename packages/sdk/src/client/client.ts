@@ -1294,6 +1294,15 @@ export class Client {
     // enqueued. Cleared in the task's `finally`.
     this.attachingDocs.add(doc.getKey());
     return this.enqueueTask(async () => {
+      // The session this attach belongs to. A `keepalive` deactivate tears the
+      // client down synchronously, outside the task queue, so the client can
+      // be deactivated — or deactivated and activated again under a new id —
+      // while this task awaits the attach round trip. See `ownsSession` below.
+      const sessionID = this.id;
+      const ownsSession = () => this.isActive() && this.id === sessionID;
+      // Set when the attach is abandoned because the session went away, so the
+      // `catch` below knows the throw is not a connection error.
+      let abandoned = false;
       // Single-active-session lock, held for the attachment lifetime and
       // released either on the failure path below or by `detachInternal`. Kept
       // in this local until the attachment exists to capture it; if attach
@@ -1738,6 +1747,22 @@ export class Client {
           return doc;
         }
 
+        // The client may have been torn down while the round trip was in
+        // flight: a `keepalive` deactivate runs `deactivateInternal` in the
+        // same tick, without passing through the task queue. Registering the
+        // attachment now would put it — and the watch stream opened below —
+        // on a Deactivated client, where nothing will ever detach it. The
+        // same holds if the client was activated again meanwhile: this attach
+        // was made under the previous `clientId`, so the server never
+        // associated it with the live session.
+        if (!ownsSession()) {
+          abandoned = true;
+          throw new YorkieError(
+            Code.ErrClientNotActivated,
+            `${this.key} lost its session while attaching ${doc.getKey()}`,
+          );
+        }
+
         doc.applyStatus(DocStatus.Attached);
         const attachment = new Attachment(
           (err) => this.loopRetryDelay(err, this.reconnectStreamDelay),
@@ -1902,7 +1927,13 @@ export class Client {
         // idempotent, so this is safe even if `detachInternal` also runs.
         sessionLockHandle?.release();
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        // An abandoned attach is not a connection failure. Its
+        // `ErrClientNotActivated` would send `handleConnectError` into
+        // `deactivateInternal`, which would tear down a session that has
+        // already been replaced by a newer activation.
+        if (!abandoned) {
+          await this.handleConnectError(err);
+        }
         throw err;
       } finally {
         this.attachingDocs.delete(doc.getKey());
@@ -2257,7 +2288,26 @@ export class Client {
     const pollInterval =
       opts.channelHeartbeatInterval ?? this.channelHeartbeatInterval;
 
+    // The session this attach was requested under, or undefined when the
+    // channel is attached before the client activates (which is allowed: the
+    // first refresh assigns the actor). A `keepalive` deactivate tears the
+    // client down synchronously, outside the task queue, so a client that was
+    // active here can be gone — or activated again under a new id — by the
+    // time the task runs.
+    const sessionID = this.id;
     const task = async () => {
+      // Registering the channel on a client that has since been deactivated
+      // would leave an attachment nothing detaches and restart its sync loop.
+      if (
+        sessionID !== undefined &&
+        (!this.isActive() || this.id !== sessionID)
+      ) {
+        throw new YorkieError(
+          Code.ErrClientNotActivated,
+          `${this.key} lost its session while attaching ${channel.getKey()}`,
+        );
+      }
+
       // Channel gets its actor ID from the first refresh response. If the
       // client was already activated (or another channel has triggered the
       // first refresh), propagate the existing id.
