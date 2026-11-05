@@ -15,6 +15,20 @@ Tracked as #1523
   alone. A path into a text-only parent names a character offset rather than
   a node, and `surrogate_index_test.ts` already pins that `styleByPath([0,0])`
   on such a parent succeeds.
+- Review round 1 caught that bounding only the element case left the same
+  symptom for text-only parents: `findTextPos` accepts
+  `pathElement === parent.visibleSize`, which resolves to the end of the last
+  text node and hence to the parent's closing tag. The bound in
+  `pathToPosRange` now covers both shapes. For a text pos the end of one text
+  node still names the first character of the next one, so the rejection has
+  to be `offset >= node.visibleSize && !node.nextSibling` rather than the
+  offset alone — a parent with two text children would otherwise lose the
+  path naming the first character of the second child.
+- The same round flagged negative path elements: a negative *last* element
+  slips past `pathToTreePos` (`children.length < -1` is false, and
+  `findTextPos` only checks the upper end), so `pathToPosRange` rejects
+  `offset < 0` too. Negative elements earlier in the path already throw,
+  because `node.children[-1]` is `undefined`.
 
 ## Self review
 

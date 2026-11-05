@@ -4687,20 +4687,25 @@ export class CRDTTree extends CRDTElement implements GCParent {
    * refusing the range because the index one past that node happens to land
    * inside a surrogate pair would reject a request that is valid as given.
    *
-   * The path has to name an existing node, because the derived range is one
-   * index wide around it. `pathToTreePos` is laxer: it accepts the offset one
-   * past the parent's last child, which is where an insertion goes. That
-   * offset is the parent's closing tag, so the derived range would cover the
-   * parent and style it instead of failing.
+   * The path has to name an existing node or character, because the derived
+   * range is one index wide around it. `pathToTreePos` is laxer: it accepts
+   * the offset one past the parent's content, which is where an insertion
+   * goes. For an element parent that offset is the parent's closing tag, and
+   * for a text-only parent it is the end of the last character, which
+   * resolves to the same closing tag; either way the derived range would
+   * cover the parent and style it instead of failing.
    */
   public pathToPosRange(path: Array<number>): [CRDTTreePos, CRDTTreePos] {
     const treePos = this.indexTree.pathToTreePos(path);
+    const { node, offset } = treePos;
     // A path into a text-only parent names a character offset rather than a
-    // node, so only the element case is bounded here.
-    if (
-      !treePos.node.isText &&
-      treePos.offset >= treePos.node.children.length
-    ) {
+    // node, so it is bounded by the text node's own length. The offset at the
+    // end of one text node still names the first character of the next one,
+    // so it is only out of range once there is no following sibling.
+    const pastTheEnd = node.isText
+      ? offset >= node.visibleSize && !node.nextSibling
+      : offset >= node.children.length;
+    if (offset < 0 || pastTheEnd) {
       throw new YorkieError(Code.ErrInvalidArgument, 'unacceptable path');
     }
 

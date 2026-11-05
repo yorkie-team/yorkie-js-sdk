@@ -113,12 +113,88 @@ describe('Tree.styleByPath with a path that names no node', () => {
     assert.equal(doc.getRoot().t.toXML(), initialXML);
   });
 
+  it('rejects a negative path element', () => {
+    const doc = setup();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([-1], { bold: true })),
+    );
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([0, -1], { bold: true })),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialXML);
+  });
+
   it('leaves the range form alone', () => {
     const doc = setup();
     doc.update((root) => root.t.styleByPath([0], [1], { bold: true }));
     assert.equal(
       doc.getRoot().t.toXML(),
       '<root><p bold="true"><t bold="true">ab</t></p><p></p></root>',
+    );
+  });
+});
+
+/**
+ * A path whose parent holds only text names a character offset rather than a
+ * child index, so the bound is the parent's content length. The offset one
+ * past the last character resolves to the parent's closing tag, which used to
+ * style the parent.
+ */
+const initialTextXML = '<root><p>ab</p><p>cd</p></root>';
+
+/** `setupText` builds `<root><p>ab</p><p>cd</p></root>`. */
+function setupText(): Document<{ t: Tree }> {
+  const doc = new Document<{ t: Tree }>('tree-style-path-bounds-text');
+  doc.update((root) => {
+    root.t = new Tree({
+      type: 'root',
+      children: [
+        { type: 'p', children: [{ type: 'text', value: 'ab' }] },
+        { type: 'p', children: [{ type: 'text', value: 'cd' }] },
+      ],
+    });
+  });
+  return doc;
+}
+
+describe('Tree.styleByPath with a text-only parent', () => {
+  it('rejects the offset one past the last character', () => {
+    const doc = setupText();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([0, 2], { bold: true })),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('rejects an offset further past the last character', () => {
+    const doc = setupText();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([0, 3], { bold: true })),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('rejects a negative character offset', () => {
+    const doc = setupText();
+    assertInvalidArgument(() =>
+      doc.update((root) => root.t.styleByPath([0, -1], { bold: true })),
+    );
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('accepts an offset that names a character', () => {
+    const doc = setupText();
+    doc.update((root) => root.t.styleByPath([0, 0], { bold: true }));
+    doc.update((root) => root.t.styleByPath([0, 1], { bold: true }));
+    assert.equal(doc.getRoot().t.toXML(), initialTextXML);
+  });
+
+  it('still styles the elements themselves', () => {
+    const doc = setupText();
+    doc.update((root) => root.t.styleByPath([1], { bold: true }));
+    assert.equal(
+      doc.getRoot().t.toXML(),
+      '<root><p>ab</p><p bold="true">cd</p></root>',
     );
   });
 });
