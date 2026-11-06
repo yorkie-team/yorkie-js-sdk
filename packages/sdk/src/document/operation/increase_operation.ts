@@ -30,6 +30,23 @@ import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
 /**
+ * `skipUnlessLocal` reports a delta that cannot be applied to the caller of a
+ * local `update` or an undo/redo, and skips it on the pull path, as Go does
+ * (`pkg/document/operations/increase.go`). A value that is not a primitive
+ * (the wire format does not restrict it), a non-numeric delta or a refused
+ * dedup increase can never be applied, and a stored change that throws comes
+ * back on every pull -- the checkpoint does not advance past it -- so it would
+ * wedge the document. Dropping the delta is the same on every replica, so
+ * they still converge.
+ */
+function skipUnlessLocal(source: OpSource | undefined, cause: unknown) {
+  if (source === OpSource.Remote) {
+    return undefined;
+  }
+  throw cause;
+}
+
+/**
  * `IncreaseOperation` represents an operation that increments a numeric value to Counter.
  * Among Primitives, numeric types Integer, Long are used as values.
  */
@@ -88,44 +105,24 @@ export class IncreaseOperation extends Operation {
       );
     }
     const counter = parentObject as CRDTCounter;
-    // NOTE: every failure below is a property of the delta the change
-    // carries -- a value that is not a primitive (the wire format does not
-    // restrict it), a non-numeric primitive, a dedup increase without an actor
-    // or by more than one. A change carrying one can never be applied, and a
-    // stored one comes back on every pull -- the checkpoint does not advance
-    // past a change that throws -- so it wedges the document. Skip it on the
-    // pull path, as Go does (`pkg/document/operations/increase.go`,
-    // `skipUnlessLocal`); dropping the delta is the same on every replica, so
-    // they still converge. A local `update` or an undo/redo still reports the
-    // failure to the caller that asked for it, with the error the counter
-    // threw.
-    let value: Primitive;
-    try {
-      if (!(this.value instanceof Primitive)) {
-        throw new YorkieError(
+    if (!(this.value instanceof Primitive)) {
+      return skipUnlessLocal(
+        source,
+        new YorkieError(
           Code.ErrInvalidArgument,
           `fail to execute, only Primitive can be increased`,
-        );
-      }
-      value = this.value.deepcopy();
+        ),
+      );
+    }
+    const value = this.value.deepcopy();
+    try {
       if (counter.isDedup()) {
-        if (!this.actor) {
-          throw new YorkieError(
-            Code.ErrInvalidArgument,
-            'dedup counter requires actor',
-          );
-        }
-        // A dedup counter holds an HLL of actors, so it can only take a unit
-        // increment attributed to one actor.
-        counter.increaseDedup(value, this.actor);
+        counter.increaseDedup(value, this.actor ?? '');
       } else {
         counter.increase(value);
       }
     } catch (cause) {
-      if (source === OpSource.Remote) {
-        return;
-      }
-      throw cause;
+      return skipUnlessLocal(source, cause);
     }
     return {
       opInfos: [

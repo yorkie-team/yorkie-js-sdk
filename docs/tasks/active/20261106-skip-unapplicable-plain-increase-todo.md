@@ -20,8 +20,8 @@ checkpoint where it was, so the stored change wedges the document (#1500):
 
 1. Check that the value is a `Primitive` before using it as one.
 2. Skip both cases when `source` is `OpSource.Remote`, through the same path
-   as the dedup ones: one `try` around everything that depends on the delta,
-   returning no execution result on a remote failure.
+   as the dedup ones: `skipUnlessLocal`, named after Go's, returns no
+   execution result on a remote failure and throws on any other.
 
 A local `update`, an undo or a redo keeps throwing the error the counter
 threw, as before.
@@ -40,6 +40,7 @@ threw, as before.
       checkpoint advances), a remote increase whose value is an object, a
       local or undo/redo one still throwing, and a non-counter target still
       throwing on the pull path.
-- [x] `IncreaseOperation.execute`: one `try` covering the type check, the
-      dedup and the plain increase; skip on `Remote`.
+- [x] `IncreaseOperation.execute`: the type check returns through
+      `skipUnlessLocal`, and one `try` around the dedup and the plain increase
+      catches into it.
 - [x] `pnpm verify:fast`.
