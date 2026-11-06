@@ -9,9 +9,10 @@
 - Go's `skipUnlessLocal` returns the error for `Local` and `UndoRedo` and
   skips for every other source. The JS `OpSource` has only those two and
   `Remote`, so `source === OpSource.Remote` is the same rule.
-- One `try` around everything that depends on the delta replaces the two
-  separate skips #1502 added for the dedup counter; the dedup tests from #1502
-  pass unchanged.
+- `skipUnlessLocal`, as in Go, replaces the two separate skips #1502 added
+  for the dedup counter; the dedup tests from #1502 pass unchanged. The
+  explicit missing-actor check went with them: `increaseDedup` already refuses
+  a missing actor with the same error.
 
 ## Self review
 
