@@ -28,19 +28,23 @@ import {
 } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { CRDTCounter } from '@yorkie-js/sdk/src/document/crdt/counter';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
+import { logger } from '@yorkie-js/sdk/src/util/logger';
 
 /**
  * `skipUnlessLocal` reports a delta that cannot be applied to the caller of a
- * local `update` or an undo/redo, and skips it on the pull path, as Go does
- * (`pkg/document/operations/increase.go`). A value that is not a primitive
- * (the wire format does not restrict it), a non-numeric delta or a refused
- * dedup increase can never be applied, and a stored change that throws comes
- * back on every pull -- the checkpoint does not advance past it -- so it would
- * wedge the document. Dropping the delta is the same on every replica, so
- * they still converge.
+ * local `update` or an undo/redo, and skips it with a warning on the pull path,
+ * as Go does (`pkg/document/operations/increase.go`). A value that is not a
+ * primitive (the wire format does not restrict it), a non-numeric delta or a
+ * refused dedup increase can never be applied, and a stored change that throws
+ * comes back on every pull -- the checkpoint does not advance past it -- so it
+ * would wedge the document. Dropping the delta is the same on every replica,
+ * so they still converge.
  */
 function skipUnlessLocal(source: OpSource | undefined, cause: unknown) {
   if (source === OpSource.Remote) {
+    logger.warn(
+      `[Increase] skipped a remote increase that cannot apply: ${cause}`,
+    );
     return undefined;
   }
   throw cause;
