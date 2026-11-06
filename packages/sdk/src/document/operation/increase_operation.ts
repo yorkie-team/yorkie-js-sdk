@@ -88,35 +88,44 @@ export class IncreaseOperation extends Operation {
       );
     }
     const counter = parentObject as CRDTCounter;
-    const value = this.value.deepcopy() as Primitive;
-    if (counter.isDedup()) {
-      // NOTE: a dedup counter holds an HLL of actors, so it can only take a
-      // unit increment attributed to one actor. A change carrying neither can
-      // never be applied, and a stored one comes back on every pull -- the
-      // checkpoint does not advance past a change that throws -- so it wedges
-      // the document. Skip it on the pull path, as Go does
-      // (`pkg/document/operations/increase.go`, `skipUnlessLocal`). A local
-      // `update` or an undo/redo still reports the failure to the caller that
-      // asked for it, with the code the counter threw.
-      if (!this.actor) {
-        if (source === OpSource.Remote) {
-          return;
-        }
+    // NOTE: every failure below is a property of the delta the change
+    // carries -- a value that is not a primitive (the wire format does not
+    // restrict it), a non-numeric primitive, a dedup increase without an actor
+    // or by more than one. A change carrying one can never be applied, and a
+    // stored one comes back on every pull -- the checkpoint does not advance
+    // past a change that throws -- so it wedges the document. Skip it on the
+    // pull path, as Go does (`pkg/document/operations/increase.go`,
+    // `skipUnlessLocal`); dropping the delta is the same on every replica, so
+    // they still converge. A local `update` or an undo/redo still reports the
+    // failure to the caller that asked for it, with the error the counter
+    // threw.
+    let value: Primitive;
+    try {
+      if (!(this.value instanceof Primitive)) {
         throw new YorkieError(
           Code.ErrInvalidArgument,
-          'dedup counter requires actor',
+          `fail to execute, only Primitive can be increased`,
         );
       }
-      try {
-        counter.increaseDedup(value, this.actor);
-      } catch (cause) {
-        if (source === OpSource.Remote) {
-          return;
+      value = this.value.deepcopy();
+      if (counter.isDedup()) {
+        if (!this.actor) {
+          throw new YorkieError(
+            Code.ErrInvalidArgument,
+            'dedup counter requires actor',
+          );
         }
-        throw cause;
+        // A dedup counter holds an HLL of actors, so it can only take a unit
+        // increment attributed to one actor.
+        counter.increaseDedup(value, this.actor);
+      } else {
+        counter.increase(value);
       }
-    } else {
-      counter.increase(value);
+    } catch (cause) {
+      if (source === OpSource.Remote) {
+        return;
+      }
+      throw cause;
     }
     return {
       opInfos: [

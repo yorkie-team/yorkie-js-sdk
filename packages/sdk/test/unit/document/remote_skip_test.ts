@@ -22,16 +22,21 @@ import { Checkpoint } from '@yorkie-js/sdk/src/document/change/checkpoint';
 import { InitialVersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { OpSource } from '@yorkie-js/sdk/src/document/operation/operation';
 import { IncreaseOperation } from '@yorkie-js/sdk/src/document/operation/increase_operation';
-import { DedupCounter } from '@yorkie-js/sdk/src/document/json/counter';
+import {
+  Counter,
+  DedupCounter,
+} from '@yorkie-js/sdk/src/document/json/counter';
 import { Primitive } from '@yorkie-js/sdk/src/document/crdt/primitive';
 import { TimeTicket } from '@yorkie-js/sdk/src/document/time/ticket';
 import { CRDTRoot } from '@yorkie-js/sdk/src/document/crdt/root';
+import { CRDTElement } from '@yorkie-js/sdk/src/document/crdt/element';
+import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { converter } from '@yorkie-js/sdk/src/api/converter';
 import { PresenceChangeType } from '@yorkie-js/sdk/src/document/presence/change';
 import { PresenceChange_ChangeType as PbPresenceChangeType } from '@yorkie-js/sdk/src/api/yorkie/v1/resources_pb';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 
-type TestDoc = { uv?: DedupCounter; k?: string };
+type TestDoc = { uv?: DedupCounter; c?: Counter; k?: string };
 
 /**
  * `localChangesOf` returns the changes the given document has minted.
@@ -59,14 +64,32 @@ function sourceWithCounter(): {
 }
 
 /**
- * `remoteIncrease` rebuilds the given document's last change with a single
- * increase operation on the counter -- the shape a non-SDK writer can push and
- * the server stores.
+ * `sourceWithPlainCounter` returns a document holding a plain counter and the
+ * ticket the counter was created at.
  */
-function remoteIncrease(
+function sourceWithPlainCounter(): {
+  doc: Document<TestDoc>;
+  counterCreatedAt: TimeTicket;
+} {
+  const doc = new Document<TestDoc>('d');
+  let counterCreatedAt!: TimeTicket;
+  doc.update((r) => {
+    r.c = new Counter(0);
+    counterCreatedAt = (r.c as Counter).getID();
+  });
+  return { doc, counterCreatedAt };
+}
+
+/**
+ * `remoteIncreaseOf` rebuilds the given document's last change with a single
+ * increase operation on `targetCreatedAt` -- the shape a non-SDK writer can
+ * push and the server stores. The value can be any element: the wire format
+ * does not restrict it.
+ */
+function remoteIncreaseOf(
   doc: Document<TestDoc>,
-  counterCreatedAt: TimeTicket,
-  value: number,
+  targetCreatedAt: TimeTicket,
+  valueOf: (createdAt: TimeTicket) => CRDTElement,
   actor?: string,
 ): Change<never> {
   const changes = localChangesOf(doc);
@@ -75,13 +98,30 @@ function remoteIncrease(
     id,
     operations: [
       IncreaseOperation.create(
-        counterCreatedAt,
-        Primitive.of(value, id.createTimeTicket(1)),
+        targetCreatedAt,
+        valueOf(id.createTimeTicket(1)),
         id.createTimeTicket(2),
         actor,
       ),
     ],
   });
+}
+
+/**
+ * `remoteIncrease` is `remoteIncreaseOf` with a numeric delta.
+ */
+function remoteIncrease(
+  doc: Document<TestDoc>,
+  counterCreatedAt: TimeTicket,
+  value: number,
+  actor?: string,
+): Change<never> {
+  return remoteIncreaseOf(
+    doc,
+    counterCreatedAt,
+    (t) => Primitive.of(value, t),
+    actor,
+  );
 }
 
 describe('a remote change this SDK cannot apply', function () {
@@ -179,6 +219,92 @@ describe('a remote change this SDK cannot apply', function () {
         'dedup counter only supports increment by 1',
       );
     }
+  });
+
+  it('skips a plain increase whose delta the counter refuses', function () {
+    const { doc, counterCreatedAt } = sourceWithPlainCounter();
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
+
+    // As with the dedup counter, a later change in the same pack still lands
+    // and the checkpoint moves past the one that cannot be applied.
+    doc.update((r) => {
+      r.k = 'v';
+    });
+    const bad = remoteIncreaseOf(doc, counterCreatedAt, (t) =>
+      Primitive.of('1', t),
+    );
+    const good = localChangesOf(doc)[1];
+    const pack = new ChangePack<never>(
+      'd',
+      Checkpoint.of(2n, 0),
+      false,
+      [bad, good as never],
+      InitialVersionVector,
+    );
+
+    target.applyChangePack(pack);
+
+    assert.equal(target.getRoot().c!.getValue(), 0);
+    assert.equal(target.getRoot().k, 'v');
+    assert.equal(target.getCheckpoint().getServerSeq(), 2n);
+  });
+
+  it('skips an increase whose value is not a primitive', function () {
+    const { doc, counterCreatedAt } = sourceWithPlainCounter();
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
+
+    const bad = remoteIncreaseOf(doc, counterCreatedAt, (t) =>
+      CRDTObject.create(t),
+    );
+    assert.doesNotThrow(() => target.applyChange(bad, OpSource.Remote));
+    assert.equal(target.getRoot().c!.getValue(), 0);
+  });
+
+  it('still reports a local plain increase that cannot be applied', function () {
+    const { doc, counterCreatedAt } = sourceWithPlainCounter();
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
+    const root = (target as unknown as { root: CRDTRoot }).root;
+
+    for (const source of [OpSource.Local, OpSource.UndoRedo]) {
+      const badDelta = remoteIncreaseOf(doc, counterCreatedAt, (t) =>
+        Primitive.of('1', t),
+      ).getOperations()[0];
+      assert.throws(
+        () => badDelta.execute(root, source),
+        TypeError,
+        'Unsupported type of value: string',
+      );
+
+      const notPrimitive = remoteIncreaseOf(doc, counterCreatedAt, (t) =>
+        CRDTObject.create(t),
+      ).getOperations()[0];
+      assert.throws(
+        () => notPrimitive.execute(root, source),
+        YorkieError,
+        'only Primitive can be increased',
+      );
+    }
+  });
+
+  it('keeps failing a remote increase on an element that is not a counter', function () {
+    const { doc } = sourceWithPlainCounter();
+    const target = new Document<TestDoc>('d');
+    target.applyChange(localChangesOf(doc)[0] as never, OpSource.Remote);
+    const root = (target as unknown as { root: CRDTRoot }).root;
+
+    // Go returns ErrNotApplicableDataType here for every source: only a bad
+    // delta is the change's own fault.
+    const onRoot = remoteIncreaseOf(doc, root.getObject().getCreatedAt(), (t) =>
+      Primitive.of(1, t),
+    ).getOperations()[0];
+    assert.throws(
+      () => onRoot.execute(root, OpSource.Remote),
+      YorkieError,
+      'only Counter can execute increase',
+    );
   });
 
   it('decodes UNSPECIFIED and DELETE as an empty presence, as Go does', function () {
