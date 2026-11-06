@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-03
+updated: 2026-11-06
 ---
 
 # Tasks Index
@@ -20,6 +20,7 @@ Track task-specific plan/review and lessons files using the active/archive layou
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Skip every remote Increase that Go skips (2026-11-06) | [20261106-skip-unapplicable-plain-increase-todo.md](./active/20261106-skip-unapplicable-plain-increase-todo.md) | [20261106-skip-unapplicable-plain-increase-lessons.md](./active/20261106-skip-unapplicable-plain-increase-lessons.md) |
 | Port the `@claude` agent pipeline from yorkie (2026-09-25) | [20260925-agent-pipeline-port-todo.md](./active/20260925-agent-pipeline-port-todo.md) | [20260925-agent-pipeline-port-lessons.md](./active/20260925-agent-pipeline-port-lessons.md) |
 
 ## Archive
