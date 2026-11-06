@@ -43,4 +43,6 @@ threw, as before.
 - [x] `IncreaseOperation.execute`: the type check returns through
       `skipUnlessLocal`, and one `try` around the dedup and the plain increase
       catches into it.
+- [x] A skipped remote increase leaves a `logger.warn`, as the skips in
+      `crdt/tree.ts` do, so a bad change from a non-SDK writer can be traced.
 - [x] `pnpm verify:fast`.
