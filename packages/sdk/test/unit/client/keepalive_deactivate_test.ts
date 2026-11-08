@@ -22,6 +22,7 @@ import { ConnectError, Code as ConnectCode } from '@connectrpc/connect';
 import { ErrorInfoSchema } from '@buf/googleapis_googleapis.bufbuild_es/google/rpc/error_details_pb';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { ClientStatus, SyncMode } from '@yorkie-js/sdk/src/client/client';
+import { ChannelStatus } from '@yorkie-js/sdk/src/channel/channel';
 import { Document, DocStatus } from '@yorkie-js/sdk/src/document/document';
 import {
   ChangePack as PbChangePack,
@@ -308,6 +309,49 @@ describe('deactivate({ keepalive: true }) without a response', () => {
     expect((err as YorkieError).code).toBe(Code.ErrClientNotActivated);
     expect(client.has('keepalive-attach')).toBe(false);
     expect(doc.getStatus()).toBe(DocStatus.Detached);
+    expect(doc.getDocID()).toBe('');
+  });
+
+  it('does not send a queued document attach after teardown', async () => {
+    const rpc = vi.fn(async (req: any) =>
+      attachResponse('queued-document', req.changePack),
+    );
+    const client: any = makeClient(async () => ({}), { attachDocument: rpc });
+    await client.activate();
+    const gate = deferred<void>();
+    void client.enqueueTask(() => gate.promise);
+    const doc = new Document('queued-document');
+    const attached = client
+      .attach(doc, { syncMode: SyncMode.Manual })
+      .catch((err: unknown) => err);
+    await client.deactivate({ keepalive: true });
+    gate.resolve();
+    expect((await attached).code).toBe(Code.ErrClientNotActivated);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(client.attachingDocs.size).toBe(0);
+  });
+
+  it('rejects an attach torn down while opening its watch', async () => {
+    const client: any = makeClient(async () => ({}), {
+      attachDocument: vi.fn(async (req: any) =>
+        attachResponse('watch-document', req.changePack),
+      ),
+    });
+    await client.activate();
+    const entered = deferred<void>();
+    const gate = deferred<void>();
+    vi.spyOn(client, 'runWatchLoop').mockImplementation(async () => {
+      entered.resolve();
+      await gate.promise;
+    });
+    const doc = new Document('watch-document');
+    const attached = client.attach(doc).catch((err: unknown) => err);
+    await entered.promise;
+    await client.deactivate({ keepalive: true });
+    gate.resolve();
+    expect((await attached).code).toBe(Code.ErrClientNotActivated);
+    expect(doc.getStatus()).toBe(DocStatus.Detached);
+    expect(client.has(doc.getKey())).toBe(false);
   });
 
   it('does not register a queued channel attach after the teardown', async () => {
@@ -372,6 +416,7 @@ describe('deactivate({ keepalive: true }) without a response', () => {
     expect((err as YorkieError).code).toBe(Code.ErrClientNotActivated);
     expect(client.has('keepalive-attach')).toBe(false);
     expect(doc.getStatus()).toBe(DocStatus.Detached);
+    expect(doc.getDocID()).toBe('');
     // The abandoned attach must not take the new session down with it.
     expect(client.isActive()).toBe(true);
     expect(client.getID()).toBe('id-next');
@@ -461,11 +506,206 @@ describe('deactivate({ keepalive: true }) without a response', () => {
   });
 });
 
+describe('channel refresh ownership', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('drops a late refresh after another heartbeat releases the task queue', async () => {
+    const response = deferred<any>();
+    const sent = deferred<void>();
+    const client: any = makeClient(() => new Promise(() => {}), {
+      refreshChannel: vi.fn((req: any) => {
+        if (req.channelKey === 'slow-channel') {
+          sent.resolve();
+          return response.promise;
+        }
+        return Promise.reject(
+          new ConnectError('invalid heartbeat', ConnectCode.InvalidArgument),
+        );
+      }),
+    });
+    await client.activate();
+    const channel = new yorkie.Channel('slow-channel');
+    await client.attachChannel(channel);
+    await client.attachChannel(new yorkie.Channel('failing-channel'));
+    const attachment = client.attachmentMap.get(channel.getKey());
+    const watch = vi.spyOn(client, 'runWatchLoop').mockResolvedValue(undefined);
+    // Promise.all rejects on the other heartbeat while this refresh is still
+    // pending, allowing public activate() to run through the real task queue.
+    Object.getPrototypeOf(client).runSyncLoop.call(client);
+    await sent.promise;
+    const pending = attachment.waitForSyncComplete().catch(() => undefined);
+    await client.enqueueTask(async () => undefined);
+    await client.deactivate({ keepalive: true });
+    await client.activate();
+    response.resolve({
+      clientId: 'id-1',
+      sessionId: 'dead-session',
+      sessionCount: 42n,
+    });
+    await pending;
+    expect(channel.getStatus()).toBe(ChannelStatus.Detached);
+    expect(channel.getSessionID()).toBeUndefined();
+    expect(channel.getSessionCount()).toBe(0);
+    expect(client.has(channel.getKey())).toBe(false);
+    expect(watch).not.toHaveBeenCalled();
+    expect(client.isActive()).toBe(true);
+    await client.deactivate({ keepalive: true });
+  });
+
+  it.each(['success', 'error', 'expired'])(
+    'ignores a late first refresh %s after teardown and reactivation',
+    async (outcome) => {
+      const response = deferred<any>();
+      const client: any = makeClient(() => new Promise(() => {}), {
+        refreshChannel: vi.fn(() => response.promise),
+      });
+      await client.activate();
+      const channel = new yorkie.Channel('late-refresh');
+      await client.attachChannel(channel);
+      const attachment = client.attachmentMap.get(channel.getKey());
+      const watch = vi
+        .spyOn(client, 'runWatchLoop')
+        .mockResolvedValue(undefined);
+      const refresh = client.syncInternal(attachment).catch(() => undefined);
+
+      await client.deactivate({ keepalive: true });
+      await client.activate();
+      // Reuse the same Channel object: the old response must not affect its
+      // replacement attachment, even though the resource key is unchanged.
+      await client.attachChannel(channel);
+      channel.setSessionID('replacement-session');
+      const publish = vi.spyOn(channel, 'publish');
+      if (outcome === 'success') {
+        response.resolve({
+          clientId: 'old-client',
+          sessionId: 'old-session',
+          sessionCount: 42n,
+        });
+      } else if (outcome === 'expired') {
+        const info = create(ErrorInfoSchema, {
+          metadata: { code: Code.ErrSessionNotFound },
+        });
+        response.reject(
+          new ConnectError('expired', ConnectCode.NotFound, undefined, [
+            { desc: ErrorInfoSchema, value: info },
+          ]),
+        );
+      } else {
+        response.reject(new Error('late refresh failed'));
+      }
+      await refresh;
+
+      expect(channel.getStatus()).toBe(ChannelStatus.Detached);
+      expect(channel.getSessionID()).toBe('replacement-session');
+      expect(channel.getSessionCount()).toBe(0);
+      expect(publish).not.toHaveBeenCalled();
+      expect(watch).not.toHaveBeenCalled();
+      expect(client.getID()).toBe('id-2');
+      expect(client.isActive()).toBe(true);
+      await client.deactivate({ keepalive: true });
+    },
+  );
+
+  it('accepts the first refresh before explicit activation', async () => {
+    const client: any = makeClient(async () => ({}), {
+      refreshChannel: vi.fn(async () => ({
+        clientId: 'channel-client',
+        sessionId: 'channel-session',
+        sessionCount: 1n,
+      })),
+    });
+    const channel = new yorkie.Channel('channel-first');
+    await client.attachChannel(channel, { syncMode: SyncMode.Manual });
+    await client.syncInternal(client.attachmentMap.get(channel.getKey()));
+    expect(client.isActive()).toBe(true);
+    expect(channel.getStatus()).toBe(ChannelStatus.Attached);
+    expect(channel.getSessionID()).toBe('channel-session');
+    await client.deactivate({ keepalive: true });
+  });
+
+  it('cleans up a channel-first client when its own refresh cannot find the client', async () => {
+    const client: any = makeClient(async () => ({}), {
+      refreshChannel: vi.fn(async () => {
+        throw clientNotFoundError();
+      }),
+    });
+    const channel = new yorkie.Channel('channel-first-error');
+    await client.attachChannel(channel, { syncMode: SyncMode.Manual });
+    await expect(client.sync(channel)).rejects.toBeInstanceOf(ConnectError);
+    expect(client.has(channel.getKey())).toBe(false);
+  });
+
+  it('does not let an old error tear down a reactivated session with the same id', async () => {
+    const client: any = makeClient(async () => ({}));
+    await client.activate();
+    const id = client.getID();
+    const ownsSession = client.captureSession();
+    await client.deactivate({ keepalive: true });
+    client.rpcClient.activateClient.mockResolvedValue({ clientId: id });
+    await client.activate();
+    await client.handleConnectError(clientNotFoundError(), true, ownsSession);
+    expect(client.isActive()).toBe(true);
+    await client.deactivate({ keepalive: true });
+  });
+});
+
 describe('keepalive transport flag', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
+
+  it.each([
+    [false, 'deactivate', false],
+    [false, 'deactivate', true],
+    [false, 'detach', true],
+    [true, 'deactivate', false],
+    [true, 'deactivate', true],
+    [true, 'detach', true],
+  ] as const)(
+    'sets only the requested flag (grpc=%s, method=%s, keepalive=%s)',
+    async (useGrpcWebTransport, method, keepalive) => {
+      const sent = deferred<RequestInit>();
+      const response = deferred<Response>();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((_input: unknown, init: RequestInit) => {
+          sent.resolve(init);
+          return response.promise;
+        }),
+      );
+      const client: any = new yorkie.Client({
+        rpcAddr: 'http://localhost',
+        apiKey,
+        key: clientKey,
+        deactivateOnUnload: false,
+        useGrpcWebTransport,
+      });
+      client.id = 'id-1';
+      client.status = ClientStatus.Activated;
+      const doc = new Document('transport-detach');
+      if (method === 'detach') attachLocally(client, doc);
+      const result = (
+        method === 'detach'
+          ? client.detach(doc, { keepalive })
+          : client.deactivate({ keepalive })
+      ).catch(() => undefined);
+      const init = await sent.promise;
+      expect(init.keepalive).toBe(keepalive);
+      const headers = new Headers(init.headers);
+      expect(headers.has('x-yorkie-keepalive')).toBe(false);
+      expect(headers.get('x-shard-key')).toBe(
+        `${apiKey}/${method === 'detach' ? doc.getKey() : clientKey}`,
+      );
+      // A real asynchronous fetch rejection is consumed as well; the send
+      // need not throw synchronously for local keepalive teardown to work.
+      response.reject(new TypeError('Failed to fetch'));
+      await result;
+      if (method === 'deactivate' && keepalive)
+        expect(client.isActive()).toBe(false);
+      client.deactivateInternal();
+    },
+  );
 
   it('survives connect’s async interceptor chain', async () => {
     const seen: Array<{ keepalive?: boolean; marker: string | null }> = [];
@@ -505,4 +745,129 @@ describe('keepalive transport flag', () => {
     // The marker is stripped before the request leaves.
     expect(seen[0].marker).toBe(null);
   });
+});
+
+describe('independent lifecycle review', () => {
+  it('late keepalive detach must not detach the replacement attachment', async () => {
+    const response = deferred<any>();
+    const sent = deferred<any>();
+    const client: any = makeClient(async () => ({}), {
+      attachDocument: vi.fn(async (req: any) =>
+        attachResponse('late-detach', req.changePack),
+      ),
+      detachDocument: vi.fn((req: any) => {
+        sent.resolve(req);
+        return response.promise;
+      }),
+    });
+    await client.activate();
+    const doc = new Document('late-detach');
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    const detaching = client.detach(doc, { keepalive: true });
+    const req = await sent.promise;
+    await client.deactivate({ keepalive: true });
+    await client.activate();
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    response.resolve(attachResponse('late-detach', req.changePack));
+    await detaching;
+    expect(client.isActive()).toBe(true);
+    expect(client.has(doc.getKey())).toBe(true);
+    expect(doc.getStatus()).toBe(DocStatus.Attached);
+  });
+  it('late presence-base fallback must not resend an abandoned attach', async () => {
+    const response = deferred<any>();
+    const sent = deferred<void>();
+    const rpc = vi.fn((req: any) => {
+      if (rpc.mock.calls.length === 1) {
+        sent.resolve();
+        return response.promise;
+      }
+      return Promise.resolve(attachResponse('retry-attach', req.changePack));
+    });
+    const client: any = makeClient(async () => ({}), { attachDocument: rpc });
+    await client.activate();
+    const doc = new Document('retry-attach');
+    const attaching = client
+      .attach(doc, { syncMode: SyncMode.Manual })
+      .catch(() => undefined);
+    await sent.promise;
+    await client.deactivate({ keepalive: true });
+    const info = create(ErrorInfoSchema, {
+      metadata: { code: Code.ErrPresenceBaseUnavailable },
+    });
+    response.reject(
+      new ConnectError(
+        'no presence base',
+        ConnectCode.FailedPrecondition,
+        undefined,
+        [{ desc: ErrorInfoSchema, value: info }],
+      ),
+    );
+    await attaching;
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('status subscriber teardown cannot leave an attached document behind', async () => {
+  const client: any = makeClient(async () => ({}), {
+    attachDocument: vi.fn(async (req: any) =>
+      attachResponse('reentrant', req.changePack),
+    ),
+  });
+  await client.activate();
+  const doc = new Document('reentrant');
+  doc.subscribe('status', (event: any) => {
+    if (
+      event.type === 'status-changed' &&
+      event.value.status === DocStatus.Attached
+    ) {
+      void client.deactivate({ keepalive: true });
+    }
+  });
+  await client
+    .attach(doc, { syncMode: SyncMode.Manual })
+    .catch(() => undefined);
+  expect(client.isActive()).toBe(false);
+  expect(client.has(doc.getKey())).toBe(false);
+  expect(doc.getStatus()).toBe(DocStatus.Detached);
+});
+
+it('old push-pull success must not remove a reattached document', async () => {
+  const response = deferred<any>();
+  const sent = deferred<any>();
+  const client: any = makeClient(async () => ({}), {
+    attachDocument: vi.fn(async (req: any) =>
+      attachResponse('slow-doc', req.changePack),
+    ),
+    pushPullChanges: vi.fn((req: any) => {
+      sent.resolve(req);
+      return response.promise;
+    }),
+    refreshChannel: vi.fn(async () => {
+      throw new ConnectError('invalid', ConnectCode.InvalidArgument);
+    }),
+  });
+  await client.activate();
+  const doc = new Document<{ n: number }>('slow-doc');
+  await client.attach(doc, { syncMode: SyncMode.Manual });
+  const oldAttachment = client.attachmentMap.get(doc.getKey());
+  oldAttachment.syncMode = SyncMode.Realtime;
+  doc.update((r) => {
+    r.n = 1;
+  });
+  await client.attachChannel(new yorkie.Channel('failure'));
+  Object.getPrototypeOf(client).runSyncLoop.call(client);
+  const req = await sent.promise;
+  const pending = oldAttachment.waitForSyncComplete().catch(() => undefined);
+  await client.enqueueTask(async () => undefined);
+  await client.deactivate({ keepalive: true });
+  await client.activate();
+  await client.attach(doc, { syncMode: SyncMode.Manual });
+  const res = attachResponse('slow-doc', req.changePack);
+  res.changePack!.isRemoved = true;
+  response.resolve(res);
+  await pending;
+  expect(client.isActive()).toBe(true);
+  expect(client.has(doc.getKey())).toBe(true);
+  expect(doc.getStatus()).toBe(DocStatus.Attached);
 });

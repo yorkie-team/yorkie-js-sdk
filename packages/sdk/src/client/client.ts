@@ -440,7 +440,10 @@ export interface DeactivateOptions {
    * `keepalive` is used to enable the keepalive option when deactivating.
    * If true, the client will request deactivation immediately using `fetch`
    * with the `keepalive` option enabled. This is useful for ensuring the
-   * deactivation request completes even if the page is being unloaded.
+   * deactivation request can continue even if the page is being unloaded.
+   * Local teardown and the returned Promise do not wait for the response.
+   * Late responses and errors are ignored, including authentication errors;
+   * this does not confirm that the server accepted the deactivation.
    */
   keepalive?: boolean;
 
@@ -774,6 +777,7 @@ export class Client {
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
   private deactivating = false;
+  private sessionGeneration = 0;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -1022,9 +1026,9 @@ export class Client {
    * If synchronous is true, the server will wait for all pending operations to
    * complete before deactivating.
    *
-   * If the server refuses the deactivation with a 401 and `authTokenInjector`
-   * rejects, the client is deactivated locally anyway and the injector's
-   * error is thrown.
+   * Without `keepalive`, if the server refuses deactivation with a 401 and
+   * `authTokenInjector` rejects, the client is deactivated locally anyway
+   * and the injector's error is thrown.
    *
    * With `keepalive`, the response is not waited for at all: the client tears
    * down locally as soon as the request is sent and the returned Promise
@@ -1324,21 +1328,29 @@ export class Client {
     // attach of the same key is rejected by the guard above before it is
     // enqueued. Cleared in the task's `finally`.
     this.attachingDocs.add(doc.getKey());
+    // Capture before queueing: a queued attach belongs to the lifecycle in
+    // which it was requested, even if another activation runs before it.
+    const ownsSession = this.captureSession();
     return this.enqueueTask(async () => {
-      // The session this attach belongs to. A `keepalive` deactivate tears the
-      // client down synchronously, outside the task queue, so the client can
-      // be deactivated — or deactivated and activated again under a new id —
-      // while this task awaits the attach round trip.
-      const ownsSession = this.captureSession();
       // Set when the attach is abandoned because the session went away, so the
       // `catch` below knows the throw is not a connection error.
       let abandoned = false;
+      const assertSession = () => {
+        if (!ownsSession()) {
+          abandoned = true;
+          throw new YorkieError(
+            Code.ErrClientNotActivated,
+            `${this.key} lost its session while attaching ${doc.getKey()}`,
+          );
+        }
+      };
       // Single-active-session lock, held for the attachment lifetime and
       // released either on the failure path below or by `detachInternal`. Kept
       // in this local until the attachment exists to capture it; if attach
       // throws before then, the `catch` releases it so the lock is not leaked.
       let sessionLockHandle: SessionLockHandle | undefined;
       try {
+        assertSession();
         // Acquire the single-active-session guard before any restore or RPC, so
         // a second tab of the same offline-persistence client fails fast instead
         // of driving sync on a shared checkpoint. Only on the store-backed path:
@@ -1362,6 +1374,7 @@ export class Client {
         // reset, so the pack presents an initial checkpoint/epoch and the
         // server sends the current snapshot.
         const attachOnce = async (reanchor: boolean) => {
+          assertSession();
           // Restore any persisted offline state before building the attach
           // pack. The actor was already stamped above, so rehydrating here
           // respects the actor-set-before-elements ordering. `createChangePack`
@@ -1658,6 +1671,7 @@ export class Client {
           // A restored queue can still hold presence patches minted in an
           // earlier session, and this attach is the request they ride out on,
           // so it needs the presence-base fallback as much as a sync does.
+          assertSession();
           const res = await this.pushWithPresenceBase(
             doc,
             () => converter.toChangePack(doc.createChangePack()),
@@ -1677,6 +1691,8 @@ export class Client {
                 },
               ),
           );
+
+          assertSession();
 
           const maxSize = res.maxSizePerDocument ?? 0;
           if (maxSize > 0) {
@@ -1785,15 +1801,8 @@ export class Client {
         // same holds if the client was activated again meanwhile: this attach
         // was made under the previous `clientId`, so the server never
         // associated it with the live session.
-        if (!ownsSession()) {
-          abandoned = true;
-          throw new YorkieError(
-            Code.ErrClientNotActivated,
-            `${this.key} lost its session while attaching ${doc.getKey()}`,
-          );
-        }
+        assertSession();
 
-        doc.applyStatus(DocStatus.Attached);
         const attachment = new Attachment(
           (err) => this.loopRetryDelay(err, this.reconnectStreamDelay),
           doc,
@@ -1808,6 +1817,10 @@ export class Client {
         // releases it on detach/deactivate, freeing a later tab to take over.
         attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
+        // Status subscribers can synchronously deactivate the client. Make
+        // the attachment visible to teardown before notifying them.
+        doc.applyStatus(DocStatus.Attached);
+        assertSession();
 
         // Persist incrementally: one snapshot established here, then one
         // appended change per local mutation. Re-serializing the document on
@@ -1930,6 +1943,7 @@ export class Client {
         if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
           await this.runWatchLoop(doc.getKey());
         }
+        assertSession();
 
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
 
@@ -1957,10 +1971,8 @@ export class Client {
         // idempotent, so this is safe even if `detachInternal` also runs.
         sessionLockHandle?.release();
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-        // An abandoned attach is not a connection failure. Its
-        // `ErrClientNotActivated` would send `handleConnectError` into
-        // `deactivateInternal`, which would tear down a session that has
-        // already been replaced by a newer activation.
+        // An abandoned attach is a local lifecycle cancellation, not a
+        // server error requiring connection recovery.
         if (!abandoned) {
           await this.handleConnectError(err, false, ownsSession);
         }
@@ -2053,9 +2065,14 @@ export class Client {
       // Captured before the round trip so a late `ErrClientNotFound` cannot
       // deactivate a session that replaced this one. See `captureSession`.
       const ownsSession = this.captureSession();
+      const ownsAttachment = () =>
+        ownsSession() && this.attachmentMap.get(doc.getKey()) === attachment;
       try {
         // Wait for any in-progress sync to finish before detaching.
         await attachment.waitForSyncComplete();
+        if (!ownsAttachment()) {
+          return doc;
+        }
 
         const res = await this.pushWithPresenceBase(
           doc,
@@ -2076,6 +2093,9 @@ export class Client {
             ),
         );
 
+        if (!ownsAttachment()) {
+          return doc;
+        }
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
 
@@ -2092,6 +2112,9 @@ export class Client {
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         return doc;
       } catch (err) {
+        if (!ownsAttachment()) {
+          return doc;
+        }
         logger.error(`[DD] c:"${this.getKey()}" err :`, err);
         attachment.resetDetaching();
         await this.handleConnectError(err, false, ownsSession);
@@ -2327,20 +2350,14 @@ export class Client {
     const pollInterval =
       opts.channelHeartbeatInterval ?? this.channelHeartbeatInterval;
 
-    // The session this attach was requested under, or undefined when the
-    // channel is attached before the client activates (which is allowed: the
-    // first refresh assigns the actor). A `keepalive` deactivate tears the
-    // client down synchronously, outside the task queue, so a client that was
-    // active here can be gone — or activated again under a new id — by the
-    // time the task runs.
-    const sessionID = this.id;
+    // Capture before queueing: teardown must invalidate this attach even
+    // if activation finishes before the task runs. Channel-first clients
+    // are allowed; captureSession also tracks their initial lifecycle.
+    const ownsSession = this.captureSession();
     const task = async () => {
       // Registering the channel on a client that has since been deactivated
       // would leave an attachment nothing detaches and restart its sync loop.
-      if (
-        sessionID !== undefined &&
-        (!this.isActive() || this.id !== sessionID)
-      ) {
+      if (!ownsSession()) {
         throw new YorkieError(
           Code.ErrClientNotActivated,
           `${this.key} lost its session while attaching ${channel.getKey()}`,
@@ -3942,6 +3959,7 @@ export class Client {
   }
 
   private deactivateInternal() {
+    this.sessionGeneration++;
     this.status = ClientStatus.Deactivated;
 
     for (const [key, attachment] of this.attachmentMap) {
@@ -4026,10 +4044,14 @@ export class Client {
     build: () => PbChangePack,
     send: (pack: PbChangePack) => Promise<T>,
   ): Promise<T> {
+    const ownsSession = this.captureSession();
     try {
       return await send(build());
     } catch (err) {
-      if (!isErrorCode(err, Code.ErrPresenceBaseUnavailable)) {
+      if (
+        !ownsSession() ||
+        !isErrorCode(err, Code.ErrPresenceBaseUnavailable)
+      ) {
         throw err;
       }
 
@@ -4051,6 +4073,15 @@ export class Client {
     // Handle channel heartbeat
     if (resource instanceof Channel) {
       const isFirstCall = !resource.getSessionID();
+      const ownsSession = this.captureSession();
+      const ownsAttachment = () =>
+        ownsSession() &&
+        !this.deactivating &&
+        !attachment.isDetaching() &&
+        this.attachmentMap.get(resource.getKey()) === attachment;
+      if (!ownsAttachment()) {
+        return resource;
+      }
       try {
         const res = await this.rpcClient.refreshChannel(
           {
@@ -4069,13 +4100,13 @@ export class Client {
           },
         );
 
+        // Teardown can finish and activation can clear `deactivating`
+        // before this response arrives. Check both the lifecycle and the
+        // attachment before applying first-call or heartbeat state.
+        if (!ownsAttachment()) {
+          return resource;
+        }
         if (isFirstCall) {
-          // Drop late first-call responses that arrive after `deactivate()`
-          // started, so we don't resurrect `this.id`/`this.status` that
-          // deactivate is about to clear.
-          if (this.deactivating || attachment.isDetaching()) {
-            return resource;
-          }
           // Server has just activated the client and attached the channel.
           // Only adopt the server-issued client_id when we don't already
           // have one. If the client was already activated (e.g. via
@@ -4134,6 +4165,11 @@ export class Client {
           `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}" mode:${attachment.syncMode}`,
         );
       } catch (err) {
+        // In particular, an expired old session must not clear the session
+        // of a Channel object that the app has already attached again.
+        if (!ownsAttachment()) {
+          return resource;
+        }
         if (isErrorCode(err, Code.ErrSessionNotFound)) {
           // Server has reclaimed our session (TTL expiry, restart, etc.).
           // Clear local sessionID so the next tick re-enters the first-call
@@ -4168,6 +4204,12 @@ export class Client {
     // Handle Document sync
     const doc = resource as Document<R, P>;
     const { resourceID: docID } = attachment;
+    const ownsSession = this.captureSession();
+    const ownsAttachment = () =>
+      ownsSession() && this.attachmentMap.get(doc.getKey()) === attachment;
+    if (!ownsAttachment()) {
+      return doc;
+    }
 
     // The pack the request actually carried: the builder records it, so a
     // presence-base retry leaves the log line below reporting the resent one.
@@ -4193,6 +4235,12 @@ export class Client {
           ),
       );
 
+      // Another sync can reject Promise.all and release the task queue
+      // while this request is still pending. Never apply its pack to a
+      // document that has since been detached or attached again.
+      if (!ownsAttachment()) {
+        return doc;
+      }
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
       // NOTE(chacha912, hackerwins): A request sent with PushPull, e.g. an
@@ -4405,6 +4453,9 @@ export class Client {
 
       return doc;
     } catch (err) {
+      if (!ownsAttachment()) {
+        return doc;
+      }
       doc.publish([
         {
           type: DocEventType.SyncStatusChanged,
@@ -4655,12 +4706,21 @@ export class Client {
    * different session under a new `clientId`. Recovery driven by the old
    * session's errors would then be applied to the new one.
    *
+   * A channel-first client has no id until its first refresh succeeds. That
+   * initial lifecycle still owns its errors. The generation invalidates it
+   * on teardown, including when a later activation receives the same id.
+   *
    * Call it where the request's `clientId` is read, so the captured id is the
    * one the request actually carries.
    */
   private captureSession(): () => boolean {
     const sessionID = this.id;
-    return () => this.isActive() && this.id === sessionID;
+    const generation = this.sessionGeneration;
+    return () =>
+      generation === this.sessionGeneration &&
+      (sessionID === undefined
+        ? !this.deactivating
+        : this.isActive() && this.id === sessionID);
   }
 
   /**
