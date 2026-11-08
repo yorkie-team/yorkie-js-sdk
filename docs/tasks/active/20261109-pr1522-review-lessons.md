@@ -86,7 +86,38 @@ three-round local independent review; it is not a Claude CI-panel approval.
   the current main contains one additional unrelated tree-bounds commit.
 
 Node 22.16.0 and pnpm 9.15.9 were used with the unchanged lockfile. A temporary
-server on port 18080 avoids altering the user's server installation. The full
-MongoDB-backed suite and actual browser bfcache navigation are not claimed.
+server on port 18080 avoids altering the user's server installation. The complete GitHub Actions workflow and Safari bfcache behavior are not
+claimed; the additional local validations below cover Chrome and MongoDB.
 Repository write permission is unavailable; no push, rerun comment, promotion
 or merge has been performed.
+
+
+## Additional browser and MongoDB validation
+
+The earlier limitation was partly environmental and partly incomplete setup:
+Docker was not running, but a native MongoDB alternative had not been tried.
+The earlier browser limitation meant no actual browser attempt had been made.
+
+- Official MongoDB 8.0.32 ran with a dedicated temporary data directory and
+  loopback port 27027; Yorkie v0.7.26 used that backend on port 18080.
+- The full SDK Vitest collection ran with Istanbul coverage and the CI default
+  5-second test timeout: 141 files passed, 1 skipped; 3,900 tests passed,
+  3 expected failures, 14 skipped and 1 todo. Statement coverage was 92.16%,
+  branch coverage 86.7%, function coverage 93.72%, line coverage 92.27%.
+- This was the full SDK test command on native macOS, not the entire GitHub
+  Ubuntu/Docker workflow. Native webhook addresses were retained instead of
+  the Docker-specific CI environment flag. No assertion was disabled.
+- Real Chrome 157.0.8103.38 ran in a separate temporary profile. A page using
+  the built SDK navigated away and returned with Back. Both pagehide and
+  pageshow reported persisted=true and the in-memory nonce was unchanged.
+  The trace showed immediate inactive/Detached state, deactivate settlement,
+  activation with a new client id, reattachment and successful sync. There
+  were no page errors. The test runner's default bfcache-disabling argument
+  was omitted; no existing browser profile or security setting was changed.
+- Safari 18.6 WebDriver refused session creation because Allow Remote
+  Automation was disabled. It was not enabled. The alternate computer-use
+  permission request was aborted, so Safari remains unverified.
+- All temporary MongoDB, Yorkie and WebDriver processes were confirmed stopped.
+
+These results do not provide a Claude panel verdict, remote CI result or
+repository write permission, and do not change the Draft/blocked PR state.
