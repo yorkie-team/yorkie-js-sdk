@@ -173,3 +173,32 @@ from inside `detachInternal` while `deactivateInternal` iterated the
 attachment map — document subscribers could re-enter the client mid-iteration.
 The publish now goes out on a microtask; the opening promise still settles
 synchronously, and the publish still precedes the timer-scheduled reconnect.
+
+## Bound the final review after reproducing the channel restart gap
+
+The panel fixer allowed channel registration after teardown, but left the old
+client ID and deactivating flag intact. The actual sync loop therefore sent
+zero heartbeats; a forced refresh also could not adopt a new client ID. Its
+registration-only test mocked the sync loop and did not detect this gap.
+
+Two new tests use the real loop after ordinary and keepalive deactivation.
+They failed on 2f08057d and now pass: the first request has no obsolete ID,
+and its response sets the new ID, actor, active status and channel session.
+A post-teardown channel attach now clears the obsolete ID/actor/stop flag and
+starts a fresh sync loop. The session-generation and attachment guards still
+reject the previous lifecycle's late responses. A server-backed integration
+case covers channel-only reactivation after completed deactivation too.
+
+The five focused suites pass 77 tests; four relevant integration suites pass
+43 tests against native MongoDB and Yorkie. Independent re-review passes the
+new restart cases and the previous race cases without a remaining blocker.
+The automatic review was cancelled before more fixer rounds. After complete
+local validation, run one bounded rerun bundle (up to three automatic rounds).
+After a bundle, validate and fix remaining findings locally before another;
+repeated findings or tooling errors without progress must be reported rather
+than met with blind reruns.
+
+Final pre-review local SDK coverage run against native MongoDB passed:
+143 files, 3,915 tests passed, 3 expected failures, 14 skipped and 1 todo.
+Statements 92.15%, branches 86.68%, functions 93.73%, lines 92.26%.
+This is separate from the required remote verdict on the final head.

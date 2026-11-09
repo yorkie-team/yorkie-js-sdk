@@ -24,6 +24,31 @@ import {
 } from '@yorkie-js/sdk/test/integration/integration_helper';
 
 describe('Channel', function () {
+  it('restarts channel-only activation after a completed deactivate', async function ({
+    task,
+  }) {
+    const client = new yorkie.Client({
+      rpcAddr: testRPCAddr,
+      deactivateOnUnload: false,
+    });
+    const channel = new yorkie.Channel(`${toDocKey(task.name)}-${Date.now()}`);
+    try {
+      await client.activate();
+      await client.deactivate();
+      await client.attach(channel);
+      await waitFor(() => client.isActive() && channel.isAttached(), {
+        timeout: 5000,
+        message: 'channel heartbeat did not reactivate the client',
+      });
+      assert.isOk(channel.getSessionID());
+      assert.equal(channel.getActorID(), client.getID());
+      await client.sync(channel);
+      assert.isTrue(channel.isAttached());
+    } finally {
+      await client.deactivate();
+    }
+  });
+
   it('should subscribe to specific topic for broadcast events', async function ({
     task,
   }) {

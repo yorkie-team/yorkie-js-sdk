@@ -2367,6 +2367,16 @@ export class Client {
         );
       }
 
+      // A new channel after completed teardown starts a fresh lazy lifecycle.
+      // The old ID and stop flag would otherwise suppress the heartbeat loop
+      // and prevent its first response from adopting the new server client ID.
+      if (!this.isActive() && (this.id !== undefined || this.deactivating)) {
+        this.id = undefined;
+        this.actorID = undefined;
+        this.deactivating = false;
+        this.conditions[ClientCondition.SyncLoop] = false;
+      }
+
       // Channel gets its actor ID from the first refresh response. If the
       // client was already activated (or another channel has triggered the
       // first refresh), propagate the existing id.

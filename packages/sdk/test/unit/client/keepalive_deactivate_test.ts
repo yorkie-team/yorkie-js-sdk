@@ -522,6 +522,39 @@ describe('deactivate({ keepalive: true }) without a response', () => {
 });
 
 describe('channel refresh ownership', () => {
+  it.each([false, true])(
+    'restarts real channel heartbeats after deactivate (keepalive: %s)',
+    async (keepalive) => {
+      vi.useFakeTimers();
+      const refreshChannel = vi.fn(async (req: any) => ({
+        clientId: req.clientId || 'new-channel-client',
+        sessionId: 'new-channel-session',
+        sessionCount: 1n,
+      }));
+      const client: any = makeClient(async () => ({}), { refreshChannel });
+      try {
+        await client.activate();
+        await client.deactivate({ keepalive });
+        client.runSyncLoop =
+          Object.getPrototypeOf(client).runSyncLoop.bind(client);
+        const channel = new yorkie.Channel('resumed-channel');
+        await client.attachChannel(channel, { syncMode: SyncMode.Polling });
+        await vi.advanceTimersByTimeAsync(0);
+        expect(refreshChannel).toHaveBeenCalledTimes(1);
+        expect(refreshChannel.mock.calls[0][0].clientId).toBe('');
+        expect(client.isActive()).toBe(true);
+        expect(client.getID()).toBe('new-channel-client');
+        expect(channel.getActorID()).toBe('new-channel-client');
+        expect(channel.getSessionID()).toBe('new-channel-session');
+        expect(channel.getStatus()).toBe(ChannelStatus.Attached);
+      } finally {
+        await client.deactivate({ keepalive: true });
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    },
+  );
+
   afterEach(() => vi.restoreAllMocks());
 
   it('drops a late refresh after another heartbeat releases the task queue', async () => {
