@@ -121,7 +121,7 @@ export class IncreaseOperation extends Operation {
     const value = this.value.deepcopy();
     try {
       if (counter.isDedup()) {
-        counter.increaseDedup(value, this.actor ?? '');
+        counter.increaseDedup(value, this.actor);
       } else {
         counter.increase(value);
       }
