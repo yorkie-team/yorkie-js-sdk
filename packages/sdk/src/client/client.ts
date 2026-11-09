@@ -2627,18 +2627,32 @@ export class Client {
 
   /**
    * `assertChannelKeyFree` rejects an attach of a key this client already
-   * holds. An attachment whose detach is already running does not hold the
-   * key for this purpose: it is on its way out and the key is left to the
-   * channel attaching now.
+   * holds. A *Channel* attachment whose detach is already running does not
+   * hold the key for this purpose: it is on its way out, that detach tears
+   * down only its own attachment, and the key is left to the channel
+   * attaching now.
+   *
+   * A detaching *Document* is not the same thing. Documents and channels
+   * share one `attachmentMap`, and a document detach is still mid-RPC while
+   * `isDetaching()` is true: every step after the round trip runs through
+   * `ownsAttachment()`, which compares `attachmentMap.get(key)` with its own
+   * attachment. Taking the key from under it would turn the rest of that
+   * detach — the server's response pack, the `Detached` status, the store
+   * cleanup — into a silent no-op. So a document holds its key until its
+   * detach releases it, and a channel attach of that key is refused.
    */
   private assertChannelKeyFree(channel: Channel): void {
     const held = this.attachmentMap.get(channel.getKey());
-    if (held && !held.isDetaching()) {
-      throw new YorkieError(
-        Code.ErrAlreadyAttached,
-        `${channel.getKey()} is already attached`,
-      );
+    if (!held) {
+      return;
     }
+    if (held.resource instanceof Channel && held.isDetaching()) {
+      return;
+    }
+    throw new YorkieError(
+      Code.ErrAlreadyAttached,
+      `${channel.getKey()} is already attached`,
+    );
   }
 
   /**

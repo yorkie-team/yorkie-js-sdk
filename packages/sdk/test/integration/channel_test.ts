@@ -467,6 +467,42 @@ describe('Channel', function () {
         await client.deactivate();
       }
     }, 20000);
+
+    it('refuses a channel attach of a key a detaching document still holds', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      await client.activate();
+      try {
+        const doc = new yorkie.Document<{ k: string }>(key);
+        await client.attach(doc);
+
+        // Documents and channels share one attachment map. A document detach
+        // is still mid-RPC while it is detaching, and every step after the
+        // round trip runs through `ownsAttachment()` — so a channel taking
+        // the key here would turn the rest of that detach into a silent
+        // no-op. Hold the detach, as an in-flight sync would, and attach a
+        // channel of the same key underneath it.
+        let tried = false;
+        holdDetach(client, key, () => tried);
+        const detaching = client.detach(doc);
+
+        const channel = new yorkie.Channel(key);
+        await expect(client.attach(channel)).rejects.toMatchObject({
+          code: 'ErrAlreadyAttached',
+        });
+        tried = true;
+        assert.isFalse(channel.isAttached());
+
+        // The document's own detach still completes and releases the key.
+        await detaching;
+        assert.equal(doc.getStatus(), 'detached');
+        assert.isFalse((client as any).attachmentMap.has(key));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
   });
 
   it('peekChannel works without client.activate()', async ({ task }) => {
