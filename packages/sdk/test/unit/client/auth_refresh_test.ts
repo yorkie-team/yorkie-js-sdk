@@ -75,7 +75,11 @@ function attachChannel(client: any, key: string, pollInterval = 0) {
  * `refusedStream` stands in for a Watch stream that the server ends with a
  * 401 before its init response, through the client's error handling.
  */
-function refusedStream(client: any, onDisconnect: (err?: unknown) => void) {
+function refusedStream(
+  client: any,
+  onDisconnect: (err?: unknown) => void,
+  ac = new AbortController(),
+) {
   const stream: AsyncIterable<unknown> = {
     [Symbol.asyncIterator]: () => ({
       next: () => Promise.reject(unauthenticated()),
@@ -84,7 +88,7 @@ function refusedStream(client: any, onDisconnect: (err?: unknown) => void) {
   return runWatchStream(
     {
       stream,
-      ac: new AbortController(),
+      ac,
       isInit: () => true,
       heartbeatIntervalOf: () => 0,
       onResponse: () => {},
@@ -304,9 +308,9 @@ describe('Token refresh after a 401', () => {
 
     // Each stream the loop opens ends with a 401 before its init response.
     let opened = 0;
-    void attachment.runWatchLoop((onDisconnect) => {
+    void attachment.runWatchLoop((onDisconnect, ac) => {
       opened++;
-      return refusedStream(client, onDisconnect);
+      return refusedStream(client, onDisconnect, ac);
     });
 
     // The refresh failed: the stream reconnects 1s later, not 100ms.

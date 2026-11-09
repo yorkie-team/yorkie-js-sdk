@@ -191,6 +191,18 @@ const unretryableWriteCodes = [
   Code.ErrChangeTooLarge,
 ] as const;
 
+/**
+ * `keepaliveHeader` marks a request that must be issued with `fetch`'s
+ * `keepalive` option, which lets it outlive the page that sent it.
+ *
+ * It travels on the request rather than on a field the transport reads at
+ * fetch time: connect awaits its interceptor chain before calling the
+ * transport's `fetch`, so a flag set around the `rpcClient.<rpc>()` call and
+ * cleared when that call returns is already false by the time the real fetch
+ * reads it. The transport strips the header before the request leaves.
+ */
+const keepaliveHeader = 'x-yorkie-keepalive';
+
 export interface ClientOptions {
   /**
    * `rpcAddr` is the address of the RPC server. It is used to connect to
@@ -428,7 +440,10 @@ export interface DeactivateOptions {
    * `keepalive` is used to enable the keepalive option when deactivating.
    * If true, the client will request deactivation immediately using `fetch`
    * with the `keepalive` option enabled. This is useful for ensuring the
-   * deactivation request completes even if the page is being unloaded.
+   * deactivation request can continue even if the page is being unloaded.
+   * Local teardown and the returned Promise do not wait for the response.
+   * Late responses and errors are ignored, including authentication errors;
+   * this does not confirm that the server accepted the deactivation.
    */
   keepalive?: boolean;
 
@@ -761,8 +776,8 @@ export class Client {
   private setAuthToken: (token: string) => void;
   private taskQueue: Array<() => Promise<any>>;
   private processing = false;
-  private keepalive = false;
   private deactivating = false;
+  private sessionGeneration = 0;
 
   /**
    * @param rpcAddr - the address of the RPC server.
@@ -864,13 +879,28 @@ export class Client {
               ? input.toString()
               : input.url;
 
+        // Whether this request must go out with `fetch`'s `keepalive` option
+        // is carried on the request itself (see `keepaliveHeader`), not on a
+        // field read here: connect awaits its interceptor chain before
+        // calling this fetch, so a flag the caller clears once
+        // `rpcClient.<rpc>()` returns is already back to false by now. Strip
+        // the marker so it never reaches the server.
+        let headers = init?.headers;
+        let keepalive = false;
+        if (headers instanceof Headers && headers.has(keepaliveHeader)) {
+          keepalive = true;
+          headers = new Headers(headers);
+          headers.delete(keepaliveHeader);
+        }
+        init = init === undefined ? undefined : { ...init, headers };
+
         // Server-streaming RPCs (Watch/WatchDocument/WatchChannel) need the
         // caller's signal active for the response body's full lifetime so
         // user-initiated cancellation can reach the underlying connection.
         if (/\/yorkie\.v1\.YorkieService\/Watch/.test(url)) {
           return fetch(input as RequestInfo, {
             ...init,
-            keepalive: this.keepalive,
+            keepalive,
           });
         }
 
@@ -905,7 +935,7 @@ export class Client {
         return fetch(input as RequestInfo, {
           ...init,
           signal: innerAC.signal,
-          keepalive: this.keepalive,
+          keepalive,
         }).then(
           (res) => {
             detach();
@@ -996,9 +1026,15 @@ export class Client {
    * If synchronous is true, the server will wait for all pending operations to
    * complete before deactivating.
    *
-   * If the server refuses the deactivation with a 401 and `authTokenInjector`
-   * rejects, the client is deactivated locally anyway and the injector's
-   * error is thrown.
+   * Without `keepalive`, if the server refuses deactivation with a 401 and
+   * `authTokenInjector` rejects, the client is deactivated locally anyway
+   * and the injector's error is thrown.
+   *
+   * With `keepalive`, the response is not waited for at all: the client tears
+   * down locally as soon as the request is sent and the returned Promise
+   * resolves, and a late response or error is dropped. A page that freezes in
+   * the back/forward cache never processes that response, so waiting for it
+   * leaves the Promise pending forever in Safari.
    */
   public deactivate(
     options: DeactivateOptions = { keepalive: false, synchronous: false },
@@ -1009,6 +1045,10 @@ export class Client {
 
     // Mark as deactivating immediately so the sync loop exits early.
     this.deactivating = true;
+
+    if (options.keepalive) {
+      return this.deactivateKeepalive(options);
+    }
 
     const task = async () => {
       try {
@@ -1051,14 +1091,52 @@ export class Client {
       }
     };
 
-    if (options.keepalive) {
-      this.keepalive = true;
-      const resp = task();
-      this.keepalive = false;
-      return resp;
+    return this.enqueueTask(task);
+  }
+
+  /**
+   * `deactivateKeepalive` sends `DeactivateClient` with `keepalive` and tears
+   * the client down locally without waiting for the response.
+   *
+   * The caller is on its way out — that is what `keepalive` is for — so the
+   * response may never be processed: a page frozen in the back/forward cache
+   * resumes long after, if ever. Teardown and the returned Promise therefore
+   * hang off sending the request rather than off the response, and the
+   * response itself is dropped. By the time it could land, the app may have
+   * activated this client again, and deactivating that session or running
+   * `handleConnectError`'s recovery against it would be wrong.
+   */
+  private deactivateKeepalive(options: DeactivateOptions): Promise<void> {
+    try {
+      this.rpcClient
+        .deactivateClient(
+          {
+            clientId: this.id!,
+            synchronous: options.synchronous,
+          },
+          {
+            headers: {
+              'x-shard-key': `${this.apiKey}/${this.key}`,
+              // Marks the fetch as `keepalive`. A field toggled around this
+              // call would be cleared before connect's async interceptor
+              // chain reached the fetch that reads it.
+              [keepaliveHeader]: '1',
+            },
+          },
+        )
+        .catch((err) => {
+          logger.debug(`[DC] c:"${this.getKey()}" keepalive err :`, err);
+        });
+    } catch (err) {
+      // The request never left, e.g. the page froze first. Tear down anyway:
+      // otherwise the Watch stream stays open and peers keep seeing a client
+      // that is gone.
+      logger.debug(`[DC] c:"${this.getKey()}" keepalive send err :`, err);
     }
 
-    return this.enqueueTask(task);
+    this.deactivateInternal();
+    logger.info(`[DC] c"${this.getKey()}" deactivated`);
+    return Promise.resolve();
   }
 
   /**
@@ -1250,13 +1328,29 @@ export class Client {
     // attach of the same key is rejected by the guard above before it is
     // enqueued. Cleared in the task's `finally`.
     this.attachingDocs.add(doc.getKey());
+    // Capture before queueing: a queued attach belongs to the lifecycle in
+    // which it was requested, even if another activation runs before it.
+    const ownsSession = this.captureSession();
     return this.enqueueTask(async () => {
+      // Set when the attach is abandoned because the session went away, so the
+      // `catch` below knows the throw is not a connection error.
+      let abandoned = false;
+      const assertSession = () => {
+        if (!ownsSession()) {
+          abandoned = true;
+          throw new YorkieError(
+            Code.ErrClientNotActivated,
+            `${this.key} lost its session while attaching ${doc.getKey()}`,
+          );
+        }
+      };
       // Single-active-session lock, held for the attachment lifetime and
       // released either on the failure path below or by `detachInternal`. Kept
       // in this local until the attachment exists to capture it; if attach
       // throws before then, the `catch` releases it so the lock is not leaked.
       let sessionLockHandle: SessionLockHandle | undefined;
       try {
+        assertSession();
         // Acquire the single-active-session guard before any restore or RPC, so
         // a second tab of the same offline-persistence client fails fast instead
         // of driving sync on a shared checkpoint. Only on the store-backed path:
@@ -1280,6 +1374,7 @@ export class Client {
         // reset, so the pack presents an initial checkpoint/epoch and the
         // server sends the current snapshot.
         const attachOnce = async (reanchor: boolean) => {
+          assertSession();
           // Restore any persisted offline state before building the attach
           // pack. The actor was already stamped above, so rehydrating here
           // respects the actor-set-before-elements ordering. `createChangePack`
@@ -1576,6 +1671,7 @@ export class Client {
           // A restored queue can still hold presence patches minted in an
           // earlier session, and this attach is the request they ride out on,
           // so it needs the presence-base fallback as much as a sync does.
+          assertSession();
           const res = await this.pushWithPresenceBase(
             doc,
             () => converter.toChangePack(doc.createChangePack()),
@@ -1595,6 +1691,8 @@ export class Client {
                 },
               ),
           );
+
+          assertSession();
 
           const maxSize = res.maxSizePerDocument ?? 0;
           if (maxSize > 0) {
@@ -1695,7 +1793,16 @@ export class Client {
           return doc;
         }
 
-        doc.applyStatus(DocStatus.Attached);
+        // The client may have been torn down while the round trip was in
+        // flight: a `keepalive` deactivate runs `deactivateInternal` in the
+        // same tick, without passing through the task queue. Registering the
+        // attachment now would put it — and the watch stream opened below —
+        // on a Deactivated client, where nothing will ever detach it. The
+        // same holds if the client was activated again meanwhile: this attach
+        // was made under the previous `clientId`, so the server never
+        // associated it with the live session.
+        assertSession();
+
         const attachment = new Attachment(
           (err) => this.loopRetryDelay(err, this.reconnectStreamDelay),
           doc,
@@ -1710,6 +1817,10 @@ export class Client {
         // releases it on detach/deactivate, freeing a later tab to take over.
         attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
+        // Status subscribers can synchronously deactivate the client. Make
+        // the attachment visible to teardown before notifying them.
+        doc.applyStatus(DocStatus.Attached);
+        assertSession();
 
         // Persist incrementally: one snapshot established here, then one
         // appended change per local mutation. Re-serializing the document on
@@ -1832,6 +1943,7 @@ export class Client {
         if (syncMode !== SyncMode.Manual && syncMode !== SyncMode.Polling) {
           await this.runWatchLoop(doc.getKey());
         }
+        assertSession();
 
         logger.info(`[AD] c:"${this.getKey()}" attaches d:"${doc.getKey()}"`);
 
@@ -1859,7 +1971,11 @@ export class Client {
         // idempotent, so this is safe even if `detachInternal` also runs.
         sessionLockHandle?.release();
         logger.error(`[AD] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        // An abandoned attach is a local lifecycle cancellation, not a
+        // server error requiring connection recovery.
+        if (!abandoned) {
+          await this.handleConnectError(err, false, ownsSession);
+        }
         throw err;
       } finally {
         this.attachingDocs.delete(doc.getKey());
@@ -1946,9 +2062,17 @@ export class Client {
     attachment.markDetaching();
 
     const task = async () => {
+      // Captured before the round trip so a late `ErrClientNotFound` cannot
+      // deactivate a session that replaced this one. See `captureSession`.
+      const ownsSession = this.captureSession();
+      const ownsAttachment = () =>
+        ownsSession() && this.attachmentMap.get(doc.getKey()) === attachment;
       try {
         // Wait for any in-progress sync to finish before detaching.
         await attachment.waitForSyncComplete();
+        if (!ownsAttachment()) {
+          return doc;
+        }
 
         const res = await this.pushWithPresenceBase(
           doc,
@@ -1960,10 +2084,18 @@ export class Client {
                 documentId: attachment.resourceID,
                 changePack,
               },
-              { headers: { 'x-shard-key': `${this.apiKey}/${doc.getKey()}` } },
+              {
+                headers: {
+                  'x-shard-key': `${this.apiKey}/${doc.getKey()}`,
+                  ...(opts.keepalive ? { [keepaliveHeader]: '1' } : {}),
+                },
+              },
             ),
         );
 
+        if (!ownsAttachment()) {
+          return doc;
+        }
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
 
@@ -1980,18 +2112,22 @@ export class Client {
         logger.info(`[DD] c:"${this.getKey()}" detaches d:"${doc.getKey()}"`);
         return doc;
       } catch (err) {
+        if (!ownsAttachment()) {
+          return doc;
+        }
         logger.error(`[DD] c:"${this.getKey()}" err :`, err);
         attachment.resetDetaching();
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       }
     };
 
+    // The keepalive detach runs outside the queue: the caller is on its way
+    // out and a queued task would not get its turn. The request carries
+    // `keepaliveHeader`, so the transport sets `keepalive` on the fetch it
+    // actually issues.
     if (opts.keepalive) {
-      this.keepalive = true;
-      const resp = task();
-      this.keepalive = false;
-      return resp;
+      return task();
     }
 
     return this.enqueueTask(task);
@@ -2214,7 +2350,33 @@ export class Client {
     const pollInterval =
       opts.channelHeartbeatInterval ?? this.channelHeartbeatInterval;
 
+    // Capture before queueing: teardown must invalidate this attach even
+    // if activation finishes before the task runs. An inactive client is
+    // not a lost session here — channels attach without activation, so the
+    // capture only rejects an attach whose client was torn down underneath
+    // it (see `captureSession`).
+    const ownsSession = this.captureSession(true);
     const task = async () => {
+      // Registering the channel on a client torn down since this attach was
+      // requested would leave an attachment nothing detaches and restart its
+      // sync loop.
+      if (!ownsSession()) {
+        throw new YorkieError(
+          Code.ErrClientNotActivated,
+          `${this.key} lost its session while attaching ${channel.getKey()}`,
+        );
+      }
+
+      // A new channel after completed teardown starts a fresh lazy lifecycle.
+      // The old ID and stop flag would otherwise suppress the heartbeat loop
+      // and prevent its first response from adopting the new server client ID.
+      if (!this.isActive() && (this.id !== undefined || this.deactivating)) {
+        this.id = undefined;
+        this.actorID = undefined;
+        this.deactivating = false;
+        this.conditions[ClientCondition.SyncLoop] = false;
+      }
+
       // Channel gets its actor ID from the first refresh response. If the
       // client was already activated (or another channel has triggered the
       // first refresh), propagate the existing id.
@@ -2522,9 +2684,12 @@ export class Client {
         );
       }
       return this.enqueueTask(async () => {
+        // Channels sync on an inactive client too, so this capture tracks
+        // teardown only — matching the exemption above.
+        const ownsSession = this.captureSession(true);
         return this.syncInternal(attachment).catch(async (err) => {
           logger.error(`[SY] c:"${this.getKey()}" err :`, err);
-          await this.handleConnectError(err);
+          await this.handleConnectError(err, false, ownsSession);
           throw err;
         });
       }) as Promise<Channel>;
@@ -2540,6 +2705,7 @@ export class Client {
         );
       }
       return this.enqueueTask(async () => {
+        const ownsSession = this.captureSession();
         return this.trackSync(
           attachment,
           this.syncInternal(attachment, SyncMode.Realtime),
@@ -2555,13 +2721,14 @@ export class Client {
               },
             ]);
           }
-          await this.handleConnectError(err);
+          await this.handleConnectError(err, false, ownsSession);
           throw err;
         });
       }) as Promise<Array<Document<R, P>>>;
     }
 
     return this.enqueueTask(async () => {
+      const ownsSession = this.captureSession();
       const promises = [];
       for (const [, attachment] of this.attachmentMap) {
         // Only sync Document resources that have syncMode defined
@@ -2582,7 +2749,7 @@ export class Client {
       }
       return Promise.all(promises).catch(async (err) => {
         logger.error(`[SY] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       });
     }) as Promise<Array<Document<R, P>>>;
@@ -2618,7 +2785,13 @@ export class Client {
     // carried has just been rewritten into a full put.
     let pending: PbChangePack | undefined = buildPack();
 
+    const ownsSession = this.captureSession();
+    const ownsAttachment = () =>
+      ownsSession() && this.attachmentMap.get(doc.getKey()) === attachment;
     return this.enqueueTask(async () => {
+      if (!ownsAttachment()) {
+        return;
+      }
       try {
         const res = await this.pushWithPresenceBase(
           doc,
@@ -2638,6 +2811,9 @@ export class Client {
             ),
         );
 
+        if (!ownsAttachment()) {
+          return;
+        }
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         this.detachInternal(doc.getKey());
@@ -2649,7 +2825,7 @@ export class Client {
         logger.info(`[RD] c:"${this.getKey()}" removes d:"${doc.getKey()}"`);
       } catch (err) {
         logger.error(`[RD] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       }
     });
@@ -2990,6 +3166,7 @@ export class Client {
     }
 
     const task = async () => {
+      const ownsSession = this.captureSession();
       try {
         const res = await this.rpcClient.createRevision(
           {
@@ -3015,7 +3192,7 @@ export class Client {
         return converter.toRevisionSummary(res.revision);
       } catch (err) {
         logger.error(`[CR] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       }
     };
@@ -3049,6 +3226,7 @@ export class Client {
     }
 
     const task = async () => {
+      const ownsSession = this.captureSession();
       try {
         const res = await this.rpcClient.listRevisions(
           {
@@ -3070,7 +3248,7 @@ export class Client {
         return res.revisions.map(converter.toRevisionSummary);
       } catch (err) {
         logger.error(`[LR] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       }
     };
@@ -3100,6 +3278,7 @@ export class Client {
     }
 
     const task = async () => {
+      const ownsSession = this.captureSession();
       try {
         const res = await this.rpcClient.getRevision(
           {
@@ -3124,7 +3303,7 @@ export class Client {
         return converter.toRevisionSummary(res.revision);
       } catch (err) {
         logger.error(`[GR] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       }
     };
@@ -3154,6 +3333,7 @@ export class Client {
     }
 
     const task = async () => {
+      const ownsSession = this.captureSession();
       try {
         await this.rpcClient.restoreRevision(
           {
@@ -3169,7 +3349,7 @@ export class Client {
         );
       } catch (err) {
         logger.error(`[RR] c:"${this.getKey()}" err :`, err);
-        await this.handleConnectError(err);
+        await this.handleConnectError(err, false, ownsSession);
         throw err;
       }
     };
@@ -3241,6 +3421,7 @@ export class Client {
 
     const doLoop = async (): Promise<void> => {
       return this.enqueueTask(async () => {
+        const ownsSession = this.captureSession();
         try {
           await this.rpcClient.broadcast(
             {
@@ -3263,7 +3444,7 @@ export class Client {
           logger.error(`[BC] c:"${this.getKey()}" err:`, err);
 
           // Only the retries are a loop: the first try is the app's call.
-          if (await this.handleConnectError(err, retryCount > 0)) {
+          if (await this.handleConnectError(err, retryCount > 0, ownsSession)) {
             // Publish auth-error event before handling the error
             if (isErrorCode(err, Code.ErrUnauthenticated)) {
               if (attachment.resource instanceof Channel) {
@@ -3325,8 +3506,14 @@ export class Client {
         return;
       }
 
+      // Set when the task gets its turn, so the catch below judges the error
+      // against the session whose `clientId` the syncs actually carried. A
+      // `keepalive` deactivate can have torn this one down — and the app can
+      // have activated a new one — while the syncs were in flight.
+      let ownsSession = () => true;
       try {
         await this.enqueueTask(async () => {
+          ownsSession = this.captureSession();
           const syncs: Array<any> = [];
           for (const [, attachment] of this.attachmentMap) {
             // Stop syncing if client is being deactivated.
@@ -3442,7 +3629,7 @@ export class Client {
         }
 
         logger.error(`[SL] c:"${this.getKey()}" sync failed:`, err);
-        if (await this.handleConnectError(err, true)) {
+        if (await this.handleConnectError(err, true, ownsSession)) {
           setTimeout(doLoop, this.loopRetryDelay(err, this.retrySyncLoopDelay));
         } else {
           this.conditions[ClientCondition.SyncLoop] = false;
@@ -3469,6 +3656,7 @@ export class Client {
     return attachment.runWatchLoop(
       (
         onDisconnect: (err?: unknown) => void,
+        ac: AbortController,
       ): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
           this.conditions[ClientCondition.WatchLoop] = false;
@@ -3488,8 +3676,6 @@ export class Client {
             new YorkieError(Code.ErrNotAttached, `${key} is not attached`),
           );
         }
-
-        const ac = new AbortController();
 
         // Create watch stream based on resource type
         if (attachment.resource instanceof Document) {
@@ -3528,6 +3714,10 @@ export class Client {
     ac: AbortController,
     onDisconnect: (err?: unknown) => void,
   ): Promise<[WatchStream, AbortController]> {
+    // The session this stream belongs to, captured with the `clientId`
+    // it is opened under: a late error must not deactivate a session that
+    // a `keepalive` deactivate and a re-activation have since replaced.
+    const ownsSession = this.captureSession();
     const stream = this.rpcClient.watch(
       {
         clientId: this.id!,
@@ -3614,7 +3804,7 @@ export class Client {
         },
         onDisconnect,
       },
-      (err) => this.handleConnectError(err, true),
+      (err) => this.handleConnectError(err, true, ownsSession),
       () => {
         this.conditions[ClientCondition.WatchLoop] = false;
       },
@@ -3631,6 +3821,10 @@ export class Client {
     ac: AbortController,
     onDisconnect: (err?: unknown) => void,
   ): Promise<[WatchStream, AbortController]> {
+    // The session this stream belongs to, captured with the `clientId`
+    // it is opened under: a late error must not deactivate a session that
+    // a `keepalive` deactivate and a re-activation have since replaced.
+    const ownsSession = this.captureSession();
     const stream = this.rpcClient.watch(
       {
         clientId: this.id!,
@@ -3678,7 +3872,7 @@ export class Client {
           return false;
         },
       },
-      (err) => this.handleConnectError(err, true),
+      (err) => this.handleConnectError(err, true, ownsSession),
       () => {
         this.conditions[ClientCondition.WatchLoop] = false;
       },
@@ -3787,6 +3981,7 @@ export class Client {
   }
 
   private deactivateInternal() {
+    this.sessionGeneration++;
     this.status = ClientStatus.Deactivated;
 
     for (const [key, attachment] of this.attachmentMap) {
@@ -3871,10 +4066,14 @@ export class Client {
     build: () => PbChangePack,
     send: (pack: PbChangePack) => Promise<T>,
   ): Promise<T> {
+    const ownsSession = this.captureSession();
     try {
       return await send(build());
     } catch (err) {
-      if (!isErrorCode(err, Code.ErrPresenceBaseUnavailable)) {
+      if (
+        !ownsSession() ||
+        !isErrorCode(err, Code.ErrPresenceBaseUnavailable)
+      ) {
         throw err;
       }
 
@@ -3896,6 +4095,17 @@ export class Client {
     // Handle channel heartbeat
     if (resource instanceof Channel) {
       const isFirstCall = !resource.getSessionID();
+      // A channel heartbeats on an inactive client by design, so the capture
+      // must not read Deactivated as a lost session; teardown bumps the
+      // generation, which it does read. See `captureSession`.
+      const ownsSession = this.captureSession(true);
+      const ownsAttachment = () =>
+        ownsSession() &&
+        !attachment.isDetaching() &&
+        this.attachmentMap.get(resource.getKey()) === attachment;
+      if (!ownsAttachment()) {
+        return resource;
+      }
       try {
         const res = await this.rpcClient.refreshChannel(
           {
@@ -3914,13 +4124,13 @@ export class Client {
           },
         );
 
+        // Teardown can finish and activation can clear `deactivating`
+        // before this response arrives. Check both the lifecycle and the
+        // attachment before applying first-call or heartbeat state.
+        if (!ownsAttachment()) {
+          return resource;
+        }
         if (isFirstCall) {
-          // Drop late first-call responses that arrive after `deactivate()`
-          // started, so we don't resurrect `this.id`/`this.status` that
-          // deactivate is about to clear.
-          if (this.deactivating || attachment.isDetaching()) {
-            return resource;
-          }
           // Server has just activated the client and attached the channel.
           // Only adopt the server-issued client_id when we don't already
           // have one. If the client was already activated (e.g. via
@@ -3979,6 +4189,11 @@ export class Client {
           `[RP] c:"${this.getKey()}" refreshes p:"${resource.getKey()}" mode:${attachment.syncMode}`,
         );
       } catch (err) {
+        // In particular, an expired old session must not clear the session
+        // of a Channel object that the app has already attached again.
+        if (!ownsAttachment()) {
+          return resource;
+        }
         if (isErrorCode(err, Code.ErrSessionNotFound)) {
           // Server has reclaimed our session (TTL expiry, restart, etc.).
           // Clear local sessionID so the next tick re-enters the first-call
@@ -4013,6 +4228,12 @@ export class Client {
     // Handle Document sync
     const doc = resource as Document<R, P>;
     const { resourceID: docID } = attachment;
+    const ownsSession = this.captureSession();
+    const ownsAttachment = () =>
+      ownsSession() && this.attachmentMap.get(doc.getKey()) === attachment;
+    if (!ownsAttachment()) {
+      return doc;
+    }
 
     // The pack the request actually carried: the builder records it, so a
     // presence-base retry leaves the log line below reporting the resent one.
@@ -4038,6 +4259,12 @@ export class Client {
           ),
       );
 
+      // Another sync can reject Promise.all and release the task queue
+      // while this request is still pending. Never apply its pack to a
+      // document that has since been detached or attached again.
+      if (!ownsAttachment()) {
+        return doc;
+      }
       const respPack = converter.fromChangePack<P>(res.changePack!);
 
       // NOTE(chacha912, hackerwins): A request sent with PushPull, e.g. an
@@ -4250,6 +4477,9 @@ export class Client {
 
       return doc;
     } catch (err) {
+      if (!ownsAttachment()) {
+        return doc;
+      }
       doc.publish([
         {
           type: DocEventType.SyncStatusChanged,
@@ -4290,10 +4520,17 @@ export class Client {
    * loops that retry on their own (sync, Watch, broadcast retries): their
    * 401s skip the token refresh while it backs off, and a refresh that
    * rejects does not throw.
+   *
+   * `ownsSession` reports whether the caller's session is still the live one
+   * (see {@link captureSession}). Only `ErrClientNotActivated` /
+   * `ErrClientNotFound` consult it, because only they tear the client down:
+   * a late error from a session a `keepalive` deactivate already closed must
+   * not deactivate the session that replaced it.
    */
   private async handleConnectError(
     err: any,
     inRetryLoop = false,
+    ownsSession: () => boolean = () => true,
   ): Promise<boolean> {
     if (!(err instanceof ConnectError)) {
       return false;
@@ -4368,7 +4605,14 @@ export class Client {
       errorCodeOf(err) === Code.ErrClientNotActivated ||
       errorCodeOf(err) === Code.ErrClientNotFound
     ) {
-      this.deactivateInternal();
+      // Only the session the failed request belonged to may be torn down. A
+      // `keepalive` deactivate deactivates the client synchronously, outside
+      // the task queue, so every in-flight task and loop can come back to a
+      // client the app has since activated again under a new `clientId`; the
+      // server's "no such client" is about the id that is already gone.
+      if (ownsSession()) {
+        this.deactivateInternal();
+      }
     }
 
     return false;
@@ -4474,6 +4718,48 @@ export class Client {
     attachment.setSyncPromise(settled);
     settled.then(() => attachment.clearSyncPromise());
     return sync;
+  }
+
+  /**
+   * `captureSession` captures the session (activation) the caller belongs to
+   * and returns a predicate reporting whether the client is still in it.
+   *
+   * A `keepalive` deactivate tears the client down in the same tick, outside
+   * the task queue, so a task or loop that is mid-flight can come back to a
+   * deactivated client — or, if the app activated it again meanwhile, to a
+   * different session under a new `clientId`. Recovery driven by the old
+   * session's errors would then be applied to the new one.
+   *
+   * A channel-first client has no id until its first refresh succeeds. That
+   * initial lifecycle still owns its errors. The generation invalidates it
+   * on teardown, including when a later activation receives the same id.
+   *
+   * `allowInactive` captures a session that does not require the client to be
+   * activated. Channels attach and heartbeat on an inactive client by design —
+   * `RefreshChannel` lazy-activates it server-side — so for them a Deactivated
+   * status is not evidence that the session went away; only a teardown (which
+   * bumps the generation) or one in progress is.
+   *
+   * Call it where the request's `clientId` is read, so the captured id is the
+   * one the request actually carries.
+   */
+  private captureSession(allowInactive = false): () => boolean {
+    const sessionID = this.id;
+    const generation = this.sessionGeneration;
+    const wasDeactivating = this.deactivating;
+    return () => {
+      if (generation !== this.sessionGeneration) {
+        return false;
+      }
+      if (allowInactive || sessionID === undefined) {
+        // A teardown already under way at capture time is the lifecycle this
+        // caller was handed — a `keepalive` deactivate leaves the flag set
+        // until the next activation — so only one that starts afterwards
+        // invalidates it. One that finishes bumps the generation above.
+        return wasDeactivating || !this.deactivating;
+      }
+      return this.isActive() && this.id === sessionID;
+    };
   }
 
   /**
