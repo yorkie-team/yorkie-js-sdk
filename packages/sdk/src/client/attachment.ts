@@ -27,11 +27,13 @@ export type WatchStream = AsyncIterable<unknown>;
 
 /**
  * `WatchStreamCreator` is a function type that creates a watch stream for a resource.
- * It takes an onDisconnect callback and returns a promise that resolves to a tuple of
+ * It takes an onDisconnect callback and the owned abort controller, and
+ * returns a promise that resolves to a tuple of
  * [WatchStream, AbortController] for managing the stream lifecycle.
  */
 export type WatchStreamCreator = (
   onDisconnect: (err?: unknown) => void,
+  abortController: AbortController,
 ) => Promise<[WatchStream, AbortController]>;
 
 /**
@@ -207,34 +209,39 @@ export class Attachment<R extends Attachable> {
     watchStreamCreator: WatchStreamCreator,
   ): Promise<void> {
     const doLoop = async (): Promise<void> => {
-      if (this.watchStream) {
-        return Promise.resolve();
+      if (this.cancelled || this.watchStream || this.watchAbortController) {
+        return;
       }
       if (this.watchLoopTimerID) {
         clearTimeout(this.watchLoopTimerID);
         this.watchLoopTimerID = undefined;
       }
 
+      // Own cancellation before the first response, not only after init.
+      const ac = new AbortController();
+      this.watchAbortController = ac;
       try {
-        [this.watchStream, this.watchAbortController] =
-          await watchStreamCreator((err) => {
-            this.watchStream = undefined;
-            this.watchAbortController = undefined;
-
-            // NOTE(hackerwins): Only set reconnect timer if we're not being
-            // cancelled.
-            if (!this.cancelled) {
-              this.watchLoopTimerID = setTimeout(
-                doLoop,
-                this.reconnectStreamDelay(err),
-              );
-            }
-          });
+        const [stream] = await watchStreamCreator((err) => {
+          // A cancelled stream must not clear or reconnect its successor.
+          if (this.watchAbortController !== ac) {
+            return;
+          }
+          this.watchStream = undefined;
+          this.watchAbortController = undefined;
+          if (!this.cancelled) {
+            this.watchLoopTimerID = setTimeout(
+              doLoop,
+              this.reconnectStreamDelay(err),
+            );
+          }
+        }, ac);
+        if (this.watchAbortController === ac && !ac.signal.aborted) {
+          this.watchStream = stream;
+        }
       } catch {
-        // TODO(hackerwins): For now, if the creation of the watch stream fails,
-        // it is considered normal and the watch loop is executed again after a
-        // certain period of time.
-        // In the future, we need to find a better way to handle this.
+        if (this.watchAbortController === ac) {
+          this.watchAbortController = undefined;
+        }
       }
     };
 
@@ -323,7 +330,7 @@ export class Attachment<R extends Attachable> {
    * `resetCancelled` clears the cancelled flag so the watch loop can run again
    * after a previous cancellation (e.g., after changeSyncMode back to Realtime).
    * Caller must invoke `runWatchLoop` immediately after to claim the stream slot;
-   * `doLoop`'s `if (this.watchStream)` guard prevents double-stream creation if a
+   * `doLoop`'s controller ownership guard prevents double-stream creation if a
    * delayed `onDisconnect` callback from the previously-cancelled stream races.
    */
   public resetCancelled(): void {
@@ -336,11 +343,10 @@ export class Attachment<R extends Attachable> {
   public cancelWatchStream(): void {
     this.cancelled = true;
 
-    if (this.watchStream && this.watchAbortController) {
-      this.watchAbortController.abort();
-      this.watchStream = undefined;
-      this.watchAbortController = undefined;
-    }
+    const ac = this.watchAbortController;
+    this.watchStream = undefined;
+    this.watchAbortController = undefined;
+    ac?.abort();
     clearTimeout(this.watchLoopTimerID);
     this.watchLoopTimerID = undefined;
   }

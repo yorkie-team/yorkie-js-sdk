@@ -871,3 +871,102 @@ it('old push-pull success must not remove a reattached document', async () => {
   expect(client.has(doc.getKey())).toBe(true);
   expect(doc.getStatus()).toBe(DocStatus.Attached);
 });
+
+describe('review follow-up watch cancellation', () => {
+  it.each([true, false])(
+    'aborts a pending Watch (transport reacts: %s)',
+    async (reacts) => {
+      const entered = deferred<void>();
+      const stopped = deferred<void>();
+      let signal: AbortSignal | undefined;
+      const client: any = makeClient(async () => ({}), {
+        attachDocument: vi.fn(async (req: any) =>
+          attachResponse('pending-watch', req.changePack),
+        ),
+        watch: (_req: unknown, opts: { signal: AbortSignal }) => {
+          signal = opts.signal;
+          if (reacts) {
+            signal.addEventListener('abort', () => stopped.resolve(), {
+              once: true,
+            });
+          }
+          entered.resolve();
+          return {
+            [Symbol.asyncIterator]() {
+              return {
+                async next() {
+                  await stopped.promise;
+                  throw new ConnectError('aborted', ConnectCode.Canceled);
+                },
+              };
+            },
+          };
+        },
+      });
+      await client.activate();
+      const doc = new Document('pending-watch');
+      const attached = client.attach(doc).catch((err: unknown) => err);
+      await entered.promise;
+      await client.deactivate({ keepalive: true });
+      try {
+        expect(signal!.aborted).toBe(true);
+        expect((await attached).code).toBe(Code.ErrClientNotActivated);
+      } finally {
+        stopped.resolve();
+        await attached;
+      }
+    },
+  );
+});
+
+describe('remove lifecycle ownership', () => {
+  it('ignores remove success after teardown and permits public reattachment', async () => {
+    const sent = deferred<void>();
+    const response = deferred<unknown>();
+    const client: any = makeClient(async () => ({}), {
+      attachDocument: vi.fn(async (req: any) =>
+        attachResponse('remove-response', req.changePack),
+      ),
+      removeDocument: vi.fn(() => {
+        sent.resolve();
+        return response.promise;
+      }),
+    });
+    await client.activate();
+    const doc = new Document('remove-response');
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    const removing = client.remove(doc);
+    await sent.promise;
+    await client.deactivate({ keepalive: true });
+    const activating = client.activate();
+    response.resolve({
+      changePack: create(ChangePackSchema, {
+        documentKey: doc.getKey(),
+        isRemoved: true,
+        checkpoint: create(CheckpointSchema),
+      }),
+    });
+    await removing;
+    await activating;
+    expect(doc.getStatus()).toBe(DocStatus.Detached);
+    await client.attach(doc, { syncMode: SyncMode.Manual });
+    expect(doc.getStatus()).toBe(DocStatus.Attached);
+    expect(client.has(doc.getKey())).toBe(true);
+    await client.deactivate({ keepalive: true });
+  });
+
+  it('does not send a queued remove after teardown', async () => {
+    const removeDocument = vi.fn();
+    const client: any = makeClient(async () => ({}), { removeDocument });
+    await client.activate();
+    const doc = new Document('queued-remove');
+    attachLocally(client, doc);
+    const gate = deferred<void>();
+    void client.enqueueTask(() => gate.promise);
+    const removing = client.remove(doc);
+    await client.deactivate({ keepalive: true });
+    gate.resolve();
+    await removing;
+    expect(removeDocument).not.toHaveBeenCalled();
+  });
+});

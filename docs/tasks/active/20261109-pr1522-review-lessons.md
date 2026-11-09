@@ -121,3 +121,38 @@ The earlier browser limitation meant no actual browser attempt had been made.
 
 These results do not provide a Claude panel verdict, remote CI result or
 repository write permission, and do not change the Draft/blocked PR state.
+
+## Follow-up after the first external rerun
+
+The panel on f2d8d2d9 passed five lenses and failed correctness. Its remove
+finding was unverified: review-execution.json records `error_max_turns`,
+21 turns, and "Reached maximum number of turns (20)". There was no recorded
+API error status; the generic comment's possible 429 explanation was not
+this run's cause. No credentials, quota settings or verifier limits changed.
+
+The Watch finding was confirmed by its verifier but classified as outside
+the frozen review surface. We nevertheless reproduced and fixed it: the
+Attachment must own the AbortController before initialization. Cancellation
+settles the pending watch even if the transport does not unwind its read.
+Intentional disconnect is published synchronously, and late stream responses,
+errors and disconnect callbacks cannot mutate the successor's state.
+
+The remove finding's claimed reattachment-before-response order is prevented
+by the task queue. The underlying stale mutation is real: a late success
+marks the detached Document Removed before the queued activation can finish,
+preventing that same instance's later reattachment. Capture ownership before
+enqueueing and check it again before applying success; obsolete removes do
+not send requests or apply server state. Live removal is unchanged.
+
+Six new regression cases failed on f2d8d2d9; the five focused suites passed
+72 tests with the final fix, including existing auth refresh and idle reconnect
+coverage. The tests exercise the actual Watch loop rather than mocking it.
+The successor test also proves duplicate opening is suppressed while init
+is pending, and cancelled initialization cannot replace a new stream.
+
+Independent follow-up review found two additional cancellation boundaries:
+a user initialization callback may cancel before the watchdog is armed, and
+an error recovery await may finish after cancellation. Both have explicit
+post-callback/await cancellation checks and regression tests; synchronous
+cancellation from an error callback also prevents recovery from starting.
+The auth reconnect fixture now uses Attachment's owned controller.

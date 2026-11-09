@@ -164,18 +164,37 @@ export function runWatchStream<Resp>(
       onDisconnect();
     };
 
+    // Settle an opening watch even if the transport never finishes its read.
+    const onAbort = () => {
+      clearTimeout(idleTimer);
+      // Publish intentional disconnect while this stream still owns teardown,
+      // rather than when the cancelled transport eventually unwinds.
+      if (!idled) {
+        onStreamEnd();
+      }
+      reject(ac.signal.reason);
+    };
+    ac.signal.addEventListener('abort', onAbort, { once: true });
+    if (ac.signal.aborted) {
+      onAbort();
+      return;
+    }
+
     const handleStream = async () => {
       try {
         let resolved = false;
         for await (const resp of stream) {
           // A successor already owns the watch; drop what the old stream
           // still had buffered.
-          if (idled) {
+          if (idled || ac.signal.aborted) {
             break;
           }
 
           lastActivity = Date.now();
           onResponse(resp);
+          if (idled || ac.signal.aborted) {
+            break;
+          }
 
           if (!resolved && isInit(resp)) {
             resolved = true;
@@ -187,7 +206,7 @@ export function runWatchStream<Resp>(
           }
         }
 
-        if (idled) {
+        if (idled || ac.signal.aborted) {
           return;
         }
 
@@ -198,7 +217,7 @@ export function runWatchStream<Resp>(
         // The stream is over; the timer must not fire during the await below.
         clearTimeout(idleTimer);
 
-        if (idled) {
+        if (idled || ac.signal.aborted) {
           return;
         }
 
@@ -207,8 +226,15 @@ export function runWatchStream<Resp>(
         }
 
         onError(err);
+        if (idled || ac.signal.aborted) {
+          return;
+        }
 
-        if (await handleConnectError(err)) {
+        const retry = await handleConnectError(err);
+        if (idled || ac.signal.aborted) {
+          return;
+        }
+        if (retry) {
           onDisconnect(err);
         } else {
           setWatchLoopInactive();
@@ -216,6 +242,7 @@ export function runWatchStream<Resp>(
 
         reject(err);
       } finally {
+        ac.signal.removeEventListener('abort', onAbort);
         clearTimeout(idleTimer);
       }
     };

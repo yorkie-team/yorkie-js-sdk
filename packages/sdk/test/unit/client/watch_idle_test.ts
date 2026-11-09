@@ -114,6 +114,7 @@ function startWatch(
     ends: 0,
     disconnects: 0,
     inactive: 0,
+    responses: 0,
   };
 
   const ready = runWatchStream<WatchResponse>(
@@ -122,7 +123,7 @@ function startWatch(
       ac,
       isInit: (resp) => resp.body.case === 'initialization',
       heartbeatIntervalOf: watchHeartbeatInterval,
-      onResponse: () => {},
+      onResponse: () => calls.responses++,
       onStreamEnd: () => calls.ends++,
       onError: (err) => calls.errors.push(err),
       onDisconnect: () => calls.disconnects++,
@@ -266,19 +267,18 @@ describe('runWatchStream idle watchdog', () => {
     assert.equal(calls.disconnects, 1);
   });
 
-  it('leaves a cancellation the client asked for as it was', async () => {
+  it('does not recover or publish errors for a cancelled stream', async () => {
     const { ac, fs, calls, ready } = startWatch();
     fs.push(initResponse(1000));
     await ready;
 
     ac.abort();
     await vi.advanceTimersByTimeAsync(10_000);
-    assert.equal(calls.errors.length, 1);
-    assert.isFalse(isIdleError(calls.errors[0]));
-    // The cancellation goes through `handleConnectError` as before, which
-    // this test answers with "not retryable".
+    // A successor may already be watching; old cancellation must not reset
+    // its state or drive authentication recovery.
+    assert.equal(calls.errors.length, 0);
     assert.equal(calls.disconnects, 0);
-    assert.equal(calls.inactive, 1);
+    assert.equal(calls.inactive, 0);
     assert.equal(vi.getTimerCount(), 0);
   });
 
@@ -301,6 +301,27 @@ describe('runWatchStream idle watchdog', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     assert.equal(calls.errors.length, 0);
     assert.equal(calls.disconnects, 0);
+    assert.equal(vi.getTimerCount(), 0);
+  });
+
+  it('settles cancellation before init and ignores a late buffered response', async () => {
+    const { ac, fs, calls, ready } = startWatch({ abortDelayMs: Infinity });
+    ac.abort();
+    let rejected = false;
+    void ready.catch(() => {
+      rejected = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    try {
+      assert.isTrue(rejected);
+    } finally {
+      fs.push(initResponse(1000));
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    assert.equal(calls.responses, 0);
+    assert.equal(calls.ends, 1);
+    assert.equal(calls.disconnects, 0);
+    assert.equal(calls.errors.length, 0);
     assert.equal(vi.getTimerCount(), 0);
   });
 

@@ -2770,8 +2770,13 @@ export class Client {
     // carried has just been rewritten into a full put.
     let pending: PbChangePack | undefined = buildPack();
 
+    const ownsSession = this.captureSession();
+    const ownsAttachment = () =>
+      ownsSession() && this.attachmentMap.get(doc.getKey()) === attachment;
     return this.enqueueTask(async () => {
-      const ownsSession = this.captureSession();
+      if (!ownsAttachment()) {
+        return;
+      }
       try {
         const res = await this.pushWithPresenceBase(
           doc,
@@ -2791,6 +2796,9 @@ export class Client {
             ),
         );
 
+        if (!ownsAttachment()) {
+          return;
+        }
         const pack = converter.fromChangePack<P>(res.changePack!);
         doc.applyChangePack(pack);
         this.detachInternal(doc.getKey());
@@ -3633,6 +3641,7 @@ export class Client {
     return attachment.runWatchLoop(
       (
         onDisconnect: (err?: unknown) => void,
+        ac: AbortController,
       ): Promise<[WatchStream, AbortController]> => {
         if (!this.isActive()) {
           this.conditions[ClientCondition.WatchLoop] = false;
@@ -3652,8 +3661,6 @@ export class Client {
             new YorkieError(Code.ErrNotAttached, `${key} is not attached`),
           );
         }
-
-        const ac = new AbortController();
 
         // Create watch stream based on resource type
         if (attachment.resource instanceof Document) {
