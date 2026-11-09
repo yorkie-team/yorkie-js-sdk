@@ -50,11 +50,7 @@ export function useYorkieChannel(
   channelHeartbeatInterval: number | undefined,
   channelStore: Store<ChannelContextType>,
 ) {
-  // Teardown of the previous effect run. The next run waits for it before
-  // attaching, so a re-mount or a dep change never races its own detach: the
-  // SDK refuses a second attach of a key this client still holds with
-  // `ErrAlreadyAttached`, and that error is not recoverable from here.
-  const teardownRef = useRef<Promise<void>>(Promise.resolve());
+  const channelRef = useRef<Channel | undefined>(undefined);
   const [didMount, setDidMount] = useState(false);
 
   // NOTE(hackerwins): In StrictMode, the component will call twice
@@ -77,12 +73,6 @@ export function useYorkieChannel(
     }
 
     let unsubscribe: (() => void) | undefined;
-    // Created here rather than inside `attachChannel` so the cleanup below
-    // always has the channel this run attaches, even when it runs while the
-    // attach is still in flight.
-    const newChannel = new Channel(channelKey);
-    let attached = false;
-    const prevTeardown = teardownRef.current;
 
     /**
      * `attachChannel` attaches the channel to the client.
@@ -102,19 +92,13 @@ export function useYorkieChannel(
       }));
 
       try {
-        // Let the previous run's detach release the key first. `client.attach`
-        // refuses a key this client still holds, so attaching on top of a
-        // detach that has not finished would fail with `ErrAlreadyAttached`
-        // and leave this hook stuck in an error state for the lifetime of the
-        // provider.
-        await prevTeardown;
-
+        const newChannel = new Channel(channelKey);
         await client.attach(newChannel, {
           syncMode,
           channelHeartbeatInterval,
         });
 
-        attached = true;
+        channelRef.current = newChannel;
 
         // Subscribe to channel events. `client.attach(channel)` now returns
         // before the first RefreshChannel heartbeat, so `sessionCount` and
@@ -199,49 +183,35 @@ export function useYorkieChannel(
       }
     }
 
-    // `attachChannel` handles its own errors, so this promise always settles.
-    const attaching = attachChannel();
+    attachChannel();
 
     return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+
       /**
        * `detachChannel` detaches the channel from the client. Channels can
        * be detached on inactive clients — detach is local cleanup only and
        * the server reclaims the session via TTL.
-       *
-       * It first waits for this run's attach to settle: `client.attach`
-       * registers the channel only when its queued task runs, so detaching
-       * before that resolves would find nothing attached and leave the
-       * attachment behind — and the next attach of the same key would then be
-       * refused with `ErrAlreadyAttached`. The promise is published on
-       * `teardownRef` so the next run of this effect waits for it.
        *
        * Idempotent against the consumer-facing `detach` exposed via
        * `useChannel()`: if the consumer detached first, `client.detach`
        * throws `ErrNotAttached`, which we swallow as a normal cleanup race.
        */
       async function detachChannel() {
-        await attaching;
-
-        // Unsubscribe after the attach settles: the subscription is installed
-        // by `attachChannel` itself, so unsubscribing earlier could miss it.
-        if (unsubscribe) {
-          unsubscribe();
-        }
-
-        if (!attached || !client) {
-          return;
-        }
-
-        try {
-          await client.detach(newChannel);
-        } catch (e) {
-          if (e instanceof Error && /not attached/i.test(e.message)) {
-            return;
+        if (channelRef.current && client) {
+          try {
+            await client.detach(channelRef.current);
+          } catch (e) {
+            if (e instanceof Error && /not attached/i.test(e.message)) {
+              return;
+            }
+            console.error('Failed to detach channel:', e);
           }
-          console.error('Failed to detach channel:', e);
         }
       }
-      teardownRef.current = detachChannel();
+      detachChannel();
     };
   }, [
     client,

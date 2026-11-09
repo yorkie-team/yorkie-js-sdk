@@ -29,35 +29,3 @@ attached"). Applied the test findings:
 4. Added: detaching the new channel while the old detach is held.
 
 Out of scope (follow-up issue): two live attachments of one key.
-
-### Round 2 — review panel (blast-radius, correctness)
-
-"Two live attachments of one key" was not out of scope after all: with
-`detachChannel` now strict about identity, the attachment an unguarded
-second `attachChannel` overwrites has nothing left that can tear it down.
-Closed it the other way round — `attachChannel` refuses a key this client
-already holds (`ErrAlreadyAttached`, as `attachDocument` does), except when
-the holder is already detaching, which is the race this task is about.
-
-The other half of the panel: the diff made a stale resource of a live key a
-legitimate state but guarded only `detachChannel`. Resolved every remaining
-by-key lookup that starts from a caller-supplied object through one
-`resolveAttachment` helper — `detachDocument`, `changeChannelSyncMode`,
-`sync(channel)` — and stopped the `local-broadcast` forwarder at a stale
-channel, since `broadcast` takes a key and has no identity to check.
-
-### Round 3 — review panel (blast-radius, correctness)
-
-Both blocking findings were about who the new `ErrAlreadyAttached` hits.
-
-1. `assertChannelKeyFree` exempted *any* detaching attachment, but documents
-   and channels share one attachment map and a detaching document is still
-   mid-RPC: every step after its round trip runs through `ownsAttachment()`,
-   so a channel that took the key would have turned the rest of that detach
-   into a silent no-op. Only a detaching *Channel* yields the key now.
-2. `<ChannelProvider>`'s cleanup detached `channelRef.current`, which is set
-   only after `client.attach` resolves — so a dep change or re-mount during
-   an in-flight attach detached nothing, and the next attach of the same key
-   was refused for good. The hook now creates the `Channel` synchronously
-   and chains each run's teardown on a ref the next run awaits before
-   attaching, so the key is always released before it is taken again.

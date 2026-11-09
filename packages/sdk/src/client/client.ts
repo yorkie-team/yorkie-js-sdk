@@ -2013,26 +2013,6 @@ export class Client {
   }
 
   /**
-   * `resolveAttachment` returns the attachment that holds the given resource.
-   *
-   * The key alone is not enough: another resource of the same key may hold it
-   * now — a re-attach is allowed while an earlier detach of the key is still
-   * pending — so acting through a stale object must not reach the attachment
-   * that replaced it. A stale object is reported as not attached, which is
-   * what it is.
-   */
-  private resolveAttachment<R extends Attachable>(resource: R): Attachment<R> {
-    const attachment = this.attachmentMap.get(resource.getKey());
-    if (!attachment || attachment.resource !== resource) {
-      throw new YorkieError(
-        Code.ErrNotAttached,
-        `${resource.getKey()} is not attached`,
-      );
-    }
-    return attachment as Attachment<R>;
-  }
-
-  /**
    * `detach` detaches the given document from this client. It tells the
    * server that this client will no longer synchronize the given document.
    *
@@ -2059,7 +2039,13 @@ export class Client {
         `${this.key} is not active`,
       );
     }
-    const attachment = this.resolveAttachment(doc);
+    const attachment = this.attachmentMap.get(doc.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${doc.getKey()} is not attached`,
+      );
+    }
     // The presence clear is a change this document may not be in a position to
     // mint: inside the re-anchor window `resync` opens, `update` refuses with
     // `ErrRefused`, and that would come straight back out of `detach` — before
@@ -2347,16 +2333,6 @@ export class Client {
       );
     }
 
-    // Reject a second attach of a key this client already holds. Without this
-    // guard the first attachment is overwritten in `attachmentMap` while its
-    // Channel stays `Attached`, and nothing can tear it down any more — its
-    // watch stream, its `local-broadcast` forwarder and its heartbeat state
-    // leak, and `detachChannel` now refuses the stale object by identity. A
-    // detaching attachment is not a duplicate: re-attaching the key while an
-    // earlier detach is still pending is exactly what this client supports,
-    // and that detach is already on its way to releasing the key.
-    this.assertChannelKeyFree(channel);
-
     const syncMode = opts.syncMode ?? SyncMode.Realtime;
     this.assertValidChannelSyncMode(syncMode);
 
@@ -2401,11 +2377,6 @@ export class Client {
         this.conditions[ClientCondition.SyncLoop] = false;
       }
 
-      // The queue may have run another attach of this key since the check
-      // made when this attach was requested, so re-check before taking the
-      // key. Nothing below awaits before the `attachmentMap.set`.
-      this.assertChannelKeyFree(channel);
-
       // Channel gets its actor ID from the first refresh response. If the
       // client was already activated (or another channel has triggered the
       // first refresh), propagate the existing id.
@@ -2429,19 +2400,6 @@ export class Client {
         'local-broadcast',
         (event) => {
           const { topic, payload, options } = event;
-          // `broadcast` resolves the attachment by key, so a channel whose
-          // detach has not torn this subscription down yet would broadcast
-          // over whichever attachment holds the key now — and take that
-          // channel's auth-error events with it. Stop at the stale object.
-          if (this.attachmentMap.get(channel.getKey()) !== attachment) {
-            const error = new YorkieError(
-              Code.ErrNotAttached,
-              `${channel.getKey()} is not attached`,
-            );
-            if (options?.error) options.error(error);
-            logger.error(`[BC] c:"${this.getKey()}" failed: ${error}`);
-            return;
-          }
           this.broadcast(channel.getKey(), topic, payload, options).catch(
             (error) => {
               if (options?.error) options.error(error);
@@ -2475,10 +2433,18 @@ export class Client {
    * heartbeats stop.
    */
   public async detachChannel(channel: Channel): Promise<Channel> {
+    const attachment = this.attachmentMap.get(channel.getKey()) as
+      | Attachment<Channel>
+      | undefined;
     // The key alone is not enough: another Channel of the same key may hold
     // it now (attached again while an earlier detach was pending), and
     // detaching through a stale object must not take that one down.
-    const attachment = this.resolveAttachment(channel);
+    if (!attachment || attachment.resource !== channel) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${channel.getKey()} is not attached`,
+      );
+    }
 
     // Mark the attachment as detaching so the sync loop's
     // `attachment.isDetaching()` guard skips it, and wait for any
@@ -2626,36 +2592,6 @@ export class Client {
   }
 
   /**
-   * `assertChannelKeyFree` rejects an attach of a key this client already
-   * holds. A *Channel* attachment whose detach is already running does not
-   * hold the key for this purpose: it is on its way out, that detach tears
-   * down only its own attachment, and the key is left to the channel
-   * attaching now.
-   *
-   * A detaching *Document* is not the same thing. Documents and channels
-   * share one `attachmentMap`, and a document detach is still mid-RPC while
-   * `isDetaching()` is true: every step after the round trip runs through
-   * `ownsAttachment()`, which compares `attachmentMap.get(key)` with its own
-   * attachment. Taking the key from under it would turn the rest of that
-   * detach — the server's response pack, the `Detached` status, the store
-   * cleanup — into a silent no-op. So a document holds its key until its
-   * detach releases it, and a channel attach of that key is refused.
-   */
-  private assertChannelKeyFree(channel: Channel): void {
-    const held = this.attachmentMap.get(channel.getKey());
-    if (!held) {
-      return;
-    }
-    if (held.resource instanceof Channel && held.isDetaching()) {
-      return;
-    }
-    throw new YorkieError(
-      Code.ErrAlreadyAttached,
-      `${channel.getKey()} is already attached`,
-    );
-  }
-
-  /**
    * `assertValidChannelSyncMode` rejects sync modes that are not valid for
    * channels. `RealtimePushOnly` and `RealtimeSyncOff` are document-only.
    */
@@ -2676,10 +2612,13 @@ export class Client {
     channel: Channel,
     syncMode: SyncMode,
   ): Promise<Channel> {
-    // By identity, not by key: a stale Channel of a key held by another
-    // attachment now must not reconfigure — or cancel the watch stream of —
-    // the channel that replaced it.
-    const attachment = this.resolveAttachment(channel);
+    const attachment = this.attachmentMap.get(channel.getKey());
+    if (!attachment) {
+      throw new YorkieError(
+        Code.ErrNotAttached,
+        `${channel.getKey()} is not attached`,
+      );
+    }
 
     const prevSyncMode = attachment.syncMode;
     if (prevSyncMode === syncMode) {
@@ -2741,9 +2680,15 @@ export class Client {
     }
 
     if (resource instanceof Channel) {
-      // By identity, not by key: syncing through a stale Channel must not
-      // refresh the session of the channel that holds its key now.
-      const attachment = this.resolveAttachment(resource);
+      const attachment = this.attachmentMap.get(
+        resource.getKey(),
+      ) as Attachment<Channel>;
+      if (!attachment) {
+        throw new YorkieError(
+          Code.ErrNotAttached,
+          `${resource.getKey()} is not attached`,
+        );
+      }
       return this.enqueueTask(async () => {
         // Channels sync on an inactive client too, so this capture tracks
         // teardown only — matching the exemption above.
