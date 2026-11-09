@@ -63,3 +63,22 @@ two-providers-on-one-key case `8299c7d0` named as the reason the
 `ErrAlreadyAttached` rule was reverted. The leak needs a design decision
 about what one key with two live Channels means, which is the follow-up
 issue, not this PR.
+
+### Round 3 — the orphan survives `deactivate`; fixed
+
+The security lens re-raised the orphan from a narrower angle, and this one
+does not need the design decision round 2 was waiting on: `deactivateInternal`
+walked `attachmentMap`, so an attachment a same-key attach had evicted from
+the map was unreachable from the only path to `cancelWatchStream()` and
+`sessionLockHandle.release()`. Its watch stream outlived `client.deactivate()`
+and a clobbered document attachment held its Web Lock forever, which locks
+every other tab out of that key with `ErrDocumentOpenElsewhere`.
+
+Teardown reachability is separable from "what does one key with two live
+Channels mean". `liveAttachments` (client.ts:706-714) maps every attachment
+this client created to the key it was attached under; `deactivateInternal`
+walks that instead of `attachmentMap`, and `detachInternal` drops the entry
+unconditionally, whether or not the key still names the attachment.
+`attachChannel` still takes the key, both attachments stay live until
+deactivate, and the follow-up issue still owns the question of whether it
+should — the orphan just no longer outlives the client.

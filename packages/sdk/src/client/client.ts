@@ -704,6 +704,14 @@ export class Client {
   private metadata: Record<string, string>;
   private status: ClientStatus;
   private attachmentMap: Map<string, Attachment<Attachable>>;
+  // `liveAttachments` holds every attachment this client created and has not
+  // torn down yet, mapped to the key it was attached under. `attachmentMap`
+  // keeps at most one attachment per key, so an attach that takes a key
+  // another attachment already holds drops the old one out of it; teardown
+  // still has to reach that one, or its watch stream and session lock outlive
+  // the client. Entries are added where `attachmentMap` is written and removed
+  // by `detachInternal`.
+  private liveAttachments: Map<Attachment<Attachable>, string>;
   // `attachingDocs` holds keys with an in-flight attach. attachmentMap is
   // only populated after the attach round-trip resolves, so this set is
   // needed to reject a concurrent duplicate attach of the same key.
@@ -811,6 +819,7 @@ export class Client {
     this.metadata = opts.metadata || {};
     this.status = ClientStatus.Deactivated;
     this.attachmentMap = new Map();
+    this.liveAttachments = new Map();
     this.attachingDocs = new Set();
     this.reissueClaims = new Map();
 
@@ -1817,6 +1826,7 @@ export class Client {
         // releases it on detach/deactivate, freeing a later tab to take over.
         attachment.sessionLockHandle = sessionLockHandle;
         this.attachmentMap.set(doc.getKey(), attachment);
+        this.liveAttachments.set(attachment, doc.getKey());
         // Status subscribers can synchronously deactivate the client. Make
         // the attachment visible to teardown before notifying them.
         doc.applyStatus(DocStatus.Attached);
@@ -2410,6 +2420,7 @@ export class Client {
       );
 
       this.attachmentMap.set(channel.getKey(), attachment);
+      this.liveAttachments.set(attachment, channel.getKey());
 
       // Make sure the sync loop is running so the first refresh fires.
       // The watch stream is opened later by syncInternal once the first
@@ -3990,8 +4001,20 @@ export class Client {
     this.sessionGeneration++;
     this.status = ClientStatus.Deactivated;
 
+    // Walk every live attachment, not just the ones `attachmentMap` still
+    // names: an attachment a same-key attach evicted from the map is
+    // unreachable by key, and leaving it here keeps its watch stream open and
+    // its session lock held on a client the caller has deactivated. The map
+    // is folded in too so teardown stays complete even if an attachment ever
+    // reaches it without being registered as live.
+    const pending = new Map(this.liveAttachments);
     for (const [key, attachment] of this.attachmentMap) {
-      this.detachInternal(key);
+      if (!pending.has(attachment)) {
+        pending.set(attachment, key);
+      }
+    }
+    for (const [attachment, key] of pending) {
+      this.detachInternal(key, attachment);
       if (attachment.resource instanceof Document) {
         attachment.resource.applyStatus(DocStatus.Detached);
       } else if (attachment.resource instanceof Channel) {
@@ -4063,6 +4086,9 @@ export class Client {
     if (ownsKey) {
       this.attachmentMap.delete(key);
     }
+    // Unconditional: this attachment is torn down whether or not the key
+    // still points at it, so teardown must stop seeing it either way.
+    this.liveAttachments.delete(attachment);
   }
 
   /**
