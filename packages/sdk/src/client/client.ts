@@ -2436,7 +2436,10 @@ export class Client {
     const attachment = this.attachmentMap.get(channel.getKey()) as
       | Attachment<Channel>
       | undefined;
-    if (!attachment) {
+    // The key alone is not enough: another Channel of the same key may hold
+    // it now (attached again while an earlier detach was pending), and
+    // detaching through a stale object must not take that one down.
+    if (!attachment || attachment.resource !== channel) {
       throw new YorkieError(
         Code.ErrNotAttached,
         `${channel.getKey()} is not attached`,
@@ -2456,7 +2459,10 @@ export class Client {
       // No DetachChannel RPC: the server reclaims the session via TTL.
       // We only need local cleanup.
       channel.applyStatus(ChannelStatus.Detached);
-      this.detachInternal(channel.getKey());
+      // Tear down the attachment captured above, not whatever the key holds
+      // now: a Channel of the same key attached while this detach waited is
+      // a different attachment and stays.
+      this.detachInternal(channel.getKey(), attachment);
 
       logger.info(
         `[DP] c:"${this.getKey()}" detaches p:"${channel.getKey()}" (local)`,
@@ -3994,15 +4000,24 @@ export class Client {
     }
   }
 
-  private detachInternal(key: Key) {
+  private detachInternal(
+    key: Key,
+    attachment: Attachment<Attachable> | undefined = this.attachmentMap.get(
+      key,
+    ),
+  ) {
     // NOTE(hackerwins): If attachment is not found, it means that the document
     // has been already detached by another routine.
     // This can happen when detach or remove is called while the watch loop is
     // running.
-    const attachment = this.attachmentMap.get(key);
     if (!attachment) {
       return;
     }
+    // The state kept by key belongs to whichever attachment the key holds.
+    // When a caller tears down an attachment the key no longer holds (a
+    // same-key resource was attached since), only that attachment's own
+    // resources go; the key's state stays with the newer one.
+    const ownsKey = this.attachmentMap.get(key) === attachment;
 
     attachment.cancelWatchStream();
     // Tear down the `local-broadcast` subscription installed by
@@ -4019,8 +4034,10 @@ export class Client {
       attachment.unsubscribePersist();
       attachment.unsubscribePersist = undefined;
     }
-    this.persistStates.delete(this.storeKey(key));
-    this.persistDisabled.delete(this.storeKey(key));
+    if (ownsKey) {
+      this.persistStates.delete(this.storeKey(key));
+      this.persistDisabled.delete(this.storeKey(key));
+    }
     // Release the single-active-session lock installed by attachDocument on the
     // offline persistence path, so a later tab can take over the document.
     if (attachment.sessionLockHandle) {
@@ -4043,7 +4060,9 @@ export class Client {
       }
       attachment.resource.resetOnlineClients();
     }
-    this.attachmentMap.delete(key);
+    if (ownsKey) {
+      this.attachmentMap.delete(key);
+    }
   }
 
   /**
