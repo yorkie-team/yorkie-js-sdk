@@ -29,3 +29,19 @@ attached"). Applied the test findings:
 4. Added: detaching the new channel while the old detach is held.
 
 Out of scope (follow-up issue): two live attachments of one key.
+
+### Round 2 — review panel (blast-radius, correctness)
+
+"Two live attachments of one key" was not out of scope after all: with
+`detachChannel` now strict about identity, the attachment an unguarded
+second `attachChannel` overwrites has nothing left that can tear it down.
+Closed it the other way round — `attachChannel` refuses a key this client
+already holds (`ErrAlreadyAttached`, as `attachDocument` does), except when
+the holder is already detaching, which is the race this task is about.
+
+The other half of the panel: the diff made a stale resource of a live key a
+legitimate state but guarded only `detachChannel`. Resolved every remaining
+by-key lookup that starts from a caller-supplied object through one
+`resolveAttachment` helper — `detachDocument`, `changeChannelSyncMode`,
+`sync(channel)` — and stopped the `local-broadcast` forwarder at a stale
+channel, since `broadcast` takes a key and has no identity to check.

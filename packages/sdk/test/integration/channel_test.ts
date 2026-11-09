@@ -404,6 +404,69 @@ describe('Channel', function () {
         await client.deactivate();
       }
     }, 20000);
+
+    it('refuses a second attach of a key the client already holds', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      try {
+        const held = new yorkie.Channel(key);
+        await client.attach(held);
+        await waitFor(() => held.isAttached(), { timeout: 5000 });
+
+        // Overwriting the key would orphan `held`: it would stay attached
+        // with nothing left that could tear its attachment down.
+        const second = new yorkie.Channel(key);
+        await expect(client.attach(second)).rejects.toMatchObject({
+          code: 'ErrAlreadyAttached',
+        });
+        assert.isTrue(heldBy(client, held));
+        assert.isFalse(second.isAttached());
+
+        // The first channel is still the one the client holds, so it still
+        // detaches and leaves the key free.
+        await client.detach(held);
+        assert.isFalse(held.isAttached());
+        assert.isFalse((client as any).attachmentMap.has(key));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
+
+    it('refuses sync and changeSyncMode through a stale Channel of the key', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      try {
+        const old = new yorkie.Channel(key);
+        await client.attach(old);
+        await waitFor(() => old.isAttached(), { timeout: 5000 });
+        await client.detach(old);
+
+        const next = new yorkie.Channel(key);
+        await client.attach(next);
+        await waitFor(() => next.isAttached(), { timeout: 5000 });
+
+        await expect(
+          client.changeSyncMode(old, yorkie.SyncMode.Manual),
+        ).rejects.toMatchObject({ code: 'ErrNotAttached' });
+        // `sync` rejects a resource it does not hold before it enqueues
+        // anything, so this throws rather than returning a rejection.
+        assert.throws(() => client.sync(old), /is not attached/);
+
+        // The live channel kept its mode and its stream.
+        assert.equal(
+          (client as any).attachmentMap.get(key).syncMode,
+          yorkie.SyncMode.Realtime,
+        );
+        assert.isTrue(heldBy(client, next));
+        assert.isTrue(await hears(next));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
   });
 
   it('peekChannel works without client.activate()', async ({ task }) => {
