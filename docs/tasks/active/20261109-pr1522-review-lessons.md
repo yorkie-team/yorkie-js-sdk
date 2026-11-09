@@ -156,3 +156,20 @@ an error recovery await may finish after cancellation. Both have explicit
 post-callback/await cancellation checks and regression tests; synchronous
 cancellation from an error callback also prevents recovery from starting.
 The auth reconnect fixture now uses Attachment's owned controller.
+
+## Panel round: channel lifecycle and re-entrant disconnect
+
+`captureSession` read a Deactivated status as a lost session, which broke
+the documented contract that channels attach and heartbeat on an inactive
+client (`ChannelProvider` relies on it, as does `sync`'s Channel exemption).
+The guard now takes an `allowInactive` capture for the three channel call
+sites: it tracks teardown by session generation, plus a teardown that starts
+after capture, and no longer requires activation. A `keepalive` deactivate
+leaves `deactivating` set until the next activation, so the flag is compared
+against its value at capture time rather than read absolutely.
+
+The abort handler published the intentional disconnect synchronously, i.e.
+from inside `detachInternal` while `deactivateInternal` iterated the
+attachment map — document subscribers could re-enter the client mid-iteration.
+The publish now goes out on a microtask; the opening promise still settles
+synchronously, and the publish still precedes the timer-scheduled reconnect.

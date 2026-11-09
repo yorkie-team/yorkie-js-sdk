@@ -84,6 +84,41 @@ it('does not finish obsolete recovery after cancellation', async () => {
   expect(inactive).not.toHaveBeenCalled();
 });
 
+it('publishes the intentional disconnect off the abort stack', async () => {
+  const ac = new AbortController();
+  const onStreamEnd = vi.fn();
+  // A transport that never settles its read, the case the abort handler is
+  // there for.
+  const stream: AsyncIterable<number> = {
+    [Symbol.asyncIterator]: () => ({
+      next: () => new Promise<IteratorResult<number>>(() => {}),
+    }),
+  };
+  const ready = runWatchStream(
+    {
+      stream,
+      ac,
+      isInit: () => true,
+      heartbeatIntervalOf: () => 0,
+      onResponse: () => {},
+      onStreamEnd,
+      onError: () => {},
+      onDisconnect: () => {},
+    },
+    async () => false,
+    () => {},
+  );
+
+  ac.abort();
+  // `cancelWatchStream()` aborts from inside `detachInternal`, itself called
+  // while `deactivateInternal` iterates the attachment map. Publishing here
+  // would re-enter the client through the document's subscribers.
+  expect(onStreamEnd).not.toHaveBeenCalled();
+
+  await ready.catch(() => {});
+  expect(onStreamEnd).toHaveBeenCalledTimes(1);
+});
+
 it('does not start recovery when an error callback cancels the stream', async () => {
   const ac = new AbortController();
   const recover = vi.fn(async () => true);

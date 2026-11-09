@@ -167,10 +167,15 @@ export function runWatchStream<Resp>(
     // Settle an opening watch even if the transport never finishes its read.
     const onAbort = () => {
       clearTimeout(idleTimer);
-      // Publish intentional disconnect while this stream still owns teardown,
-      // rather than when the cancelled transport eventually unwinds.
+      // Publish the intentional disconnect off this stack, not on it.
+      // `cancelWatchStream()` aborts from inside `detachInternal`, which runs
+      // under `deactivateInternal`'s iteration over the attachment map, and
+      // `onStreamEnd` publishes document events whose subscribers may call
+      // back into the client. A microtask still runs before any awaited
+      // continuation, so the disconnect is published ahead of the reconnect
+      // the loop schedules on a timer — just not re-entrantly.
       if (!idled) {
-        onStreamEnd();
+        queueMicrotask(onStreamEnd);
       }
       reject(ac.signal.reason);
     };

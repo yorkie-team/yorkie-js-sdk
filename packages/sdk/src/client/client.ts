@@ -2351,12 +2351,15 @@ export class Client {
       opts.channelHeartbeatInterval ?? this.channelHeartbeatInterval;
 
     // Capture before queueing: teardown must invalidate this attach even
-    // if activation finishes before the task runs. Channel-first clients
-    // are allowed; captureSession also tracks their initial lifecycle.
-    const ownsSession = this.captureSession();
+    // if activation finishes before the task runs. An inactive client is
+    // not a lost session here — channels attach without activation, so the
+    // capture only rejects an attach whose client was torn down underneath
+    // it (see `captureSession`).
+    const ownsSession = this.captureSession(true);
     const task = async () => {
-      // Registering the channel on a client that has since been deactivated
-      // would leave an attachment nothing detaches and restart its sync loop.
+      // Registering the channel on a client torn down since this attach was
+      // requested would leave an attachment nothing detaches and restart its
+      // sync loop.
       if (!ownsSession()) {
         throw new YorkieError(
           Code.ErrClientNotActivated,
@@ -2671,7 +2674,9 @@ export class Client {
         );
       }
       return this.enqueueTask(async () => {
-        const ownsSession = this.captureSession();
+        // Channels sync on an inactive client too, so this capture tracks
+        // teardown only — matching the exemption above.
+        const ownsSession = this.captureSession(true);
         return this.syncInternal(attachment).catch(async (err) => {
           logger.error(`[SY] c:"${this.getKey()}" err :`, err);
           await this.handleConnectError(err, false, ownsSession);
@@ -4080,10 +4085,12 @@ export class Client {
     // Handle channel heartbeat
     if (resource instanceof Channel) {
       const isFirstCall = !resource.getSessionID();
-      const ownsSession = this.captureSession();
+      // A channel heartbeats on an inactive client by design, so the capture
+      // must not read Deactivated as a lost session; teardown bumps the
+      // generation, which it does read. See `captureSession`.
+      const ownsSession = this.captureSession(true);
       const ownsAttachment = () =>
         ownsSession() &&
-        !this.deactivating &&
         !attachment.isDetaching() &&
         this.attachmentMap.get(resource.getKey()) === attachment;
       if (!ownsAttachment()) {
@@ -4717,17 +4724,32 @@ export class Client {
    * initial lifecycle still owns its errors. The generation invalidates it
    * on teardown, including when a later activation receives the same id.
    *
+   * `allowInactive` captures a session that does not require the client to be
+   * activated. Channels attach and heartbeat on an inactive client by design —
+   * `RefreshChannel` lazy-activates it server-side — so for them a Deactivated
+   * status is not evidence that the session went away; only a teardown (which
+   * bumps the generation) or one in progress is.
+   *
    * Call it where the request's `clientId` is read, so the captured id is the
    * one the request actually carries.
    */
-  private captureSession(): () => boolean {
+  private captureSession(allowInactive = false): () => boolean {
     const sessionID = this.id;
     const generation = this.sessionGeneration;
-    return () =>
-      generation === this.sessionGeneration &&
-      (sessionID === undefined
-        ? !this.deactivating
-        : this.isActive() && this.id === sessionID);
+    const wasDeactivating = this.deactivating;
+    return () => {
+      if (generation !== this.sessionGeneration) {
+        return false;
+      }
+      if (allowInactive || sessionID === undefined) {
+        // A teardown already under way at capture time is the lifecycle this
+        // caller was handed — a `keepalive` deactivate leaves the flag set
+        // until the next activation — so only one that starts afterwards
+        // invalidates it. One that finishes bumps the generation above.
+        return wasDeactivating || !this.deactivating;
+      }
+      return this.isActive() && this.id === sessionID;
+    };
   }
 
   /**

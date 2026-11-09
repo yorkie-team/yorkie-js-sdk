@@ -52,4 +52,26 @@ describe('Watch attachment ownership', () => {
     await attachment.runWatchLoop(duplicate);
     expect(duplicate).not.toHaveBeenCalled();
   });
+
+  it('frees the watch slot when stream creation rejects', async () => {
+    const attachment = new Attachment(() => 1, new Document('watch-reject'));
+    const stream = { async *[Symbol.asyncIterator]() {} };
+    // The creator claims the slot and then rejects without ever calling
+    // `onDisconnect`: the catch in `doLoop` is the only thing that gives the
+    // slot back, and without it the attachment never watches again.
+    await attachment.runWatchLoop(async () => {
+      throw new Error('watch creation failed');
+    });
+    const retry = vi.fn(
+      async (_disconnect: (err?: unknown) => void, ac: AbortController) =>
+        [stream, ac] as [WatchStream, AbortController],
+    );
+    await attachment.runWatchLoop(retry);
+    expect(retry).toHaveBeenCalledTimes(1);
+    // The retry owns the slot, so cancelling now reaches its controller.
+    const [, ac] = await retry.mock.results[0].value;
+    expect(ac.signal.aborted).toBe(false);
+    attachment.cancelWatchStream();
+    expect(ac.signal.aborted).toBe(true);
+  });
 });

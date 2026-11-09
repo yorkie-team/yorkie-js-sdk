@@ -450,6 +450,21 @@ describe('deactivate({ keepalive: true }) without a response', () => {
     expect(client.getID()).toBe('id-next');
   });
 
+  it('still attaches a channel once the client is deactivated', async () => {
+    const res = deferred<unknown>();
+    const client = makeClient(() => res.promise);
+    await client.activate();
+    await client.deactivate({ keepalive: true });
+
+    // Channels attach and heartbeat on an inactive client — the first
+    // RefreshChannel lazy-activates it server-side — so a deactivate the
+    // attach comes after, rather than races, must not reject it.
+    await client.attachChannel(new yorkie.Channel('post-deactivate-channel'));
+
+    expect(client.isActive()).toBe(false);
+    expect(client.has('post-deactivate-channel')).toBe(true);
+  });
+
   it('does not let a late task error deactivate the new session', async () => {
     const res = deferred<unknown>();
     const gate = deferred<void>();
