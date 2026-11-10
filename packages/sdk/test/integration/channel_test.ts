@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, assert } from 'vitest';
+import { describe, it, assert, expect } from 'vitest';
 import yorkie from '@yorkie-js/sdk/src/yorkie';
 import { EventCollector } from '@yorkie-js/sdk/test/helper/helper';
 import {
@@ -263,6 +263,148 @@ describe('Channel', function () {
     assert.notStrictEqual(channel.getSessionID(), '000000000000000000000000');
     await client.detach(channel);
   }, 30000);
+
+  describe('re-attaching the same key while the previous detach is pending', function () {
+    // `heldBy` reports whether `client` still holds `channel` itself, not
+    // just some attachment of its key.
+    const heldBy = (client: any, channel: any) =>
+      client.attachmentMap.get(channel.getKey())?.resource === channel;
+
+    // `holdDetach` makes the next detach of `key` on `client` wait, as an
+    // in-flight refresh would, until `until` holds.
+    const holdDetach = (client: any, key: string, until: () => boolean) => {
+      const attachment = client.attachmentMap.get(key);
+      const wait = attachment.waitForSyncComplete.bind(attachment);
+      attachment.waitForSyncComplete = async () => {
+        await waitFor(until, { timeout: 5000 });
+        return wait();
+      };
+    };
+
+    // `hears` reports whether `channel` receives a broadcast from another
+    // client on its key.
+    const hears = async (channel: any): Promise<boolean> => {
+      const sender = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const out = new yorkie.Channel(channel.getKey());
+      await sender.attach(out);
+      await waitFor(() => out.isAttached(), { timeout: 5000 });
+      let got = 0;
+      const unsub = channel.subscribe('ping', () => got++);
+      for (let i = 0; i < 20 && !got; i++) {
+        out.broadcast('ping', i);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      unsub();
+      await sender.deactivate();
+      return got > 0;
+    };
+
+    it('keeps the new channel when the old detach runs before its first refresh', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      try {
+        const old = new yorkie.Channel(key);
+        await client.attach(old);
+        await waitFor(() => old.isAttached(), { timeout: 5000 });
+
+        const detaching = client.detach(old);
+        const next = new yorkie.Channel(key);
+        await client.attach(next);
+        await detaching;
+
+        await waitFor(() => next.isAttached(), {
+          timeout: 5000,
+          message: 'the re-attached channel never attached',
+        });
+        assert.isFalse(old.isAttached());
+        assert.isTrue(heldBy(client, next));
+        assert.isTrue(await hears(next));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
+
+    it('keeps the new channel when it attaches before the old detach ends', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      try {
+        const old = new yorkie.Channel(key);
+        await client.attach(old);
+        await waitFor(() => old.isAttached(), { timeout: 5000 });
+
+        // Hold the old detach as an in-flight refresh would, until the new
+        // channel has finished its first refresh.
+        const next = new yorkie.Channel(key);
+        holdDetach(client, key, () => next.isAttached());
+
+        const detaching = client.detach(old);
+        await client.attach(next);
+        await detaching;
+
+        assert.isTrue(next.isAttached());
+        assert.isTrue(heldBy(client, next));
+        assert.isFalse(old.isAttached());
+        assert.isTrue(await hears(next));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
+
+    it('detaches both when the new channel goes while the old detach is held', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      try {
+        const old = new yorkie.Channel(key);
+        await client.attach(old);
+        await waitFor(() => old.isAttached(), { timeout: 5000 });
+
+        const next = new yorkie.Channel(key);
+        holdDetach(client, key, () => next.isAttached());
+        const detachingOld = client.detach(old);
+        await client.attach(next);
+        await waitFor(() => next.isAttached(), { timeout: 5000 });
+        await client.detach(next);
+        await detachingOld;
+
+        assert.isFalse(old.isAttached());
+        assert.isFalse(next.isAttached());
+        assert.isFalse((client as any).attachmentMap.has(key));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
+
+    it('refuses to detach through a stale Channel of the key', async function ({
+      task,
+    }) {
+      const client = new yorkie.Client({ rpcAddr: testRPCAddr });
+      const key = `${toDocKey(task.name)}-${Date.now()}`;
+      try {
+        const old = new yorkie.Channel(key);
+        await client.attach(old);
+        await waitFor(() => old.isAttached(), { timeout: 5000 });
+        await client.detach(old);
+
+        const next = new yorkie.Channel(key);
+        await client.attach(next);
+        await waitFor(() => next.isAttached(), { timeout: 5000 });
+
+        await expect(client.detach(old)).rejects.toMatchObject({
+          code: 'ErrNotAttached',
+        });
+        assert.isTrue(next.isAttached());
+        assert.isTrue(heldBy(client, next));
+      } finally {
+        await client.deactivate();
+      }
+    }, 20000);
+  });
 
   it('peekChannel works without client.activate()', async ({ task }) => {
     const channelKey = `${toDocKey(task.name)}-${Date.now()}`;
