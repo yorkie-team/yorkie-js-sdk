@@ -8,13 +8,16 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 66
+Total archived tasks: 69
 
-## 2026/11 (2 tasks)
+## 2026/11 (5 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
 | Channel detach removes a re-attached channel of the same key (2026-11-10) | [20261110-channel-detach-race-todo.md](./2026/11/20261110-channel-detach-race-todo.md) | [20261110-channel-detach-race-lessons.md](./2026/11/20261110-channel-detach-race-lessons.md) |
+| Validate keepalive teardown across in-flight work (2026-11-09) | [20261109-pr1522-review-todo.md](./2026/11/20261109-pr1522-review-todo.md) | [20261109-pr1522-review-lessons.md](./2026/11/20261109-pr1522-review-lessons.md) |
+| Reject `styleByPath(path)` for a path that names no node (2026-11-05) | [20261105-style-by-path-bounds-todo.md](./2026/11/20261105-style-by-path-bounds-todo.md) | [20261105-style-by-path-bounds-lessons.md](./2026/11/20261105-style-by-path-bounds-lessons.md) |
+| Tear down locally on `deactivate({ keepalive: true })` without the response (2026-11-05) | [20261105-keepalive-deactivate-local-teardown-todo.md](./2026/11/20261105-keepalive-deactivate-local-teardown-todo.md) | [20261105-keepalive-deactivate-local-teardown-lessons.md](./2026/11/20261105-keepalive-deactivate-local-teardown-lessons.md) |
 | Restore the full default export lost with the exports map in 0.7.26 (2026-11-03) | [20261103-default-export-parity-todo.md](./2026/11/20261103-default-export-parity-todo.md) | [20261103-default-export-parity-lessons.md](./2026/11/20261103-default-export-parity-lessons.md) |
 
 ## 2026/10 (26 tasks)
