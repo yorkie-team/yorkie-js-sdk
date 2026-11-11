@@ -1,0 +1,360 @@
+{
+  "fam": "spand",
+  "n": 3,
+  "steps": 30,
+  "seed0": 1,
+  "runs": 50,
+  "diverged": 17,
+  "rows": [
+    {
+      "seed": 1,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "a3162147587dcc9d",
+      "xmlDigest": "7bc8eb5f43fe0c22"
+    },
+    {
+      "seed": 2,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "21a80952a327c7ba",
+      "xmlDigest": "df488240b93461f1"
+    },
+    {
+      "seed": 3,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "8d9c2e11358463b5",
+      "xmlDigest": "8935a1143d0a51f5"
+    },
+    {
+      "seed": 4,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "1d998b6d259a5e87",
+      "xmlDigest": "2d3ef542eb522c11"
+    },
+    {
+      "seed": 5,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "7fee1fef33bf7680",
+      "xmlDigest": "9e8554562b18ca1c"
+    },
+    {
+      "seed": 6,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "afcb5c17dfd45231",
+      "xmlDigest": "bdc91a6fda572084"
+    },
+    {
+      "seed": 7,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "74a7e0a10fec7582",
+      "xmlDigest": "ba6db129f84cc062"
+    },
+    {
+      "seed": 8,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "5c1ace02e88269bd",
+      "xmlDigest": "4f3ad65a89ca96aa"
+    },
+    {
+      "seed": 9,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "7486780d9c10be0d",
+      "xmlDigest": "231f334a499c3aec"
+    },
+    {
+      "seed": 10,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "b50c1b49dba9b437",
+      "xmlDigest": "01765b22a2433ca3"
+    },
+    {
+      "seed": 11,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "0326da9d648ec0af",
+      "xmlDigest": "df96af14bd6aa0f4"
+    },
+    {
+      "seed": 12,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "f25d40df526afdd4",
+      "xmlDigest": "f877b86f96c4fd78"
+    },
+    {
+      "seed": 13,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "3df07f8fe9998dc9",
+      "xmlDigest": "3cec2f6dbac77bc6"
+    },
+    {
+      "seed": 14,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "ebc97b85fbf9c881",
+      "xmlDigest": "db340918d1024cd8"
+    },
+    {
+      "seed": 15,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "158e3c2daf54fa4c",
+      "xmlDigest": "4f116192c290168d"
+    },
+    {
+      "seed": 16,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "da4111b054ed3c90",
+      "xmlDigest": "cffbdf10c52dcfbf"
+    },
+    {
+      "seed": 17,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "0c98205dc0f9bd19",
+      "xmlDigest": "971cf996fdcd6510"
+    },
+    {
+      "seed": 18,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "669eeaf2d51db072",
+      "xmlDigest": "76b796933ab1020d"
+    },
+    {
+      "seed": 19,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "55ab6c4d7b98f714",
+      "xmlDigest": "7c16d052587a857b"
+    },
+    {
+      "seed": 20,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "ed44f951384f2486",
+      "xmlDigest": "fb374fdcfbfc3f19"
+    },
+    {
+      "seed": 21,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "93e318f28f6dac9a",
+      "xmlDigest": "04d81956a8f70489"
+    },
+    {
+      "seed": 22,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "1d8cba5fb6e37397",
+      "xmlDigest": "bc10079cf0b02c14"
+    },
+    {
+      "seed": 23,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "d3f76637c7986c05",
+      "xmlDigest": "18d84de69b7f0097"
+    },
+    {
+      "seed": 24,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "01640b3cc616d0e7",
+      "xmlDigest": "ef52ee5f48eecdbd"
+    },
+    {
+      "seed": 25,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "e1af8aa3269e7caa",
+      "xmlDigest": "5dbe18e7f514b064"
+    },
+    {
+      "seed": 26,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "755ad4e381331155",
+      "xmlDigest": "730d428eda0feaef"
+    },
+    {
+      "seed": 27,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "f453f6d64c22f5a3",
+      "xmlDigest": "e151e5bb334c3db6"
+    },
+    {
+      "seed": 28,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "adf78d3f9a0c4aac",
+      "xmlDigest": "01145906bf0f60f2"
+    },
+    {
+      "seed": 29,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "c2e645a89d5c3912",
+      "xmlDigest": "672c6a3f9f37e239"
+    },
+    {
+      "seed": 30,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "5ba1a5788049667e",
+      "xmlDigest": "eca26f82df7d6c2f"
+    },
+    {
+      "seed": 31,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "dba4ab66ec987c18",
+      "xmlDigest": "bc9de7044953db9d"
+    },
+    {
+      "seed": 32,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "c6c29341a3e7d4d8",
+      "xmlDigest": "7bdf9713d64a56c8"
+    },
+    {
+      "seed": 33,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "4451871aee96e889",
+      "xmlDigest": "59d9155a245b42df"
+    },
+    {
+      "seed": 34,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "8774175b12a0ad8e",
+      "xmlDigest": "32437ed560cf8e98"
+    },
+    {
+      "seed": 35,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "fe4c377934591b96",
+      "xmlDigest": "aae2719653f4ae4b"
+    },
+    {
+      "seed": 36,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "0bb5d6de7ee92c40",
+      "xmlDigest": "d2c501466e01b363"
+    },
+    {
+      "seed": 37,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "9790c46342a3d95a",
+      "xmlDigest": "673243930535f42c"
+    },
+    {
+      "seed": 38,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "7729a56cc2725910",
+      "xmlDigest": "584b5c5551dbe983"
+    },
+    {
+      "seed": 39,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "0807e977cc09c0ca",
+      "xmlDigest": "ad63e0867bc7eda2"
+    },
+    {
+      "seed": 40,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "4e3a2992ce314ae7",
+      "xmlDigest": "69ae39a5251b5a8a"
+    },
+    {
+      "seed": 41,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "62179442679ac67a",
+      "xmlDigest": "386f693a3ba92893"
+    },
+    {
+      "seed": 42,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "0b22a6fd426f8d59",
+      "xmlDigest": "a875cbdf92bad65a"
+    },
+    {
+      "seed": 43,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "a9040a8136529dac",
+      "xmlDigest": "5181c210b98db11b"
+    },
+    {
+      "seed": 44,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "76455ad7e8a4c664",
+      "xmlDigest": "b01a48650ce587ec"
+    },
+    {
+      "seed": 45,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "8a07115c2abe1bee",
+      "xmlDigest": "c1068319eac57692"
+    },
+    {
+      "seed": 46,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "d9f435a569d1ce01",
+      "xmlDigest": "0ef46de4b02f1997"
+    },
+    {
+      "seed": 47,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "993bee0dd8bf6d7e",
+      "xmlDigest": "96fdd5a658bc71e1"
+    },
+    {
+      "seed": 48,
+      "result": "pass",
+      "checks": "11111",
+      "digest": "b252a67f087c4037",
+      "xmlDigest": "cefc87d4d7cc11e0"
+    },
+    {
+      "seed": 49,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "56f9fe3acb62419e",
+      "xmlDigest": "ffe007f9930743c8"
+    },
+    {
+      "seed": 50,
+      "result": "diverged",
+      "checks": "01101",
+      "digest": "956a77200ea6327e",
+      "xmlDigest": "d7fa78110dd1ebf2"
+    }
+  ]
+}
