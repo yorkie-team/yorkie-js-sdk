@@ -728,7 +728,7 @@ export class Tree {
     // The right insertion origin of the content, recorded before the edit
     // runs; the left origin is the from position itself.
     let origin: TreeInsertOrigin | undefined;
-    if (crdtNodes.length) {
+    if (crdtNodes.length || splitLevel > 0) {
       const o = this.tree!.localTreeOrigin(fromPos);
       if (o) {
         origin = { right: o.right };

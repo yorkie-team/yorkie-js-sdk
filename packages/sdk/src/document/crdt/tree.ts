@@ -553,6 +553,26 @@ function restoreSpanKindAgrees(span: TreeRestoreSpan): boolean {
 export type TreeInsertOrigin = {
   left?: CRDTTreeNodeID;
   right?: CRDTTreeNodeID;
+
+  /**
+   * `parent` is the declared parent of an insertion being placed: what an
+   * absent `left` is the start of. Runtime only; a recorded node's parent is
+   * its `mergedFrom`, or the parent it sits in.
+   */
+  parent?: CRDTTreeNodeID;
+
+  /**
+   * `cut` marks the origin of an element split with no content: it resolves
+   * to the cut point (see `splitCutLeft`) rather than to an insertion slot.
+   * Runtime only.
+   */
+  cut?: boolean;
+
+  /**
+   * `vv` is the version vector of a remote edit being placed, undefined for
+   * a local one. Runtime only.
+   */
+  vv?: VersionVector;
 };
 
 /**
@@ -564,6 +584,28 @@ function sameTreeBoundary(a?: CRDTTreeNodeID, b?: CRDTTreeNodeID): boolean {
     return !a && !b;
   }
   return a.equals(b);
+}
+
+/**
+ * `sameLeft` reports whether sibling `o` was inserted at the same left
+ * boundary as the insertion being placed. "The start of a parent" names a
+ * parent: a merge moves a parent's children into another one, so two absent
+ * lefts only match when they are the start of the same parent -- `o`'s
+ * `mergedFrom` when a merge moved it here, otherwise the parent it sits in.
+ */
+function sameLeft(
+  o: CRDTTreeNode,
+  parent: CRDTTreeNode,
+  origin: TreeInsertOrigin,
+): boolean {
+  if (o.origin!.left || origin.left) {
+    return sameTreeBoundary(o.origin!.left, origin.left);
+  }
+  if (!origin.parent) {
+    return true;
+  }
+  const own = o.mergedFrom ?? parent.id;
+  return own.equals(origin.parent);
 }
 
 /**
@@ -3101,6 +3143,10 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return left;
     }
     if (rightIdx < 0) {
+      const tail = this.unknownSplitTail(parent, origin.vv);
+      if (tail.length) {
+        children = [...children, ...tail];
+      }
       return this.integrateTreeOpen(
         parent,
         left,
@@ -3151,7 +3197,7 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
         break;
       }
-      if (sameTreeBoundary(o.origin.left, origin.left)) {
+      if (sameLeft(o, parent, origin)) {
         const cmp = compareRight(o.origin.right);
         if (cmp < 0) {
           scanning = true;
@@ -3200,6 +3246,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
         break;
       }
       const o = children[i];
+      if (origin.right && o.id.equals(origin.right)) {
+        // The scan crossed into a split product and reached the right
+        // origin there: the window ends at it.
+        break;
+      }
       prev = o;
       seen.add(o);
       if (!o.origin) {
@@ -3208,12 +3259,12 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
         break;
       }
-      if (sameTreeBoundary(o.origin.left, origin.left)) {
+      if (sameLeft(o, parent, origin)) {
         // A right origin that is not a child of this parent -- the end, or
         // a sibling a concurrent element split moved into the new element --
         // bounds nothing here. Two such siblings are equally open, whichever
         // replica saw the split first, so they tie.
-        if (this.rightBoundsIn(parent, o.origin.right, origin.right)) {
+        if (this.rightBoundsIn(o, o.origin.right, origin.right)) {
           scanning = true;
           continue;
         }
@@ -3232,11 +3283,11 @@ export class CRDTTree extends CRDTElement implements GCParent {
   }
 
   /**
-   * `rightBoundsIn` reports whether a sibling's right origin bounds it
-   * inside `parent` when the inserting node's own right origin does not.
+   * `rightBoundsIn` reports whether sibling `o`'s right origin bounds it
+   * inside `o`'s own parent when the inserting node's right origin does not.
    */
   private rightBoundsIn(
-    parent: CRDTTreeNode,
+    o: CRDTTreeNode,
     right?: CRDTTreeNodeID,
     mine?: CRDTTreeNodeID,
   ): boolean {
@@ -3244,7 +3295,101 @@ export class CRDTTree extends CRDTElement implements GCParent {
       return false;
     }
     const node = this.findFloorNode(right);
-    return !!node && node.parent === parent;
+    return !!node && !!node.parent && !!o.parent && node.parent === o.parent;
+  }
+
+  /**
+   * `unknownSplitTail` returns the children of the split products of
+   * `parent` the edit did not know about, in order. A split the author had
+   * not seen cut the parent after the author's caret had already chosen its
+   * place, so for that edit the parent's end is still the end of the last
+   * such product.
+   */
+  private unknownSplitTail(
+    parent: CRDTTreeNode,
+    vv?: VersionVector,
+  ): Array<CRDTTreeNode> {
+    const tail: Array<CRDTTreeNode> = [];
+    if (!vv || vv.size() === 0 || parent.isText) {
+      return tail;
+    }
+    for (let id = parent.insNextID; id; ) {
+      const sib = this.findFloorNode(id);
+      if (
+        !sib ||
+        !sib.id.equals(id) ||
+        sib.isText ||
+        ticketKnown(vv, sib.id.getCreatedAt())
+      ) {
+        break;
+      }
+      tail.push(...sib.allChildren);
+      id = sib.insNextID;
+    }
+    return tail;
+  }
+
+  /**
+   * `splitCutLeft` returns the node an element split cuts after: the sibling
+   * right before the split's right origin. Every sibling between the
+   * split's left boundary and its right origin is concurrent with the
+   * split, and the insertions among them were ordered by origin relative to
+   * that right origin, so cutting right before it keeps each of them on the
+   * side the insert rule puts it on a replica that saw the split first. A
+   * right origin that is no longer a child here (the end, or moved by a
+   * concurrent split) cuts at the end.
+   */
+  private splitCutLeft(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    origin: TreeInsertOrigin,
+    diff: DataSize,
+  ): CRDTTreeNode {
+    let children = parent.allChildren;
+    let start = 0;
+    if (left !== parent) {
+      start = children.indexOf(left) + 1;
+      if (start === 0) {
+        return left;
+      }
+    }
+    const [rightIdx, reshaped] = this.originRightIn(
+      children,
+      start,
+      origin.right,
+      diff,
+    );
+    children = reshaped;
+    if (left !== parent) {
+      start = children.indexOf(left) + 1;
+    }
+    if (rightIdx > start) {
+      return children[rightIdx - 1];
+    }
+    if (rightIdx === start) {
+      return left;
+    }
+    if (children.length > start) {
+      return children[children.length - 1];
+    }
+    return left;
+  }
+
+  /**
+   * `placeByOrigin` resolves where an edit with an origin goes among the
+   * children of `parent` after `left`: the insertion slot, or for a split
+   * with no content the cut point.
+   */
+  private placeByOrigin(
+    parent: CRDTTreeNode,
+    left: CRDTTreeNode,
+    origin: TreeInsertOrigin,
+    editedAt: TimeTicket,
+    diff: DataSize,
+  ): CRDTTreeNode {
+    return origin.cut
+      ? this.splitCutLeft(parent, left, origin, diff)
+      : this.integrateTree(parent, left, origin, editedAt, diff);
   }
 
   /**
@@ -3308,6 +3453,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
       const mergeTarget = this.findMergeNode(realParent.mergedInto);
       if (mergeTarget && !mergeTarget.isRemoved) {
         const allCh = mergeTarget.allChildren;
+        // Right before the first child the merge moved in, or the start of
+        // the target when there is none.
+        let boundary: CRDTTreeNode = mergeTarget;
         for (let i = 0; i < allCh.length; i++) {
           const targetChild = allCh[i];
           if (
@@ -3316,13 +3464,26 @@ export class CRDTTree extends CRDTElement implements GCParent {
           ) {
             continue;
           }
-          if (i === 0) {
-            return [[mergeTarget, mergeTarget], diff];
+          if (i > 0) {
+            boundary = allCh[i - 1];
           }
-          return [[mergeTarget, allCh[i - 1]], diff];
+          break;
         }
-        // Fallback: insert at leftmost of merge target.
-        return [[mergeTarget, mergeTarget], diff];
+        if (editedAt && origin) {
+          // The merged-away parent's start is now this boundary inside the
+          // target, and its moved children (with `mergedFrom` naming it)
+          // follow: place among them by origin, as a replica that saw the
+          // insertion before the merge did.
+          const dest = this.placeByOrigin(
+            mergeTarget,
+            boundary,
+            origin,
+            editedAt,
+            diff,
+          );
+          return [[mergeTarget, dest], diff];
+        }
+        return [[mergeTarget, boundary], diff];
       }
     }
 
@@ -3342,13 +3503,17 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // node. With an insertion origin this is the two-origin rule; without,
     // it is the createdAt-only rule, similar to RGA.
     if (editedAt && origin) {
-      const dest = this.integrateTree(
+      const dest = this.placeByOrigin(
         realParent,
         leftNode,
         origin,
         editedAt,
         diff,
       );
+      // The scan may have continued into a split product of the parent.
+      if (dest !== realParent && dest.parent) {
+        return [[dest.parent, dest], diff];
+      }
       return [[realParent, dest], diff];
     }
     if (editedAt) {
@@ -3584,10 +3749,16 @@ export class CRDTTree extends CRDTElement implements GCParent {
     // 00. With a right origin (only its right is read), the left origin is
     // the from position in canonical form, the same on every replica.
     let origin: TreeInsertOrigin | undefined;
-    if (rightOrigin && contents?.length) {
+    if (rightOrigin && (contents?.length || splitLevel > 0)) {
       const [left, ok] = this.canonicalLeft(range[0]);
       if (ok) {
-        origin = { left, right: rightOrigin.right };
+        origin = {
+          left,
+          right: rightOrigin.right,
+          parent: range[0].getParentID(),
+          cut: !contents?.length,
+          vv: versionVector,
+        };
       }
     }
 

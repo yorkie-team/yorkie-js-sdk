@@ -229,6 +229,22 @@ describe('Tree intent preservation', () => {
     }
   }
 
+  it('keeps a concurrent insert left of an Enter at the same caret', () => {
+    // The split carries a right origin too and cuts right before it, so the
+    // insert typed at the same caret stays in the left paragraph wherever
+    // the split is applied first.
+    for (const order of [false, true]) {
+      const [d1, d2] = setup(2, ['ZW']);
+      d1.update((r) => r.t.editByPath([0, 1], [0, 1], undefined, 1));
+      d2.update((r) =>
+        r.t.editByPath([0, 1], [0, 1], { type: 'text', value: 'a' }),
+      );
+      syncAll(order ? [d2, d1] : [d1, d2]);
+      expect(xml(d1)).toBe(xml(d2));
+      expect(xml(d1)).toBe('<r><p>Za</p><p>W</p></r>');
+    }
+  });
+
   for (const strat of ['forward', 'backward'] as const) {
     it(`keeps paragraph runs contiguous: ${strat}`, () => {
       // Each replica presses Enter-like paragraph inserts between A and B.
