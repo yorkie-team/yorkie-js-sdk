@@ -309,7 +309,12 @@ message TextNode {
   bool has_origin = 7;
   TextNodeID origin_left = 8;
   TextNodeID origin_right = 9;
-  int32 origin_flags = 10;
+  uint32 origin_flags = 10;
+  // skeleton_len > 0 marks a garbage-collected tombstone kept only for its
+  // position: value, attributes and removed_at are dropped; the ID range
+  // [id.offset, id.offset + skeleton_len) and the origins are kept so
+  // insertion origins that name it resolve the same on every replica.
+  uint32 skeleton_len = 11;
 }
 
 message TextNodeID {

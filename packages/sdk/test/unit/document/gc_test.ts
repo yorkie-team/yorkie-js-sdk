@@ -153,16 +153,17 @@ describe('Garbage Collection', function () {
     doc.garbageCollect(maxVectorOf([doc.getChangeID().getActorID()]));
     assert.equal(doc.getGarbageLen(), 0);
 
+    // The collected tombstone stays as a skeleton: its position, no content.
     assert.equal(
       doc.getRoot().text.toTestString(),
-      '[0:00:0:0 ][3:00:1:0 12][2:00:1:2 CD]',
+      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 skel(2)}[2:00:1:2 CD]',
     );
 
     doc.update((root) => root.text.edit(2, 4, ''));
 
     assert.equal(
       doc.getRoot().text.toTestString(),
-      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:2 CD}',
+      '[0:00:0:0 ][3:00:1:0 12]{2:00:1:0 skel(2)}{2:00:1:2 CD}',
     );
   });
 

@@ -843,6 +843,20 @@ function toTextNodes(
     }
     prevNode = textNode;
     pbTextNode.id = toTextNodeID(textNode.getID());
+    if (textNode.isSkeleton()) {
+      // A collected tombstone: no value, attributes, removal time or ledger
+      // (see `RGATreeSplit.purge`). Its ID, links and origins follow.
+      pbTextNode.skeletonLen = textNode.getSkeletonLength();
+      if (
+        textNode.getInsPrev() &&
+        emitted.has(textNode.getInsPrevID().toIDString())
+      ) {
+        pbTextNode.insPrevId = toTextNodeID(textNode.getInsPrevID());
+      }
+      emitted.add(textNode.getID().toIDString());
+      pbTextNodes.push(pbTextNode);
+      continue;
+    }
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
     // The removal ledger beyond removed_at. A node whose removed_at says it
@@ -1419,6 +1433,17 @@ function fromTextNode(pbTextNode: PbTextNode): RGATreeSplitNode<CRDTTextValue> {
     fromTextNodeID(pbTextNode.id!),
     textValue,
   );
+  if (pbTextNode.skeletonLen > 0) {
+    // A collected tombstone; see `RGATreeSplit.purge`.
+    if (pbTextNode.value || Object.keys(pbTextNode.attributes).length) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'text node skeleton must be empty',
+      );
+    }
+    textNode.toSkeleton(pbTextNode.skeletonLen, textValue);
+    return textNode;
+  }
   textNode.setRemovedAt(fromTimeTicket(pbTextNode.removedAt));
   if (pbTextNode.removalEvents.length) {
     // A rejected ledger is logged and dropped rather than thrown on, the same

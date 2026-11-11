@@ -66,6 +66,12 @@ export interface RGATreeSplitValue {
    * a value that has any (`CRDTTextValue`'s removed attributes).
    */
   getGCPairs?(): Array<GCPair>;
+
+  /**
+   * `skeletonValue` returns an empty value with no attributes, which a
+   * collected tombstone (a skeleton) keeps in place of its content.
+   */
+  skeletonValue?(): RGATreeSplitValue;
 }
 
 /**
@@ -364,6 +370,13 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   private insPrev?: RGATreeSplitNode<T>;
   private insNext?: RGATreeSplitNode<T>;
   private origin?: InsertOrigin;
+  // `skelLen > 0` marks a skeleton: a tombstone whose garbage collection has
+  // run. Instead of being unlinked, the node drops its content and attributes
+  // and keeps what placement reads -- its ID range [offset, offset+skelLen),
+  // its origin and its place in the chain -- so insertion origins that name
+  // it, and the windows `integrate` scans, resolve the same on replicas that
+  // collected it and on replicas that did not (the Yjs GC-struct approach).
+  private skelLen = 0;
 
   constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
     super(value!);
@@ -428,7 +441,59 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `getContentLength` returns the length of this value.
    */
   public getContentLength(): number {
+    if (this.skelLen > 0) {
+      return this.skelLen;
+    }
     return (this.value && this.value.length) || 0;
+  }
+
+  /**
+   * `isSkeleton` tells whether this node is a collected tombstone kept only
+   * for its position.
+   */
+  public isSkeleton(): boolean {
+    return this.skelLen > 0;
+  }
+
+  /**
+   * `getSkeletonLength` returns the length of the ID range a skeleton
+   * covers, or 0.
+   */
+  public getSkeletonLength(): number {
+    return this.skelLen;
+  }
+
+  /**
+   * `toSkeleton` turns this node into a skeleton covering `length`
+   * positions, with the given empty value. Every skeleton shares one
+   * stand-in removal time: nothing reads it (removal, style, restore and GC
+   * all branch on the skeleton first), so a snapshot needs no removed_at for
+   * it and a replica that loads one holds the state of the one that
+   * collected it. The removal ledger goes with it.
+   */
+  public toSkeleton(length: number, value: T): void {
+    this.skelLen = length;
+    this.value = value;
+    this.setRemovedAt(InitialTimeTicket);
+  }
+
+  /**
+   * `refill` turns a skeleton back into a node with the given content, in
+   * place (undo of a collected deletion). It is left live; the caller
+   * records the removal ledger it needs.
+   */
+  public refill(value: T): void {
+    this.skelLen = 0;
+    this.value = value;
+    this.setRemovedAt(undefined);
+  }
+
+  /**
+   * `growSkeleton` extends a skeleton by the range of the next piece of the
+   * same insertion, which it absorbs.
+   */
+  public growSkeleton(length: number): void {
+    this.skelLen += length;
   }
 
   /**
@@ -553,6 +618,21 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * `split` creates a new split node of the given offset.
    */
   public split(offset: number): RGATreeSplitNode<T> {
+    if (this.skelLen > 0) {
+      // Skeleton values are empty and never mutated, so both halves share
+      // one, and there is no ledger to copy.
+      const node = new RGATreeSplitNode(
+        this.id.split(offset),
+        this.value,
+        this.removedAt,
+      );
+      node.skelLen = this.skelLen - offset;
+      this.skelLen = offset;
+      if (this.origin) {
+        node.origin = { left: node.id, right: this.origin.right };
+      }
+      return node;
+    }
     const node = new RGATreeSplitNode(
       this.id.split(offset),
       this.splitValue(offset),
@@ -952,6 +1032,10 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * agreeing.
    */
   public canStyle(versionVector?: VersionVector): boolean {
+    if (this.skelLen > 0) {
+      // Collected: there is no value to style, as a purged node had none.
+      return false;
+    }
     return ticketKnown(versionVector, this.getCreatedAt());
   }
 
@@ -1009,6 +1093,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     );
     node.copyLedger(this);
     node.origin = this.origin;
+    node.skelLen = this.skelLen;
     return node;
   }
 
@@ -1017,6 +1102,9 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * the meta data of the node for debugging purpose.
    */
   public toTestString(): string {
+    if (this.skelLen > 0) {
+      return `${this.id.toTestString()} skel(${this.skelLen})`;
+    }
     return `${this.id.toTestString()} ${this.value ? this.value : ''}`;
   }
 
@@ -1059,6 +1147,8 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
    * `restore`) drain this buffer into their returned GC pairs.
    */
   private pendingGCPairs: Array<GCPair>;
+  // The empty value every skeleton shares. Built lazily.
+  private skelValue?: T;
 
   /**
    * `cancelled` holds the nodes whose ledger has a cancel, the only ones
@@ -1325,7 +1415,27 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         if (piece && pieceStart <= cursor) {
           // Covered by an existing piece.
           const overlapEnd = Math.min(pieceEnd, span.end);
-          if (piece.isRemoved()) {
+          if (piece.isSkeleton()) {
+            // A collected tombstone: its content is gone, as a purged node's
+            // was. Refill it from the span in its original slot, with the
+            // stand-in removal and cancel a recreated piece gets (see the gap
+            // case below for why).
+            const [target] = this.isolateRange(piece, cursor, overlapEnd);
+            const value = span.value.substring(
+              cursor - span.start,
+              overlapEnd - span.start,
+            ) as T;
+            target.refill(value);
+            const stable = TimeTicket.of(0n, 0, executedAt.getActorID());
+            target.recordRemoval(stable);
+            target.cancelRemoval(stable, executedAt);
+            this.trackCancelled(target);
+            this.bookCopiedAttrTombstones(value);
+            addDataSizes(liveDiff, target.getDataSize());
+            this.treeByIndex.splayNode(target);
+            recreated.push(target);
+            chainAnchor = target;
+          } else if (piece.isRemoved()) {
             const [target] = this.isolateRange(piece, cursor, overlapEnd);
             // An undo reverses its own actor's change, so the removal it
             // cancels is the one uncancelled removal by that actor: one actor
@@ -1489,6 +1599,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
         span.end,
       );
       for (const piece of pieces) {
+        if (piece.isSkeleton()) {
+          // Collected, as a purged piece was absent: nothing to re-delete.
+          continue;
+        }
         if (piece.isRemoved()) {
           // A piece live in the redo's view but removed here by a deletion
           // the redo never saw still records the redo's deletion, so a later
@@ -1586,6 +1700,10 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       );
       let cursor = span.start;
       for (const piece of pieces) {
+        if (piece.isSkeleton()) {
+          // No content left: the snapshot fills it, as it did a purged gap.
+          continue;
+        }
         const pieceStart = piece.getID().getOffset();
         const start = Math.max(pieceStart, cursor);
         const end = Math.min(pieceStart + piece.getContentLength(), span.end);
@@ -2298,6 +2416,21 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
       return [node.getNext(), diff];
     }
 
+    if (node.isSkeleton()) {
+      // A skeleton holds no value and is not in the GC registry: its
+      // remainder is a skeleton too and needs neither size accounting nor a
+      // GC pair.
+      const splitNode = node.split(offset);
+      this.treeByIndex.updateWeight(splitNode);
+      this.insertAfter(node, splitNode);
+      const insNext = node.getInsNext();
+      if (insNext) {
+        insNext.setInsPrev(splitNode);
+      }
+      splitNode.setInsPrev(node);
+      return [splitNode, diff];
+    }
+
     const prvSize = node.getDataSize();
 
     const splitNode = node.split(offset);
@@ -2387,6 +2520,12 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     const [leftEdge, rightEdge] = this.findEdgesOfCandidates(candidates);
     nodesToKeep.push(leftEdge);
     for (const node of candidates) {
+      // A skeleton's removal was stable everywhere when it was collected,
+      // and a purged node is not there to remove: leave it alone.
+      if (node.isSkeleton()) {
+        nodesToKeep.push(node);
+        continue;
+      }
       let creationKnown = false;
       if (isLocal) {
         creationKnown = true;
@@ -2543,9 +2682,81 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
   }
 
   /**
-   * `purge` physically purges the given node from RGATreeSplit.
+   * `purge` collects the given tombstone. The node stays in the chain as a
+   * skeleton: insertion origins name nodes by ID, and `integrate` scans "the
+   * nodes between the two origins", so both have to look the same on a
+   * replica that collected this tombstone and on one that did not. Only the
+   * content and attributes go; attribute GC pairs keep pointing at the old
+   * value, so they still purge. The caller reads the node's size before.
    */
   public purge(node: RGATreeSplitNode<T>): void {
+    if (node.isSkeleton()) {
+      return;
+    }
+    this.cancelled?.delete(node);
+    node.toSkeleton(node.getContentLength(), this.skeletonValue(node));
+    this.mergeSkeletons(node);
+  }
+
+  /**
+   * `skeletonValue` returns the empty value skeletons share.
+   */
+  private skeletonValue(node: RGATreeSplitNode<T>): T {
+    if (!this.skelValue) {
+      const v = node.getValue();
+      this.skelValue = (
+        v.skeletonValue ? v.skeletonValue() : v.substring(0, 0)
+      ) as T;
+    }
+    return this.skelValue;
+  }
+
+  /**
+   * `mergeSkeletons` folds a skeleton into adjacent skeletons that continue
+   * the same insertion (same createdAt, contiguous offsets, adjacent in the
+   * chain). How an insertion is split into pieces already differs between
+   * replicas, so placement cannot depend on it; the merged node keeps the
+   * leftmost piece's ID and origin, and a later lookup inside it splits it
+   * again.
+   */
+  private mergeSkeletons(node: RGATreeSplitNode<T>): void {
+    const prev = node.getPrev();
+    if (prev && this.canMergeSkeletons(prev, node)) {
+      this.absorbSkeleton(prev, node);
+      node = prev;
+    }
+    const next = node.getNext();
+    if (next && this.canMergeSkeletons(node, next)) {
+      this.absorbSkeleton(node, next);
+    }
+  }
+
+  private canMergeSkeletons(
+    a: RGATreeSplitNode<T>,
+    b: RGATreeSplitNode<T>,
+  ): boolean {
+    return (
+      a.isSkeleton() &&
+      b.isSkeleton() &&
+      a.getNext() === b &&
+      b.getInsPrev() === a &&
+      a.getID().hasSameCreatedAt(b.getID()) &&
+      a.getID().getOffset() + a.getSkeletonLength() === b.getID().getOffset()
+    );
+  }
+
+  /**
+   * `absorbSkeleton` merges `b` (`a`'s next) into `a`.
+   */
+  private absorbSkeleton(a: RGATreeSplitNode<T>, b: RGATreeSplitNode<T>): void {
+    a.growSkeleton(b.getSkeletonLength());
+    this.unlink(b);
+  }
+
+  /**
+   * `unlink` takes the given node out of the chain and both trees.
+   */
+  private unlink(node: RGATreeSplitNode<T>): void {
     this.cancelled?.delete(node);
     this.treeByIndex.delete(node);
     this.treeByID.remove(node.getID());

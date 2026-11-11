@@ -154,7 +154,7 @@ function churn(doc: Document<Root>, n: number): number {
  * `tombstones` counts the removed nodes still in the Text.
  */
 const tombstones = (doc: Document<Root>) =>
-  nodes(doc).filter((n) => n.isRemoved()).length;
+  nodes(doc).filter((n) => n.isRemoved() && !n.isSkeleton()).length;
 
 const events = (doc: Document<Root>) =>
   nodes(doc).reduce((sum, n) => sum + n.getRemovalEvents().length, 0);

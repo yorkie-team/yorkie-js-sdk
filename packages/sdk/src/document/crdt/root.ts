@@ -37,6 +37,7 @@ import {
   DocSize,
 } from '@yorkie-js/sdk/src/util/resource';
 import { RHTNode } from '@yorkie-js/sdk/src/document/crdt/rht';
+import { RGATreeSplitNode } from '@yorkie-js/sdk/src/document/crdt/rga_tree_split';
 
 /**
  * `CRDTElementPair` is a structure that represents a pair of element and its
@@ -896,9 +897,14 @@ export class CRDTRoot {
         continue;
       }
 
+      // A Text node is not unlinked by its purge but kept as a content-less
+      // skeleton, so its size has to be read before the purge empties it.
+      const keepsSkeleton = pair.child instanceof RGATreeSplitNode;
+      const purgedSize = keepsSkeleton ? pair.child.getDataSize() : undefined;
+
       pair.parent.purge(pair.child);
 
-      subDataSize(this.docSize.gc, pair.child.getDataSize());
+      subDataSize(this.docSize.gc, purgedSize ?? pair.child.getDataSize());
       this.gcPairMap.delete(key);
       count += 1;
     }

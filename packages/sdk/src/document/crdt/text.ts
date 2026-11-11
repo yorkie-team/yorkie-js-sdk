@@ -120,6 +120,13 @@ export class CRDTTextValue {
   }
 
   /**
+   * `skeletonValue` returns the empty value a collected tombstone keeps.
+   */
+  public skeletonValue(): CRDTTextValue {
+    return CRDTTextValue.create('');
+  }
+
+  /**
    * `truncate` shortens this value in place, keeping the object identity so
    * that GC pairs registered against it are not orphaned. See
    * `RGATreeSplitValue.truncate`.
@@ -937,6 +944,10 @@ export class CRDTText<A extends Indexable = Indexable> extends CRDTElement {
     // nodes: `CRDTTextValue.getDataSize` skips removed attributes, matching
     // the tree half, so those bytes are not in live either.
     for (const node of this.rgaTreeSplit) {
+      if (node.isSkeleton()) {
+        // Already collected.
+        continue;
+      }
       if (node.getRemovedAt()) {
         pairs.push({
           parent: this.rgaTreeSplit,
