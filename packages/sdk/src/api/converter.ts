@@ -51,6 +51,7 @@ import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { VersionVector } from '@yorkie-js/sdk/src/document/time/version_vector';
 import { CRDTTreePos } from './../document/crdt/tree';
 import {
+  InsertOrigin,
   RGATreeSplit,
   RGATreeSplitNode,
   RGATreeSplitNodeID,
@@ -555,6 +556,22 @@ function toOperation(operation: Operation): PbOperation {
           ? PbRestoreMode.RETOMBSTONE
           : PbRestoreMode.RESTORE;
     }
+    const origin = editOperation.getOrigin();
+    if (origin) {
+      // The left origin is the from position; send it only if it is not.
+      const from = editOperation.getFromPos().getAbsoluteID();
+      pbEditOperation.hasOrigin = true;
+      if (!origin.left.equals(from)) {
+        pbEditOperation.originLeft = toTextNodeID(origin.left);
+      }
+      if (origin.right) {
+        if (origin.right.equals(from)) {
+          pbEditOperation.originRightAtFrom = true;
+        } else {
+          pbEditOperation.originRight = toTextNodeID(origin.right);
+        }
+      }
+    }
     pbOperation.body.case = 'edit';
     pbOperation.body.value = pbEditOperation;
   } else if (operation instanceof StyleOperation) {
@@ -762,6 +779,22 @@ function toRGANodes(arr: CRDTArray): Array<PbRGANode> {
   return pbRGANodes;
 }
 
+// Bits of `TextNode.origin_flags`: an origin that points at a neighbour.
+const OriginLeftPrev = 1;
+const OriginLeftSelf = 2;
+const OriginRightNext = 4;
+const OriginRightPrev = 8;
+
+/**
+ * `endIDOf` returns the boundary right after the last character of a node.
+ */
+function endIDOf(node: RGATreeSplitNode<CRDTTextValue>): RGATreeSplitNodeID {
+  return RGATreeSplitNodeID.of(
+    node.getCreatedAt(),
+    node.getID().getOffset() + node.getContentLength(),
+  );
+}
+
 /**
  * `toTextNodes` converts the given model to Protobuf format.
  */
@@ -779,8 +812,36 @@ function toTextNodes(
   // tombstone), which no decoder could have resolved.
   const emitted = new Set<string>();
 
+  let prevNode: RGATreeSplitNode<CRDTTextValue> | undefined;
   for (const textNode of rgaTreeSplit) {
     const pbTextNode = create(PbTextNodeSchema);
+    const origin = textNode.getOrigin();
+    if (origin) {
+      // Origins that point at a neighbour are written as flags, so a run
+      // typed forward costs no IDs past its first character.
+      let flags = 0;
+      pbTextNode.hasOrigin = true;
+      if (origin.left.equals(textNode.getID())) {
+        flags |= OriginLeftSelf;
+      } else if (prevNode && origin.left.equals(endIDOf(prevNode))) {
+        flags |= OriginLeftPrev;
+      } else {
+        pbTextNode.originLeft = toTextNodeID(origin.left);
+      }
+      if (origin.right) {
+        const next = textNode.getNext();
+        const prevRight = prevNode?.getOrigin()?.right;
+        if (next && origin.right.equals(next.getID())) {
+          flags |= OriginRightNext;
+        } else if (prevRight && origin.right.equals(prevRight)) {
+          flags |= OriginRightPrev;
+        } else {
+          pbTextNode.originRight = toTextNodeID(origin.right);
+        }
+      }
+      pbTextNode.originFlags = flags;
+    }
+    prevNode = textNode;
     pbTextNode.id = toTextNodeID(textNode.getID());
     pbTextNode.value = textNode.getValue().getContent();
     pbTextNode.removedAt = toTimeTicket(textNode.getRemovedAt());
@@ -1660,9 +1721,25 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
           : 'restore';
     }
 
+    const fromPos = fromTextNodePos(pbEditOperation!.from!);
+    let origin: InsertOrigin | undefined;
+    if (pbEditOperation!.hasOrigin && pbEditOperation!.content) {
+      const from = fromPos.getAbsoluteID();
+      origin = {
+        left: pbEditOperation!.originLeft
+          ? fromTextNodeID(pbEditOperation!.originLeft)
+          : from,
+        right: pbEditOperation!.originRightAtFrom
+          ? from
+          : pbEditOperation!.originRight
+            ? fromTextNodeID(pbEditOperation!.originRight)
+            : undefined,
+      };
+    }
+
     return EditOperation.create(
       fromTimeTicket(pbEditOperation!.parentCreatedAt)!,
-      fromTextNodePos(pbEditOperation!.from!),
+      fromPos,
       fromTextNodePos(pbEditOperation!.to!),
       pbEditOperation!.content,
       attributes,
@@ -1671,6 +1748,7 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
       restoreSpans,
       restoreMode,
       retombstoneSpans,
+      origin,
     );
   } else if (pbOperation.body.case === 'style') {
     const pbStyleOperation = pbOperation.body.value;
@@ -1948,8 +2026,31 @@ function fromText<A extends Indexable>(
   // `findFloorNodePreferToLeft` would then compute an out-of-range offset.
   const decoded = new Map<string, RGATreeSplitNode<CRDTTextValue>>();
   let prev = rgaTreeSplit.getHead();
+  const nextRight: Array<RGATreeSplitNode<CRDTTextValue>> = [];
   for (const pbNode of pbText.nodes) {
     const current = rgaTreeSplit.insertAfter(prev, fromTextNode(pbNode));
+    if (pbNode.hasOrigin) {
+      const flags = pbNode.originFlags;
+      const id = current.getID();
+      const origin: InsertOrigin = {
+        left:
+          flags & OriginLeftSelf
+            ? id
+            : flags & OriginLeftPrev && prev !== rgaTreeSplit.getHead()
+              ? endIDOf(prev)
+              : pbNode.originLeft
+                ? fromTextNodeID(pbNode.originLeft)
+                : RGATreeSplitNodeID.of(InitialTimeTicket, 0),
+      };
+      if (flags & OriginRightPrev) {
+        origin.right = prev.getOrigin()?.right;
+      } else if (flags & OriginRightNext) {
+        nextRight.push(current);
+      } else if (pbNode.originRight) {
+        origin.right = fromTextNodeID(pbNode.originRight);
+      }
+      current.setOrigin(origin);
+    }
     if (pbNode.insPrevId) {
       const id = current.getID();
       const insPrevID = fromTextNodeID(pbNode.insPrevId);
@@ -1963,6 +2064,12 @@ function fromText<A extends Indexable>(
     }
     decoded.set(current.getID().toIDString(), current);
     prev = current;
+  }
+  // The next node does not exist yet when a node is decoded, so "right is
+  // the next node" is filled in once every node is in.
+  for (const node of nextRight) {
+    const origin = node.getOrigin()!;
+    node.setOrigin({ left: origin.left, right: node.getNext()?.getID() });
   }
   const text = new CRDTText<A>(rgaTreeSplit, fromTimeTicket(pbText.createdAt)!);
   text.setMovedAt(fromTimeTicket(pbText.movedAt));

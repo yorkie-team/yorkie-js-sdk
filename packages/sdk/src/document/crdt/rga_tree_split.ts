@@ -191,6 +191,25 @@ export const InitialRGATreeSplitNodeID = RGATreeSplitNodeID.of(
 );
 
 /**
+ * `InsertOrigin` is the insertion context recorded when a node is inserted.
+ *
+ * `left` is the boundary the content was inserted after (the edit's `from`
+ * as an absolute ID). `right` is the ID of the character that sat right after
+ * the caret at insertion time, tombstones included, or `undefined` at the end
+ * of the text. With only `left`, every node inserted at the same boundary is a
+ * sibling ordered by timestamp, so two runs typed with the caret held in place
+ * interleave. `right` records "this went before that", which keeps each run
+ * contiguous (the FugueMax/YjsMod rule).
+ *
+ * A node without an origin (old operations, undo restores, old snapshots)
+ * keeps the legacy placement rule. The IDs are shared, never mutated.
+ */
+export type InsertOrigin = {
+  left: RGATreeSplitNodeID;
+  right?: RGATreeSplitNodeID;
+};
+
+/**
  * `RGATreeSplitPos` is the position of the text inside the node.
  */
 export class RGATreeSplitPos {
@@ -344,6 +363,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
   private next?: RGATreeSplitNode<T>;
   private insPrev?: RGATreeSplitNode<T>;
   private insNext?: RGATreeSplitNode<T>;
+  private origin?: InsertOrigin;
 
   constructor(id: RGATreeSplitNodeID, value?: T, removedAt?: TimeTicket) {
     super(value!);
@@ -409,6 +429,21 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    */
   public getContentLength(): number {
     return (this.value && this.value.length) || 0;
+  }
+
+  /**
+   * `getOrigin` returns the insertion origin of this node, if any.
+   */
+  public getOrigin(): InsertOrigin | undefined {
+    return this.origin;
+  }
+
+  /**
+   * `setOrigin` sets the insertion origin. It is only called on a node that
+   * was just created (local or remote insert, snapshot decoding).
+   */
+  public setOrigin(origin?: InsertOrigin): void {
+    this.origin = origin;
   }
 
   /**
@@ -524,6 +559,13 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       this.removedAt,
     );
     node.copyLedger(this);
+    // NOTE: The back piece is part of the same insertion, so it keeps the
+    // right origin. Its left origin is its own ID, which
+    // `findFloorNodePreferToLeft` resolves to the front piece through
+    // `insPrev`: the back piece hangs off the last character before it.
+    if (this.origin) {
+      node.origin = { left: node.id, right: this.origin.right };
+    }
     return node;
   }
 
@@ -966,6 +1008,7 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
       this.removedAt,
     );
     node.copyLedger(this);
+    node.origin = this.origin;
     return node;
   }
 
@@ -1105,6 +1148,7 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     editedAt: TimeTicket,
     value?: T,
     versionVector?: VersionVector,
+    origin?: InsertOrigin,
   ): [
     RGATreeSplitPos,
     Array<GCPair>,
@@ -1140,12 +1184,31 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
 
     // 03. insert a new node
     if (value) {
-      const idx = this.posToIndex(fromLeft.createPosRange()[1], true);
+      // NOTE: Without an origin the node goes after `fromLeft` (legacy RGA
+      // rule). With one, it goes after `fromLeft` when nothing sits between
+      // its left and right origins (every local insert, and every remote
+      // insert without a concurrent one at the same spot), and otherwise
+      // where `integrate` places it.
+      let prevNode = fromLeft;
+      if (origin && !this.isUncontested(fromLeft, fromRight, origin)) {
+        const [dest, diffIntegrate] = this.integrate(
+          origin,
+          editedAt.getActorID(),
+        );
+        addDataSizes(diff, diffIntegrate);
+        if (dest) {
+          prevNode = dest;
+        }
+      }
 
-      const inserted = this.insertAfter(
-        fromLeft,
-        RGATreeSplitNode.create(RGATreeSplitNodeID.of(editedAt, 0), value),
+      const idx = this.posToIndex(prevNode.createPosRange()[1], true);
+
+      const newNode = RGATreeSplitNode.create(
+        RGATreeSplitNodeID.of(editedAt, 0),
+        value,
       );
+      newNode.setOrigin(origin);
+      const inserted = this.insertAfter(prevNode, newNode);
       addDataSizes(diff, inserted.getDataSize());
 
       if (changes.length && changes[changes.length - 1].from === idx) {
@@ -1946,6 +2009,171 @@ export class RGATreeSplit<T extends RGATreeSplitValue> implements GCParent {
     }
 
     return result.join('');
+  }
+
+  /**
+   * `rightOriginOf` returns the right origin for an insert at the given
+   * boundary: the ID of the character right after it, tombstones included,
+   * or `undefined` at the end of the text. It must be the immediate next
+   * character. Skipping a tombstone would put a node the author already knew
+   * inside the window `integrate` scans, and replicas would diverge.
+   */
+  public rightOriginOf(
+    left: RGATreeSplitNodeID,
+  ): RGATreeSplitNodeID | undefined {
+    const node = this.findFloorNodePreferToLeft(left);
+    const rel = left.getOffset() - node.getID().getOffset();
+    if (rel > 0 && rel < node.getContentLength()) {
+      return RGATreeSplitNodeID.of(node.getCreatedAt(), left.getOffset());
+    }
+    return node.getNext()?.getID();
+  }
+
+  /**
+   * `isUncontested` reports whether the node the legacy rule found ends
+   * exactly at the left origin and is followed by the right origin. Then
+   * nothing sits between the origins, `integrate` would return `left` too,
+   * and the tree lookups can be skipped. It only compares fields.
+   */
+  private isUncontested(
+    left: RGATreeSplitNode<T>,
+    right: RGATreeSplitNode<T> | undefined,
+    origin: InsertOrigin,
+  ): boolean {
+    const leftID = left.getID();
+    if (
+      !leftID.hasSameCreatedAt(origin.left) ||
+      leftID.getOffset() + left.getContentLength() !== origin.left.getOffset()
+    ) {
+      return false;
+    }
+    if (!right || !origin.right) {
+      return !right && !origin.right;
+    }
+    return right.getID().equals(origin.right);
+  }
+
+  /**
+   * `findOriginRight` returns the node starting at the given right origin,
+   * splitting the node that holds it if needed. It returns `undefined` when
+   * the character is no longer in the chain (purged by GC).
+   */
+  private findOriginRight(
+    id: RGATreeSplitNodeID,
+    diff?: DataSize,
+  ): RGATreeSplitNode<T> | undefined {
+    const node = this.findFloorNode(id);
+    if (!node) {
+      return;
+    }
+    const rel = id.getOffset() - node.getID().getOffset();
+    if (rel === 0) {
+      return node;
+    }
+    if (!diff || rel < 0 || rel >= node.getContentLength()) {
+      return;
+    }
+    const [split, splitDiff] = this.splitNode(node, rel);
+    addDataSizes(diff, splitDiff);
+    return split;
+  }
+
+  /**
+   * `integrate` finds the node a new node with the given origin goes after,
+   * when other nodes sit between its origins (FugueMax/YjsMod). Only the
+   * nodes between `left` and `right` can be concurrent with the new node, so
+   * only they are scanned:
+   *  - a sibling (same left origin) whose right origin is before ours may
+   *    still precede us, so keep scanning without moving the destination;
+   *  - a sibling with the same right origin is a true tie, broken by actor;
+   *  - a sibling whose right origin is after ours precedes us;
+   *  - a node hanging off a node already scanned moves with its parent, so a
+   *    run typed by one user is never split by another;
+   *  - a node hanging off something before `left` ends the scan.
+   *
+   * It returns `undefined` when the right origin was purged by GC; the caller
+   * then falls back to the legacy placement.
+   */
+  private integrate(
+    origin: InsertOrigin,
+    actor: ActorID,
+  ): [RGATreeSplitNode<T> | undefined, DataSize] {
+    const diff = { data: 0, meta: 0 };
+    const left = this.findFloorNodePreferToLeft(origin.left);
+    let right: RGATreeSplitNode<T> | undefined;
+    if (origin.right) {
+      right = this.findOriginRight(origin.right, diff);
+      if (!right) {
+        return [undefined, diff];
+      }
+    }
+    if (left.getNext() === right) {
+      return [left, diff];
+    }
+
+    // Rank every node in the window so right origins can be compared.
+    const rank = new Map<RGATreeSplitNode<T>, number>();
+    let n = left.getNext();
+    while (n && n !== right) {
+      rank.set(n, rank.size);
+      n = n.getNext();
+    }
+    const rightRank = rank.size;
+    const rankOf = (id?: RGATreeSplitNodeID): number => {
+      if (!id) {
+        return right ? Infinity : rightRank;
+      }
+      const node = this.findOriginRight(id);
+      if (!node) {
+        return Infinity;
+      }
+      if (node === right) {
+        return rightRank;
+      }
+      return rank.get(node) ?? Infinity;
+    };
+
+    const scanned = new Set<RGATreeSplitNode<T>>();
+    let dest = left;
+    let prev = left;
+    let scanning = false;
+    for (let o = left.getNext(); ; o = o.getNext()) {
+      if (!scanning) {
+        dest = prev;
+      }
+      if (!o || o === right) {
+        break;
+      }
+      prev = o;
+
+      const oOrigin = o.getOrigin();
+      if (!oOrigin) {
+        break;
+      }
+      const oLeft = this.findFloorNode(oOrigin.left)
+        ? this.findFloorNodePreferToLeft(oOrigin.left)
+        : undefined;
+      if (oLeft === left) {
+        const cmp = rankOf(oOrigin.right) - rightRank;
+        if (cmp < 0) {
+          scanning = true;
+        } else if (cmp === 0) {
+          if (actor < o.getCreatedAt().getActorID()) {
+            return [dest, diff];
+          }
+          scanning = false;
+        } else {
+          scanning = false;
+        }
+        scanned.add(o);
+        continue;
+      }
+      if (!oLeft || !scanned.has(oLeft)) {
+        break;
+      }
+      scanned.add(o);
+    }
+    return [dest, diff];
   }
 
   /**
