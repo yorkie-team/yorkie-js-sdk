@@ -884,6 +884,11 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
    * given version vector: a deletion it knew that no undo it knew cancelled.
    */
   public isRemovedInView(vector: VersionVector): boolean {
+    // A skeleton's removal was stable everywhere when it was collected; its
+    // stand-in removal time is in no vector, so it is answered here.
+    if (this.skelLen > 0) {
+      return true;
+    }
     for (const { removal, cancelledAt } of this.ledgerIndex().entries) {
       if (!ticketKnown(vector, removal)) {
         continue;
@@ -992,6 +997,15 @@ export class RGATreeSplitNode<T extends RGATreeSplitValue>
     // NOTE(hackerwins): Skip if the node's creation was not visible to this
     // operation.
     if (!creationKnown) {
+      return false;
+    }
+
+    // A skeleton's removal was causally stable when it was collected, so no
+    // later deletion can be one it has not seen. Its stand-in removal time is
+    // not in any vector, so without this a remote deletion would read it as
+    // live and record a removal on it. This matches a purged node, which a
+    // deletion over it no longer finds.
+    if (this.skelLen > 0) {
       return false;
     }
 
