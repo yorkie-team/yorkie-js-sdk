@@ -23,6 +23,7 @@ import {
   CRDTTreeNode,
   CRDTTreeNodeID,
   CRDTTreePos,
+  TreeInsertOrigin,
   TreeRestoreSpan,
   replaceTreeNodeID,
   toXML,
@@ -181,6 +182,11 @@ export class TreeEditOperation extends Operation {
    */
   private splitTickets: Array<TimeTicket> = [];
   /**
+   * `origin` is the right insertion origin of the contents (only its right is
+   * read), or undefined for an edit placed by the createdAt-only rule.
+   */
+  private origin?: TreeInsertOrigin;
+  /**
    * `replacedIDs` is set on a split that re-creates elements a merge removed
    * -- the redo of a split, or the undo of a merge. It names those elements,
    * innermost first, in the order the split mints their replacements. The
@@ -332,6 +338,7 @@ export class TreeEditOperation extends Operation {
         node.insNextID = undefined;
         node.mergedFrom = undefined;
         node.mergedAt = undefined;
+        node.origin = undefined;
         node.mergedInto = undefined;
       });
     }
@@ -442,6 +449,20 @@ export class TreeEditOperation extends Operation {
    */
   public setSplitTickets(tickets: Array<TimeTicket>): void {
     this.splitTickets = tickets;
+  }
+
+  /**
+   * `getTreeOrigin` returns the right insertion origin of the contents.
+   */
+  public getTreeOrigin(): TreeInsertOrigin | undefined {
+    return this.origin;
+  }
+
+  /**
+   * `setTreeOrigin` records the right insertion origin of the contents.
+   */
+  public setTreeOrigin(origin?: TreeInsertOrigin): void {
+    this.origin = origin;
   }
 
   /**
@@ -690,6 +711,7 @@ export class TreeEditOperation extends Operation {
         return issueTimeTicket;
       })(),
       versionVector,
+      this.origin,
     );
 
     // Store pre-edit from index (computed inside edit() after text-node splits

@@ -163,6 +163,10 @@ message Operation {
     // written before this field existed, which replays through the simulation
     // that reconstructed them from executed_at and the content count.
     repeated TimeTicket split_tickets = 11;
+    // has_origin marks an insertion placed by the right-origin rule. The left
+    // origin is recomputed from `from`, so only the right origin is carried.
+    bool has_origin = 12;
+    TreeNodeID origin_right = 13;
   }
   message TreeStyle {
     TimeTicket parent_created_at = 1;
@@ -340,6 +344,14 @@ message TreeNode {
   // the merge-time causal boundary for SplitElement. See
   // docs/design/concurrent-merge-split.md for details.
   TimeTicket merged_at = 10;
+  // Insertion origin used by the right-origin placement rule.
+  bool has_origin = 11;
+  TreeNodeID origin_left = 12;
+  TreeNodeID origin_right = 13;
+  reserved 14; // origin_flags
+  // skeleton_len > 0 marks a collected node kept in place: the UTF-16 length
+  // for text, 1 for an element.
+  uint32 skeleton_len = 15;
 }
 
 message TreeNodes {

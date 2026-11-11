@@ -643,6 +643,15 @@ function toOperation(operation: Operation): PbOperation {
     pbTreeEditOperation.splitTickets = treeEditOperation
       .getSplitTickets()
       .map((ticket) => toTimeTicket(ticket)!);
+    // Only the right origin goes on the wire: the left one is recomputed
+    // from `from` on every replica.
+    const treeOrigin = treeEditOperation.getTreeOrigin();
+    if (treeOrigin) {
+      pbTreeEditOperation.hasOrigin = true;
+      if (treeOrigin.right) {
+        pbTreeEditOperation.originRight = toTreeNodeID(treeOrigin.right);
+      }
+    }
     pbOperation.body.case = 'treeEdit';
     pbOperation.body.value = pbTreeEditOperation;
   } else if (operation instanceof TreeStyleOperation) {
@@ -901,7 +910,7 @@ function toTreeNodesWhenEdit(nodes: Array<CRDTTreeNode>): Array<PbTreeNodes> {
   for (const node of nodes) {
     pbTreeNodesList.push(
       create(PbTreeNodesSchema, {
-        content: toTreeNodes(node),
+        content: toTreeNodes(node, false),
       }),
     );
   }
@@ -928,7 +937,10 @@ function toRHT(rht: RHT): { [key: string]: PbNodeAttr } {
 /**
  * `toTreeNodes` converts the given model to Protobuf format.
  */
-function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
+function toTreeNodes(
+  node: CRDTTreeNode,
+  withOrigins = true,
+): Array<PbTreeNode> {
   if (!node) {
     return [];
   }
@@ -942,11 +954,25 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
       depth,
     });
 
-    if (n.isText) {
+    if (n.isText && !n.skeleton) {
       pbTreeNode.value = n.value;
     }
     if (n.insPrevID) {
       pbTreeNode.insPrevId = toTreeNodeID(n.insPrevID);
+    }
+    // Origins and skeletons are snapshot state; edit contents get their
+    // origins from the operation on the receiving replica.
+    if (withOrigins && n.origin) {
+      pbTreeNode.hasOrigin = true;
+      if (n.origin.left) {
+        pbTreeNode.originLeft = toTreeNodeID(n.origin.left);
+      }
+      if (n.origin.right) {
+        pbTreeNode.originRight = toTreeNodeID(n.origin.right);
+      }
+    }
+    if (withOrigins && n.skeleton) {
+      pbTreeNode.skeletonLen = n.isText ? n.visibleSize : 1;
     }
     if (n.insNextID) {
       pbTreeNode.insNextId = toTreeNodeID(n.insNextID);
@@ -959,7 +985,7 @@ function toTreeNodes(node: CRDTTreeNode): Array<PbTreeNode> {
       pbTreeNode.mergedAt = toTimeTicket(n.mergedAt);
     }
 
-    if (n.attrs) {
+    if (n.attrs && !n.skeleton) {
       pbTreeNode.attributes = toRHT(n.attrs);
     }
 
@@ -1654,6 +1680,34 @@ function fromTreeNode(pbTreeNode: PbTreeNode): CRDTTreeNode {
 
   node.removedAt = fromTimeTicket(pbTreeNode.removedAt);
 
+  if (pbTreeNode.hasOrigin) {
+    node.origin = {
+      left: pbTreeNode.originLeft
+        ? fromTreeNodeID(pbTreeNode.originLeft)
+        : undefined,
+      right: pbTreeNode.originRight
+        ? fromTreeNodeID(pbTreeNode.originRight)
+        : undefined,
+    };
+  }
+
+  if (pbTreeNode.skeletonLen > 0) {
+    // A skeleton is a collected tombstone: it has a removal ticket and
+    // nothing else to carry.
+    if (
+      !node.removedAt ||
+      pbTreeNode.value !== '' ||
+      pbAttrs.length ||
+      (!node.isText && pbTreeNode.skeletonLen !== 1)
+    ) {
+      throw new YorkieError(
+        Code.ErrInvalidArgument,
+        'invalid tree skeleton node',
+      );
+    }
+    node.setSkeleton(pbTreeNode.skeletonLen);
+  }
+
   return node;
 }
 
@@ -1852,6 +1906,13 @@ export function fromOperation(pbOperation: PbOperation): Operation | undefined {
         (ticket) => fromTimeTicket(ticket)!,
       ),
     );
+    if (pbTreeEditOperation!.hasOrigin) {
+      treeEdit.setTreeOrigin({
+        right: pbTreeEditOperation!.originRight
+          ? fromTreeNodeID(pbTreeEditOperation!.originRight)
+          : undefined,
+      });
+    }
     return treeEdit;
   } else if (pbOperation.body.case === 'treeStyle') {
     const pbTreeStyleOperation = pbOperation.body.value;

@@ -357,7 +357,8 @@ describe('Tree element/text boundary under a concurrent edit', function () {
       {
         name: 'another insert at the same boundary',
         other: (t) => t.edit(8, 8, { type: 'text', value: 'x' }),
-        want: /*html*/ `<r><p><b>hello</b>x| world</p></r>`,
+        // Two inserts with the same origins tie by actor ID.
+        want: /*html*/ `<r><p><b>hello</b>|x world</p></r>`,
       },
     ];
 

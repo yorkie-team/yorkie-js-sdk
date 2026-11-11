@@ -21,6 +21,7 @@ import {
   CRDTTreeNodeID,
   CRDTTreeNode,
   CRDTTreePos,
+  TreeInsertOrigin,
 } from '@yorkie-js/sdk/src/document/crdt/tree';
 
 import {
@@ -724,6 +725,15 @@ export class Tree {
     // them instead of reconstructing them from the operation, which it cannot
     // do correctly once content has descendants.
     const splitTickets: Array<TimeTicket> = [];
+    // The right insertion origin of the content, recorded before the edit
+    // runs; the left origin is the from position itself.
+    let origin: TreeInsertOrigin | undefined;
+    if (crdtNodes.length) {
+      const o = this.tree!.localTreeOrigin(fromPos);
+      if (o) {
+        origin = { right: o.right };
+      }
+    }
     const [, pairs, diff] = this.tree!.edit(
       [fromPos, toPos],
       crdtNodes.length
@@ -736,6 +746,8 @@ export class Tree {
         splitTickets.push(issued);
         return issued;
       },
+      undefined,
+      origin,
     );
 
     this.context!.acc(diff);
@@ -753,6 +765,7 @@ export class Tree {
       ticket,
     );
     edit.setSplitTickets(splitTickets);
+    edit.setTreeOrigin(origin);
     this.context!.push(edit);
 
     return true;

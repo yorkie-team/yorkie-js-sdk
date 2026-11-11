@@ -26,7 +26,7 @@ import {
 import { CRDTObject } from '@yorkie-js/sdk/src/document/crdt/object';
 import { GCPair, GCParent } from '@yorkie-js/sdk/src/document/crdt/gc';
 import { CRDTText } from '@yorkie-js/sdk/src/document/crdt/text';
-import { CRDTTree } from '@yorkie-js/sdk/src/document/crdt/tree';
+import { CRDTTree, CRDTTreeNode } from '@yorkie-js/sdk/src/document/crdt/tree';
 import { CRDTArray } from '@yorkie-js/sdk/src/document/crdt/array';
 import { Code, YorkieError } from '@yorkie-js/sdk/src/util/error';
 import { VersionVector } from '../time/version_vector';
@@ -897,9 +897,12 @@ export class CRDTRoot {
         continue;
       }
 
-      // A Text node is not unlinked by its purge but kept as a content-less
-      // skeleton, so its size has to be read before the purge empties it.
-      const keepsSkeleton = pair.child instanceof RGATreeSplitNode;
+      // A Text or Tree node is not unlinked by its purge but kept as a
+      // content-less skeleton, so its size has to be read before the purge
+      // empties it.
+      const keepsSkeleton =
+        pair.child instanceof RGATreeSplitNode ||
+        pair.child instanceof CRDTTreeNode;
       const purgedSize = keepsSkeleton ? pair.child.getDataSize() : undefined;
 
       pair.parent.purge(pair.child);

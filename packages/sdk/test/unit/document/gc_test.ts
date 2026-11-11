@@ -25,12 +25,13 @@ import { describe, it, assert } from 'vitest';
 function getNodeLength(root: IndexTreeNode<CRDTTreeNode>) {
   let size = 0;
 
-  size += root._children.length;
-
-  if (root._children.length) {
-    for (const child of root._children) {
-      size += getNodeLength(child);
+  // Collected nodes stay in place as skeletons (no value, no attributes) for
+  // the placement rule; count only the nodes that still hold content.
+  for (const child of root._children) {
+    if (!(child as CRDTTreeNode).skeleton) {
+      size += 1;
     }
+    size += getNodeLength(child);
   }
 
   return size;
