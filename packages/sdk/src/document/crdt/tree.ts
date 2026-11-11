@@ -4829,6 +4829,9 @@ export class CRDTTree extends CRDTElement implements GCParent {
         }
       }
       node.skeleton = false;
+      // A revived merge source drops its lineage, as an un-tombstoned one
+      // does (see `dissolveMerge`).
+      this.dissolveMerge(node);
       const parent = node.parent;
       if (parent && parent.isRemoved) {
         node.removedAt = parent.removedAt;
