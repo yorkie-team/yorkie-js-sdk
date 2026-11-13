@@ -106,6 +106,7 @@
     "apiChangeNote": "If the issue requires an API change, say so on the issue and stop rather than working around it.",
     "keepReproducerAs": "Keep it as `it.fails(...)` with a comment naming the finding",
     "disabledTestForms": "turns into `.skip`/`.todo`",
+    "commitNote": "Commit messages follow this repository's convention: subject <= 70 characters, a blank line, body wrapped at 80.",
     "licenceScope": "Apache 2.0 licence header on every new source file under packages/*/src, packages/*/test and scripts/ (`pnpm verify:license` checks it).",
     "todoTrackingLine": "Its second line is exactly `Tracked as #__ISSUE_NUMBER__` — that wording, unbolded, is what `scripts/tasks-check.mjs --remote` asks GitHub about, and a todo without it is never checked at all.",
     "implementVerifyStep": "VERIFY WITH `pnpm verify:fast` (lint, licence headers, doc links, the SDK build and every unit suite; no server needed), in the foreground, before the final push. Do NOT run the integration suites (`pnpm sdk test`, `pnpm prosemirror test`): they need a Yorkie server and MongoDB this run does not stand up. A TARGETED unit file (`pnpm sdk exec vitest run test/unit/<file>`) is fine. The PR's CI runs the full lanes, integration included.",
@@ -122,8 +123,8 @@
     "replicatedRuleGlobs": [
       "packages/sdk/src/document/crdt/*.ts"
     ],
-    "replicatedRuleNotice": "**Replicated CRDT rule changed in TypeScript only (warning).** yorkie must apply the same rule or JS clients and a Go server diverge. Link the matching change in the PR body as `yorkie-team/yorkie#<number>`, or say why none is needed:",
-    "counterpartRepo": "yorkie-team/yorkie#"
+    "replicatedRuleNotice": "**Replicated CRDT rule changed in TypeScript only (warning).** yorkie must apply the same rule or JS clients and a Go server diverge. Link the matching yorkie change in the PR body, or say why none is needed:",
+    "counterpartRepo": "yorkie-team/yorkie"
   },
   "redact": {
     "extraPatterns": []

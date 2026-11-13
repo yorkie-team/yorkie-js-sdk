@@ -14,7 +14,7 @@ This task replaces the adapted copy with the shared one, byte for byte, and
 expresses this repository's values as configuration.
 
 Depends on yorkie#2352 and yorkie#2353. Source commit:
-`3bf1bb2fe1ce3e493222e9f04b139794a8370d21`.
+`7c0708994ad5e17dbfd65acd2561a9339a782c19`.
 
 ## Plan
 

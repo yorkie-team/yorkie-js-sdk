@@ -1130,31 +1130,41 @@ test("the command-verbs reference is the server repository's document, by URL", 
 });
 
 test("the fix guard's counterpart is the server repository, and not this one", () => {
-  // The guard looks for `fixGuard.counterpartRepo` in the PR body as a plain,
-  // case-insensitive substring. The counterpart's name, `yorkie`, is a prefix
-  // of this repository's own (`yorkie-js-sdk`, `yorkie-team`, `@yorkie-js/sdk`),
-  // so the bare name would be found in nearly every PR body and the warning
-  // would never fire. The configured value is the form a cross-repository
-  // reference takes, which nothing naming only this repository contains.
-  const needle = CONFIG.fixGuard.counterpartRepo.toLowerCase();
-  assert.equal(needle, 'yorkie-team/yorkie#');
+  // The counterpart's name, `yorkie`, is a prefix of this repository's own
+  // (`yorkie-js-sdk`, `yorkie-team`, `@yorkie-js/sdk`), so a PR body that only
+  // names this repository must not read as one that refers to the server's.
+  // The guard matches a REFERENCE to `owner/name`, not a substring; this pins
+  // that it tells the two apart for the names in play here.
+  assert.equal(CONFIG.fixGuard.counterpartRepo, 'yorkie-team/yorkie');
+  const refersToServer = fixGuard.counterpartReference(
+    CONFIG.fixGuard.counterpartRepo,
+  );
   for (const own of [
     'yorkie-js-sdk',
     'yorkie-team/yorkie-js-sdk#1529',
     'https://github.com/yorkie-team/yorkie-js-sdk/pull/1529',
     '@yorkie-js/sdk',
     'the Yorkie server',
+    'the yorkie-team organisation',
   ]) {
-    assert.ok(
-      !own.toLowerCase().includes(needle),
+    assert.equal(
+      refersToServer(own),
+      false,
       `"${own}" would silence the replicated-rule warning`,
     );
   }
-  assert.ok('yorkie-team/yorkie#2353'.includes(needle));
-  // The notice tells the author exactly what to write.
+  for (const theirs of [
+    'yorkie-team/yorkie#2353',
+    'see Yorkie-Team/Yorkie.',
+    'yorkie#2353',
+    'https://github.com/yorkie-team/yorkie/pull/2353',
+  ]) {
+    assert.equal(refersToServer(theirs), true, theirs);
+  }
+  // The notice names the server repository as the one to link.
   assert.match(
     CONFIG.fixGuard.replicatedRuleNotice,
-    /`yorkie-team\/yorkie#<number>`/,
+    /Link the matching yorkie change in the PR body/,
   );
   // The replicated rules are the CRDT sources, and there are some.
   const crdt = tracked.filter((f) =>
@@ -1383,6 +1393,18 @@ test('the commands the fixer prompts name are scripts this repository has', () =
     CONFIG.fixer.generatedCodeNote,
     /packages\/schema\/antlr\/\*\.ts/,
   );
+
+  // What a commit message must look like, said without naming a hook: in a
+  // fix job the harness points `core.hooksPath` at its own scope hook, so
+  // `.githooks/commit-msg` does not run there. The numbers are the hook's.
+  assert.match(
+    CONFIG.fixer.commitNote,
+    /subject <= 70 characters, a blank line, body wrapped at 80/,
+  );
+  assert.doesNotMatch(CONFIG.fixer.commitNote, /hook/i);
+  const commitMsg = read('.githooks', 'commit-msg');
+  assert.match(commitMsg, /-gt 70/);
+  assert.match(commitMsg, /-gt 80/);
 
   // Configured on purpose here, where the server repository leaves them empty:
   // a review reply verifies before it pushes, and the CI-fix prompt says what

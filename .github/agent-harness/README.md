@@ -12,7 +12,7 @@ action's contract are specified.
 
 The shared half is copied from
 [yorkie-team/yorkie](https://github.com/yorkie-team/yorkie) at
-`3bf1bb2fe1ce3e493222e9f04b139794a8370d21`.
+`7c0708994ad5e17dbfd65acd2561a9339a782c19`.
 
 Comments in the shared files that cite `docs/design/agent-command-verbs.md`
 or other design documents by path mean the server repository's documents;

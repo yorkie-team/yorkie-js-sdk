@@ -211,7 +211,7 @@ for the same question, and it keeps what it learns about failures.
 | Reuse the server's App rather than create one | Same bot login, so `repo.botLogins` and `repo.appLogins` are the same in both repositories' configuration |
 | Main's `.npmrc` for the agent install is a copy beside the toolchain action (2026-11) | The fix jobs check out only the action's directory from `main`, so the root file is not there to read, and reading `origin/main` from the workspace's git objects would tie the action to each caller's fetch depth |
 | `repo.test.mjs` follows this repository's lint rules, `scripts/agent/**` does not | The first is this repository's file and the root ESLint checks it; the second is overwritten on every sync, so it stays excluded from ESLint, lint-staged and the licence scan |
-| `fixGuard.counterpartRepo` is `yorkie-team/yorkie#`, not `yorkie` (2026-11) | The guard looks for it as a substring of the PR body, and the bare name is in this repository's own name and npm scope |
+| `fixer.commitNote` states the commit convention and names no hook (2026-11) | In a fix job the harness points `core.hooksPath` at its own scope hook, so `.githooks/commit-msg` does not run there; the sentence says what is asked, not what enforces it |
 | The carry key is `patch-id --verbatim`, not `--stable` | `--stable` discards whitespace, so an indentation-only change that alters behaviour would carry an approval |
 | Only an approval carries | Carrying a blocking verdict to a new head would dispatch a fixer on findings read against another commit |
 | Credentials are probed before the round, not retried after | Nothing may run after the agent in its own job, and a probe spends no round at all |
