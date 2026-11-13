@@ -187,7 +187,7 @@ for the same question, and it keeps what it learns about failures.
 | `verify:fast` gets slow and people bypass it | Measured at ~30s; `pre-commit` stays lint-only |
 | A generated file is edited through Bash, past the Edit/Write guard | The next regeneration reverts it; review catches the rest |
 | The copies of `scripts/agent/` in three repositories drift | They are byte-identical to one upstream commit, recorded in `.github/agent-harness/README.md`; a sync overwrites them, and a local difference is a bug |
-| The copy of `.npmrc` beside the toolchain action goes stale | `repo.test.mjs` compares the two; `agent-scripts.yml` runs it on a change to the action and weekly, since the root file is not among its path filters |
+| The copy of `.npmrc` beside the toolchain action goes stale | `scripts/test/agent-toolchain-npmrc.test.mjs` compares the two in `pnpm test:scripts`, which `ci.yml` and `verify:fast` run on every pull request; `repo.test.mjs` compares them again |
 | A per-repository file the coverage note or a prompt describes changes, and `agent-scripts.yml` does not start | The weekly run. Those files are CI-defining, so the PR that changes one is never promoted automatically |
 | A reviewer commits from a checkout of someone else's branch and runs its code | Documented in `CONTRIBUTING.md`: read the diff first or use `--no-verify`; the same exposure as running that branch's tests |
 | Clones set up by the snapshot install keep running the stale copy, guard included | `prepare` runs `setup.sh --check`, which names the old copy and the guard on every `pnpm install`; re-running `setup.sh` repoints `core.hooksPath` and deletes the copy |

@@ -24,16 +24,27 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 
 | File | What it is |
 |---|---|
-| `config.json` | Every repository-specific value: the CI-defining paths, the file-class rules, the lens source globs, the generated files left out of a reviewed diff, the sentences the fixer prompts are completed with, the test rules (`vitest`), the fix guard's replicated-rule paths |
+| `config.json` | Every repository-specific value: the CI-defining paths, the file-class rules, the lens source globs, the generated files left out of a reviewed diff, the sentences the fixer prompts are completed with, the test rules (`vitest`), the commit-message sentence, the fix guard's replicated-rule paths and counterpart repository |
 | `coverage-note.md` | What `ci.yml`'s lanes prove and do not, told to every lens |
 | `repo.test.mjs` | Grades the two files above, and the toolchain action, against this repository (`npm run test:repo` in `scripts/agent`). The reason each configured entry exists is written there, beside the assertion that pins it |
 | `repo.snapshot.json` | Every exported value and rendered prompt, recorded. A change to a gate, a prompt or a comment shows its before and after in this file's diff |
 | `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. The install stays inside the workspace: before it runs, the step refuses a tree with a `node_modules` already in it, a symbolic link that resolves outside, or a workspace file or lockfile that names a project outside the root, and it checks again afterwards. Audited against pnpm 9 only |
-| `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`. An agent job checks out only the action's directory from `main`, so the trusted `.npmrc` the install uses has to sit beside the action. `repo.test.mjs` fails when the two differ |
+| `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`. An agent job checks out only the action's directory from `main`, so the trusted `.npmrc` the install uses has to sit beside the action. Two tests fail when the two differ: `scripts/test/agent-toolchain-npmrc.test.mjs`, which `ci.yml` runs on every pull request, and `repo.test.mjs` |
 
 Outside the harness, and kept across a sync: `npm-publish.yml` and
 `devtools-publish.yml` refuse a release authored by `yorkie-team-agent[bot]`
 (`repo.test.mjs` pins it).
+
+Where upstream's text assumes something this repository does not have:
+
+- There is no `.github/CODEOWNERS` here. `scripts/agent/README.md` says
+  workflow files are "CODEOWNER-ed, so every edit to one still needs a human
+  reviewer". What holds here is the other half: a pull request that touches a
+  CI-defining path is never promoted automatically, so a person reviews it.
+- This repository's git hooks (`.githooks/`, set up by `scripts/setup.sh`)
+  do not run in a fix job: the harness points `core.hooksPath` at its own
+  scope hook there. `fixer.commitNote` therefore states the commit-message
+  convention without saying a hook checks it.
 
 `repo.test.mjs` follows this repository's ESLint and Prettier rules and is
 checked by the root lint. `scripts/agent/**` follows the server repository's
@@ -69,9 +80,19 @@ style and is excluded from the root ESLint, lint-staged and the licence scan.
 - A new file that decides what CI does (a tool config, a script a workflow
   runs): `ci.definingPaths` and usually `review.classRules.policy`.
 - A new package: nothing, while it lives under `packages/`.
-- The root `.npmrc`: copy it to `../actions/agent-toolchain/npmrc`.
-- The pnpm major in `ci.yml`: the same number in the toolchain action.
+- A new directory whose rules the Go server must apply identically:
+  `fixGuard.replicatedRuleGlobs`, with the reason beside the pin in
+  `repo.test.mjs`.
+- The root `.npmrc`: copy it to `../actions/agent-toolchain/npmrc` in the
+  same change. `pnpm test:scripts` fails until it is.
+- The pnpm major in `ci.yml`: not simply the same number in the toolchain
+  action. The action's install step was audited against pnpm 9; a later major
+  reads settings from files a branch controls. Re-audit the step first, then
+  move the number and the assertion in `repo.test.mjs` that pins it.
 
 `agent-scripts.yml` runs both suites on a change to the harness, this
-directory or `.github/actions/`, and weekly — the files above that are not
-among its path filters are checked within a week rather than at once.
+directory or `.github/actions/`, and weekly. So a change to one of the other
+files above that makes this directory wrong — a lane removed from `ci.yml`,
+a script a prompt names renamed — is found within a week, not on the pull
+request that makes it. The `.npmrc` copy is the exception: `ci.yml` checks
+it on every pull request.

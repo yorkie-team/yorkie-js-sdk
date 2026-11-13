@@ -44,15 +44,20 @@ Depends on yorkie#2352 and yorkie#2353. Source commit:
 - [x] `pnpm verify:fast` green; actionlint finds nothing new
 - [x] `docs/design/agent-harness.md`, `scripts/README.md`,
       `.github/agent-harness/README.md`
-- [ ] Resolve the one failing harness test: `git-env.test.mjs` walks all of
-      `scripts/` and refuses this repository's own `scripts/test` git
-      fixtures, which scrub their environment without the harness's helper.
-      Needs an upstream change (walk the package only), then a re-sync
-- [ ] Report the other upstream findings: substring match on
-      `fixGuard.counterpartRepo`; the hook sentence in the fixer prompts and
-      the guide hook under `core.hooksPath`; the code span around a URL
-      reference; per-repository files that no longer start `agent-scripts.yml`
+- [x] Report the upstream findings and re-sync once fixed (7c070899): the
+      package's tests no longer grade `scripts/test`; the counterpart is
+      matched as a repository reference; the scope hook is installed where
+      git runs it and the prompts make no claim about this repository's
+      hooks; a URL reference stays a link. Core suite: 1128 of 1128
+- [x] Keep the agent install inside the workspace: the toolchain action
+      refuses a tree that could lead it outside, before and after the
+      install; the refusals are run for real in `repo.test.mjs`
+- [x] Compare the `.npmrc` copy on every pull request
+      (`scripts/test/agent-toolchain-npmrc.test.mjs`)
+- [x] Decide which directories hold replicated rules (`document/crdt`,
+      `document/time`), with the reasoning beside the pin
+- [ ] Re-audit the install step before any move off pnpm 9
 - [ ] Open the PR; merge with the pipeline paused and drained
 - [ ] Watch the first live run of each arm: the toolchain action on a runner
-      (`pnpm/action-setup`, `GITHUB_ACTION_PATH` from `.trusted-toolchain`),
+      (`pnpm/action-setup`, `github.action_path` from `.trusted-toolchain`),
       a fix round under the scope guard, one sweep

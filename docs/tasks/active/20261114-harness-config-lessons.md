@@ -27,6 +27,15 @@
   and on `docs/**/*.md` directly under `docs/`. Neither changes an answer
   for a tracked file here, which only a run over every tracked path plus
   hostile ones shows.
+- Flags are half of "runs nothing the branch wrote, writes nowhere else".
+  The other half is the tree the tool is pointed at: links, and files that
+  name other directories. Check the shape before running, check the result
+  after, and run those checks in a test rather than reading them.
+- `stat` follows links, so `statSync(p).isSymbolicLink()` is never true.
+  An assertion that cannot fail is found by breaking what it guards, which
+  the first round did for the action and not for that line.
+- A copy that must equal an original needs its check on the path the
+  original changes through. The weekly run was the wrong place for it.
 - A per-repository test file can follow the repository's own lint rules.
   Excluding it from ESLint would have made the coverage note's "eslint over
   the repository except…" sentence false by one file.

@@ -121,7 +121,8 @@
   },
   "fixGuard": {
     "replicatedRuleGlobs": [
-      "packages/sdk/src/document/crdt/*.ts"
+      "packages/sdk/src/document/crdt/*.ts",
+      "packages/sdk/src/document/time/*.ts"
     ],
     "replicatedRuleNotice": "**Replicated CRDT rule changed in TypeScript only (warning).** yorkie must apply the same rule or JS clients and a Go server diverge. Link the matching yorkie change in the PR body, or say why none is needed:",
     "counterpartRepo": "yorkie-team/yorkie"

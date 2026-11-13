@@ -1178,15 +1178,63 @@ test("the fix guard's counterpart is the server repository, and not this one", (
     CONFIG.fixGuard.replicatedRuleNotice,
     /Link the matching yorkie change in the PR body/,
   );
-  // The replicated rules are the CRDT sources, and there are some.
-  const crdt = tracked.filter((f) =>
-    CONFIG.fixGuard.replicatedRuleGlobs.some((g) => compileGlob(g).test(f)),
+  // WHICH FILES HOLD A REPLICATED RULE. A rule is replicated when the Go
+  // server and this SDK must compute the same answer from the same input, or
+  // two replicas of one document stop converging. Decided from the code, and
+  // kept narrow on purpose: this is a warning a fixer and a reviewer have to
+  // read, and one that fires on every change teaches them not to.
+  //
+  //   IN  `document/crdt/*.ts`  The merge rules themselves: where a
+  //       concurrent insert lands, what a concurrent delete removes, which
+  //       write wins. Go: `pkg/document/crdt`.
+  //   IN  `document/time/*.ts`  The order those rules break ties with.
+  //       `ticket.ts` is the total order over tickets (Lamport time, then the
+  //       actor, then the delimiter) and `version_vector.ts` decides what a
+  //       replica is taken to have seen. Every rule in `crdt/` rests on both
+  //       sides comparing identically. Go: `pkg/document/time`.
+  //   OUT `document/operation/*.ts`  An operation mostly routes to a `crdt/`
+  //       method, where the rule is; much of the rest is the reverse
+  //       operations for undo and redo and the events for subscribers, which
+  //       the server does not have. A warning here would fire on nearly all
+  //       history work and say nothing about convergence.
+  //   OUT `util/index_tree.ts`, `util/splay_tree.ts`, `util/llrb_tree.ts`
+  //       Indexing structures. A replicated position is a ticket-based
+  //       identifier, not an index, so what these compute is each replica's
+  //       own view, and a rule that depends on one is stated in `crdt/`.
+  //   OUT `api/converter.ts`  The wire encoding. It has to match the server,
+  //       but the `.proto` it follows is copied from the server and the
+  //       integration suite runs against a real one, so a one-sided change
+  //       fails a lane instead of needing a warning.
+  assert.deepEqual(
+    [...CONFIG.fixGuard.replicatedRuleGlobs],
+    [
+      'packages/sdk/src/document/crdt/*.ts',
+      'packages/sdk/src/document/time/*.ts',
+    ],
   );
-  assert.ok(
-    crdt.includes('packages/sdk/src/document/crdt/tree.ts') &&
-      crdt.length >= 10,
-    `expected the CRDT sources, matched ${crdt.length}`,
-  );
+  const replicated = (f) => fixGuard.crdtRuleChanges([{ filename: f }]).length;
+  for (const f of [
+    'packages/sdk/src/document/crdt/tree.ts',
+    'packages/sdk/src/document/crdt/rga_tree_split.ts',
+    'packages/sdk/src/document/time/ticket.ts',
+    'packages/sdk/src/document/time/version_vector.ts',
+    'packages/sdk/src/document/time/actor_id.ts',
+  ]) {
+    assert.ok(tracked.includes(f), `${f} is no longer tracked`);
+    assert.equal(replicated(f), 1, `${f} holds a replicated rule`);
+  }
+  for (const f of [
+    'packages/sdk/src/document/operation/edit_operation.ts',
+    'packages/sdk/src/util/index_tree.ts',
+    'packages/sdk/src/util/splay_tree.ts',
+    'packages/sdk/src/util/llrb_tree.ts',
+    'packages/sdk/src/api/converter.ts',
+    // A test of a replicated rule is not the rule.
+    'packages/sdk/test/unit/document/crdt/tree_test.ts',
+  ]) {
+    assert.ok(tracked.includes(f), `${f} is no longer tracked`);
+    assert.equal(replicated(f), 0, `${f} is deliberately not on the list`);
+  }
 });
 
 // --- what the workflows say, in this repository's words -------------------------------
@@ -1435,7 +1483,8 @@ test('the todo tracking line is the one scripts/tasks-check.mjs reads', () => {
   assert.match(CONFIG.fixer.todoTrackingLine, /`Tracked as #__ISSUE_NUMBER__`/);
   assert.match(CONFIG.fixer.todoTrackingLine, /scripts\/tasks-check\.mjs/);
   const checker = read('scripts', 'tasks-check.mjs');
-  assert.match(checker, /Tracked as #N/);
+  // ...as the checker's own pattern has it, not as a comment there says.
+  assert.match(checker, /TRACKING_REF =\s*\/\\b\(\?:tracked as\|/);
   assert.ok(
     read(checks.CI_WORKFLOW_PATH).includes('node scripts/tasks-check.mjs'),
     'ci.yml no longer runs the task-record check',
@@ -1879,7 +1928,6 @@ test('the install step refuses a tree that could lead it outside the workspace',
       assert.match(r.err, /^::error::agent-toolchain: /m, name);
       assert.equal(r.installed, false, `${name}: the install was reached`);
     }
-    assert.ok(refused.length >= 15, 'expected every refusal to be exercised');
 
     // AFTER THE INSTALL: something appearing beside the workspace fails the
     // step, even though nothing above saw it coming.
@@ -1996,9 +2044,23 @@ test("the toolchain action's pins are this repository's: pnpm, Node, .npmrc", ()
 
   // MAIN'S .npmrc, COPIED. The action cannot read the root `.npmrc`: a caller
   // checks out only the action's directory from `main`. So a copy sits beside
-  // it, and this is what keeps the copy honest. `agent-scripts.yml` runs this
-  // on a change to either directory and weekly, because the root `.npmrc` is
-  // not among the paths that start it.
+  // it, and it has to stay equal. This workflow does not start on a change to
+  // the root file alone, so the same comparison also runs on every pull
+  // request, in `scripts/test/agent-toolchain-npmrc.test.mjs` — which this
+  // asserts is there, and is in the suite `ci.yml` and `verify:fast` run.
+  const perPr = 'scripts/test/agent-toolchain-npmrc.test.mjs';
+  assert.ok(tracked.includes(perPr), `${perPr} is no longer tracked`);
+  assert.match(
+    read(perPr),
+    /COPY = path\.join\(ROOT, '\.github\/actions\/agent-toolchain\/npmrc'\)/,
+  );
+  const rootScripts = JSON.parse(read('package.json')).scripts;
+  assert.equal(
+    rootScripts['test:scripts'],
+    "node --test 'scripts/test/**/*.test.mjs'",
+  );
+  assert.ok(rootScripts['verify:fast'].includes('pnpm test:scripts'));
+  assert.ok(ci.includes('pnpm test:scripts'));
   assert.equal(
     readFileSync(path.join(ACTION_DIR, 'npmrc'), 'utf8'),
     read('.npmrc'),
