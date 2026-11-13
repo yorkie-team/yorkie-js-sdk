@@ -29,8 +29,20 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -1466,33 +1478,63 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
     '--config.virtual-store-dir=node_modules/.pnpm',
   ]);
   // Nothing else from the working tree runs: no other pnpm or npm command, no
-  // package script, no `npx`, no script file, no `make`.
-  const script = joined.slice(joined.indexOf('run: |'));
-  assert.ok(script.length < joined.length, 'the install step has no script');
-  const runs = [
-    ...script.matchAll(
-      /^\s*(pnpm|npm|npx|yarn|corepack|make|node|bash|sh)\s+(\S+)/gm,
-    ),
-  ].map((m) => `${m[1]} ${m[2]}`);
-  assert.deepEqual(runs, ['pnpm install'], 'the action runs something else');
+  // package script, no `npx`, no interpreter, no script file, no `make`. A
+  // command is read at the start of a line or after `&&`, `||`, `;`, `|` or
+  // `(`; `find . …` and `-path ./.git` are arguments, not commands.
+  const whole = joined.slice(joined.indexOf('run: |'));
+  assert.ok(whole.length < joined.length, 'the install step has no script');
+  // The one awk program is data to the shell, and reads like commands to the
+  // reader below, so it is taken out first — after checking that it cannot
+  // itself run anything or open a file.
+  const awk = /awk '\n([\s\S]*?)' pnpm-lock\.yaml\)"/.exec(whole);
+  assert.ok(awk, 'could not find the lockfile reader');
   assert.ok(
-    !/\b(npx|corepack|make|eval|source)\b|\.\/|\bpnpm (?!install\b)/.test(
-      script,
-    ),
-    'the action could run something from the working tree',
+    !/system|getline|\|\s*"|>\s*"|close\s*\(/.test(awk[1]),
+    'the lockfile reader can run a command or write a file',
+  );
+  const script = whole.replace(awk[0], '');
+  const COMMAND = /(?:^|&&|\|\||;|\||\()[ \t]*([A-Za-z0-9_./-]+)/gm;
+  const commands = new Set([...script.matchAll(COMMAND)].map((m) => m[1]));
+  for (const forbidden of [
+    'npm',
+    'npx',
+    'yarn',
+    'corepack',
+    'make',
+    'node',
+    'bash',
+    'sh',
+    'eval',
+    'source',
+    '.',
+  ]) {
+    assert.ok(!commands.has(forbidden), `the action runs \`${forbidden}\``);
+  }
+  assert.ok(commands.has('pnpm'), 'the command reader found no `pnpm`');
+  for (const command of commands) {
+    assert.ok(
+      !command.includes('/'),
+      `the action runs a file by path: ${command}`,
+    );
+  }
+  assert.ok(
+    !/\bpnpm (?!install\b)/.test(script),
+    'the action runs a pnpm command other than install',
   );
 
-  // THE BRANCH'S .npmrc IS NOT READ. The flags stop scripts, not PATH
-  // settings: a branch `.npmrc` with `modules-dir=../..` writes a branch
-  // package over the `node` a later step runs. So the branch's files are set
-  // aside, main's stands in, and they are put back after.
+  // THE BRANCH'S .npmrc IS NOT READ. The flags stop scripts, not the PATH
+  // settings a branch `.npmrc` can carry. So the branch's files are set
+  // aside, main's stands in, and they are put back after. `-prune`: a
+  // DIRECTORY of that name is moved whole, not descended into.
   const aside = joined.indexOf(
-    "find . -name .npmrc -not -path '*/node_modules/*'",
+    "find -P . -name .npmrc -not -path '*/node_modules/*' -prune -print0",
   );
   const trusted = joined.indexOf('cp "$trusted" .npmrc');
   const install = joined.indexOf('pnpm install');
   const removed = joined.indexOf('rm .npmrc');
-  const restored = joined.indexOf('(cd "$stash" && find . -name .npmrc');
+  const restored = joined.indexOf(
+    '(cd "$stash" && find -P . -name .npmrc -prune -print0)',
+  );
   assert.ok(
     aside >= 0 && trusted > aside,
     "the branch's .npmrc files must be set aside before main's is put in place",
@@ -1507,13 +1549,61 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
   );
   // Main's copy is read from beside the action — the one directory a caller
   // checks out from `main` — never from the workspace or its git objects.
-  assert.match(joined, /trusted="\$GITHUB_ACTION_PATH\/npmrc"/);
+  // The directory arrives through `env` from the `github.action_path`
+  // EXPRESSION, not from the runner's variable of the same meaning: this
+  // step follows a nested action, and the expression is evaluated for this
+  // action whatever ran before it.
+  assert.match(
+    code,
+    /\n {6}env:\n {8}ACTION_PATH: \$\{\{ github\.action_path \}\}\n {6}run: \|\n/,
+  );
+  assert.match(joined, /trusted="\$ACTION_PATH\/npmrc"/);
+  assert.ok(
+    !/GITHUB_ACTION_PATH/.test(code),
+    "the action reads the runner's GITHUB_ACTION_PATH variable",
+  );
+  // ...and a missing or symlinked copy stops the step before anything else.
+  const guard = joined.indexOf('if [ ! -f "$trusted" ] || [ -L "$trusted" ]');
+  assert.ok(
+    guard >= 0 && guard < aside,
+    'the trusted npmrc is not checked before it is used',
+  );
   assert.ok(
     !/git show|origin\/main/.test(joined),
     "the action reads main's .npmrc from the workspace's repository",
   );
   // The step fails closed, and a failure anywhere in it stops it.
   assert.match(joined, /set -euo pipefail/);
+  // It works on the workspace root, by name.
+  const cd = joined.indexOf('cd "$GITHUB_WORKSPACE"');
+  assert.ok(cd >= 0 && cd < aside, 'the step does not start at the workspace');
+
+  // THE ORDER OF THE REFUSALS. What each refuses is exercised for real in the
+  // next test; that every one of them comes BEFORE the install, and the
+  // re-check after it, can only be read off the text — so these are text
+  // assertions, on purpose.
+  for (const text of [
+    '-name node_modules -type l -print0',
+    '-name node_modules -prune -print0',
+    'is a symbolic link that resolves outside the workspace',
+    'pnpm-workspace.yaml names a path outside the workspace root',
+    'pnpm-lock.yaml names a project that is not a plain path',
+  ]) {
+    const at = joined.indexOf(text);
+    assert.ok(
+      at >= 0 && at < install,
+      `the install runs before this refusal: ${text}`,
+    );
+  }
+  for (const text of [
+    'resolves outside the workspace after the install',
+    'created or removed something beside the workspace',
+  ]) {
+    assert.ok(
+      joined.indexOf(text) > removed,
+      `the re-check is missing or runs before the install: ${text}`,
+    );
+  }
 
   // The pnpm setup is pinned to a commit — it runs in a job whose
   // `.git/config` already holds the App token — and its version is written
@@ -1556,12 +1646,278 @@ test('the toolchain action installs lockfile-exact, runs nothing the branch wrot
   }
 });
 
+test('the install step refuses a tree that could lead it outside the workspace', () => {
+  // THE INSTALL STAYS INSIDE THE WORKSPACE, and flags alone do not make it:
+  // where a package manager writes also follows from the shape of the tree
+  // it is pointed at. So the step refuses, before installing, a tree in which
+  // a `node_modules` already exists or is a symbolic link, a symbolic link
+  // resolves outside the workspace, or the workspace file or the lockfile
+  // names a project outside the root — and checks again afterwards.
+  //
+  // RUN FOR REAL, not read: the step's script is taken out of `action.yml`
+  // and run by bash against small trees under the OS temp directory, with
+  // `pnpm` replaced by a stub that records whether it was reached. The order
+  // of the checks relative to the install is pinned by text in the test
+  // above; everything here is behaviour.
+  const action = readFileSync(path.join(ACTION_DIR, 'action.yml'), 'utf8');
+  const start = action.indexOf('      run: |\n');
+  assert.ok(start > 0, 'the install step has no `run: |` script');
+  const script = action
+    .slice(start + '      run: |\n'.length)
+    .split('\n')
+    .map((l) => l.replace(/^ {8}/, ''))
+    .join('\n');
+
+  const base = mkdtempSync(path.join(os.tmpdir(), 'agent-toolchain-'));
+  try {
+    const bin = path.join(base, 'bin');
+    mkdirSync(bin);
+    mkdirSync(path.join(base, 'ran'));
+    writeFileSync(path.join(base, 'step.sh'), script);
+    // The stub: says it ran, makes the directory an install makes, and does
+    // whatever extra the case asks of it.
+    writeFileSync(
+      path.join(bin, 'pnpm'),
+      '#!/bin/sh\necho "$*" > "$STUB_RAN"\nmkdir -p node_modules\n' +
+        'cat .npmrc > "$STUB_RAN.npmrc"\n' +
+        'if [ -n "$STUB_EXTRA" ]; then mkdir -p "$STUB_EXTRA"; fi\n',
+      { mode: 0o755 },
+    );
+
+    const WORKSPACE = "packages:\n  - 'packages/*'\n  - '!**/test/**'\n";
+    const LOCKFILE =
+      "lockfileVersion: '9.0'\n\nimporters:\n\n  .:\n    devDependencies: {}\n\n" +
+      '  packages/sdk:\n    dependencies: {}\n\npackages:\n';
+    let n = 0;
+    /** Run the step on a fresh tree; `setup` shapes it first. */
+    const run = (setup, { extra = '' } = {}) => {
+      const dir = path.join(base, `case${++n}`, 'ws');
+      mkdirSync(path.join(dir, 'packages', 'sdk'), { recursive: true });
+      writeFileSync(path.join(dir, 'pnpm-workspace.yaml'), WORKSPACE);
+      writeFileSync(path.join(dir, 'pnpm-lock.yaml'), LOCKFILE);
+      setup?.(dir);
+      const ran = path.join(base, 'ran', String(n));
+      const r = spawnSync(
+        'bash',
+        ['--noprofile', '--norc', '-e', '-o', 'pipefail', '../../step.sh'],
+        {
+          cwd: dir,
+          encoding: 'utf8',
+          env: {
+            PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+            GITHUB_WORKSPACE: dir,
+            ACTION_PATH: ACTION_DIR,
+            STUB_RAN: ran,
+            STUB_EXTRA: extra,
+          },
+        },
+      );
+      return {
+        dir,
+        status: r.status,
+        err: r.stderr,
+        installed: existsSync(ran),
+        ran,
+      };
+    };
+    const outside = path.join(base, 'outside');
+    mkdirSync(outside);
+    writeFileSync(path.join(outside, 'keep'), 'keep');
+
+    // An ordinary tree installs, with main's `.npmrc` in place for the
+    // install and the branch's files — a directory of that name included —
+    // back afterwards.
+    const ok = run((dir) => {
+      writeFileSync(path.join(dir, '.npmrc'), 'branch=1\n');
+      mkdirSync(path.join(dir, 'packages', 'sdk', '.npmrc'));
+      writeFileSync(path.join(dir, 'packages', 'sdk', '.npmrc', '.npmrc'), 'x');
+      // A link that stays inside is not refused.
+      symlinkSync('packages', path.join(dir, 'alias'));
+    });
+    assert.equal(ok.status, 0, ok.err);
+    assert.equal(ok.installed, true);
+    assert.equal(
+      readFileSync(`${ok.ran}.npmrc`, 'utf8'),
+      readFileSync(path.join(ACTION_DIR, 'npmrc'), 'utf8'),
+      "the install did not run under main's .npmrc",
+    );
+    assert.equal(
+      readFileSync(path.join(ok.dir, '.npmrc'), 'utf8'),
+      'branch=1\n',
+    );
+    assert.equal(
+      readFileSync(
+        path.join(ok.dir, 'packages', 'sdk', '.npmrc', '.npmrc'),
+        'utf8',
+      ),
+      'x',
+    );
+    assert.match(
+      readFileSync(ok.ran, 'utf8'),
+      /^install --frozen-lockfile --ignore-scripts --ignore-pnpmfile /,
+    );
+
+    // Each of these is refused BEFORE the install is reached.
+    const refused = [
+      [
+        'a symlinked root node_modules',
+        (dir) => symlinkSync(outside, path.join(dir, 'node_modules')),
+        /refuses a symlinked node_modules/,
+      ],
+      [
+        'a symlinked node_modules in a package, pointing inside',
+        (dir) =>
+          symlinkSync('.', path.join(dir, 'packages', 'sdk', 'node_modules')),
+        /refuses a symlinked node_modules/,
+      ],
+      [
+        'a node_modules the checkout brought with it',
+        (dir) => mkdirSync(path.join(dir, 'packages', 'sdk', 'node_modules')),
+        /brings its own node_modules/,
+      ],
+      [
+        'a package directory that is a link to outside',
+        (dir) => symlinkSync(outside, path.join(dir, 'packages', 'other')),
+        /resolves outside the workspace/,
+      ],
+      [
+        'a link that resolves nowhere',
+        (dir) => symlinkSync('nowhere', path.join(dir, 'dangling')),
+        /does not resolve/,
+      ],
+      [
+        'a workspace glob that climbs out of the root',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-workspace.yaml'),
+            `${WORKSPACE}  - '../outside'\n`,
+          ),
+        /pnpm-workspace\.yaml names a path outside/,
+      ],
+      [
+        'an absolute workspace glob',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-workspace.yaml'),
+            `packages: ['packages/*', "${outside}"]\n`,
+          ),
+        /pnpm-workspace\.yaml names a path outside/,
+      ],
+      [
+        'an escaped workspace glob',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-workspace.yaml'),
+            'packages:\n  - "\\u002e\\u002e/outside"\n',
+          ),
+        /pnpm-workspace\.yaml names a path outside/,
+      ],
+      [
+        'no workspace file',
+        (dir) => rmSync(path.join(dir, 'pnpm-workspace.yaml')),
+        /pnpm-workspace\.yaml is missing/,
+      ],
+      [
+        'a lockfile importer that climbs out of the root',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-lock.yaml'),
+            LOCKFILE.replace('  packages/sdk:', '  ../outside:'),
+          ),
+        /pnpm-lock\.yaml names a project/,
+      ],
+      [
+        'a lockfile importer that climbs out from inside a path',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-lock.yaml'),
+            LOCKFILE.replace('  packages/sdk:', '  packages/../../outside:'),
+          ),
+        /pnpm-lock\.yaml names a project/,
+      ],
+      [
+        'a workspace glob that climbs out from inside a path',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-workspace.yaml'),
+            'packages:\n  - packages/../../outside\n',
+          ),
+        /pnpm-workspace\.yaml names a path outside/,
+      ],
+      [
+        'an absolute lockfile importer',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-lock.yaml'),
+            LOCKFILE.replace('  packages/sdk:', `  '${outside}':`),
+          ),
+        /pnpm-lock\.yaml names a project/,
+      ],
+      [
+        'lockfile importers in flow style',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-lock.yaml'),
+            'importers: {.: {}, ../outside: {}}\n',
+          ),
+        /pnpm-lock\.yaml names a project/,
+      ],
+      [
+        'a lockfile with no importers',
+        (dir) =>
+          writeFileSync(
+            path.join(dir, 'pnpm-lock.yaml'),
+            "lockfileVersion: '9.0'\n",
+          ),
+        /lists no importers/,
+      ],
+    ];
+    for (const [name, setup, message] of refused) {
+      const r = run(setup);
+      assert.notEqual(r.status, 0, `${name}: the step did not fail`);
+      assert.match(r.err, message, name);
+      assert.match(r.err, /^::error::agent-toolchain: /m, name);
+      assert.equal(r.installed, false, `${name}: the install was reached`);
+    }
+    assert.ok(refused.length >= 15, 'expected every refusal to be exercised');
+
+    // AFTER THE INSTALL: something appearing beside the workspace fails the
+    // step, even though nothing above saw it coming.
+    const beside = run(null, { extra: '../sibling' });
+    assert.equal(beside.installed, true);
+    assert.notEqual(beside.status, 0);
+    assert.match(
+      beside.err,
+      /created or removed something beside the workspace/,
+    );
+
+    // Nothing was written to the directory the links pointed at.
+    assert.deepEqual(readdirSync(outside), ['keep']);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test("the toolchain action's pins are this repository's: pnpm, Node, .npmrc", () => {
   const code = codeOf(
     readFileSync(path.join(ACTION_DIR, 'action.yml'), 'utf8'),
   );
   const major = /version: (\d+)\n/.exec(code)[1];
   const ci = codeOf(read(checks.CI_WORKFLOW_PATH));
+
+  // THE INSTALL STEP WAS AUDITED AGAINST PNPM 9, and only 9. That major takes
+  // its settings from `.npmrc` and the command line, which is what the step
+  // controls. A later major also reads settings from `pnpm-workspace.yaml`,
+  // a file the branch controls, so the step's refusals would no longer cover
+  // everything that decides where the install writes. Moving the major means
+  // repeating that audit (see "THE INSTALL STAYS INSIDE THE WORKSPACE" in
+  // the action) and then changing this number with it.
+  assert.equal(
+    major,
+    '9',
+    'the toolchain action installs with a pnpm major its install step was not audited against — ' +
+      're-audit the step (which settings that major reads from files in the working tree) before changing this',
+  );
 
   // The pnpm major is the one every `ci.yml` job installs with.
   const ciPnpm = [
@@ -1648,7 +2004,14 @@ test("the toolchain action's pins are this repository's: pnpm, Node, .npmrc", ()
     read('.npmrc'),
     '.github/actions/agent-toolchain/npmrc is not the root .npmrc — copy it over',
   );
-  assert.ok(!statSync(path.join(ACTION_DIR, 'npmrc')).isSymbolicLink());
+  // `lstat`: `stat` follows the link and could never say so.
+  for (const file of ['action.yml', 'npmrc']) {
+    const st = lstatSync(path.join(ACTION_DIR, file));
+    assert.ok(
+      st.isFile() && !st.isSymbolicLink(),
+      `${file} beside the toolchain action is not a regular file`,
+    );
+  }
   assert.match(
     read('.npmrc'),
     /^@buf:registry=https:\/\/buf\.build\/gen\/npm\/v1$/m,

@@ -31,9 +31,21 @@
 # saved by a run in the default branch's context (`issue_comment`,
 # `workflow_run`) is one `ci.yml` and the npm publish can restore.
 #
+# THE INSTALL STAYS INSIDE THE WORKSPACE. Flags and settings are not the only
+# thing that decides where a package manager writes: the shape of the tree
+# does too. So before installing, the step refuses a tree in which a
+# `node_modules` is a symbolic link, any symbolic link resolves outside the
+# workspace, or the workspace file or the lockfile names a project outside the
+# root — and it checks again afterwards.
+#
+# THIS WAS AUDITED AGAINST PNPM 9, which reads settings from `.npmrc` and the
+# command line only. A later major reads more of them from files the branch
+# controls, so moving the major below means auditing this step again;
+# `repo.test.mjs` fails on any other major to say so.
+#
 # `.github/agent-harness/repo.test.mjs` pins all of this: the action-setup
-# commit, the pnpm major against `ci.yml`, the install flags, no cache, and
-# `npmrc` here against the root `.npmrc`.
+# commit, the pnpm major against `ci.yml`, the install flags, the refusals,
+# no cache, and `npmrc` here against the root `.npmrc`.
 name: Agent toolchain
 description: pnpm and the workspace dependencies an agent job verifies with, installed without running anything from the working tree.
 runs:
@@ -48,31 +60,89 @@ runs:
     - name: Install dependencies (lockfile-exact, no lifecycle scripts)
       shell: bash
       # THE BRANCH'S .npmrc IS NOT READ. The flags below stop scripts and
-      # pnpmfiles, but not PATH settings: a branch `.npmrc` with
-      # `modules-dir=../..` makes the install write a branch-supplied package
-      # outside the workspace — over the `node` a later step runs, with the
-      # credential pool in its environment. So every `.npmrc` the branch
-      # carries is set aside, `main`'s (the `@buf` registry) stands in for
-      # the install, and the location and version settings are pinned on
-      # the command line as well. The branch's files are put back before the
-      # agent runs, so its working tree is what the branch holds.
+      # pnpmfiles, but not PATH settings in a branch `.npmrc`. So every
+      # `.npmrc` the branch carries is set aside, `main`'s (the `@buf`
+      # registry) stands in for the install, and the location and version
+      # settings are pinned on the command line as well. The branch's files
+      # are put back before the agent runs, so its working tree is what the
+      # branch holds.
       #
       # MAIN'S .npmrc IS THE COPY BESIDE THIS FILE (`npmrc`, without the dot,
       # so the sweep below never sets it aside). This action's directory is
       # all a caller checks out from `main` — a sparse checkout into
       # `.trusted-toolchain` — so the root `.npmrc` is not there to read, and
-      # the workspace's own is the branch's. `$GITHUB_ACTION_PATH` is where
-      # the runner loaded this action from, so the copy has the same
-      # provenance as these lines.
+      # the workspace's own is the branch's. The directory is handed to the
+      # script through `env`, from the expression, rather than read from the
+      # runner's variable of the same meaning: this step follows a nested
+      # action, and the expression is evaluated for this action whatever ran
+      # before it.
+      env:
+        ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
-        trusted="$GITHUB_ACTION_PATH/npmrc"
-        if [ ! -f "$trusted" ] || [ -L "$trusted" ]; then
-          echo "::error::the toolchain action's npmrc is missing beside action.yml" >&2
+        refuse() {
+          echo "::error::agent-toolchain: $1" >&2
           exit 1
+        }
+        trusted="$ACTION_PATH/npmrc"
+        if [ ! -f "$trusted" ] || [ -L "$trusted" ]; then
+          refuse "the toolchain action's npmrc is missing beside action.yml"
         fi
+        cd "$GITHUB_WORKSPACE"
+        root="$(pwd -P)"
+        inside() {
+          case "$1" in "$root" | "$root"/*) return 0 ;; *) return 1 ;; esac
+        }
+
+        # BEFORE THE INSTALL: the tree must not be able to lead it outside.
+        # No `node_modules` may be a symbolic link, wherever it points — and
+        # none may exist at all: a fresh checkout has none (the name is
+        # ignored, and nothing tracked carries it), so one that is there was
+        # put there to be installed into.
+        while IFS= read -r -d '' link; do
+          refuse "$link is a symbolic link; the install refuses a symlinked node_modules"
+        done < <(find -P . -path ./.git -prune -o -name node_modules -type l -print0)
+        while IFS= read -r -d '' found; do
+          refuse "$found exists before the install; the install refuses a checkout that brings its own node_modules"
+        done < <(find -P . -path ./.git -prune -o -name node_modules -prune -print0)
+        # Every other symbolic link must resolve, and resolve inside the
+        # workspace and outside its `.git`.
+        while IFS= read -r -d '' link; do
+          # `-e` first: some `realpath`s resolve a link whose target is missing.
+          [ -e "$link" ] || refuse "$link is a symbolic link that does not resolve"
+          target="$(realpath "$link")"
+          inside "$target" || refuse "$link is a symbolic link that resolves outside the workspace"
+          case "$target" in
+            "$root/.git" | "$root/.git"/*) refuse "$link is a symbolic link into the repository's .git" ;;
+          esac
+        done < <(find -P . -path ./.git -prune -o -type l -print0)
+        # The workspace file names projects by glob. None may climb out of the
+        # root or start at the filesystem's; a backslash could spell either.
+        [ -f pnpm-workspace.yaml ] || refuse "pnpm-workspace.yaml is missing at the workspace root"
+        if grep -v '^[[:space:]]*#' pnpm-workspace.yaml | grep -E -q -e '\.\.' -e '\\' -e "(^|[][[:space:]'\",!])/"; then
+          refuse "pnpm-workspace.yaml names a path outside the workspace root: a parent directory, an absolute path or a backslash"
+        fi
+        # The lockfile names the projects it installs for. Each must be the
+        # root or a plain relative path under it.
+        importers="$(awk '
+          /^importers:/ { if ($0 != "importers:") { print "!" $0 } sec = 1; next }
+          /^[^ #]/ { sec = 0 }
+          sec && /^  [^ #]/ {
+            key = substr($0, 3)
+            sub(/:( \{\})?[[:space:]]*$/, "", key)
+            if (key ~ /^'"'"'.*'"'"'$/) key = substr(key, 2, length(key) - 2)
+            if (key !~ /^(\.|[A-Za-z0-9@_][A-Za-z0-9@_.\/-]*)$/ || key ~ /\.\./) { print "!" key } else { print key }
+          }' pnpm-lock.yaml)"
+        [ -n "$importers" ] || refuse "pnpm-lock.yaml lists no importers"
+        while IFS= read -r importer; do
+          case "$importer" in
+            '!'*) refuse "pnpm-lock.yaml names a project that is not a plain path under the workspace root: ${importer#!}" ;;
+          esac
+        done <<< "$importers"
+        outside_before="$(ls -A "$root/..")"
+
         stash=$(mktemp -d)
-        find . -name .npmrc -not -path '*/node_modules/*' -print0 |
+        find -P . -name .npmrc -not -path '*/node_modules/*' -prune -print0 |
           while IFS= read -r -d '' f; do
             mkdir -p "$stash/$(dirname "$f")"
             mv "$f" "$stash/$f"
@@ -83,5 +153,20 @@ runs:
           --config.modules-dir=node_modules \
           --config.virtual-store-dir=node_modules/.pnpm
         rm .npmrc
-        (cd "$stash" && find . -name .npmrc -print0) |
+        (cd "$stash" && find -P . -name .npmrc -prune -print0) |
           while IFS= read -r -d '' f; do mv "$stash/$f" "$f"; done
+
+        # AFTER THE INSTALL: every project it installed for, and what it
+        # wrote there, is still inside, and nothing appeared beside the
+        # workspace. The checks above are what prevent it; this is what says
+        # so if one of them is ever wrong.
+        while IFS= read -r importer; do
+          for dir in "$importer" "$importer/node_modules"; do
+            [ -e "$dir" ] || continue
+            [ ! -L "$dir" ] || refuse "$dir is a symbolic link after the install"
+            inside "$(realpath "$dir")" || refuse "$dir resolves outside the workspace after the install"
+          done
+        done <<< "$importers"
+        if [ "$(ls -A "$root/..")" != "$outside_before" ]; then
+          refuse "the install created or removed something beside the workspace"
+        fi

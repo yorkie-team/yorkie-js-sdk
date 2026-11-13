@@ -28,7 +28,7 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 | `coverage-note.md` | What `ci.yml`'s lanes prove and do not, told to every lens |
 | `repo.test.mjs` | Grades the two files above, and the toolchain action, against this repository (`npm run test:repo` in `scripts/agent`). The reason each configured entry exists is written there, beside the assertion that pins it |
 | `repo.snapshot.json` | Every exported value and rendered prompt, recorded. A change to a gate, a prompt or a comment shows its before and after in this file's diff |
-| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache |
+| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. The install stays inside the workspace: before it runs, the step refuses a tree with a `node_modules` already in it, a symbolic link that resolves outside, or a workspace file or lockfile that names a project outside the root, and it checks again afterwards. Audited against pnpm 9 only |
 | `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`. An agent job checks out only the action's directory from `main`, so the trusted `.npmrc` the install uses has to sit beside the action. `repo.test.mjs` fails when the two differ |
 
 Outside the harness, and kept across a sync: `npm-publish.yml` and
