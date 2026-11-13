@@ -1,6 +1,6 @@
 ---
 created: 2026-09-25
-updated: 2026-10-09
+updated: 2026-11-14
 tags: [ai-agent, ci, hooks]
 ---
 
@@ -105,11 +105,41 @@ record.
 | 3 | `fix` on a PR, bare-mention reply | as Phase 2 |
 | I | `fix` on an issue (issue → draft PR) | App `Administration: read`; `main` requiring last-push approval |
 
-The workflows and `scripts/agent/` are vendored from the server repository,
-whose own copy came from wafflebase (a pnpm monorepo). The parts that carry a
-repository's shape — file classification, what CI already proves, CI-defining
-paths, lens scopes, fixer prompts — are rewritten here; the rest is copied
-with its source commit recorded.
+The workflows and `scripts/agent/` are the server repository's, whose own
+copy came from wafflebase (a pnpm monorepo). Until 2026-11 they were vendored
+and the parts that carry a repository's shape — file classification, what CI
+already proves, CI-defining paths, lens scopes, fixer prompts, the toolchain
+setup — were rewritten here by hand, which every sync then had to redo.
+
+Since then the two are the same bytes as the server repository's, and what
+this repository owns sits beside them:
+
+- `.github/agent-harness/config.json` and `coverage-note.md` hold every
+  value that differs here, read only through `scripts/agent/config.mjs`. A
+  missing or unknown key fails on load.
+- `.github/actions/agent-toolchain` is the one per-repository step the agent
+  jobs run: pnpm, and a lockfile-exact install with lifecycle scripts and
+  pnpmfiles off and the branch's `.npmrc` set aside. A fix job loads it from
+  `main`, not from the branch it is about to hand to an agent, and checks
+  out nothing else from `main` for it. So main's `.npmrc` is a copy beside
+  the action rather than the root file.
+- `.github/agent-harness/repo.test.mjs` grades both against this repository:
+  the configured paths against tracked files, the coverage note against
+  `ci.yml`, the prompts' commands against `package.json`, the action's flags
+  and pins, the `.npmrc` copy against the root file. `repo.snapshot.json`
+  records every exported value and rendered prompt, so a change to a gate or
+  a prompt shows its before and after in review.
+
+A sync is an overwrite of the shared half; `.github/agent-harness/README.md`
+has the procedure and the source commit. Something the shared half cannot
+express for this repository is fixed upstream, not patched here.
+
+The 2026-11 sync also brought what the server repository had added since: a
+scope guard on fix rounds (a fixer may change the PR's original files, tests
+and docs, and nothing else), a causation check that moves a finding on code
+the PR never touched into a follow-up issue, an out-of-run sweep that retries
+usage-window pages and nudges a PR stuck in `agent:reviewing`, and a carry
+across a force-push.
 
 ### The review loop converges on what it already judged
 
@@ -156,7 +186,9 @@ for the same question, and it keeps what it learns about failures.
 | Existing clones keep the Husky `core.hooksPath` and silently lose hooks | `prepare` runs `setup.sh --check`, which says so on every `pnpm install` |
 | `verify:fast` gets slow and people bypass it | Measured at ~30s; `pre-commit` stays lint-only |
 | A generated file is edited through Bash, past the Edit/Write guard | The next regeneration reverts it; review catches the rest |
-| Three vendored copies of `scripts/agent/` drift | Record the source commit per sync and diff before the next one |
+| The copies of `scripts/agent/` in three repositories drift | They are byte-identical to one upstream commit, recorded in `.github/agent-harness/README.md`; a sync overwrites them, and a local difference is a bug |
+| The copy of `.npmrc` beside the toolchain action goes stale | `repo.test.mjs` compares the two; `agent-scripts.yml` runs it on a change to the action and weekly, since the root file is not among its path filters |
+| A per-repository file the coverage note or a prompt describes changes, and `agent-scripts.yml` does not start | The weekly run. Those files are CI-defining, so the PR that changes one is never promoted automatically |
 | A reviewer commits from a checkout of someone else's branch and runs its code | Documented in `CONTRIBUTING.md`: read the diff first or use `--no-verify`; the same exposure as running that branch's tests |
 | Clones set up by the snapshot install keep running the stale copy, guard included | `prepare` runs `setup.sh --check`, which names the old copy and the guard on every `pnpm install`; re-running `setup.sh` repoints `core.hooksPath` and deletes the copy |
 | A fork PR rewrites `.githooks/` and a reviewer commits in its checkout | Accepted: the hooks already ran the branch's lint configs and tests. Read a fork's diff before committing in it, or use `--no-verify` |
@@ -176,7 +208,10 @@ for the same question, and it keeps what it learns about failures.
 | Licence scan covers `packages/*/{src,test}` and `scripts/` | `examples/` are sample apps copied out; build configs carry no shipped code |
 | Generated `*_pb.ts` stay in the licence scan | `buf generate` carries the header; a plugin change that dropped it is worth seeing |
 | The `.proto` copies are guarded like generated files | The source of truth is the server's `api/`; an edit made only here diverges |
-| Reuse the server's App rather than create one | Same bot login, so the vendored trust list needs no change |
+| Reuse the server's App rather than create one | Same bot login, so `repo.botLogins` and `repo.appLogins` are the same in both repositories' configuration |
+| Main's `.npmrc` for the agent install is a copy beside the toolchain action (2026-11) | The fix jobs check out only the action's directory from `main`, so the root file is not there to read, and reading `origin/main` from the workspace's git objects would tie the action to each caller's fetch depth |
+| `repo.test.mjs` follows this repository's lint rules, `scripts/agent/**` does not | The first is this repository's file and the root ESLint checks it; the second is overwritten on every sync, so it stays excluded from ESLint, lint-staged and the licence scan |
+| `fixGuard.counterpartRepo` is `yorkie-team/yorkie#`, not `yorkie` (2026-11) | The guard looks for it as a substring of the PR body, and the bare name is in this repository's own name and npm scope |
 | The carry key is `patch-id --verbatim`, not `--stable` | `--stable` discards whitespace, so an indentation-only change that alters behaviour would carry an approval |
 | Only an approval carries | Carrying a blocking verdict to a new head would dispatch a fixer on findings read against another commit |
 | Credentials are probed before the round, not retried after | Nothing may run after the agent in its own job, and a probe spends no round at all |
@@ -192,7 +227,7 @@ for the same question, and it keeps what it learns about failures.
 | `postinstall: git config core.hooksPath .githooks` (wafflebase) | Rewrites shared config from any `pnpm install`, including scratch worktrees; the explicit `setup.sh` step is needed for the Claude Code hooks regardless |
 | A tracked `.claude/settings.json` | Claude Code runs what it names straight out of a checkout |
 | `verify:fast` with integration against docker | Makes every push depend on docker running; CI already covers it |
-| Share `scripts/agent/` as a package now | Two copies exist; extract once the third shows what actually varies |
+| Publish `scripts/agent/` as an npm package | The workflows are files GitHub reads from this repository and cannot be imported, so a copy stays either way. What varied was moved into `.github/agent-harness` instead (2026-11), which makes the copy an overwrite |
 | Refuse to carry when main changed a file the PR touches | #1426's own merge (#1424) touched two of the PR's files, so the rule blocked the carry it was built for; CI covers the same risk |
 | Refund fix rounds lost to infra failures | The infra page latches the PR and only a rerun lifts it, which restarts the budget anyway; the refund could never change a decision |
 | Keep earlier demotions across rounds (by finding identity) | On #1426 the finding that flipped blocking was raised against different files (`client.ts`, `change.ts`) from the one demoted (`converter.ts`); identity matching would not have held it, and wider matching drops real findings off the gate. Carry removes the re-review that caused the flip |
@@ -203,3 +238,4 @@ for the same question, and it keeps what it learns about failures.
 - `docs/tasks/active/20260925-agent-pipeline-port-todo.md`
 - `docs/tasks/archive/2026/10/20261001-harness-convergence-todo.md`
 - `docs/tasks/active/20261009-remove-trusted-tree-guard-todo.md`
+- `docs/tasks/active/20261114-harness-config-todo.md`
