@@ -47,12 +47,25 @@ jobs:
       contents: read
     outputs:
       command: ${{ steps.route.outputs.command }}
+      # This repository's values for the jobs below, which need them before
+      # they have a trusted checkout to read them from. Read here, from main,
+      # by scripts/agent/workflow-values.mjs.
+      bot_logins: ${{ steps.cfg.outputs.bot_logins }}
+      diff_pathspecs: ${{ steps.cfg.outputs.diff_pathspecs }}
     steps:
       - uses: actions/checkout@v4
         with:
-          sparse-checkout: scripts/agent/command.mjs
+          ref: main
+          # The scripts and the configuration they read, from the same ref: a
+          # script resolves `.github/agent-harness` beside its own checkout.
+          sparse-checkout: |
+            scripts/agent
+            .github/agent-harness
           sparse-checkout-cone-mode: false
           persist-credentials: false
+      - name: Read the harness configuration
+        id: cfg
+        run: node scripts/agent/workflow-values.mjs bot_logins diff_pathspecs >> "$GITHUB_OUTPUT"
       - name: Route command
         id: route
         env:
@@ -90,6 +103,8 @@ jobs:
       - name: Authorize and throttle
         id: gate
         uses: actions/github-script@v7
+        env:
+          BOT_LOGINS: ${{ needs.route.outputs.bot_logins }}
         with:
           retries: 3
           script: |
@@ -105,9 +120,9 @@ jobs:
               const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: actor });
               trusted = ['admin', 'maintain', 'write'].includes(data.permission);
             } catch { /* not a collaborator */ }
-            // WRITE ACCESS ONLY — the PR author is not enough. Upstream let the
-            // author run this on their own PR, which on a public repository is
-            // any GitHub account: open a fork PR, comment, and a model runs
+            // WRITE ACCESS ONLY — the PR author is not enough. This gate used
+            // to let the author run it on their own PR, which on a public
+            // repository is any GitHub account: open a fork PR, comment, and a model runs
             // unattended over attacker-chosen text in a process whose
             // environment holds the Claude credential. A maintainer can still
             // run it on a fork PR, having chosen to.
@@ -123,8 +138,10 @@ jobs:
             // test lets ANY account permanently disable the verb on a commit —
             // silently, with no comment and no red X to show for it. Trust is an
             // allow-listed bot login (GitHub reserves the `[bot]` suffix for
-            // Apps) or a human with write-level association.
-            const THROTTLE_AUTHORS = ['github-actions[bot]', 'yorkie-team-agent[bot]'];
+            // Apps) or a human with write-level association. The logins are
+            // `repo.botLogins`, read by the `route` job; `JSON.parse` throws on
+            // a value that never arrived.
+            const THROTTLE_AUTHORS = JSON.parse(process.env.BOT_LOGINS);
             const TRUSTED_ASSOC = ['OWNER', 'MEMBER', 'COLLABORATOR'];
             const oursAndMarked = (c) => {
               if (!(c.body || '').includes(marker)) return false;
@@ -296,6 +313,8 @@ jobs:
       # KEEP IN SYNC with the identical step in agent-review-panel.yml.
       - name: Compute diff + changed files (data for the reviewers)
         id: diff
+        env:
+          DIFF_PATHSPECS: ${{ needs.route.outputs.diff_pathspecs }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
@@ -307,17 +326,17 @@ jobs:
           # for why the changed-file list must never shrink.
           git diff --name-only origin/main...HEAD > /tmp/changed.txt
           # Generated artefacts omitted from the diff BODY only — the changed-FILE
-          # list above still carries them, so a lens can still see that codegen
-          # moved. `packages/sdk/src/api/yorkie/v1/*_pb.ts` is `buf generate`
-          # output and `packages/schema/antlr/` (bar the `.g4` grammar) is ANTLR
-          # output, so a lens reading them spends its turns on machine output.
-          # No CI lane regenerates them here; see the twin step for what that
-          # means. The `.proto` copies and the grammar are NEVER excluded.
-          git diff origin/main...HEAD -- . \
-            ':(exclude)packages/sdk/src/api/yorkie/v1/*_pb.ts' \
-            ':(exclude)packages/schema/antlr/*.ts' \
-            ':(exclude)packages/schema/antlr/*.interp' \
-            ':(exclude)packages/schema/antlr/*.tokens' > /tmp/pr.diff
+          # list above still carries them, so a lens can still see that generated
+          # code moved. Which paths is this repository's `review.diffExcludes`,
+          # handed over by the `route` job as pathspecs, one per line: `.` and
+          # then an `:(exclude)` each. Never empty, so empty means the value did
+          # not arrive. See the twin step in agent-review-panel.yml.
+          if [ -z "$DIFF_PATHSPECS" ]; then
+            echo "::error::the diff pathspecs were not read from the harness configuration" >&2
+            exit 1
+          fi
+          mapfile -t PATHSPECS <<< "$DIFF_PATHSPECS"
+          git diff origin/main...HEAD -- "${PATHSPECS[@]}" > /tmp/pr.diff
           # Regeneration-only change → filtered diff is empty and the panel
           # fails closed. Fall back to the unfiltered diff.
           if [ ! -s /tmp/pr.diff ]; then
@@ -364,7 +383,11 @@ jobs:
         with:
           ref: main
           path: .trusted
-          sparse-checkout: scripts/agent
+          # The scripts and the configuration they read, from the same ref: a
+          # script resolves `.github/agent-harness` beside its own checkout.
+          sparse-checkout: |
+            scripts/agent
+            .github/agent-harness
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
@@ -728,13 +751,23 @@ jobs:
             let region = '';
             try { region = fs.readFileSync('/tmp/review-comment.md', 'utf8').trim(); } catch { /* fall back below */ }
             if (!region) region = `${header}\n\n${bodies.join('\n\n')}`;
-            let body = `${marker}\n${region}${tally}${promptSection}${note}`;
+            // NO MARKER when any lens hit an API/quota outage (`infraError`), for
+            // the same reason as the no-panel path above: that lens never
+            // reviewed, so the marker would swallow every `@claude review` on
+            // this commit until a new push. #2109 sat behind a
+            // POOL_EXHAUSTED panel this way.
+            const infra = panel.some((p) => p && p.infraError);
+            const retry = infra
+              ? '\n\n⚠️ Some lenses could not run (API/quota error). Comment `@claude review` to try again on this commit.'
+              : '';
+            const lead = infra ? '' : `${marker}\n`;
+            let body = `${lead}${region}${tally}${promptSection}${retry}${note}`;
             // GitHub comment hard limit is 65536 chars; trim from the tail if huge.
             // `tally` + `promptSection` are re-appended after the cut, like `note`:
             // a body long enough to truncate is one with many findings, which is
             // exactly when "were these verified?" and the fix prompt matter most.
             // (The triage region self-truncates to a budget, so this is a backstop.)
-            if (body.length > 65000) body = body.slice(0, 64900) + '\n\n… _(truncated)_' + tally + promptSection + note;
+            if (body.length > 65000) body = body.slice(0, 64900) + '\n\n… _(truncated)_' + tally + promptSection + retry + note;
             await publish(body);
 
       # Record this review's cost/reliability into the PR metric ledger and post

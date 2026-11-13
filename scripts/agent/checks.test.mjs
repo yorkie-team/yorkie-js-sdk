@@ -1,3 +1,4 @@
+import "./fixtures/use-fixture-config.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -5,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkPassed, allRequiredPassed, ciRunDecision, ciConclusion, ciRunToRerun, ciRunToAwait, definesCi, CHECK_PRODUCER_APP_SLUG, CI_DEFINING_PATHS, CI_WORKFLOW_PATH, CI_WORKFLOW_FILE, DEFAULT_REVIEW_CHECKS } from "./checks.mjs";
 import { hasWorkflow, skipWithout } from "./workflow-presence.mjs";
+import { get } from "./config.mjs";
 
 // `DEFAULT_REVIEW_CHECKS` is the ONE lens list in the repo that does not derive
 // itself from lenses.json, so it is the one that silently rots when a lens is
@@ -589,7 +591,9 @@ test("each verb that needs the App answers the commenter when it is missing", ()
     assert.match(text, /id: app\b/, `${file}: no App-presence check`);
     assert.match(
       text,
-      /needs the `yorkie-team-agent` GitHub App/,
+      // The App's name is the repository's (`repo.appSlug`), read from the
+      // configuration and never written into the workflow.
+      /needs the `' \+ APP_SLUG \+ '` GitHub App/,
       `${file}: must tell the commenter the App is missing, not just skip`,
     );
     // ...and it must come after the trust gate, so an account without write
@@ -658,6 +662,10 @@ test("every App-token mint is pinned and narrowed, and none can push workflows",
   assert.ok(mints >= 4, `expected the App-token mints to be found, saw ${mints}`);
 });
 
+// `workflow-values.mjs` is here because route and gate jobs read the
+// repository's configuration with it, on the runner's own Node.
+const BUILTIN_ONLY_SCRIPTS = ["command.mjs", "checks.mjs", "loop-status.mjs", "workflow-values.mjs"];
+
 test("every job that runs a pipeline script pins its Node", () => {
   // REGRESSION GUARD, for a mistake made twice in one branch.
   //
@@ -679,7 +687,7 @@ test("every job that runs a pipeline script pins its Node", () => {
   // arms carry no setup step. The allow-list below is checked against the real
   // module graph by the test after this one, so a script that grows a dependency
   // fails there rather than silently widening this exemption.
-  const BUILTIN_ONLY = new Set(["command.mjs", "checks.mjs", "loop-status.mjs"]);
+  const BUILTIN_ONLY = new Set(BUILTIN_ONLY_SCRIPTS);
   const HERE = path.dirname(fileURLToPath(import.meta.url));
   const dir = path.join(HERE, "..", "..", ".github", "workflows");
   const offenders = [];
@@ -732,7 +740,7 @@ test("the scripts exempted from the Node pin really import only builtins", () =>
   // — a module-not-found in a job whose whole purpose is to route or to page.
   const HERE = path.dirname(fileURLToPath(import.meta.url));
   const IMPORT = /^\s*import\s[^;]*?from\s+["']([^"']+)["']/gm;
-  for (const entry of ["command.mjs", "checks.mjs", "loop-status.mjs"]) {
+  for (const entry of BUILTIN_ONLY_SCRIPTS) {
     const seen = new Set();
     const queue = [entry];
     while (queue.length) {
@@ -842,122 +850,47 @@ test("agent-fix reports cost and outcome even when the agent step fails", () => 
 });
 
 test("no token-bearing job sets itself up by running the branch's build files", () => {
-  // Every one of these jobs checks out the PR branch (UNTRUSTED) with an App
-  // token already in the environment. A setup step that executes
-  // branch-authored build instructions therefore hands a credential to code the
-  // branch wrote. A plain `pnpm install` is exactly that shape: the lifecycle
-  // scripts of every workspace manifest (the SDK's `prepare` runs a full build)
-  // and of every dependency the branch's lockfile names, plus a `.pnpmfile.cjs`
-  // the branch can add. Hence the three flags pinned below, and a pnpm version
-  // pinned in the workflow rather than read from a `packageManager` field the
-  // branch controls. And the flags do not reach PATH settings in a branch
-  // `.npmrc`, so that file is not read at all — see the install step.
+  // Every one of these jobs has an App token in the environment while it sets
+  // up, and four of the five have already checked out the PR branch
+  // (UNTRUSTED). A setup step that executes branch-authored build instructions
+  // therefore hands a credential to code the branch wrote — a `make tools`, a
+  // package manager's install scripts.
   //
-  // The server repository pins the Go-shaped version of this rule (a linter
-  // installed from a version in the workflow, never `make tools`); the
-  // pipeline it was ported from pinned this pnpm shape. Scoped to SETUP: the
-  // agent itself runs branch code by design, and holds the token by design,
-  // because it has to push. What must not happen is the job reaching that
-  // point having already run the branch's build files for its own convenience.
-  const HERE = path.dirname(fileURLToPath(import.meta.url));
-  const dir = path.join(HERE, "..", "..", ".github", "workflows");
-  const offenders = [];
-  let installs = 0;
-  for (const file of readdirSync(dir).filter((f) => f.startsWith("agent-") && f.endsWith(".yml"))) {
-    const wf = readFileSync(path.join(dir, file), "utf8");
-    // Prose does not run: comments state the rule, and a prompt may name
-    // `pnpm verify:fast` as an instruction to the agent.
-    // `//` too: the JavaScript inside github-script steps has its own prose.
-    const code = wf.split("\n").filter((l) => !/^\s*(#|\/\/)/.test(l));
-    for (const line of code) {
-      // A one-line `run:` that invokes pnpm or npm directly.
-      const m = /^\s*(?:- )?run:\s*(pnpm|npm)\s+(\S+)(.*)$/.exec(line);
-      if (!m) continue;
-      const [, pm, verb, rest] = m;
-      if (pm === "pnpm" && verb !== "install") {
-        offenders.push(`${file}: runs \`pnpm ${verb}\` as a setup step — a branch-defined script`);
-      } else if (pm === "npm" && ["ci", "install", "i"].includes(verb) && !rest.split(/\s+/).includes("--ignore-scripts")) {
-        offenders.push(`${file}: \`npm ${verb}\` without --ignore-scripts`);
-      }
-    }
-    // Every `pnpm install`, one-line or in a `run: |` block, with its
-    // backslash continuations joined.
-    const joined = code.join("\n").replace(/\\\n\s*/g, " ");
-    for (const m of joined.matchAll(/pnpm install([^\n]*)/g)) {
-      installs++;
-      const args = m[1].split(/\s+/);
-      for (const flag of [
-        "--frozen-lockfile",
-        "--ignore-scripts",
-        "--ignore-pnpmfile",
-        // Location and version settings are pinned on the command line, so a
-        // branch config cannot move the install outside the workspace or
-        // switch the pnpm that runs it.
-        "--config.manage-package-manager-versions=false",
-        "--config.modules-dir=node_modules",
-        "--config.virtual-store-dir=node_modules/.pnpm",
-      ]) {
-        if (!args.includes(flag)) offenders.push(`${file}: \`pnpm install\` without ${flag}`);
-      }
-    }
-    // The flags stop scripts, not PATH settings: a branch `.npmrc` with
-    // `modules-dir=../..` writes a branch package over the `node` a later step
-    // runs. So the branch's .npmrc files are set aside and main's stands in.
-    if (/pnpm install/.test(joined)) {
-      if (!/find \. -name \.npmrc/.test(joined) || !/git show refs\/remotes\/origin\/main:\.npmrc > \.npmrc/.test(joined)) {
-        offenders.push(`${file}: installs with the branch's .npmrc instead of main's`);
-      }
-      if (joined.indexOf("git show refs/remotes/origin/main:.npmrc") > joined.indexOf("pnpm install")) {
-        offenders.push(`${file}: takes main's .npmrc only after installing`);
-      }
-    }
-    // Every pnpm setup pins the version here, and the action itself by SHA: it
-    // runs in a job whose `.git/config` already holds the App token.
-    for (const m of wf.matchAll(/uses: pnpm\/action-setup@(\S+)[^\n]*\n((?: {8}.*\n)*)/g)) {
-      if (!/^[0-9a-f]{40}$/.test(m[1])) offenders.push(`${file}: pnpm/action-setup@${m[1]} is not pinned to a commit`);
-      if (!/^ {10}version: \d+/m.test(m[2])) offenders.push(`${file}: pnpm/action-setup reads its version from the branch`);
-    }
-    // And no install step anywhere restores or saves a pnpm cache.
-    if (/cache: ['"]?pnpm/.test(code.join("\n"))) offenders.push(`${file}: caches the pnpm store`);
+  // So the setup is ONE step, the repository's `agent-toolchain` action, whose
+  // file pins what it installs; `config-wiring.test.mjs` checks the action is
+  // main's copy and not the branch's. What this asserts is that nothing sits
+  // beside it: no language setup action and no install command written into
+  // the workflow, where it would be this repository's toolchain in a file that
+  // is meant to be every repository's. Scoped to SETUP: the agent itself runs
+  // branch code by design, and holds the token by design, because it has to
+  // push.
+  const SETUP_ACTION = /uses:\s*(?:actions\/setup-(?!node@)[\w-]+|pnpm\/action-setup|oven-sh\/setup-bun|ruby\/setup-ruby|dtolnay\/rust-toolchain)@/;
+  const INSTALL = /^\s*(?:run:\s*)?(?:make\s+tools|go\s+install|pnpm\s+install|yarn(?:\s+install)?|npm\s+install|pip\s+install|cargo\s+install)\b/m;
+  for (const name of ["agent-fix.yml", "agent-implement.yml", "agent-iterate-ci.yml", "agent-review-panel.yml", "agent-review-reply.yml"]) {
+    const code = WF(name).split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+    assert.match(code, /uses: \.\/(?:\.trusted-toolchain\/)?\.github\/actions\/agent-toolchain\n/, `${name}: no toolchain action`);
+    assert.ok(!SETUP_ACTION.test(code), `${name}: sets a language toolchain up in the workflow instead of in the agent-toolchain action`);
+    assert.ok(!INSTALL.test(code), `${name}: installs tools or dependencies in the workflow instead of in the agent-toolchain action`);
   }
-  // Five jobs verify with pnpm: the three fixers, the reply, and implement.
-  assert.ok(installs >= 5, `expected the fixer installs to be found, saw ${installs} — this guard would be vacuous`);
-  assert.deepEqual(offenders, [], `token-bearing setup runs branch-authored code:\n  ${offenders.join("\n  ")}`);
 });
 
 test("every fixer prompt runs the same verification target", () => {
-  // THE LANE THE AUTONOMOUS ARM VERIFIES WITH, named once. `pnpm verify:fast`
-  // is lint, the licence check, the doc links, the script tests, the SDK build
-  // and every unit suite; a prompt that spelled out a subset of it (lint and a
-  // test run, say) would let a fixer push a file with no Apache header, red
-  // `ci.yml`, and buy the PR an extra round plus a CI-fix round for a line it
-  // could have added before pushing. Naming the target means a gate added to
-  // `verify:fast` reaches every prompt at once.
+  // THE LANE THE AUTONOMOUS ARM VERIFIES WITH, named once: `fixer.verifyCommand`
+  // in the repository's configuration.
   //
-  // The integration suites need a Yorkie server and MongoDB these jobs do not
-  // stand up, so every prompt must also say not to run them: an agent that
-  // tries spends its wall on connection timeouts.
+  // The prompts used to spell out a lint command and a test command, which was
+  // the repository's verify target MINUS one of its checks — so a fixer could
+  // push something the missing check refuses, red CI, and buy the PR a whole
+  // extra round for a line it could have added before pushing. Naming the one
+  // target means a lane added to it reaches every prompt at once.
   for (const name of ["agent-fix.yml", "agent-iterate-ci.yml", "agent-review-panel.yml"]) {
     const wf = WF(name);
-    assert.match(wf, /Run `pnpm verify:fast` ONCE at the end/,
-      `${name}: the fixer prompt must call \`pnpm verify:fast\`, not a hand-written subset of it`);
-    assert.ok(
-      !/- Run `pnpm lint(?::check)?` and /.test(wf),
-      `${name}: the prompt spells out a subset, so the licence check is not in the fixer's lane`,
-    );
-    assert.match(wf, /Do NOT run\s+the integration suites\s+\(`pnpm sdk test`,\s+`pnpm prosemirror test`\)/,
-      `${name}: the prompt must keep the fixer off the server-backed suites`);
-    // The target only runs where pnpm and the workspace's dependencies do.
+    assert.match(wf, /Run `\$\{\{ steps\.cfg\.outputs\.verify_command \}\}` ONCE at the end/,
+      `${name}: the fixer prompt must name the configured verify command, not a hand-written subset of it`);
+    // A verify target may shell out to Node (a licence check, a link check) and
+    // skip that half quietly where Node is absent — so the job pins one.
     assert.match(wf, /uses: actions\/setup-node@v4/,
-      `${name}: without a Node setup, \`pnpm verify:fast\` cannot run and the prompt lies`);
-    assert.match(wf, /pnpm install --frozen-lockfile/,
-      `${name}: without an install, \`pnpm verify:fast\` cannot run and the prompt lies`);
-  }
-  // The implementer and the reply agent verify with the same target.
-  for (const name of ["agent-implement.yml", "agent-review-reply.yml"]) {
-    const wf = WF(name);
-    assert.match(wf, /`pnpm verify:fast`/, `${name}: the prompt must name \`pnpm verify:fast\``);
-    assert.match(wf, /pnpm install --frozen-lockfile/, `${name}: \`pnpm verify:fast\` needs the install`);
+      `${name}: without a Node setup, the parts of the verify command that need Node are skipped and the prompt lies`);
   }
 });
 
@@ -1064,16 +997,16 @@ test("agent-fix always answers the commenter, even when the gate step itself fai
   // The carve-out said: the gate asks whether agent-iterate-ci.yml's fixer could
   // own this branch, that arm fires only on a `workflow_run` of CI, so no run
   // means it cannot have started — and refusing would make `@claude fix`
-  // unusable on a docs-only PR, which produced no CI run at all (on the server
-  // repository, whose `ci.yml` then filtered markdown on its trigger). Follow the two
+  // unusable on a docs-only PR, which produced no CI run at all. Follow the two
   // conditions instead of the prose and the branch never executed: the step is
   // `if: steps.eligible.outputs.eligible == 'true'`, and `decideEligibility`
   // returns `eligible: false` on `total === 0` — no lens check runs on the head.
   // Only the panel writes those, and only a CI run starts the panel. No CI run
   // therefore meant no verdict, refused one gate earlier, every time.
   //
-  // `ci.yml` does not filter the `pull_request` trigger by path (see the guard
-  // below), so a docs-only PR produces a run and the case is gone. What is left in this branch is an invisible run —
+  // `ci.yml` now filters documentation on its `build` JOB rather than on the
+  // `pull_request` trigger (see the guard below), so a docs-only PR produces a
+  // run and the case is gone. What is left in this branch is an invisible run —
   // deleted, or past retention — which is the CI conclusion being unreadable,
   // and this gate refuses every unknown.
   assert.match(gate, /if \(!runs\.length\)/, "the no-run case must be handled explicitly");
@@ -1084,68 +1017,6 @@ test("agent-fix always answers the commenter, even when the gate step itself fai
   assert.match(refusal.slice(0, 2600), /the CI-fix arm owns that state/, "...and the CI-red refusal must say which arm has the branch");
   assert.match(refusal.slice(0, 2600), /no CI run for this commit is visible/,
     "...and the refusal must name the third cause, or an absent run reads as a stuck CI");
-});
-
-test("ci.yml files a run for every PR, so a docs-only PR reaches the pipeline", () => {
-  // THE PROPERTY THE WHOLE AUTONOMOUS ARM RESTS ON, and it is about the run
-  // EXISTING, not about what runs inside it.
-  //
-  // `agent-review-panel.yml` and `agent-iterate-ci.yml` both trigger on
-  // `workflow_run` of `ci.yml`. A workflow skipped by a trigger-level
-  // `paths-ignore` files NO RUN, so there is no event, so neither fires — and a
-  // PR confined to markdown sat outside the loop entirely: `@claude loop`
-  // labelled it and nothing happened, `mark-ready.mjs`'s gate could never go
-  // green, and `@claude fix`'s docs-only carve-out above was written for a state
-  // `fix-eligible.mjs` had already refused. The server repository moved its
-  // filter onto its `build` JOB, which keeps the cost saving and gives the
-  // pipeline its event back; this repository's `ci.yml` has no path filter at
-  // all, which satisfies the same property more simply.
-  //
-  // Asserted here rather than left to review because it is a ONE-LINE
-  // regression: re-adding `paths-ignore:` under `pull_request` restores every
-  // symptom above and changes nothing a reviewer of that diff would see run.
-  const HERE = path.dirname(fileURLToPath(import.meta.url));
-  const yml = readFileSync(path.join(HERE, "..", "..", CI_WORKFLOW_PATH), "utf8");
-
-  // To the next TOP-LEVEL key after `on:`, whatever it is: this ci.yml has no
-  // `env:` block, and slicing to a named key that is absent runs to the end of
-  // the file.
-  const onStart = yml.indexOf("\non:");
-  const onEnd = yml.slice(onStart + 1).search(/\n[a-z_-]+:/);
-  const on = yml.slice(onStart, onEnd < 0 ? yml.length : onStart + 1 + onEnd);
-  const pr = on.slice(on.indexOf("  pull_request:"));
-  assert.ok(pr.startsWith("  pull_request:"), "ci.yml must still trigger on pull_request");
-  assert.ok(
-    !/^ {4}paths(-ignore)?:/m.test(pr.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n")),
-    "ci.yml must not filter `pull_request` at the workflow level — a filtered-out PR files no run, "
-    + "and the review panel and the CI-fix arm both trigger on one",
-  );
-
-  // ...and any JOB-level filter must keep failing toward RUNNING. The server
-  // repository's has `**` as its only positive pattern, so a path nothing
-  // mentions still builds; the rest are negations. A positive list would
-  // silently skip CI on any new directory, which is the failure this shape
-  // exists to make impossible. This repository has no such filter today — every
-  // job runs on every PR — so the check below applies the moment one is added.
-  if (/dorny\/paths-filter/.test(yml)) {
-    const step = yml.slice(yml.indexOf("id: code-changed"));
-    assert.ok(step.length < yml.length, "a paths-filter step exists but not as `id: code-changed`");
-    const filters = step.slice(step.indexOf("build:"), step.indexOf("\n\n"));
-    const patterns = [...filters.matchAll(/^ {14}- '(.+)'$/gm)].map((m) => m[1]);
-    assert.ok(patterns.length >= 2, "could not read the build filter's patterns from ci.yml");
-    assert.equal(patterns[0], "**", "the build filter's only positive pattern must be `**`");
-    for (const p of patterns.slice(1)) {
-      assert.ok(p.startsWith("!"), `the build filter must be \`**\` plus negations only; found '${p}'`);
-    }
-    // Without `every`, dorny/paths-filter ORs the patterns per file: a lone
-    // `README.md` matches `**` and the filter is true, so the negations do
-    // nothing and the step is a no-op that looks like a filter.
-    assert.match(step.slice(0, 400), /predicate-quantifier: every/,
-      "the build filter needs `predicate-quantifier: every`, or its negations are inert");
-  } else {
-    // No filter: then no job may be skipped by path some other way either.
-    assert.ok(!/^\s+paths(-ignore)?:/m.test(yml), "ci.yml filters by path without dorny/paths-filter");
-  }
 });
 
 test("CI_WORKFLOW_PATH names a workflow file that actually exists", () => {
@@ -1164,59 +1035,49 @@ test("CI_WORKFLOW_PATH names a workflow file that actually exists", () => {
 
 
 
-test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
-  // Gate 1b refuses a PR that supplies any part of the CI definition.
-  //
-  // NO SECOND LIST TO MIRROR HERE, and that is a fact about this repository
-  // rather than an omission. Upstream asserts this list is a superset of its
-  // `harness.config.json` `ciConfig`, which exists because a changed path there
-  // can SHRINK a CI run — so a PR editing it could grade its own homework. This
-  // repository's `ci.yml` has no path filter at all, and `definesCi` refuses a
-  // PR that edits `ci.yml`, so a branch cannot add one to exempt its own code.
-  // The property the upstream mirror protects is structurally absent, so what
-  // is left to assert is that the matcher classifies the real surface.
+test("CI_DEFINING_PATHS: the shared entries around the repository's configured ones", () => {
+  // Gate 1b refuses a PR that supplies any part of the CI definition. The list
+  // has two sources: the entries every repository shares, written in
+  // checks.mjs, and the repository's own (`ci.definingPaths`) from its harness
+  // configuration — the fixture's, here. A repository's real surface is graded
+  // by its own `.github/agent-harness/repo.test.mjs`.
+  const configured = get("ci.definingPaths");
+  assert.deepEqual([...CI_DEFINING_PATHS], [
+    ".github/workflows/**",
+    ".github/actions/**",
+    ".github/CODEOWNERS",
+    ".github/agent-harness/**",
+    ...configured,
+    "scripts/setup.sh",
+    "scripts/hooks/**",
+    ".githooks/**",
+  ]);
+  assert.ok(configured.length > 0, "the fixture configuration lists no CI-defining path");
+  assert.ok(Object.isFrozen(CI_DEFINING_PATHS), "a caller must not be able to shorten the refusal surface");
+
   for (const p of [
     ".github/workflows/ci.yml",
     ".github/workflows/nested/whatever.yml",
     ".github/actions/setup/action.yml",
     ".github/CODEOWNERS",
-    // The lanes: every `ci.yml` step is a pnpm script, and what those run is
-    // written in the manifests and the tool configs they read.
-    "package.json",
-    "packages/sdk/package.json",
-    "packages/prosemirror/package.json",
-    "examples/vanilla-prosemirror/package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-    ".npmrc",
-    "eslint.config.mjs",
-    "packages/sdk/eslint.config.mjs",
-    ".prettierrc.js",
-    ".prettierignore",
-    "packages/sdk/tsconfig.json",
-    "packages/sdk/vite.build.ts",
-    "packages/sdk/vitest.config.ts",
-    "packages/prosemirror/vite.config.ts",
-    "packages/react/vite.config.js",
-    "codecov.yml",
-    "docker/docker-compose-ci.yml",
-    "docker/docker-compose.yml",
-    "scripts/verify-doc-links.mjs",
-    "scripts/verify-license.mjs",
-    // The module both verify scripts import their "am I the entry point?"
-    // predicate from. Editing it alone makes both gates exit 0 without
-    // checking anything, so it defines CI's behaviour exactly as much as the
-    // scripts that import it.
-    "scripts/direct-run.mjs",
-    // Run by path from conformance-sync.yml, not through a pnpm script: the
-    // lane that proves the conformance corpus still matches yorkie's.
-    "packages/sdk/test/conformance/sync.sh",
-    "scripts/test/verify-license.test.mjs",
-    "scripts/fixtures/package-exports/package-lock.json",
+    // The harness configuration itself. It is read from the default branch,
+    // never from the branch under review, so a PR editing it changes nothing
+    // about its own run — but it holds this list, the review scopes and the
+    // bot allow-list, so a change to it is a change to the gates and must go
+    // to a human instead of promoting itself.
+    ".github/agent-harness/config.json",
+    ".github/agent-harness/coverage-note.md",
+    ".github/agent-harness/repo.test.mjs",
+    // The fixture configuration's entries.
+    "build.config",
+    "deps.lock",
+    "tools/ci/run.sh",
+    "tools/ci/lanes/unit.sh",
+    "tools/lint.sh",
+    // The local enforcement layer.
     "scripts/setup.sh",
     "scripts/hooks/install.mjs",
     ".githooks/pre-push",
-    "lint-staged.config.mjs",
   ]) {
     assert.equal(definesCi(p), true, `${p} defines what CI does and must be refused by gate 1b`);
   }
@@ -1224,22 +1085,23 @@ test("CI_DEFINING_PATHS covers the surface CI's behaviour is read from", () => {
   // ...and does not swallow the code under review. A gate that refuses every PR
   // is the same outage as one that refuses none, arrived at from the other side.
   for (const p of [
-    "packages/sdk/src/document/crdt/tree.ts",
-    "packages/sdk/test/integration/tree_test.ts",
-    // The conformance suite's own tests and corpus: the evidence `sync.sh
-    // --check` grades, not the definition of the lane that runs it.
-    "packages/sdk/test/conformance/tree_conformance_test.ts",
-    "packages/sdk/test/conformance/tree/corpus/split-order-span-2.json",
-    "packages/sdk/src/api/yorkie/v1/resources.proto",
-    "packages/prosemirror/src/sync.ts",
-    "examples/react-todomvc/src/App.tsx",
-    "examples/react-todomvc/vite.config.ts",
-    "scripts/agent/review-panel.mjs",
-    "docs/design/prosemirror.md",
+    "src/document/tree.go",
+    "lib/store/client.go",
+    "tools/nested/lint.sh", // `*` does not span a separator
+    "tools/lint.sh.bak", // anchored at the end
+    "sub/build.config", // anchored at the start
+    "docs/design/tree.md",
     "README.md",
+    // Another repository's CI definition is not this configuration's.
+    "Makefile",
+    "go.mod",
+    // The rest of `.github` is not swept in with it.
+    ".github/dependabot.yml",
+    ".github/agent-harness",
   ]) {
     assert.equal(definesCi(p), false, `${p} is code or prose under review, not the CI definition`);
   }
+  for (const junk of [null, undefined, "", 7, {}]) assert.equal(definesCi(junk), false);
 });
 
 test("every workflow_run consumer CI can drive gates on the CI workflow's PATH", () => {
@@ -2200,64 +2062,6 @@ test("no agent is handed a token that can approve a pull request", () => {
     "these tokens are reachable by an agent and carry contents+pull-requests write:\n  " +
       offenders.join("\n  "),
   );
-});
-
-test("a release the agent App created publishes nothing", () => {
-  // `contents: write` IS ONE PERMISSION COVERING COMMITS AND RELEASES. The token
-  // a fix agent holds to push a branch can therefore publish a release, and
-  // `npm-publish.yml` answers `release: published` with `NPM_TOKEN` and
-  // `devtools-publish.yml` with the Chrome Web Store keys. GitHub offers no
-  // narrower grant, so the escape closes at the consumer or not at all.
-  const HERE = path.dirname(fileURLToPath(import.meta.url));
-  const dir = path.join(HERE, "..", "..", ".github", "workflows");
-  const onRelease = readdirSync(dir)
-    .filter((f) => f.endsWith(".yml"))
-    .filter((f) => {
-      const code = readFileSync(path.join(dir, f), "utf8").split("\n").filter((l) => !/^\s*#/.test(l));
-      const on = code.slice(0, code.findIndex((l) => /^jobs:/.test(l)));
-      return on.some((l) => /^\s+release:\s*$/.test(l));
-    });
-  assert.deepEqual(onRelease.sort(), ["devtools-publish.yml", "npm-publish.yml"],
-    "the release-triggered publishers must be found — this guard would be vacuous");
-  for (const file of onRelease) {
-    const wf = readFileSync(path.join(dir, file), "utf8");
-    assert.match(
-      wf,
-      /github\.event\.release\.author\.login != 'yorkie-team-agent\[bot\]'/,
-      `${file} runs on a published release and would run for one the agent App created`,
-    );
-  }
-  // THE SAME CREDENTIALS, REACHED THROUGH A MERGE. `contents: write` also merges
-  // a PR a human already approved, which is a push to `main` authored by the
-  // App — and a push-triggered workflow that inherits secrets answers it the
-  // same way. Every such workflow must refuse the App as the actor.
-  //
-  // This repository has none today: its push-triggered workflows are `ci.yml`
-  // (Codecov's upload token only) and `github-page-publish.yml` (GITHUB_TOKEN
-  // only, deploying what `main` already holds). The server repository pins its
-  // Docker publisher by name here. The predicate below matches this repo's
-  // shape — a secret referenced directly — as well as `secrets: inherit`, so
-  // the loop is empty by fact and re-arms the day a push-triggered workflow
-  // reaches for a real credential. Codecov's token is allowed: it can only
-  // upload a coverage report.
-  const HARMLESS = new Set(["GITHUB_TOKEN", "CODECOV_TOKEN"]);
-  const onPushInherit = readdirSync(dir)
-    .filter((f) => f.endsWith(".yml"))
-    .filter((f) => {
-      const code = readFileSync(path.join(dir, f), "utf8").split("\n").filter((l) => !/^\s*#/.test(l));
-      const on = code.slice(0, code.findIndex((l) => /^jobs:/.test(l)));
-      if (!on.some((l) => /^\s+push:\s*$/.test(l))) return false;
-      const text = code.join("\n");
-      const named = [...text.matchAll(/secrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]);
-      return /^\s+secrets: inherit\s*$/m.test(text) || named.some((name) => !HARMLESS.has(name));
-    });
-  for (const file of onPushInherit) {
-    assert.match(
-      readFileSync(path.join(dir, file), "utf8"),
-      /github\.actor != 'yorkie-team-agent\[bot\]'/,
-      `${file} inherits secrets on a push and would run for one the agent App made by merging`,
-    );
-  }
 });
 
 test("the trusted job posts disputes before the report it counts them in", () => {

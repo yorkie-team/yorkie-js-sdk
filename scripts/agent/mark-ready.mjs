@@ -18,11 +18,10 @@
 //      branch that can edit that file produces a genuinely green run at the
 //      genuine path with no tests in it. Gate 1b closes that:
 //   1b. The branch supplies NO part of the CI definition — none of
-//      `CI_DEFINING_PATHS` (checks.mjs): the workflows, the `package.json`
-//      scripts `ci.yml` calls into, the lockfile and workspace, the eslint,
-//      Prettier, tsconfig, vite and vitest configs those scripts read, the
-//      scripts and hooks under `scripts/`, and the compose stack the
-//      integration suites are graded against. If it touches
+//      `CI_DEFINING_PATHS` (checks.mjs): the workflows, plus what this
+//      repository's harness configuration lists as the build files, the lint
+//      and codegen configuration, the dependency manifests and the stacks its
+//      CI resolves through. If it touches
 //      any of them, CI's verdict for this SHA is evidence about the BRANCH's CI
 //      definition rather than about main's, so it is not the evidence gate 1
 //      claims to read and auto-promotion is refused. Such a PR is not blocked,
@@ -76,7 +75,15 @@
 // Requires the `gh` CLI authenticated via GH_TOKEN / GITHUB_TOKEN.
 
 import { execFileSync } from "node:child_process";
-import { allRequiredPassed, ciConclusion, CI_WORKFLOW_FILE, definesCi, DEFAULT_REVIEW_CHECKS } from "./checks.mjs";
+import {
+  allRequiredPassed,
+  ciConclusion,
+  CI_GATE_NAME,
+  CI_WORKFLOW_FILE,
+  definesCi,
+  DEFAULT_REVIEW_CHECKS,
+  HANDOFF_CI_SUMMARY,
+} from "./checks.mjs";
 import { computeLabelSet } from "./set-state.mjs";
 import { disclosesAiAuthorship, HANDOFF_MARKER } from "./disclosure.mjs";
 
@@ -207,10 +214,12 @@ function ciPassed(sha) {
   }
   const runs = data.workflow_runs || [];
   // NO RUN AT ALL is reported separately, because the two unknowns need
-  // different words. In the server repository it USED to be a routine outcome:
-  // its `ci.yml` carried a trigger-level `paths-ignore`, so a documentation-only
-  // PR produced no CI run and this gate could never go green. This
-  // repository's `ci.yml` has no path filter at all, so every PR produces a run.
+  // different words. A CI workflow with a trigger-level path filter files no
+  // run at all for a PR that touches only filtered paths, so this gate could
+  // never go green for it and the operator would have to promote by hand. A
+  // repository running this harness filters at the JOB level instead, so that
+  // every PR produces a run; a PR whose lanes were all filtered out reaches
+  // this gate with a green run and promotes like any other.
   //
   // So an empty list is not routine. It means this sha's run is not
   // visible — deleted, or aged past retention — and the gate still refuses,
@@ -357,7 +366,7 @@ const disclosure = disclosesAiAuthorship(body);
 // --- report ----------------------------------------------------------------
 
 const gates = [
-  { name: "CI is green for this head SHA (lint, builds, unit and integration suites)", ok: ciGate },
+  { name: CI_GATE_NAME, ok: ciGate },
   { name: "CI's definition came from main (branch supplies no CI-defining path)", ok: ciDefinitionGate },
   { name: `Review panel approved (all lens checks ✅: ${REQUIRED_CHECKS.join(", ")})`, ok: reviewApproved },
   { name: "AI authorship disclosed in PR body", ok: disclosure },
@@ -473,16 +482,7 @@ const handoff = [
   "This PR was authored autonomously by Claude Code and has cleared the harness",
   "ready gate:",
   "",
-  "- ✅ CI is green (eslint, the licence and doc-link checks, the script tests,",
-  "  the sdk/react/schema builds and the devtools typecheck, the examples build,",
-  "  and the sdk, prosemirror, react and schema suites — the sdk's and",
-  "  prosemirror's against a real Yorkie server and MongoDB) for this exact head",
-  "  SHA, on a PR based on the default branch — and the branch changes none of",
-  "  the paths that define what CI does (the workflows, the `package.json` files,",
-  "  `pnpm-lock.yaml`, the eslint/Prettier/tsconfig/vite/vitest configs,",
-  "  `docker/**`, `scripts/*.mjs`, `scripts/test/**`, `scripts/fixtures/**`), so",
-  "  the CI definition that run executed came from `main` rather than from the",
-  "  branch.",
+  ...HANDOFF_CI_SUMMARY,
   "  This does NOT mean every assertion CI ran is main's: a branch can still weaken",
   "  its own tests, which is what the test-adequacy lens reads the diff for.",
   `- ✅ The review panel approved with no blocking findings (${REQUIRED_CHECKS.join(", ")}).`,
