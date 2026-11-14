@@ -1,78 +1,135 @@
-/**
- * yorkie-js-sdk must be loaded on client-side
- */
+// yorkie-js-sdk runs in the browser, so this page is a client component.
 'use client';
 
-import styles from './styles/page.module.css';
-import React, { useEffect, useState } from 'react';
-
-import { ContentTypes, ENVtypes } from './utils/types';
-import { displayPeers, createRandomPeers } from './utils/handlePeers';
-import { parseDate } from './utils/parseDate';
-import yorkie, { Document, JSONArray, DocEventType } from '@yorkie-js/sdk';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import yorkie, { StreamConnectionStatus, type JSONArray } from '@yorkie-js/sdk';
+import Header from './Header';
 import Scheduler from './Scheduler';
+import styles from './styles/page.module.css';
+import {
+  toISODate,
+  type CalendarDoc,
+  type CalendarEvent,
+  type Peer,
+  type Presence,
+  type Status,
+} from './types';
 
-// parseDate() value's format = "DD-MM-YYYY"
-const defaultContent = [
-  {
-    date: parseDate(new Date()).replace(/^\d{2}/, '01'),
-    text: 'payday',
-  },
-  {
-    date: parseDate(new Date()).replace(/^\d{2}/, '17'),
-    text: "Garry's birthday",
-  },
-] as JSONArray<ContentTypes>;
+const API_ADDR =
+  process.env.NEXT_PUBLIC_YORKIE_API_ADDR || 'http://localhost:8080';
+const API_KEY = process.env.NEXT_PUBLIC_YORKIE_API_KEY || '';
 
-const ENV: ENVtypes = {
-  url: process.env.NEXT_PUBLIC_YORKIE_API_ADDR!,
-  apiKey: process.env.NEXT_PUBLIC_YORKIE_API_KEY!,
-};
+const NAMES = ['Alice', 'Bob', 'Carol', 'Dave', 'Erin', 'Frank', 'Grace'];
 
-const documentKey = `next.js-Scheduler-${parseDate(new Date())}`;
+// Sample events for a new calendar, in the current month.
+function defaultContent() {
+  const month = toISODate(new Date()).slice(0, 7);
+  return [
+    { date: `${month}-01`, text: 'Payday' },
+    { date: `${month}-17`, text: "Garry's birthday" },
+  ] as JSONArray<CalendarEvent>;
+}
 
-/**
- * main page
- */
-export default function Editor() {
-  const [peers, setPeers] = useState<Array<string>>([]);
-  const [content, setContent] = useState<Array<ContentTypes>>(defaultContent);
-
-  // create Yorkie Document with useState value
-  const [doc] = useState<Document<{ content: JSONArray<ContentTypes> }>>(
+function App() {
+  // The calendar named by `?key=`, or a new one each day. The day is the UTC
+  // date, so viewers in every time zone open the same calendar.
+  const keyParam = useSearchParams().get('key');
+  const [doc] = useState(
     () =>
-      new yorkie.Document<{ content: JSONArray<ContentTypes> }>(documentKey),
+      new yorkie.Document<CalendarDoc, Presence>(
+        keyParam || `nextjs-scheduler-${new Date().toISOString().slice(0, 10)}`,
+      ),
   );
+  const docKey = doc.getKey();
+  const [content, setContent] = useState<CalendarEvent[] | null>(null);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const [status, setStatus] = useState<Status>('connecting');
+
+  useEffect(() => {
+    const client = new yorkie.Client({ rpcAddr: API_ADDR, apiKey: API_KEY });
+
+    const syncContent = () =>
+      setContent(
+        doc.getRoot().content.map(({ date, text }) => ({ date, text })),
+      );
+
+    const unsubscribers = [
+      // Local and remote changes to the document.
+      doc.subscribe(syncContent),
+      // Peers joining, leaving or changing their presence.
+      doc.subscribe('presence', () =>
+        setPeers(
+          doc
+            .getPresences()
+            // Skip presences that have not arrived yet.
+            .filter(({ presence }) => presence.userName)
+            .map(({ clientID, presence }) => ({
+              clientID,
+              userName: presence.userName,
+              isMe: clientID === client.getActorID(),
+            })),
+        ),
+      ),
+      // The watch stream that delivers remote changes.
+      doc.subscribe('connection', (event) =>
+        setStatus(
+          event.value === StreamConnectionStatus.Connected
+            ? 'connected'
+            : 'offline',
+        ),
+      ),
+    ];
+
+    async function attach() {
+      await client.activate();
+      await client.attach(doc, {
+        initialPresence: {
+          userName: NAMES[Math.floor(Math.random() * NAMES.length)],
+        },
+      });
+
+      // The first client to open this calendar fills in sample events.
+      doc.update((root) => {
+        if (!root.content) {
+          root.content = defaultContent();
+        }
+      }, 'create default content if not exists');
+      syncContent();
+      setStatus('connected');
+    }
+
+    const attached = attach().catch(() => setStatus('error'));
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      // Once setup settles, leave the document and end the session.
+      attached.then(async () => {
+        if (client.has(doc.getKey())) await client.detach(doc);
+        if (client.isActive()) await client.deactivate();
+      });
+    };
+  }, [doc]);
 
   const actions = {
-    // push new content to Yorkie's database
     addContent(date: string, text: string) {
       doc.update((root) => {
         root.content.push({ date, text });
       });
     },
 
-    // delete selected content at Yorkie's database
     deleteContent(date: string) {
       doc.update((root) => {
-        const idx = root.content.findIndex((item) => item.date === date);
-        if (idx !== -1) {
-          root.content.delete?.(idx);
+        const index = root.content.findIndex((item) => item.date === date);
+        if (index !== -1) {
+          root.content.delete?.(index);
         }
       });
     },
 
-    // edit selected content at Yorkie's database
     updateContent(date: string, text: string) {
       doc.update((root) => {
-        let target;
-        for (const item of root.content) {
-          if (item.date === date) {
-            target = item;
-            break;
-          }
-        }
-
+        const target = root.content.find((item) => item.date === date);
         if (target) {
           target.text = text;
         }
@@ -80,70 +137,30 @@ export default function Editor() {
     },
   };
 
-  useEffect(() => {
-    // create Yorkie Client at client-side
-    const client = new yorkie.Client({
-      rpcAddr: ENV.url,
-      apiKey: ENV.apiKey,
-    });
-
-    // subscribe document event of "PresenceChanged"(="peers-changed")
-    doc.subscribe('presence', (event) => {
-      if (event.type !== DocEventType.PresenceChanged) {
-        setPeers(displayPeers(doc.getPresences()));
-      }
-    });
-
-    /**
-     * `attachDoc` is a helper function to attach the document into the client.
-     */
-    async function attachDoc(
-      doc: Document<{ content: JSONArray<ContentTypes> }>,
-      callback: (props: JSONArray<ContentTypes>) => void,
-    ) {
-      // 01. activate client
-      await client.activate();
-      // 02. attach the document into the client with presence
-      await client.attach(doc, {
-        initialPresence: {
-          userName: createRandomPeers(),
-        },
-      });
-
-      // 03. create default content if not exists.
-      doc.update((root) => {
-        if (!root.content) {
-          root.content = defaultContent;
-        }
-      }, 'create default content if not exists');
-
-      // 04. subscribe doc's change event from local and remote.
-      doc.subscribe(() => {
-        callback(doc.getRoot().content);
-      });
-
-      // 05. set content to the attached document.
-      callback(doc.getRoot().content);
-    }
-
-    attachDoc(doc, (content) => setContent(content));
-  }, []);
-
   return (
-    <main className={styles.main}>
-      <header>
-        <div className={styles.peersRow} aria-label="Active collaborators">
-          {peers.length === 0 && (
-            <span className={styles.muted}>No peers connected</span>
-          )}
-          {peers.map((p, i) => (
-            <span className={styles.peerChip} key={i}>
-              {p}
-            </span>
-          ))}
-        </div>
-      </header>
-      <Scheduler content={content} actions={actions} />
-    </main>
+    <>
+      <Header docKey={docKey} status={status} peers={peers} />
+      <main className={styles.main}>
+        {status === 'error' ? (
+          <p className={styles.message} role="alert">
+            Couldn&apos;t reach the Yorkie server at <code>{API_ADDR}</code>.
+            Check that it&apos;s running, then reload.
+          </p>
+        ) : content === null ? (
+          <p className={styles.message}>Loading the calendar…</p>
+        ) : (
+          <Scheduler content={content} actions={actions} />
+        )}
+      </main>
+    </>
+  );
+}
+
+export default function Page() {
+  // `useSearchParams` needs a Suspense boundary in a static export.
+  return (
+    <Suspense>
+      <App />
+    </Suspense>
   );
 }

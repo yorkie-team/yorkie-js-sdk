@@ -1,120 +1,96 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
+import Calendar from 'react-calendar';
 import './styles/calendar.css';
 import styles from './styles/page.module.css';
+import { formatDate, toISODate, type CalendarEvent } from './types';
 
-import { EditorPropsTypes, CalendarValue } from './utils/types';
-import { parseDate } from './utils/parseDate';
-import Calendar from 'react-calendar';
+interface SchedulerProps {
+  content: CalendarEvent[];
+  actions: {
+    addContent(date: string, text: string): void;
+    deleteContent(date: string): void;
+    updateContent(date: string, text: string): void;
+  };
+}
 
-/**
- * handle calendar component
- */
-export default function Scheduler(props: EditorPropsTypes) {
-  const { content, actions } = props;
-  const [date, onChange] = useState<CalendarValue>(new Date());
-  const [text, setText] = useState<string>('');
+interface EventFormProps extends SchedulerProps {
+  date: string;
+}
 
-  const currentDate = date ? parseDate(new Date(date.toString())) : '';
+function EventForm({ date, content, actions }: EventFormProps) {
+  const existing = content.find((item) => item.date === date);
+  const [text, setText] = useState(existing?.text ?? '');
+  const canSave = text.trim().length > 0 && text.trim() !== existing?.text;
 
-  const existing = useMemo(
-    () => content.find((item) => item.date === currentDate),
-    [content, currentDate],
-  );
-
-  // If a date with an event is selected and editor empty, preload text
-  useEffect(() => {
-    if (existing && text === '') {
-      setText(existing.text);
-    }
-    if (!existing) {
-      setText('');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existing?.date]);
-
-  const canSave = !!currentDate && text.trim().length > 0;
-
-  const handleSave = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!canSave) return;
     if (existing) {
-      actions.updateContent(currentDate, text.trim());
+      actions.updateContent(date, text.trim());
     } else {
-      actions.addContent(currentDate, text.trim());
-    }
-    setText('');
-  };
-
-  const handleDelete = () => {
-    if (existing) {
-      actions.deleteContent(currentDate);
-      setText('');
+      actions.addContent(date, text.trim());
     }
   };
 
   return (
-    <section className={styles.board} aria-label="Scheduler board">
-      <div className={styles.calendarWrapper}>
-        <div className={styles.calendarWithDots}>
-          <Calendar
-            onChange={onChange}
-            value={date}
-            locale="en-EN"
-            showNeighboringMonth={false}
-            formatDay={(locale, date) =>
-              date.toLocaleString('en', { day: 'numeric' })
-            }
-            tileContent={({ date }) => {
-              const matched = content.some(
-                (item) => item.date === parseDate(date),
-              );
-              return matched ? <span className="dot" /> : null;
-            }}
-          />
-        </div>
-      </div>
-      <div className={styles.panel}>
-        <p className={styles.muted}>
-          Selected: <strong>{currentDate || '—'}</strong>
-        </p>
-
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor="event-text">
-            {existing ? 'Edit Event' : 'New Event'}
-          </label>
-          <textarea
-            id="event-text"
-            placeholder={
-              existing ? 'Update selected event…' : 'Describe the event…'
-            }
-            className={styles.textArea}
-            value={text}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-              setText(e.target.value)
-            }
-            maxLength={500}
-          />
-        </div>
-        <div className={styles.buttonBar}>
+    <form className={styles.panel} onSubmit={handleSubmit}>
+      <label className={styles.label} htmlFor="event-text">
+        {formatDate(date)}
+      </label>
+      <textarea
+        id="event-text"
+        className={styles.textArea}
+        placeholder="Describe the event…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        maxLength={500}
+      />
+      <div className={styles.buttonBar}>
+        <button type="submit" className={styles.button} disabled={!canSave}>
+          {existing ? 'Save changes' : 'Add event'}
+        </button>
+        {existing && (
           <button
-            className={styles.buttonPrimary}
-            disabled={!canSave}
-            onClick={handleSave}
-            aria-disabled={!canSave}
-          >
-            {existing ? 'Save Changes' : 'Add Event'}
-          </button>
-          <button
-            className={`${styles.buttonPrimary} ${styles.buttonDanger}`}
-            disabled={!existing}
-            onClick={handleDelete}
-            aria-disabled={!existing}
+            type="button"
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            onClick={() => actions.deleteContent(date)}
           >
             Delete
           </button>
-        </div>
+        )}
       </div>
+    </form>
+  );
+}
+
+export default function Scheduler({ content, actions }: SchedulerProps) {
+  const [value, setValue] = useState(() => new Date());
+  const selected = toISODate(value);
+  const hasEvent = content.some((item) => item.date === selected);
+
+  return (
+    <section className={styles.board}>
+      <Calendar
+        locale="en-US"
+        showNeighboringMonth={false}
+        value={value}
+        onChange={(next) => next instanceof Date && setValue(next)}
+        tileContent={({ date }) =>
+          content.some((item) => item.date === toISODate(date)) ? (
+            <span className="dot" aria-label="Has event" />
+          ) : null
+        }
+      />
+      {/* Remount the form when the day changes or its event is added or
+          deleted (here or by a peer), so it starts from the stored text. */}
+      <EventForm
+        key={`${selected}-${hasEvent}`}
+        date={selected}
+        content={content}
+        actions={actions}
+      />
     </section>
   );
 }
