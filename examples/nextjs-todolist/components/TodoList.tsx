@@ -58,7 +58,9 @@ export default function TodoList() {
     if (!text) return;
     update((root) => {
       root.todos.push({
-        id: crypto.randomUUID(),
+        id:
+          crypto.randomUUID?.() ??
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         text,
         completed: false,
       } as JSONObject<Todo>);

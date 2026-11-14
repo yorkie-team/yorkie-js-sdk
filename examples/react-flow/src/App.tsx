@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { JSONArray, useDocument } from '@yorkie-js/react';
 import {
   ReactFlow,
@@ -37,6 +37,8 @@ function App() {
             next[c.id] = { ...next[c.id], selected: c.selected };
           } else if (c.type === 'dimensions' && c.dimensions) {
             next[c.id] = { ...next[c.id], measured: c.dimensions };
+          } else if (c.type === 'remove') {
+            delete next[c.id];
           }
         }
         return next;
@@ -44,6 +46,21 @@ function App() {
     },
     [],
   );
+
+  // Drop the local state of nodes and edges a peer removed.
+  useEffect(() => {
+    setLocal((prev) => {
+      const ids = new Set([
+        ...root.nodes.map((n) => n.id),
+        ...root.edges.map((e) => e.id),
+      ]);
+      const stale = Object.keys(prev).filter((id) => !ids.has(id));
+      if (stale.length === 0) return prev;
+      const next = { ...prev };
+      for (const id of stale) delete next[id];
+      return next;
+    });
+  }, [root]);
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange>) => {
@@ -88,7 +105,9 @@ function App() {
       update((r) => {
         r.edges.push({
           // Random IDs keep edges created by different peers from colliding.
-          id: crypto.randomUUID(),
+          id:
+            crypto.randomUUID?.() ??
+            `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           type: 'smoothstep',
           source: connection.source,
           target: connection.target,
@@ -104,7 +123,9 @@ function App() {
     (position: XYPosition) => {
       update((r) => {
         r.nodes.push({
-          id: crypto.randomUUID(),
+          id:
+            crypto.randomUUID?.() ??
+            `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           data: { label: `Node ${r.nodes.length + 1}` },
           position,
         });
