@@ -1,45 +1,77 @@
-import { StreamConnectionStatus } from '@yorkie-js/sdk';
-import { useConnection } from '@yorkie-js/react';
-import { ConnectionStatus } from './ConnectionStatus';
-import { Peers } from './Peers';
 import { useDocumentSelector } from '../hooks/useDocumentSelector';
-import { CounterNumber } from './CounterNumber';
-import { IncrementButton } from './IncrementButton';
+import { statusOf } from './status';
 
 /**
- * Counter component that demonstrates the usage of Yorkie's document state management.
+ * `Message` replaces the counter with a title, a message and a reload button.
+ */
+function Message({ title, message }: { title: string; message: string }) {
+  return (
+    <section className="panel counter" id="counter" aria-live="polite">
+      <h1 className="counter__title">{title}</h1>
+      <p className="counter__note">{message}</p>
+      <button
+        className="button"
+        type="button"
+        onClick={() => window.location.reload()}
+      >
+        Reload
+      </button>
+    </section>
+  );
+}
+
+/**
+ * `Counter` shows the shared counter, or why this tab can't use it.
  */
 export function Counter() {
-  const { loading, error } = useDocumentSelector(({ loading, error }) => ({
-    loading,
-    error,
-  }));
+  const { root, update, loading, error, connection } = useDocumentSelector(
+    ({ root, update, loading, error, connection }) => ({
+      root,
+      update,
+      loading,
+      error,
+      connection,
+    }),
+  );
+  const status = statusOf(loading, error, connection);
 
-  const connection = useConnection();
-
-  if (loading) return <p>Loading...</p>;
-  if (error)
+  if (status === 'full') {
     return (
-      <div id="error">
-        <p>Error Name: {error.name}</p>
-        <p>Error Message: {error.message}</p>
-      </div>
+      <Message
+        title="This document is full"
+        message="The project allows only a limited number of clients on this document. Close one of the other tabs, then reload."
+      />
     );
+  }
+  if (status === 'error') {
+    return (
+      <Message
+        title="Something went wrong"
+        message={`Couldn't reach the Yorkie server at ${import.meta.env.VITE_YORKIE_API_ADDR}. Check that it's running, then reload.`}
+      />
+    );
+  }
 
   return (
-    <div className="counter-side">
-      <ConnectionStatus />
-      <Peers />
-      <div id="counter-container">
-        <h1 id="counter">Counter</h1>
-        <CounterNumber />
-        <IncrementButton />
-      </div>
-      <div id="error">
-        {connection === StreamConnectionStatus.Disconnected && (
-          <p>Stream subscription is disconnected</p>
-        )}
-      </div>
-    </div>
+    <section className="panel counter" id="counter" aria-live="polite">
+      <h1 className="counter__label">Shared counter</h1>
+      <p className="counter__value" id="counter-value">
+        {loading ? '–' : (root.counter ?? 0)}
+      </p>
+      <button
+        className="button"
+        id="increment"
+        type="button"
+        disabled={status !== 'connected'}
+        onClick={() => update((root) => (root.counter += 1))}
+      >
+        Increment
+      </button>
+      {status === 'offline' && (
+        <p className="counter__note">
+          Live updates are paused. Yorkie keeps retrying.
+        </p>
+      )}
+    </section>
   );
 }
