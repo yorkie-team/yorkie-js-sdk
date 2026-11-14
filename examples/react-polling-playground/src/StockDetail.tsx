@@ -162,11 +162,19 @@ function WatcherCard({
   onRejoin: () => void;
 }) {
   const { sessionCount, loading, error, detach } = useChannel();
-  const status: RoomStatus = error
-    ? 'error'
-    : loading
-      ? 'connecting'
-      : 'connected';
+  const [left, setLeft] = useState(false);
+  const leave = useCallback(async () => {
+    await detach();
+    setLeft(true);
+  }, [detach]);
+
+  const status: RoomStatus = left
+    ? 'idle'
+    : error
+      ? 'error'
+      : loading
+        ? 'connecting'
+        : 'connected';
 
   const lastRef = useRef<string>('');
   useEffect(() => {
@@ -177,12 +185,6 @@ function WatcherCard({
     }
   }, [sessionCount, status, subView, onSession]);
 
-  const [left, setLeft] = useState(false);
-  const leave = useCallback(async () => {
-    await detach();
-    setLeft(true);
-  }, [detach]);
-
   return (
     <div className="detail-card">
       <p className="detail-sub">
@@ -191,9 +193,7 @@ function WatcherCard({
       </p>
       <p className="detail-count">
         <span className="big-num">
-          {status === 'connected' && !left
-            ? sessionCount.toLocaleString()
-            : '–'}
+          {status === 'connected' ? sessionCount.toLocaleString() : '–'}
         </span>
         <span className="big-label">
           {left ? 'You left this room' : 'watching right now'}
@@ -256,7 +256,9 @@ function SessionLog({
                 ? `${entry.n} watching`
                 : entry.status === 'connecting'
                   ? 'joining…'
-                  : 'error'}
+                  : entry.status === 'idle'
+                    ? 'left the room'
+                    : 'error'}
             </li>
           ))}
         </ol>

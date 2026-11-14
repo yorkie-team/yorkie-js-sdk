@@ -9,9 +9,10 @@ import WritePostPage from './WritePostPage';
 import { STOCKS } from './stocks';
 
 type View = 'leaderboard' | 'stock' | 'write';
-export type RoomStatus = 'connecting' | 'connected' | 'error';
+// `idle` means not in a room: on the stock list, or after leaving a room.
+export type RoomStatus = 'idle' | 'connecting' | 'connected' | 'error';
 
-const statusLabels: Record<RoomStatus | 'idle', string> = {
+const statusLabels: Record<RoomStatus, string> = {
   idle: 'Not in a room',
   connecting: 'Connecting…',
   connected: 'Connected',
