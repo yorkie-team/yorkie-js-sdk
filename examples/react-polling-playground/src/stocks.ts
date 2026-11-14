@@ -9,6 +9,6 @@ export const STOCKS: ReadonlyArray<Stock> = [
   { ticker: 'TSLA', name: 'Tesla', market: 'US' },
   { ticker: 'AAPL', name: 'Apple', market: 'US' },
   { ticker: 'MSFT', name: 'Microsoft', market: 'US' },
-  { ticker: '005930', name: '삼성전자', market: 'KR' },
+  { ticker: '005930', name: 'Samsung Electronics', market: 'KR' },
   { ticker: '035420', name: 'NAVER', market: 'KR' },
 ];

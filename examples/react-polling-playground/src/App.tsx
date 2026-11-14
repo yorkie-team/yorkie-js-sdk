@@ -9,32 +9,46 @@ import WritePostPage from './WritePostPage';
 import { STOCKS } from './stocks';
 
 type View = 'leaderboard' | 'stock' | 'write';
+export type RoomStatus = 'connecting' | 'connected' | 'error';
 
-const SUB_VIEWS: ReadonlyArray<SubView> = ['overview', 'activity'];
+const statusLabels: Record<RoomStatus | 'idle', string> = {
+  idle: 'Not in a room',
+  connecting: 'Connecting…',
+  connected: 'Connected',
+  error: 'Error',
+};
 
-const initialParams = new URLSearchParams(window.location.search);
 const sessionKey =
-  initialParams.get('key') ||
+  new URLSearchParams(window.location.search).get('key') ||
   `trending-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`;
 
-function readSelectedStock(): string | null {
+// The whole view state lives in the query string (`?stock=NVDA&view=write`),
+// so reloads and deep links work wherever the example is hosted.
+function readState(): { ticker: string | null; view: View; sub: SubView } {
   const params = new URLSearchParams(window.location.search);
-  const ticker = params.get('stock');
-  if (!ticker) return null;
-  return STOCKS.some((s) => s.ticker === ticker) ? ticker : null;
+  const stock = params.get('stock');
+  const ticker = STOCKS.some((s) => s.ticker === stock) ? stock : null;
+  const v = params.get('view');
+  return {
+    ticker,
+    view: !ticker ? 'leaderboard' : v === 'write' ? 'write' : 'stock',
+    sub: v === 'activity' ? 'activity' : 'overview',
+  };
 }
 
-function readView(): View {
-  const seg = window.location.pathname.split('/').filter(Boolean).pop() ?? '';
-  if (seg === 'write') return 'write';
-  return readSelectedStock() ? 'stock' : 'leaderboard';
-}
-
-function readSubView(): SubView {
-  const seg = window.location.pathname.split('/').filter(Boolean).pop() ?? '';
-  return (SUB_VIEWS as ReadonlyArray<string>).includes(seg)
-    ? (seg as SubView)
-    : 'overview';
+function pushQuery(changes: Record<string, string | null>) {
+  const params = new URLSearchParams(window.location.search);
+  for (const [name, value] of Object.entries(changes)) {
+    if (value === null) params.delete(name);
+    else params.set(name, value);
+  }
+  const query = params.toString();
+  // A query-only URL keeps the current path, so sub-path deploys keep working.
+  window.history.pushState(
+    {},
+    '',
+    query ? `?${query}` : window.location.pathname,
+  );
 }
 
 const MIN_HEARTBEAT_MS = 500;
@@ -46,13 +60,10 @@ export default function App() {
   const [heartbeatDraft, setHeartbeatDraft] = useState<string>(
     String(DEFAULT_HEARTBEAT_MS),
   );
-  const [selectedTicker, setSelectedTicker] = useState<string | null>(
-    readSelectedStock,
-  );
-  const [view, setView] = useState<View>(readView);
-  const [subView, setSubView] = useState<SubView>(readSubView);
+  const [route, setRoute] = useState(readState);
   const [providerPosition, setProviderPosition] =
     useState<ProviderPosition>('inside');
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>('connecting');
 
   const commitHeartbeat = useCallback(() => {
     const next = Number(heartbeatDraft);
@@ -65,159 +76,129 @@ export default function App() {
   }, [heartbeatDraft, heartbeat]);
 
   useEffect(() => {
-    const onPop = () => {
-      setSelectedTicker(readSelectedStock());
-      setView(readView());
-      setSubView(readSubView());
-    };
+    const onPop = () => setRoute(readState());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const goLeaderboard = useCallback(() => {
-    const params = new URLSearchParams(window.location.search);
-    params.delete('stock');
-    const query = params.toString();
-    window.history.pushState({}, '', query ? `/?${query}` : '/');
-    setSelectedTicker(null);
-    setView('leaderboard');
-    setSubView('overview');
+  const navigate = useCallback((changes: Record<string, string | null>) => {
+    pushQuery(changes);
+    setRoute(readState());
   }, []);
-
-  const goStock = useCallback((ticker: string) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('stock', ticker);
-    const query = params.toString();
-    window.history.pushState({}, '', `/overview?${query}`);
-    setSelectedTicker(ticker);
-    setView('stock');
-    setSubView('overview');
-  }, []);
-
-  const navigateSubView = useCallback((next: SubView) => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.toString();
-    window.history.pushState({}, '', `/${next}${query ? `?${query}` : ''}`);
-    setSubView(next);
-  }, []);
-
-  const goWrite = useCallback(() => {
-    const params = new URLSearchParams(window.location.search);
-    window.history.pushState({}, '', `/write?${params.toString()}`);
-    setView('write');
-  }, []);
-
-  const backFromWrite = useCallback(() => {
-    const params = new URLSearchParams(window.location.search);
-    const query = params.toString();
-    window.history.pushState({}, '', `/${subView}${query ? `?${query}` : ''}`);
-    setView('stock');
-  }, [subView]);
 
   const apiKey = import.meta.env.VITE_YORKIE_API_KEY ?? '';
   const rpcAddr =
     import.meta.env.VITE_YORKIE_API_ADDR ?? 'http://localhost:8080';
   const yorkieOpts = useMemo(() => ({ apiKey, rpcAddr }), [apiKey, rpcAddr]);
 
-  const selectedStock = selectedTicker
-    ? (STOCKS.find((s) => s.ticker === selectedTicker) ?? null)
-    : null;
-
+  const selectedStock = STOCKS.find((s) => s.ticker === route.ticker) ?? null;
   const writersChannelKey = `${sessionKey}-writers`;
+  const status = route.view === 'leaderboard' ? 'idle' : roomStatus;
 
   return (
-    <div className="app">
-      <header>
-        <h1>📈 Live Stock Rooms</h1>
-        <p className="lede">
-          Each stock is its own room (Yorkie Channel). Inside a room, navigate
-          between sub-paths (<code>/overview</code> ↔ <code>/activity</code>)
-          to test <code>ChannelProvider</code> position behavior. The "Write a
-          post" badge reads a separate global <code>writers</code> channel via{' '}
-          <code>usePeekChannel</code> — one RPC at page entry, no attach.
-        </p>
+    <>
+      <header className="example-header">
+        <div className="example-header__intro">
+          <p className="example-header__title">Live Stock Rooms</p>
+          <p className="example-header__hint">
+            Watch together — open this page in{' '}
+            <a href={window.location.href} target="_blank" rel="noreferrer">
+              another tab
+            </a>{' '}
+            and enter the same stock to see the count rise.
+          </p>
+        </div>
+        <span className="status" data-status={status}>
+          <span className="status__dot" aria-hidden="true" />
+          {statusLabels[status]}
+        </span>
       </header>
 
-      <div className="controls">
-        <label>
-          <span className="control-label">Sync mode</span>
-          <select
-            value={syncMode}
-            onChange={(e) => setSyncMode(e.target.value as SyncMode)}
-          >
-            <option value={SyncMode.Polling}>Polling</option>
-            <option value={SyncMode.Realtime}>Realtime</option>
-          </select>
-        </label>
-        <label>
-          <span className="control-label">Heartbeat (ms)</span>
-          <input
-            type="number"
-            min={MIN_HEARTBEAT_MS}
-            step={500}
-            value={heartbeatDraft}
-            onChange={(e) => setHeartbeatDraft(e.target.value)}
-            onBlur={commitHeartbeat}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitHeartbeat();
-            }}
-          />
-        </label>
-        <label>
-          <span className="control-label">Provider position</span>
-          <select
-            value={providerPosition}
-            onChange={(e) =>
-              setProviderPosition(e.target.value as ProviderPosition)
-            }
-          >
-            <option value="inside">Inside sub-route (flickers)</option>
-            <option value="outside">Outside sub-route (stable)</option>
-          </select>
-        </label>
-        <div className="session-tag">
-          session <code>{sessionKey}</code>
+      <main className="page">
+        <div className="controls">
+          <label>
+            <span className="control-label">Sync mode</span>
+            <select
+              value={syncMode}
+              onChange={(e) => setSyncMode(e.target.value as SyncMode)}
+            >
+              <option value={SyncMode.Polling}>Polling</option>
+              <option value={SyncMode.Realtime}>Realtime</option>
+            </select>
+          </label>
+          <label>
+            <span className="control-label">Heartbeat (ms)</span>
+            <input
+              type="number"
+              min={MIN_HEARTBEAT_MS}
+              step={500}
+              value={heartbeatDraft}
+              onChange={(e) => setHeartbeatDraft(e.target.value)}
+              onBlur={commitHeartbeat}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitHeartbeat();
+              }}
+            />
+          </label>
+          <label>
+            <span className="control-label">Switching tabs</span>
+            <select
+              value={providerPosition}
+              onChange={(e) =>
+                setProviderPosition(e.target.value as ProviderPosition)
+              }
+            >
+              <option value="inside">Rejoins the room</option>
+              <option value="outside">Stays in the room</option>
+            </select>
+          </label>
+          <p className="session-tag">
+            Session <code>{sessionKey}</code>
+          </p>
         </div>
-      </div>
 
-      {/* This playground only attaches Channels (no Documents), so we
-          opt out of the eager activate/deactivate round trips. The SDK
-          lazy-attaches the client on the first RefreshChannel heartbeat. */}
-      <YorkieProvider {...yorkieOpts} activate={false}>
-        {view === 'write' && selectedStock ? (
-          <WritePostPage
-            stock={selectedStock}
-            writersChannelKey={writersChannelKey}
-            syncMode={syncMode}
-            heartbeatInterval={heartbeat}
-            onBack={backFromWrite}
-          />
-        ) : selectedStock ? (
-          <StockDetail
-            stock={selectedStock}
-            syncMode={syncMode}
-            heartbeatInterval={heartbeat}
-            channelKey={`${sessionKey}-${selectedStock.ticker}`}
-            writersChannelKey={writersChannelKey}
-            subView={subView}
-            providerPosition={providerPosition}
-            onChangeSubView={navigateSubView}
-            onBack={goLeaderboard}
-            onCompose={goWrite}
-          />
-        ) : (
-          <Leaderboard onSelect={(ticker) => goStock(ticker)} />
-        )}
-      </YorkieProvider>
+        {/* This playground only attaches Channels (no Documents), so the
+            client is not activated up front; the SDK activates it when the
+            first channel attaches. */}
+        <YorkieProvider {...yorkieOpts} activate={false}>
+          {route.view === 'write' && selectedStock ? (
+            <WritePostPage
+              stock={selectedStock}
+              writersChannelKey={writersChannelKey}
+              syncMode={syncMode}
+              heartbeatInterval={heartbeat}
+              onStatus={setRoomStatus}
+              onBack={() => navigate({ view: null })}
+            />
+          ) : selectedStock ? (
+            <StockDetail
+              stock={selectedStock}
+              syncMode={syncMode}
+              heartbeatInterval={heartbeat}
+              channelKey={`${sessionKey}-${selectedStock.ticker}`}
+              writersChannelKey={writersChannelKey}
+              subView={route.sub}
+              providerPosition={providerPosition}
+              onStatus={setRoomStatus}
+              onChangeSubView={(sub) =>
+                navigate({ view: sub === 'activity' ? 'activity' : null })
+              }
+              onBack={() => navigate({ stock: null, view: null })}
+              onCompose={() => navigate({ view: 'write' })}
+            />
+          ) : (
+            <Leaderboard
+              onSelect={(ticker) => navigate({ stock: ticker, view: null })}
+            />
+          )}
+        </YorkieProvider>
 
-      <footer>
-        Tip: open one tab on a stock page, another tab → /write. The stock tab
-        peeks the writers channel once on entry; the count badge shows for 3
-        seconds, then hides. Click "Write a post" on the stock tab to enter
-        the composer — that tab attaches to the writers channel as a
-        participant. Other stock pages opened *after* will see the higher
-        count on their initial peek.
-      </footer>
-    </div>
+        <p className="tip">
+          Try it: enter the same stock in two tabs to see two watchers. Then
+          click “Write a post” in one tab; a stock page opened after that shows
+          one more person writing.
+        </p>
+      </main>
+    </>
   );
 }

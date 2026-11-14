@@ -7,20 +7,19 @@ type Props = {
 
 export default function Leaderboard({ onSelect }: Props) {
   return (
-    <div className="leaderboard">
-      <div className="leaderboard-head">
-        <span className="col-rank">#</span>
-        <span className="col-id">Stock</span>
-        <span className="col-cta">&nbsp;</span>
-      </div>
-      {STOCKS.map((stock, idx) => (
-        <StockRow
-          key={stock.ticker}
-          stock={stock}
-          rank={idx + 1}
-          onSelect={onSelect}
-        />
-      ))}
-    </div>
+    <section>
+      <h1 className="page-title">Stocks</h1>
+      <p className="lede">
+        Each stock is a room. Enter one to see how many people are watching it
+        right now.
+      </p>
+      <ul className="stock-list">
+        {STOCKS.map((stock) => (
+          <li key={stock.ticker}>
+            <StockRow stock={stock} onSelect={onSelect} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

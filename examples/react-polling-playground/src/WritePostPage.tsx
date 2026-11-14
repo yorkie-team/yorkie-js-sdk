@@ -1,11 +1,15 @@
+import { useEffect } from 'react';
 import { ChannelProvider, SyncMode, useChannel } from '@yorkie-js/react';
 import type { Stock } from './stocks';
+import type { RoomStatus } from './App';
+import { ChevronLeft } from './icons';
 
 type Props = {
   stock: Stock;
   writersChannelKey: string;
   syncMode: SyncMode;
   heartbeatInterval: number;
+  onStatus: (status: RoomStatus) => void;
   onBack: () => void;
 };
 
@@ -14,58 +18,58 @@ export default function WritePostPage({
   writersChannelKey,
   syncMode,
   heartbeatInterval,
+  onStatus,
   onBack,
 }: Props) {
   return (
     <div className="detail">
-      <button className="back" onClick={onBack}>
-        ← Cancel and go back to {stock.ticker}
+      <button className="back" type="button" onClick={onBack}>
+        <ChevronLeft /> Cancel and go back to {stock.ticker}
       </button>
+      <h1 className="page-title">Write about {stock.name}</h1>
       <ChannelProvider
         key={`${writersChannelKey}-${syncMode}-${heartbeatInterval}-writer`}
         channelKey={writersChannelKey}
         syncMode={syncMode}
         channelHeartbeatInterval={heartbeatInterval}
       >
-        <WriterBody stock={stock} />
+        <WriterBody onStatus={onStatus} />
       </ChannelProvider>
     </div>
   );
 }
 
-function WriterBody({ stock }: { stock: Stock }) {
+function WriterBody({ onStatus }: { onStatus: Props['onStatus'] }) {
+  // Opening the composer joins the writers channel, so this tab now counts.
   const { sessionCount, loading, error } = useChannel();
+  const status: RoomStatus = error
+    ? 'error'
+    : loading
+      ? 'connecting'
+      : 'connected';
+  useEffect(() => onStatus(status), [status, onStatus]);
+
   return (
     <div className="detail-card">
-      <div className="detail-meta">
-        <span className="detail-flag">✏️</span>
-        <span className="detail-name">Compose a post about {stock.name}</span>
-      </div>
-      <div className="detail-ticker">{stock.ticker}</div>
-      <div className="detail-count">
-        {loading ? (
-          <span className="muted">joining writers…</span>
-        ) : error ? (
-          <span className="muted">error: {error.message}</span>
+      <p className="detail-count">
+        {status === 'connecting' ? (
+          <span className="muted">Joining the writers…</span>
+        ) : status === 'error' ? (
+          <span className="detail-error">
+            Couldn't join the writers. Check that the Yorkie server is running,
+            then reload.
+          </span>
         ) : (
           <>
             <span className="big-num">{sessionCount.toLocaleString()}</span>
-            <span className="big-label">
-              writing right now (you're one of them)
-            </span>
+            <span className="big-label">writing right now, including you</span>
           </>
         )}
-      </div>
-      <textarea
-        className="writer-textarea"
-        rows={5}
-        placeholder="Drafting a post… (not actually persisted — this is just to demo channel attach)"
-      />
-      <p className="detail-hint">
-        Open another tab on a stock page; the badge there reads this same
-        channel via <code>usePeekChannel</code> — it sees the count rise
-        without attaching to the channel itself.
       </p>
+      <label className="control-label" htmlFor="draft">
+        Your post (not saved; the composer only joins the channel)
+      </label>
+      <textarea id="draft" className="writer-textarea" rows={5} />
     </div>
   );
 }
