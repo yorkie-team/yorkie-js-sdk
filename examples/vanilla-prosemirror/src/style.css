@@ -1,172 +1,253 @@
+:root {
+  color-scheme: light;
+  --gray-900: #332e2b;
+  --gray-800: #514c49;
+  --gray-700: #6e6966;
+  --gray-600: #807b78;
+  --gray-500: #a6a19e;
+  --gray-400: #c2bdba;
+  --gray-300: #e2dedb;
+  --gray-200: #efeceb;
+  --gray-100: #f5f3f1;
+  --gray-50: #faf8f6;
+  --gray-000: #fefdfb;
+  --orange-0: #fc8539;
+  --orange-dark: #f27b2f;
+  --orange-alpha: rgb(252 133 57 / 32%);
+  --ink-on-accent: #332e2b;
+  --success: #10b266;
+  --danger: #e93d47;
+  --font:
+    Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', Consolas, Monaco, monospace;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-  margin: 1rem;
-  background: white;
+  margin: 0;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  font-family: var(--font);
+}
+
+::selection {
+  background: var(--orange-alpha);
+}
+
+:focus-visible {
+  outline: 2px solid var(--orange-0);
+  outline-offset: 2px;
+}
+
+/* Header: example name, what to try, connection status and peers. */
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  min-height: 56px;
+  padding: 5px 16px;
+  box-sizing: border-box;
+  background: var(--gray-000);
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.app-title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.app-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--gray-700);
+}
+
+.app-hint a {
+  color: var(--gray-900);
+  text-decoration-color: var(--orange-0);
+  text-underline-offset: 3px;
+}
+
+.app-hint a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.app-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .status {
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-  color: #666;
-}
-.status.connected {
-  color: green;
-}
-.status.error {
-  color: red;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--gray-700);
 }
 
-#editor-wrapper {
-  border: 1px solid #ccc;
-  border-radius: 4px;
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray-400);
 }
 
-/* ── ProseMirror base styles ───────────────────────────────── */
-.ProseMirror {
+.status[data-state='connected'] .status-dot {
+  background: var(--success);
+}
+
+.status[data-state='offline'] .status-dot,
+.status[data-state='error'] .status-dot {
+  background: var(--danger);
+}
+
+.peers {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gray-300);
+  color: var(--ink-on-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: default;
+}
+
+.avatar.is-me {
+  outline: 2px solid var(--gray-900);
+  outline-offset: 1px;
+}
+
+.avatar.more {
+  background: var(--gray-200);
+  color: var(--gray-800);
+  font-size: 11px;
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.error {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.error:not([hidden]) + .editor {
+  display: none;
+}
+
+.editor {
+  /* Clip remote cursors the binding hasn't moved yet after a resize. */
   position: relative;
-  word-wrap: break-word;
-  white-space: pre-wrap;
-  white-space: break-spaces;
-  -webkit-font-variant-ligatures: none;
-  font-variant-ligatures: none;
-  font-feature-settings: 'liga' 0;
-  padding: 8px 14px;
-  line-height: 1.4;
-  outline: none;
-  min-height: 300px;
+  overflow: hidden;
+  background: var(--gray-000);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
 }
 
-.ProseMirror p:first-child,
-.ProseMirror h1:first-child,
-.ProseMirror h2:first-child,
-.ProseMirror h3:first-child {
-  margin-top: 10px;
+/* ProseMirror: the base editor styles come from prosemirror-view and
+   prosemirror-example-setup; these set the size and family type. */
+.ProseMirror {
+  min-height: 260px;
+  padding: 8px 16px;
+  font-size: 16px;
+  line-height: 24px;
+  outline: none;
+}
+
+.ProseMirror h2 {
+  font-size: 20px;
+  line-height: 28px;
+  margin: 12px 0 8px;
 }
 
 .ProseMirror p {
-  margin-bottom: 1em;
-}
-
-.ProseMirror pre {
-  white-space: pre-wrap;
-}
-
-.ProseMirror li {
-  position: relative;
-}
-
-.ProseMirror ul,
-.ProseMirror ol {
-  padding-left: 30px;
+  margin: 0 0 12px;
 }
 
 .ProseMirror blockquote {
-  padding-left: 1em;
-  border-left: 3px solid #eee;
-  margin-left: 0;
-  margin-right: 0;
-}
-
-.ProseMirror-hideselection *::selection {
-  background: transparent;
-}
-.ProseMirror-hideselection *::-moz-selection {
-  background: transparent;
-}
-.ProseMirror-hideselection {
-  caret-color: transparent;
+  border-left-color: var(--gray-300);
+  color: var(--gray-700);
 }
 
 .ProseMirror-selectednode {
-  outline: 2px solid #8cf;
+  outline-color: var(--orange-0);
 }
 
-li.ProseMirror-selectednode {
-  outline: none;
-}
-
-li.ProseMirror-selectednode:after {
-  content: '';
-  position: absolute;
-  left: -32px;
-  right: -2px;
-  top: -2px;
-  bottom: -2px;
-  border: 2px solid #8cf;
-  pointer-events: none;
-}
-
-img.ProseMirror-separator {
-  display: inline !important;
-  border: none !important;
-  margin: 0 !important;
-}
-
-.ProseMirror-gapcursor {
-  display: none;
-  pointer-events: none;
-  position: absolute;
-}
-
-.ProseMirror-gapcursor:after {
-  content: '';
-  display: block;
-  position: absolute;
-  top: -2px;
-  width: 20px;
-  border-top: 1px solid black;
-  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
-}
-
-@keyframes ProseMirror-cursor-blink {
-  to {
-    visibility: hidden;
-  }
-}
-
-.ProseMirror-focused .ProseMirror-gapcursor {
-  display: block;
-}
-
-/* ── Remote cursor overlay ─────────────────────────────────── */
+/* Remote cursors: the binding draws them here and colours them from the
+   peer palette; the label text stays dark so it reads on every hue. */
 #cursor-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
   z-index: 10;
 }
 
-/* ── ProseMirror menubar (from prosemirror-menu / example-setup) ── */
+#cursor-overlay .remote-cursor-label {
+  color: var(--ink-on-accent) !important;
+  font-family: var(--font);
+  font-weight: 600;
+}
+
+/* Menu bar, from prosemirror-menu (not a direct dependency, so its
+   stylesheet can't be imported), in the family colours. */
 .ProseMirror-menubar {
-  border-top-left-radius: inherit;
-  border-top-right-radius: inherit;
   position: relative;
-  min-height: 1em;
-  color: #666;
-  padding: 1px 6px;
-  top: 0;
-  left: 0;
-  right: 0;
-  border-bottom: 1px solid silver;
-  background: white;
   z-index: 10;
+  min-height: 1em;
+  padding: 4px 8px;
   box-sizing: border-box;
-  overflow: visible;
+  border-bottom: 1px solid var(--gray-300);
+  background: var(--gray-100);
+  color: var(--gray-800);
 }
 
 .ProseMirror-icon {
   display: inline-block;
   line-height: 0.8;
   vertical-align: -2px;
-  padding: 2px 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+.ProseMirror-icon:hover {
+  background: var(--gray-200);
 }
 
 .ProseMirror-menu-disabled.ProseMirror-icon {
   cursor: default;
+}
+
+.ProseMirror-menu-disabled.ProseMirror-icon:hover {
+  background: none;
 }
 
 .ProseMirror-icon svg {
@@ -189,13 +270,13 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-menuseparator {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid var(--gray-300);
   margin-right: 3px;
 }
 
 .ProseMirror-menu-dropdown,
 .ProseMirror-menu-dropdown-menu {
-  font-size: 90%;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -226,10 +307,12 @@ img.ProseMirror-separator {
 .ProseMirror-menu-dropdown-menu,
 .ProseMirror-menu-submenu {
   position: absolute;
-  background: white;
-  color: #666;
-  border: 1px solid #aaa;
-  padding: 2px;
+  padding: 4px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+  box-shadow: 0 4px 16px rgb(51 46 43 / 12%);
+  color: var(--gray-800);
 }
 
 .ProseMirror-menu-dropdown-menu {
@@ -239,11 +322,12 @@ img.ProseMirror-separator {
 
 .ProseMirror-menu-dropdown-item {
   cursor: pointer;
-  padding: 2px 8px 2px 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
 }
 
 .ProseMirror-menu-dropdown-item:hover {
-  background: #f2f2f2;
+  background: var(--gray-100);
 }
 
 .ProseMirror-menu-submenu-wrap {
@@ -270,8 +354,8 @@ img.ProseMirror-separator {
 }
 
 .ProseMirror-menu-active {
-  background: #eee;
-  border-radius: 4px;
+  background: var(--orange-alpha);
+  border-radius: var(--radius-sm);
 }
 
 .ProseMirror-menu-disabled {
@@ -287,83 +371,17 @@ img.ProseMirror-separator {
   min-width: 3em;
 }
 
-.ProseMirror-tooltip .ProseMirror-menu {
-  width: fit-content;
-  white-space: pre;
-}
+/* In the small yorkie.dev preview, keep only what the editor needs. */
+@media (max-height: 420px) {
+  .app-hint {
+    display: none;
+  }
 
-/* example-setup specific */
-.ProseMirror-example-setup-style hr {
-  padding: 2px 10px;
-  border: none;
-  margin: 1em 0;
-}
+  main {
+    padding: 12px;
+  }
 
-.ProseMirror-example-setup-style hr:after {
-  content: '';
-  display: block;
-  height: 1px;
-  background-color: silver;
-  line-height: 2px;
-}
-
-.ProseMirror-example-setup-style img {
-  cursor: default;
-}
-
-.ProseMirror-prompt {
-  background: white;
-  padding: 5px 10px 5px 15px;
-  border: 1px solid silver;
-  position: fixed;
-  border-radius: 3px;
-  z-index: 11;
-  box-shadow: -0.5px 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.ProseMirror-prompt h5 {
-  margin: 0;
-  font-weight: normal;
-  font-size: 100%;
-  color: #444;
-}
-
-.ProseMirror-prompt input[type='text'],
-.ProseMirror-prompt textarea {
-  background: #eee;
-  border: none;
-  outline: none;
-}
-
-.ProseMirror-prompt input[type='text'] {
-  padding: 0 4px;
-}
-
-.ProseMirror-prompt-close {
-  position: absolute;
-  left: 2px;
-  top: 1px;
-  color: #666;
-  border: none;
-  background: transparent;
-  padding: 0;
-}
-
-.ProseMirror-prompt-close:after {
-  content: '\00d7';
-  font-size: 12px;
-}
-
-.ProseMirror-invalid {
-  background: #ffc;
-  border: 1px solid #cc7;
-  border-radius: 4px;
-  padding: 5px 10px;
-  position: absolute;
-  min-width: 10em;
-}
-
-.ProseMirror-prompt-buttons {
-  margin-top: 5px;
-  display: none;
+  .ProseMirror {
+    min-height: 100px;
+  }
 }
