@@ -64,6 +64,25 @@
   the first round did for the action and not for that line.
 - A copy that must equal an original needs its check on the path the
   original changes through. The weekly run was the wrong place for it.
+- Copy from the upstream's default branch, never from a pull request's
+  head. The first copy here was taken from an open pull request so the two
+  could be developed together, and it could not be recorded honestly: a
+  pull request's head exists in the upstream repository whether or not it
+  ever merges. The re-sync from `main` is the first one a check can confirm.
+- Let the tool that copies also say what is left. `sync.mjs` printed the one
+  renamed key with its new spelling and the two missing `.gitattributes`
+  lines; the hand procedure it replaced relied on the loader's error and on
+  remembering.
+- A sync that leaves the recording untouched is itself a result. The
+  snapshot tests passing with no diff in `repo.snapshot.json` is what says
+  no prompt and no gate moved, across 32 changed shared files.
+- Running a formatter over a file "to be safe" changes it. `config.json` is
+  not in this repository's Prettier format, and formatting it collapsed
+  every short list; the one-key edit was redone from the committed file.
+- The repository's own action is not part of a sync, so a sync has to
+  re-read its callers. The shared workflow moved a step from after the
+  toolchain to before it. That only narrows what runs between the install
+  and the agent, but nothing would have said so had it widened it.
 - A per-repository test file can follow the repository's own lint rules.
   Excluding it from ESLint would have made the coverage note's "eslint over
   the repository except…" sentence false by one file.

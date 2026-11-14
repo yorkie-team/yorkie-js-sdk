@@ -130,9 +130,20 @@ this repository owns sits beside them:
   records every exported value and rendered prompt, so a change to a gate or
   a prompt shows its before and after in review.
 
-A sync is an overwrite of the shared half; `.github/agent-harness/README.md`
-has the procedure and the source commit. Something the shared half cannot
-express for this repository is fixed upstream, not patched here.
+A sync is an overwrite of the shared half, done by the shared half's own
+`scripts/agent/sync.mjs` from a checkout of the server repository's `main`;
+`.github/agent-harness/README.md` has the procedure and the source commit.
+Something the shared half cannot express for this repository is fixed
+upstream, not patched here.
+
+The copy says what it is a copy of. `.github/agent-harness/upstream.json`
+records the repository, the commit and the digest of
+`scripts/agent/MANIFEST.sha256`, which lists every shared file. The package's
+tests fail when a file differs from the manifest or the manifest from the
+record; `agent-scripts.yml` asks GitHub, on change and weekly, that the
+recorded commit is on the server repository's `main`; `repo.test.mjs` pins
+which repository the record names; and `agent-upstream-notify.yml` keeps one
+issue open while the server repository has a newer shared half.
 
 The 2026-11 sync also brought what the server repository had added since: a
 scope guard on fix rounds (a fixer may change the PR's original files, tests
@@ -186,7 +197,7 @@ for the same question, and it keeps what it learns about failures.
 | Existing clones keep the Husky `core.hooksPath` and silently lose hooks | `prepare` runs `setup.sh --check`, which says so on every `pnpm install` |
 | `verify:fast` gets slow and people bypass it | Measured at ~30s; `pre-commit` stays lint-only |
 | A generated file is edited through Bash, past the Edit/Write guard | The next regeneration reverts it; review catches the rest |
-| The copies of `scripts/agent/` in three repositories drift | They are byte-identical to one upstream commit, recorded in `.github/agent-harness/README.md`; a sync overwrites them, and a local difference is a bug |
+| The copies of `scripts/agent/` in three repositories drift | They are byte-identical to one commit on upstream's `main`, recorded in `.github/agent-harness/upstream.json`. A local difference fails `npm test` against the manifest, a record upstream does not have fails `check:upstream`, and a copy that is behind gets an issue from `agent-upstream-notify.yml` |
 | The pinned container image goes stale, or Docker is missing on the runner | The step fails rather than install uncontained; the digest is one line in the action's `env` |
 | The agent runs `pnpm install` again after setup | The store went with the container, so it reinstalls from the registry: slower, not wrong |
 | The copy of `.npmrc` beside the toolchain action goes stale | `scripts/test/agent-toolchain-npmrc.test.mjs` compares the two in `pnpm test:scripts`, which `ci.yml` and `verify:fast` run on every pull request; `repo.test.mjs` compares them again |

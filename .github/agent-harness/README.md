@@ -12,7 +12,32 @@ action's contract are specified.
 
 The shared half is copied from
 [yorkie-team/yorkie](https://github.com/yorkie-team/yorkie) at
-`7c0708994ad5e17dbfd65acd2561a9339a782c19`.
+`d80074a42ddf3339152e7fdf3bcdf480bc168de9`, a commit on its `main`.
+
+[`upstream.json`](upstream.json) is the record: the repository, that commit
+and the digest of `scripts/agent/MANIFEST.sha256`. The line above is for a
+reader; the checks read the file. `sync.mjs` writes it, and nothing else
+should.
+
+Four things keep the copy honest, and `scripts/agent/README.md` ("Adopting
+and syncing") describes each:
+
+- `npm test` fails when a shared file differs from the manifest, and when
+  the manifest's digest is not the recorded one
+  (`node scripts/agent/manifest.mjs verify` is the first half alone).
+- `npm run check:upstream`, which `agent-scripts.yml` runs on change and
+  weekly, asks GitHub that the recorded commit is on yorkie's `main` and that
+  the manifest there is the recorded one.
+- `repo.test.mjs` pins that the record names `yorkie-team/yorkie`. Without
+  it, a record edited to claim this repository is where the shared half is
+  written would pass the two above.
+- `agent-upstream-notify.yml`, weekly and on dispatch, keeps one issue open
+  (title starting `[agent:harness-sync]`) while yorkie's `main` has a newer
+  shared half, and closes it after a sync. It only notifies; a person syncs.
+
+The root `.gitattributes` marks the shared files `-text`, because the
+manifest is over bytes and a checkout that converts line endings would read
+every one of them as edited. `repo.test.mjs` pins those lines.
 
 Comments in the shared files that cite `docs/design/agent-command-verbs.md`
 or other design documents by path mean the server repository's documents;
@@ -24,9 +49,10 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 
 | File | What it is |
 |---|---|
-| `config.json` | Every repository-specific value: the CI-defining paths, the file-class rules, the lens source globs, the generated files left out of a reviewed diff, the sentences the fixer prompts are completed with, the test rules (`vitest`), the commit-message sentence, the fix guard's replicated-rule paths and counterpart repository |
+| `config.json` | Every repository-specific value: the CI-defining paths, the file-class rules, the lens source globs, the generated files left out of a reviewed diff, the sentences the fixer prompts are completed with, the test rules (`vitest`), the commit-message sentence, the fix guard's replicated-rule paths and counterpart repositories (one: the server) |
 | `coverage-note.md` | What `ci.yml`'s lanes prove and do not, told to every lens |
 | `repo.test.mjs` | Grades the two files above, and the toolchain action, against this repository (`npm run test:repo` in `scripts/agent`). The reason each configured entry exists is written there, beside the assertion that pins it |
+| `upstream.json` | Which repository and commit the shared half was copied from, and the manifest digest. Written by `sync.mjs` |
 | `repo.snapshot.json` | Every exported value and rendered prompt, recorded. A change to a gate, a prompt or a comment shows its before and after in this file's diff |
 | `../actions/agent-toolchain/action.yml` | One step, no other action. ON THE RUNNER it fetches pnpm — one fixed tarball from the npm registry, checked against a pinned hash, unpacked under the runner's temp directory and put on the PATH of later steps through a launcher — records what must not change, starts a container, and compares afterwards. It never runs pnpm, never changes directory into the workspace and never writes there. THE CONTAINER (image pinned by digest) has the workspace as its only writable mount; `.git` and any `.trusted-*` checkout are covered by an empty read-only directory, `main`'s `.npmrc` stands read-only over the root one, nothing else of the runner is mounted and no environment is passed in. Without Docker the step fails. Audited against pnpm 9 only |
 | `../actions/agent-toolchain/entry.sh` | What the container runs: the check of the branch's files, `pnpm install` (lockfile-exact, no lifecycle scripts, no pnpmfile), the check of the result. Everything that reads or changes a file of the branch is here, not on the runner |
@@ -83,26 +109,52 @@ style and is excluded from the root ESLint, lint-staged and the licence scan.
 
 ## Syncing from yorkie
 
-1. Pick the yorkie commit to sync to.
-2. Overwrite `scripts/agent/**` and `.github/workflows/agent-*.yml` with that
-   commit's tracked files, and delete any the commit no longer has. Do not
-   merge by hand and do not edit either afterwards: a difference from upstream
-   in those paths is a bug here. Something this repository needs that the
-   shared half cannot express goes upstream first.
-3. Keep this directory and `.github/actions/agent-toolchain/`. If the new
-   commit added, renamed or removed a configuration key, `config.mjs` says so
-   on load: update `config.json` to match `scripts/agent/README.md`.
-4. In `scripts/agent`: `npm ci --ignore-scripts`, `npm test` and
-   `npm run test:repo`. A failure in `repo.snapshot.json` is a prompt or a
-   gate that changed: read the difference, then record it.
-5. actionlint from the REPOSITORY ROOT, so the mount includes
+1. Have a checkout of yorkie on its `main`, fetched (`git fetch origin`).
+   `sync.mjs` refuses a source whose `HEAD` is not on `origin/main`: the
+   commit it records is looked up there by `check:upstream`, which fails for
+   one that was never merged.
+2. From this repository's root, with nothing modified, staged or untracked
+   under `scripts/agent` or among the `agent-*.yml` workflows:
+
+   ```sh
+   node scripts/agent/sync.mjs --from ../yorkie
+   ```
+
+   It writes every shared file, deletes the ones upstream no longer has,
+   writes `upstream.json`, and prints what is left to a person. Do not copy
+   by hand, do not merge by hand and do not edit the shared files afterwards:
+   a difference from upstream in those paths is a bug here, and `npm test`
+   fails on it. Something this repository needs that the shared half cannot
+   express goes upstream first.
+3. It never touches this directory's other files or
+   `.github/actions/agent-toolchain/`. If the new commit added, renamed or
+   removed a configuration key, it prints each one, with the new spelling
+   where a key was renamed: update `config.json` to match
+   `scripts/agent/README.md`, and set a new optional key to what this
+   repository's prompts said before, so a rendered prompt loses nothing.
+4. Stage first — the suite compares the manifest with what git tracks, so it
+   fails on a file that was copied and not yet added:
+
+   ```sh
+   git add scripts/agent .github/workflows .github/agent-harness
+   ```
+
+   Then, in `scripts/agent`: `npm ci --ignore-scripts`, `npm test`,
+   `npm run test:repo` and `npm run check:upstream`. A failure in
+   `repo.snapshot.json` is a prompt or a gate that changed: read the
+   difference, then record it, and list each changed sentence in the commit.
+5. Re-read how the agent jobs call the toolchain action (the steps around
+   `agent-toolchain` in the five `agent-*.yml` that use it) against "What the
+   toolchain action relies on" above. The shared workflows can move a step;
+   the action is this repository's and is not synced.
+6. actionlint from the REPOSITORY ROOT, so the mount includes
    `.github/workflows/`:
 
    ```sh
    docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck= -pyflakes=
    ```
 
-6. Record the new source commit in this file.
+7. Record the new source commit in "Source" above.
 
 ## When this repository changes
 

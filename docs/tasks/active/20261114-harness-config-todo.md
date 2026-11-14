@@ -13,8 +13,10 @@ composite action.
 This task replaces the adapted copy with the shared one, byte for byte, and
 expresses this repository's values as configuration.
 
-Depends on yorkie#2352 and yorkie#2353. Source commit:
-`7c0708994ad5e17dbfd65acd2561a9339a782c19`.
+The upstream work is merged (yorkie#2352 to yorkie#2356). Source commit:
+`d80074a42ddf3339152e7fdf3bcdf480bc168de9`, on yorkie's `main`, recorded in
+`.github/agent-harness/upstream.json`. The first copy was taken at
+`7c070899`, from a pull request, before the shared half had a manifest.
 
 ## Plan
 
@@ -65,8 +67,24 @@ Depends on yorkie#2352 and yorkie#2353. Source commit:
 - [x] Take the runner out of it: pnpm from a hash-pinned tarball instead of
       a setup action, `main`'s `.npmrc` mounted rather than swapped, the
       checks of the branch's files inside the container, a wider tripwire
+- [x] Re-sync from yorkie's `main` (d80074a4) with `scripts/agent/sync.mjs`:
+      136 files written, none deleted, 137 tracked files `cmp`-equal to the
+      upstream checkout; `manifest.mjs verify` and `check:upstream` pass
+- [x] `fixGuard.counterpartRepo` → `fixGuard.counterpartRepos` (a list of
+      one). No other key changed; the two optional class-rule additions are
+      left out, since this repository's design contract and prose are the
+      built-in paths. `repo.snapshot.json` unchanged: no prompt or gate moved
+- [x] The assertions the shared half requires of a copy: the upstream pin,
+      the six paths the issue-to-PR prompt names, the `.gitattributes`
+      lines, the CI workflow's name (41 tests)
+- [x] Re-read the five call sites of the toolchain action: agent-fix now
+      re-verifies the checked-out commit before the toolchain instead of
+      after; the other four are unchanged; the action's assumptions hold
 - [ ] Re-audit the install step before any move off pnpm 9
 - [ ] Open the PR; merge with the pipeline paused and drained
 - [ ] Watch the first live run of each arm: the toolchain action on a runner
       (`pnpm/action-setup`, `github.action_path` from `.trusted-toolchain`),
       a fix round under the scope guard, one sweep
+- [ ] After the merge, dispatch `agent-upstream-notify.yml` once: it should
+      say the copy matches and open nothing. It needs Issues enabled and the
+      job's token allowed `issues: write`
