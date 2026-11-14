@@ -248,7 +248,8 @@
         "result": {
           "removed": 2,
           "added": 4,
-          "suitesOff": 1
+          "suitesOff": 1,
+          "focused": 1
         }
       },
       {
@@ -257,7 +258,8 @@
         "result": {
           "removed": 2,
           "added": 4,
-          "suitesOff": 1
+          "suitesOff": 1,
+          "focused": 1
         }
       },
       {
@@ -266,7 +268,8 @@
         "result": {
           "removed": 2,
           "added": 4,
-          "suitesOff": 1
+          "suitesOff": 1,
+          "focused": 1
         }
       },
       {
@@ -275,7 +278,8 @@
         "result": {
           "removed": 2,
           "added": 4,
-          "suitesOff": 1
+          "suitesOff": 1,
+          "focused": 1
         }
       }
     ],
