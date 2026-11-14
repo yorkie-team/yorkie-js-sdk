@@ -11,6 +11,7 @@ export default defineConfig({
   base: '',
   plugins: [react()],
   resolve: {
+    // The workspace SDK source imports itself through this path.
     alias: [
       {
         find: '@yorkie-js/sdk/src',

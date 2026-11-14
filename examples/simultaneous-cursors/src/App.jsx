@@ -1,113 +1,120 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   YorkieProvider,
   DocumentProvider,
   useDocument,
+  useYorkie,
 } from '@yorkie-js/react';
+import Header from './components/Header';
 import Cursor from './components/Cursor';
 import CursorSelections from './components/CursorSelections';
 import './App.css';
 
-// Generate a visually distinctive random color
-// (pastel-ish for good contrast on white)
-function generateRandomColor() {
-  // HSL to hex conversion for consistent vivid colors
-  const h = Math.floor(Math.random() * 360); // full hue range
-  const s = 70; // saturation percentage
-  const l = 55; // lightness percentage
-  const toHex = (v) => v.toString(16).padStart(2, '0');
+const rpcAddr = import.meta.env.VITE_YORKIE_API_ADDR;
+const names = ['Otter', 'Fox', 'Panda', 'Koala', 'Heron', 'Lynx', 'Robin'];
+const peerColors = [
+  '#fc8539',
+  '#fdc433',
+  '#23c176',
+  '#3c9af1',
+  '#f44954',
+  '#855cf9',
+];
 
-  // Convert HSL to RGB
-  const c = (1 - Math.abs((2 * l) / 100 - 1)) * (s / 100);
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = l / 100 - c / 2;
-  let r1, g1, b1;
-  if (h < 60) [r1, g1, b1] = [c, x, 0];
-  else if (h < 120) [r1, g1, b1] = [x, c, 0];
-  else if (h < 180) [r1, g1, b1] = [0, c, x];
-  else if (h < 240) [r1, g1, b1] = [0, x, c];
-  else if (h < 300) [r1, g1, b1] = [x, 0, c];
-  else [r1, g1, b1] = [c, 0, x];
-  const r = Math.round((r1 + m) * 255);
-  const g = Math.round((g1 + m) * 255);
-  const b = Math.round((b1 + m) * 255);
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+// `peerColor` derives a colour from the client ID, so every tab agrees on
+// which colour belongs to which peer.
+function peerColor(clientID) {
+  let hash = 0;
+  for (const ch of clientID) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  return peerColors[Math.abs(hash) % peerColors.length];
 }
 
-// `initialPresence` is the initial cursor state for each user.
+// Everything in this example lives in Presence: each peer shares its
+// pointer and tool, and nothing is written to the document root. That is
+// why the ink is a live trail: it disappears when its author leaves.
 const initialPresence = {
+  name: names[Math.floor(Math.random() * names.length)],
   cursorShape: 'cursor',
-  cursor: { xPos: 0, yPos: 0 },
-  pointerDown: false,
-  // Assign a per-user random color (same value is used for both cursor stroke + pen drawing)
-  color: generateRandomColor(),
   fadeEnabled: false,
+  // Position as a fraction (0–1) of the viewport, so peers with different
+  // window sizes see each other's cursors in the same place.
+  cursor: null,
+  pointerDown: false,
   overInteractive: false,
 };
 
-// `pixcelThreshold` is the minimum distance to consider a cursor movement.
-const pixcelThreshold = 2;
+// Moves smaller than this fraction of the viewport are not sent.
+const moveThreshold = 0.002;
+const interactiveSelector = 'button, input, select, a, [data-native-cursor]';
+
+function useViewport() {
+  const [size, setSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+  useEffect(() => {
+    const onResize = () =>
+      setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return size;
+}
 
 function CursorsCanvas() {
-  const { doc, presences, update, loading, error } = useDocument();
-  const [fadeEnabled, setFadeEnabled] = useState(false);
-  const [color, setColor] = useState(initialPresence.color);
-  const myClientIDRef = useRef(null);
+  const { client } = useYorkie();
+  const { presences, update, loading, error, connection } = useDocument();
+  const viewport = useViewport();
   const pendingRef = useRef(null);
   const lastSentRef = useRef({ x: 0, y: 0 });
-  const pointerDownRef = useRef(false);
 
-  const handleCursorShapeSelect = (cursorShape) => {
-    update((_, p) => p.set({ cursorShape }));
-  };
-
-  const handleFadeSet = (next) => {
-    setFadeEnabled(next);
-    update((_, p) => p.set({ fadeEnabled: next }));
-  };
-  const handleColorChange = (newColor) => {
-    setColor(newColor);
-    update((_, p) => p.set({ color: newColor }));
-  };
+  // Presences are keyed by actor ID; the local peer is this client's own.
+  const myID = client?.getActorID();
+  const me = presences.find((p) => p.clientID === myID)?.presence;
 
   useEffect(() => {
     if (loading || error) return;
-    const interactiveSelector =
-      'button, input, select, textarea, [role="button"], a, [data-native-cursor]';
 
-    const onDown = () => {
-      pointerDownRef.current = true;
-      update((_, p) => p.set({ pointerDown: true }));
-    };
-    const onUp = () => {
-      pointerDownRef.current = false;
-      update((_, p) => p.set({ pointerDown: false }));
-    };
-    const onMove = (e) => {
-      const overInteractive = !!(
-        e.target.closest && e.target.closest(interactiveSelector)
+    const position = (e) => ({
+      x: e.clientX / window.innerWidth,
+      y: e.clientY / window.innerHeight,
+    });
+    // Pointer events cover mouse, pen and touch alike.
+    const onDown = (e) => {
+      if (e.target.closest(interactiveSelector)) return;
+      lastSentRef.current = position(e);
+      update((_, p) =>
+        p.set({
+          cursor: position(e),
+          pointerDown: true,
+          overInteractive: false,
+        }),
       );
+    };
+    const onUp = () => update((_, p) => p.set({ pointerDown: false }));
+    const onMove = (e) => {
       pendingRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        overInteractive,
+        ...position(e),
+        overInteractive: !!e.target.closest(interactiveSelector),
       };
     };
+    const onLeave = () => {
+      pendingRef.current = null;
+      update((_, p) => p.set({ cursor: null, pointerDown: false }));
+    };
 
+    // Send at most one presence update per animation frame.
     let frameID;
     const loop = () => {
       const pending = pendingRef.current;
       if (pending) {
         const last = lastSentRef.current;
-        const dx = pending.x - last.x;
-        const dy = pending.y - last.y;
-        const dist = Math.hypot(dx, dy);
-        const forceSend = pointerDownRef.current;
-        if (forceSend || dist >= pixcelThreshold) {
-          lastSentRef.current = { x: pending.x, y: pending.y };
+        const moved = Math.hypot(pending.x - last.x, pending.y - last.y);
+        if (moved >= moveThreshold) {
+          lastSentRef.current = pending;
           update((_, p) =>
             p.set({
-              cursor: { xPos: pending.x, yPos: pending.y },
+              cursor: { x: pending.x, y: pending.y },
               overInteractive: pending.overInteractive,
             }),
           );
@@ -118,82 +125,69 @@ function CursorsCanvas() {
     };
     frameID = requestAnimationFrame(loop);
 
-    window.addEventListener('mousedown', onDown);
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('mousemove', onMove);
-
+    const root = document.documentElement;
+    // The drawn cursor replaces the system one while the canvas is live.
+    document.body.classList.add('drawn-cursor');
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointermove', onMove);
+    root.addEventListener('pointerleave', onLeave);
     return () => {
       cancelAnimationFrame(frameID);
-      window.removeEventListener('mousedown', onDown);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('mousemove', onMove);
+      document.body.classList.remove('drawn-cursor');
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('pointermove', onMove);
+      root.removeEventListener('pointerleave', onLeave);
     };
   }, [loading, error, update]);
 
-  useEffect(() => {
-    if (!doc) return;
-
-    const myPresence = doc.getMyPresence?.();
-    if (myPresence) {
-      setFadeEnabled(myPresence.fadeEnabled ?? false);
-      setColor(myPresence.color ?? initialPresence.color);
-    }
-  }, [presences, doc]);
-
-  if (loading) return <div className="general-container">Loading...</div>;
-  if (error)
-    return <div className="general-container">Error: {error.message}</div>;
+  const peers = presences.map(({ clientID, presence }) => ({
+    clientID,
+    presence,
+    color: peerColor(clientID),
+    isMe: clientID === myID,
+  }));
 
   return (
-    <div
-      className="general-container"
-      onMouseDown={(e) => {
-        const tag = e.target.tagName;
-        if (['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(tag)) return;
-        e.preventDefault();
-      }}
-    >
-      {presences.map(({ clientID, presence }, idx) => {
-        const {
-          cursorShape,
-          cursor,
-          pointerDown,
-          color: presColor = '#000000',
-          fadeEnabled: presFade = false,
-          overInteractive = false,
-        } = presence;
-
-        if (idx === 0 && myClientIDRef.current === null) {
-          myClientIDRef.current = clientID;
-        }
-        const isLocal = clientID === myClientIDRef.current;
-
-        return (
-          cursor && (
-            <Cursor
-              key={clientID}
-              selectedCursorShape={cursorShape}
-              x={cursor.xPos}
-              y={cursor.yPos}
-              pointerDown={pointerDown}
-              fadeEnabled={presFade}
-              color={presColor}
-              overInteractive={overInteractive}
-              animate={!isLocal}
-            />
-          )
-        );
-      })}
-
-      <CursorSelections
-        handleCursorShapeSelect={handleCursorShapeSelect}
-        clientsLength={presences.length}
-        fadeEnabled={fadeEnabled}
-        onFadeSet={handleFadeSet}
-        color={color}
-        onColorChange={handleColorChange}
+    <>
+      <Header
+        loading={loading}
+        error={error}
+        connection={connection}
+        peers={peers}
       />
-    </div>
+      {error && (
+        <p className="error-message" role="alert">
+          Couldn’t reach the Yorkie server at {rpcAddr}. Check that it’s
+          running, then reload.
+        </p>
+      )}
+      {peers.map(({ clientID, presence, color, isMe }) => (
+        <Cursor
+          key={clientID}
+          shape={presence.cursorShape}
+          fadeEnabled={presence.fadeEnabled}
+          cursor={presence.cursor}
+          pointerDown={presence.pointerDown}
+          overInteractive={presence.overInteractive}
+          color={color}
+          viewport={viewport}
+          animate={!isMe}
+        />
+      ))}
+      {me && (
+        <CursorSelections
+          shape={me.cursorShape}
+          fadeEnabled={me.fadeEnabled}
+          onSelect={(cursorShape, fadeEnabled = false) =>
+            update((_, p) => p.set({ cursorShape, fadeEnabled }))
+          }
+        />
+      )}
+    </>
   );
 }
 
@@ -201,7 +195,7 @@ export default function App() {
   return (
     <YorkieProvider
       apiKey={import.meta.env.VITE_YORKIE_API_KEY}
-      rpcAddr={import.meta.env.VITE_YORKIE_API_ADDR}
+      rpcAddr={rpcAddr}
     >
       <DocumentProvider
         docKey="simultaneous-cursors"
