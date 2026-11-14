@@ -70,6 +70,14 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+// WHERE A PATH PHYSICALLY IS is the kernel's answer: each component followed
+// in turn, a `..` taken from wherever the components before it led. Node's
+// default `realpathSync` joins a link's target to its directory as text
+// first, which settles a `..` before the component in front of it has been
+// followed; when that component is itself a link, the two answers are
+// different places. Every judgement below of where something is uses this.
+const physical = (p) => realpathSync.native(p);
+
 /** Thrown for anything refused; the message is what the step prints. */
 export class Refusal extends Error {}
 const refuse = (message) => {
@@ -746,6 +754,9 @@ function globMatches(glob, dir) {
  *   - a relative target, resolved from the link's own directory, must stay
  *     under the root;
  *   - and none may lead into `.git`, a trusted checkout or `temp`.
+ *
+ * Reading a target as text is only sound while no component it passes
+ * through is itself a link; `linkStrays` covers the ones that do.
  */
 export function linkLeaves(real, full, target, temp = null) {
   const under = (p, dir) => p === dir || p.startsWith(`${dir}${path.sep}`);
@@ -769,14 +780,119 @@ export function linkLeaves(real, full, target, temp = null) {
 }
 
 /**
+ * The same judgement, for a target that passes THROUGH other links. A `..`
+ * read as text steps back from the name before it; followed, it steps back
+ * from wherever that name led. So the target is walked one component at a
+ * time from the link's own directory, each component examined without
+ * following it, and a component that is a link is walked the same way, by
+ * its own text, before the next one is taken. Nothing is normalised ahead of
+ * what precedes it. Returns why the link is refused, or '':
+ *
+ *   - every link met on the way passes `linkLeaves` by its own text;
+ *   - an absolute target starts, as written, with the workspace root;
+ *   - no step leaves the root, and none enters `.git`, a trusted checkout or
+ *     `temp`, even to come back;
+ *   - a component that cannot be examined, or that is not a directory where
+ *     the target goes on through it, is a refusal;
+ *   - a component that does not exist is a refusal, unless `missingAllowed`:
+ *     then the rest is read as names below it, and may not hold a `..`.
+ *
+ * `full` is the link's path under `real`, with no link among its own
+ * directories — which is how both walks below reach one.
+ */
+export function linkStrays(
+  real,
+  full,
+  target,
+  temp = null,
+  missingAllowed = false,
+) {
+  const under = (p, dir) => p === dir || p.startsWith(`${dir}${path.sep}`);
+  const NOT_A_DIRECTORY = 'through something that is not a directory';
+  let links = 0;
+  const follow = (link, text) => {
+    const why = linkLeaves(real, link, text, temp);
+    if (why !== '') refuse(why);
+    let at = path.dirname(link);
+    let parts = text.split('/');
+    if (path.isAbsolute(text)) {
+      if (!under(text, real)) refuse('out of the workspace');
+      at = real;
+      parts = text.slice(real.length).split('/');
+    }
+    // `at` is a place under the root with no link left in it. `isDir`: the
+    // walk may go on through it. `missing`: nothing is there to examine.
+    let isDir = true;
+    let missing = false;
+    for (const part of parts) {
+      if (!isDir && !missing) refuse(NOT_A_DIRECTORY);
+      if (part === '' || part === '.') continue;
+      if (part === '..') {
+        if (missing) refuse('through a path that does not exist');
+        if (at === real) refuse('out of the workspace');
+        at = path.dirname(at);
+        continue;
+      }
+      const next = path.join(at, part);
+      // Names are compared as the filesystem may: without regard to case.
+      const first = path.relative(real, next).split(path.sep)[0].toLowerCase();
+      if (first === '.git' || first.startsWith('.trusted-')) {
+        refuse('into .git or a trusted checkout');
+      }
+      if (temp !== null && under(next, temp)) {
+        refuse("into the runner's temp directory");
+      }
+      if (missing) {
+        at = next;
+        continue;
+      }
+      let st;
+      try {
+        st = lstatSync(next);
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          refuse('through a path that cannot be examined');
+        }
+        if (!missingAllowed) refuse('nowhere');
+        missing = true;
+        at = next;
+        continue;
+      }
+      if (st.isSymbolicLink()) {
+        if (++links > 40) refuse('through too many links');
+        let inner;
+        try {
+          inner = readlinkSync(next);
+        } catch {
+          refuse('through a path that cannot be examined');
+        }
+        ({ at, isDir, missing } = follow(next, inner));
+      } else {
+        at = next;
+        isDir = st.isDirectory();
+      }
+    }
+    return { at, isDir, missing };
+  };
+  try {
+    follow(full, target);
+  } catch (err) {
+    if (err instanceof Refusal) return err.message;
+    throw err;
+  }
+  return '';
+}
+
+/**
  * THE SHAPE OF THE TREE, before the install. Walked without following a link.
  * A fresh checkout of this repository has no `node_modules`, no `.npmrc` but
  * the root's, no `.git` below the root and no symbolic link at all; a tree
  * that has one of the first three was shaped to be installed into, and a link
- * must at least stay among the workspace's own files.
+ * must at least stay among the workspace's own files: by its text, by where
+ * it resolves, and by every link its target passes through.
  */
 export function checkTree(root) {
-  const real = realpathSync(root);
+  const real = physical(root);
   const inside = (p) => p === real || p.startsWith(`${real}${path.sep}`);
   const reserved = (p) => {
     const first = path.relative(real, p).split(path.sep)[0];
@@ -804,13 +920,14 @@ export function checkTree(root) {
         refuse(`${r}: a .npmrc that is not the workspace root's`);
       }
       if (e.isSymbolicLink()) {
-        const why = linkLeaves(real, full, readlinkSync(full));
+        const text = readlinkSync(full);
+        const why = linkLeaves(real, full, text);
         if (why !== '') {
           refuse(`${r} is a symbolic link that leads ${why}`);
         }
         let target;
         try {
-          target = realpathSync(full);
+          target = physical(full);
         } catch {
           refuse(`${r} is a symbolic link that does not resolve`);
         }
@@ -819,6 +936,10 @@ export function checkTree(root) {
         }
         if (reserved(target)) {
           refuse(`${r} is a symbolic link into .git or a trusted checkout`);
+        }
+        const strays = linkStrays(real, full, text);
+        if (strays !== '') {
+          refuse(`${r} is a symbolic link that leads ${strays}`);
         }
       } else if (e.isDirectory()) {
         visit(r);
@@ -894,7 +1015,7 @@ export function checkInputs(root) {
  * placed directly in a project's `node_modules`, is inside the workspace.
  */
 export function checkInstalled(root) {
-  const real = realpathSync(root);
+  const real = physical(root);
   const inside = (p) => p === real || p.startsWith(`${real}${path.sep}`);
   const lock = readStrictYaml(
     regularFile(path.join(root, 'pnpm-lock.yaml'), 'pnpm-lock.yaml'),
@@ -909,7 +1030,7 @@ export function checkInstalled(root) {
           `${path.relative(root, d) || '.'} is a symbolic link after the install`,
         );
       }
-      if (!inside(realpathSync(d))) {
+      if (!inside(physical(d))) {
         refuse(
           `${path.relative(root, d) || '.'} resolves outside the workspace after the install`,
         );
@@ -930,7 +1051,7 @@ export function checkInstalled(root) {
     for (const entry of entries) {
       let target;
       try {
-        target = realpathSync(entry);
+        target = physical(entry);
       } catch {
         refuse(
           `${path.relative(root, entry)} does not resolve after the install`,
@@ -1035,16 +1156,16 @@ export function takeSnapshot(
   root,
   { runnerTemp = '', exclude = '', home = '' } = {},
 ) {
-  const real = realpathSync(root);
+  const real = physical(root);
   const git = {};
   // The object store is large and cannot be written through a covered
   // mount either; size and time are enough for it.
   record(git, real, '.git', (rel) => !rel.startsWith('objects/'));
   const temp = {};
   if (runnerTemp !== '' && existsSync(runnerTemp)) {
-    const skipped = exclude === '' ? null : realpathSync(exclude);
+    const skipped = exclude === '' ? null : physical(exclude);
     walk(
-      realpathSync(runnerTemp),
+      physical(runnerTemp),
       (rel, s) => {
         temp[rel] = describe(s);
       },
@@ -1097,11 +1218,9 @@ export function compareSnapshots(before, after) {
  * in a subdirectory, must end up among the workspace's own files.
  */
 export function checkLinks(root, { runnerTemp = '' } = {}) {
-  const real = realpathSync(root);
+  const real = physical(root);
   const temp =
-    runnerTemp !== '' && existsSync(runnerTemp)
-      ? realpathSync(runnerTemp)
-      : null;
+    runnerTemp !== '' && existsSync(runnerTemp) ? physical(runnerTemp) : null;
   const under = (p, dir) => p === dir || p.startsWith(`${dir}${path.sep}`);
   walk(
     real,
@@ -1119,21 +1238,30 @@ export function checkLinks(root, { runnerTemp = '' } = {}) {
         );
       }
       // ...and by where it resolves here, as far as it does.
-      let resolved;
+      let resolved = null;
       try {
-        resolved = realpathSync(full);
+        resolved = physical(full);
       } catch {
-        return;
+        // It resolves nowhere here; the walk below still reads it.
       }
-      const first = path.relative(real, resolved).split(path.sep)[0];
-      if (
-        !under(resolved, real) ||
-        first === '.git' ||
-        first.startsWith('.trusted-') ||
-        (temp !== null && under(resolved, temp))
-      ) {
+      if (resolved !== null) {
+        const first = path.relative(real, resolved).split(path.sep)[0];
+        if (
+          !under(resolved, real) ||
+          first === '.git' ||
+          first.startsWith('.trusted-') ||
+          (temp !== null && under(resolved, temp))
+        ) {
+          refuse(
+            `${rel} is a symbolic link out of the workspace's own files after the install`,
+          );
+        }
+      }
+      // ...and by every link its target passes through.
+      const strays = linkStrays(real, full, target, temp, true);
+      if (strays !== '') {
         refuse(
-          `${rel} is a symbolic link out of the workspace's own files after the install`,
+          `${rel} is a symbolic link out of the workspace's own files after the install (it leads ${strays})`,
         );
       }
     },
@@ -1144,6 +1272,10 @@ export function checkLinks(root, { runnerTemp = '' } = {}) {
 const USAGE =
   'usage: check-install-inputs.mjs before|installed <root> | snapshot|after <root> <file> [<runner temp> <exclude> <home>]';
 
+// "Was this file run, or imported?" The default `realpathSync` on purpose:
+// the question is which file the loader loaded, and that is how the loader
+// resolved it. Asked any other way, the two sides could differ and the checks
+// below would be skipped without a word.
 if (
   process.argv[1] &&
   fileURLToPath(import.meta.url) === realpathSync(process.argv[1])

@@ -81,10 +81,25 @@ If the step fails after it has written its `$GITHUB_PATH` line, the line
 names a directory the step then removed. The job has failed by then, so no
 later step uses it.
 
-A symbolic link is judged by its text, in the container before the install
+A symbolic link is judged three ways, in the container before the install
 and on the runner after it, whether the checkout had it or the install made
-it: it must stay, lexically, among the workspace's own files, and may not
-pass through `/proc`, `/dev` or `/sys`. This repository tracks no
+it, and each way refuses on its own:
+
+- by its text: it must stay, lexically, among the workspace's own files, and
+  may not pass through `/proc`, `/dev` or `/sys`;
+- by where it resolves, as the kernel resolves it (`realpathSync.native`):
+  each component followed in turn, a `..` taken from wherever the components
+  before it led, never settled as text first;
+- by every link its target passes through: the target is walked one
+  component at a time without following anything, a component that is itself
+  a link is walked the same way by its own text, and no step may leave the
+  workspace's own files, even to come back. Before the install a component
+  that does not exist or cannot be examined is a refusal; after it, what
+  follows a missing component is read as plain names and may not climb.
+
+The paths the checks are given (the workspace root, the runner's temp
+directory, the directory left out of its record) and what the install left
+in `node_modules` are resolved the same way. This repository tracks no
 symbolic link (`repo.test.mjs` pins that), so one added on purpose is a
 change to make there too.
 
