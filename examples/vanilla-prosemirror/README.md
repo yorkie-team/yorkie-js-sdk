@@ -1,4 +1,4 @@
-# Yorkie Vanilla ProseMirror Example
+# ProseMirror
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/vanilla-prosemirror/" target="_blank">
@@ -6,27 +6,20 @@
     </a>
 </p>
 
-## How to run demo
+A [ProseMirror](https://prosemirror.net/) editor that several people edit at
+once, using the `@yorkie-js/prosemirror` binding. The document lives in a
+Yorkie `Tree`, and each person's name, colour and selection travel as
+Presence, so you see everyone's cursor as they type.
 
-At project root, run below command to start Yorkie server.
+<img width="500" alt="ProseMirror" src="./thumbnail.jpg">
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
+## How to run
 
-Then install dependencies and run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Now you can run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm vanilla-prosemirror dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then
+   `pnpm sdk build` and `pnpm prosemirror build`
+3. `pnpm vanilla-prosemirror dev`
+4. Open the printed URL in two tabs (or two browsers) and edit in one: the
+   text, its formatting and your cursor show up in the other. Add
+   `?key=<name>` to the URL to open a document of your own.

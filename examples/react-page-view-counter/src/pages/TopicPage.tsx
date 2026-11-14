@@ -14,18 +14,24 @@ export function TopicPage({
 
   return (
     <section className="topic-page">
-      <button className="back" onClick={onBack}>
-        ← Back to topics
+      <button className="back" type="button" onClick={onBack}>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M10 3 5 8l5 5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Back to topics
       </button>
-      <DocumentProvider
-        docKey={docKey}
-        syncMode={SyncMode.Manual}
-        disableGC
-      >
+      <DocumentProvider docKey={docKey} syncMode={SyncMode.Manual} disableGC>
         <TopicView topicId={topicId} />
       </DocumentProvider>
       <p className="doc-key">
-        docKey: <code>{docKey}</code>
+        Document key: <code>{docKey}</code>
       </p>
     </section>
   );

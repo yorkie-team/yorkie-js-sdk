@@ -1,70 +1,93 @@
 'use client';
 
-import { ChannelProvider } from '@yorkie-js/react';
-import { ROOMS } from '@/lib/rooms';
-import SessionCounter from './SessionCounter';
-import './RoomView.css';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ChannelProvider, useChannel } from '@yorkie-js/react';
+import Header from './Header';
+import ServerError from './ServerError';
+import type { Room } from '@/lib/rooms';
 
-interface RoomViewProps {
-  roomId: string;
-  onLeave: () => void;
-}
+type Change = 'joined' | 'left' | null;
 
-function RoomView({ roomId, onLeave }: RoomViewProps) {
-  const room = ROOMS.find((r) => r.id === roomId);
+function RoomContent({ room }: { room: Room }) {
+  // `useChannel` exposes the live session count of the surrounding channel.
+  const { sessionCount, loading, error } = useChannel();
 
-  if (!room) {
-    return (
-      <div className="room-view error">
-        <p>Room not found</p>
-        <button onClick={onLeave}>Go Back</button>
-      </div>
-    );
+  // Compare with the previous count to announce joins and leaves. The first
+  // count after connecting is a baseline, not a change.
+  const [prevCount, setPrevCount] = useState<number | null>(null);
+  const [change, setChange] = useState<Change>(null);
+  if (!loading && sessionCount !== prevCount) {
+    setPrevCount(sessionCount);
+    if (prevCount !== null) {
+      setChange(sessionCount > prevCount ? 'joined' : 'left');
+    }
   }
 
+  useEffect(() => {
+    if (!change) return;
+    const timer = setTimeout(() => setChange(null), 3000);
+    return () => clearTimeout(timer);
+  }, [change, sessionCount]);
+
+  const status = error ? 'error' : loading ? 'connecting' : 'connected';
+
   return (
-    <ChannelProvider channelKey={room.key}>
-      <div className="room-view">
-        <div className="room-view-header">
-          <button className="back-button" onClick={onLeave}>
-            ← Back to Rooms
-          </button>
-        </div>
-
-        <div className="room-view-content">
-          <div className="room-info">
-            <h2>{room.name}</h2>
-            <p>{room.description}</p>
-          </div>
-
-          <SessionCounter />
-
-          <div className="room-instructions">
-            <h3>Try it out!</h3>
-            <ul>
-              <li>🪟 Open this page in multiple browser windows or tabs</li>
-              <li>
-                👀 Watch the user count update in real-time as you join/leave
-              </li>
-              <li>🏠 Switch rooms to see independent presence tracking</li>
-            </ul>
-          </div>
-
-          <div className="room-demo-area">
-            <h3>You&apos;re connected!</h3>
-            <p>
-              This is room <strong>{room.id}</strong> with channel key:{' '}
-              <code>{room.key}</code>
+    <>
+      <Header status={status} roomKey={room.key} />
+      <main className="main">
+        <Link className="back-link" href="/">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M10 3L5 8l5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          All rooms
+        </Link>
+        {error ? (
+          <ServerError />
+        ) : (
+          <section className="card room">
+            <h2 className="room-title">{room.name}</h2>
+            <p className="room-description">{room.description}</p>
+            <p className="count" aria-live="polite">
+              {loading ? (
+                <span className="count-label">Joining…</span>
+              ) : (
+                <>
+                  <span className="count-value">{sessionCount}</span>
+                  <span className="count-label">
+                    {sessionCount === 1 ? 'person here' : 'people here'}
+                  </span>
+                </>
+              )}
             </p>
-            <p className="demo-hint">
-              Each room has its own channel key, allowing independent session
-              counting.
+            <p className="change" aria-live="polite">
+              {change === 'joined' && 'Someone joined'}
+              {change === 'left' && 'Someone left'}
             </p>
-          </div>
-        </div>
-      </div>
-    </ChannelProvider>
+            <p className="hint">
+              The count includes you. A closed tab can take a few seconds to
+              drop out.
+            </p>
+          </section>
+        )}
+      </main>
+    </>
   );
 }
 
-export default RoomView;
+export default function RoomView({ room }: { room: Room }) {
+  // `ChannelProvider` attaches to the room's channel while this view is
+  // mounted and detaches when you leave.
+  return (
+    <ChannelProvider channelKey={room.key}>
+      <RoomContent room={room} />
+    </ChannelProvider>
+  );
+}

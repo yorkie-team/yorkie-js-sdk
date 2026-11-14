@@ -1,27 +1,48 @@
-import { DocEvent, StreamConnectionStatus } from '@yorkie-js/sdk';
-export const network = {
-  isOnline: false,
-  showOffline: (elem: HTMLElement) => {
-    network.isOnline = false;
-    elem.innerHTML = '<span class="red"> </span>';
-  },
-  showOnline: (elem: HTMLElement) => {
-    network.isOnline = true;
-    elem.innerHTML = '<span class="green"> </span>';
-  },
-  statusListener: (elem: HTMLElement) => {
-    return (event: DocEvent) => {
-      if (
-        network.isOnline &&
-        event.value == StreamConnectionStatus.Disconnected
-      ) {
-        network.showOffline(elem);
-      } else if (
-        !network.isOnline &&
-        event.value == StreamConnectionStatus.Connected
-      ) {
-        network.showOnline(elem);
-      }
-    };
-  },
+import { StreamConnectionStatus } from '@yorkie-js/sdk';
+
+type Status = 'connecting' | 'connected' | 'offline' | 'error';
+
+const LABELS: Record<Status, string> = {
+  connecting: 'Connecting…',
+  connected: 'Connected',
+  offline: 'Offline',
+  error: 'Error',
 };
+
+/**
+ * `displayStatus` shows the connection state as a dot plus a text label.
+ */
+export function displayStatus(elem: HTMLElement, status: Status) {
+  elem.dataset.state = status;
+  elem.querySelector('.status-text')!.textContent = LABELS[status];
+}
+
+/**
+ * `statusListener` maps the document's watch stream to the status display.
+ * Use it with `doc.subscribe('connection', ...)`.
+ */
+export function statusListener(elem: HTMLElement) {
+  return (event: { value: StreamConnectionStatus }) => {
+    displayStatus(
+      elem,
+      event.value === StreamConnectionStatus.Connected
+        ? 'connected'
+        : 'offline',
+    );
+  };
+}
+
+/**
+ * `displayError` replaces the editor with a plain message and how to recover.
+ */
+export function displayError(
+  statusElem: HTMLElement,
+  errorElem: HTMLElement,
+  rpcAddr: string,
+) {
+  displayStatus(statusElem, 'error');
+  errorElem.textContent =
+    `Couldn't reach the Yorkie server at ${rpcAddr}. ` +
+    `Check that it's running, then reload.`;
+  errorElem.hidden = false;
+}

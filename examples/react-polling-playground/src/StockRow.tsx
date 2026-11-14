@@ -1,28 +1,26 @@
 import type { Stock } from './stocks';
+import { ChevronRight } from './icons';
 
 type Props = {
   stock: Stock;
-  rank: number;
   onSelect: (ticker: string) => void;
 };
 
-export default function StockRow({ stock, rank, onSelect }: Props) {
-  const flagText = stock.market === 'KR' ? '🇰🇷' : '🇺🇸';
-
+export default function StockRow({ stock, onSelect }: Props) {
   return (
     <button
       type="button"
       className="stock-row"
       onClick={() => onSelect(stock.ticker)}
     >
-      <div className="stock-rank">{rank}</div>
-      <div className="stock-id">
+      <span className="stock-id">
         <span className="ticker">{stock.ticker}</span>
-        <span className="name">
-          {flagText} {stock.name}
-        </span>
-      </div>
-      <div className="cta">Watch live →</div>
+        <span className="name">{stock.name}</span>
+      </span>
+      <span className="market">{stock.market}</span>
+      <span className="cta">
+        Enter room <ChevronRight />
+      </span>
     </button>
   );
 }

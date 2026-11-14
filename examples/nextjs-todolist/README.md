@@ -1,4 +1,4 @@
-# Yorkie Nextjs Todo List Example
+# Todo List
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/nextjs-todolist/" target="_blank">
@@ -6,68 +6,30 @@
     </a>
 </p>
 
-<img width="500" alt="Nextjs TodoList" src="thumbnail.jpg"/>
+A collaborative todo list built with [Yorkie](https://yorkie.dev/) and
+Next.js. Todos live in a Yorkie Document shared by everyone who opens the page
+(`YorkieProvider`, `DocumentProvider` and `useDocument` from
+`@yorkie-js/react`), and Presence shows who else is here.
 
-A real-time collaborative todo list that enables multiple users to edit simultaneously using [Yorkie](https://yorkie-dev/).
+<img width="500" alt="Todo List" src="./thumbnail.jpg">
 
-## How to run demo
+## How to run
+
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install`, then
+   `pnpm sdk build` and `pnpm react build`
+3. `pnpm nextjs-todolist dev`
+4. Open the printed URL in two tabs (or two browsers), add a todo or check one
+   off, and watch the other tab update.
 
 ### With Yorkie Dashboard
 
-Install dependencies
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Create an account on [Yorkie Dashboard](https://yorkie.dev/dashboard)
-Create a new project and copy your public key from the dashboard
-Update the `.env` file like so:
+To run against Yorkie's hosted server instead, create a project on
+[Yorkie Dashboard](https://yorkie.dev/dashboard), copy its public key, and
+update `.env`:
 
 ```
 NEXT_PUBLIC_YORKIE_API_ADDR='https://api.yorkie.dev'
 NEXT_PUBLIC_YORKIE_API_KEY='your_key_xxxx'
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm nextjs-todolist dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
-
-### With local Yorkie server
-
-Install dependencies
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-At project root, run below command to start Yorkie.
-
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Update the `.env` file like so:
-
-```
-NEXT_PUBLIC_YORKIE_API_ADDR='http://localhost:8080'
-NEXT_PUBLIC_YORKIE_API_KEY=''
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm nextjs-todolist dev
-
-# Or in the directory of the example.
-$ pnpm dev
 ```

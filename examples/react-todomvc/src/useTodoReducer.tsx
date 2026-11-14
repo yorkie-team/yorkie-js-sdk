@@ -13,14 +13,15 @@ export function useTodoReducer(initialRoot: { todos: JSONArray<Todo> }) {
       .substring(0, 10)
       .replace(/-/g, '')}`;
 
-  const { root, update, loading, error } = useYorkieDoc<{
+  const { root, update, connection, loading, error } = useYorkieDoc<{
     todos: JSONArray<Todo>;
   }>(import.meta.env.VITE_YORKIE_API_KEY, documentKey, {
     initialRoot,
     rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
-    enableDevtools: true,
+    enableDevtools: import.meta.env.DEV,
   });
 
+  // Every action becomes one `doc.update`, which Yorkie syncs to the peers.
   const dispatch = useCallback(
     (action: TodoAction) => {
       update((root) => {
@@ -30,5 +31,5 @@ export function useTodoReducer(initialRoot: { todos: JSONArray<Todo> }) {
     [update],
   );
 
-  return { root, dispatch, loading, error };
+  return { root, dispatch, connection, loading, error };
 }

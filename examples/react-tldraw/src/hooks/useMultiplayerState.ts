@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   TDUserStatus,
   TDAsset,
@@ -9,206 +9,173 @@ import {
 } from '@tldraw/tldraw';
 import { useThrottleCallback } from '@react-hook/throttle';
 import * as yorkie from '@yorkie-js/sdk';
-import randomColor from 'randomcolor';
 import { uniqueNamesGenerator, names } from 'unique-names-generator';
-
-import type { YorkieDocType, YorkiePresenceType } from './types';
 import { isEqual } from 'es-toolkit';
 
+import type { YorkieDocType, YorkiePresenceType } from './types';
+
+type Doc = yorkie.Document<YorkieDocType, YorkiePresenceType>;
+
+export type Status = 'connecting' | 'connected' | 'offline' | 'error';
+export type Peer = { id: string; name: string; color: string; isMe: boolean };
+
+// Peer colours are picked from the client ID, so every tab agrees on them.
+const peerColors = [
+  '#fc8539',
+  '#fdc433',
+  '#23c176',
+  '#3c9af1',
+  '#f44954',
+  '#855cf9',
+];
+
+function peerColor(clientID: string) {
+  let hash = 0;
+  for (const char of clientID) {
+    hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  }
+  return peerColors[Math.abs(hash) % peerColors.length];
+}
+
 /**
- * Custom hook for managing multiplayer state in Tldraw using Yorkie
- * Handles real-time collaboration, presence updates, and undo/redo functionality
+ * `replacePageContent` replaces the canvas with the shapes, bindings and
+ * assets in the Yorkie document.
+ */
+function replacePageContent(app: TldrawApp, doc: Doc) {
+  const root = doc.getRoot();
+  app.replacePageContent(
+    root.shapes.toJS() as Record<string, TDShape>,
+    root.bindings.toJS() as Record<string, TDBinding>,
+    root.assets.toJS() as Record<string, TDAsset>,
+  );
+}
+
+/**
+ * `updateRecord` writes only the properties that changed, so concurrent edits
+ * to different properties of the same shape are both kept.
+ */
+function updateRecord<T extends object>(
+  records: Record<string, yorkie.JSONObject<T>>,
+  id: string,
+  value: T | undefined,
+) {
+  if (!value) {
+    delete records[id];
+    return;
+  }
+  if (!records[id]) {
+    records[id] = value as yorkie.JSONObject<T>;
+    return;
+  }
+  const current = records[id].toJS() as T;
+  for (const key of Object.keys(value) as Array<keyof T>) {
+    if (!isEqual(value[key], current[key]) && value[key] !== undefined) {
+      (records[id] as T)[key] = value[key];
+    }
+  }
+}
+
+/**
+ * `useMultiplayerState` connects a tldraw app to a Yorkie document: shapes
+ * and bindings live in the document root, and each user's cursor and
+ * selection live in their presence.
  */
 export function useMultiplayerState(roomId: string) {
   const [app, setApp] = useState<TldrawApp>();
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<Status>('connecting');
+  const [peers, setPeers] = useState<Array<Peer>>([]);
+  // The attached document, for the tldraw callbacks below. It is set only
+  // while the effect that owns it is mounted.
+  const docRef = useRef<Doc | undefined>(undefined);
 
-  const clientRef = useRef<yorkie.Client>();
-  const docRef = useRef<yorkie.Document<YorkieDocType, YorkiePresenceType>>();
-
-  /**
-   * Handles changes from remote users and updates the local Tldraw app
-   * Parses document content and replaces page content in the app
-   */
-  const handleChanges = useCallback(() => {
-    if (!docRef.current || !app) return;
-
-    const root = docRef.current.getRoot();
-
-    try {
-      const shapesJson = root.shapes.toJSON?.();
-      const bindingsJson = root.bindings.toJSON?.();
-      const assetsJson = root.assets.toJSON?.();
-
-      if (!shapesJson || !bindingsJson || !assetsJson) {
-        console.warn('Document content is not yet initialized');
-        return;
-      }
-
-      const shapeRecord: Record<string, TDShape> = JSON.parse(shapesJson);
-      const bindingRecord: Record<string, TDBinding> = JSON.parse(bindingsJson);
-      const assetRecord: Record<string, TDAsset> = JSON.parse(assetsJson);
-
-      app.replacePageContent(shapeRecord, bindingRecord, assetRecord);
-    } catch (error) {
-      console.error('Error parsing document content:', error);
-    }
-  }, [app]);
-
-  /**
-   * Utility function to get the list of properties that have changed
-   * between source and target objects using deep equality comparison
-   */
-  const getUpdatedPropertyList = useCallback(
-    <T extends object>(source: T, target: T) => {
-      return (Object.keys(source) as Array<keyof T>).filter(
-        (key) => !isEqual(source[key], target[key]),
-      );
-    },
-    [],
-  );
-
-  /**
-   * Callback for when Tldraw app is mounted
-   * Initializes the room, sets loading state, and creates initial user
-   */
   const onMount = useCallback(
     (app: TldrawApp) => {
       app.loadRoom(roomId);
       app.setIsLoading(true);
+      // Undo and redo go through Yorkie's history (see onUndo), not tldraw's.
       app.pause();
-      setApp(app);
-
-      const randomName = uniqueNamesGenerator({
-        dictionaries: [names],
-      });
-
-      app.updateUsers([
-        {
-          id: app!.currentUser!.id,
-          point: [0, 0],
-          color: randomColor(),
-          status: TDUserStatus.Connected,
-          activeShapes: [],
-          selectedIds: [],
-          metadata: { name: randomName },
-        },
-      ]);
+      // tldraw creates its app in a state initializer, which StrictMode runs
+      // twice in development; both apps call onMount. The first one is the
+      // app tldraw renders, so keep it.
+      setApp((current) => current ?? app);
     },
     [roomId],
   );
 
-  /** Handle undo operation using Yorkie's history API */
   const onUndo = useCallback(() => {
-    if (docRef.current?.history.canUndo()) {
-      docRef.current.history.undo();
-      handleChanges();
+    const doc = docRef.current;
+    if (app && doc?.history.canUndo()) {
+      doc.history.undo();
+      replacePageContent(app, doc);
     }
-  }, [handleChanges]);
+  }, [app]);
 
-  /** Handle redo operation using Yorkie's history API */
   const onRedo = useCallback(() => {
-    if (docRef.current?.history.canRedo()) {
-      docRef.current.history.redo();
-      handleChanges();
+    const doc = docRef.current;
+    if (app && doc?.history.canRedo()) {
+      doc.history.redo();
+      replacePageContent(app, doc);
     }
-  }, [handleChanges]);
+  }, [app]);
 
-  /**
-   * Throttled callback for handling page content changes
-   * Updates shapes, bindings, and assets in the Yorkie document
-   * Throttled to 60ms to prevent excessive updates
-   */
-  const onChangePage = useThrottleCallback(
+  // tldraw passes only the records each call changed, and the throttled
+  // flush below sees only the last call's arguments. So every call adds its
+  // records to these pending maps; a later value for the same ID wins, and
+  // `undefined` means the record was deleted.
+  const pendingShapes = useRef<Record<string, TDShape | undefined>>({});
+  const pendingBindings = useRef<Record<string, TDBinding | undefined>>({});
+  const pendingAssets = useRef<Record<string, TDAsset | undefined>>({});
+
+  // Write the pending records to the document as one change.
+  const writePending = useCallback(() => {
+    const doc = docRef.current;
+    const shapes = pendingShapes.current;
+    const bindings = pendingBindings.current;
+    const assets = pendingAssets.current;
+    const isEmpty = [shapes, bindings, assets].every(
+      (records) => Object.keys(records).length === 0,
+    );
+    if (!doc || isEmpty) return;
+
+    pendingShapes.current = {};
+    pendingBindings.current = {};
+    pendingAssets.current = {};
+    doc.update((root) => {
+      for (const [id, shape] of Object.entries(shapes)) {
+        updateRecord(root.shapes, id, shape);
+      }
+      for (const [id, binding] of Object.entries(bindings)) {
+        updateRecord(root.bindings, id, binding);
+      }
+      for (const [id, asset] of Object.entries(assets)) {
+        updateRecord(root.assets, id, asset);
+      }
+    });
+  }, []);
+
+  // The second argument is a rate in calls per second, not milliseconds:
+  // write at most 60 times a second.
+  const flushPage = useThrottleCallback(writePending, 60, false);
+
+  const onChangePage = useCallback(
     (
-      app: TldrawApp,
+      _app: TldrawApp,
       shapes: Record<string, TDShape | undefined>,
       bindings: Record<string, TDBinding | undefined>,
+      assets: Record<string, TDAsset | undefined>,
     ) => {
-      if (!app || !clientRef.current || !docRef.current) return;
-
-      // Update shapes in the document
-      for (const [id, shape] of Object.entries(shapes)) {
-        docRef.current.update((root: YorkieDocType) => {
-          if (!shape) {
-            delete root.shapes[id];
-          } else if (!root.shapes[id]) {
-            root.shapes[id] = shape as yorkie.JSONObject<TDShape>;
-          } else {
-            const updatedPropertyList = getUpdatedPropertyList(
-              shape,
-              root.shapes[id].toJS(),
-            );
-
-            for (const key of updatedPropertyList) {
-              (root.shapes[id] as any)[key] = shape[key];
-            }
-          }
-        });
-      }
-
-      // Update bindings in the document
-      for (const [id, binding] of Object.entries(bindings)) {
-        docRef.current.update((root: YorkieDocType) => {
-          if (!binding) {
-            delete root.bindings[id];
-          } else if (!root.bindings[id]) {
-            root.bindings[id] = binding as yorkie.JSONObject<TDBinding>;
-          } else {
-            const updatedPropertyList = getUpdatedPropertyList(
-              binding,
-              root.bindings[id].toJS(),
-            );
-
-            for (const key of updatedPropertyList) {
-              const newValue = binding[key];
-              if (newValue !== undefined) {
-                (root.bindings[id] as any)[key] = newValue;
-              }
-            }
-          }
-        });
-      }
-
-      /**
-       * Update assets in the document
-       * Assets are stored globally in app.assets and referenced by inner page assets
-       * Document keys for assets use asset.id (string), not array indices
-       */
-      for (const [, asset] of Object.entries(app.assets)) {
-        docRef.current.update((root: YorkieDocType) => {
-          if (!asset.id) {
-            // Skip assets without valid IDs
-            return;
-          } else if (!root.assets[asset.id]) {
-            root.assets[asset.id] = asset as yorkie.JSONObject<TDAsset>;
-          } else {
-            const updatedPropertyList = getUpdatedPropertyList(
-              asset,
-              root.assets[asset.id].toJS(),
-            );
-
-            for (const key of updatedPropertyList) {
-              (root.assets[asset.id] as any)[key] = asset[key];
-            }
-          }
-        });
-      }
+      Object.assign(pendingShapes.current, shapes);
+      Object.assign(pendingBindings.current, bindings);
+      Object.assign(pendingAssets.current, assets);
+      flushPage();
     },
-    60,
-    false,
+    [flushPage],
   );
 
-  /**
-   * Throttled callback for handling user presence updates
-   * Updates cursor position, selection, and other user state
-   * Throttled to 60ms to prevent excessive presence updates
-   */
+  // Share the cursor and selection through presence.
   const onChangePresence = useThrottleCallback(
-    (app: TldrawApp, user: TDUser) => {
-      if (!app || !clientRef.current?.isActive() || !docRef.current) return;
-
-      docRef.current.update((root, presence) => {
+    (_app: TldrawApp, user: TDUser) => {
+      docRef.current?.update((_root, presence) => {
         presence.set({ tdUser: user });
       });
     },
@@ -219,148 +186,109 @@ export function useMultiplayerState(roomId: string) {
   useEffect(() => {
     if (!app) return;
 
-    const unsubs: Array<Function> = [];
-    let stillAlive = true;
+    // The client and document belong to this effect run. In development,
+    // StrictMode runs the effect twice, so each run cleans up its own.
+    let cancelled = false;
+    const client = new yorkie.Client({
+      rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+      apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+    });
+    const doc: Doc = new yorkie.Document(roomId, {
+      enableDevtools: import.meta.env.DEV,
+    });
 
-    /**
-     * Set up document change subscription for remote updates
-     * Triggers handleChanges when remote changes are received
-     */
-    const setupDocumentSubscription = (
-      doc: yorkie.Document<YorkieDocType, YorkiePresenceType>,
-    ) => {
+    const syncPeers = () => {
+      const myID = client.getID();
+      const presences = doc.getPresences().filter((p) => p.presence.tdUser);
+      // A reloaded tab can briefly appear twice with the same tldraw user.
+      const users = new Map(
+        presences.map(({ presence }) => [presence.tdUser.id, presence.tdUser]),
+      );
+      app.updateUsers([...users.values()]);
+      setPeers(
+        presences.map(({ clientID, presence }) => ({
+          id: clientID,
+          name: String(presence.tdUser.metadata?.name ?? ''),
+          color: presence.tdUser.color,
+          isMe: clientID === myID,
+        })),
+      );
+    };
+
+    const unsubs = [
+      doc.subscribe('presence', (event) => {
+        if (event.type === yorkie.DocEventType.Unwatched) {
+          app.removeUser(event.value.presence.tdUser.id);
+        }
+        syncPeers();
+      }),
       doc.subscribe((event) => {
         if (event.type === 'remote-change') {
-          handleChanges();
+          // Write local edits still waiting for the next flush first, so
+          // replacing the canvas with the document does not drop them.
+          writePending();
+          replacePageContent(app, doc);
         }
-      });
-    };
-
-    /**
-     * Finalize setup after document is attached
-     * Syncs data, handles initial zoom, and sets loading state
-     */
-    const finalizeSetup = async (client: yorkie.Client) => {
-      await client.sync();
-
-      if (stillAlive) {
-        handleChanges();
-        if (app) {
-          app.zoomToFit();
-          if (app.zoom > 1) {
-            app.resetZoom();
-          }
-          app.setIsLoading(false);
-        }
-
-        setLoading(false);
-      }
-    };
-
-    /**
-     * Main setup function that orchestrates the entire initialization process
-     * Creates document and client, sets up subscriptions, and handles errors
-     */
-    const setupDocument = async () => {
-      try {
-        // 01. Activate Yorkie client.
-        const client = new yorkie.Client({
-          rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
-          apiKey: import.meta.env.VITE_YORKIE_API_KEY,
-          syncLoopDuration: 0,
-          reconnectStreamDelay: 1000,
-        });
-        await client.activate();
-        clientRef.current = client;
-
-        // 02. Create document and subscribe to events.
-        const doc = new yorkie.Document<YorkieDocType, YorkiePresenceType>(
-          roomId,
-          { enableDevtools: true },
+      }),
+      doc.subscribe('connection', (event) => {
+        setStatus(
+          event.value === yorkie.StreamConnectionStatus.Connected
+            ? 'connected'
+            : 'offline',
         );
-        docRef.current = doc;
-        unsubs.push(
-          doc.subscribe('my-presence', (event) => {
-            if (event.type === yorkie.DocEventType.Initialized) {
-              const allPeers = doc
-                .getPresences()
-                .map((peer) => peer.presence.tdUser);
-              app?.updateUsers(allPeers);
-            }
-          }),
-        );
+      }),
+    ];
 
-        unsubs.push(
-          doc.subscribe('others', (event) => {
-            if (event.type === yorkie.DocEventType.Unwatched) {
-              app?.removeUser(event.value.presence.tdUser.id);
-            }
-
-            const allPeers = doc
-              .getPresences()
-              .map((peer) => peer.presence.tdUser);
-            app?.updateUsers(allPeers);
-          }),
-        );
-
-        unsubs.push(
-          doc.subscribe((event) => {
-            if (event.type === 'remote-change') {
-              handleChanges();
-            }
-          }),
-        );
-
-        await client.attach(doc, {
-          initialRoot: {
-            shapes: {},
-            bindings: {},
-            assets: {},
-          } as YorkieDocType,
-          initialPresence: app?.currentUser
-            ? { tdUser: app.currentUser }
-            : undefined,
-        });
-
-        await finalizeSetup(client);
-      } catch (error) {
-        console.error('Error setting up document:', error);
-        setLoading(false);
-      }
-    };
-
-    setupDocument();
-
-    // Cleanup function to properly dispose of resources
-    return () => {
-      stillAlive = false;
-      for (const unsub of unsubs) {
-        unsub();
+    const setup = async () => {
+      await client.activate();
+      if (cancelled) {
+        // The effect was cleaned up while activating.
+        await client.deactivate();
+        return;
       }
 
-      const cleanup = async () => {
-        try {
-          if (docRef.current && clientRef.current) {
-            await clientRef.current.detach(docRef.current);
-          }
-          if (clientRef.current) {
-            await clientRef.current.deactivate();
-          }
-        } catch (error) {
-          console.error('Error during cleanup:', error);
-        } finally {
-          docRef.current = undefined;
-          clientRef.current = undefined;
-        }
+      const user: TDUser = {
+        id: app.currentUser!.id,
+        point: [0, 0],
+        color: peerColor(client.getID()!),
+        status: TDUserStatus.Connected,
+        activeShapes: [],
+        selectedIds: [],
+        metadata: { name: uniqueNamesGenerator({ dictionaries: [names] }) },
       };
-      cleanup();
+      await client.attach(doc, {
+        initialRoot: { shapes: {}, bindings: {}, assets: {} } as YorkieDocType,
+        initialPresence: { tdUser: user },
+      });
+      if (cancelled) return;
+
+      docRef.current = doc;
+      replacePageContent(app, doc);
+      syncPeers();
+      app.zoomToFit();
+      if (app.zoom > 1) app.resetZoom();
+      app.setIsLoading(false);
     };
-  }, [app, handleChanges]);
+
+    setup().catch(() => {
+      if (!cancelled) setStatus('error');
+    });
+
+    return () => {
+      cancelled = true;
+      for (const unsub of unsubs) unsub();
+      if (docRef.current === doc) docRef.current = undefined;
+      // Deactivating also detaches the document. While `activate` is still
+      // in flight this is a no-op, and `setup` deactivates instead.
+      client.deactivate().catch(() => {});
+    };
+  }, [app, roomId, writePending]);
 
   return {
+    status,
+    peers,
     onMount,
     onChangePage,
-    loading,
     onChangePresence,
     onUndo,
     onRedo,

@@ -6,7 +6,7 @@ import baseConfig from '../../eslint.config.mjs';
 
 const eslintConfig = [
   ...baseConfig,
-  reactHooks.configs['recommended-latest'],
+  reactHooks.configs.flat['recommended-latest'],
   reactRefresh.configs.vite,
   {
     plugins: {

@@ -1,3 +1,199 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: light;
+  --gray-900: #332e2b;
+  --gray-800: #514c49;
+  --gray-700: #6e6966;
+  --gray-600: #807b78;
+  --gray-500: #a6a19e;
+  --gray-400: #c2bdba;
+  --gray-300: #e2dedb;
+  --gray-200: #efeceb;
+  --gray-100: #f5f3f1;
+  --gray-50: #faf8f6;
+  --gray-000: #fefdfb;
+  --orange-0: #fc8539;
+  --orange-dark: #f27b2f;
+  --orange-alpha: rgb(252 133 57 / 32%);
+  --ink-on-accent: #332e2b;
+  --success: #10b266;
+  --danger: #e93d47;
+  --font:
+    Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', Consolas, Monaco, monospace;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+}
+
+body {
+  margin: 0;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  font-family: var(--font);
+}
+
+::selection {
+  background: var(--orange-alpha);
+}
+
+:focus-visible {
+  outline: 2px solid var(--orange-0);
+  outline-offset: 2px;
+}
+
+.layout {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas {
+  flex: 1;
+  min-height: 0;
+}
+
+.state-message {
+  margin: 48px 16px;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--gray-700);
+  text-align: center;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  background: var(--gray-000);
+  color: var(--gray-900);
+  font: 500 14px/22px var(--font);
+  cursor: pointer;
+}
+
+.button--primary {
+  border-color: var(--orange-0);
+  background: var(--orange-0);
+  color: var(--ink-on-accent);
+}
+
+.button--primary:hover {
+  border-color: var(--orange-dark);
+  background: var(--orange-dark);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Tint React Flow's own chrome with the family palette. Selection is local
+ * (only you see it), so it uses the accent. */
+.react-flow {
+  --xy-node-border: 1px solid var(--gray-700);
+  --xy-node-border-radius: var(--radius-sm);
+  --xy-node-boxshadow-selected: 0 0 0 1px var(--orange-0);
+  --xy-handle-background-color: var(--gray-700);
+  --xy-edge-stroke: var(--gray-500);
+  --xy-edge-stroke-selected: var(--orange-dark);
+  --xy-connectionline-stroke: var(--orange-0);
+  --xy-background-pattern-dots-color: var(--gray-400);
+  --xy-selection-background-color: rgb(252 133 57 / 8%);
+  --xy-selection-border: 1px dotted var(--orange-0);
+  --xy-controls-button-border-color: var(--gray-300);
+  --xy-controls-button-background-color-hover: var(--gray-100);
+  --xy-controls-box-shadow: 0 4px 16px rgb(51 46 43 / 12%);
+  --xy-attribution-background-color: transparent;
+  font-family: var(--font);
+}
+
+.react-flow__node.selected {
+  border-color: var(--orange-0);
+}
+
+/* Example header */
+.example-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 8px 16px;
+  background: var(--gray-000);
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.example-header__intro {
+  min-width: 0;
+}
+
+.example-header__title {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.example-header__hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--gray-700);
+}
+
+.example-header a {
+  color: var(--gray-900);
+  text-decoration: underline;
+  text-decoration-color: var(--orange-0);
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+
+.example-header a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.example-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gray-500);
+}
+
+.status[data-status='connected'] .status__dot {
+  background: var(--success);
+}
+
+.status[data-status='error'] .status__dot {
+  background: var(--danger);
+}
+
+/* The yorkie.dev preview iframe is short: keep only the essentials. */
+@media (max-height: 420px) {
+  .example-header__hint {
+    display: none;
+  }
 }

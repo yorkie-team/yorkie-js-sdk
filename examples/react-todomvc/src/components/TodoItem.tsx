@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import classnames from 'classnames';
 import { Todo } from '../model';
 import TodoTextInput from './TodoTextInput';
@@ -33,34 +33,32 @@ export default function TodoItem({ todo, dispatch }: TodoItemProps) {
     >
       {editing ? (
         <TodoTextInput
-          editing={editing}
+          editing
+          text={todo.text}
           onSave={(text: string) => {
+            // TodoMVC: saving an empty todo deletes it.
             if (text.length === 0) {
               deleteTodo(todo.id);
-            } else {
+            } else if (text !== todo.text) {
               editTodo(todo.id, text);
             }
             setEditing(false);
           }}
+          onCancel={() => setEditing(false)}
         />
       ) : (
         <div className="view">
           <input
-            id={`item-input-${todo.id}`}
             className="toggle"
             type="checkbox"
+            aria-label={`Complete "${todo.text}"`}
             checked={todo.completed}
             onChange={() => completeTodo(todo.id)}
           />
-          <label
-            htmlFor={`item-input-${todo.id}`}
-            onDoubleClick={() => setEditing(true)}
-          >
-            {todo.text}
-          </label>
+          <label onDoubleClick={() => setEditing(true)}>{todo.text}</label>
           <button
             type="button"
-            aria-label="Delete"
+            aria-label={`Delete "${todo.text}"`}
             className="destroy"
             onClick={() => deleteTodo(todo.id)}
           />

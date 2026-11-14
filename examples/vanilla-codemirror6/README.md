@@ -1,4 +1,4 @@
-# Yorkie CodeMirror6 Example
+# CodeMirror 6
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/vanilla-codemirror6/" target="_blank">
@@ -6,29 +6,18 @@
     </a>
 </p>
 
-<img width="500" alt="CodeMirror6" src="thumbnail.jpg"/>
+A [CodeMirror 6](https://codemirror.net/) editor that several people edit at
+once. The text lives in a Yorkie `Text`, and each person's name, colour and
+selection travel as Presence, so you see everyone's cursor as they type.
 
-## How to run demo
+<img width="500" alt="CodeMirror 6" src="./thumbnail.jpg">
 
-At project root, run below command to start Yorkie.
+## How to run
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Install dependencies
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm vanilla-codemirror6 dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm vanilla-codemirror6 dev`
+4. Open the printed URL in two tabs (or two browsers) and type in one: the
+   text and your cursor, with your name, show up in the other. Add
+   `?key=<name>` to the URL to open a document of your own.

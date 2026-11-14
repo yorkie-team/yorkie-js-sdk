@@ -1,18 +1,25 @@
 'use client';
 
 import { YorkieProvider, DocumentProvider } from '@yorkie-js/react';
-import TodoList from '../components/TodoList';
+import TodoList, { API_ADDR } from '../components/TodoList';
+
+const NAMES = ['Alice', 'Bob', 'Carol', 'Dave', 'Erin', 'Frank', 'Grace'];
+const myName = NAMES[Math.floor(Math.random() * NAMES.length)];
 
 export default function Home() {
   return (
     <YorkieProvider
       apiKey={process.env.NEXT_PUBLIC_YORKIE_API_KEY || ''}
-      rpcAddr={process.env.NEXT_PUBLIC_YORKIE_API_ADDR}
+      rpcAddr={API_ADDR}
     >
-      <DocumentProvider docKey="nextjs-todolist" initialRoot={{ todos: [] }}>
-        <main className="container mx-auto p-4">
-          <TodoList />
-        </main>
+      {/* Everyone shares the `nextjs-todolist` document. Each tab joins with
+          a random name in its presence, shown as an avatar in the header. */}
+      <DocumentProvider
+        docKey="nextjs-todolist"
+        initialRoot={{ todos: [] }}
+        initialPresence={{ name: myName }}
+      >
+        <TodoList />
       </DocumentProvider>
     </YorkieProvider>
   );

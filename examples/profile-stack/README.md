@@ -1,4 +1,4 @@
-# Yorkie Profile Stack Example
+# Profile Stack
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/profile-stack/" target="_blank">
@@ -6,29 +6,18 @@
     </a>
 </p>
 
-<img width="500" alt="Profile Stack" src="thumbnail.jpg"/>
+Shows everyone who has this page open as a stack of avatars, the way
+collaborative apps show who else is in a file. It uses Yorkie Presence: each
+client attaches to the same Document with a `name` in its presence, and every
+peer re-renders the stack when someone joins, leaves or renames themselves.
 
-## How to run demo
+<img width="500" alt="Profile Stack" src="./thumbnail.jpg">
 
-At project root, run below command to start Yorkie.
+## How to run
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Install dependencies
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm profile-stack dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm profile-stack dev`
+4. Open the printed URL in two tabs (or two browsers), then click your own
+   avatar in one tab to change your name and watch the other tab update.

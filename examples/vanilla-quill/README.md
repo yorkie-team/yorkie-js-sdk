@@ -1,4 +1,4 @@
-# Yorkie Quill Example
+# Quill
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/vanilla-quill/" target="_blank">
@@ -6,66 +6,30 @@
     </a>
 </p>
 
-This demo shows the real-time collaborative version of the [Quill](https://quilljs.com/) editor with [Yorkie](https://yorkie.dev/) and [Vite](https://vitejs.dev/).
+A [Quill](https://quilljs.com/) rich text editor that several people edit at
+once. The text and its formatting live in a Yorkie `Text`, and each person's
+name, colour and selection travel as Presence, drawn with
+[quill-cursors](https://github.com/reedsy/quill-cursors). Undo and redo go
+through Yorkie's history, so they only undo your own changes.
 
-## How to run demo
+<img width="500" alt="Quill" src="./thumbnail.jpg">
 
-### With Yorkie Dashboard
+## How to run
 
-Install dependencies
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm vanilla-quill dev`
+4. Open the printed URL in two tabs (or two browsers), type and format text in
+   one, and watch it appear in the other along with your cursor. Add
+   `?key=<name>` to the URL to open a document of your own.
 
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
+## Use Yorkie Dashboard instead of a local server
 
-Create an account on [Yorkie Dashboard](https://yorkie.dev/dashboard)
-Create a new project and copy your public key from the dashboard
-Update the `.env` file like so:
+Create an account on [Yorkie Dashboard](https://yorkie.dev/dashboard), create
+a project, copy its public key, and update `.env`:
 
 ```
 VITE_YORKIE_API_ADDR='https://api.yorkie.dev'
 VITE_YORKIE_API_KEY='your_key_xxxx'
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm vanilla-quill dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
-
-### With local Yorkie server
-
-Install dependencies
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-At project root, run below command to start Yorkie.
-
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Update the `.env` file like so:
-
-```
-VITE_YORKIE_API_ADDR='http://localhost:8080'
-VITE_YORKIE_API_KEY=''
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm vanilla-quill dev
-
-# Or in the directory of the example.
-$ pnpm dev
 ```

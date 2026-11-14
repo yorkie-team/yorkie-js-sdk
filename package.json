@@ -31,6 +31,8 @@
     "react-document-limit": "pnpm --filter=react-document-limit",
     "react-todomvc": "pnpm --filter=react-todomvc",
     "react-revision": "pnpm --filter=react-revision",
+    "react-page-view-counter": "pnpm --filter=react-page-view-counter",
+    "react-polling-playground": "pnpm --filter=react-polling-playground",
     "nextjs-scheduler": "pnpm --filter=nextjs-scheduler",
     "nextjs-todolist": "pnpm --filter=nextjs-todolist",
     "nextjs-presence": "pnpm --filter=nextjs-presence",

@@ -1,4 +1,3 @@
-import React from 'react';
 import TodoTextInput from './TodoTextInput';
 import { TodoAction } from '../todoReducer';
 

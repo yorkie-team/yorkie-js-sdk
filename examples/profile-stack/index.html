@@ -1,34 +1,55 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Profile Stack - Yorkie Example</title>
+    <title>Profile Stack · Yorkie</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <div id="app">
-      <div id="peerList"></div>
-    </div>
-
-    <!-- Edit Profile Modal -->
-    <div id="editProfileModal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <img alt="profile" class="profile-img" />
-          <button class="close">&times;</button>
-        </div>
-        <div class="modal-body">
-          <input
-            type="text"
-            id="usernameInput"
-            placeholder="Enter new username"
-          />
-          <button class="save">Save</button>
-        </div>
+    <header class="header">
+      <div class="header-text">
+        <h1 class="title">Profile Stack</h1>
+        <p class="hint">
+          See who is here —
+          <a href="" target="_blank">open this page in another tab</a>
+          to join as someone else.
+        </p>
       </div>
-    </div>
+      <div class="status" id="status" data-state="connecting">
+        <span class="status-dot"></span>
+        <span class="status-label">Connecting…</span>
+      </div>
+    </header>
+
+    <main class="stage" id="stage">
+      <ul class="stack" id="stack" aria-label="People on this page"></ul>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </main>
+
+    <dialog class="dialog" id="nameDialog" aria-labelledby="nameDialogTitle">
+      <form id="nameForm" novalidate>
+        <h2 class="dialog-title" id="nameDialogTitle">Change your name</h2>
+        <label class="field-label" for="nameInput">Name</label>
+        <input
+          class="field-input"
+          id="nameInput"
+          maxlength="20"
+          autocomplete="off"
+          aria-describedby="nameError"
+        />
+        <p class="field-error" id="nameError" hidden>Enter a name.</p>
+        <div class="dialog-actions">
+          <button class="button" type="button" id="nameCancel">Cancel</button>
+          <button class="button primary" type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
 
     <script type="module" src="/main.js"></script>
   </body>

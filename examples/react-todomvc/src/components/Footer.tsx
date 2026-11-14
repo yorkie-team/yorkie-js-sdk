@@ -39,7 +39,6 @@ export default function Footer({
             <button
               type="button"
               className={classnames({ selected: filter === selectedFilter })}
-              style={{ cursor: 'pointer' }}
               onClick={() => onShow(filter as Filter)}
             >
               {filterTitles[filter as Filter]}

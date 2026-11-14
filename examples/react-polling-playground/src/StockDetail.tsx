@@ -6,18 +6,17 @@ import {
   usePeekChannel,
 } from '@yorkie-js/react';
 import type { Stock } from './stocks';
+import type { RoomStatus } from './App';
+import { ChevronLeft, Pencil } from './icons';
 
 export type SubView = 'overview' | 'activity';
 export type ProviderPosition = 'inside' | 'outside';
 
-type AttachState = 'attaching' | 'ok' | 'error';
-
 type LogEntry = {
   t: number;
   n: number;
-  state: AttachState;
+  status: RoomStatus;
   source: SubView;
-  err?: string;
 };
 
 type Props = {
@@ -28,12 +27,16 @@ type Props = {
   writersChannelKey: string;
   subView: SubView;
   providerPosition: ProviderPosition;
+  onStatus: (status: RoomStatus) => void;
   onChangeSubView: (view: SubView) => void;
   onBack: () => void;
   onCompose: () => void;
 };
 
-const TABS: ReadonlyArray<SubView> = ['overview', 'activity'];
+const TABS: ReadonlyArray<{ view: SubView; label: string }> = [
+  { view: 'overview', label: 'Overview' },
+  { view: 'activity', label: 'Activity' },
+];
 
 export default function StockDetail({
   stock,
@@ -43,11 +46,14 @@ export default function StockDetail({
   writersChannelKey,
   subView,
   providerPosition,
+  onStatus,
   onChangeSubView,
   onBack,
   onCompose,
 }: Props) {
-  const providerKey = `${channelKey}-${syncMode}-${heartbeatInterval}`;
+  // Bumping `joinCount` remounts the provider, which attaches the room again.
+  const [joinCount, setJoinCount] = useState(0);
+  const providerKey = `${channelKey}-${syncMode}-${heartbeatInterval}-${joinCount}`;
   const providerProps = {
     channelKey,
     syncMode,
@@ -55,224 +61,175 @@ export default function StockDetail({
   };
 
   const [log, setLog] = useState<Array<LogEntry>>([]);
-  const handleSessionEvent = useCallback(
-    (n: number, state: AttachState, source: SubView, err?: string) => {
-      setLog((prev) => {
-        const next = [...prev, { t: Date.now(), n, state, source, err }];
-        return next.length > 24 ? next.slice(-24) : next;
-      });
+  const handleSession = useCallback(
+    (n: number, status: RoomStatus, source: SubView) => {
+      onStatus(status);
+      setLog((prev) =>
+        [...prev, { t: Date.now(), n, status, source }].slice(-12),
+      );
     },
-    [],
+    [onStatus],
   );
 
-  const tabHeader = (
-    <div className="tab-bar">
-      {TABS.map((view) => (
-        <button
-          key={view}
-          className={`tab ${subView === view ? 'tab-active' : ''}`}
-          onClick={() => onChangeSubView(view)}
-        >
-          /{view}
-        </button>
-      ))}
-    </div>
+  const card = (
+    <WatcherCard
+      stock={stock}
+      subView={subView}
+      onSession={handleSession}
+      onRejoin={() => setJoinCount((c) => c + 1)}
+    />
   );
 
   return (
     <div className="detail">
-      <button className="back" onClick={onBack}>
-        ← Back to leaderboard
+      <button className="back" type="button" onClick={onBack}>
+        <ChevronLeft /> All stocks
       </button>
+      <h1 className="page-title">
+        {stock.name} <span className="ticker">{stock.ticker}</span>
+      </h1>
+
+      <div className="tab-bar">
+        {TABS.map(({ view, label }) => (
+          <button
+            key={view}
+            type="button"
+            aria-pressed={subView === view}
+            className="tab"
+            onClick={() => onChangeSubView(view)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {providerPosition === 'outside' ? (
-        // Shared layout owns the ChannelProvider. Sub-routes only swap
-        // children → channel stays attached across path changes.
+        // One provider above the tabs: switching tabs keeps the room attached.
         <ChannelProvider key={providerKey} {...providerProps}>
-          {tabHeader}
-          {subView === 'overview' ? (
-            <OverviewBody stock={stock} onSession={handleSessionEvent} />
-          ) : (
-            <ActivityBody stock={stock} onSession={handleSessionEvent} />
-          )}
+          {card}
         </ChannelProvider>
       ) : (
-        // Each sub-route mounts its own ChannelProvider. Switching paths
-        // unmounts one provider and mounts another → detach/attach cycle.
-        <>
-          {tabHeader}
-          {subView === 'overview' ? (
-            <ChannelProvider key={`${providerKey}-overview`} {...providerProps}>
-              <OverviewBody stock={stock} onSession={handleSessionEvent} />
-            </ChannelProvider>
-          ) : (
-            <ChannelProvider key={`${providerKey}-activity`} {...providerProps}>
-              <ActivityBody stock={stock} onSession={handleSessionEvent} />
-            </ChannelProvider>
-          )}
-        </>
+        // One provider per tab: switching tabs detaches and attaches again.
+        <ChannelProvider key={`${providerKey}-${subView}`} {...providerProps}>
+          {card}
+        </ChannelProvider>
       )}
 
-      {/* PeekChannel-based CTA: reads the writers channel count once at
-          page entry without attaching, displays the snapshot for 3 seconds,
-          then hides it. The viewer never becomes a member of the channel —
-          even at high concurrency this stays O(1 RPC per page view). */}
-      <WritersPeekCTA channelKey={writersChannelKey} onCompose={onCompose} />
-
-      <SessionLogPanel log={log} onClear={() => setLog([])} />
+      <WritersButton channelKey={writersChannelKey} onCompose={onCompose} />
+      <SessionLog log={log} onClear={() => setLog([])} />
     </div>
   );
 }
 
-const PEEK_SHOW_MS = 3000;
-
-function WritersPeekCTA({
+/**
+ * `WritersButton` peeks the writers channel once when the page opens: it reads
+ * the count without joining the channel.
+ */
+function WritersButton({
   channelKey,
   onCompose,
 }: {
   channelKey: string;
   onCompose: () => void;
 }) {
-  // One-shot peek by default: fetches once on mount, never polls.
   const { sessionCount, loading, error } = usePeekChannel(channelKey);
-  const [visible, setVisible] = useState(true);
 
-  // Hide the count badge 3 seconds after the first successful fetch.
-  useEffect(() => {
-    if (loading || error) return;
-    const timer = setTimeout(() => setVisible(false), PEEK_SHOW_MS);
-    return () => clearTimeout(timer);
-  }, [loading, error]);
-
-  const showCount = visible && !loading && !error;
   return (
     <div className="writer-cta-wrap">
-      <button className="writer-cta" onClick={onCompose}>
-        <span className="writer-cta-icon">✏️</span>
-        <span className="writer-cta-label">Write a post</span>
-        {showCount && (
-          <span
-            className="writer-cta-count"
-            title="people writing at page entry"
-          >
-            {sessionCount.toLocaleString()} writing
-          </span>
-        )}
-        {loading && !error && (
-          <span className="writer-cta-count" title="peek in flight">
-            … peeking
-          </span>
-        )}
-        {error && (
-          <span
-            className="writer-cta-count writer-cta-count-error"
-            title={error.message}
-          >
-            peek error
-          </span>
-        )}
+      <button className="button" type="button" onClick={onCompose}>
+        <Pencil /> Write a post
       </button>
-      {error && (
-        <p className="writer-cta-error-detail">
-          <strong>usePeekChannel().error fired:</strong> {error.message}
-        </p>
-      )}
+      <span className="writer-cta-count">
+        {loading
+          ? 'Checking who is writing…'
+          : error
+            ? `Couldn't check who is writing: ${error.message}`
+            : `${sessionCount.toLocaleString()} writing when you opened this page`}
+      </span>
     </div>
   );
 }
 
-type CardProps = {
-  stock: Stock;
-  onSession: (
-    n: number,
-    state: AttachState,
-    source: SubView,
-    err?: string,
-  ) => void;
-};
-
-function OverviewBody({ stock, onSession }: CardProps) {
-  return (
-    <SessionCountCard stock={stock} subLabel="overview" onSession={onSession} />
-  );
-}
-
-function ActivityBody({ stock, onSession }: CardProps) {
-  return (
-    <SessionCountCard stock={stock} subLabel="activity" onSession={onSession} />
-  );
-}
-
-function SessionCountCard({
+function WatcherCard({
   stock,
-  subLabel,
+  subView,
   onSession,
+  onRejoin,
 }: {
   stock: Stock;
-  subLabel: SubView;
-  onSession: CardProps['onSession'];
+  subView: SubView;
+  onSession: (n: number, status: RoomStatus, source: SubView) => void;
+  onRejoin: () => void;
 }) {
   const { sessionCount, loading, error, detach } = useChannel();
-  const flag = stock.market === 'KR' ? '🇰🇷' : '🇺🇸';
-  const state: AttachState = error ? 'error' : loading ? 'attaching' : 'ok';
-
-  const lastRef = useRef<{ n: number; state: AttachState } | null>(null);
-  useEffect(() => {
-    const cur = { n: sessionCount, state };
-    const last = lastRef.current;
-    if (!last || last.n !== cur.n || last.state !== cur.state) {
-      lastRef.current = cur;
-      onSession(sessionCount, state, subLabel, error?.message);
-    }
-  }, [sessionCount, state, error, subLabel, onSession]);
-
-  const [detached, setDetached] = useState(false);
-  const handleDetach = useCallback(async () => {
+  const [left, setLeft] = useState(false);
+  const leave = useCallback(async () => {
     await detach();
-    setDetached(true);
+    setLeft(true);
   }, [detach]);
+
+  const status: RoomStatus = left
+    ? 'idle'
+    : error
+      ? 'error'
+      : loading
+        ? 'connecting'
+        : 'connected';
+
+  const lastRef = useRef<string>('');
+  useEffect(() => {
+    const cur = `${sessionCount}-${status}`;
+    if (lastRef.current !== cur) {
+      lastRef.current = cur;
+      onSession(sessionCount, status, subView);
+    }
+  }, [sessionCount, status, subView, onSession]);
 
   return (
     <div className="detail-card">
-      <div className="detail-meta">
-        <span className="detail-flag">{flag}</span>
-        <span className="detail-name">{stock.name}</span>
-        <span className="detail-sub">/ {subLabel}</span>
-      </div>
-      <div className="detail-ticker">{stock.ticker}</div>
-      <div className="detail-count">
+      <p className="detail-sub">
+        {stock.market} market ·{' '}
+        {subView === 'overview' ? 'Overview' : 'Activity'}
+      </p>
+      <p className="detail-count">
         <span className="big-num">
-          {state === 'ok' ? sessionCount.toLocaleString() : '—'}
+          {status === 'connected' ? sessionCount.toLocaleString() : '–'}
         </span>
         <span className="big-label">
-          people watching{' '}
-          <span className={`state-badge state-${state}`}>{state}</span>
+          {left ? 'You left this room' : 'watching right now'}
         </span>
-      </div>
+      </p>
       {error && (
-        <p className="detail-error">
-          <strong>useChannel().error fired:</strong> {error.message}
+        <p className="detail-error" role="alert">
+          Couldn't join this room. Check that the Yorkie server at{' '}
+          {import.meta.env.VITE_YORKIE_API_ADDR ?? 'http://localhost:8080'} is
+          running, then reload.
         </p>
       )}
       <div className="detach-controls">
-        <button
-          className="detach-button"
-          onClick={handleDetach}
-          disabled={detached}
-        >
-          {detached ? '✋ detached' : '🛑 detach channel'}
-        </button>
-        <small className="detach-hint">
-          Calls <code>useChannel().detach()</code> — removes the channel from
-          the SDK's <code>attachmentMap</code> so no further RefreshChannel
-          RPCs fire. Server reclaims the session after TTL.
+        {left ? (
+          <button className="secondary" type="button" onClick={onRejoin}>
+            Rejoin room
+          </button>
+        ) : (
+          <button
+            className="secondary"
+            type="button"
+            onClick={leave}
+            disabled={status !== 'connected'}
+          >
+            Leave room
+          </button>
+        )}
+        <small className="muted">
+          Leaving stops the heartbeat; the server drops your seat shortly after.
         </small>
       </div>
     </div>
   );
 }
 
-function SessionLogPanel({
+function SessionLog({
   log,
   onClear,
 }: {
@@ -280,30 +237,32 @@ function SessionLogPanel({
   onClear: () => void;
 }) {
   return (
-    <div className="session-log">
+    <section className="session-log" aria-labelledby="session-log-title">
       <div className="session-log-header">
-        <span className="session-log-title">session count log</span>
-        <button className="log-clear" onClick={onClear}>
-          clear
+        <h2 id="session-log-title">Watcher count history</h2>
+        <button className="secondary" type="button" onClick={onClear}>
+          Clear
         </button>
       </div>
       {log.length === 0 ? (
-        <div className="muted">no events yet</div>
+        <p className="muted">No changes yet.</p>
       ) : (
-        <ul>
+        <ol>
           {log.map((entry, i) => (
             <li key={i}>
-              <code>{new Date(entry.t).toISOString().substring(11, 23)}</code>{' '}
-              <span className="log-source">/{entry.source}</span>{' '}
-              <span className={`state-badge state-${entry.state}`}>
-                {entry.state}
-              </span>{' '}
-              → <strong>{entry.n}</strong>
-              {entry.err && <span className="muted"> · {entry.err}</span>}
+              <code>{new Date(entry.t).toLocaleTimeString()}</code>{' '}
+              {entry.source === 'overview' ? 'Overview' : 'Activity'} ·{' '}
+              {entry.status === 'connected'
+                ? `${entry.n} watching`
+                : entry.status === 'connecting'
+                  ? 'joining…'
+                  : entry.status === 'idle'
+                    ? 'left the room'
+                    : 'error'}
             </li>
           ))}
-        </ul>
+        </ol>
       )}
-    </div>
+    </section>
   );
 }

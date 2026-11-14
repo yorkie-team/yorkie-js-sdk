@@ -1,5 +1,5 @@
 ---
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # Tasks Archive
@@ -8,12 +8,13 @@ Completed task records, grouped by year/month.
 
 - Back to tasks index: [../README.md](../README.md)
 
-Total archived tasks: 69
+Total archived tasks: 70
 
-## 2026/11 (5 tasks)
+## 2026/11 (6 tasks)
 
 | Task | Todo | Lessons |
 |---|---|---|
+| Polish the example apps into one family (2026-11-14) | [20261114-examples-polish-todo.md](./2026/11/20261114-examples-polish-todo.md) | [20261114-examples-polish-lessons.md](./2026/11/20261114-examples-polish-lessons.md) |
 | Channel detach removes a re-attached channel of the same key (2026-11-10) | [20261110-channel-detach-race-todo.md](./2026/11/20261110-channel-detach-race-todo.md) | [20261110-channel-detach-race-lessons.md](./2026/11/20261110-channel-detach-race-lessons.md) |
 | Validate keepalive teardown across in-flight work (2026-11-09) | [20261109-pr1522-review-todo.md](./2026/11/20261109-pr1522-review-todo.md) | [20261109-pr1522-review-lessons.md](./2026/11/20261109-pr1522-review-lessons.md) |
 | Reject `styleByPath(path)` for a path that names no node (2026-11-05) | [20261105-style-by-path-bounds-todo.md](./2026/11/20261105-style-by-path-bounds-todo.md) | [20261105-style-by-path-bounds-lessons.md](./2026/11/20261105-style-by-path-bounds-lessons.md) |

@@ -1,4 +1,4 @@
-# Yorkie React Flow Example
+# React Flow
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/react-flow/" target="_blank">
@@ -6,29 +6,20 @@
     </a>
 </p>
 
-<img width="500" alt="React Flow" src="thumbnail.png"/>
+A node graph built with React Flow on a shared Yorkie Document: the nodes and
+edges are `JSONArray`s in the document root, so moving, adding, connecting and
+deleting nodes syncs to every peer. Selection stays local to each tab. Add
+`?key=<name>` to the URL to work on a separate graph.
 
-## How to run demo
+<img width="500" alt="React Flow" src="./thumbnail.jpg">
 
-At project root, run below command to start Yorkie server.
+## How to run
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Then install dependencies and run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Now you can run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm react-flow dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+   and `pnpm react build`
+3. `pnpm react-flow dev`
+4. Open the printed URL in two tabs (or two browsers). Drag a node, add one,
+   connect two handles, or select a node and press Backspace in one tab, and
+   watch the other follow.

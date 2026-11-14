@@ -1,4 +1,4 @@
-# Yorkie Next.js scheduler Example
+# Scheduler
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/nextjs-scheduler/" target="_blank">
@@ -6,29 +6,21 @@
     </a>
 </p>
 
-<img width="500" alt="Next.js scheduler" src="thumbnail.jpg"/>
+A shared calendar: add, edit or delete an event on any day and every open tab
+sees it. Built with the Yorkie JS SDK directly (`Client`, `Document`) and
+react-calendar. Events live in a Document array, and Presence shows who else
+has the calendar open.
 
-## How to run demo
+<img width="500" alt="Scheduler" src="./thumbnail.jpg">
 
-At project root, run below command to start Yorkie server.
+## How to run
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm nextjs-scheduler dev`
+4. Open the printed URL in two tabs (or two browsers), pick a day and add an
+   event, and watch it appear in the other tab.
 
-Then install dependencies and run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Now you can run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm nextjs-scheduler dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+Each day (UTC) starts a new calendar. To share a specific one, add `?key=<name>`
+to the URL; the header's "another tab" link already includes it.

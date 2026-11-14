@@ -1,16 +1,19 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { JSONArray, useDocument } from '@yorkie-js/react';
 import {
   ReactFlow,
   Node,
   Edge,
   Background,
+  Controls,
+  Panel,
   NodeChange,
   EdgeChange,
   Connection,
+  useReactFlow,
+  XYPosition,
 } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import './App.css';
+import ExampleHeader, { type Status } from './ExampleHeader';
 
 type Graph = {
   nodes: JSONArray<Node>;
@@ -18,117 +21,93 @@ type Graph = {
 };
 
 function App() {
-  const { root, update, loading, error } = useDocument<Graph>();
-  // simple incremental id for new edges
-  const edgeIdRef = useRef(0);
+  const { root, update, connection, loading, error } = useDocument<Graph>();
+  // Selection and measured sizes are local UI state: they are never written
+  // to the shared document, so each peer selects independently.
+  const [local, setLocal] = useState<
+    Record<string, Pick<Node, 'selected' | 'measured'>>
+  >({});
+
+  const setLocalState = useCallback(
+    (changes: Array<NodeChange | EdgeChange>) => {
+      setLocal((prev) => {
+        const next = { ...prev };
+        for (const c of changes) {
+          if (c.type === 'select') {
+            next[c.id] = { ...next[c.id], selected: c.selected };
+          } else if (c.type === 'dimensions' && c.dimensions) {
+            next[c.id] = { ...next[c.id], measured: c.dimensions };
+          } else if (c.type === 'remove') {
+            delete next[c.id];
+          }
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Drop the local state of nodes and edges a peer removed.
+  useEffect(() => {
+    setLocal((prev) => {
+      const ids = new Set([
+        ...root.nodes.map((n) => n.id),
+        ...root.edges.map((e) => e.id),
+      ]);
+      const stale = Object.keys(prev).filter((id) => !ids.has(id));
+      if (stale.length === 0) return prev;
+      const next = { ...prev };
+      for (const id of stale) delete next[id];
+      return next;
+    });
+  }, [root]);
 
   const onNodesChange = useCallback(
     (changes: Array<NodeChange>) => {
+      setLocalState(changes);
       update((r) => {
         for (const c of changes) {
-          switch (c.type) {
-            case 'add':
-              r.nodes.push(c.item);
-              break;
-            case 'replace':
-              {
-                const idx = r.nodes.findIndex((n) => n.id === c.id);
-                if (idx !== -1) {
-                  r.nodes[idx] = c.item;
-                }
-              }
-              break;
-            case 'remove':
-              {
-                const idx = r.nodes.findIndex((n) => n.id === c.id);
-                if (idx !== -1) {
-                  r.nodes.delete?.(idx);
-                }
-              }
-              break;
-            case 'position':
-              {
-                const idx = r.nodes.findIndex((n) => n.id === c.id);
-                if (idx !== -1 && c.position) {
-                  r.nodes[idx].position = c.position;
-                }
-              }
-              break;
-            case 'select':
-              {
-                const idx = r.nodes.findIndex((n) => n.id === c.id);
-                if (idx !== -1) {
-                  r.nodes[idx].selected = c.selected;
-                }
-              }
-              break;
-            default:
-              break;
+          if (c.type === 'add') {
+            r.nodes.push(c.item);
+            continue;
+          }
+          if (c.type !== 'position' && c.type !== 'remove') continue;
+
+          const idx = r.nodes.findIndex((n) => n.id === c.id);
+          if (idx === -1) continue;
+          if (c.type === 'remove') {
+            r.nodes.delete(idx);
+          } else if (c.position) {
+            r.nodes[idx].position = c.position;
           }
         }
       });
     },
-    [update],
+    [setLocalState, update],
   );
 
   const onEdgesChange = useCallback(
     (changes: Array<EdgeChange>) => {
+      setLocalState(changes);
       update((r) => {
         for (const c of changes) {
-          switch (c.type) {
-            case 'add':
-              r.edges.push(c.item);
-              break;
-            case 'replace':
-              {
-                const idx = r.edges.findIndex((e) => e.id === c.id);
-                if (idx !== -1) {
-                  r.edges[idx] = c.item;
-                }
-              }
-              break;
-            case 'remove':
-              {
-                const idx = r.edges.findIndex((e) => e.id === c.id);
-                if (idx !== -1) {
-                  r.edges.delete?.(idx);
-                }
-              }
-              break;
-            case 'select':
-              {
-                const idx = r.edges.findIndex((e) => e.id === c.id);
-                if (idx !== -1) {
-                  r.edges[idx].selected = c.selected;
-                }
-              }
-              break;
-            default:
-              break;
-          }
+          if (c.type !== 'remove') continue;
+          const idx = r.edges.findIndex((e) => e.id === c.id);
+          if (idx !== -1) r.edges.delete(idx);
         }
       });
     },
-    [update],
+    [setLocalState, update],
   );
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      if (!connection.source || !connection.target) return;
       update((r) => {
-        const already = r.edges.some(
-          (e) =>
-            e.source === connection.source &&
-            e.target === connection.target &&
-            e.sourceHandle === connection.sourceHandle &&
-            e.targetHandle === connection.targetHandle,
-        );
-        if (already) return;
-        const id = `e-${connection.source}-${
-          connection.target
-        }-${edgeIdRef.current++}`;
         r.edges.push({
-          id,
+          // Random IDs keep edges created by different peers from colliding.
+          id:
+            crypto.randomUUID?.() ??
+            `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           type: 'smoothstep',
           source: connection.source,
           target: connection.target,
@@ -140,22 +119,103 @@ function App() {
     [update],
   );
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  const addNode = useCallback(
+    (position: XYPosition) => {
+      update((r) => {
+        r.nodes.push({
+          id:
+            crypto.randomUUID?.() ??
+            `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          data: { label: `Node ${r.nodes.length + 1}` },
+          position,
+        });
+      });
+    },
+    [update],
+  );
+
+  // Merge the local state into the shared nodes and edges. `root` is a new
+  // object after every change, local or remote.
+  const nodes = useMemo(
+    () => root.nodes.map((n) => ({ ...n, ...local[n.id] })),
+    [root, local],
+  );
+  const edges = useMemo(
+    () => root.edges.map((e) => ({ ...e, ...local[e.id] })),
+    [root, local],
+  );
+
+  let status: Status = 'offline';
+  if (error) status = 'error';
+  else if (loading) status = 'connecting';
+  else if (connection === 'connected') status = 'connected';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, height: '100vh' }}>
-      <ReactFlow
-        nodes={[...root.nodes].filter(Boolean) as Node[]}
-        edges={[...root.edges].filter(Boolean) as Edge[]}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-      >
-        <Background gap={10} size={1} color="silver" />
-      </ReactFlow>
+    <div className="layout">
+      <ExampleHeader title="React Flow" status={status} />
+      {error ? (
+        <p className="state-message" role="alert">
+          Couldn't reach the Yorkie server at{' '}
+          {import.meta.env.VITE_YORKIE_API_ADDR}. Check that it's running, then
+          reload.
+        </p>
+      ) : loading ? (
+        <p className="state-message">Loading the shared graph…</p>
+      ) : (
+        <main className="canvas">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            fitView
+            fitViewOptions={{ maxZoom: 1 }}
+          >
+            <Background gap={10} size={1} />
+            <Controls />
+            <AddNodeButton onAdd={addNode} />
+          </ReactFlow>
+        </main>
+      )}
     </div>
+  );
+}
+
+/**
+ * `AddNodeButton` adds a node at the center of the visible canvas.
+ */
+function AddNodeButton({ onAdd }: { onAdd: (position: XYPosition) => void }) {
+  const { screenToFlowPosition } = useReactFlow();
+
+  return (
+    <Panel position="top-left">
+      <button
+        type="button"
+        className="button button--primary"
+        onClick={(e) => {
+          const pane = e.currentTarget
+            .closest('.react-flow')!
+            .getBoundingClientRect();
+          onAdd(
+            screenToFlowPosition({
+              x: pane.x + pane.width / 2 - 75,
+              y: pane.y + pane.height / 2 - 20,
+            }),
+          );
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M8 3v10M3 8h10"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+        Add node
+      </button>
+    </Panel>
   );
 }
 

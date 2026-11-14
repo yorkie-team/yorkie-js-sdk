@@ -2,53 +2,27 @@ import { useState } from 'react';
 import SingleAnimation from './SingleAnimation';
 import useInterval from '../hooks/useInterval';
 
-export default function FullAnimation({
-  pointerDown,
-  xPos,
-  yPos,
-  selectedCursorShape,
-}) {
-  const [singleAnimationsArray, setSingleAnimationsArray] = useState([]);
-  const animationBubbleRate = 100;
+// While the pointer is down, release a heart (or thumbs up) every 100ms.
+export default function FullAnimation({ pointerDown, x, y, shape }) {
+  const [bubbles, setBubbles] = useState([]);
 
   useInterval(() => {
-    setSingleAnimationsArray((singleAnimationsArray) =>
-      singleAnimationsArray.filter(
-        (animation) => animation.timestamp > Date.now() - 4000,
-      ),
-    );
+    setBubbles((prev) => prev.filter((b) => b.timestamp > Date.now() - 4000));
   }, 1000);
 
   useInterval(() => {
     if (pointerDown) {
-      setSingleAnimationsArray((singleAnimationsArray) =>
-        singleAnimationsArray.concat([
-          {
-            point: { x: xPos, y: yPos },
-            timestamp: Date.now(),
-          },
-        ]),
-      );
+      setBubbles((prev) => prev.concat({ x, y, timestamp: Date.now() }));
     }
-  }, animationBubbleRate);
+  }, 100);
 
-  return (
-    <div
-      style={{
-        transform: `translateX(${xPos - 30}px) translateY(${yPos - 40}px)`,
-      }}
-    >
-      {singleAnimationsArray.map((animation) => {
-        return (
-          <SingleAnimation
-            key={animation.timestamp.toString()}
-            x={animation.point.x}
-            y={animation.point.y}
-            timestamp={animation.timestamp}
-            selectedCursorShape={selectedCursorShape}
-          />
-        );
-      })}
-    </div>
-  );
+  return bubbles.map((b) => (
+    <SingleAnimation
+      key={b.timestamp}
+      x={b.x}
+      y={b.y}
+      timestamp={b.timestamp}
+      shape={shape}
+    />
+  ));
 }

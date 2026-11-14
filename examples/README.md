@@ -46,6 +46,7 @@ After the example is merged to the `main` branch, it is automatically deployed t
 - [react-flow](react-flow/README.md)
 - [react-page-view-counter](react-page-view-counter/README.md)
 - [react-polling-playground](react-polling-playground/README.md)
+- [react-revision](react-revision/README.md)
 - [react-tldraw](react-tldraw/README.md)
 - [react-todomvc](react-todomvc/README.md)
 - [simultaneous-cursors](simultaneous-cursors/README.md)

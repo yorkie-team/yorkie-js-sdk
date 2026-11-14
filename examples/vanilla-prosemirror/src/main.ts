@@ -1,4 +1,4 @@
-import yorkie from '@yorkie-js/sdk';
+import yorkie, { DocEventType, type Tree } from '@yorkie-js/sdk';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Schema } from 'prosemirror-model';
@@ -9,12 +9,36 @@ import {
   YorkieProseMirrorBinding,
   remoteSelectionPlugin,
 } from '@yorkie-js/prosemirror';
+import { displayError, displayStatus, statusListener } from './network';
+import {
+  PEER_COLORS,
+  createPeer,
+  displayPeers,
+  getDocKey,
+  linkToDoc,
+  peerColor,
+  strokeOf,
+} from './utils';
+import 'prosemirror-view/style/prosemirror.css';
+import 'prosemirror-example-setup/style/style.css';
 import './style.css';
 
-const statusEl = document.getElementById('status')!;
+type YorkieDoc = { tree: Tree };
+type YorkiePresence = { username: string; color: string };
+
+const statusElem = document.getElementById('network-status')!;
+const peersElem = document.getElementById('peers')!;
+const errorElem = document.getElementById('error')!;
 const editorEl = document.getElementById('editor')!;
 const cursorOverlayEl = document.getElementById('cursor-overlay')!;
 const editorWrapperEl = document.getElementById('editor-wrapper')!;
+const shareLinkElem = document.getElementById(
+  'share-link',
+) as HTMLAnchorElement;
+
+const rpcAddr = import.meta.env.VITE_YORKIE_API_ADDR;
+const docKey = getDocKey('pm-vanilla');
+linkToDoc(shareLinkElem, docKey);
 
 // Extend basic schema with list nodes
 const mySchema = new Schema({
@@ -22,18 +46,7 @@ const mySchema = new Schema({
   marks: basicSchema.spec.marks,
 });
 
-// Document key from URL query param or date-based fallback
-const params = new URLSearchParams(window.location.search);
-const docKey =
-  params.get('key') ||
-  `pm-vanilla-${new Date().toISOString().substring(0, 10).replace(/-/g, '')}`;
-
-function setStatus(text: string, type: 'connecting' | 'connected' | 'error') {
-  statusEl.textContent = text;
-  statusEl.className = `status ${type === 'connecting' ? '' : type}`;
-}
-
-// Initial document
+// The first client to open the document seeds it with this content.
 const initialDoc = mySchema.node('doc', null, [
   mySchema.node('heading', { level: 2 }, [
     mySchema.text('Collaborative ProseMirror'),
@@ -44,50 +57,77 @@ const initialDoc = mySchema.node('doc', null, [
 ]);
 
 async function main() {
-  setStatus(`Connecting to Yorkie server... (doc: ${docKey})`, 'connecting');
+  displayStatus(statusElem, 'connecting');
 
-  try {
-    const client = new yorkie.Client({
-      rpcAddr:
-        (import.meta as any).env?.VITE_YORKIE_API_ADDR ||
-        'http://localhost:8080',
-      apiKey: (import.meta as any).env?.VITE_YORKIE_API_KEY,
-    });
-    await client.activate();
+  // 01. create a client and activate it.
+  const client = new yorkie.Client({
+    rpcAddr,
+    apiKey: import.meta.env.VITE_YORKIE_API_KEY,
+  });
+  await client.activate();
 
-    const doc = new yorkie.Document<Record<string, any>, Record<string, any>>(
-      docKey,
-      { enableDevtools: true },
+  // 02. attach the document with this peer's name and colour as presence.
+  // The binding adds the selection to the same presence.
+  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(docKey, {
+    enableDevtools: import.meta.env.DEV,
+  });
+  doc.subscribe('connection', statusListener(statusElem));
+  doc.subscribe('presence', (event) => {
+    // Names and colours never change, so only joins and leaves redraw the
+    // avatars. Presences are keyed by the client's actor ID.
+    if (event.type !== DocEventType.PresenceChanged) {
+      displayPeers(peersElem, doc.getPresences(), client.getActorID()!);
+    }
+  });
+  await client.attach(doc, {
+    initialPresence: createPeer(client.getActorID()!),
+  });
+
+  // 03. create the editor and bind it to the document's `tree`.
+  const state = EditorState.create({
+    doc: initialDoc,
+    plugins: [...exampleSetup({ schema: mySchema }), remoteSelectionPlugin()],
+  });
+  const view = new EditorView(editorEl, { state });
+
+  const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
+    client,
+    cursors: {
+      enabled: true,
+      overlayElement: cursorOverlayEl,
+      wrapperElement: editorWrapperEl,
+      colors: PEER_COLORS,
+    },
+  });
+  binding.initialize();
+
+  // The binding labels a remote cursor with the last two characters of the
+  // peer's ID and colours it in arrival order. Relabel each new caret and
+  // label with the name and colour that peer shares in presence, so they match
+  // their avatar. The selection highlight is drawn separately by the binding
+  // and keeps its arrival-order colour, so it can differ from the caret.
+  new MutationObserver(() => {
+    const labels = cursorOverlayEl.querySelectorAll<HTMLElement>(
+      '.remote-cursor-label:not([data-named])',
     );
-    await client.attach(doc, { initialPresence: {} });
-
-    setStatus(`Connected — doc: ${docKey}`, 'connected');
-
-    const state = EditorState.create({
-      doc: initialDoc,
-      plugins: [
-        ...exampleSetup({ schema: mySchema }),
-        remoteSelectionPlugin(),
-      ],
+    labels.forEach((label) => {
+      // Two characters can match more than one peer. Leave the label as the
+      // binding drew it rather than guess which peer it belongs to.
+      const peers = doc
+        .getOthersPresences()
+        .filter(({ clientID }) => clientID.endsWith(label.textContent!));
+      if (peers.length !== 1) return;
+      const { username } = peers[0].presence;
+      const color = peerColor(peers[0].presence.color);
+      label.dataset.named = '';
+      label.textContent = username;
+      label.style.backgroundColor = color;
+      const caret = label.previousElementSibling as HTMLElement;
+      caret.style.backgroundColor = strokeOf(color);
     });
-
-    const view = new EditorView(editorEl, { state });
-
-    const binding = new YorkieProseMirrorBinding(view, doc, 'tree', {
-      client,
-      cursors: {
-        enabled: true,
-        overlayElement: cursorOverlayEl,
-        wrapperElement: editorWrapperEl,
-      },
-    });
-    binding.initialize();
-
-    view.focus();
-  } catch (e) {
-    setStatus(`Connection failed: ${(e as Error).message}`, 'error');
-    console.error(e);
-  }
+  }).observe(cursorOverlayEl, { childList: true });
 }
 
-main();
+main().catch(() => {
+  displayError(statusElem, errorElem, rpcAddr);
+});

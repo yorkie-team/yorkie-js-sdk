@@ -2,9 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Yorkie Presence Rooms',
-  description:
-    'Real-time user presence tracking across multiple rooms using Yorkie',
+  title: 'Presence Rooms · Yorkie',
+  description: 'Live session counts per room with Yorkie Channels',
 };
 
 export default function RootLayout({
@@ -14,6 +13,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

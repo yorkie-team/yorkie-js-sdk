@@ -1,7 +1,29 @@
-# react-page-view-counter
+# Page View Counter
 
-A minimal example that uses a Yorkie `Counter` CRDT as a daily
-page-view (PV) counter.
+A daily page-view counter for a list of topics. Each topic page is a Yorkie
+`Document` holding a `Counter`; opening the page adds one view with manual
+sync (`SyncMode.Manual`), so it costs two RPCs and keeps no live stream open.
+
+<img width="500" alt="Page View Counter" src="./thumbnail.jpg">
+
+## How to run
+
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm react-page-view-counter dev`
+4. Open the printed URL in two tabs and open the same topic in both. Counts
+   refresh only when you enter a topic, so go back and open it again to see
+   the other tab's view.
+
+To point at a different server or use an API key, edit `.env` or set the
+variables when starting the dev server:
+
+```sh
+VITE_YORKIE_API_ADDR=http://localhost:8080 \
+VITE_YORKIE_API_KEY=your-key \
+pnpm react-page-view-counter dev
+```
 
 ## Pattern
 
@@ -19,27 +41,6 @@ page-view (PV) counter.
   then calls `client.sync(doc)`
 - No automatic sync afterwards — other users' increments are picked up
   on the next page entry
-
-## Running
-
-```sh
-# From the repo root
-pnpm i
-
-# Start the Yorkie server
-docker compose -f docker/docker-compose.yml up --build -d
-
-# Start this example
-pnpm --filter react-page-view-counter dev
-```
-
-To point at a different server or use an API key:
-
-```sh
-VITE_YORKIE_API_ADDR=http://localhost:8080 \
-VITE_YORKIE_API_KEY=your-key \
-pnpm --filter react-page-view-counter dev
-```
 
 ## RPCs per entry
 

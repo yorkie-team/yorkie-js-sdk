@@ -1,34 +1,43 @@
-# Yorkie React Document Limit Example
+# Document Limits
 
-<p>
-    <a href="https://yorkie.dev/yorkie-js-sdk/examples/react-document-limit/" target="_blank">
-        <img src="https://img.shields.io/badge/preview-message?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMTUiIHZpZXdCb3g9IjAgMCAyNCAxNSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTYuODU3MTcgMi43ODE5OUwxMS4yNzUxIDkuMTI2NzhDMTEuNTU0NCA5LjUyODAxIDEyLjEwNjIgOS42MjY3NiAxMi41MDc0IDkuMzQ3NDRDMTIuNTkzNCA5LjI4NzUgMTIuNjY4MSA5LjIxMjggMTIuNzI4MSA5LjEyNjc4TDE3LjE0NiAyLjc4MTk5QzE3LjcwNDggMS45Nzk1NCAxNy41MDcyIDAuODc2MTMxIDE2LjcwNDggMC4zMTc0OTRDMTYuNDA4IDAuMTEwODM3IDE2LjA1NSAwIDE1LjY5MzIgMEg4LjMxMDAxQzcuMzMyMiAwIDYuNTM5NTUgMC43OTI2NTQgNi41Mzk1NSAxLjc3MDQ2QzYuNTM5NjggMi4xMzIxMSA2LjY1MDUxIDIuNDg1MTEgNi44NTcxNyAyLjc4MTk5WiIgZmlsbD0iIzUxNEM0OSIvPgo8cGF0aCBkPSJNMTMuODA4OSAxNC4yMzg4QzE0LjEyMzEgMTQuNDE4IDE0LjQ4NDcgMTQuNDk2NiAxNC44NDUgMTQuNDY0MkwyMi45MjYgMTMuNzM1QzIzLjU3NTMgMTMuNjc2NSAyNC4wNTQgMTMuMTAyNyAyMy45OTU1IDEyLjQ1MzVDMjMuOTkyNCAxMi40MTkyIDIzLjk4NzggMTIuMzg1MSAyMy45ODE3IDEyLjM1MTNDMjMuNzM4OSAxMC45OTY4IDIzLjI2MTEgOS42OTUyNyAyMi41Njk5IDguNTA1NDZDMjEuODc4NiA3LjMxNTY1IDIwLjk4NDggNi4yNTU3NyAxOS45Mjg2IDUuMzczOTFDMTkuNDI4MiA0Ljk1NjE0IDE4LjY4MzkgNS4wMjMwNyAxOC4yNjYyIDUuNTIzNTZDMTguMjQ0MiA1LjU0OTkgMTguMjIzMyA1LjU3NzI2IDE4LjIwMzYgNS42MDU1MUwxMy41NjcgMTIuMjY0MUMxMy4zNjAzIDEyLjU2MSAxMy4yNDk1IDEyLjkxNCAxMy4yNDk1IDEzLjI3NThWMTMuMjUzN0MxMy4yNDk1IDEzLjQ1NjIgMTMuMzAxNiAxMy42NTU0IDEzLjQwMDggMTMuODMxOUMxMy41MDUgMTQuMDA1NCAxMy42NTIxIDE0LjE0OTMgMTMuODI4MSAxNC4yNDk2IiBmaWxsPSIjRkRDNDMzIi8+CjxwYXRoIGQ9Ik0xMC42NDE2IDEzLjc0MzRDMTAuNTM3NSAxMy45NTU5IDEwLjM3MiAxNC4xMzIyIDEwLjE2NjUgMTQuMjQ5NEwxMC4xOTE1IDE0LjIzNTFDOS44NzczNCAxNC40MTQzIDkuNTE1NjkgMTQuNDkyOSA5LjE1NTQ0IDE0LjQ2MDVMMS4wNzQ0MSAxMy43MzEzQzEuMDQwMTggMTMuNzI4MyAxLjAwNjA3IDEzLjcyMzcgMC45NzIyMjUgMTMuNzE3NkMwLjMzMDYyIDEzLjYwMjUgLTAuMDk2MzExOSAxMi45ODkyIDAuMDE4NzI0MiAxMi4zNDc2QzAuMjYxNTIyIDEwLjk5MyAwLjczOTM1NCA5LjY5MTU2IDEuNDMwNDYgOC41MDE2M0MyLjEyMTU3IDcuMzExNjkgMy4wMTU1MSA2LjI1MjA2IDQuMDcxODQgNS4zNzAwOEM0LjA5ODE4IDUuMzQ4MDYgNC4xMjU1NCA1LjMyNzE5IDQuMTUzNzkgNS4zMDc0N0M0LjY4ODc2IDQuOTM1IDUuNDI0MjcgNS4wNjY3MSA1Ljc5Njg3IDUuNjAxNjhMMTAuNDMzNCAxMi4yNjA0QzEwLjY0MDEgMTIuNTU3MyAxMC43NTA5IDEyLjkxMDMgMTAuNzUwOSAxMy4yNzIxVjEzLjI0MzJDMTAuNzUwOSAxMy40Nzk3IDEwLjY3OTggMTMuNzExIDEwLjU0NjggMTMuOTA2NyIgZmlsbD0iI0ZEQzQzMyIvPgo8L3N2Zz4K&color=FEF3D7" alt="Live Preview" />
-    </a>
-</p>
+A shared counter that shows what happens when a Yorkie project caps how many
+clients can use one document. Built with `@yorkie-js/react`: `DocumentProvider`
+holds a `Document` with a counter and `Presence` for the peer avatars. The
+"attachment limit exceeded" rejection becomes a "This document is full" state.
 
-<img width="500" alt="Document Limit" src="thumbnail.png"/>
+<img width="500" alt="Document Limits" src="./thumbnail.jpg">
 
-## How to run demo
+## How to run
 
-At project root, run below command to start Yorkie server.
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm react-document-limit dev`
+4. Open the printed URL in two tabs and click Increment in either one.
+
+## Try the limits
+
+Limits are set per project, either in the Yorkie Dashboard (your project's
+Settings, Resources section) or with the CLI. `0` means no limit. See
+[Resources](https://yorkie.dev/docs/advanced/resources) for details.
+
+- **Max Attachments Per Document**: how many clients can attach to a document
+  at once. One more is rejected when it attaches, and the page shows "This
+  document is full".
+- **Max Subscribers Per Document**: how many attached clients can watch the
+  document for live changes. One more stays attached but shows Offline while
+  the SDK retries every second.
+
+To see it against the local server, set the limit on the `default` project
+(the one used when `VITE_YORKIE_API_KEY` is empty):
 
 ```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
+docker compose -f docker/docker-compose.yml exec yorkie \
+  yorkie login -u admin -p admin --insecure
+docker compose -f docker/docker-compose.yml exec yorkie \
+  yorkie project update default --max-attachments-per-document 2
 ```
 
-Then install dependencies and run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Now you can run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm react-document-limit dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+Then open the page in three tabs; the third one says the document is full.
+To use your own project, put its API key in `.env`. A changed setting can take
+up to 10 minutes to reach every server.

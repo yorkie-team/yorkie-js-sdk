@@ -1,38 +1,21 @@
 import { CursorComponent } from '@tldraw/core';
 
-// A custom cursor component.
-// Component overrides for the tldraw renderer
-const CustomCursor: CursorComponent<{ name: 'Anonymous' }> = ({
+/**
+ * `CustomCursor` draws another user's cursor with their name, in the colour
+ * from their presence.
+ */
+const CustomCursor: CursorComponent<{ name: string }> = ({
   color,
   metadata,
 }) => {
   return (
-    <div
-      style={{
-        display: 'flex',
-        width: 'fit-content',
-        alignItems: 'center',
-        gap: 8,
-      }}
-    >
-      <div
-        style={{
-          width: 12,
-          height: 12,
-          background: color,
-          borderRadius: '100%',
-        }}
-      />
-      <div
-        style={{
-          background: 'white',
-          padding: '4px 8px',
-          borderRadius: 4,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {metadata!.name}
-      </div>
+    <div className="cursor">
+      <span className="cursor__dot" style={{ background: color }} />
+      {metadata?.name && (
+        <span className="cursor__name" style={{ background: color }}>
+          {metadata.name}
+        </span>
+      )}
     </div>
   );
 };

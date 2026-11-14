@@ -100,7 +100,7 @@ export default function ColoredIcon({ type, color }) {
       return (
         <img
           src={`./icons/icon_${type}.svg`}
-          alt={type}
+          alt=""
           style={{ display: 'block' }}
         />
       );

@@ -1,17 +1,11 @@
-import './styles/globals.css';
 import type { Metadata } from 'next';
+import './styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'Next.js react-calendar example',
-  description: 'example of yorkie-js-sdk with next.js & react-calendar',
-  icons: {
-    icon: './favicon.ico',
-  },
+  title: 'Scheduler · Yorkie',
+  description: 'A shared calendar built with Yorkie and react-calendar',
 };
 
-/**
- * default root layout of service
- */
 export default function RootLayout({
   children,
 }: {
@@ -19,6 +13,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

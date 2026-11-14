@@ -1,11 +1,20 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import {
+  useDocument,
+  useYorkie,
+  type JSONArray,
+  type JSONObject,
+} from '@yorkie-js/react';
+import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
-import { Trash2, Check, Plus } from 'lucide-react';
-import { useDocument, JSONArray, JSONObject } from '@yorkie-js/react';
+import Header, { type Status } from './Header';
+
+export const API_ADDR =
+  process.env.NEXT_PUBLIC_YORKIE_API_ADDR || 'http://localhost:8080';
 
 type Todo = {
   id: string;
@@ -13,136 +22,140 @@ type Todo = {
   completed: boolean;
 };
 
-const TodoList = () => {
-  const [newTodo, setNewTodo] = useState('');
-  const { root, presences, update, loading, error } = useDocument<{
-    todos: JSONArray<JSONObject<Todo>>;
-  }>();
-  const userCount = useMemo(() => {
-    return presences?.length;
-  }, [presences]);
+type TodoDoc = { todos: JSONArray<JSONObject<Todo>> };
+type Presence = { name: string };
 
-  const addTodo = () => {
-    if (newTodo.trim() !== '') {
-      update((root) => {
-        root.todos.push({
-          id: String(Date.now()),
-          text: newTodo,
-          completed: false,
-        } as JSONObject<Todo>);
-      });
-      setNewTodo('');
-    }
+export default function TodoList() {
+  const [newTodo, setNewTodo] = useState('');
+  const { client } = useYorkie();
+  const { root, presences, connection, update, loading, error } = useDocument<
+    TodoDoc,
+    Presence
+  >();
+
+  const status: Status = error
+    ? 'error'
+    : loading
+      ? 'connecting'
+      : connection === 'connected'
+        ? 'connected'
+        : 'offline';
+
+  const peers = presences
+    // Skip presences that have not arrived yet.
+    .filter(({ presence }) => presence?.name)
+    .map(({ clientID, presence }) => ({
+      clientID,
+      name: presence.name,
+      isMe: clientID === client?.getActorID(),
+    }));
+
+  // A form submit (not a key handler) so Enter while composing Korean or
+  // Japanese text does not add a half-typed todo.
+  const addTodo = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = newTodo.trim();
+    if (!text) return;
+    update((root) => {
+      root.todos.push({
+        id:
+          crypto.randomUUID?.() ??
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        text,
+        completed: false,
+      } as JSONObject<Todo>);
+    });
+    setNewTodo('');
   };
 
   const toggleTodo = (id: string) => {
     update((root) => {
-      for (const todo of root.todos) {
-        if (todo.id === id) {
-          todo.completed = !todo.completed;
-          break;
-        }
+      const todo = root.todos.find((todo) => todo.id === id);
+      if (todo) {
+        todo.completed = !todo.completed;
       }
     });
   };
 
   const deleteTodo = (id: string) => {
     update((root) => {
-      const idx = root.todos.findIndex((todo) => todo.id === id);
-      if (idx !== -1) {
-        root.todos.delete?.(idx);
+      const index = root.todos.findIndex((todo) => todo.id === id);
+      if (index !== -1) {
+        root.todos.delete?.(index);
       }
     });
   };
 
-  const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      addTodo();
-    }
-  };
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error.message}</p>;
-
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-center">Todo List</CardTitle>
-        <div className="text-center text-sm text-gray-500">
-          {userCount > 0 ? (
-            <div className="flex items-center justify-center gap-2">
-              <div className="flex -space-x-2">
-                {[...Array(Math.min(userCount, 3))].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-200 to-blue-300 border-2 border-white flex items-center justify-center text-white text-xs"
-                  >
-                    👤
-                  </div>
-                ))}
-              </div>
-              <span>
-                {userCount === 1
-                  ? 'Working solo'
-                  : `${userCount} people in this space`}
-              </span>
-            </div>
+    <>
+      <Header status={status} peers={peers} />
+      <main className="mx-auto max-w-xl px-4 py-6">
+        <Card>
+          {error ? (
+            <p role="alert" className="p-4">
+              Couldn&apos;t reach the Yorkie server at{' '}
+              <code className="font-mono text-[13px]">{API_ADDR}</code>. Check
+              that it&apos;s running, then reload.
+            </p>
+          ) : loading ? (
+            <p className="p-4 text-muted-foreground">Loading todos…</p>
           ) : (
-            <span className="text-gray-400">No participants</span>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-2 mb-4">
-          <Input
-            type="text"
-            value={newTodo}
-            onChange={(e) => setNewTodo(e.target.value)}
-            onKeyUp={handleKeyUp}
-            placeholder="Enter a new todo"
-            className="flex-1"
-          />
-          <Button onClick={addTodo} className="px-4">
-            <Plus className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="space-y-2">
-          {root.todos.map((todo) => (
-            <div
-              key={todo.id}
-              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-            >
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={todo.completed ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => toggleTodo(todo.id)}
-                >
-                  <Check className="h-4 w-4" />
+            <>
+              <form onSubmit={addTodo} className="flex gap-2 border-b p-4">
+                <Input
+                  value={newTodo}
+                  onChange={(e) => setNewTodo(e.target.value)}
+                  placeholder="What needs to be done?"
+                  aria-label="New todo"
+                />
+                <Button type="submit" disabled={!newTodo.trim()}>
+                  <Plus aria-hidden="true" />
+                  Add
                 </Button>
-                <span
-                  className={`${
-                    todo.completed ? 'line-through text-gray-500' : ''
-                  }`}
-                >
-                  {todo.text}
-                </span>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => deleteTodo(todo.id)}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+              </form>
 
-export default TodoList;
+              {root.todos.length === 0 ? (
+                <p className="p-4 text-center text-sm text-muted-foreground">
+                  No todos yet. Add one above.
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {root.todos.map((todo) => (
+                    <li key={todo.id} className="flex items-center gap-1 pr-2">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={todo.completed}
+                          onChange={() => toggleTodo(todo.id)}
+                          className="size-4 shrink-0 accent-primary"
+                        />
+                        <span
+                          className={`break-words ${
+                            todo.completed
+                              ? 'text-muted-foreground line-through'
+                              : ''
+                          }`}
+                        >
+                          {todo.text}
+                        </span>
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteTodo(todo.id)}
+                        aria-label={`Delete "${todo.text}"`}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </Card>
+      </main>
+    </>
+  );
+}

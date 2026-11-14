@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Counter, useDocument, useYorkie } from '@yorkie-js/react';
 import { TOPICS } from '../topics';
 import { ViewCountBadge } from './ViewCountBadge';
@@ -9,6 +9,7 @@ export function TopicView({ topicId }: { topicId: string }) {
   const { doc, root, update, loading, error } = useDocument<Root>();
   const { client } = useYorkie();
   const incrementedRef = useRef(false);
+  const [syncError, setSyncError] = useState<Error>();
 
   useEffect(() => {
     if (loading || !client || !doc || incrementedRef.current) return;
@@ -23,23 +24,32 @@ export function TopicView({ topicId }: { topicId: string }) {
 
     // attach already pulled the snapshot. This sync pushes our +1
     // (and pulls any concurrent +1s that landed in the meantime).
-    client.sync(doc).catch((err) => {
-      console.error('Failed to sync page-view counter:', err);
-    });
+    client.sync(doc).catch((err: Error) => setSyncError(err));
   }, [loading, client, doc, update]);
 
   const topic = TOPICS.find((t) => t.id === topicId);
   if (!topic) return <p>Topic not found.</p>;
-  if (error) return <p className="error">Error: {error.message}</p>;
+  if (error || syncError) {
+    return (
+      <p className="error" role="alert">
+        <strong>Couldn't load the view count.</strong> Check that the Yorkie
+        server at {import.meta.env.VITE_YORKIE_API_ADDR ?? 'localhost:8080'} is
+        running, then reload.
+      </p>
+    );
+  }
 
   const rawValue = root.counter?.getValue();
-  const count =
-    loading || rawValue === undefined ? '…' : String(rawValue);
+  const count = loading || rawValue === undefined ? '…' : String(rawValue);
 
   return (
     <article className="topic">
       <h1>{topic.title}</h1>
       <ViewCountBadge count={count} />
+      <p className="hint">
+        This count updates when you open the page. Go back and open the topic
+        again to see views from other tabs.
+      </p>
       <p className="body">{topic.body}</p>
     </article>
   );

@@ -1,4 +1,4 @@
-# Yorkie Simultaneous-Cursors Example
+# Simultaneous Cursors
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/simultaneous-cursors/" target="_blank">
@@ -6,66 +6,31 @@
     </a>
 </p>
 
-<img width="500" alt="simultaneous-cursors" src="thumbnail.jpg"/>
+Everyone on the page shares a live cursor: switch it to hearts, a thumbs up
+or a pen and the others see it as you move. It uses Yorkie Presence only —
+pointer position, tool and pen state — so nothing is stored in the document.
+The ink is a live trail each tab draws from the author's presence: it is not
+saved, a tab that joins later starts blank, and the eraser removes only your
+own ink.
 
-## How to run demo
+<img width="500" alt="Simultaneous Cursors" src="./thumbnail.jpg">
 
-### With Yorkie Dashboard
+## How to run
 
-Install dependencies
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install`, then
+   `pnpm sdk build` and `pnpm react build`
+3. `pnpm simultaneous-cursors dev`
+4. Open the printed URL in two windows (or two browsers) side by side, then
+   move, press and draw in one to see the cursor and ink in the other.
 
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
+## Use Yorkie Dashboard instead of a local server
 
-Create an account on [Yorkie Dashboard](https://yorkie.dev/dashboard)
-Create a new project and copy your public key from the dashboard
-Update the `.env` file like so:
+Create a project on [Yorkie Dashboard](https://yorkie.dev/dashboard), copy its
+public key, and update `.env`:
 
 ```
 VITE_YORKIE_API_ADDR='https://api.yorkie.dev'
 VITE_YORKIE_API_KEY='your_key_xxxx'
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm simultaneous-cursors dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
-
-### With local Yorkie server
-
-Install dependencies
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-At project root, run below command to start Yorkie server.
-
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Update the `.env` file like so:
-
-```
-VITE_YORKIE_API_ADDR='http://localhost:8080'
-VITE_YORKIE_API_KEY=''
-```
-
-Start demo project
-
-```bash
-# In the root directory of the repository.
-$ pnpm simultaneous-cursors dev
-
-# Or in the directory of the example.
-$ pnpm dev
 ```
