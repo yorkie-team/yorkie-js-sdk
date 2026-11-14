@@ -1,9 +1,13 @@
 // yorkie-js-sdk runs in the browser, so this page is a client component.
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import yorkie, { StreamConnectionStatus, type JSONArray } from '@yorkie-js/sdk';
+import yorkie, {
+  StreamConnectionStatus,
+  type Document,
+  type JSONArray,
+} from '@yorkie-js/sdk';
 import Header from './Header';
 import Scheduler from './Scheduler';
 import styles from './styles/page.module.css';
@@ -35,18 +39,22 @@ function App() {
   // The calendar named by `?key=`, or a new one each day. The day is the UTC
   // date, so viewers in every time zone open the same calendar.
   const keyParam = useSearchParams().get('key');
-  const [doc] = useState(
+  const [docKey] = useState(
     () =>
-      new yorkie.Document<CalendarDoc, Presence>(
-        keyParam || `nextjs-scheduler-${new Date().toISOString().slice(0, 10)}`,
-      ),
+      keyParam || `nextjs-scheduler-${new Date().toISOString().slice(0, 10)}`,
   );
-  const docKey = doc.getKey();
+  // The Document attached by the current effect run, for the actions below.
+  const docRef = useRef<Document<CalendarDoc, Presence> | null>(null);
   const [content, setContent] = useState<CalendarEvent[] | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [status, setStatus] = useState<Status>('connecting');
 
   useEffect(() => {
+    // Each run attaches its own Document. A Document can be attached only
+    // once, and the previous run's detach may still be in flight when the
+    // effect re-runs (e.g. on Fast Refresh).
+    const doc = new yorkie.Document<CalendarDoc, Presence>(docKey);
+    docRef.current = doc;
     const client = new yorkie.Client({ rpcAddr: API_ADDR, apiKey: API_KEY });
 
     const syncContent = () =>
@@ -109,17 +117,17 @@ function App() {
         if (client.isActive()) await client.deactivate();
       });
     };
-  }, [doc]);
+  }, [docKey]);
 
   const actions = {
     addContent(date: string, text: string) {
-      doc.update((root) => {
+      docRef.current?.update((root) => {
         root.content.push({ date, text });
       });
     },
 
     deleteContent(date: string) {
-      doc.update((root) => {
+      docRef.current?.update((root) => {
         const index = root.content.findIndex((item) => item.date === date);
         if (index !== -1) {
           root.content.delete?.(index);
@@ -128,7 +136,7 @@ function App() {
     },
 
     updateContent(date: string, text: string) {
-      doc.update((root) => {
+      docRef.current?.update((root) => {
         const target = root.content.find((item) => item.date === date);
         if (target) {
           target.text = text;
