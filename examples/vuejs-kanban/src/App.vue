@@ -131,7 +131,7 @@ function addCard(list) {
   const cardTitle = title.value.trim();
   if (!cardTitle) return;
   doc.update((root) => {
-    root.lists.getElementByID(list.getID()).cards.push({ title: cardTitle });
+    root.lists.getElementByID(list.getID())?.cards.push({ title: cardTitle });
   }, 'add a card');
   title.value = '';
 }
@@ -147,7 +147,7 @@ function addList() {
 
 function deleteCard(list, card) {
   doc.update((root) => {
-    root.lists.getElementByID(list.getID()).cards.deleteByID(card.getID());
+    root.lists.getElementByID(list.getID())?.cards.deleteByID(card.getID());
   }, 'delete a card');
 }
 
@@ -160,19 +160,31 @@ function deleteList(list) {
 // `moveCard` moves a card before `beforeCard`, or to the end of `toList`.
 // moveBefore/moveLast reorder elements inside one array. An element can't
 // move between arrays, so a card that changes lists is deleted from one
-// and re-created in the other, in a single update so peers see one move.
+// and re-created in the other. Doing both in one update keeps a single
+// move atomic, but it is still delete + insert: if two peers move the
+// same card to other lists at the same time, both copies survive, and a
+// move made at the same time as a peer's delete brings the card back.
 function moveCard(card, fromList, toList, beforeCard) {
   if (beforeCard && idOf(beforeCard) === idOf(card)) return;
   doc.update((root) => {
-    const from = root.lists.getElementByID(fromList.getID()).cards;
-    const to = root.lists.getElementByID(toList.getID()).cards;
+    // A peer may have deleted the card or either list since this view
+    // rendered. Re-read them here and skip the move if any is gone, so a
+    // deleted card is not re-created. If only `beforeCard` is gone, the
+    // card goes to the end of the list instead.
+    const from = root.lists.getElementByID(fromList.getID())?.cards;
+    const to = root.lists.getElementByID(toList.getID())?.cards;
+    if (!from || !to || !from.getElementByID(card.getID())) return;
+    const beforeID =
+      beforeCard && to.getElementByID(beforeCard.getID())
+        ? beforeCard.getID()
+        : undefined;
     if (idOf(fromList) === idOf(toList)) {
-      if (beforeCard) to.moveBefore(beforeCard.getID(), card.getID());
+      if (beforeID) to.moveBefore(beforeID, card.getID());
       else to.moveLast(card.getID());
       return;
     }
     from.deleteByID(card.getID());
-    if (beforeCard) to.insertBefore(beforeCard.getID(), { title: card.title });
+    if (beforeID) to.insertBefore(beforeID, { title: card.title });
     else to.push({ title: card.title });
   }, 'move a card');
 }

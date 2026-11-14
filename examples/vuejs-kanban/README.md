@@ -26,3 +26,7 @@ a single update. Presence shows who else is on the board.
 
 The document key ends in today's date (`vuejs-kanban-YYYYMMDD`), so a fresh
 board with the example cards starts every day.
+
+Because a move to another list is a delete plus an insert, two people moving
+the same card to other lists at the same moment end up with two copies of it,
+and a move made at the same moment as a delete brings the card back.
