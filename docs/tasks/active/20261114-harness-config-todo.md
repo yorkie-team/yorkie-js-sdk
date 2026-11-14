@@ -56,6 +56,9 @@ Depends on yorkie#2352 and yorkie#2353. Source commit:
       (`scripts/test/agent-toolchain-npmrc.test.mjs`)
 - [x] Decide which directories hold replicated rules (`document/crdt`,
       `document/time`), with the reasoning beside the pin
+- [x] Allow-list what the install is told: registry packages by integrity
+      hash, registry or `workspace:` specifiers, a strict reader for the
+      lockfile and the workspace file, a scrubbed environment for pnpm
 - [ ] Re-audit the install step before any move off pnpm 9
 - [ ] Open the PR; merge with the pipeline paused and drained
 - [ ] Watch the first live run of each arm: the toolchain action on a runner

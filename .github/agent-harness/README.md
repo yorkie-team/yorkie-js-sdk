@@ -28,7 +28,8 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 | `coverage-note.md` | What `ci.yml`'s lanes prove and do not, told to every lens |
 | `repo.test.mjs` | Grades the two files above, and the toolchain action, against this repository (`npm run test:repo` in `scripts/agent`). The reason each configured entry exists is written there, beside the assertion that pins it |
 | `repo.snapshot.json` | Every exported value and rendered prompt, recorded. A change to a gate, a prompt or a comment shows its before and after in this file's diff |
-| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. The install stays inside the workspace: before it runs, the step refuses a tree with a `node_modules` already in it, a symbolic link that resolves outside, or a workspace file or lockfile that names a project outside the root, and it checks again afterwards. Audited against pnpm 9 only |
+| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. The install stays inside the workspace and fetches only registry packages: before it runs, the step refuses a tree with a `node_modules` already in it or a symbolic link that resolves outside, and anything `check-install-inputs.mjs` refuses; pnpm runs with a scrubbed environment; the step checks again afterwards. Audited against pnpm 9 only |
+| `../actions/agent-toolchain/check-install-inputs.mjs` | What the install may be told. It reads `pnpm-lock.yaml`, `pnpm-workspace.yaml` and the workspace's `package.json` files strictly — only the plain style pnpm writes; any other YAML spelling is refused — and allows only the shapes this repository's own files have: every locked package a registry package with an integrity hash (one exception, the `@buf` package, by its address on that scope's registry), every specifier a registry range or `workspace:`, every link to a project of this workspace, no key those files do not use |
 | `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`. An agent job checks out only the action's directory from `main`, so the trusted `.npmrc` the install uses has to sit beside the action. Two tests fail when the two differ: `scripts/test/agent-toolchain-npmrc.test.mjs`, which `ci.yml` runs on every pull request, and `repo.test.mjs` |
 
 Outside the harness, and kept across a sync: `npm-publish.yml` and
@@ -83,6 +84,11 @@ style and is excluded from the root ESLint, lint-staged and the licence scan.
 - A new directory whose rules the Go server must apply identically:
   `fixGuard.replicatedRuleGlobs`, with the reason beside the pin in
   `repo.test.mjs`.
+- A dependency that is not a plain registry package (a git or URL
+  dependency, a local tarball, a patch, a `pnpm` setting in a manifest): the
+  agent install refuses it, by design. Allowing one is a change to
+  `check-install-inputs.mjs` and its tests, reviewed as policy — decide what
+  that fetcher can be made to do first.
 - The root `.npmrc`: copy it to `../actions/agent-toolchain/npmrc` in the
   same change. `pnpm test:scripts` fails until it is.
 - The pnpm major in `ci.yml`: not simply the same number in the toolchain

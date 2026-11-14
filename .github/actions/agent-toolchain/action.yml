@@ -31,12 +31,17 @@
 # saved by a run in the default branch's context (`issue_comment`,
 # `workflow_run`) is one `ci.yml` and the npm publish can restore.
 #
-# THE INSTALL STAYS INSIDE THE WORKSPACE. Flags and settings are not the only
-# thing that decides where a package manager writes: the shape of the tree
-# does too. So before installing, the step refuses a tree in which a
-# `node_modules` is a symbolic link, any symbolic link resolves outside the
-# workspace, or the workspace file or the lockfile names a project outside the
-# root — and it checks again afterwards.
+# THE INSTALL STAYS INSIDE THE WORKSPACE, AND FETCHES ONLY REGISTRY PACKAGES.
+# Flags and settings are not the only thing that decides what a package
+# manager does: the tree it is pointed at and the files that tell it what to
+# install do too. So before installing, the step refuses a tree in which a
+# `node_modules` exists or is a symbolic link, or any symbolic link resolves
+# outside the workspace; and `check-install-inputs.mjs` refuses a lockfile,
+# workspace file or manifest that is not of exactly the shape this
+# repository's own have — every package a registry package locked by its
+# integrity hash, every specifier a registry range or `workspace:`. The
+# install runs with a scrubbed environment, and the step checks again
+# afterwards.
 #
 # THIS WAS AUDITED AGAINST PNPM 9, which reads settings from `.npmrc` and the
 # command line only. A later major reads more of them from files the branch
@@ -116,29 +121,18 @@ runs:
             "$root/.git" | "$root/.git"/*) refuse "$link is a symbolic link into the repository's .git" ;;
           esac
         done < <(find -P . -path ./.git -prune -o -type l -print0)
-        # The workspace file names projects by glob. None may climb out of the
-        # root or start at the filesystem's; a backslash could spell either.
-        [ -f pnpm-workspace.yaml ] || refuse "pnpm-workspace.yaml is missing at the workspace root"
-        if grep -v '^[[:space:]]*#' pnpm-workspace.yaml | grep -E -q -e '\.\.' -e '\\' -e "(^|[][[:space:]'\",!])/"; then
-          refuse "pnpm-workspace.yaml names a path outside the workspace root: a parent directory, an absolute path or a backslash"
+        # What the install is TOLD, by the lockfile, the workspace file and
+        # the manifests, must be of exactly the shape this repository's own
+        # files have: registry packages by integrity hash, registry or
+        # `workspace:` specifiers, links to this workspace's projects, and no
+        # key those files do not use. `check-install-inputs.mjs`, beside this
+        # file and from the same checkout, reads them strictly and refuses the
+        # rest. Run with nothing in its environment but a PATH.
+        checker="$ACTION_PATH/check-install-inputs.mjs"
+        if [ ! -f "$checker" ] || [ -L "$checker" ]; then
+          refuse "the toolchain action's check-install-inputs.mjs is missing beside action.yml"
         fi
-        # The lockfile names the projects it installs for. Each must be the
-        # root or a plain relative path under it.
-        importers="$(awk '
-          /^importers:/ { if ($0 != "importers:") { print "!" $0 } sec = 1; next }
-          /^[^ #]/ { sec = 0 }
-          sec && /^  [^ #]/ {
-            key = substr($0, 3)
-            sub(/:( \{\})?[[:space:]]*$/, "", key)
-            if (key ~ /^'"'"'.*'"'"'$/) key = substr(key, 2, length(key) - 2)
-            if (key !~ /^(\.|[A-Za-z0-9@_][A-Za-z0-9@_.\/-]*)$/ || key ~ /\.\./) { print "!" key } else { print key }
-          }' pnpm-lock.yaml)"
-        [ -n "$importers" ] || refuse "pnpm-lock.yaml lists no importers"
-        while IFS= read -r importer; do
-          case "$importer" in
-            '!'*) refuse "pnpm-lock.yaml names a project that is not a plain path under the workspace root: ${importer#!}" ;;
-          esac
-        done <<< "$importers"
+        env -i PATH="$PATH" node "$checker" before "$root"
         outside_before="$(ls -A "$root/..")"
 
         stash=$(mktemp -d)
@@ -148,7 +142,12 @@ runs:
             mv "$f" "$stash/$f"
           done
         cp "$trusted" .npmrc
-        pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile \
+        # WITH A SCRUBBED ENVIRONMENT. A package manager takes settings from
+        # its environment as readily as from a file, so the install inherits
+        # none of this job's: it is given a PATH, a HOME and `CI`, and
+        # nothing else.
+        env -i PATH="$PATH" HOME="$HOME" CI=true \
+          pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile \
           --config.manage-package-manager-versions=false \
           --config.modules-dir=node_modules \
           --config.virtual-store-dir=node_modules/.pnpm
@@ -156,17 +155,11 @@ runs:
         (cd "$stash" && find -P . -name .npmrc -prune -print0) |
           while IFS= read -r -d '' f; do mv "$stash/$f" "$f"; done
 
-        # AFTER THE INSTALL: every project it installed for, and what it
-        # wrote there, is still inside, and nothing appeared beside the
-        # workspace. The checks above are what prevent it; this is what says
-        # so if one of them is ever wrong.
-        while IFS= read -r importer; do
-          for dir in "$importer" "$importer/node_modules"; do
-            [ -e "$dir" ] || continue
-            [ ! -L "$dir" ] || refuse "$dir is a symbolic link after the install"
-            inside "$(realpath "$dir")" || refuse "$dir resolves outside the workspace after the install"
-          done
-        done <<< "$importers"
+        # AFTER THE INSTALL: every project it installed for, and every entry
+        # it placed in a project's `node_modules`, is still inside, and
+        # nothing appeared beside the workspace. The checks above are what
+        # prevent it; this is what says so if one of them is ever wrong.
+        env -i PATH="$PATH" node "$checker" after "$root"
         if [ "$(ls -A "$root/..")" != "$outside_before" ]; then
           refuse "the install created or removed something beside the workspace"
         fi

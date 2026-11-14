@@ -31,6 +31,13 @@
   The other half is the tree the tool is pointed at: links, and files that
   name other directories. Check the shape before running, check the result
   after, and run those checks in a test rather than reading them.
+- "No scripts, no hooks" is not "runs nothing". An install does what its
+  lockfile says, and a lockfile can name fetchers other than the registry's.
+  List what main's files actually contain and allow exactly that; a list of
+  things to refuse is always one spelling short.
+- A line-by-line check of YAML is a guess at how the line will be written.
+  Read one style strictly and refuse the rest, and compare the reader with a
+  real parser on the real file once.
 - `stat` follows links, so `statSync(p).isSymbolicLink()` is never true.
   An assertion that cannot fail is found by breaking what it guards, which
   the first round did for the action and not for that line.
