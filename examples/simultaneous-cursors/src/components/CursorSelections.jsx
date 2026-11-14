@@ -19,12 +19,18 @@ const drawingTools = [
     shape: 'eraser',
     fade: false,
     icon: 'eraser',
-    label: 'Eraser (your own ink)',
+    label: 'Eraser',
   },
 ];
 const drawingShapes = ['pen', 'highlighter', 'eraser'];
 
-export default function CursorSelections({ shape, fadeEnabled, onSelect }) {
+export default function CursorSelections({
+  shape,
+  fadeEnabled,
+  canClear,
+  onSelect,
+  onClear,
+}) {
   const [showDrawingTools, setShowDrawingTools] = useState(false);
 
   const selectTool = (next) => {
@@ -52,6 +58,25 @@ export default function CursorSelections({ shape, fadeEnabled, onSelect }) {
               </button>
             );
           })}
+          <button
+            type="button"
+            className="tool-button"
+            aria-label="Clear canvas for everyone"
+            title="Clear canvas for everyone"
+            disabled={!canClear}
+            onClick={onClear}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <span className="toolbar-divider" aria-hidden="true" />
           <button
             type="button"
