@@ -3,47 +3,53 @@ import yorkie, { DocEventType } from '@yorkie-js/sdk';
 import { basicSetup, EditorView } from 'codemirror';
 import { Transaction, TransactionSpec } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import { network } from './network';
-import { displayLog, displayPeers } from './utils';
+import { displayError, displayStatus, statusListener } from './network';
+import { createPeer, displayPeers, getDocKey, linkToDoc } from './utils';
+import { remoteCursors, setRemoteCursors } from './cursors';
 import { YorkieDoc, YorkiePresence } from './type';
 import './style.css';
 
-const networkStatusElem = document.getElementById('network-status')!;
+const statusElem = document.getElementById('network-status')!;
 const peersElem = document.getElementById('peers')!;
+const errorElem = document.getElementById('error')!;
 const editorParentElem = document.getElementById('editor')!;
+const shareLinkElem = document.getElementById(
+  'share-link',
+) as HTMLAnchorElement;
+
+const rpcAddr = import.meta.env.VITE_YORKIE_API_ADDR;
+const docKey = getDocKey('codemirror6');
+linkToDoc(shareLinkElem, docKey);
 
 async function main() {
+  displayStatus(statusElem, 'connecting');
+
   // 01. create client with RPCAddr then activate it.
   const client = new yorkie.Client({
-    rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+    rpcAddr,
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
+  // Tell the server this client is gone when the tab closes, so peers drop
+  // its avatar and cursor right away.
+  window.addEventListener('pagehide', () => {
+    client.deactivate({ keepalive: true });
+  });
 
   // 02-1. create a document then attach it into the client.
-  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(
-    `codemirror6-${new Date()
-      .toISOString()
-      .substring(0, 10)
-      .replace(/-/g, '')}`,
-    {
-      enableDevtools: true,
-    },
-  );
-  doc.subscribe('connection', (event) => {
-    network.statusListener(networkStatusElem)(event);
+  const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(docKey, {
+    enableDevtools: import.meta.env.DEV,
   });
+  doc.subscribe('connection', statusListener(statusElem));
   doc.subscribe('presence', (event) => {
+    // Names and colours never change, so only joins and leaves redraw the
+    // avatars. Presences are keyed by the client's actor ID.
     if (event.type !== DocEventType.PresenceChanged) {
-      // Presences are keyed by the client's actor, not by the per-session id
-      // that `client.getID()` returns.
       displayPeers(peersElem, doc.getPresences(), client.getActorID()!);
     }
   });
   await client.attach(doc, {
-    initialPresence: {
-      username: client.getActorID()!.slice(-2),
-    },
+    initialPresence: createPeer(client.getActorID()!),
   });
   doc.update((root) => {
     if (!root.content) {
@@ -51,19 +57,10 @@ async function main() {
     }
   }, 'create content if not exists');
 
-  doc.subscribe('$.content', (event) => {
-    if (event.type === 'remote-change') {
-      const { operations } = event.value;
-      handleOperations(operations, false);
-    } else if (event.source === 'undoredo') {
-      const { operations } = event.value;
-      handleOperations(operations, true);
-    }
-  });
-
   await client.sync();
 
   // 03-1. define function that bind the document with the codemirror(broadcast local changes to peers)
+  const userEvents = ['input', 'delete', 'move', 'select'];
   const updateListener = EditorView.updateListener.of((viewUpdate) => {
     // One refused change invalidates the whole update, not just its own
     // transaction: the editor now holds text the document does not, so every
@@ -76,8 +73,7 @@ async function main() {
         if (rejected) {
           break;
         }
-        const events = ['select', 'input', 'delete', 'move'];
-        if (!events.map((event) => tr.isUserEvent(event)).some(Boolean)) {
+        if (!userEvents.some((event) => tr.isUserEvent(event))) {
           continue;
         }
         if (tr.annotation(Transaction.remote)) {
@@ -93,7 +89,7 @@ async function main() {
           try {
             doc.update((root) => {
               root.content.edit(fromA + adj, toA + adj, insertText);
-            }, `update content byA ${client.getID()}`);
+            }, `update content by ${client.getID()}`);
           } catch (err) {
             // `Text.edit` refuses an index that splits a UTF-16 surrogate
             // pair, and content carrying a lone half of one, so a local
@@ -146,11 +142,6 @@ async function main() {
   });
 
   // 03-2. create codemirror instance
-  // Height: show about 10 lines without needing actual blank text lines.
-  // Adjust the px value if font-size/line-height changes.
-  const fixedHeightTheme = EditorView.theme({
-    '.cm-content, .cm-gutter': { minHeight: '210px' }, // ~10 lines (≈21px per line including padding)
-  });
   const cmUndoRedoKeymap = keymap.of([
     {
       key: 'Mod-z',
@@ -175,14 +166,10 @@ async function main() {
   ]);
   const view = new EditorView({
     doc: '',
-    extensions: [
-      cmUndoRedoKeymap,
-      basicSetup,
-      fixedHeightTheme,
-      updateListener,
-    ],
+    extensions: [cmUndoRedoKeymap, basicSetup, remoteCursors, updateListener],
     parent: editorParentElem,
   });
+
   // 02-2. subscribe document event.
   const syncText = () => {
     const text = doc.getRoot().content;
@@ -201,7 +188,17 @@ async function main() {
       };
     }
     view.dispatch(transactionSpec);
+    displayRemoteCursors();
   };
+  doc.subscribe('$.content', (event) => {
+    if (event.type === 'remote-change') {
+      handleOperations(event.value.operations, false);
+    } else if (event.source === 'undoredo') {
+      handleOperations(event.value.operations, true);
+    }
+  });
+  // Redraw other peers' cursors whenever their presence changes.
+  doc.subscribe('others', () => displayRemoteCursors());
   doc.subscribe((event) => {
     if (event.type === 'snapshot') {
       // The text is replaced to snapshot and must be re-synced.
@@ -216,6 +213,7 @@ async function main() {
         handleEditOp(op, moveCursor);
       }
     }
+    displayRemoteCursors();
   }
   function handleEditOp(op: EditOpInfo, moveCursor: boolean) {
     const changes = [
@@ -243,7 +241,27 @@ async function main() {
     view.dispatch(transactionSpec);
   }
 
+  // 03-4. draw other peers' selections, converting each peer's position in
+  // the Yorkie text back to an index in the editor.
+  function displayRemoteCursors() {
+    const content = doc.getRoot().content;
+    const cursors = [];
+    for (const { presence } of doc.getOthersPresences()) {
+      if (!presence.selection) continue;
+      const [from, to] = content.posRangeToIndexRange(presence.selection);
+      cursors.push({
+        name: presence.username,
+        color: presence.color,
+        from,
+        to,
+      });
+    }
+    view.dispatch({ effects: setRemoteCursors.of(cursors) });
+  }
+
   syncText();
 }
 
-main();
+main().catch(() => {
+  displayError(statusElem, errorElem, rpcAddr);
+});
