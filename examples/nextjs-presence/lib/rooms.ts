@@ -1,67 +1,33 @@
-// Room category definition
-export interface RoomCategory {
-  id: string;
-  name: string;
-  emoji: string;
-  description: string;
-}
+export const API_ADDR =
+  process.env.NEXT_PUBLIC_YORKIE_API_ADDR || 'http://localhost:8080';
 
-// Individual room definition
 export interface Room {
-  id: string;
+  key: string;
   name: string;
   description: string;
-  key: string;
-  categoryId: string;
 }
 
-// Room categories
-export const ROOM_CATEGORIES: RoomCategory[] = [
+// Each room is a Yorkie Channel. Every client attached to the same channel
+// key is counted in the same room.
+export const ROOMS: Room[] = [
   {
-    id: 'general',
-    name: 'General',
-    emoji: '💬',
-    description: 'General discussion',
+    key: 'nextjs-presence.lobby',
+    name: 'Lobby',
+    description: 'Start here and say hi.',
   },
   {
-    id: 'development',
-    name: 'Development',
-    emoji: '💻',
-    description: 'Tech talk and coding',
+    key: 'nextjs-presence.design',
+    name: 'Design review',
+    description: 'Walk through mockups together.',
   },
   {
-    id: 'random',
-    name: 'Random',
-    emoji: '🎲',
-    description: 'Off-topic chat',
+    key: 'nextjs-presence.engineering',
+    name: 'Engineering',
+    description: 'Pair on a tricky bug.',
   },
   {
-    id: 'music',
+    key: 'nextjs-presence.music',
     name: 'Music',
-    emoji: '🎵',
-    description: 'Share your favorite tunes',
+    description: 'Share what you are listening to.',
   },
 ];
-
-// Generate rooms with hierarchical structure
-const generateRooms = (): Room[] => {
-  const rooms: Room[] = [];
-  const roomsPerCategory = 4;
-
-  ROOM_CATEGORIES.forEach((category) => {
-    for (let i = 1; i <= roomsPerCategory; i++) {
-      rooms.push({
-        id: `${category.id}.${i}`,
-        name: `${category.emoji} ${category.name} #${i}`,
-        description: category.description,
-        key: `${category.id}.${i}`,
-        categoryId: category.id,
-      });
-    }
-  });
-
-  return rooms;
-};
-
-// Available rooms with hierarchical structure
-export const ROOMS = generateRooms();
