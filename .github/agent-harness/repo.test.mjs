@@ -110,6 +110,109 @@ test('this file grades the configuration in its own directory', () => {
   assert.equal(CONFIG.repo.name, 'yorkie-js-sdk');
 });
 
+// --- what the shared half requires of every repository that copies it --------
+//
+// `scripts/agent/README.md` ("Adopting and syncing", "Conventions the core
+// assumes") lists what only a repository's own test can hold, because the
+// shared tests are the same bytes everywhere and cannot know which repository
+// they are in.
+
+test('the shared files are a copy of yorkie-team/yorkie', () => {
+  // The shared half cannot know which repository it is written in. A record
+  // edited to `{ "repository": null }` claims to be the origin, and every
+  // drift check then has nothing to compare with: the manifest digest is not
+  // matched against the record, and `check:upstream` and the weekly notifier
+  // ask nobody. Only this assertion refuses that edit.
+  const upstream = JSON.parse(
+    readFileSync(path.join(HERE, 'upstream.json'), 'utf8'),
+  );
+  assert.equal(upstream.repository, 'yorkie-team/yorkie');
+  // The rest of the record is checked by the shared suite (the digest) and
+  // by `check:upstream` (the commit); here, only that it is a whole record.
+  assert.match(upstream.commit, /^[0-9a-f]{40}$/);
+  assert.match(upstream.manifestDigest, /^[0-9a-f]{64}$/);
+  assert.deepEqual(Object.keys(upstream).sort(), [
+    'commit',
+    'manifestDigest',
+    'repository',
+  ]);
+});
+
+test('every file the issue-to-PR prompt names exists here', async () => {
+  // The prompt is shared, so it names the same paths in every repository:
+  // the two documents to follow, where the todo and lessons pair goes, the
+  // design template and its index, the pull request template. One that is
+  // missing is found by an agent told to follow a file it cannot open.
+  const { IMPLEMENT_PROMPT_PATHS, missingImplementPaths } =
+    await agent('conventions.mjs');
+  assert.deepEqual(missingImplementPaths(ROOT), []);
+  // A file that exists in this working tree and is not tracked would not
+  // exist in the checkout the agent gets.
+  for (const entry of IMPLEMENT_PROMPT_PATHS) {
+    const there =
+      entry.kind === 'directory'
+        ? tracked.some((f) => f.startsWith(`${entry.path}/`))
+        : tracked.includes(entry.path);
+    assert.ok(there, `${entry.path} is not tracked`);
+  }
+});
+
+test('git never rewrites the line endings of the shared files', async () => {
+  // The manifest is over bytes. With `core.autocrlf` on, a checkout would
+  // otherwise convert every line ending and every shared file would read as
+  // edited. Asked of git rather than read from the file, so a later line that
+  // overrides these two fails here as well.
+  for (const file of [
+    'scripts/agent/config.mjs',
+    'scripts/agent/lenses/lenses.json',
+    'scripts/agent/MANIFEST.sha256',
+    '.github/workflows/agent-fix.yml',
+    '.github/workflows/agent-upstream-notify.yml',
+  ]) {
+    assert.ok(tracked.includes(file), `${file} is no longer tracked`);
+    const out = execFileSync('git', ['check-attr', 'text', '--', file], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).trim();
+    assert.equal(out, `${file}: text: unset`, out);
+  }
+  // The two lines the shared half asks for, as it spells them.
+  const { GITATTRIBUTES_LINES } = await agent('manifest.mjs');
+  assert.deepEqual(
+    [...GITATTRIBUTES_LINES],
+    ['scripts/agent/** -text', '.github/workflows/agent-*.yml -text'],
+  );
+  const lines = read('.gitattributes').split('\n');
+  for (const line of GITATTRIBUTES_LINES) {
+    assert.ok(lines.includes(line), `.gitattributes lacks \`${line}\``);
+  }
+});
+
+test('the CI workflow is ci.yml, and its name is exactly CI', () => {
+  // The panel and the CI-fix arm start on `workflow_run` with
+  // `workflows: ["CI"]`, which matches a workflow's NAME. Under any other
+  // name they never start: no error, no run. The ready gate reads the same
+  // workflow's runs by path.
+  assert.equal(checks.CI_WORKFLOW_PATH, '.github/workflows/ci.yml');
+  const names = read(checks.CI_WORKFLOW_PATH)
+    .split('\n')
+    .filter((l) => /^name:/.test(l));
+  assert.deepEqual(names, ['name: CI']);
+  // And no other workflow calls itself that: it would start both arms, and
+  // each would then refuse the run by its path.
+  for (const f of tracked.filter(
+    (p) =>
+      /^\.github\/workflows\/[^/]+\.ya?ml$/.test(p) &&
+      p !== checks.CI_WORKFLOW_PATH,
+  )) {
+    assert.doesNotMatch(
+      read(f),
+      /^name:\s*["']?CI["']?\s*$/m,
+      `${f} is also named CI`,
+    );
+  }
+});
+
 // --- the values the harness ran on, before they were configuration -----------
 //
 // `repo.snapshot.json` was first written from this repository's ADAPTED copy of

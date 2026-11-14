@@ -1,0 +1,4 @@
+# The shared agent harness is checked byte for byte against its manifest
+# (scripts/agent/MANIFEST.sha256), so git must never rewrite its line endings.
+scripts/agent/** -text
+.github/workflows/agent-*.yml -text
