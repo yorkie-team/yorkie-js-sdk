@@ -1,4 +1,3 @@
-// Yorkie type for typescript
 import type { TDAsset, TDBinding, TDShape, TDUser } from '@tldraw/tldraw';
 import type { JSONObject } from '@yorkie-js/sdk';
 

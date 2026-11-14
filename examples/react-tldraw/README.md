@@ -1,4 +1,4 @@
-# Yorkie React tldraw Example
+# React tldraw
 
 <p>
     <a href="https://yorkie.dev/yorkie-js-sdk/examples/react-tldraw/" target="_blank">
@@ -6,29 +6,18 @@
     </a>
 </p>
 
-<img width="500" alt="React tldraw" src="thumbnail.jpg"/>
+A shared whiteboard built with tldraw on a Yorkie Document: shapes and
+bindings live in the document root, while each person's cursor, name and
+selection travel through Presence. Undo and redo use the document's history.
+Add `?key=<name>` to the URL to draw on a separate canvas.
 
-## How to run demo
+<img width="500" alt="React tldraw" src="./thumbnail.jpg">
 
-At project root, run below command to start Yorkie server.
+## How to run
 
-```bash
-$ docker compose -f docker/docker-compose.yml up --build -d
-```
-
-Then install dependencies and run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm install
-```
-
-Now you can run the demo.
-
-```bash
-# In the root directory of the repository.
-$ pnpm react-tldraw dev
-
-# Or in the directory of the example.
-$ pnpm dev
-```
+1. Start the Yorkie server (from the repo root):
+   `docker compose -f docker/docker-compose.yml up --build -d`
+2. Install and build (from the repo root): `pnpm install` then `pnpm sdk build`
+3. `pnpm react-tldraw dev`
+4. Open the printed URL in two tabs (or two browsers), then draw in one tab
+   and watch the shapes and your cursor appear in the other.
