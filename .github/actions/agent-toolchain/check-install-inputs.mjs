@@ -56,6 +56,7 @@
 //
 // It imports nothing but Node's own modules.
 
+import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import {
   existsSync,
@@ -69,6 +70,7 @@ import {
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { TextDecoder } from 'node:util';
 
 // WHERE A PATH PHYSICALLY IS is the kernel's answer: each component followed
 // in turn, a `..` taken from wherever the components before it led. Node's
@@ -83,6 +85,51 @@ export class Refusal extends Error {}
 const refuse = (message) => {
   throw new Refusal(message);
 };
+
+// EVERY NAME IS READ AS ITS BYTES, and is valid UTF-8 or refused. Node
+// decodes a name it lists as UTF-8 and puts U+FFFD where the bytes are not;
+// a path built from that name and handed back to the filesystem is encoded
+// again, and names a different entry, or none. So a name, or a link's
+// target, is read as bytes, decoded strictly, and must encode back to exactly
+// the same bytes — a leading byte-order mark included — or the walk stops.
+// A name that holds U+FFFD as real, valid bytes is an ordinary name.
+const STRICT_UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
+const printable = (bytes) =>
+  [...bytes]
+    .map((b) =>
+      b >= 0x20 && b < 0x7f && b !== 0x5c
+        ? String.fromCharCode(b)
+        : `\\x${b.toString(16).padStart(2, '0')}`,
+    )
+    .join('');
+function strictName(bytes, what) {
+  let text = null;
+  try {
+    text = STRICT_UTF8.decode(bytes);
+  } catch {
+    // Not UTF-8: refused below.
+  }
+  if (text === null || !Buffer.from(text, 'utf8').equals(bytes)) {
+    refuse(`${what(printable(bytes))} is not valid UTF-8`);
+  }
+  return text;
+}
+/** The entries of `dir`, each with a name that is exactly its bytes. */
+function listDir(dir) {
+  return readdirSync(dir, { withFileTypes: true, encoding: 'buffer' }).map(
+    (e) => ({
+      name: strictName(e.name, (n) => `the name ${path.join(dir, n)}`),
+      isDirectory: () => e.isDirectory(),
+      isSymbolicLink: () => e.isSymbolicLink(),
+    }),
+  );
+}
+/** A link's target, exactly as its bytes say. */
+const linkText = (full) =>
+  strictName(
+    readlinkSync(full, { encoding: 'buffer' }),
+    (t) => `the target of ${full} (${t})`,
+  );
 
 // --- the strict reader ----------------------------------------------------------
 
@@ -721,8 +768,7 @@ function regularFile(file, label) {
 /** Every directory under `root` that is not `.git`, depth first. */
 function* directories(root, rel = '') {
   yield rel;
-  const entries = readdirSync(path.join(root, rel), { withFileTypes: true });
-  for (const e of entries) {
+  for (const e of listDir(path.join(root, rel))) {
     if (!e.isDirectory() || e.name === '.git' || e.name === 'node_modules')
       continue;
     yield* directories(root, rel === '' ? e.name : `${rel}/${e.name}`);
@@ -862,8 +908,9 @@ export function linkStrays(
         if (++links > 40) refuse('through too many links');
         let inner;
         try {
-          inner = readlinkSync(next);
-        } catch {
+          inner = linkText(next);
+        } catch (err) {
+          if (err instanceof Refusal) throw err;
           refuse('through a path that cannot be examined');
         }
         ({ at, isDir, missing } = follow(next, inner));
@@ -899,9 +946,7 @@ export function checkTree(root) {
     return first === '.git' || first.startsWith('.trusted-');
   };
   const visit = (rel) => {
-    for (const e of readdirSync(path.join(real, rel), {
-      withFileTypes: true,
-    })) {
+    for (const e of listDir(path.join(real, rel))) {
       const r = rel === '' ? e.name : `${rel}/${e.name}`;
       const full = path.join(real, r);
       if (rel === '' && (e.name === '.git' || e.name.startsWith('.trusted-'))) {
@@ -920,7 +965,7 @@ export function checkTree(root) {
         refuse(`${r}: a .npmrc that is not the workspace root's`);
       }
       if (e.isSymbolicLink()) {
-        const text = readlinkSync(full);
+        const text = linkText(full);
         const why = linkLeaves(real, full, text);
         if (why !== '') {
           refuse(`${r} is a symbolic link that leads ${why}`);
@@ -1039,9 +1084,9 @@ export function checkInstalled(root) {
     const modules = path.join(dir, 'node_modules');
     if (!existsSync(modules)) continue;
     const entries = [];
-    for (const name of readdirSync(modules)) {
+    for (const { name } of listDir(modules)) {
       if (name.startsWith('@')) {
-        for (const sub of readdirSync(path.join(modules, name))) {
+        for (const { name: sub } of listDir(path.join(modules, name))) {
           entries.push(path.join(modules, name, sub));
         }
       } else if (name !== '.bin' && name !== '.pnpm') {
@@ -1086,8 +1131,9 @@ function walk(dir, visit, skip, rel = '') {
   // cannot be examined, is a part of the tree this cannot vouch for.
   let entries;
   try {
-    entries = readdirSync(path.join(dir, rel), { withFileTypes: true });
+    entries = listDir(path.join(dir, rel));
   } catch (err) {
+    if (err instanceof Refusal) throw err;
     refuse(`${path.join(dir, rel)} cannot be listed (${err.code})`);
   }
   for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
@@ -1124,13 +1170,13 @@ function record(into, base, name, hashed = () => true) {
     return;
   }
   into[name] = describe(st);
-  if (st.isSymbolicLink()) into[name] += ` ${readlinkSync(full)}`;
+  if (st.isSymbolicLink()) into[name] += ` ${linkText(full)}`;
   if (st.isFile()) into[name] += ` ${hashOf(full)}`;
   if (st.isDirectory()) {
     walk(full, (rel, s, f) => {
       const k = `${name}/${rel}`;
       into[k] = describe(s);
-      if (s?.isSymbolicLink()) into[k] += ` ${readlinkSync(f)}`;
+      if (s?.isSymbolicLink()) into[k] += ` ${linkText(f)}`;
       if (s?.isFile() && hashed(rel)) into[k] += ` ${hashOf(f)}`;
     });
   }
@@ -1175,8 +1221,11 @@ export function takeSnapshot(
   const beside = {};
   for (const dir of [path.dirname(real), path.dirname(path.dirname(real))]) {
     try {
-      beside[dir] = readdirSync(dir).sort();
-    } catch {
+      beside[dir] = listDir(dir)
+        .map((e) => e.name)
+        .sort();
+    } catch (err) {
+      if (err instanceof Refusal) throw err;
       beside[dir] = null;
     }
   }
@@ -1230,7 +1279,7 @@ export function checkLinks(root, { runnerTemp = '' } = {}) {
       }
       if (!st.isSymbolicLink()) return;
       // EVERY link, whether the checkout had it or the install made it.
-      const target = readlinkSync(full);
+      const target = linkText(full);
       const why = linkLeaves(real, full, target, temp);
       if (why !== '') {
         refuse(

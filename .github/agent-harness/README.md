@@ -103,6 +103,16 @@ in `node_modules` are resolved the same way. This repository tracks no
 symbolic link (`repo.test.mjs` pins that), so one added on purpose is a
 change to make there too.
 
+Every name the checks list, and every link target they read, is read as its
+bytes and must be valid UTF-8 that encodes back to exactly those bytes, or
+the step stops: in the container before and after the install, and on the
+runner in the record and the walk. A name read any other way can come back
+with U+FFFD in place of what did not decode, and a path built from it names
+a different entry. A name that holds U+FFFD as valid bytes is an ordinary
+name. On a filesystem that holds only valid UTF-8 names, such as macOS's,
+the rows of `repo.test.mjs` that need an invalid one are skipped and say so;
+they run on Linux.
+
 Outside the harness, and kept across a sync: `npm-publish.yml` and
 `devtools-publish.yml` refuse a release authored by `yorkie-team-agent[bot]`
 (`repo.test.mjs` pins it).
