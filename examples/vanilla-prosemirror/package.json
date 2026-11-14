@@ -15,10 +15,7 @@
   "dependencies": {
     "@yorkie-js/prosemirror": "workspace:*",
     "@yorkie-js/sdk": "workspace:*",
-    "prosemirror-commands": "^1.6.2",
     "prosemirror-example-setup": "^1.2.2",
-    "prosemirror-history": "^1.4.1",
-    "prosemirror-keymap": "^1.2.2",
     "prosemirror-model": "^1.25.12",
     "prosemirror-schema-basic": "^1.2.3",
     "prosemirror-schema-list": "^1.5.0",
