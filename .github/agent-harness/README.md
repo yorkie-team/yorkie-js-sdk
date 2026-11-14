@@ -28,9 +28,10 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 | `coverage-note.md` | What `ci.yml`'s lanes prove and do not, told to every lens |
 | `repo.test.mjs` | Grades the two files above, and the toolchain action, against this repository (`npm run test:repo` in `scripts/agent`). The reason each configured entry exists is written there, beside the assertion that pins it |
 | `repo.snapshot.json` | Every exported value and rendered prompt, recorded. A change to a gate, a prompt or a comment shows its before and after in this file's diff |
-| `../actions/agent-toolchain/action.yml` | pnpm (pinned by commit, major 9) and a lockfile-exact install with lifecycle scripts and pnpmfiles off, the branch's `.npmrc` set aside, and no cache. THE INSTALL RUNS IN A CONTAINER (image pinned by digest) whose only writable mount is the workspace; the repository's `.git` and any `.trusted-*` checkout are covered by an empty read-only directory, nothing else of the runner is mounted, and no environment is passed in — so the install can write only to the workspace's own files, whatever its inputs say. Without Docker the step fails. Audited against pnpm 9 only |
-| `../actions/agent-toolchain/check-install-inputs.mjs` | The second layer, and the tripwire. Before the install it reads `pnpm-lock.yaml`, `pnpm-workspace.yaml` and the workspace's `package.json` files strictly — only the plain style pnpm writes; any other YAML spelling is refused — and allows only the shapes this repository's own files have: every locked package a registry package with an integrity hash (one exception, the `@buf` package, by its address on that scope's registry), every specifier a registry range or `workspace:`, every link to a project of this workspace, every name plain, and no manifest key beyond a fixed list (`bin` allowed with plain names and in-package targets). Around the install it records `.git`, the runner's temp directory and the directories beside the workspace, and fails the step if any of them changed |
-| `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`. An agent job checks out only the action's directory from `main`, so the trusted `.npmrc` the install uses has to sit beside the action. Two tests fail when the two differ: `scripts/test/agent-toolchain-npmrc.test.mjs`, which `ci.yml` runs on every pull request, and `repo.test.mjs` |
+| `../actions/agent-toolchain/action.yml` | One step, no other action. ON THE RUNNER it fetches pnpm — one fixed tarball from the npm registry, checked against a pinned hash, unpacked under the runner's temp directory and put on the PATH of later steps through a launcher — records what must not change, starts a container, and compares afterwards. It never runs pnpm, never changes directory into the workspace and never writes there. THE CONTAINER (image pinned by digest) has the workspace as its only writable mount; `.git` and any `.trusted-*` checkout are covered by an empty read-only directory, `main`'s `.npmrc` stands read-only over the root one, nothing else of the runner is mounted and no environment is passed in. Without Docker the step fails. Audited against pnpm 9 only |
+| `../actions/agent-toolchain/entry.sh` | What the container runs: the check of the branch's files, `pnpm install` (lockfile-exact, no lifecycle scripts, no pnpmfile), the check of the result. Everything that reads or changes a file of the branch is here, not on the runner |
+| `../actions/agent-toolchain/check-install-inputs.mjs` | The allow-list (in the container) and the tripwire (on the runner). `before` refuses a tree that is not of the shape this repository's own has: no `node_modules`, no `.npmrc` but the root's, no `.git` below the root, no symbolic link that leaves the workspace; `pnpm-lock.yaml` and `pnpm-workspace.yaml` read strictly (only the plain style pnpm writes); every locked package a registry package with an integrity hash (one exception, the `@buf` package, by its address on that scope's registry); every specifier a registry range or `workspace:`; every name plain; no manifest key beyond a fixed list. `snapshot` and `after` record `.git`, the runner's temp directory, the directories around the workspace and the package-manager settings in the runner's home, compare them, and walk the workspace for a link that leads out of its own files |
+| `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`, mounted read-only over the root `.npmrc` inside the container, so the install reads `main`'s settings and the branch's file is never read or moved. An agent job checks out only the action's directory from `main`, so the copy has to sit beside the action. Two tests fail when the two differ: `scripts/test/agent-toolchain-npmrc.test.mjs`, which `ci.yml` runs on every pull request, and `repo.test.mjs` |
 
 Outside the harness, and kept across a sync: `npm-publish.yml` and
 `devtools-publish.yml` refuse a release authored by `yorkie-team-agent[bot]`
@@ -95,10 +96,13 @@ style and is excluded from the root ESLint, lint-staged and the licence scan.
   that fetcher can be made to do first.
 - The root `.npmrc`: copy it to `../actions/agent-toolchain/npmrc` in the
   same change. `pnpm test:scripts` fails until it is.
-- The pnpm major in `ci.yml`: not simply the same number in the toolchain
-  action. The action's install step was audited against pnpm 9; a later major
-  reads settings from files a branch controls. Re-audit the step first, then
-  move the number and the assertion in `repo.test.mjs` that pins it.
+- The pnpm version: `PNPM_VERSION` and `PNPM_INTEGRITY` in the action change
+  together — the hash is the registry's `dist.integrity` for that version —
+  and `repo.test.mjs` pins the pair. A new MAJOR is not just a number: the
+  action was audited against pnpm 9, and a later major reads settings from
+  files a branch controls. Re-audit `entry.sh` and the checker first.
+- A root `.npmrc` must exist: the container mounts `main`'s over it. A
+  `.npmrc` anywhere else in the tree is refused.
 
 `agent-scripts.yml` runs both suites on a change to the harness, this
 directory or `.github/actions/`, and weekly. So a change to one of the other

@@ -40,17 +40,21 @@
 // merge keys, block scalars, multi-line values, duplicate keys). What is not
 // fully understood is refused.
 //
-// Usage (the action runs all three, with a scrubbed environment):
-//   node check-install-inputs.mjs before   <workspace root>
-//   node check-install-inputs.mjs snapshot <workspace root> <file> [<runner temp> <exclude>]
-//   node check-install-inputs.mjs after    <workspace root> <file> [<runner temp> <exclude>]
+// Usage. Inside the container, by `entry.sh`:
+//   node check-install-inputs.mjs before    <workspace root>
+//   node check-install-inputs.mjs installed <workspace root>
+// On the runner, around the container, with a scrubbed environment:
+//   node check-install-inputs.mjs snapshot <workspace root> <file> <runner temp> <exclude> <home>
+//   node check-install-inputs.mjs after    <workspace root> <file> <runner temp> <exclude> <home>
 //
-// THIS IS THE SECOND LAYER. The first is that the install runs in a container
-// that can write nowhere but the workspace's own files (see action.yml); a
-// registry package's own manifest, which nothing here can read before it is
-// fetched, is covered by that and not by this.
+// THIS IS THE SECOND LAYER, AND THE TRIPWIRE. The first layer is the
+// container itself (see action.yml): it can write nowhere but the
+// workspace's own files, whatever is in them. `before` and `installed` are
+// the allow-list, and read the branch's files — which is why they run inside
+// the container. `snapshot` and `after` run on the runner and read only
+// names, kinds and link targets in the workspace, never following a link.
 //
-// It imports nothing but Node's own modules and reads only inside the root.
+// It imports nothing but Node's own modules.
 
 import { createHash } from 'node:crypto';
 import {
@@ -730,8 +734,70 @@ function globMatches(glob, dir) {
   return new RegExp(`^${re}$`).test(dir);
 }
 
-/** Read and check everything the install reads from the tree at `root`. */
+/**
+ * THE SHAPE OF THE TREE, before the install. Walked without following a link.
+ * A fresh checkout of this repository has no `node_modules`, no `.npmrc` but
+ * the root's, no `.git` below the root and no symbolic link at all; a tree
+ * that has one of the first three was shaped to be installed into, and a link
+ * must at least stay among the workspace's own files.
+ */
+export function checkTree(root) {
+  const real = realpathSync(root);
+  const inside = (p) => p === real || p.startsWith(`${real}${path.sep}`);
+  const reserved = (p) => {
+    const first = path.relative(real, p).split(path.sep)[0];
+    return first === '.git' || first.startsWith('.trusted-');
+  };
+  const visit = (rel) => {
+    for (const e of readdirSync(path.join(real, rel), {
+      withFileTypes: true,
+    })) {
+      const r = rel === '' ? e.name : `${rel}/${e.name}`;
+      const full = path.join(real, r);
+      if (rel === '' && (e.name === '.git' || e.name.startsWith('.trusted-'))) {
+        if (e.isSymbolicLink()) refuse(`${r} is a symbolic link`);
+        continue;
+      }
+      if (e.name === 'node_modules') {
+        refuse(
+          e.isSymbolicLink()
+            ? `${r} is a symbolic link; the install refuses a symlinked node_modules`
+            : `${r} exists before the install; the install refuses a checkout that brings its own node_modules`,
+        );
+      }
+      if (e.name === '.git') refuse(`${r}: a .git below the workspace root`);
+      if (e.name === '.npmrc' && rel !== '') {
+        refuse(`${r}: a .npmrc that is not the workspace root's`);
+      }
+      if (e.isSymbolicLink()) {
+        let target;
+        try {
+          target = realpathSync(full);
+        } catch {
+          refuse(`${r} is a symbolic link that does not resolve`);
+        }
+        if (!inside(target)) {
+          refuse(`${r} is a symbolic link that resolves outside the workspace`);
+        }
+        if (reserved(target)) {
+          refuse(`${r} is a symbolic link into .git or a trusted checkout`);
+        }
+      } else if (e.isDirectory()) {
+        visit(r);
+      }
+    }
+  };
+  visit('');
+}
+
+/** Before the install: the shape of the tree, and everything it is told. */
 export function checkBefore(root) {
+  checkTree(root);
+  return checkInputs(root);
+}
+
+/** Read and check everything the install reads from the tree at `root`. */
+export function checkInputs(root) {
   const lock = readStrictYaml(
     regularFile(path.join(root, 'pnpm-lock.yaml'), 'pnpm-lock.yaml'),
     'pnpm-lock.yaml',
@@ -789,7 +855,7 @@ export function checkBefore(root) {
  * After the install: every project it installed for, and every entry it
  * placed directly in a project's `node_modules`, is inside the workspace.
  */
-export function checkAfter(root) {
+export function checkInstalled(root) {
   const real = realpathSync(root);
   const inside = (p) => p === real || p.startsWith(`${real}${path.sep}`);
   const lock = readStrictYaml(
@@ -845,10 +911,16 @@ export function checkAfter(root) {
 //
 // The install runs in a container that can write to the workspace's own
 // files and to nothing else: not the repository's `.git`, not the runner's
-// temp directory where the trusted scripts are staged, not anything beside
-// the workspace. This records those three before the install and compares
-// them after. With the container in place it never differs; if it ever does,
-// containment has failed and the step must not go on to the agent.
+// temp directory where the trusted scripts are staged, not the runner's home,
+// not anything beside the workspace. This records those on the RUNNER before
+// the container starts and compares them after it exits, and then walks the
+// workspace for a link that would lead a later step out of it. With the
+// container in place nothing differs; if anything ever does, containment has
+// failed and the step must not go on to the agent.
+//
+// It reads names, kinds, sizes, times and link targets, and never follows a
+// link. The only file contents it reads are under `.git`, which the branch
+// does not supply, and the fixed settings files in the home directory.
 
 function walk(dir, visit, skip, rel = '') {
   let entries;
@@ -861,7 +933,7 @@ function walk(dir, visit, skip, rel = '') {
   for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
     const r = rel === '' ? e.name : `${rel}/${e.name}`;
     const full = path.join(dir, r);
-    if (skip?.(full)) continue;
+    if (skip?.(full, r)) continue;
     const st = lstatSync(full);
     visit(r, st, full);
     if (st.isDirectory()) walk(dir, visit, skip, r);
@@ -871,33 +943,71 @@ const describe = (st) =>
   st === null
     ? 'unreadable'
     : `${st.isDirectory() ? 'd' : st.isSymbolicLink() ? 'l' : 'f'} ${st.mode.toString(8)} ${st.isDirectory() ? '' : st.size} ${st.isDirectory() ? '' : Math.floor(st.mtimeMs)}`;
+const hashOf = (full) =>
+  createHash('sha256').update(readFileSync(full)).digest('hex');
+
+/** One file or directory, by content: for the few fixed paths that matter whole. */
+function record(into, base, name, hashed = () => true) {
+  const full = path.join(base, name);
+  let st;
+  try {
+    st = lstatSync(full);
+  } catch {
+    into[name] = 'absent';
+    return;
+  }
+  into[name] = describe(st);
+  if (st.isSymbolicLink()) into[name] += ` ${readlinkSync(full)}`;
+  if (st.isFile()) into[name] += ` ${hashOf(full)}`;
+  if (st.isDirectory()) {
+    walk(full, (rel, s, f) => {
+      const k = `${name}/${rel}`;
+      into[k] = describe(s);
+      if (s?.isSymbolicLink()) into[k] += ` ${readlinkSync(f)}`;
+      if (s?.isFile() && hashed(rel)) into[k] += ` ${hashOf(f)}`;
+    });
+  }
+}
+
+/** The package-manager settings a stray write to the home directory would be. */
+const HOME_SETTINGS = [
+  '.npmrc',
+  '.yarnrc',
+  '.yarnrc.yml',
+  '.pnpmrc',
+  '.config/pnpm',
+];
+
+/** Every symbolic link in the workspace (but under `.git`), with its target. */
+function linksIn(real) {
+  const links = {};
+  walk(
+    real,
+    (rel, st, full) => {
+      if (st?.isSymbolicLink()) links[rel] = readlinkSync(full);
+    },
+    (full, rel) => rel === '.git',
+  );
+  return links;
+}
 
 /**
  * What must not change across the install: every entry of `.git` (content
  * hashed, except the object store, which is compared by size and time), every
- * entry of `runnerTemp` (but `exclude`, this step's own directory), and the
- * names beside the workspace and beside its parent.
+ * entry of `runnerTemp` (but `exclude`, this step's own directory), the names
+ * beside the workspace and beside its parent, and the settings files in
+ * `home`. And the workspace's symbolic links, to tell the ones the checkout
+ * had from the ones that appeared.
  */
-export function takeSnapshot(root, { runnerTemp = '', exclude = '' } = {}) {
+export function takeSnapshot(
+  root,
+  { runnerTemp = '', exclude = '', home = '' } = {},
+) {
   const real = realpathSync(root);
   const git = {};
-  const gitPath = path.join(real, '.git');
-  if (existsSync(gitPath)) {
-    const st = lstatSync(gitPath);
-    git['.'] = describe(st);
-    const hash = (full) =>
-      createHash('sha256').update(readFileSync(full)).digest('hex');
-    if (st.isFile()) git['.'] += ` ${hash(gitPath)}`;
-    if (st.isDirectory()) {
-      walk(gitPath, (rel, s, full) => {
-        git[rel] = describe(s);
-        if (s?.isFile() && !rel.startsWith('objects/')) {
-          git[rel] += ` ${hash(full)}`;
-        }
-        if (s?.isSymbolicLink()) git[rel] += ` ${readlinkSync(full)}`;
-      });
-    }
-  }
+  // The object store is large and cannot be written through a covered
+  // mount either; size and time are enough for it.
+  record(git, real, '.git', (rel) => !rel.startsWith('objects/'));
   const temp = {};
   if (runnerTemp !== '' && existsSync(runnerTemp)) {
     const skipped = exclude === '' ? null : realpathSync(exclude);
@@ -917,7 +1027,11 @@ export function takeSnapshot(root, { runnerTemp = '', exclude = '' } = {}) {
       beside[dir] = null;
     }
   }
-  return { git, temp, beside };
+  const settings = {};
+  if (home !== '') {
+    for (const name of HOME_SETTINGS) record(settings, home, name);
+  }
+  return { git, temp, beside, settings, links: linksIn(real) };
 }
 
 /** Refuse if `after` is not `before`, naming the first thing that differs. */
@@ -926,8 +1040,9 @@ export function compareSnapshots(before, after) {
     git: "the repository's .git",
     temp: "the runner's temp directory",
     beside: 'the directories around the workspace',
+    settings: "the package-manager settings in the runner's home",
   };
-  for (const part of ['git', 'temp', 'beside']) {
+  for (const part of Object.keys(what)) {
     const a = before[part] ?? {};
     const b = after[part] ?? {};
     for (const k of [
@@ -942,28 +1057,82 @@ export function compareSnapshots(before, after) {
   }
 }
 
+/**
+ * After the install, on the runner: no symbolic link in the workspace leads
+ * out of it, into `.git`, into a trusted checkout or into the runner's temp
+ * directory — unless the checkout already had it, target and all — and there
+ * is no `.git` below the root. A later step that follows a link, or runs git
+ * in a subdirectory, must end up among the workspace's own files.
+ */
+export function checkLinks(root, before, { runnerTemp = '' } = {}) {
+  const real = realpathSync(root);
+  const temp =
+    runnerTemp !== '' && existsSync(runnerTemp)
+      ? realpathSync(runnerTemp)
+      : null;
+  const under = (p, dir) => p === dir || p.startsWith(`${dir}${path.sep}`);
+  walk(
+    real,
+    (rel, st, full) => {
+      if (rel !== '.git' && path.basename(rel) === '.git') {
+        refuse(`${rel}: a .git below the workspace root after the install`);
+      }
+      if (!st?.isSymbolicLink()) return;
+      const target = readlinkSync(full);
+      if (before.links?.[rel] === target) return;
+      // Where the link leads, by its text: resolved against its own
+      // directory, without asking the filesystem to follow it.
+      const lexical = path.resolve(path.dirname(full), target);
+      let resolved = lexical;
+      try {
+        resolved = realpathSync(full);
+      } catch {
+        // A link that resolves nowhere is judged by where it points.
+      }
+      for (const p of [lexical, resolved]) {
+        const first = path.relative(real, p).split(path.sep)[0];
+        if (
+          !under(p, real) ||
+          first === '.git' ||
+          first.startsWith('.trusted-') ||
+          (temp !== null && under(p, temp))
+        ) {
+          refuse(
+            `${rel} is a symbolic link out of the workspace's own files after the install`,
+          );
+        }
+      }
+    },
+    (full, rel) => rel === '.git',
+  );
+}
+
 const USAGE =
-  'usage: check-install-inputs.mjs before <root> | snapshot <root> <file> [<runner temp> <exclude>] | after <root> <file> [<runner temp> <exclude>]';
+  'usage: check-install-inputs.mjs before|installed <root> | snapshot|after <root> <file> [<runner temp> <exclude> <home>]';
 
 if (
   process.argv[1] &&
   fileURLToPath(import.meta.url) === realpathSync(process.argv[1])
 ) {
-  const [, , mode, root, file, runnerTemp = '', exclude = ''] = process.argv;
+  const [, , mode, root, file, runnerTemp = '', exclude = '', home = ''] =
+    process.argv;
   try {
-    if (!root || !['before', 'snapshot', 'after'].includes(mode)) {
+    if (!root || !['before', 'installed', 'snapshot', 'after'].includes(mode)) {
       throw new Refusal(USAGE);
     }
     if (mode === 'before') {
       checkBefore(root);
+    } else if (mode === 'installed') {
+      checkInstalled(root);
     } else {
       if (!file) throw new Refusal(USAGE);
-      const now = takeSnapshot(root, { runnerTemp, exclude });
+      const now = takeSnapshot(root, { runnerTemp, exclude, home });
       if (mode === 'snapshot') {
         writeFileSync(file, JSON.stringify(now));
       } else {
-        compareSnapshots(JSON.parse(readFileSync(file, 'utf8')), now);
-        checkAfter(root);
+        const before = JSON.parse(readFileSync(file, 'utf8'));
+        compareSnapshots(before, now);
+        checkLinks(root, before, { runnerTemp });
       }
     }
   } catch (err) {

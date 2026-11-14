@@ -40,6 +40,17 @@
   a command. The fix that ended it does not read the input at all: it
   bounds what the process can write. Validation is then the second layer,
   and it can afford to be strict because it is not the only one.
+- A sandbox is only as good as what is done outside it. The container held;
+  the setup action before it and the file shuffling after it, both on the
+  runner, did not. Count every step that runs before the untrusted work
+  starts, including the ones someone else wrote, and ask of each: does it
+  read the tree, and what does it follow?
+- Test with what the real thing installs. A check that the pnpm on the PATH
+  was a link passed against an npm-installed pnpm and would have failed on
+  every runner, where it is a launcher script.
+- Prefer a mount to a move. Putting a trusted file in place by renaming the
+  untrusted one away means renaming it back, through a path that is no
+  longer what it was.
 - A check that runs before a fetch cannot see what the fetch brings. A
   registry package's own manifest is input too.
 - A line-by-line check of YAML is a guess at how the line will be written.

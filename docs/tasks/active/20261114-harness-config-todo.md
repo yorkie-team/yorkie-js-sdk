@@ -62,6 +62,9 @@ Depends on yorkie#2352 and yorkie#2353. Source commit:
 - [x] Contain the install: a container whose only writable mount is the
       workspace, `.git` and trusted checkouts covered; manifests on an
       allow-list of keys; a before/after record as the tripwire
+- [x] Take the runner out of it: pnpm from a hash-pinned tarball instead of
+      a setup action, `main`'s `.npmrc` mounted rather than swapped, the
+      checks of the branch's files inside the container, a wider tripwire
 - [ ] Re-audit the install step before any move off pnpm 9
 - [ ] Open the PR; merge with the pipeline paused and drained
 - [ ] Watch the first live run of each arm: the toolchain action on a runner
