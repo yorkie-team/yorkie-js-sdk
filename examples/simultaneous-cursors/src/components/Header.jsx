@@ -59,8 +59,8 @@ export default function Header({ loading, error, connection, peers }) {
         <a href={window.location.href} target="_blank" rel="noreferrer">
           open this page in another window
         </a>{' '}
-        and watch both cursors. Ink is a live trail shared through Presence, so
-        it isn’t saved.
+        and watch both cursors. Ink is shared through Presence while you draw
+        and saved to the document when you lift the pen.
       </p>
     </header>
   );

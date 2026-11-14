@@ -7,11 +7,20 @@
 </p>
 
 Everyone on the page shares a live cursor: switch it to hearts, a thumbs up
-or a pen and the others see it as you move. It uses Yorkie Presence only —
-pointer position, tool and pen state — so nothing is stored in the document.
-The ink is a live trail each tab draws from the author's presence: it is not
-saved, a tab that joins later starts blank, and the eraser removes only your
-own ink.
+or a pen and the others see it as you move.
+
+- **Presence** carries the pointer, the tool and the stroke being drawn. The
+  whole stroke travels in each update, so a peer that misses one still draws
+  the line as it was drawn. Long strokes are committed in chunks to keep each
+  update small.
+- **The document** keeps the finished strokes (`root.strokes`): lifting the
+  pen moves the stroke from presence to the document in one update, so the
+  ink stays and a tab that joins later sees it. The eraser and "Clear canvas"
+  remove anyone's ink. Fading ink is never saved.
+- **Remote cursors** follow a spring between updates rather than a linear
+  transition, so they keep their momentum through turns. See
+  [How to animate multiplayer cursors](https://liveblocks.io/blog/how-to-animate-multiplayer-cursors)
+  for the trade-offs between transitions, springs and splines.
 
 <img width="500" alt="Simultaneous Cursors" src="./thumbnail.jpg">
 

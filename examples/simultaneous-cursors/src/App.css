@@ -196,10 +196,9 @@ body {
   display: block;
 }
 
-/* Remote cursors glide between presence updates. */
-.cursor-animated {
+/* Remote cursors glide between presence updates on a spring (Cursor.jsx). */
+.cursor {
   will-change: transform;
-  transition: transform 80ms linear;
 }
 
 .ink-canvas {
