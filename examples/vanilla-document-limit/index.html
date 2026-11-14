@@ -2,26 +2,79 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yorkie Document Limits Example</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <title>Document Limits · Yorkie</title>
   </head>
   <body>
-    <div class="page-container">
-      <div class="counter-side">
-        <div id="connection-status-container">
-          <p>Connection Status: <span id="connection-status"></span></p>
-        </div>
-        <div id="peers-container">
-          <p>Peers: <span id="peers"></span></p>
-        </div>
-        <div id="counter-container">
-          <h1 id="counter">Counter</h1>
-          <div id="counter-value"></div>
-          <button id="increment">Increment</button>
-        </div>
-        <div id="error"></div>
+    <header class="example-header">
+      <div class="example-header__intro">
+        <p class="example-header__title">Document Limits</p>
+        <p class="example-header__hint">
+          Count together — open this page in
+          <a id="new-tab-link" href="" target="_blank" rel="noreferrer"
+            >another tab</a
+          >
+          to add one more client.
+        </p>
       </div>
-    </div>
-    <script type="module" src="/src/main.js"></script>
+      <div class="example-header__meta">
+        <span id="status" class="status" data-status="connecting">
+          <span class="status__dot" aria-hidden="true"></span>
+          <span id="status-label">Connecting…</span>
+        </span>
+        <ul id="peers" class="peers" aria-label="People on this document"></ul>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel counter" id="counter" aria-live="polite">
+        <h1 class="counter__label">Shared counter</h1>
+        <p class="counter__value" id="counter-value">–</p>
+        <button class="button" id="increment" type="button" disabled>
+          Increment
+        </button>
+        <p class="counter__note" id="counter-note" hidden></p>
+      </section>
+
+      <aside class="panel limits" aria-labelledby="limits-title">
+        <h2 id="limits-title">What are document limits?</h2>
+        <p>
+          A Yorkie project can cap how many clients use one document at the same
+          time. Set the caps in the Yorkie Dashboard under your project's
+          Settings, in the Resources section. 0 means no limit.
+        </p>
+        <dl>
+          <dt>Max Attachments Per Document</dt>
+          <dd>
+            How many clients can attach to the document. One more is rejected
+            when it attaches, and this page says the document is full.
+          </dd>
+          <dt>Max Subscribers Per Document</dt>
+          <dd>
+            How many attached clients can watch the document for live changes.
+            One more stays attached but shows Offline, and the SDK retries every
+            second until someone leaves.
+          </dd>
+        </dl>
+        <h3>Try it</h3>
+        <ol>
+          <li>
+            In the Dashboard, set Max Attachments Per Document to 2 for the
+            project whose API key this page uses.
+          </li>
+          <li>Keep this tab open and open two more tabs of this page.</li>
+          <li>The third tab can't attach and shows "This document is full".</li>
+        </ol>
+        <p class="limits__note">
+          A changed setting can take up to 10 minutes to reach every server.
+        </p>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
