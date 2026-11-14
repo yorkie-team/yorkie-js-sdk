@@ -735,6 +735,40 @@ function globMatches(glob, dir) {
 }
 
 /**
+ * Where a symbolic link leads, judged BY ITS TEXT: never by asking the
+ * filesystem to follow it, because the answer depends on who asks — a path
+ * through a process's own view of the filesystem resolves one way in the
+ * container and another for a later step on the runner. Returns why the link
+ * is refused, or '' when it stays among the workspace's own files:
+ *
+ *   - an absolute target must be, once normalised, under the workspace root;
+ *   - no target may pass through /proc, /dev or /sys;
+ *   - a relative target, resolved from the link's own directory, must stay
+ *     under the root;
+ *   - and none may lead into `.git`, a trusted checkout or `temp`.
+ */
+export function linkLeaves(real, full, target, temp = null) {
+  const under = (p, dir) => p === dir || p.startsWith(`${dir}${path.sep}`);
+  const lexical = path.resolve(path.dirname(full), target);
+  if (
+    target
+      .split('/')
+      .some((part) => part === 'proc' || part === 'dev' || part === 'sys') &&
+    path.isAbsolute(target)
+  ) {
+    return 'through the system';
+  }
+  if (!under(lexical, real)) return 'out of the workspace';
+  const first = path.relative(real, lexical).split(path.sep)[0];
+  if (first === '.git' || first.startsWith('.trusted-')) {
+    return 'into .git or a trusted checkout';
+  }
+  if (temp !== null && under(lexical, temp))
+    return "into the runner's temp directory";
+  return '';
+}
+
+/**
  * THE SHAPE OF THE TREE, before the install. Walked without following a link.
  * A fresh checkout of this repository has no `node_modules`, no `.npmrc` but
  * the root's, no `.git` below the root and no symbolic link at all; a tree
@@ -770,6 +804,10 @@ export function checkTree(root) {
         refuse(`${r}: a .npmrc that is not the workspace root's`);
       }
       if (e.isSymbolicLink()) {
+        const why = linkLeaves(real, full, readlinkSync(full));
+        if (why !== '') {
+          refuse(`${r} is a symbolic link that leads ${why}`);
+        }
         let target;
         try {
           target = realpathSync(full);
@@ -923,18 +961,24 @@ export function checkInstalled(root) {
 // does not supply, and the fixed settings files in the home directory.
 
 function walk(dir, visit, skip, rel = '') {
+  // NOTHING UNREADABLE. A directory that cannot be listed, or an entry that
+  // cannot be examined, is a part of the tree this cannot vouch for.
   let entries;
   try {
     entries = readdirSync(path.join(dir, rel), { withFileTypes: true });
-  } catch {
-    visit(rel, null);
-    return;
+  } catch (err) {
+    refuse(`${path.join(dir, rel)} cannot be listed (${err.code})`);
   }
   for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
     const r = rel === '' ? e.name : `${rel}/${e.name}`;
     const full = path.join(dir, r);
     if (skip?.(full, r)) continue;
-    const st = lstatSync(full);
+    let st;
+    try {
+      st = lstatSync(full);
+    } catch (err) {
+      refuse(`${full} cannot be examined (${err.code})`);
+    }
     visit(r, st, full);
     if (st.isDirectory()) walk(dir, visit, skip, r);
   }
@@ -952,7 +996,9 @@ function record(into, base, name, hashed = () => true) {
   let st;
   try {
     st = lstatSync(full);
-  } catch {
+  } catch (err) {
+    if (err.code !== 'ENOENT')
+      refuse(`${full} cannot be examined (${err.code})`);
     into[name] = 'absent';
     return;
   }
@@ -978,26 +1024,12 @@ const HOME_SETTINGS = [
   '.config/pnpm',
 ];
 
-/** Every symbolic link in the workspace (but under `.git`), with its target. */
-function linksIn(real) {
-  const links = {};
-  walk(
-    real,
-    (rel, st, full) => {
-      if (st?.isSymbolicLink()) links[rel] = readlinkSync(full);
-    },
-    (full, rel) => rel === '.git',
-  );
-  return links;
-}
-
 /**
  * What must not change across the install: every entry of `.git` (content
  * hashed, except the object store, which is compared by size and time), every
  * entry of `runnerTemp` (but `exclude`, this step's own directory), the names
  * beside the workspace and beside its parent, and the settings files in
- * `home`. And the workspace's symbolic links, to tell the ones the checkout
- * had from the ones that appeared.
+ * `home`.
  */
 export function takeSnapshot(
   root,
@@ -1031,7 +1063,7 @@ export function takeSnapshot(
   if (home !== '') {
     for (const name of HOME_SETTINGS) record(settings, home, name);
   }
-  return { git, temp, beside, settings, links: linksIn(real) };
+  return { git, temp, beside, settings };
 }
 
 /** Refuse if `after` is not `before`, naming the first thing that differs. */
@@ -1060,11 +1092,11 @@ export function compareSnapshots(before, after) {
 /**
  * After the install, on the runner: no symbolic link in the workspace leads
  * out of it, into `.git`, into a trusted checkout or into the runner's temp
- * directory — unless the checkout already had it, target and all — and there
- * is no `.git` below the root. A later step that follows a link, or runs git
+ * directory — whether the checkout had it or the install made it — and
+ * there is no `.git` below the root. A later step that follows a link, or runs git
  * in a subdirectory, must end up among the workspace's own files.
  */
-export function checkLinks(root, before, { runnerTemp = '' } = {}) {
+export function checkLinks(root, { runnerTemp = '' } = {}) {
   const real = realpathSync(root);
   const temp =
     runnerTemp !== '' && existsSync(runnerTemp)
@@ -1077,30 +1109,32 @@ export function checkLinks(root, before, { runnerTemp = '' } = {}) {
       if (rel !== '.git' && path.basename(rel) === '.git') {
         refuse(`${rel}: a .git below the workspace root after the install`);
       }
-      if (!st?.isSymbolicLink()) return;
+      if (!st.isSymbolicLink()) return;
+      // EVERY link, whether the checkout had it or the install made it.
       const target = readlinkSync(full);
-      if (before.links?.[rel] === target) return;
-      // Where the link leads, by its text: resolved against its own
-      // directory, without asking the filesystem to follow it.
-      const lexical = path.resolve(path.dirname(full), target);
-      let resolved = lexical;
+      const why = linkLeaves(real, full, target, temp);
+      if (why !== '') {
+        refuse(
+          `${rel} is a symbolic link out of the workspace's own files after the install (it leads ${why})`,
+        );
+      }
+      // ...and by where it resolves here, as far as it does.
+      let resolved;
       try {
         resolved = realpathSync(full);
       } catch {
-        // A link that resolves nowhere is judged by where it points.
+        return;
       }
-      for (const p of [lexical, resolved]) {
-        const first = path.relative(real, p).split(path.sep)[0];
-        if (
-          !under(p, real) ||
-          first === '.git' ||
-          first.startsWith('.trusted-') ||
-          (temp !== null && under(p, temp))
-        ) {
-          refuse(
-            `${rel} is a symbolic link out of the workspace's own files after the install`,
-          );
-        }
+      const first = path.relative(real, resolved).split(path.sep)[0];
+      if (
+        !under(resolved, real) ||
+        first === '.git' ||
+        first.startsWith('.trusted-') ||
+        (temp !== null && under(resolved, temp))
+      ) {
+        refuse(
+          `${rel} is a symbolic link out of the workspace's own files after the install`,
+        );
       }
     },
     (full, rel) => rel === '.git',
@@ -1132,7 +1166,7 @@ if (
       } else {
         const before = JSON.parse(readFileSync(file, 'utf8'));
         compareSnapshots(before, now);
-        checkLinks(root, before, { runnerTemp });
+        checkLinks(root, { runnerTemp });
       }
     }
   } catch (err) {

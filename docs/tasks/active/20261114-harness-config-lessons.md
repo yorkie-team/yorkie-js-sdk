@@ -48,6 +48,9 @@
 - Test with what the real thing installs. A check that the pnpm on the PATH
   was a link passed against an npm-installed pnpm and would have failed on
   every runner, where it is a launcher script.
+- Where a link leads depends on who follows it. Judge it by its text, and
+  judge every link, not only the new ones; and treat anything a walk cannot
+  read as a refusal, or the thing being checked can blind the check.
 - Prefer a mount to a move. Putting a trusted file in place by renaming the
   untrusted one away means renaming it back, through a path that is no
   longer what it was.

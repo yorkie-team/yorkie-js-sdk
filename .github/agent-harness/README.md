@@ -33,6 +33,35 @@ the harness is [`docs/design/agent-harness.md`](../../docs/design/agent-harness.
 | `../actions/agent-toolchain/check-install-inputs.mjs` | The allow-list (in the container) and the tripwire (on the runner). `before` refuses a tree that is not of the shape this repository's own has: no `node_modules`, no `.npmrc` but the root's, no `.git` below the root, no symbolic link that leaves the workspace; `pnpm-lock.yaml` and `pnpm-workspace.yaml` read strictly (only the plain style pnpm writes); every locked package a registry package with an integrity hash (one exception, the `@buf` package, by its address on that scope's registry); every specifier a registry range or `workspace:`; every name plain; no manifest key beyond a fixed list. `snapshot` and `after` record `.git`, the runner's temp directory, the directories around the workspace and the package-manager settings in the runner's home, compare them, and walk the workspace for a link that leads out of its own files |
 | `../actions/agent-toolchain/npmrc` | A copy of the root `.npmrc`, mounted read-only over the root `.npmrc` inside the container, so the install reads `main`'s settings and the branch's file is never read or moved. An agent job checks out only the action's directory from `main`, so the copy has to sit beside the action. Two tests fail when the two differ: `scripts/test/agent-toolchain-npmrc.test.mjs`, which `ci.yml` runs on every pull request, and `repo.test.mjs` |
 
+### What the toolchain action relies on
+
+It bounds what the install can do; it does not stand alone. It assumes:
+
+- Docker's mount namespace and the kernel under it hold. A container escape
+  is outside what this defends.
+- The two things it fetches are what they were when pinned: the pnpm tarball,
+  by sha512, and the container image, by digest.
+- `PATH`, and the `node` on it, are what the job's earlier trusted steps set:
+  nothing of the branch has influenced them before this step.
+- No trusted step between this one and the agent follows a path in the
+  workspace or runs a program from it. The action checks that no link leads
+  out of the workspace's own files; it cannot check what a later step does.
+- Everything after the agent starts is untrusted, whatever this step did.
+- The container's network is open (`--network bridge`): the install needs
+  the registry, and nothing restricts where else it can connect. It holds no
+  credential.
+
+If the step fails after it has written its `$GITHUB_PATH` line, the line
+names a directory the step then removed. The job has failed by then, so no
+later step uses it.
+
+A symbolic link is judged by its text, in the container before the install
+and on the runner after it, whether the checkout had it or the install made
+it: it must stay, lexically, among the workspace's own files, and may not
+pass through `/proc`, `/dev` or `/sys`. This repository tracks no
+symbolic link (`repo.test.mjs` pins that), so one added on purpose is a
+change to make there too.
+
 Outside the harness, and kept across a sync: `npm-publish.yml` and
 `devtools-publish.yml` refuse a release authored by `yorkie-team-agent[bot]`
 (`repo.test.mjs` pins it).

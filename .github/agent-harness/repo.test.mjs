@@ -32,6 +32,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  chmodSync,
   copyFileSync,
   cpSync,
   existsSync,
@@ -1670,14 +1671,18 @@ test('the toolchain action is one step, and the runner does nothing with the bra
   );
   assert.deepEqual(covers, [
     '--volume "$work/empty:$root/.git:ro"',
-    '--volume "$work/empty-file:$root/.git:ro"',
     '--volume "$work/empty:$dir:ro"',
   ]);
   // Only REAL directories are covered, with plain names; a link is refused.
+  // `.git` must be a real directory of the workspace's own: a link is
+  // refused, and so is its absence — there would be nothing to cover.
   assert.match(
     script,
-    /if \[ -L "\$root\/\.git" \]; then\n\s*refuse "\.git is a symbolic link"/,
+    /if \[ -L "\$root\/\.git" \] \|\| \[ ! -d "\$root\/\.git" \]; then\n\s*refuse "the workspace has no \.git directory of its own to cover"/,
   );
+  // The workspace path itself is plain: no link, no parent component.
+  assert.match(script, /case "\$root" in \*\.\.\*\) refuse /);
+  assert.match(script, /if \[ -L "\$root" \]; then refuse /);
   assert.match(script, /if \[ -d "\$dir" \] && \[ ! -L "\$dir" \]; then/);
   assert.match(
     code,
@@ -1704,8 +1709,9 @@ test('the toolchain action is one step, and the runner does nothing with the bra
   const ALLOWED = [
     /^root="\$\{GITHUB_WORKSPACE:-\}"$/,
     /^case "\$root" in /,
-    /^(el)?if \[ -[Lde] "\$root\/\.git" \]; then$/,
-    /^covered\+=\(--volume "\$work\/empty(-file)?:(\$root\/\.git|\$dir):ro"\)$/,
+    /^if \[ -L "\$root\/\.git" \] \|\| \[ ! -d "\$root\/\.git" \]; then$/,
+    /^if \[ -L "\$root" \]; then refuse /,
+    /^covered\+=\(--volume "\$work\/empty:(\$root\/\.git|\$dir):ro"\)$/,
     /^for dir in "\$root"\/\.trusted-\*; do$/,
     /^if \[ -d "\$dir" \] && \[ ! -L "\$dir" \]; then$/,
     /^case "\$\{dir##\*\/\}" in /,
@@ -2051,7 +2057,11 @@ function installStep() {
     image,
     integrity,
     actionDir,
-    cleanup: () => rmSync(base, { recursive: true, force: true }),
+    cleanup: () => {
+      // A case may have left a directory it made unlistable.
+      execFileSync('chmod', ['-R', 'u+rwx', base]);
+      rmSync(base, { recursive: true, force: true });
+    },
   };
 }
 
@@ -2270,7 +2280,20 @@ test('the step installs an ordinary tree without the runner touching it', () => 
           rmSync(path.join(dir, '.git'), { recursive: true });
           symlinkSync('packages', path.join(dir, '.git'));
         },
-        /\.git is a symbolic link/,
+        /no \.git directory of its own to cover/,
+      ],
+      [
+        'no .git at all',
+        (dir) => rmSync(path.join(dir, '.git'), { recursive: true }),
+        /no \.git directory of its own to cover/,
+      ],
+      [
+        'a .git that is a file',
+        (dir) => {
+          rmSync(path.join(dir, '.git'), { recursive: true });
+          writeFileSync(path.join(dir, '.git'), 'gitdir: elsewhere\n');
+        },
+        /no \.git directory of its own to cover/,
       ],
       [
         'a .trusted-* directory with a name that would not mount as written',
@@ -2379,6 +2402,11 @@ test('the step installs an ordinary tree without the runner touching it', () => 
         /packages\/sdk is a symbolic link/,
       ],
       [
+        'a directory the walk cannot list',
+        `mkdir -p h/.git && ln -s "${step.temp}/agent-tools" h/l && chmod 311 h\n`,
+        /h cannot be listed/,
+      ],
+      [
         'a .git below the root',
         'mkdir -p sub/.git/hooks\n',
         /sub\/\.git: a \.git below the workspace root after the install/,
@@ -2469,6 +2497,17 @@ test('in a real container, the install can write only to the tree it is given', 
       { real: true },
     );
     assert.equal(r.status, 0, r.err);
+    // A link through /proc resolves INTO the workspace in the container;
+    // it is refused there all the same, by what it says.
+    const viaProc = step.run(
+      (dir) => symlinkSync('/proc/self/cwd', path.join(dir, 'x')),
+      { real: true },
+    );
+    assert.notEqual(viaProc.status, 0);
+    assert.match(
+      viaProc.err,
+      /x is a symbolic link that leads through the system/,
+    );
     const result = readFileSync(path.join(r.dir, 'result.txt'), 'utf8')
       .trimEnd()
       .split('\n');
@@ -2544,6 +2583,179 @@ test('in a real container, the install can write only to the tree it is given', 
   }
 });
 
+test('a symbolic link is judged by its text, every one of them, and nothing may hide from the walk', () => {
+  // WHERE A LINK LEADS DEPENDS ON WHO FOLLOWS IT. A target that goes through
+  // a process's own view of the filesystem resolves into the workspace for
+  // the check that runs in the container and somewhere else for a later step
+  // on the runner. So a link is judged by what it SAYS, in the container
+  // before the install and on the runner after it — and after it, every
+  // link is judged, whether the checkout had it or the install made it.
+  const root = '/w/repo/repo';
+  const leaves = (at, target, temp = null) =>
+    installInputs.linkLeaves(root, path.join(root, at), target, temp);
+  for (const [at, target] of [
+    ['x', 'packages/sdk'],
+    ['packages/y', '../docs'],
+    ['a/b/c', '../../packages/./sdk'],
+    ['x', `${root}/packages`],
+    ['node_modules/dep', '.pnpm/dep@1.0.0/node_modules/dep'],
+    ['x', 'proc/self'],
+  ]) {
+    assert.equal(leaves(at, target), '', `${at} -> ${target}`);
+  }
+  for (const [at, target, why] of [
+    ['x', '/proc/self/cwd', /system/],
+    ['packages/y', '/proc/self/cwd/packages', /system/],
+    ['z', `/proc/self/root${root}/packages`, /system/],
+    ['x', '/dev/fd/0', /system/],
+    ['x', '/sys/kernel', /system/],
+    ['x', `${root}/../proc/self/cwd`, /system/],
+    ['x', '/etc', /out of the workspace/],
+    ['x', '/w/repo/repo-other', /out of the workspace/],
+    ['x', '..', /out of the workspace/],
+    ['a/b', '../../..', /out of the workspace/],
+    ['x', `${root}/../../_temp`, /out of the workspace/],
+    ['x', '.git/config', /\.git or a trusted checkout/],
+    ['a/b', '../.git', /\.git or a trusted checkout/],
+    ['x', '.trusted-toolchain/.github', /\.git or a trusted checkout/],
+    ['x', `${root}/.trusted-cred`, /\.git or a trusted checkout/],
+  ]) {
+    assert.match(leaves(at, target), why, `${at} -> ${target}`);
+  }
+  assert.match(
+    leaves('x', 'tmp/tools', `${root}/tmp`),
+    /runner's temp directory/,
+  );
+
+  // ON A TREE. `checkLinks` is what the runner runs after the container;
+  // `checkTree` what the container runs before the install.
+  const base = realpathSync(
+    mkdtempSync(path.join(os.tmpdir(), 'agent-links-')),
+  );
+  try {
+    const temp = path.join(base, '_temp');
+    mkdirSync(path.join(temp, 'agent-tools'), { recursive: true });
+    let n = 0;
+    const tree = (setup) => {
+      const dir = path.join(base, `t${++n}`, 'repo');
+      mkdirSync(path.join(dir, 'packages', 'sdk'), { recursive: true });
+      mkdirSync(path.join(dir, '.git'));
+      mkdirSync(path.join(dir, '.trusted-toolchain'));
+      setup(dir);
+      return dir;
+    };
+    const after = (dir) => installInputs.checkLinks(dir, { runnerTemp: temp });
+    const before = (dir) => installInputs.checkTree(dir);
+    // A link among the workspace's own files passes both.
+    const fine = tree((dir) =>
+      symlinkSync('packages/sdk', path.join(dir, 'x')),
+    );
+    after(fine);
+    before(fine);
+    for (const [name, setup, message] of [
+      [
+        'through /proc',
+        (d) => symlinkSync('/proc/self/cwd', path.join(d, 'x')),
+        /x is a symbolic link .*system/,
+      ],
+      [
+        'through /proc, below',
+        (d) =>
+          symlinkSync('/proc/self/cwd/packages', path.join(d, 'packages', 'y')),
+        /packages\/y is a symbolic link .*system/,
+      ],
+      [
+        'through /proc to the workspace itself',
+        (d) => symlinkSync(`/proc/self/root${d}/packages`, path.join(d, 'z')),
+        /z is a symbolic link .*system/,
+      ],
+      [
+        'a device',
+        (d) => symlinkSync('/dev/fd/0', path.join(d, 'x')),
+        /system/,
+      ],
+      [
+        'into the temp directory',
+        (d) => symlinkSync(path.join(temp, 'agent-tools'), path.join(d, 'x')),
+        /x is a symbolic link/,
+      ],
+      [
+        'into .git',
+        (d) => symlinkSync('.git/config', path.join(d, 'x')),
+        /x is a symbolic link/,
+      ],
+      [
+        'into a trusted checkout',
+        (d) => symlinkSync('.trusted-toolchain/.github', path.join(d, 'x')),
+        /x is a symbolic link/,
+      ],
+      [
+        'out by a relative path',
+        (d) => symlinkSync('../../..', path.join(d, 'packages', 'up')),
+        /packages\/up is a symbolic link/,
+      ],
+    ]) {
+      // BOTH checks refuse it, each on its own: neither leans on the other
+      // having run, and `after` does not ask whether the link is new.
+      assert.throws(
+        () => after(tree(setup)),
+        (e) => e instanceof installInputs.Refusal && message.test(e.message),
+        `after: ${name}`,
+      );
+      assert.throws(
+        () => before(tree(setup)),
+        (e) => e instanceof installInputs.Refusal && message.test(e.message),
+        `before: ${name}`,
+      );
+    }
+
+    // NOTHING MAY HIDE. A directory that cannot be listed could hold a link
+    // or a `.git` the walk never sees, so it is a refusal — in the walk
+    // after the install and in the record before it.
+    const hidden = tree((d) => {
+      mkdirSync(path.join(d, 'h', '.git'), { recursive: true });
+      symlinkSync(path.join(temp, 'agent-tools'), path.join(d, 'h', 'l'));
+      chmodSync(path.join(d, 'h'), 0o311);
+    });
+    try {
+      assert.throws(() => after(hidden), /h cannot be listed/);
+    } finally {
+      chmodSync(path.join(hidden, 'h'), 0o755);
+    }
+    const blind = tree(() => {});
+    chmodSync(blind, 0o311);
+    try {
+      assert.throws(() => after(blind), /cannot be listed/);
+    } finally {
+      chmodSync(blind, 0o755);
+    }
+    const unlistable = path.join(temp, 'agent-tools', 'closed');
+    mkdirSync(unlistable);
+    chmodSync(unlistable, 0o311);
+    try {
+      assert.throws(
+        () => installInputs.takeSnapshot(fine, { runnerTemp: temp }),
+        /closed cannot be listed/,
+      );
+    } finally {
+      chmodSync(unlistable, 0o755);
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+
+  // THIS REPOSITORY TRACKS NO SYMBOLIC LINK, so none of the above refuses an
+  // ordinary checkout of it. One that is added on purpose shows up here.
+  const links = execFileSync('git', ['ls-files', '-s'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
+    .split('\n')
+    .filter((l) => l.startsWith('120000 '));
+  assert.deepEqual(links, []);
+});
+
 test('the install step refuses a tree that could lead it outside the workspace', () => {
   // THE INSTALL STAYS INSIDE THE WORKSPACE, and flags alone do not make it:
   // where a package manager writes also follows from the shape of the tree
@@ -2572,7 +2784,7 @@ test('the install step refuses a tree that could lead it outside the workspace',
       [
         'a package directory that is a link to outside',
         (dir) => symlinkSync(outside, path.join(dir, 'packages', 'other')),
-        /resolves outside the workspace/,
+        /is a symbolic link that leads out of the workspace/,
       ],
       [
         'a .npmrc that is not the root one',
@@ -2593,7 +2805,18 @@ test('the install step refuses a tree that could lead it outside the workspace',
       [
         'a link into .git',
         (dir) => symlinkSync('.git/config', path.join(dir, 'cfg')),
-        /cfg is a symbolic link into \.git or a trusted checkout/,
+        /cfg is a symbolic link that leads into \.git or a trusted checkout/,
+      ],
+      [
+        "a link through a process's own view of the filesystem",
+        (dir) => symlinkSync('/proc/self/cwd', path.join(dir, 'x')),
+        /x is a symbolic link that leads through the system/,
+      ],
+      [
+        'such a link back to the workspace itself',
+        (dir) =>
+          symlinkSync(`/proc/self/root${dir}/packages`, path.join(dir, 'z')),
+        /z is a symbolic link that leads through the system/,
       ],
       [
         'a link that resolves nowhere',

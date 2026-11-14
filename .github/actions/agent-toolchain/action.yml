@@ -129,6 +129,8 @@ runs:
         temp="${RUNNER_TEMP:-}"
         case "$root" in /*) ;; *) refuse "GITHUB_WORKSPACE is not an absolute path" ;; esac
         case "$root" in *[!A-Za-z0-9._/-]*) refuse "the workspace path holds a character this step does not mount" ;; esac
+        case "$root" in *..*) refuse "the workspace path holds a parent-directory component" ;; esac
+        if [ -L "$root" ]; then refuse "the workspace path is a symbolic link"; fi
         case "$temp" in /*) ;; *) refuse "RUNNER_TEMP is not an absolute path" ;; esac
         case "$PNPM_VERSION" in 9.*) ;; *) refuse "pnpm is not major 9" ;; esac
         # NOT IN THE WORKSPACE. Every command below runs from the runner's
@@ -149,7 +151,6 @@ runs:
         }
         trap cleanup EXIT
         mkdir "$work/empty" "$work/docker"
-        : > "$work/empty-file"
         chmod 555 "$work/empty"
 
         # 1. PNPM. One fixed file from the registry, checked against the hash
@@ -174,13 +175,10 @@ runs:
         # the one file it reads in place of the branch's. Three fixed names
         # are looked at, without following a link.
         covered=()
-        if [ -L "$root/.git" ]; then
-          refuse ".git is a symbolic link"
-        elif [ -d "$root/.git" ]; then
-          covered+=(--volume "$work/empty:$root/.git:ro")
-        elif [ -e "$root/.git" ]; then
-          covered+=(--volume "$work/empty-file:$root/.git:ro")
+        if [ -L "$root/.git" ] || [ ! -d "$root/.git" ]; then
+          refuse "the workspace has no .git directory of its own to cover"
         fi
+        covered+=(--volume "$work/empty:$root/.git:ro")
         for dir in "$root"/.trusted-*; do
           if [ -d "$dir" ] && [ ! -L "$dir" ]; then
             case "${dir##*/}" in *[!A-Za-z0-9._-]*) refuse "a .trusted-* directory has a name this step does not mount" ;; esac
