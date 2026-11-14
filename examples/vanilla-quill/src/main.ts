@@ -1,30 +1,28 @@
 import yorkie, { DocEventType, Indexable, OpInfo } from '@yorkie-js/sdk';
-import ColorHash from 'color-hash';
 import Quill, { Delta, type Op } from 'quill';
 import QuillCursors from 'quill-cursors';
 import 'quill/dist/quill.snow.css';
-import { network } from './network';
+import { displayError, displayStatus, statusListener } from './network';
 import './style.css';
 import { YorkieDoc, YorkiePresence } from './type';
-import { displayPeers } from './utils';
+import { createPeer, displayPeers, getDocKey, linkToDoc } from './utils';
 
 type TextValueType = {
   attributes?: Indexable;
   content?: string;
 };
 
+const statusElem = document.getElementById('network-status')!;
 const peersElem = document.getElementById('peers')!;
-const networkStatusElem = document.getElementById('network-status')!;
-const colorHash = new ColorHash();
+const errorElem = document.getElementById('error')!;
+const noticeElem = document.getElementById('notice')!;
+const shareLinkElem = document.getElementById(
+  'share-link',
+) as HTMLAnchorElement;
 
-// Get document key from query string or use date-based key as fallback
-const params = new URLSearchParams(window.location.search);
-const documentKey =
-  params.get('key') ||
-  `vanilla-quill-${new Date()
-    .toISOString()
-    .substring(0, 10)
-    .replace(/-/g, '')}`;
+const rpcAddr = import.meta.env.VITE_YORKIE_API_ADDR;
+const documentKey = getDocKey('vanilla-quill');
+linkToDoc(shareLinkElem, documentKey);
 
 // Filter out null values from attributes
 function filterNullAttrs(attributes?: Indexable): Indexable | undefined {
@@ -64,40 +62,36 @@ function toDeltaOperation<T extends TextValueType>(
 }
 
 async function main() {
+  displayStatus(statusElem, 'connecting');
+
   // 01-1. create client with RPCAddr then activate it.
   const client = new yorkie.Client({
-    rpcAddr: import.meta.env.VITE_YORKIE_API_ADDR,
+    rpcAddr,
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
+  // Tell the server this client is gone when the tab closes, so peers drop
+  // its avatar and cursor right away.
+  window.addEventListener('pagehide', () => {
+    client.deactivate({ keepalive: true });
+  });
 
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey, {
-    enableDevtools: true,
+    enableDevtools: import.meta.env.DEV,
   });
-  doc.subscribe('connection', (event) => {
-    network.statusListener(networkStatusElem)(event);
-  });
+  doc.subscribe('connection', statusListener(statusElem));
   doc.subscribe('presence', (event) => {
+    // Names and colours never change, so only joins and leaves redraw the
+    // avatars. Presences are keyed by the client's actor ID.
     if (event.type !== DocEventType.PresenceChanged) {
-      // Presences are keyed by the client's actor, not by the per-session id
-      // that `client.getID()` returns.
       displayPeers(peersElem, doc.getPresences(), client.getActorID()!);
     }
   });
 
   await client.attach(doc, {
-    initialPresence: {
-      username: client.getActorID()!.slice(-2),
-      color: colorHash.hex(client.getActorID()!.slice(-2)),
-      selection: undefined,
-    },
+    initialPresence: createPeer(client.getActorID()!),
   });
-
-  console.log(
-    `%c Document Key: ${documentKey}`,
-    'color: orange; font-weight: bold;',
-  );
 
   doc.update((root) => {
     if (!root.content) {
@@ -106,36 +100,9 @@ async function main() {
     }
   }, 'create content if not exists');
 
-  // 02-2. subscribe document event.
-  doc.subscribe((event) => {
-    if (event.type === 'snapshot') {
-      // The text is replaced to snapshot and must be re-synced.
-      syncText();
-    }
-  });
-
-  doc.subscribe('$.content', (event) => {
-    if (event.type === 'remote-change') {
-      handleOperations(event.value.operations);
-    } else if (event.source === 'undoredo') {
-      handleOperations(event.value.operations, true);
-    }
-    updateAllCursors();
-  });
-  doc.subscribe('others', (event) => {
-    if (event.type === DocEventType.Unwatched) {
-      cursors.removeCursor(event.value.clientID);
-    } else if (event.type === DocEventType.PresenceChanged) {
-      updateCursor(event.value);
-    }
-  });
-
   function updateCursor(user: { clientID: string; presence: YorkiePresence }) {
     const { clientID, presence } = user;
     if (clientID === client.getActorID()) return;
-    // TODO(chacha912): After resolving the presence initialization issue(#608),
-    // remove the following check.
-    if (!presence) return;
 
     const { username, color, selection } = presence;
     if (!selection) return;
@@ -186,6 +153,31 @@ async function main() {
   });
   const cursors = quill.getModule('cursors') as QuillCursors;
 
+  // 03-1. subscribe document event, now that the editor exists to apply
+  // remote changes and cursors to.
+  doc.subscribe((event) => {
+    if (event.type === 'snapshot') {
+      // The text is replaced to snapshot and must be re-synced.
+      syncText();
+    }
+  });
+
+  doc.subscribe('$.content', (event) => {
+    if (event.type === 'remote-change') {
+      handleOperations(event.value.operations);
+    } else if (event.source === 'undoredo') {
+      handleOperations(event.value.operations, true);
+    }
+    updateAllCursors();
+  });
+  doc.subscribe('others', (event) => {
+    if (event.type === DocEventType.Unwatched) {
+      cursors.removeCursor(event.value.clientID);
+    } else if (event.type === DocEventType.PresenceChanged) {
+      updateCursor(event.value);
+    }
+  });
+
   // Custom image handler to check file size (max 1MB)
   function imageHandler() {
     const input = document.createElement('input');
@@ -197,15 +189,12 @@ async function main() {
       const file = input.files?.[0];
       if (!file) return;
 
+      // Images are stored inline in the document, so keep them small.
       const maxSize = 1 * 1024 * 1024; // 1MB in bytes
+      noticeElem.hidden = file.size <= maxSize;
       if (file.size > maxSize) {
-        alert(
-          `Image size is too large. (Max: 1MB)\nCurrent file size: ${(
-            file.size /
-            1024 /
-            1024
-          ).toFixed(2)}MB`,
-        );
+        const size = (file.size / 1024 / 1024).toFixed(2);
+        noticeElem.textContent = `That image is ${size} MB. Pick one under 1 MB.`;
         return;
       }
 
@@ -257,7 +246,6 @@ async function main() {
 
       let from = 0,
         to = 0;
-      console.log(`%c quill: ${JSON.stringify(delta.ops)}`, 'color: green');
       try {
         doc.update((root, presence) => {
           for (const op of delta.ops) {
@@ -265,13 +253,6 @@ async function main() {
               if (op.retain !== undefined && typeof op.retain === 'number') {
                 to = from + op.retain;
               }
-              console.log(
-                `%c local: ${from}-${to}: ${op.insert} ${
-                  op.attributes ? JSON.stringify(op.attributes) : '{}'
-                }`,
-                'color: green',
-              );
-
               let range;
               if (op.attributes !== undefined && op.insert === undefined) {
                 root.content.setStyle(from, to, op.attributes as Indexable);
@@ -306,8 +287,6 @@ async function main() {
               }
             } else if (op.delete !== undefined) {
               to = from + op.delete;
-              console.log(`%c local: ${from}-${to}: ''`, 'color: green');
-
               const range = root.content.edit(from, to, '');
               if (range) {
                 presence.set({
@@ -316,7 +295,10 @@ async function main() {
               }
               // After delete, 'to' should stay at 'from' since content was removed
               to = from;
-            } else if (op.retain !== undefined && typeof op.retain === 'number') {
+            } else if (
+              op.retain !== undefined &&
+              typeof op.retain === 'number'
+            ) {
               from += op.retain;
               to = from;
             }
@@ -371,7 +353,9 @@ async function main() {
       }, `update selection by ${client.getID()}`);
     });
 
-  // Handle selection changes when mouse is released outside the editor
+  // Handle selection changes when mouse is released outside the editor.
+  // Only write presence when the selection actually moved, so a click
+  // elsewhere on the page doesn't send an update to every peer.
   document.addEventListener('mouseup', () => {
     // Ignore selection changes during composition
     if (isComposing) {
@@ -379,23 +363,24 @@ async function main() {
     }
 
     const range = quill.getSelection();
-    if (range) {
-      doc.update((root, presence) => {
-        presence.set({
-          selection: root.content.indexRangeToPosRange([
-            range.index,
-            range.index + range.length,
-          ]),
-        });
-      }, `update selection by ${client.getID()}`);
+    if (!range) return;
+    const { selection } = doc.getMyPresence();
+    if (selection) {
+      const [from, to] = doc.getRoot().content.posRangeToIndexRange(selection);
+      if (from === range.index && to === range.index + range.length) return;
     }
+    doc.update((root, presence) => {
+      presence.set({
+        selection: root.content.indexRangeToPosRange([
+          range.index,
+          range.index + range.length,
+        ]),
+      });
+    }, `update selection by ${client.getID()}`);
   });
 
   // 04-2. document to Quill(remote and undo/redo).
-  function handleOperations(
-    ops: Array<OpInfo>,
-    moveCursor: boolean = false,
-  ) {
+  function handleOperations(ops: Array<OpInfo>, moveCursor: boolean = false) {
     const hasFocus = quill.hasFocus();
 
     // On Safari, DOM mutations in a contenteditable element can steal focus
@@ -411,7 +396,6 @@ async function main() {
         const from = op.from;
         const to = op.to;
         const { insert, attributes } = toDeltaOperation(op.value!, true);
-        console.log(`%c remote: ${from}-${to}: ${insert}`, 'color: skyblue');
 
         const deltaOperations: Op[] = [];
 
@@ -433,10 +417,6 @@ async function main() {
         }
 
         if (deltaOperations.length > 0) {
-          console.log(
-            `%c to quill: ${JSON.stringify(deltaOperations)}`,
-            'color: green',
-          );
           const delta = new Delta(deltaOperations);
           quill.updateContents(delta, 'api');
         }
@@ -450,10 +430,6 @@ async function main() {
         const from = op.from;
         const to = op.to;
         const { attributes } = toDeltaOperation(op.value!, false);
-        console.log(
-          `%c remote: ${from}-${to}: ${JSON.stringify(attributes)}`,
-          'color: skyblue',
-        );
 
         if (attributes) {
           const deltaOperations: Op[] = [];
@@ -469,10 +445,6 @@ async function main() {
           }
           deltaOperations.push(op);
 
-          console.log(
-            `%c to quill: ${JSON.stringify(deltaOperations)}`,
-            'color: green',
-          );
           const delta = new Delta(deltaOperations);
           quill.updateContents(delta, 'api');
         }
@@ -515,4 +487,6 @@ async function main() {
   updateAllCursors();
 }
 
-main();
+main().catch(() => {
+  displayError(statusElem, errorElem, rpcAddr);
+});
