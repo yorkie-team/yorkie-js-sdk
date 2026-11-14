@@ -5,7 +5,13 @@ import 'quill/dist/quill.snow.css';
 import { displayError, displayStatus, statusListener } from './network';
 import './style.css';
 import { YorkieDoc, YorkiePresence } from './type';
-import { createPeer, displayPeers, getDocKey, linkToDoc } from './utils';
+import {
+  createPeer,
+  displayPeers,
+  getDocKey,
+  linkToDoc,
+  peerColor,
+} from './utils';
 
 type TextValueType = {
   attributes?: Indexable;
@@ -70,11 +76,6 @@ async function main() {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
-  // Tell the server this client is gone when the tab closes, so peers drop
-  // its avatar and cursor right away.
-  window.addEventListener('pagehide', () => {
-    client.deactivate({ keepalive: true });
-  });
 
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(documentKey, {
@@ -106,8 +107,15 @@ async function main() {
 
     const { username, color, selection } = presence;
     if (!selection) return;
-    const range = doc.getRoot().content.posRangeToIndexRange(selection);
-    cursors.createCursor(clientID, username, color);
+    // A peer's selection can point at text this client hasn't received yet;
+    // skip that peer until it arrives instead of failing every peer.
+    let range: [number, number];
+    try {
+      range = doc.getRoot().content.posRangeToIndexRange(selection);
+    } catch {
+      return;
+    }
+    cursors.createCursor(clientID, username, peerColor(color));
     cursors.moveCursor(clientID, {
       index: range[0],
       length: range[1] - range[0],

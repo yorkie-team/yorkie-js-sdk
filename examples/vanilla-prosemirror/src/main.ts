@@ -16,6 +16,7 @@ import {
   displayPeers,
   getDocKey,
   linkToDoc,
+  peerColor,
   strokeOf,
 } from './utils';
 import 'prosemirror-view/style/prosemirror.css';
@@ -64,11 +65,6 @@ async function main() {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
-  // Tell the server this client is gone when the tab closes, so peers drop
-  // its avatar and cursor right away.
-  window.addEventListener('pagehide', () => {
-    client.deactivate({ keepalive: true });
-  });
 
   // 02. attach the document with this peer's name and colour as presence.
   // The binding adds the selection to the same presence.
@@ -105,19 +101,24 @@ async function main() {
   });
   binding.initialize();
 
-  // The binding labels a remote cursor with the end of the peer's ID and
-  // colours it in arrival order. Relabel each new cursor with the name and
-  // colour that peer shares in presence, so it matches their avatar.
+  // The binding labels a remote cursor with the last two characters of the
+  // peer's ID and colours it in arrival order. Relabel each new caret and
+  // label with the name and colour that peer shares in presence, so they match
+  // their avatar. The selection highlight is drawn separately by the binding
+  // and keeps its arrival-order colour, so it can differ from the caret.
   new MutationObserver(() => {
     const labels = cursorOverlayEl.querySelectorAll<HTMLElement>(
       '.remote-cursor-label:not([data-named])',
     );
     labels.forEach((label) => {
-      const peer = doc
+      // Two characters can match more than one peer. Leave the label as the
+      // binding drew it rather than guess which peer it belongs to.
+      const peers = doc
         .getOthersPresences()
-        .find(({ clientID }) => clientID.endsWith(label.textContent!));
-      if (!peer) return;
-      const { username, color } = peer.presence;
+        .filter(({ clientID }) => clientID.endsWith(label.textContent!));
+      if (peers.length !== 1) return;
+      const { username } = peers[0].presence;
+      const color = peerColor(peers[0].presence.color);
       label.dataset.named = '';
       label.textContent = username;
       label.style.backgroundColor = color;

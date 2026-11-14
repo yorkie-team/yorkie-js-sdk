@@ -30,11 +30,6 @@ async function main() {
     apiKey: import.meta.env.VITE_YORKIE_API_KEY,
   });
   await client.activate();
-  // Tell the server this client is gone when the tab closes, so peers drop
-  // its avatar and cursor right away.
-  window.addEventListener('pagehide', () => {
-    client.deactivate({ keepalive: true });
-  });
 
   // 02-1. create a document then attach it into the client.
   const doc = new yorkie.Document<YorkieDoc, YorkiePresence>(docKey, {
@@ -248,7 +243,14 @@ async function main() {
     const cursors = [];
     for (const { presence } of doc.getOthersPresences()) {
       if (!presence.selection) continue;
-      const [from, to] = content.posRangeToIndexRange(presence.selection);
+      // A peer's selection can point at text this client hasn't received
+      // yet; skip that peer until it arrives instead of failing every peer.
+      let from: number, to: number;
+      try {
+        [from, to] = content.posRangeToIndexRange(presence.selection);
+      } catch {
+        continue;
+      }
       cursors.push({
         name: presence.username,
         color: presence.color,

@@ -5,7 +5,7 @@ import {
   EditorView,
   WidgetType,
 } from '@codemirror/view';
-import { strokeOf } from './utils';
+import { peerColor, strokeOf } from './utils';
 
 export type RemoteCursor = {
   name: string;
@@ -56,7 +56,10 @@ export const remoteCursors = StateField.define<DecorationSet>({
       if (!effect.is(setRemoteCursors)) continue;
       const length = tr.state.doc.length;
       const ranges = [];
-      for (const { name, color, from, to } of effect.value) {
+      for (const { name, color: shared, from, to } of effect.value) {
+        // The colour comes from another client's presence and is written
+        // into a style string below, so only a palette colour gets through.
+        const color = peerColor(shared);
         const start = Math.min(from, to, length);
         const end = Math.min(Math.max(from, to), length);
         if (start < end) {

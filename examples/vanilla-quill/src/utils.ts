@@ -49,6 +49,15 @@ export function strokeOf(color: string): string {
 }
 
 /**
+ * `peerColor` returns `color` only if it is one of `PEER_COLORS`, and a gray
+ * otherwise. Presence comes from other clients, so a colour from it must not
+ * reach a style unchecked.
+ */
+export function peerColor(color: unknown): string {
+  return PEER_COLORS.includes(color as string) ? (color as string) : '#9ca3af';
+}
+
+/**
  * `getDocKey` reads the document key from `?key=`, or makes one per day so
  * everyone opening the example today lands on the same document.
  */
